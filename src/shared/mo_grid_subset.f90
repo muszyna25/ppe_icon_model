@@ -66,7 +66,7 @@ CONTAINS
   ! Assumes that mask is of the shape (1:,1:)
   SUBROUTINE fill_subset(subset, patch, mask, start_mask, end_mask, subset_name, located)
     TYPE(t_subset_range), INTENT(inout) :: subset
-    TYPE(t_patch), TARGET, INTENT(in) :: patch  ! nag does not return the values in subset
+    TYPE(t_patch), TARGET :: patch  ! nag does not return the values in subset
     INTEGER, OPTIONAL, INTENT(in) :: located
     CHARACTER(len=32), OPTIONAL :: subset_name
                                                 ! unless the patch is declared INTENT(in)!
@@ -277,7 +277,6 @@ CONTAINS
     INTEGER, INTENT(in) :: ncid
     TYPE(t_subset_range), INTENT(inout) :: subset_range
 
-    INTEGER :: netcd_status
     CHARACTER(*), PARAMETER :: method_name = "write_subset_range"
 
     CALL nf(nf_put_att_int(ncid, nf_global,TRIM(subset_range%name)//'.start_block', nf_int, 1,     &

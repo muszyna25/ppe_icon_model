@@ -272,7 +272,6 @@ CONTAINS
     LOGICAL  :: l_parallel
 
     INTEGER, POINTER :: i_itype_hlimit(:) => NULL()
-    INTEGER, TARGET  :: itype_hlimit_0(ntracer)
      
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
@@ -352,6 +351,7 @@ CONTAINS
           &              advection_config(jg)%itype_vlimit,          &! in
           &              advection_config(jg)%iubc_adv,              &! in
           &              advection_config(jg)%iadv_slev(:),          &! in
+          &              .TRUE.,                                     &! print CFL number
           &              p_mflx_tracer_v,                            &! out
           &              opt_topflx_tra=opt_topflx_tra,              &! in
           &              opt_q_int=opt_q_int,                        &! out
@@ -499,11 +499,14 @@ CONTAINS
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
             &                 i_startidx, i_endidx, i_rlstart, i_rlend )
  
+          ! The intermediate cell mass is limited to 10% of the original value in order
+          ! to prevent instabilities in extreme breaking gravity waves
           ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                        &
+            &       MAX(0.1_wp*p_delp_mc_new(i_startidx:i_endidx,1:nlev,jb),      &
             &                  p_delp_mc_new(i_startidx:i_endidx,1:nlev,jb)       &
             &                + pdtime_mod                                         &
             &                * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
-            &                - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
+            &                - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )   )
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -675,6 +678,7 @@ CONTAINS
         &              advection_config(jg)%itype_vlimit,          &! in
         &              advection_config(jg)%iubc_adv,              &! in
         &              advection_config(jg)%iadv_slev(:),          &! in
+        &              .FALSE.,                                    &! do not print CFL number
         &              p_mflx_tracer_v,                            &! out
         &              opt_topflx_tra=opt_topflx_tra,              &! in
         &              opt_q_int=opt_q_int,                        &! out

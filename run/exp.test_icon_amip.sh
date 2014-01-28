@@ -42,7 +42,6 @@ if [ ! -d experiments ]; then
 mkdir experiments
 fi
 cd experiments
-# rm -rf ${EXP1} ${EXP2} ${EXP3}
 cd ../run
 if [ ! -f exp.${SCRIPT}.run ]; then
 echo 'did not find base runscript 'exp.${SCRIPT}.run
@@ -94,6 +93,6 @@ fi
 if [ $EXIT_STATUS -eq 0 ]; then
 echo 'amip model passed rerun and nproma test'
 else
-echo 'amip model did not pass the rerun and/or nproma test'
+echo 'amip model did not pass the restart and/or nproma test'
 fi
 exit $EXIT_STATUS

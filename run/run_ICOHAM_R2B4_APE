@@ -137,18 +137,7 @@ cat > NAMELIST_ICON << EOF
  rh_at_1000hpa     = 0.30   ! [] initial rel. humidity at 1000 hPa 
 /
 &io_ctl
- out_expname       = '${EXPNAME}' ! file name base
- dt_data           = ${DT_DATA}   ! daily output
- dt_file           = ${DT_FILE}   ! 30 days per file
  dt_diag           = ${DT_DIAG}
- lwrite_surface    = .TRUE.
- lwrite_cloud      = .TRUE.
- lwrite_precip     = .TRUE.
- lwrite_vorticity  = .FALSE.
- lwrite_pres       = .TRUE.
- lwrite_z3         = .TRUE.
- lwrite_omega      = .TRUE.
- lwrite_divergence = .TRUE.
 /
 &grid_ctl
  nroot       = ${R}         ! root division of icosahedron edges

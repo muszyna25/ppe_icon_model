@@ -131,7 +131,6 @@ cat > ${atmo_namelist} << EOF
  hdiff_smag_fac       = 0.12
 /
 &io_nml
- lwrite_extra    = .TRUE.   ! only for visualization purposes
  inextra_3d      = 1
 /
 &output_nml

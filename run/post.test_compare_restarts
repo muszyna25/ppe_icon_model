@@ -35,8 +35,17 @@ check_restarts()
     echo  " $restart_folder_2/$restart_file does nor exist"
     exit 0
   fi
-  
+
   ${cdo_diff} $restart_folder_1/$restart_file $restart_folder_2/$restart_file > $diff_file
+
+  # check if  diff_file contains 'records' 
+  grep "records" $diff_file
+  return_status=$?
+  if [ $return_status != 0 ] ; then
+    check_error 0 "empty diff file"
+    return
+  fi
+
   grep " 0 of .* records" $diff_file
   return_status=$?
   if [ $return_status != 0 ] ; then

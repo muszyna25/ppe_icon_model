@@ -31,7 +31,8 @@ echo "Arguments: inidate="${inidate}" initime="${initime}" verdate="${verdate}" 
 scriptdir="./"
 cd ${scriptdir}
 
-metview=metview4
+#metview=metview4
+metview=metview4_old
 #metview=metview4_new
 #metview=metview4_dev
 #metview=/usr/local/apps/Metview/metview4_expt
@@ -50,14 +51,13 @@ while [[ $nt < ${#inidate[*]} ]]; do
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S                                          \
               TOT_PREC        RAIN_GSP       SNOW_GSP         RAIN_CON  SNOW_CON \
-              QV_S            T_2M           QV_2M                               \
-              U_10M           V_10M                                              \
-              T_G             T_GT_tile_1    T_S_tile_1       W_I_tile_1         \
-              T_SNOW_tile_1   DZH_SNOW       H_SNOW                              \
-              W_SNOW          WTOT_SNOW_tile_1                WLIQ_SNOW_tile_1   \
-              RHO_SNOW_tile_1                              \
+              T_G             T_2M           U_10M            V_10M              \
+              DZH_SNOW                                                    \
               FR_SEAICE       H_SEAICE       T_SEAICE         SST
-#             Z0  T_G 
+#             QV_2M           QV_S           T_GT_tile_1      T_S_tile_1         \
+#             W_I_tile_1      T_SNOW_tile_1  WTOT_SNOW_tile_1 WLIQ_SNOW_tile_1   \
+#             RHO_SNOW_tile_1 H_SNOW         W_SNOW    
+##            Z0  T_G 
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}map.error $expnum $var sfc snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
@@ -66,8 +66,8 @@ while [[ $nt < ${#inidate[*]} ]]; do
               TQ1             TQ2            TQ3                                 \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S      TOT_PREC         PS                 \
-              T_G             T_2M           U_10M            V_10M              \
-              H_SNOW_tile_1   RHO_SNOW_tile_1 
+              T_G             T_2M           U_10M            V_10M
+#             H_SNOW_tile_1   RHO_SNOW_tile_1 
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}map.error $expnum $var sfc diff  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job

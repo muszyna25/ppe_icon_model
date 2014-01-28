@@ -63,6 +63,7 @@ MODULE mo_interpol_config
   PUBLIC :: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim         !< variables
   PUBLIC :: lsq_lin_set, lsq_high_set                                           !< variables
   PUBLIC :: rbf_dim_c2l, l_intp_c2l, l_mono_c2l                                 !< variables
+  PUBLIC :: rbf_scale_mode_ll                                                   !< variables
   PUBLIC :: configure_interpolation                                             !< subroutine
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -82,6 +83,14 @@ MODULE mo_interpol_config
        &        rbf_vec_kern_v,   & ! of vector rbf kernel                       
        &        rbf_vec_kern_e,   &                                             
        &        rbf_vec_kern_ll                                                  
+
+    ! "rbf_scale_mode_ll": mode, how the RBF shape parameter is
+    ! determined for lon-lat interpolation.
+    !
+    ! 1 : lookup table based on grid level (default)
+    ! 2 : determine automatically
+    !
+    INTEGER :: rbf_scale_mode_ll
 
     ! Parameter fields determining the scale factor used by the vector rbf       
     ! interpolator.                                                              
@@ -114,6 +123,7 @@ MODULE mo_interpol_config
   
     REAL(wp) :: nudge_max_coeff, nudge_efold_width
     INTEGER  :: nudge_zone_width    ! total width of nudging zone in units of cell rows
+                                    ! if < 0 the patch boundary_depth_index is used 
                                                                                  
     LOGICAL :: l_corner_vort        ! yields for i_cori_method>=3
                                     ! Decision wheter the hexagon vector reconstruction is
@@ -241,12 +251,11 @@ CONTAINS
     ! - values are specified for Gaussian kernel
     ! (need to be smaller for inv. multiquadric)
 
+    rbf_vec_scale_ll(:) = -1.0_wp
     DO jg = 1,n_dom
-
-      ! Check if scale factor is set in the namelist
-      IF (rbf_vec_scale_ll(jg) > 0.0_wp) CYCLE
-
+       
       jlev = grid_level(jg)
+        
       IF      (jlev <= 6 ) THEN ; rbf_vec_scale_ll(jg) = 0.5_wp
       ELSE IF (jlev == 7 ) THEN ; rbf_vec_scale_ll(jg) = 0.35_wp
       ELSE IF (jlev == 8 ) THEN ; rbf_vec_scale_ll(jg) = 0.20_wp
@@ -257,6 +266,7 @@ CONTAINS
       ELSE IF (jlev == 13) THEN ; rbf_vec_scale_ll(jg) = 0.001_wp
       ELSE                      ; rbf_vec_scale_ll(jg) = 0.0005_wp
       ENDIF
+
     ENDDO
 
     !AD (20 Sept 2913) Modification required for planar torus grid: the scale factor
@@ -307,16 +317,6 @@ CONTAINS
         CALL message( TRIM(routine),'WARNING: ')
         CALL message('','! recommended range for rbf_vec_scale_e')
         CALL message('','! is 0.05 <= rbf_vec_scale_e <= 0.6')
-      ENDIF
-    ENDDO
-
-    DO jg = 1, n_dom
-      IF (rbf_vec_scale_ll(jg) < 1.e-10_wp) THEN
-        CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_ll')
-      ELSE IF ((rbf_vec_scale_ll(jg) < 0.01_wp).OR.(rbf_vec_scale_ll(jg) > 0.6_wp)) THEN
-        CALL message( TRIM(routine),'WARNING: ')
-        CALL message('','! recommended range for rbf_vec_scale_ll')
-        CALL message('','! is 0.01 <= rbf_vec_scale_ll <= 0.6')
       ENDIF
     ENDDO
 

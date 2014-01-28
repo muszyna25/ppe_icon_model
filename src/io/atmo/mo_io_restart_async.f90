@@ -44,7 +44,6 @@ MODULE mo_io_restart_async
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601
-  USE mo_io_config,               ONLY: out_expname
   USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -54,8 +53,7 @@ MODULE mo_io_restart_async
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
-  ! USE mo_oce_state,               ONLY: set_zlev
-  USE mo_var_metadata,            ONLY: t_var_metadata
+  USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
   USE mo_name_list_output_init,   ONLY: output_file
@@ -67,11 +65,12 @@ MODULE mo_io_restart_async
   USE mo_io_restart_namelist,     ONLY: nmllen_max
 #endif
   USE mo_communication,           ONLY: idx_no, blk_no
-  USE mo_parallel_config,         ONLY: nproma
+  USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
+  USE mo_run_config,              ONLY: msg_level
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
-!!$  USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
+  USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
   USE mo_cdi_constants
 
 #ifndef NOMPI
@@ -81,7 +80,7 @@ MODULE mo_io_restart_async
     &                                   my_process_is_restart, my_process_is_work, &
     &                                   p_comm_work_2_restart, p_n_work, p_int, &
     &                                   process_mpi_restart_size, p_int_i8, p_real_dp, &
-    &                                   p_comm_work_restart
+    &                                   p_comm_work_restart, p_mpi_wtime
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -542,7 +541,7 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: jstep
 
     TYPE(t_patch_data), POINTER     :: p_pd
-    INTEGER                         :: idx, noutput_files, j
+    INTEGER                         :: idx, noutput_files
 
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
 
@@ -2272,16 +2271,16 @@ CONTAINS
     TYPE(t_restart_args),  POINTER :: p_ra
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, nlev_soil, &
-      &                               nlev_snow, nlev_ocean, nice_class, ierrstat!!$, &
-!!$      &                               nlena, nlenb, nlenc, nlend
+      &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
+      &                               nlena, nlenb, nlenc, nlend
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
-!!$    CHARACTER(LEN=256) :: executable, user_name, os_name, host_name, tmp_string
-!!$    CHARACTER(LEN=  8) :: date_string
-!!$    CHARACTER(LEN= 10) :: time_string
+    CHARACTER(LEN=256) :: executable, user_name, os_name, host_name, tmp_string
+    CHARACTER(LEN=  8) :: date_string
+    CHARACTER(LEN= 10) :: time_string
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
@@ -2290,35 +2289,35 @@ CONTAINS
     ! delete old attributes
     CALL delete_attributes()
 
-!!$    ! get environment attributes
-!!$    CALL get_command_argument(0, executable, nlend)
-!!$    CALL date_and_time(date_string, time_string)
-!!$
-!!$    tmp_string = ''
-!!$    CALL util_os_system (tmp_string, nlena)
-!!$    os_name = tmp_string(1:nlena)
-!!$
-!!$    tmp_string = ''
-!!$    CALL util_user_name (tmp_string, nlenb)
-!!$    user_name = tmp_string(1:nlenb)
-!!$
-!!$    tmp_string = ''
-!!$    CALL util_node_name (tmp_string, nlenc)
-!!$    host_name = tmp_string(1:nlenc)
+    ! get environment attributes
+    CALL get_command_argument(0, executable, nlend)
+    CALL date_and_time(date_string, time_string)
+
+    tmp_string = ''
+    CALL util_os_system (tmp_string, nlena)
+    os_name = tmp_string(1:nlena)
+
+    tmp_string = ''
+    CALL util_user_name (tmp_string, nlenb)
+    user_name = tmp_string(1:nlenb)
+
+    tmp_string = ''
+    CALL util_node_name (tmp_string, nlenc)
+    host_name = tmp_string(1:nlenc)
 
     ! set CD-Convention required restart attributes
     CALL set_restart_attribute('title',       &
          MODEL_TITLE)
     CALL set_restart_attribute('institution', &
          MODEL_INSTITUTION)
-!!$    CALL set_restart_attribute('source',      &
-!!$         TRIM(out_expname)//'-'//MODEL_VERSION)
-!!$    CALL set_restart_attribute('history',     &
-!!$         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-!!$    CALL set_restart_attribute('references',  &
-!!$         MODEL_REFERENCES)
-!!$    CALL set_restart_attribute('comment',     &
-!!$         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    CALL set_restart_attribute('source',      &
+         'ICON'//'-'//MODEL_VERSION)
+    CALL set_restart_attribute('history',     &
+         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
+    CALL set_restart_attribute('references',  &
+         MODEL_REFERENCES)
+    CALL set_restart_attribute('comment',     &
+         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
 
     ! set restart time
     p_ra => restart_args
@@ -2553,13 +2552,16 @@ CONTAINS
     TYPE(t_datetime), POINTER       :: dt
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
-    INTEGER                         :: iv, nval, nlev_max, ierrstat, nlevs, nv_off, &
-      &                                np, mpi_error, jk, i, idate, itime, status
+    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, &
+      &                                np, mpi_error, i, idate, itime, status, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
-    INTEGER                         :: voff(0:num_work_procs-1)
-    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:), var3_dp(:,:)
+    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:), var3_dp(:)
+    INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
+      &                                this_chunk_nlevs, ioff2
 
     CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'restart_write_var_list'
+    ! For timing
+    REAL(dp)                        :: t_get, t_write, t_0, mb_get, mb_wr
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -2567,6 +2569,11 @@ CONTAINS
 
     ! check process
     IF (.NOT. my_process_is_restart()) CALL finish(subname, NO_RESTART_PE)
+
+    t_get   = 0.d0
+    t_write = 0.d0
+    mb_get  = 0.d0
+    mb_wr   = 0.d0
 
     ! write restart time
     dt => restart_args%datetime
@@ -2587,21 +2594,14 @@ CONTAINS
     ! get maximum number of data points in a slice and allocate tmp. variables
     nval = MAX(p_pd%cells%n_glb, p_pd%edges%n_glb, p_pd%verts%n_glb)
 
-    ! get max. level
-    nlev_max = 1
-    DO iv = 1, SIZE(p_vars)
-      p_info => p_vars(iv)%info
-      IF(p_info%ndims == 3) nlev_max = MAX(nlev_max, p_info%used_dimensions(2))
-    ENDDO
-
     ! allocate RMA memory
-    ALLOCATE(var1_dp(nval*nlev_max), var2_dp(-1:nval), STAT=ierrstat)
+    ALLOCATE(var1_dp(nval*restart_chunk_size), var2_dp(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
 
     ioff(:) = p_rf%mem_win_off(:)
 
     ! go over the all restart variables in the associated array
-    DO iv = 1, SIZE(p_vars)
+    VAR_LOOP : DO iv = 1, SIZE(p_vars)
 
       ! get pointer to metadata
       p_info => p_vars(iv)%info
@@ -2622,76 +2622,92 @@ CONTAINS
 
       ! get pointer to reorder data
       p_ri => get_reorder_ptr (p_pd, p_info, subname)
-
-      ! retrieve part of variable from every worker PE using MPI_Get
-      nv_off = 0
-      DO np = 0, num_work_procs-1
-
-        IF(p_ri%pe_own(np) == 0) CYCLE
-
-        ! number of words to transfer
-        nval = p_ri%pe_own(np)*nlevs
-
-        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
-        CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
-
-        CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-          &          nval, p_real_dp, mpi_win, mpi_error)
-        CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
-
-        CALL MPI_Win_unlock(np, mpi_win, mpi_error)
-        CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
-
-        ! update the offset in var1
-        nv_off = nv_off + nval
-
-        ! update the offset in the RMA window on compute PEs
-        ioff(np) = ioff(np) + INT(nval,i8)
-
-      ENDDO
-
-      ! compute the total offset for each PE
-      nv_off = 0
-      DO np = 0, num_work_procs-1
-        voff(np) = nv_off
-        nval     = p_ri%pe_own(np)*nlevs
-        nv_off   = nv_off + nval
-      END DO
-
+      
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
-      ALLOCATE(var3_dp(p_ri%n_glb, nlevs), STAT=ierrstat) ! Must be allocated to exact size
+      ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
       IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
 
-      ! go over all levels
-      DO jk = 1, nlevs
-        nv_off = 0
+      ! no. of chunks of levels (each of size "restart_chunk_size"):
+      nchunks = (nlevs-1)/restart_chunk_size + 1
+      ! loop over all chunks (of levels)
+      LEVELS : DO ichunk=1,nchunks
+        chunk_start       = (ichunk-1)*restart_chunk_size + 1
+        chunk_end         = MIN(chunk_start+restart_chunk_size-1, nlevs)
+        this_chunk_nlevs  = (chunk_end - chunk_start + 1)
+
+        ! retrieve part of variable from every worker PE using MPI_Get
+        nv_off  = 0
         DO np = 0, num_work_procs-1
-          var2_dp(-1) = 0._dp ! special value for lon-lat areas overlapping local patches
-          var2_dp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-          nv_off = nv_off+p_ri%pe_own(np)
-          voff(np) = voff(np)+p_ri%pe_own(np)
-        ENDDO
-        DO i = 1, p_ri%n_glb
-          var3_dp(i,jk) = var2_dp(p_ri%reorder_index(i))
-        ENDDO
-      ENDDO
+          IF(p_ri%pe_own(np) == 0) CYCLE
+          
+          ! number of words to transfer
+          nval = p_ri%pe_own(np) * this_chunk_nlevs
+          t_0 = p_mpi_wtime()
+          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
+   !       CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
+          
+          CALL MPI_Get(var1_dp(1), nval, p_real_dp, np, ioff(np), &
+            &          nval, p_real_dp, mpi_win, mpi_error)
+  !        CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
+          
+          CALL MPI_Win_unlock(np, mpi_win, mpi_error)
+  !        CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
+          
+          t_get  = t_get  + p_mpi_wtime() - t_0
+          mb_get = mb_get + nval
+
+          ! update the offset in the RMA window on compute PEs
+          ioff(np) = ioff(np) + INT(nval,i8)
+
+          ! separate the levels received from PE "np":
+          ioff2 = 0
+          DO ilev=1,this_chunk_nlevs
+            DO i=1,p_ri%pe_own(np)
+              var2_dp(i+nv_off,ilev) = var1_dp(ioff2 + i)
+            END DO
+            ioff2 = ioff2 + p_ri%pe_own(np)
+          END DO
+          ! update the offset in var2
+          nv_off = nv_off + p_ri%pe_own(np)
+        END DO
+        t_0 = p_mpi_wtime()
+
+        ! write field content into a file
+        DO ilev=chunk_start, chunk_end
+!$OMP PARALLEL DO
+          DO i = 1, p_ri%n_glb
+            var3_dp(i) = var2_dp(p_ri%reorder_index(i),(ilev-chunk_start+1))
+          ENDDO
+!$OMP END PARALLEL DO
+          CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
+          mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
+        END DO
+        t_write = t_write + p_mpi_wtime() - t_0
+
+      ENDDO LEVELS
 
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS7I)subname,' p_pe=',p_pe,' restart pe writes field=', &
         &                               TRIM(p_info%name),' data=',p_ri%n_glb*nlevs
 #endif
 
-      ! write field content into a file
-      CALL streamWriteVar(p_rf%cdiFileID, p_info%cdiVarID, var3_dp, 0)
-
       DEALLOCATE(var3_dp, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
 
-    ENDDO
+    ENDDO VAR_LOOP
 
     DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
+    mb_get = mb_get*8*1.d-6
+    mb_wr  = mb_wr*8*1.d-6
+
+    IF (msg_level >= 12) THEN
+      WRITE (0,'(10(a,f10.3))') &
+           & ' Restart: Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
+           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
+           & ' MB/s]'
+    ENDIF
 
   END SUBROUTINE restart_write_var_list
 
@@ -3380,4 +3396,5 @@ CONTAINS
 #endif
 
 END MODULE mo_io_restart_async
+
 

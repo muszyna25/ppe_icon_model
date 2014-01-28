@@ -198,7 +198,6 @@ MODULE mo_mpi
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
-  PUBLIC :: p_gather_field
   PUBLIC :: p_gatherv
   PUBLIC :: p_scatterv
   PUBLIC :: p_allreduce_max
@@ -411,6 +410,13 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient
   INTEGER, PUBLIC :: comm_lev = 0, glob_comm(0:max_lev), comm_proc0(0:max_lev)
 
+  ! Storage for buffered non-blocking point-to-point communication. This is
+  ! especially needed for communication between I/O servers. These tasks may
+  ! be completely asynchronous and therefore ISENDs may be launched before a
+  ! corresponding IRECVs has been issued.
+  INTEGER :: mpi_buffer(10000)
+
+
   ! define generic interfaces to allow proper compiling with picky compilers
   ! like NAG f95 for clean argument checking and shortening the call sequence.
 
@@ -541,6 +547,8 @@ MODULE mo_mpi
     MODULE PROCEDURE p_gatherv_real2D1D
     MODULE PROCEDURE p_gatherv_real3D1D
     MODULE PROCEDURE p_gatherv_int2D1D
+    MODULE PROCEDURE p_gatherv_real2D2D
+    MODULE PROCEDURE p_gatherv_int2D2D
   END INTERFACE
 
   INTERFACE p_max
@@ -565,6 +573,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_sum_dp_0d
      MODULE PROCEDURE p_sum_dp_1d
      MODULE PROCEDURE p_sum_i8_1d
+     MODULE PROCEDURE p_sum_i_1d
   END INTERFACE
 
   INTERFACE p_global_sum
@@ -576,13 +585,6 @@ MODULE mo_mpi
   END INTERFACE
 
   !> generic interface for MPI communication calls
-  INTERFACE p_gather_field
-    MODULE PROCEDURE p_gather_field_3d
-    MODULE PROCEDURE p_gather_field_4d
-    MODULE PROCEDURE p_gather_field_2d_int
-    MODULE PROCEDURE p_gather_field_3d_int
-  END INTERFACE
-
   INTERFACE p_allreduce_max
     MODULE PROCEDURE p_allreduce_max_int_1d
   END INTERFACE
@@ -593,6 +595,8 @@ MODULE mo_mpi
 
   INTERFACE p_alltoallv
     MODULE PROCEDURE p_alltoallv_int
+    MODULE PROCEDURE p_alltoallv_real_2d
+    MODULE PROCEDURE p_alltoallv_int_2d
   END INTERFACE
 
 CONTAINS
@@ -1495,16 +1499,16 @@ CONTAINS
     ! variables used for determing the OpenMP threads
     ! suitable as well for coupled models
 #if (defined _OPENMP)
-    CHARACTER(len=32) :: env_name
-    CHARACTER(len=32) :: thread_num
-    INTEGER :: env_threads, threads
+!    CHARACTER(len=32) :: env_name
+!    CHARACTER(len=32) :: thread_num
+!    INTEGER :: threads
     INTEGER :: global_no_of_threads
 #ifndef NOMPI
     INTEGER :: provided
 #endif
 #ifndef __SX__
     ! status
-    INTEGER :: istat
+!    INTEGER :: istat
 #else
     EXTERNAL :: getenv
 #endif
@@ -1567,6 +1571,12 @@ CONTAINS
     END IF
 #endif
 #endif
+
+    CALL MPI_BUFFER_ATTACH(mpi_buffer, SIZE(mpi_buffer), p_error)
+    IF (p_error /= 0) THEN
+       WRITE (0,*) "Error in MPI_BUFFER_ATTACH."
+       STOP
+    END IF
 
     process_mpi_all_comm = MPI_COMM_NULL
     IF (PRESENT(global_name)) THEN
@@ -1725,7 +1735,7 @@ CONTAINS
 !     CALL MPI_BCAST (global_no_of_threads, 1, MPI_INTEGER, 0, global_mpi_communicator, p_error)
 #endif
 
-     IF (my_global_mpi_id == 0) THEN
+    IF (my_global_mpi_id == 0) THEN
 
       IF (is_global_mpi_parallel) THEN
         WRITE (nerr,'(/,a,a)') method_name, &
@@ -1733,9 +1743,9 @@ CONTAINS
       ELSE
         WRITE (nerr,'(/,a,a)') method_name,': Running globally OpenMP mode.'
       ENDIF
+      WRITE (nerr,'(a, a, i5, a, i0)') method_name, &
+        & ' global_no_of_threads is ', global_no_of_threads
     ENDIF
-    WRITE (nerr,'(a, a, i5, a, i0)') method_name,': PE:', my_global_mpi_id, &
-      & ' global_no_of_threads is ', global_no_of_threads
 
 #endif
 
@@ -6129,6 +6139,33 @@ CONTAINS
 
   END FUNCTION p_sum_i8_1d
 
+  FUNCTION p_sum_i_1d (kfield, comm) RESULT (p_sum)
+
+    INTEGER,       INTENT(in) :: kfield(:)
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER                   :: p_sum (SIZE(kfield))
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+       CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int, &
+            MPI_SUM, p_comm, p_error)
+    ELSE
+       p_sum = kfield
+    END IF
+#else
+    p_sum = kfield
+#endif
+
+  END FUNCTION p_sum_i_1d
+
   FUNCTION p_global_sum_1d (zfield, comm) RESULT (p_sum)
 
     REAL(dp),          INTENT(in) :: zfield(:)
@@ -6782,6 +6819,62 @@ CONTAINS
    END SUBROUTINE p_gatherv_int
 
 
+   SUBROUTINE p_gatherv_real2D2D (sendbuf, sendcount, recvbuf, recvcounts, &
+     &                            displs, p_dest, comm)
+     REAL(WP), INTENT(IN) :: sendbuf(:,:)
+     INTEGER, INTENT(IN)  :: sendcount
+     REAL(WP), INTENT(OUT) :: recvbuf(:,:)
+     INTEGER, INTENT(IN)  :: recvcounts(:)
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_dest
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D2D")
+
+     INTEGER :: dim1_size
+
+     dim1_size = SIZE(sendbuf, 1)
+
+     CALL MPI_GATHERV(sendbuf, sendcount*dim1_size,  p_real_dp, &
+       &              recvbuf, recvcounts(:)*dim1_size, displs*dim1_size, &
+       &              p_real_dp, p_dest, comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf(:, (displs(1)+1):(displs(1)+sendcount)) = sendbuf(:, 1:sendcount)
+#endif
+   END SUBROUTINE p_gatherv_real2D2D
+
+
+   SUBROUTINE p_gatherv_int2D2D (sendbuf, sendcount, recvbuf, recvcounts, &
+     &                            displs, p_dest, comm)
+     INTEGER, INTENT(IN)  :: sendbuf(:,:)
+     INTEGER, INTENT(IN)  :: sendcount
+     INTEGER, INTENT(OUT)  :: recvbuf(:,:)
+     INTEGER, INTENT(IN)  :: recvcounts(:)
+     INTEGER, INTENT(IN)  :: displs(:)
+     INTEGER, INTENT(IN)  :: p_dest
+     INTEGER, INTENT(IN)  :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int2D2D")
+
+     INTEGER :: dim1_size
+
+     dim1_size = SIZE(sendbuf, 1)
+
+     CALL MPI_GATHERV(sendbuf, sendcount*dim1_size,  p_int, &
+       &              recvbuf, recvcounts(:)*dim1_size, displs*dim1_size, &
+       &              p_int, p_dest, comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf(:, (displs(1)+1):(displs(1)+sendcount)) = sendbuf(:, 1:sendcount)
+#endif
+   END SUBROUTINE p_gatherv_int2D2D
+
+
    SUBROUTINE p_gatherv_real2D1D (sendbuf, sendcount, recvbuf, recvcounts, displs, p_dest, comm)
      REAL(dp),          INTENT(IN)    :: sendbuf(:,:)
      INTEGER,           INTENT(IN)    :: sendcount
@@ -6898,139 +6991,6 @@ CONTAINS
 #endif
    END SUBROUTINE p_allreduce_minloc
 
-
-   !-------------------------------------------------------------------------
-   !> Collects a 2D integer array, organized as (nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_2d_int(total_dim, nlocal_pts, owner, array)
-
-     INTEGER, INTENT(IN)     :: total_dim              ! dimension of global vector
-     INTEGER, INTENT(IN)     :: nlocal_pts(:)          ! number of points located on each patch
-     INTEGER, INTENT(IN)     :: owner(:)               ! for each point: owning process
-     INTEGER, INTENT(INOUT)  :: array(:,:)             ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: r_array(1,1,UBOUND(array,1),UBOUND(array,2))
-
-     r_array(1,1,:,:) = REAL(array(:,:),wp)
-     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
-     array(:,:) = INT(r_array(1,1,:,:))
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_2d_int
-
-
-   !-------------------------------------------------------------------------
-   !> Collects a 3D integer array, organized as (:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_3d_int(total_dim, nlocal_pts, owner, array)
-
-     INTEGER,  INTENT(IN)    :: total_dim              ! dimension of global vector
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)          ! number of points located on each patch
-     INTEGER,  INTENT(IN)    :: owner(:)               ! for each point: owning process
-     INTEGER,  INTENT(INOUT) :: array(:,:,:)           ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: r_array(1,UBOUND(array,1),UBOUND(array,2),UBOUND(array,3))
-
-     r_array(1,:,:,:) = REAL(array(:,:,:),wp)
-     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
-     array(:,:,:) = INT(r_array(1,:,:,:))
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_3d_int
-
-
-   !-------------------------------------------------------------------------
-   !> Collects a 3D REAL array, organized as (:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_3d(total_dim, nlocal_pts, owner, array)
-
-     INTEGER,  INTENT(IN)    :: total_dim               ! dimension of global vector
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)           ! number of points located on each patch
-     INTEGER,  INTENT(IN)    :: owner(:)                ! for each point: owning process
-     REAL(dp), INTENT(INOUT) :: array(:,:,:)            ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: r_array(1,UBOUND(array,1),UBOUND(array,2),UBOUND(array,3))
-
-     r_array(1,:,:,:) = array(:,:,:)
-     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
-     array(:,:,:) = r_array(1,:,:,:)
-
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_3d
-
-
-   !-------------------------------------------------------------------------
-   !> Collects a 4D REAL array, organized as (:,:,nproma, nblks), and returns
-   !  the global array. From each PE we may receive a different number of
-   !  entries. The ordering of the array is defined by the argument "iowner".
-   !
-   SUBROUTINE p_gather_field_4d(total_dim, nlocal_pts, owner, array)
-
-     INTEGER,  INTENT(IN)    :: total_dim                ! dimension of global vector
-     INTEGER,  INTENT(IN)    :: nlocal_pts(:)            ! number of points located on each patch
-     INTEGER,  INTENT(IN)    :: owner(:)                 ! for each point: owning process
-     REAL(dp), INTENT(INOUT) :: array(:,:,:,:)           ! gathered output data
-
-     !-----------------------------------------------------------------------
-
-#ifndef NOMPI
-     ! Local Parameters:
-     REAL(wp) :: tot_array(UBOUND(array,1),UBOUND(array,2),UBOUND(array,3)*UBOUND(array,4))
-     INTEGER :: n, i, mpierr
-
-     ! Check if result fits into output
-     IF(UBOUND(tot_array,3) < total_dim) &
-       CALL finish('gather_field','Output array too small')
-
-     ! Insert my contribution into tot_array at the final location
-     tot_array(:,:,:) = 0._wp
-     n = 0
-     DO i = 1, total_dim
-       IF(owner(i) == p_pe_work) THEN
-         tot_array(:,:,i) = array(:,:,MOD(n,UBOUND(array,3))+1,n/UBOUND(array,3)+1)
-         n = n+1
-       ENDIF
-    ENDDO
-
-    ! Plausibility check
-    IF(n /= nlocal_pts(p_pe_work+1)) &
-       CALL finish('gather_field','nlocal_pts inconsistent')
-
-    ! Take the global sum over tot_array, the result goes back into array
-
-    CALL MPI_Allreduce(tot_array, array, SIZE(tot_array), p_real_dp, MPI_SUM, p_comm_work, mpierr)
-#else
-     ! do nothing in the sequential case
-#endif
-
-   END SUBROUTINE p_gather_field_4d
-
-
    ! Commits a user-defined MPI type
    !
    FUNCTION p_commit_type_struct(oldtypes, blockcounts) RESULT(newtype)
@@ -7063,6 +7023,56 @@ CONTAINS
      recvbuf(:) = sendbuf(:)
 #endif
    END SUBROUTINE p_alltoall_int
+
+
+   SUBROUTINE p_alltoallv_real_2d (sendbuf, sendcounts, sdispls, &
+     &                             recvbuf, recvcounts, rdispls, comm)
+     REAL(wp),          INTENT(in) :: sendbuf(:,:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     REAL(wp),          INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_real_2d")
+     INTEGER :: p_comm, p_error, dim1_size
+
+     p_comm = comm
+     dim1_size = SIZE(sendbuf, 1)
+     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+       &                sdispls(:)*dim1_size, p_real_dp, recvbuf, &
+       &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
+       &                p_real_dp, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
+#else
+     recvbuf(:,:) = sendbuf(:,1:sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_real_2d
+
+
+   SUBROUTINE p_alltoallv_int_2d (sendbuf, sendcounts, sdispls, &
+     &                            recvbuf, recvcounts, rdispls, comm)
+     INTEGER,           INTENT(in) :: sendbuf(:,:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_int_2d")
+     INTEGER :: p_comm, p_error, dim1_size
+
+     p_comm = comm
+     dim1_size = SIZE(sendbuf, 1)
+     CALL MPI_ALLTOALLV(sendbuf, sendcounts(:)*dim1_size, &
+       &                sdispls(:)*dim1_size, p_int, recvbuf, &
+       &                recvcounts(:)*dim1_size, rdispls(:)*dim1_size, &
+       &                p_int, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
+#else
+     recvbuf(:,:) = sendbuf(:,1:sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_int_2d
 
 
    SUBROUTINE p_alltoallv_int (sendbuf, sendcounts, sdispls, &

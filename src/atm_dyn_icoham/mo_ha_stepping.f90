@@ -54,8 +54,7 @@ MODULE mo_ha_stepping
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
-  USE mo_io_config,           ONLY: is_output_time, l_diagtime, l_outputtime, &
-                                  & is_checkpoint_time
+  USE mo_io_config,           ONLY: l_diagtime, l_outputtime, is_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
@@ -86,6 +85,7 @@ MODULE mo_ha_stepping
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
       &                             close_async_restart, set_data_async_restart
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
+  USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
 
@@ -263,7 +263,7 @@ CONTAINS
   ENDIF
 
   jstep0 = 0
-  IF (is_restart_run()) THEN
+  IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
     CALL get_restart_attribute("jstep", jstep0)
   END IF
@@ -388,16 +388,15 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_intrp_diagn)
 
-    ENDIF !is_output_time(jstep)
+    ENDIF !l_outputtime
 
     !--------------------------------------------------------------------------
     ! Diagnose global integrals
     !--------------------------------------------------------------------------
 
     IF (l_diagtime) &
-    CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
+    CALL supervise_total_integrals( jstep-jstep0, p_patch, p_hydro_state, &
                                     ext_data(1:n_dom), nnow(1:n_dom), jstep == (nsteps+jstep0) )
-
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------

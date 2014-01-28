@@ -5680,11 +5680,11 @@ LOGICAL :: corr
               q3=l_dis(i)*con_m*fm2(i,k)
               IF (q2.GE.z0) THEN
                ! tvs(i)=SQRT(q2+q3/q0)
-                 tvs(i)=(q2*q0+q3)**z1d3
+                 tvs(i)=EXP(z1d3*LOG(q2*q0+q3))
               ELSEIF (q2.LT.z0) THEN
                  tvs(i)=SQRT(q3/(q0-q2/q0))
               ELSE
-                 tvs(i)=q3**z1d3
+                 tvs(i)=EXP(z1d3*LOG(q3))
               END IF
            END DO
         ELSE !standard diagnostic solution
@@ -6384,7 +6384,7 @@ FUNCTION zexner (zpres)
   REAL (KIND=ireals), INTENT(IN) :: zpres
   REAL (KIND=ireals) :: zexner
 
-  zexner = (zpres/p0ref)**rdocp
+  zexner = EXP(rdocp*LOG(zpres/p0ref))
 
 END FUNCTION zexner
 

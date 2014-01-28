@@ -4,8 +4,8 @@
 # compared to a control for climate runs.
 # output:    3 panels - exp,ctrl,diff
 #
-# run as:    setenv DATA $SCRATCH/climate-out
-#            metview3 -b compvar_ens.met ecff eawi BLH 0 ins 19870501 2 avg
+# run as:    export PLOTDATA =/scratch/ms/de/deia/icon/dei2/118/seasonal
+#            metview4_old -b compvar_ens.met ecff eawi BLH 0 ins 19870501 2 avg
 #
 # attention: requires global environment variable DATA (dir)
 #
@@ -65,8 +65,9 @@ end if
 # for the case that the variable names in the model run and in the control run are different
 varidm=varid
 if (varid = "sst") then
- varidm="wtmp"
-# shortNameECMF="wtmp"
+ #varidm="wtmp"
+  varidm="3080"
+ #shortNameECMF="wtmp"
 end if
 
 # --- statistic
@@ -99,14 +100,10 @@ dir = getenv("PLOTDATA") & "/"
 file_mod = dir&"mmean_"&expv1&"_"&levtype&"_alldates.grb"
 file_ctr = dir&"mmean_"&expv2&"_"&levtype&"_alldates.grb"
 
-##PR
+##debug##
 print("this is the file to read")
 print(file_mod)
 print(file_ctr)
-pr_file=file(file_mod)
-print(pr_file)
-read_file=read(file_mod)
-print(read_file)
 
 
 # --- output format & file name (ps or png or screen)
@@ -156,85 +153,47 @@ if vartype = "ins" then
         "TP": 
            var_ctr_all=multiget(spec_par_tp,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_tp,expv1, levtype,lev,dates,res,file_mod)
-  	       unit = "mm d\\SP\\-1\\SPR\\"
+  	   unit = "[mm d<sup>-1</sup>]"
+  	  #unit = "[mm/day]"
         end
         "SURFRADN": 
            var_ctr_all=multiget(spec_par_surfradn,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_surfradn,expv1, levtype,lev,dates,res,file_mod)
-           unit = "W m\\SP\\-2\\SPR\\"
+           unit = "[W m<sup>-2</sup>]"
+          #unit = "[W/m2]"
         end
         "SURFNET": 
            var_ctr_all=multiget(spec_par_surfnet,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_surfnet,expv1, levtype,lev,dates,res,file_mod)
-           unit = "W m\\SP\\-2\\SPR\\"
+           unit = "[W m<sup>-2</sup>]"
+          #unit = "[W/m2]"
         end
         otherwise: 
-          # Special treatment for the time been
-          # sst ist wtmp in ICON
-          # sst 
-          if (varidm = "wtmp" ) then
-   
-	    var_mod_all_t = read(
-            class	:	"rd",
-           # type	:	"fc",
-           # type	:	"an",
-           # expver	:	expv1,
+	  var_mod_all = read(
             levtype	:	levtype,
-            levelist:       lev,
-           # repres	:	"gg",
-           # param	:	varidm,
-            date	:	dates,
-            grid	:	[res,res],
-            source	:	file_mod
-		 )
-           nfields=count(var_mod_all_t)
-           nrf=nfields/24
-           print(nrf)
-           if ( nrf = 1 ) then
-            var_mod_all=var_mod_all_t[24]
-           else
-            var_mod_all=var_mod_all_t[24,96,24]
-           end if
-           seapoints=(var_mod_all[1]>260.) # and var_mod_all[1]<250)  
-           seamask=bitmap(seapoints,0)
-           var_mod_all=bitmap(var_mod_all,seamask)
-
-          else
-	    var_mod_all = read(
-            class	:	"rd",
-           # type	:	"fc",
-           # type	:	"an",
-           # expver	:	expv1,
-            levtype	:	levtype,
-            levelist:       lev,
-           # repres	:	"gg",
+            levelist	:       lev,
             param	:	varidm,
             date	:	dates,
             grid	:	[res,res],
             source	:	file_mod
-		 )
-          end if
-         var_ctr_all = read(
-            class	:	"rd",
-           # type	:	"fc",
-           # expver	:	expv22,
+            )
+          var_ctr_all = read(
             levtype	:	levtype,
-            levelist:       lev,
-           # repres	:	"gg",
+            levelist	:       lev,
             param	:	varid,
             date	:	dates,
             grid	:	[res,res],
             source	:	file_ctr
-            )     
-            if (varid = "sst") then
-             var_ctr_all=bitmap(var_ctr_all,seamask)
-            end if
-            units=grib_get_string(var_mod_all,"units")
-            #units=grib_get_string(var_ctr_all,"units")
-            unit=units[1]
-            print(var_mod_all)
-            print(varid)
-            print(unit)
+            )
+          if (varid = "sst") then
+            seapoints=(var_mod_all[1]>260.) # and var_mod_all[1]<250)  
+            seamask=bitmap(seapoints,0)
+            var_mod_all=bitmap(var_mod_all,seamask)
+            var_ctr_all=bitmap(var_ctr_all,seamask)
+          end if
+          units=grib_get_string(var_mod_all,"units")
+          #units=grib_get_string(var_ctr_all,"units")
+          unit=units[1]
 	end 
 	end case
 end if
@@ -244,22 +203,24 @@ end if
 if varid = "CP"  or varid = 143
 or varid = "LSP" or varid = 142 
 or varid = "TP"  or varid = 228 then
-       var_mod_all = var_mod_all * 86400 * 1000
-       var_ctr_all = var_ctr_all * 86400 * 1000
-       unit = "mm d\\SP\\-1\\SPR\\"
+        var_mod_all = var_mod_all * 86400 * 1000
+        var_ctr_all = var_ctr_all * 86400 * 1000
+        unit = "[mm d<sup>-1</sup>]"
+       #unit = "[mm/day]"
 end if
 
 if varid = "SD" then
         var_mod_all = var_mod_all * 100
         var_ctr_all = var_ctr_all * 100
-        unit    = "cm of water equiv."
+        unit = "cm of water equiv."
 end if
 
 if varid = "SSR"
 or varid = "STR"
 or varid = "TSR"
 or varid = "TTR" then 
-   unit = "W m\\SP\\-2\\SPR\\"
+   unit = "[W m<sup>-2</sup>]"
+  #unit = "[W/m2]"
 end if
 print(unit)
 if varid = "ssr"
@@ -268,8 +229,8 @@ or varid = "tsr"
 or varid = "ttr" 
 or varid = "sshf"
 or varid = "slhf" then 
-   #unit = "W m\\SP\\-2\\SPR\\"
-   unit = "W m**-2"
+   unit = "[W m<sup>-2</sup>]"
+  #unit = "[W/m2]"
 end if
 print(unit)
 # --- calculate stats

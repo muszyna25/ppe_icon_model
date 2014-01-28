@@ -30,6 +30,7 @@
 ocean_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
+use_file_initialConditions=".true."
 # provide an ocean horizontal grid file
 # mapped from ETOPO-file with 5 minutes resolution, variable bottom bathymetry
 ocean_grids="iconR2B05-ocean_etopo05_planet.nc"
@@ -43,8 +44,6 @@ B=5   # number of bisections applied
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=1     # 1: use ocean initialization file; 0: init analytically
 # prognostic ocean initialization file must match the vertical levels
 #   ts_phc_annual-iconR${R}B0{B}-L10x500m.nc      # 10 levels, 500m each
 #   ts_phc_annual-iconR${R}B0{B}-L10_50-1000m.nc  # 10 levels, 10-1000m varying thickness
@@ -77,14 +76,14 @@ iforc=12
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=2
-#iforc_len=12   # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-# surface flux file must match the length given by iforc_len
+#forcing_timescale=12   # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -225,13 +224,11 @@ cat > ${ocean_namelist} << EOF
   k_sal_v            = 1.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
   MAX_VERT_DIFF_TRAC = 1.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
   iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
-  iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
-  init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
+  forcing_timescale          = ${forcing_timescale}   ! length of ocean forcing data set, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
@@ -239,10 +236,11 @@ cat > ${ocean_namelist} << EOF
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
 /
+&ocean_initialConditions_nml
+  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+/
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .FALSE.        ! sync after each timestep
 /

@@ -51,7 +51,7 @@ echo "gridopt=\"${gridopt}\""                            >> ${set_env}
 #
 
 export NCARG_USRRESFILE=${ICONDIR}/scripts/postprocessing/.hluresfile
-export VarN="pres"
+export VarN="pres_sfc"
 
 # Start postprocessing script
 echo "-- ---------------------------------------------------------"

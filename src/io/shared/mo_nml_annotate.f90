@@ -1,9 +1,34 @@
 !>
-!! Utility module: print namelist to file, annotating all changed values.
+!! Utility module: Print namelist to file, annotating all changed values.
 !!
-!! The implementation is more or less a "poor man's approach". We write
-!! and re-read the namelists in text form, since Fortran is missing the
-!! language features for looping over namelist elements.
+!! Every ICON run generates annotated lists of namelist parameters
+!! during the setup. These lists are written to text files
+!! "nml.atmo.log", "nml.cpl.log", "nml.ocean.log" and have the
+!! following form:
+!!
+!!     NAMELIST IO_NML
+!!         OUT_EXPNAME          'case4                                   [...]' (truncated)
+!!                              >> DEFAULT: 'IIIEEEETTTT                             [...]' (truncated)
+!!         OUT_FILETYPE         2
+!!         LKEEP_IN_SYNC        F
+!!         DT_DATA              43200.000000000000
+!!                              >> DEFAULT: 21600.000000000000
+!!         DT_DIAG              1728000.0000000000
+!!                              >> DEFAULT: 86400.000000000000
+!!     
+!! and so on.
+!! The "DEFAULT" annotation denotes all those parameters that have
+!! been modified by the user; in this case the default value of the
+!! namelist parameter is stated together with the modified value.  All
+!! other namelist parameters are listed only with their default value.
+!!
+!! Note that it is not necessary to update this module whenever a namelist is
+!! extended: Lists are generated automatically.
+!!
+!! The implementation is more or less a "poor man's approach". This
+!! module writes and re-reads the namelists in text form, since
+!! Fortran is missing the language features for looping over namelist
+!! elements.
 !!
 !! @par Revision History
 !!  by F. Prill, DWD (2013-06-13)
@@ -66,6 +91,7 @@ CONTAINS
   FUNCTION temp_defaults()
     INTEGER :: temp_defaults
     ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::temp_defaults'
     LOGICAL                     :: lopen
     CHARACTER(len=filename_max) :: filename
     INTEGER                     :: flen
@@ -78,6 +104,9 @@ CONTAINS
     IF (.NOT. lopen) THEN
       flen   = util_tmpnam(filename, filename_max)
       tmpnml = find_next_free_unit(10,100)
+      IF (tmpnml < 0) THEN
+        CALL finish(routine, "Failed call to find_next_free_unit.")
+      END IF
       OPEN(UNIT=tmpnml, FILE=filename(1:flen), &
         &  ACCESS='sequential',   action='write', delim='apostrophe')
     END IF

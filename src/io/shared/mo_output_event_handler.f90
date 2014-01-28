@@ -146,7 +146,8 @@ MODULE mo_output_event_handler
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
-    &                                  p_wait, p_bcast, get_my_global_mpi_id
+    &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
+    &                                  my_process_is_mpi_test, p_pe
   USE mo_fortran_tools,          ONLY: assign_if_present
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
@@ -154,8 +155,10 @@ MODULE mo_output_event_handler
     &                                  setCalendar, resetCalendar, newTimedelta,            &
     &                                  deallocateDatetime, datetimeToString,                &
     &                                  deallocateEvent, newDatetime, OPERATOR(>=),          &
-    &                                  OPERATOR(>), OPERATOR(+), deallocateTimedelta
-  USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS
+    &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
+    &                                  deallocateTimedelta
+  USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS,             &
+    &                                  get_duration_string
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
@@ -164,7 +167,7 @@ MODULE mo_output_event_handler
   USE mo_name_list_output_types, ONLY: t_fname_metadata
   USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
     &                                  set_table_entry, print_table, t_table
-
+  USE mo_io_config,              ONLY: use_set_event_to_simstep
   IMPLICIT NONE
 
   ! public subroutines + functions:
@@ -182,7 +185,7 @@ MODULE mo_output_event_handler
   PUBLIC :: union_of_all_events
   PUBLIC :: deallocate_output_event
   PUBLIC :: wait_for_pending_irecvs
-  PUBLIC :: wait_for_final_irecvs
+  PUBLIC :: blocking_wait_for_irecvs
   ! inquiry functions
   PUBLIC :: get_current_date
   PUBLIC :: get_current_step
@@ -246,7 +249,7 @@ MODULE mo_output_event_handler
 
   !> maximum buffer size for sending event meta-data (MPI_PACK)
   INTEGER, PARAMETER :: MAX_BUF_SIZE =    (    MAX_EVENT_NAME_STR_LEN &
-    &                                      + 7*MAX_DATETIME_STR_LEN   &
+    &                                      + 9*MAX_DATETIME_STR_LEN   &
     &                                      + MAX_TIMEDELTA_STR_LEN    &
     &                                      + 3*FILENAME_MAX           &
     &                                      + 1024 )
@@ -624,11 +627,11 @@ CONTAINS
     !> Max. no. of event steps (used for local array sizes)
     INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 2!10000
 
-    TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, sim_end, &
-      &                         mtime_dom_start
+    TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, mtime_restart, &
+      &                         sim_end, mtime_dom_start, run_start
     TYPE(timedelta), POINTER :: delta, delta_1day
     INTEGER                  :: ierrstat, i, n_event_steps, iadd_days
-    LOGICAL                  :: l_active
+    LOGICAL                  :: l_active, l_append_step
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp(:)
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
@@ -650,17 +653,24 @@ CONTAINS
       WRITE (0,*) "PE ",get_my_global_mpi_id(), ":"
       WRITE (0,*) 'Defining output event "'//TRIM(begin_str)//'", "'//TRIM(end_str)//'", "'//TRIM(intvl_str)//'"'
       WRITE (0,*) 'Simulation bounds:    "'//TRIM(sim_step_info%sim_start)//'", "'//TRIM(sim_step_info%sim_end)//'"'
+      WRITE (0,*) 'restart bound: "'//TRIM(sim_step_info%restart_time)
     END IF
 
     ! set some dates used later:
     sim_end     => newDatetime(TRIM(sim_step_info%sim_end))
+    run_start   => newDatetime(TRIM(sim_step_info%run_start))
     mtime_begin => newDatetime(TRIM(begin_str))
     mtime_end   => newDatetime(TRIM(end_str))
+    delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
     ! Domains (and their output) can be activated and deactivated
     ! during the simulation. This is determined by the parameters
     ! "dom_start_time" and "dom_end_time". Therefore, we must create
     ! a corresponding event.
     mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
+
+    ! Compute the end time wrt. "dt_restart": It might be that the
+    ! simulation end is limited by this parameter
+    mtime_restart   => newDatetime(TRIM(sim_step_info%restart_time))
 
     ! loop over the event occurrences
 
@@ -669,11 +679,11 @@ CONTAINS
 
     mtime_date => mtime_begin
     delta      => newTimedelta(TRIM(intvl_str)) ! create a time delta
-    delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
     n_event_steps = 0
     EVENT_LOOP: DO
-      IF ((mtime_date >= mtime_begin) .AND. &
-        & (mtime_date >= mtime_dom_start)) THEN
+      IF  ((mtime_date >= run_start)      .AND. &
+        & (mtime_date >= mtime_dom_start) .AND. &
+          (mtime_restart >= mtime_date) )  THEN
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
           ! resize buffer
@@ -698,12 +708,26 @@ CONTAINS
       DO iadd_days=1,additional_days
         mtime_date = mtime_date + delta_1day
       END DO
+
       IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
       mtime_date = mtime_date + delta
-      l_active = .NOT. ((mtime_date > mtime_end) .OR. (mtime_date > sim_end))
+
+      l_active = .NOT. (mtime_date > mtime_end) .AND.   &
+        &        .NOT. (mtime_date > sim_end)   .AND.   &
+        &        .NOT. (mtime_date > mtime_restart)
       IF (.NOT. l_active) EXIT EVENT_LOOP
-      ! Optional: Append the last event time step
-      IF (l_output_last .AND. .NOT. (mtime_date >= mtime_end) .AND. (mtime_date >= sim_end)) THEN
+    END DO EVENT_LOOP
+
+    ! Optional: Append the last event time step
+    IF (l_output_last .AND. (mtime_date > sim_end)) THEN
+      ! check, that we do not duplicate the last time step:
+      l_append_step = .FALSE.
+      IF (n_event_steps > 0) THEN
+        mtime_date => newDatetime(TRIM(mtime_date_string(n_event_steps)))
+        IF (mtime_date /= sim_end)  l_append_step = .TRUE.
+        CALL deallocateDatetime(mtime_date)
+      END IF
+      IF (l_append_step) THEN 
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
           ! resize buffer
@@ -721,11 +745,10 @@ CONTAINS
         CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
           WRITE (0,*) get_my_global_mpi_id(), ": ", &
-               &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
+            &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
         END IF
-        EXIT EVENT_LOOP
       END IF
-    END DO EVENT_LOOP
+    END IF
 
     ALLOCATE(mtime_sim_steps(SIZE(mtime_date_string)),   &
       &      mtime_exactdate(SIZE(mtime_date_string)),   &
@@ -737,13 +760,15 @@ CONTAINS
 
     ! remove all those event steps which have no corresponding simulation
     ! step (mtime_sim_steps(i) < 0):
-    do i=1,n_event_steps
-       if (mtime_sim_steps(i) < 0)  EXIT
-    end do
+    DO i=1,n_event_steps
+      IF (mtime_sim_steps(i) < 0)  EXIT
+    END DO
     n_event_steps = (i-1)
 
-    filename_metadata = fct_generate_filenames(n_event_steps, mtime_date_string,       &
-      &                   mtime_sim_steps, sim_step_info, fname_metadata)
+    IF (n_event_steps > 0) THEN
+      filename_metadata = fct_generate_filenames(n_event_steps, mtime_date_string,       &
+        &                   mtime_sim_steps, sim_step_info, fname_metadata)
+    END IF
 
     ! from this list of time stamp strings: generate the event steps
     ! for this event
@@ -775,7 +800,9 @@ CONTAINS
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateDatetime(mtime_dom_start)
+    CALL deallocateDatetime(mtime_restart)
     CALL deallocateDatetime(sim_end)
+    CALL deallocateDatetime(run_start)
     CALL deallocateTimedelta(delta)
     CALL deallocateTimedelta(delta_1day)
     CALL resetCalendar()
@@ -985,7 +1012,8 @@ CONTAINS
     IF (ldebug)  WRITE (0,*) routine, " enter."
 #ifndef NOMPI
     lbroadcast = PRESENT(opt_broadcast_root) .AND. &
-         &       PRESENT(opt_broadcast_comm)
+         &       PRESENT(opt_broadcast_comm) .AND. &
+         &       (.NOT. my_process_is_mpi_test())
 #else
     lbroadcast = .FALSE.
 #endif
@@ -1511,7 +1539,8 @@ CONTAINS
     TYPE(t_output_event), POINTER :: event
 
     IF (ASSOCIATED(event)) THEN
-      check_write_readyfile = (TRIM(event%event_data%name) /= DEFAULT_EVENT_NAME)
+      check_write_readyfile = (TRIM(event%event_data%name) /= DEFAULT_EVENT_NAME) .AND.  &
+        &                     (event%n_event_steps > 0)
     ELSE
       check_write_readyfile = .FALSE.
     END IF
@@ -1740,9 +1769,9 @@ CONTAINS
         &                  l_output_last, sim_step_info, fname_metadata, i_tag, icomm)
     END IF
 
-    if (ldebug) then
-       write (0,*) "received event data: ", trim(begin_str), trim(end_str), trim(intvl_str)
-    end if
+    IF (ldebug) THEN
+      WRITE (0,*) "received event data: ", TRIM(begin_str), TRIM(end_str), TRIM(intvl_str)
+    END IF
 
     ! clean up
     DEALLOCATE(buffer, STAT=ierrstat)
@@ -1872,6 +1901,8 @@ CONTAINS
     CALL p_pack_string(TRIM(sim_step_info%sim_end),          buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_real(sim_step_info%dtime,                    buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(sim_step_info%iadv_rcf,                  buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_string(TRIM(sim_step_info%run_start),        buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_string(TRIM(sim_step_info%restart_time),     buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(sim_step_info%jstep0,                    buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(sim_step_info%dom_start_time,         buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(sim_step_info%dom_end_time,           buffer, MAX_BUF_SIZE, position, icomm)
@@ -1922,6 +1953,8 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%sim_end,                    icomm)
     CALL p_unpack_real(  buffer, MAX_BUF_SIZE, position, sim_step_info%dtime,                      icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%iadv_rcf,                   icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%run_start,                  icomm)
+    CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%restart_time,               icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, sim_step_info%jstep0,                     icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_start_time,             icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, sim_step_info%dom_end_time,               icomm)
@@ -1961,10 +1994,10 @@ CONTAINS
     IF (.NOT. is_output_event_finished(event) .AND. &
       & (event%icomm /= MPI_COMM_NULL)) THEN
       ! wait for the last ISEND to be processed:
-      IF (ldebug) WRITE (0,*) "waiting for request handle."
+      IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle."
       CALL MPI_WAIT(event%isend_req, impi_status, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_WAIT.')
-      IF (ldebug) WRITE (0,*) "waiting for request handle."
+      IF (ldebug) WRITE (0,*) p_pe, ": waiting for request handle done."
       ! launch a new non-blocking send:
       istep = event%output_event%i_event_step
       i_tag = event%output_event%event_step(istep)%event_step_data(1)%i_tag
@@ -1973,10 +2006,17 @@ CONTAINS
         WRITE (0,*) routine, ": sending message ", i_tag, " from ", get_my_global_mpi_id(), &
           &         " to ", event%iroot
       END IF
-      CALL MPI_ISEND(event%isend_buf, 1, p_int, event%iroot, i_tag, &
+      CALL MPI_IBSEND(event%isend_buf, 1, p_int, event%iroot, i_tag, &
         &            event%icomm, event%isend_req, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_ISEND.')
+      IF (ldebug) THEN
+        WRITE (0,*) "pass ", event%output_event%i_event_step, &
+          &         " (",  event%output_event%event_step(istep)%event_step_data(1)%jfile, &
+          &         " / ", event%output_event%event_step(istep)%event_step_data(1)%jpart, &
+          &         " )"
+      END IF
     END IF
+
 #endif
     IF (.NOT. is_output_event_finished(event)) THEN
       ! increment step counter
@@ -2076,11 +2116,11 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE wait_for_final_irecvs(event)
+  SUBROUTINE blocking_wait_for_irecvs(event)
     TYPE(t_par_output_event), POINTER :: event
     ! local variables
 #ifndef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::wait_for_final_irecvs"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::blocking_wait_for_irecvs"
     INTEGER                           :: ierrstat, nreq, ireq
     INTEGER, ALLOCATABLE              :: irecv_status(:,:), irecv_req(:)
     TYPE(t_par_output_event), POINTER :: ev
@@ -2125,7 +2165,7 @@ CONTAINS
       ev => ev%next
     END DO
 #endif
-  END SUBROUTINE wait_for_final_irecvs
+  END SUBROUTINE blocking_wait_for_irecvs
 
 
   !> Spool event state fast-forward to a given event step.
@@ -2133,6 +2173,9 @@ CONTAINS
   !  This functionality is, e.g., required for resume after restart.
   !
   !  @author F. Prill, DWD
+  !
+  ! LL: Unreadable names, what is n_pes? ev_step? n_event_steps?  i_event_step? !
+  !     I just disable it through the namelist use_set_event_to_simstep             !
   !
   SUBROUTINE set_event_to_simstep(event, jstep, lrecover_open_file)
     TYPE(t_output_event), INTENT(INOUT), target :: event              !< output event data structure
@@ -2144,39 +2187,50 @@ CONTAINS
     INTEGER :: ev_step, istep, n_pes, i_pe
     TYPE(t_event_step_data), POINTER :: event_step_data
 
+
     ev_step = 0
     DO istep=1,event%n_event_steps
       IF (event%event_step(istep)%i_sim_step <= jstep)  ev_step = istep
     END DO
     event%i_event_step = ev_step + 1
+
+
     IF (event%i_event_step <= event%n_event_steps) THEN
       istep = event%i_event_step
       n_pes = event%event_step(istep)%n_pes
       
       DO i_pe=1,n_pes
-        event_step_data => event%event_step(istep)%event_step_data(i_pe)        
+        event_step_data => event%event_step(istep)%event_step_data(i_pe)
+
+
         event_step_data%l_open_file = .TRUE.
-        IF (event_step_data%jpart > 1) THEN
-          ! Resuming after a restart means that we have to open the
-          ! file for output though this has not been planned
-          ! initially. We must find a unique suffix then for this new
-          ! file (otherwise we would overwrite the file from the last
-          ! step) and we must inform the user about this incident.
-          IF (.NOT. lrecover_open_file) THEN
-            ! simply throw an error message
-            CALL finish(routine, "Attempt to overwrite existing file after restart!")
-          ELSE
-            ! otherwise: modify file name s.t. the new, resumed file
-            ! is clearly distinguishable: We append "_<part>+"
-            jpart_str = int2string(event_step_data%jpart)
-            WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
-              &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
-              &      " after restart."
-            CALL modify_filename(event, trim(event_step_data%filename_string), &
-              &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
-              &       start_step=istep)
+
+        IF (use_set_event_to_simstep) THEN
+
+          IF (event_step_data%jpart > 1) THEN
+            ! Resuming after a restart means that we have to open the
+            ! file for output though this has not been planned
+            ! initially. We must find a unique suffix then for this new
+            ! file (otherwise we would overwrite the file from the last
+            ! step) and we must inform the user about this incident.
+            IF (.NOT. lrecover_open_file) THEN
+              ! simply throw an error message
+              CALL finish(routine, "Attempt to overwrite existing file after restart!")
+            ELSE
+              ! otherwise: modify file name s.t. the new, resumed file
+              ! is clearly distinguishable: We append "_<part>+"
+              jpart_str = int2string(event_step_data%jpart)
+              WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
+                &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
+                &      " after restart."
+              CALL modify_filename(event, trim(event_step_data%filename_string), &
+                &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
+                &       start_step=istep)
+            END IF
           END IF
-        END IF
+
+        END IF  !(.not. use_set_event_to_simstep)
+
       END DO
     END IF
   END SUBROUTINE set_event_to_simstep

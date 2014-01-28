@@ -134,12 +134,8 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-08-01)
   !!
-  SUBROUTINE configure_lnd_nwp(p_patch, n_dom, nproma)
+  SUBROUTINE configure_lnd_nwp()
   !
-    TYPE(t_patch), INTENT(IN)  :: p_patch(:) 
-    INTEGER      , INTENT(IN)  :: n_dom      !< number of model domains
-    INTEGER      , INTENT(IN)  :: nproma
-
     CHARACTER(len=*), PARAMETER::  &
       &  routine = 'mo_lnd_nwp_config: configure_lnd_nwp'
     !-----------------------------------------------------------------------

@@ -81,7 +81,9 @@ MODULE mo_parallel_nml
     & config_sync_barrier_mode   => sync_barrier_mode,        &
     & config_max_mpi_message_size => max_mpi_message_size,    &
     & config_use_physics_barrier  => use_physics_barrier,     &
-    & config_redrad_split_factor => redrad_split_factor
+    & config_redrad_split_factor => redrad_split_factor,      &
+    & config_restart_chunk_size => restart_chunk_size
+
 
   IMPLICIT NONE
   PRIVATE
@@ -191,6 +193,10 @@ MODULE mo_parallel_nml
 
     LOGICAL :: use_dp_mpi2io
 
+    ! The (asynchronous) restart is capable of writing and communicating
+    ! more than one 2D slice at once
+    INTEGER :: restart_chunk_size
+
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
@@ -207,7 +213,7 @@ MODULE mo_parallel_nml
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-      & redrad_split_factor !parallel_radiation_omp
+      & redrad_split_factor, restart_chunk_size !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -294,6 +300,8 @@ MODULE mo_parallel_nml
     ! MPI gather to output processes in DOUBLE PRECISION
     use_dp_mpi2io = .FALSE.
 
+    restart_chunk_size = 1
+
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -373,6 +381,7 @@ MODULE mo_parallel_nml
     config_use_physics_barrier  = use_physics_barrier
     config_itype_exch_barrier   = itype_exch_barrier
     config_use_dp_mpi2io        = use_dp_mpi2io
+    config_restart_chunk_size   = restart_chunk_size
     !-----------------------------------------------------
     CALL check_parallel_configuration()
 

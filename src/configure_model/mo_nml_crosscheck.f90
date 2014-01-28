@@ -60,10 +60,7 @@ MODULE mo_nml_crosscheck
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
-    &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
-    &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
-    &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,&
-    &                              lwrite_tke,lwrite_z3
+    &                              inextra_3d
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs, itype_comm
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
@@ -71,6 +68,7 @@ MODULE mo_nml_crosscheck
     &                              nqtendphy, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              iqni, iqni_nuc, iqg, iqm_max,              &
+    &                              iqg, iqh, iqnr, iqns, iqng, iqnh,          &                     
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -428,6 +426,11 @@ CONTAINS
     IF (lhdiff_rcf .AND. (itype_comm == 3)) CALL finish(TRIM(method_name), &
       'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
+    IF (grf_intmethod_e >= 5 .AND. iequations /= INWP .AND. n_dom > 1) THEN
+      grf_intmethod_e = 4
+      CALL message( TRIM(method_name), 'grf_intmethod_e has been reset to 4')
+    ENDIF
+
     !--------------------------------------------------------------------
     ! Atmospheric physics, general
     !--------------------------------------------------------------------
@@ -585,6 +588,12 @@ CONTAINS
       iqni_nuc = ntracer+100    !! activated ice nuclei  
       iqg      = ntracer+100    !! graupel
       iqtvar   = ntracer+100    !! qt variance (for EDMF turbulence)
+      iqh      = ntracer+100
+      iqnr     = ntracer+100  
+      iqns     = ntracer+100
+      iqng     = ntracer+100
+      iqnh     = ntracer+100
+
       !
       !
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
@@ -610,8 +619,20 @@ CONTAINS
         IF (.NOT. art_config(1)%lart) ntracer = ntracer + 2  !! increase total number of tracers by 2
 
       CASE(4)  ! two-moment scheme 
+      
+        iqg  = 6
+        iqh  = 7
+        iqni = 8        
+        iqnr = 9        
+        iqns = 10        
+        iqng = 11        
+        iqnh = 12
 
-        CALL finish('mo_atm_nml_crosscheck', 'Two-moment scheme not implemented.')
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 7     !! end index of water species mixing ratios
+        iqt       = 13    !! start index of other tracers not related at all to moisture
+       
+        IF (.NOT. art_config(1)%lart) ntracer = 12
 
       END SELECT ! microphysics schemes
 
@@ -752,17 +773,6 @@ CONTAINS
           ENDIF
         ENDDO
 
-        IF ( ntracer > 1 ) THEN
-          z_nogo_tri(1:3)=(/MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL/)
-          DO jt=2,ntracer
-            IF ( ANY(z_nogo_tri == advection_config(jg)%ihadv_tracer(jt)) ) THEN
-              CALL finish( TRIM(method_name),                                       &
-                &  'TRI-C grid ihadv_tracer: MIURA(3)/FFSL_MCYCL not allowed for '// &
-                &  'any other tracer than qv.')
-            ENDIF
-          ENDDO
-        ENDIF
-
       CASE (6)
         CALL finish( TRIM(method_name),         &
          'hexagonal code is no longer available')
@@ -816,53 +826,15 @@ CONTAINS
     !--------------------------------------------------------------------
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------
-    IF (iequations==ISHALLOW_WATER) THEN
-       lwrite_omega     = .FALSE.
-       lwrite_pres      = .FALSE.
-       lwrite_z3        = .FALSE.
-    END IF
-
-    IF (iequations==INH_ATMOSPHERE) THEN
-       lwrite_omega     = .FALSE.
-    END IF
 
     SELECT CASE(iforcing)
-    CASE ( inwp )
-      ! Do nothing. Keep the initial values, if not specified in namelist.
-      ! consider special idealized testcase with turbulence only
-      IF( .NOT. ltransport  )   THEN
-        lwrite_precip    = .FALSE.
-        lwrite_cloud     = .FALSE.
-        lwrite_radiation = .FALSE.
-        lwrite_tke       = .TRUE.
-        lwrite_surface   = .FALSE.
-        CALL message('io_nml_setup',' ATTENTION! Only TKE output for TURBULENCE ONLY test')
-      ENDIF
-
     CASE ( iecham, ildf_echam )
-      lwrite_extra = .FALSE.
       inextra_2d   = 0
       inextra_3d   = 0
 
-    CASE (inoforcing,iheldsuarez,ildf_dry)
-       lwrite_tend_phy  = .FALSE.
-       lwrite_radiation = .FALSE.
-       lwrite_precip    = .FALSE.
-       lwrite_cloud     = .FALSE.
-       lwrite_tke       = .FALSE.
-       lwrite_surface   = .FALSE.
     CASE DEFAULT
     END SELECT
 
-    IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN
-      lwrite_extra = .TRUE.
-      WRITE(message_text,'(a,2I4,a,L4)') &
-        &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
-      CALL message('io_namelist', TRIM(message_text))
-    ENDIF
-
-    IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
-      CALL finish('io_namelist','need to specify number of fields for extra output')
 
     IF (activate_sync_timers .AND. .NOT. ltimer) THEN
       activate_sync_timers = .FALSE.

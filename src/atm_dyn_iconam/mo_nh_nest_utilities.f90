@@ -48,7 +48,7 @@ MODULE mo_nh_nest_utilities
   USE mo_grid_config,         ONLY: n_dom, n_dom_start
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state, p_grf_state_local_parent
-  USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_e, grf_intmethod_ct
+  USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_e, grf_intmethod_ct, grf_scalfbk, grf_tracfbk
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
   USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
@@ -179,7 +179,7 @@ CONTAINS
         nlev_c = p_pc%nlev
         nshift = p_pc%nshift
 
-        p_fbkwgt => p_grf_state_local_parent(jgc)%fbk_wgt_c
+        p_fbkwgt => p_grf_state_local_parent(jgc)%fbk_wgt_bln
         p_gcp => p_patch_local_parent(jgc)%cells
         p_pp  => p_patch_local_parent(jgc)
 
@@ -200,7 +200,7 @@ CONTAINS
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            grf_nudgintp_start_c+1, min_rlcell_int, ji)
+            grf_nudgintp_start_c+1, min_rlcell_int)
 
           DO jk = 1, nlev_c
             jks = jk + nshift
@@ -259,12 +259,16 @@ CONTAINS
     ! local variables
 
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx,       &
-      jb, jc, je, jk, jt, js, i_nchdom, nshift
+      ib, jb, ic, jc, ie, je, jk, jt, js, i_nchdom, nshift, jk_start, jshift
     INTEGER :: nlev, nlevp1           !< number of full and half levels
+    INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen
+
     REAL(wp) :: rdt_ubc, dthalf
     ! Switch to control if the child domain is vertically nested and therefore 
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
+
+    TYPE(t_gridref_state), POINTER :: p_grf
 
     TYPE(t_nh_state), POINTER :: p_nh
     TYPE(t_nh_prog),  POINTER :: p_prog_now
@@ -276,6 +280,7 @@ CONTAINS
 
     i_nchdom = MAX(1,p_patch(jg)%n_childdom)
 
+    p_grf          => p_grf_state(jg)
     p_nh           => p_nh_state(jg)
     p_prog_now     => p_nh%prog(n_now)
     p_prog_new     => p_nh%prog(n_new)
@@ -292,51 +297,31 @@ CONTAINS
       nshift = p_patch(jg)%nshift_child + 1
     ELSE
       l_child_vertnest = .FALSE.
-      nshift = 0
+      nshift = 1
     ENDIF
+
+    jk_start = nshift ! start index for tendency computation
+
+    ! for dynamic nproma blocking
+    nproma_bdyintp = MIN(nproma,256)
+
     rdt_ubc = rdt*REAL(iadv_rcf,wp)/REAL(2*(MAX(1,iadv_rcf-2)),wp)
     dthalf = 1._wp/(2._wp*rdt)
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nblks_bdyintp,npromz_bdyintp)
 
-    ! cell-based variables
-    i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
-    i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int-2,i_nchdom)
+    IF (l_child_vertnest) THEN ! Compute upper boundary condition and its time derivative for nested domain
+
+      ! cell-based variables
+      i_startblk = p_patch(jg)%cells%start_blk(grf_bdywidth_c+1,1)
+      i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,js) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int-2)
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+          i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 
-      DO jk = 1, nlev
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          p_nh%diag%grf_tend_rho(jc,jk,jb) = &
-            ( p_prog_new%rho(jc,jk,jb) - p_prog_now%rho(jc,jk,jb) )*rdt
-
-          p_nh%diag%grf_tend_thv(jc,jk,jb) = &
-            ( p_prog_new%theta_v(jc,jk,jb) - p_prog_now%theta_v(jc,jk,jb) )*rdt
-
-          ! the div field carries perturbation density for use in SR boundary_interpolation
-          p_nh%diag%div(jc,jk,jb) = &
-            p_prog_now%rho(jc,jk,jb) - p_nh%metrics%rho_ref_mc(jc,jk,jb)
-
-          ! the dpres_mc field carries perturbation potential temperature for use in SR boundary_interpolation
-          p_nh%diag%dpres_mc(jc,jk,jb) = &
-            p_prog_now%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
-
-          p_nh%diag%grf_tend_w(jc,jk,jb) = &
-            ( p_prog_new%w(jc,jk,jb) - p_prog_now%w(jc,jk,jb) )*rdt
-        ENDDO
-      ENDDO
-
-      DO jc = i_startidx, i_endidx
-        p_nh%diag%grf_tend_w(jc,nlevp1,jb) = &
-          ( p_prog_new%w(jc,nlevp1,jb) - p_prog_now%w(jc,nlevp1,jb) )*rdt
-      ENDDO
-
-      IF (l_child_vertnest) THEN ! Compute upper boundary condition and its time derivative for nested domain
         p_nh%diag%dw_int         (:,jb,iadv_rcf+1)            = 0._wp
         p_nh%diag%mflx_ic_int    (:,jb,iadv_rcf+1:iadv_rcf+2) = 0._wp
         p_nh%diag%dtheta_v_ic_int(:,jb,iadv_rcf+1)            = 0._wp
@@ -367,49 +352,156 @@ CONTAINS
               dthalf*p_nh%diag%mflx_ic_int(jc,jb,iadv_rcf+2)
           ENDDO
         ENDIF
+
+      ENDDO
+!$OMP END DO
+
+      ! edge-based variables
+      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e+1,1)
+      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+          i_startidx, i_endidx, grf_bdywidth_e+1, min_rledge_int-2)
+
+!DIR$ IVDEP
+        DO je = i_startidx, i_endidx
+          p_nh%diag%dvn_ie_int(je,jb) = 0.5_wp*(p_nh%diag%dvn_ie_int(je,jb) + &
+            p_nh%diag%vn_ie(je,nshift,jb) - p_nh%diag%vn_ie(je,nshift+1,jb))
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+
+    ENDIF ! l_child_vertnest
+
+    ! Computation of tendencies for lateral boundary interpolation
+
+    ! cell-based variables
+
+    ! parameters for dynamic nproma blocking
+    nblks_bdyintp  = INT(p_grf%npoints_bdyintp_src_c/nproma_bdyintp)
+    npromz_bdyintp = MOD(p_grf%npoints_bdyintp_src_c,nproma_bdyintp)
+    IF (npromz_bdyintp > 0) THEN
+      nblks_bdyintp = nblks_bdyintp + 1
+    ELSE
+      npromz_bdyintp = nproma_bdyintp
+    ENDIF
+
+!$OMP DO PRIVATE(ib,jb,nlen,ic,jc,jk,jt,jshift) ICON_OMP_DEFAULT_SCHEDULE
+    DO ib = 1, nblks_bdyintp
+      IF (ib == nblks_bdyintp) THEN
+        nlen = npromz_bdyintp
+      ELSE
+        nlen = nproma_bdyintp
+      ENDIF
+      jshift = (ib-1)*nproma_bdyintp
+
+#ifdef __LOOP_EXCHANGE
+      DO ic = jshift+1, jshift+nlen
+        jc = p_grf%idxlist_bdyintp_src_c(ic)
+        jb = p_grf%blklist_bdyintp_src_c(ic)
+!DIR$ IVDEP
+        DO jk = jk_start, nlev
+#else
+      DO jk = jk_start, nlev
+!CDIR NODEP
+        DO ic = jshift+1, jshift+nlen
+          jc = p_grf%idxlist_bdyintp_src_c(ic)
+          jb = p_grf%blklist_bdyintp_src_c(ic)
+#endif
+
+          p_nh%diag%grf_tend_rho(jc,jk,jb) = &
+            ( p_prog_new%rho(jc,jk,jb) - p_prog_now%rho(jc,jk,jb) )*rdt
+
+          p_nh%diag%grf_tend_thv(jc,jk,jb) = &
+            ( p_prog_new%theta_v(jc,jk,jb) - p_prog_now%theta_v(jc,jk,jb) )*rdt
+
+          ! the div field carries perturbation density for use in SR boundary_interpolation
+          p_nh%diag%div(jc,jk,jb) = &
+            p_prog_now%rho(jc,jk,jb) - p_nh%metrics%rho_ref_mc(jc,jk,jb)
+
+          ! the dpres_mc field carries perturbation potential temperature for use in SR boundary_interpolation
+          p_nh%diag%dpres_mc(jc,jk,jb) = &
+            p_prog_now%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+
+          p_nh%diag%grf_tend_w(jc,jk,jb) = &
+            ( p_prog_new%w(jc,jk,jb) - p_prog_now%w(jc,jk,jb) )*rdt
+        ENDDO
+      ENDDO
+
+      DO ic = jshift+1, jshift+nlen
+        jc = p_grf%idxlist_bdyintp_src_c(ic)
+        jb = p_grf%blklist_bdyintp_src_c(ic)
+        p_nh%diag%grf_tend_w(jc,nlevp1,jb) = &
+          ( p_prog_new%w(jc,nlevp1,jb) - p_prog_now%w(jc,nlevp1,jb) )*rdt
+      ENDDO
+
+      IF (ltransport .AND. lstep_adv) THEN
+
+#ifdef __LOOP_EXCHANGE
+      DO ic = jshift+1, jshift+nlen
+        jc = p_grf%idxlist_bdyintp_src_c(ic)
+        jb = p_grf%blklist_bdyintp_src_c(ic)
+        DO jt = 1,ntracer
+!DIR$ IVDEP
+          DO jk = jk_start, nlev
+#else
+      DO jt = 1,ntracer
+        DO jk = jk_start, nlev
+!CDIR NODEP
+          DO ic = jshift+1, jshift+nlen
+            jc = p_grf%idxlist_bdyintp_src_c(ic)
+            jb = p_grf%blklist_bdyintp_src_c(ic)
+#endif
+
+              p_nh%diag%grf_tend_tracer(jc,jk,jb,jt) =                     &
+                &            ( p_prog_new_rcf%tracer(jc,jk,jb,jt)          &
+                &            -  p_prog_now_rcf%tracer(jc,jk,jb,jt) )*rdt_rcf
+            ENDDO
+          ENDDO
+        ENDDO
+
       ENDIF
 
     ENDDO
 !$OMP END DO
 
+    ! edge-based variables
 
-    IF (ltransport .AND. lstep_adv) THEN
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int-2)
-
-        DO jt = 1,ntracer
-          DO jk = 1, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              p_nh%diag%grf_tend_tracer(jc,jk,jb,jt) =                    &
-                &            ( p_prog_new_rcf%tracer(jc,jk,jb,jt)               &
-                &            -  p_prog_now_rcf%tracer(jc,jk,jb,jt) )*rdt_rcf
-            ENDDO
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO
-
+    ! parameters for dynamic nproma blocking
+    nblks_bdyintp  = INT(p_grf%npoints_bdyintp_src_e/nproma_bdyintp)
+    npromz_bdyintp = MOD(p_grf%npoints_bdyintp_src_e,nproma_bdyintp)
+    IF (npromz_bdyintp > 0) THEN
+      nblks_bdyintp = nblks_bdyintp + 1
+    ELSE
+      npromz_bdyintp = nproma_bdyintp
     ENDIF
 
+!$OMP DO PRIVATE(ib,jb,nlen,ie,je,jk,jshift) ICON_OMP_DEFAULT_SCHEDULE
+    DO ib = 1, nblks_bdyintp
+      IF (ib == nblks_bdyintp) THEN
+        nlen = npromz_bdyintp
+      ELSE
+        nlen = nproma_bdyintp
+      ENDIF
+      jshift = (ib-1)*nproma_bdyintp
 
-    ! edge-based variables
-    i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e+1,1)
-    i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-3,i_nchdom)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_bdywidth_e+1, min_rledge_int-3)
-
-      DO jk = 1, nlev
+#ifdef __LOOP_EXCHANGE
+      DO ie = jshift+1, jshift+nlen
+        je = p_grf%idxlist_bdyintp_src_e(ie)
+        jb = p_grf%blklist_bdyintp_src_e(ie)
 !DIR$ IVDEP
-        DO je = i_startidx, i_endidx
+        DO jk = jk_start, nlev
+#else
+      DO jk = jk_start, nlev
+!CDIR NODEP
+        DO ie = jshift+1, jshift+nlen
+          je = p_grf%idxlist_bdyintp_src_e(ie)
+          jb = p_grf%blklist_bdyintp_src_e(ie)
+#endif
           p_nh%diag%grf_tend_vn(je,jk,jb) = &
             ( p_prog_new%vn(je,jk,jb) - p_prog_now%vn(je,jk,jb) )*rdt
           p_nh%diag%grf_tend_mflx(je,jk,jb) = &
@@ -417,16 +509,8 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF (l_child_vertnest) THEN ! Compute tendencies for upper boundary condition
-!DIR$ IVDEP
-        DO je = i_startidx, i_endidx
-          p_nh%diag%dvn_ie_int(je,jb) = 0.5_wp*(p_nh%diag%dvn_ie_int(je,jb) + &
-            p_nh%diag%vn_ie(je,nshift,jb) - p_nh%diag%vn_ie(je,nshift+1,jb))
-        ENDDO
-      ENDIF
-
     ENDDO
-!$OMP END DO NOWAIT
+!$OMP END DO
 !$OMP END PARALLEL
 
   END SUBROUTINE compute_tendencies
@@ -493,9 +577,6 @@ CONTAINS
     ! Pointers to index fields
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
-    ! Switch to determine manner of OpenMP parallelization in interpol_scal_grf
-    LOGICAL :: lpar_fields=.FALSE.
-
     ! Switch to control if the child domain is vertically nested and therefore 
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
@@ -543,8 +624,112 @@ CONTAINS
       l_child_vertnest = .FALSE.
     ENDIF
 
-    ! Interpolation of cell-based variables
+    ! Perform interpolations to upper nest boundary needed for vertical nesting
+    IF (l_child_vertnest) THEN
 
+      IF (p_test_run) THEN
+        aux3dp = 0._wp
+        aux3dc = 0._wp
+      ENDIF
+
+      CALL sync_patch_array(SYNC_E,p_pp,p_diagp%dvn_ie_int)
+
+      CALL interpol_vec_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx), &
+        p_diagp%dvn_ie_int, p_diagc%dvn_ie_ubc)
+
+      ! Start and end blocks for which interpolation is needed
+      i_startblk = p_pp%cells%start_block(0)
+      i_endblk   = p_pp%cells%end_block(min_rlcell_int)
+
+      ! For back-copying at child level
+      i_nchdom   = MAX(1,p_pc%n_childdom)
+      i_sbc      = p_pc%cells%start_blk(grf_nudge_start_c,1)
+      i_ebc      = p_pc%cells%end_blk(min_rlcell_int,i_nchdom)
+
+      IF (ltransport .AND. lstep_adv) THEN
+
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb =  i_startblk, i_endblk
+
+          CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+            0, min_rlcell_int)
+
+          DO jc = i_startidx, i_endidx
+            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
+            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
+            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
+          ENDDO
+          DO jt = 1, ntracer
+            DO jc = i_startidx, i_endidx
+              aux3dp(jc,4+jt,jb) = p_diagp%q_int(jc,jb,jt)
+            ENDDO
+          ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+        CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
+
+        CALL interpol_scal_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx),  &
+          ntracer+4, aux3dp, aux3dc)
+
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_sbc, i_ebc
+
+          CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
+            grf_nudge_start_c, min_rlcell_int)
+
+          DO jc = i_startidx, i_endidx
+            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
+            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
+            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
+          ENDDO
+          DO jt = 1, ntracer
+            DO jc = i_startidx, i_endidx
+              p_diagc%q_ubc(jc,jb,jt) = aux3dc(jc,jt+4,jb)
+            ENDDO
+          ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+      ELSE
+
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb =  i_startblk, i_endblk
+
+          CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+            0, min_rlcell_int)
+
+          DO jc = i_startidx, i_endidx
+            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
+            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
+            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
+          ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+        CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
+
+        CALL interpol_scal_ubc(p_pp, p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
+
+!$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_sbc, i_ebc
+
+          CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
+            grf_nudge_start_c, min_rlcell_int)
+
+          DO jc = i_startidx, i_endidx
+            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
+            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
+            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
+          ENDDO
+        ENDDO
+!$OMP END PARALLEL DO
+
+      ENDIF
+
+    ENDIF
+
+    ! Lateral boundary interpolation of cell-based dynamical variables
 
     IF (grf_intmethod_c == 1) THEN ! tendency copying for all cell-based variables
 
@@ -565,8 +750,6 @@ CONTAINS
       ! grf_intmethod_c = 2, use gradient at cell center for interpolation
     ELSE IF (grf_intmethod_c == 2) THEN
 
-      !$  IF (num_threads_omp <= 14) lpar_fields=.TRUE.
-
       ! Interpolation of temporal tendencies, full w, perturbation density (stored in div) 
       !  and perturbationvirtual potential temperature (stored in dpres_mc)
       CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 6,         &
@@ -575,15 +758,14 @@ CONTAINS
         p_diagp%grf_tend_w,   p_diagc%grf_tend_w,    &
         p_nhp_dyn%w,          p_nhc_dyn%w,           &
         p_nh_state(jg)%diag%div, rho_prc,            &
-        p_nh_state(jg)%diag%dpres_mc, theta_prc,     &
-        lpar_fields=lpar_fields )
+        p_nh_state(jg)%diag%dpres_mc, theta_prc      )
 
       ! Start and end blocks for which interpolation is needed
       i_startblk = p_pc%cells%start_blk(1,1)
       i_endblk   = p_pc%cells%end_blk(grf_bdywidth_c,i_nchdom)
 
-      ! This loop is not OpenMP parallelized because the overhead for opening a
-      ! parallel section is too large
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb =  i_startblk, i_endblk
 
         CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -599,10 +781,12 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+!$OMP END DO
 
       ! The following index list contains the halo points of the lateral boundary
       ! cells. These have to be copied as well in order for rho and theta to be
       ! synchronized.
+!$OMP DO PRIVATE(ic,jb,jc,jk)
       DO ic = 1, p_nh_state(jgc)%metrics%bdy_halo_c_dim
 
         jb = p_nh_state(jgc)%metrics%bdy_halo_c_blk(ic)
@@ -616,9 +800,11 @@ CONTAINS
 
         ENDDO
       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
     ENDIF
 
-    ! Interpolation of cell based tracer variables
+    ! Lateral boundary interpolation of cell based tracer variables
     IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 1) THEN
 
       ! Start and end blocks for which interpolation is needed
@@ -631,20 +817,17 @@ CONTAINS
 
     ELSE IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 2) THEN
 
-      !$  IF (num_threads_omp <= 4*ntracer+1) lpar_fields=.TRUE.
-
       ! Apply positive definite limiter on full tracer fields but not on tendencies
       l_limit(1:ntracer) = .FALSE.
       l_limit(ntracer+1:2*ntracer) = .TRUE.
 
-      CALL interpol_scal_grf ( p_pp, p_pc, p_grf%p_dom(i_chidx), 2*ntracer,        &
-        f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,          &
-        f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, lpar_fields=lpar_fields, &
-        llimit_nneg=l_limit)
+      CALL interpol_scal_grf ( p_pp, p_pc, p_grf%p_dom(i_chidx), 2*ntracer,  &
+        f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,     &
+        f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, llimit_nneg=l_limit )
 
     ENDIF
 
-    ! Interpolation of edge-based variables  (velocity components)
+    ! Lateral boundary interpolation of edge-based variables  (velocity components)
     IF (grf_intmethod_e == 1 .OR. grf_intmethod_e == 2) THEN
 
       CALL interpol_vec_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), p_diagp%grf_tend_vn, p_diagc%grf_tend_vn)
@@ -661,103 +844,6 @@ CONTAINS
 
     ENDIF
 
-
-    ! Perform interpolations needed for vertical nesting
-    IF (l_child_vertnest) THEN
-
-      IF (p_test_run) THEN
-        aux3dp = 0._wp
-        aux3dc = 0._wp
-      ENDIF
-
-      CALL sync_patch_array(SYNC_E,p_pp,p_diagp%dvn_ie_int)
-
-      CALL interpol_vec_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx), &
-        p_diagp%dvn_ie_int, p_diagc%dvn_ie_ubc)
-
-      ! Start and end blocks for which interpolation is needed
-      i_startblk = p_pp%cells%start_blk(grf_nudgintp_start_c+2,i_chidx)
-      i_endblk   = p_pp%cells%end_blk(min_rlcell_int,i_chidx)
-
-      ! For back-copying at child level
-      i_nchdom   = MAX(1,p_pc%n_childdom)
-      i_sbc      = p_pc%cells%start_blk(grf_nudge_start_c,1)
-      i_ebc      = p_pc%cells%end_blk(min_rlcell_int,i_nchdom)
-
-      IF (ltransport .AND. lstep_adv) THEN
-
-        DO jb =  i_startblk, i_endblk
-
-          CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            grf_nudgintp_start_c+2, min_rlcell_int, i_chidx)
-
-          DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
-          ENDDO
-          DO jt = 1, ntracer
-            DO jc = i_startidx, i_endidx
-              aux3dp(jc,4+jt,jb) = p_diagp%q_int(jc,jb,jt)
-            ENDDO
-          ENDDO
-        ENDDO
-
-        CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
-
-        CALL interpol_scal_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx),  &
-          ntracer+4, aux3dp, aux3dc)
-
-        DO jb = i_sbc, i_ebc
-
-          CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
-            grf_nudge_start_c, min_rlcell_int)
-
-          DO jc = i_startidx, i_endidx
-            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
-            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
-          ENDDO
-          DO jt = 1, ntracer
-            DO jc = i_startidx, i_endidx
-              p_diagc%q_ubc(jc,jb,jt) = aux3dc(jc,jt+4,jb)
-            ENDDO
-          ENDDO
-        ENDDO
-
-      ELSE
-
-        DO jb =  i_startblk, i_endblk
-
-          CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            grf_nudgintp_start_c+2, min_rlcell_int, i_chidx)
-
-          DO jc = i_startidx, i_endidx
-            aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,iadv_rcf+1)
-            aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,iadv_rcf+1:iadv_rcf+2)
-            aux3dp(jc,4,jb)   = p_diagp%dtheta_v_ic_int(jc,jb,iadv_rcf+1)
-          ENDDO
-        ENDDO
-
-        CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
-
-        CALL interpol_scal_ubc(p_pp, p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
-
-        DO jb = i_sbc, i_ebc
-
-          CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
-            grf_nudge_start_c, min_rlcell_int)
-
-          DO jc = i_startidx, i_endidx
-            p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
-            p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
-            p_diagc%dtheta_v_ic_ubc(jc,jb) = aux3dc(jc,4,jb)
-          ENDDO
-        ENDDO
-
-      ENDIF
-
-    ENDIF
 
   END SUBROUTINE boundary_interpolation
 
@@ -893,8 +979,16 @@ CONTAINS
     ieidx => p_gep%child_idx
     ieblk => p_gep%child_blk
 
-    p_fbkwgt    => p_grf%fbk_wgt_c
-    p_fbkwgt_tr => p_grf%fbk_wgt_ct
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
+    IF (grf_tracfbk == 1) THEN
+      p_fbkwgt_tr => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt_tr => p_grf%fbk_wgt_bln
+    ENDIF
     p_fbkwgt_v  => p_grf%fbk_wgt_e
 
     ! 1st step: Copy prognostic variables from parent grid to fields on feedback-parent grid
@@ -926,7 +1020,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-        grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+        grf_nudgintp_start_c+1, min_rlcell_int)
 
       ! initialize diff_w at surface with zero
       diff_w(:,nlev_c+1,jb) = 0._wp
@@ -1000,7 +1094,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-        grf_nudgintp_start_e+2, min_rledge_int, i_chidx)
+        grf_nudgintp_start_e+2, min_rledge_int)
 
 
 #ifdef __LOOP_EXCHANGE
@@ -1162,7 +1256,11 @@ CONTAINS
     iidx  => p_gcp%child_idx
     iblk  => p_gcp%child_blk
 
-    p_fbkwgt    => p_grf%fbk_wgt_c
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
 
     ! 1st step: Copy prognostic variables from parent grid to fields on feedback-parent grid
     ! (trivial without MPI parallelization, but communication call needed for MPI)
@@ -1183,7 +1281,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-        grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+        grf_nudgintp_start_c+1, min_rlcell_int)
 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
@@ -1501,7 +1599,7 @@ CONTAINS
 
     INTEGER :: nlev  ! number of vertical full levels
 
-    REAL(wp) :: rd_o_cvd, rd_o_p0ref
+    REAL(wp) :: rd_o_cvd, rd_o_p0ref, upper_lim, lower_lim
 
     ! Set pointers
     p_nh  => p_nh_state(jg)
@@ -1518,7 +1616,7 @@ CONTAINS
 
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE(jk,jc,jb,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,ic,upper_lim,lower_lim) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
     DO ic = 1, p_nh%metrics%nudge_c_dim
       jc = p_nh%metrics%nudge_c_idx(ic)
@@ -1532,13 +1630,19 @@ CONTAINS
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)
 #endif
+        upper_lim = 1.0025_wp*p_nh%prog(nnew)%rho(jc,jk,jb)
+        lower_lim = 0.9975_wp*p_nh%prog(nnew)%rho(jc,jk,jb)
         p_nh%prog(nnew)%rho(jc,jk,jb) =                                      &
           p_nh%prog(nnew)%rho(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)*  &
           p_nh%diag%grf_tend_rho(jc,jk,jb)
+        p_nh%prog(nnew)%rho(jc,jk,jb) = MAX(lower_lim,MIN(upper_lim,p_nh%prog(nnew)%rho(jc,jk,jb)))
 
+        upper_lim = 1.0025_wp*p_nh%prog(nnew)%theta_v(jc,jk,jb)
+        lower_lim = 0.9975_wp*p_nh%prog(nnew)%theta_v(jc,jk,jb)
         p_nh%prog(nnew)%theta_v(jc,jk,jb) =                                     &
           p_nh%prog(nnew)%theta_v(jc,jk,jb) + rcffac*p_int%nudgecoeff_c(jc,jb)* &
           p_nh%diag%grf_tend_thv(jc,jk,jb)
+        p_nh%prog(nnew)%theta_v(jc,jk,jb) = MAX(lower_lim,MIN(upper_lim,p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
         p_nh%prog(nnew)%exner(jc,jk,jb) =                                  &
           EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
@@ -1552,7 +1656,7 @@ CONTAINS
 !$OMP END DO
 
     IF (ltransport) THEN
-!$OMP DO PRIVATE(jk,jc,jb,jt,ic) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,jt,ic,upper_lim,lower_lim) ICON_OMP_DEFAULT_SCHEDULE
 #ifdef __LOOP_EXCHANGE
       DO ic = 1, p_nh%metrics%nudge_c_dim
         jc = p_nh%metrics%nudge_c_idx(ic)
@@ -1569,8 +1673,12 @@ CONTAINS
             jb = p_nh%metrics%nudge_c_blk(ic)
 #endif
 
+            upper_lim = 1.01_wp*p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt)
+            lower_lim = 0.99_wp*p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt)
             p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) = p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) + &
               rcffac*p_int%nudgecoeff_c(jc,jb)*p_nh%diag%grf_tend_tracer(jc,jk,jb,jt)
+            p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) =  MAX(lower_lim,MIN(upper_lim,&
+              p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt)))
 
           ENDDO
         ENDDO

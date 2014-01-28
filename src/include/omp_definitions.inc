@@ -8,6 +8,8 @@
 #define ICON_OMP_WORKSHARE $omp parallel workshare
 #define ICON_OMP_END_WORKSHARE $omp end parallel workshare
 #define ICON_OMP $omp
+#define ICON_OMP_SINGLE $omp single
+#define ICON_OMP_END_SINGLE $omp end single
 
 #ifdef __SX__
 #define ICON_OMP_DO $omp do

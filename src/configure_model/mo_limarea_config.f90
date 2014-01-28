@@ -135,10 +135,9 @@ CONTAINS
     CALL associate_keyword("<jlev>",      TRIM(int2string(jlev, '(i2.2)')), keywords)
     CALL associate_keyword("<timestamp>", TRIM(timestamp),                  keywords)
     CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
-    CALL associate_keyword("<path>",      TRIM(latbc_config%latbc_path),    keywords)
 
     ! replace keywords in "input_filename", which is by default
-    ! latbc_filename = "<path>prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
+    ! latbc_filename = "prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
     result_str = TRIM(with_keywords(keywords, TRIM(latbc_config%latbc_filename)))
   END FUNCTION generate_filename
   !--------------------------------------------------------------------------------------

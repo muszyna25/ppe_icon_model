@@ -274,7 +274,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
   ! Auxiliary fields
   REAL(wp) :: vn_aux(p_pc%nlev,p_grf%npoints_bdyintp_e,4,nfields)
-  REAL(wp), DIMENSION(p_pc%nlev,p_grf%npoints_bdyintp_v) :: u_vert,v_vert
+  REAL(wp), DIMENSION(p_pc%nlev,p_grf%npoints_bdyintp_v,nfields) :: u_vert,v_vert
 
   ! Pointers to index fields/lists
   INTEGER,  DIMENSION(:,:,:), POINTER :: icheidx, icheblk
@@ -342,36 +342,36 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   ! upper boundary of child domain (in terms of vertical levels
   js = p_pc%nshift
 
-!$OMP PARALLEL PRIVATE(jn)
+!$OMP PARALLEL
 
-  DO jn = 1, nfields
-
-!$OMP DO PRIVATE(jb,jk,jv,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_bdyintp_v
-      IF (jb == nblks_bdyintp_v) THEN
-        nlen = npromz_bdyintp_v
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
-      nshift = (jb-1)*nproma_bdyintp
+!$OMP DO PRIVATE(jb,jn,jk,jv,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = 1, nblks_bdyintp_v
+    IF (jb == nblks_bdyintp_v) THEN
+      nlen = npromz_bdyintp_v
+    ELSE
+      nlen = nproma_bdyintp
+    ENDIF
+    nshift = (jb-1)*nproma_bdyintp
 
 #ifdef __LOOP_EXCHANGE
-       DO jv = nshift+1, nshift+nlen
+    DO jv = nshift+1, nshift+nlen
+      DO jn = 1, nfields
         DO jk = 1, nlev_c
 #else
+    DO jn = 1, nfields
 !CDIR UNROLL=6
       DO jk = 1, nlev_c
         DO jv = nshift+1, nshift+nlen
 #endif
 
-          u_vert(jk,jv) =  &
+          u_vert(jk,jv,jn) =  &
             p_grf%coeff_rbf_v(1,1,jv)*p_in(jn)%fld(ividx(1,jv),jk+js,ivblk(1,jv)) + &
             p_grf%coeff_rbf_v(2,1,jv)*p_in(jn)%fld(ividx(2,jv),jk+js,ivblk(2,jv)) + &
             p_grf%coeff_rbf_v(3,1,jv)*p_in(jn)%fld(ividx(3,jv),jk+js,ivblk(3,jv)) + &
             p_grf%coeff_rbf_v(4,1,jv)*p_in(jn)%fld(ividx(4,jv),jk+js,ivblk(4,jv)) + &
             p_grf%coeff_rbf_v(5,1,jv)*p_in(jn)%fld(ividx(5,jv),jk+js,ivblk(5,jv)) + &
             p_grf%coeff_rbf_v(6,1,jv)*p_in(jn)%fld(ividx(6,jv),jk+js,ivblk(6,jv))
-          v_vert(jk,jv) =  &
+          v_vert(jk,jv,jn) =  &
             p_grf%coeff_rbf_v(1,2,jv)*p_in(jn)%fld(ividx(1,jv),jk+js,ivblk(1,jv)) + &
             p_grf%coeff_rbf_v(2,2,jv)*p_in(jn)%fld(ividx(2,jv),jk+js,ivblk(2,jv)) + &
             p_grf%coeff_rbf_v(3,2,jv)*p_in(jn)%fld(ividx(3,jv),jk+js,ivblk(3,jv)) + &
@@ -381,34 +381,37 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
         ENDDO
       ENDDO
-
     ENDDO
+
+  ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,je,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_bdyintp_e
-      IF (jb == nblks_bdyintp_e) THEN
-        nlen = npromz_bdyintp_e
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
-      nshift = (jb-1)*nproma_bdyintp
+!$OMP DO PRIVATE(jb,jn,jk,je,nlen,nshift,dvn_tang) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = 1, nblks_bdyintp_e
+    IF (jb == nblks_bdyintp_e) THEN
+      nlen = npromz_bdyintp_e
+    ELSE
+      nlen = nproma_bdyintp
+    ENDIF
+    nshift = (jb-1)*nproma_bdyintp
 
 #ifdef __LOOP_EXCHANGE
-      DO je = nshift+1, nshift+nlen
+    DO je = nshift+1, nshift+nlen
+      DO jn = 1, nfields
 !DIR$ IVDEP
         DO jk = 1, nlev_c
 #else
+    DO jn = 1, nfields
 !CDIR UNROLL=6
       DO jk = 1, nlev_c
         DO je = nshift+1, nshift+nlen
 #endif
 
           ! child edges 1 and 2
-          dvn_tang = u_vert(jk,ievidx(2,je)) * p_grf%prim_norm(2,1,je) + &
-                     v_vert(jk,ievidx(2,je)) * p_grf%prim_norm(2,2,je) - &
-                    (u_vert(jk,ievidx(1,je)) * p_grf%prim_norm(1,1,je) + &
-                     v_vert(jk,ievidx(1,je)) * p_grf%prim_norm(1,2,je) )
+          dvn_tang = u_vert(jk,ievidx(2,je),jn) * p_grf%prim_norm(2,1,je) + &
+                     v_vert(jk,ievidx(2,je),jn) * p_grf%prim_norm(2,2,je) - &
+                    (u_vert(jk,ievidx(1,je),jn) * p_grf%prim_norm(1,1,je) + &
+                     v_vert(jk,ievidx(1,je),jn) * p_grf%prim_norm(1,2,je) )
 
           vn_aux(jk,je,1,jn) = p_in(jn)%fld(iidx(1,je),jk+js,iblk(1,je)) + &
                                dvn_tang*p_grf%dist_pe2ce(1,je)
@@ -443,11 +446,10 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
         ENDDO
       ENDDO
+    ENDDO
 
-    ENDDO ! blocks
+  ENDDO ! blocks
 !$OMP END DO
-
-  ENDDO ! fields
 !$OMP END PARALLEL
 
   nsendtot = SUM(p_pc%comm_pat_interpol_vec_grf(1:4)%n_send)
@@ -494,7 +496,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                               f3din1, f3dout1, f3din2, f3dout2, f3din3, f3dout3, &
                               f3din4, f3dout4, f3din5, f3dout5, f3din6, f3dout6, &
                               f4din1, f4dout1, f4din2, f4dout2,                  &
-                              lpar_fields, llimit_nneg, lnoshift )
+                              llimit_nneg, lnoshift )
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
   TYPE(t_patch), TARGET, INTENT(in) :: p_pc
@@ -505,9 +507,6 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
   ! number of fields provided on input (needed for aux fields and pointer allocation)
   INTEGER, INTENT(IN) :: nfields
-
-  ! logical switch: if present and true, do OpenMP parallelization over nfields rather than nlev
-  LOGICAL, INTENT(IN), OPTIONAL :: lpar_fields
 
   ! logical switch: if present and true, limit horizontal gradient so as to avoid negative values
   LOGICAL, INTENT(IN), OPTIONAL :: llimit_nneg(nfields)
@@ -534,7 +533,6 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
   INTEGER :: nsendtot, nrecvtot, nlevtot  ! for MPI communication call
   INTEGER :: n4d
 
-  LOGICAL :: l_par_fields              ! local variable corresponding to lpar_fields
   LOGICAL :: l_limit_nneg(nfields)     ! local variable corresponding to llimit_nneg
   LOGICAL :: l_noshift                 ! local variable corresponding to lnoshift
   LOGICAL :: l4d                       ! 4D field is provided as input
@@ -604,13 +602,6 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
     l4d = .FALSE.
   ENDIF
 
-  ! Check if jk loop or jn loop shall be OpenMP parallelized
-  IF (PRESENT(lpar_fields)) THEN
-    l_par_fields = lpar_fields
-  ELSE
-    l_par_fields = .FALSE.
-  ENDIF
-
   ! Check if gradient limiting is required
   IF (PRESENT(llimit_nneg)) THEN
     l_limit_nneg(:) = llimit_nneg(:)
@@ -655,209 +646,20 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
   IF (p_test_run) h_aux = 0._wp
 
-!$OMP PARALLEL PRIVATE(jn,elev)
+!$OMP PARALLEL
+!$OMP DO PRIVATE (jb,nlen,nshift,jk,jc,jn,elev,limfac1,limfac2,limfac, &
+!$OMP   min_expval,max_expval,relaxed_minval,relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = 1, nblks_bdyintp
 
-  IF (l_par_fields) THEN ! parallelization over fields
-!$OMP DO PRIVATE (jb,nlen,nshift,jk,jc,val_ctr,grad_x,grad_y,min_expval,max_expval,limfac1,limfac2, &
-!$OMP   limfac,maxval_neighb,minval_neighb,relaxed_minval,relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
+      IF (jb == nblks_bdyintp) THEN
+        nlen = npromz_bdyintp
+      ELSE
+        nlen = nproma_bdyintp
+      ENDIF
+      nshift = (jb-1)*nproma_bdyintp
 
-    DO jn = 1, nfields
-
-      elev   = UBOUND(p_out(jn)%fld,2)
-
-      DO jb = 1, nblks_bdyintp
-        IF (jb == nblks_bdyintp) THEN
-          nlen = npromz_bdyintp
-        ELSE
-          nlen = nproma_bdyintp
-        ENDIF
-        nshift = (jb-1)*nproma_bdyintp
-
-#ifdef __LOOP_EXCHANGE
-        DO jc = nshift+1, nshift+nlen
-          DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-        DO jk = 1, elev
-          DO jc = nshift+1, nshift+nlen
-#endif
-
-            val_ctr(jk,jc) = p_in(jn)%fld(iidx(1,jc),jk+js,iblk(1,jc))
-            grad_x(jk,jc) =  &
-              p_grf%coeff_bdyintp_c(1,1,jc)*p_in(jn)%fld(iidx(1,jc),jk+js,iblk(1,jc)) + &
-              p_grf%coeff_bdyintp_c(2,1,jc)*p_in(jn)%fld(iidx(2,jc),jk+js,iblk(2,jc)) + &
-              p_grf%coeff_bdyintp_c(3,1,jc)*p_in(jn)%fld(iidx(3,jc),jk+js,iblk(3,jc)) + &
-              p_grf%coeff_bdyintp_c(4,1,jc)*p_in(jn)%fld(iidx(4,jc),jk+js,iblk(4,jc)) + &
-              p_grf%coeff_bdyintp_c(5,1,jc)*p_in(jn)%fld(iidx(5,jc),jk+js,iblk(5,jc)) + &
-              p_grf%coeff_bdyintp_c(6,1,jc)*p_in(jn)%fld(iidx(6,jc),jk+js,iblk(6,jc)) + &
-              p_grf%coeff_bdyintp_c(7,1,jc)*p_in(jn)%fld(iidx(7,jc),jk+js,iblk(7,jc)) + &
-              p_grf%coeff_bdyintp_c(8,1,jc)*p_in(jn)%fld(iidx(8,jc),jk+js,iblk(8,jc)) + &
-              p_grf%coeff_bdyintp_c(9,1,jc)*p_in(jn)%fld(iidx(9,jc),jk+js,iblk(9,jc)) + &
-              p_grf%coeff_bdyintp_c(10,1,jc)*p_in(jn)%fld(iidx(10,jc),jk+js,iblk(10,jc))
-            grad_y(jk,jc) =  &
-              p_grf%coeff_bdyintp_c(1,2,jc)*p_in(jn)%fld(iidx(1,jc),jk+js,iblk(1,jc)) + &
-              p_grf%coeff_bdyintp_c(2,2,jc)*p_in(jn)%fld(iidx(2,jc),jk+js,iblk(2,jc)) + &
-              p_grf%coeff_bdyintp_c(3,2,jc)*p_in(jn)%fld(iidx(3,jc),jk+js,iblk(3,jc)) + &
-              p_grf%coeff_bdyintp_c(4,2,jc)*p_in(jn)%fld(iidx(4,jc),jk+js,iblk(4,jc)) + &
-              p_grf%coeff_bdyintp_c(5,2,jc)*p_in(jn)%fld(iidx(5,jc),jk+js,iblk(5,jc)) + &
-              p_grf%coeff_bdyintp_c(6,2,jc)*p_in(jn)%fld(iidx(6,jc),jk+js,iblk(6,jc)) + &
-              p_grf%coeff_bdyintp_c(7,2,jc)*p_in(jn)%fld(iidx(7,jc),jk+js,iblk(7,jc)) + &
-              p_grf%coeff_bdyintp_c(8,2,jc)*p_in(jn)%fld(iidx(8,jc),jk+js,iblk(8,jc)) + &
-              p_grf%coeff_bdyintp_c(9,2,jc)*p_in(jn)%fld(iidx(9,jc),jk+js,iblk(9,jc)) + &
-              p_grf%coeff_bdyintp_c(10,2,jc)*p_in(jn)%fld(iidx(10,jc),jk+js,iblk(10,jc))
-            maxval_neighb(jk,jc) =                           &
-              MAX(p_in(jn)%fld(iidx(1,jc),jk+js,iblk(1,jc)), &
-                  p_in(jn)%fld(iidx(2,jc),jk+js,iblk(2,jc)), &
-                  p_in(jn)%fld(iidx(3,jc),jk+js,iblk(3,jc)), &
-                  p_in(jn)%fld(iidx(4,jc),jk+js,iblk(4,jc)), &
-                  p_in(jn)%fld(iidx(5,jc),jk+js,iblk(5,jc)), &
-                  p_in(jn)%fld(iidx(6,jc),jk+js,iblk(6,jc)), &
-                  p_in(jn)%fld(iidx(7,jc),jk+js,iblk(7,jc)), &
-                  p_in(jn)%fld(iidx(8,jc),jk+js,iblk(8,jc)), &
-                  p_in(jn)%fld(iidx(9,jc),jk+js,iblk(9,jc)), &
-                  p_in(jn)%fld(iidx(10,jc),jk+js,iblk(10,jc)))
-            minval_neighb(jk,jc) =                           &
-              MIN(p_in(jn)%fld(iidx(1,jc),jk+js,iblk(1,jc)), &
-                  p_in(jn)%fld(iidx(2,jc),jk+js,iblk(2,jc)), &
-                  p_in(jn)%fld(iidx(3,jc),jk+js,iblk(3,jc)), &
-                  p_in(jn)%fld(iidx(4,jc),jk+js,iblk(4,jc)), &
-                  p_in(jn)%fld(iidx(5,jc),jk+js,iblk(5,jc)), &
-                  p_in(jn)%fld(iidx(6,jc),jk+js,iblk(6,jc)), &
-                  p_in(jn)%fld(iidx(7,jc),jk+js,iblk(7,jc)), &
-                  p_in(jn)%fld(iidx(8,jc),jk+js,iblk(8,jc)), &
-                  p_in(jn)%fld(iidx(9,jc),jk+js,iblk(9,jc)), &
-                  p_in(jn)%fld(iidx(10,jc),jk+js,iblk(10,jc)))
-          ENDDO
-        ENDDO
-
-#ifdef __LOOP_EXCHANGE
-        DO jc = nshift+1, nshift+nlen
-          DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-        DO jk = 1, elev
-          DO jc = nshift+1, nshift+nlen
-#endif
-            min_expval = MIN(grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(1,2,jc),  &
-                             grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(2,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(2,2,jc),  &
-                             grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(3,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(3,2,jc),  &
-                             grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(4,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc),  &
-                             -1.e-80_wp )
-            max_expval = MAX(grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(1,2,jc),  &
-                             grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(2,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(2,2,jc),  &
-                             grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(3,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(3,2,jc),  &
-                             grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(4,1,jc) + &
-                             grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc),  &
-                             1.e-80_wp )
-
-            limfac1 = 1._wp
-            limfac2 = 1._wp
-            ! Allow a limited amount of over-/undershooting in the downscaled fields
-            IF (minval_neighb(jk,jc) > 0._wp) THEN
-              relaxed_minval = r_ovsht_fac*minval_neighb(jk,jc)
-            ELSE
-              relaxed_minval = ovsht_fac*minval_neighb(jk,jc)
-            ENDIF
-            IF (maxval_neighb(jk,jc) > 0._wp) THEN
-              relaxed_maxval = ovsht_fac*maxval_neighb(jk,jc)
-            ELSE
-              relaxed_maxval = r_ovsht_fac*maxval_neighb(jk,jc)
-            ENDIF
-
-            IF (val_ctr(jk,jc) + min_expval < relaxed_minval-epsi) THEN
-              limfac1 = ABS((relaxed_minval-val_ctr(jk,jc))/min_expval)
-            ENDIF
-            IF (val_ctr(jk,jc) + max_expval > relaxed_maxval+epsi) THEN
-              limfac2 = ABS((relaxed_maxval-val_ctr(jk,jc))/max_expval)
-            ENDIF
-            limfac = MIN(limfac1,limfac2)
-
-            grad_x(jk,jc) = grad_x(jk,jc)*limfac
-            grad_y(jk,jc) = grad_y(jk,jc)*limfac
-
-          ENDDO
-        ENDDO
-
-
-        IF (l_limit_nneg(jn)) THEN
-#ifdef __LOOP_EXCHANGE
-          DO jc = nshift+1, nshift+nlen
-            DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-          DO jk = 1, elev
-            DO jc = nshift+1, nshift+nlen
-#endif
-
-              h_aux(jk,jc,1,jn) = MAX(0._wp, val_ctr(jk,jc) + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc)  + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(1,2,jc))
-              h_aux(jk,jc,2,jn) = MAX(0._wp, val_ctr(jk,jc) + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(2,1,jc)  + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(2,2,jc))
-              h_aux(jk,jc,3,jn) = MAX(0._wp, val_ctr(jk,jc) + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(3,1,jc)  + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(3,2,jc))
-              h_aux(jk,jc,4,jn) = MAX(0._wp, val_ctr(jk,jc) + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(4,1,jc)  + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc))
-
-            ENDDO
-          ENDDO
-        ELSE
-#ifdef __LOOP_EXCHANGE
-          DO jc = nshift+1, nshift+nlen
-            DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-          DO jk = 1, elev
-            DO jc = nshift+1, nshift+nlen
-#endif
-
-              h_aux(jk,jc,1,jn) = val_ctr(jk,jc)           + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc) + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(1,2,jc)
-              h_aux(jk,jc,2,jn) = val_ctr(jk,jc)           + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(2,1,jc) + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(2,2,jc)
-              h_aux(jk,jc,3,jn) = val_ctr(jk,jc)           + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(3,1,jc) + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(3,2,jc)
-              h_aux(jk,jc,4,jn) = val_ctr(jk,jc)           + &
-                grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(4,1,jc) + &
-                grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc)
-
-            ENDDO
-          ENDDO
-        ENDIF
-
-      ENDDO ! blocks
-    ENDDO ! fields
-!$OMP END DO
-
-  ELSE ! parallelization over jb loop
-
-    DO jn = 1, nfields
-
-      elev   = UBOUND(p_out(jn)%fld,2)
-
-!$OMP DO PRIVATE (jb,nlen,nshift,jk,jc,limfac1,limfac2,limfac, &
-!$OMP   maxval_neighb,minval_neighb,relaxed_minval,relaxed_maxval) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = 1, nblks_bdyintp
-
-        IF (jb == nblks_bdyintp) THEN
-          nlen = npromz_bdyintp
-        ELSE
-          nlen = nproma_bdyintp
-        ENDIF
-        nshift = (jb-1)*nproma_bdyintp
+      DO jn = 1, nfields
+        elev   = UBOUND(p_out(jn)%fld,2)
 
 #ifdef __LOOP_EXCHANGE
         DO jc = nshift+1, nshift+nlen
@@ -1024,11 +826,9 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
           ENDDO
         ENDIF
 
-      ENDDO ! blocks
-!$OMP END DO
-    ENDDO ! fields
-
-  ENDIF
+      ENDDO ! fields
+    ENDDO ! blocks
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ! -------------------------------------

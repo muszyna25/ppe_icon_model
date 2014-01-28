@@ -250,7 +250,7 @@ CONTAINS
       IF (inwp_radiation(1)  < 0) inwp_radiation(1)  = 1  !> 1 = RRTM radiation
       IF (inwp_sso(1)        < 0) inwp_sso(1)        = 1  !> 1 = Lott and Miller scheme (COSMO)
       IF (inwp_gwd(1)        < 0) inwp_gwd(1)        = 1  !> 1 = Orr-Ern-Bechthold scheme (IFS)
-      IF (inwp_cldcover(1)   < 0) inwp_cldcover(1)   = 3  !> 3 = clouds from COSMO SGS cloud scheme
+      IF (inwp_cldcover(1)   < 0) inwp_cldcover(1)   = 1  !> 1 = diagnostic cloud cover (by Martin Koehler)
       IF (inwp_turb(1)       < 0) inwp_turb(1)       = icosmo  !> 1 = turbdiff (COSMO diffusion and transfer)
       IF (inwp_surface(1)    < 0) inwp_surface(1)    = 1  !> 1 = TERRA
 

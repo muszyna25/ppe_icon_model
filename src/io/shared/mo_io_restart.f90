@@ -5,12 +5,12 @@ MODULE mo_io_restart
   USE mo_mpi,                   ONLY: p_barrier,p_comm_work
   USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
-  USE mo_var_metadata,          ONLY: t_var_metadata
+  USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
   USE mo_util_string,           ONLY: separator
-!!$  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
+  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
@@ -21,14 +21,12 @@ MODULE mo_io_restart
        &                              restart_attributes_count_real,                &
        &                              restart_attributes_count_int,                 &
        &                              restart_attributes_count_bool
-  USE mo_gather_scatter,        ONLY: gather_cells, gather_edges, gather_vertices,  &
-       &                              scatter_cells, scatter_edges, scatter_vertices
+  USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
   USE mo_run_config,            ONLY: ltimer, output_mode
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file, timer_write_output
-  USE mo_io_config,             ONLY: out_expname
   USE mo_math_utilities,        ONLY: set_zlev
 
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
@@ -46,6 +44,7 @@ MODULE mo_io_restart
   USE mo_model_domain,          ONLY: t_patch
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
     & my_process_is_mpi_test
+  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data
 
   !
   IMPLICIT NONE
@@ -61,7 +60,6 @@ MODULE mo_io_restart
   PUBLIC :: init_restart
   PUBLIC :: open_writing_restart_files
   PUBLIC :: create_restart_file
-  PUBLIC :: write_restart
   PUBLIC :: close_writing_restart_files
   PUBLIC :: read_restart_files
   PUBLIC :: finish_restart
@@ -326,37 +324,37 @@ CONTAINS
     INTEGER,          INTENT(in) :: nlev_snow
     INTEGER,          INTENT(in) :: nice_class
     !
-!!$    CHARACTER(len=256) :: executable
-!!$    CHARACTER(len=256) :: user_name
-!!$    CHARACTER(len=256) :: os_name
-!!$    CHARACTER(len=256) :: host_name
-!!$    CHARACTER(len=256) :: tmp_string
-!!$    CHARACTER(len=  8) :: date_string
-!!$    CHARACTER(len= 10) :: time_string
-!!$
-!!$    INTEGER :: nlena, nlenb, nlenc, nlend
+    CHARACTER(len=256) :: executable
+    CHARACTER(len=256) :: user_name
+    CHARACTER(len=256) :: os_name
+    CHARACTER(len=256) :: host_name
+    CHARACTER(len=256) :: tmp_string
+    CHARACTER(len=  8) :: date_string
+    CHARACTER(len= 10) :: time_string
+
+    INTEGER :: nlena, nlenb, nlenc, nlend
     !
     IF (lrestart_initialised) RETURN
     !
-!!$    executable = ''
-!!$    user_name  = ''
-!!$    os_name    = ''
-!!$    host_name  = ''
-!!$    !
-!!$    CALL get_command_argument(0, executable, nlend)
-!!$    CALL date_and_time(date_string, time_string)
-!!$    !
-!!$    tmp_string = ''
-!!$    CALL util_os_system (tmp_string, nlena)
-!!$    os_name = tmp_string(1:nlena)
-!!$
-!!$    tmp_string = ''
-!!$    CALL util_user_name (tmp_string, nlenb)
-!!$    user_name = tmp_string(1:nlenb)
-!!$
-!!$    tmp_string = ''
-!!$    CALL util_node_name (tmp_string, nlenc)
-!!$    host_name = tmp_string(1:nlenc)
+    executable = ''
+    user_name  = ''
+    os_name    = ''
+    host_name  = ''
+    !
+    CALL get_command_argument(0, executable, nlend)
+    CALL date_and_time(date_string, time_string)
+    !
+    tmp_string = ''
+    CALL util_os_system (tmp_string, nlena)
+    os_name = tmp_string(1:nlena)
+
+    tmp_string = ''
+    CALL util_user_name (tmp_string, nlenb)
+    user_name = tmp_string(1:nlenb)
+
+    tmp_string = ''
+    CALL util_node_name (tmp_string, nlenc)
+    host_name = tmp_string(1:nlenc)
     !
     ! set CD-Convention required restart attributes
     !
@@ -364,14 +362,14 @@ CONTAINS
          'ICON simulation')
     CALL set_restart_attribute('institution', &
          'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
-!!$    CALL set_restart_attribute('source',      &
-!!$         model_name//'-'//model_version)
-!!$    CALL set_restart_attribute('history',     &
-!!$         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-!!$    CALL set_restart_attribute('references',  &
-!!$         'see MPIM/DWD publications')
-!!$    CALL set_restart_attribute('comment',     &
-!!$         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    CALL set_restart_attribute('source',      &
+         model_name//'-'//model_version)
+    CALL set_restart_attribute('history',     &
+         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
+    CALL set_restart_attribute('references',  &
+         'see MPIM/DWD publications')
+    CALL set_restart_attribute('comment',     &
+         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
     !
     ! define horizontal grids
     !
@@ -1232,8 +1230,8 @@ CONTAINS
       nice_class = opt_nice_class
     END IF
 
-    CALL init_restart( TRIM(out_expname), &! exp name
-                     & '1.2.2',           &! model version
+    CALL init_restart( 'ICON',            &! model name
+                     & '1.4.00',          &! model version
                      & kcell, icelltype,  &! total # of cells, # of vertices per cell
                      & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge
@@ -1251,11 +1249,7 @@ CONTAINS
 
     CALL open_writing_restart_files( TRIM(string) )
 
-#ifdef NOMPI
-    CALL write_restart
-#else
     CALL write_restart( patch )
-#endif
 
     CALL close_writing_restart_files
     CALL finish_restart
@@ -1344,11 +1338,8 @@ CONTAINS
   ! loop over all var_lists for restart
   !
   SUBROUTINE write_restart(p_patch)
-#ifndef NOMPI
-    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
+    TYPE(t_patch), INTENT(in) :: p_patch
+
     INTEGER :: i,j
     LOGICAL :: write_info
     !
@@ -1443,13 +1434,7 @@ CONTAINS
   !
   SUBROUTINE write_restart_var_list(this_list, p_patch)
     TYPE (t_var_list) ,INTENT(in) :: this_list
-#ifndef NOMPI
-    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
-    !
-    INTEGER           :: gridtype
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     !
     ! variables of derived type used in linked list
     !
@@ -1457,12 +1442,11 @@ CONTAINS
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
     !
-    REAL(wp), POINTER :: rptr2d(:,:)   ! 2d field distributed over processors
-    REAL(wp), POINTER :: rptr3d(:,:,:) ! 3d field distributed over processors
+    REAL(wp), ALLOCATABLE :: r2d(:,:) ! field gathered on I/O processor
+    REAL(wp), ALLOCATABLE :: r1d(:) ! field gathered on I/O processor
     !
-    REAL(wp), POINTER :: r5d(:,:,:,:,:) ! field gathered on I/O processor
-    !
-    INTEGER :: gdims(5), nindex
+    INTEGER :: nindex, private_n
+    TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
     !
     INTEGER :: time_level
     INTEGER :: tlev_skip
@@ -1477,9 +1461,6 @@ CONTAINS
       !
       element => element%next_list_element
       IF (.NOT.ASSOCIATED(element)) EXIT
-      !
-      rptr2d => NULL()
-      rptr3d => NULL()
       !
       ! retrieve information from actual linked list element
       !
@@ -1521,20 +1502,34 @@ CONTAINS
      IF ( time_level == tlev_skip ) CYCLE   ! skip field
 #endif
 
-      !
-      IF (info%lcontained) THEN
-        nindex = info%ncontained
-      ELSE
-        nindex = 1
-      ENDIF
-      !
+      nindex = MERGE(info%ncontained, 1, info%lcontained)
+
+      SELECT CASE (info%hgrid)
+      CASE (GRID_UNSTRUCTURED_CELL)
+        private_n = private_nc
+        gather_pattern => p_patch%comm_pat_gather_c
+      CASE (GRID_UNSTRUCTURED_VERT)
+        private_n = private_nv
+        gather_pattern => p_patch%comm_pat_gather_v
+      CASE (GRID_UNSTRUCTURED_EDGE)
+        private_n = private_ne
+        gather_pattern => p_patch%comm_pat_gather_e
+      CASE default
+        CALL finish('out_stream','unknown grid type')
+      END SELECT
+
       SELECT CASE (info%ndims)
       CASE (1)
         CALL finish('write_restart_var_list','1d arrays not handled yet.')
       CASE (2)
-        rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+        ALLOCATE(r1d(MERGE(private_n, 0, my_process_is_mpi_workroot())))
+        CALL exchange_data(element%field%r_ptr(:,:,nindex,1,1), r1d, &
+          &                gather_pattern)
       CASE (3)
-        rptr3d => element%field%r_ptr(:,:,:,nindex,1)
+        ALLOCATE(r2d(MERGE(private_n, 0, my_process_is_mpi_workroot()), &
+          &          info%used_dimensions(2)))
+        CALL exchange_data(element%field%r_ptr(:,:,:,nindex,1), r2d, &
+          &                gather_pattern)
       CASE (4)
         CALL finish('write_restart_var_list','4d arrays not handled yet.')
       CASE (5)
@@ -1543,82 +1538,28 @@ CONTAINS
         CALL finish('write_restart_var_list','dimension not set.')
       END SELECT
       !
-      gridtype = info%hgrid
-      !
-      ! allocate temporary global array on output processor
-      ! and gather field from other processors
-      !
-      r5d => NULL()
-      !
-      SELECT CASE (gridtype)
-      CASE (GRID_UNSTRUCTURED_CELL)
-        IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_nc, 1, 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr2d, r5d, p_patch=p_patch)
-        ELSE
-          gdims(:) = (/ private_nc, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr3d, r5d, p_patch=p_patch)
-        ENDIF
-      CASE (GRID_UNSTRUCTURED_VERT)
-        IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_nv, 1, 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr2d, r5d, p_patch=p_patch)
-        ELSE
-          gdims(:) = (/ private_nv, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr3d, r5d, p_patch=p_patch)
-        ENDIF
-      CASE (GRID_UNSTRUCTURED_EDGE)
-        IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_ne, 1, 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr2d, r5d, p_patch=p_patch)
-        ELSE
-          gdims(:) = (/ private_ne, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr3d, r5d, p_patch=p_patch)
-        ENDIF
-      CASE default
-        CALL finish('out_stream','unknown grid type')
-      END SELECT
-      !
       ! write data
       !
       IF (my_process_is_mpi_workroot()) THEN
         write (0,*)' ... write ',info%name
-        CALL write_var (this_list, info, r5d)
+
+        IF (info%ndims == 2) THEN
+          CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
+            &                 r1d(:), 0)
+        ELSE IF (info%ndims == 3) THEN
+          CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
+            &                 r2d(:,:), 0)
+        END IF
       END IF
       !
       ! deallocate temporary global arrays
       !
-      IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
+      IF (ALLOCATED(r1d)) DEALLOCATE(r1d)
+      IF (ALLOCATED(r2d)) DEALLOCATE(r2d)
       !
     END DO for_all_list_elements
     !
   END SUBROUTINE write_restart_var_list
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! finally write data ...
-  !
-  SUBROUTINE write_var (this_list, info, array)
-    TYPE (t_var_list),     INTENT(in) :: this_list
-    TYPE (t_var_metadata), INTENT(in) :: info             ! field description
-    REAL(wp),              INTENT(in) :: array(:,:,:,:,:) ! restart field
-    !
-    INTEGER :: fileID                       ! File ID
-    INTEGER :: varID                        ! Variable ID
-    INTEGER :: nmiss = 0
-    !
-    fileID  = this_list%p%cdiFileID_restart
-    varID   = info%cdiVarID
-    !
-    CALL streamWriteVar(fileID, varID, array, nmiss)
-    !
-  END SUBROUTINE write_var
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1724,11 +1665,7 @@ CONTAINS
   !
   SUBROUTINE read_restart_files(p_patch)
     !
-#ifndef NOMPI
     TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
     !
     CHARACTER(len=80) :: restart_filename, name
     !
@@ -1756,7 +1693,7 @@ CONTAINS
     !
     INTEGER :: string_length  !, ncid
 
-    write(0,*) "read_restart_files, nvar_lists=", nvar_lists
+    IF (my_process_is_mpi_workroot()) write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0
     abbreviations(1:nvar_lists)%abbreviation = ""
     key = 0
@@ -1802,10 +1739,10 @@ CONTAINS
 !       CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
 !       CALL nf(nf_close(ncid))
 
-      write(0,*) "streamOpenRead ", TRIM(restart_filename)
+      IF (my_process_is_mpi_workroot()) write(0,*) "streamOpenRead ", TRIM(restart_filename)
 
       fileID  = streamOpenRead(name)
-      write(0,*) "fileID=",fileID
+      IF (my_process_is_mpi_workroot()) write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
 !       write(0,*) "vlistID=",vlistID
 
@@ -1855,14 +1792,16 @@ CONTAINS
                 ENDIF
                 !
                 gdims(:) = (/ ic, il, 1, 1, 1 /)
-                ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
-                IF (istat /= 0) THEN
-                  CALL finish('','allocation of r5d failed ...')
-                ENDIF
                 !
                 IF (my_process_is_mpi_workroot()) THEN
+                  ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
+                  IF (istat /= 0) THEN
+                    CALL finish('','allocation of r5d failed ...')
+                  ENDIF
                   CALL streamReadVar(fileID, varID, r5d, nmiss)
-                END IF
+                ELSE
+                  ALLOCATE(r5d(gdims(1),1,gdims(3),gdims(4),gdims(5)),STAT=istat)
+                ENDIF
                 CALL p_barrier(comm=p_comm_work)
                 !
                 IF (info%lcontained) THEN

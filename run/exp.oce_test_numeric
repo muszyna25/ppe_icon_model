@@ -36,17 +36,15 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=4   # number of bisections applied
+B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+#  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=0     # 1: use ocean initialization file; 0: init analytically
 # prognostic ocean initialization file must match the vertical levels
 # provide name suffix for vertical resolution
 # number of levels and thickness of surface and bottom layer
@@ -78,25 +76,25 @@ iforc=11
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=1
-iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
-# surface flux file must match the length given by iforc_len
+forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-11T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 (( expLength = 10 * 86400 ))
 # possible unix call to compute:
 # perl -MDate::Parse -e '$period = str2time("2051-01-01T00:00:00") - str2time("2001-01-01T00:00:00"); print ($period/(3600*24));
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6
+nhours_data=2
 ndays_file=3650      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=20
@@ -155,10 +153,10 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
   ! Output Variable List:
-  ml_varlist       = 'group:oce_default','group:oce_prog'
+  ml_varlist       = 'group:oce_default','group:oce_prog','mld','condep'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=5                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -189,9 +187,10 @@ cat > ${ocean_namelist} << EOF
   solver_max_iter_per_restart   = 30   !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
   use_continuity_correction = .true.
+  ! i_bc_veloc_top = 2
 /
 &ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  !i_sea_ice          =    1      ! 0 = no sea ice (default: 1 including sea ice)
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
@@ -205,10 +204,8 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-  idiag_oce          =    1      !  0: no diagnostics; 1: write diagnostics to stderr
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
@@ -217,11 +214,25 @@ cat > ${ocean_namelist} << EOF
                                  ! -1: use net surface heat flux from atmosphere as boundary condition
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
+  use_new_forcing = .TRUE.
+  forcing_windstress_u_type = 106
+  forcing_windstress_v_type = 0
+  forcing_wind_u_amplitude = 0.3
+  forcing_windstress_zonal_waveno      = 3.0
+  forcing_windstress_meridional_waveno = 3.0
+/
+&ocean_initialConditions_nml
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type      = 402
+  initial_temperature_type   = 207
+  initial_sst_type           = 'sst1'
+  initial_temperature_top    = 27.0 
+  initial_temperature_bottom = 0.0
+/
+&ocean_diagnostics_nml
+  diagnostics_level  = 1
 /
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /

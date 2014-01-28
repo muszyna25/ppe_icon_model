@@ -49,7 +49,6 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, igme, icosmo
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
@@ -67,7 +66,6 @@ MODULE mo_nwp_turbdiff_interface
   USE src_turbdiff_new,        ONLY: organize_turbdiff
   USE src_turbdiff,            ONLY: turbdiff
   USE mo_gme_turbdiff,         ONLY: partura, progimp_turb
-  USE mo_sgs_turbulence,       ONLY: drive_subgrid_diffusion
 
   IMPLICIT NONE
 
@@ -84,7 +82,6 @@ CONTAINS
 SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
                           & p_patch,                          & !>in
                           & p_metrics,                        & !>in
-                          & p_int,                            & !>in
                           & ext_data,                         & !>in
                           & p_prog,                           & !>in
                           & p_prog_now_rcf,                   & !>in
@@ -97,7 +94,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
 
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
-  TYPE(t_int_state),    INTENT(in),TARGET   :: p_int          !< single interpolation state
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars

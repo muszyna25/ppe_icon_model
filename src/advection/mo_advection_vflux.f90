@@ -144,8 +144,8 @@ CONTAINS
   SUBROUTINE vert_upwind_flux( p_patch, p_cc, p_mflx_contra_v, p_w_contra,    &
     &                      p_dtime, p_cellhgt_mc_now,                         &
     &                      p_cellmass_now, p_ivadv_tracer, p_itype_vlimit,    &
-    &                      p_iubc_adv, p_iadv_slev, p_upflux, opt_topflx_tra, &
-    &                      opt_q_int, opt_rlstart, opt_rlend )
+    &                      p_iubc_adv, p_iadv_slev, lprint_cfl, p_upflux,     &
+    &                      opt_topflx_tra, opt_q_int, opt_rlstart, opt_rlend  )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is 
       &  p_patch                             !< performed
@@ -184,6 +184,9 @@ CONTAINS
 
     INTEGER, INTENT(IN) ::   &      !< selects upper boundary condition
       &  p_iubc_adv
+
+    LOGICAL, INTENT(IN) ::   &      !< determines if vertical CFL number shall be printed
+      &  lprint_cfl                 !< in routine upwind_vflux_ppm_cfl
 
     REAL(wp), INTENT(OUT) :: &      !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlevp1,nblks_c,ntracer)
@@ -251,7 +254,7 @@ CONTAINS
           CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
             &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
             &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
-            &                  p_cellhgt_mc_now, p_cellmass_now,             &! in
+            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
             &                  p_upflux(:,:,:,jt),                           &! out
             &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
             &                  opt_slev=p_iadv_slev(jt),                     &! in
@@ -327,7 +330,7 @@ CONTAINS
           CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
             &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
             &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
-            &                  p_cellhgt_mc_now, p_cellmass_now,             &! in
+            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
             &                  p_upflux(:,:,:,jt),                           &! out
             &                  opt_slev=p_iadv_slev(jt),                     &! in
             &                  opt_ti_slev=iadv_min_slev,                    &! in
@@ -1091,8 +1094,8 @@ CONTAINS
   !
   SUBROUTINE upwind_vflux_ppm_cfl( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v, &
     &                      p_dtime,  ld_compute, ld_cleanup, p_itype_vlimit,   &
-    &                      p_cellhgt_mc_now, p_cellmass_now, p_upflux,         &
-    &                      opt_lout_edge, opt_topflx_tra, opt_slev,            &
+    &                      p_cellhgt_mc_now, p_cellmass_now, lprint_cfl,       &
+    &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
     &                      opt_ti_slev, opt_rlstart, opt_rlend )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1130,6 +1133,9 @@ CONTAINS
                                   !< HA: pressure thickness for full levels 
                                   !< at time step n [Pa]
                                   !< dim: (nproma,nlev,nblks_c)
+
+    LOGICAL, INTENT(IN) ::   &    !< determines if vertical CFL number shall be written out
+      &  lprint_cfl
 
     REAL(wp), INTENT(OUT) :: &    !< output field, containing the tracer mass flux
       &  p_upflux(:,:,:)          !< or the reconstructed edge value
@@ -1874,12 +1880,12 @@ CONTAINS
             jc = i_indlist_m(ji_m,nlist,jb)
             jk = i_levlist_m(ji_m,nlist,jb)
 
-            ! cycle if the model level is in a region where advection is 
-            ! turned off for the present variable
-            IF (jk < slevp1) CYCLE
-
             ! integer shift (depends on the applied list)
             jk_shift = jk - nlist
+
+            ! cycle if the source model level is in a region where advection is 
+            ! turned off for the present variable
+            IF (jk_shift < slevp1) CYCLE
 
             ! Integer flux (division by p_dtime is done at the end)
             z_iflx_m(jc,jk) = z_iflx_m(jc,jk) + coeff_grid*p_cc(jc,jk_shift,jb) &
@@ -1903,6 +1909,10 @@ CONTAINS
             ! cycle if the model level is in a region where advection is 
             ! turned off for the present variable
             IF (jk < slevp1) CYCLE
+
+            ! this is needed in addition in order to avoid accessing non-existing (uninitalized)
+            ! source levels for tracers that are not advected on all model levels
+            IF (jk_int_m(jc,jk,jb) < slev) CYCLE
 
             ! fractional downward flux
             ! if w < 0 , weta > 0 (physical downwelling)
@@ -1994,7 +2004,7 @@ CONTAINS
     !
     ! If desired, print maximum vertical CFL number
     !
-    IF ( ld_compute .AND. msg_level >= 10 ) THEN
+    IF ( ld_compute .AND. msg_level >= 10 .AND. lprint_cfl) THEN
 
       max_cfl_tot = MAXVAL(max_cfl_blk(i_startblk:i_endblk))
 
@@ -2010,8 +2020,8 @@ CONTAINS
         CALL message(TRIM(routine),message_text)
       ENDIF
 
-      ! Add layer-wise diagnostic if the maximum CFL value is suspicuous
-      IF (msg_level >= 13 .AND. max_cfl_tot > 8._wp) THEN
+      ! Add layer-wise diagnostic if the maximum CFL value is close to the stability limit
+      IF (msg_level >= 13 .AND. max_cfl_tot > 4._wp) THEN
         DO jk = slevp1_ti, nlev
           max_cfl_lay_tot(jk) = MAXVAL(max_cfl_lay(jk,i_startblk:i_endblk))
         ENDDO

@@ -40,7 +40,7 @@ lcatdata=1
 lcpdata=1
 ldeldata=1
 
-if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]] ; then
+if [[ `echo %YMD% | cut -c 7-8` -le "12" ]] ; then
   ldeldata=0           # do some test plots on the 12th of the month, but no delete
 fi                     # (see also testday.sms)
 ####

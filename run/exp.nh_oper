@@ -118,8 +118,8 @@ cat > ${atmo_namelist} << EOF
 &parallel_nml
  nproma         = 1024
  p_test_run     = .false.
- l_test_openmp  = .true.
- l_log_checks   = .true.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
  num_io_procs   = 1
  itype_comm     = 1
  iorder_sendrecv = 1
@@ -150,15 +150,15 @@ cat > ${atmo_namelist} << EOF
  iforcing       = 3            ! NWP forcing
  ltestcase      = .false.      ! false: run with real data
  msg_level      = 7            ! detailed report during integration
- ltimer         = .false.
- timers_level   = 0
+ ltimer         = .true.
+ timers_level   = 1
  output         = "nml"
 /
 &nwp_phy_nml
  inwp_gscp       = 1
  inwp_convection = 1
  inwp_radiation  = 1
- inwp_cldcover   = 1 ! 3 geaendert ab Test2
+ inwp_cldcover   = 1
  inwp_turb       = 10
  inwp_satad      = 1
  inwp_sso        = 1
@@ -258,12 +258,6 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord      = 3
  l_intp_c2l        = .true.
  l_mono_c2l        = .true.
-/
-&gridref_nml
- grf_intmethod_e  = 6
- grf_intmethod_ct = 2
- grf_tracfbk      = 2
- denom_diffu_v    = 150.
 /
 &extpar_nml
  itopo          = 1

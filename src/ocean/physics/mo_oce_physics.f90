@@ -65,7 +65,8 @@ USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_impl_constants,      ONLY: success, max_char_length, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, message_text, finish
 USE mo_util_dbg_prnt,       ONLY: dbg_print
-USE mo_oce_state,           ONLY: t_hydro_ocean_state, oce_config!, v_base
+USE mo_oce_types,           ONLY: t_hydro_ocean_state
+USE mo_oce_state,           ONLY: oce_config
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar,sal_ref
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold!, nnew
@@ -76,7 +77,8 @@ USE mo_var_list,            ONLY: add_var,                  &
   &                               new_var_list,             &
   &                               delete_var_list,          &
   &                               default_var_list_settings,&
-  &                               add_ref, groups
+  &                               add_ref
+USE mo_var_metadata,        ONLY: groups
 USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants,       ONLY: GRID_CELL, GRID_EDGE, GRID_REFERENCE,           &
@@ -701,7 +703,8 @@ CONTAINS
              ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
              ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
 
-          z_vert_density_grad_c(jc,jk,jb) = dbl_eps + z_stabio
+             ! TODO [ram] why using dbl_eps here? its only part the nominator
+             z_vert_density_grad_c(jc,jk,jb) = dbl_eps + z_stabio
 
              ! taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
              ! Richardson number is positive for stable stratification (rho_down > rho_up)

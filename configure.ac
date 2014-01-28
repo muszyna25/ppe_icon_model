@@ -73,6 +73,16 @@ AS_IF([test "x$with_mtime" != "xno"],
       [use_mtime="yes"],
       [use_mtime="no"])
 
+AC_ARG_WITH([messy],
+  [AS_HELP_STRING([--with-messy],
+    [enable Modular Earth Submodel System (MESSy) interface])],
+  [],
+  [])
+
+AS_IF([test "x$with_messy" = "xyes"],
+      [use_messy="yes"],
+      [use_messy="no"])
+
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
     [use specified group od flags (std, hiopt, noopt, etc])],
@@ -647,6 +657,14 @@ fi
 if [[ "x$use_mtime" = xyes ]] ; then
     my_srcdirs="externals/mtime/src ${my_srcdirs}"
 fi
+
+if [[ "x$use_messy" = xyes ]] ; then
+    rm -f src/messy_interface
+    ln -s -t src/ ../externals/messy_interface
+    FFLAGS="${FFLAGS} ${DEFOPT}MESSY ${DEFOPT}MESSYTIMER"
+    CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
+fi
+
 
 ac_srcdirs=""
 for dir in $my_srcdirs ; do

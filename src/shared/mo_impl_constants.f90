@@ -501,10 +501,10 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: &
     max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
-    max_var_ml     = 600, & ! maximum number of output model-level variables
-    max_var_pl     = 100, & ! maximum number of pressure-level variables
-    max_var_hl     = 100, & ! maximum number of height-level variables
-    max_var_il     = 100, & ! maximum number of variables on isentropes
+    max_var_ml     = 999, & ! maximum number of output model-level variables
+    max_var_pl     = 150, & ! maximum number of pressure-level variables
+    max_var_hl     = 150, & ! maximum number of height-level variables
+    max_var_il     = 150, & ! maximum number of variables on isentropes
     max_levels     = 100, & ! maximum number of pressure/height levels
     vname_len      =  32    ! variable name length in I/O namelists
 

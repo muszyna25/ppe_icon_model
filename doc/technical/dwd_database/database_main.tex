@@ -43,6 +43,9 @@
 \usepackage{hyperref}    % ability to create hyperlinks within the document
 \usepackage{vhistory}
 \usepackage{array}
+\usepackage{tikz}
+\usepackage{xargs}
+\usepackage{xstring}
 
 % left-aligned fixed-width table column
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
@@ -68,6 +71,7 @@
     frame=shadowbox,%
     rulesepcolor=\color{darkgreen}}}
 {}
+
 
 
 
@@ -113,12 +117,34 @@
 \makeatother
 % ----------------------------------------------------------------%
 
+\newcommand{\markRed}{\tikz \fill[red!60] (0,0) rectangle (0.08,0.8em);}
+\newcommand{\markBlue}{\tikz \fill[blue!80] (0,0) rectangle (0.08,0.8em);}
+\newcommand{\markWhite}{\tikz \fill[white!100] (0,0) rectangle (0.08,0.8em);}
 
+% Macro for indicating whether field is available on native grid (tri), lat-lon grid (ll), or both
+\newcommandx{\groups}[2][1=none,2=none,usedefault]{
+  \IfEqCase{#1}{%
+      {tri}{%
+           \IfEqCase{#2}{%
+           {ll}{\markRed\markBlue}      %group (tri,ll)
+           {none}{\markRed\markWhite}   %group (tri)
+           }%
+      }%
+  }%
+  \IfEqCase{#1}{%
+      {none}{%
+           \IfEqCase{#2}{%
+           {ll}{\markWhite\markBlue}   %group (ll)
+           }%
+      }%
+  }%
+}%
 
 
 \includeonly{./title_toc,
              ./versionhistory,
              ./analysis,
+             ./input,
              ./grid_geometry,
              ./GRIB2_output_tables}
 
@@ -199,6 +225,7 @@
 % ---------- Einbinden der verschiedenen Teildokumente -----------%
 \include{./grid_geometry}
 \include{./analysis}
+\include{./input}
 \include{./GRIB2_output_tables}
 % ----------------------------------------------------------------%
 

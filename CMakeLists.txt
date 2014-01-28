@@ -19,22 +19,15 @@ message ("")
 message (STATUS "Selected system                      : ${CMAKE_SYSTEM_NAME}")
 message (STATUS "Selected generator                   : ${CMAKE_GENERATOR}")
 message (STATUS "User specified C compiler            : $ENV{CC}")
-#message (STATUS "Selected C Compiler                  : ${CMAKE_C_COMPILER_ID}")
+message (STATUS "Selected C Compiler                  : ${CMAKE_C_COMPILER_ID}")
 message (STATUS "Selected C Compiler version          : ${CMAKE_C_COMPILER_VERSION}")
 message (STATUS "User specified Fortran compiler      : $ENV{FC}")
-#message (STATUS "Selected Fortran Compiler            : ${CMAKE_Fortran_COMPILER_ID}")
+message (STATUS "Selected Fortran Compiler            : ${CMAKE_Fortran_COMPILER_ID}")
 message (STATUS "Selected Fortran Compiler version    : ${CMAKE_Fortran_COMPILER_VERSION}")
 #_________________________________________________________________________________________________
 #
-list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-#_________________________________________________________________________________________________
+list (APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 #
-set (C_C99_FLAG "-std=gnu99")
-set (CMAKE_C_FLAGS  "${C_C99_FLAG} $ENV{CFLAGS}")
-
-set (Fortran_PREPROCESS_FLAG "-cpp")
-set (CMAKE_Fortran_FLAGS  "${Fortran_PREPROCESS_FLAG} $ENV{FCFLAGS}")
-
 set (CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 #_________________________________________________________________________________________________
 #

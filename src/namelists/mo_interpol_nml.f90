@@ -60,7 +60,8 @@ MODULE mo_interpol_nml
                                   & config_l_corner_vort     => l_corner_vort     , &
                                   & config_l_intp_c2l        => l_intp_c2l        , &
                                   & config_rbf_dim_c2l       => rbf_dim_c2l       , &
-                                  & config_l_mono_c2l        => l_mono_c2l
+                                  & config_l_mono_c2l        => l_mono_c2l        , &
+                                  & config_rbf_scale_mode_ll => rbf_scale_mode_ll
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -93,8 +94,7 @@ MODULE mo_interpol_nml
 
   REAL(wp) :: rbf_vec_scale_c(max_dom),  &
               rbf_vec_scale_v(max_dom),  &
-              rbf_vec_scale_e(max_dom),  &
-              rbf_vec_scale_ll(max_dom)
+              rbf_vec_scale_e(max_dom)
 
   INTEGER  :: i_cori_method       ! Identifier for the method with wich the tangential
                                   ! wind reconstruction in Coriolis force is computed,
@@ -130,6 +130,14 @@ MODULE mo_interpol_nml
   LOGICAL :: l_intp_c2l, l_mono_c2l
   INTEGER :: rbf_dim_c2l
 
+  ! "rbf_scale_mode_ll": mode, how the RBF shape parameter is
+  ! determined for lon-lat interpolation.
+  !
+  ! 1 : lookup table based on grid level (default)
+  ! 2 : determine automatically
+  !
+  INTEGER :: rbf_scale_mode_ll
+
   NAMELIST/interpol_nml/ llsq_lin_consv,    llsq_high_consv,     &
                        & lsq_high_ord,      rbf_vec_kern_c,      &
                        & rbf_vec_scale_c,   rbf_vec_kern_v,      &
@@ -138,7 +146,7 @@ MODULE mo_interpol_nml
                        & nudge_max_coeff,   nudge_efold_width,   &
                        & nudge_zone_width,  l_corner_vort,       &
                        & l_intp_c2l, rbf_dim_c2l, l_mono_c2l,    &
-                       & rbf_vec_scale_ll,  rbf_vec_kern_ll
+                       & rbf_vec_kern_ll,   rbf_scale_mode_ll
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -181,12 +189,15 @@ CONTAINS
     rbf_vec_kern_e  = 3         ! Inverse multiquadric kernel for edge midpoints
     rbf_vec_kern_ll = 1         ! Gaussian kernel for lon-lat interpolation
 
+    ! mode, how the RBF shape parameter is determined for lon-lat
+    ! interpolation.
+    rbf_scale_mode_ll = 1
+
     ! Initialize namelist fields for scaling factors (dimension 1:depth) with dummy values
     ! A meaningful initialization follows after reading the namelist
     rbf_vec_scale_c(:)  = -1.0_wp
     rbf_vec_scale_v(:)  = -1.0_wp
     rbf_vec_scale_e(:)  = -1.0_wp
-    rbf_vec_scale_ll(:) = -1.0_wp
 
     ! Initialize the namelist for the method for the vorticity flux term
     i_cori_method = 3
@@ -273,7 +284,9 @@ CONTAINS
     config_rbf_vec_scale_c(:)  = rbf_vec_scale_c(:)
     config_rbf_vec_scale_v(:)  = rbf_vec_scale_v(:)
     config_rbf_vec_scale_e(:)  = rbf_vec_scale_e(:)
-    config_rbf_vec_scale_ll(:) = rbf_vec_scale_ll(:)
+
+    config_rbf_scale_mode_ll   = rbf_scale_mode_ll
+
     config_i_cori_method       = i_cori_method
     config_nudge_max_coeff     = nudge_max_coeff
     config_nudge_efold_width   = nudge_efold_width

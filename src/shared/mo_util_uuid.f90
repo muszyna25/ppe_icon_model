@@ -144,7 +144,7 @@ CONTAINS
 #ifdef __SX__
     uuid%data(:) = '0'
 #else
-    uuid%data(:) = 0
+    uuid%data(:) = INT(0, C_SIGNED_CHAR)
 #endif
   END SUBROUTINE clear_uuid
 

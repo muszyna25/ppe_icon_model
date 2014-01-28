@@ -42,8 +42,7 @@ B=4   # number of bisections applied
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=1     # 1: use ocean initialization file; 0: init analytically
+use_file_initialConditions=".true."
 # prognostic ocean initialization file must match the vertical levels
 #   ts_phc_annual-iconR${R}B0{B}-L10x500m.nc      # 10 levels, 500m each
 #   ts_phc_annual-iconR${R}B0{B}-L10_50-1000m.nc  # 10 levels, 10-1000m varying thickness
@@ -74,13 +73,13 @@ iforc=12
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
 #  2 = use all 12 datasets of full OMIP forcing
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=2
-iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-# surface flux file must match the length given by iforc_len
+forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -100,17 +99,19 @@ ndays_data=30        # ocean model output interval [days]  - no longer than 30 d
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
+nout_interv="P$0{ndays_data}D"                   # ocean model output interval in days <10 days
 nout_interv="P${ndays_data}D"                    # ocean model output interval in days
 #(( dt_data       = nhours_data   * 3600 ))      # used for output_bounds and buildbot
- (( dt_data       = ndays_data    * 86400 ))     # used for production runs
 #(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_data       = ndays_data    * 86400 ))      # used for production runs
 (( dt_restart    = ndays_restart * 86400 ))
-dt_file=$dt_restart                              # dt_file!=dt_restart not yet tested for mtime
 #(( dt_file       = ndays_file    * 86400 ))     # not yet tested
+dt_file=$dt_restart                              # dt_file!=dt_restart not yet tested for mtime
 dt_checkpoint=$dt_restart                        # for production runs both must be equal
-(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
-(( steps_per_file = simLength / dt_data ))       # output intervals per file interval
-(( outputLength  = nyear_outpLen * 86400*365 ))
+#(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
+#(( steps_per_file = simLength / dt_data ))       # output intervals per file interval
+(( steps_per_file = dt_restart / dt_data ))       # output intervals per file
+#(( outputLength  = nyear_outpLen * 86400*365 ))  # for output_bounds only
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -154,20 +155,11 @@ cat > ${ocean_namelist} << EOF
   output_end       = "${end_date}"                    ! production runs: end in ISO-format
   output_interval  = "${nout_interv}"                 ! production runs: interval in ISO-format
   steps_per_file   = ${steps_per_file}
-  include_last     = .TRUE.
+! include_last     = .TRUE.                           ! leads to suffix "_part_2+"
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       =  'group:oce_default','hi','hs','conc','ice_u','ice_v'
-! ml_varlist       =  'group:oce_default','group:ice_default'
-!/
-! no complete sea ice
-!&output_nml
-!  output_bounds    = 0, ${outputLength}, ${dt_data}   !start, end, increment
-!  steps_per_file   = ${steps_per_file}
-!  include_last     = .TRUE.
-!  output_grid      = .TRUE.
-!  output_filename  = "${EXPNAME}_R${R}B0${B}_ice"
-!  ml_varlist       = 'wet_c','group:ice_default','group:ice_diag'
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  'group:oce_default','group:ice_default'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -211,7 +203,7 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction = .true.
 /
 &ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  !i_sea_ice          =    1      ! 0 = no sea ice (default: 1 including sea ice)
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
@@ -226,28 +218,32 @@ cat > ${ocean_namelist} << EOF
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
 &sea_ice_nml
-  i_ice_therm   = 1
-  i_ice_dyn     = 1
+  i_ice_therm   = 1              !  1=zero-layer, 2=Winton
+  i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
   !i_Qio_type    = 2              !  1=MPIOM-type, 2=flux-type ice-ocean heat flux coupling
 
 /
-&ocean_forcing_and_init_nml
-  idiag_oce          = 1              ! 1: write standard ocean diagnostics to stderr
+&ocean_forcing_nml
   iforc_oce          = ${iforc}       ! ocean forcing
   iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
-  iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
-  init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
+  forcing_timescale  = ${forcing_timescale}   ! length of ocean forcing data set, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
-  l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_enable_freshwater      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_set_runoff_to_zero      = .TRUE.    ! set runoff to zero for comparison to MPIOM
+/
+&ocean_initialConditions_nml
+  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
 /
 &ocean_diagnostics_nml
+   diagnostics_level            = 1
 ! vertex list for R2B04 only
    gibraltar(1:10)              = 2371,2374
    denmark_strait(1:10)         = 2436,2471
@@ -256,9 +252,6 @@ cat > ${ocean_namelist} << EOF
    scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
 /
 &io_nml
-  out_expname   = '${EXPNAME}'
-  dt_data       = ${dt_data}
-  dt_file       = ${dt_file}
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
 /

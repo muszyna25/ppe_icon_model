@@ -1664,7 +1664,7 @@ n\_dom>1\tabularnewline
 
 \hline
 grf\_intmethod\_e&
-I& 4& &
+I& 6& &
 Interpolation method for grid refinement (edge-based variables):&
 n\_dom>1\tabularnewline
 & & & & 1: inverse-distance weighting (IDW) & \tabularnewline
@@ -1735,15 +1735,21 @@ n\_dom>1\tabularnewline
 
 \hline
 l\_mass\_consvcorr&
-L& .TRUE.& &
+L& .FALSE.& &
 .TRUE.: Apply mass conservation correction in feedback routine &
 n\_dom>1\tabularnewline
 
 \hline
 l\_density\_nudging &
-L& .TRUE.& &
-.TRUE.: Apply density nudging near lateral nest boundary &
+L& .FALSE.& &
+.TRUE.: Apply density nudging near lateral nest boundary if grf\_intmethod\_e $\le$ 4 &
 n\_dom>1 .AND. lfeedback = .TRUE. \tabularnewline
+
+\hline
+fbk\_relax\_timescale &
+R & 10800& &
+Relaxation time scale for feedback &
+n\_dom>1 .AND. lfeedback = .TRUE. .AND. ifeedback\_type = 2 \tabularnewline
 
 \end{longtab}
 
@@ -2085,9 +2091,18 @@ Defined and used in: src/namelists/mo\_initicon\_nml.f90
 \begin{longtab}
 
 \hline
-llsq\_lin\_consv&
-L& .FALSE.& &
-conservative (T) or non-conservative (F) least-squares reconstruction for 2nd order (linear) transport&
+l\_intp\_c2l&
+L& .TRUE.& &
+If .TRUE. directly interpolate scalar variables from cell centers to
+lon-lat points, otherwise do gradient interpolation and
+reconstruction.&
+\tabularnewline
+
+\hline
+l\_mono\_c2l&
+L& .TRUE.& &
+Monotonicity can be enforced by demanding that the interpolated
+value is not higher or lower than the stencil point values.&
 \tabularnewline
 
 \hline
@@ -2106,6 +2121,51 @@ polynomial order for high order reconstruction& \tabularnewline
 & & & & 3: cubic & \tabularnewline
 
 \hline
+llsq\_lin\_consv&
+L& .FALSE.& &
+conservative (T) or non-conservative (F) least-squares reconstruction for 2nd order (linear) transport&
+\tabularnewline
+
+\hline
+nudge\_efold\_width&
+R& 2.5& &
+e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
+\tabularnewline
+
+\hline
+nudge\_max\_coeff&
+R& 0.02& &
+Maximum relaxation coefficient for lateral boundary nudging&
+\tabularnewline
+
+\hline
+nudge\_zone\_width&
+I& 8& &
+Total width (in units of cell rows) for lateral boundary nudging zone. 
+If < 0 the patch boundary\_depth\_index is used. &
+\tabularnewline
+
+\hline
+rbf\_dim\_c2l&
+I& 10& &
+stencil size for direct lon-lat interpolation:
+ 4 = nearest neighbor,
+13 = vertex stencil,
+10 = edge stencil.&
+\tabularnewline
+
+\hline
+rbf\_scale\_mode\_ll&
+I& 1& &
+Specifies, how the RBF shape parameter is
+determined for lon-lat interpolation.
+1 : lookup table based on grid level (default)
+2 : determine automatically.
+So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
+&
+\tabularnewline
+
+\hline
 rbf\_vec\_kern\_c&
 I& 1& &
 Kernel type for reconstruction at cell centres:& \tabularnewline
@@ -2120,16 +2180,16 @@ Kernel type for reconstruction at edges:& \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
 \hline
-rbf\_vec\_kern\_v&
+rbf\_vec\_kern\_ll&
 I& 1& &
-Kernel type for reconstruction at vertices:& \tabularnewline
+Kernel type for reconstruction at lon-lat-points:& \tabularnewline
 & & & & 1: Gaussian & \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
 \hline
-rbf\_vec\_kern\_ll&
+rbf\_vec\_kern\_v&
 I& 1& &
-Kernel type for reconstruction at lon-lat-points:& \tabularnewline
+Kernel type for reconstruction at vertices:& \tabularnewline
 & & & & 1: Gaussian & \tabularnewline
 & & & & 3: inverse multiquadric & \tabularnewline
 
@@ -2151,55 +2211,6 @@ R(n\_dom)& resolution-dependent& &
 Scale factor for RBF reconstruction at vertices&
 \tabularnewline
 
-\hline
-rbf\_vec\_scale\_ll&
-R(n\_dom)& resolution-dependent& &
-Scale factor for RBF reconstruction at lon-lat-points&
-\tabularnewline
-
-\hline
-nudge\_max\_coeff&
-R& 0.02& &
-Maximum relaxation coefficient for lateral boundary nudging&
-\tabularnewline
-
-\hline
-nudge\_efold\_width&
-R& 2.5& &
-e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
-\tabularnewline
-
-\hline
-nudge\_zone\_width&
-I& 8& &
-Total width (in units of cell rows) for lateral boundary nudging zone&
-\tabularnewline
-
-
-\hline
-l\_intp\_c2l&
-L& .TRUE.& &
-If .TRUE. directly interpolate scalar variables from cell centers to
-lon-lat points, otherwise do gradient interpolation and
-reconstruction.&
-\tabularnewline
-
-\hline
-rbf\_dim\_c2l&
-I& 10& &
-stencil size for direct lon-lat interpolation:
- 4 = nearest neighbor,
-13 = vertex stencil,
-10 = edge stencil.&
-\tabularnewline
-
-\hline
-l\_mono\_c2l&
-L& .TRUE.& &
-Monotonicity can be enforced by demanding that the interpolated
-value is not higher or lower than the stencil point values.&
-\tabularnewline
-
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_interpol\_nml.f90
@@ -2212,29 +2223,9 @@ Defined and used in: src/namelists/mo\_interpol\_nml.f90
 \begin{longtab}
 
 \hline
-out\_expname &
-C& 'IIIEEEETTTT'& &
-Outfile basename&
-\tabularnewline
-
-\hline
-out\_filetype&
-I& 2 & &
-Type of output format:\\
-1: GRIB1 (not yet implemented)\\
-2: netCDF&
-\tabularnewline
-
-\hline
 lkeep\_in\_sync&
 L& .FALSE. & &
 Sync output stream with file on disk after each timestep&
-\tabularnewline
-
-\hline
-dt\_data&
-R& 21600.0 & s&
-Output time interval&
 \tabularnewline
 
 \hline
@@ -2243,11 +2234,6 @@ R& 86400. & &
 diagnostic integral output interval &
 \tabularnewline
 
-\hline
-dt\_file&
-R& 2592000 & s&
-Time interval of triggering new output file&
-\tabularnewline
 
 \hline
 dt\_checkpoint&
@@ -2261,123 +2247,19 @@ that at least one restart file is generated during the restart cycle.
 \texttt{output /= "none"} (\texttt{run\_nml})
 \tabularnewline
 
-\hline
-lwrite\_vorticity &
-L& .TRUE.& &
-write out averaged vorticity at vertices &
-\tabularnewline
-
-\hline
-lwrite\_initial &
-L& .TRUE.& &
-write out initial state &
-\tabularnewline
-
-\hline
-lwrite\_dblprec &
-L& .FALSE.& &
-write out double precision &
-\tabularnewline
-
-\hline
-lwrite\_oce\_timestepping &
-L& .FALSE.& &
-write out intermediate ocean vars&
-\tabularnewline
-
-\hline
-lwrite\_divergence &
-L& .TRUE.& &
-write out divergence at cells &
-\tabularnewline
-
-\hline
-lwrite\_omega &
-L& .TRUE.& &
-write out vertical velocity in pressure coords.&
-Always .FALSE. for nonhydrostatic and shallow water models
-\tabularnewline
-
-\hline
-lwrite\_pres &
-L& .TRUE.& &
-write out full level pressure&
-lshallow\_water=.FALSE.\tabularnewline
-
-\hline
-lwrite\_z3 &
-L& .TRUE.& &
-write out geopotential on full levels&
-lshallow\_water=.FALSE.\tabularnewline
-
-\hline
-lwrite\_tracer &
-L(ntracer)& .TRUE.& &
-write out tracer at cells &
-\tabularnewline
-
-\hline
-lwrite\_tend\_phy &
-L& .TRUE. \\ .FALSE. \\ (Scope) & &
-Physics induced tendencies.&
-.TRUE. if iforcing=iecham\\
-.FALSE. else
-\tabularnewline
-
-\hline
-lwrite\_radiation &
-L&  .FALSE. & &
-Radiation related fields.&
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_precip &
-L&  .FALSE. & &
-Precipitation &
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_cloud&
-L& .FALSE.  & &
-Cloud variables &
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_tke& L& .TRUE. &
-& TKE & .FALSE.  \\
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_surface&
-L& .FALSE. & &
-surface variables &
-Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry
-\tabularnewline
-
-\hline
-lwrite\_extra&
-L& .FALSE. & &
-debug fields &
-.TRUE. if inextra\_2d /\_3d $> 0$ \\
-.FALSE. else
-\tabularnewline
 
 \hline
 inextra\_2d&
 I &
 0&&
-Number of 2D Fields for diagnostic/debugging output. &
+Number of extra 2D Fields for diagnostic/debugging output. &
 iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 \hline
 inextra\_3d&
 I &
 0&&
-Number of 3D Fields for diagnostic/debugging output. &
+Number of extra 3D Fields for diagnostic/debugging output. &
 iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 
@@ -2541,6 +2423,28 @@ transfer coefficient near surface for idealized LES simulation (Stevens 2007)&
 isrfc\_type=3
 \tabularnewline
 
+\hline
+vert\_scheme\_type & I & 2 &   &
+type of time integration scheme in vertical diffusion \\
+1 = explicit \\
+2 = fully implicit \\ &
+\tabularnewline
+
+\hline
+sampl\_freq\_sec & R & 60 & s  &
+sampling frequency in seconds for statistical (1D and 0D) output &
+\tabularnewline
+
+\hline
+avg\_interval\_sec & R & 900 & s  &
+(time) averaging interval in seconds for 1D statistical output &
+\tabularnewline
+
+\hline
+expname & C & ICOLES &   &
+expname to name the statistical output file &
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_les\_nml.f90
@@ -2557,7 +2461,7 @@ Defined and used in: src/namelists/mo\_les\_nml.f90
 itype\_latbc&
 I & 0& &
 Type of lateral boundary nudging. Nudge from\\
-0: the initial date,\\
+0: the initial data,\\
 1: IFS data analysis/forecast (if \texttt{init\_mode}=4, we take COSMO-DE data),\\
 2: ICON output data (with the identical 3d grid)&
 \tabularnewline
@@ -2565,9 +2469,9 @@ Type of lateral boundary nudging. Nudge from\\
 \hline
 dtime\_latbc&
 R &
-43200.0& s
+10800.0& s
 &
-Time step size of boundary data
+Time difference between two consecutive boundary data.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2577,7 +2481,7 @@ nlev\_latbc&
 I &
 0& s
 &
-Number of vertical levels in boundary data
+Number of vertical levels in boundary data.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2588,9 +2492,10 @@ C &
 &
 &
 Filename of boundary data input file, default:\\
-''\texttt{<path>prepicon<gridfile>\_<timestamp>}''. May contain the
-keyword ''\texttt{<path>}'' which will be substituted by
-\texttt{latbc\_path}.
+''\texttt{<path>prepiconR<nroot>B<jlev>\_<timestamp>}.nc''. Optional
+keyword \texttt{<path>} will be substituted by
+\texttt{latbc\_path}. \texttt{<timestamp>} will be automatically
+replaced in the run-time.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2598,20 +2503,10 @@ itype\_latbc $\ge$ 1
 \hline
 latbc\_path&
 C &
+''\texttt{./}''
 &
 &
 Absolute path to boundary data.
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-\hline
-lupdate\_qvqc&
-L &
-.FALSE.
-&
-&
-Switch to update $q_v$, $q_c$ from available boundary data. Only first ''\texttt{grf\_bdywidth\_c}'' cells and ''\texttt{grf\_bdywidth\_e}'' edges are updated.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -3349,7 +3244,7 @@ convection
 \hline
 inwp\_cldcover&
 I (max\_dom)&
-3&
+1&
 &
 cloud cover scheme for radiation
 &run\_nml/iforcing = inwp
@@ -3365,14 +3260,14 @@ cloud cover scheme for radiation
 &
 &
 &
-1: grid-scale clouds and QV
+1: diagnostic cloud cover (by Martin Koehler)
 &
 \tabularnewline
 &
 &
 &
 &
-2: clouds from COSMO turbulence scheme
+2: prognostic total water variance (not yet started)
 &
 \tabularnewline
 &
@@ -3380,6 +3275,20 @@ cloud cover scheme for radiation
 &
 &
 3: clouds from COSMO SGS cloud scheme
+&
+\tabularnewline
+&
+&
+&
+&
+4: clouds as in turbulence (turbdiff)
+&
+\tabularnewline
+&
+&
+&
+&
+5: grid scale clouds
 &
 \tabularnewline
 
@@ -3756,15 +3665,15 @@ I&-1& &
 \hline
  file\_interval &
 C&\'' \''& &
-Defines the length of a file in terms of an ISO-8601 duration string (see below).
-This namelist parameter can be set instead of \texttt{steps\_per\_file}.
+Defines the length of a file in terms of an ISO-8601 duration string. An example for this time stamp format is given below. This namelist parameter can be set instead of \texttt{steps\_per\_file}.
 &
 \tabularnewline
 
 \hline
  filename\_format &
 C&see description.& &
- Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, \texttt{levtype}, \texttt{levtype\_l}, \texttt{jfile}, \texttt{ddhhmmss}, \texttt{datetime} see below.
+ Output filename format. Includes keywords \texttt{path}, \texttt{output\_filename}, \texttt{physdom}, 
+ etc. (see below).
  Default is \texttt{<output\_filename>\_DOM<physdom>\_<levtype>\_<jfile>}
 &
 \tabularnewline
@@ -4046,6 +3955,17 @@ and   \texttt{hh}: hour, \texttt{mm}: minute, \texttt{ss}: second for time strin
 The general format for durations is \texttt{PnYnMnDTnHnMnS}.
 See, for example, \texttt{http://en.wikipedia.org/wiki/ISO\_8601} for details and further specifications.
 
+\color{red}NOTE: as the mtime library underlaying the output driver
+  currently has some restrictions concerning the specification of durations:\begin{enumerate}
+\item Any number \texttt{n} in \texttt{PnYnMnDTnHnMnS} must have two digits. For instance use \texttt{"PT06H"} instead of \texttt{"PT6H"}
+\item In a duration string \texttt{PnyearYnmonMndayDTnhrHnminMnsecS} the numbers \texttt{nxyz} must not pass the carry over number to the next larger time unit: 0<=nmon<=12, 0<=nhr<=23, 0<=nmin<=59, 0<=nsec<=59.999. For instance use \texttt{"P01D"} instead of \texttt{"PT24H"}, or \texttt{"PT01M"} instead of \texttt{"PT60S"}.
+\end{enumerate}
+
+Soon the formatting problem will be resolved and the valid number ranges will be enlarged.
+(2013-12-16).\color{black}
+
+
+
 \begin{tabbing}
   \parbox{0.7\textwidth}{\textbf{Examples}} \= \\
   date and time representation (\texttt{output\_start}, \texttt{output\_end}) \>
@@ -4081,14 +4001,16 @@ sets of common variables can be added to the output:
 \paragraph{Keyword substitution in output filename (\texttt{filename\_format}):}
 \begin{tabbing}
 \hspace*{0.4\textwidth} \= \kill
-\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                 \\
-\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                 \\
-\texttt{physdom}           \>  substituted by physical patch ID                         \\
-\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL'' \\
-\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                 \\
-\texttt{jfile}             \>  substituted by output file counter                       \\
-\texttt{datetime}          \>  substituted by ISO 8601 (absolute) date                  \\
-\texttt{ddhhmmss}          \>  substituted by (relative) day-hour-minute-second string
+\texttt{path}              \>  substituted by \texttt{model\_base\_dir}                    \\
+\texttt{output\_filename}  \>  substituted by \texttt{output\_filename}                    \\
+\texttt{physdom}           \>  substituted by physical patch ID                            \\
+\texttt{levtype}           \>  substituted by level type ``ML'', ``PL'', ``HL'', ``IL''    \\
+\texttt{levtype\_l}        \>  like \texttt{levtype}, but in lower case                    \\
+\texttt{jfile}             \>  substituted by output file counter                          \\
+\texttt{datetime}          \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYY-MM-DDThh:mm:ss.sssZ} \\
+\texttt{datetime2}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmssZ}         \\
+\texttt{datetime3}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmss.sssZ}     \\
+\texttt{ddhhmmss}          \>  substituted by \emph{relative} day-hour-minute-second string
 \end{tabbing}
 
 
@@ -4251,6 +4173,14 @@ Size of the send/receive buffers for the icon\_comm\_lib. &
 use\_dp\_mpi2io &
 L & .FALSE. & &
  Enable this flag if output fields shall be gathered by the output processes in DOUBLE PRECISION. &
+\tabularnewline
+
+\hline
+restart\_chunk\_size &
+I & 1 & &
+Number of levels to be buffered by the asynchronous restart process.
+The (asynchronous) restart is capable of writing and communicating
+more than one 2D slice at once. &
 \tabularnewline
 
 \end{longtab}
@@ -4521,6 +4451,13 @@ grid because the send buffer may then be empty on some PEs) & iequations = 3
 \tabularnewline
 
 \hline
+debug\_check\_level&
+I & 0& &
+Setting a value larger than 0 activates debug checks.
+& 
+\tabularnewline
+
+\hline
 output &
 C(:)& ``nml'',''totint'' & &
 Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
@@ -4677,6 +4614,15 @@ Defined and used in: src/namelists/mo\_sleve\_nml.f90
 \begin{longtab}
 
 \hline
+calendar&
+I& 1& &
+Calendar type: \\
+0=Julian/Gregorian \\
+1=proleptic Gregorian\\
+2=30day/month,360day/year &
+\tabularnewline
+
+\hline
 dt\_restart &
 R & 86400.*30.& s &
 Length of restart cycle in seconds.
@@ -4691,12 +4637,9 @@ restart file will NOT be generated at the end of the restart cycle.
 \tabularnewline
 
 \hline
-calendar&
-I& 1& &
-Calendar type: \\
-0=Julian/Gregorian \\
-1=proleptic Gregorian\\
-2=30day/month,360day/year &
+end\_datetime\_string &
+C & 2008-09-01T01:40:00Z' &&
+End date and time of the simulation&
 \tabularnewline
 
 \hline
@@ -4706,26 +4649,24 @@ Initial date and time of the simulation&
 \tabularnewline
 
 \hline
-end\_datetime\_string &
-C & 2008-09-01T01:40:00Z' &&
-End date and time of the simulation&
-\tabularnewline
-
-\hline
-&&&& Length of the run&
-\tabularnewline
-&&&& If "nsteps" in run\_nml (see below) is positive, then nsteps*dtime
-is used to compute the end date and time of the run.&
-\tabularnewline
-&&&& Else the initial date and time, the end date and time, dt\_restart,
-as well as the time step are used to compute "nsteps".&
+is\_relative\_time &
+L & .FALSE. &&
+.TRUE., if time loop shall start with
+step 0 regardless whether we are in a standard run or in a
+restarted run (which means re-initialized run).
 \tabularnewline
 
 \end{longtab}
 
+% -------------------------------------------------------------
+\paragraph{Length of the run}
+% -------------------------------------------------------------
 
+If "nsteps" in run\_nml is positive, then nsteps*dtime
+is used to compute the end date and time of the run.
 
-
+Else the initial date and time, the end date and time, dt\_restart,
+as well as the time step are used to compute "nsteps".
 
 
 %------------------------------------------------------------------------------
@@ -4744,7 +4685,7 @@ L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
 ihadv\_tracer&
 I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & 5& & 0: no horiz. transport & \tabularnewline
+& & 5& & 0: no horiz. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant) & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: Miura (2nd order, lin. reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
@@ -4761,7 +4702,7 @@ I(ntracer)&
 ivadv\_tracer&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport& \tabularnewline
+& & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
 & & & & 30: ppm (3rd order)& \tabularnewline
@@ -5928,6 +5869,17 @@ May contain the keyword \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}. &
 \tabularnewline
 
+\hline
+extpar\_varnames\_map\_file&
+C & ' '
+&
+&
+Filename of external parameter dictionary,
+This is a text file with two columns separated by whitespace, where
+left column: NetCDF name, right column: GRIB short name.
+ &
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_extpar\_nml.f90
@@ -6135,7 +6087,7 @@ model expects {\bf height based} coordinates. For further information see <icon 
 
 \begin{changeitem}{output\_nml: filename\_format }{ 2013-12-02 }{ 15068 }
   \begin{itemize}
-   \item The string token \texttt{<ddhhmmss>} is now substuted by the \emph{relative} day-hour-minute-second
+   \item The string token \texttt{<ddhhmmss>} is now substituted by the \emph{relative} day-hour-minute-second
          string, whereas the absolute date-time stamp can be inserted using \texttt{<datetime>}.
   \end{itemize}
 \end{changeitem}
@@ -6149,6 +6101,36 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{interpl\_nml: rbf\_vec\_scale\_ll }{ 2013-12-06 }{ 15156 }
+  \begin{itemize}
+   \item The real-valued namelist parameter \texttt{rbf\_vec\_scale\_ll} has been removed.
+   \item Now, there exists a new integer-valued namelist parameter, \texttt{rbf\_scale\_mode\_ll}
+         which specifies the mode, how the RBF shape parameter is
+         determined for lon-lat interpolation.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{io\_nml }{ 2013-12-06 }{ 15161 }
+  \begin{itemize}
+   \item Removed remaining vlist-related namelist parameter. This means that the parameters
+         \begin{itemize}
+            \item out\_filetype
+            \item out\_expname
+            \item dt\_data
+            \item dt\_file
+            \item lwrite\_dblprec, lwrite\_decomposition, lwrite\_vorticity, lwrite\_divergence, lwrite\_pres, 
+                  lwrite\_z3, lwrite\_tracer, lwrite\_tend\_phy, lwrite\_radiation, lwrite\_precip, lwrite\_cloud, 
+                  lwrite\_tke, lwrite\_surface, lwrite\_omega, lwrite\_initial, lwrite\_oce\_timestepping
+         \end{itemize}
+         are no longer available.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{gridref\_nml}{ 2014-01-07 }{ 15436 }
+  \begin{itemize}
+   \item Changed namelist defaults for nesting: \texttt{grf\_intmethod\_e}, \texttt{l\_mass\_consvcorr}, \texttt{l\_density\_nudging}.
+  \end{itemize}
+\end{changeitem}
 
 
 % --------------------------------------------------------------------------------------------

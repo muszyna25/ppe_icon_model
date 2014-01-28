@@ -50,14 +50,7 @@ l_log_checks       = .false.
  nh_test_name      = 'jabw_s'     ! test case identifier
 /
 &io_ctl
- out_expname       = '${EXPNAME}' ! file name base
- dt_data           = 86400.0      ! [s] output interval
  dt_diag           = ${DT_DIAG}
- lwrite_vorticity  = .TRUE.
- lwrite_pres       = .TRUE.
- lwrite_z3         = .TRUE.
- lwrite_omega      = .TRUE.
- lwrite_divergence = .TRUE.
 /
 &grid_ctl
  nroot       = ${R}         ! root division of icosahedron edges

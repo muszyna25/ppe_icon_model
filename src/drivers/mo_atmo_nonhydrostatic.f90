@@ -36,14 +36,14 @@ USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp
 USE mo_mpi,                  ONLY: my_process_is_stdio
-USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
-  &                                timer_stop, timer_model_init
+USE mo_timer,                ONLY: print_timer, timers_level, timer_start, timer_stop, &
+  &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_var_list,             ONLY: print_var_list
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
-USE mo_io_config,            ONLY: dt_file,dt_diag,dt_checkpoint
+USE mo_io_config,            ONLY: dt_diag,dt_checkpoint
 USE mo_parallel_config,      ONLY: nproma
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
@@ -57,7 +57,7 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                msg_level,            & !    namelist parameter
   &                                lvert_nest, ntracer,  &
   &                                iqc, iqt
-USE mo_dynamics_config,      ONLY: nnow, nnow_rcf, iequations
+USE mo_dynamics_config,      ONLY: iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, is_plane_torus
@@ -76,7 +76,6 @@ USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_diag_list, prm_nwp_tend_lis
   &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
-USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
@@ -90,12 +89,12 @@ USE mo_name_list_output_config,   ONLY: first_output_name_list, &
 USE mo_name_list_output_init, ONLY: init_name_list_output, &
   &                               parse_variable_groups
 USE mo_name_list_output,    ONLY: close_name_list_output
-USE mo_name_list_output_init, ONLY: output_file
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
-USE mtime,                  ONLY: setCalendar, PROLEPTIC_GREGORIAN
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
+USE mo_action,              ONLY: action_init
+USE mo_turbulent_diagnostic, ONLY: init_les_turbulent_output, close_les_turbulent_output
 
 !-------------------------------------------------------------------------
 
@@ -106,7 +105,7 @@ PUBLIC :: atmo_nonhydrostatic
 PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
 ! module data
-INTEGER :: n_file, n_diag, n_chkpt
+INTEGER :: n_diag, n_chkpt
 
 CONTAINS
 
@@ -150,6 +149,7 @@ CONTAINS
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
 
+
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
     DO jg=1,n_dom
@@ -163,7 +163,7 @@ CONTAINS
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
-      CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
+      CALL configure_atm_phy_nwp(n_dom, pat_level(:), dtime_adv )
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom
@@ -229,6 +229,9 @@ CONTAINS
 
     CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
+#ifdef MESSY
+    CALL messy_init_memory
+#endif
 
     ! Due to the required ability to overwrite advection-Namelist settings 
     ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called 
@@ -243,6 +246,9 @@ CONTAINS
        &                      lvert_nest, l_open_ubc, ntracer ) 
     ENDDO
 
+#ifdef MESSY
+    CALL messy_init_coupling
+#endif
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -262,6 +268,7 @@ CONTAINS
     IF (is_restart_run()) THEN
       ! This is a resumed integration. Read model state from restart file(s).
 
+      IF (timers_level > 5) CALL timer_start(timer_read_restart)
 #ifdef NOMPI
       CALL read_restart_files
 #else
@@ -271,6 +278,7 @@ CONTAINS
       !END DO
 #endif      
       CALL message(TRIM(routine),'normal exit from read_restart_files')
+      IF (timers_level > 5) CALL timer_stop(timer_read_restart)
 
     ENDIF
 
@@ -307,8 +315,10 @@ CONTAINS
     !
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
+      IF (timers_level > 5) CALL timer_start(timer_init_icon)
       CALL init_icon (p_patch(1:), p_nh_state(1:), prm_diag(1:), p_lnd_state(1:), &
         &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
+      IF (timers_level > 5) CALL timer_stop(timer_init_icon)
 
     ENDIF
 
@@ -318,8 +328,7 @@ CONTAINS
     ! compute time step interval for taking a certain action
     !--------------------------------------------------------- 
  
-    ! writing output is now controlled via 'istime4output'
-    n_file  = NINT(dt_file/dtime)        ! trigger new output file
+    ! !!OUTDATED!! writing output is now controlled via 'istime4output' !!OUTDATED!!
     n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
     n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
@@ -334,15 +343,18 @@ CONTAINS
         &                     p_patch(jg)%nblks_c)
     ENDDO
 
+
+    ! Add a special metrics variable containing the area weights of
+    ! the regular lon-lat grid.
+    CALL compute_lonlat_area_weights()
+
     ! Map the variable groups given in the output namelist onto the
     ! corresponding variable subsets:
+    ! ATTENTION: all add_vars must be finished before calling this routine.
     IF (output_mode%l_nml) THEN
       CALL parse_variable_groups()
     END IF
    
-    ! Add a special metrics variable containing the area weights of
-    ! the regular lon-lat grid.
-    CALL compute_lonlat_area_weights()
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
@@ -351,20 +363,31 @@ CONTAINS
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
       ! compute sim_start, sim_end
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
       CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-      sim_step_info%dtime     = dtime
-      sim_step_info%iadv_rcf  = iadv_rcf
+      CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
+        &                      INT(time_config%dt_restart))
+      CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+      sim_step_info%dtime      = dtime
+      sim_step_info%iadv_rcf   = iadv_rcf
       jstep0 = 0
-      IF (is_restart_run()) THEN
+      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
         CALL get_restart_attribute("jstep", jstep0)
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info, opt_isample=iadv_rcf)
     END IF
+
+
+    !----------------------!
+    !  Initialize actions  !
+    !----------------------!
+    !
+    ! assign variables to existing actions
+    CALL action_init()
+
 
     ! for debug purpose: print var lists
     IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
@@ -378,6 +401,16 @@ CONTAINS
       CALL print_var_list (ext_data(1)%atm_list)
       CALL print_var_list (ext_data(1)%atm_td_list)
     ENDIF
+
+    !Anurag Dipankar, MPIM (2014-01-14)
+    !Special 1D and 0D output for LES runs till we get add_var/nml_out working
+    IF(atm_phy_nwp_config(1)%is_les_phy .AND. is_restart_run()) &
+      CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
+                             time_config%sim_time(1), ldelete=.FALSE.)
+
+    IF(atm_phy_nwp_config(1)%is_les_phy .AND. .NOT.is_restart_run()) &
+      CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
+                             time_config%sim_time(1), ldelete=.TRUE.)
 
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
@@ -397,6 +430,10 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL message(TRIM(routine),'start to clean up')
+
+#ifdef MESSY
+    CALL messy_free_memory
+#endif
 
     ! Destruction of post-processing job queue
     CALL pp_scheduler_finalize()
@@ -433,6 +470,9 @@ CONTAINS
         DEALLOCATE(meteogram_output_config(jg)%station_list)
       END DO
     END IF
+
+    IF(atm_phy_nwp_config(1)%is_les_phy) &
+      CALL close_les_turbulent_output
 
     CALL message(TRIM(routine),'clean-up finished')
     

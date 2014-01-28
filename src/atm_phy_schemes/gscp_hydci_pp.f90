@@ -277,9 +277,9 @@ LOGICAL, PARAMETER :: &
   lnew_ni_cooper = .TRUE.  ! Number of ice crystals according to Cooper (1986)
 
 REAL(ireals), PARAMETER :: &
-  zceff_min = 0.2_ireals   ! Lower bound on sticking efficiency (artifically enhances the conversion
-                           ! of cloud ice to snow at low temperatures - unfortunately, the scores 
-                           ! get worse when relaxing this parameter)
+  zceff_fac        = 3.5E-3_ireals, & ! Scaling factor [1/K] for temperature-dependent cloud ice sticking efficiency
+  tmin_iceautoconv = 188.15_ireals, & ! Temperature at which cloud ice autoconversion starts
+  zceff_min        = 0.02_ireals      ! Minimum value for sticking efficiency
 
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
@@ -377,7 +377,7 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   zmi0   = 1.0E-12_ireals, & ! initial crystal mass for cloud ice nucleation
   zmimax = 1.0E-9_ireals , & ! maximum mass of cloud ice crystals   
   zmsmin = 3.0E-9_ireals , & ! initial mass of snow crystals        
-  zvz0i  = 1.1_ireals   , & ! Terminal fall velocity of ice (Heymsfield+Donner 1990 multiplied by 1/3)
+  zvz0i  = 1.1_ireals    , & ! Terminal fall velocity of ice (Heymsfield+Donner 1990 multiplied by 1/3)
   zbvi   = 0.16_ireals   , & ! v = zvz0i*rhoqi^zbvi
 
   !! Constant exponents in the transfer rate equations
@@ -798,7 +798,7 @@ SUBROUTINE hydci_pp (             &
     zsimax , zsisum , zsvmax,   & ! terms for limiting total
     zqvsw,             & ! sat. specitic humidity at ice and water saturation
     zztau, zxfac, zx1, zx2, ztt, &   ! some help variables
-    ztau, zphi, zhi, zdvtp, ztc
+    ztau, zphi, zhi, zdvtp, ztc, zlog_10
 
   REAL    (KIND=ireals   ) ::  &
     zqct   ,& ! layer tendency of cloud water
@@ -813,7 +813,7 @@ SUBROUTINE hydci_pp (             &
   REAL    (KIND=ireals   ) ::  &
     zlnqrk,zlnqsk,     & !
     zlnlogmi,               & !
-    qcg,tg,qvg,qrg, qsg,qig,rhog,ppg, alf,bet,m2s,m3s,hlp,maxevap,temp_c
+    qcg,tg,qvg,qrg, qsg,qig,rhog,ppg, alf,bet,m2s,m3s,hlp,maxevap,temp_c, stickeff
 
   LOGICAL :: &
     llqr,llqs,llqc,llqi  !   switch for existence of qr, qs, qc, qi
@@ -977,7 +977,10 @@ SUBROUTINE hydci_pp (             &
     znimax = fxna(zthn) ! Maximum number of cloud ice crystals
     znimix = fxna(ztmix) ! number of ice crystals at temp threshold for mixed-phase clouds
   END IF
-    zpvsw0 = fpvsw(t0)  ! sat. vap. pressure for t = t0
+
+  zpvsw0 = fpvsw(t0)  ! sat. vap. pressure for t = t0
+
+  zlog_10 = LOG(10._ireals) ! logarithm of 10
 
 ! Delete precipitation fluxes from previous timestep
 !CDIR BEGIN COLLAPSE
@@ -1179,7 +1182,7 @@ SUBROUTINE hydci_pp (             &
         hlp = mma(1) + mma(2)*ztc + mma(3)*nnr + mma(4)*ztc*nnr &
           & + mma(5)*ztc**2 + mma(6)*nnr**2 + mma(7)*ztc**2*nnr &
           & + mma(8)*ztc*nnr**2 + mma(9)*ztc**3 + mma(10)*nnr**3
-        alf = 10.0_ireals**hlp
+        alf = EXP(hlp*zlog_10) ! 10.0_ireals**hlp
         bet = mmb(1) + mmb(2)*ztc + mmb(3)*nnr + mmb(4)*ztc*nnr &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
@@ -1482,8 +1485,10 @@ SUBROUTINE hydci_pp (             &
         ! Seifert and Beheng (2001) autoconversion rate
         ! with constant cloud droplet number concentration cloud_num
         IF (qcg > 1e-6) THEN
-          ztau   = MIN(1.0_ireals-qcg/(qcg+qrg),0.9_ireals) 
-          zphi   = zkphi1 * ztau**zkphi2 * (1.0_ireals - ztau**zkphi2)**3
+          ztau   = MIN(1.0_ireals-qcg/(qcg+qrg),0.9_ireals)
+          ztau   = MAX(ztau,1.E-30_ireals)
+          hlp    = EXP(zkphi2*LOG(ztau))
+          zphi   = zkphi1 * hlp * (1.0_ireals - hlp)**3
           zscau  = zconst * qcg*qcg*qcg*qcg &
             &    * (1.0_ireals + zphi/(1.0_ireals - ztau)**2)
           zphi   = (ztau/(ztau+zkphi3))**4
@@ -1561,20 +1566,21 @@ SUBROUTINE hydci_pp (             &
 
       IF (tg<=t0) THEN
         IF( lnew_ni_cooper) THEN
-          znin    = MIN( fxna_cooper(tg), znimax )
+          znin   = MIN( fxna_cooper(tg), znimax )
         ELSE
-          znin    = MIN( fxna(tg), znimax )
+          znin   = MIN( fxna(tg), znimax )
         END IF
-        zmi     = MIN( rhog*qig/znin, zmimax )
-        zmi     = MAX( zmi0, zmi )
-        zsvmax  = (qvg - zqvsi(iv)) * zdtr
-        zsagg   = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
-        zsagg   = MAX( zsagg, 0.0_ireals ) * MAX(zceff_min,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
-        znid      = rhog * qig/zmi
+        stickeff = MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals)
+        stickeff = MAX(stickeff, zceff_min, zceff_fac*(tg-tmin_iceautoconv))
+        zmi      = MIN( rhog*qig/znin, zmimax )
+        zmi      = MAX( zmi0, zmi )
+        zsvmax   = (qvg - zqvsi(iv)) * zdtr
+        zsagg    = zcagg(iv) * EXP(ccsaxp*LOG(zcslam(iv))) * qig
+        zsagg    = MAX( zsagg, 0.0_ireals ) * stickeff
+        znid     = rhog * qig/zmi
         IF (llqi) THEN
-          zlnlogmi= LOG (zmi)
-          zsidep    = zcidep(iv) * znid * EXP(0.33_ireals * zlnlogmi)   &
-                        * ( qvg - zqvsi(iv) )
+          zlnlogmi = LOG (zmi)
+          zsidep   = zcidep(iv) * znid * EXP(0.33_ireals * zlnlogmi) * (qvg - zqvsi(iv))
         ELSE
           zsidep = 0.0_ireals
         ENDIF
@@ -1586,8 +1592,7 @@ SUBROUTINE hydci_pp (             &
         ELSEIF (zsidep < 0.0_ireals ) THEN
           zsvisub = - MAX(-zsimax, zsvmax )
         ENDIF
-        zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) &
-          * MAX(zceff_min,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
+        zsiau = zciau * MAX( qig - qi0, 0.0_ireals ) * stickeff
         IF (llqi) THEN
           zlnlogmi = LOG(zmsmin/zmi)
           zztau    = 1.5_ireals*( EXP(0.66_ireals*zlnlogmi) - 1.0_ireals)

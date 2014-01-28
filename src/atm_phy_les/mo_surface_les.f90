@@ -53,26 +53,26 @@ MODULE mo_surface_les
                                     edges2cells_scalar, verts2cells_scalar, &
                                     edges2cells_vector
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: ltimer
+  USE mo_run_config,          ONLY: ltimer, msg_level
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult, sync_patch_array, global_max, &
                                     global_sum_array
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1
+  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1, rcpd
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_math_constants,      ONLY: pi_2, ln2, dbl_eps
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_data_turbdiff,       ONLY: akt, alpha0, z0_ice  
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
   USE mo_util_phys,           ONLY: nwp_dyn_gust
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nh_testcases_nml,    ONLY: th_cbl  
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
 
@@ -88,6 +88,7 @@ MODULE mo_surface_les
   REAL(wp), PARAMETER :: bsh = 4.7_wp  !Businger Stable Heat
   REAL(wp), PARAMETER :: buh = 9._wp   !Businger Untable Heat
   REAL(wp), PARAMETER :: Pr  = 0.74_wp !Km/Kh factor  
+  REAL(wp), PARAMETER :: min_wind = 0.01_wp !min wind
 
   !Parameters for surface parameterizations from COSMO docs
   REAL(wp), PARAMETER :: beta_10 = 0.042_wp
@@ -104,6 +105,9 @@ MODULE mo_surface_les
   REAL(wp), PARAMETER :: th0_rico = 298.5_wp
   REAL(wp), PARAMETER :: psfc = 101540._wp
 
+  CHARACTER(len=12)  :: str_module = 'surface_les'  ! Output of module for 1 line debug
+  INTEGER            :: idt_src    = 4           ! Determines level of detail for 1 line debug
+
   CONTAINS
 
 
@@ -118,7 +122,7 @@ MODULE mo_surface_les
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
   SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, &
-                                 prm_diag, theta, qv)
+                                 prm_diag, theta, qv, visc_sfc_c)
 
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
@@ -130,18 +134,22 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
+    REAL(wp),          INTENT(inout)     :: visc_sfc_c(:,:)!apparent visc at surface
 
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, mwind, bflux
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp), POINTER :: pres_sfc(:,:)
-    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, t_sfc, psfc 
+    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2  
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc
+    INTEGER :: jk, jb, jc, isidx, isblk, rl
     INTEGER :: nlev, jg, itr
     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_surface_les:surface_conditions'
+
+    IF (msg_level >= 15) &
+         CALL message(TRIM(routine), '')
 
     jg = p_patch%id
 
@@ -149,15 +157,15 @@ MODULE mo_surface_les
 
     ! number of vertical levels
     nlev = p_patch%nlev
-    jk = nlev
+    jk   = nlev
+
     i_nchdom   = MAX(1,p_patch%n_childdom)
    
-    !exclude halo and boundary interpolation points      
-    rl_start   = grf_bdywidth_c+1
+    !exclude halo 
+    rl_start   = grf_bdywidth_c+1 
     rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-     
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)         
 
     SELECT CASE(les_config(jg)%isrfc_type)
 
@@ -171,6 +179,7 @@ MODULE mo_surface_les
      !are calculated by calling turbtrans using GME approach. See comment on mo_interface_les
      !where it is called. Status as on 11.09.2013 (AD)
 
+     !Calculate visc_sfc_c for this case (03-12-2013)
 
      !1) Get roughness length
 !!$OMP PARALLEL
@@ -219,7 +228,7 @@ MODULE mo_surface_les
 !                 jc = ext_data%atm%idx_lst_spw(ic,jb)
 !
 !                 !Mean wind at nlev
-!                 mwind  = MAX( dbl_eps,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+!                 mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
 !           
 !                 !previous z0
 !                 IF(linit)THEN
@@ -248,7 +257,7 @@ MODULE mo_surface_les
 !                 jc = ext_data%atm%idx_lst_fp(ic,jb)
 ! 
 !                 !Mean wind at nlev
-!                 mwind  = MAX( dbl_eps,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+!                 mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
 !             
 !                 !previous z0
 !                 IF(linit)THEN
@@ -313,7 +322,7 @@ MODULE mo_surface_les
 !           theta_sfc = p_prog_lnd_new%t_g(jc,jb) / exner
 !
 !           !Mean wind at nlev
-!           mwind  = MAX( dbl_eps,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+!           mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
 !          
 !           !Z height to be used as a reference height in surface layer
 !           z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
@@ -392,9 +401,41 @@ MODULE mo_surface_les
 !
 !
 !       END DO !jb
-!!$OMP END DO NOWAIT
+!!$OMP END DO 
 !!$OMP END PARALLEL
 !
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,mwind,rhos),ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+         DO jc = i_startidx, i_endidx
+
+           !Get apparent viscosity at the surface from the surface fluxes: to be used
+           !in mo_sgs_turbulence
+           
+           !Mean wind at nlev
+           mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+
+           !Get surface fluxes
+           !rho at surface: no qc at suface
+           rhos   =  pres_sfc(jc,jb)/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
+
+           visc_sfc_c(jc,jb) = ABS(prm_diag%tch(jc,jb)*mwind*p_nh_metrics%z_mc(jc,jk,jb)*&
+                                   les_config(jg)%turb_prandtl)
+         END DO  
+      END DO
+!$OMP END DO 
+!$OMP END PARALLEL
+
+      !change sign of surface fluxes
+      prm_diag%shfl_s  = - prm_diag%shfl_s
+      prm_diag%lhfl_s  = - prm_diag%lhfl_s
+      prm_diag%umfl_s  = - prm_diag%umfl_s
+      prm_diag%vmfl_s  = - prm_diag%vmfl_s
+ 
     !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
     CASE(2)
 
@@ -421,7 +462,7 @@ MODULE mo_surface_les
                    vtmpc1*th0_srf*les_config(jg)%lhflx)/th0_srf
 
             !Mean wind at nlev
-            mwind  = MAX( dbl_eps,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+            mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
             !Z height
             z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
@@ -456,58 +497,56 @@ MODULE mo_surface_les
             prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%u(jc,jk,jb) / mwind
             prm_diag%vmfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%v(jc,jk,jb) / mwind
- 
+
+           !Get apparent viscosity at the surface from the surface fluxes: to be used
+           !in mo_sgs_turbulence
+           visc_sfc_c(jc,jb) = rhos*ABS(les_config(jg)%shflx)*p_nh_metrics%z_mc(jc,jk,jb)* &
+                               les_config(jg)%turb_prandtl/ABS(theta(jc,jk,jb)-theta_sfc) 
+
          END DO  
       END DO
-!$OMP END DO NOWAIT
+!$OMP END DO 
 !$OMP END PARALLEL
 
     !Prescribed buoyancy flux and transfer coefficient at surface to get a uniform SST (Stevens 2007 JAS)
-    !It uses fixed transfer coefficient and assumes that q_s is saturated 
+    !It uses fixed transfer coefficient and assumes that q_s is saturated
+    !It assumes that surface temperature is same as theta at surface
     CASE(3)
 
       !Get mean theta and qv at first model level and mean surface pressure
 
-!$OMP PARALLEL WORKSHARE
       var(:,:) = theta(:,jk,:)
-!$OMP END PARALLEL WORKSHARE
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       theta_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
-!$OMP PARALLEL WORKSHARE
       var(:,:) = qv(:,jk,:)
-!$OMP END PARALLEL WORKSHARE
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       qv_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
-!$OMP PARALLEL WORKSHARE
-      var(:,:) = pres_sfc(:,:)
-!$OMP END PARALLEL WORKSHARE
-      WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
-      psfc =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
       !Iterate to get surface temperature given buoyancy flux:following UCLA-LES
-      !Note that t_g(:,:) is uniform so the first index is used below
-      theta_sfc = p_prog_lnd_now%t_g(i_startidx,i_startblk)
-      t_sfc     = theta_sfc * EXP( rd_o_cpd*LOG(psfc/p0ref) )
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(itr,bflx1,bflx2),ICON_OMP_RUNTIME_SCHEDULE 
+      !Note that t_g(:,:) is uniform so the first index is used below
+      rl    = grf_bdywidth_c+1
+      isblk = p_patch%cells%start_blk(rl,1)
+      isidx = p_patch%cells%start_idx(rl,1)
+      theta_sfc = p_prog_lnd_now%t_g(isidx,isblk)
+
       DO itr = 1 , 10
          bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                 theta_sfc*(spec_humi(sat_pres_water(t_sfc),psfc)- &
+                 theta_sfc*(spec_humi(sat_pres_water(theta_sfc),p0ref)- &
                  qv_nlev) )*grav/th_cbl(1)
-            
+
          theta_sfc = theta_sfc + 0.1_wp 
 
          bflx2 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                 theta_sfc*(spec_humi(sat_pres_water(t_sfc),psfc)- &
+                 theta_sfc*(spec_humi(sat_pres_water(theta_sfc),p0ref)- &
                  qv_nlev) )*grav/th_cbl(1)
 
          theta_sfc = theta_sfc + 0.1_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
       END DO               
-!$OMP END DO
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -515,7 +554,7 @@ MODULE mo_surface_les
          DO jc = i_startidx, i_endidx
 
             !Mean wind at nlev
-            mwind  = MAX( dbl_eps,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+            mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
             !Now diagnose friction velocity (ustar)
             IF(les_config(jg)%ufric<0._wp)THEN
@@ -531,13 +570,13 @@ MODULE mo_surface_les
             END IF
 
             !Surface temperature
-            p_prog_lnd_new%t_g(jc,jb) = theta_sfc * EXP( rd_o_cpd*LOG(p0ref/pres_sfc(jc,jb)) )
+            p_prog_lnd_new%t_g(jc,jb) = theta_sfc 
 
             !Get surface qv 
-            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),pres_sfc(jc,jb))
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),p0ref)
 
             !Get surface fluxes
-            rhos   =  pres_sfc(jc,jb)/( rd * &
+            rhos   =  p0ref/( rd * &
                       p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
             prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff*(theta_sfc-theta(jc,jk,jb))
@@ -545,9 +584,14 @@ MODULE mo_surface_les
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%u(jc,jk,jb) / mwind
             prm_diag%vmfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
+           !Get apparent viscosity at the surface from the surface fluxes: to be used
+           !in mo_sgs_turbulence
+           visc_sfc_c(jc,jb) = rhos*ABS(les_config(jg)%tran_coeff)*p_nh_metrics%z_mc(jc,jk,jb)*&
+                               les_config(jg)%turb_prandtl
+
          END DO  
       END DO
-!$OMP END DO NOWAIT
+!$OMP END DO 
 !$OMP END PARALLEL
 
    !Rico case
@@ -581,6 +625,11 @@ MODULE mo_surface_les
             prm_diag%umfl_s(jc,jb)  = umfl * rhos
             prm_diag%vmfl_s(jc,jb)  = vmfl * rhos
 
+           !Get apparent viscosity at the surface from the surface fluxes: to be used
+           !in mo_sgs_turbulence
+           visc_sfc_c(jc,jb) = rhos*ABS(shfl)*p_nh_metrics%z_mc(jc,jk,jb)* &
+                               les_config(jg)%turb_prandtl/ABS(theta(jc,jk,jb)-th0_rico) 
+
         END DO  
       END DO
  
@@ -605,7 +654,7 @@ MODULE mo_surface_les
            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(les_config(jg)%sst),pres_sfc(jc,jb))
 
            !Mean wind at nlev
-           mwind  = MAX( dbl_eps, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+           mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
           
            !Z height to be used as a reference height in surface layer
            z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
@@ -629,16 +678,22 @@ MODULE mo_surface_les
 
            prm_diag%shfl_s(jc,jb)  = rhos*cpd*prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
            prm_diag%lhfl_s(jc,jb)  = rhos*alv*prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
-           prm_diag%umfl_s(jc,jb)  = -rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb) 
-           prm_diag%vmfl_s(jc,jb)  = -rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%v(jc,jk,jb) 
+           prm_diag%umfl_s(jc,jb)  = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb) 
+           prm_diag%vmfl_s(jc,jb)  = rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%v(jc,jk,jb) 
+
+           !Get apparent viscosity at the surface from the surface fluxes: to be used
+           !in mo_sgs_turbulence
+           visc_sfc_c(jc,jb) = rhos*ABS(prm_diag%tch(jc,jb))*mwind*z_mc*les_config(jg)%turb_prandtl
+           
          END DO
       END DO   
-!!$OMP END DO NOWAIT
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SELECT 
 
-  !Sync is required for mom fluxes
+  !Sync is required for mom fluxes and visc_sfc_c
+  CALL sync_patch_array(SYNC_C, p_patch, visc_sfc_c)
   CALL sync_patch_array(SYNC_C, p_patch, prm_diag%umfl_s)
   CALL sync_patch_array(SYNC_C, p_patch, prm_diag%vmfl_s)
 

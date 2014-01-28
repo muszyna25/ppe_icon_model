@@ -216,15 +216,15 @@ MODULE mo_nh_torus_exp
             &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
       END DO
 
-      IF ( jb == 1 ) THEN
-        DO jk = 1,nlev
-          write(*,*) 'CBL case setup: level, p, T, theta,v, qv: ', jk,   &
-            & ptr_nh_prog%exner(1,jk,jb)**(cpd/rd) * p0ref,              &
-            & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb), &
-            & ptr_nh_prog%theta_v(1,jk,jb),                              &
-            & ptr_nh_prog%tracer(1,jk,jb,iqv)
-        ENDDO
-      ENDIF
+      !IF ( jb == 1 ) THEN
+      !  DO jk = 1,nlev
+      !    write(*,*) 'CBL case setup: level, p, T, theta,v, qv: ', jk,   &
+      !      & ptr_nh_prog%exner(1,jk,jb)**(cpd/rd) * p0ref,              &
+      !      & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb), &
+      !      & ptr_nh_prog%theta_v(1,jk,jb),                              &
+      !      & ptr_nh_prog%tracer(1,jk,jb,iqv)
+      !  ENDDO
+      !ENDIF
 
       DO jk = 1 , nlev
          ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &

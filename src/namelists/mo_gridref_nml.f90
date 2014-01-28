@@ -55,7 +55,8 @@ MODULE mo_gridref_nml
     &                            config_l_mass_consvcorr   => l_mass_consvcorr,&
     &                            config_l_density_nudging  => l_density_nudging,&
     &                            config_denom_diffu_v      => denom_diffu_v,&
-    &                            config_denom_diffu_t      => denom_diffu_t
+    &                            config_denom_diffu_t      => denom_diffu_t,&
+    &                            config_fbk_relax_timescale => fbk_relax_timescale
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
 
@@ -100,12 +101,15 @@ MODULE mo_gridref_nml
   ! Denominators of normalized diffusion coefficients for boundary diffusion
   REAL(wp) :: denom_diffu_v, denom_diffu_t
 
-  NAMELIST/gridref_nml/  rbf_vec_kern_grf_e, rbf_scale_grf_e,             &
-    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
-    &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
-    &                    grf_intmethod_c, grf_intmethod_e,                &
-    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t,  &
-    &                    l_mass_consvcorr, l_density_nudging
+  ! Relaxation time scale for feedback in case of ifeedback_type = 2
+  REAL(wp) :: fbk_relax_timescale
+
+  NAMELIST/gridref_nml/  rbf_vec_kern_grf_e, rbf_scale_grf_e,                   &
+    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,                  &
+    &                    grf_idw_exp_e12, grf_idw_exp_e34,                      &
+    &                    grf_intmethod_c, grf_intmethod_e,                      &
+    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t,        &
+    &                    l_mass_consvcorr, l_density_nudging, fbk_relax_timescale
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -137,8 +141,9 @@ CONTAINS
     ! Switch for interpolation method used for tracer variables
     grf_intmethod_ct  = 2     ! 1: copying, 2: gradient-based interpolation
     ! Currently, grf_intmethod_c is used for temperature only; other variables are copied
-    grf_intmethod_e   = 4     ! 1: IDW, 2: RBF, 3: IDW/gradient-based, 
-                              ! 4: RBF/gradient-based
+    grf_intmethod_e   = 6     ! 1: IDW, 2: RBF, 3: IDW/gradient-based, 
+                              ! 4: RBF/gradient-based,
+                              ! 5/6: same as 3/4, but direct interpolation of mass fluxes
 
     ! Switch for velocity feedback method.
     grf_velfbk      = 1       ! 1: average over child edges 1 and 2
@@ -169,11 +174,15 @@ CONTAINS
     ! Denominator for velocity boundary diffusion
     denom_diffu_v = 200._wp
 
-    ! Mass conservation correction turned on by default
-    l_mass_consvcorr = .TRUE. 
+    ! Mass conservation correction turned off by default
+    l_mass_consvcorr = .FALSE. 
 
-    ! Density nudging near nest boundaries turned on by default
-    l_density_nudging = .TRUE.
+    ! Density nudging near nest boundaries turned off by default
+    ! only applicable for grf_intmethod_e <= 4
+    l_density_nudging = .FALSE.
+
+    ! Relaxation time scale for feedback in case of ifeedback_type = 2
+    fbk_relax_timescale = 10800._wp ! 3 hours
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -221,6 +230,7 @@ CONTAINS
       config_denom_diffu_t = denom_diffu_t
       config_l_mass_consvcorr = l_mass_consvcorr
       config_l_density_nudging = l_density_nudging
+      config_fbk_relax_timescale = fbk_relax_timescale
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

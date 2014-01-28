@@ -200,9 +200,6 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< ground fraction covered by deciduous forest [ ]
       &  for_d(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), POINTER ::   &   !< urban area fraction                     [ ]
-      &  urban(:,:)            ! index1=1,nproma, index2=1,nblks_c
-
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
       &  rsmin(:,:)            ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]

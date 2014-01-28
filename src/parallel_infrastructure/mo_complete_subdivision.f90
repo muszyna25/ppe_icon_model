@@ -37,35 +37,31 @@
 !!
 MODULE mo_complete_subdivision
   !-------------------------------------------------------------------------
-  USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
-    & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
-    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_phys_dom
-  USE mo_exception,          ONLY: finish, message, message_text,    &
-    &                              get_filename_noext
+  USE mo_impl_constants,     ONLY: min_rlcell, min_rledge, &
+    & min_rlcell_int, min_rledge_int, max_phys_dom
+  USE mo_exception,          ONLY: finish, message, message_text
 
-  USE mo_model_domain,       ONLY: t_patch, t_patch_3D, p_patch,      &
-    &                              p_patch_local_parent,  &
+  USE mo_model_domain,       ONLY: t_patch, p_patch, p_patch_local_parent, &
     &                              p_phys_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, get_local_index, &
     &                              get_valid_local_index, t_glb2loc_index_lookup
-  USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split
+  USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
+  USE mo_mpi,                ONLY: MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
-    & get_my_mpi_all_id, my_process_is_mpi_parallel, null_comm_type,    &
-    & set_mpi_work_communicators, set_comm_input_bcast
+    & my_process_is_mpi_workroot, p_pe_work, p_n_work, my_process_is_mpi_parallel
 
-  USE mo_parallel_config,    ONLY:  nproma, p_test_run, division_method
-  USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d
+  USE mo_parallel_config,    ONLY:  p_test_run
+  USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
+    &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
+    &                              ASSIGNMENT(=), delete_comm_gather_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
-    & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
-    & grf_bdywidth_c, grf_bdywidth_e
+    & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
+    & grf_bdywidth_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, n_phys_dom
-  USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
+  USE mo_dist_dir,            ONLY: dist_dir_get_owners
   IMPLICIT NONE
 
   PRIVATE
@@ -80,8 +76,6 @@ MODULE mo_complete_subdivision
   PUBLIC :: setup_phys_patches
   PUBLIC :: set_comm_pat_gather
   PUBLIC :: complete_parallel_setup
-  PUBLIC :: complete_parallel_setup_oce
-  PUBLIC :: finalize_decomposition_oce
 
 
 CONTAINS
@@ -205,56 +199,64 @@ CONTAINS
   !-----------------------------------------------------------------------------
   ! sets communication patterns and parent-child relationships.
   !
-  SUBROUTINE complete_parallel_setup
+  SUBROUTINE complete_parallel_setup(patch, is_ocean_decomposition)
+
+    TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
+    LOGICAL, INTENT(IN) :: is_ocean_decomposition
 
     INTEGER :: jg, jgp
 
+    IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
+      CALL finish('finalize_decomposition_oce', &
+        &         'functionality with local parent patch not implemented')
+
     DO jg = n_dom_start, n_dom
 
-      jgp = p_patch(jg)%parent_id
+      jgp = patch(jg)%parent_id
 
       ! Set communication patterns for boundary exchange
-      CALL set_comm_pat_bound_exch(p_patch(jg))
+      CALL set_comm_pat_bound_exch(patch(jg))
 
       ! Set communication patterns for gathering on proc 0
-      CALL set_comm_pat_gather(p_patch(jg))
+      CALL set_comm_pat_gather(patch(jg))
 
-      CALL set_owner_mask(p_patch(jg)%cells%decomp_info)
-      CALL set_owner_mask(p_patch(jg)%verts%decomp_info)
-      CALL set_owner_mask(p_patch(jg)%edges%decomp_info)
+      CALL set_owner_mask(patch(jg)%cells%decomp_info)
+      CALL set_owner_mask(patch(jg)%verts%decomp_info)
+      CALL set_owner_mask(patch(jg)%edges%decomp_info)
 
       IF(jg == n_dom_start) THEN
         ! parent_idx/blk is set to 0 since it just doesn't exist,
-        p_patch(jg)%cells%parent_idx = 0
-        p_patch(jg)%cells%parent_blk = 0
-        p_patch(jg)%edges%parent_idx = 0
-        p_patch(jg)%edges%parent_blk = 0
+        patch(jg)%cells%parent_idx = 0
+        patch(jg)%cells%parent_blk = 0
+        patch(jg)%edges%parent_idx = 0
+        patch(jg)%edges%parent_blk = 0
 
         ! For parallel runs, child_idx/blk is set to 0 since it makes
         ! sense only on the local parent
-        IF (.NOT. my_process_is_mpi_parallel()) THEN
-          p_patch(jg)%cells%child_idx  = 0
-          p_patch(jg)%cells%child_blk  = 0
-          p_patch(jg)%edges%child_idx  = 0
-          p_patch(jg)%edges%child_blk  = 0
+        IF (.NOT. my_process_is_mpi_parallel() .OR. &
+            is_ocean_decomposition) THEN
+          patch(jg)%cells%child_idx  = 0
+          patch(jg)%cells%child_blk  = 0
+          patch(jg)%edges%child_idx  = 0
+          patch(jg)%edges%child_blk  = 0
         END IF
 
       ELSE
 
         ! Note: The following call is deprecated and will be removed.
         !
-        ! CALL setup_comm_cpy_interpolation(p_patch(jg), p_patch(jgp))
+        ! CALL setup_comm_cpy_interpolation(patch(jg), patch(jgp))
 
-        CALL setup_comm_grf_interpolation(p_patch(jg), p_patch(jgp))
-        CALL setup_comm_ubc_interpolation(p_patch(jg), p_patch(jgp))
+        CALL setup_comm_grf_interpolation(patch(jg), patch(jgp))
+        CALL setup_comm_ubc_interpolation(patch(jg), patch(jgp))
 
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
         CALL set_comm_pat_gather(p_patch_local_parent(jg))
 
-        CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch(jg))
+        CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg))
 
-        CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
-          &                   p_patch(jg)%parent_child_index)
+        CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
+          &                   patch(jg)%parent_child_index)
 
         CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
         CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
@@ -263,22 +265,28 @@ CONTAINS
 
     ENDDO
 
-    CALL set_patch_communicators(p_patch)
+    CALL set_patch_communicators(patch)
 
   END SUBROUTINE complete_parallel_setup
 
   !-----------------------------------------------------------------------------
 
-  SUBROUTINE finalize_decomposition
+  SUBROUTINE finalize_decomposition(patch, is_ocean_decomposition)
 
-    implicit none
-    integer jg
+    TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
+    LOGICAL, INTENT(IN) :: is_ocean_decomposition
+
+    INTEGER :: jg
+
+    IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
+      CALL finish('finalize_decomposition_oce', &
+        &         'functionality with local parent patch not implemented')
 
     ! Remap indices in patches and local parents
 
     DO jg = n_dom_start, n_dom
 
-      CALL remap_patch_indices(p_patch(jg))
+      CALL remap_patch_indices(patch(jg))
 
       IF(jg>n_dom_start) THEN
         CALL remap_patch_indices(p_patch_local_parent(jg))
@@ -295,7 +303,7 @@ CONTAINS
 
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
 
-    INTEGER :: i, j, jb, jl
+    INTEGER :: j, jb, jl
 
     decomp_info%owner_mask = .false.
 
@@ -693,47 +701,18 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT):: p
 
-    INTEGER, ALLOCATABLE :: tmp(:)
-    INTEGER :: j
-
-    ! For gathering the global fields on p_pe_work==0
-    ALLOCATE(tmp(MAX(p%n_patch_cells_g, p%n_patch_edges_g, p%n_patch_verts_g)))
-
-    DO j = 1, SIZE(tmp)
-      tmp(j) = j ! Global/local index in global array, i.e. identity!
-    ENDDO
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(p%n_patch_cells_g, p%cells%decomp_info%owner_g, tmp, &
-        & p%cells%decomp_info%glb2loc_index, p%comm_pat_gather_c)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of cells is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, p%cells%decomp_info%owner_g, tmp, &
-        & p%cells%decomp_info%glb2loc_index, p%comm_pat_gather_c)
-    ENDIF
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(p%n_patch_edges_g, p%edges%decomp_info%owner_g, tmp, &
-        & p%edges%decomp_info%glb2loc_index, p%comm_pat_gather_e)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of edges is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, p%edges%decomp_info%owner_g, tmp, &
-        & p%edges%decomp_info%glb2loc_index, p%comm_pat_gather_e)
-    ENDIF
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(p%n_patch_verts_g, p%verts%decomp_info%owner_g, tmp, &
-        & p%verts%decomp_info%glb2loc_index, p%comm_pat_gather_v)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of edges is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, p%verts%decomp_info%owner_g, tmp, &
-        & p%verts%decomp_info%glb2loc_index, p%comm_pat_gather_v)
-    ENDIF
-
-    DEALLOCATE(tmp)
+    CALL setup_comm_gather_pattern( &
+      p%cells%decomp_info%glb2loc_index%global_size, &
+      p%cells%decomp_info%owner_local, &
+      p%cells%decomp_info%glb_index, p%comm_pat_gather_c)
+    CALL setup_comm_gather_pattern( &
+      p%verts%decomp_info%glb2loc_index%global_size, &
+      p%verts%decomp_info%owner_local, &
+      p%verts%decomp_info%glb_index, p%comm_pat_gather_v)
+    CALL setup_comm_gather_pattern( &
+      p%edges%decomp_info%glb2loc_index%global_size, &
+      p%edges%decomp_info%owner_local, &
+      p%edges%decomp_info%glb_index, p%comm_pat_gather_e)
 
   END SUBROUTINE set_comm_pat_gather
 
@@ -747,6 +726,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: i_chidx
 
     INTEGER, ALLOCATABLE :: owner(:)
+    LOGICAL, ALLOCATABLE :: mask(:)
     INTEGER :: j, je, icid, jb, jl
 
     ! Please note:
@@ -767,49 +747,54 @@ CONTAINS
 
     ! ... cells
 
-    ALLOCATE(owner(p_ploc%n_patch_cells))
+    ALLOCATE(owner(MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
+      &                p_pglb%n_patch_cells, p_pglb%n_patch_edges)), &
+      &      mask(MAX(p_ploc%n_patch_cells, p_ploc%n_patch_edges, &
+      &                p_pglb%n_patch_cells, p_pglb%n_patch_edges)))
 
     je = idx_1d(p_ploc%cells%end_idx(min_rlcell_int,i_chidx), &
       &         p_ploc%cells%end_blk(min_rlcell_int,i_chidx))
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    mask(1:p_ploc%n_patch_cells) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_ploc%cells%child_id(jl,jb)   == icid            .AND.      &
-          p_ploc%cells%refin_ctrl(jl,jb) <= grf_bdyintp_start_c )   THEN
-        owner(j) = p_pglb%cells%decomp_info%owner_g(p_ploc%cells%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_ploc%cells%child_id(jl,jb)   == icid .AND. &
+        &       p_ploc%cells%refin_ctrl(jl,jb) <= grf_bdyintp_start_c
     ENDDO
 
-    CALL setup_comm_pattern(p_ploc%n_patch_cells, owner, &
+    owner(1:p_ploc%n_patch_cells) = &
+      UNPACK(dist_dir_get_owners(p_pglb%cells%decomp_info%owner_dist_dir, &
+        &                        PACK(p_ploc%cells%decomp_info%glb_index(:), &
+        &                             mask(1:p_ploc%n_patch_cells))), &
+        &    mask(1:p_ploc%n_patch_cells), -1)
+
+    CALL setup_comm_pattern(p_ploc%n_patch_cells, owner(1:p_ploc%n_patch_cells), &
       p_ploc%cells%decomp_info%glb_index, &
       p_pglb%cells%decomp_info%glb2loc_index, p_ploc%comm_pat_glb_to_loc_c)
 
-    DEALLOCATE(owner)
-
     ! ... edges
-
-    ALLOCATE(owner(p_ploc%n_patch_edges))
 
     je = idx_1d(p_ploc%edges%end_idx(min_rledge_int,i_chidx), &
       &         p_ploc%edges%end_blk(min_rledge_int,i_chidx))
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    mask(1:p_ploc%n_patch_edges) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_ploc%edges%child_id(jl,jb)   == icid            .AND.      &
-          p_ploc%edges%refin_ctrl(jl,jb) <= grf_bdyintp_start_e )   THEN
-        owner(j) = p_pglb%edges%decomp_info%owner_g(p_ploc%edges%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_ploc%edges%child_id(jl,jb) == icid .AND. &
+        &       p_ploc%edges%refin_ctrl(jl,jb) <= grf_bdyintp_start_e
     ENDDO
 
-    CALL setup_comm_pattern(p_ploc%n_patch_edges, owner, &
+    owner(1:p_ploc%n_patch_edges) = &
+      UNPACK(dist_dir_get_owners(p_pglb%edges%decomp_info%owner_dist_dir, &
+        &                        PACK(p_ploc%edges%decomp_info%glb_index(:), &
+        &                             mask(1:p_ploc%n_patch_edges))), &
+        &    mask(1:p_ploc%n_patch_edges), -1)
+
+    CALL setup_comm_pattern(p_ploc%n_patch_edges, owner(1:p_ploc%n_patch_edges), &
       p_ploc%edges%decomp_info%glb_index,  &
       p_pglb%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_glb_to_loc_e)
-
-    DEALLOCATE(owner)
 
     !-----------------------------------------------------------------------------------------------
 
@@ -820,8 +805,6 @@ CONTAINS
 
     ! ... cells
 
-    ALLOCATE(owner(p_pglb%n_patch_cells))
-
     IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
       je = idx_1d(p_pglb%cells%end_idx(min_rlcell,p_pglb%n_childdom), &
         &         p_pglb%cells%end_blk(min_rlcell,p_pglb%n_childdom))
@@ -830,26 +813,26 @@ CONTAINS
         &         p_pglb%cells%end_blk(min_rlcell_int,p_pglb%n_childdom))
     ENDIF
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    mask(1:p_pglb%n_patch_cells) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_pglb%cells%child_id(jl,jb)   == icid            .AND. &
-          p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
-          p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int )   THEN
-        owner(j) = p_ploc%cells%decomp_info%owner_g(p_pglb%cells%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_pglb%cells%child_id(jl,jb) == icid .AND. &
+        &       p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
+        &       p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int
     ENDDO
 
-    CALL setup_comm_pattern(p_pglb%n_patch_cells, owner, &
+    owner(1:p_pglb%n_patch_cells) = &
+      UNPACK(dist_dir_get_owners(p_ploc%cells%decomp_info%owner_dist_dir, &
+        &                        PACK(p_pglb%cells%decomp_info%glb_index(:), &
+        &                             mask(1:p_pglb%n_patch_cells))), &
+        &    mask(1:p_pglb%n_patch_cells), -1)
+
+    CALL setup_comm_pattern(p_pglb%n_patch_cells, owner(1:p_pglb%n_patch_cells), &
       p_pglb%cells%decomp_info%glb_index, &
       p_ploc%cells%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_c_fbk)
 
-    DEALLOCATE(owner)
-
     ! ... edges
-
-    ALLOCATE(owner(p_pglb%n_patch_edges))
 
     IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
       je = idx_1d(p_pglb%edges%end_idx(min_rledge,i_chidx), &
@@ -859,23 +842,27 @@ CONTAINS
         &         p_pglb%edges%end_blk(min_rledge_int,i_chidx))
     ENDIF
 
-    owner(:) = -1 ! By default don't include into comm pattern
+    mask(1:p_pglb%n_patch_edges) = .FALSE.
     DO j = 1, je
       jb = blk_no(j) ! Block index
       jl = idx_no(j) ! Line  index
-      IF (p_pglb%edges%child_id(jl,jb)   == icid            .AND. &
-          p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
-          p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int )   THEN
-        owner(j) = p_ploc%edges%decomp_info%owner_g(p_pglb%edges%decomp_info%glb_index(j))
-      ENDIF
+      mask(j) = p_pglb%edges%child_id(jl,jb) == icid .AND. &
+        &       p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
+        &       p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int
     ENDDO
 
+    owner(1:p_pglb%n_patch_edges) = &
+      UNPACK(dist_dir_get_owners(p_ploc%edges%decomp_info%owner_dist_dir, &
+        &                        PACK(p_pglb%edges%decomp_info%glb_index(:), &
+        &                             mask(1:p_pglb%n_patch_edges))), &
+        &    mask(1:p_pglb%n_patch_edges), -1)
 
-    CALL setup_comm_pattern(p_pglb%n_patch_edges, owner, &
+    CALL setup_comm_pattern(p_pglb%n_patch_edges, &
+      owner(1:p_pglb%n_patch_edges), &
       p_pglb%edges%decomp_info%glb_index, &
       p_ploc%edges%decomp_info%glb2loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
 
-    DEALLOCATE(owner)
+    DEALLOCATE(owner, mask)
 
    END SUBROUTINE set_glb_loc_comm
 
@@ -919,11 +906,10 @@ CONTAINS
 
     ! For our local child patch, gather which cells receive values from which parent cell
 
-    ALLOCATE(glb_index(p_patch%n_patch_cells))
-    ALLOCATE(owner(p_patch%n_patch_cells))
+    ALLOCATE(glb_index(p_patch%n_patch_cells), &
+      &      owner(p_patch%n_patch_cells))
 
     glb_index(:) = -1
-    owner(:)     = -1
 
     DO j = 1, p_patch%n_patch_cells
       jc = idx_no(j)
@@ -931,8 +917,12 @@ CONTAINS
       jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
       IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
       glb_index(j) = jp
-      owner(j) = p_parent_patch%cells%decomp_info%owner_g(jp)
     ENDDO
+
+    owner(:) = &
+      UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+        &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+        &    glb_index(:) /= -1, -1)
 
     ! Set up communication pattern
 
@@ -971,7 +961,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
       DO j = 1,p_patch%n_patch_cells
@@ -981,9 +970,13 @@ CONTAINS
             .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
           jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%cells%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
@@ -1096,7 +1089,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
       DO j = 1,p_patch%n_patch_edges
@@ -1106,9 +1098,13 @@ CONTAINS
             .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
           jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%edges%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
@@ -1236,7 +1232,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       DO j = 1,p_patch%n_patch_cells
         jc = idx_no(j)
@@ -1245,9 +1240,13 @@ CONTAINS
             .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
           jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%cells%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
@@ -1360,7 +1359,6 @@ CONTAINS
     DO n = 1, 4
 
       glb_index(:) = -1
-      owner(:)     = -1
 
       DO j = 1,p_patch%n_patch_edges
         je = idx_no(j)
@@ -1369,9 +1367,13 @@ CONTAINS
             .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
           jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
           glb_index(j) = jp
-          owner(j) = p_parent_patch%edges%decomp_info%owner_g(jp)
         ENDIF
       ENDDO
+
+      owner(:) = &
+        UNPACK(dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
+          &                        PACK(glb_index(:), glb_index(:) /= -1)), &
+          &    glb_index(:) /= -1, -1)
 
       ! Set up communication pattern
 
@@ -1479,214 +1481,60 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2011
+  !! Revised version by Moritz Hanke, Nov 2013
 
   SUBROUTINE setup_phys_patches
-    INTEGER :: jp, jg, n, i, j, jb, jl
-    INTEGER, ALLOCATABLE :: glb_phys_id_c(:), glb_phys_id_e(:), glb_phys_id_v(:)
-    INTEGER, ALLOCATABLE :: owner(:), glbidx(:)
+    INTEGER :: jp, jg, i
     CHARACTER(LEN=*), PARAMETER :: routine = 'setup_phys_patches'
 
+    INTEGER :: n_patch_cells(max_phys_dom), n_patch_verts(max_phys_dom), &
+      &        n_patch_edges(max_phys_dom)
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_cells(max_phys_dom), &
+      &                            comm_pat_gather_verts(max_phys_dom), &
+      &                            comm_pat_gather_edges(max_phys_dom)
+
     p_phys_patch(:)%logical_id = -1
+    n_patch_cells(:) = 0
+    n_patch_verts(:) = 0
+    n_patch_edges(:) = 0
 
     DO jg = 1, n_dom
+      CALL setup_phys_patches_cve(p_patch(jg)%n_patch_cells_g, &
+        &                         p_patch(jg)%n_patch_cells, &
+        &                         p_patch(jg)%cells%decomp_info, &
+        &                         p_patch(jg)%cells%phys_id, jg, &
+        &                         .TRUE., n_patch_cells(:), &
+        &                         comm_pat_gather_cells(:))
+      CALL setup_phys_patches_cve(p_patch(jg)%n_patch_verts_g, &
+        &                         p_patch(jg)%n_patch_verts, &
+        &                         p_patch(jg)%verts%decomp_info, &
+        &                         p_patch(jg)%verts%phys_id, jg, &
+        &                         .FALSE., n_patch_verts(:), &
+        &                         comm_pat_gather_verts(:))
+      CALL setup_phys_patches_cve(p_patch(jg)%n_patch_edges_g, &
+        &                         p_patch(jg)%n_patch_edges, &
+        &                         p_patch(jg)%edges%decomp_info, &
+        &                         p_patch(jg)%edges%phys_id, jg, &
+        &                         .FALSE., n_patch_edges(:), &
+        &                         comm_pat_gather_edges(:))
+    ENDDO
 
-      ! Get global arrays for phys_id
-
-      ! Allocate and set to 0
-      ALLOCATE(glb_phys_id_c(p_patch(jg)%n_patch_cells_g))
-      ALLOCATE(glb_phys_id_e(p_patch(jg)%n_patch_edges_g))
-      ALLOCATE(glb_phys_id_v(p_patch(jg)%n_patch_verts_g))
-      glb_phys_id_c(:) = 0
-      glb_phys_id_e(:) = 0
-      glb_phys_id_v(:) = 0
-
-      ! Fill with own values of phys_id
-
-      DO j = 1, p_patch(jg)%n_patch_cells
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        IF(.NOT.p_patch(jg)%cells%decomp_info%owner_mask(jl,jb)) CYCLE
-        glb_phys_id_c(p_patch(jg)%cells%decomp_info%glb_index(j)) = p_patch(jg)%cells%phys_id(jl,jb)
-      ENDDO
-
-      DO j = 1, p_patch(jg)%n_patch_edges
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        IF(.NOT.p_patch(jg)%edges%decomp_info%owner_mask(jl,jb)) CYCLE
-        glb_phys_id_e(p_patch(jg)%edges%decomp_info%glb_index(j)) = p_patch(jg)%edges%phys_id(jl,jb)
-      ENDDO
-
-      DO j = 1, p_patch(jg)%n_patch_verts
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        IF(.NOT.p_patch(jg)%verts%decomp_info%owner_mask(jl,jb)) CYCLE
-        glb_phys_id_v(p_patch(jg)%verts%decomp_info%glb_index(j)) = p_patch(jg)%verts%phys_id(jl,jb)
-      ENDDO
-
-      ! Get global arrays by obtaining the global maximum
-      ! Since p_max works on real valued arrays only, we have to convert to real and back
-
-      glb_phys_id_c = p_max(glb_phys_id_c, comm=p_comm_work)
-      glb_phys_id_e = p_max(glb_phys_id_e, comm=p_comm_work)
-      glb_phys_id_v = p_max(glb_phys_id_v, comm=p_comm_work)
-
-      ! Get the physical patches contained within current patch
-
-      ! Set logical id of p_phys_patch from cells
-
-      DO j = 1, p_patch(jg)%n_patch_cells_g
-        jp = glb_phys_id_c(j)
-        IF(jp<1 .OR. jp>max_phys_dom) THEN
-          WRITE(message_text,'(a,i4,a,i12)') &
-            & 'Patch ',jg,' contains illegal value for cells phys_id: ',jp
-          CALL finish  (routine, TRIM(message_text))
-        ENDIF
-        IF(p_phys_patch(jp)%logical_id < 0) THEN
-          p_phys_patch(jp)%logical_id = jg
-        ELSE
-          ! Check if no other patch uses the same phys_id
-          IF(p_phys_patch(jp)%logical_id /= jg) THEN
-            WRITE(message_text,'(a,i4,a,i12,a,i12)') &
-             & 'Patch ',jg,' contains cells phys_id: ',jp, &
-             & ', already used by patch: ',p_phys_patch(jp)%logical_id
-            CALL finish  (routine, TRIM(message_text))
-          ENDIF
-        ENDIF
-      ENDDO
-
-      ! Make a check for egdes and verts
-
-      DO j = 1, p_patch(jg)%n_patch_edges_g
-        jp = glb_phys_id_e(j)
-        IF(jp<1 .OR. jp>max_phys_dom) THEN
-          WRITE(message_text,'(a,i4,a,i12)') &
-            & 'Patch ',jg,' contains illegal value for edges phys_id: ',jp
-          CALL finish  (routine, TRIM(message_text))
-        ENDIF
-        ! Check if no other patch uses the same phys_id
-        IF(p_phys_patch(jp)%logical_id /= jg) THEN
-          WRITE(message_text,'(a,i4,a,i12,a,i12)') &
-           & 'Patch ',jg,' contains edges phys_id: ',jp, &
-           & ', already used by patch: ',p_phys_patch(jp)%logical_id
-          CALL finish  (routine, TRIM(message_text))
-        ENDIF
-      ENDDO
-
-      DO j = 1, p_patch(jg)%n_patch_verts_g
-        jp = glb_phys_id_v(j)
-        IF(jp<1 .OR. jp>max_phys_dom) THEN
-          WRITE(message_text,'(a,i4,a,i12)') &
-            & 'Patch ',jg,' contains illegal value for verts phys_id: ',jp
-          CALL finish  (routine, TRIM(message_text))
-        ENDIF
-        ! Check if no other patch uses the same phys_id
-        IF(p_phys_patch(jp)%logical_id /= jg) THEN
-          WRITE(message_text,'(a,i4,a,i12,a,i12)') &
-           & 'Patch ',jg,' contains verts phys_id: ',jp, &
-           & ', already used by patch: ',p_phys_patch(jp)%logical_id
-          CALL finish  (routine, TRIM(message_text))
-        ENDIF
-      ENDDO
-
-      ! Set up communication patterns in physical patches
-
-      n = MAX(p_patch(jg)%n_patch_cells_g,p_patch(jg)%n_patch_edges_g,p_patch(jg)%n_patch_verts_g)
-      ALLOCATE(owner (n))
-      ALLOCATE(glbidx(n))
-
-      DO jp = 1, max_phys_dom ! Loop over physical patches
-
-        IF(p_phys_patch(jp)%logical_id /= jg) CYCLE ! do only for physical patches belonging to jg
-
-        ! cells
-
-        n = 0
-        DO i = 1, p_patch(jg)%n_patch_cells_g
-          IF(glb_phys_id_c(i) == jp) THEN
-            n = n+1
-            owner (n) = p_patch(jg)%cells%decomp_info%owner_g(i)
-            glbidx(n) = i
-          ENDIF
-        ENDDO
-
-        p_phys_patch(jp)%n_patch_cells = n
-
-        IF(.NOT.my_process_is_mpi_seq()) THEN
-          IF(p_pe_work == 0) THEN
-            CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%cells%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_c)
-          ELSE
-            ! We don't want to receive any data, i.e. the number of cells is 0
-            ! and owner/global index are dummies!
-            CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%cells%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_c)
-          ENDIF
-        ENDIF
-
-        ! edges
-
-        n = 0
-        DO i = 1, p_patch(jg)%n_patch_edges_g
-          IF(glb_phys_id_e(i) == jp) THEN
-            n = n+1
-            owner (n) = p_patch(jg)%edges%decomp_info%owner_g(i)
-            glbidx(n) = i
-          ENDIF
-        ENDDO
-
-        p_phys_patch(jp)%n_patch_edges = n
-
-        IF(.NOT.my_process_is_mpi_seq()) THEN
-          IF(p_pe_work == 0) THEN
-            CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%edges%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_e)
-          ELSE
-            ! We don't want to receive any data, i.e. the number of edges is 0
-            ! and owner/global index are dummies!
-            CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%edges%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_e)
-          ENDIF
-        ENDIF
-
-        ! verts
-
-        n = 0
-        DO i = 1, p_patch(jg)%n_patch_verts_g
-          IF(glb_phys_id_v(i) == jp) THEN
-            n = n+1
-            owner (n) = p_patch(jg)%verts%decomp_info%owner_g(i)
-            glbidx(n) = i
-          ENDIF
-        ENDDO
-
-        p_phys_patch(jp)%n_patch_verts = n
-
-        IF(.NOT.my_process_is_mpi_seq()) THEN
-          IF(p_pe_work == 0) THEN
-            CALL setup_comm_pattern(n, owner, glbidx, &
-              & p_patch(jg)%verts%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_v)
-          ELSE
-            ! We don't want to receive any data, i.e. the number of verts is 0
-            ! and owner/global index are dummies!
-            CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch(jg)%verts%decomp_info%glb2loc_index, &
-              & p_phys_patch(jp)%comm_pat_gather_v)
-          ENDIF
-        ENDIF
-
-      ENDDO
-
-      DEALLOCATE(owner)
-      DEALLOCATE(glbidx)
-      DEALLOCATE(glb_phys_id_c)
-      DEALLOCATE(glb_phys_id_e)
-      DEALLOCATE(glb_phys_id_v)
-
+    ! MoHa: remark:
+    ! We cannot pass p_phys_patch(:)%n_patch_cells and 
+    ! p_phys_patch(:)%comm_pat_gather_c directly to setup_phys_patches_cve
+    ! because some compiler(intel and pgi) have problems with this type
+    ! of array argument... Therefore, the temporary arrays n_patch_*(:) and
+    ! comm_pat_gather_*(:) had to be used.
+    DO i = 1, max_phys_dom
+      p_phys_patch(i)%n_patch_cells = n_patch_cells(i)
+      p_phys_patch(i)%comm_pat_gather_c = comm_pat_gather_cells(i)
+      CALL delete_comm_gather_pattern(comm_pat_gather_cells(i))
+      p_phys_patch(i)%n_patch_verts = n_patch_verts(i)
+      p_phys_patch(i)%comm_pat_gather_v = comm_pat_gather_verts(i)
+      CALL delete_comm_gather_pattern(comm_pat_gather_verts(i))
+      p_phys_patch(i)%n_patch_edges = n_patch_edges(i)
+      p_phys_patch(i)%comm_pat_gather_e = comm_pat_gather_edges(i)
+      CALL delete_comm_gather_pattern(comm_pat_gather_edges(i))
     ENDDO
 
     ! Get total number of physical patches
@@ -1710,6 +1558,76 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE setup_phys_patches
+
+  SUBROUTINE setup_phys_patches_cve(n_g, n, decomp_info, phys_id, &
+    &                               curr_patch_idx, set_logical_id, &
+    &                               n_patch_cve, comm_pat_gather)
+    INTEGER, INTENT(IN) :: n_g, n
+    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
+    INTEGER, INTENT(IN) :: phys_id(:,:)
+    INTEGER, INTENT(IN) :: curr_patch_idx
+    LOGICAL, INTENT(IN) :: set_logical_id
+    INTEGER, INTENT(INOUT) :: n_patch_cve(:)
+    TYPE(t_comm_gather_pattern), INTENT(INOUT) :: comm_pat_gather(:)
+
+    INTEGER, ALLOCATABLE :: owner_local(:)
+    INTEGER :: temp_n_patch_cve(max_phys_dom)
+    INTEGER :: i, ip
+
+    ALLOCATE(owner_local(n))
+
+    temp_n_patch_cve(:) = 0
+
+    ! Fill with own values of phys_id
+
+    DO i = 1, n
+      ip = phys_id(idx_no(i),blk_no(i))
+      IF (ip < 1 .OR. ip > max_phys_dom) &
+        CALL finish("setup_phys_patches_cve", "invalid phys_id")
+      IF (decomp_info%owner_local(i) == p_pe_work) &
+        temp_n_patch_cve(ip) = temp_n_patch_cve(ip) + 1
+    END DO
+
+    temp_n_patch_cve(:) = p_sum(temp_n_patch_cve(:), p_comm_work)
+
+    IF (set_logical_id) THEN
+
+      ! Check if no other patch uses the same phys_id
+      IF (ANY((p_phys_patch(1:max_phys_dom)%logical_id /= -1) .AND. &
+        &     (temp_n_patch_cve(:) /= 0))) &
+        CALL finish("setup_phys_patches_cve", &
+          &         "invalid value in p_phys_patch(:)%logical_id")
+
+      WHERE(temp_n_patch_cve(:) /= 0) &
+        p_phys_patch(1:max_phys_dom)%logical_id = curr_patch_idx
+    ELSE
+      ! Check if no other patch uses the same phys_id
+      IF (ANY((p_phys_patch(1:max_phys_dom)%logical_id /= curr_patch_idx) &
+        &     .AND. (temp_n_patch_cve(:) /= 0))) &
+        CALL finish("setup_phys_patches_cve", &
+          &         "invalid value in p_phys_patch(:)%logical_id")
+    END IF
+
+    DO ip = 1, max_phys_dom
+
+      IF (p_phys_patch(ip)%logical_id /= curr_patch_idx) CYCLE
+
+      n_patch_cve(ip) = temp_n_patch_cve(ip)
+
+      DO i = 1, n
+        owner_local(i) = &
+          MERGE(decomp_info%owner_local(i), -1, &
+            &   phys_id(idx_no(i),blk_no(i)) == ip)
+      END DO
+
+      CALL setup_comm_gather_pattern(n_g, owner_local(:), &
+        &                            decomp_info%glb_index(:), &
+        &                            comm_pat_gather(ip))
+    END DO
+
+    DEALLOCATE(owner_local)
+
+  END SUBROUTINE setup_phys_patches_cve
 
   !-------------------------------------------------------------------------
   !>
@@ -1745,89 +1663,6 @@ CONTAINS
     l_blk = blk_no(j_l)
 
   END SUBROUTINE remap_index
-
-!--------------------------------------------------------------
-  SUBROUTINE complete_parallel_setup_oce(p_patch_2D)
-
-   TYPE(t_patch) :: p_patch_2D(:)
-
-    INTEGER :: jg, jgp
-
-    DO jg = n_dom_start, n_dom
-
-      jgp = p_patch_2D(jg)%parent_id
-
-      ! Set communication patterns for boundary exchange
-      CALL set_comm_pat_bound_exch(p_patch_2D(jg))
-
-      ! Set communication patterns for gathering on proc 0
-      CALL set_comm_pat_gather(p_patch_2D(jg))
-
-      CALL set_owner_mask(p_patch_2D(jg)%cells%decomp_info)
-      CALL set_owner_mask(p_patch_2D(jg)%verts%decomp_info)
-      CALL set_owner_mask(p_patch_2D(jg)%edges%decomp_info)
-
-      IF(jg == n_dom_start) THEN
-
-        ! parent_idx/blk is set to 0 since it just doesn't exist,
-        ! child_idx/blk is set to 0 since it makes sense only on the local parent
-        p_patch_2D(jg)%cells%parent_idx = 0
-        p_patch_2D(jg)%cells%parent_blk = 0
-        p_patch_2D(jg)%cells%child_idx  = 0
-        p_patch_2D(jg)%cells%child_blk  = 0
-        p_patch_2D(jg)%edges%parent_idx = 0
-        p_patch_2D(jg)%edges%parent_blk = 0
-        p_patch_2D(jg)%edges%child_idx  = 0
-        p_patch_2D(jg)%edges%child_blk  = 0
-
-      ELSE
-        CALL finish('complete_parallel_setup_oce','functionality with local parent patch not implemented')
-!         CALL setup_comm_cpy_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
-!         CALL setup_comm_grf_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
-!         CALL setup_comm_ubc_interpolation(p_patch_2D(jg), p_patch_2D(jgp))
-!
-!         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
-!         CALL set_comm_pat_gather(p_patch_local_parent(jg))
-!
-!         CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch(jg))
-!
-!         CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
-!           &                   p_patch(jg)%parent_child_index)
-!
-!         CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
-!         CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
-!         CALL set_owner_mask(p_patch_local_parent(jg)%edges%decomp_info)
-      ENDIF
-
-    ENDDO
-
-    CALL set_patch_communicators(p_patch_2D)
-
-  END SUBROUTINE complete_parallel_setup_oce
-
-  !-----------------------------------------------------------------------------
-
-  SUBROUTINE finalize_decomposition_oce(p_patch_2D)
-
-    implicit none
-
-    TYPE(t_patch) :: p_patch_2D(:)
-    integer jg
-
-    ! Remap indices in patches and local parents
-
-    DO jg = n_dom_start, n_dom
-
-      CALL remap_patch_indices(p_patch_2D(jg))
-
-      IF(jg>n_dom_start) THEN
-        CALL finish('finalize_decomposition_oce','functionality with local parent patch not implemented')
-        CALL remap_patch_indices(p_patch_local_parent(jg))
-      ENDIF
-
-    ENDDO
-
-  END SUBROUTINE finalize_decomposition_oce
 
   !-----------------------------------------------------------------------------
 END MODULE mo_complete_subdivision

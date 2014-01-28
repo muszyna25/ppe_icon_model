@@ -1,11 +1,13 @@
 !>
 !! The main program unit of the sea-ice parameterization scheme for NWP. 
-!! It contains two procedures, viz., 
+!! It contains three procedures, viz., 
 !! SUBROUTINE seaice_init_nwp
 !! that initializes the scheme and performs some consistency checks, 
-!! and 
 !! SUBROUTINE seaice_timestep_nwp
-!! that advances prognostic variables of the sea-ice scheme one time step.
+!! that advances prognostic variables of the sea-ice scheme one time step,
+!! and 
+!! SUBROUTINE seaice_coldinit_nwp 
+!! the performs a cold start of the sea-ice parameterization scheme.
 !!
 !! The present sea-ice parameterization scheme is a bulk thermodynamic (no rheology) scheme 
 !! intended for use in NWP and similar applications.  
@@ -26,7 +28,7 @@
 !! that exceeds a threshold value of 0.03. Otherwise, the grid box is treated as ice-free.
 !! The ice fraction is determined on the basis of observational data
 !! by the data assimilation scheme and is kept constant over the entire model forecast period. 
-!! However, if the ice melts out during the forecast, the ice fraction is reset to zero. 
+!! However, if the ice melts away during the forecast, the ice fraction is reset to zero. 
 !! This is done within SUBROUTINE update_idx_lists_sea. 
 !! If the ICON grid box is set ice-free during the initialization, 
 !! no ice is created over the forecast period. 
@@ -37,18 +39,18 @@
 !! The newly formed ice has the surface temperature equal to the salt-water freezing point 
 !! and the thickness of 0.5 m. The new ice is formed instantaneously 
 !! if the data assimilation scheme indicates the presence of ice in a given ICON grid box
-!! but there was no ice in that grid box during the previous model run. 
+!! but there was no ice in that grid box at the end of the previous model run. 
 !! Prognostic ice thickness is limited by a maximum value of 3 m and a minimum value of 0.05 m. 
-!! Constant values of the density, molecular heat conductivity, specific heat of ice, the latent
-!! heat of fusion, and the salt-water freezing point are used.
+!! Constant values of the ice density, ice molecular heat conductivity, specific heat of ice, 
+!! the latent heat of fusion, and the salt-water freezing point are used.
 !!
-!! A detailed description of the sea ice scheme is given in
+!! A detailed description of the sea-ice scheme is given in
 !! Mironov, D., B. Ritter, J.-P. Schulz, M. Buchhold, M. Lange, and E. Machulskaya, 2012:
 !! Parameterization of sea and lake ice in numerical weather prediction models
 !! of the German Weather Service.
 !! Tellus A, 64, 17330. doi:10.3402/tellusa.v64i0.17330
 !!
-!! The present seas ice scheme (with minor modifications) 
+!! The present sea-ice scheme (with minor modifications) 
 !! is also implemented into the NWP models GME and COSMO 
 !! (see Mironov et al. 2012, for details).
 !!
@@ -224,9 +226,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Dmitrii Mironov, DWD (2012-07-24)
   !!
-  !! Modification by Daniel Reinert, DWD (2012-11-05)
-  !! - modified initialization procedure for the case that the sea-ice thickness 
-  !!   field is not provided as input (i.e. when starting from IFS analysis)
+  !! Modification by <name>, <institution> (<yyyy>-<mm>-<dd>)
   !!
 
   SUBROUTINE seaice_init_nwp (                                  & 
@@ -347,13 +347,14 @@ CONTAINS
   !! thickness (see Mironov et al. 2012, for details).  
   !! Optionally, constant values of the shape factor and of the shape-function derivative
   !! corresponding to the linear temperature profile within the ice 
-  !! (cf. the sea ice schemes of GME and COSMO) can be used 
+  !! (cf. the sea-ice schemes of GME and COSMO) can be used 
   !! (as there is no logical switch to activate this option, changes in the code should be made).
-  !! In the regime of ice growth or melting from below, the solution may become numerically 
-  !! unstable if the ice is thin. In such a case, a quasi-steady heat transfer through the ice 
-  !! is assumed and the differential equation for the ice surface temperature 
+  !! In the regime of ice growth or melting from below, the solution may become spurious
+  !! when the ice thickness is small and/or the model time step is large.
+  !! In such a case, a quasi-steady heat transfer through the ice is assumed 
+  !! and the differential equation for the ice surface temperature 
   !! is reduced to an algebraic relation. 
-  !! In the current configuration of the sea ice scheme, snow over ice is not treated explicitly. 
+  !! In the current configuration of the sea-ice scheme, snow over ice is not treated explicitly. 
   !! The effect of snow is accounted for implicitely through an empirical temperature dependence 
   !! of the ice surface albedo with respect to solar radiation. 
   !! For the "sea water" type grid boxes, the snow thickness is set to zero and
@@ -362,7 +363,7 @@ CONTAINS
   !! the heat flux from water to ice is neglected.
   !! Prognostic ice thickness is limited by a maximum value of 3 m and a minimum value of 0.05 m. 
   !! No ice is created during the forecast period. 
-  !! If the ice melts out during the forecast (i.e. the ice becomes thinner than 0.05 m), 
+  !! If the ice melts away during the forecast (i.e. the ice becomes thinner than 0.05 m), 
   !! the ice tickness is set to zero and 
   !! the ice surface temperatures is set to the fresh-water freezing point.
   !! The procedure arguments are arrays (vectors) of the sea-ice scheme prognostic variables
@@ -380,6 +381,10 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Dmitrii Mironov, DWD (2012-07-24)
+  !!
+  !! Modification by Dmitrii Mironov, DWD (2014-01-20)
+  !! - terms due to the time-rate-of-change of the temperature profile shape factor 
+  !!   are added to the governing equations of the sea-ice scheme 
   !!
 
   SUBROUTINE seaice_timestep_nwp (                                      &
@@ -486,6 +491,7 @@ CONTAINS
 
 !_dev>
       ! Provision is made to account for the heat flux from water to ice 
+      ! (upward flux is negative)
       ! Currently the heat flux from water to ice is set to zero 
       qwat = 0._wp
 !_dev<
@@ -494,7 +500,7 @@ CONTAINS
       ! (to recover linear temperature profile, set csice=csi_lin)
       csice = csi_lin - csidp_nlin_d*hice_p(isi)/hice_max
       rti = ci_o_alf*(tice_p(isi)-tf_salt)
-      strg_1 = rti*(1._wp-csice)
+      strg_1 = rti*(1.5_wp-2.0_wp*csice)
       strg_2 = 1._wp + strg_1 
 
       FreezingMeltingRegime: IF( tice_p(isi)>=(tf_fresh-csmall) .AND. qatm>0._wp ) THEN 
@@ -529,12 +535,12 @@ CONTAINS
           ! Use a quasi-equilibrium model of heat transfer through the ice 
 
           ! Compute the time-rate-of-change of the ice thickness (note the sign of heat fluxes)
-          dhicedt(isi) = -(qatm-qwat*strg_2)*r_rhoialf
+          dhicedt(isi) = -(qatm-qwat)*r_rhoialf/strg_2
           ! Update the ice thickness
           hice_n(isi) = hice_p(isi) + dtime*dhicedt(isi)
 
           ! Compute the (updated) ice surface temperature (note the sign of heat fluxes)
-          tice_n(isi) = tf_salt + (qatm-qwat*strg_1)*hice_n(isi)/(phiipr0*ki)
+          tice_n(isi) = tf_salt + (qatm+qwat*strg_1)*hice_n(isi)/(phiipr0*ki*strg_2)
 
         ELSE
 
@@ -545,7 +551,7 @@ CONTAINS
 
           ! Compute the time-rate-of-change of the ice surface temperature 
           ! (note the sign of heat fluxes)
-          dticedt(isi) = ( (qatm-strg_1*qwat)*r_rhoici - ki_o_rhoici*dhsnowdt(isi)*strg_2 )  & 
+          dticedt(isi) = ( (qatm+strg_1*qwat)*r_rhoici - ki_o_rhoici*dhsnowdt(isi)*strg_2 )  & 
                      & /(csice*hice_p(isi))  
           ! Update the ice surface temperature
           tice_n(isi) = tice_p(isi) + dtime*dticedt(isi)
@@ -618,8 +624,7 @@ CONTAINS
 
   END SUBROUTINE seaice_timestep_nwp
 
-
-
+!234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
   !>
   !! Coldstart for sea-ice parameterization scheme. 
@@ -628,7 +633,7 @@ CONTAINS
   !! thickness are initialized with meaningful values.
   !! Note that an estimate of the sea-ice temperature is required for the cold start and is 
   !! assumed to be available. The only option at the time being is to use the IFS skin 
-  !! tempperature for the cold start initialization of t_ice. Since an estimate of the 
+  !! temperature for the cold start initialization of t_ice. Since an estimate of the 
   !! ice thickness h_ice is generally not available, h_ice is initialized with a 
   !! meaningful constant value (1m). 
   !! 
@@ -707,5 +712,6 @@ CONTAINS
 
   END SUBROUTINE seaice_coldinit_nwp
 
+!234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
 END MODULE mo_seaice_nwp

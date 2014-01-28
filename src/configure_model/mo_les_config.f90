@@ -70,6 +70,9 @@ MODULE mo_les_config
     REAL(wp) :: turb_prandtl 
     REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
 
+    !Scheme for vertical discretization
+    INTEGER :: vert_scheme_type !1=explicit, 2=implicit
+
   END TYPE t_les_config
   !>
   !!

@@ -260,7 +260,6 @@ CONTAINS
       & ztmst, zzp
     REAL(KIND=jprb) :: zhook_handle
 
-    !!DIR$ VFUNCTION EXPHF
     !#include "fcttre.h"
 
     !--------------------------------------------------------------------
@@ -340,8 +339,8 @@ CONTAINS
     !!                 LINEAR DCREASE
     !!                 -----------------------------
 
-    !DIR$ IVDEP
-    !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
     DO jl=kidia,kfdia
       IF(ldcum(jl)) THEN
         ikb=kcbot(jl)
@@ -362,8 +361,8 @@ CONTAINS
       ENDIF
     ENDDO
     DO jk=ktdia-1+ktopm2,klev
-      !DIR$ IVDEP
-      !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk > kcbot(jl)+1) THEN
           ikb=kcbot(jl)+1
@@ -724,8 +723,8 @@ CONTAINS
 
       DO jk=ktdia-1+ktopm2,klev
         ik=jk-1
-        !DIR$ IVDEP
-        !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldcum(jl).AND.jk>=kctop(jl)-1) THEN
             ! compute interpolating coefficients ZGS and ZGQ for half-level values
@@ -1063,8 +1062,8 @@ CONTAINS
     ! linear fluxes below cloud
     IF(rmfsoluv==0.0_JPRB) THEN
       DO jk=ktdia-1+ktopm2,klev
-        !DIR$ IVDEP
-        !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldcum(jl).AND.jk > kcbot(jl)) THEN
             ikb=kcbot(jl)

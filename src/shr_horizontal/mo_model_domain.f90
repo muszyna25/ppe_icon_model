@@ -102,7 +102,7 @@ MODULE mo_model_domain
   USE mo_kind
   USE mo_math_utilities, ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_impl_constants, ONLY: max_dom, max_phys_dom
-  USE mo_communication,  ONLY: t_comm_pattern
+  USE mo_communication,  ONLY: t_comm_pattern, t_comm_gather_pattern
   USE mo_io_units,       ONLY: filename_max
   USE mo_util_uuid,      ONLY: t_uuid
   USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
@@ -664,7 +664,11 @@ MODULE mo_model_domain
 
     TYPE(t_grid_geometry_info) :: geometry_info
     !-------------------------------------
-
+    INTEGER :: boundary_depth_index  ! when is limited area grid, this is the  number of boundary levels based
+                                     ! on the edge-connected cells (the fisrt level are cells that have
+                                     ! at least one boundary edge, the next level are cells shering an edge with
+                                     ! level 1 cells, etc
+    
     !
     ! domain ID of parent domain
     INTEGER :: parent_id
@@ -774,9 +778,9 @@ MODULE mo_model_domain
 
     ! Gather complete patch to proc 0
     ! Useful only for regular patches (defined but unused on local parents)
-    TYPE(t_comm_pattern) :: comm_pat_gather_c
-    TYPE(t_comm_pattern) :: comm_pat_gather_e
-    TYPE(t_comm_pattern) :: comm_pat_gather_v
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_c
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_e
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_v
 
     ! Communication between local parent and its global counterpart,
     ! defined only on local parents.
@@ -839,9 +843,9 @@ MODULE mo_model_domain
     INTEGER :: n_patch_verts
 
     ! Gather the physical patch to proc 0
-    TYPE(t_comm_pattern) :: comm_pat_gather_c
-    TYPE(t_comm_pattern) :: comm_pat_gather_e
-    TYPE(t_comm_pattern) :: comm_pat_gather_v
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_c
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_e
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_v
 
   END TYPE t_phys_patch
 

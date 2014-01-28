@@ -9,13 +9,13 @@ for TYPE in $TYPES; do
 cd ${MODEL_DIR}/experiments/${EXP1}
 FILES=''
 for DATE in $DATES; do
-FILES=$FILES' '${EXP1}'_'${TYPE}'_000'${DATE}'00.nc'
+FILES=$FILES' '${EXP1}'_'${TYPE}'_19780101T0'${DATE}'00Z.nc'
 done
 cdo -O mergetime $FILES ${EXP1}_${TYPE}.nc
 cd ${MODEL_DIR}/experiments/${EXP2}
 FILES=''
 for DATE in $DATES; do
-FILES=$FILES' '${EXP2}'_'${TYPE}'_000'${DATE}'00.nc'
+FILES=$FILES' '${EXP2}'_'${TYPE}'_19780101T0'${DATE}'00Z.nc'
 done
 cdo -O mergetime $FILES ${EXP2}_${TYPE}.nc
 cdo -O sub ${EXP2}_${TYPE}.nc ../${EXP1}/${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}_${TYPE}.nc

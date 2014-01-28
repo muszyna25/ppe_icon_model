@@ -74,7 +74,7 @@ CONTAINS
 !! Developed  by Guenther Zaengl, DWD, 2009-02-24
 !!
 SUBROUTINE get_indices_c(p_patch, i_blk, i_startblk, i_endblk, i_startidx, &
-                         i_endidx, irl_start, opt_rl_end, opt_chdom)
+                         i_endidx, irl_start, opt_rl_end)
 
 
   TYPE(t_patch), INTENT(IN) :: p_patch
@@ -84,7 +84,6 @@ SUBROUTINE get_indices_c(p_patch, i_blk, i_startblk, i_endblk, i_startidx, &
   INTEGER, INTENT(IN) :: irl_start  ! refin_ctrl level where do loop starts
 
   INTEGER, OPTIONAL, INTENT(IN) :: opt_rl_end ! refin_ctrl level where do loop ends
-  INTEGER, OPTIONAL, INTENT(IN) :: opt_chdom  ! to be removed soon
 
   INTEGER, INTENT(OUT) :: i_startidx, i_endidx ! Start and end indices (jc loop)
 
@@ -124,7 +123,7 @@ END SUBROUTINE get_indices_c
 !! Developed  by Guenther Zaengl, DWD, 2009-02-24
 !!
 SUBROUTINE get_indices_e(p_patch, i_blk, i_startblk, i_endblk, i_startidx, &
-                         i_endidx, irl_start, opt_rl_end, opt_chdom)
+                         i_endidx, irl_start, opt_rl_end)
 
 
   TYPE(t_patch), INTENT(IN) :: p_patch
@@ -134,7 +133,6 @@ SUBROUTINE get_indices_e(p_patch, i_blk, i_startblk, i_endblk, i_startidx, &
   INTEGER, INTENT(IN) :: irl_start  ! refin_ctrl level where do loop starts
 
   INTEGER, OPTIONAL, INTENT(IN) :: opt_rl_end ! refin_ctrl level where do loop ends
-  INTEGER, OPTIONAL, INTENT(IN) :: opt_chdom  ! to be removed soon
 
   INTEGER, INTENT(OUT) :: i_startidx, i_endidx ! Start and end indices (je loop)
 
@@ -176,7 +174,7 @@ END SUBROUTINE get_indices_e
 !! Developed  by Guenther Zaengl, DWD, 2009-02-24
 !!
 SUBROUTINE get_indices_v(p_patch, i_blk, i_startblk, i_endblk, i_startidx, &
-                         i_endidx, irl_start, opt_rl_end, opt_chdom)
+                         i_endidx, irl_start, opt_rl_end)
 
 
   TYPE(t_patch), INTENT(IN) :: p_patch
@@ -186,7 +184,6 @@ SUBROUTINE get_indices_v(p_patch, i_blk, i_startblk, i_endblk, i_startidx, &
   INTEGER, INTENT(IN) :: irl_start  ! refin_ctrl level where do loop starts
 
   INTEGER, OPTIONAL, INTENT(IN) :: opt_rl_end ! refin_ctrl level where do loop ends
-  INTEGER, OPTIONAL, INTENT(IN) :: opt_chdom  ! to be removed soon
 
   INTEGER, INTENT(OUT) :: i_startidx, i_endidx ! Start and end indices (jv loop)
 

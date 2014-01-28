@@ -125,6 +125,7 @@ cat > $atmo_namelist << EOF
  dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
 ! output_nml_dict  = '${dict_file}'
 ! netcdf_dict      = '${dict_file}'
+! dt_data         = ${dt_data}       ! [s]
 /
 &output_nml
  output_bounds    = 0.0,${dt_restart},${dt_data}   ! start, end, increment
@@ -138,13 +139,6 @@ cat > $atmo_namelist << EOF
 ! ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_prog_TL01_theta','ha_diag_rel_vort_c','ha_diag_div'
  ml_varlist       = 'ha_diag_u','ha_diag_v','ha_prog_TL01_temp','ha_prog_TL01_pres_sfc','ha_diag_rel_vort_c','ha_diag_div'
 /
-!&io_nml
-! out_expname     = '${EXPNAME}'     ! file name base
-! dt_data         = ${dt_data}       ! [s]
-! dt_diag         = ${dt_diag}       ! [s]
-! dt_checkpoint   = ${dt_checkpoint} ! [s]
-! dt_file         = ${dt_file}       ! [s]
-!/
 &dynamics_nml
  iequations      = ${atmo_model_equations}
 /

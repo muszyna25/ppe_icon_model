@@ -129,7 +129,7 @@ def dbg(msg)
 end
 
 # check for the naming convention to distinguish remote from local builds
-def isLocal?(build);  true if 'local' == build.to_s[0,5]; end
+def isLocal?(build);  'local' == build.to_s[0,5]; end
 def isRemote?(build); not isLocal?(build); end
 
 # hide some complex hash accesses
@@ -197,33 +197,6 @@ $buildCall = lambda {|build|
 # global tempfile array: little hack because the call generator does not really
 # call the system command
 $_temps = []
-# synchronization call for given build
-def sync(build)
-  dir      = $targetDir[build]
-  rsyncOpts = "--delete-excluded --delete"
-  rsyncOpts = ""
-
-  file = Tempfile.new("rsyncIconTempfiles2Transfer")
-  $_temps << file
-  myFile = file.path
-  file.write(`git ls-files | grep -v -E '^(data|doc)'`)
-  file.write("\n")
-  file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
-  # add non-added runscripts
-  file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
-  # add grids directory for local external data
-  file.write(Dir.glob("grids/*.nc").join("\n") + "\n")
-  file.write("config/mh-override\n") if isLocal?(build)
-  file.close
-  system("cat #{file.path}") if  ENV.has_key?('DEBUG')
-
-  if isLocal?(build)
-    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
-  else
-    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
-  end
-  syncCmd
-end
 
 # optional connection command
 def connect(build,command,targetDir=$targetDir[build,false])
@@ -269,6 +242,37 @@ EOR
   ))
 end
 
+# simple varnames check
+def checkNames(build,exp)
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      for file in $(ls -rc #{exp}*.nc*); do
+        echo '#===========================================================================';
+        echo " $file";echo
+        cdo showname  $file
+      done
+      EOS
+      ),true)
+end
+
+# check a single variable with infov
+def checkVar(build,exp,varname,timestep,level)
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      for file in $(ls -rc #{exp}*.nc*); do
+         selectOP='';
+         if [ #{timestep} -ne 0 ]; then
+           selectOP="$selectOP -seltimestep,#{timestep}";
+         fi
+         if [ #{level} -ne 0 ]; then
+           selectOP="$selectOP -sellevidx,#{level}";
+         fi
+         cdo infov -selname,#{varname} $selectOP $file
+      done
+      EOS
+  ))
+end
+
 # plot a plot from output file
 def showPlot(build,exp,var='t',timestep=0,level=0)
   call(connect(build,<<-EOS
@@ -280,20 +284,85 @@ def showPlot(build,exp,var='t',timestep=0,level=0)
       timestep     = ENV["timestep"]
       level        = ENV["level"]
       plotter      = IconPlot.new()
-      plotter.display = "eog"
+      plotter.display = "display"
       plotter.debug = true
       ofiles.each {|ofile|
         puts "Check file " +ofile
         plotter.show(plotter.scalarPlot(ofile,ofile,var,mapType: "ortho",timeStep: timestep,levIndex: level))
+        plotter.show(plotter.scalarPlot(ofile,ofile,var,                 timeStep: timestep,levIndex: level))
       }
 EOR
    EOS
   ))
 end
 
-# caller for sync, config, build and run
+# display the online diagnostics
+def showOnlineDiag(build,exp)
+  diagFile    = 'oce_diagnostics.txt'
+  diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
+  call(connect(build,<<-EOS
+      cd experiments/#{exp};
+      if test -f #{diagFile}; then
+        LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter};
+      else echo 'No diagnostics avialable!';
+      fi
+   EOS
+  ))
+end
+
+# show diff between two files
+def doDiffThis(build,fA,fB,tool='meld')
+  dbg("tool=#{tool}")
+  dbg("fA=#{fA}")
+  dbg("fB=#{fB}")
+  call(connect(build,<<-EOS
+     #{[tool,fA,fB].join(' ')}
+   EOS
+  ))
+end
+
+# show diff between two files
+def doDiffThis(build,fA,fB,tool='meld')
+  dbg("tool=#{tool}")
+  dbg("fA=#{fA}")
+  dbg("fB=#{fB}")
+  call(connect(build,<<-EOS
+     #{[tool,fA,fB].join(' ')}
+   EOS
+  ))
+end
+
+# synchronization call for given build
 def doSync(build)
-  call(sync(build))
+  dir      = $targetDir[build]
+  rsyncOpts = "--delete-excluded --delete"
+  rsyncOpts = "-L"
+
+  file = Tempfile.new("rsyncIconTempfiles2Transfer")
+  $_temps << file
+  myFile = file.path
+  if File.exists?('.svn') then
+    file.write(`svn list -R | grep -E -v '\/$'`)
+  else
+    file.write(`git ls-files | grep -v -E '^(data|doc)'`)
+  end
+  file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
+  # add non-added runscripts
+  file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
+  file.write("\n")
+  # add grids directory for local external data
+  #file.write(Dir.glob("grids/*.nc").join("\n") + "\n") unless isLocal?(build)
+  file.write("config/mh-override\n") if isLocal?(build)
+  file.close
+  system("cat #{file.path}") if  ENV.has_key?('DEBUG')
+  system("cp #{file.path} tempList")
+
+  if isLocal?(build)
+    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
+  else
+    syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
+  end
+  call(syncCmd)
 end
 def doCheckoutRev(build,rev,url)
   dir  = $targetDir[build]+'/'+rev.to_s
@@ -323,6 +392,7 @@ def doCleanSync(build)
   call(connect(build,"rm -rf src support build"))
 end
 def doRunExp(build,exp,post=false)
+  nprocs = ENV.has_key?('PROCS') ? ENV['PROCS'] : 4
   runScript = (post) ? 'post' : 'exp'
   runScript << '.' + exp +'.run'
   call(connect(build,"cd experiments/#{exp}; test -f $(echo #{exp}*.nc* | cut -d ' ' -f 1) && rm #{exp}*.nc*"))
@@ -335,6 +405,7 @@ def doRunExp(build,exp,post=false)
       ./make_runscripts #{exp};
       cd run;
       perl -pi.bak -e 's/submit=.*/submit=""/' #{runScript} ;
+      perl -pi.bak -e 's/mpi_total_procs=.*/mpi_total_procs=#{nprocs}/' #{runScript} ;
       ./exp.#{exp}.run;
                            EOS
                           ),true)
@@ -367,9 +438,64 @@ def doCmpExps(build,expA,expB)
                EOS
               ),true)
 end
+def doCmpExpDirs(build,dirA,dirB)
+  expA, expB = File.basename(dirA), File.basename(dirB)
+  #check model outout
+  call(connect(build,<<-EOS
+      cd experiments/;
+      fileA=$(ls -1 #{dirA}/#{expA}*.nc | head -1);
+      fileB=$(ls -1 #{dirB}/#{expB}*.nc | head -1);
+      [[ -f diffOut ]] && rm diffOut
+      cdo diffv $fileA $fileB > diffOut
+      if test -s diffOut
+      then
+        echo "DIFF found !!"
+        cat diffOut
+        cdo sinfov $fileA
+        cdo sinfov $fileA
+        echo "FILE:  $fileA ===================================================="
+        cdo showname $fileA
+          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileA
+        echo "FILE:  $fileB ===================================================="
+        cdo showname $fileB
+          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileB
+      else
+        echo "no DIFF found"
+        echo "FILE:  $fileA ===================================================="
+          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileA
+        echo "FILE:  $fileB ===================================================="
+          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileB
+      fi
+               EOS
+              ),true)
+  # check possbile restart files
+  call(connect(build,<<-EOS
+      cd experiments/;
+      fileA=#{dirA}/restart_oce.nc
+      fileB=#{dirB}/restart_oce.nc
+      if test -f "$fileA" -a -f "$fileB" ; then
+        [[ -f diffOut ]]  && rm diffOut
+        cdo diffv $fileA $fileB > diffOut;
+        if test -s diffOut
+        then
+          echo "DIFF found !!"
+          cat diffOut
+          cdo sinfov $fileA
+          cdo sinfov $fileA
+        else
+          echo "no DIFF found"
+          cdo showname $fileA
+          cdo showname $fileB
+        fi
+      else
+        echo "No restart available for #{dirA} of #{dirB}"
+      fi;
+               EOS
+              ),true) if false
+end
 def doCheckExp(build,exp)
-  var = ENV.has_key?('VAR') ? ENV['VAR'] : '__ALL'
-  ts  = ENV.has_key?('TS') ? ENV['TS'].to_i : 0
+  var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
+  ts  = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
   lev = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
   if ENV.has_key?('CHECK') then
     checks = ENV['CHECK'].split(',')
@@ -380,43 +506,18 @@ def doCheckExp(build,exp)
       when 'plot' then
         var = 't' if '__ALL' == var
         showPlot(build,exp,var,ts,lev)
+      when 'diag'
+        showOnlineDiag(build,exp)
+      when 'var'
+	checkVar(build,exp,var,ts,lev)
       else
- #       checkVarnames(build,exp
+        checkNames(build,exp)
       end
     }
   else
-  call(connect(build,<<-EOS
-      cd experiments/#{exp};
-      for file in $(ls -rc #{exp}*.nc*); do
-        if [ -f $file ]; then
-          echo '#===========================================================================';
-          echo " $file";echo
-          cdo showname  $file
-          #cdo sinfov $file
-          #cdo -infov -seltimestep,2 $file
-          #cdo -infov -merge -div -expr,'t_diff=t_acc-t' $file -selname,wet_c $file
-          #cdo -infov -merge -div -expr,'s_diff=s_acc-s' $file -selname,wet_c $file
-          #cdo -infov -subc,16.0 -div -selname,t,t_acc $file -selname,wet_c $file
-        fi;
-      done
-               EOS
-              ),true)
-  diagFile    = 'oce_diagnostics.txt'
-  diagPlotter = 'scripts/postprocessing/tools/oceDiag.gp'
-  call(connect(build,<<-EOS
-      cd experiments/#{exp};
-      if test -f #{diagFile}; then
-        LD_LIBRARY_PATH=/usr/lib SHOW=1 FILE=#{diagFile} gnuplot ../../#{diagPlotter};
-      else echo 'No diagnostics avialable!';
-      fi
-   EOS
-  )) unless ENV['SHOW'].nil?
-
-  # special accumulation check
-  checkAcc(build,exp,var)
-#ifile="#{$targetDir[build,false]}/experiments/#{exp}/#{exp}_R2B02_oce_DOM01_ML_0001.nc"
-#varName='matrix_vert_diff_c_1'
-#image = @plotter.plot(ifile,'test_'+exp,'matrix_vert_diff_c_1','scalar',:maskName => 'wet_c',:timeStep => 3)
+    checkNames(build,exp)
+    showOnlineDiag(build,exp) if ENV.has_key?('SHOW')
+    checkAcc(build,exp,var)
   end
 end
 def doCheckPost(build,exp,ext)
@@ -480,6 +581,10 @@ $builds.each_key {|build|
   task "#{build.to_s}_cmp".to_sym, [:expA,:expB] => ["#{build.to_s}_run".to_sym] do |t, args|
     doCmpExps(build,args.expA,args.expB)
   end
+  desc "Compare model output of 2 experiment directories"
+  task "#{build.to_s}_cmpDirs".to_sym, [:dirA,:dirB] do |t, args|
+    doCmpExpDirs(build,args.dirA,args.dirB)
+  end
 
   # post processing
   desc "Run post-processing on given exp (build:#{build.to_s})"
@@ -493,6 +598,13 @@ $builds.each_key {|build|
                 args.exp || DEFAULT_EXP,
                 args.ext || 'eps')
   end
+  # diff two text files with (option) tool
+  desc "diff two text files with (option) tool"
+  task "#{build.to_s}_diff".to_sym, :fA, :fB, :tool  do |t, args|
+    tool =  'meld' if args.tool.nil?
+    doDiffThis(build,args.fA, args.fB, tool)
+  end
+
   # }
   # TASKS FOR ONLY DO ONE SINGLE THING {
   desc "Configure for build #{build.to_s}"
@@ -515,6 +627,13 @@ $builds.each_key {|build|
   task "#{build.to_s}_cmpOnly".to_sym, [:expA,:expB] => ["#{build.to_s}_sync".to_sym] do |t, args|
     doCmpExps(build,args.expA,args.expB)
   end
+  # diff two text files with (option) tool
+  desc "diff two text files with (option) tool"
+  task "#{build.to_s}_diff".to_sym, :fA, :fB, :tool  do |t, args|
+    tool =  'meld' if args.tool.nil?
+    doDiffThis(build,args.fA, args.fB, tool)
+  end
+
   # }
 
   desc "remove old source trees and sync"

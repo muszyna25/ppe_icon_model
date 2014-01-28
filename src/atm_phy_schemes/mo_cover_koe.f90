@@ -200,7 +200,7 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 
 REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
-  & taudecay = 1200.0_wp, & ! decay time scale of convective anvils
+  & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
   & box_liq  = 0.05_wp  , & ! box width scale liquid clouds
   & box_ice  = 0.05_wp      ! box width scale ice clouds
 

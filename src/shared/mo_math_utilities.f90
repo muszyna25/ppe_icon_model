@@ -258,7 +258,7 @@ CONTAINS
   !! @par Revision History
   !! Original version by Tobias Ruppert and Thomas Heinze, DWD (2006-11-14)
   !!
-  SUBROUTINE gvec2cvec (p_gu, p_gv, p_long, p_lat, p_cu, p_cv, p_cw, geometry_info)
+  ELEMENTAL SUBROUTINE gvec2cvec (p_gu, p_gv, p_long, p_lat, p_cu, p_cv, p_cw, geometry_info)
     !
     REAL(wp), INTENT(in)  :: p_gu, p_gv     ! zonal and meridional vec. component
     REAL(wp), INTENT(in)  :: p_long, p_lat  ! geo. coord. of data point
@@ -321,7 +321,7 @@ CONTAINS
   !! @par Revision History
   !! Original version by Thomas Heinze, DWD (2006-11-16)
   !!
-  SUBROUTINE cvec2gvec (p_cu, p_cv, p_cw, p_long, p_lat, p_gu, p_gv, geometry_info)
+  ELEMENTAL SUBROUTINE cvec2gvec (p_cu, p_cv, p_cw, p_long, p_lat, p_gu, p_gv, geometry_info)
     !
     REAL(wp), INTENT(in)  :: p_cu, p_cv, p_cw  ! Cart. vector
     REAL(wp), INTENT(in)  :: p_long, p_lat     ! geo. coord. of data point

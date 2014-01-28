@@ -97,21 +97,7 @@ cat > ${atmo_namelist} << EOF
  rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa
 /
 &io_nml
- out_expname      = '${EXPNAME}'     ! file name base
- dt_data          = ${dt_data}       ! [s] write output
- dt_file          = ${dt_file}       ! [s] trigger new output file
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
-    lwrite_vorticity   = .false.
-    lwrite_divergence  = .false.
-    lwrite_omega       = .false.
-    lwrite_pres        = .false.
-    lwrite_z3          = .false.
-    lwrite_tracer      = .false.,.false.,.false.,.false.,.false.,.false., 
- lwrite_tend_phy  = .false.           ! add tendencies due to physics
- lwrite_radiation = .false.           ! add radiation fields to output
- lwrite_cloud     = .false.           ! add cloud fraction to output
- lwrite_precip    = .false.           ! add precipitation to output
- lwrite_pres      = .FALSE.          ! remove pressure from output
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere

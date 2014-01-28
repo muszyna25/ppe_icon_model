@@ -127,6 +127,7 @@ MODULE mo_nwp_phy_init
   USE mo_datetime,            ONLY: iso8601
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: init_mode
+  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init
 
   IMPLICIT NONE
 
@@ -160,7 +161,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
 
   INTEGER             :: jk, jk1
-  INTEGER             :: nsmax   ! horizontal resolution/sepctral truncation
+  REAL(wp)            :: rsltn   ! horizontal resolution
   REAL(wp)            :: pdtime
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
@@ -471,6 +472,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
     CALL hydci_pp_ice_init
 
+  CASE (4) !two moment micrphysics
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysic:SB')
+    CALL two_moment_mcrph_init( )
+
   CASE (10)  ! old hydci_pp from COSMO_V4_14
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
     CALL hydci_pp_old_init          
@@ -748,16 +753,14 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! Spectral resolution corresponding to ICON
     ! needed for RTAU - CAPE calculation
     ! adapted for more general gemoetries
-!     nsmax = INT(2._wp*pi*grid_sphere_radius/phy_params%mean_charlen)
-    nsmax = INT(MAX(p_patch%geometry_info%domain_length, p_patch%geometry_info%domain_height) &
-      & / p_patch%geometry_info%mean_characteristic_length)
+    rsltn = p_patch%geometry_info%mean_characteristic_length 
     
 
 !    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
 
-    CALL sucumf(nsmax,nlev,pref,phy_params)
+    CALL sucumf(rsltn,nlev,pref,phy_params)
     CALL suphli
     CALL suvdf
     CALL suvdfs

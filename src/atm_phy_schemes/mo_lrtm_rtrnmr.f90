@@ -31,6 +31,7 @@ MODULE mo_lrtm_rtrnmr
 #endif
 
   USE mo_lrtm_par,         ONLY : nbndlw, delwave, ngs
+  USE mo_lrtm_setup,       ONLY : ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl
 #ifdef __TEST_lrtm_rtrnmr
   USE mo_timer,            ONLY: timer_lrtm_1, timer_lrtm_2, timer_start, timer_stop
   USE mo_run_nml,          ONLY: ltimer
@@ -41,17 +42,11 @@ MODULE mo_lrtm_rtrnmr
 
   PRIVATE
 
-  PUBLIC :: ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl, &
-    & lrtm_rtrnmr
+  PUBLIC :: lrtm_rtrnmr
 
   REAL(wp), PARAMETER :: fluxfac = 2.0e+04_wp * api
 
-  INTEGER,  PARAMETER :: ntbl = 10000
   REAL(wp), PARAMETER :: tblint = 10000.0_wp
-  REAL(wp), DIMENSION(0:ntbl) :: tau_tbl
-  REAL(wp), DIMENSION(0:ntbl) :: exp_tbl
-  REAL(wp), DIMENSION(0:ntbl) :: tfn_tbl
-  REAL(wp)                    :: bpade
 
 CONTAINS
 

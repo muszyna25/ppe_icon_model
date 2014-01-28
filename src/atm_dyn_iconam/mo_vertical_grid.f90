@@ -350,9 +350,9 @@ MODULE mo_vertical_grid
 
 
       ! offcentering in vertical mass flux 
-      p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 0.5_wp - vwind_offctr
       p_nh(jg)%metrics%vwind_impl_wgt(:,:)    = 0.5_wp + vwind_offctr
       p_nh(jg)%metrics%vwind_impl_wgt_sv(:,:) = p_nh(jg)%metrics%vwind_impl_wgt(:,:)
+      p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 1.0_wp - p_nh(jg)%metrics%vwind_impl_wgt(:,:)
 
       ! Rayleigh damping properties
 
@@ -509,9 +509,9 @@ MODULE mo_vertical_grid
           z_offctr =   MAX(vwind_offctr, 0.425_wp*z_maxslope**0.75_wp, MIN(0.25_wp,2.5e-4_wp*(z_diff-250._wp)))
           z_offctr =   MIN(MAX(vwind_offctr,0.75_wp),z_offctr)
 
-          p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 0.5_wp - z_offctr
           p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)    = 0.5_wp + z_offctr
           p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+          p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 1.0_wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
 
         ENDDO
 
@@ -523,9 +523,9 @@ MODULE mo_vertical_grid
             ! squeezing ratio with respect to nominal layer thickness
             z_diff = (p_nh(jg)%metrics%z_ifc(jc,jk,jb)-p_nh(jg)%metrics%z_ifc(jc,jk+1,jb))/(vct_a(jk1)-vct_a(jk1+1))
             IF (z_diff < 0.6_wp) THEN
-              p_nh(jg)%metrics%vwind_impl_wgt(jc,jb) = MAX(p_nh(jg)%metrics%vwind_impl_wgt(jc,jb),1.2_wp-z_diff)
+              p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)    = MAX(p_nh(jg)%metrics%vwind_impl_wgt(jc,jb),1.2_wp-z_diff)
               p_nh(jg)%metrics%vwind_impl_wgt_sv(jc,jb) = p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
-              p_nh(jg)%metrics%vwind_expl_wgt(jc,jb) = 1._wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
+              p_nh(jg)%metrics%vwind_expl_wgt(jc,jb)    = 1._wp - p_nh(jg)%metrics%vwind_impl_wgt(jc,jb)
             ENDIF
           ENDDO
         ENDDO
@@ -609,19 +609,17 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! Index lists needed to minimize the number of halo communications in solve_nh and feedback
-      ! (Remark: setting i_startblk for i_nchdom is necessary to get an empty index list
-      !  for non-MPI-parallelized setups with multiple nests per nest level)
 
       p_nh(jg)%metrics%mask_prog_halo_c(:,:) = .FALSE.
 
-      i_startblk = p_patch(jg)%cells%start_blk(min_rlcell_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom)
+      i_startblk = p_patch(jg)%cells%start_block(min_rlcell_int-1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell)
 
       ic = 0
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jc = i_startidx, i_endidx
           IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
@@ -639,7 +637,7 @@ MODULE mo_vertical_grid
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jc = i_startidx, i_endidx
           IF (p_patch(jg)%cells%refin_ctrl(jc,jb)>=1 .AND. &
@@ -655,14 +653,14 @@ MODULE mo_vertical_grid
 
       ! Index list for which interpolated mass fluxes along the lateral nest boundary need to be updated
       ! part 1: count nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e,1)
-      i_endblk   = p_patch(jg)%edges%end_blk(grf_bdywidth_e,1)
+      i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)
+      i_endblk   = p_patch(jg)%edges%end_block(grf_bdywidth_e)
 
       ic = 0
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e, 1)
+                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e)
 
         DO je = i_startidx, i_endidx
           ic = ic+1
@@ -670,13 +668,13 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! part 2: count halo points of levels 1 and 2 belonging to nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(min_rledge_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+      i_startblk = p_patch(jg)%edges%start_block(min_rledge_int-1)
+      i_endblk   = p_patch(jg)%edges%end_block(min_rledge_int-2)
 
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2, i_nchdom)
+                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2)
 
         DO je = i_startidx, i_endidx
           IF (p_patch(jg)%edges%refin_ctrl(je,jb) == grf_bdywidth_e) THEN
@@ -691,14 +689,14 @@ MODULE mo_vertical_grid
                p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
 
       ! part 3: fill index list with nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e,1)
-      i_endblk   = p_patch(jg)%edges%end_blk(grf_bdywidth_e,1)
+      i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)
+      i_endblk   = p_patch(jg)%edges%end_block(grf_bdywidth_e)
 
       ic = 0
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e, 1)
+                           i_startidx, i_endidx, grf_bdywidth_e, grf_bdywidth_e)
 
         DO je = i_startidx, i_endidx
           ic = ic+1
@@ -708,13 +706,13 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! part 4: fill index list with halo points of levels 1 and 2 belonging to nest boundary points of row 9
-      i_startblk = p_patch(jg)%edges%start_blk(min_rledge_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%edges%end_blk(min_rledge_int-2,i_nchdom)
+      i_startblk = p_patch(jg)%edges%start_block(min_rledge_int-1)
+      i_endblk   = p_patch(jg)%edges%end_block(min_rledge_int-2)
 
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2, i_nchdom)
+                           i_startidx, i_endidx, min_rledge_int-1, min_rledge_int-2)
 
         DO je = i_startidx, i_endidx
           IF (p_patch(jg)%edges%refin_ctrl(je,jb) == grf_bdywidth_e) THEN
@@ -726,14 +724,14 @@ MODULE mo_vertical_grid
       ENDDO
 
       ! Index list for halo points belonging to the nest overlap zone
-      i_startblk = p_patch(jg)%cells%start_blk(min_rlcell_int-1,i_nchdom)
-      i_endblk   = p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom)
+      i_startblk = p_patch(jg)%cells%start_block(min_rlcell_int-1)
+      i_endblk   = p_patch(jg)%cells%end_block(min_rlcell)
       ica(:)     = 0
 
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -760,7 +758,7 @@ MODULE mo_vertical_grid
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell, i_nchdom)
+                           i_startidx, i_endidx, min_rlcell_int-1, min_rlcell)
 
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -1912,7 +1910,7 @@ MODULE mo_vertical_grid
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
 
     REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e), les_filter, &
-                 z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
+                 z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), max_dz
 
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
     INTEGER :: nlev, nlevp1, i_startblk
@@ -1933,10 +1931,15 @@ MODULE mo_vertical_grid
     CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_rlend=min_rledge_int)
     CALL sync_patch_array(SYNC_E, p_patch, z_me)
 
-    !Use max resolution to calculate les_filter size
-    les_filter = les_config(1)%smag_constant * &
-                 (2._wp*p_patch%geometry_info%mean_cell_area*MAXVAL(z_me))**(1._wp/3._wp) 
+    !Use the quadrilateral area to decide the les filter. 
+    max_dz = MAXVAL(p_nh%metrics%z_mc(:,nlev-5,:))
+    les_filter = les_config(1)%smag_constant*(max_dz*2._wp*p_patch%geometry_info%mean_cell_area)**0.33333_wp
 
+    IF (msg_level >= 10) THEN
+      WRITE(message_text,'(a,E10.3)') 'LES grid-scale filter: ',les_filter
+      CALL message(TRIM(routine),message_text)
+    END IF
+     
     i_startblk = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE

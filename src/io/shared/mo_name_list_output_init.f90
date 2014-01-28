@@ -30,9 +30,8 @@ MODULE mo_name_list_output_init
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, global_cell_type,            &
     &                                             grid_rescale_factor, start_time, end_time,      &
     &                                             DEFAULT_ENDTIME
-  USE mo_master_control,                    ONLY: is_restart_run
+  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
-  USE mo_grib2,                             ONLY: t_grib2_var
   USE mo_cf_convention,                     ONLY: t_cf_var
 
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
@@ -41,7 +40,7 @@ MODULE mo_name_list_output_init
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_var_metadata,                      ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
     &                                             new_var_list, get_all_var_names,                &
@@ -58,8 +57,7 @@ MODULE mo_name_list_output_init
   USE mo_mpi,                               ONLY: p_comm_work, p_comm_work_2_io,                  &
     &                                             p_comm_io, p_comm_work_io
   ! MPI Data types
-  USE mo_mpi,                               ONLY: p_int, p_int_i8, &
-    &                                             p_real_dp, p_real_sp
+  USE mo_mpi,                               ONLY: p_int, p_int_i8, p_real_dp, p_real_sp
   ! MPI Process type intrinsics
   USE mo_mpi,                               ONLY: my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
@@ -85,7 +83,8 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group, MAX_STRING_LEN,    &
     &                                             tolower, int2string
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
+  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no,  &
+    &                                             t_comm_gather_pattern
   USE mo_math_constants,                    ONLY: pi
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
     &                                             set_zlev, set_del_zlev
@@ -99,10 +98,16 @@ MODULE mo_name_list_output_init
     &                                             ILATLON, ICELL, IEDGE, IVERT,                   &
     &                                             sfs_name_list, ffs_name_list, second_tos,       &
     &                                             first_tos, GRP_PREFIX, t_fname_metadata,        &
-    &                                             all_events
+    &                                             all_events, t_patch_info_ll
+  USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2,                             &
+    &                                             set_grid_info_netcdf, collect_all_grid_info,    &
+    &                                             copy_grid_info, bcast_grid_info,                &
+    &                                             deallocate_all_grid_info,                       &
+    &                                             GRID_INFO_NONE, GRID_INFO_FILE, GRID_INFO_BCAST
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
+  USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
   ! post-ops
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
 
@@ -137,6 +142,11 @@ MODULE mo_name_list_output_init
     &                                             set_event_to_simstep
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
 
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+  USE mo_coupling_config,                   ONLY: is_coupled_run
+  USE mo_icon_cpl,                          ONLY: comps
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -148,8 +158,6 @@ MODULE mo_name_list_output_init
   INCLUDE 'netcdf.inc'
 
   ! variables and data types
-  PUBLIC :: mem_ptr_sp, mem_ptr_dp
-  PUBLIC :: mpi_win
   PUBLIC :: out_varnames_dict
   PUBLIC :: varnames_dict
   PUBLIC :: output_file
@@ -169,29 +177,17 @@ MODULE mo_name_list_output_init
 
   !------------------------------------------------------------------------------------------------
 
-  TYPE(t_output_file),  ALLOCATABLE, TARGET :: output_file(:)
-  TYPE(t_patch_info),   ALLOCATABLE, TARGET :: patch_info (:)
-  TYPE(t_reorder_info), ALLOCATABLE, TARGET :: lonlat_info(:,:)
+  TYPE(t_output_file),   ALLOCATABLE, TARGET :: output_file(:)
+  TYPE(t_patch_info),    ALLOCATABLE, TARGET :: patch_info (:)
+  TYPE(t_patch_info_ll), ALLOCATABLE, TARGET :: lonlat_info(:,:)
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
   INTEGER :: n_dom_out
 
-  !------------------------------------------------------------------------------------------------
-  ! Currently, we use only 1 MPI window for all output files
-  INTEGER mpi_win
-  REAL(dp), POINTER :: mem_ptr_dp(:) ! Pointer to memory window (REAL*8)
-  REAL(sp), POINTER :: mem_ptr_sp(:) ! Pointer to memory window (REAL*4)
-
   ! Broadcast root for intercommunicator broadcasts form compute PEs to IO PEs using p_comm_work_2_io
   INTEGER :: bcast_root
   !------------------------------------------------------------------------------------------------
-
-  ! Flag. If .TRUE. grid info will be copied from grid file, otherwise
-  ! geographical locations of cells, edges, and vertices are first
-  ! collected on working PE 0 - from where they will be broadcasted to
-  ! the pure I/O PEs.
-  LOGICAL :: l_grid_info_from_file
 
   !------------------------------------------------------------------------------------------------
   ! local copy of iadv_rcf, reducing dependencies and core specialities
@@ -314,7 +310,7 @@ CONTAINS
       dom(:)                   = -1
       steps_per_file           = -1
       steps_per_file_inclfirst = .TRUE.
-      file_interval            = ""
+      file_interval            = ' '
       include_last             = .TRUE.
       output_grid              = .FALSE.
       output_filename          = ' '
@@ -331,9 +327,9 @@ CONTAINS
       reg_lat_def(:)           = 0._wp
       reg_def_mode             = 0
       north_pole(:)            = (/ 0._wp, 90._wp /)
-      output_start             = ""
-      output_end               = ""
-      output_interval          = ""
+      output_start             = ' '
+      output_end               = ' '
+      output_interval          = ' '
       output_bounds(:)         = -1._wp
       output_time_unit         = 1
       ready_file               = DEFAULT_EVENT_NAME
@@ -434,6 +430,10 @@ CONTAINS
       p_onl%ready_file               = ready_file
 
       ! consistency checks:
+      IF ((steps_per_file == -1) .AND. (TRIM(file_interval) == "")) THEN
+        CALL finish(routine, "Please specify either <steps_per_file> or <file_interval>!")
+      END IF
+
       IF ((steps_per_file /= -1) .AND. (TRIM(file_interval) /= "")) THEN
         CALL finish(routine, "User has specified conflicting parameters <steps_per_file>, <file_interval>!")
       END IF
@@ -650,6 +650,10 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+  !> Initialize data structures for output.
+  !
+  !  This routine is called after reading the namelists AND setting up
+  !  the domains and variables.
   !
   SUBROUTINE init_name_list_output(sim_step_info, &
     &                              opt_lprintlist, opt_isample, opt_l_is_ocean)
@@ -676,42 +680,37 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
 
     LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
-    INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), jp
-    INTEGER                            :: idom, ierrstat, jg, idom_log, local_i
+    INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
+      &                                   jp, idom, jg, local_i, idom_log,                  &
+      &                                   grid_info_mode, ierrstat, jl
     TYPE (t_output_name_list), POINTER :: p_onl
     TYPE (t_output_file), POINTER      :: p_of
     TYPE(t_list_element), POINTER      :: element
-    REAL(wp), ALLOCATABLE              :: lonv(:,:,:), latv(:,:,:)
-    TYPE(t_cf_var), POINTER            :: this_cf
     TYPE(t_fname_metadata)             :: fname_metadata
     TYPE(t_par_output_event), POINTER  :: ev
     TYPE (t_sim_step_info)             :: dom_sim_step_info
+    TYPE(t_cf_var), POINTER            :: this_cf
 
     l_print_list = .FALSE.
     i_sample     = 1
     CALL assign_if_present(l_print_list, opt_lprintlist)
     CALL assign_if_present(i_sample, opt_isample)
 
-    ! For hexagons, we still copy grid info from file; for triangular
-    ! grids we have a faster method without file access:
-    l_grid_info_from_file = (global_cell_type == 6)
-    IF (PRESENT(opt_l_is_ocean)) THEN
-      IF (opt_l_is_ocean) l_grid_info_from_file = .FALSE.
-    ENDIF
+    ! ---------------------------------------------------------------------------
 
-    DO i = 1, nvar_lists
+    ! Optional: print list of all variables
+    IF (l_print_list) THEN
+      DO i = 1, nvar_lists
 
-      ! print list of all variables
-      IF (l_print_list) THEN
         IF (my_process_is_stdio()) THEN
           WRITE(message_text,'(3a, i2)') &
-               'Var_list name: ',TRIM(var_lists(i)%p%name), &
-               ' Patch: ',var_lists(i)%p%patch_id
+            'Var_list name: ',TRIM(var_lists(i)%p%name), &
+            ' Patch: ',var_lists(i)%p%patch_id
           CALL message('',message_text)
           element => var_lists(i)%p%first_list_element
           DO
             IF(.NOT. ASSOCIATED(element)) EXIT
-
+            
             IF (element%field%info%post_op%lnew_cf) THEN
               this_cf => element%field%info%post_op%new_cf
             ELSE
@@ -732,9 +731,8 @@ CONTAINS
             element => element%next_list_element
           ENDDO
         ENDIF
-      ENDIF ! IF (l_print_list)
-
-    ENDDO
+      ENDDO
+    ENDIF ! IF (l_print_list)
 
 #ifndef NOMPI
     ! Set broadcast root for intercommunicator broadcasts
@@ -761,6 +759,12 @@ CONTAINS
     ! Set the number of output domains depending on
     ! l_output_phys_patch
 
+    IF(l_output_phys_patch) THEN
+      n_dom_out = n_phys_dom
+    ELSE
+      n_dom_out = n_dom
+    ENDIF
+
     ! Replicate physical domain setup, only the number of domains and
     ! the logical ID is needed
     IF (use_async_name_list_io .AND.  &
@@ -771,14 +775,41 @@ CONTAINS
       ENDDO
     END IF
 
+    ! reset n_dom_out (required on I/O PEs):
     IF(l_output_phys_patch) THEN
       n_dom_out = n_phys_dom
     ELSE
       n_dom_out = n_dom
     ENDIF
 
-    ! allocate patch info data structure
-    ALLOCATE(patch_info(n_dom_out))
+    ! allocate patch info data structure for unstructured and regular
+    ! grids:
+    ALLOCATE(patch_info(n_dom_out), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! ---------------------------------------------------------------------------
+
+    ! If dom(:) was not specified in namelist input, it is set
+    ! completely to -1.  In this case all domains are wanted in the
+    ! output, so set it here appropriately - this cannot be done
+    ! during reading of the namelists since the number of physical
+    ! domains is not known there.
+    p_onl => first_output_name_list
+    ! Loop over all "output_nml" namelists:
+    DO
+      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+      IF(p_onl%dom(1) <= 0) THEN
+        DO i = 1, n_dom_out
+          p_onl%dom(i) = i
+        ENDDO
+      ENDIF
+      p_onl => p_onl%next
+    ENDDO
+
+    ! ---------------------------------------------------------------------------
+
     ! Set number of global cells/edges/verts and logical patch ID
     DO jp = 1, n_dom_out
       IF(l_output_phys_patch) THEN
@@ -805,70 +836,68 @@ CONTAINS
     ENDDO ! jp
 
     ! ---------------------------------------------------------------------------
+    !--- determine the mode how to collect grid information for output:
+
+    patch_info(:)%grid_info_mode    = GRID_INFO_NONE
+    lonlat_info(:,:)%grid_info_mode = GRID_INFO_NONE
+
+    p_onl => first_output_name_list
+    ! Loop over all "output_nml" namelists:
+    DO
+      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+      
+      ! Loop over all domains for which this name list should be used
+      DO i = 1, SIZE(p_onl%dom)
+        IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
+        idom = p_onl%dom(i)
+        
+        IF (p_onl%output_grid) THEN
+          grid_info_mode = GRID_INFO_BCAST
+          ! For hexagons, we still copy grid info from file; for
+          ! triangular grids we have a faster method without file access
+          IF (global_cell_type == 6)  grid_info_mode = GRID_INFO_FILE
+          IF (PRESENT(opt_l_is_ocean)) THEN
+            IF (opt_l_is_ocean) grid_info_mode = GRID_INFO_BCAST
+          ENDIF
+          IF (p_onl%remap==REMAP_REGULAR_LATLON) THEN
+            lonlat_info(p_onl%lonlat_id,patch_info(idom)%log_patch_id)%grid_info_mode = grid_info_mode
+          ELSE
+            patch_info(idom)%grid_info_mode = grid_info_mode
+          END IF
+        END IF
+      ENDDO ! i=1,ndom
+
+      p_onl => p_onl%next
+    ENDDO
+
+    ! replicate grid_info_mode on I/O PEs:
+    IF (use_async_name_list_io .AND.  &
+      & .NOT. my_process_is_mpi_test()) THEN
+      ! Go over all output domains
+      DO idom = 1, n_dom_out
+        CALL p_bcast(patch_info(idom)%grid_info_mode, bcast_root, p_comm_work_2_io)
+      END DO
+      ! A similar process as above - for the lon-lat grids
+      DO jl = 1,n_lonlat_grids
+        DO jg = 1,n_dom
+          CALL p_bcast(lonlat_info(jl,jg)%grid_info_mode, bcast_root, p_comm_work_2_io)
+        END DO
+      END DO
+    END IF
 
     ! Prepare the output of grid information: For each
     ! physical/logical patch we must collect the geographical
     ! locations of cells, edges, and vertices
 
     ! Pure I/O PEs may skip this...
-    IF (.NOT. (use_async_name_list_io .AND. my_process_is_io()) .AND.  &
-      & .NOT. l_grid_info_from_file ) THEN
-
+    IF (.NOT. (use_async_name_list_io .AND. my_process_is_io())) THEN
       ! Go over all output domains
       DO idom = 1, n_dom_out
-
-        ! logical domain ID
-        idom_log = patch_info(idom)%log_patch_id
-
-        !-- collect domain data on working PE 0
-        ! --cells
-        ALLOCATE(lonv(nproma, p_patch(idom_log)%nblks_c, global_cell_type), &
-          &      latv(nproma, p_patch(idom_log)%nblks_c, global_cell_type), &
-          &      STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-        CALL cf_1_1_grid_cells(p_patch(idom_log), lonv, latv)
-        CALL collect_grid_info(patch_info(idom)%nblks_glb_c,        &
-          &                    p_patch(idom_log)%nblks_c,           &
-          &                    p_patch(idom_log)%cells%center,      &
-          &                    lonv, latv,                          &
-          &                    patch_info(idom)%grid_c,             &
-          &                    global_cell_type,                    &
-          &                    patch_info(idom)%p_pat_c)
-        DEALLOCATE(lonv, latv, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-        !-- edges
-        ALLOCATE(lonv(nproma, p_patch(idom_log)%nblks_e, 4), &
-          &      latv(nproma, p_patch(idom_log)%nblks_e, 4), &
-          &      STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-        CALL cf_1_1_grid_edges(p_patch(idom_log), lonv, latv)
-        CALL collect_grid_info(patch_info(idom)%nblks_glb_e,        &
-          &                    p_patch(idom_log)%nblks_e,           &
-          &                    p_patch(idom_log)%edges%center,      &
-          &                    lonv, latv,                          &
-          &                    patch_info(idom)%grid_e,             &
-          &                    4,                                   &
-          &                    patch_info(idom)%p_pat_e)
-        DEALLOCATE(lonv, latv, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-        !-- verts
-        ALLOCATE(lonv(nproma, p_patch(idom_log)%nblks_v, 9-global_cell_type), &
-          &      latv(nproma, p_patch(idom_log)%nblks_v, 9-global_cell_type), &
-          &      STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-        CALL cf_1_1_grid_verts(p_patch(idom_log), lonv, latv)
-        CALL collect_grid_info(patch_info(idom)%nblks_glb_v,        &
-          &                    p_patch(idom_log)%nblks_v,           &
-          &                    p_patch(idom_log)%verts%vertex,      &
-          &                    lonv, latv,                          &
-          &                    patch_info(idom)%grid_v,             &
-          &                    9-global_cell_type,                  &
-          &                    patch_info(idom)%p_pat_v)
-        DEALLOCATE(lonv, latv, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
+        IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
+          ! logical domain ID
+          idom_log = patch_info(idom)%log_patch_id
+          CALL collect_all_grid_info(p_patch(idom_log), patch_info(idom))
+        END IF
       END DO
     END IF
 
@@ -877,26 +906,18 @@ CONTAINS
     ! If async IO is used, replicate data (mainly the variable lists) on IO procs
 
 #ifndef NOMPI
-    IF(use_async_name_list_io) THEN
+    IF (use_async_name_list_io) THEN
       CALL replicate_data_on_io_procs
 
-      IF (.NOT. l_grid_info_from_file) THEN
-        ! Clear patch_info fields clon, clat, etc. (especially on work
-        ! PE 0) since they aren't needed there any longer.
-        IF ( (.NOT. my_process_is_io()) .AND. &
-          &  (.NOT. my_process_is_mpi_test())) THEN
-          DO idom = 1, n_dom_out
-            DEALLOCATE(patch_info(idom)%grid_c%lon,  patch_info(idom)%grid_c%lat,  &
-              &        patch_info(idom)%grid_e%lon,  patch_info(idom)%grid_e%lat,  &
-              &        patch_info(idom)%grid_v%lon,  patch_info(idom)%grid_v%lat,  &
-              !
-              &        patch_info(idom)%grid_c%lonv, patch_info(idom)%grid_c%latv, &
-              &        patch_info(idom)%grid_e%lonv, patch_info(idom)%grid_e%latv, &
-              &        patch_info(idom)%grid_v%lonv, patch_info(idom)%grid_v%latv, &
-              &        STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-          END DO
-        END IF
+      ! Clear patch_info fields clon, clat, etc. (especially on work
+      ! PE 0) since they aren't needed there any longer.
+      IF ( (.NOT. my_process_is_io()) .AND. &
+        &  (.NOT. my_process_is_mpi_test())) THEN
+        ! Go over all output domains (deallocation is skipped if data
+        ! structures were not allocated)
+        DO idom = 1, n_dom_out
+          CALL deallocate_all_grid_info(patch_info(idom))
+        END DO
       END IF
     END IF
 #endif
@@ -909,12 +930,9 @@ CONTAINS
 
     p_onl => first_output_name_list
     nfiles = 0
-
     DO
 
-      IF(.NOT.ASSOCIATED(p_onl)) THEN
-        EXIT
-      ENDIF
+      IF(.NOT.ASSOCIATED(p_onl))  EXIT
 
       ! First, do some date-time computations: There are two
       ! alternative implementations for setting the output intervals,
@@ -946,17 +964,6 @@ CONTAINS
         END IF
       END IF
 
-      ! If dom(:) was not specified in namelist input, it is set completely to -1.
-      ! In this case all domains are wanted in the output, so set it here
-      ! appropriately - this cannot be done during reading of the namelists
-      ! since the number of physical domains is not known there.
-
-      IF(p_onl%dom(1) <= 0) THEN
-        DO i = 1, n_dom_out
-          p_onl%dom(i) = i
-        ENDDO
-      ENDIF
-
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
         IF(p_onl%dom(i) > n_dom_out) THEN
@@ -986,7 +993,6 @@ CONTAINS
 
     output_file(:)%cdiFileID  = CDI_UNDEFID ! i.e. not opened
     output_file(:)%cdiVlistId = CDI_UNDEFID ! i.e. not defined
-    output_file(:)%my_mem_win_off = 0_i8 ! Set if async IO is enabled
 
     ! Loop over all output namelists, set up the output_file struct for all associated files
 
@@ -1065,9 +1071,9 @@ CONTAINS
               CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
           END SELECT
 
-        ENDDO
+        ENDDO ! i_typ
 
-      ENDDO
+      ENDDO ! i=1,ndom
 
       p_onl => p_onl%next
 
@@ -1083,7 +1089,11 @@ CONTAINS
         output_file(i)%io_proc_id = MOD(i-1,process_mpi_io_size) + p_io_pe0
       ELSE
         ! Normal I/O done by the standard I/O processor
-        output_file(i)%io_proc_id = process_mpi_stdio_id
+         IF (p_test_run .AND. .NOT. my_process_is_mpi_test()) THEN
+            output_file(i)%io_proc_id = process_mpi_stdio_id + 1
+         ELSE
+            output_file(i)%io_proc_id = process_mpi_stdio_id
+         END IF
       ENDIF
     ENDDO
 
@@ -1148,21 +1158,41 @@ CONTAINS
     ! output event info and generates a unified output event,
     ! indicating which PE performs a write process at which step.
     all_events => union_of_all_events(compute_matching_sim_steps, generate_output_filenames, p_comm_io, &
-      &                               p_comm_work_io, process_work_io0)
+         &                               p_comm_work_io, process_work_io0)
 
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
-
     ! print a table with all output events
-    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
-      CALL print_output_event(all_events)                                       ! screen output
-      if (dom_sim_step_info%jstep0 > 0) then
-         CALL print_output_event(all_events, &
-              &  opt_filename="output_schedule_steps_"//trim(int2string(dom_sim_step_info%jstep0))//"+.txt")   ! ASCII file output
-      else
-         CALL print_output_event(all_events, opt_filename="output_schedule.txt")   ! ASCII file output
-      end if
+    IF (.NOT. my_process_is_mpi_test()) THEN
+       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+          CALL print_output_event(all_events)                                       ! screen output
+          IF (dom_sim_step_info%jstep0 > 0) THEN
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+             IF ( is_coupled_run() ) THEN
+               CALL print_output_event(all_events, &
+                 ! ASCII file output:
+      & opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") 
+             ELSE
+               CALL print_output_event(all_events, &
+      & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+             ENDIF
+#else
+             CALL print_output_event(all_events, &
+      &        opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+#endif
+          ELSE
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+             IF ( is_coupled_run() ) THEN
+                CALL print_output_event(all_events, opt_filename="output_schedule_"//TRIM(comps(1)%comp_name)//".txt") ! ASCII file output
+             ELSE
+                CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
+             ENDIF
+#else
+             CALL print_output_event(all_events, opt_filename="output_schedule.txt") ! ASCII file output
+#endif
+          END IF
+       END IF
     END IF
 
     ! If async IO is used, initialize the memory window for communication
@@ -1173,15 +1203,17 @@ CONTAINS
 
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
-    IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-      & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
-      ev => all_events
-      HANDLE_COMPLETE_STEPS : DO
-        IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-        CALL trigger_output_step_irecv(ev)
-        ev => ev%next
-      END DO HANDLE_COMPLETE_STEPS
-    END IF
+    if (.not. my_process_is_mpi_test()) THEN
+       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+          ev => all_events
+          HANDLE_COMPLETE_STEPS : DO
+             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+             CALL trigger_output_step_irecv(ev)
+             ev => ev%next
+          END DO HANDLE_COMPLETE_STEPS
+       END IF
+    end if
 
     CALL message(routine,'Done')
 
@@ -1201,9 +1233,9 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_desc), TARGET  ::  var_desc   !< variable descriptor
     TYPE(t_var_desc), POINTER ::  p_var_desc               !< variable descriptor (pointer)
+    TYPE(t_cf_var), POINTER        :: this_cf
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
-    TYPE(t_cf_var), POINTER     :: this_cf
 
     ! Get the number of variables in varlist
     DO ivar = 1, SIZE(varlist)
@@ -1363,11 +1395,10 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE set_patch_info
-
-    INTEGER :: jp, jl, ierrstat, jg
-
+  SUBROUTINE set_patch_info()
+    ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_patch_info"
+    INTEGER :: jp, jl, jg
 
     DO jp = 1, n_dom_out
 
@@ -1375,17 +1406,17 @@ CONTAINS
 
       IF(.NOT.my_process_is_io()) THEN
         ! Set reorder_info on work and test PE
-        CALL set_reorder_info(jp, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells, &
-                              p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%phys_id,    &
-                              p_patch(jl)%cells%decomp_info%glb_index, patch_info(jp)%cells)
+        CALL set_reorder_info(jp, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells,             &
+          &                   p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%phys_id,    &
+          &                   p_patch(jl)%cells%decomp_info%glb_index, patch_info(jp)%cells )
 
-        CALL set_reorder_info(jp, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges, &
-                              p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%phys_id,    &
-                              p_patch(jl)%edges%decomp_info%glb_index, patch_info(jp)%edges)
-
-        CALL set_reorder_info(jp, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
-                              p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%phys_id,    &
-                              p_patch(jl)%verts%decomp_info%glb_index, patch_info(jp)%verts)
+        CALL set_reorder_info(jp, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges,             &
+          &                   p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%phys_id,    &
+          &                   p_patch(jl)%edges%decomp_info%glb_index, patch_info(jp)%edges )
+        
+        CALL set_reorder_info(jp, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts,             &
+          &                   p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%phys_id,    &
+          &                   p_patch(jl)%verts%decomp_info%glb_index, patch_info(jp)%verts )
         ! Set grid_filename on work and test PE
         patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
         ! Set UUID on work and test PE
@@ -1396,9 +1427,9 @@ CONTAINS
 #ifndef NOMPI
       IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
         ! Transfer reorder_info to IO PEs
-        CALL transfer_reorder_info(patch_info(jp)%cells)
-        CALL transfer_reorder_info(patch_info(jp)%edges)
-        CALL transfer_reorder_info(patch_info(jp)%verts)
+        CALL transfer_reorder_info(patch_info(jp)%cells, patch_info(jp)%grid_info_mode)
+        CALL transfer_reorder_info(patch_info(jp)%edges, patch_info(jp)%grid_info_mode)
+        CALL transfer_reorder_info(patch_info(jp)%verts, patch_info(jp)%grid_info_mode)
         CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%grid_uuid%data, SIZE(patch_info(jp)%grid_uuid%data),  &
           &          bcast_root, p_comm_work_2_io)
@@ -1411,8 +1442,6 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
     ! A similar process as above - for the lon-lat grids
-    ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO jl = 1,n_lonlat_grids
       DO jg = 1,n_dom
         IF (.NOT. lonlat_grid_list(jl)%l_dom(jg)) CYCLE
@@ -1425,7 +1454,7 @@ CONTAINS
 #ifndef NOMPI
         IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
           ! Transfer reorder_info to IO PEs
-          CALL transfer_reorder_info(lonlat_info(jl,jg))
+          CALL transfer_reorder_info(lonlat_info(jl,jg)%ri, lonlat_info(jl,jg)%grid_info_mode)
         ENDIF
 #endif
 ! NOMPI
@@ -1433,300 +1462,7 @@ CONTAINS
     ENDDO ! jl
 #endif
 ! #ifndef __NO_ICON_ATMO__
-
   END SUBROUTINE set_patch_info
-
-
-  !------------------------------------------------------------------------------------------------
-  !> SUBROUTINE collect_grid_info
-  !
-  !  Prepare the output of grid information: For each physical/logical
-  !  patch we must collect the geographical locations of cells, edges,
-  !  and vertices first on working PE 0 - from where it will be
-  !  broadcasted to the pure I/O PEs.
-  !
-  SUBROUTINE collect_grid_info(nblks_glb, nblks_loc, in_lonlat, lonv, latv, out_lonlat, &
-    &                          dim3, p_pat)
-    INTEGER,                          INTENT(IN)    :: nblks_glb,     &  ! global number of blocks
-      &                                                nblks_loc         ! local  number of blocks
-    TYPE(t_geographical_coordinates), INTENT(IN)    :: in_lonlat(:,:)
-    REAL(wp),                         INTENT(IN)    :: lonv(:,:,:), latv(:,:,:)
-    TYPE(t_grid_info),                INTENT(INOUT) :: out_lonlat
-    INTEGER,                          INTENT(IN)    :: dim3
-    TYPE(t_comm_pattern),  POINTER                  :: p_pat
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine  =  modname//"::collect_grid_info"
-    INTEGER               :: ierrstat, jb, jc, idim
-    REAL(wp), ALLOCATABLE :: r_tmp_lon(:,:), r_tmp_lat(:,:)
-
-    ! skip this on test PE...
-    IF (my_process_is_mpi_test()) RETURN
-
-    ! allocate destination (on work root)
-    IF ( my_process_is_mpi_workroot() ) THEN
-      ALLOCATE(out_lonlat%lon (nproma*nblks_glb),      out_lonlat%lat (nproma*nblks_glb),      &
-        &      out_lonlat%lonv(dim3,nproma*nblks_glb), out_lonlat%latv(dim3,nproma*nblks_glb), &
-        &      STAT=ierrstat)
-    ELSE
-      ALLOCATE(out_lonlat%lon(1), out_lonlat%lat (1),            &
-        &      out_lonlat%lonv(dim3,1), out_lonlat%latv(dim3,1), &
-        &      STAT=ierrstat)
-    END IF
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
-    ! allocate temporary fields:
-    IF ( my_process_is_mpi_workroot()) THEN
-      ALLOCATE(r_tmp_lon (nproma, nblks_glb), r_tmp_lat (nproma, nblks_glb), STAT=ierrstat)
-    ELSE
-      ALLOCATE(r_tmp_lon (nproma, nblks_loc), r_tmp_lat (nproma, nblks_loc), STAT=ierrstat)
-    ENDIF
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
-    !-- part 1: exchange lon/lat coordinates:
-    IF (.NOT. my_process_is_mpi_test()) THEN
-      ! copy coordinates into sender array:
-      DO jb=1,nblks_loc
-        DO jc=1,nproma
-          r_tmp_lon(jc,jb) = in_lonlat(jc,jb)%lon
-          r_tmp_lat(jc,jb) = in_lonlat(jc,jb)%lat
-        END DO
-      END DO
-
-      ! gather data on work root
-      IF(.NOT. my_process_is_mpi_seq()) THEN
-        CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
-        CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
-      END IF
-      ! on work root: reshape into 1D arrays:
-      IF ( my_process_is_mpi_workroot() ) THEN
-        out_lonlat%lon(:)  = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
-        out_lonlat%lat(:)  = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
-      END IF
-
-      !-- part 2: exchange vertex lon/lat coordinates:
-      DO idim=1,dim3
-        ! copy coordinates into sender array:
-        DO jb=1,nblks_loc
-          DO jc=1,nproma
-            r_tmp_lon(jc,jb) = lonv(jc,jb,idim)
-            r_tmp_lat(jc,jb) = latv(jc,jb,idim)
-          END DO
-        END DO
-
-        ! gather data on work root
-        IF(.NOT. my_process_is_mpi_seq()) THEN
-          CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
-          CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
-        END IF
-        ! on work root: reshape into 1D arrays:
-        IF ( my_process_is_mpi_workroot() ) THEN
-          out_lonlat%lonv(idim,:) = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
-          out_lonlat%latv(idim,:) = RESHAPE(r_tmp_lat(:,:), (/ nproma*nblks_glb /))
-        END IF
-      END DO ! idim
-
-    ENDIF !  (.NOT. my_process_is_mpi_test())
-
-    ! clean up
-    DEALLOCATE(r_tmp_lon, r_tmp_lat, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
-  END SUBROUTINE collect_grid_info
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Reformat vertex lon/lat coordinates "clonv", "clatv" into a CF1.1 compatible form.
-  !
-  !  based on SUBROUTINE mo_gridrefinement::write_patch(p)
-  !
-  SUBROUTINE cf_1_1_grid_cells(p_patch, lonv, latv)
-    TYPE(t_patch),      INTENT(IN)    :: p_patch
-    REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
-    ! local variables
-    INTEGER :: jc, jb, j, iidx, iblk,                  &
-      &        rl_start, rl_end, i_startblk, i_endblk, &
-      &        i_startidx, i_endidx, i_nchdom
-
-    rl_start   = 1
-    rl_end     = min_rlcell_int
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-    lonv(:,:,:) = 0.0_wp
-    latv(:,:,:) = 0.0_wp
-    DO j = 1, global_cell_type
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          iidx = p_patch%cells%vertex_idx(jc,jb,j)
-          iblk = p_patch%cells%vertex_blk(jc,jb,j)
-          lonv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lon
-          latv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lat
-        END DO
-      END DO
-    END DO
-    WHERE (ABS(lonv(:,:,:)) < EPSILON(0.0_wp))
-      lonv(:,:,:) = 0.0_wp
-    END WHERE
-    WHERE (ABS(latv(:,:,:)) < EPSILON(0.0_wp))
-      latv(:,:,:) = 0.0_wp
-    END WHERE
-    DO j = 1, global_cell_type
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          IF (ABS(latv(jc,jb,j)) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
-            lonv(jc,jb,j) = p_patch%cells%center(jc,jb)%lon
-          ENDIF
-        END DO
-      END DO
-    END DO
-
-  END SUBROUTINE cf_1_1_grid_cells
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Reformat vertex lon/lat coordinates "elonv", "elatv" into a CF1.1 compatible form.
-  !
-  !  based on SUBROUTINE mo_gridrefinement::write_patch(p)
-  !
-  SUBROUTINE cf_1_1_grid_edges(p_patch, lonv, latv)
-    TYPE(t_patch),      INTENT(IN)    :: p_patch
-    REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
-    ! local variables
-    INTEGER  :: jc, jb, j, iidx, iblk,                 &
-      &        rl_start, rl_end, i_startblk, i_endblk, &
-      &        i_startidx, i_endidx, i_nchdom
-    REAL(wp) :: swap(4)
-
-    rl_start   = 1
-    rl_end     = min_rledge_int
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-    lonv(:,:,:) = 0.0_wp
-    latv(:,:,:) = 0.0_wp
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, rl_start, rl_end)
-      DO jc = i_startidx, i_endidx
-        iidx = p_patch%edges%vertex_idx(jc,jb,1)
-        iblk = p_patch%edges%vertex_blk(jc,jb,1)
-        lonv(jc,jb,1) = p_patch%verts%vertex(iidx,iblk)%lon
-        latv(jc,jb,1) = p_patch%verts%vertex(iidx,iblk)%lat
-
-        iidx = p_patch%edges%vertex_idx(jc,jb,2)
-        iblk = p_patch%edges%vertex_blk(jc,jb,2)
-        lonv(jc,jb,3) = p_patch%verts%vertex(iidx,iblk)%lon
-        latv(jc,jb,3) = p_patch%verts%vertex(iidx,iblk)%lat
-
-        IF (p_patch%edges%cell_idx(jc,jb,1) > 0) THEN
-          iidx = p_patch%edges%cell_idx(jc,jb,1)
-          iblk = p_patch%edges%cell_blk(jc,jb,1)
-          lonv(jc,jb,4) = p_patch%cells%center(iidx,iblk)%lon
-          latv(jc,jb,4) = p_patch%cells%center(iidx,iblk)%lat
-        ELSE
-          lonv(jc,jb,4) = 0._wp
-          latv(jc,jb,4) = 0._wp
-        ENDIF
-
-        IF (p_patch%edges%cell_idx(jc,jb,2) > 0) THEN
-          iidx = p_patch%edges%cell_idx(jc,jb,2)
-          iblk = p_patch%edges%cell_blk(jc,jb,2)
-          lonv(jc,jb,2) = p_patch%cells%center(iidx,iblk)%lon
-          latv(jc,jb,2) = p_patch%cells%center(iidx,iblk)%lat
-        ELSE
-          lonv(jc,jb,2) = 0._wp
-          latv(jc,jb,2) = 0._wp
-        END IF
-      END DO
-    END DO
-
-    WHERE (ABS(lonv(:,:,:)) < EPSILON(0.0_wp))
-      lonv(:,:,:) = 0.0_wp
-    END WHERE
-    WHERE (ABS(latv(:,:,:)) < EPSILON(0.0_wp))
-      latv(:,:,:) = 0.0_wp
-    END WHERE
-
-    DO j = 1, 4
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          IF ( ABS(latv(jc,jb,j)) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
-            lonv(jc,jb,j) = p_patch%edges%center(jc,jb)%lon
-          ENDIF
-        ENDDO
-      ENDDO
-    END DO
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, rl_start, rl_end)
-      DO jc = i_startidx, i_endidx
-        IF ( check_orientation(p_patch%edges%center(jc,jb)%lon, &
-          &                    lonv(jc,jb,:), latv(jc,jb,:), 4) < 0 ) THEN
-          swap(1:4) = lonv(jc,jb,4:1:-1)
-          lonv(jc,jb,:) = swap(:)
-          swap(1:4) = latv(jc,jb,4:1:-1)
-          latv(jc,jb,:) = swap(:)
-        END IF
-      END DO
-    ENDDO
-
-  END SUBROUTINE cf_1_1_grid_edges
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Reformat vertex lon/lat coordinates "vlonv", "vlatv" into a CF1.1 compatible form.
-  !
-  !  based on SUBROUTINE mo_gridrefinement::write_patch(p)
-  !
-  SUBROUTINE cf_1_1_grid_verts(p_patch, lonv, latv)
-    TYPE(t_patch),      INTENT(IN)    :: p_patch
-    REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
-    ! local variables
-    INTEGER :: jc, jb, j, iidx, iblk,                  &
-      &        rl_start, rl_end, i_startblk, i_endblk, &
-      &        i_startidx, i_endidx, i_nchdom
-
-    rl_start   = 2
-    rl_end     = min_rlvert
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-    i_startblk = p_patch%verts%start_blk(rl_start,1)
-    i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)
-
-    lonv(:,:,:) = 0.0_wp
-    latv(:,:,:) = 0.0_wp
-    DO j = 1,(9-global_cell_type)
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          IF ((p_patch%verts%cell_idx(jc,jb,j) == 0) .AND. &
-            & (p_patch%verts%refin_ctrl(jc,jb) /= 1)) THEN
-            iidx = p_patch%verts%cell_idx(jc,jb,5)
-            iblk = p_patch%verts%cell_blk(jc,jb,5)
-            lonv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lon
-            latv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lat
-          ELSE IF ((p_patch%verts%cell_idx(jc,jb,j) < 0) .OR. &
-            &      (p_patch%verts%refin_ctrl(jc,jb) == 1)) THEN
-            lonv(jc,jb,7-j) = 0._wp
-            latv(jc,jb,7-j) = 0._wp
-          ELSE
-            iidx = p_patch%verts%cell_idx(jc,jb,j)
-            iblk = p_patch%verts%cell_blk(jc,jb,j)
-            lonv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lon
-            latv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lat
-          ENDIF
-        ENDDO
-      ENDDO
-    END DO
-  END SUBROUTINE cf_1_1_grid_verts
 
 
   !------------------------------------------------------------------------------------------------
@@ -1743,9 +1479,8 @@ CONTAINS
     LOGICAL, INTENT(IN) :: owner_mask(:,:) ! owner_mask for logical patch
     INTEGER, INTENT(IN) :: phys_id(:,:)    ! phys_id for logical patch
     INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
-
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
-
+    ! local variables
     INTEGER :: i, n, il, ib, mpierr
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
@@ -1827,8 +1562,8 @@ CONTAINS
     ! Get reorder_index
 
     ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
-    IF (l_grid_info_from_file) THEN
-      ALLOCATE(p_ri%log_dom_index(p_ri%n_glb))
+    IF (patch_info(phys_patch_id)%grid_info_mode == GRID_INFO_FILE) THEN
+      ALLOCATE(p_ri%grid_info%log_dom_index(p_ri%n_glb))
     END IF
     ALLOCATE(reorder_index_log_dom(n_points_g)) ! spans the complete logical domain
     reorder_index_log_dom(:) = 0
@@ -1848,12 +1583,12 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF (l_grid_info_from_file) THEN
+    IF (patch_info(phys_patch_id)%grid_info_mode == GRID_INFO_FILE) THEN
       n = 0
       DO i = 1, n_points_g
         IF(reorder_index_log_dom(i)>0) THEN
           n = n+1
-          p_ri%log_dom_index(n) = i
+          p_ri%grid_info%log_dom_index(n) = i
         ENDIF
       ENDDO
     END IF
@@ -1883,91 +1618,93 @@ CONTAINS
   !> Sets the reorder_info for lon-lat-grids
   !
 #ifndef __NO_ICON_ATMO__
-  SUBROUTINE set_reorder_info_lonlat(grid, intp, p_ri)
-    TYPE(t_lon_lat_grid), INTENT(IN)    :: grid
-    TYPE(t_lon_lat_intp), INTENT(IN)    :: intp
-    TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
+  SUBROUTINE set_reorder_info_lonlat(grid, intp, patch_info_ll)
+    TYPE(t_lon_lat_grid),  INTENT(IN)    :: grid
+    TYPE(t_lon_lat_intp),  INTENT(IN)    :: intp
+    TYPE(t_patch_info_ll), INTENT(INOUT) :: patch_info_ll      ! Result: reorder info
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
     INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, &
-    &          ioffset, gidx
+    &          ioffset, gidx, n_own
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
     this_pe = get_my_mpi_work_id()
 
-    p_ri%n_glb = grid%lon_dim * grid%lat_dim ! Total points in lon-lat grid
-    p_ri%n_own = intp%nthis_local_pts        ! No. of own points
-
+    n_own                  = intp%nthis_local_pts        ! No. of own points
+    patch_info_ll%ri%n_glb = grid%lon_dim * grid%lat_dim ! Total points in lon-lat grid
+    patch_info_ll%ri%n_own = n_own
     ! Set index arrays to own cells/edges/verts
-    ALLOCATE(p_ri%own_idx(p_ri%n_own), p_ri%own_blk(p_ri%n_own), STAT=ierrstat)
+    ALLOCATE(patch_info_ll%ri%own_idx(n_own), &
+      &      patch_info_ll%ri%own_blk(n_own), &
+      &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     jc = 0
     jb = 1
-    DO i=1,p_ri%n_own
+    DO i=1,n_own
       jc = jc+1
       IF (jc>nproma) THEN
         jb = jb+1;  jc = 1
       END IF
-      p_ri%own_idx(i) = jc
-      p_ri%own_blk(i) = jb
+      patch_info_ll%ri%own_idx(i) = jc
+      patch_info_ll%ri%own_blk(i) = jb
     END DO ! i
 
     ! set destination indices (for sequential/test PEs). This is
     ! important for the case that the local patch is smaller than the
     ! lon-lat grid:
     IF(my_process_is_mpi_seq()) THEN
-      ALLOCATE(p_ri%own_dst_idx(p_ri%n_own), &
-        &      p_ri%own_dst_blk(p_ri%n_own))
-      DO i=1,p_ri%n_own
+      ALLOCATE(patch_info_ll%ri%own_dst_idx(n_own), &
+        &      patch_info_ll%ri%own_dst_blk(n_own))
+      DO i=1,n_own
         gidx = intp%global_idx(i)
-        p_ri%own_dst_idx(i) = idx_no(gidx)
-        p_ri%own_dst_blk(i) = blk_no(gidx)
+        patch_info_ll%ri%own_dst_idx(i) = idx_no(gidx)
+        patch_info_ll%ri%own_dst_blk(i) = blk_no(gidx)
       END DO ! i
     END IF
 
     ! Gather the number of own points for every PE into p_ri%pe_own
-    ALLOCATE(p_ri%pe_own(0:p_n_work-1), p_ri%pe_off(0:p_n_work-1), STAT=ierrstat)
+    ALLOCATE(patch_info_ll%ri%pe_own(0:p_n_work-1), &
+      &      patch_info_ll%ri%pe_off(0:p_n_work-1), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 #ifndef NOMPI
-    CALL MPI_Allgather(p_ri%n_own,  1, p_int, &
-                       p_ri%pe_own, 1, p_int, &
+    CALL MPI_Allgather(n_own,  1, p_int,                  &
+                       patch_info_ll%ri%pe_own, 1, p_int, &
                        p_comm_work, mpierr)
 #else
-    p_ri%pe_own(0) = p_ri%n_own
+    patch_info_ll%ri%pe_own(0) = n_own
 #endif
 ! NOMPI
 
     ! Get offset within result array
-    p_ri%pe_off(0) = 0
+    patch_info_ll%ri%pe_off(0) = 0
     DO i = 1, p_n_work-1
-      p_ri%pe_off(i) = p_ri%pe_off(i-1) + p_ri%pe_own(i-1)
+      patch_info_ll%ri%pe_off(i) = patch_info_ll%ri%pe_off(i-1) + patch_info_ll%ri%pe_own(i-1)
     ENDDO
 
     ! Get the global index numbers of the data when it is gathered on PE 0
     ! exactly in the same order as it is retrieved later during I/O
-    ALLOCATE(p_ri%reorder_index(p_ri%n_glb), STAT=ierrstat)
+    ALLOCATE(patch_info_ll%ri%reorder_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    IF (l_grid_info_from_file) THEN
-      ALLOCATE(p_ri%log_dom_index(p_ri%n_glb), STAT=ierrstat)
+    IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
+      ALLOCATE(patch_info_ll%ri%grid_info%log_dom_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     END IF
 
-    ioffset = p_ri%pe_off(this_pe)
-    p_ri%reorder_index = -1
+    ioffset = patch_info_ll%ri%pe_off(this_pe)
+    patch_info_ll%ri%reorder_index = -1
     DO i=1,intp%nthis_local_pts
-      p_ri%reorder_index(intp%global_idx(i)) = ioffset + i
+      patch_info_ll%ri%reorder_index(intp%global_idx(i)) = ioffset + i
     END DO
     ! merge all fields across working PEs:
-    p_ri%reorder_index = p_max(p_ri%reorder_index, &
-      &                        comm=get_my_mpi_work_communicator())
-    IF (l_grid_info_from_file) THEN
+    patch_info_ll%ri%reorder_index = p_max(patch_info_ll%ri%reorder_index, &
+      &                                    comm=get_my_mpi_work_communicator())
+    IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
       ! mapping between logical and physical patch is trivial for
       ! lon-lat grids:
-      p_ri%log_dom_index(:) = (/ (i, i=1,p_ri%n_glb) /)
+      patch_info_ll%ri%grid_info%log_dom_index(:) = (/ (i, i=1,patch_info_ll%ri%n_glb) /)
     END IF
-
   END SUBROUTINE set_reorder_info_lonlat
 #endif
 
@@ -2070,21 +1807,6 @@ CONTAINS
       CALL gridDefYname(of%cdiLonLatGridID, 'lat')
       CALL gridDefYunits(of%cdiLonLatGridID, 'degrees_north')
 
-      ! TODO [FP]
-
-      ! When specifying the north pole of the rotated lon-lat grid,
-      ! CDO conversion to GRIB format yields an incorrect longitude
-      ! axis, even if the north pole is identical to the lon-lat grid
-      ! without rotation.
-
-      ! As a TEMPORARY solution, the position of the rotated poly is
-      ! not stored in the NetCDF file, s.t. GRIB conversion works
-      ! correctly.
-
-      ! CALL gridDefXpole(of%cdiLonLatGridID, grid%poleN(1)/pi_180)
-      ! CALL gridDefYpole(of%cdiLonLatGridID, grid%poleN(2)/pi_180)
-      ! Note: CALL gridDefAngle() not yet supported
-
       ALLOCATE(p_lonlat(ll_dim(1)))
       DO k=1,ll_dim(1)
         p_lonlat(k) = (lonlat%grid%start_corner(1) + REAL(k-1,wp)*lonlat%grid%delta(1)) / pi_180
@@ -2175,11 +1897,16 @@ CONTAINS
         SELECT CASE(of%name_list%filetype)
         CASE (FILETYPE_NC2, FILETYPE_NC4)
           ! encode grid info in NetCDF format:
-          IF (l_grid_info_from_file) THEN
-            CALL copy_grid_info(of)
-          ELSE IF (.NOT. my_process_is_mpi_test()) THEN
-            CALL set_grid_info_netcdf(of)
-          END IF
+          SELECT CASE(patch_info(of%phys_patch_id)%grid_info_mode)
+          CASE (GRID_INFO_FILE)
+            CALL copy_grid_info(of, patch_info)
+          CASE (GRID_INFO_BCAST) 
+            IF (.NOT. my_process_is_mpi_test()) THEN
+              CALL set_grid_info_netcdf(of%cdiCellGridID, patch_info(of%phys_patch_id)%cells%grid_info)
+              CALL set_grid_info_netcdf(of%cdiEdgeGridID, patch_info(of%phys_patch_id)%edges%grid_info)
+              CALL set_grid_info_netcdf(of%cdiVertGridID, patch_info(of%phys_patch_id)%verts%grid_info)
+            END IF
+          END SELECT
         CASE (FILETYPE_GRB2)
           ! handled later...
         CASE DEFAULT
@@ -2691,493 +2418,17 @@ CONTAINS
     CALL add_variables_to_vlist(of)
 
     ! GRB2 format: define geographical longitude, latitude as special
-    ! variables "RLON", "RLAT":
-    IF (of%name_list%output_grid .AND. &
+    ! variables "RLON", "RLAT". Note that the grid information may be
+    ! contained in the patch_info data structure (for a different
+    ! output_file) but still we may do not want to include it into
+    ! this output file's (of) data file.
+    IF ((of%name_list%output_grid)                                      .AND. &
+      & (patch_info(of%phys_patch_id)%grid_info_mode /= GRID_INFO_NONE) .AND. &
       & (of%name_list%filetype == FILETYPE_GRB2)) THEN
       CALL set_grid_info_grb2(of)
     END IF
 
   END SUBROUTINE setup_output_vlist
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Sets the grid information in output file
-  !
-  SUBROUTINE set_grid_info_netcdf(of)
-
-    TYPE (t_output_file), INTENT(IN) :: of
-
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_netcdf"
-    INTEGER :: idom
-
-    idom  = of%phys_patch_id
-
-    ! cell grid
-    CALL gridDefXvals  (of%cdiCellGridID, patch_info(idom)%grid_c%lon)
-    CALL gridDefYvals  (of%cdiCellGridID, patch_info(idom)%grid_c%lat)
-    CALL gridDefXbounds(of%cdiCellGridID, patch_info(idom)%grid_c%lonv)
-    CALL gridDefYbounds(of%cdiCellGridID, patch_info(idom)%grid_c%latv)
-
-    ! edge grid
-    CALL gridDefXvals  (of%cdiEdgeGridID, patch_info(idom)%grid_e%lon)
-    CALL gridDefYvals  (of%cdiEdgeGridID, patch_info(idom)%grid_e%lat)
-    CALL gridDefXbounds(of%cdiEdgeGridID, patch_info(idom)%grid_e%lonv)
-    CALL gridDefYbounds(of%cdiEdgeGridID, patch_info(idom)%grid_e%latv)
-
-    ! vertex grid
-    CALL gridDefXvals  (of%cdiVertGridID, patch_info(idom)%grid_v%lon)
-    CALL gridDefYvals  (of%cdiVertGridID, patch_info(idom)%grid_v%lat)
-    CALL gridDefXbounds(of%cdiVertGridID, patch_info(idom)%grid_v%lonv)
-    CALL gridDefYbounds(of%cdiVertGridID, patch_info(idom)%grid_v%latv)
-
-  END SUBROUTINE set_grid_info_netcdf
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Declaration of the grid information (RLAT/RLON) in output file, GRIB2 format.
-  !
-  SUBROUTINE set_grid_info_grb2(of)
-    TYPE (t_output_file), INTENT(INOUT) :: of
-    ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_grid_info_grb"
-    CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
-    TYPE (t_grib2_var), PARAMETER :: grid_coord_grib2(2) = (/  &
-      ! geographical longitude RLON
-      & t_grib2_var(               0,   &  ! discipline
-      &                          191,   &  ! category
-      &                            2,   &  ! number
-      &              DATATYPE_PACK16,   &  ! bits
-      &               GRID_REFERENCE,   &  ! gridtype
-      &                    GRID_CELL ), &  ! subgridtype
-      ! geographical latitude RLAT
-      & t_grib2_var(               0,   &  ! discipline
-      &                          191,   &  ! category
-      &                            1,   &  ! number
-      &              DATATYPE_PACK16,   &  ! bits
-      &               GRID_REFERENCE,   &  ! gridtype
-      &                    GRID_CELL )  &  ! subgridtype
-      /)
-
-    INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
-
-    vlistID = of%cdiVlistID
-    zaxisID = of%cdiZaxisID(ZA_surface)
-
-    SELECT CASE(of%name_list%remap)
-    CASE (REMAP_NONE)
-      idx(:)    = (/ ICELL, IEDGE, IVERT /)
-      gridID(:) = (/ of%cdiCellGridID, of%cdiEdgeGridID, of%cdiVertGridID /)
-      DO igrid=1,3
-        DO i=1,2 ! for longitude, latitude:
-          of%cdi_grb2(idx(igrid),i) = vlistDefVar(vlistID, gridID(igrid), zaxisID, TSTEP_CONSTANT)
-          CALL vlistDefVarDatatype(vlistID,  of%cdi_grb2(idx(igrid),i), grid_coord_grib2(i)%bits)
-          CALL vlistDefVarTsteptype(vlistID, of%cdi_grb2(idx(igrid),i), TSTEP_CONSTANT)
-          CALL vlistDefVarName(vlistID,      of%cdi_grb2(idx(igrid),i), TRIM(grid_coord_name(i)))
-
-          ! Set GRIB2 Triplet
-          CALL vlistDefVarParam( vlistID, of%cdi_grb2(idx(igrid),i),  &
-            &  cdiEncodeParam(grid_coord_grib2(i)%number,             &
-            &                 grid_coord_grib2(i)%category,           &
-            &                 grid_coord_grib2(i)%discipline) )
-
-          ! GRIB2 Quick hack: Set additional GRIB2 keys
-          CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(idx(igrid),i),   &
-            &                            gribout_config(of%phys_patch_id), 0 )
-        END DO
-      END DO
-
-    CASE (REMAP_REGULAR_LATLON)
-      ! for longitude, latitude:
-      DO i=1,2
-        of%cdi_grb2(ILATLON,i) = vlistDefVar(vlistID, of%cdiLonLatGridID, zaxisID, TSTEP_CONSTANT)
-        CALL vlistDefVarDatatype(vlistID,  of%cdi_grb2(ILATLON,i), grid_coord_grib2(i)%bits)
-        CALL vlistDefVarTsteptype(vlistID, of%cdi_grb2(ILATLON,i), TSTEP_CONSTANT)
-        CALL vlistDefVarName(vlistID,      of%cdi_grb2(ILATLON,i), TRIM(grid_coord_name(i)))
-        ! Set GRIB2 Triplet
-        CALL vlistDefVarParam( vlistID, of%cdi_grb2(ILATLON,i),   &
-          &  cdiEncodeParam(grid_coord_grib2(i)%number,            &
-          &                 grid_coord_grib2(i)%category,          &
-          &                 grid_coord_grib2(i)%discipline) )
-
-        ! GRIB2 Quick hack: Set additional GRIB2 keys
-        CALL set_additional_GRIB2_keys(vlistID, of%cdi_grb2(ILATLON,i),      &
-          &                            gribout_config(of%phys_patch_id), 0 )
-      END DO
-
-    CASE DEFAULT
-      CALL finish(routine, "Unsupported grid type.")
-    END SELECT
-
-  END SUBROUTINE set_grid_info_grb2
-
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Copies the grid information from grid file to output file
-  !
-  SUBROUTINE copy_grid_info(of)
-
-    TYPE (t_output_file), INTENT(IN) :: of
-
-    INTEGER :: ncid, dimid, varid
-    INTEGER :: i_nc, i_ne, i_nv
-    INTEGER :: i_dom
-
-    REAL(wp), ALLOCATABLE :: clon(:), clat(:), clonv(:,:), clatv(:,:)
-    REAL(wp), ALLOCATABLE :: elon(:), elat(:), elonv(:,:), elatv(:,:)
-    REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), vlonv(:,:), vlatv(:,:)
-
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::copy_grid_info"
-
-    i_dom = of%phys_patch_id
-
-    ! Please note: The following is more or less a copy from mo_io_vlist with adaptions
-    ! to the data structures used here.
-    ! Unfortunately it seems necessary to open the gridfile for reading the information
-    ! since it is not read and stored during patch input.
-
-    !---------------------------------------------------------------------------
-    ! Open grid file, read dimensions and make a cross check if they match.
-    ! This is just for safety and could be skipped, of course.
-
-    CALL nf(nf_open(TRIM(patch_info(i_dom)%grid_filename), NF_NOWRITE, ncid))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    END SELECT
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_nc))
-    !
-    CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    END SELECT
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
-
-    IF(i_nc /= patch_info(i_dom)%cells%n_log) &
-      CALL finish(routine,'Number of cells differs in '//TRIM(patch_info(i_dom)%grid_filename))
-    IF(i_ne /= patch_info(i_dom)%edges%n_log) &
-      CALL finish(routine,'Number of edges differs in '//TRIM(patch_info(i_dom)%grid_filename))
-    IF(i_nv /= patch_info(i_dom)%verts%n_log) &
-      CALL finish(routine,'Number of verts differs in '//TRIM(patch_info(i_dom)%grid_filename))
-    !
-    !---------------------------------------------------------------------------
-    ! cell grid
-
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clon', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlon', varid))
-    END SELECT
-
-    ALLOCATE(clon(i_nc))
-    CALL nf(nf_get_var_double(ncid, varid, clon))
-    CALL reorder1(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clon)
-    CALL gridDefXvals(of%cdiCellGridID, clon)
-    DEALLOCATE(clon)
-
-
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clat', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlat', varid))
-    END SELECT
-
-    ALLOCATE(clat(i_nc))
-    CALL nf(nf_get_var_double(ncid, varid, clat))
-    CALL reorder1(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clat)
-
-    CALL gridDefYvals(of%cdiCellGridID, clat)
-    DEALLOCATE(clat)
-
-
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    END SELECT
-
-    ALLOCATE(clonv(global_cell_type, i_nc))
-    CALL nf(nf_get_var_double(ncid, varid, clonv))
-    CALL reorder2(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clonv)
-
-    CALL gridDefXbounds(of%cdiCellGridID, clonv)
-    DEALLOCATE(clonv)
-
-
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    END SELECT
-
-    ALLOCATE(clatv(global_cell_type, i_nc))
-    CALL nf(nf_get_var_double(ncid, varid, clatv))
-    CALL reorder2(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clatv)
-
-    CALL gridDefYbounds(of%cdiCellGridID, clatv)
-    DEALLOCATE(clatv)
-
-    !-------------------------------------------------------------------------
-    ! edge grid
-
-    ALLOCATE(elon(i_ne))
-    CALL nf(nf_inq_varid(ncid, 'elon', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elon))
-    CALL reorder1(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elon)
-
-    CALL gridDefXvals(of%cdiEdgeGridID, elon)
-    DEALLOCATE(elon)
-
-    ALLOCATE(elat(i_ne))
-    CALL nf(nf_inq_varid(ncid, 'elat', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elat))
-    CALL reorder1(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elat)
-
-    CALL gridDefYvals(of%cdiEdgeGridID, elat)
-    DEALLOCATE(elat)
-
-    ALLOCATE(elonv(4, i_ne))
-    CALL nf(nf_inq_varid(ncid, 'elon_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elonv))
-    CALL reorder2(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elonv)
-
-    CALL gridDefXbounds(of%cdiEdgeGridID, elonv)
-    DEALLOCATE(elonv)
-
-    ALLOCATE(elatv(4, i_ne))
-    CALL nf(nf_inq_varid(ncid, 'elat_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elatv))
-    CALL reorder2(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elatv)
-
-    CALL gridDefYbounds(of%cdiEdgeGridID, elatv)
-    DEALLOCATE(elatv)
-
-    !-------------------------------------------------------------------------
-    ! vertex grid
-
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'vlon', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'clon', varid))
-    END SELECT
-
-    ALLOCATE(vlon(i_nv))
-    CALL nf(nf_get_var_double(ncid, varid, vlon))
-    CALL reorder1(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlon)
-
-    CALL gridDefXvals(of%cdiVertGridID, vlon)
-    DEALLOCATE(vlon)
-
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'vlat', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'clat', varid))
-    END SELECT
-
-    ALLOCATE(vlat(i_nv))
-    CALL nf(nf_get_var_double(ncid, varid, vlat))
-    CALL reorder1(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlat)
-
-    CALL gridDefYvals(of%cdiVertGridID, vlat)
-    DEALLOCATE(vlat)
-
-    IF(global_cell_type==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    ENDIF
-
-    ALLOCATE(vlonv(9-global_cell_type, i_nv))
-    CALL nf(nf_get_var_double(ncid, varid, vlonv))
-    CALL reorder2(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlonv)
-
-    CALL gridDefXbounds(of%cdiVertGridID, vlonv)
-    DEALLOCATE(vlonv)
-
-    IF(global_cell_type==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    ENDIF
-
-    ALLOCATE(vlatv(9-global_cell_type, i_nv))
-    CALL nf(nf_get_var_double(ncid, varid, vlatv))
-    CALL reorder2(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlatv)
-
-    CALL gridDefYbounds(of%cdiVertGridID, vlatv)
-    DEALLOCATE(vlatv)
-
-    !-------------------------------------------------------------------------
-
-    ! Close NetCDF file, it is not needed any more
-    CALL nf(nf_close(ncid))
-
-  CONTAINS
-
-    SUBROUTINE nf(status)
-      INTEGER, INTENT(in) :: status
-
-      IF (status /= nf_noerr) THEN
-        CALL finish(routine, 'NetCDF Error: '//nf_strerror(status))
-      ENDIF
-    END SUBROUTINE nf
-
-    ! reorder1: get the physical patch points from the logical patch
-    ! Note that this works within the array as long as idx is monotonically increasing
-    SUBROUTINE reorder1(n, idx, array)
-      INTEGER, INTENT(IN)     :: n, idx(:)
-      REAL(wp), INTENT(INOUT) :: array(:)
-      INTEGER :: i
-
-      DO i = 1, n
-        array(i) = array(idx(i))
-      ENDDO
-    END SUBROUTINE reorder1
-
-    ! reorder2: same as reorder1 for 2D array
-    SUBROUTINE reorder2(n, idx, array)
-      INTEGER, INTENT(IN)     :: n, idx(:)
-      REAL(wp), INTENT(INOUT) :: array(:,:)
-      INTEGER :: i
-
-      DO i = 1, n
-        array(:,i) = array(:,idx(i))
-      ENDDO
-    END SUBROUTINE reorder2
-
-  END SUBROUTINE copy_grid_info
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Set additional GRIB2 keys
-  !
-  ! GRIB2 Quick hack
-  ! ----------------
-  !
-  ! Set additional GRIB2 keys. These are added to each single variable, even though
-  ! adding it to the vertical or horizontal grid description may be more elegant.
-  !
-  SUBROUTINE set_additional_GRIB2_keys(vlistID, varID, grib_conf, tileidx)
-    INTEGER,                INTENT(IN) :: vlistID, varID
-    TYPE(t_gribout_config), INTENT(IN) :: grib_conf
-    INTEGER,                INTENT(IN) :: tileidx
-
-    CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
-    INTEGER :: cent, year, month, day    ! date
-    INTEGER :: hour, minute              ! time
-
-    IF (grib_conf%ldate_grib_act) THEN
-      ! get date and time
-      ! ydate : ccyymmdd, ytime : hhmmss.sss
-      CALL date_and_time(ydate,ytime)
-      READ(ydate,'(4i2)') cent, year, month, day
-      READ(ytime,'(2i2)') hour, minute
-    ELSE ! set date to "01010101" (for better comparability of GRIB files)
-      cent  = 1
-      year  = 1
-      month = 1
-      year  = 1
-      hour  = 1
-      minute= 1
-    ENDIF
-
-    ! Load correct tables and activate section 2
-    !
-    ! set tablesVersion=5
-    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
-    ! Initialize section 2
-    CALL vlistDefVarIntKey(vlistID, varID, "grib2LocalSectionPresent", 1)
-    !
-    ! Product definition
-    CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
-      &                    grib_conf%significanceOfReferenceTime)
-    CALL vlistDefVarIntKey(vlistID, varID, "productionStatusOfProcessedData", &
-      &                    grib_conf%productionStatusOfProcessedData)
-    CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData",             &
-      &                    grib_conf%typeOfProcessedData)
-    CALL vlistDefVarIntKey(vlistID, varID, "backgroundProcess",               &
-      &                    grib_conf%backgroundProcess)
-    ! in case of lon-lat output, "1" has to be added to generatingProcessIdentifier
-    CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
-      &                    grib_conf%generatingProcessIdentifier)
-
-
-    CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
-
-
-    ! Product Generation (local), !! DWD only !!
-    ! DWD :: center    = 78
-    !        subcenter = 255
-    IF ((grib_conf%generatingCenter == 78) .AND. (grib_conf%generatingSubcenter == 255)) THEN
-      CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber"  ,         &
-        &                    grib_conf%localDefinitionNumber)
-
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateYear"  , 100*cent+year)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMonth" , month)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
-      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
-      ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
-
-      ! preliminary HACK for identifying tile based variables
-      CALL vlistDefVarIntKey(vlistID, varID, "localNumberOfExperiment",                 &
-        &                    grib_conf%localNumberOfExperiment)
-
-      CALL vlistDefVarIntKey(vlistID, varID, "localInformationNumber" , tileidx)
-
-      IF (grib_conf%localDefinitionNumber == 254) THEN
-        !
-        ! -------------------------------------------
-        ! Local definition for deterministic forecast
-        ! -------------------------------------------
-
-        ! store GRIB_API library version
-        ! TODO: replace by wrapper call in cdi not available yet (2013-07-29)
-        !CALL vlistDefVarIntKey(vlistID, varID, "localVersionNumber" , gribGetAPIVersion())
-
-        !
-      ELSE IF (grib_conf%localDefinitionNumber == 253) THEN
-        !
-        ! --------------------------------------
-        ! Local definition for ensemble products
-        ! --------------------------------------
-
-        IF (grib_conf%productDefinitionTemplateNumber /= -1)                              &
-          &   CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",   &
-          &                          grib_conf%productDefinitionTemplateNumber)
-        IF (grib_conf%typeOfEnsembleForecast /= -1)                                       &
-          &   CALL vlistDefVarIntKey(vlistID, varID, "typeOfEnsembleForecast" ,           &
-          &                          grib_conf%typeOfEnsembleForecast)
-        IF (grib_conf%localTypeOfEnsembleForecast /= -1)                                  &
-          &   CALL vlistDefVarIntKey(vlistID, varID, "localTypeOfEnsembleForecast" ,      &
-          &                          grib_conf%localTypeOfEnsembleForecast)
-        IF (grib_conf%numberOfForecastsInEnsemble /= -1)                                  &
-          &   CALL vlistDefVarIntKey(vlistID, varID, "numberOfForecastsInEnsemble" ,      &
-          &                          grib_conf%numberOfForecastsInEnsemble)
-        IF (grib_conf%perturbationNumber /= -1)                                           &
-          &   CALL vlistDefVarIntKey(vlistID, varID, "perturbationNumber" ,               &
-          &                          grib_conf%perturbationNumber)
-      END IF ! localDefinitionNumber
-    END IF
-
-    ! SECTION 3
-    CALL vlistDefVarIntKey(vlistID, varID, "shapeOfTheEarth", 6)
-
-  END SUBROUTINE set_additional_GRIB2_keys
 
 
   !------------------------------------------------------------------------------------------------
@@ -3338,12 +2589,6 @@ CONTAINS
       CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
         &                            get_var_tileidx(TRIM(info%name)) )
 
-      !!!!!!! OBSOLETE !!!!!!!!
-      !Set typeOfStatisticalProcessing
-      !Note: instead of calling vlistDefVarTsteptype, one should probably replace
-      !info%cdiTimeID in the call of vlistDefVar by info%isteptype
-      !CALL vlistDefVarTsteptype(vlistID, varID, info%isteptype)
-
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
@@ -3428,9 +2673,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Transfers reorder_info to IO PEs
   !
-  SUBROUTINE transfer_reorder_info(p_ri)
-
+  SUBROUTINE transfer_reorder_info(p_ri, grid_info_mode)
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
+    INTEGER,              INTENT(IN)    :: grid_info_mode
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -3449,8 +2694,8 @@ CONTAINS
       ALLOCATE(p_ri%pe_off(0:num_work_procs-1))
 
       ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
-      IF (l_grid_info_from_file) THEN
-        ALLOCATE(p_ri%log_dom_index(p_ri%n_glb))
+      IF (grid_info_mode == GRID_INFO_FILE) THEN
+        ALLOCATE(p_ri%grid_info%log_dom_index(p_ri%n_glb))
       END IF
     ENDIF
 
@@ -3458,8 +2703,8 @@ CONTAINS
     CALL p_bcast(p_ri%pe_off, bcast_root, p_comm_work_2_io)
 
     CALL p_bcast(p_ri%reorder_index, bcast_root, p_comm_work_2_io)
-    IF (l_grid_info_from_file) THEN
-      CALL p_bcast(p_ri%log_dom_index, bcast_root, p_comm_work_2_io)
+    IF (grid_info_mode == GRID_INFO_FILE) THEN
+      CALL p_bcast(p_ri%grid_info%log_dom_index, bcast_root, p_comm_work_2_io)
     END IF
 
   END SUBROUTINE transfer_reorder_info
@@ -3471,21 +2716,20 @@ CONTAINS
   !
   !  This routine has to be called by all PEs (work and I/O)
   !
-  SUBROUTINE replicate_data_on_io_procs
+  SUBROUTINE replicate_data_on_io_procs()
 
-    INTEGER :: ivct_len
-    INTEGER :: info_size, iv, nv, nelems, n, list_info(4)
-    INTEGER, ALLOCATABLE :: info_storage(:,:)
-
+    ! local variables
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
+    INTEGER                       :: ivct_len
+    INTEGER                       :: info_size, iv, nv, nelems, n, list_info(4)
+    INTEGER, ALLOCATABLE          :: info_storage(:,:)
     TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_metadata) :: info
-    TYPE(t_var_list) :: p_var_list
+    TYPE(t_var_metadata)          :: info
+    TYPE(t_var_list)              :: p_var_list
     ! var_list_name should have at least the length of var_list names
     ! (although this doesn't matter as long as it is big enough for every name)
-    CHARACTER(LEN=256) :: var_list_name
-    INTEGER :: idom, ierrstat, dim_c, dim_e, dim_v
-
-    CHARACTER(len=*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
+    CHARACTER(LEN=256)            :: var_list_name
+    INTEGER                       :: idom
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -3627,54 +2871,17 @@ CONTAINS
 
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
-    IF (.NOT. l_grid_info_from_file) THEN
 
-      ! Go over all output domains
-      DO idom = 1, n_dom_out
-        CALL p_bcast(patch_info(idom)%nblks_glb_c, bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%nblks_glb_e, bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%nblks_glb_v, bcast_root, p_comm_work_2_io)
-
-        dim_c =   global_cell_type
-        dim_e =                  4
-        dim_v = 9-global_cell_type
-
-        IF(my_process_is_io()) THEN
-          ALLOCATE(patch_info(idom)%grid_c%lon(nproma*patch_info(idom)%nblks_glb_c),  &
-            &      patch_info(idom)%grid_c%lat(nproma*patch_info(idom)%nblks_glb_c),  &
-            &      patch_info(idom)%grid_c%lonv(nproma*patch_info(idom)%nblks_glb_c, dim_c), &
-            &      patch_info(idom)%grid_c%latv(nproma*patch_info(idom)%nblks_glb_c, dim_c), &
-                                !
-            &      patch_info(idom)%grid_e%lon(nproma*patch_info(idom)%nblks_glb_e), &
-            &      patch_info(idom)%grid_e%lat(nproma*patch_info(idom)%nblks_glb_e), &
-            &      patch_info(idom)%grid_e%lonv(nproma*patch_info(idom)%nblks_glb_e, dim_e), &
-            &      patch_info(idom)%grid_e%latv(nproma*patch_info(idom)%nblks_glb_e, dim_e), &
-                                !
-            &      patch_info(idom)%grid_v%lon(nproma*patch_info(idom)%nblks_glb_v), &
-            &      patch_info(idom)%grid_v%lat(nproma*patch_info(idom)%nblks_glb_v), &
-            &      patch_info(idom)%grid_v%lonv(nproma*patch_info(idom)%nblks_glb_v, dim_v), &
-            &      patch_info(idom)%grid_v%latv(nproma*patch_info(idom)%nblks_glb_v, dim_v), &
-            &      STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-        END IF
-
-        ! cells
-        CALL p_bcast(patch_info(idom)%grid_c%lon,  bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_c%lat,  bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_c%lonv, bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_c%latv, bcast_root, p_comm_work_2_io)
-        ! edges
-        CALL p_bcast(patch_info(idom)%grid_e%lon,  bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_e%lat,  bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_e%lonv, bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_e%latv, bcast_root, p_comm_work_2_io)
-        ! vertices
-        CALL p_bcast(patch_info(idom)%grid_v%lon,  bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_v%lat,  bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_v%lonv, bcast_root, p_comm_work_2_io)
-        CALL p_bcast(patch_info(idom)%grid_v%latv, bcast_root, p_comm_work_2_io)
-      END DO
-    END IF ! IF (.NOT. l_grid_info_from_file)
+    ! Go over all output domains
+    DO idom = 1, n_dom_out
+      CALL p_bcast(patch_info(idom)%nblks_glb_c, bcast_root, p_comm_work_2_io)
+      CALL p_bcast(patch_info(idom)%nblks_glb_e, bcast_root, p_comm_work_2_io)
+      CALL p_bcast(patch_info(idom)%nblks_glb_v, bcast_root, p_comm_work_2_io)
+      
+      IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
+        CALL bcast_grid_info(patch_info(idom), bcast_root)
+      END IF
+    END DO
 
   END SUBROUTINE replicate_data_on_io_procs
 
@@ -3693,38 +2900,24 @@ CONTAINS
 #endif
 ! __SUNPRO_F95
 
-    INTEGER :: jp, i, iv, nlevs
-    INTEGER :: nbytes_real, mpierr, rma_cache_hint
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
-#ifdef USE_CRAY_POINTER
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-    REAL(sp) :: tmp_sp
-    POINTER(tmp_ptr_sp,tmp_sp(*))
-    REAL(dp) :: tmp_dp
-    POINTER(tmp_ptr_dp,tmp_dp(*))
-#else
-    TYPE(c_ptr) :: c_mem_ptr
-#endif
-! USE_CRAY_POINTER
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::init_async_name_list_output"
+    
+    INTEGER                         :: jp, i, iv, nlevs, i_log_dom, &
+      &                                n_own, lonlat_id
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_async_name_list_output"
-    INTEGER :: i_log_dom, n_own, lonlat_id
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
 
-
-    ! Get size and offset of the data for every output file
-
-    mem_size = 0_i8
-
     ! Go over all output files
-    DO i = 1, SIZE(output_file)
-
-      output_file(i)%my_mem_win_off = mem_size
-
+    OUT_FILE_LOOP : DO i = 1, SIZE(output_file)
+      
+      ! Get size of the data for every output file
+      mem_size = 0_i8
+      
       ! Go over all name list variables for this output file
-
       DO iv = 1, output_file(i)%num_vars
 
         jp = output_file(i)%phys_patch_id
@@ -3736,41 +2929,67 @@ CONTAINS
         ENDIF
 
         SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)
-          CASE (GRID_UNSTRUCTURED_CELL)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
-          CASE (GRID_UNSTRUCTURED_EDGE)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
-          CASE (GRID_UNSTRUCTURED_VERT)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
+        CASE (GRID_UNSTRUCTURED_CELL)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
+        CASE (GRID_UNSTRUCTURED_EDGE)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
+        CASE (GRID_UNSTRUCTURED_VERT)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
 
 #ifndef __NO_ICON_ATMO__
-          CASE (GRID_REGULAR_LONLAT)
-            lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
-            i_log_dom = output_file(i)%log_patch_id
-            n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
-            mem_size  = mem_size + INT(nlevs*n_own,i8)
+        CASE (GRID_REGULAR_LONLAT)
+          lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
+          i_log_dom = output_file(i)%log_patch_id
+          n_own     = lonlat_info(lonlat_id, i_log_dom)%ri%n_own
+          mem_size  = mem_size + INT(nlevs*n_own,i8)
 #endif
 ! #ifndef __NO_ICON_ATMO__
 
-          CASE DEFAULT
-            CALL finish(routine,'unknown grid type')
+        CASE DEFAULT
+          CALL finish(routine,'unknown grid type')
         END SELECT
 
-      ENDDO
+      ENDDO ! vars
+     
+      ! allocate amount of memory needed with MPI_Alloc_mem
+#ifdef USE_CRAY_POINTER
+      CALL allocate_mem_cray(mem_size, output_file(i))
+#else
+      CALL allocate_mem_noncray(mem_size, output_file(i))
+#endif
+      ! USE_CRAY_POINTER
 
-      ! Get the offset on all PEs
-      ALLOCATE(output_file(i)%mem_win_off(0:num_work_procs-1))
-      IF(.NOT.my_process_is_io()) THEN
-        CALL MPI_Allgather(output_file(i)%my_mem_win_off, 1, p_int_i8, &
-                           output_file(i)%mem_win_off, 1, p_int_i8,    &
-                           p_comm_work, mpierr)
-      ENDIF
+    ENDDO OUT_FILE_LOOP
+    
+  END SUBROUTINE init_memory_window
+  
 
-      CALL p_bcast(output_file(i)%mem_win_off, bcast_root, p_comm_work_2_io)
+#ifdef USE_CRAY_POINTER
+  !------------------------------------------------------------------------------------------------
+  !> allocate amount of memory needed with MPI_Alloc_mem
+  !
+  !  @note Implementation for Cray pointers
+  !
+  SUBROUTINE allocate_mem_cray(mem_size, of)
+#ifdef __SUNPRO_F95
+    INCLUDE "mpif.h"
+#else
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
+#endif
+! __SUNPRO_F95
 
-    ENDDO
-
-    ! mem_size is calculated as number of variables above, get number of bytes
+    INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
+    TYPE (t_output_file),            INTENT(INOUT) :: of
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_cray"
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
+    REAL(sp)                        :: tmp_sp
+    REAL(dp)                        :: tmp_dp
+    INTEGER                         :: mpierr
+    INTEGER                         :: nbytes_real
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
+    POINTER(tmp_ptr_sp,tmp_sp(*))
+    POINTER(tmp_ptr_dp,tmp_dp(*))
 
     ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
     ! communication)
@@ -3783,9 +3002,6 @@ CONTAINS
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
     mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
 
-    ! allocate amount of memory needed with MPI_Alloc_mem
-
-#ifdef USE_CRAY_POINTER
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
 
     IF (use_dp_mpi2io) THEN
@@ -3795,7 +3011,58 @@ CONTAINS
       tmp_ptr_sp = iptr
       CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
     ENDIF
+
+    ! Create memory window for communication
+    IF (use_dp_mpi2io) THEN
+      of%mem_win%mem_ptr_dp(:) = 0._dp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+    ELSE
+      of%mem_win%mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+    ENDIF
+    IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+
+  END SUBROUTINE allocate_mem_cray
+#endif
+! USE_CRAY_POINTER
+
+
+#ifndef USE_CRAY_POINTER
+  !------------------------------------------------------------------------------------------------
+  !> allocate amount of memory needed with MPI_Alloc_mem
+  !
+  !  @note Implementation for non-Cray pointers
+  !
+  SUBROUTINE allocate_mem_noncray(mem_size, of)
+#ifdef __SUNPRO_F95
+    INCLUDE "mpif.h"
 #else
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
+#endif
+! __SUNPRO_F95
+
+    INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
+    TYPE (t_output_file),            INTENT(INOUT) :: of
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
+    TYPE(c_ptr)                     :: c_mem_ptr
+    INTEGER                         :: mpierr
+    INTEGER                         :: nbytes_real
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
+
+    ! Get the amount of bytes per REAL*8 or REAL*4 variable (as used in MPI
+    ! communication)
+    IF (use_dp_mpi2io) THEN
+      CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
+    ELSE
+      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
+    ENDIF
+
+    ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
+    mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
+
     ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
     ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
     ! into deep, deep troubles!
@@ -3813,55 +3080,40 @@ CONTAINS
     ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
     ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
 
-    NULLIFY(mem_ptr_sp)
-    NULLIFY(mem_ptr_dp)
+    NULLIFY(of%mem_win%mem_ptr_sp)
+    NULLIFY(of%mem_win%mem_ptr_dp)
+
+    IF (use_dp_mpi2io) THEN
 
 #ifdef __SX__
-    IF (use_dp_mpi2io) THEN
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ INT(mem_size) /) )
-    ELSE
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ INT(mem_size) /) )
-    ENDIF
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ INT(mem_size) /) )
 #else
-    IF (use_dp_mpi2io) THEN
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ mem_size /) )
+#endif
+      ! Create memory window for communication
+      of%mem_win%mem_ptr_dp(:) = 0._dp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+
     ELSE
-      CALL C_F_POINTER(c_mem_ptr, mem_ptr_sp, (/ mem_size /) )
-    ENDIF
-#endif
-! __SX__
-#endif
-! USE_CRAY_POINTER
 
-    rma_cache_hint = MPI_INFO_NULL
-#ifdef __xlC__
-    ! IBM specific RMA hint, that we don't want window caching
-    CALL MPI_Info_create(rma_cache_hint, mpierr);
-    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
-    CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache","0", mpierr)
-    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
+#ifdef __SX__
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ INT(mem_size) /) )
+#else
+      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ mem_size /) )
 #endif
-! __xlC__
+      ! Create memory window for communication
+      of%mem_win%mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
+        &                  p_comm_work_io,of%mem_win%mpi_win,mpierr )
+      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
 
-    ! Create memory window for communication
-    IF (use_dp_mpi2io) THEN
-      mem_ptr_dp(:) = 0._dp
-      CALL MPI_Win_create( mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-        &                  p_comm_work_io,mpi_win,mpierr )
-    ELSE
-      mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-        &                  p_comm_work_io,mpi_win,mpierr )
-    ENDIF
-    IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+    ENDIF ! use_dp_mpi2io
 
-#ifdef __xlC__
-    CALL MPI_Info_free(rma_cache_hint, mpierr);
-    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
+  END SUBROUTINE allocate_mem_noncray
 #endif
-! __xlC__
-
-  END SUBROUTINE init_memory_window
+! .not. USE_CRAY_POINTER
 
 #endif
 ! NOMPI

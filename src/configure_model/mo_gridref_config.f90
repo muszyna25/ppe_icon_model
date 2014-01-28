@@ -50,12 +50,12 @@ MODULE mo_gridref_config
 !  PRIVATE
 !  PUBLIC :: t_gridref_config, gridref_config
 
-  PUBLIC :: rbf_vec_kern_grf_e, rbf_scale_grf_e,                          &
-    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
-    &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
-    &                    grf_intmethod_c, grf_intmethod_e,                &
-    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t,  &
-    &                    l_mass_consvcorr, l_density_nudging
+  PUBLIC :: rbf_vec_kern_grf_e, rbf_scale_grf_e,                                &
+    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,                  &
+    &                    grf_idw_exp_e12, grf_idw_exp_e34,                      &
+    &                    grf_intmethod_c, grf_intmethod_e,                      &
+    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t,        &
+    &                    l_mass_consvcorr, l_density_nudging, fbk_relax_timescale
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -95,6 +95,8 @@ MODULE mo_gridref_config
     LOGICAL  :: l_density_nudging ! .true.: apply density nudging near lateral nest boundaries if feedback is turned on
                                   ! (in case of one-way nesting, all prognostic variables are nudged irrespective of this switch)
 
+    ! Relaxation time scale for feedback in case of ifeedback_type = 2
+    REAL(wp) :: fbk_relax_timescale
 !  END TYPE t_gridref_config
   !>
   !!

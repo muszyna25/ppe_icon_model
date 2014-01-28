@@ -123,9 +123,7 @@ cat > ${atmo_namelist} << EOF
  hdiff_order = -1
 /
 &io_nml
- out_expname = '${EXPNAME}' ! file name base
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- dt_data        = ${dt_data}   ! [s] output interval
  dt_diag        = ${dt_data}
 /
 EOF

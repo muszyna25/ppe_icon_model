@@ -65,11 +65,7 @@ MODULE mo_advection_config
     LOGICAL :: miura3_h  (MAX_NTRACER)
     LOGICAL :: ffsl_h    (MAX_NTRACER)
     LOGICAL :: ffsl_hyb_h(MAX_NTRACER)
-    LOGICAL :: mcycl_h   (MAX_NTRACER)
-    LOGICAL :: miura_mcycl_h   (MAX_NTRACER)
-    LOGICAL :: miura3_mcycl_h  (MAX_NTRACER)
-    LOGICAL :: ffsl_mcycl_h    (MAX_NTRACER)
-    LOGICAL :: ffsl_hyb_mcycl_h(MAX_NTRACER)                            
+    LOGICAL :: mcycl_h   (MAX_NTRACER)                            
   END TYPE t_compute                                                           
 
 
@@ -531,7 +527,7 @@ CONTAINS
 
     ! compute minimum required slev for this group of tracers
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == MCYCL ) THEN
+      IF ( ANY( (/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
         advection_config(jg)%mcycl_h%iadv_min_slev =   &
           &                  MIN( advection_config(jg)%mcycl_h%iadv_min_slev, &
           &                       advection_config(jg)%iadv_slev(jt) )
@@ -541,7 +537,7 @@ CONTAINS
     ! Search for the first tracer jt for which horizontal advection of
     ! type MCYCL has been selected.
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == MCYCL ) THEN
+      IF ( ANY( (/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
         lcompute%mcycl_h(jt) = .TRUE.
         exit
       ENDIF
@@ -550,156 +546,11 @@ CONTAINS
     ! Search for the last tracer jt for which horizontal advection of
     ! type MCYCL has been selected.
     DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == MCYCL ) THEN
+      IF ( ANY( (/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
         lcleanup%mcycl_h(jt) = .TRUE.
         exit
       ENDIF
     ENDDO
-
-
-    !
-    ! MIURA_MCYCL specific settings (horizontal transport)
-    !
-    lcompute%miura_mcycl_h(:) = .FALSE.
-    lcleanup%miura_mcycl_h(:) = .FALSE.
-
-    advection_config(jg)%miura_mcycl_h%iadv_min_slev = HUGE(1)
-
-    ! compute minimum required slev for this group of tracers
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == MIURA_MCYCL ) THEN
-        advection_config(jg)%miura_mcycl_h%iadv_min_slev =  &
-          &                  MIN( advection_config(jg)%miura_mcycl_h%iadv_min_slev, &
-          &                       advection_config(jg)%iadv_slev(jt) )
-      ENDIF
-    ENDDO
-
-    ! Search for the first tracer jt for which horizontal advection of
-    ! type MIURA_MCYCL has been selected.
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == MIURA_MCYCL ) THEN
-        lcompute%miura_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-    ! Search for the last tracer jt for which horizontal advection of
-    ! type MIURA_MCYCL has been selected.
-    DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == MIURA_MCYCL ) THEN
-        lcleanup%miura_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-
-    !
-    ! MIURA3_MCYCL specific settings (horizontal transport)
-    !
-    lcompute%miura3_mcycl_h(:) = .FALSE.
-    lcleanup%miura3_mcycl_h(:) = .FALSE.
-
-    advection_config(jg)%miura3_mcycl_h%iadv_min_slev = HUGE(1)
-
-    ! compute minimum required slev for this group of tracers
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == MIURA3_MCYCL ) THEN
-        advection_config(jg)%miura3_mcycl_h%iadv_min_slev =  &
-          &                  MIN( advection_config(jg)%miura3_mcycl_h%iadv_min_slev, &
-          &                       advection_config(jg)%iadv_slev(jt) )
-      ENDIF
-    ENDDO
-
-    ! Search for the first tracer jt for which horizontal advection of
-    ! type MIURA3_MCYCL has been selected.
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == MIURA3_MCYCL ) THEN
-        lcompute%miura3_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-    ! Search for the last tracer jt for which horizontal advection of
-    ! type MIURA3_MCYCL has been selected.
-    DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == MIURA3_MCYCL ) THEN
-        lcleanup%miura3_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-
-    !
-    ! FFSL_MCYCL specific settings (horizontal transport)
-    !
-    lcompute%ffsl_mcycl_h(:) = .FALSE.
-    lcleanup%ffsl_mcycl_h(:) = .FALSE.
-
-    advection_config(jg)%ffsl_mcycl_h%iadv_min_slev = HUGE(1)
-
-    ! compute minimum required slev for this group of tracers
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == FFSL_MCYCL ) THEN
-        advection_config(jg)%ffsl_mcycl_h%iadv_min_slev =  &
-          &                  MIN( advection_config(jg)%ffsl_mcycl_h%iadv_min_slev, &
-          &                       advection_config(jg)%iadv_slev(jt) )
-      ENDIF
-    ENDDO
-
-    ! Search for the first tracer jt for which horizontal advection of
-    ! type FFSL_MCYCL has been selected.
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == FFSL_MCYCL ) THEN
-        lcompute%ffsl_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-    ! Search for the last tracer jt for which horizontal advection of
-    ! type FFSL_MCYCL has been selected.
-    DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == FFSL_MCYCL ) THEN
-        lcleanup%ffsl_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-
-    !
-    ! FFSL_HYB_MCYCL specific settings (horizontal transport)
-    !
-    lcompute%ffsl_hyb_mcycl_h(:) = .FALSE.
-    lcleanup%ffsl_hyb_mcycl_h(:) = .FALSE.
-
-    advection_config(jg)%ffsl_hyb_mcycl_h%iadv_min_slev = HUGE(1)
-
-    ! compute minimum required slev for this group of tracers
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == FFSL_HYB_MCYCL ) THEN
-        advection_config(jg)%ffsl_hyb_mcycl_h%iadv_min_slev =  &
-          &                  MIN( advection_config(jg)%ffsl_hyb_mcycl_h%iadv_min_slev, &
-          &                       advection_config(jg)%iadv_slev(jt) )
-      ENDIF
-    ENDDO
-
-    ! Search for the first tracer jt for which horizontal advection of
-    ! type FFSL_MCYCL has been selected.
-    DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == FFSL_HYB_MCYCL ) THEN
-        lcompute%ffsl_hyb_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-    ! Search for the last tracer jt for which horizontal advection of
-    ! type FFSL_HYB_MCYCL has been selected.
-    DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == FFSL_HYB_MCYCL ) THEN
-        lcleanup%ffsl_hyb_mcycl_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
 
 
     !

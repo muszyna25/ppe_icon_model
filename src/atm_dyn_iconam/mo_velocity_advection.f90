@@ -116,7 +116,7 @@ MODULE mo_velocity_advection
     ! The data type vp (variable precision) is by default the same as wp but reduces
     ! to single precision when the __MIXED_PRECISION cpp flag is set at compile time
     REAL(vp):: z_w_concorr_mc(nproma,p_patch%nlev)
-    REAL(vp):: z_w_con_c(nproma,p_patch%nlevp1,p_patch%nblks_c)
+    REAL(vp):: z_w_con_c(nproma,p_patch%nlevp1)
     REAL(vp):: z_w_con_c_full(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(vp):: z_ddxn_ekin_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(vp):: z_v_grad_w(nproma,p_patch%nlev,p_patch%nblks_e)
@@ -136,12 +136,13 @@ MODULE mo_velocity_advection
 
     INTEGER :: jg
 
-    ! Variables for optional extra diffusion close to the vertical advection stability limit
+    ! Variables for conditional additional diffusion for vertical advection
     REAL(vp) :: cfl_w_limit
-    REAL(wp) :: scalfac_exdiff, difcoef
-
-    INTEGER  :: icount(p_patch%nblks_c), iclist(p_patch%nlev*nproma,p_patch%nblks_c), &
-                iklist(p_patch%nlev*nproma,p_patch%nblks_c), ic, ie, jbe
+    REAL(wp) :: w_con_e, scalfac_exdiff, difcoef
+                
+    INTEGER  :: iclist(p_patch%nlev*nproma), ielist(p_patch%nlev*nproma), iklist(p_patch%nlev*nproma), &
+                ic, ie, icount
+    LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
 
     !--------------------------------------------------------------------------
 
@@ -177,10 +178,10 @@ MODULE mo_velocity_advection
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
     ! Limit on vertical CFL number for applying extra diffusion
-    cfl_w_limit = 0.75_wp/dtime   ! this means 75% of the nominal CFL stability limit
+    cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
 
     ! Scaling factor for extra diffusion
-    scalfac_exdiff = 0.075_wp / ( dtime*(1._wp - cfl_w_limit*dtime) )
+    scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
 
     ! Compute w at vertices
     IF (.NOT. lvn_only) CALL cells2verts_scalar(p_prog%w, p_patch, &
@@ -190,7 +191,7 @@ MODULE mo_velocity_advection
     CALL rot_vertex (p_prog%vn, p_patch, p_int, p_diag%omega_z, opt_rlend=min_rlvert_int-1)
 
 
-!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
+!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk, rl_start_2, rl_end_2, i_startblk_2, i_endblk_2)
 
     IF (istep == 1) THEN ! Computations of velocity-derived quantities that come from solve_nh in istep=2
 
@@ -432,31 +433,63 @@ MODULE mo_velocity_advection
     i_startblk_2 = p_patch%cells%start_blk(rl_start_2,1)
     i_endblk_2   = p_patch%cells%end_blk(rl_end_2,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
+!$OMP            ic, icount, iclist, iklist, difcoef) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      z_w_con_c(:,1:nlev,jb) = p_prog%w(:,1:nlev,jb)
-      z_w_con_c(:,nlevp1,jb) = 0._wp
+      z_w_con_c(:,1:nlev) = p_prog%w(:,1:nlev,jb)
+      z_w_con_c(:,nlevp1) = 0._wp
 
 !CDIR UNROLL=5
       ! Contravariant vertical velocity on w points and interpolation to full levels
       DO jk = nlev, nflatlev(p_patch%id)+1, -1
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
-          z_w_con_c(jc,jk,jb) = z_w_con_c(jc,jk,jb) - p_diag%w_concorr_c(jc,jk,jb)
-          z_w_con_c_full(jc,jk,jb) = 0.5_wp*(z_w_con_c(jc,jk,jb)+z_w_con_c(jc,jk+1,jb))
+          z_w_con_c(jc,jk) = z_w_con_c(jc,jk) - p_diag%w_concorr_c(jc,jk,jb)
+          z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
         ENDDO
       ENDDO
 
       DO jk = 1, nflatlev(p_patch%id)
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
-          z_w_con_c_full(jc,jk,jb) = 0.5_wp*(z_w_con_c(jc,jk,jb)+z_w_con_c(jc,jk+1,jb))
+          z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
         ENDDO
       ENDDO
+
+      ! Search for grid points for which w_con is close to or above the CFL stability limit
+      ! At these points, additional diffusion is applied in order to prevent numerical 
+      ! instability if lextra_diffu = .TRUE.
+      ic = 0
+      !
+      DO jk = MAX(3,nrdmax(jg)-2), nlev-3
+        levmask(jb,jk) = .FALSE.
+        DO jc = i_startidx, i_endidx
+          IF (ABS(z_w_con_c(jc,jk)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb)) THEN
+            IF (p_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
+              ic = ic+1
+              iclist(ic) = jc
+              iklist(ic) = jk
+            ENDIF
+            levmask(jb,jk) = .TRUE.
+            !
+            ! limit w_con to 85% of the nominal CFL stability threshold
+            IF (z_w_con_c(jc,jk)*dtime/p_metrics%ddqz_z_half(jc,jk,jb) < -0.85_wp) THEN
+              z_w_con_c(jc,jk)           = -0.85_vp*p_metrics%ddqz_z_half(jc,jk,jb)/dtime
+              z_w_con_c_full(jc,jk,jb)   =   0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
+              z_w_con_c_full(jc,jk-1,jb) =   0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk-1))
+            ELSE IF (z_w_con_c(jc,jk)*dtime/p_metrics%ddqz_z_half(jc,jk,jb) > 0.85_wp) THEN
+              z_w_con_c(jc,jk)           = 0.85_vp*p_metrics%ddqz_z_half(jc,jk,jb)/dtime
+              z_w_con_c_full(jc,jk,jb)   =  0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
+              z_w_con_c_full(jc,jk-1,jb) =  0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk-1))
+            ENDIF
+          ENDIF
+        ENDDO
+      ENDDO
+      icount = ic
 
       ! The remaining computations are not needed in vn_only mode and only on prognostic grid points
       IF (lvn_only) CYCLE
@@ -486,13 +519,41 @@ MODULE mo_velocity_advection
       DO jk = 2, nlev
 !DIR$ IVDEP
         DO jc = i_startidx_2, i_endidx_2
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd) - z_w_con_c(jc,jk,jb) * &
+          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd) - z_w_con_c(jc,jk)    * &
             (p_prog%w(jc,jk-1,jb)*p_metrics%coeff1_dwdz(jc,jk,jb) -                                 &
              p_prog%w(jc,jk+1,jb)*p_metrics%coeff2_dwdz(jc,jk,jb) +                                 &
              p_prog%w(jc,jk,jb)*(p_metrics%coeff2_dwdz(jc,jk,jb) - p_metrics%coeff1_dwdz(jc,jk,jb)) )
         ENDDO
       ENDDO
 
+      IF (lextra_diffu) THEN
+        ! Apply extra diffusion at grid points where w_con is close to or above the CFL stability limit
+        IF (icount > 0) THEN
+          DO ic = 1, icount
+            jc = iclist(ic)
+            jk = iklist(ic)
+
+            difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                       &
+              ABS(z_w_con_c(jc,jk))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
+
+            ! nabla2 diffusion on w
+            p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)        + &
+              difcoef * p_patch%cells%area(jc,jb) * (                                  &
+              p_prog%w(jc,jk,jb)                          *p_int%geofac_n2s(jc,1,jb) + &
+              p_prog%w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
+              p_prog%w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
+              p_prog%w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)   )
+
+          ENDDO
+        ENDIF
+      ENDIF
+
+    ENDDO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jk)
+    DO jk = MAX(3,nrdmax(jg)-2), nlev-3
+      levelmask(jk) = ANY(levmask(i_startblk:i_endblk,jk))
     ENDDO
 !$OMP END DO
 
@@ -502,7 +563,8 @@ MODULE mo_velocity_advection
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, ie, w_con_e, ielist, iklist, icount, &
+!$OMP            difcoef) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -539,102 +601,55 @@ MODULE mo_velocity_advection
         ENDDO
       END IF
 
+      IF (lextra_diffu) THEN
+        ! Search for grid points for which w_con is close to or above the CFL stability limit
+        ! At these points, additional diffusion is applied in order to prevent numerical instability
+        ie = 0
+
+        DO jk = MAX(3,nrdmax(jg)-2), nlev-4
+          IF (levelmask(jk) .OR. levelmask(jk+1)) THEN
+            DO je = i_startidx, i_endidx
+              w_con_e = p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
+                        p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2))
+              IF (ABS(w_con_e) > cfl_w_limit*p_metrics%ddqz_z_full_e(je,jk,jb)) THEN
+                ie = ie+1
+                ielist(ie) = je
+                iklist(ie) = jk
+              ENDIF
+            ENDDO
+          ENDIF
+        ENDDO
+
+        icount = ie
+        IF (icount > 0) THEN
+          DO ie = 1, icount
+            je = ielist(ie)
+            jk = iklist(ie)
+
+            w_con_e = p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
+                      p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2))
+
+            difcoef = scalfac_exdiff * MIN(0.85_wp - cfl_w_limit*dtime,                &
+              ABS(w_con_e)*dtime/p_metrics%ddqz_z_full_e(je,jk,jb) - cfl_w_limit*dtime )
+
+            p_diag%ddt_vn_adv(je,jk,jb,ntnd) = p_diag%ddt_vn_adv(je,jk,jb,ntnd)   +                 &
+              difcoef * p_patch%edges%area_edge(je,jb) * (                                          &
+              p_int%geofac_grdiv(je,1,jb)*p_prog%vn(je,jk,jb)                         +             &
+              p_int%geofac_grdiv(je,2,jb)*p_prog%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) +             &
+              p_int%geofac_grdiv(je,3,jb)*p_prog%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) +             &
+              p_int%geofac_grdiv(je,4,jb)*p_prog%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) +             &
+              p_int%geofac_grdiv(je,5,jb)*p_prog%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4)) +             &
+              p_patch%edges%system_orientation(je,jb)*p_patch%edges%inv_primal_edge_length(je,jb) * &
+             (p_diag%omega_z(ividx(je,jb,2),jk,ivblk(je,jb,2)) -                                    &
+              p_diag%omega_z(ividx(je,jb,1),jk,ivblk(je,jb,1))) )
+
+          ENDDO
+        ENDIF
+      ENDIF
+
     ENDDO
 !$OMP END DO 
      
-
-    ! Apply some additional diffusion at grid points close to the stability limit for vertical advection.
-    ! This happens extremely rarely in practice, the cases encountered so far were breaking gravity waves
-    ! over the Andes at resolutions around 10 km.
-    ! The diffusion term is added to ddt_vn_adv and ddt_w_adv, respectively, so that it acts also in the
-    ! subsequent predictor step if advection is called in the corrector step only
-    !
-    IF (lextra_diffu .AND. .NOT. lvn_only) THEN
-      rl_start = grf_bdywidth_c
-      rl_end = min_rlcell_int - 1
-
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, ic, ie, je, jbe) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-
-        ic = 0
-
-        ! Collect grid points exceeding the specified stability threshold (75% of the theoretical limit) for w_con
-        DO jk = MAX(3,nrdmax(jg)-2), nlev-4
-          DO jc = i_startidx, i_endidx
-            IF (ABS(z_w_con_c(jc,jk,jb)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb)) THEN
-              ic = ic+1
-              iclist(ic,jb) = jc
-              iklist(ic,jb) = jk
-            ENDIF
-          ENDDO
-        ENDDO
-
-        icount(jb) = ic
-
-      ENDDO
-!$OMP END DO 
-
-      ! If grid points are found, apply second-order diffusion on w and vn
-      ! Note that this loop is neither vectorizable nor OpenMP-parallelizable (race conditions!)
-!$OMP MASTER
-      DO jb = i_startblk, i_endblk
-
-        IF (icount(jb) > 0) THEN
-          DO ic = 1, icount(jb)
-            jc = iclist(ic,jb)
-            jk = iklist(ic,jb)
-            difcoef = scalfac_exdiff * MIN(1._wp - cfl_w_limit*dtime,                            &
-              ABS(z_w_con_c(jc,jk,jb))*dtime/p_metrics%ddqz_z_half(jc,jk,jb) - cfl_w_limit*dtime )
-
-            ! nabla2 diffusion on w
-            p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)        + &
-              difcoef * p_patch%cells%area(jc,jb) * (                                  &
-              p_prog%w(jc,jk,jb)                          *p_int%geofac_n2s(jc,1,jb) + &
-              p_prog%w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
-              p_prog%w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
-              p_prog%w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)   )
-
-            ! nabla2 diffusion on vn
-            ! Note that edge points may be counted up to 4 times. This is intended as this turned out to
-            ! be the simplest way to obtain correct parallelization. The diffusion coefficient is multiplied
-            ! by 0.25 for this reason.
-            DO ie = 1, 3
-              je  = ieidx(jc,jb,ie)
-              jbe = ieblk(jc,jb,ie)
-
-              jk = iklist(ic,jb)
-              p_diag%ddt_vn_adv(je,jk,jbe,ntnd) = p_diag%ddt_vn_adv(je,jk,jbe,ntnd)   +                               &
-              0.25_wp * difcoef * p_patch%edges%area_edge(je,jbe) * (                                                 &
-              p_int%geofac_grdiv(je,1,jbe)*p_prog%vn(je,jk,jbe)                          +                            &
-              p_int%geofac_grdiv(je,2,jbe)*p_prog%vn(iqidx(je,jbe,1),jk,iqblk(je,jbe,1)) +                            &
-              p_int%geofac_grdiv(je,3,jbe)*p_prog%vn(iqidx(je,jbe,2),jk,iqblk(je,jbe,2)) +                            &
-              p_int%geofac_grdiv(je,4,jbe)*p_prog%vn(iqidx(je,jbe,3),jk,iqblk(je,jbe,3)) +                            &
-              p_int%geofac_grdiv(je,5,jbe)*p_prog%vn(iqidx(je,jbe,4),jk,iqblk(je,jbe,4)) +                            &
-              p_patch%edges%system_orientation(je,jbe)*p_patch%edges%inv_primal_edge_length(je,jbe) * (               &
-              p_diag%omega_z(ividx(je,jbe,2),jk,ivblk(je,jbe,2))-p_diag%omega_z(ividx(je,jbe,1),jk,ivblk(je,jbe,1)) ) ) 
-
-              jk = iklist(ic,jb) - 1
-              p_diag%ddt_vn_adv(je,jk,jbe,ntnd) = p_diag%ddt_vn_adv(je,jk,jbe,ntnd)   +                               &
-              0.25_wp * difcoef * p_patch%edges%area_edge(je,jbe) * (                                                 &
-              p_int%geofac_grdiv(je,1,jbe)*p_prog%vn(je,jk,jbe)                          +                            &
-              p_int%geofac_grdiv(je,2,jbe)*p_prog%vn(iqidx(je,jbe,1),jk,iqblk(je,jbe,1)) +                            &
-              p_int%geofac_grdiv(je,3,jbe)*p_prog%vn(iqidx(je,jbe,2),jk,iqblk(je,jbe,2)) +                            &
-              p_int%geofac_grdiv(je,4,jbe)*p_prog%vn(iqidx(je,jbe,3),jk,iqblk(je,jbe,3)) +                            &
-              p_int%geofac_grdiv(je,5,jbe)*p_prog%vn(iqidx(je,jbe,4),jk,iqblk(je,jbe,4)) +                            &
-              p_patch%edges%system_orientation(je,jbe)*p_patch%edges%inv_primal_edge_length(je,jbe) * (               &
-              p_diag%omega_z(ividx(je,jbe,2),jk,ivblk(je,jbe,2))-p_diag%omega_z(ividx(je,jbe,1),jk,ivblk(je,jbe,1)) ) ) 
-            ENDDO
-          ENDDO
-        ENDIF
-      ENDDO
-!$OMP END MASTER
-    ENDIF
-
 !$OMP END PARALLEL
 
   END SUBROUTINE velocity_tendencies

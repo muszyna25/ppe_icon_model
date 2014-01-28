@@ -104,11 +104,11 @@ TYPE t_gridref_state
 
   ! These fields are allocated for the full parent domain and thus do not need
   ! to be held separately for each child domain
-  REAL(wp), ALLOCATABLE :: fbk_wgt_c(:,:,:)     ! Feedback weights for cell-based variables
+  REAL(wp), ALLOCATABLE :: fbk_wgt_aw(:,:,:)    ! Area-weighted feedback weights for cell-based variables
                                                 !  dim1=1,nproma, dim2=nblks_c, dim3=4
-  REAL(wp), ALLOCATABLE :: fbk_wgt_ct(:,:,:)    ! Feedback weights for cell-based tracer variables
+  REAL(wp), ALLOCATABLE :: fbk_wgt_bln(:,:,:)   ! Bilinear feedback weights for cell-based variables
                                                 !  dim1=1,nproma, dim2=nblks_c, dim3=4
-  REAL(wp), ALLOCATABLE :: fbk_wgt_e(:,:,:)     ! The same for edge-based variables
+  REAL(wp), ALLOCATABLE :: fbk_wgt_e(:,:,:)     ! Feedback weights for edge-based variables
 
   REAL(wp), ALLOCATABLE :: fbk_dom_area(:) ! Area of subdomain for which feedback is performed
                                            ! dimension: n_childdom
@@ -116,6 +116,15 @@ TYPE t_gridref_state
   ! Mask fields defined at parent level for feedback overlap regions with a nested domain:
   ! dim1=nproma, dim2=nblks, dim3=n_childdom 
   LOGICAL, ALLOCATABLE :: mask_ovlp_c(:,:,:), mask_ovlp_ch(:,:,:), mask_ovlp_e(:,:,:), mask_ovlp_v(:,:,:)
+
+  ! Number of grid points for which tendencies for lateral boundary interpolation need to be computed
+  ! at the parent grid level
+  INTEGER :: npoints_bdyintp_src_c, npoints_bdyintp_src_e
+
+  ! Index lists of grid points for which tendencies for lateral boundary interpolation need to be computed
+  ! at the parent grid level
+  INTEGER, ALLOCATABLE :: idxlist_bdyintp_src_c(:), idxlist_bdyintp_src_e(:), &
+                          blklist_bdyintp_src_c(:), blklist_bdyintp_src_e(:)
 
 END TYPE t_gridref_state
 

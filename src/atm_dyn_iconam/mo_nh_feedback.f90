@@ -48,7 +48,7 @@ MODULE mo_nh_feedback
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
-  USE mo_gridref_config,      ONLY: grf_velfbk, l_mass_consvcorr
+  USE mo_gridref_config,      ONLY: grf_velfbk, l_mass_consvcorr, fbk_relax_timescale, grf_scalfbk, grf_tracfbk
   USE mo_nonhydrostatic_config, ONLY: l_masscorr_nest
   USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
   USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -278,8 +278,16 @@ CONTAINS
     iidx => p_gcp%child_idx
     iblk => p_gcp%child_blk
 
-    p_fbkwgt    => p_grf%fbk_wgt_c
-    p_fbkwgt_tr => p_grf%fbk_wgt_ct
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
+    IF (grf_tracfbk == 1) THEN
+      p_fbkwgt_tr => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt_tr => p_grf%fbk_wgt_bln
+    ENDIF
     p_fbarea    => p_gcp%area
 
     p_fb_layer_thickness => p_gcp%ddqz_z_full
@@ -333,7 +341,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
       fbk_tend(:,:,jb) = 0._wp
 
@@ -565,7 +573,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
@@ -639,7 +647,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
         feedback_vn(:,1:nshift,jb) = 0._wp
 
@@ -705,7 +713,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+          i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
         feedback_vn(:,1:nshift,jb) = 0._wp
 
@@ -977,7 +985,7 @@ CONTAINS
   !! Change feedback for cell-based variables from area-weighted averaging
   !! to using fbk_wgt (see above routine)
   !!
-  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
+  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk, dt_fbk)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
@@ -994,6 +1002,8 @@ CONTAINS
     ! (when calling transport and microphysics not every dynamics time step, tracer feedback
     !  should probably be restricted to transport time steps)
     LOGICAL, INTENT(IN) :: l_trac_fbk
+
+    REAL(wp), INTENT(IN) :: dt_fbk ! time step at which feedback is called
 
     ! local variables
 
@@ -1018,31 +1028,28 @@ CONTAINS
     INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
     INTEGER :: nlev_p, nlevp1_p  ! number of full and half levels (parent dom)
     INTEGER :: nshift
-    INTEGER :: nblks_cp, nblks_cc, nblks_ep, nblks_ec, ntiles, ntiles_h2o
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
       feedback_vn, feedback_w
     REAL(wp), ALLOCATABLE, TARGET :: feedback_rhoqx(:,:,:,:)
 
     ! Note: as w(nlevp1) is diagnostic, it is excluded from feedback
-    REAL(wp), DIMENSION(nproma,p_patch(jgp)%nlev,p_patch(jgp)%nblks_c), TARGET :: &
+    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c), TARGET :: &
       parent_rho, diff_rho, parent_thv, diff_thv, parent_w, diff_w
-    REAL(wp),DIMENSION(nproma,p_patch(jgp)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
+    REAL(wp),DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
       parent_rhoqx
-    REAL(wp), DIMENSION(nproma,p_patch(jgp)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
+    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
       parent_vn, diff_vn
 
-    REAL(wp) :: rot_diff_vn(nproma,p_patch(jgp)%nlev,p_patch(jgp)%verts%start_blk(-1,1):&
-      p_patch(jgp)%nblks_v)
+    REAL(wp) :: rot_diff_vn(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_v)
 
-    REAL(wp), DIMENSION(nproma,p_patch(jgp)%nlev,p_patch(jgp)%cells%start_blk(-1,1):&
-      p_patch(jgp)%nblks_c) ::                                                      &
-      div_diff_vn, diff_mass, parent_trmass, fbk_trmass
+    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c) ::    &
+      div_diff_vn, diff_mass, parent_trmass, fbk_trmass, aux_null
 
     REAL(wp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c)
 
-    REAL(wp) :: rho_corr(p_patch(jgp)%nlev), tracer_corr(p_patch(jgp)%nlev),      &
-      aux_diff(2*p_patch(jgp)%nlev), z_fbk_rho(nproma,4,p_patch(jg)%nlev)
+    REAL(wp) :: rho_corr(p_patch(jg)%nlev), tracer_corr(p_patch(jg)%nlev),      &
+      aux_diff(2*p_patch(jg)%nlev), z_fbk_rho(nproma,4,p_patch(jg)%nlev)
 
     REAL(wp) :: rd_o_cvd, rd_o_p0ref, relfac, dcoef_vec
 
@@ -1052,7 +1059,6 @@ CONTAINS
     REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbk_rho, p_fbk_thv, p_fbk_w, p_fbk_vn
     REAL(wp), DIMENSION(:,:,:,:), POINTER :: p_fbk_rhoqx
     REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_e
-    REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
 
     !-----------------------------------------------------------------------
 
@@ -1078,24 +1084,12 @@ CONTAINS
 
     nlev_c   = p_pc%nlev
     nlevp1_c = p_pc%nlevp1
-    nblks_cc = p_pc%nblks_c
-    nblks_ec = p_pc%nblks_e
 
     nlev_p   = p_pp%nlev
     nlevp1_p = p_pp%nlevp1
-    nblks_cp = p_pp%nblks_c
-    nblks_ep = p_pp%nblks_e
 
     nshift = p_pc%nshift
     js     = nshift
-
-    IF (atm_phy_nwp_config(jgp)%inwp_surface > 0 ) THEN
-      ntiles     = ntiles_total
-      ntiles_h2o = ntiles_water 
-    ELSE
-      ntiles     = 0
-      ntiles_h2o = 0
-    ENDIF
 
     i_nchdom = MAX(1,p_pc%n_childdom)
     i_chidx  = p_pc%parent_child_index
@@ -1113,9 +1107,8 @@ CONTAINS
     ! R / p0ref
     rd_o_p0ref = rd / p0ref
 
-    relfac = 0.075_wp
+    relfac = MIN(0.075_wp, dt_fbk/fbk_relax_timescale) ! default for relaxation time scale is 3 hours
     dcoef_vec  = 1._wp/12._wp
-
 
     ! Allocation of storage fields
     ! In parallel runs the lower bound of the feedback_* arrays must be 1 for use in exchange data,
@@ -1126,19 +1119,19 @@ CONTAINS
 
     i_startblk = 1
 
-    ALLOCATE(feedback_thv       (nproma, nlev_p, i_startblk:i_endblk),   &
-      feedback_rho       (nproma, nlev_p, i_startblk:i_endblk),   &
-      feedback_w         (nproma, nlev_p, i_startblk:i_endblk))
+    ALLOCATE(feedback_thv(nproma, nlev_c, i_startblk:i_endblk),   &
+      feedback_rho       (nproma, nlev_c, i_startblk:i_endblk),   &
+      feedback_w         (nproma, nlev_c, i_startblk:i_endblk))
 
     IF(ltransport .AND. l_trac_fbk) &
-      ALLOCATE(feedback_rhoqx(nproma, nlev_p, i_startblk:i_endblk, ntracer))
+      ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, ntracer))
 
     i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
     i_endblk   = p_gep%end_blk(min_rledge,i_chidx)
 
     i_startblk = 1
 
-    ALLOCATE(feedback_vn(nproma, nlev_p, i_startblk:i_endblk))
+    ALLOCATE(feedback_vn(nproma, nlev_c, i_startblk:i_endblk))
 
 
     ! Set pointers to index and coefficient fields for cell-based variables
@@ -1148,11 +1141,14 @@ CONTAINS
     iceidx => p_gep%child_idx
     iceblk => p_gep%child_blk
 
-
-
-    p_fbkwgt    => p_grf%fbk_wgt_c
+    ! Note: for consistency, there is no distiction between scalar and tracer feedback weights in this routine
+    ! Temperature and vertical wind feedback is always bilinear
+    IF (grf_scalfbk == 1) THEN
+      p_fbkwgt    => p_grf%fbk_wgt_aw
+    ELSE
+      p_fbkwgt    => p_grf%fbk_wgt_bln
+    ENDIF
     p_fbkwgt_e  => p_grf%fbk_wgt_e
-    p_fbarea    => p_gcp%area
 
     IF (p_test_run) THEN
       diff_rho = 0._wp
@@ -1195,7 +1191,7 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
@@ -1207,6 +1203,12 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 #endif
 
+          feedback_thv(jc,jk,jb) =                                                      &
+            theta_v_pr(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
+            theta_v_pr(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_grf%fbk_wgt_bln(jc,jb,2) + &
+            theta_v_pr(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
+            theta_v_pr(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
+
           z_fbk_rho(jc,1,jk) =                                                   & 
             p_child_prog%rho(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1)
           z_fbk_rho(jc,2,jk) =                                                   &
@@ -1216,21 +1218,18 @@ CONTAINS
           z_fbk_rho(jc,4,jk) =                                                   &
             p_child_prog%rho(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-          feedback_rho(jc,jk+js,jb) =                                                      &
-           (z_fbk_rho(jc,1,jk)+z_fbk_rho(jc,2,jk)+z_fbk_rho(jc,3,jk)+z_fbk_rho(jc,4,jk)) - &
-            p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb) 
+          ! The semi-empirical correction for density feedback is necessitated by the fact that
+          ! increased orography resolution goes along with increased mass. This needs to be
+          ! corrected for in order to avoid a systematic mass drift in two-way nesting
+          feedback_rho(jc,jk,jb) =                                                               &
+           (z_fbk_rho(jc,1,jk)+z_fbk_rho(jc,2,jk)+z_fbk_rho(jc,3,jk)+z_fbk_rho(jc,4,jk)) -       &
+           (1.05_wp-0.005_wp*feedback_thv(jc,jk,jb))*p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb) 
 
-          feedback_thv(jc,jk+js,jb) =                                          &
-            theta_v_pr(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-            theta_v_pr(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-            theta_v_pr(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-            theta_v_pr(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-          feedback_w(jc,jk+js,jb) =                                                &
-            p_child_prog%w(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-            p_child_prog%w(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-            p_child_prog%w(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-            p_child_prog%w(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+          feedback_w(jc,jk,jb) =                                                            &
+            p_child_prog%w(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
+            p_child_prog%w(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_grf%fbk_wgt_bln(jc,jb,2) + &
+            p_child_prog%w(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
+            p_child_prog%w(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
 
         ENDDO
       ENDDO
@@ -1247,7 +1246,7 @@ CONTAINS
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
 #endif
-              feedback_rhoqx(jc,jk+js,jb,jt) =                                    &
+              feedback_rhoqx(jc,jk,jb,jt) =                                       &
                 z_fbk_rho(jc,1,jk) *                                              &
                 p_child_prog_rcf%tracer(iccidx(jc,jb,1),jk,iccblk(jc,jb,1),jt) +  &
                 z_fbk_rho(jc,2,jk) *                                              &
@@ -1273,9 +1272,8 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-        i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+        i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
-      !     feedback_vn(:,1:nshift,jb) = 0._wp
 
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
@@ -1287,7 +1285,7 @@ CONTAINS
         DO je = i_startidx, i_endidx
 #endif
 
-          feedback_vn(je,jk+js,jb) =                                                  &
+          feedback_vn(je,jk,jb) =                                                     &
             p_child_prog%vn(iceidx(je,jb,1),jk,iceblk(je,jb,1))*p_fbkwgt_e(je,jb,1) + &
             p_child_prog%vn(iceidx(je,jb,2),jk,iceblk(je,jb,2))*p_fbkwgt_e(je,jb,2)
         ENDDO
@@ -1298,20 +1296,18 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 3, 3*nlev_c+1, &
+    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 3, 3*nlev_c, &
       RECV1=parent_rho,     SEND1=feedback_rho,      &
       RECV2=parent_thv,     SEND2=feedback_thv,      &
-      RECV3=parent_w,       SEND3=feedback_w,        &
-      nshift=nshift )
+      RECV3=parent_w,       SEND3=feedback_w         )
 
 
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c, &
-      RECV1=parent_vn, SEND1=feedback_vn,        &
-      nshift=nshift)
+      RECV1=parent_vn, SEND1=feedback_vn )
 
     IF (ltransport .AND. l_trac_fbk) &
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer, ntracer*nlev_c, &
-      RECV4D=parent_rhoqx, SEND4D=feedback_rhoqx, nshift=nshift)
+      RECV4D=parent_rhoqx, SEND4D=feedback_rhoqx)
 
     p_fbk_rho => parent_rho
     p_fbk_thv => parent_thv
@@ -1324,65 +1320,122 @@ CONTAINS
     ! 2. Compute differences between feedback fields and corresponding parent fields
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-!$OMP WORKSHARE
-    diff_rho     (:,:,:) = 0._wp
-    diff_thv     (:,:,:) = 0._wp
-    diff_w       (:,:,:) = 0._wp
-    diff_vn      (:,:,:) = 0._wp
-    diff_mass    (:,:,:) = 0._wp 
-    parent_trmass(:,:,:) = 0._wp
-    fbk_trmass   (:,:,:) = 0._wp
-!$OMP END WORKSHARE
-
     i_startblk = p_patch(jgp)%cells%start_blk(1,1)
     i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
+
+    ! these fields need to be initialized on the halo points as well because they enter
+    ! into global_sum_array for conservation correction
+    IF (l_mass_consvcorr) THEN
+!$OMP WORKSHARE
+      diff_mass    (:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp 
+      aux_null     (:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp 
+      parent_trmass(:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp
+      fbk_trmass   (:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp
+!$OMP END WORKSHARE
+    ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
+      IF (l_mass_consvcorr) THEN
+        diff_mass    (:,:,jb) = 0._wp
+        parent_trmass(:,:,jb) = 0._wp
+        fbk_trmass   (:,:,jb) = 0._wp
+        aux_null     (:,:,jb) = 0._wp
+      ENDIF
+
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
 
-      DO jk = nshift+1,nlev_p
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx,i_endidx
+        IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+!DIR$ IVDEP
+          DO jk = 1, nlev_c
+#else
+      DO jk = 1, nlev_c
         DO jc = i_startidx,i_endidx
-
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
 
             ! density
-            diff_rho(jc,jk,jb) = p_fbk_rho(jc,jk,jb) - p_parent_prog%rho(jc,jk,jb)
+            diff_rho(jc,jk,jb) = p_fbk_rho(jc,jk,jb) - p_parent_prog%rho(jc,jk+js,jb)
 
             ! theta_v
-            diff_thv(jc,jk,jb) = p_fbk_thv(jc,jk,jb) - p_parent_prog%theta_v(jc,jk,jb) + &
-              p_nh_state(jgp)%metrics%theta_ref_mc(jc,jk,jb)
+            diff_thv(jc,jk,jb) = p_fbk_thv(jc,jk,jb) - p_parent_prog%theta_v(jc,jk+js,jb) + &
+              p_nh_state(jgp)%metrics%theta_ref_mc(jc,jk+js,jb)
 
             ! w
-            diff_w(jc,jk,jb) = p_fbk_w(jc,jk,jb) - p_parent_prog%w(jc,jk,jb)
+            diff_w(jc,jk,jb) = p_fbk_w(jc,jk,jb) - p_parent_prog%w(jc,jk+js,jb)
 
-            ! mass
-            diff_mass(jc,jk,jb) = diff_rho(jc,jk,jb)*p_patch(jgp)%cells%area(jc,jb)*   &
-              p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk,jb)
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
           ENDIF
-
         ENDDO
+#endif
       ENDDO
 
-      IF (ltransport .AND. l_trac_fbk) THEN
 
+      IF (l_mass_consvcorr) THEN
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+!DIR$ IVDEP
+            DO jk = 1, nlev_c
+#else
+        DO jk = 1, nlev_c
+          DO jc = i_startidx,i_endidx
+            IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
+
+              ! mass
+              diff_mass(jc,jk,jb) = diff_rho(jc,jk,jb)*p_patch(jgp)%cells%area(jc,jb)*   &
+                p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk+js,jb)
+
+#ifdef __LOOP_EXCHANGE
+            ENDDO
+          ENDIF
+#else
+            ENDIF
+          ENDDO
+#endif
+        ENDDO
+      ENDIF
+
+
+      IF (ltransport .AND. l_trac_fbk .AND. l_mass_consvcorr) THEN
+
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+            DO jt = 1, ntracer
+!DIR$ IVDEP
+              DO jk = 1, nlev_c
+#else
         DO jt = 1, ntracer
-          DO jk = nshift+1,nlev_p
-            DO jc = i_startidx, i_endidx
-
+          DO jk = 1, nlev_c
+            DO jc = i_startidx,i_endidx
               IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-                parent_trmass(jc,jk,jb) = parent_trmass(jc,jk,jb) +                          &
-                  p_parent_prog%rho(jc,jk,jb)*p_parent_prog_rcf%tracer(jc,jk,jb,jt)*         &
-                  p_patch(jgp)%cells%area(jc,jb)*p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk,jb)
+#endif
+
+                parent_trmass(jc,jk,jb) = parent_trmass(jc,jk,jb) +                             &
+                  p_parent_prog%rho(jc,jk+js,jb)*p_parent_prog_rcf%tracer(jc,jk+js,jb,jt)*      &
+                  p_patch(jgp)%cells%area(jc,jb)*p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk+js,jb)
 
                 fbk_trmass(jc,jk,jb) = fbk_trmass(jc,jk,jb) +              &
                   p_fbk_rhoqx(jc,jk,jb,jt)*p_patch(jgp)%cells%area(jc,jb)* &
-                  p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk,jb)
-              ENDIF
+                  p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk+js,jb)
 
+#ifdef __LOOP_EXCHANGE
+              ENDDO
+            ENDDO
+          ENDIF
+#else
+              ENDIF
             ENDDO
           ENDDO
+#endif
         ENDDO
       ENDIF
 
@@ -1395,15 +1448,28 @@ CONTAINS
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
+      diff_vn (:,:,jb) = 0._wp
+
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
 
-      DO jk = nshift+1,nlev_p
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx,i_endidx
+        IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
+          DO jk = 1, nlev_c
+#else
+      DO jk = 1, nlev_c
         DO je = i_startidx,i_endidx
-
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
-            diff_vn(je,jk,jb) = p_fbk_vn(je,jk,jb) - p_parent_prog%vn(je,jk,jb)
+#endif
+            diff_vn(je,jk,jb) = p_fbk_vn(je,jk,jb) - p_parent_prog%vn(je,jk+js,jb)
+
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
           ENDIF
         ENDDO
+#endif
       ENDDO
 
     ENDDO
@@ -1440,10 +1506,10 @@ CONTAINS
 #ifdef __LOOP_EXCHANGE
       DO jv = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_v(jv,jb,i_chidx)) THEN
-          DO jk = nshift+1,nlev_p
+          DO jk = 1, nlev_c
 #else
 !CDIR UNROLL=6
-      DO jk = nshift+1,nlev_p
+      DO jk = 1, nlev_c
         DO jv = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_v(jv,jb,i_chidx)) THEN
 #endif
@@ -1478,10 +1544,10 @@ CONTAINS
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_ch(jc,jb,i_chidx)) THEN
-          DO jk = nshift+1,nlev_p
+          DO jk = 1, nlev_c
 #else
 !CDIR UNROLL=6
-      DO jk = nshift+1,nlev_p
+      DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_ch(jc,jb,i_chidx)) THEN
 #endif
@@ -1513,10 +1579,10 @@ CONTAINS
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
-          DO jk = nshift+1,nlev_p
+          DO jk = 1, nlev_c
 #else
 !CDIR UNROLL=3
-      DO jk = nshift+1,nlev_p
+      DO jk = 1, nlev_c
         DO je = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
 #endif
@@ -1543,29 +1609,25 @@ CONTAINS
     ENDDO
 !$OMP END DO
 
-!$OMP WORKSHARE
-    div_diff_vn(:,:,:) = 0._wp
-!$OMP END WORKSHARE
-
 !$OMP END PARALLEL
 
 
     IF (l_mass_consvcorr) THEN
       IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
         ! compute conservation correction for global mass only
-        aux_diff(1:nlev_p) = global_sum_array3(1,.FALSE.,diff_mass)
-        DO jk = 1, nlev_p
-          rho_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+        aux_diff(1:nlev_c) = global_sum_array3(1,.FALSE.,diff_mass)
+        DO jk = 1, nlev_c
+          rho_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk+js)
         ENDDO
       ELSE
         ! compute conservation correction for global mass and total tracer mass
         ! the correction is additive for density and multiplicative for tracer mass
-        aux_diff(1:2*nlev_p) = global_sum_array3(2,.TRUE.,diff_mass,div_diff_vn,     &
+        aux_diff(1:2*nlev_c) = global_sum_array3(2,.TRUE.,diff_mass,aux_null,     &
           f3din2=parent_trmass,f3dd2=fbk_trmass,&
           diffmask=(/1,2/))
-        DO jk = 1, nlev_p
-          rho_corr(jk)    = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
-          tracer_corr(jk) = aux_diff(nlev_p+jk)
+        DO jk = 1, nlev_c
+          rho_corr(jk)    = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk+js)
+          tracer_corr(jk) = aux_diff(nlev_c+jk)
         ENDDO
       ENDIF
     ELSE ! conservation correction turned off
@@ -1586,46 +1648,70 @@ CONTAINS
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
 
       IF (ltransport .AND. l_trac_fbk) THEN
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+            DO jt = 1, ntracer
+!DIR$ IVDEP
+              DO jk = nshift+1, nlev_p
+#else
         DO jt = 1, ntracer
           DO jk = nshift+1, nlev_p
             DO jc = i_startidx,i_endidx
-
               IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
                 p_parent_prog_rcf%tracer(jc,jk,jb,jt) = p_parent_prog_rcf%tracer(jc,jk,jb,jt) + &
-                  relfac * ( p_fbk_rhoqx(jc,jk,jb,jt) * tracer_corr(jk) /                       &
-                  ( p_parent_prog%rho(jc,jk,jb) + diff_rho(jc,jk,jb) - rho_corr(jk) ) -         &
+                  relfac * ( p_fbk_rhoqx(jc,jk-js,jb,jt) * tracer_corr(jk-js) /                 &
+                  ( p_parent_prog%rho(jc,jk,jb) + diff_rho(jc,jk-js,jb) - rho_corr(jk-js) ) -   &
                   p_parent_prog_rcf%tracer(jc,jk,jb,jt) )
-              ENDIF
 
+#ifdef __LOOP_EXCHANGE
+              ENDDO
+            ENDDO
+          ENDIF
+#else
+              ENDIF
             ENDDO
           ENDDO
+#endif
         ENDDO
       ENDIF
 
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx,i_endidx
+        IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+!DIR$ IVDEP
+          DO jk = nshift+1,nlev_p
+#else
 !CDIR UNROLL=4
       DO jk = nshift+1,nlev_p
         DO jc = i_startidx,i_endidx
-
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
 
             ! density
             p_parent_prog%rho(jc,jk,jb) = p_parent_prog%rho(jc,jk,jb) + &
-              relfac*(diff_rho(jc,jk,jb) - rho_corr(jk))
+              relfac*(diff_rho(jc,jk-js,jb) - rho_corr(jk-js))
 
             ! theta_v
             p_parent_prog%theta_v(jc,jk,jb) = p_parent_prog%theta_v(jc,jk,jb) + &
-              relfac*diff_thv(jc,jk,jb)
+              relfac*diff_thv(jc,jk-js,jb)
 
             ! w
             p_parent_prog%w(jc,jk,jb) = p_parent_prog%w(jc,jk,jb) + &
-              relfac*diff_w(jc,jk,jb)
+              relfac*diff_w(jc,jk-js,jb)
 
             ! exner is diagnosed from rho*theta_v
             p_parent_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
               p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
-          ENDIF
 
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
+          ENDIF
         ENDDO
+#endif
       ENDDO
 
     ENDDO
@@ -1639,15 +1725,26 @@ CONTAINS
 
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
 
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx,i_endidx
+        IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
+!DIR$ IVDEP
+          DO jk = nshift+1,nlev_p
+#else
       DO jk = nshift+1,nlev_p
         DO je = i_startidx,i_endidx
-
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
+#endif
             p_parent_prog%vn(je,jk,jb) = p_parent_prog%vn(je,jk,jb) + &
-              relfac*diff_vn(je,jk,jb)
-          ENDIF
+              relfac*diff_vn(je,jk-js,jb)
 
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
+          ENDIF
         ENDDO
+#endif
       ENDDO
 
     ENDDO
@@ -1663,6 +1760,7 @@ CONTAINS
       CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,p_parent_prog%rho,p_parent_prog%theta_v,   &
         p_parent_prog%w)
     ENDIF
+
 
 #ifdef __LOOP_EXCHANGE
     DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)

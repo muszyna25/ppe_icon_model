@@ -348,7 +348,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
      IF (PRESENT(f3din5)) ndim2tot = ndim2tot+SIZE(f3din5,2)
 
      CALL exchange_data_mult(p_pat, nfields, ndim2tot, recv1=f3din1, recv2=f3din2, &
-                             recv3=f3din3, recv4=f3din4, recv5=f3din5, recv4d=f4din)
+       &                     recv3=f3din3, recv4=f3din4, recv5=f3din5, recv4d=f4din)
    ENDIF
 
 END SUBROUTINE sync_patch_array_mult

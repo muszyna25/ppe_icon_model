@@ -82,7 +82,9 @@ CONTAINS
       &           (izaxis == ZA_SEDIMENT_BOTTOM_TW_HALF) .OR.  &
       &           (izaxis == ZA_PRESSURE_800)            .OR.  &
       &           (izaxis == ZA_PRESSURE_400)            .OR.  &
-      &           (izaxis == ZA_PRESSURE_0)
+      &           (izaxis == ZA_PRESSURE_0)              .OR.  &
+      &           (izaxis == ZA_DEPTH_RUNOFF_S)          .OR.  &
+      &           (izaxis == ZA_DEPTH_RUNOFF_G)
   END FUNCTION is_2d_field
 
 END MODULE mo_cdi_constants

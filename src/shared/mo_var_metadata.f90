@@ -1,229 +1,497 @@
+!>
+!! Utility funtions for handling field specific meta information
+!!
+!! Contains utility funtions which are used for defining variable specific
+!! meta information. These have nothing to do with var lists itself. That's 
+!! why they have been moved here from mo_var_list.
+!!
+!! @author Daniel Reinert, DWD
+!!
+!!
+!! @par Revision History
+!! Initial revision by Daniel Reinert, DWD (2014-01-22)
+!!
+!! @par Copyright
+!! 2002-2010 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
 MODULE mo_var_metadata
 
-  USE mo_kind,           ONLY: dp, wp
-  USE mo_grib1,          ONLY: t_grib1_var
-  USE mo_grib2,          ONLY: t_grib2_var
-  USE mo_cf_convention,  ONLY: t_cf_var
+  USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: message, finish
+  USE mo_impl_constants,     ONLY: VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF
+  USE mo_cf_convention,      ONLY: t_cf_var
+  USE mo_grib2,              ONLY: t_grib2_var
+  USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
+    &                              t_tracer_meta, t_var_metadata,         &
+    &                              t_post_op_meta, VAR_GROUPS,            &
+    &                              VINTP_TYPE_LIST, VARNAME_LEN, POST_OP_NONE
+  USE mo_action_types,       ONLY: t_var_action_element, t_var_action
+  USE mo_util_string,        ONLY: toupper
+  USE mo_fortran_tools,      ONLY: assign_if_present
 
   IMPLICIT NONE
 
   PRIVATE
 
-  ! ---------------------------------------------------------------
-  ! CONSTANTS
-  ! ---------------------------------------------------------------
+  PUBLIC  :: create_hor_interp_metadata
+  PUBLIC  :: create_vert_interp_metadata
+  PUBLIC  :: create_tracer_metadata
+  PUBLIC  :: groups
+  PUBLIC  :: group_id
+  PUBLIC  :: post_op
+  PUBLIC  :: vintp_types
+  PUBLIC  :: vintp_type_id
+  PUBLIC  :: new_action
+  PUBLIC  :: actions
+
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
-  ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 32
+CONTAINS
 
-  ! list of variable groups
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Quasi-constructor for horizontal interpolation meta data
   ! 
-  ! A variable can have any combination of this which means that it is
-  ! part of each of these different variable sets.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(31) = &
-    (/ "ALL                   ",  &
-    &  "ATMO_ML_VARS          ",  &
-    &  "ATMO_PL_VARS          ",  &
-    &  "ATMO_ZL_VARS          ",  &
-    &  "NH_PROG_VARS          ",  &
-    &  "ATMO_DERIVED_VARS     ",  &
-    &  "RAD_VARS              ",  &
-    &  "PRECIP_VARS           ",  &
-    &  "CLOUD_DIAG            ",  &
-    &  "PBL_VARS              ",  &
-    &  "PHYS_TENDENCIES       ",  &
-    &  "LAND_VARS             ",  &
-    &  "LAND_TILE_VARS        ",  &
-    &  "MULTISNOW_VARS        ",  &
-    &  "ADDITIONAL_PRECIP_VARS",  &
-    &  "SNOW_VARS             ",  &
-    &  "DWD_FG_ATM_VARS       ",  &  ! DWD First Guess (atmosphere) 
-    &  "DWD_FG_SFC_VARS       ",  &  ! DWD First Guess (surface/soil)
-    &  "DWD_FG_SFC_IN         ",  &  ! Sfc input fields that are required from the FG input file
-    &  "DWD_FG_ATM_IN         ",  &  ! Atm input fields that are required from the FG input file
-    &  "DWD_ANA_SFC_IN        ",  &  ! Sfc input fields that are required from the ANA input file
-    &  "DWD_ANA_ATM_IN        ",  &  ! Atm input fields that are required from the ANA input file
-    &  "OCE_PROG              ",  &
-    &  "OCE_DIAG              ",  &
-    &  "OCE_DEFAULT           ",  &
-    &  "OCE_AUX               ",  &
-    &  "OCE_GEOMETRY          ",  &
-    &  "OCE_PHYSICS           ",  &
-    &  "OCE_COEFFS            ",  &
-    &  "ICE_DEFAULT           ",  &
-    &  "ICE_DIAG              "/)
+  ! Fills data structure with default values (unless set otherwise).
+  FUNCTION create_hor_interp_metadata(hor_intp_type, lonlat_id)    &
+    RESULT(hor_interp_meta)
+
+    TYPE(t_hor_interp_meta) :: hor_interp_meta    
+    INTEGER, INTENT(IN), OPTIONAL      :: &
+      &  hor_intp_type, lonlat_id
+
+    ! set default values
+    hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT_RBF
+    hor_interp_meta%lonlat_id        = 0 ! invalid ID
+
+    ! supersede with user definitions
+    CALL assign_if_present(hor_interp_meta%hor_intp_type, hor_intp_type)
+    CALL assign_if_present(hor_interp_meta%lonlat_id,     lonlat_id)
+
+  END FUNCTION create_hor_interp_metadata
 
 
-  ! list of vertical interpolation types
+  !------------------------------------------------------------------------------------------------
+  ! HANDLING OF VERTICAL INTERPOLATION MODES
+  !------------------------------------------------------------------------------------------------
+
+  !> Implements a (somewhat randomly chosen) one-to-one mapping
+  !  between a string and an integer ID number between 1 and
+  !  MAX_VINTP_TYPES.
+  !
+  FUNCTION vintp_type_id(in_str)
+    INTEGER                      :: vintp_type_id, ivintp_type
+    CHARACTER(LEN=*), INTENT(IN) :: in_str
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:vintp_type_id")
+
+    vintp_type_id = 0
+    LOOP_VINTP_TYPES : DO ivintp_type=1,SIZE(VINTP_TYPE_LIST)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(VINTP_TYPE_LIST(ivintp_type)))) THEN
+        vintp_type_id = ivintp_type
+        EXIT LOOP_VINTP_TYPES
+      END IF
+    END DO LOOP_VINTP_TYPES
+    ! paranoia:
+    IF ((vintp_type_id < 1) .OR. (vintp_type_id > SIZE(VINTP_TYPE_LIST))) &
+      &  CALL finish(routine, "Invalid vertical interpolation type!")
+  END FUNCTION vintp_type_id
+
+
+  !> Utility function with *a lot* of optional string parameters v1,
+  !  v2, v3, v4, ...; mapping those onto a
+  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
+  !  function.
+  !
+  FUNCTION vintp_types(v01, v02, v03, v04, v05, v06, v07, v08, v09, v10)
+    LOGICAL :: vintp_types(SIZE(VINTP_TYPE_LIST))
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
+      &   v01, v02, v03, v04, v05, v06, v07, v08, v09, v10
+    
+    vintp_types(:) = .FALSE.
+    IF (PRESENT(v01)) vintp_types(vintp_type_id(v01)) = .TRUE.
+    IF (PRESENT(v02)) vintp_types(vintp_type_id(v02)) = .TRUE.
+    IF (PRESENT(v03)) vintp_types(vintp_type_id(v03)) = .TRUE.
+    IF (PRESENT(v04)) vintp_types(vintp_type_id(v04)) = .TRUE.
+    IF (PRESENT(v05)) vintp_types(vintp_type_id(v05)) = .TRUE.
+    IF (PRESENT(v06)) vintp_types(vintp_type_id(v06)) = .TRUE.
+    IF (PRESENT(v07)) vintp_types(vintp_type_id(v07)) = .TRUE.
+    IF (PRESENT(v08)) vintp_types(vintp_type_id(v08)) = .TRUE.
+    IF (PRESENT(v09)) vintp_types(vintp_type_id(v09)) = .TRUE.
+    IF (PRESENT(v10)) vintp_types(vintp_type_id(v10)) = .TRUE.
+  END FUNCTION vintp_types
+
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Quasi-constructor for vertical interpolation meta data
   ! 
-  ! A variable can have any combination of this which means that it
-  ! can be interpolated vertically in these different ways.
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VINTP_TYPE_LIST(3) = &
-    (/ "Z                     ",  &
-    &  "P                     ",  &
-    &  "I                     " /)
+  ! Fills data structure with default values (unless set otherwise).
+  FUNCTION create_vert_interp_metadata(vert_intp_type, vert_intp_method,                     &
+    &  l_hires_intp, l_restore_fricred, l_loglin, l_extrapol, l_satlimit, l_restore_pbldev,  &
+    &  l_pd_limit, l_restore_sfcinv, l_hires_corr, lower_limit, extrapol_dist)               &
+    RESULT(vert_interp_meta)
+
+    TYPE(t_vert_interp_meta) :: vert_interp_meta    
+    LOGICAL, INTENT(IN), OPTIONAL      :: &
+      &  vert_intp_type(SIZE(VINTP_TYPE_LIST))
+    INTEGER, INTENT(IN), OPTIONAL      :: &
+      &  vert_intp_method
+    LOGICAL, INTENT(IN), OPTIONAL      :: &
+      &  l_hires_intp, l_restore_fricred, l_loglin, &
+      &  l_extrapol, l_satlimit, l_restore_pbldev,  &
+      &  l_pd_limit, l_restore_sfcinv, l_hires_corr
+    REAL(wp), INTENT(IN), OPTIONAL     :: &
+      &  lower_limit, extrapol_dist
+
+    ! set default values
+    vert_interp_meta%vert_intp_type(:) = .FALSE.
+    vert_interp_meta%vert_intp_method  = VINTP_METHOD_LIN
+    vert_interp_meta%l_hires_intp      = .FALSE.
+    vert_interp_meta%l_restore_fricred = .FALSE.
+    vert_interp_meta%l_loglin          = .FALSE.
+    vert_interp_meta%l_extrapol        = .TRUE.
+    vert_interp_meta%l_satlimit        = .FALSE.
+    vert_interp_meta%l_restore_pbldev  = .FALSE.
+    vert_interp_meta%l_pd_limit        = .FALSE.
+    vert_interp_meta%l_restore_sfcinv  = .FALSE.
+    vert_interp_meta%l_hires_corr      = .FALSE.
+    vert_interp_meta%lower_limit       = 0._wp
+    vert_interp_meta%extrapol_dist     = 500._wp
+    ! supersede with user definitions
+    CALL assign_if_present(vert_interp_meta%vert_intp_type     , vert_intp_type    )
+    CALL assign_if_present(vert_interp_meta%vert_intp_method   , vert_intp_method  )
+    CALL assign_if_present(vert_interp_meta%l_hires_intp       , l_hires_intp      )
+    CALL assign_if_present(vert_interp_meta%l_restore_fricred  , l_restore_fricred )
+    CALL assign_if_present(vert_interp_meta%l_loglin           , l_loglin          )
+    CALL assign_if_present(vert_interp_meta%l_extrapol         , l_extrapol        )
+    CALL assign_if_present(vert_interp_meta%l_satlimit         , l_satlimit        )
+    CALL assign_if_present(vert_interp_meta%l_restore_pbldev   , l_restore_pbldev  )
+    CALL assign_if_present(vert_interp_meta%l_pd_limit         , l_pd_limit        )
+    CALL assign_if_present(vert_interp_meta%l_restore_sfcinv   , l_restore_sfcinv  )
+    CALL assign_if_present(vert_interp_meta%l_hires_corr       , l_hires_corr      )
+    CALL assign_if_present(vert_interp_meta%lower_limit        , lower_limit       )
+    CALL assign_if_present(vert_interp_meta%extrapol_dist      , extrapol_dist     )
+
+  END FUNCTION create_vert_interp_metadata
 
 
-  ! list of available post-op's (small arithmetic operations on
-  ! fields). The implementation is placed in "mo_post_op.f90".o
-  INTEGER, PARAMETER, PUBLIC   :: POST_OP_NONE      = -1  !< trivial post-op ("do nothing")
-  INTEGER, PARAMETER, PUBLIC   :: POST_OP_SCALE     =  1  !< multiply by scalar factor "arg1"
-
-  ! ---------------------------------------------------------------
-  ! TYPE DEFINITIONS
-  ! ---------------------------------------------------------------
-
-
-  TYPE t_union_vals
-    REAL(dp) :: rval
-    INTEGER  :: ival
-    LOGICAL  :: lval
-  END type t_union_vals
-
-
-  TYPE t_tracer_meta
-    !
-    LOGICAL :: lis_tracer         ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(len=VARNAME_LEN) :: tracer_class ! type of tracer
-    !  
-    INTEGER :: ihadv_tracer       ! method for horizontal transport
-    INTEGER :: ivadv_tracer       ! method for vertical transport
-    !
-    LOGICAL :: lturb_tracer       ! turbulent transport (TRUE/FALSE)
-    LOGICAL :: lsed_tracer        ! sedimentation (TRUE/FALSE)
-    LOGICAL :: ldep_tracer        ! dry deposition (TRUE/FALSE)  
-    LOGICAL :: lconv_tracer       ! convection  (TRUE/FALSE)
-    LOGICAL :: lwash_tracer       ! washout (TRUE/FALSE)
-    !
-    REAL(wp) :: rdiameter_tracer   ! particle diameter in m
-    REAL(wp) :: rrho_tracer        ! particle density in kg m^-3
-    !
-    REAL(wp) :: halflife_tracer   ! radioactive half-life in s^-1
-    INTEGER  :: imis_tracer     ! IMIS number
-    !
-  END TYPE t_tracer_meta
-
-
-  !> data specific for pz-level interpolation.
-  TYPE t_vert_interp_meta
-    ! meta data containing the groups to which a variable belongs
-    LOGICAL  :: vert_intp_type(SIZE(VINTP_TYPE_LIST))
-    INTEGER  :: vert_intp_method
-    LOGICAL  :: l_hires_intp, l_restore_fricred, l_loglin, &
-         &      l_extrapol, l_satlimit, l_restore_pbldev,  &
-         &      l_pd_limit, l_restore_sfcinv, l_hires_corr
-    REAL(wp) :: lower_limit, extrapol_dist
-  END TYPE t_vert_interp_meta
-
-
-  !> data specific for horizontal interpolation.
-  TYPE t_hor_interp_meta
-    INTEGER :: hor_intp_type ! NONE/LONLAT
-    INTEGER :: lonlat_id     ! lon-lat grid (ID in global list)
-  END TYPE t_hor_interp_meta
-
-
-  !> This type defines small arithmetic operations ("post-ops") as
-  !  post-processing tasks.
+  !------------------------------------------------------------------------------------------------
   !
-  !  These post-processing tasks are restricted to point-wise
-  !  operations (no halo synchronization) of a single field, like
-  !  value scaling.
+  ! Quasi-constructor for tracer metadata
+  ! (public routine. Can be used for two things:
+  ! 1.) default settings: If used without any argument, it gives back a variable
+  !     of type t_tracer_meta, containing the default settings.
+  ! 2.) Setting of metadata: If used with arguments, it gives back a variable 
+  !     of type t_tracer_meta, containing the default settings except for those components 
+  !     which are given in the argument list.
   !
-  !  @note The "post-ops" are performed at output time and DO NOT
-  !        MODIFY THE FIELD ITSELF.
+  ! Comment by DR: Maybe for the future one could define different sets of default values
+  ! for different groups of ART species.
+  ! 
+  FUNCTION create_tracer_metadata(lis_tracer,tracer_class,                              &
+    &                            ihadv_tracer, ivadv_tracer, lturb_tracer,              &
+    &                            lsed_tracer, ldep_tracer, lconv_tracer,                &
+    &                            lwash_tracer,rdiameter_tracer, rrho_tracer,            &
+    &                            halflife_tracer,imis_tracer) RESULT(tracer_meta) 
+
+    LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(len=*), INTENT(IN), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...) 
+    INTEGER, INTENT(IN), OPTIONAL :: ihadv_tracer    ! method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL :: ivadv_tracer    ! method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL :: lturb_tracer    ! turbulent transport (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lsed_tracer     ! sedimentation (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: ldep_tracer     ! dry deposition (TRUE/FALSE)  
+    LOGICAL, INTENT(IN), OPTIONAL :: lconv_tracer    ! convection  (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer    ! washout (TRUE/FALSE)
+    REAL(wp), INTENT(IN), OPTIONAL :: rdiameter_tracer! particle diameter in m
+    REAL(wp), INTENT(IN), OPTIONAL :: rrho_tracer     ! particle density in kg m^-3
+    REAL(wp), INTENT(IN), OPTIONAL :: halflife_tracer       ! radioactive half-life in s^-1
+    INTEGER, INTENT(IN), OPTIONAL :: imis_tracer         ! IMIS number
+
+    TYPE(t_tracer_meta) :: tracer_meta               ! tracer metadata
+
+    ! lis_tracer
+    IF ( PRESENT(lis_tracer) ) THEN
+      tracer_meta%lis_tracer = lis_tracer
+    ELSE
+      tracer_meta%lis_tracer = .FALSE.
+    ENDIF
+
+    ! tracer_class
+    IF ( PRESENT(tracer_class) ) THEN
+      tracer_meta%tracer_class = tracer_class
+    ELSE
+      tracer_meta%tracer_class = "cloud"  ! USE cloud as standard
+    ENDIF
+
+    ! ihadv_tracer
+    IF ( PRESENT(ihadv_tracer) ) THEN
+      tracer_meta%ihadv_tracer = ihadv_tracer
+    ELSE
+      tracer_meta%ihadv_tracer = 2
+    ENDIF
+
+    ! ivadv_tracer
+    IF ( PRESENT(ivadv_tracer) ) THEN
+      tracer_meta%ivadv_tracer = ivadv_tracer
+    ELSE
+      tracer_meta%ivadv_tracer = 3
+    ENDIF
+
+    ! lturb_tracer  
+    IF ( PRESENT(lturb_tracer) ) THEN
+      tracer_meta%lturb_tracer = lturb_tracer
+    ELSE
+      tracer_meta%lturb_tracer = .FALSE.
+    ENDIF
+
+    ! lsed_tracer
+    IF ( PRESENT(lsed_tracer) ) THEN
+      tracer_meta%lsed_tracer = lsed_tracer
+    ELSE
+      tracer_meta%lsed_tracer = .FALSE.
+    ENDIF
+
+    ! ldep_tracer
+    IF ( PRESENT(ldep_tracer) ) THEN
+      tracer_meta%ldep_tracer = ldep_tracer
+    ELSE
+      tracer_meta%ldep_tracer = .FALSE.
+    ENDIF
+
+    ! lconv_tracer
+    IF ( PRESENT(lconv_tracer) ) THEN
+      tracer_meta%lconv_tracer = lconv_tracer
+    ELSE
+      tracer_meta%lconv_tracer = .FALSE.
+    ENDIF
+
+    ! lwash_tracer
+    IF ( PRESENT(lwash_tracer) ) THEN
+      tracer_meta%lwash_tracer = lwash_tracer
+    ELSE
+      tracer_meta%lwash_tracer = .FALSE.
+    ENDIF
+
+    ! rdiameter_tracer
+    IF ( PRESENT(rdiameter_tracer) ) THEN
+      tracer_meta%rdiameter_tracer = rdiameter_tracer
+    ELSE
+      tracer_meta%rdiameter_tracer = 1.0e-6_wp  ! particle diameter in m
+    ENDIF
+
+    ! rrho_tracer
+    IF ( PRESENT(rrho_tracer) ) THEN
+      tracer_meta%rrho_tracer = rrho_tracer
+    ELSE
+      tracer_meta%rrho_tracer = 1000.0_wp       ! particle density in kg m^-3
+    ENDIF
+
+    ! halflife_tracer
+    IF ( PRESENT(halflife_tracer) ) THEN
+      tracer_meta%halflife_tracer = halflife_tracer
+    ELSE
+      tracer_meta%halflife_tracer = 0.0_wp       ! half-life in s^-1
+    ENDIF
+
+    ! imis_tracer
+    IF ( PRESENT(imis_tracer) ) THEN
+      tracer_meta%imis_tracer = imis_tracer
+    ELSE
+      tracer_meta%imis_tracer = -999       ! IMIS number
+    ENDIF
+
+  END FUNCTION create_tracer_metadata
+
+
+  !------------------------------------------------------------------------------------------------
+  ! HANDLING OF VARIABLE GROUPS
+  !------------------------------------------------------------------------------------------------
+  
+  !> Implements a (somewhat randomly chosen) one-to-one mapping
+  !  between a string and an integer ID number between 1 and
+  !  MAX_VAR_GROUPS.
   !
-  TYPE t_post_op_meta
-    INTEGER                    :: ipost_op_type         !< type of post-processing operation
-    !
-    LOGICAL                    :: lnew_cf
-    TYPE(t_cf_var)             :: new_cf                !< CF information of modified field
-    LOGICAL                    :: lnew_grib2
-    TYPE(t_grib2_var)          :: new_grib2             !< GRIB2 information of modified field
-    !
-    REAL(wp)                   :: arg1                  !< post-op argument (e.g. scaling factor)
-  END TYPE t_post_op_meta
+  FUNCTION group_id(in_str)
+    INTEGER                      :: group_id, igrp
+    CHARACTER(LEN=*), INTENT(IN) :: in_str
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:group_id")
+
+    group_id = 0
+    LOOP_GROUPS : DO igrp=1,SIZE(VAR_GROUPS)
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(VAR_GROUPS(igrp)))) THEN
+        group_id = igrp
+        EXIT LOOP_GROUPS
+      END IF
+    END DO LOOP_GROUPS
+    ! paranoia:
+    IF ((group_id < 1) .OR. (group_id > SIZE(VAR_GROUPS))) &
+      &  CALL finish(routine, "Invalid group ID!")
+
+  END FUNCTION group_id
 
 
-  TYPE t_var_metadata
-    !
-    INTEGER                    :: key                   ! hash value of name
-    CHARACTER(len=VARNAME_LEN) :: name                  ! variable name  
-    !
-    TYPE(t_cf_var)             :: cf                    ! CF convention information 
-    TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information
-    !
-    LOGICAL                    :: allocated             ! allocation status
-    INTEGER                    :: ndims                 ! number of dimensions used
-    INTEGER                    :: used_dimensions(5)    ! final dimensions of variable
-    ! 
-    LOGICAL                    :: lrestart              ! write field to restart
-    LOGICAL                    :: loutput               ! write field to output
-    INTEGER                    :: isteptype             ! Type of statistical processing
-    !                                         
-    TYPE(t_union_vals)         :: resetval              ! reset value for accumulated fields
-    LOGICAL                    :: lmiss                 ! missing value flag
-    TYPE(t_union_vals)         :: missval               ! missing value
-    LOGICAL                    :: lrestart_cont         ! continue if not in restart file     
-    LOGICAL                    :: lrestart_read         ! field has been set from restart file
-    TYPE(t_union_vals)         :: initval               ! value if not in restart file
-    !     
-    LOGICAL                    :: lcontainer            ! true, if this is a container
-    LOGICAL                    :: lcontained            ! true, if this is in a container
-    INTEGER                    :: ncontained            ! index in container   
-    !
-    INTEGER                    :: hgrid                 ! CDI horizontal grid type
-    INTEGER                    :: vgrid                 ! CDI vertical grid type
-    !
-    INTEGER                    :: tlev_source           ! Information where to find the actual
-    !                                                     timelevel for timelevel dependent variables:        
-    !                                                      = 0 : nnow
-    !                                                      = 1 : nnow_rcf
-    !                                                      ... more may follow
-    !
-    INTEGER                    :: cdiVarID
-    INTEGER                    :: cdiVarID_2            ! for 2nd vector component in LatLon interpolation
-    INTEGER                    :: cdiGridID
-    INTEGER                    :: cdiZaxisID
-    INTEGER                    :: cdiDataType
-    INTEGER                    :: cdiTimeID             ! CDI time mode (TIME_VARIABLE/TIME_CONSTANT)
-    !
-    TYPE(t_tracer_meta)        :: tracer                ! metadata for tracer fields
-    !
-    ! Metadata for "post-ops" (small arithmetic operations)
-    !
-    TYPE (t_post_op_meta)      :: post_op               !<  "post-op" (small arithmetic operations) for this variable
-    !
-    ! Metadata for vertical/horizontal interpolation
-    !
-    ! Note that setting these parameters to non-default values does
-    ! not mean that interpolation is actually performed for this
-    ! variables (this is controlled by namelist settings) but only
-    ! that this is possible!
-    !
-    TYPE(t_vert_interp_meta)   :: vert_interp 
-    TYPE(t_hor_interp_meta)    :: hor_interp 
-    !
-    ! meta data containing the groups to which a variable belongs
-    LOGICAL :: in_group(SIZE(var_groups))
 
-    ! Flag: defines, if this field is updated by the internal
-    ! post-processing scheduler
-    INTEGER :: l_pp_scheduler_task
 
-  END TYPE t_var_metadata
+  !----------------------------------------------------------------------------------------
+  !
+  !> Utility function with *a lot* of optional string parameters g1,
+  !  g2, g3, g4, ...; mapping those onto a
+  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
+  !  function.
+  !
+  FUNCTION groups(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10)
+    LOGICAL :: groups(SIZE(VAR_GROUPS))
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
+      &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10
+    
+    groups(:) = .FALSE.
+    groups(group_id("ALL")) = .TRUE.
+    IF (PRESENT(g01)) groups(group_id(g01)) = .TRUE.
+    IF (PRESENT(g02)) groups(group_id(g02)) = .TRUE.
+    IF (PRESENT(g03)) groups(group_id(g03)) = .TRUE.
+    IF (PRESENT(g04)) groups(group_id(g04)) = .TRUE.
+    IF (PRESENT(g05)) groups(group_id(g05)) = .TRUE.
+    IF (PRESENT(g06)) groups(group_id(g06)) = .TRUE.
+    IF (PRESENT(g07)) groups(group_id(g07)) = .TRUE.
+    IF (PRESENT(g08)) groups(group_id(g08)) = .TRUE.
+    IF (PRESENT(g09)) groups(group_id(g09)) = .TRUE.
+    IF (PRESENT(g10)) groups(group_id(g10)) = .TRUE.
+  END FUNCTION groups
 
-  PUBLIC :: VINTP_TYPE_LIST
-  PUBLIC :: VARNAME_LEN
 
-  PUBLIC :: t_union_vals
-  PUBLIC :: t_var_metadata
-  PUBLIC :: t_tracer_meta
-  PUBLIC :: t_vert_interp_meta
-  PUBLIC :: t_hor_interp_meta
-  PUBLIC :: t_post_op_meta
+  !----------------------------------------------------------------------------------------
+  !
+  !> Utility function with *a lot* of optional string parameters g1,
+  !  g2, g3, g4, ...; mapping those onto a
+  !  LOGICAL(DIMENSION=MAX_VAR_GROUPS) according to the "group_id"
+  !  function.
+  !
+  FUNCTION post_op(ipost_op_type, new_cf, new_grib2, arg1)
+    TYPE(t_post_op_meta) :: post_op
+    INTEGER,           INTENT(IN), OPTIONAL :: ipost_op_type    !< type of post-processing operation
+    TYPE(t_cf_var),    INTENT(IN), OPTIONAL :: new_cf           !< CF information of modified field
+    TYPE(t_grib2_var), INTENT(IN), OPTIONAL :: new_grib2        !< GRIB2 information of modified field
+    REAL(wp),          INTENT(IN), OPTIONAL :: arg1             !< post-op argument (e.g. scaling factor)
 
-  PUBLIC :: var_groups
+    post_op%ipost_op_type = POST_OP_NONE
+    post_op%lnew_cf       = .FALSE.
+    post_op%lnew_grib2    = .FALSE.
+    post_op%arg1          = 0._wp
+
+    IF (PRESENT(ipost_op_type)) post_op%ipost_op_type = ipost_op_type
+    IF (PRESENT(arg1))          post_op%arg1          = arg1
+    IF (PRESENT(new_cf)) THEN
+      post_op%lnew_cf = .TRUE.
+      post_op%new_cf  = new_cf
+    END IF
+    IF (PRESENT(new_grib2)) THEN
+      post_op%lnew_grib2 = .TRUE.
+      post_op%new_grib2  = new_grib2
+    END IF
+  END FUNCTION post_op
+
+
+  !------------------------------------------------------------------------------------------------
+  ! HANDLING OF ACTION EVENTS
+  !------------------------------------------------------------------------------------------------
+  !>
+  !! Initialize single variable specific action
+  !!
+  !! Initialize single variable specific action. A variable named 'var_action' 
+  !! of type t_var_action_element is initialized.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
+  !!
+  FUNCTION new_action(actionID, intvl) RESULT(var_action)
+
+    INTEGER           , INTENT(IN) :: actionID  ! action ID  
+    CHARACTER(LEN=*)  , INTENT(IN) :: intvl     ! action interval [h]
+    TYPE(t_var_action_element)     :: var_action
+
+    ! define var_action
+    var_action%actionID   = actionID
+    var_action%intvl      = TRIM(intvl)
+    var_action%lastActive ='0000-00-00T00:00:00.000Z'  ! init
+    var_action%event      => NULL()    !initialized in collect_action
+
+  END FUNCTION new_action
+
+
+  !>
+  !! Generate list (array) of variable specific actions
+  !!
+  !! Generate list (array) of variable specific actions.
+  !! Creates array 'action_list' of type t_var_action
+  !
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
+  !!
+  FUNCTION actions(a01, a02, a03, a04, a05)  RESULT(action_list)
+
+    TYPE(t_var_action_element), INTENT(IN), OPTIONAL :: a01, a02, a03, a04, a05
+    TYPE(t_var_action)             :: action_list
+
+    INTEGER :: n_act             ! action counter
+
+    ! create action list
+    !
+    n_act = 0
+    IF (PRESENT(a01))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a01
+    ENDIF
+
+    IF (PRESENT(a02))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a02
+    ENDIF
+
+    IF (PRESENT(a03))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a03
+    ENDIF
+
+    IF (PRESENT(a04))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a04
+    ENDIF
+
+    IF (PRESENT(a05))  THEN
+      n_act = n_act + 1
+      action_list%action(n_act) = a05
+    ENDIF
+
+    action_list%n_actions = n_act
+
+  END FUNCTION actions
 
 END MODULE mo_var_metadata
+

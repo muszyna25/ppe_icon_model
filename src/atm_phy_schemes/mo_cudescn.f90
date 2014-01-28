@@ -335,8 +335,8 @@ CONTAINS
         !!                  THEN SET VALUES FOR DOWNDRAFT AT LFS.
         !!                  ----------------------------------------
 
-        !DIR$ IVDEP
-        !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
         DO jl=kidia,kfdia
           IF(llo2(jl)) THEN
             zttest=0.5_JPRB*(ptu(jl,jk)+ztenwb(jl,jk))

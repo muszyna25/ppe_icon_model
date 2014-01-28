@@ -44,7 +44,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_dynamics_config,   ONLY: iequations
   USE mo_advection_config,  ONLY: configure_advection
   USE mo_ha_testcases,      ONLY: ctest_name
-  USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios,lwrite_initial
+  USE mo_io_config,         ONLY: n_diags, n_checkpoints
   USE mo_grid_config,       ONLY: n_dom
 
   USE mo_model_domain,        ONLY: p_patch
@@ -78,7 +78,7 @@ MODULE mo_atmo_hydrostatic
   PUBLIC :: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
 
 
-  INTEGER :: n_io, n_file, n_diag, n_chkpt
+  INTEGER :: n_diag, n_chkpt
 
 
 CONTAINS
@@ -171,8 +171,6 @@ CONTAINS
     ! compute time step interval for taking a certain action
     !------------------------------------------------------------------
 
-    n_io    = n_ios()        ! number of: write output
-    n_file  = n_files()        ! number of: trigger new output file
     n_chkpt = n_checkpoints()       ! number of: write restart files
     n_diag  = n_diags() ! number of: diagnose of total integrals
 
@@ -186,10 +184,13 @@ CONTAINS
       ! compute sim_start, sim_end
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
       CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-      sim_step_info%dtime     = dtime
-      sim_step_info%iadv_rcf  = 1
+      CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
+        &                      INT(time_config%dt_restart))
+      CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+      sim_step_info%dtime      = dtime
+      sim_step_info%iadv_rcf   = 1
       jstep0 = 0
-      IF (is_restart_run()) THEN
+      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
         CALL get_restart_attribute("jstep", jstep0)
       END IF
@@ -201,18 +202,16 @@ CONTAINS
     ! Initialize the first output file which will contain also the
     ! initial conditions.
 
-      IF (lwrite_initial) THEN
-        IF (output_mode%l_nml) THEN
+      IF (output_mode%l_nml) THEN
           ! Mis-use optional parameter last_step=.TRUE to force output of initial state.
           ! If one wants e.g. one day of 6-hrly data per output file (i.e. 4 steps) ending at 00:00,
           ! one has to set the first value of output_bounds namelist variable to 06:00, but then the
           ! initial state is now written because sim_time=0._wp is lower than start time of output_bounds.
           ! This should be replaced by an explicit handling of "first_step" similar to "last_step" in
           ! mo_name_list_output, similar to lwrite_inital for vlist output.
-          CALL write_name_list_output(jstep=0)
-        ENDIF
-
+        CALL write_name_list_output(jstep=0)
       ENDIF
+
     END IF ! (not) is_restart_run()
 
     !------------------------------------------------------------------

@@ -71,6 +71,11 @@ MODULE mo_time_config
     TYPE(t_datetime) :: cur_datetime       !< Current  time model time 
 
     REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)
+
+    !> LOGICAL is_relative_time: .TRUE., if time loop shall start with
+    !> step 0 regardless whether we are in a standard run or in a
+    !> restarted run (which means re-initialized run):
+    LOGICAL          ::  is_relative_time
  
   END TYPE t_time_config
   !>

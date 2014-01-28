@@ -60,6 +60,7 @@ MODULE mo_output_event_control
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
     &                              int2string, tolower, MAX_STRING_LEN
   USE mo_name_list_output_types, ONLY: t_fname_metadata
+  USE mo_io_config,              ONLY: use_set_event_to_simstep
 
 
   IMPLICIT NONE
@@ -181,6 +182,7 @@ CONTAINS
     ! the desired date "mtime_date1"
     intvlsec    = REAL(dtime)
     step        = FLOOR(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
+
     IF (step >= 0) THEN
       mtime_step  => datetimeaddseconds(mtime_begin, REAL(step*intvlsec))
 
@@ -238,7 +240,7 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
     CALL setCalendar(PROLEPTIC_GREGORIAN)
-    mtime_begin  => newDatetime(TRIM(sim_step_info%sim_start))
+    mtime_begin  => newDatetime(TRIM(sim_step_info%run_start))
 
     ! ---------------------------------------------------
     ! prescribe, which file is used in which output step.
@@ -272,6 +274,7 @@ CONTAINS
       ipart      =  0
       delta     =>  newTimedelta(TRIM(fname_metadata%file_interval))
       file_end  =>  newDatetime(date_string(1))
+
       file_end   =  file_end + delta
       OUTSTEP_LOOP : DO i=1,nstrings
         step_date => newDatetime(date_string(i))
@@ -299,23 +302,45 @@ CONTAINS
     ! --------------------------------------------------------------
     ! prescribe, in which steps the output file is opened or closed:
     ! --------------------------------------------------------------
-    DO i=1,nstrings
-      IF (i == 1) THEN
-        result_fnames(i)%l_open_file = .TRUE.
-      ELSE
-        result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
-      END IF
-      IF (i==nstrings) THEN
-        result_fnames(i)%l_close_file = .TRUE.
-      ELSE
-        result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
-      END IF
-    END DO
+    IF (.not.use_set_event_to_simstep .and.  &
+       & TRIM(fname_metadata%file_interval) == "") THEN
 
+      ! use fname_metadata%steps_per_file
+      result_fnames(:)%l_open_file = .false.
+      result_fnames(:)%l_close_file = .false.
+      ! ignore the first output
+      result_fnames(1)%l_open_file = .TRUE.
+      result_fnames(1)%l_close_file = .TRUE.
+      result_fnames(2)%l_open_file = .TRUE.
+      ! write(0,*) "nstrings=", nstrings
+      DO i=fname_metadata%steps_per_file+1, nstrings-1, fname_metadata%steps_per_file
+        ! write(0,*) "  i=", i
+        result_fnames(i)%l_close_file = .TRUE.
+        result_fnames(i+1)%l_open_file = .TRUE.
+      END DO
+      result_fnames(nstrings)%l_close_file = .TRUE.
+
+    ELSE
+
+      DO i=1,nstrings
+        IF (i == 1) THEN
+          result_fnames(i)%l_open_file = .TRUE.
+        ELSE
+          result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
+        END IF
+        IF (i==nstrings) THEN
+          result_fnames(i)%l_close_file = .TRUE.
+        ELSE
+          result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
+        END IF
+      END DO
+
+    ENDIF
     ! ----------------------------------------------
     ! Set actual output file name (insert keywords):
     ! ----------------------------------------------
     forecast_delta => newTimedelta("P01D")
+    ifname = 0
     DO i=1,nstrings
       IF (.NOT. result_fnames(i)%l_open_file) THEN
         ! if no file is opened: filename is identical to last step
@@ -323,6 +348,8 @@ CONTAINS
         CYCLE
       END IF
       ! otherwise, generate filename
+      !
+      ! define keywords:
       CALL associate_keyword("<path>",            TRIM(model_base_dir),                                     keywords)
       CALL associate_keyword("<output_filename>", TRIM(fname_metadata%filename_pref),                       keywords)
       CALL associate_keyword("<physdom>",         TRIM(int2string(fname_metadata%phys_patch_id, "(i2.2)")), keywords)
@@ -330,23 +357,42 @@ CONTAINS
       CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(fname_metadata%ilev_type))),    keywords)
       CALL associate_keyword("<jfile>",           TRIM(int2string(result_fnames(i)%jfile, "(i4.4)")),       keywords)
       CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
-      ! compute current forecast time (delta):
+      ! keywords: compute current forecast time (delta):
       mtime_date => newDatetime(TRIM(date_string(i)))
       CALL getTimeDeltaFromDateTime(mtime_date, mtime_begin, forecast_delta)
       WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
         &                                    forecast_delta%minute, forecast_delta%second 
       CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
+      ! keywords: compose other variants of the absolute date-time
+      !
+      ! "YYYYMMDDThhmmssZ"     for the basic format of ISO8601 without the
+      !                        separators "-" and ":" of the extended date-time format
+      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a)')                                                 &
+        &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',   &
+        &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, 'Z'
+      CALL associate_keyword("<datetime2>",       TRIM(dtime_string),                                       keywords)
+
+      ! "YYYYMMDDThhmmss.sssZ" for the basic format of ISO8601 with 3-digit 
+      !                        fractions of seconds
+      WRITE (dtime_string,'(i4.4,2(i2.2),a,3(i2.2),a,i3.3,a)')                                                 &
+        &                      mtime_date%date%year, mtime_date%date%month, mtime_date%date%day, 'T',          &
+        &                      mtime_date%time%hour, mtime_date%time%minute, mtime_date%time%second, '.',      &
+        &                      mtime_date%time%ms, 'Z'
+      CALL associate_keyword("<datetime3>",       TRIM(dtime_string),                                       keywords)
       CALL deallocateDatetime(mtime_date)
+
       cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
       IF(my_process_is_mpi_test()) THEN
-        WRITE(result_fnames(i)%filename_string,'(a,"_TEST",a)') TRIM(cfilename),TRIM(fname_metadata%extn)
+         ! (a) use filename with extension "_TEST" (then any post-processing needs to be adapted)
+         WRITE(result_fnames(i)%filename_string,'(a,"_TEST",a)') TRIM(cfilename),TRIM(fname_metadata%extn)
+!        ! (b) use standard filename
+!        WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
       ELSE
         WRITE(result_fnames(i)%filename_string,'(a,a)')         TRIM(cfilename),TRIM(fname_metadata%extn)
       ENDIF
 
       ! consistency check: test if the user has accidentally chosen a
       ! file name syntax which yields duplicate file names:
-      ifname = 0
       DO j=1,ifname
         IF (result_fnames(i)%filename_string == fname(j)) THEN
           ! found a duplicate filename:
@@ -360,6 +406,9 @@ CONTAINS
 
     ! clean up
     CALL deallocateDatetime(mtime_begin)
+
+
+
   END FUNCTION generate_output_filenames
 
 END MODULE mo_output_event_control

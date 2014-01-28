@@ -581,6 +581,7 @@
     if (plotMode.eq."scalar" .or. plotMode.eq."overlay")
       if (horizonalGridType .eq. "unstructured") then
         if (isvar("gridFile")) then
+          ;TODO: fix x,y creation for external gridfile (plot restart data)
           x      = getCoordinateFromFile(lonCo,gridFile)
           y      = getCoordinateFromFile(latCo,gridFile)
           if (showGrid) then
@@ -593,7 +594,7 @@
         end if
       end if
 
-      setCoordinates(ResC,File,var)
+     coords = setCoordinates(ResC,File,var)
     end if
   end if
 
@@ -678,7 +679,7 @@
     plot = gsn_csm_contour_map(wks,var,ResC)
     if (showGrid) then
       if (horizonalGridType .eq. "unstructured") then
-        plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
+        plotGrid(wks,plot,var,coords(1,:),bounds,File,ResC,DEBUG)
       end if
       if ( horizonalGridType .ne. "curvilinear" .and. horizonalGridType .ne. "unstructured") then
         print("#=====================================================================")
@@ -687,6 +688,8 @@
       end if
     end if
     if ( markCells ) then
+     x = coords(0,:)
+     y = coords(1,:)
       plotCellMarkers(x,y,wks,plot,True)
     end if
   end if

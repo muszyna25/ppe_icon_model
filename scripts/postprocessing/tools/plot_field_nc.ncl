@@ -230,7 +230,7 @@ gsn_define_colormap(wks,"gui_default")
    else
     var= File ->$VarN$(tstep-1,:)
    end if
-   ifsub=isStrSubset(VarN,"PS")
+   ifsub=isStrSubset(VarN,"pres_sfc")
    if (ifsub) then
     var=var/100.
     Units="hPa"

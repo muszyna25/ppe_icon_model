@@ -191,6 +191,7 @@ MODULE mo_intp_coeffs
   
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_geometry_info,  ONLY: planar_torus_geometry, sphere_geometry
+  USE mo_grid_subset,         ONLY: get_index_range
   
   IMPLICIT NONE
   
@@ -1233,6 +1234,9 @@ CONTAINS
 #ifdef DEBUG_COEFF
     REAL(wp) :: sum1
 #endif
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs:force_mass_conservation_to_cellavg_wgt'
+
+    ! write(0,*) "force_mass_conservation_to_cellavg_wgt, processing ", ptr_patch%grid_filename
     !-----------------------------------------------------------------------
     ! The coefficients for bilinear interpolation are now iteratively modified
     ! in order to obtain mass conservation.
@@ -1269,12 +1273,15 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,&
 !$OMP ibc3) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-      
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
-      
-      DO jc = i_startidx, i_endidx
+!    DO jb = i_startblk, i_endblk
+!
+!      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+!        & i_startidx, i_endidx, rl_start, rl_end)
+!
+!      DO jc = i_startidx, i_endidx
+     DO jb = ptr_patch%cells%in_domain%start_block, ptr_patch%cells%in_domain%end_block
+       CALL get_index_range(ptr_patch%cells%in_domain, jb, i_startidx, i_endidx)
+       DO jc = i_startidx, i_endidx
         
         IF(.NOT.ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
         
@@ -1297,6 +1304,8 @@ CONTAINS
           ELSE IF ((ptr_patch%cells%neighbor_idx(ilc1,ibc1,3) == jc) .AND. &
             & (ptr_patch%cells%neighbor_blk(ilc1,ibc1,3) == jb)) THEN
             inv_neighbor_id(jc,jb,1) = 3
+          ELSE
+            CALL finish(method_name, "Undefined inv_neighbor_id 1")
           ENDIF
         ENDIF
         IF ( (ilc2>0) .AND. (ibc2>0) ) THEN
@@ -1309,6 +1318,8 @@ CONTAINS
           ELSE IF ((ptr_patch%cells%neighbor_idx(ilc2,ibc2,3) == jc) .AND. &
             & (ptr_patch%cells%neighbor_blk(ilc2,ibc2,3) == jb)) THEN
             inv_neighbor_id(jc,jb,2)  = 3
+          ELSE
+            CALL finish(method_name, "Undefined inv_neighbor_id 2")
           ENDIF
         ENDIF
         IF ( (ilc3>0) .AND. (ibc3>0) ) THEN
@@ -1321,6 +1332,8 @@ CONTAINS
           ELSE IF ((ptr_patch%cells%neighbor_idx(ilc3,ibc3,3) == jc) .AND. &
             & (ptr_patch%cells%neighbor_blk(ilc3,ibc3,3) == jb)) THEN
             inv_neighbor_id(jc,jb,3)  = 3
+          ELSE
+            CALL finish(method_name, "Undefined inv_neighbor_id 3")
           ENDIF
         ENDIF
         
@@ -1852,6 +1865,8 @@ CONTAINS
     max_rlval = MAXVAL(ptr_patch%cells%refin_ctrl(:,:))
     max_rlval = NINT(global_max(REAL(max_rlval,wp)))
     
+    ! write(0,*) nudge_zone_width, grf_nudge_start_c, max_rlval
+
     IF (max_rlval < nudge_zone_width+grf_nudge_start_c-1) THEN
       CALL finish('init_nudgecoeffs',&
         & 'bdy_indexing_depth in prepare_gridref must be at least nudge_zone_width+4')
@@ -2780,6 +2795,8 @@ CONTAINS
     
     TYPE(t_cartesian_coordinates) :: cc_cell, cc_ev3, cc_ev4, cc_v1, cc_v2, cc_v3, &
       & cc_dis1, cc_dis2, cc_dis3
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs:complete_patchinfo'
     
     !-----------------------------------------------------------------------
     
@@ -2822,7 +2839,8 @@ CONTAINS
     
     ! Second step: computed projected orientation vectors and related information
     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
+    ! i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
+    i_endblk   = ptr_patch%nblks_e
     
     ! Initialization of lateral boundary points
     IF (ptr_patch%id > 1) THEN
@@ -2913,6 +2931,8 @@ CONTAINS
           ptr_patch%edges%vertex_idx(je,jb,3) = ptr_patch%cells%vertex_idx(ilc1,ibc1,3)
           ptr_patch%edges%vertex_blk(je,jb,3) = ptr_patch%cells%vertex_blk(ilc1,ibc1,3)
           
+        ELSE
+          CALL finish(method_name, "Unresolved edges%vertex(3)")
         ENDIF
         
         IF ((ptr_patch%cells%vertex_idx(ilc2,ibc2,1) /= &
@@ -2951,6 +2971,8 @@ CONTAINS
           ptr_patch%edges%vertex_idx(je,jb,4) = ptr_patch%cells%vertex_idx(ilc2,ibc2,3)
           ptr_patch%edges%vertex_blk(je,jb,4) = ptr_patch%cells%vertex_blk(ilc2,ibc2,3)
           
+        ELSE
+          CALL finish(method_name, "Unresolved edges%vertex(4)")
         ENDIF
         
         ilv3 = ptr_patch%edges%vertex_idx(je,jb,3)

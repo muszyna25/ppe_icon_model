@@ -110,8 +110,8 @@ CONTAINS
   !! - possibility for iterative flux correction
   !!
   SUBROUTINE hflx_limiter_mo( ptr_patch, ptr_int, p_dtime, p_cc, p_mass_flx_e,       &
-    &                         p_mflx_tracer_h, opt_beta_fct, opt_niter, opt_rlstart, &
-    &                         opt_rlend, opt_slev, opt_elev )
+    &                         p_mflx_tracer_h, slev, elev, opt_beta_fct, opt_niter,  &
+    &                         opt_rlstart, opt_rlend )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
       &  ptr_patch
@@ -132,6 +132,12 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
 
+    INTEGER, INTENT(IN) ::      &    !< vertical start level
+      &  slev
+
+    INTEGER, INTENT(IN) ::      &    !< vertical end level
+      &  elev
+
     REAL(wp), INTENT(IN), OPTIONAL ::  & !< factor for multiplicative spreading of range 
       &  opt_beta_fct                    !< of permissible values
 
@@ -144,50 +150,44 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
-
     REAL(wp) ::                 &    !< first order tracer mass flux
-      &  z_mflx_low(nproma,ptr_patch%nlev,ptr_patch%nblks_e)
+      &  z_mflx_low(nproma,slev:elev,ptr_patch%nblks_e)
 
     REAL(wp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
-      &  z_anti(nproma,ptr_patch%nlev,ptr_patch%nblks_e)
+      &  z_anti(nproma,slev:elev,ptr_patch%nblks_e)
 
     REAL(vp) ::                 &    !< antidiffusive tracer mass flux (F_H - F_L)
       &  z_mflx_anti(3)              !< (units kg/kg)
 
     REAL(vp) ::                 &    !< sum of incoming antidiffusive tracer mass fluxes
-      &  z_mflx_anti_in (nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< (units kg/kg)
+      &  z_mflx_anti_in (nproma,slev:elev,ptr_patch%nblks_c) !< (units kg/kg)
 
     REAL(vp) ::                 &    !< sum of outgoing antidiffusive tracer mass fluxes
-      &  z_mflx_anti_out(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< (units kg/kg)
+      &  z_mflx_anti_out(nproma,slev:elev,ptr_patch%nblks_c) !< (units kg/kg)
 
     REAL(vp) ::                 &    !< flux divergence at cell center
-      &  z_fluxdiv_c(nproma,ptr_patch%nlev)
+      &  z_fluxdiv_c(nproma,slev:elev)
 
     REAL(wp) ::                 &    !< new tracer field after hor. transport,
-      &  z_tracer_new_low(nproma,ptr_patch%nlev,ptr_patch%nblks_c) 
+      &  z_tracer_new_low(nproma,slev:elev,ptr_patch%nblks_c) 
                                      !< if the low order fluxes are used
 
     REAL(vp) ::                 &    !< local maximum of current tracer value and low
-      &  z_tracer_max(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< order update
+      &  z_tracer_max(nproma,slev:elev,ptr_patch%nblks_c) !< order update
 
     REAL(vp) ::                 &    !< local minimum of current tracer value and low
-      &  z_tracer_min(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< order update
+      &  z_tracer_min(nproma,slev:elev,ptr_patch%nblks_c) !< order update
 
     ! remark: single precision would be sufficient for r_m and r_p, but SP-sync is not yet available
     REAL(wp) ::                 &    !< fraction which must multiply all in/out fluxes 
-      &  r_p(nproma,ptr_patch%nlev,ptr_patch%nblks_c),&   !< of cell jc to guarantee
-      &  r_m(nproma,ptr_patch%nlev,ptr_patch%nblks_c)     !< no overshoot/undershoot
+      &  r_p(nproma,slev:elev,ptr_patch%nblks_c),&   !< of cell jc to guarantee
+      &  r_m(nproma,slev:elev,ptr_patch%nblks_c)     !< no overshoot/undershoot
 
     REAL(wp) :: r_frac !< computed minimum fraction which must multiply
                        !< the flux at the edge
 
-    REAL(vp) :: z_min(nproma,ptr_patch%nlev), & !< minimum/maximum value in cell and neighboring cells
-      &         z_max(nproma,ptr_patch%nlev) 
+    REAL(vp) :: z_min(nproma,slev:elev), & !< minimum/maximum value in cell and neighboring cells
+      &         z_max(nproma,slev:elev) 
     REAL(wp) :: z_signum             !< sign of antidiffusive velocity
     REAL(wp) :: beta_fct             !< factor of allowed over-/undershooting in monotonous limiter
     REAL(wp) :: r_beta_fct           !< ... and its reverse value   
@@ -199,7 +199,6 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
-    INTEGER  :: slev, elev             !< vertical start and end level
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c
@@ -213,8 +212,6 @@ CONTAINS
 
 
     ! set default values
-    slev      = 1
-    elev      = ptr_patch%nlev
     i_rlstart = grf_bdywidth_e
     i_rlend   = min_rledge_int - 1
     beta_fct  = 1._wp  ! the namelist default is 1.005, but it is passed to the limiter for the Miura3 scheme only
@@ -222,8 +219,6 @@ CONTAINS
 
 
     ! Check for optional arguments
-    CALL assign_if_present(slev     ,opt_slev)
-    CALL assign_if_present(elev     ,opt_elev)
     CALL assign_if_present(i_rlstart,opt_rlstart)
     CALL assign_if_present(i_rlend  ,opt_rlend)
     CALL assign_if_present(beta_fct ,opt_beta_fct)
@@ -403,6 +398,26 @@ CONTAINS
 
         ENDDO
       ENDDO
+
+      IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
+
+        ! Due to the lack of dynamic consistency between mass fluxes and cell mass changes
+        ! in the boundary interpolation zone, the low-order advected tracer fields may be
+        ! nonsense and therefore need artificial limitation
+        DO jc = i_startidx, i_endidx
+          IF (ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c-1 .OR. &
+              ptr_patch%cells%refin_ctrl(jc,jb) == grf_bdywidth_c) THEN
+            DO jk = slev, elev
+              z_tracer_new_low(jc,jk,jb) = MAX(0.9_wp*p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+              z_tracer_new_low(jc,jk,jb) = MIN(1.1_wp*p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+              z_tracer_max(jc,jk,jb) = MAX(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+              z_tracer_min(jc,jk,jb) = MIN(p_cc(jc,jk,jb),z_tracer_new_low(jc,jk,jb))
+            ENDDO
+          ENDIF
+        ENDDO
+
+      ENDIF
+
     ENDDO
 !$OMP END DO
 
@@ -616,8 +631,8 @@ CONTAINS
   !! - Adaption for hexagonal model by Almut Gassmann, MPI-M (2010-11-18)
   !!
   SUBROUTINE hflx_limiter_sm( ptr_patch, ptr_int, p_dtime, p_cc,        &
-    &                         p_mflx_tracer_h, opt_rho, opt_rlstart,    &
-    &                         opt_rlend, opt_slev, opt_elev )
+    &                         p_mflx_tracer_h, slev, elev, opt_rho,     &
+    &                         opt_rlstart, opt_rlend )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
       &  ptr_patch
@@ -636,6 +651,12 @@ CONTAINS
       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
                                      !< [kg m^-2 s^-1]
 
+    INTEGER, INTENT(IN) ::      &    !< vertical start level
+      &  slev
+
+    INTEGER, INTENT(IN) ::      &    !< vertical end level
+      &  elev
+
     REAL(wp), INTENT(IN), TARGET, OPTIONAL :: &!< density (\rho \Delta z)
       &  opt_rho(:,:,:)                !< dim: (nproma,nlev,nblks_c)
                                        !< [kg m^-2]
@@ -646,18 +667,12 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      &  opt_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
-      &  opt_elev
-
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
-      &  z_mflx(nproma,ptr_patch%nlev,3) !< [kg m^-3]
+      &  z_mflx(nproma,slev:elev,3) !< [kg m^-3]
 
     ! remark: single precision would be sufficient for r_m, but SP-sync is not yet available
     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
-      &  r_m(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< of cell jc to guarantee
+      &  r_m(nproma,slev:elev,ptr_patch%nblks_c) !< of cell jc to guarantee
                                                       !< positive definiteness
 
     REAL(wp) :: z_signum                     !< sign of mass flux
@@ -674,7 +689,6 @@ CONTAINS
     REAL(wp), DIMENSION(:,:,:), POINTER:: &  !< pointer to density field (nnow)
       &  ptr_rho
 
-    INTEGER  :: slev, elev                   !< vertical start and end level
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
@@ -682,15 +696,12 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! set default values
-    slev      = 1
-    elev      = ptr_patch%nlev
-    i_rlstart = grf_bdywidth_e
+    i_rlstart = grf_bdywidth_e - 1 ! needed for call from miura_cycl scheme, 
+                                   ! otherwise grf_bdywidth_e would be sufficient
     i_rlend   = min_rledge_int - 1
 
 
     ! Check for optional arguments
-    CALL assign_if_present(slev     ,opt_slev)
-    CALL assign_if_present(elev     ,opt_elev)
     CALL assign_if_present(i_rlstart,opt_rlstart)
     CALL assign_if_present(i_rlend  ,opt_rlend)
 
@@ -733,7 +744,7 @@ CONTAINS
 !$OMP END WORKSHARE
     ENDIF
 
-    i_rlstart_c = grf_bdywidth_c 
+    i_rlstart_c = grf_bdywidth_c
     i_rlend_c   = min_rlcell_int
     i_startblk  = ptr_patch%cells%start_blk(i_rlstart_c,1)
     i_endblk    = ptr_patch%cells%end_blk(i_rlend_c,i_nchdom)
@@ -817,11 +828,14 @@ CONTAINS
 
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
+        ! this is potentially needed for calls from miura_cycl
+        IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
         DO jk = slev, elev
 #else
 !CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
+          IF (ptr_patch%edges%refin_ctrl(je,jb) == grf_bdywidth_e-2) CYCLE
 #endif
 
           ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2

@@ -79,7 +79,6 @@ MODULE mo_nh_interface_nwp
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqm_max,   &
     &                              msg_level, ltimer, timers_level, nqtendphy
-  USE mo_io_config,          ONLY: lflux_avg
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -129,7 +128,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   !
   SUBROUTINE nwp_nh_interface(lcall_phy_jg, linit, lredgrid,       & !input
-                            & dt_loc, dtadv_loc, dt_phy_jg,        & !input
+                            & dtadv_loc, dt_phy_jg,                & !input
                             & p_sim_time, datetime,                & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
@@ -151,8 +150,7 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: linit           !< .TRUE. if initialization call (this switch is currently used
                                                     !  to call turbtran in addition to the slow-physics routines
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
-    REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
-    REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
+    REAL(wp),INTENT(in)          :: dtadv_loc       !< advective time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
@@ -196,12 +194,12 @@ CONTAINS
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
 
-    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
+    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
 
     REAL(wp), TARGET :: &                                              !> temporal arrays for 
       & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& 
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
-      & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
+      & z_ddt_temp  (nproma,pt_patch%nlev)   !< Temperature tendency
  
     REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
@@ -210,8 +208,6 @@ CONTAINS
     REAL(wp) :: z_airmass (nproma,pt_patch%nlev) !< needed for radheat
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
-
-    REAL(wp) :: r_sim_time
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
@@ -246,12 +242,7 @@ CONTAINS
     !define pointers
     iidx  => pt_patch%edges%cell_idx
     iblk  => pt_patch%edges%cell_blk
-    ieidx => pt_patch%cells%edge_idx
-    ieblk => pt_patch%cells%edge_blk
 
-
-    ! Inverse of simulation time
-    r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
         lcall_phy_jg(itturb)  .OR. lcall_phy_jg(itsfc)) THEN
@@ -331,7 +322,7 @@ CONTAINS
            &                              opt_calc_pres=.FALSE.,   &
            &                              opt_rlend=min_rlcell_int )
 
-      IF (msg_level >= 20) THEN ! Initial diagnostic output
+      IF (msg_level >= 18) THEN ! Initial diagnostic output
         CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
       ENDIF
 
@@ -508,7 +499,6 @@ CONTAINS
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
                               & pt_patch, p_metrics,              & !>in
-                              & pt_int_state,                     & !>in
                               & ext_data,                         & !>in
                               & pt_prog,                          & !>in
                               & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
@@ -720,6 +710,8 @@ CONTAINS
 
             prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
             prm_diag%gust10  (i_startidx:i_endidx,jb) = 0._wp
+!!$            prm_diag%tmax_2m (i_startidx:i_endidx,jb) = -999._wp
+!!$            prm_diag%tmin_2m (i_startidx:i_endidx,jb) = 999._wp
         END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1081,64 +1073,6 @@ CONTAINS
 
         ENDIF
 
-        IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
-
-         !sum up for averaged fluxes
-          !T.R.: this is not correct for output after 1st timestep,
-          !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
-          !leading to wrong averaging.
-!DIR$ IVDEP
-          DO jc =  i_startidx, i_endidx
-
-          prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%lwflxsfc_a(jc,jb) = ( prm_diag%lwflxsfc_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%swflxtoa_a(jc,jb) = ( prm_diag%swflxtoa_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%lwflxtoa_a(jc,jb) = ( prm_diag%lwflxtoa_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)) &
-                                 &  * r_sim_time
-
-          prm_diag%aumfl_s(jc,jb) = ( prm_diag%aumfl_s(jc,jb)                       &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)) &
-                                 &  * r_sim_time
-          prm_diag%avmfl_s(jc,jb) = ( prm_diag%avmfl_s(jc,jb)                       &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))           &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)) &
-                                 &  * r_sim_time
-          ENDDO
-
-        ELSEIF ( .NOT. lflux_avg ) THEN
-!DIR$ IVDEP
-          DO jc =  i_startidx, i_endidx
-
-          prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb)
-          prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb)
-          prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb)
-          prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)
-
-          prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)                          &
-                                & + dt_phy_jg(itfastphy) * prm_diag%umfl_s(jc,jb)
-          prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)                          &
-                                & + dt_phy_jg(itfastphy) * prm_diag%vmfl_s(jc,jb)
-          END DO
-
-
-        END IF
-
       ENDDO ! blocks
 
 !$OMP END DO NOWAIT
@@ -1221,7 +1155,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     !>  accumulate tendencies of slow_physics: Not called when LS focing is ON
     !-------------------------------------------------------------------------
-    IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .AND. .NOT.is_ls_forcing) THEN
+    IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
       IF (p_test_run) THEN
         z_ddt_u_tot = 0._wp
@@ -1244,7 +1178,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
 !$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1284,7 +1218,7 @@ CONTAINS
           ENDDO
         ENDDO
 !DIR$ IVDEP
-        z_ddt_temp(i_startidx:i_endidx,:,jb) =                                               &
+        z_ddt_temp(i_startidx:i_endidx,:) =                                                      &
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) &
@@ -1325,7 +1259,7 @@ CONTAINS
               &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) 
 
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
-              &                             * (z_ddt_temp(jc,jk,jb)                          &
+              &                             * (z_ddt_temp(jc,jk)                             &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
               &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
               &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv)-z_ddt_qsum ))
@@ -1351,161 +1285,54 @@ CONTAINS
    &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb) 
         ENDIF
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-      IF (timers_level > 10) CALL timer_stop(timer_phys_acc_1)
-
-    END IF!END OF slow physics tendency accumulation 
-
-    !-------------------------------------------------------------------------
-    !>  accumulate tendencies of slow_physics when LS forcing is ON
-    !-------------------------------------------------------------------------
-    IF(is_ls_forcing) THEN
-
-      IF (p_test_run) THEN
-        z_ddt_u_tot = 0._wp
-        z_ddt_v_tot = 0._wp
-      ENDIF
-
-      IF (timers_level > 10) CALL timer_start(timer_phys_acc_1)
-
-      ! Coefficients for extra Rayleigh friction
-      ustart    = atm_phy_nwp_config(jg)%ustart_raylfric
-      uoffset_q = ustart + 40._wp
-      ustart_q  = ustart + 50._wp
-      max_relax = -1._wp/atm_phy_nwp_config(jg)%efdt_min_raylfric
-
-      ! exclude boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-      
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
-!$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
-!
-      DO jb = i_startblk, i_endblk
-!
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-&                       i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ! artificial Rayleigh friction: active if GWD or SSO scheme is active
-        IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
+
+        !-------------------------------------------------------------------------
+        !>  accumulate tendencies of slow_physics when LS forcing is ON
+        !-------------------------------------------------------------------------
+        IF (is_ls_forcing) THEN
+
           DO jk = 1, nlev
-!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
-              vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
-              rfric_fac = MAX(0._wp, 8.e-4_wp*(vabs-ustart))
-              IF (vabs > ustart_q) THEN
-                rfric_fac = MIN(1._wp,4.e-4_wp*(vabs-uoffset_q)**2)
-              ENDIF
-              prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
-              prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
-            ENDDO
-          ENDDO
-        ENDIF
+              z_ddt_temp(jc,jk) = z_ddt_temp(jc,jk)               &
+                                +  prm_nwp_tend%ddt_temp_ls(jk)
 
-        ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
-                                                   (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_u_raylfric(jc,jk,jb)) &
-                                                   +      pt_diag%v(jc,jk,jb)*             & 
-                                                   (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
-          ENDDO
-        ENDDO
 
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            z_ddt_temp(jc,jk,jb) =                                             &
-                       &                 prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
-                       &              +  prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
-                       &              +  prm_nwp_tend%ddt_temp_drag (jc,jk,jb) &
-                       &              +  prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) &
-                                      +  prm_nwp_tend%ddt_temp_ls(jk)
-          END DO 
-        END DO
+              ! Convert temperature tendency into Exner function tendency
+              z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
+                &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
+                &          + prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
+                &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi)
 
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
+              pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
+                &                             * (z_ddt_temp(jc,jk)                             &
+                &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
+                &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
+                &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
+                &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
 
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+              ! add u/v forcing tendency here
+              z_ddt_u_tot(jc,jk,jb) = z_ddt_u_tot(jc,jk,jb) &
+                &                   + prm_nwp_tend%ddt_u_ls(jk)
 
-          ENDDO
-        ENDDO
+              z_ddt_v_tot(jc,jk,jb) = z_ddt_v_tot(jc,jk,jb) &
+                &                   + prm_nwp_tend%ddt_v_ls(jk)
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
+            END DO  ! jc
+          END DO  ! jk
 
-        ! Convert temperature tendency into Exner function tendency
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
+        ENDIF ! END of LS forcing tendency accumulation
 
-            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
-              &          + prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
-              &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi)
 
-            pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
-              &                             * (z_ddt_temp(jc,jk,jb)                          &
-              &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
-              &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
-              &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
-
-          ENDDO
-        ENDDO
-
-        ! add u/v forcing tendency here
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-          z_ddt_u_tot(jc,jk,jb) =                   &
-   &          prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_u_pconv   (jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_u_ls(jk)
-
-          z_ddt_v_tot(jc,jk,jb) =                   &
-   &          prm_nwp_tend%ddt_v_gwd     (jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_v_pconv   (jc,jk,jb) &
-   &        + prm_nwp_tend%ddt_v_ls(jk)
-          END DO 
-        END DO
-
-      ENDDO
+      ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
       IF (timers_level > 10) CALL timer_stop(timer_phys_acc_1)
 
-    END IF ! END of LS forcing tendency accumulation
+    END IF  !END OF slow physics tendency accumulation 
+
 
 
     !--------------------------------------------------------
@@ -1823,8 +1650,8 @@ CONTAINS
       ENDIF
     ENDIF
 
-    IF (msg_level >= 13) THEN ! extended diagnostic
-      CALL nwp_diag_output_2(pt_patch, pt_diag, pt_prog_rcf, prm_nwp_tend, dt_loc, lcall_phy_jg(itturb))
+    IF (msg_level >= 18) THEN ! extended diagnostic
+      CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))
     ENDIF
    
     CALL nwp_diagnosis(lcall_phy_jg,                        & !input

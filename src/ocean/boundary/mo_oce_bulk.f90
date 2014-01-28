@@ -58,27 +58,30 @@ USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast,                   &
   &                               p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run
-!USE mo_util_string,         ONLY: t_keyword_list
 USE mo_netcdf_read,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_ocean_ext_data,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oce,         &
+USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, forcing_timescale, relax_analytical_type,&
   &                               no_tracer, n_zlev, basin_center_lat,                     &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
-  &                               relaxation_param, wstress_coeff, i_apply_bulk,           &
+  &                               relaxation_param, i_apply_bulk,&
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
-  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, l_forc_freshw,    &
+  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, forcing_enable_freshwater, &
+  &                               forcing_set_runoff_to_zero, &
+  &                               forcing_windstress_u_type, &
+  &                               forcing_windstress_v_type, &
+  &                               forcing_fluxes_type,&
   &                               limit_elevation, seaice_limit, l_relaxsal_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_dbg_nml,             ONLY: idbg_mxmn
-USE mo_oce_state,           ONLY: t_hydro_ocean_state
+USE mo_oce_types,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW
@@ -86,20 +89,11 @@ USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce,                  &
   &                               ice_slow, ice_fast
 
-#ifndef __NO_ICON_ATMO__
-USE mo_coupling_config,     ONLY: is_coupled_run
-# ifdef YAC_coupling
-USE finterface_description  ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
-# else
-USE mo_icon_cpl_restart,    ONLY: icon_cpl_write_restart
-USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
-USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-#endif
-#endif
-USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
+USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
 
 IMPLICIT NONE
 
@@ -163,7 +157,6 @@ CONTAINS
     INTEGER               :: nbr_fields
     INTEGER, ALLOCATABLE  :: field_id(:)
     INTEGER               :: field_shape(3)
-    REAL(wp), ALLOCATABLE :: buffer(:,:)
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp !TODO: use real month lenght
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
@@ -222,7 +215,8 @@ CONTAINS
       !   - for iforc_type=5 only - NCEP type forcing
       !   - read annual data at Jan, 1st: seconds of year are less than a timestep
       !   - or at begin of each run (must not be first of january)
-      IF (iforc_type == 5) THEN
+      !IF (iforc_type == 5) THEN
+      IF (forcing_windstress_u_type == 5 .AND. forcing_windstress_v_type == 5 .AND. forcing_fluxes_type == 5) THEN
         dtm1 = dtime - 1.0_wp
 
         IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. (jstep == 1) ) THEN
@@ -254,7 +248,7 @@ CONTAINS
       !
       ! use annual forcing-data:
       !
-      IF (iforc_len == 1)  THEN
+      IF (forcing_timescale == 1)  THEN
 
         jmon1=1
         jmon2=1
@@ -264,7 +258,7 @@ CONTAINS
       !
       ! interpolate monthly forcing-data daily:
       !
-      ELSE IF (iforc_len == 12)  THEN
+      ELSE IF (forcing_timescale == 12)  THEN
 
         jmon1=jmon-1
         jmon2=jmon
@@ -306,22 +300,21 @@ CONTAINS
       !
       ! OMIP data read in mo_ext_data into variable ext_data
       !
-      IF (iforc_type >= 1)  THEN
+      ! IF (iforc_type >= 1)  THEN
+      IF (forcing_windstress_u_type > 0 .OR. forcing_windstress_u_type < 101 ) THEN
 
         ! provide OMIP fluxes for wind stress forcing
-        ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [m/s]
-        ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [m/s]
+        ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [Pa]
+        ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [Pa]
 
         ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
         p_sfc_flx%forc_wind_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
-        p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
-          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
 
        ! Wind stress boundary condition for vertical diffusion D:
        !   D = d/dz(K_v*du/dz)  where
        ! Boundary condition at surface (upper bound of D at center of first layer)
-       !   derived from wind-stress boundary condition Tau read from OMIP data (or elsewhere)
+       !   derived from wind-stress boundary condition Tau (in Pascal Pa=N/m2) read from OMIP data (or elsewhere)
        !   K_v*du/dz(surf) = F_D = Tau/Rho [ m2/s2 ]
        ! discretized:
        !   top_bc_u_c = forc_wind_u / rho_ref
@@ -333,8 +326,13 @@ CONTAINS
        ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
 
       END IF
+      IF (forcing_windstress_v_type > 0 .OR. forcing_windstress_v_type < 101 ) THEN
+        p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
+      END IF
 
-      IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+      !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+      IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) THEN
 
         !-------------------------------------------------------------------------
         ! provide OMIP fluxes for sea ice (interface to ocean)
@@ -379,8 +377,12 @@ CONTAINS
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
         !p_sfc_flx%forc_evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
         !  &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
-        p_sfc_flx%forc_runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
-          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
+        IF (forcing_set_runoff_to_zero) THEN
+          p_sfc_flx%forc_runoff(:,:) = 0.0_wp
+        ELSE
+          p_sfc_flx%forc_runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
+            &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
+        ENDIF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
@@ -390,7 +392,7 @@ CONTAINS
         CALL dbg_print('UpdSfc: Ext data4-ta/mon2' ,z_c2        ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: p_as%tafo'         ,p_as%tafo   ,str_module,idt_src, in_subset=p_patch%cells%owned)
 
-        IF (l_forc_freshw) THEN
+        IF (forcing_enable_freshwater) THEN
           idt_src=3  ! output print level (1-5, fix)
           CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src, &
             & in_subset=p_patch%cells%owned)
@@ -474,14 +476,15 @@ CONTAINS
 
       IF (i_sea_ice >= 1) THEN
 
-        IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+        !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
+        IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) THEN
 
           ! bulk formula are calculated globally using specific OMIP or NCEP fluxes
           CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm, datetime)
           CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
 
           ! evaporation results from latent heat flux, as provided by bulk formula using OMIP/NCEP fluxes
-          IF (l_forc_freshw) THEN
+          IF (forcing_enable_freshwater) THEN
             ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
             ! TODO: evaporation of ice and snow must be implemented
             p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
@@ -561,7 +564,8 @@ CONTAINS
 
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
-        IF ( l_forc_freshw .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+        !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
+        IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) ) THEN
 
           p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
             &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
@@ -617,8 +621,8 @@ CONTAINS
 
         IF (i_apply_bulk == 1) THEN
 
-          IF (iforc_type == 2 .OR. iforc_type == 5) &
-            & CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
+          IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
+          !IF (iforc_type == 2 .OR. iforc_type == 5) CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
           p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
           p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
@@ -681,259 +685,35 @@ CONTAINS
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
       !  and do a direct assignment of atmospheric state to surface fluxes.
       !
-#ifndef __NO_ICON_ATMO__
-      IF ( is_coupled_run() ) THEN
-        IF (ltimer) CALL timer_start(timer_coupling)
+      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
-        time_config%cur_datetime = datetime
+      ! call of sea ice model
+      IF (i_sea_ice >= 1) THEN
 
-        nbr_hor_points = p_patch%n_patch_cells
-        nbr_points     = nproma * p_patch%nblks_c
-        ALLOCATE(buffer(nbr_points,5))
-        buffer(:,:) = 0.0_wp
+        Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
+        Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
 
-      !
-      !  see drivers/mo_ocean_model.f90:
-      !
-      !   field_id(1) represents "TAUX"   wind stress component
-      !   field_id(2) represents "TAUY"   wind stress component
-      !   field_id(3) represents "SFWFLX" surface fresh water flux
-      !   field_id(4) represents "SFTEMP" surface temperature
-      !   field_id(5) represents "THFLX"  total heat flux
-      !   field_id(6) represents "ICEATM" ice temperatures and melt potential
-      !
-      !   field_id(7) represents "SST"    sea surface temperature
-      !   field_id(8) represents "OCEANU" u component of ocean surface current
-      !   field_id(9) represents "OCEANV" v component of ocean surface current
-      !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
-      !
-      !
-#ifdef YAC_Coupling
-        CALL yac_fget_nbr_fields ( nbr_fields )
-        ALLOCATE(field_id(nbr_fields))
-        CALL yac_fget_field_ids ( nbr_fields, field_id )
-#else
-        CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-        ALLOCATE(field_id(nbr_fields))
-        CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-#endif
-      !
-        field_shape(1) = 1
-        field_shape(2) = p_patch%n_patch_cells 
-        field_shape(3) = 1
+        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
-      !
-      ! buffer is allocated over nproma only
-
-      !
-      ! Send fields from ocean to atmosphere
-      ! ------------------------------------
-      !
-        write_coupler_restart = .FALSE.
-      !
-      ! SST
-        buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
-
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-      !
-      ! zonal velocity
-        buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-      !
-      ! meridional velocity
-        buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-      !
-      ! Ice thickness, concentration, T1 and T2
-        buffer(:,1) = RESHAPE(p_ice%hi  (:,1,:), (/nbr_points /) )
-        buffer(:,2) = RESHAPE(p_ice%hs  (:,1,:), (/nbr_points /) )
-        buffer(:,3) = RESHAPE(p_ice%conc(:,1,:), (/nbr_points /) )
-        buffer(:,4) = RESHAPE(p_ice%T1  (:,1,:), (/nbr_points /) )
-        buffer(:,5) = RESHAPE(p_ice%T2  (:,1,:), (/nbr_points /) )
-        field_shape(3) = 5
-#ifdef YAC_coupling
-        CALL yac_fput ( field_id(10), nbr_hor_points, 4, 1, 1, buffer, ierror )
-#else
-        CALL ICON_cpl_put ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
-#endif
-        IF ( info == 2 ) write_coupler_restart = .TRUE.
-
-        IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 4, field_id(7:10), ierror )
-      !
-      ! Receive fields from atmosphere
-      ! ------------------------------
-
-      !
-      ! Apply wind stress - records 0 and 1 of field_id
-
-      ! zonal wind stress
-        field_shape(3) = 2
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
-            Qatm%stress_xw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            Qatm%stress_x (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_xw(:,:))
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_x (:,:))
-        ENDIF
-      !
-      ! meridional wind stress
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1:field_shape(3)) = 0.0_wp
-            Qatm%stress_yw(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            Qatm%stress_y (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_yw(:,:))
-            CALL sync_patch_array(sync_c, p_patch, Qatm%stress_y (:,:))
-        ENDIF
-      !
-      ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
-      !  - here freshwater can be bracketed by l_forc_freshw, i.e. it must not be passed through coupler if not used
-      ! IF (l_forc_freshw) THEN
-        field_shape(3) = 2
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-            buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
-            p_sfc_flx%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-            p_sfc_flx%forc_evap  (:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_precip(:,:))
-            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_evap(:,:))
-            ! sum of fluxes for ocean boundary condition
-            p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:)
-        END IF
-      ! ENDIF ! l_forc_freshw
-      !
-      ! Apply surface air temperature
-      !  - it can be used for relaxing SST to T_a with temperature_relaxation=1
-      !  - set to 0 to omit relaxation to T_a=forc_tracer_relax(:,:,1)
-      ! IF (temperature_relaxation >=1) THEN
-        field_shape(3) = 1
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-          p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-        !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-          p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
-        END IF
-      ! ENDIF  ! temperature_relaxation >=1
-      !
-      ! Apply total heat flux - 4 parts - record 5
-      ! p_sfc_flx%swflx(:,:)  ocean short wave heat flux                              [W/m2]
-      ! p_sfc_flx%lwflx(:,:)  ocean long  wave, latent and sensible heat fluxes (sum) [W/m2]
-        field_shape(3) = 2
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(5), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-          buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
-          p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-          p_sfc_flx%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_swflx(:,:))
-          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_lwflx(:,:))
-          ! sum of fluxes for ocean boundary condition
-          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:)
-        ENDIF
-      ! p_ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
-      ! p_ice%Qbot(:,:)         Bottom melt potential of ice                            [W/m2]
-      ! p_ice%T1  (:,:)         Temperature of the upper ice layer                      [degC]
-      ! p_ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
-        field_shape(3) = 4
-#ifdef YAC_coupling
-        CALL yac_fget ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
-#else
-        CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
-#endif
-        IF (info > 0 ) THEN
-          buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
-          p_ice%Qtop(:,1,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-          p_ice%Qbot(:,1,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
-          p_ice%T1  (:,1,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
-          p_ice%T2  (:,1,:) = RESHAPE(buffer(:,4),(/ nproma, p_patch%nblks_c /) )
-          CALL sync_patch_array(sync_c, p_patch, p_ice%Qtop(:,1,:))
-          CALL sync_patch_array(sync_c, p_patch, p_ice%Qbot(:,1,:))
-          CALL sync_patch_array(sync_c, p_patch, p_ice%T1  (:,1,:))
-          CALL sync_patch_array(sync_c, p_patch, p_ice%T2  (:,1,:))
-        END IF
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        !  done in mo_sea_ice:upper_ocean_TS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: CPL: SW-flux'       ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: non-solar flux',p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Total  HF'     ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Melt-pot. top' ,p_ice%Qtop               ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Melt-pot. bot' ,p_ice%Qbot               ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Precip.'       ,p_sfc_flx%forc_precip    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Evaporation'   ,p_sfc_flx%forc_evap      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: CPL: Freshw. Flux'  ,p_sfc_flx%forc_fw_bc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        idt_src=3  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
-        DEALLOCATE(buffer)
-        DEALLOCATE(field_id)      
+      ELSE
 
-        IF (ltimer) CALL timer_stop(timer_coupling)
+        p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
+        p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
-        ! call of sea ice model
-        IF (i_sea_ice >= 1) THEN
+      ENDIF
 
-          Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
-          Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
-
-          CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
-
-          ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
-          !  done in mo_sea_ice:upper_ocean_TS
-
-          !---------DEBUG DIAGNOSTICS-------------------------------------------
-          idt_src=1  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          idt_src=3  ! output print level (1-5, fix)
-          CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-          !---------------------------------------------------------------------
-
-        ELSE
-
-          p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
-          p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
-
-        ENDIF
-
-      ENDIF ! is_coupled
-#endif
 
     CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
       !1) bulk formula to atmospheric state and proceed as above, the only distinction
@@ -1186,7 +966,7 @@ CONTAINS
     ! Vertical diffusion term for salinity Q_S in tracer equation and freshwater forcing W_s is
     !   Q_S = K_v*dS/dz(surf) = -W_s*S(nold)  [psu*m/s]
 
-    IF (l_forc_freshw) THEN
+    IF (forcing_enable_freshwater) THEN
 
       p_sfc_flx%forc_tracer(:,:,2) = p_sfc_flx%forc_tracer(:,:,2) &
         &                            - p_sfc_flx%forc_fw_bc(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
@@ -1218,9 +998,9 @@ CONTAINS
     ! apply additional volume flux to surface elevation
     !  - add to h_old before explicit term
     !  - no change in salt concentration
-    !  - volume flux is considered for l_forc_freshw=true only
+    !  - volume flux is considered for forcing_enable_freshwater=true only
     !    i.e. for salinity relaxation only, no volume flux is applied
-    IF (l_forc_freshw) THEN
+    IF (forcing_enable_freshwater) THEN
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -1383,75 +1163,38 @@ CONTAINS
   !
   SUBROUTINE update_sfcflx_analytical(p_patch_3D, p_os, p_sfc_flx)
 
-  TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
-  TYPE(t_hydro_ocean_state)                   :: p_os
-  TYPE(t_sfc_flx)                             :: p_sfc_flx
-  !
-  ! local variables
-  INTEGER :: jc, jb
-  INTEGER :: i_startidx_c, i_endidx_c
-  !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  !INTEGER :: rl_start_c, rl_end_c
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_hydro_ocean_state)                   :: p_os
+    TYPE(t_sfc_flx)                             :: p_sfc_flx
+    !
+    ! local variables
+    INTEGER :: jc, jb
+    INTEGER :: i_startidx_c, i_endidx_c
+    !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    !INTEGER :: rl_start_c, rl_end_c
 
-  REAL(wp) :: zonal_str
-  REAL(wp) :: z_lat, z_lon, z_lat_deg
-  REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
-                                     !=2.0: double gyre
-                                     !=n.0: n-gyre
-  REAL(wp) :: y_length               !basin extension in y direction in degrees
-  REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-  REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
-  INTEGER  :: z_dolic
-  REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
-  CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_ho_sfcflx'
-  !-------------------------------------------------------------------------
-  TYPE(t_subset_range), POINTER :: all_cells
-  TYPE(t_patch), POINTER :: p_patch
-  !-----------------------------------------------------------------------  
-  p_patch         => p_patch_3D%p_patch_2D(1)
-  !-------------------------------------------------------------------------
-  all_cells => p_patch%cells%all
+    REAL(wp) :: zonal_str
+    REAL(wp) :: z_lat, z_lon, z_lat_deg
+    REAL(wp) :: forcing_windstress_zonal_waveno = 1.0_wp !=1.0: single gyre
+                                       !=2.0: double gyre
+                                       !=n.0: n-gyre
+    REAL(wp) :: y_length               !basin extension in y direction in degrees
+    REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
+    INTEGER  :: z_dolic
+    REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_ho_sfcflx'
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: p_patch
+    !-----------------------------------------------------------------------  
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    !-------------------------------------------------------------------------
+    all_cells => p_patch%cells%all
 
-
- ! #slo#  Stationary forcing is moved to mo_oce_forcing:init_ho_forcing
-
-    SELECT CASE (itestcase_oce)
+    SELECT CASE (relax_analytical_type)
 
     CASE(30,32,27)
-
-      CALL message(TRIM(routine), &
-      &  'Testcase (30,32,27) - stationary lat/lon wind forcing &
-      &and eventually relax. to T perturbation')
-      y_length = basin_height_deg * deg2rad
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-
-          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
-
-             ! #slo# Warning: s.th. more missing?
-             z_lat = p_patch%cells%center(jc,jb)%lat
-             z_lon = p_patch%cells%center(jc,jb)%lon
-
-             zonal_str = wstress_coeff*cos(z_forc_period*pi*z_lat-y_length/y_length)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
- 
-             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3),&
-                          & z_lon, z_lat,                      &
-                          & p_sfc_flx%forc_wind_u(jc,jb),      &
-                          & p_sfc_flx%forc_wind_v(jc,jb))
-           ELSE
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
-             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
-           ENDIF 
-        END DO
-      END DO
-   !  write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
 
      IF(no_tracer>=1.AND.temperature_relaxation/=0)THEN
 
@@ -1484,9 +1227,6 @@ CONTAINS
                  z_T_init = z_T_init &
                  &        + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
                  &        * sin(pi*p_patch_3D%p_patch_1D(1)%zlev_m(1)/4000.0_wp)
-                 !   write(*,*)'z init',jc,jb,p_os%p_prog(nold(1))%tracer(jc,1,jb,1),&
-                 !   &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-                 !   & * sin(pi*v_base%zlev_m(1)/4000.0_wp)
                ENDIF
                ! up to here z_init is identically initialized than temperature
 
@@ -1500,11 +1240,6 @@ CONTAINS
                p_sfc_flx%forc_tracer(jc,jb, 1)=  z_relax   &          
                & *( p_sfc_flx%forc_tracer_relax(jc,jb,1)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1) )
 
-               ! write(123,*)'forcing',jc,jb,&
-               ! &( p_sfc_flx%forc_tracer_relax(jc,jb,1)    &
-               ! & -p_os%p_prog(nold(1))%tracer(jc,1,jb,1)),&
-               ! &p_sfc_flx%forc_tracer_relax(jc,jb,1),&
-               ! &p_sfc_flx%forc_tracer(jc,jb, 1)
              END IF
            ELSE
              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
@@ -1514,117 +1249,10 @@ CONTAINS
         END DO
       END DO
 
- !  write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
- !  & minval(p_sfc_flx%forc_tracer_relax)
- !  write(*,*)'max/min-tracer-flux',maxval(p_sfc_flx%forc_tracer),&
- !  & minval(p_sfc_flx%forc_tracer)
- !  write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
- !                                & minval(p_sfc_flx%forc_tracer(:,:,1))
     ENDIF
-! ! ! !-----------Old version of Forcing--------------------------------------------------
-! ! !!------------Please retain, its also interesting------------------------------------
-!!----------------An old version of init corresponds to this forcing--------------------
-! !    CASE(32)
-! !       CALL message(TRIM(routine), 'Testcase (32): Apply stationary wind forcing' )
-! !       y_length = basin_height_deg * deg2rad
-! !       DO jb = i_startblk_c, i_endblk_c    
-! !         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-! !          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-! !         DO jc = i_startidx_c, i_endidx_c
-! !           z_lat = p_patch%cells%center(jc,jb)%lat
-! !           z_lon = p_patch%cells%center(jc,jb)%lon
-! !           IF(v_base%lsm_c(jc,1,jb)<=sea_boundary)THEN
-! !             zonal_str = wstress_coeff*cos(z_forc_period*pi*z_lat-y_length/y_length)
-! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
-! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
-! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
-! !             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-! !                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-! !                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3),&
-! !                          & z_lon, z_lat,                      &
-! !                          & p_sfc_flx%forc_wind_u(jc,jb),      &
-! !                          & p_sfc_flx%forc_wind_v(jc,jb))
-! !             ! Add temperature perturbation at new values
-! !            z_perlat = basin_center_lat + 0.1_wp*basin_height_deg!             !45.5_wp
-! !            z_perlon =  0.1_wp*basin_width_deg                                 !4.5_wp
-! !            z_permax  = 10.0_wp!20.1_wp
-! !            z_perwid  =  5.0_wp!1.5_wp
-! !            z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
-! ! 
-! !             z_dolic = v_base%dolic_c(jc,jb)
-! !             IF (z_dolic > 0) THEN
-! !               z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
-! ! 
-! !               !init temperature
-! !               z_T_init(jc,jb) = 20.0_wp&
-! !               & - v_base%zlev_i(1)*15.0_wp/v_base%zlev_i(z_dolic+1)
-! ! 
-! !                !add local hot perturbation 
-! ! !              IF(z_dst<=3.5_wp*deg2rad)THEN
-! !                 z_T_init(jc,jb)= z_T_init(jc,jb)  &
-! !                 &   + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-! !                 &   * sin(pi*v_base%zlev_m(1)/v_base%zlev_i(z_dolic+1))
-! ! !              ENDIF
-! !               !Add local cold perturbation
-! !               !IF(z_dst<=5.0_wp*deg2rad)THEN
-! !               z_T_init(jc,jb) = z_T_init(jc,jb)     &
-! !               &   - z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2)
-! !               p_sfc_flx%forc_tracer_relax(jc,jb,1)=z_T_init(jc,jb)
-! !               p_sfc_flx%forc_tracer(jc,jb, 1)=z_relax*v_base%del_zlev_i(1)*&
-! !               &          (p_sfc_flx%forc_tracer_relax(jc,jb,1)&
-! !               &         -p_os%p_prog(nold(1))%tracer(jc,1,jb,1))
-! !               !ENDIF 
-! !             END IF
-! !   ! write(*,*)'Danilovs Wind', jc,jb,p_sfc_flx%forc_wind_cc(jc,jb)%x(1:2), &
-! !   ! &p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
-! !            ELSE
-! !              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-! !              p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
-! !              p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
-! !            ENDIF 
-! !         END DO
-! !       END DO
-! !       write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
-! !       write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
-! !                                   & minval(p_sfc_flx%forc_tracer(:,:,1))
-! ! ! !-----------End of Old version of Forcing-------------------------------------------
 
     CASE (33)
-      IF(iforc_oce/=10)THEN 
-      y_length = basin_height_deg * deg2rad
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-
-          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
-
-             ! #slo# Warning: s.th. more missing?
-             z_lat = p_patch%cells%center(jc,jb)%lat
-             z_lon = p_patch%cells%center(jc,jb)%lon
-
-             zonal_str = wstress_coeff*cos(z_forc_period*pi*z_lat-y_length/y_length)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
- 
-             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3),&
-                          & z_lon, z_lat,                      &
-                          & p_sfc_flx%forc_wind_u(jc,jb),      &
-                          & p_sfc_flx%forc_wind_v(jc,jb))
-           ELSE
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
-             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
-           ENDIF 
-        END DO
-      END DO
-  !   write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
-      ENDIF
       IF(temperature_relaxation>=1)THEN
-      ! CALL message(TRIM(routine), &
-      !   &  'Testcase (33): stationary temperature relaxation - latitude dependent')
         z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
 
         p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%forc_tracer_relax(:,:,1) &
@@ -1632,52 +1260,7 @@ CONTAINS
 
       END IF
 
- !  write(*,*)'max/min-tracer-diff',&
- !  &maxval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
- !  & minval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1))
-
- !  write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
- !  & minval(p_sfc_flx%forc_tracer_relax)
- !  write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
- !                                & minval(p_sfc_flx%forc_tracer(:,:,1))
     CASE(51)
-
-      CALL message(TRIM(routine), &
-      &  'Testcase (51) - stationary lat/lon wind forcing &
-      &and eventually relax. to T perturbation')
-      y_length = basin_height_deg * deg2rad
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-
-          IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
-
-             ! #slo# Warning: s.th. more missing?
-             z_lat = p_patch%cells%center(jc,jb)%lat
-             z_lon = p_patch%cells%center(jc,jb)%lon
-
-             p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff * &
-             & cos(z_forc_period*pi*(z_lat-y_length)/y_length) 
-
-             p_sfc_flx%forc_wind_v(jc,jb)= 0.0_wp
-
-             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-                           & p_sfc_flx%forc_wind_v(jc,jb),&
-                           & p_patch%cells%center(jc,jb)%lon,&
-                           & p_patch%cells%center(jc,jb)%lat,&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-           ELSE
-             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
-             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
-             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
-           ENDIF 
-        END DO
-      END DO
-  !   write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
 
       IF(temperature_relaxation>=1)THEN
 
@@ -1713,13 +1296,6 @@ CONTAINS
 
       END IF
 
-  ! CASE (43)
-  !   ! no forcing applied
-  !   CONTINUE
-
-  ! CASE DEFAULT
-  !   CALL message(TRIM(routine), 'STOP: Analytical Forcing for this testcase not implemented' )
-  !   CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
     END SELECT
 
   END SUBROUTINE update_sfcflx_analytical
@@ -1778,7 +1354,7 @@ CONTAINS
   !! Read ocean forcing data from netcdf
   !!
   !! Read ocean forcing data for NCEP or other forcing
-  !! This routine reads annual data sets of length iforc_len
+  !! This routine reads annual data sets of length forcing_timescale
   !!
   !! @par Revision History
   !! Initial revision by Stephan Lorenz, MPI (2012-02-17)
@@ -1800,8 +1376,8 @@ CONTAINS
     INTEGER :: ncid, dimid,mpi_comm
     INTEGER :: i_start(2),i_count(2), jcells
 
-    REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,iforc_len)  ! set length is iforc_len, 3rd dimension
-    REAL(wp):: z_c   (nproma,iforc_len,p_patch%alloc_cell_blocks)  ! 2nd dimension is iforc_len
+    REAL(wp):: z_flux(nproma,p_patch%alloc_cell_blocks,forcing_timescale)  ! set length is forcing_timescale, 3rd dimension
+    REAL(wp):: z_c   (nproma,forcing_timescale,p_patch%alloc_cell_blocks)  ! 2nd dimension is forcing_timescale
     !TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     !-------------------------------------------------------------------------
@@ -1871,20 +1447,20 @@ CONTAINS
       !-------------------------------------------------------
 
       jcells = p_patch%n_patch_cells  !  global dimension
-      jtime  = iforc_len              !  time period to read (not yet)
+      jtime  = forcing_timescale              !  time period to read (not yet)
 
 
       ! provide NCEP fluxes for sea ice (interface to ocean)
-      ! 1:  'stress_x': zonal wind stress       [m/s]
-      ! 2:  'stress_y': meridional wind stress  [m/s]
+      ! 1:  'stress_x': zonal wind stress       [Pa]
+      ! 2:  'stress_y': meridional wind stress  [Pa]
       ! 3:  'SST"     : sea surface temperature [K]
 
       ! zonal wind stress
       !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-      ! &  iforc_len, nproma, p_patch%nblks_c
+      ! &  forcing_timescale, nproma, p_patch%nblks_c
       !CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
       !  &                    p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index, &
-      !  &                    iforc_len, z_flx2(:,:,:))
+      !  &                    forcing_timescale, z_flx2(:,:,:))
       !write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
       !do jt=1,jtime
       !  write(0,*) 'jt=',jt,' val:',(z_flx2(jc,jt,5),jc=1,5)

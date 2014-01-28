@@ -1,7 +1,7 @@
 MODULE mo_util_file
 
   USE, INTRINSIC ::  ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG
-  USE mo_kind, ONLY : i8
+  USE mo_kind,        ONLY: i8
   
   IMPLICIT NONE
   
@@ -152,17 +152,12 @@ CONTAINS
     iret = private_rename(TRIM(old_filename)//C_NULL_CHAR, TRIM(new_filename)//C_NULL_CHAR)
   END FUNCTION util_rename
     
-  FUNCTION util_tmpnam(filename, klen) RESULT(flen)
+  FUNCTION generate_tmpnam(filename, klen) RESULT(flen)
     INTEGER :: flen
-#ifdef __SX__
     CHARACTER(len=*), INTENT(out) :: filename
-#else
-    CHARACTER, DIMENSION(*), INTENT(out) :: filename
-#endif
-    INTEGER,                 INTENT(in)  :: klen
-#ifdef __SX__
+    INTEGER,          INTENT(in)  :: klen
+    ! local variables
     INTEGER :: i
-#endif
     !
     CHARACTER(C_CHAR), ALLOCATABLE :: tf(:)    
     INTEGER :: maxlen
@@ -173,15 +168,43 @@ CONTAINS
     IF (flen > klen) THEN
       flen = -1
     ELSE
-#ifdef __SX__
       DO i = 1, flen
         filename(i:i) = tf(i)
       ENDDO
-#else
-      filename(1:flen) = tf(1:flen)
-#endif
     ENDIF
     DEALLOCATE(tf)
+  END FUNCTION generate_tmpnam
+
+
+  FUNCTION util_tmpnam(filename, klen) RESULT(flen)
+    INTEGER :: flen
+    CHARACTER(len=*), INTENT(out) :: filename
+    INTEGER,          INTENT(in)  :: klen
+    ! local variables
+    INTEGER, PARAMETER :: N_RETRIES = 10
+    INTEGER              :: i
+    LOGICAL              :: lexists
+    CHARACTER (LEN=klen) :: new_filename
+
+    ! Note: (At least) on the SX-9 it is not sufficient to generate a
+    ! filename - the TMPDIR of the local file system is seldom tidied
+    ! up. Therefore, we test N_RETRIES times, if the generated
+    ! filename already exists.
+    !
+    ! try to find a file name for our temporary file that does not
+    ! exist yet:
+    TEST_LOOP : DO i=1,N_RETRIES
+      flen   = generate_tmpnam(new_filename, klen)
+      INQUIRE(file=new_filename(1:flen), exist=lexists)
+      IF (.NOT. lexists) THEN
+        filename(1:flen) = new_filename(1:flen)
+        EXIT TEST_LOOP
+      END IF
+      IF (i == N_RETRIES) THEN
+        WRITE (0,*) "mo_util_file::util_tmpnam : Failed to find a tmp filename!"
+        STOP
+      END IF
+    END DO TEST_LOOP
   END FUNCTION util_tmpnam
 
   FUNCTION util_filesize(filename) RESULT(flen)

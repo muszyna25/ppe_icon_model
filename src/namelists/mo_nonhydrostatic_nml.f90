@@ -321,9 +321,6 @@ CONTAINS
           &'Value must be even or 1 if l_nest_rcf=.FALSE.')
     ENDIF
 
-    IF ( hbot_qvsubstep < htop_moist_proc ) THEN
-      CALL finish(TRIM(routine), 'hbot_qvsubstep < htop_moist_proc is not allowed.')
-    ENDIF
 
     ! For backward compatibility with the previous implementation of divergence damping flow control
     IF (divdamp_order == 5) THEN

@@ -190,7 +190,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   iidx => p_gcp%child_idx
   iblk => p_gcp%child_blk
 
-  p_fbkwgt => p_grf%fbk_wgt_c
+  p_fbkwgt => p_grf%fbk_wgt_bln
 
   ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
   nst = p_patch(jg)%nshift_total
@@ -311,8 +311,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                                &
-                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int, i_chidx)
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
+                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
 
@@ -577,7 +577,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, min_rlcell, i_nchdom)
+                         i_startidx, i_endidx, 1, min_rlcell)
 
       DO jc = i_startidx, i_endidx
         rg_cosmu0(jc,jb)    = zrg_aux3d(jc,1,jb)
@@ -802,8 +802,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
-                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int, i_chidx)
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
+                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
       zrg_trdiffsolclr(jc,1,jb) = p_trsolclr(jc,1,jb)
@@ -901,8 +901,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
 !$OMP  jb4) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
-                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                      &
+                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
     tqv(:)               = 0._wp
     intclw(:,nlevp1)  = 0._wp
@@ -1158,7 +1158,7 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
   iidx => p_gcp%child_idx
   iblk => p_gcp%child_blk
 
-  p_fbkwgt => p_grf%fbk_wgt_c
+  p_fbkwgt => p_grf%fbk_wgt_bln
 
   ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
   nst = p_patch(jg)%nshift_total
@@ -1245,8 +1245,8 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
 !$OMP z_rho_1) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                                &
-                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int, i_chidx)
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
+                       i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
 
@@ -1451,7 +1451,7 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, min_rlcell, i_nchdom)
+                         i_startidx, i_endidx, 1, min_rlcell)
 
       DO jc = i_startidx, i_endidx
         rg_cosmu0(jc,jb)    = zrg_aux3d(jc,1,jb)
@@ -1709,8 +1709,8 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
 !$OMP jb4) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
-                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                      &
+                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
     tqv(:)            = 0._wp
     intclw(:,nlevp1)  = 0._wp
@@ -2232,11 +2232,11 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
   iidx => p_gcp%child_idx
   iblk => p_gcp%child_blk
 
-  p_fbkwgt => p_grf%fbk_wgt_c
+  p_fbkwgt => p_grf%fbk_wgt_aw
 
   ! Allocation of local storage fields 
   nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
-  ALLOCATE(z_aux3d_lp(nproma,7,nblks_c_lp), z_aux3d_par(nproma,7,p_patch(jgp)%nblks_c))
+  ALLOCATE(z_aux3d_lp(nproma,5,nblks_c_lp), z_aux3d_par(nproma,5,p_patch(jgp)%nblks_c))
 
   p_aux3d => z_aux3d_lp
 
@@ -2250,8 +2250,8 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
-                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                      &
+                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
 
@@ -2285,18 +2285,6 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
         prm_diag(jg)%snow_gsp(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         prm_diag(jg)%snow_gsp(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      p_aux3d(jc,6,jb) =                                         &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        prm_diag(jg)%rain_gsp_rate(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
-      p_aux3d(jc,7,jb) =                                         &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        prm_diag(jg)%snow_gsp_rate(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-
     ENDDO
 
   ENDDO
@@ -2325,8 +2313,6 @@ SUBROUTINE feedback_phys_diag(jg, jgp)
         prm_diag(jgp)%snow_con(jc,jb)      = p_aux3d(jc,3,jb)
         prm_diag(jgp)%rain_gsp(jc,jb)      = p_aux3d(jc,4,jb)
         prm_diag(jgp)%snow_gsp(jc,jb)      = p_aux3d(jc,5,jb)
-        prm_diag(jgp)%rain_gsp_rate(jc,jb) = p_aux3d(jc,6,jb)
-        prm_diag(jgp)%snow_gsp_rate(jc,jb) = p_aux3d(jc,7,jb)
       END IF
 
     ENDDO

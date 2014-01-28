@@ -107,29 +107,17 @@ if (( $saveplots == 1 )) ; then
 #-----------------------------------------------------------------------------
 # ectrans plots to mkoehler@DWD
 
-  for metfile in `ls zon_*.ps` ; do
 %nopp
+  for metfile in `ls zon_*.ps` `ls clim_*trmm*.ps` ; do
    convert -rotate 90 -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
-%end
   done
-  for metfile in `ls clim_*trmm*.ps` ; do
-%nopp
-   convert -rotate 90 -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
-%end
-  done
-  for obsd in gpcp hoap ssmi xiearkin ciwc ; do
-   for metfile in `ls clim_*${obsd}*.ps` ; do
-%nopp
+ #for obsd in gpcp hoap ssmi xiearkin ciwc quikscat isccp modis ; do
+  for metfile in `ls clim_*.ps` `ls diffmap_*.ps` ; do
     convert -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
-%end
-   done 
+ #done 
   done
-  for metfile in `ls diffmap_*.ps` ; do
-%nopp
-   convert -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
 %end
-  done 
-#.....
+
 
   cd %ECTEMP%/%SUITE%
   ln -sf %EXPNUM% %SUITE%_%EXPNUM%

@@ -54,6 +54,7 @@ if [[ %YMD%%INIHOUR% -ge 2013062512 ]] ; then
 else
   nlev=91
 fi
+
 #rm -f ${IFSDATADIR2}/${IFS_FILENAME_NC}
 if [[ -f ${IFSDATADIR2}/${IFS_FILENAME_NC} ]] ; then
   echo 'ifs2icon file can be copied - no MARS!'
@@ -65,7 +66,7 @@ else
     if [[ %NENS% -gt 0 ]] ; then
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  399 1/to/${nlev} %NMEM%
     else 
-      if [ %YMD% -ge 20100126  -a  %RES% = "R2B08" ] ; then
+      if [ %YMD% -ge 20100126  -a  %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R03B07" ] ; then
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0 1279 1/to/${nlev}
       else 
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0  799 1/to/${nlev}

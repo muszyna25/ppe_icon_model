@@ -320,7 +320,6 @@ CONTAINS
 
       DEALLOCATE(decomp_info%glb_index, &
         &        decomp_info%owner_local, &
-        &        decomp_info%owner_g, &
         &        decomp_info%owner_mask, &
         &        decomp_info%decomp_domain, stat=ist )
       IF(ist/=success)THEN
@@ -884,7 +883,6 @@ CONTAINS
       decomp_info%halo_level => decomp_info%decomp_domain
       ALLOCATE( decomp_info%owner_mask(nproma,n_blk) )
       ALLOCATE( decomp_info%glb_index(n) )
-      ALLOCATE( decomp_info%owner_g(n_g))
       ALLOCATE( decomp_info%owner_local(n))
     END SUBROUTINE allocate_decomp_info
 
@@ -912,7 +910,6 @@ CONTAINS
       DO j = 1, SIZE(decomp_info%glb_index(:))
         decomp_info%glb_index(j) = j
       ENDDO
-      decomp_info%owner_g(:) = 0
       decomp_info%owner_local(:) = 0
 
       CALL init_glb2loc_index_lookup(decomp_info%glb2loc_index, n_g)

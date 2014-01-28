@@ -10,7 +10,7 @@
 Model="ICOHAM"
 EXP="test_hat_jww-moist_cld-cnv-vdf"
 grid_name="iconR2B04-grid"
-ExpName="${EXP}_${grid_name}"
+ExpName="${EXP}"
 plotBaseName="${EXP}_R2B04L31"
 config_string="JWw-Moist R2B04"
 cell_type=3
@@ -64,6 +64,7 @@ echo "cn_plot_option=${cn_plot_option}"                   >> ${set_env}
 echo "interp_option=${interp_option}"                     >> ${set_env}
 echo "rm_tmp_files=${rm_tmp_files}"                       >> ${set_env}
 echo "cdo_silence=${cdo_silence}"                         >> ${set_env}
+echo "cdo=${cdo}"                                         >> ${set_env}
 
 # Load NCL resources
 #
@@ -74,10 +75,10 @@ echo "-- ---------------------------------------------------------"
 echo "-- JWw-Moist_postpro_driver.bash starts at $(date) --"
 echo "-- ---------------------------------------------------------"
 #
-#./JWw-Moist_postpro_driver.bash ${set_env}
-echo "-- ---------------------------------------------------------"
-echo "-- JWw-Moist_postpro_driver.bash temporarily disabled --"
-echo "-- ---------------------------------------------------------"
+./JWw-Moist_postpro_driver.bash ${set_env}
+#echo "-- ---------------------------------------------------------"
+#echo "-- JWw-Moist_postpro_driver.bash temporarily disabled --"
+#echo "-- ---------------------------------------------------------"
 STATUS=$?
 echo "-- ---------------------------------------------------------"
 echo "-- JWw-Moist_postpro_driver.bash ends at $(date) --"

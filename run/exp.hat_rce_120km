@@ -161,7 +161,6 @@ cat >> ${atmo_namelist} << EOF
  ltransport     = .TRUE.
  ntracer        = 3            ! default: 0
  iforcing       = 2            ! 3: NWP forcing; 6:inhecham forcing
- echamnwp       = 0            ! temp switch for using both echam and nwp physics in iconam
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
  output         = 'nml'

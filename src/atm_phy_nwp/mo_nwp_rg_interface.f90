@@ -502,7 +502,7 @@ MODULE mo_nwp_rg_interface
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-        &                         i_startidx, i_endidx, rl_start, rl_end, i_chidx)
+        &                         i_startidx, i_endidx, rl_start, rl_end)
 
       ! Switch off solar radiation calculations where sun is below horizon:
       WHERE ( zrg_cosmu0(i_startidx:i_endidx,jb) > 1.e-8_wp ) !zepmu0 )

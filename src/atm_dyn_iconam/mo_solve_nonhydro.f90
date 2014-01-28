@@ -204,10 +204,9 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,    &
-               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,        &
-               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, multfac_vntraj, &
-               scal_divdamp_o2
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,  &
+               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,      &
+               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
@@ -312,7 +311,7 @@ MODULE mo_solve_nonhydro
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
-    dt_shift = dtime*(0.5_wp*REAL(iadv_rcf,wp)-0.25_wp)
+    dt_shift = dtime*REAL(2*iadv_rcf-1,wp)/2._wp
 
     ! Coefficient for reduced fourth-order divergence damping along nest boundaries
     bdy_divdamp(:) = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp(:))
@@ -348,12 +347,6 @@ MODULE mo_solve_nonhydro
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
     DO istep = 1, 2
-
-      IF (istep == 1 .AND. lclean_mflx .OR. lstep_adv) THEN
-        multfac_vntraj = 0.5_wp*r_iadv_rcf
-      ELSE
-        multfac_vntraj = r_iadv_rcf
-      ENDIF
 
       IF (istep == 1) THEN ! predictor step
         IF (itime_scheme >= 6 .OR. l_init .OR. l_recompute) THEN
@@ -740,23 +733,6 @@ MODULE mo_solve_nonhydro
         z_theta_v_e(:,:,i_startblk:i_endblk) = 0._wp
 !$OMP END WORKSHARE
 
-        ! Initialize halo points on level 2 of vn_traj for tracer advection
-        i_endblk   = p_patch%edges%end_blk(min_rledge_int-2,i_nchdom)
-        IF (lprep_adv .AND. lclean_mflx) THEN
-!$OMP WORKSHARE
-          prep_adv%vn_traj(:,:,i_startblk:i_endblk) = multfac_vntraj*p_nh%prog(nnow)%vn(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-        ENDIF
-
-        ! Initialize also the relevant nest boundary points of vn_traj for tracer advection
-        IF (lprep_adv .AND. lclean_mflx .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
-          i_startblk = p_patch%edges%start_blk(5,1)
-          i_endblk   = p_patch%edges%end_blk  (6,1)
-!$OMP WORKSHARE
-          prep_adv%vn_traj(:,:,i_startblk:i_endblk) = multfac_vntraj*p_nh%prog(nnow)%vn(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-        ENDIF
-
         rl_start = 7
         rl_end   = min_rledge_int-1
 
@@ -891,15 +867,6 @@ MODULE mo_solve_nonhydro
 
               ENDDO ! loop over edges
             ENDDO   ! loop over vertical levels
-          ENDIF
-
-          ! Initialize vn_traj for tracer advection
-          IF (lprep_adv .AND. lclean_mflx) THEN
-            DO jk = 1, nlev
-              DO je = i_startidx, i_endidx
-                prep_adv%vn_traj(je,jk,jb) = multfac_vntraj*p_nh%prog(nnow)%vn(je,jk,jb)
-              ENDDO
-            ENDDO
           ENDIF
 
         ENDDO
@@ -1244,18 +1211,10 @@ MODULE mo_solve_nonhydro
 
     IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
 !$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
-#ifdef __LOOP_EXCHANGE
       DO ic = 1, p_nh%metrics%nudge_e_dim
         je = p_nh%metrics%nudge_e_idx(ic)
         jb = p_nh%metrics%nudge_e_blk(ic)
         DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, p_nh%metrics%nudge_e_dim
-          je = p_nh%metrics%nudge_e_idx(ic)
-          jb = p_nh%metrics%nudge_e_blk(ic)
-#endif
           p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
             + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
         ENDDO
@@ -1286,6 +1245,22 @@ MODULE mo_solve_nonhydro
               dtime*p_nh%diag%grf_tend_vn(je,jk,jb)
           ENDDO
         ENDDO
+      ENDDO
+!$OMP END DO
+    ENDIF
+
+    ! Preparations for nest boundary interpolation of mass fluxes from parent domain
+    IF (p_patch%id > 1 .AND. grf_intmethod_e >= 5 .AND. idiv_method == 1 .AND. jstep == 0 .AND. istep == 1) THEN
+!$OMP DO PRIVATE(ic,je,jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
+        je = p_nh%metrics%bdy_mflx_e_idx(ic)
+        jb = p_nh%metrics%bdy_mflx_e_blk(ic)
+
+        DO jk = 1, nlev
+          p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
+          p_nh%diag%grf_bdy_mflx(jk,ic,1) = prep_adv%mass_flx_me(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+        ENDDO
+
       ENDDO
 !$OMP END DO
     ENDIF
@@ -1324,7 +1299,7 @@ MODULE mo_solve_nonhydro
     ! end communication phase
     !-------------------------
 
-!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,jk_start)
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
     rl_start = 5
     rl_end   = min_rledge_int - 2
@@ -1445,15 +1420,22 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         IF (lsave_mflx .AND. istep == 2) THEN ! store mass flux for nest boundary interpolation
+          DO je = i_startidx, i_endidx
+            IF (p_patch%edges%refin_ctrl(je,jb) <= -4 .AND. p_patch%edges%refin_ctrl(je,jb) >= -6) THEN
 !DIR$ IVDEP
-          p_nh%diag%mass_fl_e_sv(i_startidx:i_endidx,:,jb) = p_nh%diag%mass_fl_e(i_startidx:i_endidx,:,jb)
+              p_nh%diag%mass_fl_e_sv(je,:,jb) = p_nh%diag%mass_fl_e(je,:,jb)
+            ENDIF
+          ENDDO
         ENDIF
 
         IF (lprep_adv .AND. istep == 2) THEN ! Preprations for tracer advection
-          IF (lclean_mflx) prep_adv%mass_flx_me(:,:,jb) = 0._wp
+          IF (lclean_mflx) THEN
+            prep_adv%mass_flx_me(:,:,jb) = 0._wp
+            prep_adv%vn_traj    (:,:,jb) = 0._wp
+          ENDIF
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + multfac_vntraj*p_nh%prog(nnew)%vn(je,jk,jb)
+              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb)     + r_iadv_rcf*z_vn_avg(je,jk)
               prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
             ENDDO
           ENDDO
@@ -1532,10 +1514,12 @@ MODULE mo_solve_nonhydro
         je = p_nh%metrics%bdy_mflx_e_idx(ic)
         jb = p_nh%metrics%bdy_mflx_e_blk(ic)
 
-        IF (jstep == 0) THEN
+        ! This is needed for tracer mass consistency along the lateral boundaries
+        IF (lprep_adv .AND. istep == 2) THEN ! subtract mass flux added previously...
           DO jk = 1, nlev
-            p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
-            p_nh%diag%grf_bdy_mflx(jk,ic,1) = prep_adv%mass_flx_me(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) - r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb) / &
+                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
           ENDDO
         ENDIF
 
@@ -1544,6 +1528,15 @@ MODULE mo_solve_nonhydro
             REAL(jstep,wp)*dtime*p_nh%diag%grf_bdy_mflx(jk,ic,2)
           z_theta_v_fl_e(je,jk,jb) = p_nh%diag%mass_fl_e(je,jk,jb) * z_theta_v_e(je,jk,jb)
         ENDDO
+
+        IF (lprep_adv .AND. istep == 2) THEN ! ... and add the corrected one again
+          DO jk = 1, nlev
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + r_iadv_rcf*p_nh%diag%mass_fl_e(je,jk,jb) / &
+                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
+          ENDDO
+        ENDIF
+
       ENDDO
 !$OMP END DO
     ENDIF
@@ -1651,7 +1644,7 @@ MODULE mo_solve_nonhydro
                    opt_rlend=min_rlcell_int)
     ENDIF
 
-!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,jk_start)
 
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -2054,8 +2047,8 @@ MODULE mo_solve_nonhydro
     ENDDO
 !$OMP END DO
 
-    ! Boundary update in case of nesting - non-MPI-parallelized (serial) case
-    IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1) .AND. my_process_is_mpi_all_seq() ) THEN
+    ! Boundary update in case of nesting
+    IF (l_limited_area .OR. p_patch%id > 1) THEN
 
       rl_start = 1
       rl_end   = grf_bdywidth_c
@@ -2069,30 +2062,64 @@ MODULE mo_solve_nonhydro
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jk = 1, nlev
+        ! non-MPI-parallelized (serial) case
+        IF (istep == 1 .AND. my_process_is_mpi_all_seq() ) THEN
+
+          DO jk = 1, nlev
 !DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
+            DO jc = i_startidx, i_endidx
 
-            p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
+              p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
 
-            p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
+              p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
 
-            ! Diagnose exner from rho*theta
-            p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
+              ! Diagnose exner from rho*theta
+              p_nh%prog(nnew)%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
+                p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)))
 
-            p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
+              p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
 
+            ENDDO
           ENDDO
-        ENDDO
 
-        DO jc = i_startidx, i_endidx
-          p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
-            dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
-        ENDDO
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
+              dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
+          ENDDO
+
+        ELSE IF (istep == 1 ) THEN
+
+          ! In the MPI-parallelized case, only rho and w are updated here,
+          ! and theta_v is preliminarily stored on exner in order to save
+          ! halo communications
+
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+
+              p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
+
+              ! *** Storing theta_v on exner is done to save MPI communications ***
+              ! DO NOT TOUCH THIS!
+              p_nh%prog(nnew)%exner(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
+
+              p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
+                dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
+
+            ENDDO
+          ENDDO
+
+          DO jc = i_startidx, i_endidx
+            p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
+              dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
+          ENDDO
+
+        ENDIF
 
         ! compute dw/dz for divergence damping term
         IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
@@ -2122,62 +2149,8 @@ MODULE mo_solve_nonhydro
       ENDDO
 !OMP END DO
 
-    ELSE IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN
-      ! In the MPI-parallelized case, only rho and w are updated here,
-      ! and theta_v is preliminarily stored on exner in order to save
-      ! halo communications
-
-      rl_start = 1
-      rl_end   = grf_bdywidth_c
-
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,1)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_rho(jc,jk,jb)
-
-            ! *** Storing theta_v on exner is done to save MPI communications ***
-            ! DO NOT TOUCH THIS!
-            p_nh%prog(nnew)%exner(jc,jk,jb) = p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_thv(jc,jk,jb)
-
-            p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnow)%w(jc,jk,jb) + &
-              dtime*p_nh%diag%grf_tend_w(jc,jk,jb)
-
-          ENDDO
-        ENDDO
-
-        DO jc = i_startidx, i_endidx
-          p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
-            dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
-        ENDDO
-
-        ! compute dw/dz for divergence damping term
-        IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
-          DO jk = 1, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              z_dwdz_dd(jc,jk,jb) = p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) *          &
-                ( (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,jk+1,jb)) -       &
-                  (p_nh%diag%w_concorr_c(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk+1,jb)) )
-            ENDDO
-          ENDDO
-        ENDIF
-
-      ENDDO
-!OMP END DO
-
     ENDIF
+
 !$OMP END PARALLEL
 
     !-------------------------
@@ -2328,4 +2301,3 @@ MODULE mo_solve_nonhydro
   END SUBROUTINE solve_nh
 
 END MODULE mo_solve_nonhydro
-

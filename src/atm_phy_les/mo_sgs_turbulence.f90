@@ -71,14 +71,19 @@ MODULE mo_sgs_turbulence
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_les_config,          ONLY: les_config
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_mpi,                 ONLY: p_pe
-
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
+ 
   IMPLICIT NONE
 
   PRIVATE
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  REAL(wp), PARAMETER :: km_min = 0.01_wp
+  REAL(wp), PARAMETER :: km_min      = 0.01_wp !min viscosity
+  REAL(wp), PARAMETER :: z_1by3      = 1._wp/3._wp
+
+  !Parameter for vertical scheme type
+  INTEGER, PARAMETER :: iexplicit = 1
+  INTEGER, PARAMETER :: iimplicit = 2
 
   PUBLIC :: drive_subgrid_diffusion
 
@@ -87,6 +92,10 @@ MODULE mo_sgs_turbulence
                                              visc_smag_c, rho_e, DIV_c, u_vert, v_vert, &
                                              w_ie, w_vert
   
+  CHARACTER(len=*), PARAMETER :: inmodule = 'mo_sgs_turbulence:'
+  CHARACTER(len=12)  :: str_module = 'sgs_turb'  ! Output of module for 1 line debug
+  INTEGER            :: idt_src    = 4           ! Determines level of detail for 1 line debug
+
   CONTAINS
 
   !-------------------------------------------------------------------------------------
@@ -116,13 +125,18 @@ MODULE mo_sgs_turbulence
     REAL(wp),          INTENT(in)        :: dt
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), thetav(:,:,:)
+    REAL(wp) :: visc_sfc_c(nproma,1,p_patch%nblks_c)
 
     INTEGER :: nlev, nlevp1
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, jg
 
+
     !CALL debug_messages_on
+   
+    IF (msg_level >= 15) &
+         CALL message(TRIM(inmodule), 'drive_subgrid_diffusion')
 
     jg = p_patch%id
 
@@ -146,9 +160,14 @@ MODULE mo_sgs_turbulence
              )
 
     !Initialize
+    
+    !Important to initialize the visc_sfc_c in the lateral boundary
+    !zone if it exists- isrc_type=1
+    visc_sfc_c(:,:,:) = km_min
+
     IF(p_test_run)THEN
 !ICON_OMP_WORKSHARE
-      u_vert(:,:,:) = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp 
+      u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
 !ICON_OMP_END_WORKSHARE
     END IF
 
@@ -180,12 +199,13 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
 
-    !Think about moving this call to mo_nh_interface_nwp where nwp_surface is called    
     IF(les_config(jg)%isrfc_type>0) & 
       CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
-                              p_prog_lnd_new, p_diag_lnd, prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv) )
+                              p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
+                              p_nh_prog%tracer(:,:,:,iqv), visc_sfc_c(:,1,:))
 
-    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, thetav)
+    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
+                           thetav, visc_sfc_c)
 
     CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                                prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
@@ -244,7 +264,7 @@ MODULE mo_sgs_turbulence
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-20)
   SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
-                               prm_diag, thetav)
+                               prm_diag, thetav, visc_sfc_c)
 
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
@@ -253,6 +273,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(inout)     :: thetav(:,:,:) !< atm phys vars
+    REAL(wp),          INTENT(in)        :: visc_sfc_c(:,:,:) !< apparent visc at surface
 
     ! local variables
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: DD, div_of_stress, visc_smag_e, &
@@ -260,8 +281,9 @@ MODULE mo_sgs_turbulence
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
     REAL(wp) :: w_full_c2, w_full_v1, w_full_v2, brunt_vaisala_frq
-    REAL(wp) :: D_11, D_12, D_13, D_22, D_23, D_33
+    REAL(wp) :: D_11, D_12, D_13, D_22, D_23, D_33, z1, z2
     REAL(wp), POINTER :: diff_smag_ic(:,:,:)
+    REAL(wp) :: visc_sfc_e(nproma,1,p_patch%nblks_e)
 
     INTEGER  :: nlev, nlevp1             !< number of full levels
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
@@ -270,6 +292,11 @@ MODULE mo_sgs_turbulence
     INTEGER :: jk, jb, jc, je, ic, jkp1, jv, jkm1, jcn, jbn, jvn
 
     !--------------------------------------------------------------------------
+
+    IF (msg_level >= 15) &
+         CALL message(TRIM(inmodule), 'smagorinsky_model')
+
+
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = nlev+1
@@ -287,9 +314,7 @@ MODULE mo_sgs_turbulence
 
     !Initialize
     IF(p_test_run)THEN
-!ICON_OMP_WORKSHARE
       visc_smag_e(:,:,:) = 0._wp
-!ICON_OMP_END_WORKSHARE
     END IF 
 
     diff_smag_ic => prm_diag%tkvh
@@ -529,9 +554,9 @@ MODULE mo_sgs_turbulence
          END DO
        END DO
       DO je = i_startidx, i_endidx
-          thetav_ie(je,nlevp1,jb) = p_nh_metrics%wgtfacq_e(je,1,jb)*thetav_e(je,nlev,jb) +   &
-                                    p_nh_metrics%wgtfacq_e(je,2,jb)*thetav_e(je,nlev-1,jb) + &
-                                    p_nh_metrics%wgtfacq_e(je,3,jb)*thetav_e(je,nlev-2,jb)
+          !thetav_ie(je,nlevp1,jb) = p_nh_metrics%wgtfacq_e(je,1,jb)*thetav_e(je,nlev,jb) +   &
+          !                          p_nh_metrics%wgtfacq_e(je,2,jb)*thetav_e(je,nlev-1,jb) + &
+          !                          p_nh_metrics%wgtfacq_e(je,3,jb)*thetav_e(je,nlev-2,jb)
 
           thetav_ie(je,1,jb) = p_nh_metrics%wgtfacq1_e(je,1,jb)*thetav_e(je,1,jb) + &
                                p_nh_metrics%wgtfacq1_e(je,2,jb)*thetav_e(je,2,jb) + &
@@ -543,6 +568,9 @@ MODULE mo_sgs_turbulence
 
     CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, rho_e, &
                             opt_rlstart=4, opt_rlend=min_rledge_int-1)
+
+    CALL cells2edges_scalar(visc_sfc_c, p_patch, p_int%c_lin_e, visc_sfc_e, &
+                            opt_rlstart=4, opt_rlend=min_rledge_int)
 
     !3(b) Calculate stability corrected turbulent viscosity
     ! visc = mixing_length_sq * SQRT(DD/2) * SQRT(1-Ri/Pr) where Ri = (g/thetav)*d_thetav_dz/(DD/2), 
@@ -560,7 +588,7 @@ MODULE mo_sgs_turbulence
     DO jb = i_startblk,i_endblk
        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
                           i_startidx, i_endidx, rl_start, rl_end)
-       DO jk = 1 , nlev
+       DO jk = 1 , nlev-1
          DO je = i_startidx, i_endidx
 
            brunt_vaisala_frq = grav * (thetav_ie(je,jk,jb)-thetav_ie(je,jk+1,jb)) * &
@@ -574,9 +602,28 @@ MODULE mo_sgs_turbulence
        END DO
     END DO
 !ICON_OMP_END_DO
+
+    !Now use the apparent viscosity at the surface calculated from mo_surface_les
+    !to estimate the viscosity at the first model level. 
+
+!ICON_OMP_DO PRIVATE(jb,je,i_startidx,i_endidx,z1,z2)
+    DO jb = i_startblk,i_endblk
+       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
+                          i_startidx, i_endidx, rl_start, rl_end)
+         DO je = i_startidx, i_endidx
+           z1 = p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * 2._wp
+           z2 = p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb) 
+           visc_smag_e(je,nlev,jb) = MAX( km_min,  &
+                (z1*visc_sfc_e(je,1,jb)+z2*visc_smag_e(je,nlev-1,jb))/(z1+z2) )
+         END DO
+    END DO
+!ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
     CALL sync_patch_array(SYNC_E, p_patch, visc_smag_e)
+
+    idt_src = 4 
+    CALL dbg_print('visc_smag_e:' ,visc_smag_e,str_module,idt_src,p_patch%edges%owned)
 
     !--------------------------------------------------------------------------
     !4) Interpolate viscosity and strain rates to different locations: calculate them for 
@@ -718,10 +765,7 @@ MODULE mo_sgs_turbulence
   !! Calculate the SGS diffusion term for normal velocity component
   !! - Uses the forward Euler time scheme in time split (sequential) manner adopted
   !!   in the NH version.
-  !! - The Euler scheme is generally known to be unconditionaly unstable for diffusion term
-  !!   but it is not certain when implemented in time split manner
-  !! - This needs to be investigated and if found unstable we will switch to MacKormack 
-  !!   scheme which is known to be stable
+  !! - Option to switch on implicit scheme in vertical
   !!  
   !! d_vn/d_t =  d_tau_11/d_x1 + d_tau_12/d_x2 + d_tau_13/d_x3
   !!------------------------------------------------------------------------
@@ -742,23 +786,34 @@ MODULE mo_sgs_turbulence
 
     REAL(wp) :: flux_up_e, flux_dn_e, flux_up_v, flux_dn_v, flux_up_c, flux_dn_c
     REAL(wp) :: stress_uc, stress_vc, stress_c1n, stress_c2n, inv_mwind
-    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt
+    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt, dwdn, inv_dt
     REAL(wp) :: inv_rhoe(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: vn_new(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: unew(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: vnew(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: tot_tend(nproma,p_patch%nlev,p_patch%nblks_e)
 
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: a, b, c, rhs 
+    REAL(wp)                                 :: var_new(p_patch%nlev)
+
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jkp1, jb, je, jcn, jbn, jvn, jc
-    INTEGER  :: nlev              
+    INTEGER :: nlev, jg
+
+    IF (msg_level >= 15) &
+         CALL message(TRIM(inmodule), 'diffuse_hori_velocity')
+
+    !patch id
+    jg = p_patch%id
 
     ! number of vertical levels
     nlev     = p_patch%nlev
     i_nchdom = MAX(1,p_patch%n_childdom)
    
+    inv_dt  = 1._wp / dt
+
     ividx  => p_patch%edges%vertex_idx
     ivblk  => p_patch%edges%vertex_blk
 
@@ -767,13 +822,11 @@ MODULE mo_sgs_turbulence
  
     !Some initializations
 
-!ICON_OMP_WORKSHARE
     !total tendency
     tot_tend(:,:,:) = 0._wp
 
     !new vn
     vn_new(:,:,:) = p_nh_prog%vn(:,:,:)
-!ICON_OMP_END_WORKSHARE
 
 
     !Inverse of density (global rho_e in this module)
@@ -844,14 +897,14 @@ MODULE mo_sgs_turbulence
          flux_up_c = visc_smag_c(jcn,jk,jbn) * &
                    ( 4._wp*(vn_vert4-p_nh_prog%vn(je,jk,jb))   * &
                      p_patch%edges%inv_vert_vert_length(je,jb) - &
-                     0.6666666_wp*DIV_c(jcn,jk,jbn) )
+                     2._wp*z_1by3*DIV_c(jcn,jk,jbn) )
 
          jcn     = iecidx(je,jb,1)  
          jbn     = iecblk(je,jb,1)  
          flux_dn_c = visc_smag_c(jcn,jk,jbn) * &
                    ( 4._wp*(p_nh_prog%vn(je,jk,jb)-vn_vert3)   * &
                      p_patch%edges%inv_vert_vert_length(je,jb) - &
-                     0.6666666_wp*DIV_c(jcn,jk,jbn) )
+                     2._wp*z_1by3*DIV_c(jcn,jk,jbn) )
 
          !tendency in tangential direction
 
@@ -885,117 +938,222 @@ MODULE mo_sgs_turbulence
       END DO
     END DO                         
 !ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
 
-   ! 2) Vertical tendency
+    !
+    ! 2) Vertical tendency
+    !
+    SELECT CASE(les_config(jg)%vert_scheme_type)
 
-!ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx,flux_up_e,flux_dn_e)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-      DO jk = 2 , nlev-1
-       DO je = i_startidx, i_endidx
+    CASE(iexplicit)
 
-         !tendency in vertical direction
-         flux_up_e = visc_smag_ie(je,jk,jb) *                             &
-                ( (p_nh_prog%vn(je,jk-1,jb) - p_nh_prog%vn(je,jk,jb)) * &
-                   p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb) +           &
-                  (p_nh_prog%w(iecidx(je,jb,2),jk,iecblk(je,jb,2)) -    &
-                   p_nh_prog%w(iecidx(je,jb,1),jk,iecblk(je,jb,1))) *   &
-                   p_patch%edges%inv_dual_edge_length(je,jb) )
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jb,jk,jkp1,je,i_startidx,i_endidx,flux_up_e,flux_dn_e,stress_c1n,stress_c2n)
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+         DO jk = 2 , nlev-1
+#else
+        DO jk = 2 , nlev-1
+         DO je = i_startidx, i_endidx
+#endif
+           !tendency in vertical direction
+           jkp1 = jk + 1
+
+           flux_up_e = visc_smag_ie(je,jk,jb) *                             &
+                  ( (p_nh_prog%vn(je,jk-1,jb) - p_nh_prog%vn(je,jk,jb)) * &
+                     p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb) +           &
+                    (p_nh_prog%w(iecidx(je,jb,2),jk,iecblk(je,jb,2)) -    &
+                     p_nh_prog%w(iecidx(je,jb,1),jk,iecblk(je,jb,1))) *   &
+                     p_patch%edges%inv_dual_edge_length(je,jb) )
                    
-         flux_dn_e = visc_smag_ie(je,jk+1,jb) *                           &
-                ( (p_nh_prog%vn(je,jk,jb) - p_nh_prog%vn(je,jk+1,jb)) * &
-                   p_nh_metrics%inv_ddqz_z_half_e(je,jk+1,jb) +         &
-                  (p_nh_prog%w(iecidx(je,jb,2),jk+1,iecblk(je,jb,2)) -  &
-                   p_nh_prog%w(iecidx(je,jb,1),jk+1,iecblk(je,jb,1))) * &
-                   p_patch%edges%inv_dual_edge_length(je,jb) )
+           flux_dn_e = visc_smag_ie(je,jkp1,jb) *                           &
+                  ( (p_nh_prog%vn(je,jk,jb) - p_nh_prog%vn(je,jkp1,jb)) * &
+                     p_nh_metrics%inv_ddqz_z_half_e(je,jkp1,jb) +         &
+                    (p_nh_prog%w(iecidx(je,jb,2),jkp1,iecblk(je,jb,2)) -  &
+                     p_nh_prog%w(iecidx(je,jb,1),jkp1,iecblk(je,jb,1))) * &
+                     p_patch%edges%inv_dual_edge_length(je,jb) )
                   
-        tot_tend(je,jk,jb) = tot_tend(je,jk,jb) +  (flux_up_e - flux_dn_e) * &
-                          p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * inv_rhoe(je,jk,jb)
+          tot_tend(je,jk,jb) = tot_tend(je,jk,jb) +  (flux_up_e - flux_dn_e) * &
+                            p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * inv_rhoe(je,jk,jb)
 
-       END DO
-      END DO
-    END DO  
-!ICON_OMP_END_DO
+         END DO
+        END DO
 
-   !-----------------------------------------------------------------
-   !3) Boundary treatment in vertical: use surface fluxes from 
-   !   surface_conditions
-   !-----------------------------------------------------------------
+         !-----------------------------------------------------------------
+         !3) Boundary treatment in vertical: use surface fluxes from 
+         !   surface_conditions
+         !-----------------------------------------------------------------
    
-   !-----------------------------------------------------------------
-   !jk = 1
-   !-----------------------------------------------------------------
-
-!ICON_OMP_DO PRIVATE(jb,je,i_startidx,i_endidx,flux_up_e,flux_dn_e)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-       DO je = i_startidx, i_endidx
-
-         flux_up_e = 0._wp
-                   
-         flux_dn_e = visc_smag_ie(je,2,jb) *                           &
-                ( (p_nh_prog%vn(je,1,jb) - p_nh_prog%vn(je,2,jb)) * &
-                   p_nh_metrics%inv_ddqz_z_half_e(je,2,jb) +         &
-                  (p_nh_prog%w(iecidx(je,jb,2),2,iecblk(je,jb,2)) -  &
-                   p_nh_prog%w(iecidx(je,jb,1),2,iecblk(je,jb,1))) * &
-                   p_patch%edges%inv_dual_edge_length(je,jb) )
+         !-----------------------------------------------------------------
+         !jk = 1
+         !-----------------------------------------------------------------
+         DO je = i_startidx, i_endidx
+           flux_dn_e = visc_smag_ie(je,2,jb) *                           &
+                  ( (p_nh_prog%vn(je,1,jb) - p_nh_prog%vn(je,2,jb)) * &
+                     p_nh_metrics%inv_ddqz_z_half_e(je,2,jb) +         &
+                    (p_nh_prog%w(iecidx(je,jb,2),2,iecblk(je,jb,2)) -  &
+                     p_nh_prog%w(iecidx(je,jb,1),2,iecblk(je,jb,1))) * &
+                     p_patch%edges%inv_dual_edge_length(je,jb) )
                   
-         tot_tend(je,1,jb) = tot_tend(je,1,jb) + (flux_up_e - flux_dn_e) *  &
-                    p_nh_metrics%inv_ddqz_z_full_e(je,1,jb) * inv_rhoe(je,1,jb)
+           tot_tend(je,1,jb) = tot_tend(je,1,jb) - flux_dn_e *  &
+                        p_nh_metrics%inv_ddqz_z_full_e(je,1,jb) * inv_rhoe(je,1,jb)
+         END DO
 
-       END DO
-    END DO                         
-!ICON_OMP_END_DO
-
-   !-----------------------------------------------------------------
-   ! jk = nlev
-   !-----------------------------------------------------------------
-
-!ICON_OMP_DO PRIVATE(jb,je,i_startidx,i_endidx,flux_up_e,flux_dn_e,stress_c1n,stress_c2n)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-       DO je = i_startidx, i_endidx
-
-         flux_up_e = visc_smag_ie(je,nlev,jb) *                             &
-                ( (p_nh_prog%vn(je,nlev-1,jb) - p_nh_prog%vn(je,nlev,jb)) * &
-                   p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb) +             &
-                  (p_nh_prog%w(iecidx(je,jb,2),nlev,iecblk(je,jb,2)) -      &
-                   p_nh_prog%w(iecidx(je,jb,1),nlev,iecblk(je,jb,1))) *     &
-                   p_patch%edges%inv_dual_edge_length(je,jb) )
+         !-----------------------------------------------------------------
+         ! jk = nlev
+         !-----------------------------------------------------------------
+         DO je = i_startidx, i_endidx
+           flux_up_e = visc_smag_ie(je,nlev,jb) *                             &
+                  ( (p_nh_prog%vn(je,nlev-1,jb) - p_nh_prog%vn(je,nlev,jb)) * &
+                     p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb) +             &
+                    (p_nh_prog%w(iecidx(je,jb,2),nlev,iecblk(je,jb,2)) -      &
+                     p_nh_prog%w(iecidx(je,jb,1),nlev,iecblk(je,jb,1))) *     &
+                     p_patch%edges%inv_dual_edge_length(je,jb) )
                   
-         !Get net shear stress in the direction of vn at surface
+           !Get net shear stress in the direction of vn at surface
 
-         !shear stress in normal direction from cell 1 
-         stress_c1n = prm_diag%umfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
-                      p_patch%edges%primal_normal_cell(je,jb,1)%v1     + &
-                      prm_diag%vmfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
-                      p_patch%edges%primal_normal_cell(je,jb,1)%v2
+           !shear stress in normal direction from cell 1 
+           stress_c1n = prm_diag%umfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,1)%v1     + &
+                        prm_diag%vmfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,1)%v2
 
-         !shear stress in normal direction from cell 2 
-         stress_c2n = prm_diag%umfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
-                      p_patch%edges%primal_normal_cell(je,jb,2)%v1     + &
-                      prm_diag%vmfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
-                      p_patch%edges%primal_normal_cell(je,jb,2)%v2
+           !shear stress in normal direction from cell 2 
+           stress_c2n = prm_diag%umfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,2)%v1     + &
+                        prm_diag%vmfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
-         !Net stress at the edge
-         flux_dn_e    = stress_c1n * p_int%c_lin_e(je,1,jb) + &
-                        stress_c2n * p_int%c_lin_e(je,2,jb) 
+           !Net stress at the edge
+           flux_dn_e    = stress_c1n * p_int%c_lin_e(je,1,jb) + &
+                          stress_c2n * p_int%c_lin_e(je,2,jb) 
 
-         tot_tend(je,nlev,jb) = tot_tend(je,nlev,jb) + (flux_up_e - flux_dn_e) * &
-              p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * inv_rhoe(je,nlev,jb)
-
-       END DO
-    END DO                         
+           tot_tend(je,nlev,jb) = tot_tend(je,nlev,jb) + (flux_up_e - flux_dn_e) * &
+                p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * inv_rhoe(je,nlev,jb)
+         END DO
+      END DO                         
 !ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
+    CASE(iimplicit)
+
+      !vertical tendency- implicit solver
+      !a*x(k-1)+b*x(k)+c*x(k+1)=rhs(k)
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jb,jk,jkp1,je,i_startidx,i_endidx,dwdn,a,b,c,rhs,var_new)
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+
+#ifdef __LOOP_EXCHANGE
+         DO je = i_startidx, i_endidx
+           DO jk = 2, nlev-1
+#else
+         DO jk = 2, nlev-2
+           DO je = i_startidx, i_endidx
+#endif
+             jkp1  = jk + 1
+
+             a(je,jk)   = - visc_smag_ie(je,jk,jb) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
+                               p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb) * inv_rhoe(je,jk,jb) 
+
+             c(je,jk)   = - visc_smag_ie(je,jkp1,jb) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
+                               p_nh_metrics%inv_ddqz_z_half_e(je,jkp1,jb) * inv_rhoe(je,jk,jb) 
+
+             b(je,jk)   =  inv_dt - a(je,jk) - c(je,jk)
+
+             !term due to dwdn- goes to RHS
+             dwdn          = ( visc_smag_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb) * & 
+                              (p_nh_prog%w(iecidx(je,jb,2),jk,iecblk(je,jb,2))  -  &
+                               p_nh_prog%w(iecidx(je,jb,1),jk,iecblk(je,jb,1))) -  &
+                               visc_smag_ie(je,jkp1,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* & 
+                              (p_nh_prog%w(iecidx(je,jb,2),jkp1,iecblk(je,jb,2))  -  &
+                               p_nh_prog%w(iecidx(je,jb,1),jkp1,iecblk(je,jb,1)))    &
+                             ) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * inv_rhoe(je,jk,jb)
+
+             rhs(je,jk) =  p_nh_prog%vn(je,jk,jb) * inv_dt + dwdn
+           END DO
+         END DO
+
+         !TOP Boundary treatment
+         ! jk = 1
+         !
+         DO je = i_startidx, i_endidx
+           c(je,1)   = - visc_smag_ie(je,2,jb) * p_nh_metrics%inv_ddqz_z_full_e(je,1,jb) * &
+                            p_nh_metrics%inv_ddqz_z_half_e(je,2,jb) * inv_rhoe(je,1,jb) 
+
+           b(je,1)   =  inv_dt - c(je,1)
+
+           !term due to dwdn- goes to RHS
+           dwdn          =  -visc_smag_ie(je,2,jb) * p_patch%edges%inv_dual_edge_length(je,jb) * & 
+                            (p_nh_prog%w(iecidx(je,jb,2),2,iecblk(je,jb,2))  -  &
+                             p_nh_prog%w(iecidx(je,jb,1),2,iecblk(je,jb,1))) *  &
+                             p_nh_metrics%inv_ddqz_z_full_e(je,1,jb) * inv_rhoe(je,1,jb)
+
+           rhs(je,1) =  p_nh_prog%vn(je,1,jb) * inv_dt + dwdn
+         END DO
+
+         !SFC Boundary treatment
+         !jk = nlev
+         !
+         DO je = i_startidx, i_endidx
+           a(je,nlev)  = - visc_smag_ie(je,nlev,jb) * p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * &
+                              p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb) * inv_rhoe(je,nlev,jb)
+
+           b(je,nlev)  = inv_dt - a(je,nlev) 
+
+           !term due to dwdn- goes to RHS
+           dwdn          =  visc_smag_ie(je,nlev,jb) * p_patch%edges%inv_dual_edge_length(je,jb) * & 
+                            (p_nh_prog%w(iecidx(je,jb,2),nlev,iecblk(je,jb,2))  -  &
+                             p_nh_prog%w(iecidx(je,jb,1),nlev,iecblk(je,jb,1))) *  &
+                             p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * inv_rhoe(je,nlev,jb)
+
+           !Get net shear stress in the direction of vn at surface
+
+           !shear stress in normal direction from cell 1 
+           stress_c1n = prm_diag%umfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,1)%v1     + &
+                        prm_diag%vmfl_s(iecidx(je,jb,1),iecblk(je,jb,1)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,1)%v2
+
+           !shear stress in normal direction from cell 2 
+           stress_c2n = prm_diag%umfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,2)%v1     + &
+                        prm_diag%vmfl_s(iecidx(je,jb,2),iecblk(je,jb,2)) * &
+                        p_patch%edges%primal_normal_cell(je,jb,2)%v2
+
+           !Net stress at the edge
+           flux_dn_e    = stress_c1n * p_int%c_lin_e(je,1,jb) + stress_c2n * p_int%c_lin_e(je,2,jb) 
+
+           rhs(je,nlev) = p_nh_prog%vn(je,nlev,jb) * inv_dt + dwdn - flux_dn_e * &
+                          p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * inv_rhoe(je,nlev,jb)
+         END DO
+
+         !CALL TDMA
+         DO je = i_startidx, i_endidx
+           CALL tdma_solver(a(je,:),b(je,:),c(je,:),rhs(je,:),nlev,var_new(:))
+           tot_tend(je,:,jb) = tot_tend(je,:,jb) + (var_new(:) - p_nh_prog%vn(je,:,jb)) * inv_dt
+         END DO
+
+      END DO!block loop
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
+    END SELECT !vert_scheme
+
 
    ! 4) Update vn: it makes more sense to first apply diffusion on vn
    ! and then get ddt_u/v than to interpolating tot_tend directly to 
    ! ddt_u/v. Proof: during the test phase it was found that the latter slowed
    ! down the computation by 15%, although the results look same.
 
+!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1006,8 +1164,9 @@ MODULE mo_sgs_turbulence
        END DO
       END DO
     END DO  
-!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
+
 
     !5) Get turbulent tendency at cell center
     CALL sync_patch_array(SYNC_E, p_patch, vn_new)
@@ -1026,8 +1185,8 @@ MODULE mo_sgs_turbulence
                          i_startidx, i_endidx, rl_start, rl_end)
       DO jk = 1 , nlev
        DO jc = i_startidx, i_endidx
-         ddt_u(jc,jk,jb) = ( unew(jc,jk,jb) - p_nh_diag%u(jc,jk,jb) ) / dt   
-         ddt_v(jc,jk,jb) = ( vnew(jc,jk,jb) - p_nh_diag%v(jc,jk,jb) ) / dt   
+         ddt_u(jc,jk,jb) = ( unew(jc,jk,jb) - p_nh_diag%u(jc,jk,jb) ) * inv_dt   
+         ddt_v(jc,jk,jb) = ( vnew(jc,jk,jb) - p_nh_diag%v(jc,jk,jb) ) * inv_dt   
        END DO
       END DO
     END DO  
@@ -1047,10 +1206,7 @@ MODULE mo_sgs_turbulence
   !! Calculate the SGS diffusion term for vertical velocity component
   !! - Uses the forward Euler time scheme in time split (sequential) manner adopted
   !!   in the NH version.
-  !! - The Euler scheme is generally known to be unconditionaly unstable for diffusion term
-  !!   but it is not certain when implemented in time split manner
-  !! - This needs to be investigated and if found unstable we will switch to MacKormack 
-  !!   scheme which is known to be stable
+  !! - Option to switch on implicit scheme in vertical
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-05)
@@ -1064,20 +1220,33 @@ MODULE mo_sgs_turbulence
     REAL(wp),          INTENT(in)        :: dt
 
     REAL(wp) :: flux_up_c, flux_dn_c, dvn1, dvn2, dvt1, dvt2, flux_up_v, flux_dn_v
-    REAL(wp) :: hor_tend(nproma,p_patch%nlev+1,p_patch%nblks_e)
-    REAL(wp) :: tot_tend(nproma,p_patch%nlev+1,p_patch%nblks_c)
-    REAL(wp) :: vt_e(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp) :: vt_e(nproma,p_patch%nlev,p_patch%nblks_e), inv_dt
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: a, b, c, rhs
+    REAL(wp)                                 :: var_new(p_patch%nlev)
+
+    !interface level variables but only nlev quantities are needed 
+    REAL(wp) :: hor_tend(nproma,p_patch%nlev,p_patch%nblks_e)
+    REAL(wp) :: tot_tend(nproma,p_patch%nlev,p_patch%nblks_c)
+    REAL(wp) :: inv_rho_ic(nproma,p_patch%nlev,p_patch%nblks_c)
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-    INTEGER :: rl_start, rl_end
+    INTEGER :: rl_start, rl_end, jg
     INTEGER :: jk, jkp1, jb, je, jkm1, jc, jcn, jbn, jvn
     INTEGER  :: nlev              
+
+    IF (msg_level >= 15) &
+         CALL message(TRIM(inmodule), 'diffuse_vert_velocity')
+
+    !patch id
+    jg = p_patch%id
 
     ! number of vertical levels
     nlev     = p_patch%nlev
     i_nchdom = MAX(1,p_patch%n_childdom)
-   
+       
+    inv_dt  = 1._wp / dt
+
     ividx  => p_patch%edges%vertex_idx
     ivblk  => p_patch%edges%vertex_blk
 
@@ -1090,13 +1259,34 @@ MODULE mo_sgs_turbulence
     !Some initializations
  
     IF(p_test_run)THEN
-!ICON_OMP_WORKSHARE
       tot_tend(:,:,:) = 0._wp
       hor_tend(:,:,:) = 0._wp
-!ICON_OMP_END_WORKSHARE
     END IF
 
     CALL rbf_vec_interpol_edge(p_nh_prog%vn, p_patch, p_int, vt_e, opt_rlend=min_rledge_int-1)
+
+    !Calculate rho at interface for vertical diffusion
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!ICON_OMP_PARALLEL 
+!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
+    DO jb = i_startblk,i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, rl_end)
+       DO jk = 2 , nlev
+         DO jc = i_startidx, i_endidx
+           inv_rho_ic(jc,jk,jb) = 1._wp / ( p_nh_metrics%wgtfac_c(jc,jk,jb)*p_nh_prog%rho(jc,jk,jb) + &
+                                  (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*p_nh_prog%rho(jc,jk-1,jb) )
+         END DO
+       END DO
+    END DO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
 
     ! 1) First get the horizontal tendencies at the half level edges
 
@@ -1189,9 +1379,9 @@ MODULE mo_sgs_turbulence
                      p_patch%edges%system_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
                      p_patch%edges%edge_cell_length(je,jb,1)
 
-         hor_tend(je,jk,jb) = ( (flux_up_c - flux_dn_c) * p_patch%edges%inv_dual_edge_length(je,jb) + &
-                                 p_patch%edges%system_orientation(je,jb) * (flux_up_v - flux_dn_v)  * &
-                                 p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp ) / rho_e(je,jk,jb)
+         hor_tend(je,jk,jb) = (flux_up_c - flux_dn_c) * p_patch%edges%inv_dual_edge_length(je,jb) + &
+                               p_patch%edges%system_orientation(je,jb) * (flux_up_v - flux_dn_v)  * &
+                               p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp 
 
        END DO
       END DO
@@ -1216,61 +1406,153 @@ MODULE mo_sgs_turbulence
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jk = 2 , nlev
-         DO jc = i_startidx, i_endidx
-      
-           tot_tend(jc,jk,jb) =                                                       &
-              (hor_tend(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb)  + &
-               hor_tend(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb)  + &
-               hor_tend(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))           
-      
+         DO jc = i_startidx, i_endidx     
+           tot_tend(jc,jk,jb) =                  inv_rho_ic(jc,jk,jb)                 * &
+               ( hor_tend(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb)  + &
+                 hor_tend(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb)  + &
+                 hor_tend(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb) )
          END DO
        END DO
     END DO
 !ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
 
-   ! 
-   ! 2) Vertical tendency: evaluated at w point
-   !
 
+    ! 
+    ! 2) Vertical tendency: evaluated at w point
+    !
+
+    SELECT CASE(les_config(jg)%vert_scheme_type)
+
+    CASE(iexplicit)
+    !Vertical tendency - explicit solver
+
+!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,flux_up_c,flux_dn_c, &
 !ICON_OMP            jkm1)
-    DO jb = i_startblk,i_endblk
+      DO jb = i_startblk,i_endblk
 
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-      DO jk = 2 , nlev
-       DO jc = i_startidx, i_endidx
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+        DO jk = 2 , nlev
+         DO jc = i_startidx, i_endidx
 
-         jkm1 = jk - 1
+           jkm1 = jk - 1
 
-         flux_up_c = visc_smag_c(jc,jkm1,jb) * ( (p_nh_prog%w(jc,jkm1,jb)-p_nh_prog%w(jc,jk,jb))* &
-                     p_nh_metrics%inv_ddqz_z_full(jc,jkm1,jb) - 0.333333_wp*DIV_c(jc,jkm1,jb) )
+           flux_up_c = visc_smag_c(jc,jkm1,jb) * ( (p_nh_prog%w(jc,jkm1,jb)-p_nh_prog%w(jc,jk,jb))* &
+                       p_nh_metrics%inv_ddqz_z_full(jc,jkm1,jb) - z_1by3*DIV_c(jc,jkm1,jb) )
 
-         flux_dn_c = visc_smag_c(jc,jk,jb) * ( (p_nh_prog%w(jc,jk,jb)-p_nh_prog%w(jc,jk+1,jb)) * &
-                     p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) - 0.333333_wp*DIV_c(jc,jk,jb) )
+           flux_dn_c = visc_smag_c(jc,jk,jb) * ( (p_nh_prog%w(jc,jk,jb)-p_nh_prog%w(jc,jk+1,jb)) * &
+                       p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) - z_1by3*DIV_c(jc,jk,jb) )
 
-         tot_tend(jc,jk,jb) = tot_tend(jc,jk,jb) + 2._wp * (flux_up_c - flux_dn_c) *  &
-                              p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) / p_nh_prog%rho(jc,jk,jb)
+           tot_tend(jc,jk,jb) = tot_tend(jc,jk,jb) + 2._wp * (flux_up_c - flux_dn_c) *  &
+                                p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * inv_rho_ic(jc,jk,jb)
 
-       END DO
-      END DO
-    END DO  
+         END DO
+        END DO
+      END DO  
 !ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
+    CASE(iimplicit)
+    !vertical tendency- implicit solver
+    !a*x(k-1)+b*x(k)+c*x(k+1)=rhs(k)
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jc,jb,jk,jkm1,i_startidx,i_endidx,a,b,c,rhs,var_new)
+      DO jb = i_startblk,i_endblk
+         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+         DO jc = i_startidx, i_endidx
+          DO jk = 3,nlev-1
+#else
+         DO jk = 3,nlev-1
+          DO jc = i_startidx, i_endidx
+#endif
+             jkm1 = jk - 1
+
+             a(jc,jk)   = - 2._wp * visc_smag_c(jc,jkm1,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jkm1,jb) * &
+                               p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * inv_rho_ic(jc,jk,jb)
+
+             c(jc,jk)   = - 2._wp * visc_smag_c(jc,jk,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
+                               p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * inv_rho_ic(jc,jk,jb)
+           
+             b(jc,jk)   =  inv_dt - a(jc,jk) - c(jc,jk)
+
+             rhs(jc,jk) =   p_nh_prog%w(jc,jk,jb) * inv_dt + &
+                               2._wp*( visc_smag_c(jc,jk,jb)*z_1by3*DIV_c(jc,jk,jb) -       &
+                                       visc_smag_c(jc,jkm1,jb)*z_1by3*DIV_c(jc,jkm1,jb) ) * &
+                                       p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * inv_rho_ic(jc,jk,jb)
+          END DO
+         END DO
+
+          !TOP Boundary treatment:w==0
+          !jk = 2
+          !
+          DO jc = i_startidx, i_endidx
+            c(jc,2)   = - 2._wp * visc_smag_c(jc,2,jb) * p_nh_metrics%inv_ddqz_z_full(jc,2,jb) * &
+                             p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * inv_rho_ic(jc,2,jb)
+            
+            b(jc,2)   = inv_dt - c(jc,2) + 2._wp * visc_smag_c(jc,1,jb) * &
+                           p_nh_metrics%inv_ddqz_z_full(jc,1,jb) *              &
+                           p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * inv_rho_ic(jc,2,jb)
+
+            rhs(jc,2) = p_nh_prog%w(jc,2,jb) * inv_dt +  &
+                           2._wp * ( visc_smag_c(jc,2,jb)*z_1by3*DIV_c(jc,2,jb) -   &
+                                     visc_smag_c(jc,1,jb)*z_1by3*DIV_c(jc,1,jb) ) * &                
+                            p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * inv_rho_ic(jc,2,jb)
+          END DO
+
+          !SFC Boundary treatment:w==0
+          !jk = nlev
+          !
+          DO jc = i_startidx, i_endidx
+            a(jc,nlev)  = - visc_smag_c(jc,nlev-1,jb) * p_nh_metrics%inv_ddqz_z_full(jc,nlev-1,jb) * &
+                               p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * 2._wp * inv_rho_ic(jc,nlev,jb)
+
+            b(jc,nlev)  = inv_dt - a(jc,nlev) + 2._wp * visc_smag_c(jc,nlev,jb) * &
+                             p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) *                 &
+                             p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * inv_rho_ic(jc,nlev,jb)
+
+            rhs(jc,nlev)= p_nh_prog%w(jc,nlev,jb) * inv_dt +  &
+                             2._wp * ( visc_smag_c(jc,nlev,jb)*z_1by3*DIV_c(jc,nlev,jb) -       &
+                                       visc_smag_c(jc,nlev-1,jb)*z_1by3*DIV_c(jc,nlev-1,jb) ) * & 
+                                       p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * inv_rho_ic(jc,nlev,jb)        
+          END DO
+
+          !CALL TDMA
+          DO jc = i_startidx, i_endidx
+            CALL tdma_solver(a(jc,2:nlev),b(jc,2:nlev),c(jc,2:nlev), &
+                             rhs(jc,2:nlev),nlev-1,var_new(2:nlev))
+
+            tot_tend(jc,2:nlev,jb) = tot_tend(jc,2:nlev,jb) +  &
+                                     ( var_new(2:nlev)-p_nh_prog%w(jc,2:nlev,jb) ) * inv_dt 
+         END DO
+
+      END DO !block
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
+    END SELECT !vert_scheme
 
     !Now update w
 
+!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-      DO jk = 2 , nlev
-       DO jc = i_startidx, i_endidx
-         p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) + dt * tot_tend(jc,jk,jb)
-       END DO
-      END DO
-    END DO  
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+        DO jk = 2 , nlev
+         DO jc = i_startidx, i_endidx
+           p_nh_prog%w(jc,jk,jb) = p_nh_prog%w(jc,jk,jb) + dt * tot_tend(jc,jk,jb)
+         END DO
+        END DO
+      END DO  
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
+
 
    CALL sync_patch_array(SYNC_C, p_patch, p_nh_prog%w)
 
@@ -1285,11 +1567,7 @@ MODULE mo_sgs_turbulence
   !! Calculate the SGS diffusion term for cell based scalars
   !! - Uses the forward Euler time scheme in time split (sequential) manner adopted
   !!   in the NH version.
-  !! - The Euler scheme is generally known to be unconditionaly unstable for diffusion term
-  !!   but it is not certain when implemented in time split manner
-  !! - This needs to be investigated and if found unstable we will switch to MacKormack 
-  !!   scheme which is known to be stable
-  !!  
+  !! - Option to switch on implicit scheme in vertical
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-05)
@@ -1309,25 +1587,28 @@ MODULE mo_sgs_turbulence
     CHARACTER(*), INTENT(in)             :: scalar_name    
 
     !Local variables
-    INTEGER, PARAMETER :: iexplicit = 1
-    INTEGER, PARAMETER :: iimplicit = 2
-    INTEGER, PARAMETER :: vert_scheme_type = iexplicit
-
     REAL(wp) :: flux_up, flux_dn, inv_dt
     REAL(wp) :: nabla2_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: fac(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: exner_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp) :: exner_me(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: sflux(nproma,p_patch%nblks_c)
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: a, b, c, rhs
-    REAL(wp), ALLOCATABLE, DIMENSION(:)     :: var_new
+
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: a, b, c, rhs
+    REAL(wp)                                 :: var_new(p_patch%nlev)
     REAL(wp), POINTER :: diff_smag_ic(:,:,:)
      
     INTEGER,  DIMENSION(:,:,:), POINTER :: iecidx, iecblk, ieidx, ieblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, je, jc
+    INTEGER :: jk, jb, je, jc, jg
     INTEGER  :: nlev              
+
+    IF (msg_level >= 15) &
+         CALL message(TRIM(inmodule), 'diffuse_scalar')
+
+    !patch id
+    jg = p_patch%id
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -1342,6 +1623,20 @@ MODULE mo_sgs_turbulence
 
     diff_smag_ic => prm_diag%tkvh
 
+    !multiply by exner to convert from theta tend to temp tend
+    !assuming that exner perturbation are small compared to temp
+
+    !1) First set exner local vars to 1 for other scalars
+    !   Soon get different routines for different scalars  
+    exner_me(:,:,:) = 1._wp
+    exner_ic(:,:,:) = 1._wp
+
+    !2) Calculate exner at edge for horizontal diffusion
+     IF(TRIM(scalar_name)=='theta') &
+        CALL cells2edges_scalar(exner, p_patch, p_int%c_lin_e, exner_me, opt_rlend=min_rledge_int-2)
+   
+    !3) Calculate exner at interface for vertical diffusion
+
 !ICON_OMP_PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -1349,14 +1644,8 @@ MODULE mo_sgs_turbulence
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !multiply by exner to convert from theta tend to temp tend
-    !assuming that exner perturbation are small compared to temp
     IF(TRIM(scalar_name)=='theta')THEN 
 
-      !Calculate exner at edge for horizontal diffusion
-      CALL cells2edges_scalar(exner, p_patch, p_int%c_lin_e, exner_me, opt_rlend=min_rledge_int-2)
-
-      !Calculate exner at interface for vertical diffusion
 !ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1375,11 +1664,6 @@ MODULE mo_sgs_turbulence
          ENDDO
       END DO
 !ICON_OMP_END_DO
-
-    ELSE 
-
-      exner_me(:,:,:) = 1._wp
-      exner_ic(:,:,:) = 1._wp
 
     END IF
 
@@ -1485,6 +1769,7 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
+
        !---------------------------------------------------------------
        !Vertical diffusion
        !---------------------------------------------------------------
@@ -1496,157 +1781,134 @@ MODULE mo_sgs_turbulence
        i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-       SELECT CASE(vert_scheme_type)
+       SELECT CASE(les_config(jg)%vert_scheme_type)
 
        CASE(iexplicit)
        !Vertical tendency - explicit solver
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,flux_up,flux_dn)
-        DO jb = i_startblk,i_endblk
+         DO jb = i_startblk,i_endblk
+ 
+           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                              i_startidx, i_endidx, rl_start, rl_end)
 
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2, nlev-1
-            DO jc = i_startidx, i_endidx
-              flux_up = diff_smag_ic(jc,jk,jb) * (var(jc,jk-1,jb) - var(jc,jk,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * exner_ic(jc,jk,jb)
+#ifdef __LOOP_EXCHANGE
+           DO jc = i_startidx, i_endidx
+             DO jk = 2, nlev-1
+#else
+           DO jk = 2, nlev-1
+             DO jc = i_startidx, i_endidx
+#endif
+               flux_up = diff_smag_ic(jc,jk,jb) * (var(jc,jk-1,jb) - var(jc,jk,jb)) * &
+                         p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * exner_ic(jc,jk,jb)
+ 
+               flux_dn = diff_smag_ic(jc,jk+1,jb) * (var(jc,jk,jb) - var(jc,jk+1,jb)) * &
+                         p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * exner_ic(jc,jk+1,jb) 
+ 
+               tot_tend(jc,jk,jb) = tot_tend(jc,jk,jb) + (flux_up - flux_dn) *  &
+                               p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * fac(jc,jk,jb)
+ 
+             ENDDO
+           ENDDO
 
-              flux_dn = diff_smag_ic(jc,jk+1,jb) * (var(jc,jk,jb) - var(jc,jk+1,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * exner_ic(jc,jk+1,jb) 
-
-              tot_tend(jc,jk,jb) = tot_tend(jc,jk,jb) + (flux_up - flux_dn) *  &
-                              p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * fac(jc,jk,jb)
-
-            ENDDO
-          ENDDO
-        ENDDO
-!ICON_OMP_END_DO
-
-        !Boundary treatment
+             !Boundary treatment
        
-        !--------------------------------------------------------    
-        !jk = 1        
-        !--------------------------------------------------------    
-!ICON_OMP_DO PRIVATE(jc,jb,i_startidx,i_endidx,flux_dn,flux_up)
-        DO jb = i_startblk,i_endblk
+             !--------------------------------------------------------    
+             !jk = 1        
+             !--------------------------------------------------------    
+             DO jc = i_startidx, i_endidx
+               flux_up = 0._wp
 
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-            DO jc = i_startidx, i_endidx
-              flux_up = 0._wp
+               flux_dn = diff_smag_ic(jc,2,jb) * (var(jc,1,jb) - var(jc,2,jb)) * &
+                         p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * exner_ic(jc,2,jb)
 
-              flux_dn = diff_smag_ic(jc,2,jb) * (var(jc,1,jb) - var(jc,2,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * exner_ic(jc,2,jb)
+               tot_tend(jc,1,jb) = tot_tend(jc,1,jb) + (flux_up- flux_dn) * &
+                           p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * fac(jc,1,jb)
+             ENDDO
+             !--------------------------------------------------------    
+             !jk = nlev
+             !--------------------------------------------------------    
+             DO jc = i_startidx, i_endidx
+               flux_up = diff_smag_ic(jc,nlev,jb) * (var(jc,nlev-1,jb) - var(jc,nlev,jb)) * &
+                         p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * exner_ic(jc,nlev,jb)
 
-              tot_tend(jc,1,jb) = tot_tend(jc,1,jb) + (flux_up- flux_dn) * &
-                          p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * fac(jc,1,jb)
-            ENDDO
-        ENDDO
-!ICON_OMP_END_DO
-
-        !--------------------------------------------------------    
-        !jk = nlev
-        !--------------------------------------------------------    
-
-!ICON_OMP_DO PRIVATE(jc,jb,i_startidx,i_endidx,flux_up,flux_dn)
-        DO jb = i_startblk,i_endblk
-
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-            DO jc = i_startidx, i_endidx
-              flux_up = diff_smag_ic(jc,nlev,jb) * (var(jc,nlev-1,jb) - var(jc,nlev,jb)) * &
-                        p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * exner_ic(jc,nlev,jb)
-
-              flux_dn  = -sflux(jc,jb) * exner_ic(jc,nlev+1,jb)
-
-              tot_tend(jc,nlev,jb) = tot_tend(jc,nlev,jb) + (flux_up - flux_dn) * & 
-                      p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * fac(jc,nlev,jb)
-            ENDDO
-        ENDDO
+               flux_dn  = -sflux(jc,jb) * exner_ic(jc,nlev+1,jb)
+ 
+               tot_tend(jc,nlev,jb) = tot_tend(jc,nlev,jb) + (flux_up - flux_dn) * & 
+                       p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * fac(jc,nlev,jb)
+             ENDDO
+         END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
        
        CASE(iimplicit)
 
-        !vertical tendency- implicit solver
-        !a*x(k-1)+b*x(k)+c*x(k+1)=rhs(k)
-
-       ! LL: The local arrays should be private for each block, then the allocation and the solver will be called inside the omp section
-       ALLOCATE( a(nproma,nlev,p_patch%nblks_c), b(nproma,nlev,p_patch%nblks_c), var_new(nlev),  &
-                 c(nproma,nlev,p_patch%nblks_c), rhs(nproma,nlev,p_patch%nblks_c) )
+         !vertical tendency- implicit solver
+         !a*x(k-1)+b*x(k)+c*x(k+1)=rhs(k)
 
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
-       DO jb = i_startblk,i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2,nlev-1
-            DO jc = i_startidx, i_endidx
-              a(jc,jk,jb)   = - diff_smag_ic(jc,jk,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                              p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * exner_ic(jc,jk,jb) 
+!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,a,b,c,rhs,var_new)
+         DO jb = i_startblk,i_endblk
+            CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                               i_startidx, i_endidx, rl_start, rl_end)
+#ifdef __LOOP_EXCHANGE
+           DO jc = i_startidx, i_endidx
+             DO jk = 2, nlev-1
+#else
+           DO jk = 2, nlev-1
+             DO jc = i_startidx, i_endidx
+#endif
+                a(jc,jk)   = - diff_smag_ic(jc,jk,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
+                              p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) * exner_ic(jc,jk,jb) * fac(jc,jk,jb) 
 
-              c(jc,jk,jb)   = - diff_smag_ic(jc,jk+1,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                              p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * exner_ic(jc,jk+1,jb)
+                c(jc,jk)   = - diff_smag_ic(jc,jk+1,jb) * p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
+                              p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) * exner_ic(jc,jk+1,jb) * fac(jc,jk,jb)
            
-              b(jc,jk,jb)   =  inv_dt - a(jc,jk,jb) - c(jc,jk,jb)
+                b(jc,jk)   =  inv_dt - a(jc,jk) - c(jc,jk)
 
-              rhs(jc,jk,jb) =   var(jc,jk,jb) * inv_dt
+                rhs(jc,jk) =   var(jc,jk,jb) * inv_dt
+              END DO
             END DO
-          END DO
-       END DO
-!ICON_OMP_END_DO
 
-      !TOP Boundary treatment
-      ! jk = 1
-      !
-!ICON_OMP_DO PRIVATE(jc,jb,i_startidx,i_endidx)
-       DO jb = i_startblk,i_endblk
-         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
-            a(jc,1,jb)   = 0._wp
-            c(jc,1,jb)   = -diff_smag_ic(jc,2,jb) * p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * &
-                             p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * exner_ic(jc,2,jb) 
-            b(jc,1,jb)   = inv_dt - a(jc,1,jb) - c(jc,1,jb)
-            rhs(jc,1,jb) = var(jc,1,jb) * inv_dt 
-          END DO
-       END DO     
-!ICON_OMP_END_DO
+              !TOP Boundary treatment
+              ! jk = 1
+              !
+             DO jc = i_startidx, i_endidx
+              c(jc,1)   = -diff_smag_ic(jc,2,jb) * p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * &
+                              p_nh_metrics%inv_ddqz_z_half(jc,2,jb) * exner_ic(jc,2,jb) * fac(jc,1,jb)
 
-       !SFC Boundary treatment
-       !jk = nlev
-       !
-!ICON_OMP_DO PRIVATE(jc,jb,i_startidx,i_endidx)
-       DO jb = i_startblk,i_endblk
-         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-          DO jc = i_startidx, i_endidx
-            a(jc,nlev,jb)  = - diff_smag_ic(jc,nlev,jb) * p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * &
-                           p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * exner_ic(jc,nlev,jb)
-            c(jc,nlev,jb)  = 0._wp
-            b(jc,nlev,jb)  = inv_dt - a(jc,nlev,jb) - c(jc,nlev,jb)
-            rhs(jc,nlev,jb)= var(jc,nlev,jb) * inv_dt + sflux(jc,jb) * exner_ic(jc,nlev+1,jb) * &
-                                                        p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) 
-          END DO
-       END DO
-!ICON_OMP_END_DO
+              b(jc,1)   = inv_dt - c(jc,1)
+
+              rhs(jc,1) = var(jc,1,jb) * inv_dt 
+            END DO
+
+            !SFC Boundary treatment
+            !jk = nlev
+            !
+            DO jc = i_startidx, i_endidx
+              a(jc,nlev)  = - diff_smag_ic(jc,nlev,jb) * p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * &
+                             p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * exner_ic(jc,nlev,jb) * fac(jc,nlev,jb)
+
+              b(jc,nlev)  = inv_dt - a(jc,nlev) 
+
+              rhs(jc,nlev)= var(jc,nlev,jb) * inv_dt + sflux(jc,jb) * exner_ic(jc,nlev+1,jb) * &
+                             p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * fac(jc,nlev,jb)
+            END DO
+
+           !CALL TDMA
+           DO jc = i_startidx, i_endidx
+              CALL tdma_solver(a(jc,:),b(jc,:),c(jc,:),rhs(jc,:),nlev,var_new)
+
+              tot_tend(jc,:,jb) = tot_tend(jc,:,jb) + ( var_new(:) - var(jc,:,jb) ) * inv_dt
+           END DO
+
+         END DO!block
+!ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
 
-       !CALL TDMA
-
-       DO jb = i_startblk,i_endblk
-         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                            i_startidx, i_endidx, rl_start, rl_end)
-         DO jc = i_startidx, i_endidx
-            CALL tdma_solver(a(jc,:,jb),b(jc,:,jb),c(jc,:,jb),rhs(jc,:,jb),nlev,var_new)
-            tot_tend(jc,:,jb) = tot_tend(jc,:,jb) + (var_new(:)-var(jc,:,jb))*inv_dt*fac(jc,:,jb)
-         END DO
-       END DO
-
-       DEALLOCATE( a, b, c, rhs, var_new )
-
     END SELECT !vert_scheme
+
 
   END SUBROUTINE diffuse_scalar
 

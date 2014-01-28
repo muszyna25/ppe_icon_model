@@ -59,15 +59,7 @@ l_log_checks       = .false.
  lhs_nh_vn_ptb  = .FALSE.     ! No random noise superposed on the initial condition
 /
 &io_ctl
- out_expname = '${EXPNAME}' ! file name base
- dt_data     = 86400.0      ! [s] output interval (daily)
- dt_file     = ${DT_FILE}   ! 10 days per file
  dt_diag     = ${DT_DIAG}
- lwrite_vorticity = .TRUE.
- lwrite_pres   = .TRUE.
- lwrite_z3     = .TRUE.
- lwrite_omega  = .TRUE.
- lwrite_divergence = .TRUE.
 /
 &grid_ctl
  nroot       = ${R}         ! root division of icosahedron edges

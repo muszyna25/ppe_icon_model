@@ -96,7 +96,7 @@ case levtype of
      vartitle = varname
      varplot  = varname
      end 
-  '114': 
+   114:
      vartitle = varname
      varplot  = varname
      end 
@@ -158,22 +158,22 @@ case varname of
  'SNOW_CON':  varfile = 'csrwe'       end    # 0.1.55
  'SNOW_GSP':  varfile = 'lssrwe'      end    # 0.1.56
  'TCC'     :  varfile = '0.6.1'       end
- 'TQV'     :  varfile = 'tciwv'       end    # 0.1.64
- 'TQC'     :  varfile = '0.1.69'      end
- 'TQI'     :  varfile = '0.1.70'      end
- 'TQ1'     :  varfile = '0.1.221'     end
- 'TQ2'     :  varfile = '0.1.222'     end
- 'TQ3'     :  varfile = '0.1.223'     end
- 'TQ4'     :  varfile = '0.1.224'     end
- 'TQ5'     :  varfile = '0.1.225'     end
- 'QV'      :  varfile = '192.201.28'  end
- 'QC'      :  varfile = 'qc'          end
- 'QI'      :  varfile = 'qi'          end
- 'Q1'      :  varfile = 'q'           end
- 'Q2'      :  varfile = 'clwmr'       end
- 'Q3'      :  varfile = '0.1.82'      end
- 'QR'      :  varfile = 'rwmr'        end
- 'QS'      :  varfile = 'snmr'        end
+ 'TQV'     :  varfile = '0.1.214'     end    # diag
+ 'TQC'     :  varfile = '0.1.215'     end    # diag
+ 'TQI'     :  varfile = '0.1.216'     end    # diag
+ 'TQ1'     :  varfile = 'tciwv'       end    # prog
+ 'TQ2'     :  varfile = '0.1.69'      end    # prog
+ 'TQ3'     :  varfile = '0.1.70'      end    # prog
+ 'TQ4'     :  varfile = 'tcolr'       end    # prog
+ 'TQ5'     :  varfile = 'tcols'       end    # prog
+ 'QV'      :  varfile = '0.1.211'     end    # diag
+ 'QC'      :  varfile = '0.1.212'     end    # diag
+ 'QI'      :  varfile = '0.1.213'     end    # diag
+ 'Q1'      :  varfile = 'q'           end    # prog
+ 'Q2'      :  varfile = 'clwmr'       end    # prog
+ 'Q3'      :  varfile = '0.1.82'      end    # prog
+ 'QR'      :  varfile = 'rwmr'        end    # prog
+ 'QS'      :  varfile = 'snmr'        end    # prog
  'CC'      :  varfile = '0.6.22'      end
  'QTVAR'   :  varfile = '192.201.39'  end
  'ttendsw' :  varfile = '192.162.100' end
@@ -209,8 +209,8 @@ end if
 varfile2 = varfile
 case varname of
  'QV'      :  varfile2 = 'q'          end  # compare to Q1 initial condition
- 'QC'      :  varfile2 = 'qc'         end
- 'QI'      :  varfile2 = 'qi'         end
+ 'QC'      :  varfile2 = 'clwmr'      end
+ 'QI'      :  varfile2 = '0.1.82'     end
 end case
 
 

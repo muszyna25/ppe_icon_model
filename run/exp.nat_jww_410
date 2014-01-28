@@ -163,11 +163,8 @@ inwp_surface    = 0
 ! plevels          = 85000.
 !/
 &io_nml
- out_expname     = '${EXPNAME}'     ! file name base
- dt_data         = ${dt_data}       ! [s]
  dt_diag         = ${dt_diag}       ! [s]
  dt_checkpoint   = ${dt_checkpoint} ! [s]
- dt_file         = ${dt_file}       ! [s]
 /
 &output_nml
  filetype         = 4                ! this is the default, probably doesn't need to be here

@@ -1009,7 +1009,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   
-  SUBROUTINE sucumf(ksmax,klev,pmean,phy_params)
+  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params)
     
     !>
     !! Description:
@@ -1042,7 +1042,8 @@ CONTAINS
 
     ! NFLEVG : number of levels in grid point space
     INTEGER(KIND=jpim) :: nflevg
-    INTEGER(KIND=jpim), INTENT(in) :: ksmax, klev
+    INTEGER(KIND=jpim), INTENT(in) :: klev
+    REAL(KIND=jprb)   , INTENT(in) :: rsltn
     REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
     TYPE(t_phy_params), INTENT(inout) :: phy_params
     !* change to operations
@@ -1166,12 +1167,13 @@ CONTAINS
     !     CONVECTIVE ADJUSTMENT TIME TAU=Z_cld/W_cld*rtau
     !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
 
-    phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
+    !phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
+    phy_params%tau=1.0_JPRB+rsltn/75E3_JPRB
     phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
     ! ** CAPE correction to improve diurnal cycle of convection **
     icapdcycl = 0  ! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
-                   ! 1=    CAPE - surface buoyancy flux (intermediate testing option9
+                   ! 1=    CAPE - surface buoyancy flux (intermediate testing option)
                    ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
 
     phy_params%tau0 = 1.0_jprb
@@ -1196,7 +1198,7 @@ CONTAINS
     !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
     !     -------
 
-    IF( ksmax>=511 ) THEN
+    IF( rsltn<=39000 ) THEN
       phy_params%mfcfl=3.0_JPRB
     ELSE
       phy_params%mfcfl=5.0_JPRB
@@ -1254,7 +1256,7 @@ CONTAINS
     !PRINT*,'I am ', myrank,' of ', size
 
 #ifdef __GME__
-    WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' KSMAX=',ksmax
+    WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' RESOLUTION=',rsltn
     !WRITE(6,*)'SUCUMF: KSMAX=',KSMAX
     WRITE(UNIT=nulout,FMT='('' COMMON YOECUMF '')')
     WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
@@ -1266,7 +1268,7 @@ CONTAINS
 #ifdef __ICON__
     CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
     !WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
-    WRITE(message_text,'(i7,i7,i7,i7)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, ksmax
+    WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
     CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
     CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU')
     !WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU

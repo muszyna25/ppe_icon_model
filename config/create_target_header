@@ -159,7 +159,7 @@ link_required_files()
   i=0
   while [ \$i -lt \$number_of_linked_files ]
   do
-    ln -s \${input_linked_file[\${i}]} \${input_linked_file[\${i}]}
+    ln -s \${input_linked_file[\${i}]} \${output_linked_file[\${i}]}
    (( i=i+1 ))
   done    
 }
@@ -244,6 +244,8 @@ second=1                                 # [s] 1 second
 minute=60                                # [s] 1 minute
 hour=3600                                # [s] 1 hour
 day=86400                                # [s] 1 day
+month=2592000                            # [s] 30 days
+year=315705600                           # [s] 1 year
 #=============================================================================
 EOF
 
@@ -808,7 +810,7 @@ set_run_target_hpc()
   set_default use_mpi_procs_pernode 1
   set_default use_openmp_threads 1
 
-  cdo="/e/uhome/extrmuel/local/bin/cdo"
+  cdo="/e/uhome/hanlauf/X86_64/bin/cdo"
   cdo_diff="diff"
 
     

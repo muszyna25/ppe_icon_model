@@ -49,7 +49,7 @@ MODULE mo_art_emission_interface
     USE mo_exception,             ONLY: message, message_text, finish
     USE mo_datetime,              ONLY: t_datetime
     USE mo_linked_list,           ONLY: t_var_list,t_list_element
-    USE mo_var_metadata,          ONLY: t_var_metadata
+    USE mo_var_metadata_types,    ONLY: t_var_metadata
 #ifdef __ICON_ART
     USE mo_art_emission_volc,     ONLY: art_organize_emission_volc
     USE mo_art_radioactive,       ONLY: art_emiss_radioact

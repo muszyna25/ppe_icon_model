@@ -128,6 +128,9 @@ MODULE mo_nwp_phy_types
       &  ::                    &
       &   rain_gsp_rate(:,:),  & !! grid-scale surface rain rate                         [kg/m2/s]
       &   snow_gsp_rate(:,:),  & !! grid_scale surface snow rate                         [kg/m2/s]
+      &   ice_gsp_rate(:,:),   & !! grid_scale surface ice rate                          [kg/m2/s]
+      &   graupel_gsp_rate(:,:),&!! grid_scale surface graupel rate                      [kg/m2/s]
+      &   hail_gsp_rate(:,:),  & !! grid_scale surface hail rate                         [kg/m2/s]
       &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
       &   snow_con_rate(:,:),  & !! convective surface snow_rate                         [kg/m2/s]
       &   rain_con_rate_3d(:,:,:),  & !! 3d convective rain rate                         [kg/m2/s]
@@ -228,7 +231,7 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS         &
 #endif
       ::                   &
-      rcld(:,:,:)      ,   & !> standard deviation of the saturation deficit    --
+      rcld(:,:,:)     ,    & !> standard deviation of the saturation deficit    --
       tcm(:,:)        ,    & !! turbulent transfer coefficients for momentum    --
       tch(:,:)        ,    & !! turbulent transfer coefficients for heat        --
       tfm(:,:)        ,    & !! factor of laminar transfer of momentum          --
@@ -239,19 +242,16 @@ MODULE mo_nwp_phy_types
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
       tkvh(:,:,:),         & !! turbulent diffusion coefficients for heat     (m/s2 )
       t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )
-      t_2m_s6avg(:,:),     & !! 6 hourly sample 2 m temperature average       (  K  )
       tmax_2m(:,:)    ,    & !! maximum temperature in 2m (for specified timerange) ( K )
       tmin_2m(:,:)    ,    & !! minimum temperature in 2m (for specified timerange) ( K )
       qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
-      qv_2m_s6avg(:,:),    & !! 6 hourly sample 2 m specific water vapor content average   (kg/kg)
       td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )
       rh_2m (:,:)     ,    & !! relative humidity in 2m                       (  %  )
       u_10m (:,:)     ,    & !! zonal wind in 10m                             ( m/s )
       v_10m (:,:)     ,    & !! meridional wind in 10m                        ( m/s )
-      u_10m_s6avg (:,:),   & !! 6 hourly sample 10m zonal wind  average       ( m/s )
-      v_10m_s6avg (:,:),   & !! 6 hourly sample 10m  meridional wind average  ( m/s )
-      dyn_gust(:,:),       & !! dynamic gust at 10m                           ( m/s )
-      gust10(:,:),         & !! max. gust at 10m                              ( m/s )
+      sp_10m(:,:)     ,    & !! wind speed in 10m                             ( m/s )
+      dyn_gust(:,:)   ,    & !! dynamic gust at 10m                           ( m/s )
+      gust10(:,:)     ,    & !! max. gust at 10m                              ( m/s )
       edr   (:,:,:)    ,   & !! eddy dissipation rate
       tcm_t(:,:,:)     ,   & !! turbulent transfer coefficients for momentum    --
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
@@ -321,6 +321,10 @@ MODULE mo_nwp_phy_types
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &
       rh(:,:,:)               !> relative humidity
+
+    !> Special 1D and 0D diagnostics for LES runs
+    REAL(wp), ALLOCATABLE :: &
+      turb_diag_1dvar(:,:), turb_diag_0dvar(:)  
 
   END TYPE t_nwp_phy_diag
   !

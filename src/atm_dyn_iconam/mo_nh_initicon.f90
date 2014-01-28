@@ -45,8 +45,6 @@ MODULE mo_nh_initicon
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: msg_level, nvclev, iqv, iqc, iqi, iqr, iqs
-  USE mo_extpar_config,       ONLY: extpar_filename,     &
-    &                               generate_extpar_filename => generate_filename
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -72,7 +70,7 @@ MODULE mo_nh_initicon
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_netcdf_read,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
-  USE mo_util_grib,           ONLY: read_grib_2d, read_grib_3d, get_varID
+  USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d
   USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_util_string,         ONLY: tolower, toupper, difference, add_to_list, one_of
@@ -94,24 +92,20 @@ MODULE mo_nh_initicon
   USE mo_dictionary,          ONLY: t_dictionary, dict_init, dict_finalize, &
     &                               dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_post_op,             ONLY: perform_post_op
-  USE mo_var_metadata,        ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
+  USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group, &
     &                               total_number_of_variables
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, filetype_nc2, filetype_grb2, &
-    &                               zaxisInqType, ZAXIS_HYBRID, ZAXIS_HYBRID_HALF,    &
-    &                               ZAXIS_HEIGHT, vlistInqVarZaxis, vlistNvars,       &
-    &                               streamInqVlist, streamOpenRead, streamInqNvars
+    &                               vlistInqVarZaxis, vlistNvars, streamInqVlist,     &
+    &                               streamOpenRead, streamInqNvars
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
     &                               t_bool_table
-  USE mo_nwp_phy_state,       ONLY: prm_nwp_diag_list
-  USE mo_data_flake,          ONLY: rflk_depth_bs_ref, tpl_T_f, tpl_T_r, C_T_min
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_io_util,             ONLY: get_filetype
-  USE mo_limarea_config,      ONLY: latbc_config
 
   IMPLICIT NONE
 
@@ -268,7 +262,7 @@ MODULE mo_nh_initicon
     SELECT CASE(init_mode)
     CASE(MODE_DWDANA)   ! read in DWD analysis
 
-      CALL message(TRIM(routine),'Real-data mode: perform initialization with DWD analysis')
+      CALL message(TRIM(routine),'MODE_DWD: perform initialization with DWD analysis')
 
       ! process DWD atmosphere analysis data
       CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state)
@@ -278,7 +272,7 @@ MODULE mo_nh_initicon
 
     CASE(MODE_IFSANA)   ! read in IFS analysis
 
-      CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS analysis')
+      CALL message(TRIM(routine),'MODE_IFS: perform initialization with IFS analysis')
 
       ! process IFS atmosphere analysis data
       CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
@@ -288,7 +282,11 @@ MODULE mo_nh_initicon
 
     CASE(MODE_COMBINED,MODE_COSMODE)
 
-      CALL message(TRIM(routine),'Real-data mode: IFS-atm + GME-soil')
+      IF (init_mode == MODE_COMBINED) THEN
+        CALL message(TRIM(routine),'MODE_COMBINED: IFS-atm + GME-soil')
+      ELSE
+        CALL message(TRIM(routine),'MODE_COSMODE: IFS-atm + GME-soil')
+      ENDIF
 
       ! process IFS atmosphere analysis data
       CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
@@ -462,7 +460,7 @@ MODULE mo_nh_initicon
           CALL print_cdi_summary(vlistID)
         END DO
       ENDIF  ! lread_ana
-    END IF
+    END IF  ! p_pe == p_io
 
 
 
@@ -513,7 +511,7 @@ MODULE mo_nh_initicon
   !>
   !! SUBROUTINE process_dwdana_atm
   !! Initialization routine of icon:
-  !! - Reads DWD first guess and DA increments (atmosphere only). 
+  !! - Reads DWD first guess and analysis(atmosphere only). 
   !!   Data are directly written to the prognostic NH state and added.
   !! - resulting fields are converted to the NH set of prognostic variables
   !!
@@ -552,7 +550,7 @@ MODULE mo_nh_initicon
   !! Initialization routine of icon:
   !! - Reads DWD first guess (land/surface only). Data are directly
   !!   written to the prognostic model variables
-  !! - reads DWD DA inrements (land/surface only). Data are written 
+  !! - reads DWD analysis (land/surface only). Data are written 
   !!   to intermediate initicon variables
   !! - first guess and increments are added and resulting fields are 
   !!   converted to the NH set of prognostic variables
@@ -580,8 +578,8 @@ MODULE mo_nh_initicon
     CALL read_dwdana_sfc(p_patch, prm_diag, p_lnd_state)
 
 
-    ! add increments to first guess and convert variables to 
-    ! the NH set of prognostic variables
+    ! get SST from first soil level t_so (for sea and lake points)
+    ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
 
   END SUBROUTINE process_dwdana_sfc
@@ -729,8 +727,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_2d(fileid, varname, glb_arr_len, loc_arr_len, &
-          &                    glb_index, var_out)
+        CALL read_cdi_2d(fileid, varname, glb_arr_len, loc_arr_len, &
+          &              glb_index, var_out)
 
       CASE (FILETYPE_GRB2)
         IF(p_pe == p_io .AND. msg_level>10) THEN
@@ -738,8 +736,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
-          &                    glb_index, var_out, opt_tileidx)
+        CALL read_cdi_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
+          &              glb_index, var_out, opt_tileidx)
 
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
@@ -799,8 +797,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_3d (fileid, varname, glb_arr_len, loc_arr_len, &
-          &                glb_index, nlevs, var_out)
+        CALL read_cdi_3d (fileid, varname, glb_arr_len, loc_arr_len, &
+          &               glb_index, nlevs, var_out)
 
       CASE (FILETYPE_GRB2)
         IF(p_pe == p_io .AND. msg_level>10 ) THEN
@@ -808,8 +806,8 @@ MODULE mo_nh_initicon
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_grib_3d (fileid, mapped_name, glb_arr_len, loc_arr_len, &
-          &                glb_index, nlevs, var_out, opt_tileidx)
+        CALL read_cdi_3d (fileid, mapped_name, glb_arr_len, loc_arr_len, &
+          &               glb_index, nlevs, var_out, opt_tileidx)
 
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
@@ -907,26 +905,31 @@ MODULE mo_nh_initicon
 
 
 
+
   !-------------
   !>
   !! SUBROUTINE create_input_groups
-  !! Generates groups 'in_grp_vars_fg' and 'in_grp_vars_ana', which contain those fields which 
+  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain those fields which 
   !! must be read from the FG- and ANA-File, respectively.
-  !! Both groups are based in the ICON-internal output groups "dwd_fg_sfc_in", "dwd_ana_sfc_in", 
-  !! "dwd_fg_atm_in", and "dwd_ana_atm_in".
-  !! In a first step it is checked, whether the ANA-File contains all members of the group 'in_grp_vars_ana'.
+  !! Both groups are based on two of a bunch of available ICON-internal output groups, depending on 
+  !! which input mode is used
+  !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
+  !! groups for MODE_COMBINED: mode_combined_in
+  !! groups for MODE_COSMODE : mode_cosmode_in
+  !!
+  !! In a first step it is checked, whether the ANA-File contains all members of the group 'grp_vars_ana'.
   !! If a member is missing, it is checked (based on the group grp_vars_ana_mandatory) whether the 
   !! ANA-Field is mandatory or not. If the field is mandatory, i.e. if it is part of the group 
   !! grp_vars_ana_mandatory provided via Namelist, the model aborts. If it is not mandatory, the model 
   !! tries to fall back to the corresponding FG-Field. This is done as follows:
-  !! The missing ANA-Field is removed from the group 'in_grp_vars_ana' and added to the group 
+  !! The missing ANA-Field is removed from the group 'grp_vars_ana' and added to the group 
   !! 'in_grp_vars_fg'. A warning is issued, however the model does not abort. In a second step it is 
-  !! checked, whether the FG-File contains all members of the group 'in_grp_vars_fg'. If this is not the 
+  !! checked, whether the FG-File contains all members of the group 'grp_vars_fg'. If this is not the 
   !! case, the model aborts.
   !! At the end, a table is printed that shows which variables are part of which input group, meaning 
   !! which field will be read from which file.
   !!
-  !! Special case: lread_ana=.FALSE.  : In this case, ICON will be started from first guess fields, only
+  !! Special case: lread_ana=.FALSE.  : In this case, ICON will be started from first guess fields only
   !!                                    The analysis group varlist is re-set to 0 accordingly.
   !!
   !! @par Revision History
@@ -942,10 +945,10 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg_default(:)   ! default vars fg-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana_default(:)  ! default vars ana-file
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg     ! number of fields in dwd_fg_sfc_in
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana    ! number of fields in dwd_ana_sfc_in
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg_default  ! default number dwd_fg_sfc_in
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana_default ! default number dwd_ana_sfc_in
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg     ! number of fields in grp_vars_fg
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana    ! number of fields in grp_vars_ana
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg_default  ! default number grp_vars_fg
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana_default ! default number grp_vars_ana
     INTEGER                   , INTENT(IN)    :: init_mode        ! initialization mode
 
     ! local variables
@@ -961,14 +964,6 @@ MODULE mo_nh_initicon
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:create_input_groups'
     TYPE(t_bool_table) :: bool_table
-
-    ! local groups
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_sfc(SIZE(grp_vars_fg_default))
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_atm(SIZE(grp_vars_fg_default))
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_sfc(SIZE(grp_vars_ana_default))
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_atm(SIZE(grp_vars_ana_default))
-    INTEGER :: ngrp_vars_fg_sfc, ngrp_vars_fg_atm    ! group length
-    INTEGER :: ngrp_vars_ana_sfc, ngrp_vars_ana_atm  ! group length
 
     ! list of mandatory analysis fields (provided via Namelist)
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_mandatory(SIZE(grp_vars_ana_default))
@@ -988,114 +983,76 @@ MODULE mo_nh_initicon
       ! 1: Collect groups
       !====================
 
-      ! Collect group 'grp_vars_fg_sfc' from dwd_fg_sfc_in
-      !
-      grp_name ='dwd_fg_sfc_in' 
-      CALL collect_group(TRIM(grp_name), grp_vars_fg_sfc, ngrp_vars_fg_sfc,    &
-        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+      SELECT CASE(init_mode)
+        CASE(MODE_DWDANA)
+          ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
+          !
+          grp_name ='mode_dwd_fg_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
-      ! Special HACK for MODE_COMBINED and MODE_COSMODE:
-      ! remove z0 from grp_vars_fg, if init_mode=MODE_COMBINED,MODE_COSMODE, 
-      ! since it must not be read from GME soil input data.
-      IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-        CALL difference(grp_vars_fg_sfc, ngrp_vars_fg_sfc, (/'gz0'/), 1)
-      ENDIF
+          ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
+          !
+          grp_name ='mode_dwd_ana_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
+          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
+          ! the reading stuff
+          !
+          IF (lread_ana) THEN
+            ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
 
-      ! Collect group 'grp_vars_fg_atm' from dwd_fg_atm_in
-      !
-      grp_name ='dwd_fg_atm_in' 
-      CALL collect_group(TRIM(grp_name), grp_vars_fg_atm, ngrp_vars_fg_atm,    &
-        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+            ngrp_vars_fg  = ngrp_vars_fg_default
+            ngrp_vars_ana = ngrp_vars_ana_default
+          ELSE
+            ! lump together grp_vars_fg_default and grp_vars_ana_default
+            !
+            ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
+            ngrp_vars_fg = 0
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_default(1:ngrp_vars_fg_default)  , &
+              &              ngrp_vars_fg_default)
+            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(1:ngrp_vars_ana_default), &
+              &              ngrp_vars_ana_default)
 
+            ! Remove fields 'u', 'v', 'temp', 'pres'
+            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
 
-      ! Collect group 'grp_vars_ana_sfc' from dwd_ana_sfc_in
-      !
-      grp_name ='dwd_ana_sfc_in' 
-      CALL collect_group(TRIM(grp_name), grp_vars_ana_sfc, ngrp_vars_ana_sfc,  &
-        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-      ! Collect group 'grp_vars_ana_atm' from dwd_ana_atm_in
-      !
-      grp_name ='dwd_ana_atm_in' 
-      CALL collect_group(TRIM(grp_name), grp_vars_ana_atm, ngrp_vars_ana_atm,  &
-        &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-
-      ! Generate default groups:
-      ! Join groups 'surface' and 'atmosphere' into one
-      !
-      ! grp_vars_fg_default = grp_vars_fg_sfc + grp_vars_fg_atm
-      ngrp_vars_fg_default = 0
-      CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default,            &
-        &              grp_vars_fg_sfc(1:ngrp_vars_fg_sfc), ngrp_vars_fg_sfc)
-      
-      CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default,            &
-        &              grp_vars_fg_atm(1:ngrp_vars_fg_atm), ngrp_vars_fg_atm)
-      !
-      ! grp_vars_ana_default = grp_vars_ana_sfc + grp_vars_ana_atm
-      ngrp_vars_ana_default = 0
-      CALL add_to_list(grp_vars_ana_default, ngrp_vars_ana_default,             &
-        &              grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
-      CALL add_to_list(grp_vars_ana_default, ngrp_vars_ana_default,             &
-        &              grp_vars_ana_atm(1:ngrp_vars_ana_atm), ngrp_vars_ana_atm)
-
-
-      ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
-      ! the reading stuff
-      !
-      IF (lread_ana) THEN
-
-        IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-          ! grp_vars_fg  = grp_vars_fg_sfc   ; i.e. skip atmospheric part
-          ! grp_vars_ana = grp_vars_ana_sfc  ; i.e. skip atmospheric part
-          ngrp_vars_fg = 0
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc(1:ngrp_vars_fg_sfc), ngrp_vars_fg_sfc)
-          ngrp_vars_ana = 0
-          CALL add_to_list(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
-        ELSE
-          ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
-
-          grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-          grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-          ngrp_vars_fg  = ngrp_vars_fg_default
-          ngrp_vars_ana = ngrp_vars_ana_default
-        ENDIF
-   
-      ELSE ! skip analysis
-
-        IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-          ! grp_vars_fg = grp_vars_fg_sfc + grp_vars_ana_sfc
-          ! atmospheric fields are read from the ifs_atm branch so we do not check them here.
-          
-          ngrp_vars_fg = 0
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc (1:ngrp_vars_fg_sfc) , ngrp_vars_fg_sfc)
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
-
-          ! grp_vars_ana = --
-          ngrp_vars_ana = 0
-
-          ! COSMO-DE does not have fr_seaice, the fr_seaice-array will be
-          ! replaced with zeros
-          IF (init_mode == MODE_COSMODE) THEN
-            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'fr_seaice'/), 1)
+            ! grp_vars_ana = --
+            ngrp_vars_ana = 0
           ENDIF
-        ELSE
-          ! grp_vars_fg = grp_vars_fg_sfc + grp_vars_fg_atm + grp_vars_ana_sfc + grp_vars_ana_atm
-          ngrp_vars_fg = 0
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_sfc (1:ngrp_vars_fg_sfc) , ngrp_vars_fg_sfc)
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_atm (1:ngrp_vars_fg_atm) , ngrp_vars_fg_atm)
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_sfc(1:ngrp_vars_ana_sfc), ngrp_vars_ana_sfc)
-          CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_atm(1:ngrp_vars_ana_atm), ngrp_vars_ana_atm)
 
-          ! Remove fields 'u', 'v', 'temp', 'pres'
-          CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
+        CASE(MODE_COMBINED,MODE_COSMODE)
 
-          ! grp_vars_ana = --
-          ngrp_vars_ana = 0
-        ENDIF
+          IF (init_mode == MODE_COMBINED) THEN
+            grp_name ='mode_combined_in' 
+          ELSE
+            grp_name ='mode_cosmode_in' 
+          ENDIF
 
-      ENDIF  ! lread_ana
+          ! Collect group 'grp_vars_fg_default' from grp_name
+          !
+          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! initialize grp_vars_fg which will be the group that controls the reading stuff
+          !
+          ! initialize grp_vars_fg with grp_vars_fg_default
+          grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+
+          ngrp_vars_fg = ngrp_vars_fg_default
+
+          ! no analysis group
+          ! ngrp_vars_ana_[default] = --
+          ngrp_vars_ana_default = 0
+          ngrp_vars_ana         = 0
+
+        CASE DEFAULT
+
+      END SELECT
+
 
 
       !===============================================================================
@@ -1437,7 +1394,7 @@ MODULE mo_nh_initicon
         ENDIF
 
         !
-        ! Check if surface pressure (VN) is provided as input
+        ! Check if normal velocity component (VN) is provided as input
         !
         IF (nf_inq_varid(ncid, 'VN', varid) == nf_noerr) THEN
           lread_vn = .TRUE.
@@ -2585,6 +2542,7 @@ MODULE mo_nh_initicon
     i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
     i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
+
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk, i_endblk
 
@@ -2593,6 +2551,18 @@ MODULE mo_nh_initicon
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
+
+          !******** CONSISTENCY CHECK ************
+          ! 
+          ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+          ! below threshhold (currently 5E-7 kg/kg)
+          ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
+          ! Note: So far we are not fully convinced that the observed 'zeros' are 
+          ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
+          ! numerical artifacts. 
+          p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
+            &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
+          !******** END CONSISTENCY CHECK ********
 
           ! compute exner function
           p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &
@@ -2899,6 +2869,12 @@ MODULE mo_nh_initicon
                 ! set dummy value (50% of pore volume)
                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
                   &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
+             ENDIF
+             ! And temperature for ICON-land but COSMODE ocean
+             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
+                ! set to first layer value
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = &
+                  & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt) 
              ENDIF
           ENDDO  ! ic
         ENDDO  ! jk
@@ -3355,7 +3331,7 @@ MODULE mo_nh_initicon
       IF(ana_varnames_map_file /= ' ') THEN
         CALL dict_loadfile(ana_varnames_dict, TRIM(ana_varnames_map_file))
       END IF
-    end IF
+    END IF
 
   END SUBROUTINE allocate_initicon
 

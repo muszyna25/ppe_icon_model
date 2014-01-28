@@ -121,8 +121,6 @@ CONTAINS
   SUBROUTINE getTimeDeltaFromDateTime(dt1, dt2, td_return)
     TYPE(datetime),  INTENT(IN),    TARGET   :: dt1,dt2 
     TYPE(timedelta), INTENT(INOUT), TARGET   :: td_return     !< OUT
-    ! local variables
-    TYPE(c_ptr) :: ret
 
     CALL my_gettimedeltafromdatetime(C_LOC(dt1), C_LOC(dt2), C_LOC(td_return))
   END SUBROUTINE getTimeDeltaFromDateTime
@@ -135,9 +133,9 @@ CONTAINS
     TYPE(t_datetime),                    INTENT(INOUT) :: timestamp
     INTEGER, OPTIONAL,                   INTENT(IN)    :: opt_add_seconds !< additional offset
     ! local variables
-    INTEGER                  :: add_seconds
+    INTEGER                  :: add_seconds, additional_days, iadd_days
     TYPE(datetime),  POINTER :: mtime_datetime
-    TYPE(timedelta), POINTER :: mtime_td
+    TYPE(timedelta), POINTER :: mtime_td, delta_1day
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: result_string
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
@@ -147,14 +145,19 @@ CONTAINS
       &                           timestamp%hour, timestamp%minute, NINT(timestamp%second), ims=0)
 
     IF (PRESENT(opt_add_seconds)) THEN
-      IF (opt_add_seconds > 0) THEN
+      IF (opt_add_seconds>0) THEN
+
         ! create a "timedelta" object
-        add_seconds = opt_add_seconds*1000
-        CALL getPTStringFromMS(add_seconds, td_string)
+        delta_1day => newTimedelta("P01D")          ! create a time delta for 1 day
+        CALL get_duration_string(opt_add_seconds, td_string, additional_days)
+        DO iadd_days=1,additional_days
+          mtime_datetime = mtime_datetime + delta_1day
+        END DO
         mtime_td => newTimedelta(TRIM(td_string))
-        mtime_datetime =  mtime_datetime + mtime_td
+        mtime_datetime =   mtime_datetime + mtime_td
         CALL deallocateTimedelta(mtime_td)
-      END IF
+        CALL deallocateTimedelta(delta_1day)
+      ENDIF
     END IF
 
     CALL datetimeToString(mtime_datetime, result_string)
@@ -208,8 +211,7 @@ CONTAINS
     INTEGER, OPTIONAL,                   INTENT(IN)    :: opt_add_seconds !< additional offset
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_datetime_string_str"
-    INTEGER                  :: add_seconds, add_days, add_hours, add_minutes, &
-      &                         iadd_days, additional_days
+    INTEGER                  :: iadd_days, additional_days
     TYPE(datetime),  POINTER :: mtime_datetime
     TYPE(timedelta), POINTER :: mtime_td, delta_1day
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: result_string

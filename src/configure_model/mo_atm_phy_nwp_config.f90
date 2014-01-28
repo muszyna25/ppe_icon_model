@@ -139,7 +139,7 @@ MODULE mo_atm_phy_nwp_config
 
 CONTAINS
 
-SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
+SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, dtime_adv )
  !-------------------------------------------------------------------------
   !
   !>
@@ -155,7 +155,6 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
   INTEGER, INTENT(IN) :: n_dom
   INTEGER, INTENT(IN) :: pat_level(n_dom)
   REAL(wp),INTENT(IN) :: dtime_adv
-  LOGICAL, INTENT(IN) :: ltestcase
 
   INTEGER :: jg
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &

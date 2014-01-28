@@ -117,9 +117,6 @@ cat > ${atmo_namelist} << EOF
  ape_sst_case      = 'sst1'
 /
 &io_nml
- out_expname    = '${EXP}'   ! file name base
- dt_data  = 432000.           ! [hr] output interval
- dt_file  = 2160000.
  dt_diag  = 864000.
  dt_checkpoint = 4320000.
 /

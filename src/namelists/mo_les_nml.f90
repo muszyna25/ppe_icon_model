@@ -48,7 +48,8 @@ MODULE mo_les_nml
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: read_les_namelist
+  PUBLIC :: read_les_namelist, sampl_freq_sec, avg_interval_sec
+  PUBLIC :: turb_profile_list, turb_tseries_list, expname
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -68,9 +69,19 @@ MODULE mo_les_nml
   !Some parameters
   REAL(wp) :: smag_constant
   REAL(wp) :: turb_prandtl 
- 
+
+  !Scheme for vertical discretization
+  INTEGER :: vert_scheme_type !1=explicit, 2=implicit
+
+  !Parameters for output
+  REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
+  CHARACTER(LEN=7) :: turb_tseries_list(8), turb_profile_list(21) !list of variables  
+  CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
+
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
-                    smag_constant, turb_prandtl, bflux, tran_coeff
+                    smag_constant, turb_prandtl, bflux, tran_coeff,   &
+                    vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
+                    expname
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -116,6 +127,23 @@ CONTAINS
     bflux       = -999._wp
     tran_coeff  = -999._wp
 
+    vert_scheme_type = 2 !implicit
+
+    !output parameters
+    expname  = 'ICOLES'
+    avg_interval_sec = 900._wp
+    sampl_freq_sec   = 60._wp
+
+    turb_profile_list = (/                                                     &
+      'u      ','v      ','w      ','th     ','exner  ','rho    ','qv     ',   & !1-7
+      'qc     ','wu     ','wv     ','wth    ','wqv    ','wqc    ','ww     ',   & !8-14
+      'thth   ','qvqv   ','qcqc   ','uu     ','vv     ','kh     ','km     ' /)   !15-21
+
+    turb_tseries_list = (/                                                  &
+      'ccover ','shflx  ','lhflx  ','ustress','vstress','tsfc   ',  & !1-6
+      'qsfc   ','hbl    '  /)                                         !7-8
+
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -160,6 +188,7 @@ CONTAINS
       les_config(jg)% rturb_prandtl     =  1._wp/turb_prandtl
       les_config(jg)% bflux             =  bflux
       les_config(jg)% tran_coeff        =  tran_coeff
+      les_config(jg)% vert_scheme_type  =  vert_scheme_type
      
     END DO
 

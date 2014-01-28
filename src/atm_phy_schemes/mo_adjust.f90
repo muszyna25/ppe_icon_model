@@ -180,8 +180,6 @@ MODULE mo_adjust
      REAL(KIND=jprb) :: z_expout2(kidia:kfdia)
      REAL(KIND=jprb) :: zhook_handle
 
-     !DIR$ VFUNCTION EXPHF
-
      !#include "fcttre.h"
 
      !----------------------------------------------------------------------
@@ -374,7 +372,6 @@ MODULE mo_adjust
 
      REAL(KIND=jprb) :: zl, zi, zf
 
-     !!DIR$ VFUNCTION EXPHF
      !#include "fcttre.h"
 
      !     STATEMENT FUNCTIONS
@@ -409,8 +406,8 @@ MODULE mo_adjust
 
        IF (kcall == 1 ) THEN
 
- !DIR$    IVDEP
- !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
          DO jl=kidia,kfdia
            IF(ldflag(jl)) THEN
              zqp    =1.0_JPRB/psp(jl)
@@ -458,8 +455,8 @@ MODULE mo_adjust
 
        IF(kcall == 2) THEN
 
- !DIR$    IVDEP
- !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
          DO jl=kidia,kfdia
            IF(ldflag(jl)) THEN
              zqp    =1.0_JPRB/psp(jl)
@@ -486,8 +483,8 @@ MODULE mo_adjust
 
        IF(kcall == 0) THEN
 
- !DIR$    IVDEP
- !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
 
          DO jl=kidia,kfdia
            zqp    =1.0_JPRB/psp(jl)
@@ -511,7 +508,7 @@ MODULE mo_adjust
 
   IF(kcall == 4 )THEN
         
-!DIR$    IVDEP
+!DIR$ IVDEP
  !OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldflag(jl)) THEN
@@ -536,7 +533,7 @@ MODULE mo_adjust
       
       IF(kcall == 5) THEN  ! Same as 4 but with LDFLAG all true
         
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
         IF(n_vmass <= 0)  THEN ! Not using Vector MASS
           DO jl=kidia,kfdia
@@ -687,7 +684,7 @@ MODULE mo_adjust
       
       IF (kcall == 1 ) THEN
         
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldflag(jl)) THEN
@@ -747,7 +744,7 @@ MODULE mo_adjust
       
       IF(kcall == 2) THEN
         
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldflag(jl)) THEN
@@ -807,7 +804,7 @@ MODULE mo_adjust
       
       IF(kcall == 0) THEN
         
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
         DO jl=kidia,kfdia
           zqp    =1.0_JPRB/psp(jl)
@@ -861,7 +858,7 @@ MODULE mo_adjust
       
       IF(kcall == 4) THEN
         
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldflag(jl)) THEN
@@ -1013,7 +1010,6 @@ MODULE mo_adjust
     REAL(KIND=jprb) :: zqmax, zqp, zcond, zcond1, ztarg, zcor, zqsat,  z2s
     REAL(KIND=jprb) :: zhook_handle
     
-    !!DIR$ VFUNCTION EXPHF
     !#include "fcttre.h"
     !----------------------------------------------------------------------
     
@@ -1044,7 +1040,7 @@ MODULE mo_adjust
     
     IF (kcall == 1 ) THEN
       
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
       DO jl=kidia,kfdia
         IF(ldflag(jl)) THEN
@@ -1084,7 +1080,7 @@ MODULE mo_adjust
     
     IF(kcall == 2) THEN
       
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
       DO jl=kidia,kfdia
         IF(ldflag(jl)) THEN
@@ -1124,7 +1120,7 @@ MODULE mo_adjust
     
     IF(kcall == 0) THEN
       
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
       DO jl=kidia,kfdia
         zqp    =1.0_JPRB/psp(jl)
@@ -1158,7 +1154,7 @@ MODULE mo_adjust
     
     IF(kcall == 4) THEN
       
-!DIR$    IVDEP
+!DIR$ IVDEP
 !OCL NOVREC
       DO jl=kidia,kfdia
         zqp    =1.0_JPRB/psp(jl)

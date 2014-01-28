@@ -44,7 +44,7 @@
 MODULE mo_post_op
 
   USE mo_kind,                ONLY: wp
-  USE mo_var_metadata,        ONLY: t_post_op_meta, POST_OP_NONE,    &
+  USE mo_var_metadata_types,  ONLY: t_post_op_meta, POST_OP_NONE,    &
     &                               POST_OP_SCALE
   USE mo_exception,           ONLY: finish
   IMPLICIT NONE

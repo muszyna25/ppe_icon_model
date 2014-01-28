@@ -46,7 +46,7 @@
 MODULE mo_nh_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_var_metadata,         ONLY: VARNAME_LEN
+  USE mo_var_metadata_types,   ONLY: VARNAME_LEN
 
   IMPLICIT NONE
   PRIVATE

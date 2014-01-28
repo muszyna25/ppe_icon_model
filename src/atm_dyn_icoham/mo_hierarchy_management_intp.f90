@@ -68,7 +68,7 @@ USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
 USE mo_gridref_config,      ONLY: grf_velfbk, grf_intmethod_c, grf_intmethod_e,   &
-                                  grf_intmethod_ct
+                                  grf_intmethod_ct, grf_scalfbk, grf_tracfbk
 USE mo_grf_intp_data_strc , ONLY: p_grf_state_local_parent
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_dynamics_config,     ONLY: nnew, nnow, nsav1, nsav2, lshallow_water
@@ -515,8 +515,17 @@ ALLOCATE(feedback_vn_tend(nproma, nlev, i_startblk:i_endblk))
 iidx => p_gcp%child_idx
 iblk => p_gcp%child_blk
 
-p_fbkwgt    => p_grf%fbk_wgt_c
-p_fbkwgt_tr => p_grf%fbk_wgt_ct
+IF (grf_scalfbk == 1) THEN
+  p_fbkwgt    => p_grf%fbk_wgt_aw
+ELSE
+  p_fbkwgt    => p_grf%fbk_wgt_bln
+ENDIF
+IF (grf_tracfbk == 1) THEN
+  p_fbkwgt_tr => p_grf%fbk_wgt_aw
+ELSE
+  p_fbkwgt_tr => p_grf%fbk_wgt_bln
+ENDIF
+
 p_fbarea    => p_gcp%area
 
 ! Preparation of feedback: compute child tendencies
@@ -599,7 +608,7 @@ i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+                     i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
   fbk_tend(:,jb) = 0._wp
 
@@ -631,7 +640,7 @@ DO jb = i_startblk, i_endblk
   parent_tend(:,jb) = 0._wp
 
   CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+                     i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
   DO jc = i_startidx, i_endidx
     parent_tend(jc,jb) =  &
@@ -664,7 +673,7 @@ i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+                     i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
   DO jc = i_startidx, i_endidx
     feedback_pres_tend(jc,jb) = feedback_pres_tend(jc,jb) + tendency_corr
@@ -695,7 +704,7 @@ DO jt = 1, ntracer
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
 #ifdef _URD
 !CDIR UNROLL=_URD
@@ -745,7 +754,7 @@ IF (grf_velfbk == 1) THEN ! Averaging weighted with child edge lenghts
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+                       i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
 #ifdef _URD
 !CDIR UNROLL=_URD
@@ -801,7 +810,7 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
+                       i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int)
 
 #ifdef _URD
 !CDIR UNROLL=_URD

@@ -156,7 +156,6 @@ nudge_zone_width  = 8
 rbf_vec_scale_c =  0.3
 rbf_vec_scale_v =  0.4
 rbf_vec_scale_e = 0.45
-rbf_vec_scale_ll = 0.0075
 /
 &nonhydrostatic_nml
  iadv_rhotheta = 2

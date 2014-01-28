@@ -54,18 +54,20 @@ file_era=dir&"mmean_ERA40_pl_alldates.grb"
 
 datestr=string(date(yymm*100+01),"mmmm yyyy")
 
-fc_data = read(expver	:	expid,
-   levtype	:	"pl",
-   levelist:	level,
-   grid	:	grid,
+fc_data = read(
+  #expver	:	expid,
+  #levtype	:	"pl",
+   levelist     :	level,
+   grid	        :	grid,
    param	:	param,
-   source  :	file_mod
+   source       :	file_mod
 )
-mars_an = read( levtype	:	"pl",
-   levelist:	level,
-   grid	:	grid,
+mars_an = read( 
+   levtype	:	"pl",
+   levelist     :	level,
+   grid	        :	grid,
    param	:	param,
-   source  :	file_era
+   source       :	file_era
 )
 
 precision(4)

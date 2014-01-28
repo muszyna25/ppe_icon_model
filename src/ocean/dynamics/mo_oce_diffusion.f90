@@ -51,8 +51,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc
   & use_tracer_x_height
 USE mo_run_config,          ONLY: dtime
 USE mo_util_dbg_prnt,       ONLY: dbg_print
-USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
-  &  t_ocean_tracer, t_hydro_ocean_aux!, v_base
+USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 !USE mo_exception,           ONLY: message, finish!, message_text
 USE mo_oce_physics,         ONLY: t_ho_params

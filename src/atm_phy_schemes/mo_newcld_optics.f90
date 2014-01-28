@@ -44,7 +44,7 @@ MODULE mo_newcld_optics
   USE mo_exception,            ONLY: finish
 
   USE mo_math_constants,       ONLY: pi
-  USE mo_physical_constants,   ONLY: rhoh2o
+  USE mo_physical_constants,   ONLY: rhoh2o, tmelt
 
   USE mo_read_netcdf_parallel, ONLY: p_nf_open, p_nf_close, &
     &                                p_nf_inq_varid,        &
@@ -176,7 +176,7 @@ CONTAINS
   !
   SUBROUTINE newcld_optics(                                                 &
     & jce          ,kbdim        ,klev         ,nb_lw        ,nb_sw        ,&
-    & zglac        ,zland        ,ktype        ,icldlyr                    ,&
+    & zglac        ,zland        ,ktype        ,icldlyr      ,zt           ,&
     & zlwp         ,ziwp         ,zlwc         ,ziwc         ,zcdnc        ,&
     & tau_lw       ,tau_sw       ,omg          ,asy                         )
 
@@ -190,11 +190,12 @@ CONTAINS
       &  icldlyr(kbdim,klev)         !< 0/1 flag for clear or cloudy layer
 
     REAL (wp), INTENT (IN)  ::     &
+      &  zt(kbdim,klev),           & !< temperature
       &  zlwp(kbdim,klev),         & !< liquid water path
       &  ziwp(kbdim,klev),         & !< ice water path
       &  zcdnc(kbdim,klev),        & !< cloud drop number concentration
-      &  zlwc(kbdim,klev),         & !< liquid water content
-      &  ziwc(kbdim,klev),         & !< ice water content
+      &  zlwc(kbdim,klev),         & !< liquid water content [g/m3]
+      &  ziwc(kbdim,klev),         & !< ice water content    [g/m3]
       &  zglac(kbdim),             & !< fraction of land covered by glaciers
       &  zland(kbdim)                !< land-sea mask. (1. = land, 0. = sea/lakes)
 
@@ -268,9 +269,21 @@ CONTAINS
       DO jl=1,jce
         IF (icldlyr(jl,jk)==1 .AND. (zlwp(jl,jk)+ziwp(jl,jk))>ccwmin) THEN
 
-          re_crystals = MAX(reimin,MIN(reimax,83.8_wp*ziwc(jl,jk)**0.216_wp))
-          re_droplets = MAX(relmin,MIN(relmax,zfact*zkap(jl)*(zlwc(jl,jk)    &
-               &                             /zcdnc(jl,jk))**(1.0_wp/3.0_wp)))
+          ! see ECHAM5 documentation (Roeckner et al, MPI report 349)
+          re_crystals = MAX(reimin ,MIN(reimax  ,83.8_wp*ziwc(jl,jk)**0.216_wp))
+!mk:opt   re_crystals = MAX(20.0_wp,MIN(150.0_wp,83.8_wp*ziwc(jl,jk)**0.216_wp))
+          re_droplets = MAX(relmin,MIN(relmax,zfact*zkap(jl)*(zlwc(jl,jk) &
+            & /zcdnc(jl,jk))**(1.0_wp/3.0_wp)))
+
+          ! alternative formulation Ou and Liou (1995) as function of T as in IFS (cy38r2)
+          ! re_crystals = MAX(20.0_wp, MIN(70.0_wp, 0.5_wp * &  ! limits to range of data
+          !   & ( 326.3_wp                                   &
+          !   & + 12.42_wp  * (zt(jl,jk)-tmelt)              &
+          !   & + 0.197_wp  * (zt(jl,jk)-tmelt)**2           &
+          !   & + 0.0012_wp * (zt(jl,jk)-tmelt)**3 )))
+
+          ! optional tuning of effective crystal radius
+          ! re_crystals = re_crystals * 1.25_wp
 
           ml1 = MAX(1,MIN(n_sizes-1,FLOOR(1.0_wp+(re_droplets-relmin)/del_rel)))
           ml2 = ml1 + 1

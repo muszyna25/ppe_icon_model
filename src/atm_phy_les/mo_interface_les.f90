@@ -92,11 +92,15 @@ MODULE mo_interface_les
   USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
+  USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
+  USE mo_turbulent_diagnostic, ONLY: calculate_turbulent_diagnostics, &
+                                     write_vertical_profiles, write_time_series, &
+                                     avg_interval_step, sampl_freq_step
 
   IMPLICIT NONE
 
@@ -116,7 +120,7 @@ CONTAINS
   !
   SUBROUTINE les_phy_interface(lcall_phy_jg, linit, lredgrid,      & !input
                             & dt_loc, dtadv_loc, dt_phy_jg,        & !input
-                            & p_sim_time, datetime,                & !input
+                            & p_sim_time, nstep, datetime,         & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -140,7 +144,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     REAL(wp),INTENT(in)          :: p_sim_time
-
+    INTEGER, INTENT(in)          :: nstep           !time step counter
     TYPE(t_datetime),            INTENT(in):: datetime
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch     !<grid/patch info (parent grid)
@@ -522,6 +526,8 @@ CONTAINS
 
     IF (art_config(jg)%lart) THEN
 
+      CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
+
       CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
                  &          pt_patch,                           & !>in
                  &          p_prog_list,                        & !>in
@@ -531,9 +537,10 @@ CONTAINS
     ENDIF !lart
 
 
-    IF (timers_level > 1) CALL timer_start(timer_fast_phys)
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
+
+      IF (timers_level > 1) CALL timer_start(timer_fast_phys)
       
 
       ! Remark: in the (unusual) case that satad is used without any other physics,
@@ -625,6 +632,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
     ENDIF ! end of fast physics part
 
     IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
@@ -685,8 +693,6 @@ CONTAINS
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
-
-    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
 
     !!-------------------------------------------------------------------------
     !!  slow physics part
@@ -751,6 +757,7 @@ CONTAINS
       IF (msg_level >= 15) &
         &  CALL message(TRIM(routine), 'cloud cover')
 
+      IF (timers_level > 2) CALL timer_start(timer_cover_koe)
 
       !-------------------------------------------------------------------------
       !> Cloud water distribution: cloud cover, cloud water, cloud ice
@@ -769,8 +776,6 @@ CONTAINS
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
-
-        IF (timers_level > 2) CALL timer_start(timer_cover_koe)
 
         CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
@@ -800,12 +805,12 @@ CONTAINS
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
 
-        IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
-
       ENDDO
   
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
 
@@ -898,7 +903,7 @@ CONTAINS
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
-          & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
+          & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
           & pcd=cvd                                ,&! in    specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in    specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
@@ -911,9 +916,11 @@ CONTAINS
           & lp_count=ext_data%atm%lp_count(jb)     ,&! in     number of land points
           & gp_count_t=ext_data%atm%gp_count_t(jb,:),&! in   number of land points per tile
           & spi_count =ext_data%atm%spi_count(jb)  ,&! in     number of seaice points
+          & fp_count  =ext_data%atm%fp_count(jb)   ,&! in     number of (f)lake points
           & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
           & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
           & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
+          & idx_lst_fp=ext_data%atm%idx_lst_fp(:,jb),&! in    index list of (f)lake points
           & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
           & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
@@ -947,7 +954,7 @@ CONTAINS
           & ntiles=1                               ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
           & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
-          & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
+          & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
           & pi0=prm_diag%flxdwswtoa(:,jb)          ,&! in     solar incoming flux at TOA  [W/m2]
@@ -1629,7 +1636,7 @@ CONTAINS
     ENDIF
 
     IF (msg_level >= 13) THEN ! extended diagnostic
-      CALL nwp_diag_output_2(pt_patch, pt_diag, pt_prog_rcf, prm_nwp_tend, dt_loc, lcall_phy_jg(itturb))
+      CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))
     ENDIF
    
     CALL nwp_diagnosis(lcall_phy_jg,                        & !input
@@ -1640,6 +1647,25 @@ CONTAINS
                            & pt_prog, pt_prog_rcf,          & !in
                            & pt_diag,                       & !inout
                            & prm_diag)
+
+
+    !Special diagnostics for LES runs- 1D, time series
+    IF( .NOT.linit .AND. MOD(nstep,sampl_freq_step)==0 )THEN 
+      CALL calculate_turbulent_diagnostics(                 &
+                              & pt_patch,                   & !in
+                              & pt_prog,  pt_prog_rcf,      & !in
+                              & pt_diag,                    & !in
+                              & lnd_prog_new, lnd_diag,     & !in
+                              & prm_diag                )     !inout
+
+      !write out time series
+      CALL write_time_series(prm_diag%turb_diag_0dvar, p_sim_time)
+    END IF
+	    
+    IF( .NOT.linit .AND. MOD(nstep,avg_interval_step)==0 )THEN
+      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, p_sim_time)
+      prm_diag%turb_diag_1dvar = 0._wp
+    END IF 
 
 
     IF (ltimer) CALL timer_stop(timer_physics)

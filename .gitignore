@@ -378,6 +378,7 @@ src/ocean/boundary/*.settings
 src/ocean/boundary/.cproject
 src/ocean/boundary/.project
 src/ocean/boundary/icon-dev
+src/ocean/diagnostics/*.gitignore
 src/ocean/dynamics/*.settings
 src/ocean/dynamics/.cproject
 src/ocean/dynamics/.project

@@ -50,7 +50,7 @@ MODULE mo_ha_diag_util
   USE mo_math_divrot,        ONLY: div, div_avg, rot_vertex
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_io_config,          ONLY: lwrite_omega, l_outputtime
+  USE mo_io_config,          ONLY: l_outputtime
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, &
   &                                iforcing, output_mode
@@ -373,7 +373,7 @@ CONTAINS
     nblks_e = p_patch%nblks_e
 
     ! Edge-based layer thickness: pressure levels
-    IF (p_test_run)  p_delp_e(:,:,:) = 0
+    IF (p_test_run)  p_delp_e(:,:,:) = 0._wp
 
     jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
@@ -736,7 +736,7 @@ CONTAINS
 
     ! Vertical velocity omega=dp/dt
 
-    IF (lwrite_omega.AND.(.NOT.lshallow_water)) THEN
+    IF ((.NOT.lshallow_water)) THEN
 
       CALL update_omega( p_prog%vn, p_diag%delp_e, p_diag%pres_mc,  &! in
       &                  p_patch, p_int_state,                      &! in

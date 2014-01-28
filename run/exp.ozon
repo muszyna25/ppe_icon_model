@@ -141,8 +141,6 @@ cat > ${atmo_namelist} << EOF
  qv_max         = 35.e-3
 /
 &io_nml
- out_expname    = '${EXPNAME}' ! file name base
- dt_data        = ${dt_data}   ! [s] output interval
  dt_diag        = ${dt_data}
 /
 /

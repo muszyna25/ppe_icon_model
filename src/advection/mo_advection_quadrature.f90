@@ -443,15 +443,16 @@ CONTAINS
 
    ! local variables
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
-      &  z_gauss_pts(4,2)           !< in physical space
+      &  z_gauss_pts(nproma,4,2)    !< in physical space
 
     REAL(wp) ::                &    !< weights times determinant of Jacobian for
-      &  wgt_t_detjac(4)            !< each gaussian quadrature point.
+      &  wgt_t_detjac(nproma,4)     !< each gaussian quadrature point.
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
-      &  z_quad_vector(4,6)
+      &  z_quad_vector(nproma,4,6)
 
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
+    REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -496,6 +497,16 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
+    z_wgt(1) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(1)
+    z_wgt(2) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
+    z_wgt(3) = 0.0625_wp * wgt_zeta(3) *  wgt_eta(3)
+    z_wgt(4) = 0.0625_wp * wgt_zeta(4) *  wgt_eta(4)
+
+    z_eta(1,1:4) = 1._wp - eta(1:4)
+    z_eta(2,1:4) = 1._wp + eta(1:4)
+    z_eta(3,1:4) = 1._wp - zeta(1:4)
+    z_eta(4,1:4) = 1._wp + zeta(1:4)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
@@ -511,54 +522,50 @@ CONTAINS
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
           z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
 
-          ! get coordinates of the quadrature points in physical space (mapping)
-          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
-          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
-          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
-          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
-          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
-          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
-          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
-          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
-
-
           ! get Jacobian determinant for each quadrature point and multiply with
           ! corresponding weights
           ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
           ! (better: area-average) even when the integration-area tends to zero.
-          wgt_t_detjac(1) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(1),eta(1)) &
-            &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(2) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(2),eta(2)) &
-            &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
-          wgt_t_detjac(3) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(3),eta(3)) &
-            &                      * wgt_zeta(3) *  wgt_eta(3) ) + dbl_eps
-          wgt_t_detjac(4) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(4),eta(4)) &
-            &                      * wgt_zeta(4) *  wgt_eta(4) ) + dbl_eps
+          wgt_t_detjac(je,1:4) = dbl_eps + z_wgt(1:4) * (                                 &
+            &   (z_eta(1,1:4)*(z_x(je,2)-z_x(je,1)) + z_eta(2,1:4)*(z_x(je,3)-z_x(je,4))) &
+            & * (z_eta(3,1:4)*(z_y(je,4)-z_y(je,1)) - z_eta(4,1:4)*(z_y(je,2)-z_y(je,3))) &
+            & - (z_eta(1,1:4)*(z_y(je,2)-z_y(je,1)) + z_eta(2,1:4)*(z_y(je,3)-z_y(je,4))) &
+            & * (z_eta(3,1:4)*(z_x(je,4)-z_x(je,1)) - z_eta(4,1:4)*(z_x(je,2)-z_x(je,3))) )
 
+
+          ! get coordinates of the quadrature points in physical space (mapping)
+          z_gauss_pts(je,1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
+          z_gauss_pts(je,1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
+          z_gauss_pts(je,2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
+          z_gauss_pts(je,2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
+          z_gauss_pts(je,3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
+          z_gauss_pts(je,3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
+          z_gauss_pts(je,4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
+          z_gauss_pts(je,4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
 
           ! Get quadrature vector for each integration point and multiply by
           ! corresponding wgt_t_detjac
           DO jg=1, 4
-            z_quad_vector(jg,1) = wgt_t_detjac(jg)
-            z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
-            z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
-            z_quad_vector(jg,4) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**2)
-            z_quad_vector(jg,5) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**2)
-            z_quad_vector(jg,6) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2))
+            z_quad_vector(je,jg,1) = wgt_t_detjac(je,jg)
+            z_quad_vector(je,jg,2) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,1)
+            z_quad_vector(je,jg,3) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,2)
+            z_quad_vector(je,jg,4) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1)**2)
+            z_quad_vector(je,jg,5) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,2)**2)
+            z_quad_vector(je,jg,6) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1) * z_gauss_pts(je,jg,2))
           ENDDO
 
 
           ! Sum quadrature vectors over all integration points
-          p_quad_vector_sum(je,1,jk,jb) = SUM(z_quad_vector(:,1))
-          p_quad_vector_sum(je,2,jk,jb) = SUM(z_quad_vector(:,2))
-          p_quad_vector_sum(je,3,jk,jb) = SUM(z_quad_vector(:,3))
-          p_quad_vector_sum(je,4,jk,jb) = SUM(z_quad_vector(:,4))
-          p_quad_vector_sum(je,5,jk,jb) = SUM(z_quad_vector(:,5))
-          p_quad_vector_sum(je,6,jk,jb) = SUM(z_quad_vector(:,6))
+          p_quad_vector_sum(je,1,jk,jb) = SUM(z_quad_vector(je,:,1))
+          p_quad_vector_sum(je,2,jk,jb) = SUM(z_quad_vector(je,:,2))
+          p_quad_vector_sum(je,3,jk,jb) = SUM(z_quad_vector(je,:,3))
+          p_quad_vector_sum(je,4,jk,jb) = SUM(z_quad_vector(je,:,4))
+          p_quad_vector_sum(je,5,jk,jb) = SUM(z_quad_vector(je,:,5))
+          p_quad_vector_sum(je,6,jk,jb) = SUM(z_quad_vector(je,:,6))
 
 
           ! area of departure region
-          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(1:4))
+          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(je,1:4))
 
         ENDDO ! loop over edges
 
@@ -628,16 +635,17 @@ CONTAINS
       &  opt_elev
 
    ! local variables
-    REAL(wp) ::                &    !< coordinates of gaussian quadrature points
-      &  z_gauss_pts(4,2)           !< in physical space
+    REAL(wp) ::                        &    !< coordinates of gaussian quadrature points
+      &  z_gauss_pts(falist%npoints,4,2)    !< in physical space
 
-    REAL(wp) ::                &    !< weights times determinant of Jacobian for
-      &  wgt_t_detjac(4)            !< each gaussian quadrature point.
+    REAL(wp) ::                       &     !< weights times determinant of Jacobian for
+      &  wgt_t_detjac(falist%npoints,4)     !< each gaussian quadrature point.
 
-    REAL(wp) ::                &    !< quadrature vector for single integration point
-      &  z_quad_vector(4,6)
+    REAL(wp) ::                          &  !< quadrature vector for single integration point
+      &  z_quad_vector(falist%npoints,4,6)
 
     REAL(wp) :: z_x(falist%npoints,4), z_y(falist%npoints,4) !< storage for local coordinates
+    REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -683,10 +691,69 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
+    z_wgt(1) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(1)
+    z_wgt(2) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
+    z_wgt(3) = 0.0625_wp * wgt_zeta(3) *  wgt_eta(3)
+    z_wgt(4) = 0.0625_wp * wgt_zeta(4) *  wgt_eta(4)
+
+    z_eta(1,1:4) = 1._wp - eta(1:4)
+    z_eta(2,1:4) = 1._wp + eta(1:4)
+    z_eta(3,1:4) = 1._wp - zeta(1:4)
+    z_eta(4,1:4) = 1._wp + zeta(1:4)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac, &
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
+
+      DO ie = 1, falist%len(jb)
+
+        z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
+        z_y(ie,1:4) = p_coords_dreg_v(ie,1:4,2,jb)
+
+        ! get Jacobian determinant for each quadrature point and multiply with
+        ! corresponding weights
+        ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
+        ! (better: area-average) even when the integration-area tends to zero.
+        wgt_t_detjac(ie,1:4) = dbl_eps + z_wgt(1:4) * (                                 &
+          &   (z_eta(1,1:4)*(z_x(ie,2)-z_x(ie,1)) + z_eta(2,1:4)*(z_x(ie,3)-z_x(ie,4))) &
+          & * (z_eta(3,1:4)*(z_y(ie,4)-z_y(ie,1)) - z_eta(4,1:4)*(z_y(ie,2)-z_y(ie,3))) &
+          & - (z_eta(1,1:4)*(z_y(ie,2)-z_y(ie,1)) + z_eta(2,1:4)*(z_y(ie,3)-z_y(ie,4))) &
+          & * (z_eta(3,1:4)*(z_x(ie,4)-z_x(ie,1)) - z_eta(4,1:4)*(z_x(ie,2)-z_x(ie,3))) )
+
+
+        ! get coordinates of the quadrature points in physical space (mapping)
+        z_gauss_pts(ie,1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(ie,1:4))
+        z_gauss_pts(ie,1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(ie,1:4))
+        z_gauss_pts(ie,2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(ie,1:4))
+        z_gauss_pts(ie,2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(ie,1:4))
+        z_gauss_pts(ie,3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(ie,1:4))
+        z_gauss_pts(ie,3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(ie,1:4))
+        z_gauss_pts(ie,4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(ie,1:4))
+        z_gauss_pts(ie,4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(ie,1:4))
+
+
+        ! Get quadrature vector for each integration point and multiply by
+        ! corresponding wgt_t_detjac
+        DO jg=1, 4
+          z_quad_vector(ie,jg,1) = wgt_t_detjac(ie,jg)
+          z_quad_vector(ie,jg,2) = wgt_t_detjac(ie,jg) * z_gauss_pts(ie,jg,1)
+          z_quad_vector(ie,jg,3) = wgt_t_detjac(ie,jg) * z_gauss_pts(ie,jg,2)
+          z_quad_vector(ie,jg,4) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,1)**2)
+          z_quad_vector(ie,jg,5) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,2)**2)
+          z_quad_vector(ie,jg,6) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,1) * z_gauss_pts(ie,jg,2))
+        ENDDO
+
+
+        ! Sum quadrature vectors over all integration points
+        p_quad_vector_sum(ie,1,jb) = SUM(z_quad_vector(ie,:,1))
+        p_quad_vector_sum(ie,2,jb) = SUM(z_quad_vector(ie,:,2))
+        p_quad_vector_sum(ie,3,jb) = SUM(z_quad_vector(ie,:,3))
+        p_quad_vector_sum(ie,4,jb) = SUM(z_quad_vector(ie,:,4))
+        p_quad_vector_sum(ie,5,jb) = SUM(z_quad_vector(ie,:,5))
+        p_quad_vector_sum(ie,6,jb) = SUM(z_quad_vector(ie,:,6))
+
+      ENDDO ! ie: loop over index list
 
 !CDIR NODEP,VOVERTAKE,VOB
       DO ie = 1, falist%len(jb)
@@ -694,57 +761,8 @@ CONTAINS
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-        z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
-        z_y(ie,1:4) = p_coords_dreg_v(ie,1:4,2,jb)
-
-        ! get coordinates of the quadrature points in physical space (mapping)
-        z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(ie,1:4))
-        z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(ie,1:4))
-        z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(ie,1:4))
-        z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(ie,1:4))
-        z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(ie,1:4))
-        z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(ie,1:4))
-        z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(ie,1:4))
-        z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(ie,1:4))
-
-
-        ! get Jacobian determinant for each quadrature point and multiply with
-        ! corresponding weights
-        ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
-        ! (better: area-average) even when the integration-area tends to zero.
-        wgt_t_detjac(1) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(1),eta(1)) &
-          &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-        wgt_t_detjac(2) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(2),eta(2)) &
-          &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
-        wgt_t_detjac(3) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(3),eta(3)) &
-          &                      * wgt_zeta(3) *  wgt_eta(3) ) + dbl_eps
-        wgt_t_detjac(4) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(4),eta(4)) &
-          &                      * wgt_zeta(4) *  wgt_eta(4) ) + dbl_eps
-
-
-        ! Get quadrature vector for each integration point and multiply by
-        ! corresponding wgt_t_detjac
-        DO jg=1, 4
-          z_quad_vector(jg,1) = wgt_t_detjac(jg)
-          z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
-          z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
-          z_quad_vector(jg,4) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**2)
-          z_quad_vector(jg,5) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**2)
-          z_quad_vector(jg,6) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2))
-        ENDDO
-
-
-        ! Sum quadrature vectors over all integration points
-        p_quad_vector_sum(ie,1,jb) = SUM(z_quad_vector(:,1))
-        p_quad_vector_sum(ie,2,jb) = SUM(z_quad_vector(:,2))
-        p_quad_vector_sum(ie,3,jb) = SUM(z_quad_vector(:,3))
-        p_quad_vector_sum(ie,4,jb) = SUM(z_quad_vector(:,4))
-        p_quad_vector_sum(ie,5,jb) = SUM(z_quad_vector(:,5))
-        p_quad_vector_sum(ie,6,jb) = SUM(z_quad_vector(:,6))
-
-
         ! Add contribution to total area of departure region
-        p_dreg_area(je,jk,jb) = p_dreg_area(je,jk,jb) + SUM(wgt_t_detjac(1:4))
+        p_dreg_area(je,jk,jb) = p_dreg_area(je,jk,jb) + SUM(wgt_t_detjac(ie,1:4))
 
       ENDDO ! ie: loop over index list
 
@@ -808,15 +826,16 @@ CONTAINS
 
    ! local variables
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
-      &  z_gauss_pts(4,2)           !< in physical space
+      &  z_gauss_pts(nproma,4,2)    !< in physical space
 
     REAL(wp) ::                &    !< weights times determinant of Jacobian for
-      &  wgt_t_detjac(4)            !< each gaussian quadrature point.
+      &  wgt_t_detjac(nproma,4)     !< each gaussian quadrature point.
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
-      &  z_quad_vector(4,8)
+      &  z_quad_vector(nproma,4,8)
 
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
+    REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -861,6 +880,16 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
+    z_wgt(1) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(1)
+    z_wgt(2) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(2)
+    z_wgt(3) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(1)
+    z_wgt(4) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
+
+    z_eta(1,1:4) = 1._wp - eta(1:4)
+    z_eta(2,1:4) = 1._wp + eta(1:4)
+    z_eta(3,1:4) = 1._wp - zeta(1:4)
+    z_eta(4,1:4) = 1._wp + zeta(1:4)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
@@ -876,58 +905,55 @@ CONTAINS
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
           z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
 
-          ! get coordinates of the quadrature points in physical space (mapping)
-          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
-          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
-          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
-          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
-          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
-          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
-          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
-          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
-
-
           ! get Jacobian determinant for each quadrature point and multiply with
           ! corresponding weights
           ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
           ! (better: area-average) even when the integration-area tends to zero.
-          wgt_t_detjac(1) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(1),eta(1)) &
-            &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(2) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(2),eta(2)) &
-            &                      * wgt_zeta(1) *  wgt_eta(2) ) + dbl_eps
-          wgt_t_detjac(3) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(3),eta(3)) &
-            &                      * wgt_zeta(2) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(4) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(4),eta(4)) &
-            &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
+          wgt_t_detjac(je,1:4) = dbl_eps + z_wgt(1:4) * (                                 &
+            &   (z_eta(1,1:4)*(z_x(je,2)-z_x(je,1)) + z_eta(2,1:4)*(z_x(je,3)-z_x(je,4))) &
+            & * (z_eta(3,1:4)*(z_y(je,4)-z_y(je,1)) - z_eta(4,1:4)*(z_y(je,2)-z_y(je,3))) &
+            & - (z_eta(1,1:4)*(z_y(je,2)-z_y(je,1)) + z_eta(2,1:4)*(z_y(je,3)-z_y(je,4))) &
+            & * (z_eta(3,1:4)*(z_x(je,4)-z_x(je,1)) - z_eta(4,1:4)*(z_x(je,2)-z_x(je,3))) )
+
+
+          ! get coordinates of the quadrature points in physical space (mapping)
+          z_gauss_pts(je,1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
+          z_gauss_pts(je,1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
+          z_gauss_pts(je,2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
+          z_gauss_pts(je,2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
+          z_gauss_pts(je,3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
+          z_gauss_pts(je,3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
+          z_gauss_pts(je,4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
+          z_gauss_pts(je,4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
 
 
           ! Get quadrature vector for each integration point and multiply by
           ! corresponding wgt_t_detjac
           DO jg=1, 4
-            z_quad_vector(jg,1) = wgt_t_detjac(jg)
-            z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
-            z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
-            z_quad_vector(jg,4) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**2)
-            z_quad_vector(jg,5) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**2)
-            z_quad_vector(jg,6) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2))
-            z_quad_vector(jg,7) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**3)
-            z_quad_vector(jg,8) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**3)
+            z_quad_vector(je,jg,1) = wgt_t_detjac(je,jg)
+            z_quad_vector(je,jg,2) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,1)
+            z_quad_vector(je,jg,3) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,2)
+            z_quad_vector(je,jg,4) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1)**2)
+            z_quad_vector(je,jg,5) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,2)**2)
+            z_quad_vector(je,jg,6) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1) * z_gauss_pts(je,jg,2))
+            z_quad_vector(je,jg,7) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1)**3)
+            z_quad_vector(je,jg,8) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,2)**3)
           ENDDO
 
 
           ! Sum quadrature vectors over all integration points
-          p_quad_vector_sum(je,1,jk,jb) = SUM(z_quad_vector(:,1))
-          p_quad_vector_sum(je,2,jk,jb) = SUM(z_quad_vector(:,2))
-          p_quad_vector_sum(je,3,jk,jb) = SUM(z_quad_vector(:,3))
-          p_quad_vector_sum(je,4,jk,jb) = SUM(z_quad_vector(:,4))
-          p_quad_vector_sum(je,5,jk,jb) = SUM(z_quad_vector(:,5))
-          p_quad_vector_sum(je,6,jk,jb) = SUM(z_quad_vector(:,6))
-          p_quad_vector_sum(je,7,jk,jb) = SUM(z_quad_vector(:,7))
-          p_quad_vector_sum(je,8,jk,jb) = SUM(z_quad_vector(:,8))
+          p_quad_vector_sum(je,1,jk,jb) = SUM(z_quad_vector(je,:,1))
+          p_quad_vector_sum(je,2,jk,jb) = SUM(z_quad_vector(je,:,2))
+          p_quad_vector_sum(je,3,jk,jb) = SUM(z_quad_vector(je,:,3))
+          p_quad_vector_sum(je,4,jk,jb) = SUM(z_quad_vector(je,:,4))
+          p_quad_vector_sum(je,5,jk,jb) = SUM(z_quad_vector(je,:,5))
+          p_quad_vector_sum(je,6,jk,jb) = SUM(z_quad_vector(je,:,6))
+          p_quad_vector_sum(je,7,jk,jb) = SUM(z_quad_vector(je,:,7))
+          p_quad_vector_sum(je,8,jk,jb) = SUM(z_quad_vector(je,:,8))
 
 
           ! area of departure region
-          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(1:4))
+          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(je,1:4))
 
         ENDDO ! loop over edges
 
@@ -992,15 +1018,16 @@ CONTAINS
 
    ! local variables
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
-      &  z_gauss_pts(4,2)           !< in physical space
+      &  z_gauss_pts(nproma,4,2)    !< in physical space
 
     REAL(wp) ::                &    !< weights times determinant of Jacobian for
-      &  wgt_t_detjac(4)            !< each gaussian quadrature point.
+      &  wgt_t_detjac(nproma,4)      !< each gaussian quadrature point.
 
     REAL(wp) ::                &    !< quadrature vector for single integration point
-      &  z_quad_vector(4,10)
+      &  z_quad_vector(nproma,4,10)
 
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
+    REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -1045,6 +1072,16 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
+    z_wgt(1) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(1)
+    z_wgt(2) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(2)
+    z_wgt(3) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(1)
+    z_wgt(4) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
+
+    z_eta(1,1:4) = 1._wp - eta(1:4)
+    z_eta(2,1:4) = 1._wp + eta(1:4)
+    z_eta(3,1:4) = 1._wp - zeta(1:4)
+    z_eta(4,1:4) = 1._wp + zeta(1:4)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
@@ -1060,63 +1097,59 @@ CONTAINS
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
           z_y(je,1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
 
-          ! get coordinates of the quadrature points in physical space (mapping)
-          z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
-          z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
-          z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
-          z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
-          z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
-          z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
-          z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
-          z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
-
-
           ! get Jacobian determinant for each quadrature point and multiply with
           ! corresponding weights
           ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
           ! (better: area-average) even when the integration-area tends to zero.
-          wgt_t_detjac(1) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(1),eta(1)) &
-            &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(2) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(2),eta(2)) &
-            &                      * wgt_zeta(1) *  wgt_eta(2) ) + dbl_eps
-          wgt_t_detjac(3) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(3),eta(3)) &
-            &                      * wgt_zeta(2) *  wgt_eta(1) ) + dbl_eps
-          wgt_t_detjac(4) = ( jac(z_x(je,1:4),z_y(je,1:4),zeta(4),eta(4)) &
-            &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
+          wgt_t_detjac(je,1:4) = dbl_eps + z_wgt(1:4) * (                                 &
+            &   (z_eta(1,1:4)*(z_x(je,2)-z_x(je,1)) + z_eta(2,1:4)*(z_x(je,3)-z_x(je,4))) &
+            & * (z_eta(3,1:4)*(z_y(je,4)-z_y(je,1)) - z_eta(4,1:4)*(z_y(je,2)-z_y(je,3))) &
+            & - (z_eta(1,1:4)*(z_y(je,2)-z_y(je,1)) + z_eta(2,1:4)*(z_y(je,3)-z_y(je,4))) &
+            & * (z_eta(3,1:4)*(z_x(je,4)-z_x(je,1)) - z_eta(4,1:4)*(z_x(je,2)-z_x(je,3))) )
 
+
+          ! get coordinates of the quadrature points in physical space (mapping)
+          z_gauss_pts(je,1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(je,1:4))
+          z_gauss_pts(je,1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(je,1:4))
+          z_gauss_pts(je,2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(je,1:4))
+          z_gauss_pts(je,2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(je,1:4))
+          z_gauss_pts(je,3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(je,1:4))
+          z_gauss_pts(je,3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(je,1:4))
+          z_gauss_pts(je,4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(je,1:4))
+          z_gauss_pts(je,4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(je,1:4))
 
 
           ! Get quadrature vector for each integration point and multiply by
           ! corresponding wgt_t_detjac
           DO jg=1, 4
-            z_quad_vector(jg,1) = wgt_t_detjac(jg)
-            z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
-            z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
-            z_quad_vector(jg,4) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**2)
-            z_quad_vector(jg,5) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**2)
-            z_quad_vector(jg,6) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2))
-            z_quad_vector(jg,7) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**3)
-            z_quad_vector(jg,8) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**3)
-            z_quad_vector(jg,9) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**2 * z_gauss_pts(jg,2))
-            z_quad_vector(jg,10)= wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2)**2)
+            z_quad_vector(je,jg,1) = wgt_t_detjac(je,jg)
+            z_quad_vector(je,jg,2) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,1)
+            z_quad_vector(je,jg,3) = wgt_t_detjac(je,jg) * z_gauss_pts(je,jg,2)
+            z_quad_vector(je,jg,4) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1)**2)
+            z_quad_vector(je,jg,5) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,2)**2)
+            z_quad_vector(je,jg,6) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1) * z_gauss_pts(je,jg,2))
+            z_quad_vector(je,jg,7) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1)**3)
+            z_quad_vector(je,jg,8) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,2)**3)
+            z_quad_vector(je,jg,9) = wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1)**2 * z_gauss_pts(je,jg,2))
+            z_quad_vector(je,jg,10)= wgt_t_detjac(je,jg) * (z_gauss_pts(je,jg,1) * z_gauss_pts(je,jg,2)**2)
           ENDDO
 
 
           ! Sum quadrature vectors over all integration points
-          p_quad_vector_sum(je, 1,jk,jb) = SUM(z_quad_vector(:,1))
-          p_quad_vector_sum(je, 2,jk,jb) = SUM(z_quad_vector(:,2))
-          p_quad_vector_sum(je, 3,jk,jb) = SUM(z_quad_vector(:,3))
-          p_quad_vector_sum(je, 4,jk,jb) = SUM(z_quad_vector(:,4))
-          p_quad_vector_sum(je, 5,jk,jb) = SUM(z_quad_vector(:,5))
-          p_quad_vector_sum(je, 6,jk,jb) = SUM(z_quad_vector(:,6))
-          p_quad_vector_sum(je, 7,jk,jb) = SUM(z_quad_vector(:,7))
-          p_quad_vector_sum(je, 8,jk,jb) = SUM(z_quad_vector(:,8))
-          p_quad_vector_sum(je, 9,jk,jb) = SUM(z_quad_vector(:,9))
-          p_quad_vector_sum(je,10,jk,jb) = SUM(z_quad_vector(:,10))
+          p_quad_vector_sum(je, 1,jk,jb) = SUM(z_quad_vector(je,:,1))
+          p_quad_vector_sum(je, 2,jk,jb) = SUM(z_quad_vector(je,:,2))
+          p_quad_vector_sum(je, 3,jk,jb) = SUM(z_quad_vector(je,:,3))
+          p_quad_vector_sum(je, 4,jk,jb) = SUM(z_quad_vector(je,:,4))
+          p_quad_vector_sum(je, 5,jk,jb) = SUM(z_quad_vector(je,:,5))
+          p_quad_vector_sum(je, 6,jk,jb) = SUM(z_quad_vector(je,:,6))
+          p_quad_vector_sum(je, 7,jk,jb) = SUM(z_quad_vector(je,:,7))
+          p_quad_vector_sum(je, 8,jk,jb) = SUM(z_quad_vector(je,:,8))
+          p_quad_vector_sum(je, 9,jk,jb) = SUM(z_quad_vector(je,:,9))
+          p_quad_vector_sum(je,10,jk,jb) = SUM(z_quad_vector(je,:,10))
 
 
           ! area of departure region
-          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(1:4))
+          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(je,1:4))
 
 !!$IF (p_dreg_area(je,jk,jb) < 0._wp) THEN
 !!$  WRITE(0,*) "ATTENTION: negative areas at je,jk,jb= ", je, jk, jb, p_dreg_area(je,jk,jb)
@@ -1193,16 +1226,17 @@ CONTAINS
       &  opt_elev
 
    ! local variables
-    REAL(wp) ::                &    !< coordinates of gaussian quadrature points
-      &  z_gauss_pts(4,2)           !< in physical space
+    REAL(wp) ::                        &    !< coordinates of gaussian quadrature points
+      &  z_gauss_pts(falist%npoints,4,2)    !< in physical space
 
-    REAL(wp) ::                &    !< weights times determinant of Jacobian for
-      &  wgt_t_detjac(4)            !< each gaussian quadrature point.
+    REAL(wp) ::                       &     !< weights times determinant of Jacobian for
+      &  wgt_t_detjac(falist%npoints,4)     !< each gaussian quadrature point.
 
-    REAL(wp) ::                &    !< quadrature vector for single integration point
-      &  z_quad_vector(4,10)
+    REAL(wp) ::                           & !< quadrature vector for single integration point
+      &  z_quad_vector(falist%npoints,4,10)
 
     REAL(wp) :: z_x(falist%npoints,4), z_y(falist%npoints,4) !< storage for local coordinates
+    REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
@@ -1248,10 +1282,77 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
+    z_wgt(1) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(1)
+    z_wgt(2) = 0.0625_wp * wgt_zeta(1) *  wgt_eta(2)
+    z_wgt(3) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(1)
+    z_wgt(4) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
+
+    z_eta(1,1:4) = 1._wp - eta(1:4)
+    z_eta(2,1:4) = 1._wp + eta(1:4)
+    z_eta(3,1:4) = 1._wp - zeta(1:4)
+    z_eta(4,1:4) = 1._wp + zeta(1:4)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,ie,jg,z_gauss_pts,wgt_t_detjac,&
 !$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
+
+      DO ie = 1, falist%len(jb)
+
+        z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
+        z_y(ie,1:4) = p_coords_dreg_v(ie,1:4,2,jb)
+
+        ! get Jacobian determinant for each quadrature point and multiply with
+        ! corresponding weights
+        ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
+        ! (better: area-average) even when the integration-area tends to zero.
+        wgt_t_detjac(ie,1:4) = dbl_eps + z_wgt(1:4) * (                                 &
+          &   (z_eta(1,1:4)*(z_x(ie,2)-z_x(ie,1)) + z_eta(2,1:4)*(z_x(ie,3)-z_x(ie,4))) &
+          & * (z_eta(3,1:4)*(z_y(ie,4)-z_y(ie,1)) - z_eta(4,1:4)*(z_y(ie,2)-z_y(ie,3))) &
+          & - (z_eta(1,1:4)*(z_y(ie,2)-z_y(ie,1)) + z_eta(2,1:4)*(z_y(ie,3)-z_y(ie,4))) &
+          & * (z_eta(3,1:4)*(z_x(ie,4)-z_x(ie,1)) - z_eta(4,1:4)*(z_x(ie,2)-z_x(ie,3))) )
+
+
+        ! get coordinates of the quadrature points in physical space (mapping)
+        z_gauss_pts(ie,1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(ie,1:4))
+        z_gauss_pts(ie,1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(ie,1:4))
+        z_gauss_pts(ie,2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(ie,1:4))
+        z_gauss_pts(ie,2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(ie,1:4))
+        z_gauss_pts(ie,3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(ie,1:4))
+        z_gauss_pts(ie,3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(ie,1:4))
+        z_gauss_pts(ie,4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(ie,1:4))
+        z_gauss_pts(ie,4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(ie,1:4))
+
+
+        ! Get quadrature vector for each integration point and multiply by
+        ! corresponding wgt_t_detjac
+        DO jg=1, 4
+          z_quad_vector(ie,jg,1) = wgt_t_detjac(ie,jg)
+          z_quad_vector(ie,jg,2) = wgt_t_detjac(ie,jg) * z_gauss_pts(ie,jg,1)
+          z_quad_vector(ie,jg,3) = wgt_t_detjac(ie,jg) * z_gauss_pts(ie,jg,2)
+          z_quad_vector(ie,jg,4) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,1)**2)
+          z_quad_vector(ie,jg,5) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,2)**2)
+          z_quad_vector(ie,jg,6) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,1) * z_gauss_pts(ie,jg,2))
+          z_quad_vector(ie,jg,7) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,1)**3)
+          z_quad_vector(ie,jg,8) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,2)**3)
+          z_quad_vector(ie,jg,9) = wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,1)**2 * z_gauss_pts(ie,jg,2))
+          z_quad_vector(ie,jg,10)= wgt_t_detjac(ie,jg) * (z_gauss_pts(ie,jg,1) * z_gauss_pts(ie,jg,2)**2)
+        ENDDO
+
+
+        ! Sum quadrature vectors over all integration points
+        p_quad_vector_sum(ie, 1,jb) = SUM(z_quad_vector(ie,:,1))
+        p_quad_vector_sum(ie, 2,jb) = SUM(z_quad_vector(ie,:,2))
+        p_quad_vector_sum(ie, 3,jb) = SUM(z_quad_vector(ie,:,3))
+        p_quad_vector_sum(ie, 4,jb) = SUM(z_quad_vector(ie,:,4))
+        p_quad_vector_sum(ie, 5,jb) = SUM(z_quad_vector(ie,:,5))
+        p_quad_vector_sum(ie, 6,jb) = SUM(z_quad_vector(ie,:,6))
+        p_quad_vector_sum(ie, 7,jb) = SUM(z_quad_vector(ie,:,7))
+        p_quad_vector_sum(ie, 8,jb) = SUM(z_quad_vector(ie,:,8))
+        p_quad_vector_sum(ie, 9,jb) = SUM(z_quad_vector(ie,:,9))
+        p_quad_vector_sum(ie,10,jb) = SUM(z_quad_vector(ie,:,10))
+
+      ENDDO ! ie: loop over index list
 
 !CDIR NODEP,VOVERTAKE,VOB
       DO ie = 1, falist%len(jb)
@@ -1259,76 +1360,9 @@ CONTAINS
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-        z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
-        z_y(ie,1:4) = p_coords_dreg_v(ie,1:4,2,jb)
-
-
-        ! get coordinates of the quadrature points in physical space (mapping)
-        z_gauss_pts(1,1) = DOT_PRODUCT(shape_func(1:4,1),z_x(ie,1:4))
-        z_gauss_pts(1,2) = DOT_PRODUCT(shape_func(1:4,1),z_y(ie,1:4))
-        z_gauss_pts(2,1) = DOT_PRODUCT(shape_func(1:4,2),z_x(ie,1:4))
-        z_gauss_pts(2,2) = DOT_PRODUCT(shape_func(1:4,2),z_y(ie,1:4))
-        z_gauss_pts(3,1) = DOT_PRODUCT(shape_func(1:4,3),z_x(ie,1:4))
-        z_gauss_pts(3,2) = DOT_PRODUCT(shape_func(1:4,3),z_y(ie,1:4))
-        z_gauss_pts(4,1) = DOT_PRODUCT(shape_func(1:4,4),z_x(ie,1:4))
-        z_gauss_pts(4,2) = DOT_PRODUCT(shape_func(1:4,4),z_y(ie,1:4))
-
-
-
-        ! get Jacobian determinant for each quadrature point and multiply with
-        ! corresponding weights
-        ! Note: dbl_eps is added, in order to have a meaningful 'edge value' 
-        ! (better: area-average) even when the integration-area tends to zero.
-        wgt_t_detjac(1) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(1),eta(1)) &
-          &                      * wgt_zeta(1) *  wgt_eta(1) ) + dbl_eps
-        wgt_t_detjac(2) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(2),eta(2)) &
-          &                      * wgt_zeta(1) *  wgt_eta(2) ) + dbl_eps
-        wgt_t_detjac(3) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(3),eta(3)) &
-          &                      * wgt_zeta(2) *  wgt_eta(1) ) + dbl_eps
-        wgt_t_detjac(4) = ( jac(z_x(ie,1:4),z_y(ie,1:4),zeta(4),eta(4)) &
-          &                      * wgt_zeta(2) *  wgt_eta(2) ) + dbl_eps
-
-
-
-
-        ! Get quadrature vector for each integration point and multiply by
-        ! corresponding wgt_t_detjac
-        DO jg=1, 4
-          z_quad_vector(jg,1) = wgt_t_detjac(jg)
-          z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
-          z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
-          z_quad_vector(jg,4) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**2)
-          z_quad_vector(jg,5) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**2)
-          z_quad_vector(jg,6) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2))
-          z_quad_vector(jg,7) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**3)
-          z_quad_vector(jg,8) = wgt_t_detjac(jg) * (z_gauss_pts(jg,2)**3)
-          z_quad_vector(jg,9) = wgt_t_detjac(jg) * (z_gauss_pts(jg,1)**2 * z_gauss_pts(jg,2))
-          z_quad_vector(jg,10)= wgt_t_detjac(jg) * (z_gauss_pts(jg,1) * z_gauss_pts(jg,2)**2)
-        ENDDO
-
-
-        ! Sum quadrature vectors over all integration points
-        p_quad_vector_sum(ie, 1,jb) = SUM(z_quad_vector(:,1))
-        p_quad_vector_sum(ie, 2,jb) = SUM(z_quad_vector(:,2))
-        p_quad_vector_sum(ie, 3,jb) = SUM(z_quad_vector(:,3))
-        p_quad_vector_sum(ie, 4,jb) = SUM(z_quad_vector(:,4))
-        p_quad_vector_sum(ie, 5,jb) = SUM(z_quad_vector(:,5))
-        p_quad_vector_sum(ie, 6,jb) = SUM(z_quad_vector(:,6))
-        p_quad_vector_sum(ie, 7,jb) = SUM(z_quad_vector(:,7))
-        p_quad_vector_sum(ie, 8,jb) = SUM(z_quad_vector(:,8))
-        p_quad_vector_sum(ie, 9,jb) = SUM(z_quad_vector(:,9))
-        p_quad_vector_sum(ie,10,jb) = SUM(z_quad_vector(:,10))
-
-
         ! Add contribution to total area of departure region
-        p_dreg_area(je,jk,jb) = p_dreg_area(je,jk,jb) + SUM(wgt_t_detjac(1:4))
+        p_dreg_area(je,jk,jb) = p_dreg_area(je,jk,jb) + SUM(wgt_t_detjac(ie,1:4))
 
-!!$IF (p_dreg_area(je,jk,jb) < 0._wp) THEN
-!!$  WRITE(0,*) "ATTENTION: negative areas at je,jk,jb= ", je, jk, jb, p_dreg_area(je,jk,jb)
-!!$  WRITE(0,*) "system orientation: ", p_patch%edges%system_orientation(je,jb)
-!!$  ELSE IF ((p_dreg_area(je,jk,jb) >= 0._wp)) THEN
-!!$  WRITE(0,*) "OK for system orientation= ", je, jk, jb, p_patch%edges%system_orientation(je,jb)
-!!$ENDIF
       ENDDO ! ie: loop over index list
 
     ENDDO  ! loop over blocks
@@ -1380,3 +1414,4 @@ CONTAINS
 
 
 END MODULE mo_advection_quadrature
+

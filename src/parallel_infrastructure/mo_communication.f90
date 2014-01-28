@@ -53,17 +53,16 @@ MODULE mo_communication
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_real_dp, p_int, p_bool, p_comm_work,             &
-     & my_process_is_mpi_seq,                             &
-     & p_pe_work, p_n_work, get_my_mpi_work_communicator, &
-     & get_my_mpi_work_comm_size, get_my_mpi_work_id,     &
-     & p_gather, p_gatherv, work_mpi_barrier
+     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
+     & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
+     & get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier, &
+     & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast
 USE mo_parallel_config, ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
-  & timer_exch_data, timer_exch_data_rv, timer_exch_data_async, timer_barrier, &
-  & timer_exch_data_wait
+  & timer_exch_data, timer_exch_data_async, timer_barrier, timer_exch_data_wait
 USE mo_run_config,      ONLY: msg_level
 USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
+USE mo_util_sort,          ONLY: quicksort
 
 
 IMPLICIT NONE
@@ -77,11 +76,18 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_mult, exchange_data_grf,                   &
-          start_async_comm, complete_async_comm, exchange_data_4de3
+          start_async_comm, complete_async_comm,                   &
+          exchange_data_4de3, delete_comm_gather_pattern
 PUBLIC :: t_comm_pattern
 PUBLIC :: reorder_comm_pattern
 PUBLIC :: reorder_comm_pattern_snd
 PUBLIC :: reorder_comm_pattern_rcv
+PUBLIC :: reorder_comm_gather_pattern
+
+PUBLIC :: t_comm_gather_pattern
+PUBLIC :: setup_comm_gather_pattern
+
+PUBLIC :: ASSIGNMENT(=)
 !
 !variables
 
@@ -155,6 +161,30 @@ TYPE t_comm_pattern
 
 END TYPE t_comm_pattern
 
+!
+!------------------------------------------------------------------------------------------------
+!
+
+TYPE t_comm_gather_pattern
+  INTEGER, ALLOCATABLE :: collector_pes(:) ! ranks of collector processes
+  INTEGER, ALLOCATABLE :: collector_size(:) ! total number of points per
+                                            ! collector
+  INTEGER, ALLOCATABLE :: collector_send_size(:) ! local number of points per
+                                                 ! collector
+  INTEGER, ALLOCATABLE :: loc_index(:) ! local indices of all points that
+                                       ! need to be sent to a collector
+  INTEGER, ALLOCATABLE :: recv_buffer_reorder(:) ! once the data is received
+                                                 ! on the collectors, it has
+                                                 ! to be reordered according
+                                                 ! to this array
+
+  INTEGER, ALLOCATABLE :: recv_pes(:) ! ranks from which data is to be received
+  INTEGER, ALLOCATABLE :: recv_size(:) ! number of remote points received
+END TYPE t_comm_gather_pattern
+
+INTERFACE ASSIGNMENT(=)
+  MODULE PROCEDURE copy_t_comm_gather_pattern
+END INTERFACE
 
 !--------------------------------------------------------------------------------------------------
 !
@@ -166,6 +196,10 @@ INTERFACE exchange_data
    MODULE PROCEDURE exchange_data_r2d
    MODULE PROCEDURE exchange_data_i2d
    MODULE PROCEDURE exchange_data_l2d
+   MODULE PROCEDURE gather_r_2d_deblock
+   MODULE PROCEDURE gather_r_1d_deblock
+   MODULE PROCEDURE gather_i_2d_deblock
+   MODULE PROCEDURE gather_i_1d_deblock
 END INTERFACE
 
 INTERFACE exchange_data_seq
@@ -494,6 +528,150 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, &
 #endif
 
 END SUBROUTINE setup_comm_pattern
+
+!-------------------------------------------------------------------------
+
+SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+  &                                  gather_pattern)
+  INTEGER, INTENT(IN) :: global_size, owner_local(:), glb_index(:)
+  TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
+
+  INTEGER :: num_collectors
+  LOGICAL, ALLOCATABLE :: pack_mask(:)
+  INTEGER :: num_local_points, num_points_per_coll
+  INTEGER, ALLOCATABLE :: packed_glb_index(:)
+  INTEGER :: coll_stride
+  INTEGER :: num_send_per_process(p_n_work), num_recv_per_process(p_n_work)
+  INTEGER :: send_displ(p_n_work+1), recv_displ(p_n_work)
+  INTEGER, ALLOCATABLE :: send_buffer(:), recv_buffer(:)
+  INTEGER :: num_recv, num_recv_points
+  INTEGER :: i, j, n
+
+  ! determine collector ranks and the data associated to each collector
+  num_collectors = NINT(SQRT(REAL(p_n_work)))
+  IF (ALLOCATED(gather_pattern%collector_pes)) &
+    DEALLOCATE(gather_pattern%collector_pes)
+  IF (ALLOCATED(gather_pattern%collector_size)) &
+    DEALLOCATE(gather_pattern%collector_size)
+  IF (ALLOCATED(gather_pattern%collector_send_size)) &
+    DEALLOCATE(gather_pattern%collector_send_size)
+  ALLOCATE(gather_pattern%collector_pes(num_collectors), &
+    &      gather_pattern%collector_size(num_collectors), &
+    &      gather_pattern%collector_send_size(num_collectors))
+  coll_stride = (p_n_work + num_collectors - 1) / &
+    &           num_collectors
+  num_points_per_coll = (global_size + num_collectors - 1) / num_collectors
+  DO i = 1, num_collectors
+    ! set collector ranks
+    gather_pattern%collector_pes(i) = (i-1) * coll_stride
+  END DO
+
+  ! mask for all locally owned points
+  ALLOCATE(pack_mask(SIZE(owner_local)))
+  pack_mask(:) = owner_local(:) == p_pe_work
+  num_local_points = COUNT(pack_mask(:))
+
+  ! determine local indices of all points that need to be sent to a collector
+  IF (ALLOCATED(gather_pattern%loc_index)) &
+    DEALLOCATE(gather_pattern%loc_index)
+  ALLOCATE(gather_pattern%loc_index(num_local_points), &
+    &      packed_glb_index(num_local_points))
+  packed_glb_index(:) = PACK(glb_index(:), pack_mask(:))
+  gather_pattern%loc_index(:) = PACK((/(i, i = 1, &
+    &                                SIZE(owner_local))/), pack_mask(:))
+
+  DEALLOCATE(pack_mask)
+
+  ! sort loc_index according to the respective global indices
+  CALL quicksort(packed_glb_index(:), gather_pattern%loc_index(:))
+
+  ! determine number of points that need to be sent to each collector
+  gather_pattern%collector_send_size(:) = 0
+  DO i = 1, num_local_points
+    n = 1 + (packed_glb_index(i) - 1) / num_points_per_coll
+    gather_pattern%collector_send_size(n) = &
+      gather_pattern%collector_send_size(n) + 1
+  END DO
+
+  ! generate send and receive counts for all processes
+  num_send_per_process(:) = 0
+  DO i = 1, num_collectors
+    num_send_per_process(gather_pattern%collector_pes(i)+1) = &
+      gather_pattern%collector_send_size(i)
+  END DO
+  CALL p_alltoall(num_send_per_process(:), num_recv_per_process(:), &
+    &             p_comm_work)
+  num_recv_points = SUM(num_recv_per_process(:))
+
+  ! exchange number of points per collector
+  IF (p_pe_work == gather_pattern%collector_pes(1)) THEN
+    gather_pattern%collector_size(1) = num_recv_points
+    DO i = 2, num_collectors
+      CALL p_recv(gather_pattern%collector_size(i), &
+        &         gather_pattern%collector_pes(i), 0, 1, p_comm_work)
+    END DO
+  ELSE IF (ANY(gather_pattern%collector_pes(:) == p_pe_work)) THEN
+    CALL p_send(num_recv_points, gather_pattern%collector_pes(1), 0, 1, &
+      &         p_comm_work)
+  END IF
+  CALL p_bcast(gather_pattern%collector_size(:), &
+    &          gather_pattern%collector_pes(1), p_comm_work)
+
+  ! number of messages to be received (is 0 on non-collector processes)
+  num_recv = COUNT(num_recv_per_process(:) /= 0)
+  IF (ALLOCATED(gather_pattern%recv_pes)) &
+    DEALLOCATE(gather_pattern%recv_pes)
+  IF (ALLOCATED(gather_pattern%recv_size)) &
+    DEALLOCATE(gather_pattern%recv_size)
+  ALLOCATE(gather_pattern%recv_pes(num_recv), &
+    &      gather_pattern%recv_size(num_recv))
+  num_recv = 0
+  DO i = 1, p_n_work
+    IF (num_recv_per_process(i) /= 0) THEN
+      num_recv = num_recv + 1
+      gather_pattern%recv_pes(num_recv) = i - 1
+      gather_pattern%recv_size(num_recv) = num_recv_per_process(i)
+    END IF
+  END DO
+
+  ! generate send and receive displacement and fill send buffer
+  ! remark: at first the content of send_displ is shifted by one element
+  !         to the back, this is done in order to ease the copying of data
+  !         into the send buffer
+  send_displ(1:2) = 0
+  recv_displ(1) = 0
+  DO i = 2, p_n_work
+    send_displ(i+1) = send_displ(i) + num_send_per_process(i-1)
+    recv_displ(i)   = recv_displ(i-1) + num_recv_per_process(i-1)
+  END DO
+  ALLOCATE(send_buffer(SUM(num_send_per_process(:))), &
+    &      recv_buffer(num_recv_points))
+
+  DO i = 1, num_local_points
+    j = 2 + gather_pattern%collector_pes(1 + (packed_glb_index(i)-1) / &
+      &                                  num_points_per_coll)
+    send_displ(j) = send_displ(j) + 1
+    send_buffer(send_displ(j)) = packed_glb_index(i)
+  END DO
+
+  DEALLOCATE(packed_glb_index)
+
+  ! collect the global indices from all processes
+  CALL p_alltoallv(send_buffer, num_send_per_process, send_displ, &
+    &              recv_buffer, num_recv_per_process, recv_displ, &
+    &              p_comm_work)
+
+  ! compute the final position of received data on the collectors
+  IF (ALLOCATED(gather_pattern%recv_buffer_reorder)) &
+    DEALLOCATE(gather_pattern%recv_buffer_reorder)
+  ALLOCATE(gather_pattern%recv_buffer_reorder(num_recv_points))
+  gather_pattern%recv_buffer_reorder(:) = (/(i, i = 1, num_recv_points)/)
+  CALL quicksort(recv_buffer(:), gather_pattern%recv_buffer_reorder(:))
+
+  DEALLOCATE(send_buffer, recv_buffer)
+
+END SUBROUTINE setup_comm_gather_pattern
+
 !-------------------------------------------------------------------------
 !
 !>
@@ -541,6 +719,62 @@ SUBROUTINE delete_comm_pattern(p_pat)
 
 END SUBROUTINE delete_comm_pattern
 
+!-------------------------------------------------------------------------
+
+SUBROUTINE delete_comm_gather_pattern(gather_pattern)
+  TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
+
+  IF (ALLOCATED(gather_pattern%collector_pes)) &
+    DEALLOCATE(gather_pattern%collector_pes)
+  IF (ALLOCATED(gather_pattern%collector_size)) &
+    DEALLOCATE(gather_pattern%collector_size)
+  IF (ALLOCATED(gather_pattern%collector_send_size)) &
+    DEALLOCATE(gather_pattern%collector_send_size)
+  IF (ALLOCATED(gather_pattern%loc_index)) &
+    DEALLOCATE(gather_pattern%loc_index)
+  IF (ALLOCATED(gather_pattern%recv_buffer_reorder)) &
+    DEALLOCATE(gather_pattern%recv_buffer_reorder)
+  IF (ALLOCATED(gather_pattern%recv_pes)) &
+    DEALLOCATE(gather_pattern%recv_pes)
+  IF (ALLOCATED(gather_pattern%recv_size)) &
+    DEALLOCATE(gather_pattern%recv_size)
+END SUBROUTINE delete_comm_gather_pattern
+
+ELEMENTAL SUBROUTINE copy_t_comm_gather_pattern(out_arg, in_arg)
+
+  TYPE(t_comm_gather_pattern), INTENT(OUT) :: out_arg
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: in_arg
+
+  IF (ALLOCATED(in_arg%collector_pes)) THEN
+    ALLOCATE(out_arg%collector_pes(SIZE(in_arg%collector_pes)))
+    out_arg%collector_pes(:) = in_arg%collector_pes(:)
+  END IF
+  IF (ALLOCATED(in_arg%collector_size)) THEN
+    ALLOCATE(out_arg%collector_size(SIZE(in_arg%collector_size)))
+    out_arg%collector_size(:) = in_arg%collector_size(:)
+  END IF
+  IF (ALLOCATED(in_arg%collector_send_size)) THEN
+    ALLOCATE(out_arg%collector_send_size(SIZE(in_arg%collector_send_size)))
+    out_arg%collector_send_size(:) = in_arg%collector_send_size(:)
+  END IF
+  IF (ALLOCATED(in_arg%loc_index)) THEN
+    ALLOCATE(out_arg%loc_index(SIZE(in_arg%loc_index)))
+    out_arg%loc_index(:) = in_arg%loc_index(:)
+  END IF
+  IF (ALLOCATED(in_arg%recv_buffer_reorder)) THEN
+    ALLOCATE(out_arg%recv_buffer_reorder(SIZE(in_arg%recv_buffer_reorder)))
+    out_arg%recv_buffer_reorder(:) = in_arg%recv_buffer_reorder(:)
+  END IF
+  IF (ALLOCATED(in_arg%recv_pes)) THEN
+    ALLOCATE(out_arg%recv_pes(SIZE(in_arg%recv_pes)))
+    out_arg%recv_pes(:) = in_arg%recv_pes(:)
+  END IF
+  IF (ALLOCATED(in_arg%recv_size)) THEN
+    ALLOCATE(out_arg%recv_size(SIZE(in_arg%recv_size)))
+    out_arg%recv_size(:) = in_arg%recv_size(:)
+  END IF
+
+END SUBROUTINE copy_t_comm_gather_pattern
 
 !-------------------------------------------------------------------------
 !> Consistency check of communication pattern.
@@ -726,11 +960,6 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    REAL(wp), POINTER :: send_ptr(:,:,:)
 
    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
-
-   ! Variables required for message size blocking
-   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
-              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
-              maxblks, maxsend, maxrecv, jb
 
    !-----------------------------------------------------------------------
 
@@ -1400,11 +1629,6 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount, nf4d
    LOGICAL :: lsend, ladd
 
-   ! Variables required for message size blocking
-   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
-              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
-              maxblks, maxsend, maxrecv
-
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
@@ -1516,7 +1740,10 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
          ENDIF
        ENDIF
      ENDDO
+
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
      RETURN
+     !---------------------------------------------------------------
    ENDIF
 
    ! Reset kshift to 0 if 2D fields are passed together with 3D fields
@@ -1727,11 +1954,6 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
 
    INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
    LOGICAL :: lsend
-
-   ! Variables required for message size blocking
-   INTEGER :: iblksize, nblks_send(p_pat%np_send), nblks_recv(p_pat%np_recv), &
-              npromz_send(p_pat%np_send), npromz_recv(p_pat%np_recv),         &
-              maxblks, maxsend, maxrecv
 
 !-----------------------------------------------------------------------
 
@@ -2309,7 +2531,10 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          ENDDO
        ENDDO
      ENDDO
+     IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
+
      RETURN
+     !---------------------------------------------------------
    ENDIF
 
 
@@ -2552,8 +2777,6 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
 
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_r2d"
    REAL(wp) :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
-   REAL(wp) :: send_buf(1,p_pat%n_send)
-   INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
 
@@ -2680,8 +2903,6 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
 
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i2d"
    INTEGER :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
-   INTEGER :: send_buf(1,p_pat%n_send)
-   INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
 
@@ -2740,8 +2961,6 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
 
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_l2d"
    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
-   LOGICAL :: send_buf(1,p_pat%n_send)
-   INTEGER :: i, lbound2
 
    !-----------------------------------------------------------------------
 
@@ -2770,6 +2989,20 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
    recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_l2d
+
+
+!> In-situ reordering of communication gather pattern.
+!
+!  @author M. Hanke, DKRZ (2013-11-13)
+!
+SUBROUTINE reorder_comm_gather_pattern(gather_pattern, idx_old2new)
+  TYPE (t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
+  INTEGER,                      INTENT(IN)    :: idx_old2new(:) ! permutation array
+
+  gather_pattern%loc_index(:) = idx_old2new(gather_pattern%loc_index(:))
+
+END SUBROUTINE reorder_comm_gather_pattern
+
 
 
 !> In-situ reordering of communication pattern.
@@ -2837,6 +3070,245 @@ SUBROUTINE reorder_comm_pattern_rcv(comm_pat, idx_old2new)
   END DO
 
 END SUBROUTINE reorder_comm_pattern_rcv
+
+SUBROUTINE gather_r_1d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nblk)
+  REAL(wp), INTENT(IN) :: in_array(:,:)
+  ! dimension (global length); only required on root
+  REAL(wp), INTENT(INOUT) :: out_array(:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, idx, blk
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  ALLOCATE(send_buffer(1, num_send_points))
+
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(recv_buffer(1, SUM(gather_pattern%collector_size(:))))
+  ELSE
+    ALLOCATE(recv_buffer(0,0))
+  END IF
+
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(1,i) = in_array(idx, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_r=send_buffer, recv_buffer_r=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
+
+  DEALLOCATE(send_buffer,recv_buffer)
+
+END SUBROUTINE gather_r_1d_deblock
+
+SUBROUTINE gather_i_1d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nblk)
+  INTEGER, INTENT(IN) :: in_array(:,:)
+  ! dimension (global length); only required on root
+  INTEGER, INTENT(INOUT) :: out_array(:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, idx, blk
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  ALLOCATE(send_buffer(1, num_send_points))
+
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(recv_buffer(1, SUM(gather_pattern%collector_size(:))))
+  ELSE
+    ALLOCATE(recv_buffer(0,0))
+  END IF
+
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(1,i) = in_array(idx, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_i=send_buffer, recv_buffer_i=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
+
+  DEALLOCATE(send_buffer,recv_buffer)
+
+END SUBROUTINE gather_i_1d_deblock
+
+SUBROUTINE gather_r_2d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nlev, nblk)
+  REAL(wp), INTENT(IN) :: in_array(:,:,:)
+  ! dimension (global length, nlev); only required on root
+  REAL(wp), INTENT(INOUT) :: out_array(:,:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, nlev, idx, blk
+
+  nlev = SIZE(in_array, 2)
+
+  IF (SIZE(in_array, 1) /= nproma) &
+    CALL finish("gather_r_2d_deblock", &
+      &         "size of first dimension of in_array is not nproma")
+
+  IF (nlev /= SIZE(out_array, 2) .AND. p_pe_work == process_mpi_root_id) &
+    CALL finish("gather_r_2d_deblock", &
+      &         "second size of in_array and out_array are not the same")
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  IF (SIZE(in_array, 1) * SIZE(in_array, 3) < num_send_points) &
+    CALL finish("gather_r_2d_deblock", "in_array is too small")
+
+  ALLOCATE(send_buffer(nlev, num_send_points))
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(recv_buffer(nlev, SUM(gather_pattern%collector_size(:))))
+  ELSE
+    ALLOCATE(recv_buffer(0,0))
+  END IF
+
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(:,i) = in_array(idx, :, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_r=send_buffer, recv_buffer_r=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
+      TRANSPOSE(recv_buffer(:,:))
+END SUBROUTINE gather_r_2d_deblock
+
+SUBROUTINE gather_i_2d_deblock(in_array, out_array, gather_pattern)
+  ! dimension (nproma, nlev, nblk)
+  INTEGER, INTENT(IN) :: in_array(:,:,:)
+  ! dimension (global length, nlev); only required on root
+  INTEGER, INTENT(INOUT) :: out_array(:,:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER :: i, num_send_points, nlev, idx, blk
+
+  nlev = SIZE(in_array, 2)
+
+  IF (SIZE(in_array, 1) /= nproma) &
+    CALL finish("gather_i_2d_deblock", &
+      &         "size of first dimension of in_array is not nproma")
+
+  IF (nlev /= SIZE(out_array, 2) .AND. p_pe_work == process_mpi_root_id) &
+    CALL finish("gather_i_2d_deblock", &
+      &         "second size of in_array and out_array are not the same")
+
+  num_send_points = SUM(gather_pattern%collector_send_size(:))
+  IF (SIZE(in_array, 1) * SIZE(in_array, 3) < num_send_points) &
+    CALL finish("gather_r_2d_deblock", "in_array is too small")
+
+  ALLOCATE(send_buffer(nlev, num_send_points))
+  IF (p_pe_work == process_mpi_root_id) THEN
+    ALLOCATE(recv_buffer(nlev, SUM(gather_pattern%collector_size(:))))
+  ELSE
+    ALLOCATE(recv_buffer(0,0))
+  END IF
+
+  DO i = 1, SIZE(gather_pattern%loc_index(:))
+    idx = idx_no(gather_pattern%loc_index(i))
+    blk = blk_no(gather_pattern%loc_index(i))
+    send_buffer(:,i) = in_array(idx, :, blk)
+  END DO
+
+  CALL two_phase_gather(send_buffer_i=send_buffer, recv_buffer_i=recv_buffer, &
+    &                   gather_pattern=gather_pattern)
+
+  IF (p_pe_work == process_mpi_root_id) &
+    out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
+      TRANSPOSE(recv_buffer(:,:))
+END SUBROUTINE gather_i_2d_deblock
+
+SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
+                            recv_buffer_r, recv_buffer_i, gather_pattern)
+  ! dimension (:, length), prepared according to gather pattern
+  REAL(wp), OPTIONAL, INTENT(IN) :: send_buffer_r(:,:)
+  INTEGER, OPTIONAL, INTENT(IN) :: send_buffer_i(:,:)
+  ! dimension (:, global length); only required on root
+  REAL(wp), OPTIONAL, INTENT(INOUT) :: recv_buffer_r(:,:)
+  INTEGER, OPTIONAL, INTENT(INOUT) :: recv_buffer_i(:,:)
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+
+  REAL(wp), ALLOCATABLE :: collector_buffer_r(:,:)
+  INTEGER, ALLOCATABLE :: collector_buffer_i(:,:)
+  INTEGER :: num_send_per_process(p_n_work), send_displ(p_n_work)
+  INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
+  INTEGER :: i
+
+  IF ((PRESENT(send_buffer_r) .NEQV. PRESENT(recv_buffer_r)) .OR. &
+      (PRESENT(send_buffer_i) .NEQV. PRESENT(recv_buffer_i))) &
+    CALL finish("two_phase_gather", "invalid arguments")
+
+  IF (PRESENT(send_buffer_r)) &
+    ALLOCATE(collector_buffer_r(SIZE(send_buffer_r, 1), &
+      &                         SUM(gather_pattern%recv_size(:))))
+  IF (PRESENT(send_buffer_i)) &
+    ALLOCATE(collector_buffer_i(SIZE(send_buffer_i, 1), &
+      &                         SUM(gather_pattern%recv_size(:))))
+
+  num_send_per_process(:) = 0
+  num_send_per_process(gather_pattern%collector_pes(:)+1) = &
+      gather_pattern%collector_send_size(:)
+  num_recv_per_process(:) = 0
+  num_recv_per_process(gather_pattern%recv_pes(:)+1) = &
+    gather_pattern%recv_size(:)
+  send_displ(1) = 0
+  recv_displ(1) = 0
+  DO i = 2, p_n_work
+    send_displ(i) = send_displ(i-1) + num_send_per_process(i-1)
+    recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
+  END DO
+
+  IF (PRESENT(send_buffer_r)) &
+    CALL p_alltoallv(send_buffer_r, num_send_per_process, send_displ, &
+      &              collector_buffer_r, num_recv_per_process, recv_displ, &
+      &              p_comm_work)
+  IF (PRESENT(send_buffer_i)) &
+    CALL p_alltoallv(send_buffer_i, num_send_per_process, send_displ, &
+      &              collector_buffer_i, num_recv_per_process, recv_displ, &
+      &              p_comm_work)
+
+  ! reorder collector_buffer
+  IF (PRESENT(send_buffer_r)) &
+    collector_buffer_r(:,:) = &
+      collector_buffer_r(:, gather_pattern%recv_buffer_reorder(:))
+  IF (PRESENT(send_buffer_i)) &
+    collector_buffer_i(:,:) = &
+      collector_buffer_i(:, gather_pattern%recv_buffer_reorder(:))
+
+  num_recv_per_process(:) = 0
+  IF (p_pe_work == process_mpi_root_id) &
+    num_recv_per_process(gather_pattern%collector_pes(:)+1) = &
+      gather_pattern%collector_size(:)
+  recv_displ(1) = 0
+  DO i = 2, p_n_work
+    recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
+  END DO
+
+  IF (PRESENT(send_buffer_r)) &
+    CALL p_gatherv(collector_buffer_r, SIZE(collector_buffer_r, 2), &
+      &            recv_buffer_r, num_recv_per_process, recv_displ, &
+      &            process_mpi_root_id, p_comm_work)
+  IF (PRESENT(send_buffer_i)) &
+    CALL p_gatherv(collector_buffer_i, SIZE(collector_buffer_i, 2), &
+      &            recv_buffer_i, num_recv_per_process, recv_displ, &
+      &            process_mpi_root_id, p_comm_work)
+
+  IF (ALLOCATED(collector_buffer_r)) DEALLOCATE(collector_buffer_r)
+  IF (ALLOCATED(collector_buffer_i)) DEALLOCATE(collector_buffer_i)
+END SUBROUTINE two_phase_gather
 
 END MODULE mo_communication
 

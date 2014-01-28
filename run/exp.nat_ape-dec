@@ -104,12 +104,6 @@ vwind_implicitness=${vwind_implicitness:=0.15}
 top_of_atmo=${top_of_atmo:=75000.}
 damp_height=${damp_height:=60000.}
 #-----------------------------------------------------------------------------
-ldump_states=".false."
-lrestore_states=".false."
-
-
-#-----------------------------------------------------------------------------
-
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -165,8 +159,6 @@ cat >> ${atmo_namelist} << EOF
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer     = ${ntracer}   ! number of tracers
  iforcing    = ${iforcing}  ! 
- ldump_states   = ${ldump_states}
- lrestore_states= ${lrestore_states}
  msg_level   =  $msg_level           ! detailed report during integration
  ltimer = ${ltimer}
  timers_level = ${timers_level}
@@ -260,23 +252,7 @@ cat >> ${atmo_namelist} << EOF
  irad_aero  = 0             ! switch off aerosols
 /
 &io_nml
- out_expname      = '${EXPNAME}'     ! file name base
- dt_data          = ${dt_data}       ! [s] write output
- dt_file          = ${dt_file}       ! [s] trigger new output file
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
- lwrite_vorticity   = .false.
- lwrite_divergence  = .false.
- lwrite_omega       = .false.
- lwrite_pres        = .false.
- lwrite_z3          = .true.
- lwrite_tracer      = .true.,.false.,.false.,.false.,.false.,.false.,
- lwrite_tend_phy  = .false.           ! add tendencies due to physics
- lwrite_radiation = .false.           ! add radiation fields to output
- lwrite_cloud     = .true.           ! add cloud fraction to output
- lwrite_precip    = .true.           ! add precipitation to output
- lwrite_pres      = .false.          ! remove pressure from output
- lwrite_extra     = .false.
- lwrite_surface    = .false.
 /
 &interpol_nml
  lsq_high_ord     = 2

@@ -192,7 +192,7 @@ if [[ $lsplitdata = 1 ]] ; then
   done
 
 # fixes
-  for levtype2 in sfc ml pl zl ; do
+  for levtype2 in sfc ml pl zl 114; do
     for bad in unknown '~' ; do
       grib_copy grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb \
                 grb_data/${basename}_DOM01_0001_[discipline].[parameterCategory].[parameterNumber]_${levtype2}.grb || true

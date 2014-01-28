@@ -104,24 +104,23 @@ if [[ $lmean = 1 ]] ; then
 
   cdo timselavg,${DDm1},0,100   ifs_oper_1x1_${YYYYMM}.sfc.grb           \
                                 ifs_oper_1x1_${YYYYMM}.sfc.mn2-${DD}.grb
-  cdo timselavg,${DDm10},9,100  ifs_oper_1x1_${YYYYMM}.sfc.grb           \
-                                ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb
-
   cdo timselavg,${DDm1},1,100   ifs_oper_1x1_${YYYYMM}.pl.grb            \
                                 ifs_oper_1x1_${YYYYMM}.pl.mn2-${DD}.grb
-  cdo timselavg,${DDm10},10,100 ifs_oper_1x1_${YYYYMM}.pl.grb            \
-                                ifs_oper_1x1_${YYYYMM}.pl.mn11-${DD}.grb
-
   grib_set -s date=${YYYYMM}02  ifs_oper_1x1_${YYYYMM}.sfc.mn2-${DD}.grb  out.grb
                      mv out.grb ifs_oper_1x1_${YYYYMM}.sfc.mn2-${DD}.grb
-  grib_set -s date=${YYYYMM}11  ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb out.grb
-                     mv out.grb ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb
-
   grib_set -s date=${YYYYMM}02  ifs_oper_1x1_${YYYYMM}.pl.mn2-${DD}.grb   out.grb
                      mv out.grb ifs_oper_1x1_${YYYYMM}.pl.mn2-${DD}.grb
+
+ if [[ ${DD} -ge "12" ]] ; then
+  cdo timselavg,${DDm10},9,100  ifs_oper_1x1_${YYYYMM}.sfc.grb           \
+                                ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb
+  cdo timselavg,${DDm10},10,100 ifs_oper_1x1_${YYYYMM}.pl.grb            \
+                                ifs_oper_1x1_${YYYYMM}.pl.mn11-${DD}.grb
+  grib_set -s date=${YYYYMM}11  ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb out.grb
+                     mv out.grb ifs_oper_1x1_${YYYYMM}.sfc.mn11-${DD}.grb
   grib_set -s date=${YYYYMM}11  ifs_oper_1x1_${YYYYMM}.pl.mn11-${DD}.grb  out.grb
                      mv out.grb ifs_oper_1x1_${YYYYMM}.pl.mn11-${DD}.grb
-
+ fi
 fi
 
 

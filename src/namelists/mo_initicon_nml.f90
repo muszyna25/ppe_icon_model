@@ -133,7 +133,7 @@ CONTAINS
   CHARACTER(LEN=*), INTENT(IN) :: filename
 
   !local variable
-  INTEGER :: i_status, istat
+  INTEGER :: i_status
   INTEGER :: z_go_init(4)   ! for consistency check
   INTEGER :: iunit
 

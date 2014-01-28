@@ -164,9 +164,6 @@ cat > $atmo_namelist << EOF
  izenith         = 3        ! 4: NWP default, 3: no annual cycle
 /
 &io_nml
- out_expname = '${EXPNAME}' ! file name base
- dt_data     = ${dt_data}
- dt_file     = ${dt_file}
  dt_diag     = ${dt_diag}
 /
 EOF

@@ -165,7 +165,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
 
@@ -293,7 +293,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
     DO je = i_startidx, i_endidx
 
@@ -488,7 +488,7 @@ DO jg = n_dom_start+1, n_dom
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
       IF (p_gcp%child_id(jc,jb) /= jg) ierror = ierror + 1
@@ -504,40 +504,37 @@ DO jg = n_dom_start+1, n_dom
   i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-  IF (grf_scalfbk == 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,j,sum1,ici1,icb1) ICON_OMP_DEFAULT_SCHEDULE
+  ! 1a) Area-weighted feedback weights
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,j,ici1,icb1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
-        sum1 = 0.0_wp
         DO j = 1, 4
           ici1 = p_gcp%child_idx(jc,jb,j)
           icb1 = p_gcp%child_blk(jc,jb,j)
 
-          wgt(j) = p_gcc%area(ici1,icb1)
-          sum1   = sum1 + p_gcc%area(ici1,icb1)
+          p_grfp%fbk_wgt_aw(jc,jb,1:4) = p_gcc%area(ici1,icb1)/p_gcp%area(jc,jb)
         ENDDO
 
-        ! Save the weighting factors in fbk_wgt
-        p_grfp%fbk_wgt_c(jc,jb,1:4) = wgt(1:4)/sum1
       ENDDO
     ENDDO
 !$OMP END DO
 
-  ELSE IF (grf_scalfbk == 2) THEN
+  ! 1b) Bilinear feedback weights
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,z_lon,z_lat,z_norm,z_nx1,z_nx2,x,y, &
 !$OMP            ici1,icb1,ici2,icb2,ici3,icb3,ici4,icb4,cc_center,            &
-!$OMP            cc_ch1,cc_ch2,cc_ch3,cc_ch4,cc_dis1,cc_dis2,cc_dis3,&
+!$OMP            cc_ch1,cc_ch2,cc_ch3,cc_ch4,cc_dis1,cc_dis2,cc_dis3,          &
 !$OMP  cc_dis4) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int)
 
       DO jc = i_startidx, i_endidx
 
@@ -618,150 +615,15 @@ DO jg = n_dom_start+1, n_dom
           wgt(1) = 1.0_wp - SUM(wgt(2:4))
         ELSE
           ierrcount(jb) = ierrcount(jb) + 1
-  !        CALL finish("init_fbk_wgt 1","feedback coefficients not calculated")
         ENDIF
 
         IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
-  !      IF (MINVAL(wgt(1:4)) < 0.0_wp) THEN
-  !        write(0,*) "jb,jc=",jb,jc
-  !        write(0,*) "wgt=",wgt(:)
-  !        CALL finish("init_fbk_wgt 1","MINVAL(wgt(1:4)) < 0.0_wp")
-  !      ENDIF
           
-        ! Save the weighting factors in fbk_wgt
-        p_grfp%fbk_wgt_c(jc,jb,1:4) = wgt(1:4)
+        ! Save the weighting factors in fbk_wgt_bln
+        p_grfp%fbk_wgt_bln(jc,jb,1:4) = wgt(1:4)
       ENDDO
     ENDDO
 !$OMP END DO
-  ENDIF
-
-  IF (grf_tracfbk == 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,j,sum1,ici1,icb1) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
-
-      DO jc = i_startidx, i_endidx
-
-        sum1 = 0.0_wp
-        DO j = 1, 4
-          ici1 = p_gcp%child_idx(jc,jb,j)
-          icb1 = p_gcp%child_blk(jc,jb,j)
-
-          wgt(j) = p_gcc%area(ici1,icb1)
-          sum1   = sum1 + p_gcc%area(ici1,icb1)
-        ENDDO
-
-        ! Save the weighting factors in fbk_wgt
-        p_grfp%fbk_wgt_ct(jc,jb,1:4) = wgt(1:4)/sum1
-      ENDDO
-    ENDDO
-!$OMP END DO
-
-  ELSE IF (grf_tracfbk == 2) THEN
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,z_lon,z_lat,z_norm,z_nx1,z_nx2,x,y, &
-!$OMP            ici1,icb1,ici2,icb2,ici3,icb3,ici4,icb4,cc_center,            &
-!$OMP            cc_ch1,cc_ch2,cc_ch3,cc_ch4,cc_dis1,cc_dis2,cc_dis3,&
-!$OMP cc_dis4) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell_int, i_chidx)
-
-      DO jc = i_startidx, i_endidx
-
-        cc_center = gc2cc(p_gcp%center(jc,jb))
-        z_lon     = p_gcp%center(jc,jb)%lon
-        z_lat     = p_gcp%center(jc,jb)%lat
-
-        CALL gvec2cvec(1._wp,0._wp,z_lon,z_lat,z_nx1(1),z_nx1(2),z_nx1(3))
-        z_norm = SQRT( DOT_PRODUCT(z_nx1(1:3),z_nx1(1:3)) )
-        z_nx1(1:3)  = 1._wp/z_norm * z_nx1(1:3)
-
-        CALL gvec2cvec(0._wp,1._wp,z_lon,z_lat,z_nx2(1),z_nx2(2),z_nx2(3))
-        z_norm = SQRT( DOT_PRODUCT(z_nx2(1:3),z_nx2(1:3)) )
-        z_nx2(1:3)  = 1._wp/z_norm * z_nx2(1:3)
-
-        ici1 = p_gcp%child_idx(jc,jb,1)
-        icb1 = p_gcp%child_blk(jc,jb,1)
-        ici2 = p_gcp%child_idx(jc,jb,2)
-        icb2 = p_gcp%child_blk(jc,jb,2)
-        ici3 = p_gcp%child_idx(jc,jb,3)
-        icb3 = p_gcp%child_blk(jc,jb,3)
-        ici4 = p_gcp%child_idx(jc,jb,4)
-        icb4 = p_gcp%child_blk(jc,jb,4)
-
-        cc_ch1 = gc2cc(p_gcc%center(ici1,icb1))
-        cc_ch2 = gc2cc(p_gcc%center(ici2,icb2))
-        cc_ch3 = gc2cc(p_gcc%center(ici3,icb3))
-        cc_ch4 = gc2cc(p_gcc%center(ici4,icb4))
-
-        cc_dis1%x(1:3) = cc_ch1%x(1:3) - cc_center%x(1:3)
-        z_norm = SQRT( DOT_PRODUCT(cc_dis1%x(1:3),cc_dis1%x(1:3)) )
-        cc_dis1%x(1:3) = cc_dis1%x(1:3)/z_norm
-
-        cc_dis2%x(1:3) = cc_ch2%x(1:3) - cc_center%x(1:3)
-        z_norm = SQRT( DOT_PRODUCT(cc_dis2%x(1:3),cc_dis2%x(1:3)) )
-        cc_dis2%x(1:3) = cc_dis2%x(1:3)/z_norm
-
-        cc_dis3%x(1:3) = cc_ch3%x(1:3) - cc_center%x(1:3)
-        z_norm = SQRT( DOT_PRODUCT(cc_dis3%x(1:3),cc_dis3%x(1:3)) )
-        cc_dis3%x(1:3) = cc_dis3%x(1:3)/z_norm
-
-        cc_dis4%x(1:3) = cc_ch4%x(1:3) - cc_center%x(1:3)
-        z_norm = SQRT( DOT_PRODUCT(cc_dis4%x(1:3),cc_dis4%x(1:3)) )
-        cc_dis4%x(1:3) = cc_dis4%x(1:3)/z_norm
-
-        x(1) = arc_length(cc_center,cc_ch1)*DOT_PRODUCT(z_nx1(1:3),cc_dis1%x(1:3))
-        x(2) = arc_length(cc_center,cc_ch2)*DOT_PRODUCT(z_nx1(1:3),cc_dis2%x(1:3))
-        x(3) = arc_length(cc_center,cc_ch3)*DOT_PRODUCT(z_nx1(1:3),cc_dis3%x(1:3))
-        x(4) = arc_length(cc_center,cc_ch4)*DOT_PRODUCT(z_nx1(1:3),cc_dis4%x(1:3))
-
-        y(1) = arc_length(cc_center,cc_ch1)*DOT_PRODUCT(z_nx2(1:3),cc_dis1%x(1:3))
-        y(2) = arc_length(cc_center,cc_ch2)*DOT_PRODUCT(z_nx2(1:3),cc_dis2%x(1:3))
-        y(3) = arc_length(cc_center,cc_ch3)*DOT_PRODUCT(z_nx2(1:3),cc_dis3%x(1:3))
-        y(4) = arc_length(cc_center,cc_ch4)*DOT_PRODUCT(z_nx2(1:3),cc_dis4%x(1:3))
-
-        ! Use area fraction for weight of central child cell
-        wgt(3) = p_gcc%area(ici3,icb3) /                   &
-          (p_gcc%area(ici1,icb1) + p_gcc%area(ici2,icb2) + &
-           p_gcc%area(ici3,icb3) + p_gcc%area(ici4,icb4))
-
-        ! The weighting factors are based on the requirement that sum(w(i)*x(i)) = 0
-        ! and sum(w(i)*y(i)) = 0, which ensures that linear horizontal gradients
-        ! are not aliased into a checkerboard pattern between upward- and downward
-        ! directed cells. The third condition is sum(w(i)) = 1., and one coefficient
-        ! can be freely chosen (see above). Analytical elimination yields...
-        !
-        IF (ABS(x(2)-x(1)) > 1.e-11_wp) THEN
-          wgt(4) = 1.0_wp/( (y(4)-y(1)) - (y(2)-y(1))*(x(4)-x(1))/(x(2)-x(1)) )* &
-                   (-y(1) + x(1)*(y(2)-y(1))/(x(2)-x(1)) - &
-                   wgt(3) *( (y(3)-y(1)) - (y(2)-y(1))*(x(3)-x(1))/(x(2)-x(1))) )
-          wgt(2) = (-x(1) - wgt(3)*(x(3)-x(1)) - wgt(4)*(x(4)-x(1)))/(x(2)-x(1))
-          wgt(1) = 1.0_wp - SUM(wgt(2:4))
-        ELSE IF (ABS(x(4)-x(1)) > 1.e-11_wp) THEN
-          wgt(2) = 1.0_wp/( (y(2)-y(1)) - (y(4)-y(1))*(x(2)-x(1))/(x(4)-x(1)) )* &
-                   (-y(1) + x(1)*(y(4)-y(1))/(x(4)-x(1)) - &
-                   wgt(3) *( (y(3)-y(1)) - (y(4)-y(1))*(x(3)-x(1))/(x(4)-x(1))) )
-          wgt(4) = (-x(1) - wgt(3)*(x(3)-x(1)) - wgt(2)*(x(2)-x(1)))/(x(4)-x(1))
-          wgt(1) = 1.0_wp - SUM(wgt(2:4))
-        ELSE
-          ierrcount(jb) = ierrcount(jb) + 1
- !         CALL finish("init_fbk_wgt 2","feedback coefficients not calculated")
-        ENDIF
-
-        IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
- !       IF (MINVAL(wgt(1:4)) < 0.0_wp) &
- !         CALL finish("init_fbk_wgt 2","MINVAL(wgt(1:4)) < 0.0_wp")
-
-        ! Save the weighting factors in fbk_wgt
-        p_grfp%fbk_wgt_ct(jc,jb,1:4) = wgt(1:4)
-      ENDDO
-    ENDDO
-!$OMP END DO
-  ENDIF
 
 
 ! Part 2: Feedback weights for edge-based variables
@@ -775,7 +637,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, i_chidx)
+                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
       DO je = i_startidx, i_endidx
         sum1 = 0._wp
@@ -803,7 +665,7 @@ DO jg = n_dom_start+1, n_dom
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, i_chidx)
+                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
       js1 = 0
       js2 = 0
@@ -851,10 +713,10 @@ DO jg = n_dom_start+1, n_dom
 
   IF(my_process_is_mpi_parallel()) THEN
     DO j = 1, 4
-      CALL exchange_data(p_pp%comm_pat_c, p_grfp%fbk_wgt_c(:,:,j))
+      CALL exchange_data(p_pp%comm_pat_c, p_grfp%fbk_wgt_aw(:,:,j))
     ENDDO
     DO j = 1, 4
-      CALL exchange_data(p_pp%comm_pat_c, p_grfp%fbk_wgt_ct(:,:,j))
+      CALL exchange_data(p_pp%comm_pat_c, p_grfp%fbk_wgt_bln(:,:,j))
     ENDDO
     DO j = 1, 6
       CALL exchange_data(p_pp%comm_pat_e, p_grfp%fbk_wgt_e(:,:,j))
@@ -915,6 +777,7 @@ INTEGER  :: i_endidx         ! end index
 REAL(wp) :: z_nx1(3),z_nx2(3), thresh_dotpr
 
 TYPE(t_patch), POINTER :: ptr_patch(:)! indices of all data points
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_grf_intp_coeffs:grf_index'
 !--------------------------------------------------------------------
 
 ptr_patch => p_patch
@@ -951,7 +814,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                         i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
       ! Part 1: child edges aligned with the parent edge
       !
@@ -1055,6 +918,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ELSE IF (ptr_cp%edge_idx(iipc,ibpc,3) == je .AND. ptr_cp%edge_blk(iipc,ibpc,3) == jb ) THEN
           ii2(je) = 1
           ii3(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil points 2 and 3 (remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2a(je,2,jb) = ptr_cp%edge_idx(iipc,ibpc,ii2(je))
@@ -1073,6 +938,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii4(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii4(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 4 (remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2a(je,4,jb) = ptr_ep%quad_idx(iie,ibe,ii4(je))
@@ -1088,6 +955,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii5(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii5(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 5 (remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2a(je,5,jb) = ptr_ep%quad_idx(iie,ibe,ii5(je))
@@ -1154,6 +1023,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ELSE IF (ptr_cp%edge_idx(iipc,ibpc,3) == je .AND. ptr_cp%edge_blk(iipc,ibpc,3) == jb ) THEN
           ii2(je) = 1
           ii3(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 2 and 3 (2nd remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2b(je,2,jb) = ptr_cp%edge_idx(iipc,ibpc,ii2(je))
@@ -1172,6 +1043,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii4(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii4(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 4 (2nd remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2b(je,4,jb) = ptr_ep%quad_idx(iie,ibe,ii4(je))
@@ -1187,6 +1060,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           ii5(je) = 1
         ELSE IF (ptr_ep%quad_idx(iie,ibe,4) == je .AND. ptr_ep%quad_blk(iie,ibe,4) == jb) THEN
           ii5(je) = 2
+        ELSE
+          CALL finish(method_name, "Undefined stencil point 5 (2nd remaining edges of the parent cell)")
         ENDIF
 
         ptr_grf%grf_vec_ind_2b(je,5,jb) = ptr_ep%quad_idx(iie,ibe,ii5(je))
@@ -1201,6 +1076,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         iie   = ptr_grf%grf_vec_ind_2b(je,4,jb)
         ibe   = ptr_grf%grf_vec_blk_2b(je,4,jb)
 
+        ! write(0,*) iie, ibe
         z_nx2(:) = ptr_ep%primal_cart_normal(iie,ibe)%x(:)
 
         IF (ABS(DOT_PRODUCT(z_nx1,z_nx2)) < thresh_dotpr) ierror(je) = ierror(je) + 1
@@ -1370,7 +1246,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx,&
-                         grf_bdyintp_start_e-ishift, min_rledge_int, jcd)
+                         grf_bdyintp_start_e-ishift, min_rledge_int)
 
       !
       ! for each edge, build the vector RBF interpolation matrix
@@ -1536,7 +1412,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch(jg), jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
     DO je = i_startidx, i_endidx
 
@@ -1647,7 +1523,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
 ! Note: OMP parallelization is done over je because for reasonable (=efficient)
 ! choices of nproma, the boundary interpolation zone extends over no more
@@ -1913,7 +1789,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch(jg), jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int)
 
     DO je = i_startidx, i_endidx
 
