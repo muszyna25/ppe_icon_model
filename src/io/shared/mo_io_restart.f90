@@ -1222,6 +1222,7 @@ CONTAINS
   !!
   SUBROUTINE create_restart_file( patch, datetime,             &
                                 & jstep,                       &
+                                & model_type,                  &
                                 & opt_pvct,                    &
                                 & opt_t_elapsed_phy,           &
                                 & opt_lcall_phy, opt_sim_time, &
@@ -1232,9 +1233,10 @@ CONTAINS
                                 & opt_nice_class,              &
                                 & opt_ndom)
 
-    TYPE(t_patch),   INTENT(IN) :: patch
-    TYPE(t_datetime),INTENT(IN) :: datetime
-    INTEGER, INTENT(IN) :: jstep                ! simulation step
+    TYPE(t_patch),       INTENT(IN) :: patch
+    TYPE(t_datetime),    INTENT(IN) :: datetime
+    INTEGER,             INTENT(IN) :: jstep                ! simulation step
+    CHARACTER(len=8),    INTENT(IN) :: model_type           ! store model type
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
@@ -1415,7 +1417,7 @@ CONTAINS
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
     CALL associate_keyword("<idom>",       TRIM(int2string(jg, "(i2.2)")),                 keywords)
     CALL associate_keyword("<rsttime>",    TRIM(private_restart_time),                     keywords)
-    CALL associate_keyword("<mtype>",      TRIM(var_lists(i)%p%model_type),                keywords)
+    CALL associate_keyword("<mtype>",      TRIM(model_type),                               keywords)
     ! replace keywords in file name
     string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
@@ -1924,7 +1926,6 @@ CONTAINS
       IF (my_process_is_mpi_workroot()) write(0,*) "streamOpenRead ", TRIM(restart_filename)
 
       fileID  = streamOpenRead(name)
-      IF (my_process_is_mpi_workroot()) write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
 
       taxisID = vlistInqTaxis(vlistID)

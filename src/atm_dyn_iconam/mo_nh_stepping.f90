@@ -700,6 +700,7 @@ MODULE mo_nh_stepping
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   &
                                   & jstep                      = jstep,                      &
+                                  & model_type                 = "atm",                      &
                                   & opt_t_elapsed_phy          = t_elapsed_phy,              &
                                   & opt_lcall_phy              = lcall_phy,                  &
                                   & opt_sim_time               = time_config%sim_time(jg),   &

@@ -462,8 +462,10 @@ CONTAINS
 
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-      CALL create_restart_file( patch_2D, datetime,                             &
-                              & jstep, opt_depth=n_zlev,                       &
+      CALL create_restart_file( patch_2D, datetime,                            &
+                              & jstep,                                         &
+                              & "oce",                                         &
+                              & opt_depth=n_zlev,                              &
                               & opt_sim_time=time_config%sim_time(1),          &
                               & opt_nice_class=1)
       ! Create the master (meta) file in ASCII format which contains
