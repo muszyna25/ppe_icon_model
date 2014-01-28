@@ -53,6 +53,7 @@ MODULE mo_atmo_model
     &                                   use_async_restart_output
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
+  USE mo_util_string,             ONLY: int2string
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_io_restart_attributes,   ONLY: get_restart_attribute
 
@@ -224,7 +225,7 @@ CONTAINS
     INTEGER :: error_status
 
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0
+    INTEGER :: jstep0, idom, total_dom
 
     ! set mtime-Calendar
     CALL setCalendar(PROLEPTIC_GREGORIAN)
@@ -235,6 +236,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
+
     IF (is_restart_run()) THEN
 
       ! First read the restart master file (ASCII format) to find out
@@ -242,14 +244,14 @@ CONTAINS
       ! Comment by Hui Wan:
       ! The namelist variable atmo_restart_info_filename should be
       ! an input argument of the subroutine read_restart_info_file.
-
+      
       CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-
+      
       IF (lsuccess) THEN
         CALL message( TRIM(routine),                          &
-                    & 'Running model in restart mode. '       &
-                    & //'Horizontal grid should be read from '&
-                    & //TRIM(grid_file_name) )
+          & 'Running model in restart mode. '       &
+          & //'Horizontal grid should be read from '&
+          & //TRIM(grid_file_name) )
       ELSE
         CALL finish(TRIM(routine),'Failed to read restart info file')
       END IF
@@ -258,14 +260,29 @@ CONTAINS
       ! and store them in a buffer. These values will overwrite the
       ! model default, and will later be overwritten if the user has
       ! specified something different for this integraion.
-
-      CALL read_restart_namelists('restart_atm.nc')
+      !
+      ! Note: We read the namelists only once and assume that these
+      !       are identical for all domains.
+      CALL read_restart_namelists('restart_atm_DOM01.nc')
       CALL message(TRIM(routine), 'read namelists from atm restart file')
 
-      ! Read all global attributs in the restart file and store them in a buffer.
+      idom      = 1
+      total_dom = 1
+      DO
+        IF (idom > total_dom) EXIT
+     
+        ! Read all global attributs in the restart file and store them in a buffer.
+        
+        CALL read_restart_attributes('restart_atm_DOM'//TRIM(int2string(idom, "(i2.2)"))//'.nc')
+        CALL message(TRIM(routine), 'read global attributes from atm restart file')
 
-      CALL read_restart_attributes('restart_atm.nc')
-      CALL message(TRIM(routine), 'read global attributes from atm restart file')
+        ! since we do not know about the total number of domains yet,
+        ! we have to ask the current restart file for this
+        ! information:
+        CALL get_restart_attribute( 'n_dom', total_dom )
+
+        idom = idom + 1
+      END DO
 
     END IF ! is_restart_run()
 

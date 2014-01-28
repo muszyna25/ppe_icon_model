@@ -2,6 +2,9 @@
 !! Contains routines for asynchronous restart Output
 !! --------------------------------------------------------
 !!
+!! Note: The synchronous implementation of the restart output can be
+!!       found in the module "mo_io_restart". See module header for
+!!       more details on generated files.
 !!
 !! @par Revision History
 !! Initial implementation by Joerg Benkenstein (2013-01-15)
@@ -2344,16 +2347,23 @@ CONTAINS
     CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
     CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
 
+    ! set no. of domains
+    IF (p_pd%l_opt_ndom) THEN
+      CALL set_restart_attribute( 'n_dom', p_pd%opt_ndom)
+    ELSE
+      CALL set_restart_attribute( 'n_dom', 1)
+    END IF
+
     ! set simulation step
     CALL set_restart_attribute( 'jstep', p_ra%jstep )
 
     ! set time levels
     jg = p_pd%id
-    CALL set_restart_attribute( 'nold'    , p_pd%nold)
-    CALL set_restart_attribute( 'nnow'    , p_pd%nnow)
-    CALL set_restart_attribute( 'nnew'    , p_pd%nnew)
-    CALL set_restart_attribute( 'nnow_rcf', p_pd%nnow_rcf)
-    CALL set_restart_attribute( 'nnew_rcf', p_pd%nnew_rcf)
+    CALL set_restart_attribute( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nold)
+    CALL set_restart_attribute( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnow)
+    CALL set_restart_attribute( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnew)
+    CALL set_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow_rcf)
+    CALL set_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew_rcf)
 
     ! additional restart-output for nonhydrostatic model
     IF (p_pd%l_opt_sim_time) THEN
@@ -3381,7 +3391,7 @@ CONTAINS
     IF (l_opt_ndom .AND. (opt_ndom > 1)) THEN
       rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
     ELSE
-      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//'.nc'
+      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//'_DOM01.nc'
     END IF
 
     ! delete old symbolic link, if exists

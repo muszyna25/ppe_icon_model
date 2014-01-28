@@ -332,6 +332,7 @@ CONTAINS
     DO i = 0, natts-1
       status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
       IF ( att_name(1:4) == 'nml_') CYCLE ! skip this, it is a namelist 
+
       SELECT CASE(att_type)
       CASE(DATATYPE_FLT64)
         natts_real = natts_real+1

@@ -1,3 +1,80 @@
+!> Module for writing restart files (synchronously) and for reading restart files.
+!!
+!! Note: The asynchronous implementation of the restart output can be
+!!       found in the module "mo_io_restart_async"
+!!
+!! Initial implementation: L. Kornblueh
+!!
+!! @par Copyright
+!! 2002-2011 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+!! --------------------------------------------------------------------------------
+!!
+!! Generated files:
+!! ================
+!!
+!! 1. For each domain 1, ..., n_dom, and for each restart output time step:
+!!
+!!    Restart data file
+!!    -----------------
+!!      "<gridfile>_restart_<modeltype>_<timestamp>.nc",     e.g.
+!!      "iconR2B06_DOM01_restart_atm_20110101T001200Z.nc"    (NetCDF format)
+!!
+!!    This filename can be customized using the namelist parameter
+!!    "mo_run_nml/restart_filename".
+!! 
+!!    This file contains
+!!    -  data
+!!    -  namelists
+!!    -  several attributes
+!! 
+!!    Note:
+!!    -  We read the namelists only once and assume that these
+!!       are identical for all domains.
+!!    -  Since we do not know about the total number of domains at startup,
+!!       we have to ask the current restart file for the attribute "n_dom"
+!!
+!! 2. For each domain 1, ..., n_dom, and for the LAST restart output time step:
+!!
+!!    Symbolic link to data file
+!!    --------------------------
+!!      "restart_<modeltype>_DOMxx.nc"
+!!   
+!!    Note:
+!!    -  The domain-dependent suffix "...DOMxx" is also required for non-nested setups.
+!!
+!! 3. For domain 1: 
+!!
+!!    Restart info file (ASCII text)
+!!    -----------------------------
+!!    containing the grid file name
+!!
+!! --------------------------------------------------------------------------------
+!!
 !OPTION! -pvctl conflict
 MODULE mo_io_restart
   !
@@ -1124,11 +1201,18 @@ CONTAINS
 
     CALL set_restart_attribute( 'current_daysec' , datetime%daysec )
 
-    CALL set_restart_attribute( 'nold'    , nold    (jg))
-    CALL set_restart_attribute( 'nnow'    , nnow    (jg))
-    CALL set_restart_attribute( 'nnew'    , nnew    (jg))
-    CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
-    CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
+    CALL set_restart_attribute( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nold    (jg))
+    CALL set_restart_attribute( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnow    (jg))
+    CALL set_restart_attribute( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnew    (jg))
+    CALL set_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnow_rcf(jg))
+    CALL set_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnew_rcf(jg))
+
+    ! set no. of domains
+    IF (PRESENT(opt_ndom)) THEN
+      CALL set_restart_attribute( 'n_dom', opt_ndom)
+    ELSE
+      CALL set_restart_attribute( 'n_dom', 1)
+    END IF
 
     ! set simulation step
     CALL set_restart_attribute( 'jstep', jstep )
@@ -1316,10 +1400,10 @@ CONTAINS
             IF (opt_ndom > 1) THEN
               linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
             ELSE
-              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'_DOM01.nc'
             END IF
           ELSE
-            linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+            linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'_DOM01.nc'
           END IF
           IF (util_islink(TRIM(linkname))) THEN
             iret = util_unlink(TRIM(linkname))
@@ -1749,10 +1833,10 @@ CONTAINS
         IF (opt_ndom > 1) THEN
           restart_filename = 'restart_'//TRIM(model_type)//"_DOM"//TRIM(int2string(p_patch%id, "(i2.2)"))//'.nc'
         ELSE
-          restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+          restart_filename = 'restart_'//TRIM(model_type)//'_DOM01.nc'
         END IF
       ELSE
-        restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+        restart_filename = 'restart_'//TRIM(model_type)//'_DOM01.nc'
       END IF
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
@@ -1762,7 +1846,6 @@ CONTAINS
         write(0,*) "util_symlink:", iret
       ENDIF
       !
-
       string_length=LEN_TRIM(restart_filename)
       name = TRIM(restart_filename)//CHAR(0)
 
