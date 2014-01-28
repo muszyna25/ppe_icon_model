@@ -45,9 +45,11 @@ MODULE mo_art_reaction_interface
     USE mo_art_config,          ONLY: art_config
     USE mo_exception,           ONLY: message, message_text, finish
     USE mo_linked_list,         ONLY: t_var_list,t_list_element
-    USE mo_var_metadata_types,  ONLY: t_var_metadata
+    USE mo_var_metadata,        ONLY: t_var_metadata
+    USE mo_nonhydro_types,      ONLY: t_nh_diag
 #ifdef __ICON_ART
-    USE mo_art_radioactive,       ONLY: art_decay_radioact
+    USE mo_art_radioactive,     ONLY: art_decay_radioact
+!    USE mo_art_chemtracer,      ONLY: art_loss_chemtracer
 #endif
 
   IMPLICIT NONE
@@ -69,13 +71,15 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Max Bangert, KIT (2013-02-25)
-  SUBROUTINE art_reaction_interface( p_patch,p_dtime,p_prog_list,p_tracer_now)
+  SUBROUTINE art_reaction_interface( p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
 
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
 
     REAL(wp), INTENT(IN) ::p_dtime           !< time step
+
+    TYPE(t_nh_diag), INTENT(IN) ::p_diag
 
     TYPE(t_var_list), INTENT(IN) :: &        !< current prognostic state list
       &  p_prog_list
@@ -106,6 +110,12 @@ CONTAINS
 jg  = p_patch%id
 
 IF(art_config(jg)%lart) THEN
+
+   ! ----------------------------------			      
+   ! --- radioactive nuclide decay			     
+   ! ----------------------------------			    
+
+      IF (art_config(jg)%lart_radioact) THEN
 
       current_element=>p_prog_list%p%first_list_element
 
@@ -154,6 +164,16 @@ IF(art_config(jg)%lart) THEN
       current_element => current_element%next_list_element
 
      ENDDO !loop elements
+
+      ENDIF !radioactive nuclide
+
+    ! ----------------------------------
+    ! --- chemical tracer reactions
+    ! ----------------------------------
+
+       IF (art_config(jg)%lart_chemtracer) THEN
+!         CALL art_loss_chemtracer(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
+       ENDIF !chemical tracer
 
 ENDIF
 #endif

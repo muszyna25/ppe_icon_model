@@ -48,7 +48,7 @@ MODULE mo_art_tracer_interface
     USE mo_art_config,           ONLY: art_config
 #ifdef __ICON_ART
     USE mo_art_tracer,           ONLY: art_tracer
-    USE mo_art_initialization,   ONLY: art_init_aerosol
+    USE mo_art_init,             ONLY: art_init
 #endif
 
   IMPLICIT NONE
@@ -108,7 +108,7 @@ CONTAINS
        & tlev_source) 
       
       IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
-        CALL art_init_aerosol(jg,this_list)
+        CALL art_init(jg,this_list)
       END IF
 #endif
 
