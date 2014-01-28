@@ -84,7 +84,7 @@ CONTAINS
     itype_latbc      = 0
     dtime_latbc      = 10800._wp
     nlev_latbc       = 0
-    latbc_filename   = "<path>prepiconR<nroot>B<jlev>_<timestamp>.nc"
+    latbc_filename   = "prepiconR<nroot>B<jlev>_<y><m><d><h>.nc"
     latbc_path       = "./"
 
     !------------------------------------------------------------------

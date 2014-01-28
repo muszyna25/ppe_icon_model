@@ -2492,10 +2492,13 @@ C &
 &
 &
 Filename of boundary data input file, default:\\
-''\texttt{<path>prepiconR<nroot>B<jlev>\_<timestamp>}.nc''. Optional
-keyword \texttt{<path>} will be substituted by
-\texttt{latbc\_path}. \texttt{<timestamp>} will be automatically
-replaced in the run-time.
+''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
+\texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and \texttt{<h>} 
+will be automatically replaced during the run-time. In case
+the time span between two consecutive boundary data is less than 1 hour, 
+one can use \texttt{<min>} and \texttt{<sec>}.
+These files must be located in
+the \texttt{latbc\_path} directory.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline

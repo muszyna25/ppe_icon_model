@@ -123,21 +123,29 @@ CONTAINS
 
     ! Local variables
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
-    CHARACTER(MAX_STRING_LEN)                   :: timestamp
+    CHARACTER(MAX_STRING_LEN)                   :: str
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: &
       &  routine = 'mo_limarea_config::generate_filename:'
     
-    WRITE(timestamp,'(i4,3i2.2)') latbc_datetime%year, latbc_datetime%month, &
-      &                           latbc_datetime%day, latbc_datetime%hour
+    WRITE(str,'(i4)')   latbc_datetime%year
+    CALL associate_keyword("<y>",         TRIM(str),                        keywords)
+    WRITE(str,'(i2.2)') latbc_datetime%month
+    CALL associate_keyword("<m>",         TRIM(str),                        keywords)
+    WRITE(str,'(i2.2)') latbc_datetime%day
+    CALL associate_keyword("<d>",         TRIM(str),                        keywords)
+    WRITE(str,'(i2.2)') latbc_datetime%hour
+    CALL associate_keyword("<h>",         TRIM(str),                        keywords)
+    WRITE(str,'(i2.2)') latbc_datetime%minute
+    CALL associate_keyword("<min>",       TRIM(str),                        keywords)
+    WRITE(str,'(i2.2)') FLOOR(latbc_datetime%second)
+    CALL associate_keyword("<sec>",       TRIM(str),                        keywords)
       
     CALL associate_keyword("<nroot>",     TRIM(int2string(nroot,'(i1)')),   keywords)
     CALL associate_keyword("<nroot0>",    TRIM(int2string(nroot,'(i2.2)')), keywords)
     CALL associate_keyword("<jlev>",      TRIM(int2string(jlev, '(i2.2)')), keywords)
-    CALL associate_keyword("<timestamp>", TRIM(timestamp),                  keywords)
     CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
 
-    ! replace keywords in "input_filename", which is by default
-    ! latbc_filename = "prepiconR<nroot>B<jlev>_DOM<dom>_<timestamp>.nc"
+    ! replace keywords in latbc_filename
     result_str = TRIM(with_keywords(keywords, TRIM(latbc_config%latbc_filename)))
   END FUNCTION generate_filename
   !--------------------------------------------------------------------------------------
