@@ -514,13 +514,13 @@ CONTAINS
     
     CALL add_var(ocean_default_list, 'rho', p_os_diag%rho , grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('rho', 'kg/m^3', 'density', datatype_flt32),&
+      & t_cf_var('rho', 'kg/m^3', 'insitu density', datatype_flt32),&
       & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
     
     CALL add_var(ocean_default_list, 'rhopot', p_os_diag%rhopot , grid_unstructured_cell,&
       & za_depth_below_sea, &
-      & t_cf_var('rhopot', 'kg/m^3', 'density', datatype_flt32),&
+      & t_cf_var('rhopot', 'kg/m^3', 'potential density', datatype_flt32),&
       & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
     

@@ -48,7 +48,7 @@ MODULE mo_oce_forcing
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
-    & forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno,        &
+    & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
     & forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
     & forcing_windstress_u_type, forcing_windstress_v_type
@@ -615,10 +615,10 @@ CONTAINS
     all_cells => patch_3d%p_patch_2d(1)%cells%All
 
     CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_u,&
-      & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
+      & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_v,&
-      & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_meridional_waveno)
+      & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     IF (init_oce_relax == 1) THEN
       CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
@@ -651,30 +651,31 @@ CONTAINS
       & forcing_windstress_v_type, amplitude, zonal_waveno, meridional_waveno, center, length)
   END SUBROUTINE set_windstress_v
 
-  SUBROUTINE update_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
-    TYPE(t_subset_range),INTENT(IN)              :: cell_subset
-    REAL(wp), INTENT(IN)                         :: field_x(:,:), field_y(:,:)
-    TYPE(t_cartesian_coordinates), INTENT(OUT)   :: field_cc(:,:)
-    CALL gvec2cvec(  field_x(:,:),&
-      &              field_y(:,:),&
-      &              cell_subset%patch%cells%center(:,:)%lon,&
-      &              cell_subset%patch%cells%center(:,:)%lat,&
-      &              field_cc(:,:)%x(1),&
-      &              field_cc(:,:)%x(2),&
-      &              field_cc(:,:)%x(3))
-  END SUBROUTINE update_cartesian_coords_for_cells
-  SUBROUTINE update_from_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
-    TYPE(t_subset_range),INTENT(IN)           :: cell_subset
-    REAL(wp), INTENT(INOUT)                   :: field_x(:,:), field_y(:,:)
-    TYPE(t_cartesian_coordinates), INTENT(IN) :: field_cc(:,:)
-    CALL cvec2gvec(field_cc(:,:)%x(1),&
-      &            field_cc(:,:)%x(2),&
-      &            field_cc(:,:)%x(3),&
-      &            cell_subset%patch%cells%center(:,:)%lon,&
-      &            cell_subset%patch%cells%center(:,:)%lat,&
-      &            field_x(:,:),        &
-      &            field_y(:,:))
-  END SUBROUTINE update_from_cartesian_coords_for_cells
+!TODO disabled because of compiler error on blizzard
+! SUBROUTINE update_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
+!   TYPE(t_subset_range),INTENT(IN)              :: cell_subset
+!   REAL(wp), INTENT(IN)                         :: field_x(:,:), field_y(:,:)
+!   TYPE(t_cartesian_coordinates), INTENT(OUT)   :: field_cc(:,:)
+!   CALL gvec2cvec(  field_x(:,:),&
+!     &              field_y(:,:),&
+!     &              cell_subset%patch%cells%center(:,:)%lon,&
+!     &              cell_subset%patch%cells%center(:,:)%lat,&
+!     &              field_cc(:,:)%x(1),&
+!     &              field_cc(:,:)%x(2),&
+!     &              field_cc(:,:)%x(3))
+! END SUBROUTINE update_cartesian_coords_for_cells
+! SUBROUTINE update_from_cartesian_coords_for_cells(cell_subset,field_x,field_y, field_cc)
+!   TYPE(t_subset_range),INTENT(IN)           :: cell_subset
+!   REAL(wp), INTENT(INOUT)                   :: field_x(:,:), field_y(:,:)
+!   TYPE(t_cartesian_coordinates), INTENT(IN) :: field_cc(:,:)
+!   CALL cvec2gvec(field_cc(:,:)%x(1),&
+!     &            field_cc(:,:)%x(2),&
+!     &            field_cc(:,:)%x(3),&
+!     &            cell_subset%patch%cells%center(:,:)%lon,&
+!     &            cell_subset%patch%cells%center(:,:)%lat,&
+!     &            field_x(:,:),        &
+!     &            field_y(:,:))
+! END SUBROUTINE update_from_cartesian_coords_for_cells
 
   SUBROUTINE set_windstress(subset, mask, threshold, windstress, &
       &                     control, amplitude, zonal_waveno, meridional_waveno,center,length)
@@ -753,7 +754,7 @@ CONTAINS
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
 
     length            = basin_width_deg * deg2rad
-    meridional_waveno = forcing_windstress_meridional_waveno
+    meridional_waveno = forcing_windstress_merid_waveno
 
     CALL assign_if_present(length,length_opt)
     CALL assign_if_present(meridional_waveno,meridional_waveno_opt)
@@ -804,7 +805,7 @@ CONTAINS
 
     length                        =  90.0_wp * deg2rad
     center                        = -20.0_wp * deg2rad
-    meridional_waveno             = forcing_windstress_meridional_waveno
+    meridional_waveno             = forcing_windstress_merid_waveno
 
     CALL assign_if_present(center,center_opt)
     CALL assign_if_present(length,length_opt)
@@ -873,7 +874,7 @@ CONTAINS
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
 
     zonal_waveno      = forcing_windstress_zonal_waveno
-    meridional_waveno = forcing_windstress_meridional_waveno
+    meridional_waveno = forcing_windstress_merid_waveno
 
     CALL assign_if_present(zonal_waveno, zonal_waveno_opt)
     CALL assign_if_present(meridional_waveno, meridional_waveno_opt)

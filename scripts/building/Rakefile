@@ -91,7 +91,7 @@ $builds = {
   :remoteNag         => {:host => :thunder4, :subdir => 'nag'      , :CC => 'nag'}     ,
   :remoteIntel       => {:host => :thunder4, :subdir => 'intel'    , :CC => 'intel'}   ,
   :remotePgi         => {:host => :thunder4, :subdir => 'pgi'      , :CC => 'pgi'}     ,
-  :remoteXlf         => {:host => :wizard  , :subdir => 'default'} ,
+  :remoteXlf         => {:host => :passat  , :subdir => 'default'} ,
   :remoteIntelW      => {:host => :wizard  , :subdir => 'intel', :CC => 'intel' } ,
   :remoteXlfHi       => {:host => :passat  , :subdir => 'hiopt'    , :FLAGS => 'hiopt'}
 }
@@ -182,12 +182,13 @@ $configureCall = lambda {|build|
 
 # build call
 $buildCall = lambda {|build|
-  procs = ENV.has_key?('PROCS') ? ENV['PROCS'] : 1
+  procs = ENV.has_key?('PROCS') ? ENV['PROCS'] : 8
   buildCall = ''
   if /cmake/i.match(build.to_s) then
   buildCall << "make -j #{procs};"
   else
   buildCall << $builds[build][:preBuild]  << ';' unless $builds[build][:preBuild].nil?
+  buildCall << 'perl -pi.bak -e "s/make.*/make -j '+procs.to_s+'/" build_command ; cat build_command;'
   buildCall << './build_command;'
   end
   buildCall
