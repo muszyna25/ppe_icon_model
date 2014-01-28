@@ -109,8 +109,7 @@ MODULE mo_ocean_ext_data
 
   PUBLIC :: ext_data
 
-  TYPE(t_external_data),TARGET, ALLOCATABLE :: &
-    &  ext_data(:)  ! n_dom
+  TYPE(t_external_data),TARGET, ALLOCATABLE :: ext_data(:)  ! n_dom
 
 !-------------------------------------------------------------------------
 
@@ -162,8 +161,7 @@ CONTAINS
     ! Build external data list for constant-in-time fields for the ocean model
     DO jg = 1, n_dom
       WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
-      CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
-        &                        ext_data(jg)%oce_list, TRIM(listname))
+      CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce, ext_data(jg)%oce_list, TRIM(listname))
     END DO ! jg = 1,n_dom
 
     ! Build external data list for time-dependent fields
