@@ -1058,7 +1058,7 @@ CONTAINS
        ! Smooth layer thickness ratios in the transition layer of columns where the thickness limiter has been active
        DO jc = 1, nlen
          jk = ktop_thicklimit(jc)
-         IF (jk <= nlev-2 .AND. jk >= 3) THEN
+         IF (jk <= nlev-2 .AND. jk >= 4) THEN
            dz1 = z3d_i(jc,jk+1,jb)-z3d_i(jc,jk+2,jb)
            dz2 = z3d_i(jc,jk-3,jb)-z3d_i(jc,jk-2,jb)
            dzr = (dz2/dz1)**0.25_wp ! stretching factor
@@ -1069,6 +1069,8 @@ CONTAINS
        ENDDO
        ! Check if level nflat is still flat
        IF (ANY(z3d_i(1:nlen,nflat,jb) /= vct_a(nflat+nshift))) ierr(jb) = 1
+       ! Check also if ktop_thicklimit is sufficiently far away from the model top
+       IF (ANY(ktop_thicklimit(1:nlen) <= 3)) ierr(jb) = ierr(jb) + 1
      ENDIF
 
      DO jk = 1, nlev
@@ -1083,7 +1085,7 @@ CONTAINS
 
    nerr = SUM(ierr(1:nblks))
    IF (nerr > 0) CALL finish ('init_vert_coord: ', &
-      'flat_height in sleve_nml is too low')
+      'flat_height in sleve_nml or model top is too low')
 
   END SUBROUTINE init_vert_coord
 
