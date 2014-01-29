@@ -3043,7 +3043,7 @@ L& .FALSE. & &
 
 \hline
 divdamp\_fac&
-R& 0.004& &
+R& 0.0025& &
 Scaling factor for divergence damping&
 lhdiff\_rcf = .TRUE.
 \tabularnewline
@@ -3054,7 +3054,9 @@ I& 4& &
 Order of divergence damping: \\
 2 = second-order divergence damping \\
 4 = fourth-order divergence damping \\
-24 = combined second-order and fourth-order divergence damping (use for data assimilation cycle only!) &
+24 = combined second-order and fourth-order divergence damping and enhanced vertical wind off-centering
+during the initial spinup phase (does not allow checkpointing/restarting ealier than 2.5 hours
+of integration) &
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 

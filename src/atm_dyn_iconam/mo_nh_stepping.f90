@@ -582,13 +582,15 @@ MODULE mo_nh_stepping
     ! activating and immediately after terminating a model domain
     ldom_active(1:n_dom) = p_patch(1:n_dom)%ldom_active
 
-    ! This serves for enhancing the sound wave damping during the first 2 hours of integration
-    ! If mixed second-order - fourth-order divergence damping is chosen (divdamp_order=24),
-    ! the coefficient for second-order divergence damping is also updated
-    elapsed_time_global = REAL(jstep,wp)*dtime
-    IF (elapsed_time_global <= 7200._wp+REAL(iadv_rcf,wp)*dtime .AND. MOD(jstep,iadv_rcf) == 1  &
-       .AND. .NOT. is_restart_run() .AND. .NOT. ltestcase) THEN
-      CALL update_w_offctr(elapsed_time_global)
+    ! Calculations for enhanced sound-wave and gravity-wave damping during the spinup phase
+    ! if mixed second-order/fourth-order divergence damping (divdamp_order=24) is chosen.
+    ! Includes increased vertical wind off-centering during the first 2 hours of integration.
+    IF (divdamp_order==24 .AND. .NOT. is_restart_run()) THEN
+      elapsed_time_global = REAL(jstep,wp)*dtime
+      IF (elapsed_time_global <= 7200._wp+REAL(iadv_rcf,wp)*dtime .AND.  &
+          MOD(jstep,iadv_rcf) == 1  .AND. .NOT. ltestcase) THEN
+        CALL update_spinup_damping(elapsed_time_global)
+      ENDIF
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -1777,15 +1779,15 @@ MODULE mo_nh_stepping
 
   !-------------------------------------------------------------------------
   !>
-  !! Update of vertical wind offcentering
+  !! Update of vertical wind offcentering and divergence damping
   !!
-  !! This routine handles the increased sound-wave damping (by increasing the vertical
-  !! wind offcentering) during the initial spinup phase
+  !! This routine handles the increased sound-wave damping (by increasing the vertical wind offcentering)
+  !! and mixed second-order/fourth-order divergence damping during the initial spinup phase
   !!
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2013-06-04)
   !!
-  SUBROUTINE update_w_offctr(elapsed_time)
+  SUBROUTINE update_spinup_damping(elapsed_time)
 
     REAL(wp), INTENT(IN) :: elapsed_time
     INTEGER :: jg
@@ -1796,13 +1798,13 @@ MODULE mo_nh_stepping
 
     IF (elapsed_time <= time1) THEN ! apply slightly super-implicit weights
       min_vwind_impl_wgt = 1.1_wp
-      IF (divdamp_order == 24) divdamp_fac_o2 = 8._wp*divdamp_fac
+      divdamp_fac_o2 = 8._wp*divdamp_fac
     ELSE IF (elapsed_time <= time2) THEN ! linearly decrease minimum weights to 0.5
       min_vwind_impl_wgt = 0.5_wp + 0.6_wp*(time2-elapsed_time)/(time2-time1)
-      IF (divdamp_order == 24) divdamp_fac_o2 = 8._wp*divdamp_fac*(time2-elapsed_time)/(time2-time1)
+      divdamp_fac_o2 = 8._wp*divdamp_fac*(time2-elapsed_time)/(time2-time1)
     ELSE
       min_vwind_impl_wgt = 0.5_wp
-      IF (divdamp_order == 24) divdamp_fac_o2 = 0._wp
+      divdamp_fac_o2 = 0._wp
     ENDIF
 
     DO jg = 1, n_dom
@@ -1811,7 +1813,7 @@ MODULE mo_nh_stepping
       p_nh_state(jg)%metrics%vwind_expl_wgt(:,:) = 1._wp-p_nh_state(jg)%metrics%vwind_impl_wgt(:,:)
     ENDDO
 
-  END SUBROUTINE update_w_offctr
+  END SUBROUTINE update_spinup_damping
 
   !-------------------------------------------------------------------------
   !>

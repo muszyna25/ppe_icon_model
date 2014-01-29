@@ -194,7 +194,7 @@ CONTAINS
     lbackward_integr = .FALSE.
 
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
-    divdamp_fac = 0.004_wp
+    divdamp_fac = 0.0025_wp
 
     ! Order of divergence damping
     divdamp_order = 4

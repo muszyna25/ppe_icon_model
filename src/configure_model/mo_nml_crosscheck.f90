@@ -82,7 +82,7 @@ MODULE mo_nml_crosscheck
   USE mo_advection_config,   ONLY: advection_config
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, iadv_rcf, &
-                                      lhdiff_rcf, rayleigh_type
+                                      lhdiff_rcf, rayleigh_type, divdamp_order
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config
 
@@ -275,6 +275,15 @@ CONTAINS
           &  'length of checkpoint cycle dt_checkpoint synchronized with transport event'
         CALL message(method_name, message_text)
       ENDIF
+    ENDIF
+
+    ! When increased sound-wave and gravity-wave damping is chosen during the spinup phase
+    ! (i.e. divdamp_order = 24), checkpointing/restarting is not allowed earlier than three
+    ! hours into the integration because the results would not be bit-identical in this case
+    IF (iequations == inh_atmosphere .AND. divdamp_order == 24 .AND. dt_checkpoint < 9000._wp) THEN
+        WRITE(message_text,'(a)') &
+          &  'dt_checkpoint < 2.5 hours not allowed in combination with divdamp_order = 24'
+        CALL finish(method_name, message_text)
     ENDIF
 
     WRITE(message_text,'(a,f10.2,a,f16.10,a)')          &
