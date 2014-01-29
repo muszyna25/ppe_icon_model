@@ -99,7 +99,7 @@ MODULE mo_nh_initicon
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, filetype_nc2, filetype_grb2, &
     &                               vlistInqVarZaxis, vlistNvars, streamInqVlist,     &
-    &                               streamOpenRead, streamInqNvars
+    &                               streamOpenRead, streamInqNvars, cdiInqMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
@@ -717,32 +717,35 @@ MODULE mo_nh_initicon
 
 
     IF (lread) THEN
-      ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
       SELECT CASE(filetype)
       CASE (FILETYPE_NC2)
+        ! Trivial name mapping for NetCDF file
+        mapped_name = TRIM(varname)
+
         IF(p_pe == p_io .AND. msg_level>10) THEN
-          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
+          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(mapped_name)
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_cdi_2d(fileid, varname, glb_arr_len, loc_arr_len, &
-          &              glb_index, var_out)
-
       CASE (FILETYPE_GRB2)
+        ! Search name mapping for name in GRIB2 file
+        mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
+
         IF(p_pe == p_io .AND. msg_level>10) THEN
           WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_cdi_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
-          &              glb_index, var_out, opt_tileidx)
-
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
       END SELECT
 
+
+      ! Perform CDI read operation
+      !
+      CALL read_cdi_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
+        &              glb_index, var_out, opt_tileidx)
 
       ! Perform inverse post_op on input field, if necessary
       !
@@ -787,31 +790,35 @@ MODULE mo_nh_initicon
 !!$      write(0,*) "3D: lread: varname",lread, varname 
 
     IF (lread) THEN
-      ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
       SELECT CASE(filetype)
       CASE (FILETYPE_NC2)
+        ! Trivial name mapping for NetCDF file
+        mapped_name = TRIM(varname)
+
         IF(p_pe == p_io .AND. msg_level>10 ) THEN
-          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(varname)
+          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(mapped_name)
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_cdi_3d (fileid, varname, glb_arr_len, loc_arr_len, &
-          &               glb_index, nlevs, var_out)
-
       CASE (FILETYPE_GRB2)
+        ! Search name mapping for name in GRIB2 file
+        mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
+
         IF(p_pe == p_io .AND. msg_level>10 ) THEN
           WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
 
-        CALL read_cdi_3d (fileid, mapped_name, glb_arr_len, loc_arr_len, &
-          &               glb_index, nlevs, var_out, opt_tileidx)
-
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
       END SELECT
+
+
+      ! Perform CDI read operation
+      !
+      CALL read_cdi_3d (fileid, mapped_name, glb_arr_len, loc_arr_len, &
+        &               glb_index, nlevs, var_out, opt_tileidx)
 
       ! Perform inverse post_op on input field, if necessary
       !    
@@ -1885,57 +1892,53 @@ MODULE mo_nh_initicon
 
       ! start reading first guess (atmosphere only)
       !
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'theta_v', p_patch(jg)%n_patch_cells_g,     &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'theta_v', p_patch(jg)%n_patch_cells_g,   &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
         &                  nlev, p_nh_state(jg)%prog(nnow(jg))%theta_v)
 
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'rho', p_patch(jg)%n_patch_cells_g,         &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'rho', p_patch(jg)%n_patch_cells_g,       &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
         &                  nlev, p_nh_state(jg)%prog(nnow(jg))%rho)
 
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'vn', p_patch(jg)%n_patch_edges_g,          &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'vn', p_patch(jg)%n_patch_edges_g,        &
         &                  p_patch(jg)%n_patch_edges, p_patch(jg)%edges%decomp_info%glb_index,     &
         &                  nlev, p_nh_state(jg)%prog(nnow(jg))%vn)
 
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w', p_patch(jg)%n_patch_cells_g,           &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w', p_patch(jg)%n_patch_cells_g,         &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
         &                  nlevp1, p_nh_state(jg)%prog(nnow(jg))%w)
 
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'tke', p_patch(jg)%n_patch_cells_g,         &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'tke', p_patch(jg)%n_patch_cells_g,       &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
         &                  nlevp1, p_nh_state(jg)%prog(nnow(jg))%tke)
 
       ! Only needed for FG-only runs; usually read from ANA
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qv', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qv', p_patch(jg)%n_patch_cells_g,      &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
 
-      ! Only needed for FG-only runs; usually read from ANA
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qc', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qc', p_patch(jg)%n_patch_cells_g,      &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
 
-      ! Only needed for FG-only runs; usually read from ANA
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qi', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qi', p_patch(jg)%n_patch_cells_g,      &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
 
-      ! Only needed for FG-only runs; usually read from ANA
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qr', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qr', p_patch(jg)%n_patch_cells_g,      &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
 
-      ! Only needed for FG-only runs; usually read from ANA
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qs', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qs', p_patch(jg)%n_patch_cells_g,      &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
@@ -1975,59 +1978,59 @@ MODULE mo_nh_initicon
       ! over directly from the Analysis, are written to the NH prognostic state
       !
       my_ptr3d => initicon(jg)%atm%temp
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,      &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,  &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana))
 
       my_ptr3d => initicon(jg)%atm%pres
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,      &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,  &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       my_ptr3d => initicon(jg)%atm%u
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,         &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,     &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       my_ptr3d => initicon(jg)%atm%v
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,         &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,     &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,    &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-      ! For the time being identical to qc from FG
+      ! For the time being identical to qc from FG => usually read from FG
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qc', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qc', p_patch(jg)%n_patch_cells_g,    &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-      ! For the time being identical to qi from FG
+      ! For the time being identical to qi from FG => usually read from FG
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qi', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qi', p_patch(jg)%n_patch_cells_g,    &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-      ! For the time being identical to qr from FG
+      ! For the time being identical to qr from FG => usually read from FG
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qr', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qr', p_patch(jg)%n_patch_cells_g,    &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-      ! For the time being identical to qs from FG
+      ! For the time being identical to qs from FG => usually read from FG
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qs', p_patch(jg)%n_patch_cells_g,        &
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qs', p_patch(jg)%n_patch_cells_g,    &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
@@ -2807,7 +2810,10 @@ MODULE mo_nh_initicon
 
     INTEGER :: jg, ic, jc, jk, jb, jt             ! loop indices
     INTEGER :: ntlr
-    INTEGER :: nblks_c   
+    INTEGER :: nblks_c
+    REAL(wp):: missval    ! cdiMissval
+    INTEGER :: rl_start, rl_end 
+    INTEGER :: i_startidx, i_endidx
   !-------------------------------------------------------------------------
 
     ! for the time being, the generation of DWD analysis fields is implemented 
@@ -2817,10 +2823,19 @@ MODULE mo_nh_initicon
     nblks_c   = p_patch(jg)%nblks_c
     ntlr      = nnow_rcf(jg)
 
+    ! get CDImissval
+    missval = cdiInqMissval()
+
+    rl_start = 1
+    rl_end   = min_rlcell
 
 !$OMP PARALLEL 
-!$OMP DO PRIVATE(jc,ic,jk,jb,jt) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
+
+      CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
 
       !get SST from first soil level t_so (for sea and lake points)
 !CDIR NODEP,VOVERTAKE,VOB
@@ -2881,9 +2896,27 @@ MODULE mo_nh_initicon
 
       ENDDO  ! jt
 
+
+      ! fr_seaice, h_ice, t_ice: 
+      ! Search for CDI missval and replace it by meaningful value
+      ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
+      ! the huge value range.
+      DO jc = i_startidx, i_endidx
+        IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) == missval) THEN
+          p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
+        ENDIF
+        IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) == missval) THEN
+          p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) = 0._wp
+        ENDIF
+        IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) == missval) THEN
+          p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = 0._wp
+        ENDIF
+      ENDDO  ! jc
+
     END DO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
+
 
     ! Initialization of t_g_t(:,:,isub_water) with t_seasfc is performed in 
     ! mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
