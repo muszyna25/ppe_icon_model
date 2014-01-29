@@ -41,17 +41,17 @@
 MODULE mo_art_sedi_interface
 
     USE mo_kind,                ONLY: wp
-    USE mo_parallel_config,      ONLY: nproma
+    USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_impl_constants,       ONLY: min_rlcell
-    USE mo_nonhydro_types,       ONLY: t_nh_metrics,t_nh_diag
+    USE mo_impl_constants,      ONLY: min_rlcell
+    USE mo_nonhydro_types,      ONLY: t_nh_metrics,t_nh_diag
     USE mo_art_config,          ONLY: art_config
     USE mo_exception,           ONLY: message, message_text, finish
     USE mo_linked_list,         ONLY: t_var_list, t_list_element
-    USE mo_var_metadata,        ONLY: t_var_metadata, t_tracer_meta
+    USE mo_var_metadata_types,  ONLY: t_var_metadata, t_tracer_meta
     USE mo_advection_vflux,     ONLY: upwind_vflux_ppm_cfl 
     USE mo_run_config,          ONLY: ntracer
-    USE mo_loopindices,          ONLY: get_indices_c
+    USE mo_loopindices,         ONLY: get_indices_c
 #ifdef __ICON_ART
     USE mo_art_sedi_volc,       ONLY: art_sedi_volc
 #endif

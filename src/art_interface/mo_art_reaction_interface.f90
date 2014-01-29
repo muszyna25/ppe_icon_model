@@ -45,7 +45,7 @@ MODULE mo_art_reaction_interface
     USE mo_art_config,          ONLY: art_config
     USE mo_exception,           ONLY: message, message_text, finish
     USE mo_linked_list,         ONLY: t_var_list,t_list_element
-    USE mo_var_metadata,        ONLY: t_var_metadata
+    USE mo_var_metadata_types,  ONLY: t_var_metadata
     USE mo_nonhydro_types,      ONLY: t_nh_diag
 #ifdef __ICON_ART
     USE mo_art_radioactive,     ONLY: art_decay_radioact
