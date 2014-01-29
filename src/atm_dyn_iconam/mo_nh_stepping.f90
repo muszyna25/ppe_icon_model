@@ -1112,11 +1112,12 @@ MODULE mo_nh_stepping
           IF (lstep_adv(jg)) THEN
 
             IF (art_config(jg)%lart) THEN
-              CALL art_emission_interface( p_patch(jg),          &!in
+              CALL art_emission_interface(                       &
+                &      ext_data(jg),                             &!in
+                &      p_patch(jg),                              &!in
                 &      dtadv_loc,                                &!in
-                &      datetime,                                 &!in   
-                &      p_nh_state(jg)%prog_list(n_now_rcf),      &!in
                 &      p_nh_state(jg)%prog(n_new)%rho,           &!in 
+                &      p_nh_state(jg)%diag,                      &!in
                 &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
             ENDIF   
 

@@ -108,6 +108,16 @@ MODULE mo_art_config
    LOGICAL :: lart_decay_radioact          !< Treatment of radioactive decay (TRUE/FALSE)   
    
    CHARACTER (LEN=120) :: radioactfile_path !< Path of emission file for radiactive nuclides
+   
+   ! for chemical tracers
+
+   LOGICAL :: lart_chemtracer                !< Treatment of chemical tracer (TRUE/FALSE)
+
+   LOGICAL :: lart_loss_chemtracer           !< Treatment of chemical loss (TRUE/FALSE)
+
+   ! general info
+   
+    CHARACTER(LEN=120) :: art_folder
 
    !For specification of locations.
 
