@@ -1423,6 +1423,9 @@ CONTAINS
         patch_info(jp)%grid_uuid = p_patch(jl)%grid_uuid
         ! Set information about numberOfGridUsed on work and test PE
         patch_info(jp)%number_of_grid_used = number_of_grid_used(jl)
+
+        patch_info(jp)%max_cell_connectivity = p_patch(jl)%cells%max_connectivity
+
       ENDIF
 #ifndef NOMPI
       IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
