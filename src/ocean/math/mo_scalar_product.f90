@@ -984,12 +984,16 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3D, vn_e, operators_coefficien
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_patch), POINTER        :: patch_2D
 
-    IF (use_edges2edges_viacell_fast) THEN
+    IF (use_edges2edges_viacell_fast ) THEN
       CALL map_edges2edges_viacell_2d_1lev_const_z_fast( patch_3D, vn_e, operators_coefficients, out_vn_e )
       RETURN
     ENDIF
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2D(1)
+    IF (use_edges2edges_viacell_fast ) THEN
+      CALL map_edges2edges_viacell_2d_1lev_const_z_fast( patch_3D, vn_e, operators_coefficients, out_vn_e )
+      RETURN
+    ENDIF
     !-----------------------------------------------------------------------
 
     all_edges => patch_2D%edges%all

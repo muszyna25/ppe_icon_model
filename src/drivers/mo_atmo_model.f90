@@ -92,7 +92,7 @@ MODULE mo_atmo_model
   USE mo_icon_cpl_finalize,       ONLY: icon_cpl_finalize
 
   ! horizontal grid, domain decomposition, memory
-  USE mo_grid_config,             ONLY: n_dom, n_dom_start, global_cell_type,                 &
+  USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
     &                                   dynamics_parent_grid_id, n_phys_dom
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_patch_local_parent
   USE mo_build_decomposition,     ONLY: build_decomposition
@@ -394,7 +394,7 @@ CONTAINS
     !--------------------------------------------------------------------------------
 
     IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
-    CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level, &
+    CALL configure_interpolation( n_dom, p_patch(1:)%level, &
                                   p_patch(1)%geometry_info )
 
     ! Allocate array for interpolation state

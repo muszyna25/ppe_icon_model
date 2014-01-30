@@ -145,7 +145,8 @@ MODULE mo_model_domimp_patches
   USE mo_master_nml,         ONLY: model_base_dir
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
-    &  set_grid_geometry_derived_info, copy_grid_geometry_info, parallel_read_geometry_info
+    &  set_grid_geometry_derived_info, copy_grid_geometry_info,            &
+    & parallel_read_geometry_info, triangular_cell
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
     & allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi, pi_2
@@ -634,10 +635,10 @@ CONTAINS
   ! calculate mean geometry properties for old grids,
   ! the new grids should have these values filled
   ! All the patches should have the same geometry type
-  SUBROUTINE set_grid_mean_geometry_info( patch )
+  SUBROUTINE set_missing_geometry_info( patch )
     TYPE(t_patch), INTENT(inout), TARGET ::  patch
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:set_grid_mean_geometry_info'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:set_missing_geometry_info'
 
     !-----------------------------------------------------------------------
     SELECT CASE(patch%geometry_info%geometry_type)
@@ -647,6 +648,11 @@ CONTAINS
       CALL finish(method_name, "planar_torus_geometry should be read from the grid file")
 
     CASE (sphere_geometry)
+      ! if geometry_info is missing then the grid is trianguler by default
+      patch%geometry_info%cell_type = triangular_cell
+      IF (patch%cells%max_connectivity /= 3) &
+        CALL finish("set_missing_geometry_info","cells%max_cell_connectivity /= 3")
+
       ! note that the grid_sphere_radius is already rescaled
       patch%geometry_info%sphere_radius = grid_sphere_radius / grid_length_rescale_factor
       ! divide the sphere surface by the number of cells
@@ -667,7 +673,7 @@ CONTAINS
 
     END SELECT
 
-  END SUBROUTINE set_grid_mean_geometry_info
+  END SUBROUTINE set_missing_geometry_info
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1875,7 +1881,7 @@ CONTAINS
       ! the information was missing from the file (ie old grids)
       ! calclulate basic settings
 !       CALL finish("","did not read from file")
-      CALL set_grid_mean_geometry_info(patch0)
+      CALL set_missing_geometry_info(patch0)
     ENDIF
     CALL set_grid_geometry_derived_info(patch0%geometry_info)
 
