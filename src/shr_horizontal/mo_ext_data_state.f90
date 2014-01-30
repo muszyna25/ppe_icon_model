@@ -2921,7 +2921,17 @@ CONTAINS
 
                DO i_lu = 1, ntiles_lnd
                  lu_subs = MAXLOC(tile_frac,1,tile_mask)
-                 IF (tile_frac(lu_subs) >= frlndtile_thrhld) THEN
+                 ! Note that we have to take into account points with fr_land > frlnd_thrhld but 
+                 ! maximum_tile_frac <frlndtile_thrhld (for tile=1). 
+                 ! This e.g. may be the case at non-dominant land points with very inhomogeneous land class coverage. 
+                 ! That's why checking for (tile_frac(lu_subs) >= frlndtile_thrhld) in the next If-statement is not enough.
+                 ! We accept class fractions for tile=1 even if tile_frac << frlndtile_thrhld.
+                 !
+                 ! The additional check tile_frac(lu_subs) >= 1.e-03_wp is only added for backward compatibility and is 
+                 ! required by all extpar-files generated prior to 2014-01-30. In these files it is not assured that 
+                 ! SUM(tile_frac(:))=1. I.e. glacier below 60°S are missing, such that SUM(tile_frac(:))=0 in these cases.
+                 !
+                 IF ( (i_lu==1 .AND. tile_frac(lu_subs) >= 1.e-03_wp) .OR. (tile_frac(lu_subs) >= frlndtile_thrhld) ) THEN
                    it_count(i_lu)    = it_count(i_lu) + 1
                    tile_mask(lu_subs)= .FALSE.
 
