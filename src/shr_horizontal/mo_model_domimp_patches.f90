@@ -127,11 +127,10 @@ MODULE mo_model_domimp_patches
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
     & lfeedback, l_limited_area, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-    & radiation_grid_filename,  global_cell_type, lplane, &
+    & radiation_grid_filename,  lplane,                   &
     & grid_length_rescale_factor,                         &
     & is_plane_torus, grid_sphere_radius,                 &
-    & use_duplicated_connectivity,  use_dummy_cell_closure, &
-    & get_gridfile_cell_type
+    & use_duplicated_connectivity,  use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level
@@ -991,10 +990,6 @@ CONTAINS
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
 
-    ! this is not the best way to determine the mcells_max_connectivity
-    ! but it will do as long as we deal only with triangles or hexagons
-    CALL get_gridfile_cell_type(ncid, patch%cells%max_connectivity)
-
     ! Check additional attributes for consistency with the current namelist settings
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_ID', igrid_id))
     IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
@@ -1037,6 +1032,7 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncid, dimid, patch%n_patch_verts))
     CALL nf(nf_inq_dimid(ncid, 'nv', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_cell_connectivity))
+    patch%cells%max_connectivity = max_cell_connectivity
     CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
     patch%verts%max_connectivity = max_verts_connectivity
@@ -1049,6 +1045,7 @@ CONTAINS
         & 'WARNING: you are using an old grid file with multiple nesting'
       CALL message  (TRIM(method_name), TRIM(message_text))
     ENDIF
+
     !
     ! calculate and save values for the blocking
     !
@@ -1230,7 +1227,7 @@ CONTAINS
 
     !------------------------------------------
     ! nesting/lateral boundary indexes
-    IF (global_cell_type == 3) THEN ! triangular grid
+    IF (max_cell_connectivity == 3) THEN ! triangular grid
 
       CALL nf(nf_inq_varid(ncid, 'parent_cell_index', varid))
       ! patch%cells%parent_idx(:,:)
@@ -1272,9 +1269,9 @@ CONTAINS
       CALL reshape_int( array_c_int(:,1), patch%nblks_c, patch%npromz_c,  &
         & patch%cells%child_id(:,:) )
 
-    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+    ELSE
       CALL message ('read_patch',&
-        & 'nesting incompatible with hexagonal grid')
+        & 'nesting incompatible with non-triangular grid')
     ENDIF
 
     ! patch%cells%refin_ctrl(:,:)
@@ -1344,7 +1341,6 @@ CONTAINS
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-!     IF (global_cell_type == 3) &
     CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, &
          max_verts_connectivity, use_duplicated_connectivity)
     DO ji = 1, max_verts_connectivity
@@ -1427,8 +1423,9 @@ CONTAINS
     END DO
 
     !----------------------------------------------------------------------------------
-    ! account for pentagons in the hex model
-    IF (global_cell_type == 6) THEN ! hexagonal grid
+    ! account for pentagons in the hex gird,
+    ! Note: this needs to be checked
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
       DO ibc = 1, patch%nblks_c
         block_size = nproma
         IF (ibc == patch%nblks_c) block_size = patch%npromz_c
@@ -1484,9 +1481,7 @@ CONTAINS
 
         END DO  ! ilc=1, block_size
       END DO ! blocks
-    ENDIF  ! global_cell_type == 6
-
-
+    ENDIF
 
     !
     ! Set values which are needed for parallel runs
@@ -1798,7 +1793,7 @@ CONTAINS
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
+    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
     !
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
@@ -1817,8 +1812,7 @@ CONTAINS
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-!     IF (global_cell_type == 3) &
-      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
+    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
     !
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp

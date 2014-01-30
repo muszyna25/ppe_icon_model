@@ -169,7 +169,7 @@ CONTAINS
     INTEGER,INTENT(IN) :: global_cell_type
     INTEGER,INTENT(IN) :: n_dom
     INTEGER,INTENT(IN) :: grid_level(n_dom)
-    TYPE(t_grid_geometry_info), OPTIONAL, INTENT(in) :: geometry_info
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     
     INTEGER :: jg, jlev, geometry_type
     CHARACTER(len=*),PARAMETER :: routine = 'mo_interpol_config:configure_interpol'
@@ -272,9 +272,8 @@ CONTAINS
     !AD (20 Sept 2913) Modification required for planar torus grid: the scale factor
     !is based on the width of the Gaussian but very soon it will adapted in more
     !analytical manner by Florian
-    geometry_type = sphere_geometry
-    IF (PRESENT(geometry_info)) &
-      geometry_type = geometry_info%geometry_type
+    ! geometry_type = sphere_geometry
+    geometry_type = geometry_info%geometry_type
 
     IF( geometry_type==planar_torus_geometry ) THEN
       DO jg = 1, n_dom
