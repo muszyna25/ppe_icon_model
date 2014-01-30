@@ -1749,7 +1749,7 @@ CONTAINS
     CHARACTER(len=1)                :: uuid_string(16)
     CHARACTER(len=1)                :: uuidOfVGrid_string(16)
     REAL(wp)                        :: pi_180
-    INTEGER                        :: max_cell_connectivity
+    INTEGER                         :: max_cell_connectivity
 
     pi_180 = ATAN(1._wp)/45._wp
     max_cell_connectivity = p_patch(of%log_patch_id)%cells%max_connectivity

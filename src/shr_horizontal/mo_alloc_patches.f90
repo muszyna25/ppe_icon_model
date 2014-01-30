@@ -77,7 +77,7 @@ MODULE mo_alloc_patches
   PUBLIC :: allocate_basic_patch
   PUBLIC :: deallocate_basic_patch
   PUBLIC :: allocate_remaining_patch
-  PUBLIC :: allocate_patch
+  ! PUBLIC :: allocate_patch
   PUBLIC :: set_patches_grid_filename
 
   !-------------------------------------------------------------------------
@@ -482,7 +482,7 @@ CONTAINS
     ! - n_patch_verts_g
     ! - max_childdom
 
-    p_patch%cell_type = global_cell_type
+    p_patch%cell_type = p_patch%cells%max_connectivity
     max_childdom = p_patch%max_childdom
     !
     ! !grid cells
