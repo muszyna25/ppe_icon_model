@@ -1032,9 +1032,9 @@ MODULE mo_nh_stepping
         idyn_timestep = MOD(jstep_adv(jg)%ntsteps,iadv_rcf)
         IF (idyn_timestep == 0) idyn_timestep = iadv_rcf
 
-        IF (iforcing == inwp .AND. lclean_mflx) THEN
+        IF (lclean_mflx) THEN
           l_recompute = .TRUE. ! always recompute velocity tendencies for predictor
-        ELSE                   ! step after a physics call
+        ELSE                   ! step after a diffusion/physics call
           l_recompute = .FALSE.
         ENDIF
 

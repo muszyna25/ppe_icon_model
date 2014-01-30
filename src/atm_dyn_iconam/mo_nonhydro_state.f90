@@ -1196,17 +1196,6 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_e )
 
-
-    ! ddt_exner    p_diag%ddt_exner(nproma,nlev,nblks_c)
-    ! *** needs to be saved for restart ***
-    cf_desc    = t_cf_var('exner_pressure_tendency', 's-1', 'exner pressure tendency', &
-         &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_list, 'ddt_exner', p_diag%ddt_exner,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c )
-
-
     ! ddt_exner_phy  p_diag%ddt_exner_phy(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('exner_pressure_physical_tendency', 's-1',            &
@@ -1429,7 +1418,6 @@ MODULE mo_nonhydro_state
 
 
       ! ddt_vn_adv   p_diag%ddt_vn_adv(nproma,nlev,nblks_e,n_timlevs)
-      ! *** needs to be saved for restart (TL nnow)***
       cf_desc    = t_cf_var('advective_normal_wind_tendency', 'm s-2',          &
         &                   'advective normal wind tendency', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 2, 201, ibits, GRID_REFERENCE, GRID_EDGE)
@@ -1446,7 +1434,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                           &
                     & t_cf_var('ddt_adv_vn'//suffix, 'm s-2','', DATATYPE_FLT32),  &
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE),&
-                    & ldims=shape3d_e )
+                    & ldims=shape3d_e, lrestart=.FALSE. )
       ENDDO
 
 
