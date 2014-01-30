@@ -27,7 +27,7 @@ MODULE mo_name_list_output_init
     &                                             min_rlcell_int, min_rledge_int, min_rlvert,     &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
     &                                             MAX_TIME_LEVELS, max_levels, vname_len
-  USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, global_cell_type,            &
+  USE mo_grid_config,                       ONLY: n_dom, n_phys_dom,                              &
     &                                             grid_rescale_factor, start_time, end_time,      &
     &                                             DEFAULT_ENDTIME
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
@@ -821,6 +821,7 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_phys_patch(jp)%n_patch_edges-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_phys_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_phys_patch(jp)%n_patch_verts-1)/nproma + 1
+          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
@@ -831,6 +832,7 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_patch(jp)%n_patch_edges_g-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_patch(jp)%n_patch_verts_g-1)/nproma + 1
+          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
         END IF
       ENDIF
     ENDDO ! jp
@@ -855,7 +857,7 @@ CONTAINS
           grid_info_mode = GRID_INFO_BCAST
           ! For hexagons, we still copy grid info from file; for
           ! triangular grids we have a faster method without file access
-          IF (global_cell_type == 6)  grid_info_mode = GRID_INFO_FILE
+          ! IF (max_cell_connectivity == 6)  grid_info_mode = GRID_INFO_FILE
           IF (PRESENT(opt_l_is_ocean)) THEN
             IF (opt_l_is_ocean) grid_info_mode = GRID_INFO_BCAST
           ENDIF
@@ -1747,8 +1749,10 @@ CONTAINS
     CHARACTER(len=1)                :: uuid_string(16)
     CHARACTER(len=1)                :: uuidOfVGrid_string(16)
     REAL(wp)                        :: pi_180
+    INTEGER                        :: max_cell_connectivity
 
-    pi_180 = ATAN(1._wp)/45._wp   
+    pi_180 = ATAN(1._wp)/45._wp
+    max_cell_connectivity = p_patch(of%log_patch_id)%cells%max_connectivity
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
@@ -1830,7 +1834,7 @@ CONTAINS
       ! Cells
 
       of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%cells%n_glb)
-      CALL gridDefNvertex(of%cdiCellGridID, global_cell_type)
+      CALL gridDefNvertex(of%cdiCellGridID, max_cell_connectivity)
       !
       CALL gridDefXname(of%cdiCellGridID, 'clon')
       CALL gridDefXlongname(of%cdiCellGridID, 'center longitude')
@@ -1852,7 +1856,7 @@ CONTAINS
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
-      CALL gridDefNvertex(of%cdiVertGridID, 9-global_cell_type)
+      CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
       CALL gridDefXlongname(of%cdiVertGridID, 'vertex longitude')
