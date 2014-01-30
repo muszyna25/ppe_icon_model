@@ -770,8 +770,6 @@ CONTAINS
       !----------------------------------------------
       ! Flux compuation methods - consistency check
 
-      SELECT CASE (global_cell_type)
-      CASE (3)
         z_go_tri(1:11)=(/NO_HADV,UP,MIURA,MIURA3,FFSL,FFSL_HYB,MCYCL,       &
           &              MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL,FFSL_HYB_MCYCL/)
         DO jt=1,ntracer
@@ -781,12 +779,6 @@ CONTAINS
               &  '0,1,2,3,4,5,6,20,22,32,42 or 52 ')
           ENDIF
         ENDDO
-
-      CASE (6)
-        CALL finish( TRIM(method_name),         &
-         'hexagonal code is no longer available')
-
-      END SELECT
 
     END DO ! jg = 1,n_dom
     END IF ! ltransport

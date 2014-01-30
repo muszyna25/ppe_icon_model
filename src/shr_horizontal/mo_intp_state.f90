@@ -167,8 +167,7 @@ USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ihs_ocean
 USE mo_mpi,                 ONLY: my_process_is_mpi_parallel
 USE mo_model_domain,        ONLY: t_patch
-USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area, &
-  &                               global_cell_type
+USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ltransport, ltimer
 USE mo_dynamics_config,     ONLY: iequations
@@ -2062,55 +2061,53 @@ INTEGER :: ist
       &             'deallocation for c_lin_e failed')
   ENDIF
   !
-  IF (global_cell_type == 3 ) THEN
-    !
-    ! e_bln_c_s
-    !
-    DEALLOCATE (ptr_int%e_bln_c_s, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for e_bln_c_s failed')
-    ENDIF
-    !
-    ! e_bln_c_u
-    !
-    DEALLOCATE (ptr_int%e_bln_c_u, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for e_bln_c_u failed')
-    ENDIF
-    !
-    ! e_bln_c_v
-    !
-    DEALLOCATE (ptr_int%e_bln_c_v, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for e_bln_c_v failed')
-    ENDIF
-    !
-    ! c_bln_avg
-    !
-    DEALLOCATE (ptr_int%c_bln_avg, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for c_bln_avg failed')
-    ENDIF
-    !
-    ! gradc_bmat
-    !
-    DEALLOCATE (ptr_int%gradc_bmat, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for gradc_bmat failed')
-    ENDIF
-    !
-    ! e_flx_avg
-    !
-    DEALLOCATE (ptr_int%e_flx_avg, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for e_flx_avg failed')
-    ENDIF
+  !
+  ! e_bln_c_s
+  !
+  DEALLOCATE (ptr_int%e_bln_c_s, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for e_bln_c_s failed')
+  ENDIF
+  !
+  ! e_bln_c_u
+  !
+  DEALLOCATE (ptr_int%e_bln_c_u, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for e_bln_c_u failed')
+  ENDIF
+  !
+  ! e_bln_c_v
+  !
+  DEALLOCATE (ptr_int%e_bln_c_v, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for e_bln_c_v failed')
+  ENDIF
+  !
+  ! c_bln_avg
+  !
+  DEALLOCATE (ptr_int%c_bln_avg, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for c_bln_avg failed')
+  ENDIF
+  !
+  ! gradc_bmat
+  !
+  DEALLOCATE (ptr_int%gradc_bmat, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for gradc_bmat failed')
+  ENDIF
+  !
+  ! e_flx_avg
+  !
+  DEALLOCATE (ptr_int%e_flx_avg, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for e_flx_avg failed')
   ENDIF
   !
   ! v_1o2_e
@@ -2129,123 +2126,6 @@ INTEGER :: ist
       &             'deallocation for e_inn_c failed')
   ENDIF
   !
-  IF (global_cell_type == 6 ) THEN
-    !
-    ! e_inn_v
-    !
-    DEALLOCATE (ptr_int%e_inn_v, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for e_inn_v failed')
-    ENDIF
-    !
-    ! e_aw_c
-    !
-    DEALLOCATE (ptr_int%e_aw_c, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for e_aw_c failed')
-    ENDIF
-    !
-    ! r_aw_c
-    !
-    DEALLOCATE (ptr_int%r_aw_c, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for r_aw_c failed')
-    ENDIF
-    !
-    ! e_aw_v
-    !
-    DEALLOCATE (ptr_int%e_aw_v, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for e_aw_v failed')
-    ENDIF
-    !
-    ! tria_aw_rhom
-    !
-    DEALLOCATE (ptr_int%tria_aw_rhom, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for tria_aw_rhom failed')
-    ENDIF
-    !
-    ! e_1o3_v
-    !
-    DEALLOCATE (ptr_int%e_1o3_v, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                    &
-        &             'deallocation for e_1o3_v failed')
-    ENDIF
-    !
-    IF (i_cori_method>=3) THEN
-      !
-      ! quad_north
-      !
-      DEALLOCATE (ptr_int%quad_north, STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ('mo_interpolation:destruct_int_state',                   &
-          &          'deallocation for quad_north failed')
-      ENDIF
-      !
-      ! quad_east
-      !
-      DEALLOCATE (ptr_int%quad_east, STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ('mo_interpolation:destruct_int_state',                   &
-          &          'deallocation for quad_east failed')
-      ENDIF
-    ENDIF
-    !
-    ! hex_north
-    !
-    DEALLOCATE (ptr_int%hex_north, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                   &
-        &          'deallocation for hex_north failed')
-    ENDIF
-    !
-    ! hex_east
-    !
-    DEALLOCATE (ptr_int%hex_east, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                   &
-        &          'deallocation for hex_east failed')
-    ENDIF
-    !
-    ! tria_north
-    !
-    DEALLOCATE (ptr_int%tria_north, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                   &
-        &          'deallocation for tria_north failed')
-    ENDIF
-    !
-    ! tria_east
-    !
-    DEALLOCATE (ptr_int%tria_east, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                   &
-        &          'deallocation for tria_east failed')
-    ENDIF
-    !
-    ! cno_en
-    !
-    DEALLOCATE (ptr_int%cno_en, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                   &
-        &          'deallocation for cno_en failed')
-    ENDIF
-    !
-    ! cea_en
-    !
-    DEALLOCATE (ptr_int%cea_en, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                   &
-        &          'deallocation for cea_en failed')
-    ENDIF
-  ENDIF
   !
   ! verts_aw_cells
   !
@@ -2271,7 +2151,6 @@ INTEGER :: ist
       &             'deallocation for cells_plwa_verts failed')
   ENDIF
 
-  IF (global_cell_type == 3) THEN
     !
     ! rbf_vec_idx_c, rbf_vec_blk_c
     !
@@ -2381,9 +2260,6 @@ INTEGER :: ist
       &             'deallocation for rbf_vec_coeff_e failed')
     ENDIF
 
-  ENDIF
-
-
 
   IF( ltransport .OR. iequations == 3) THEN
     !
@@ -2403,15 +2279,13 @@ INTEGER :: ist
         &             'deallocation for tplane_e_dotprod failed')
     ENDIF
 
-    IF ( global_cell_type == 3 ) THEN
-      !
-      ! pos_on_tplane_c_edge
-      !
-      DEALLOCATE (ptr_int%pos_on_tplane_c_edge, STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ('mo_interpolation:destruct_int_state',                      &
-          &             'deallocation for pos_on_tplane_c_edge failed')
-      ENDIF
+    !
+    ! pos_on_tplane_c_edge
+    !
+    DEALLOCATE (ptr_int%pos_on_tplane_c_edge, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',                      &
+        &             'deallocation for pos_on_tplane_c_edge failed')
     ENDIF
 
     !
@@ -2586,62 +2460,40 @@ INTEGER :: ist
     ENDIF
   END IF
 
-  IF(global_cell_type == 6) THEN
-    DEALLOCATE (ptr_int%heli_coeff, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                   &
-        &          'deallocation for heli_coeff failed')
-    ENDIF
-    IF (i_cori_method<3) THEN
-      DEALLOCATE (ptr_int%heli_vn_idx, STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ('mo_interpolation:destruct_int_state',                   &
-          &          'deallocation for heli_vn_idx failed')
-      ENDIF
-      DEALLOCATE (ptr_int%heli_vn_blk, STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ('mo_interpolation:destruct_int_state',                   &
-          &          'deallocation for heli_vn_blk failed')
-      ENDIF
-    ENDIF
+  DEALLOCATE (ptr_int%geofac_qdiv, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for geofac_qdiv failed')
   ENDIF
-
-  IF (global_cell_type == 3) THEN
-    DEALLOCATE (ptr_int%geofac_qdiv, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for geofac_qdiv failed')
-    ENDIF
-    DEALLOCATE (ptr_int%geofac_grdiv, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for geofac_grdiv failed')
-    ENDIF
-    DEALLOCATE (ptr_int%gquad%qpts_tri_l, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for qpts_tri_l failed')
-    ENDIF
-    DEALLOCATE (ptr_int%gquad%qpts_tri_q, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for qpts_tri_q failed')
-    ENDIF
-    DEALLOCATE (ptr_int%gquad%qpts_tri_c, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for qpts_tri_q failed')
-    ENDIF
-    DEALLOCATE (ptr_int%gquad%weights_tri_q, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for weights_tri_q failed')
-    ENDIF
-    DEALLOCATE (ptr_int%gquad%weights_tri_c, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:destruct_int_state',                      &
-        &             'deallocation for weights_tri_c failed')
-    ENDIF
+  DEALLOCATE (ptr_int%geofac_grdiv, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for geofac_grdiv failed')
+  ENDIF
+  DEALLOCATE (ptr_int%gquad%qpts_tri_l, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for qpts_tri_l failed')
+  ENDIF
+  DEALLOCATE (ptr_int%gquad%qpts_tri_q, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for qpts_tri_q failed')
+  ENDIF
+  DEALLOCATE (ptr_int%gquad%qpts_tri_c, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for qpts_tri_q failed')
+  ENDIF
+  DEALLOCATE (ptr_int%gquad%weights_tri_q, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for weights_tri_q failed')
+  ENDIF
+  DEALLOCATE (ptr_int%gquad%weights_tri_c, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_interpolation:destruct_int_state',                      &
+      &             'deallocation for weights_tri_c failed')
   ENDIF
 
   DEALLOCATE (ptr_int%geofac_div, STAT=ist )
@@ -2684,102 +2536,6 @@ INTEGER :: ist
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:destruct_int_state',                       &
       &             'deallocation for cell_vert_dist failed')
-  ENDIF
-
-  IF (global_cell_type == 6) THEN
-
-    DEALLOCATE (ptr_int%dir_gradh_i1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradh_i1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradh_i2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradh_i2 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradh_b1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradh_b1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradh_b2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradh_b2 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradhux_c1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradhux_c1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradhux_c2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradhux_c2 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%strain_def_c1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for strain_def_c1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%strain_def_c2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for strain_def_c2 failed')
-    ENDIF
-
-    DEALLOCATE (ptr_int%dir_gradt_i1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradt_i1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradt_i2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradt_i2 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradt_b1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradt_b1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradt_b2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradt_b2 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradtxy_v1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradtxy_v1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradtxy_v2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradtxy_v2 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradtyx_v1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradtyx_v1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%dir_gradtyx_v2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for dir_gradtyx_v2 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%shear_def_v1, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for shear_def_v1 failed')
-    ENDIF
-    DEALLOCATE (ptr_int%shear_def_v2, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_interpolation:construct_int_state',                    &
-        &             'deallocation for shear_def_v2 failed')
-    ENDIF
-
   ENDIF
 
 END SUBROUTINE deallocate_int_state

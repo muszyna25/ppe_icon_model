@@ -53,7 +53,6 @@ MODULE mo_grid_nml
 !                                    & open_and_restore_namelist, close_tmpfile
 
   USE mo_grid_config,        ONLY:                                         &
-    & config_global_cell_type             => global_cell_type,             &
     & config_lfeedback                    => lfeedback,                    &
     & config_ifeedback_type               => ifeedback_type,               &
     & config_start_time                   => start_time,                   &
@@ -107,7 +106,7 @@ MODULE mo_grid_nml
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
     INTEGER  :: i_status, i
 
-    INTEGER    :: cell_type                ! cell type:
+    INTEGER    :: cell_type                ! cell type: NOT USED
 
     LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
     INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)
@@ -238,7 +237,6 @@ MODULE mo_grid_nml
 
 
     !-----------------------------------------------------
-    config_global_cell_type  = cell_type
     config_lfeedback         = lfeedback
     config_ifeedback_type    = ifeedback_type
     config_start_time        = start_time

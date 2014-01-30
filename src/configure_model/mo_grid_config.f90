@@ -61,7 +61,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PUBLIC :: init_grid_configuration, get_grid_rescale_factor
   PUBLIC :: max_rad_dom
-  PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
+  PUBLIC :: nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
@@ -69,7 +69,6 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: namelist_grid_angular_velocity
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
-  PUBLIC :: get_gridfile_cell_type
 
 ! !   PUBLIC :: radiation_grid_distribution
   
@@ -91,7 +90,6 @@ INCLUDE 'netcdf.inc'
   ! ------------------------------------------------------------------------
   !Configuration variables
   ! ------------------------------------------------------------------------
-  INTEGER  :: global_cell_type
   INTEGER  :: nroot                    ! root division of initial edges
   INTEGER  :: start_lev                ! coarsest bisection level
   INTEGER  :: n_dom                    ! number of model domains, 1=global domain only 
@@ -150,7 +148,7 @@ CONTAINS
   SUBROUTINE init_grid_configuration
                                                
     !local variables
-    INTEGER  :: jg, ncid, cell_type
+    INTEGER  :: jg, ncid
 !    INTEGER  :: funit
     LOGICAL  :: file_exists
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:init_grid_configuration"
@@ -200,11 +198,7 @@ CONTAINS
 !     nroot = get_grid_root(dynamics_grid_filename(1))
     CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))
     CALL get_gridfile_root_level(ncid, nroot, start_lev)
-    CALL get_gridfile_cell_type(ncid, cell_type)
     CALL nf(nf_close(ncid))
-
-    IF (global_cell_type /= cell_type) &
-      CALL finish(method_name, "global_cell_type /= cell_type")
 
     ! domain geometric properties
 !    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
@@ -241,13 +235,6 @@ CONTAINS
     IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
     
     !------------------------------------------------------------
-    SELECT CASE (global_cell_type)
-    CASE (itri)
-      ! ok
-    CASE default
-      CALL finish( TRIM(method_name),&
-        & 'wrong cell type specifier, "global_cell_type" must be 3')
-    END SELECT
                
 !     write(0,*) no_of_dynamics_grids
 !     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)
@@ -274,21 +261,7 @@ CONTAINS
 
   END SUBROUTINE get_gridfile_root_level
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  SUBROUTINE get_gridfile_cell_type( ncid, cell_type )
-    INTEGER,    INTENT(in)     :: ncid
-    INTEGER,    INTENT(inout)  :: cell_type
-
-    INTEGER :: netcd_status
     
-    netcd_status = nf_get_att_int(ncid, nf_global,'grid_cell_type', cell_type)
-    IF (netcd_status /= nf_noerr) & ! old grid 
-      cell_type = global_cell_type
-
-  END SUBROUTINE get_gridfile_cell_type
-  !-------------------------------------------------------------------------
-  
   !-------------------------------------------------------------------------
 !   SUBROUTINE get_gridfile_rescale_factor( patch_file, rescale_factor )
 !     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
