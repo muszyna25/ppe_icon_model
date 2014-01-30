@@ -210,8 +210,8 @@ MODULE mo_io_restart_async
   ! Below, "points" refers to either cells, edges or verts.
   !
   TYPE t_reorder_data
-    INTEGER :: n_glb  ! Global number of points per physical patch
-    INTEGER :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
+    INTEGER :: n_glb  ! Global number of points per logical patch
+    INTEGER :: n_own  ! Number of own points (without halo, only belonging to logical patch)
                       ! Only set on compute PEs, set to 0 on restart PEs
     INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)
                       ! idx and blk for own points, only set on compute PEs
@@ -1802,15 +1802,15 @@ CONTAINS
 
         ! set reorder data on work PE
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells, &
-                              p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%phys_id,    &
+                              p_patch(jl)%cells%decomp_info%owner_mask,                   &
                               p_patch(jl)%cells%decomp_info%glb_index, p_pd%cells)
 
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges, &
-                              p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%phys_id,    &
+                              p_patch(jl)%edges%decomp_info%owner_mask,                   &
                               p_patch(jl)%edges%decomp_info%glb_index, p_pd%edges)
 
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
-                              p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%phys_id,    &
+                              p_patch(jl)%verts%decomp_info%owner_mask,                   &
                               p_patch(jl)%verts%decomp_info%glb_index, p_pd%verts)
       ENDIF
 
@@ -1931,20 +1931,18 @@ CONTAINS
   !
   ! Sets the reorder data for cells/edges/verts.
   !
-  SUBROUTINE set_reorder_data(phys_patch_id, n_points_g, n_points, owner_mask, phys_id, &
-                              glb_index, reo)
+  SUBROUTINE set_reorder_data(patch_id, n_points_g, n_points, owner_mask, glb_index, reo)
 
-    INTEGER, INTENT(IN) :: phys_patch_id   ! Physical patch ID
+    INTEGER, INTENT(IN) :: patch_id        ! Logical patch ID
     INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
     INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
     LOGICAL, INTENT(IN) :: owner_mask(:,:) ! owner_mask for logical patch
-    INTEGER, INTENT(IN) :: phys_id(:,:)    ! phys_id for logical patch
     INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
 
     TYPE(t_reorder_data), INTENT(INOUT) :: reo ! Result: reorder data
 
     INTEGER :: i, n, il, ib, mpi_error, ierrstat
-    LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
+    LOGICAL, ALLOCATABLE :: owner_mask_1d(:) ! non-blocked owner mask for (logical) patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
     CHARACTER (LEN=MAX_ERROR_LENGTH) :: error_message
 
@@ -1957,17 +1955,16 @@ CONTAINS
     ! just for safety
     IF(my_process_is_restart()) CALL finish(subname, NO_COMPUTE_PE)
 
-    ! set the physical patch owner mask
-    ALLOCATE(phys_owner_mask(n_points))
+    ! set the non-blocked patch owner mask
+    ALLOCATE(owner_mask_1d(n_points))
     DO i = 1, n_points
       il = idx_no(i)
       ib = blk_no(i)
-      phys_owner_mask(i) = owner_mask(il,ib)
-      phys_owner_mask(i) = phys_owner_mask(i) .AND. (phys_id(il,ib) == phys_patch_id)
+      owner_mask_1d(i) = owner_mask(il,ib)
     ENDDO
 
-    ! get number of owned cells/edges/verts (without halos, physical patch only)
-    reo%n_own = COUNT(phys_owner_mask(:))
+    ! get number of owned cells/edges/verts (without halos)
+    reo%n_own = COUNT(owner_mask_1d(:))
 
     ! set index arrays to own cells/edges/verts
     ALLOCATE(reo%own_idx(reo%n_own), STAT=ierrstat)
@@ -1981,7 +1978,7 @@ CONTAINS
 
     n = 0
     DO i = 1, n_points
-      IF(phys_owner_mask(i)) THEN
+      IF(owner_mask_1d(i)) THEN
         n = n+1
         reo%own_idx(n) = idx_no(i)
         reo%own_blk(n) = blk_no(i)
@@ -2006,7 +2003,7 @@ CONTAINS
       reo%pe_off(i) = reo%pe_off(i-1) + reo%pe_own(i-1)
     ENDDO
 
-    ! get global number of points for current (physical!) patch
+    ! get global number of points for current patch
     reo%n_glb = SUM(reo%pe_own(:))
 
     ! Get the global index numbers of the data when it is gathered on PE 0
@@ -2030,11 +2027,11 @@ CONTAINS
 
     DO i = 1, reo%n_glb
       ! reorder_index_log_dom stores where a global point in logical domain comes from.
-      ! It is nonzero only at the physical patch locations
+      ! It is nonzero only at the patch locations
       reorder_index_log_dom(glbidx_glb(i)) = i
     ENDDO
 
-    ! gather the reorder index for the physical domain
+    ! gather the reorder index
     n = 0
     DO i = 1, n_points_g
       IF(reorder_index_log_dom(i)>0) THEN
@@ -2055,7 +2052,7 @@ CONTAINS
       CALL finish(subname,TRIM(error_message))
     ENDIF
 
-    DEALLOCATE(phys_owner_mask)
+    DEALLOCATE(owner_mask_1d)
     DEALLOCATE(glbidx_own)
     DEALLOCATE(glbidx_glb)
     DEALLOCATE(reorder_index_log_dom)
