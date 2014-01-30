@@ -44,6 +44,8 @@ MODULE mo_rbf_errana
   USE mo_math_constants,       ONLY: pi_180
   USE mo_exception,            ONLY: finish
   USE mo_parallel_config,      ONLY: nproma
+  USE mo_model_domain,         ONLY: t_patch
+  USE mo_communication,        ONLY: idx_1d
   USE mo_math_utilities,       ONLY: t_geographical_coordinates,                 &
     &                                t_cartesian_coordinates,                    &
     &                                gc2cc
@@ -118,7 +120,7 @@ CONTAINS
       &                                            iidx, iblk, ierrstat
     TYPE (t_cartesian_coordinates), ALLOCATABLE :: cc(:,:)
     TYPE (t_cartesian_coordinates)              :: dfr
-    TYPE (t_geographical_coordinates)           :: gc
+    TYPE (t_geographical_coordinates)           :: gc(nproma)
 
     N = max_kdim
     ALLOCATE(mat_A(nproma,N,N), z_diag(nproma,N), e_n(nproma,N),               &
@@ -134,6 +136,7 @@ CONTAINS
     ! case 1: cell-based interpolation stencil
     DO j1 = 1,N
       DO jc=start_idx,end_idx
+        IF (lflag(jc)) CYCLE
         IF (j1 > kdim(jc)) CYCLE
         ! data site j1, cell jc,jb
         !
@@ -141,9 +144,10 @@ CONTAINS
         ! with index/block of data site j1
         iidx   = intp_data_iidx(j1,jc,jb)
         iblk   = intp_data_iblk(j1,jc,jb)
-        gc     = center(iidx, iblk)
+        gc(jc)%lon = center(iidx, iblk)%lon
+        gc(jc)%lat = center(iidx, iblk)%lat
         ! get Cartesian coordinates
-        cc(jc,j1) = gc2cc(gc)
+        cc(jc,j1) = gc2cc(gc(jc))
       END DO
     END DO
 
@@ -154,6 +158,7 @@ CONTAINS
     DO j1 = 1,N
       DO j2 = 1,N
         DO jc=start_idx,end_idx
+          IF (lflag(jc)) CYCLE
           IF ((j1>kdim(jc)) .OR. (j2>kdim(jc))) CYCLE
           ! evaluate scalar RBF, fill entry in A matrix
           dfr%x(:) = cc(jc,j1)%x(:) - cc(jc,j2)%x(:)
@@ -192,9 +197,12 @@ CONTAINS
 #endif
     sign_v(start_idx:end_idx,:) = 0._wp
 
-    DO jc=start_idx,end_idx
-      WHERE (v(:,jc) > 0._wp) sign_v(jc,:) =  1.0_wp
-      WHERE (v(:,jc) < 0._wp) sign_v(jc,:) = -1.0_wp
+    DO i=1,N
+      DO jc=start_idx,end_idx
+        IF (lflag(jc)) CYCLE
+        IF (v(i,jc) > 0._wp) sign_v(jc,i) =  1.0_wp
+        IF (v(i,jc) < 0._wp) sign_v(jc,i) = -1.0_wp
+      END DO
     END DO
 #ifdef __SX__
 !CDIR NOIEXPAND
@@ -205,6 +213,7 @@ CONTAINS
     ! move to a new point, maximizing ||A^(-1) p||_1
     e_n(start_idx:end_idx,:) = 0._wp
     DO jc=start_idx,end_idx
+      IF (lflag(jc)) CYCLE
       p_imax = MAXLOC(ABS(p(:,jc)))
       e_n(jc, p_imax(1)) = 1.0_wp
     END DO
@@ -216,8 +225,9 @@ CONTAINS
     CALL solve_chol_v(start_idx, end_idx, kdim,    mat_A, z_diag, e_n, v)
 #endif
     gamma(start_idx:end_idx) = 0._wp
-      DO i=1,N
+    DO i=1,N
       DO jc=start_idx,end_idx
+        IF (lflag(jc)) CYCLE
         IF (i>kdim(jc)) CYCLE
         gamma(jc) = gamma(jc) + ABS(v(i,jc))
       END DO
@@ -228,6 +238,7 @@ CONTAINS
     e_n(start_idx:end_idx,:) =  0.0_wp
     DO i=1,N
       DO jc=start_idx,end_idx
+        IF (lflag(jc)) CYCLE
         IF (i>kdim(jc)) CYCLE
         e_n(jc,i) = a(jc)*b(jc)
         a(jc)     = -1.0_wp * a(jc)
@@ -245,6 +256,7 @@ CONTAINS
     gamma_2(start_idx:end_idx) = 0._wp
     DO i=1,N
       DO jc=start_idx,end_idx
+        IF (lflag(jc)) CYCLE
         IF (i>kdim(jc)) CYCLE
         gamma_2(jc) = gamma_2(jc) + ABS(q(i,jc))
       END DO
@@ -323,9 +335,10 @@ CONTAINS
   !
   ! Initial revision: 2013-10-14, F. Prill (DWD)
   ! ----------------------------------------------------------------------------
-  SUBROUTINE estimate_rbf_parameter(dst_nblks_c, dst_npromz_c, center,                 &
-    &                              intp_data_iidx, intp_data_iblk, intp_data_nstencil, &
+  SUBROUTINE estimate_rbf_parameter(ptr_patch, dst_nblks_c, dst_npromz_c, center,                 &
+    &                              intp_data_iidx, intp_data_iblk, intp_data_nstencil,            &
     &                              max_nstencil, rbf_shape_param)
+    TYPE(t_patch),         INTENT(IN)           :: ptr_patch
     INTEGER,               INTENT(IN)           :: dst_nblks_c, dst_npromz_c  !< size of destination grid
     TYPE (t_geographical_coordinates), INTENT(IN) :: center(:,:)              !< cell or edge center
     INTEGER,               INTENT(INOUT)        :: intp_data_iidx(:,:,:), &
@@ -347,12 +360,12 @@ CONTAINS
     ! local variables
     REAL(wp) :: r(nproma), a1, a2, q(nproma), beta(nproma), c_tol(nproma), sum_y, sum_z
     REAL(wp) :: c_seq(nproma,n), t_seq(nproma,n), z(n), y(n), result_val(dst_nblks_c)
-    INTEGER  :: i, start_idx, end_idx, jc, jb, itest_stride
+    INTEGER  :: i, start_idx, end_idx, jc, jb, itest_stride, kdim(nproma)
     LOGICAL  :: lflag(nproma)
 
     result_val(:) = 0._wp
     itest_stride = MAX(1, dst_nblks_c/max_tests)
-    BLOCKS: DO jb = 1,dst_nblks_c,itest_stride
+    BLOCKS: DO jb = 1,dst_nblks_c
       start_idx = 1
       end_idx   = nproma
       if (jb == dst_nblks_c) end_idx = dst_npromz_c
@@ -360,17 +373,34 @@ CONTAINS
       c_seq(start_idx:end_idx,:) = 0._wp
       t_seq(start_idx:end_idx,:) = 0._wp
       c_seq(start_idx:end_idx,2) = c0
-      lflag(:) = .FALSE. ! skip all indices with lflag==.TRUE.
-      CALL rbf_error(c_seq(:,2),start_idx,end_idx,intp_data_nstencil(:,jb),max_nstencil,jb, &
+
+      ! define control samples: skip all indices with lflag==.TRUE.
+      ! 
+      ! Note: Our choice here should be processor-independent!
+      !
+      lflag(:) = .TRUE.
+      DO jc=start_idx,end_idx
+        lflag(jc) = (MOD(ptr_patch%cells%decomp_info%glb_index(idx_1d(jc,jb)), itest_stride) /= 0)
+      END DO
+      kdim(:) = 0
+      ! compute only for values in our control sample:
+      kdim(start_idx:end_idx) = MERGE(0, intp_data_nstencil(:,jb), lflag) 
+      
+      CALL rbf_error(c_seq(:,2),start_idx,end_idx,kdim,max_nstencil,jb, &
         &            center, intp_data_iidx, intp_data_iblk, t_seq(:,2), lflag)
       DO i=3,n
-        c_seq(start_idx:end_idx,i) = c_fak * c_seq(start_idx:end_idx,i-1)
-        CALL rbf_error(c_seq(:,i),start_idx,end_idx,intp_data_nstencil(:,jb),max_nstencil,jb, &
+        c_seq(start_idx:end_idx,i) = MERGE(0._wp, c_fak * c_seq(start_idx:end_idx,i-1), lflag)
+        CALL rbf_error(c_seq(:,i),start_idx,end_idx,kdim,max_nstencil,jb, &
           &            center, intp_data_iidx, intp_data_iblk, t_seq(:,i), lflag)
       END DO
       r(:) = 0._wp
       DO
         IF (ALL(lflag(start_idx:end_idx))) EXIT
+
+        kdim(:) = 0
+        ! compute only for values in our control sample:
+        kdim(start_idx:end_idx) = MERGE(0, intp_data_nstencil(:,jb), lflag) 
+
         ! add a new value to the sequence
         DO jc=start_idx,end_idx
           IF (lflag(jc)) CYCLE
@@ -378,8 +408,8 @@ CONTAINS
           c_seq(jc,n)        = c_fak * c_seq(jc,n-1)
           t_seq(jc,1:(n-1))  = t_seq(jc,2:n)
         END DO
-        CALL rbf_error(c_seq(:,n),start_idx,end_idx,intp_data_nstencil(:,jb),max_nstencil,jb, &
-          &            center, intp_data_iidx, intp_data_iblk, t_seq(:,n),lflag)
+        CALL rbf_error(c_seq(:,n),start_idx,end_idx,kdim,max_nstencil,jb, &
+          &            center, intp_data_iidx, intp_data_iblk, t_seq(:,n), lflag)
         ! linear regression
         DO jc=start_idx,end_idx
           IF (lflag(jc)) CYCLE
@@ -398,6 +428,7 @@ CONTAINS
       END DO
       ! compute the shape parameter which fulfils a given stability
       ! threshold:
+      c_tol(start_idx:end_idx) = 0._wp
       DO jc=start_idx,end_idx
         c_tol(jc) = MAX(tol_c0, EXP((LOG(tol_c1) - beta(jc))/q(jc)))
       END DO
