@@ -1752,7 +1752,6 @@ CONTAINS
     INTEGER                         :: max_cell_connectivity
 
     pi_180 = ATAN(1._wp)/45._wp
-    max_cell_connectivity = p_patch(of%log_patch_id)%cells%max_connectivity
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
@@ -1763,6 +1762,7 @@ CONTAINS
     ENDIF
 
     i_dom = of%phys_patch_id
+    max_cell_connectivity = patch_info(i_dom)%max_cell_connectivity
 
     !
     ! The following sections add the file global properties collected in init_name_list_output
@@ -2884,7 +2884,8 @@ CONTAINS
       CALL p_bcast(patch_info(idom)%nblks_glb_c, bcast_root, p_comm_work_2_io)
       CALL p_bcast(patch_info(idom)%nblks_glb_e, bcast_root, p_comm_work_2_io)
       CALL p_bcast(patch_info(idom)%nblks_glb_v, bcast_root, p_comm_work_2_io)
-      
+      CALL p_bcast(patch_info(idom)%max_cell_connectivity, bcast_root, p_comm_work_2_io)
+
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         CALL bcast_grid_info(patch_info(idom), bcast_root)
       END IF
