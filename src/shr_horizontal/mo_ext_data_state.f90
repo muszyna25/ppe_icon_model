@@ -146,6 +146,7 @@ MODULE mo_ext_data_state
                                         !< dim: n_dom
   INTEGER, ALLOCATABLE :: nmonths_ext(:)!< number of months in external data file
                                         !< dim: n_dom
+  LOGICAL, ALLOCATABLE :: is_frglac_in(:) !< checks whether the extpar file contains fr_glac
 
   PUBLIC :: ext_data
   PUBLIC :: nmonths
@@ -210,6 +211,11 @@ CONTAINS
     ! Set default value for nmonths_ext. Will be overwritten, if external data 
     ! are read from file
     nmonths_ext(1:n_dom) = 1
+
+    ALLOCATE(is_frglac_in(n_dom))
+    ! Set default value for is_frglac_in. Will be overwritten, if external data 
+    ! contain fr_glac
+    is_frglac_in(1:n_dom) = .FALSE.
 
     ! Allocate and open CDI stream (files):
     ALLOCATE (cdi_extpar_id(n_dom), cdi_filetype(n_dom), stat=ist)
@@ -1785,17 +1791,19 @@ CONTAINS
   !
   ! @author F. Prill, DWD (2014-01-07)
   !-------------------------------------------------------------------------
-  SUBROUTINE inquire_extpar_file(p_patch, jg, cdi_extpar_id, cdi_filetype, nclass_lu, nmonths_ext)
+  SUBROUTINE inquire_extpar_file(p_patch, jg, cdi_extpar_id, cdi_filetype, nclass_lu, &
+    &                            nmonths_ext, is_frglac_in)
     TYPE(t_patch), INTENT(IN)      :: p_patch(:)
     INTEGER,       INTENT(IN)      :: jg
     INTEGER,       INTENT(INOUT)   :: cdi_extpar_id     !< CDI stream ID
     INTEGER,       INTENT(INOUT)   :: cdi_filetype      !< CDI filetype
     INTEGER,       INTENT(INOUT)   :: nclass_lu         !< number of landuse classes
     INTEGER,       INTENT(INOUT)   :: nmonths_ext       !< time dimension from external data file
+    LOGICAL,       INTENT(OUT)     :: is_frglac_in      !< check for fr_glac in Extpar file
 
     ! local variables
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::inquire_extpar_file'
-    INTEGER                 :: mpi_comm, vlist_id, lu_class_fraction_id, zaxis_id
+    INTEGER                 :: mpi_comm, vlist_id, lu_class_fraction_id, zaxis_id, var_id
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
 
@@ -1833,6 +1841,23 @@ CONTAINS
       WRITE(message_text,'(A,I4)')  &
         & 'Number of months in external data file = ', nmonths_ext
       CALL message(routine,message_text)
+
+
+      ! Search for glacier fraction in Extpar file
+      !
+      IF ((cdi_filetype == FILETYPE_NC)  .OR. &
+        & (cdi_filetype == FILETYPE_NC2) .OR. &
+        & (cdi_filetype == FILETYPE_NC4)) THEN
+        var_id = test_cdi_varID(cdi_extpar_id,'ICE')
+      ELSE IF (cdi_filetype == FILETYPE_GRB2) THEN
+        var_id = test_cdi_varID(cdi_extpar_id,'FR_ICE')
+      ENDIF
+      IF (var_id == -1) THEN
+        is_frglac_in = .FALSE.
+      ELSE
+        is_frglac_in = .TRUE.
+      ENDIF
+
     ENDIF ! my_process_is_stdio()
 
     IF(p_test_run) THEN
@@ -1844,6 +1869,8 @@ CONTAINS
     CALL p_bcast(nclass_lu, p_io, mpi_comm)
     ! broadcast nmonths from I-Pe to WORK Pes
     CALL p_bcast(nmonths_ext, p_io, mpi_comm)
+    ! broadcast is_frglac_in from I-Pe to WORK Pes
+    CALL p_bcast(is_frglac_in, p_io, mpi_comm)
 
   END SUBROUTINE inquire_extpar_file
 
@@ -1894,7 +1921,7 @@ CONTAINS
       ! 1. Check validity of external parameter file   !
       !------------------------------------------------!
       CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
-        &                      nclass_lu(jg), nmonths_ext(jg))
+        &                      nclass_lu(jg), nmonths_ext(jg), is_frglac_in(jg))
 
       !------------------------------------------------!
       ! 2. Check validity of ozone file                !
@@ -2374,9 +2401,6 @@ CONTAINS
           &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
           &              ext_data(jg)%atm%fr_land, opt_dict=extpar_varnames_dict)
 
-        CALL read_cdi_2d(cdi_extpar_id(jg), 'ICE', p_patch(jg)%n_patch_cells_g,                  &
-          &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
-          &              ext_data(jg)%atm%fr_glac, opt_dict=extpar_varnames_dict)
 
         SELECT CASE ( iforcing )
         CASE ( inwp )
@@ -2420,6 +2444,19 @@ CONTAINS
             &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
             &              nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction,                    &
             &              opt_dict=extpar_varnames_dict, opt_lev_dim=3 )
+
+          IF (is_frglac_in(jg)) THEN
+            ! for backward compatibility with extpar files generated prior to 2014-01-31
+            CALL read_cdi_2d(cdi_extpar_id(jg), 'ICE', p_patch(jg)%n_patch_cells_g,              &
+              &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+              &              ext_data(jg)%atm%fr_glac, opt_dict=extpar_varnames_dict)
+          ELSE
+            ! for new extpar files (generated after 2014-01-31)
+            ! take it from lu_class_fraction
+            ext_data(jg)%atm%fr_glac(:,:) =   &
+              &  ext_data(jg)%atm%lu_class_fraction(:,:,ext_data(jg)%atm%i_lc_snow_ice)
+          ENDIF
+
 
           IF ( l_emiss ) THEN
             CALL read_cdi_2d(cdi_extpar_id(jg), 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,         &
@@ -2897,9 +2934,12 @@ CONTAINS
                ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
                ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
 
-               !  Workaround for GLC2000 hole below 60 deg Sgr
-               IF (tile_frac(ext_data(jg)%atm%lc_class_t(jc,jb,1))<=0._wp) &
-                 ext_data(jg)%atm%lc_class_t(jc,jb,1) = ext_data(jg)%atm%i_lc_snow_ice
+               ! Workaround for GLC2000 hole below 60 deg S 
+               ! (only necesary for old extpar files generated prior to 2014-01-31)
+               IF (is_frglac_in(jg)) THEN
+                 IF (tile_frac(ext_data(jg)%atm%lc_class_t(jc,jb,1))<=0._wp) &
+                   ext_data(jg)%atm%lc_class_t(jc,jb,1) = ext_data(jg)%atm%i_lc_snow_ice
+               ENDIF
 
                ! static index list and corresponding counter
                ext_data(jg)%atm%idx_lst_lp_t(i_count,jb,1)  = jc
@@ -2987,28 +3027,32 @@ CONTAINS
 
                DO i_lu = 1, ntiles_lnd 
 
-                 IF ( sum_frac < 1.e-10_wp) THEN !  Workaround for GLC2000 hole below 60 deg S
-                   IF (i_lu == 1) THEN
-                     it_count(i_lu)    = it_count(i_lu) + 1
-                     ! static index list and corresponding counter
-                     ext_data(jg)%atm%idx_lst_lp_t(it_count(i_lu),jb,i_lu) = jc
-                     ext_data(jg)%atm%lp_count_t(jb,i_lu)               = it_count(i_lu)
+                 !  Workaround for GLC2000 hole below 60 deg S
+                 ! (only necesary for old extpar files generated prior to 2014-01-31)
+                 IF (is_frglac_in(jg)) THEN
+                   IF ( sum_frac < 1.e-10_wp) THEN
+                     IF (i_lu == 1) THEN
+                       it_count(i_lu)    = it_count(i_lu) + 1
+                       ! static index list and corresponding counter
+                       ext_data(jg)%atm%idx_lst_lp_t(it_count(i_lu),jb,i_lu) = jc
+                       ext_data(jg)%atm%lp_count_t(jb,i_lu)               = it_count(i_lu)
 
-                     ! initialize dynamic index list (in case of lsnowtile=true) with the same values
-                     ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
-                     ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
+                       ! initialize dynamic index list (in case of lsnowtile=true) with the same values
+                       ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
+                       ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
 
-                     ! the snowtile flag is initialized with -1 here because the snow/ice class is not
-                     ! eligible for separate consideration of a snow-free and a snow-covered part
-                     ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)         = -1
+                       ! the snowtile flag is initialized with -1 here because the snow/ice class is not
+                       ! eligible for separate consideration of a snow-free and a snow-covered part
+                       ext_data(jg)%atm%snowtile_flag_t(jc,jb,i_lu)         = -1
 
-                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_snow_ice
-                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = ext_data(jg)%atm%fr_land(jc,jb)
-                   ELSE
-                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
-                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
-                   ENDIF 
-                 END IF
+                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = ext_data(jg)%atm%i_lc_snow_ice
+                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = ext_data(jg)%atm%fr_land(jc,jb)
+                     ELSE
+                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
+                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
+                     ENDIF 
+                   END IF  ! sum_frac < 1.e-10_wp
+                 ENDIF  ! is_frglac_in(jg)
 
                  lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,i_lu)
                  IF (lu_subs < 0) CYCLE
