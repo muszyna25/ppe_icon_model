@@ -2896,8 +2896,9 @@ CONTAINS
                ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
                ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
                ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
-               !  Workaround for GLC2000 hole below 60 deg S
-               IF (ext_data(jg)%atm%lc_class_t(jc,jb,1) <= 0) &
+
+               !  Workaround for GLC2000 hole below 60 deg Sgr
+               IF (tile_frac(ext_data(jg)%atm%lc_class_t(jc,jb,1))<=0._wp) &
                  ext_data(jg)%atm%lc_class_t(jc,jb,1) = ext_data(jg)%atm%i_lc_snow_ice
 
                ! static index list and corresponding counter
