@@ -1070,7 +1070,7 @@ CONTAINS
        ! Check if level nflat is still flat
        IF (ANY(z3d_i(1:nlen,nflat,jb) /= vct_a(nflat+nshift))) ierr(jb) = 1
        ! Check also if ktop_thicklimit is sufficiently far away from the model top
-       IF (ANY(ktop_thicklimit(1:nlen) <= 3)) ierr(jb) = ierr(jb) + 1
+       IF (nlev > 6 .AND. ANY(ktop_thicklimit(1:nlen) <= 3)) ierr(jb) = ierr(jb) + 1
      ENDIF
 
      DO jk = 1, nlev
