@@ -60,7 +60,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
   !USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_ptr3d
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_ptr3d, t_operator_coeff
   USE mo_oce_physics,         ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
@@ -91,83 +91,6 @@ MODULE mo_operator_ocean_coeff_3d
   ! flags for computing ocean coefficients
   LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
   LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
-
-  TYPE t_operator_coeff
-
-    ! 1) precomputed 3D-factors for mathematical operators (for efficiency).
-    !------------------------------------------------------------------------------
-    REAL(wp), ALLOCATABLE :: div_coeff(:,:,:,:)    ! factor for divergence (nproma,nlev,nblks_c,no_primal_edges)
-    REAL(wp), ALLOCATABLE :: rot_coeff(:,:,:,:)    ! factor for divergence (nproma,nlev,nblks_v,no_dual_edges)
-    REAL(wp), ALLOCATABLE :: grad_coeff(:,:,:)     ! factor for nabla2-scalar (nproma,nlev,nblks_e)
-    REAL(wp), ALLOCATABLE :: n2s_coeff(:,:,:,:)    ! factor for nabla2-scalar (nproma,nlev,nblks_c)
-    REAL(wp), ALLOCATABLE :: n2v_coeff(:,:,:)      ! factor for nabla2-vector (nproma,nlev,nblks_e)
-
-
-    !2) Required for description of boundary around a vertex
-    !------------------------------------------------------------------------------
-    INTEGER, ALLOCATABLE :: bnd_edges_per_vertex(:,:,:)
-    INTEGER, POINTER :: bnd_edge_idx(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
-    INTEGER, POINTER :: bnd_edge_blk(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
-    INTEGER, POINTER :: edge_idx(:,:,:,:)   !(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
-    REAL(wp),POINTER :: orientation(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
-
-    INTEGER, ALLOCATABLE :: upwind_cell_idx(:,:,:)
-    INTEGER, ALLOCATABLE :: upwind_cell_blk(:,:,:)
-    !3) Scalarproduct: The following arrays are required for the reconstruction process.
-    !------------------------------------------------------------------------------
-    !
-    ! Vector pointing from cell circumcenter to edge midpoint. In the associated
-    ! cell2edge_weight-array the cell2edge_vec is multiplied by some other geometric
-    ! quantities (edge-length, cell area). The weight is used in the reconstruction
-    ! the vector is used in the transposed reconstruction.
-    ! index=1,nproma, index2=1,nblks_c, index3=1,3
-    ! other choice would be index2=1,nblks_e, index3=1,2
-    ! Eventually switch to other second indexing if this is more appropriate
-
-    ! Vector pointing from vertex (dual center) to midpoint of dual edge
-    ! (/= midpoint of primal edge).
-    ! In the associated vertex2dualedge_mid_weight-array the vertex2dualedge_mid_vec
-    ! is multiplied by some other geometric quantities (dual edge-length, dual cell
-    ! area). The weight is used in the reconstruction the vector is used in the
-    ! transposed reconstruction.
-    ! index=1,nproma, index2=1,nblks_v, index3=1,6
-    ! other choice index2=1,nblks_e, index3=1,2
-    ! Eventually switch to other second indexing if this is more appropriate
-    ! new constructs for mimetic core:
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_t(:,:,:,:)
-    REAL(wp), ALLOCATABLE                      :: edge2edge_viacell_coeff(:,:,:,:)
-    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_top(:,:,:)       ! the same as the top edge2edge_viacell_coeff
-    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_integrated(:,:,:)! the other levels integrated
-    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_all(:,:,:)       ! all the levels integrated
-
-    !coefficient for surface layer, changes in time, in contrast to other coefficients
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_dyn(:,:,:,:)
-    !TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_dyn(:,:,:,:)
-
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_vector_cc(:,:,:,:)
-    REAL(wp), ALLOCATABLE                      :: edge2edge_viavert_coeff(:,:,:,:)
-
-    REAL(wp), ALLOCATABLE :: fixed_vol_norm(:,:,:)
-    REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:,:)
-    REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:,:)
-
-    !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
-    ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
-    REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
-    ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)  ! this is redundant, should be replaced by the 2D cartesian center
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge_position_cc(:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:) 
-
-    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
-    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
-    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
-
-  END TYPE t_operator_coeff
 
 CONTAINS
 
@@ -1898,6 +1821,15 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! zeros edge2edge_viacell_coeff_all
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+        DO k=1, 2 * no_primal_edges
+          operators_coefficients%edge2edge_viacell_coeff_all(k, je, jb) = 0.0_wp
+        ENDDO
+      ENDDO
+    ENDDO
     !-------------------------------------------------------------
     !1) Set coefficients for div and grad to zero at boundary edges
     ! Also for operators_coefficients%edge2cell_coeff_cc
