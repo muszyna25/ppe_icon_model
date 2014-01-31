@@ -222,7 +222,10 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_restart_gmres     = 2
   INTEGER :: select_solver                       = select_restart_gmres
   LOGICAL :: use_continuity_correction           = .false.
-  LOGICAL :: use_edges2edges_viacell_fast        = .false.
+  INTEGER :: fast_performance_level              = 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
+                                                      ! 1 = no optimized calls
+                                                      ! 5 = standard (use of gmres restart)
+                                                      ! > 10 = latest performnce optimizations
 
 
   ! physical parameters for  aborting the ocean model
@@ -384,7 +387,7 @@ MODULE mo_ocean_nml
     &                 threshold_min_T              , &
     &                 threshold_vn                 , &
     &                 use_continuity_correction    , &
-    &                 use_edges2edges_viacell_fast , &
+    &                 fast_performance_level , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order
 

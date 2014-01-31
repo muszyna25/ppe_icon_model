@@ -53,7 +53,7 @@ MODULE mo_scalar_product
   USE mo_impl_constants,     ONLY: sea_boundary, sea
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_oce_types,          ONLY: t_hydro_ocean_diag
-  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, use_edges2edges_viacell_fast
+  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates,cvec2gvec!, gc2cc, vector_product
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
   USE mo_oce_math_operators,  ONLY: rot_vertex_ocean_3d, map_edges2vert_3d
@@ -75,7 +75,7 @@ MODULE mo_scalar_product
   PUBLIC :: map_edges2edges_viacell_3d
   PUBLIC :: map_edges2edges_viavert_3D
   PUBLIC :: map_edges2edges_viacell_3D_const_z
-  PUBLIC :: map_edges2edges_viacell_2d_1lev_const_z_fast
+  ! PUBLIC :: map_edges2edges_viacell_2d_1lev_const_z_fast0
   !PRIVATE :: map_cell2edges_2d
 
 
@@ -984,14 +984,10 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3D, vn_e, operators_coefficien
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_patch), POINTER        :: patch_2D
 
-    IF (use_edges2edges_viacell_fast ) THEN
-      CALL map_edges2edges_viacell_2d_1lev_const_z_fast( patch_3D, vn_e, operators_coefficients, out_vn_e )
-      RETURN
-    ENDIF
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2D(1)
-    IF (use_edges2edges_viacell_fast ) THEN
-      CALL map_edges2edges_viacell_2d_1lev_const_z_fast( patch_3D, vn_e, operators_coefficients, out_vn_e )
+    IF (fast_performance_level > 10 .AND. patch_2D%cells%max_connectivity == 3) THEN
+      CALL map_edges2edges_viacell_2d_1lev_const_z_fast0( patch_3D, vn_e, operators_coefficients, out_vn_e )
       RETURN
     ENDIF
     !-----------------------------------------------------------------------
@@ -1174,7 +1170,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3D, vn_e, operators_coefficien
   !-------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
-  SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast( patch_3D, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
+  SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast0( patch_3D, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)       :: patch_3D
     REAL(wp), INTENT(in)                       :: in_vn_e(nproma,patch_3D%p_patch_2D(1)%nblks_e)
@@ -1259,7 +1255,7 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3D, vn_e, operators_coefficien
       END DO
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
 
-  END SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast
+  END SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast0
   !-----------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
