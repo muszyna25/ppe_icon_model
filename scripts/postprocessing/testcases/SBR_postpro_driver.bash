@@ -133,7 +133,7 @@ vertical_resolution="L${VERTICAL_RES}"
 export CONFIG_STRING="SBR tri ${horizontal_resolution}${vertical_resolution} spr0.90"
 export RESOLUTION="${horizontal_resolution}${vertical_resolution}"
 export ExpName=${ExpName}
-export FNAM="${ExpName}_0001.nc"
+export FNAM="${ExpName}_DOM01_ML_0001.nc"
 # 1.6 Define location of input grid-file
 export GRIDFILE="${DIRI}/${grid_name}.nc"
 export PFMT
