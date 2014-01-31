@@ -213,6 +213,11 @@ cat > ${ocean_namelist} << EOF
   forcing_wind_u_amplitude = 0.5
   forcing_windstress_zonal_waveno       = 3.0
   forcing_windstress_meridional_waveno  = 3.0
+  forcing_windstress_u_type = 106
+  forcing_windstress_v_type = 0
+  forcing_wind_u_amplitude = 0.3
+  forcing_windstress_zonal_waveno      = 3.0
+  forcing_windstress_meridional_waveno = 3.0
 /
 &ocean_initialConditions_nml
   ! itestcase_oce = 1050

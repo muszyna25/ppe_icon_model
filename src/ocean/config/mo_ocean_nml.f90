@@ -113,7 +113,6 @@ MODULE mo_ocean_nml
   INTEGER  :: forcing_timescale                    = 1
   LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
-  LOGICAL  :: use_new_forcing                      = .FALSE.
   ! _type variables range
   !    0    : not used
   !   1:100 : file based input
@@ -452,8 +451,7 @@ MODULE mo_ocean_nml
     &                 relax_analytical_type               , &
     &                 relaxation_param                    , &
     &                 seaice_limit                        , &
-    &                 temperature_relaxation              , &
-    &                 use_new_forcing
+    &                 temperature_relaxation
 
   !----------------------------------------------------------------------------
   ! initial conditions
