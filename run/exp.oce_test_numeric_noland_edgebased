@@ -50,14 +50,12 @@ init_relax=0   # 1: use relaxation initialization file
 #   ts_surf_annual-iconR${R}B0{B}-${init_rel_suff}
 #
 #-----------------------------------------------------------------------------
-# ocean forcing (iforc=12) needs an additional flux file 
 # NO_FORCING                 = 10
 # ANALYT_FORC                = 11  - dependent on testcase
 # FORCING_FROM_FILE_FLUX     = 12  - OMIP or NCEP type forcing
 # FORCING_FROM_FILE_FIELD    = 13  - not yet
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=10
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
@@ -209,10 +207,7 @@ cat > ${ocean_namelist} << EOF
 &ocean_forcing_nml
   iforc_oce = 11
   iforc_stat_oce = 5
- ! analytic_wind_amplitude = 0.25
   forcing_wind_u_amplitude = 0.5
-  forcing_windstress_zonal_waveno       = 3.0
-  forcing_windstress_meridional_waveno  = 3.0
   forcing_windstress_u_type = 106
   forcing_windstress_v_type = 0
   forcing_wind_u_amplitude = 0.3
