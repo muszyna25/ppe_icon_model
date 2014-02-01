@@ -1214,6 +1214,7 @@ MODULE mo_solve_nonhydro
       DO ic = 1, p_nh%metrics%nudge_e_dim
         je = p_nh%metrics%nudge_e_idx(ic)
         jb = p_nh%metrics%nudge_e_blk(ic)
+!DIR$ IVDEP
         DO jk = 1, nlev
           p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
             + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
@@ -1255,7 +1256,7 @@ MODULE mo_solve_nonhydro
       DO ic = 1, p_nh%metrics%bdy_mflx_e_dim
         je = p_nh%metrics%bdy_mflx_e_idx(ic)
         jb = p_nh%metrics%bdy_mflx_e_blk(ic)
-
+!DIR$ IVDEP
         DO jk = 1, nlev
           p_nh%diag%grf_bdy_mflx(jk,ic,2) = p_nh%diag%grf_tend_mflx(je,jk,jb)
           p_nh%diag%grf_bdy_mflx(jk,ic,1) = prep_adv%mass_flx_me(je,jk,jb) - dt_shift*p_nh%diag%grf_bdy_mflx(jk,ic,2)
@@ -1523,6 +1524,7 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDIF
 
+!DIR$ IVDEP
         DO jk = 1, nlev
           p_nh%diag%mass_fl_e(je,jk,jb) = p_nh%diag%grf_bdy_mflx(jk,ic,1) + &
             REAL(jstep,wp)*dtime*p_nh%diag%grf_bdy_mflx(jk,ic,2)
@@ -2278,16 +2280,27 @@ MODULE mo_solve_nonhydro
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
+!DIR$ IVDEP
+          DO jk = 1, nlev
+#else
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
-
+#endif
             p_nh%prog(nnew)%theta_v(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb)*p_nh%prog(nnow)%theta_v(jc,jk,jb) &
               *( (p_nh%prog(nnew)%exner(jc,jk,jb)/p_nh%prog(nnow)%exner(jc,jk,jb)-1.0_wp) * cvd_o_rd+1.0_wp   ) &
               / p_nh%prog(nnew)%rho(jc,jk,jb)
 
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
           ENDIF
         ENDDO
+#endif
       ENDDO
 
     ENDDO
