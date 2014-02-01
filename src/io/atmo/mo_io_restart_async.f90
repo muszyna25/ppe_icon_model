@@ -272,10 +272,13 @@ MODULE mo_io_restart_async
     ! process id
     INTEGER :: restart_proc_id
 
+    ! id of PE0 of working group (/= 0 in case of processor splitting)
+    INTEGER :: work_pe0_id
+
     ! base file name contains already logical patch ident
     CHARACTER(LEN=filename_max) :: base_filename
 
-    ! dynamic patch arguments (mandotary)
+    ! dynamic patch arguments (mandatory)
     INTEGER :: nold,nnow,nnew,nnew_rcf,nnow_rcf
 
     ! dynamic patch arguments (optionally)
@@ -445,11 +448,12 @@ CONTAINS
 
     IF(.NOT. (my_process_is_work())) RETURN
 
-    ! only the first compute PE needs the dynamic restart arguments
-    IF(p_pe_work == 0) THEN
+    ! find patch
+    p_pd => find_patch(patch_id, subname)
 
-      ! find patch
-      p_pd => find_patch(patch_id, subname)
+    ! usually, only the first compute PE needs the dynamic restart arguments
+    ! in the case of processor splitting, the first PE of the split subset needs them as well
+    IF (p_pe_work == 0 .OR. p_pe_work == p_pd%work_pe0_id) THEN
 
       ! set activity flag
       p_pd%l_dom_active = l_dom_active
@@ -965,6 +969,48 @@ CONTAINS
 
     ! make sure all are here
     CALL p_barrier(comm=p_comm_work)
+
+    ! if processor splitting is applied, the time-dependent data need to be transferred
+    ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
+    DO j = 2, SIZE(patch_data)
+
+      p_pd => patch_data(j)
+
+      IF (p_pd%work_pe0_id /= 0) THEN
+
+        IF (p_pe_work == 0) THEN
+          CALL p_recv(p_pd%l_dom_active, p_pd%work_pe0_id, 0)
+          CALL p_recv(nnow(p_pd%id),     p_pd%work_pe0_id, 0)
+          CALL p_recv(nnew(p_pd%id),     p_pd%work_pe0_id, 0)
+          CALL p_recv(nnew_rcf(p_pd%id), p_pd%work_pe0_id, 0)
+          CALL p_recv(nnow_rcf(p_pd%id), p_pd%work_pe0_id, 0)
+
+          CALL p_recv(p_pd%opt_jstep_adv_ntstep,        p_pd%work_pe0_id, 0)
+          CALL p_recv(p_pd%opt_jstep_adv_marchuk_order, p_pd%work_pe0_id, 0)
+          CALL p_recv(p_pd%opt_sim_time,                p_pd%work_pe0_id, 0)
+
+          IF (ALLOCATED(p_pd%opt_lcall_phy))     CALL p_recv(p_pd%opt_lcall_phy,     p_pd%work_pe0_id, 0)
+          IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) CALL p_recv(p_pd%opt_t_elapsed_phy, p_pd%work_pe0_id, 0)
+
+        ELSE IF (p_pe_work == p_pd%work_pe0_id) THEN
+
+          CALL p_send(p_pd%l_dom_active, 0, 0)
+          CALL p_send(nnow(p_pd%id),     0, 0)
+          CALL p_send(nnew(p_pd%id),     0, 0)
+          CALL p_send(nnew_rcf(p_pd%id), 0, 0)
+          CALL p_send(nnow_rcf(p_pd%id), 0, 0)
+
+          CALL p_send(p_pd%opt_jstep_adv_ntstep,        0, 0)
+          CALL p_send(p_pd%opt_jstep_adv_marchuk_order, 0, 0)
+          CALL p_send(p_pd%opt_sim_time,                0, 0)
+
+          IF (ALLOCATED(p_pd%opt_lcall_phy))     CALL p_send(p_pd%opt_lcall_phy,     0, 0)
+          IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) CALL p_send(p_pd%opt_t_elapsed_phy, 0, 0)
+
+        ENDIF
+      ENDIF
+
+    ENDDO
 
     IF(p_pe_work == 0) THEN
 
@@ -1766,6 +1812,7 @@ CONTAINS
       p_pd => patch_data(jg)
       IF (my_process_is_work()) THEN
         p_pd%id              = p_patch(jg)%id
+        p_pd%work_pe0_id     = p_patch(jg)%proc0
         p_pd%l_dom_active    = p_patch(jg)%ldom_active
         p_pd%nlev            = p_patch(jg)%nlev
         p_pd%cell_type       = p_patch(jg)%cell_type
@@ -1780,6 +1827,7 @@ CONTAINS
 
       ! transfer data to restart PEs
       CALL p_bcast(p_pd%id,              bcast_root, p_comm_work_2_restart)
+      CALL p_bcast(p_pd%work_pe0_id,     bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%l_dom_active,    bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%nlev,            bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%cell_type,       bcast_root, p_comm_work_2_restart)
