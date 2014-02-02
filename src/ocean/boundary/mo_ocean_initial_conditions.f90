@@ -43,6 +43,7 @@
 !
 !    !------------------------------
 !    CASE (202)
+!      ! simulates the salinity_profile_20levels array, but for any number of levels
 !      CALL salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
 !
 !    !------------------------------
@@ -630,6 +631,7 @@ CONTAINS
 
     !------------------------------
     CASE (202)
+      ! simulates the salinity_profile_20levels array, but for any number of levels
       CALL salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
 
     !------------------------------
