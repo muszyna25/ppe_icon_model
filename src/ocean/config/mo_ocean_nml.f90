@@ -386,7 +386,7 @@ MODULE mo_ocean_nml
     &                 threshold_min_T              , &
     &                 threshold_vn                 , &
     &                 use_continuity_correction    , &
-    &                 fast_performance_level , &
+    &                 fast_performance_level       , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order
 
@@ -539,7 +539,7 @@ MODULE mo_ocean_nml
 
     NAMELIST/ocean_run_nml/ ignore_land_points
 
-    INTEGER :: i_status, istat
+    INTEGER :: i_status
     INTEGER :: iunit
 
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -581,7 +581,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_run_nml, iostat=istat)                           ! overwrite default settings
+       READ (nnml, ocean_run_nml)                           ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_run_nml)   ! write settings to temporary text file
@@ -596,7 +596,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_dynamics_nml, iostat=istat)                         ! overwrite default settings
+       READ (nnml, ocean_dynamics_nml)                         ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_dynamics_nml) ! write settings to temporary text file
@@ -610,7 +610,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_physics_nml, iostat=istat)                            ! overwrite default settings
+       READ (nnml, ocean_physics_nml)                            ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_physics_nml)    ! write settings to temporary text file
@@ -624,7 +624,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_forcing_nml, iostat=istat)                          ! overwrite default settings
+       READ (nnml, ocean_forcing_nml)                          ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_forcing_nml)  ! write settings to temporary text file
@@ -636,9 +636,10 @@ MODULE mo_ocean_nml
        iunit = temp_defaults()
        WRITE(iunit, ocean_initialConditions_nml)  ! write defaults to temporary text file
      END IF
+
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_initialConditions_nml, iostat=istat)                          ! overwrite default settings
+       READ (nnml, ocean_initialConditions_nml)
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_initialConditions_nml)  ! write settings to temporary text file
@@ -652,7 +653,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_diagnostics_nml, iostat=istat)                           ! overwrite default settings
+       READ (nnml, ocean_diagnostics_nml)                           ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_diagnostics_nml)   ! write settings to temporary text file

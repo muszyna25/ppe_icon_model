@@ -207,10 +207,9 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_nml
   iforc_oce = 11
-  iforc_stat_oce = 5
   forcing_wind_u_amplitude = 0.5
   forcing_windstress_zonal_waveno      = 3.0_wp
-  forcing_windstress_meridional_waveno = 3.0_wp
+  forcing_windstress_merid_waveno = 3.0_wp
 /
 &ocean_initialConditions_nml
   ! itestcase_oce = 1050
