@@ -339,7 +339,7 @@ case "$ac_sitename" in
                       NETCDFROOT = $software_tree/netcdf-4.1.3-static-pgi13
                       MPIROOT    = $software_tree/mpilib/mvapich2-2.0a-static-pgi13
                       MPI_LIB    = -lfmpich -lmpichf90 -lmpich $IB_LIBS $SYS_LIBS
-                      load_modules="gcc/4.6.3" "pgi/13.10" "mvapich2/2.0a-static-pgi13" "${load_modules}"
+                      load_modules="gcc/4.7.2" "pgi/13.10" "${load_modules}"
                       ;;
                     intel)
                       NETCDFROOT  = $software_tree/netcdf-4.1.3-static-intel13
