@@ -374,6 +374,10 @@ CONTAINS
       t_seq(start_idx:end_idx,:) = 0._wp
       c_seq(start_idx:end_idx,2) = c0
 
+      ! Initialization of variables that are used in the non-flagged final loop
+      q(:)    = tol_c1
+      beta(:) = LOG(tol_c1)
+
       ! define control samples: skip all indices with lflag==.TRUE.
       ! 
       ! Note: Our choice here should be processor-independent!
