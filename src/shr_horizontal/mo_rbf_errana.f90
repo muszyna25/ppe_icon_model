@@ -384,12 +384,14 @@ CONTAINS
       END DO
       kdim(:) = 0
       ! compute only for values in our control sample:
-      kdim(start_idx:end_idx) = MERGE(0, intp_data_nstencil(:,jb), lflag) 
+      kdim(start_idx:end_idx) = MERGE(0, intp_data_nstencil(start_idx:end_idx,jb), &
+        &                             lflag(start_idx:end_idx)) 
       
       CALL rbf_error(c_seq(:,2),start_idx,end_idx,kdim,max_nstencil,jb, &
         &            center, intp_data_iidx, intp_data_iblk, t_seq(:,2), lflag)
       DO i=3,n
-        c_seq(start_idx:end_idx,i) = MERGE(0._wp, c_fak * c_seq(start_idx:end_idx,i-1), lflag)
+        c_seq(start_idx:end_idx,i) = MERGE(0._wp, c_fak * c_seq(start_idx:end_idx,i-1), &
+          &                                lflag(start_idx:end_idx))
         CALL rbf_error(c_seq(:,i),start_idx,end_idx,kdim,max_nstencil,jb, &
           &            center, intp_data_iidx, intp_data_iblk, t_seq(:,i), lflag)
       END DO
@@ -399,7 +401,8 @@ CONTAINS
 
         kdim(:) = 0
         ! compute only for values in our control sample:
-        kdim(start_idx:end_idx) = MERGE(0, intp_data_nstencil(:,jb), lflag) 
+        kdim(start_idx:end_idx) = MERGE(0, intp_data_nstencil(start_idx:end_idx,jb), &
+          &                             lflag(start_idx:end_idx)) 
 
         ! add a new value to the sequence
         DO jc=start_idx,end_idx
