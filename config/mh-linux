@@ -290,7 +290,7 @@ case "$ac_sitename" in
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                       # For additional optimisation:
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
-                      # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
+                      HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
                       # F77FLAGS    = "$F77FLAGS" "$HIOPT_FLAGS"
                       load_modules="gcc/4.7.2" "intel/13.2.0" "${load_modules}"
                       ;;
@@ -373,7 +373,7 @@ case "$ac_sitename" in
                          MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                          # For additional optimisation:
                          # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
-                         # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
+                         HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
                          # F77FLAGS    = "$F77FLAGS" "$HIOPT_FLAGS"
                          load_modules="gcc/4.7.2" "intel/13.2.0" "${load_modules}"
                          ;;
