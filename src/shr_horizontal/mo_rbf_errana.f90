@@ -335,10 +335,9 @@ CONTAINS
   !
   ! Initial revision: 2013-10-14, F. Prill (DWD)
   ! ----------------------------------------------------------------------------
-  SUBROUTINE estimate_rbf_parameter(ptr_patch, dst_nblks_c, dst_npromz_c, center,                 &
-    &                              intp_data_iidx, intp_data_iblk, intp_data_nstencil,            &
+  SUBROUTINE estimate_rbf_parameter(dst_nblks_c, dst_npromz_c, center,                    &
+    &                              intp_data_iidx, intp_data_iblk, intp_data_nstencil,    &
     &                              max_nstencil, global_idx, rbf_shape_param)
-    TYPE(t_patch),         INTENT(IN)           :: ptr_patch
     INTEGER,               INTENT(IN)           :: dst_nblks_c, dst_npromz_c  !< size of destination grid
     TYPE (t_geographical_coordinates), INTENT(IN) :: center(:,:)              !< cell or edge center
     INTEGER,               INTENT(INOUT)        :: intp_data_iidx(:,:,:), &

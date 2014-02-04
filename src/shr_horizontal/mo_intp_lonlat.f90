@@ -1575,7 +1575,7 @@
         rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
       CASE (2)
         ! if no shape parameter has been set: compute an estimate 
-        CALL estimate_rbf_parameter(ptr_patch, nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,   &
+        CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,              &
           &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,           &
           &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c,                    &
           &                         ptr_int_lonlat%global_idx, rbf_shape_param)
@@ -1628,7 +1628,7 @@
           rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
         CASE (2)
           ! if no shape parameter has been set: compute an estimate 
-          CALL estimate_rbf_parameter(ptr_patch, nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,   &
+          CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,              &
             &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,         &
             &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l,                     &
             &                         ptr_int_lonlat%global_idx, rbf_shape_param)
