@@ -1577,7 +1577,8 @@
         ! if no shape parameter has been set: compute an estimate 
         CALL estimate_rbf_parameter(ptr_patch, nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,   &
           &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,           &
-          &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c, rbf_shape_param)
+          &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c,                    &
+          &                         ptr_int_lonlat%global_idx, rbf_shape_param)
         rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
         IF (my_process_is_stdio()) THEN
           WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
@@ -1629,7 +1630,8 @@
           ! if no shape parameter has been set: compute an estimate 
           CALL estimate_rbf_parameter(ptr_patch, nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,   &
             &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,         &
-            &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l, rbf_shape_param)
+            &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l,                     &
+            &                         ptr_int_lonlat%global_idx, rbf_shape_param)
           rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
           IF (my_process_is_stdio()) THEN
             WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param

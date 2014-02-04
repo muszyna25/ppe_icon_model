@@ -337,7 +337,7 @@ CONTAINS
   ! ----------------------------------------------------------------------------
   SUBROUTINE estimate_rbf_parameter(ptr_patch, dst_nblks_c, dst_npromz_c, center,                 &
     &                              intp_data_iidx, intp_data_iblk, intp_data_nstencil,            &
-    &                              max_nstencil, rbf_shape_param)
+    &                              max_nstencil, global_idx, rbf_shape_param)
     TYPE(t_patch),         INTENT(IN)           :: ptr_patch
     INTEGER,               INTENT(IN)           :: dst_nblks_c, dst_npromz_c  !< size of destination grid
     TYPE (t_geographical_coordinates), INTENT(IN) :: center(:,:)              !< cell or edge center
@@ -345,6 +345,7 @@ CONTAINS
       &                                            intp_data_iblk(:,:,:), &   !< Indices of interpolation source points
       &                                            intp_data_nstencil(:,:)
     INTEGER,               INTENT(IN)           :: max_nstencil               !< max. stencil size
+    INTEGER,               INTENT(IN)           :: global_idx(:)              !< for each lon-lat point: global idx 
     REAL(wp),              INTENT(INOUT)        :: rbf_shape_param
 
     ! constants, defining the behavior of the algorithm
@@ -384,7 +385,7 @@ CONTAINS
       !
       lflag(:) = .TRUE.
       DO jc=start_idx,end_idx
-        lflag(jc) = (MOD(ptr_patch%cells%decomp_info%glb_index(idx_1d(jc,jb)), itest_stride) /= 0)
+        lflag(jc) = (MOD(global_idx(idx_1d(jc,jb)), itest_stride) /= 0)
       END DO
       kdim(:) = 0
       ! compute only for values in our control sample:
