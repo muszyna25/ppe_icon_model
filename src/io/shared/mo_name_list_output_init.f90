@@ -305,7 +305,7 @@ CONTAINS
 
       filetype                 = FILETYPE_NC2 ! NetCDF
       mode                     = 2
-      taxis_tunit              = TUNIT_HOUR
+      taxis_tunit              = TUNIT_MINUTE
       dom(:)                   = -1
       steps_per_file           = -1
       steps_per_file_inclfirst = .TRUE.
@@ -2389,11 +2389,10 @@ CONTAINS
     SELECT CASE (of%name_list%mode)
     CASE (1)  ! forecast mode
      of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
-     !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_SECOND)
-     !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_MINUTE)
+
      IF (of%name_list%taxis_tunit > 10 .OR. of%name_list%taxis_tunit < 1 ) THEN
-       of%name_list%taxis_tunit=TUNIT_HOUR
-       CALL message('','invalid taxis_tunit, reset to TUNIT_HOUR')
+       of%name_list%taxis_tunit=TUNIT_MINUTE
+       CALL message('','invalid taxis_tunit, reset to TUNIT_MINUTE')
      END IF
      CALL taxisDefTunit (of%cdiTaxisID, of%name_list%taxis_tunit)
      ini_datetime = time_config%ini_datetime
