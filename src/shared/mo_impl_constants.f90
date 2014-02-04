@@ -289,8 +289,8 @@ MODULE mo_impl_constants
   ! Maximum allowed number of physical model domains
   INTEGER, PARAMETER :: max_phys_dom = 30
 
-  ! maximum allowed number of tracers (20 should be enough for the time being)
-  INTEGER, PARAMETER :: max_ntracer = 20
+  ! maximum allowed number of tracers (20 should be enough for the time being) ! DRIEG: For ART, more than 20 tracers are needed
+  INTEGER, PARAMETER :: max_ntracer = 200
 
   ! identifiers for model initialization
   INTEGER, PARAMETER :: ianalytic      =  0 ! - from analytical functions
