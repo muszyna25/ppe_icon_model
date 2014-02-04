@@ -358,7 +358,6 @@ CONTAINS
         WRITE(iunit, output_nml)                                     ! write settings to temporary text file
       END IF
 
-      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", status = ', istat
       CALL message('',message_text)
       IF(istat > 0) THEN
         WRITE(message_text,'(a,i0)') 'Read error in namelist "output_nml", status = ', istat
