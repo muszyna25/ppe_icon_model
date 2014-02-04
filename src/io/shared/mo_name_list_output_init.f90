@@ -31,7 +31,6 @@ MODULE mo_name_list_output_init
     &                                             grid_rescale_factor, start_time, end_time,      &
     &                                             DEFAULT_ENDTIME
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
-  USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_cf_convention,                     ONLY: t_cf_var
 
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
