@@ -104,7 +104,7 @@ CONTAINS
     INTEGER,               INTENT(IN)             :: max_kdim                 !< maximum matrix dimension
     INTEGER,               INTENT(IN)             :: jb                       !< block index
     TYPE (t_geographical_coordinates), INTENT(IN) :: center(:,:)              !< cell or edge center
-    INTEGER,               INTENT(INOUT)          :: intp_data_iidx(:,:,:), &
+    INTEGER,               INTENT(IN)             :: intp_data_iidx(:,:,:), &
       &                                              intp_data_iblk(:,:,:)    !< Indices of interpol. source points
     REAL(wp),              INTENT(INOUT)          :: s(:)                     !< stability(e) (1..nproma)
     LOGICAL,               INTENT(IN)             :: lflag(:)                 !< skip all indices with lflag==.TRUE.
