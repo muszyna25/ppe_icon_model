@@ -44,6 +44,7 @@ MODULE mo_name_list_output
 #endif
 ! USE_CRAY_POINTER
 
+  USE mo_cdi_constants              ! We need all
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: zml_soil, max_dom, SUCCESS, MAX_TIME_LEVELS, &
     &                                     MAX_CHAR_LENGTH

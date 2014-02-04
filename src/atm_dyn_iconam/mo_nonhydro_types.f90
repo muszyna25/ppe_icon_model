@@ -258,7 +258,6 @@ MODULE mo_nonhydro_types
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
 
-
     ! Variables that are in single precision when "__MIXED_PRECISION" is defined
     REAL(vp), POINTER      &
 #ifdef _CRAYFTN

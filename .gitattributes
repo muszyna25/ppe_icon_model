@@ -667,7 +667,7 @@ lapack/spotrs.f -text
 /make_my_runscript -text
 /make_nat-ape-dec_runs -text
 /make_runscripts -text
-run/Namelist_overview.pdf -text svneol=unset#application/octet-stream
+run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
 run/README -text
 run/add_required_atmo_hydrostatic_files -text
@@ -1440,6 +1440,8 @@ src/include/omp_definitions.inc -text
 src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_io_restart_async.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
+src/io/atmo/mo_util_vgrid.f90 -text
+src/io/atmo/mo_util_vgrid_types.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text

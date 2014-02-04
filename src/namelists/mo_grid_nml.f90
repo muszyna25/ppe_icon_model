@@ -52,27 +52,28 @@ MODULE mo_grid_nml
 !  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
 !                                    & open_and_restore_namelist, close_tmpfile
 
-  USE mo_grid_config,        ONLY:                                         &
-    & config_lfeedback                    => lfeedback,                    &
-    & config_ifeedback_type               => ifeedback_type,               &
-    & config_start_time                   => start_time,                   &
-    & config_end_time                     => end_time,                     &
-    & config_lplane                       => lplane,                       &
-    & config_is_plane_torus               => is_plane_torus,               &
-    & config_corio_lat                    => corio_lat,                    &
-    & config_l_limited_area               => l_limited_area,               &
-    & config_patch_weight                 => patch_weight,                 &
-    & config_lredgrid_phys                => lredgrid_phys,                &
-    & config_dynamics_grid_filename       => dynamics_grid_filename,       &
-    & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,      &
-    & config_radiation_grid_filename      => radiation_grid_filename,      &
-    & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link, &
-    & config_grid_rescale_factor          => grid_rescale_factor,          &
+  USE mo_grid_config,        ONLY:                                          &
+    & config_lfeedback                    => lfeedback,                     &
+    & config_ifeedback_type               => ifeedback_type,                &
+    & config_start_time                   => start_time,                    &
+    & config_end_time                     => end_time,                      &
+    & config_lplane                       => lplane,                        &
+    & config_is_plane_torus               => is_plane_torus,                &
+    & config_corio_lat                    => corio_lat,                     &
+    & config_l_limited_area               => l_limited_area,                &
+    & config_patch_weight                 => patch_weight,                  &
+    & config_lredgrid_phys                => lredgrid_phys,                 &
+    & config_dynamics_grid_filename       => dynamics_grid_filename,        &
+    & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,       &
+    & config_radiation_grid_filename      => radiation_grid_filename,       &
+    & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link,  &
+    & config_grid_rescale_factor          => grid_rescale_factor,           &
     & config_grid_angular_velocity        => namelist_grid_angular_velocity,&
     & config_use_duplicated_connectivity  => use_duplicated_connectivity,   &
     & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
-!     & config_radiation_grid_distrib       => radiation_grid_distribution,  &
-    & max_rad_dom, DEFAULT_ENDTIME
+    & max_rad_dom, DEFAULT_ENDTIME,                                         &
+    & config_vertical_grid_filename       => vertical_grid_filename
+
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -81,7 +82,6 @@ MODULE mo_grid_nml
   PUBLIC :: read_grid_namelist
  !PUBLIC :: fill_grid_nml_configure
   
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
@@ -130,11 +130,12 @@ MODULE mo_grid_nml
     INTEGER                     :: dynamics_parent_grid_id(max_dom)
     CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
     INTEGER                     :: dynamics_radiation_grid_link(max_dom)
-      
-!     INTEGER                     :: radiation_grid_distribution
-    
+        
     REAL(wp) :: grid_rescale_factor, grid_angular_velocity
     INTEGER                    :: iunit
+
+    !> files containing vct_a, vct_b, z_ifc, and z_ifv
+    CHARACTER(LEN=filename_max) :: vertical_grid_filename(max_dom)
 
 
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
@@ -144,8 +145,7 @@ MODULE mo_grid_nml
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename, dynamics_radiation_grid_link,    &
       &  grid_angular_velocity, use_duplicated_connectivity,       &
-      &  use_dummy_cell_closure
-!       &  radiation_grid_distribution
+      &  use_dummy_cell_closure, vertical_grid_filename
 
 
 !    INTEGER  :: funit
@@ -167,6 +167,8 @@ MODULE mo_grid_nml
       radiation_grid_filename(i)  = ""
     ENDDO
 
+    vertical_grid_filename = " "
+
     cell_type   = itri
       
     lfeedback   = .TRUE.
@@ -179,7 +181,6 @@ MODULE mo_grid_nml
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
     lredgrid_phys = .FALSE.
-!     radiation_grid_distribution = 0
     use_duplicated_connectivity = config_use_duplicated_connectivity
     use_dummy_cell_closure      = config_use_dummy_cell_closure
 
@@ -249,13 +250,13 @@ MODULE mo_grid_nml
     config_lredgrid_phys     = lredgrid_phys
     config_use_duplicated_connectivity = use_duplicated_connectivity
     config_use_dummy_cell_closure      = use_dummy_cell_closure
-!     config_radiation_grid_distrib  = radiation_grid_distribution
     config_dynamics_grid_filename  = dynamics_grid_filename
     config_dynamics_parent_grid_id = dynamics_parent_grid_id
     config_radiation_grid_filename = radiation_grid_filename
     config_dyn_radiation_grid_link = dynamics_radiation_grid_link
     config_grid_rescale_factor     = grid_rescale_factor
     config_grid_angular_velocity   = grid_angular_velocity
+    config_vertical_grid_filename  = vertical_grid_filename
           
   END SUBROUTINE read_grid_namelist
   !-----------------------------------------------------------------------

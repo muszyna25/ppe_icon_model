@@ -93,12 +93,13 @@ MODULE mo_nonhydro_state
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
     &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
     &                                DATATYPE_PACK24, FILETYPE_NC2, TSTEP_CONSTANT
+  USE mo_util_vgrid_types,     ONLY: vgrid_buffer
 
   IMPLICIT NONE
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_vgrid'
 
 
   PUBLIC :: construct_nh_state    ! Constructor for the nonhydrostatic state
@@ -1960,6 +1961,8 @@ MODULE mo_nonhydro_state
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
 
+    ! local variables
+    CHARACTER(*), PARAMETER    :: routine = modname//"::new_nh_metrics_list"
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
@@ -1975,7 +1978,7 @@ MODULE mo_nonhydro_state
       &        shape2d_esquared(3), shape3d_esquared(4), shape3d_e8(4)
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
-    INTEGER :: ist
+    INTEGER :: ist, error_status
     !--------------------------------------------------------------
 
     nblks_c = p_patch%nblks_c
@@ -2034,6 +2037,12 @@ MODULE mo_nonhydro_state
                 & in_group=groups("dwd_fg_atm_vars"),                           &
                 & isteptype=TSTEP_CONSTANT )
 
+    ! The 3D coordinate field "z_ifc" exists already in a buffer
+    ! variable of module "mo_util_vgrid". We move the data to its
+    ! final place here:
+    p_metrics%z_ifc(:,:,:) = vgrid_buffer(p_patch%id)%z_ifc(:,:,:)
+    DEALLOCATE(vgrid_buffer(p_patch%id)%z_ifc, STAT=error_status)
+    IF (error_status /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ! geometric height at full levels
     ! z_mc         p_metrics%z_mc(nproma,nlev,nblks_c)

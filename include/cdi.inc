@@ -4,7 +4,7 @@
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   January 2014
+! Uwe Schulzweida, MPI-MET, Hamburg,   February 2014
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -1632,7 +1632,7 @@
 !                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        gridDefUUID
 
-      CHARACTER(80)   gridInqUUID
+!                     gridInqUUID
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        gridInqUUID
@@ -1854,7 +1854,7 @@
 !                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        zaxisDefUUID
 
-      CHARACTER(80)   zaxisInqUUID
+!                     zaxisInqUUID
 !                                    (INTEGER         zaxisID,
 !                                     CHARACTER*(*)   uuid_cbuf)
       EXTERNAL        zaxisInqUUID
