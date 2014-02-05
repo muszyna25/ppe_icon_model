@@ -503,7 +503,7 @@ CONTAINS
    ! Import vertical grid/ define vertical coordinate
    !---------------------------------------------------------------------
 
-    CALL allocate_vct_atmo(p_patch(1:), p_nh_state(1:), n_dom)
+    CALL allocate_vct_atmo(p_patch(1)%nlevp1)
     CALL construct_vertical_grid(p_patch(1:), p_int_state(1:), ext_data, &
       &                          vct_a, vct_b, vct, nflatlev, nflat)
 

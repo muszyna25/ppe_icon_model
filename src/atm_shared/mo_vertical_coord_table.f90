@@ -67,9 +67,6 @@ MODULE mo_vertical_coord_table
   USE mo_impl_constants,     ONLY: SUCCESS, max_char_length, ishallow_water,   &
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere
   USE mo_physical_constants, ONLY: grav, rcpd, rd
-  USE mo_parallel_config,    ONLY: nproma
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_nonhydro_types,     ONLY: t_nh_state
 
   IMPLICIT NONE
 
@@ -501,15 +498,12 @@ CONTAINS
   !----------------------------------------------------------------------------------------------------
   !> Utility function: Allocation of vertical coordinate tables.
   !!
-  SUBROUTINE allocate_vct_atmo(p_patch, p_nh_state, n_dom)
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
-    INTEGER,                intent(IN)    :: n_dom
+  SUBROUTINE allocate_vct_atmo(nlevp1)
+    INTEGER,                INTENT(IN)    :: nlevp1
     ! local variables
     CHARACTER(*), PARAMETER   :: routine = modname//"::allocate_vct_atmo"
-    INTEGER :: jg, error_status, nlevp1, nblks_v
+    INTEGER :: error_status
 
-    nlevp1 = p_patch(1)%nlev+1
     ! Allocate input for init routines
     ALLOCATE(vct_a(nlevp1), vct_b(nlevp1), STAT=error_status)
     IF (error_status/=SUCCESS) CALL finish (TRIM(routine), 'allocation of vct_a/vct_b failed')
