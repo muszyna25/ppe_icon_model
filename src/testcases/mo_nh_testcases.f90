@@ -78,7 +78,8 @@ MODULE mo_nh_testcases
                                    & init_nh_prog_mwbr_const, mount_half_width                     
   USE mo_nh_wk_exp,            ONLY: init_nh_topo_wk, init_nh_env_wk,             &
                                    & init_nh_buble_wk                       
-  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt         
+  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
+  USE mo_nh_dcmip_hadley,      ONLY: init_nh_dcmip_hadley         
   USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer,                   &
                                    & init_nh_topo_dcmip_schaer
   USE mo_nh_dcmip_rest_atm,   ONLY : init_nh_topo_dcmip_rest_atm,                 &
@@ -371,6 +372,11 @@ MODULE mo_nh_testcases
 
     END DO
     CALL message(TRIM(routine),'running g_lim_area')
+
+  CASE ('dcmip_pa_12')
+
+    ! The topography has been initialized to 0 
+    CALL message(TRIM(routine),'running the dcmip_pa_12 (PA with Hadley-like circulation) test')
 
   CASE ('dcmip_gw_31')
 
@@ -941,6 +947,21 @@ MODULE mo_nh_testcases
    ENDDO !jg
 
    CALL message(TRIM(routine),'End setup g_lim_area test')
+
+
+  CASE ('dcmip_pa_12')
+
+    CALL message(TRIM(routine),'setup dcmip_pa_12 (PA with Hadley-like circulation) test')
+
+    DO jg = 1, n_dom
+      CALL init_nh_dcmip_hadley( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+        &                        p_nh_state(jg)%diag, p_int(jg),              &
+        &                        p_nh_state(jg)%metrics )
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    ENDDO
+
+    CALL message(TRIM(routine),'End setup dcmip_pa_12 test')
 
 
   CASE ('dcmip_gw_31')

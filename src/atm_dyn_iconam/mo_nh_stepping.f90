@@ -82,6 +82,7 @@ MODULE mo_nh_stepping
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
+  USE mo_nh_dcmip_hadley,     ONLY: set_nh_velocity_hadley
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh, print_maxwinds
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -951,6 +952,27 @@ MODULE mo_nh_stepping
 
           ! get mass flux and new \rho. The latter one is only computed,
           ! if the density equation is re-integrated.
+          CALL integrate_density_pa(p_patch(jg), p_int_state(jg),  & !in
+            &                     p_nh_state(jg)%prog(n_now),      & !in
+            &                     p_nh_state(jg)%prog(n_new),      & !in
+            &                     p_nh_state(jg)%metrics,          & !in
+            &                     p_nh_state(jg)%diag, dtadv_loc,  & !inout,in
+            &                     jstep_adv(jg)%marchuk_order,     & !in
+            &                     lcoupled_rho                     )
+
+
+        CASE ('DCMIP_PA_12', 'dcmip_pa_12')
+
+          ! get velocity field for the DCMIP Hadley-like meridional circulation test
+          !
+          CALL set_nh_velocity_hadley( p_patch(jg), p_nh_state(jg)%prog(n_new), & !in,inout
+            &                          p_nh_state(jg)%diag, p_int_state(jg),    & !in
+            &                          p_nh_state(jg)%metrics,                  & !in
+            &                          time_config%sim_time(jg)-dt_loc+dtadv_loc) !in
+
+          ! get mass flux and updated density for the DCMIP Hadley-like 
+          ! meridional circulation test
+          !
           CALL integrate_density_pa(p_patch(jg), p_int_state(jg),  & !in
             &                     p_nh_state(jg)%prog(n_now),      & !in
             &                     p_nh_state(jg)%prog(n_new),      & !in
