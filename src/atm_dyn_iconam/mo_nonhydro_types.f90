@@ -82,6 +82,7 @@ MODULE mo_nonhydro_types
                            !! (defined on half levels) with 2 time levels
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_tracer),ALLOCATABLE :: conv_tracer(:,:)  
+    TYPE(t_ptr_tracer),ALLOCATABLE :: turb_tracer(:,:)  
   END TYPE t_nh_prog
 
 

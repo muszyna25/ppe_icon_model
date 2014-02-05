@@ -205,6 +205,13 @@ CONTAINS
     ENDIF
     ENDIF
 
+    ! Get the number of turbulence tracers
+    IF(PRESENT(lturb_tracer)) THEN
+    IF (lturb_tracer) THEN
+      art_config(jg)%nturb_tracer = art_config(jg)%nturb_tracer + 1
+    ENDIF
+    ENDIF
+
   END SUBROUTINE add_var_list_reference_tracer
 
 

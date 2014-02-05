@@ -2356,10 +2356,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & ldims=shape3d, lrestart=.FALSE.)
 
         ! art
-!        IF (artconf%lart) THEN
-!          CALL art_tracer_interface('turb',k_jg,nblks_c,phy_tend_list,'ddt_',  phy_tend%tracer_turb_ptr,&
-!                    & advconf,timelev,ldims=shape3d,tlev_source=1)
-!        ENDIF
+        IF (artconf%lart) THEN
+          CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list, &
+                    & 'ddt_', phy_tend%tracer_turb_ptr,                 &
+                    & advection_config(k_jg), phy_tend=phy_tend,        &
+                    & ldims=shape3d, tlev_source=1)
+        ENDIF
 
     cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
          &                            'convective tendency of tracers', DATATYPE_FLT32)
@@ -2402,9 +2404,10 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
         ! art
         IF (artconf%lart) THEN
-          CALL art_tracer_interface('conv',k_jg,kblks,phy_tend_list,&
-                    & 'ddt_',phy_tend%tracer_conv_ptr,&
-                    & advection_config(k_jg),phy_tend=phy_tend,ldims=shape3d,tlev_source=1)
+          CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list, &
+                    & 'ddt_', phy_tend%tracer_conv_ptr,                 &
+                    & advection_config(k_jg), phy_tend=phy_tend,        &
+                    & ldims=shape3d, tlev_source=1)
         ENDIF
 
 
