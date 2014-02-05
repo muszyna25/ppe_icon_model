@@ -48,7 +48,7 @@ MODULE mo_nh_stepping
 !
 !
 
-  USE mo_kind,                ONLY: wp, i8
+  USE mo_kind,                ONLY: wp
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
     & nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
@@ -279,7 +279,12 @@ MODULE mo_nh_stepping
   CALL allocate_nh_stepping ()
 
   ! Compute diagnostic dynamics fields for initial output and physics initialization
-  IF (.NOT.is_restart_run()) CALL diag_for_output_dyn (linit=.TRUE.)
+  IF (is_restart_run()) THEN
+    CALL diag_for_output_dyn (linit=.FALSE.)
+  ELSE
+    CALL diag_for_output_dyn (linit=.TRUE.)
+  ENDIF
+
 
   IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
