@@ -1965,7 +1965,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
       !1D and 0D diagnostic variables that can not be part of add_var
-      ALLOCATE( diag%turb_diag_1dvar(SIZE(turb_profile_list,1),klevp1),  &
+      ALLOCATE( diag%turb_diag_1dvar(klevp1,SIZE(turb_profile_list,1)),  &
                 diag%turb_diag_0dvar(SIZE(turb_tseries_list,1)), STAT=ist)
       IF (ist/=SUCCESS)THEN
         CALL finish('mo_nwp_phy_state:new_nwp_phy_diag_list', &

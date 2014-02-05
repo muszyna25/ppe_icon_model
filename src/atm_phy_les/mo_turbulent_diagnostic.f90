@@ -69,6 +69,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
+  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
 
  
   IMPLICIT NONE
@@ -78,6 +79,12 @@ MODULE mo_turbulent_diagnostic
   INTEGER  :: nrec_tseries,   nrec_profile
   INTEGER  :: fileid_tseries, fileid_profile
   INTEGER  :: sampl_freq_step, avg_interval_step
+  LOGICAL  :: is_sampling_time, is_writing_time
+  REAL(wp) :: time_wt
+
+  !Some indices: think of better way
+  INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
+  
   CHARACTER(20) :: tname     = 'time'
   CHARACTER(20) :: tlongname = 'Time'
 
@@ -88,7 +95,8 @@ MODULE mo_turbulent_diagnostic
 
   PUBLIC  :: calculate_turbulent_diagnostics, write_vertical_profiles, write_time_series
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
-  PUBLIC  :: sampl_freq_step, avg_interval_step
+  PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
+  PUBLIC  :: time_wt, idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
 
 CONTAINS
 
@@ -125,10 +133,10 @@ CONTAINS
 
     ! Local
   
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)  :: var3df, var3dh, theta
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)  :: var3df, var3dh, theta, w_mc
     REAL(wp), ALLOCATABLE, DIMENSION(:)   :: &
-              umean, vmean, thmean, qvmean, qcmean, wmean, outvar
-    REAL(wp) :: kg2g, time_wt, outvar0d
+              umean, vmean, thmean, qvmean, qcmean, wmean, outvar, thvmean
+    REAL(wp) :: outvar0d
 
     ! Local array bounds:
 
@@ -144,14 +152,13 @@ CONTAINS
     IF(msg_level>18) & 
       CALL message(routine,'Start!')
 
-    kg2g = 1000._wp
-     
     nlev       = p_patch%nlev
     nlevp1     = nlev + 1
     
     !allocation
     ALLOCATE( var3df(nproma,nlev,p_patch%nblks_c), var3dh(nproma,nlevp1,p_patch%nblks_c), &
-              theta(nproma,nlev,p_patch%nblks_c),  outvar(nlevp1) )
+              theta(nproma,nlev,p_patch%nblks_c),  w_mc(nproma,nlev,p_patch%nblks_c), &
+              outvar(nlevp1) )
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -160,6 +167,20 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+    !Get rho at interface levels
+!ICON_OMP_PARALLEL 
+!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
+    DO jb = i_startblk,i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, rl_end)
+       DO jk = 1 , nlev
+         DO jc = i_startidx, i_endidx
+           w_mc(jc,jk,jb) = ( p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb) ) * 0.5_wp
+         END DO
+       END DO
+    END DO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
 
 !======================================================================================
                  !Some vertical profiles
@@ -188,20 +209,28 @@ CONTAINS
 
      CASE('w')
 
-       ALLOCATE(wmean(1:nlevp1))
-       CALL levels_horizontal_mean(p_prog%w, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
-       wmean = outvar(1:nlevp1)
+       ALLOCATE(wmean(1:nlev))
+       CALL levels_horizontal_mean(w_mc, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       wmean = outvar(1:nlev)
+
+     CASE('thv')
+
+       ALLOCATE(thvmean(1:nlev))
+       CALL levels_horizontal_mean(p_prog%theta_v, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       thvmean = outvar(1:nlev)
 
      CASE('th') !theta mean
 
        ALLOCATE(thmean(1:nlev))
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-           theta(jc,1:nlev,jb)  = p_diag%temp(jc,1:nlev,jb)/p_prog%exner(jc,1:nlev,jb)
+        DO jk = 1 , nlev
+         DO jc = i_startidx, i_endidx
+           theta(jc,jk,jb)  = p_diag%temp(jc,jk,jb)/p_prog%exner(jc,jk,jb)
+         END DO
         END DO
       END DO
 !ICON_OMP_END_DO_NOWAIT
@@ -223,8 +252,6 @@ CONTAINS
        ALLOCATE(qvmean(1:nlev))
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqv),  &
              p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-
-       outvar = outvar * kg2g
        qvmean = outvar(1:nlev) 
 
      CASE('qc')
@@ -232,60 +259,53 @@ CONTAINS
        ALLOCATE(qcmean(1:nlev))
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqc),  &
             p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * kg2g
        qcmean = outvar(1:nlev)
        
-     CASE('wu')!At half levels
+     CASE('wu')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(umean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
+          DO jk = 1 , nlev
             DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = (p_prog%w(jc,jk,jb)-wmean(jk)) * 0.5_wp * (         &
-                  (p_diag%u(jc,jk,jb)+p_diag%u(jc,jk-1,jb))-(umean(jk)+umean(jk-1)) )
+             var3df(jc,jk,jb) = (w_mc(jc,jk,jb)-wmean(jk))*(p_diag%u(jc,jk,jb)-umean(jk))*p_prog%rho(jc,jk,jb) 
             END DO
           END DO
         END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-        var3dh(:,1,:)      = 0._wp
-        var3dh(:,nlevp1,:) = 0._wp
        ELSE
          CALL finish(routine,'put <wu> after <w> and <u> in the namelist')
        END IF  
 
-       CALL levels_horizontal_mean(var3dh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
 
-     CASE('wv')!At half levels
+     CASE('wv')!At full levels
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(vmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
+          DO jk = 1 , nlev
             DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = (p_prog%w(jc,jk,jb)-wmean(jk)) * 0.5_wp * (         &
-                  (p_diag%v(jc,jk,jb)+p_diag%v(jc,jk-1,jb))-(vmean(jk)+vmean(jk-1)) )
+             var3df(jc,jk,jb) = (w_mc(jc,jk,jb)-wmean(jk))*(p_diag%v(jc,jk,jb)-vmean(jk))*p_prog%rho(jc,jk,jb) 
             END DO
           END DO
         END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-        var3dh(:,1,:)      = 0._wp
-        var3dh(:,nlevp1,:) = 0._wp
        ELSE
          CALL finish(routine,'put <wv> after <w> and <v> in the namelist')
        END IF  
 
-       CALL levels_horizontal_mean(var3dh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
 
-     CASE('wth')!At half levels
+     CASE('wth')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(thmean))THEN
 !ICON_OMP_PARALLEL 
@@ -293,106 +313,116 @@ CONTAINS
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
+          DO jk = 1 , nlev
             DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = (p_prog%w(jc,jk,jb)-wmean(jk)) * 0.5_wp * (         &
-                  (theta(jc,jk,jb)+theta(jc,jk-1,jb))-(thmean(jk)+thmean(jk-1)) )
+             var3df(jc,jk,jb) = (w_mc(jc,jk,jb)-wmean(jk))*(theta(jc,jk,jb)-thmean(jk))*p_prog%rho(jc,jk,jb) 
             END DO
           END DO
         END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-        var3dh(:,1,:)      = 0._wp
-        var3dh(:,nlevp1,:) = 0._wp
        ELSE
          CALL finish(routine,'put <wth> after <w> and <th> in the namelist')
        END IF  
 
-       CALL levels_horizontal_mean(var3dh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       outvar = outvar * cpd           
+  
+     CASE('wthv')
+
+       IF(ALLOCATED(wmean).AND.ALLOCATED(thvmean))THEN
+!ICON_OMP_PARALLEL 
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+          DO jk = 1 , nlev
+            DO jc = i_startidx, i_endidx
+             var3df(jc,jk,jb) = (w_mc(jc,jk,jb)-wmean(jk))*(p_prog%theta_v(jc,jk,jb)-thvmean(jk))*p_prog%rho(jc,jk,jb) 
+            END DO
+          END DO
+        END DO
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+       ELSE
+         CALL finish(routine,'put <wthv> after <w> and <thv> in the namelist')
+       END IF  
+
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
 
      CASE('wqv')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(qvmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
+          DO jk = 1 , nlev
             DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = (p_prog%w(jc,jk,jb)-wmean(jk)) * 0.5_wp * (         &
-                  (p_prog_rcf%tracer(jc,jk,jb,iqv)+p_prog_rcf%tracer(jc,jk-1,jb,iqv)) -  &
-                  (qvmean(jk)+qvmean(jk-1)) )
+             var3df(jc,jk,jb) = (w_mc(jc,jk,jb)-wmean(jk))*(p_prog_rcf%tracer(jc,jk,jb,iqv)-qvmean(jk))*p_prog%rho(jc,jk,jb) 
             END DO
           END DO
         END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-        var3dh(:,1,:)      = 0._wp
-        var3dh(:,nlevp1,:) = 0._wp
        ELSE
          CALL finish(routine,'put <wqv> after <w> and <qv> in the namelist')
        END IF  
 
-       CALL levels_horizontal_mean(var3dh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
-       outvar = outvar * kg2g
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       outvar = outvar * alv
 
      CASE('wqc')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(qcmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
+          DO jk = 1 , nlev
             DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = (p_prog%w(jc,jk,jb)-wmean(jk)) * 0.5_wp * (         &
-                  (p_prog_rcf%tracer(jc,jk,jb,iqc)+p_prog_rcf%tracer(jc,jk-1,jb,iqc)) -  &
-                  (qcmean(jk)+qcmean(jk-1)) )
+             var3df(jc,jk,jb) = (w_mc(jc,jk,jb)-wmean(jk))*(p_prog_rcf%tracer(jc,jk,jb,iqc)-qcmean(jk))*p_prog%rho(jc,jk,jb) 
             END DO
           END DO
         END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-        var3dh(:,1,:)      = 0._wp
-        var3dh(:,nlevp1,:) = 0._wp
        ELSE
          CALL finish(routine,'put <wqc> after <w> and <qc> in the namelist')
        END IF  
 
-       CALL levels_horizontal_mean(var3dh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
-       outvar = outvar * kg2g
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       outvar = outvar * alv
 
      CASE('ww')
 
        IF(ALLOCATED(wmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
-          DO jk = 2 , nlev
+          DO jk = 1 , nlev
             DO jc = i_startidx, i_endidx
-             var3dh(jc,jk,jb) = (p_prog%w(jc,jk,jb)-wmean(jk))**2 
+             var3df(jc,jk,jb) = (w_mc(jc,jk,jb)-wmean(jk))**2 
             END DO
           END DO
         END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-        var3dh(:,1,:)      = 0._wp
-        var3dh(:,nlevp1,:) = 0._wp
        ELSE
          CALL finish(routine,'put <ww> after <w> in the namelist')
        END IF  
 
-       CALL levels_horizontal_mean(var3dh, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
 
      CASE('thth')
 
        IF(ALLOCATED(thmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -414,7 +444,7 @@ CONTAINS
 
        IF(ALLOCATED(qvmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -431,13 +461,12 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * kg2g**2
 
      CASE('qcqc')
 
        IF(ALLOCATED(qcmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -454,13 +483,12 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
-       outvar = outvar * kg2g**2
 
      CASE('uu')
 
        IF(ALLOCATED(umean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -482,7 +510,7 @@ CONTAINS
 
        IF(ALLOCATED(vmean))THEN
 !ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -512,9 +540,9 @@ CONTAINS
 
      !Calculate time mean
      IF(is_at_full_level(n))THEN
-       prm_diag%turb_diag_1dvar(n,1:nlev) = prm_diag%turb_diag_1dvar(n,1:nlev)+outvar(1:nlev)*time_wt
+       prm_diag%turb_diag_1dvar(1:nlev,n) = prm_diag%turb_diag_1dvar(1:nlev,n)+outvar(1:nlev)*time_wt
      ELSE
-       prm_diag%turb_diag_1dvar(n,1:nlevp1) = prm_diag%turb_diag_1dvar(n,1:nlevp1)+outvar(1:nlevp1)*time_wt
+       prm_diag%turb_diag_1dvar(1:nlevp1,n) = prm_diag%turb_diag_1dvar(1:nlevp1,n)+outvar(1:nlevp1)*time_wt
      END IF
 
     END DO!nvar
@@ -544,9 +572,10 @@ CONTAINS
        CALL levels_horizontal_mean(p_prog_land%t_g, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('qsfc')
        CALL levels_horizontal_mean(p_diag_land%qv_s, p_patch%cells%area, p_patch%cells%owned, outvar0d)
-       outvar0d = outvar0d * kg2g
      CASE('hbl')
        CALL levels_horizontal_mean(prm_diag%z_pbl, p_patch%cells%area, p_patch%cells%owned, outvar0d)
+     CASE('psfc')
+       CALL levels_horizontal_mean(p_diag%pres_sfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      END SELECT  
 
      prm_diag%turb_diag_0dvar(n) = outvar0d 
@@ -554,7 +583,7 @@ CONTAINS
     END DO
  
      
-    DEALLOCATE( umean, vmean, thmean, qvmean, qcmean, wmean, outvar, var3df, var3dh, theta )
+    DEALLOCATE( umean, vmean, thmean, qvmean, qcmean, wmean, outvar, var3df, var3dh, theta, w_mc )
 
     IF(msg_level>18) & 
       CALL message(routine,'Over!')
@@ -587,7 +616,7 @@ CONTAINS
       CALL writevar_nc(fileid_profile, tname, sim_time, nrec_profile) 
 
       DO n = 1 , nvar       
-       CALL writevar_nc(fileid_profile, TRIM(turb_profile_list(n)), outvar(n,:), nrec_profile) 
+       CALL writevar_nc(fileid_profile, TRIM(turb_profile_list(n)), outvar(:,n), nrec_profile) 
       END DO
 
     END IF
@@ -690,11 +719,13 @@ CONTAINS
       longname = 'meridional wind'
       unit     = 'm/s'
      CASE('w')
-      is_at_full_level(n) = .FALSE.
       longname = 'vertical wind'
       unit     = 'm/s'
      CASE('th') !theta mean
       longname = 'potential temperature'
+      unit     = 'K'
+     CASE('thv') !thetav mean
+      longname = 'virtual potential temperature'
       unit     = 'K'
      CASE('exner')
       longname = 'exner function'
@@ -704,43 +735,40 @@ CONTAINS
       unit     = 'kg/m3'
      CASE('qv')
       longname = 'specific humidity'
-      unit     = 'g/kg'
+      unit     = 'kg/kg'
      CASE('qc')
       longname = 'cloud water'
-      unit     = 'g/kg'
+      unit     = 'kg/kg'
      CASE('wu')
        longname = 'resolved zonal wind flux'
        unit     = 'm2/s2'
-       is_at_full_level(n) = .FALSE.
      CASE('wv')
        longname = 'resolved meridional wind flux'
        unit     = 'm2/s2'
-       is_at_full_level(n) = .FALSE.
      CASE('wth')
        longname = 'resolved potential temperature flux'
-       unit     = 'Km/s'
-       is_at_full_level(n) = .FALSE.
+       unit     = 'W/m2'
+     CASE('wthv')
+       longname = 'resolved virtual potential temperature flux'
+       unit     = 'W/m2'
      CASE('wqv')
        longname = 'resolved specific humidity flux'
-       unit     = 'g/kg m/s'
-       is_at_full_level(n) = .FALSE.
+       unit     = 'W/m2'
      CASE('wqc')
        longname = 'resolved cloud water flux'
-       unit     = 'g/kg m/s'
-       is_at_full_level(n) = .FALSE.
+       unit     = 'W/m2'
      CASE('ww')
        longname = 'resolved vertical velocity variance'
        unit     = 'm2/s2'
-       is_at_full_level(n) = .FALSE.
      CASE('thth')
        longname = 'resolved potential temperature variance'
        unit     = 'K2'
      CASE('qvqv')
        longname = 'resolved specific humidity variance'
-       unit     = 'g2/kg2'
+       unit     = 'kg2/kg2'
      CASE('qcqc')
        longname = 'resolved cloud water variance'
-       unit     = 'g2/kg2'
+       unit     = 'kg2/kg2'
      CASE('uu')
        longname = 'resolved zonal wind variance'
        unit     = 'm2/s2'
@@ -755,6 +783,21 @@ CONTAINS
        longname = '(mass) eddy viscosity'
        unit     = 'kg/ms'
        is_at_full_level(n) = .FALSE.
+     CASE('wthd') !diffuse flux
+       longname = 'subgrid potential temperature flux'
+       unit     = 'W/m2'
+       is_at_full_level(n) = .FALSE.
+       idx_sgs_th_flx = n
+     CASE('wqvd') !diffuse flux
+       longname = 'subgrid specific humidity flux'
+       unit     = 'W/m2'
+       is_at_full_level(n) = .FALSE.
+       idx_sgs_qv_flx = n
+     CASE('wqcd') !diffuse flux
+       longname = 'subgrid cloud water flux'
+       unit     = 'W/m2'
+       is_at_full_level(n) = .FALSE.
+       idx_sgs_qc_flx = n
      END SELECT
 
      dimname(2) = tname
@@ -817,10 +860,13 @@ CONTAINS
        unit     = 'K'
      CASE('qsfc')
        longname = 'surface humidity'
-       unit     = 'g/kg'
+       unit     = 'kg/kg'
      CASE('hbl')
        longname = 'boundary layer height'
        unit     = 'm'
+     CASE('psfc')
+       longname = 'surface pressure'
+       unit     = 'Pa'
      END SELECT  
   
      dimname(1) = tname
