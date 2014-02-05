@@ -1347,7 +1347,6 @@ src/atm_phy_schemes/srtm_kgb26.f90 -text
 src/atm_phy_schemes/srtm_kgb27.f90 -text
 src/atm_phy_schemes/srtm_kgb28.f90 -text
 src/atm_phy_schemes/srtm_kgb29.f90 -text
-src/atm_shared/mo_vertical_coord_table.f90 -text
 src/configure_model/mo_advection_config.f90 -text
 src/configure_model/mo_art_config.f90 -text
 src/configure_model/mo_atm_phy_nwp_config.f90 -text
@@ -1636,6 +1635,7 @@ src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
 src/shared/mo_var_metadata.f90 -text
 src/shared/mo_var_metadata_types.f90 -text
+src/shared/mo_vertical_coord_table.f90 -text
 src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
