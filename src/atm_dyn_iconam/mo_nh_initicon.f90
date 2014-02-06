@@ -1243,7 +1243,8 @@ MODULE mo_nh_initicon
           &                        linverse=.FALSE.))//" ("//          &
           &                        TRIM(grp_vars_ana(ivar))//")"
       ENDDO
-      CALL message("Required input fields:",'Source of FG and ANA fields:')
+      WRITE(message_text,'(a,i2)') 'INIT_MODE ', init_mode
+      CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
       CALL init_bool_table(bool_table)
       CALL add_column(bool_table, "FG (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
       CALL add_column(bool_table, "FG (this run)",           grp_vars_fg_grib2,          ngrp_vars_fg)
@@ -2892,6 +2893,21 @@ MODULE mo_nh_initicon
                   & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt) 
              ENDIF
           ENDDO  ! ic
+
+          ! w_so_t, t_so_t: 
+          ! Search for CDI missval and replace it by meaningful value
+          ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
+          ! the huge value range.
+          DO jc = i_startidx, i_endidx
+             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) == missval)) THEN
+               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = 0._wp
+             ENDIF
+             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) == missval)) THEN
+               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = 0._wp
+             ENDIF
+
+          ENDDO  ! jc
+
         ENDDO  ! jk
 
       ENDDO  ! jt
