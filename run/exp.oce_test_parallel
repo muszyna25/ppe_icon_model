@@ -191,8 +191,8 @@ cat > ${ocean_namelist} << EOF
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+ FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT = 7      ! 7=upwind biased ppm
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on

@@ -49,33 +49,29 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea
 USE mo_math_constants,            ONLY: pi
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                                                  &
   &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
-  &                                     threshold_vn,                                                       &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
-  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, MIMETIC_MIURA,        &
+  &                                     flux_calculation_horz, flux_calculation_vert, miura_order1,         &
   &                                     l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
-  &                                     use_tracer_x_height, forcing_enable_freshwater, l_skip_tracer
+  &                                     use_tracer_x_height, l_skip_tracer
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
-USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer 
+USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
 USE mo_model_domain,              ONLY: t_patch, t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
-!USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
-!USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
 USE mo_oce_physics
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
-!USE mo_scalar_product,            ONLY:  map_cell2edges_3D,map_edges2cell_3D
-!USE mo_oce_math_operators,        ONLY: div_oce_3D
-USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_impl_hom, tracer_diffusion_vert_expl
-USE mo_oce_tracer_transport_horz, ONLY: advect_diffuse_flux_horz
+USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_implicit, tracer_diffusion_vert_explicit
+USE mo_oce_tracer_transport_horz, ONLY: advect_diffuse_horz
 USE mo_oce_tracer_transport_vert, ONLY: advect_flux_vertical
 USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
 USE mo_sync,                      ONLY: SYNC_C, SYNC_E, sync_patch_array
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_dif_vert
+!USE mo_statistics,                ONLY: global_minmaxmean
 USE mo_statistics,                ONLY: global_minmaxmean
 USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
 
@@ -120,7 +116,6 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   REAL(wp) :: z_relax!, delta_z
   INTEGER  :: iloc(2)
   REAL(wp) :: zlat, zlon
-  REAL(wp) :: z_cellthick_intmed(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: z_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
   REAL(wp) :: minmaxmean(3)
   TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -129,13 +124,12 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   p_patch => p_patch_3D%p_patch_2D(1)
   cells_in_domain => p_patch%cells%in_domain
 
-  z_cellthick_intmed = 0.0_wp
 
   CALL prepare_tracer_transport( p_patch_3D, &
                                & p_os,       &
                                & p_op_coeff)
 
-  DO i_no_t = 1,no_tracer
+  DO i_no_t = 1, no_tracer
     !CALL sync_patch_array(SYNC_C, p_patch,p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t))
     !First tracer is temperature
     !Second tracer is salinity
@@ -252,10 +246,8 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 !      ENDIF
 !    END DO
 
-!  #slo# TBD: include local/global location of values above thresholds
-
       minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,jk,:,1), &
-        & in_subset=cells_in_domain)
+         & in_subset=cells_in_domain)
       IF (my_process_is_stdio()) THEN
         ! Abort if tracer is below or above threshold, read from namelist
         ! Temperature: <-1.9 deg C, may be possible, limit set to lower value
@@ -272,19 +264,6 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
           write(0,*) ' too high temperature at jk =', jk, minmaxmean(2)
           CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
             &              'Temperature above threshold')
-        ENDIF
-      ENDIF
-
-      minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%vn(:,jk,:), &
-         & in_subset=cells_in_domain)
-      IF (my_process_is_stdio()) THEN
-        ! Abort if tracer is below or above threshold for velocity, read from namelist
-        ! abs(vn) > 10 m/s default limit for abort
-        IF ((minmaxmean(1) < -threshold_vn).OR. (minmaxmean(2) > threshold_vn)) THEN
-          write(0,*) ' ABSOLUTE VELOCITY ABOVE THRESHOLD = ', threshold_vn
-          write(0,*) ' too high velocities at jk =', jk, minmaxmean(1), minmaxmean(2)
-          CALL finish(TRIM('mo_tracer_advection:advect_tracer'), &
-            &              'Velocity above threshold')
         ENDIF
       ENDIF
 
@@ -344,9 +323,9 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
     END DO
   ENDIF
-    
+   
   !! apply additional volume flux to surface elevation - add to h_new after tracer advection
-  !IF (forcing_enable_freshwater) THEN
+  !IF (l_forc_freshw) THEN
   !  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
   !    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
   !    DO jc = i_startidx_c, i_endidx_c
@@ -358,107 +337,6 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
-
-
-!  !-------------------------------------------------------------------------
-!  !   Original version
-!  !>
-!  !! !  SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
-!  !!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
-!  !!    actual velocity. This information is required by MIURA-scheme and is identical
-!  !!    for all tracers.
-!  !!
-!  !! @par Revision History
-!  !! Developed  by  Peter Korn, MPI-M (2012).
-!  !!
-!  !! mpi parallelized, sync required
-!  SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff)
-!
-!    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-!    TYPE(t_hydro_ocean_state), TARGET    :: p_os
-!    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
-!    !
-!    !Local variables
-!    INTEGER  :: slev, elev
-!    INTEGER  :: i_startidx_c, i_endidx_c
-!    INTEGER  :: i_startidx_e, i_endidx_e
-!    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
-!    INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
-!    INTEGER  :: il_c, ib_c
-!    REAL(wp) :: delta_z
-!    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
-!    TYPE(t_cartesian_coordinates):: flux_sum
-!    !-------------------------------------------------------------------------------
-!    TYPE(t_patch), POINTER :: p_patch
-!    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
-!    !-------------------------------------------------------------------------------
-!    p_patch         => p_patch_3D%p_patch_2D(1)
-!    cells_in_domain => p_patch%cells%in_domain
-!    edges_in_domain => p_patch%edges%in_domain
-!
-!    slev = 1
-!    elev = n_zlev
-!
-!    p_os%p_diag%w_time_weighted(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)&
-!                &=p_os%p_diag%w(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)
-!
-!
-!    IF( .NOT.l_edge_based .OR. FLUX_CALCULATION_HORZ==MIMETIC_MIURA)THEN
-!      DO jk = slev, elev
-!        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-!          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-!          DO je = i_startidx_e, i_endidx_e
-!            IF (p_patch_3D%lsm_e(je,jk,jb) == sea) THEN
-!
-!              !Get indices of two adjacent vertices
-!  !             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
-!  !             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
-!  !             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
-!  !             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-!              !Get indices of two adjacent cells
-!              il_c1 = p_patch%edges%cell_idx(je,jb,1)
-!              ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-!              il_c2 = p_patch%edges%cell_idx(je,jb,2)
-!              ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-!
-!              !  p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
-!              !    &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
-!              p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
-!                &(p_os%p_diag%p_vn(il_c1,jk,ib_c1)%x+p_os%p_diag%p_vn(il_c2,jk,ib_c2)%x)
-!
-!              p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
-!                & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
-!                &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
-!
-!              IF ( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp ) THEN
-!                il_c = p_patch%edges%cell_idx(je,jb,1)
-!                ib_c = p_patch%edges%cell_blk(je,jb,1)
-!              ELSE  ! p_os%p_diag%vn_time_weighted <= 0.0
-!                il_c = p_patch%edges%cell_idx(je,jb,2)
-!                ib_c = p_patch%edges%cell_blk(je,jb,2)
-!              ENDIF
-!
-!              p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
-!              p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
-!
-!              p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
-!                & p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
-!
-!            ENDIF
-!          END DO
-!        END DO
-!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(1))
-!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(2))
-!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(3))
-!      END DO
-!
-!    ENDIF
-!
-!    CALL sync_patch_array(SYNC_E, p_patch,p_os%p_diag%vn_time_weighted )
-!    CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%w_time_weighted )
-!
-!  END SUBROUTINE prepare_tracer_transport
-!  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -483,6 +361,7 @@ END SUBROUTINE advect_tracer_ab
     INTEGER  :: i_startidx_e, i_endidx_e
     INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
     INTEGER  :: edge_cell_index(2), edge_cell_block(2)
+    INTEGER  :: edge_vert_index(2), edge_vert_block(2)
     INTEGER  :: upwind_index
     REAL(wp) :: delta_z, half_time
     INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
@@ -508,8 +387,8 @@ END SUBROUTINE advect_tracer_ab
     ! This is already synced on edges_in_domain !
     ! CALL sync_patch_array(SYNC_E, patch_2d,p_os%p_diag%vn_time_weighted )
 
-    IF( .NOT.l_edge_based .OR. FLUX_CALCULATION_HORZ==MIMETIC_MIURA) THEN
-
+    !IF( .NOT.l_edge_based .OR. flux_calculation_horz==MIMETIC_MIURA) THEN
+    IF( flux_calculation_horz==miura_order1) THEN
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
@@ -518,15 +397,20 @@ END SUBROUTINE advect_tracer_ab
           edge_cell_block(1) = patch_2d%edges%cell_blk(je,jb,1)
           edge_cell_index(2) = patch_2d%edges%cell_idx(je,jb,2)
           edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,2)
+          edge_vert_index(1) = patch_2d%edges%vertex_idx(je,jb,1)
+          edge_vert_block(1) = patch_2d%edges%vertex_blk(je,jb,1)
+          edge_vert_index(2) = patch_2d%edges%vertex_idx(je,jb,2)
+          edge_vert_block(2) = patch_2d%edges%vertex_blk(je,jb,2)
+
           elev  = patch_3D%p_patch_1D(1)%dolic_e(je,jb)
 
           DO jk = slev, elev
-!            IF (patch_3D%lsm_e(je,jk,jb) /= sea) &
-!              CALL finish("","p_patch_3D%lsm_e(je,jk,jb) /= sea")
-
+!             p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp *                          &
+!               & (p_os%p_diag%p_vn(edge_cell_index(1), jk, edge_cell_block(1))%x + &
+!               &  p_os%p_diag%p_vn(edge_cell_index(2), jk, edge_cell_block(2))%x)
             p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp *                          &
-              & (p_os%p_diag%p_vn(edge_cell_index(1), jk, edge_cell_block(1))%x + &
-              &  p_os%p_diag%p_vn(edge_cell_index(2), jk, edge_cell_block(2))%x)
+              & (p_os%p_diag%p_vn_dual(edge_vert_index(1), jk, edge_vert_block(1))%x + &
+              &  p_os%p_diag%p_vn_dual(edge_vert_index(2), jk, edge_vert_block(2))%x)
 
             p_op_coeff%moved_edge_position_cc(je,jk,jb)%x =   &
               &  p_op_coeff%edge_position_cc(je,jk,jb)%x      &
@@ -547,16 +431,6 @@ END SUBROUTINE advect_tracer_ab
 
         END DO
       END DO
-
-!     ! This will need to be replaced by a faster vector sync method
-!     DO jk = slev, n_zlev
-!       CALL sync_patch_array(SYNC_E,patch_2d, &
-!         & p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:patch_2d%nblks_e)%x(1))
-!       CALL sync_patch_array(SYNC_E,patch_2d, &
-!         & p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:patch_2d%nblks_e)%x(2))
-!       CALL sync_patch_array(SYNC_E,patch_2d, &
-!         & p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:patch_2d%nblks_e)%x(3))
-!     ENDDO
 
     ENDIF
 
@@ -597,7 +471,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
   REAL(wp), POINTER :: trac_old(:,:,:), trac_new(:,:,:) ! temporary pointers to the concentration arrays
 
-  INTEGER  :: jc,jk,jb
+  INTEGER  :: jc,jk,jb,ic,ib
   INTEGER  :: z_dolic
   INTEGER  :: i_startidx_c, i_endidx_c
   TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -623,7 +497,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   idt_src=1  ! output print level (1-5, fix)
   CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:) ,str_module,idt_src, in_subset=p_patch%cells%owned)
   !---------------------------------------------------------------------
-
   IF (l_skip_tracer) THEN
 
  !   trac_new(1:nproma,1:n_zlev,1:p_patch%nblks_c) = trac_old(1:nproma,1:n_zlev,1:p_patch%nblks_c)
@@ -638,14 +511,14 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   ENDIF
 
   !---------------------------------------------------------------------
-  CALL advect_diffuse_flux_horz( p_patch_3D,                     &
-                               & old_ocean_tracer%concentration, &
-                               & p_os,                           &
-                               & p_op_coeff,                     &
-                               & K_h,                            &
-                               & p_os%p_prog(nold(1))%h,         &
-                               & p_os%p_prog(nnew(1))%h,         &
-                               & flux_horz)
+  CALL advect_diffuse_horz( p_patch_3D,                     &
+                          & old_ocean_tracer%concentration, &
+                          & p_os,                           &
+                          & p_op_coeff,                     &
+                          & K_h,                            &
+                          & p_os%p_prog(nold(1))%h,         &
+                          & p_os%p_prog(nnew(1))%h,         &
+                          & flux_horz)
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
@@ -675,7 +548,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
         END DO
       END DO
     END DO
-
   !The 3D-case: first vertical fluxes than preliminary tracer value and
   !finally implicit vertical diffusion
   ELSEIF( iswm_oce /= 1) THEN
@@ -687,18 +559,18 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
                                & p_os,                           &
                                & bc_top_tracer,                  &
                                & bc_bot_tracer,                  &
-                               & flux_vert,                      &
-                               & tracer_id)
+                               & flux_vert)
+                               
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('aft. AdvFluxVert:flux vert',flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('aft. AdvFluxVert:vert-horz',flux_vert-flux_horz,str_module,idt_src, in_subset=cells_in_domain)
+      !---------------------------------------------------------------------
 
     ELSE
       flux_vert(1:nproma,1:n_zlev,1:p_patch%alloc_cell_blocks) = 0.0_wp
     ENDIF  ! l_with_vert_tracer_advection
 
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('aft. AdvFluxVert:flux vert',flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('aft. AdvFluxVert:vert-horz',flux_vert-flux_horz,str_module,idt_src, in_subset=cells_in_domain)
-    !---------------------------------------------------------------------
 
     !Case: Implicit Vertical diffusion
     IF(expl_vertical_tracer_diff==1)THEN
@@ -781,7 +653,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       CALL dbg_print('BefImplDiff: flux_vert',flux_vert, str_module,idt_src, in_subset=cells_in_domain)
       CALL dbg_print('BefImplDiff: flux_horz',flux_horz, str_module,idt_src, in_subset=cells_in_domain)
       !---------------------------------------------------------------------
-
       !CALL finish(TRIM('mo_tracer_advection:before vertical diffusion'), 'test of thickness')
 
       IF (ltimer) CALL timer_start(timer_dif_vert)
@@ -789,7 +660,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       !calculate vert diffusion impicit: result is stored in trac_out
       ! no sync because of columnwise computation     
       IF ( l_with_vert_tracer_diffusion ) THEN
-        CALL tracer_diffusion_vert_impl_hom( &
+        CALL tracer_diffusion_vert_implicit( &
           & p_patch_3D,                      &
           & new_ocean_tracer,                &
           & p_os%p_prog(nnew(1))%h(:,:),     &
@@ -818,7 +689,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
         CALL dbg_print('BefExplDiff: flux_horz',flux_horz, str_module,idt_src, in_subset=cells_in_domain)
         !---------------------------------------------------------------------
 
-        CALL tracer_diffusion_vert_expl( p_patch_3D,            &
+        CALL tracer_diffusion_vert_explicit( p_patch_3D,            &
                                & old_ocean_tracer%concentration, &
                                & bc_top_tracer,                  &
                                & A_v,                            &
@@ -891,7 +762,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module,idt_src, in_subset=cells_in_domain)
   CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module,idt_src, in_subset=cells_in_domain)
   !---------------------------------------------------------------------
-
 END SUBROUTINE advect_individual_tracer_ab
 
 FUNCTION tracer_content(patch_3D, tracer, height) RESULT(content)
@@ -920,3 +790,104 @@ FUNCTION tracer_content(patch_3D, tracer, height) RESULT(content)
   END DO
 END FUNCTION tracer_content
 END MODULE mo_oce_tracer
+!  !-------------------------------------------------------------------------
+!  !   Original version
+!  !>
+!  !! !  SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
+!  !!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
+!  !!    actual velocity. This information is required by MIURA-scheme and is identical
+!  !!    for all tracers.
+!  !!
+!  !! @par Revision History
+!  !! Developed  by  Peter Korn, MPI-M (2012).
+!  !!
+!  !! mpi parallelized, sync required
+!  SUBROUTINE prepare_tracer_transport(p_patch_3D, p_os, p_op_coeff)
+!
+!    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
+!    TYPE(t_hydro_ocean_state), TARGET    :: p_os
+!    TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
+!    !
+!    !Local variables
+!    INTEGER  :: slev, elev
+!    INTEGER  :: i_startidx_c, i_endidx_c
+!    INTEGER  :: i_startidx_e, i_endidx_e
+!    INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
+!    INTEGER  :: il_c1, il_c2, ib_c1, ib_c2
+!    INTEGER  :: il_c, ib_c
+!    REAL(wp) :: delta_z
+!    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
+!    TYPE(t_cartesian_coordinates):: flux_sum
+!    !-------------------------------------------------------------------------------
+!    TYPE(t_patch), POINTER :: p_patch
+!    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
+!    !-------------------------------------------------------------------------------
+!    p_patch         => p_patch_3D%p_patch_2D(1)
+!    cells_in_domain => p_patch%cells%in_domain
+!    edges_in_domain => p_patch%edges%in_domain
+!
+!    slev = 1
+!    elev = n_zlev
+!
+!    p_os%p_diag%w_time_weighted(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)&
+!                &=p_os%p_diag%w(1:nproma,1:n_zlev+1,1:p_patch%nblks_c)
+!
+!
+!    IF( .NOT.l_edge_based .OR. flux_calculation_horz==MIMETIC_MIURA)THEN
+!      DO jk = slev, elev
+!        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+!          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+!          DO je = i_startidx_e, i_endidx_e
+!            IF (p_patch_3D%lsm_e(je,jk,jb) == sea) THEN
+!
+!              !Get indices of two adjacent vertices
+!  !             il_v1 = p_patch%edges%vertex_idx(je,jb,1)
+!  !             ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
+!  !             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
+!  !             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
+!              !Get indices of two adjacent cells
+!              il_c1 = p_patch%edges%cell_idx(je,jb,1)
+!              ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+!              il_c2 = p_patch%edges%cell_idx(je,jb,2)
+!              ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+!
+!              !  p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
+!              !    &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
+!              p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
+!                &(p_os%p_diag%p_vn(il_c1,jk,ib_c1)%x+p_os%p_diag%p_vn(il_c2,jk,ib_c2)%x)
+!
+!              p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
+!                & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
+!                &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
+!
+!              IF ( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp ) THEN
+!                il_c = p_patch%edges%cell_idx(je,jb,1)
+!                ib_c = p_patch%edges%cell_blk(je,jb,1)
+!              ELSE  ! p_os%p_diag%vn_time_weighted <= 0.0
+!                il_c = p_patch%edges%cell_idx(je,jb,2)
+!                ib_c = p_patch%edges%cell_blk(je,jb,2)
+!              ENDIF
+!
+!              p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
+!              p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
+!
+!              p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
+!                & p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
+!
+!            ENDIF
+!          END DO
+!        END DO
+!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(1))
+!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(2))
+!        CALL sync_patch_array(SYNC_E,p_patch,p_op_coeff%upwind_cell_position_cc(1:nproma,jk,1:p_patch%nblks_e)%x(3))
+!      END DO
+!
+!    ENDIF
+!
+!    CALL sync_patch_array(SYNC_E, p_patch,p_os%p_diag%vn_time_weighted )
+!    CALL sync_patch_array(SYNC_C, p_patch,p_os%p_diag%w_time_weighted )
+!
+!  END SUBROUTINE prepare_tracer_transport
+!  !-------------------------------------------------------------------------
+
+

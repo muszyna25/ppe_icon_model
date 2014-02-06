@@ -1648,8 +1648,8 @@ CONTAINS
             ENDIF
             
             !  this is necessary update for flat surface array but leads to abort in height equation
-            patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(jc,jk,jb) =      &
-              & patch_3d%p_patch_1d(1)%prism_thick_e(jc,jk,jb)
+            patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) =      &
+              & patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)
             patch_3d%p_patch_1d(1)%inv_prism_thick_e(je,jk,jb)      = &
               & 1.0_wp/patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)
             ! no matching prism_center_dist_e ?
