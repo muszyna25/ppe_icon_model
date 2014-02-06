@@ -223,8 +223,8 @@ CONTAINS
         & p_op_coeff,                    &
         & p_vn_c)
         
-        !ICON_OMP_PARALLEL
-        !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+        !!ICON_OMP_PARALLEL
+        !!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, jb, start_index, end_index)
           DO jc = start_index, end_index
@@ -233,8 +233,8 @@ CONTAINS
             END DO
           END DO
         END DO
-        !ICON_OMP_END_DO NOWAIT
-        !ICON_OMP_END_PARALLEL
+        !!ICON_OMP_END_DO NOWAIT
+        !!ICON_OMP_END_PARALLEL
         CALL upwind_hflux_oce_mimetic( patch_3d,&
         & p_vn_c, p_op_coeff,&
         & z_adv_flux_h )        
@@ -245,8 +245,8 @@ CONTAINS
         &p_os%p_diag%vn_time_weighted,   &
         & p_op_coeff,                    &
         & p_vn_c)
-        !ICON_OMP_PARALLEL
-        !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+        !!ICON_OMP_PARALLEL
+        !!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, jb, start_index, end_index)
           DO jc = start_index, end_index
@@ -255,8 +255,8 @@ CONTAINS
             END DO
           END DO
         END DO
-        !ICON_OMP_END_DO NOWAIT
-        !ICON_OMP_END_PARALLEL        
+        !!ICON_OMP_END_DO NOWAIT
+        !!ICON_OMP_END_PARALLEL        
         CALL central_hflux_oce_mimetic( patch_3d,&
         & p_vn_c,                                &
         & z_adv_flux_h )        
@@ -323,8 +323,8 @@ CONTAINS
     ENDIF
     
     !Final step: calculate sum of advective and diffusive horizontal fluxes
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
@@ -333,8 +333,8 @@ CONTAINS
         END DO
       END DO
     END DO
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
     CALL sync_patch_array(sync_c, patch_2d, flux_horz)
     
@@ -490,8 +490,8 @@ CONTAINS
     ENDIF
     
     !Final step: calculate sum of advective and diffusive horizontal fluxes
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       DO jc = start_index, end_index
@@ -500,8 +500,8 @@ CONTAINS
         END DO
       END DO
     END DO
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
     CALL sync_patch_array(sync_c, patch_2d, flux_horz)
     
@@ -1087,8 +1087,8 @@ CONTAINS
     ! line and block indices of two neighboring cells
     ! loop through all patch edges (and blocks)
     
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       edge_upwind_flux(:,:,jb) = 0.0_wp
@@ -1107,8 +1107,8 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
     
   END SUBROUTINE upwind_hflux_oce_mimetic
@@ -1164,8 +1164,8 @@ CONTAINS
     iibc => patch_2d%edges%cell_blk
     
     ! loop through all patch edges (and blocks)
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       edge_upwind_flux(:,:,jb) = 0.0_wp
@@ -1184,8 +1184,8 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE central_hflux_oce_mimetic
   !-------------------------------------------------------------------------------
@@ -1248,8 +1248,8 @@ CONTAINS
     iibc => patch_2d%edges%cell_blk
     
     ! loop through all patch edges (and blocks)
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       edge_upwind_flux(:,:,jb) = 0.0_wp
@@ -1267,8 +1267,8 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE upwind_hflux_oce
   !-----------------------------------------------------------------------
@@ -1305,8 +1305,8 @@ CONTAINS
     iibc => patch_2d%edges%cell_blk
     
     ! loop through all patch edges (and blocks)
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       edge_flux(:,:,jb) = 0.0_wp
@@ -1323,8 +1323,8 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE central_hflux_oce
   !-------------------------------------------------------------------------------
@@ -1361,8 +1361,8 @@ CONTAINS
     iibc => patch_2d%edges%cell_blk
     
     ! loop through all patch edges (and blocks)
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       edge_flux(:,:,jb) = 0.0_wp
@@ -1379,8 +1379,8 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE lax_friedrichs_hflux_oce
   !-------------------------------------------------------------------------------
@@ -1482,8 +1482,8 @@ CONTAINS
     !3b:
     CALL map_edges2cell_3d( patch_3d, z_gradc,p_op_coeff, z_gradc_cc)
     
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk, il_c, ib_c)  ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk, il_c, ib_c)  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       edge_upwind_flux(:,:,jb) = 0.0_wp
@@ -1502,8 +1502,8 @@ CONTAINS
         END DO
       END DO
     END DO
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
   END SUBROUTINE miura_order1_hflux_oce
   !-------------------------------------------------------------------------
@@ -1601,8 +1601,8 @@ CONTAINS
       r_p             (1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks) = 0.0_wp
     ENDIF
     
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       
@@ -1621,11 +1621,11 @@ CONTAINS
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
-    !ICON_OMP_END_DO
+    !!ICON_OMP_END_DO
     
     
-    !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, prism_thick_old, &
-    !ICON_OMP z_fluxdiv_c ) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, prism_thick_old, &
+    !!ICON_OMP z_fluxdiv_c ) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       
@@ -1666,16 +1666,16 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, z_tracer_max, z_tracer_min)
     
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, &
-    !ICON_OMP z_mflx_anti, z_max, z_min, cell_connect, p_p, p_m) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, &
+    !!ICON_OMP z_mflx_anti, z_max, z_min, cell_connect, p_p, p_m) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
@@ -1742,8 +1742,8 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
     ! Synchronize r_m and r_p
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, r_m, r_p)
@@ -1752,8 +1752,8 @@ CONTAINS
     !    multiply the antidiffusive flux at the edge.
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that flx_tracer_high now denotes the LIMITED flux.
-    !ICON_OMP_PARALLEL
-    !ICON_OMP_DO PRIVATE(start_index, end_index, je, jk, z_signum, r_frac) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_PARALLEL
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, je, jk, z_signum, r_frac) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       DO je = start_index, end_index
@@ -1783,8 +1783,8 @@ CONTAINS
         END DO
       ENDDO
     ENDDO
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
 !write(*,*)'----------------------------------------------------------'    
   END SUBROUTINE hflx_limiter_oce_zalesak
   !-------------------------------------------------------------------------
@@ -1856,8 +1856,8 @@ CONTAINS
     !    z_mflx > 0: outward
     !    z_mflx < 0: inward
     !    
-    !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, prism_thick_old, &
-    !ICON_OMP z_fluxdiv_c ) ICON_OMP_DEFAULT_SCHEDULE
+    !!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, inv_prism_thick_new, prism_thick_old, &
+    !!ICON_OMP z_fluxdiv_c ) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
       
@@ -1880,8 +1880,8 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-    !ICON_OMP_END_DO NOWAIT
-    !ICON_OMP_END_PARALLEL
+    !!ICON_OMP_END_DO NOWAIT
+    !!ICON_OMP_END_PARALLEL
     
           
     ! 2. Compute total outward mass
