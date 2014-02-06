@@ -909,24 +909,20 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2010-07-21)
   !!
-  SUBROUTINE compute_smooth_topo(p_patch, p_int, topo_c, topo_smt_c, &
-                                 topo_v, topo_smt_v)
+  SUBROUTINE compute_smooth_topo(p_patch, p_int, topo_c, topo_smt_c)
 
     TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
     TYPE(t_int_state), INTENT(IN) :: p_int
 
-    ! Input fields: topography on cells and vertices
+    ! Input fields: topography on cells
     REAL(wp), INTENT(IN) :: topo_c(:,:)
-    REAL(wp), INTENT(IN) :: topo_v(:,:)
 
-    ! Output fields: smooth topography on cells and vertices
+    ! Output fields: smooth topography on cells
     REAL(wp), INTENT(OUT) :: topo_smt_c(:,:)
-    REAL(wp), INTENT(OUT) :: topo_smt_v(:,:)
 
     INTEGER  :: jb, jc, iter, niter
     INTEGER  :: i_startblk, nblks_c, i_startidx, i_endidx
     REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),nabla2_topo(nproma,1,p_patch%nblks_c)
-    REAL(wp) :: z_topo_v(nproma,1,p_patch%nblks_v)
 
     !-------------------------------------------------------------------------
 
@@ -934,7 +930,6 @@ CONTAINS
 
     ! Initialize auxiliary fields for topography with data and nullify nabla2 field
     z_topo(:,1,:)      = topo_c(:,:)
-    z_topo_v(:,1,:)    = topo_v(:,:)
     nabla2_topo(:,1,:) = 0._wp
 
     i_startblk = p_patch%cells%start_blk(2,1)
@@ -962,14 +957,8 @@ CONTAINS
 
     ENDDO
 
-    ! Interpolate smooth topography from cells to vertices
-    CALL cells2verts_scalar(z_topo,p_patch,p_int%cells_aw_verts,z_topo_v,1,1)
-
-    CALL sync_patch_array(SYNC_V,p_patch,z_topo_v)
-
     ! Store smooth topography on output fields
     topo_smt_c(:,:) = z_topo(:,1,:)
-    topo_smt_v(:,:) = z_topo_v(:,1,:)
 
   END SUBROUTINE compute_smooth_topo
 

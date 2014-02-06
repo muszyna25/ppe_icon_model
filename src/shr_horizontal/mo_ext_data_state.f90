@@ -315,7 +315,6 @@ CONTAINS
       DO jg = 1, n_dom
         CALL smooth_topography (p_patch(jg), p_int_state(jg),  &
                                 ext_data(jg)%atm%topography_c, &
-                                ext_data(jg)%atm%topography_v, &
                                 ext_data(jg)%atm%sso_stdh      )
       ENDDO
 
@@ -575,55 +574,6 @@ CONTAINS
 
   SELECT CASE ( iequations )
   CASE ( inh_atmosphere )
-    ! smoothed topography height at cell center
-    !
-    ! topography_smt_c  p_ext_atm%topography_smt_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('smoothed_surface_height', 'm', &
-      &                   'smoothed geometric height of the earths surface above sea level', &
-      &                   DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 2, 0, 7, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'topography_smt_c', p_ext_atm%topography_smt_c, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,                   &
-      &           isteptype=TSTEP_CONSTANT )
-
-
-    ! topography height at edge midpoint
-    !
-    ! topography_e  p_ext_atm%topography_e(nproma,nblks_e)
-    cf_desc    = t_cf_var('surface_height', 'm', &
-      &                   'geometric height of the earths surface above sea level', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_ext_atm_list, 'topography_e', p_ext_atm%topography_e, &
-      &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc,            &
-      &           grib2_desc, ldims=shape2d_e, loutput=.FALSE.,           &
-      &           isteptype=TSTEP_CONSTANT )
-
-
-    ! topography height at vertex
-    !
-    ! topography_v  p_ext_atm%topography_v(nproma,nblks_v)
-    cf_desc    = t_cf_var('surface_height', 'm', &
-      &                   'geometric height of the earths surface above sea level', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 3, 6, ibits, GRID_REFERENCE, GRID_VERTEX)
-    CALL add_var( p_ext_atm_list, 'topography_v', p_ext_atm%topography_v, &
-      &           GRID_UNSTRUCTURED_VERT, ZA_SURFACE, cf_desc,            &
-      &           grib2_desc, ldims=shape2d_v, loutput=.FALSE.,           &
-      &           isteptype=TSTEP_CONSTANT )
-
-
-    ! smoothed topography height at vertex
-    !
-    ! topography_smt_v  p_ext_atm%topography_smt_v(nproma,nblks_v)
-    cf_desc    = t_cf_var('smoothed_surface_height', 'm', &
-      &                   'smoothed geometric height of the earths surface above sea level', &
-      &                   DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 2, 0, 7, ibits, GRID_REFERENCE, GRID_VERTEX)
-    CALL add_var( p_ext_atm_list, 'topography_smt_v', p_ext_atm%topography_smt_v, &
-      &           GRID_UNSTRUCTURED_VERT, ZA_SURFACE, cf_desc,                    &
-      &           grib2_desc, ldims=shape2d_v, loutput=.FALSE.,                   &
-      &           isteptype=TSTEP_CONSTANT )
-
 
 
     ! land sea mask for cells (LOGICAL)
@@ -2379,7 +2329,7 @@ CONTAINS
 
         !--------------------------------------------------------------------
         !
-        ! Read topography for triangle centers and vertices (triangular grid)
+        ! Read topography for triangle centers (triangular grid)
         !
         !--------------------------------------------------------------------
 
@@ -2387,11 +2337,6 @@ CONTAINS
         CALL read_cdi_2d(cdi_extpar_id(jg), 'topography_c', p_patch(jg)%n_patch_cells_g,         &
           &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
           &              ext_data(jg)%atm%topography_c, opt_dict=extpar_varnames_dict)
-        
-        ! triangle vertex
-        CALL read_cdi_2d(cdi_extpar_id(jg), 'topography_v', p_patch(jg)%n_patch_verts_g,         &
-          &              p_patch(jg)%n_patch_verts, p_patch(jg)%verts%decomp_info%glb_index,     &
-          &              ext_data(jg)%atm%topography_v, opt_dict=extpar_varnames_dict)
 
         !
         ! other external parameters on triangular grid

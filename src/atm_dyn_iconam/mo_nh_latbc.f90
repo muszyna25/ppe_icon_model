@@ -154,7 +154,6 @@ MODULE mo_nh_latbc
     DO tlev = 1, 2
       ! Basic icon_remap data
       ALLOCATE(p_latbc_data(tlev)%topography_c(nproma,nblks_c),         &
-               p_latbc_data(tlev)%topography_v(nproma,nblks_v),         &
                p_latbc_data(tlev)%z_ifc       (nproma,nlevp1,nblks_c),  &
                p_latbc_data(tlev)%z_mc        (nproma,nlev  ,nblks_c)   )
 
@@ -202,7 +201,6 @@ MODULE mo_nh_latbc
 !$OMP PARALLEL
 !$OMP WORKSHARE
       p_latbc_data(tlev)%topography_c(:,:) = ext_data%atm%topography_c(:,:)
-      p_latbc_data(tlev)%topography_v(:,:) = ext_data%atm%topography_v(:,:)
       p_latbc_data(tlev)%z_ifc(:,:,:) = p_nh_state%metrics%z_ifc(:,:,:)
       p_latbc_data(tlev)%z_mc (:,:,:) = p_nh_state%metrics%z_mc (:,:,:) 
 !$OMP END WORKSHARE

@@ -70,7 +70,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: namelist_grid_angular_velocity
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
-  PUBLIC :: vertical_grid_filename
+  PUBLIC :: vertical_grid_filename, create_vgrid
 
 ! !   PUBLIC :: radiation_grid_distribution
   
@@ -133,7 +133,8 @@ INCLUDE 'netcdf.inc'
   CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
   INTEGER                     :: dynamics_radiation_grid_link(max_dom)
 
-  !> files containing vct_a, vct_b, z_ifc, and z_ifv
+  LOGICAL    :: create_vgrid   ! switch if files containing vct_a, vct_b, z_ifc shall be created
+  !> files containing vct_a, vct_b, z_ifc
   CHARACTER(LEN=filename_max) :: vertical_grid_filename(max_dom)
 
   INTEGER :: no_of_dynamics_grids  = 0

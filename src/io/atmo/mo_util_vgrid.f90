@@ -13,7 +13,7 @@ MODULE mo_util_vgrid
   USE mo_exception,                         ONLY: finish, message
   !
   USE mo_dynamics_config,                   ONLY: iequations
-  USE mo_grid_config,                       ONLY: n_dom, vertical_grid_filename
+  USE mo_grid_config,                       ONLY: n_dom, vertical_grid_filename, create_vgrid
   USE mo_sleve_config,                      ONLY: lread_smt
   USE mo_nonhydrostatic_config,             ONLY: ivctype
   USE mo_parallel_config,                   ONLY: nproma
@@ -76,6 +76,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER   :: routine = modname//"::construct_vertical_grid"
     INTEGER                   :: nlevp1, nblks_v, nblks_c, jg, error_status
+    REAL(wp), ALLOCATABLE     :: topography_smt(:,:)
 
     !--- Initialize vertical coordinate table vct_a, vct_b (grid stretching)
     SELECT CASE (iequations)
@@ -120,7 +121,6 @@ CONTAINS
     DO jg = 1,n_dom
       nlevp1   = p_patch(jg)%nlev + 1
       nblks_c  = p_patch(jg)%nblks_c
-      nblks_v  = p_patch(jg)%nblks_v
       
       ! Note: We allocate only the temporary field for the
       !       vertex-half-level coordinates "z_ifv". The
@@ -128,10 +128,6 @@ CONTAINS
       !       a proper model variable that is created in
       !       "mo_nonhydro_state"
       !
-      ! Note: This array is deallocated after being used in
-      !       mo_vertical_grid::set_nh_metrics
-      ALLOCATE(vgrid_buffer(jg)%z_ifv(nproma,nlevp1,nblks_v), STAT=error_status)
-      IF (error_status /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ! Note: This array is deallocated after being used in
       !       mo_nonhydro_state::new_nh_metrics_list
@@ -148,13 +144,12 @@ CONTAINS
         !
         DO jg = 1,n_dom
           nlevp1   = p_patch(jg)%nlev + 1
-          nblks_v  = p_patch(jg)%nblks_v
+          ALLOCATE(topography_smt(nproma,p_patch(jg)%nblks_c))
 
           ! Compute smooth topography when SLEVE coordinate is used
           IF ( ivctype == 2 .AND. .NOT. lread_smt ) THEN
-            CALL compute_smooth_topo(p_patch(jg), p_int_state(jg), ext_data(jg)%atm%topography_c,      & ! in, in, in,
-              &                      ext_data(jg)%atm%topography_smt_c, ext_data(jg)%atm%topography_v, & ! out, in,
-              &                      ext_data(jg)%atm%topography_smt_v                                 ) ! out
+            CALL compute_smooth_topo(p_patch(jg), p_int_state(jg), ext_data(jg)%atm%topography_c, & ! in, in, in,
+              &                      topography_smt)                                                ! out
           ENDIF
 
           ! total shift of model top with respect to global domain
@@ -167,22 +162,18 @@ CONTAINS
           ENDIF
 
           ! Initialize vertical coordinate for cell points
-          CALL init_vert_coord(ext_data(jg)%atm%topography_c, ext_data(jg)%atm%topography_smt_c,                 &
-            &                  vgrid_buffer(jg)%z_ifc, p_patch(jg)%nlev,                                         &
+          CALL init_vert_coord(ext_data(jg)%atm%topography_c, topography_smt, vgrid_buffer(jg)%z_ifc, p_patch(jg)%nlev, &
             &                  p_patch(jg)%nblks_c, p_patch(jg)%npromz_c, p_patch(jg)%nshift_total, nflatlev(jg) )
-
-          ! Initialize vertical coordinate for vertex points
-          CALL init_vert_coord(ext_data(jg)%atm%topography_v, ext_data(jg)%atm%topography_smt_v,                          &
-            &                  vgrid_buffer(jg)%z_ifv, p_patch(jg)%nlev, p_patch(jg)%nblks_v, p_patch(jg)%npromz_v,       & 
-            &                  p_patch(jg)%nshift_total, nflatlev(jg)                                                     )
+          DEALLOCATE(topography_smt)
         END DO
 
         !--- If the user did not provide an external vertical grid
         !--- file, this file will be created:
-        DO jg = 1,n_dom
-          CALL write_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), "vgrid_DOM"//TRIM(int2string(jg, "(i2.2)"))//".nc")
-        END DO
-
+        IF (create_vgrid) THEN
+          DO jg = 1,n_dom
+            CALL write_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), "vgrid_DOM"//TRIM(int2string(jg, "(i2.2)"))//".nc")
+          END DO
+        ENDIF
       ELSE
 
         !--- The user has provided an external vertical grid file; we read its
@@ -212,10 +203,9 @@ CONTAINS
     CHARACTER(*), PARAMETER    :: routine = modname//"::write_vgrid_file"
     INTEGER                    :: error_status, jk, output_type, nlevp1,       &
       &                           gridtype, iret,                              &
-      &                           cdiFileID, cdiVarID_v, cdiVarID_c,           &
-      &                           cdiVlistID, cdiInstID, cdiCellGridID,        &
-      &                           cdiVertGridID, cdiZaxisID, cdiVarID_vct_a,   &
-      &                           cdiVarID_vct_b, cdiColumnGridID
+      &                           cdiFileID, cdiVarID_c, cdiVlistID,           &
+      &                           cdiInstID, cdiCellGridID, cdiZaxisID,        &
+      &                           cdiVarID_vct_a, cdiVarID_vct_b, cdiColumnGridID
     REAL(wp), ALLOCATABLE      :: r1d(:)                                     ! field gathered on I/O processor
     REAL(dp), ALLOCATABLE      :: levels(:)
     TYPE(t_uuid)               :: uuid
@@ -238,8 +228,6 @@ CONTAINS
       !--- create grids
       cdiCellGridID   = gridCreate(gridtype, p_patch%n_patch_cells_g)
       CALL gridDefNvertex(cdiCellGridID, p_patch%cells%max_connectivity)
-      cdiVertGridID   = gridCreate(gridtype, p_patch%n_patch_verts_g)
-      CALL gridDefNvertex(cdiVertGridID, 9 - p_patch%cells%max_connectivity)
       cdiColumnGridID = gridCreate(gridtype, 1)
 
       !--- add vertical grid descriptions
@@ -260,11 +248,7 @@ CONTAINS
       CALL gridDefUUID(cdiCellGridID, uuid_string)
       CALL gridDefNumber(cdiCellGridID, number_of_grid_used)
       CALL gridDefPosition(cdiCellGridID, 1)
-      ! vertices
-      CALL gridDefUUID(cdiVertGridID, uuid_string)
-      CALL gridDefNumber(cdiVertGridID, number_of_grid_used)
-      CALL gridDefPosition(cdiVertGridID, 2)
-      
+       
       !--- set UUID for vertical grid
       CALL uuid_generate(uuid)
       CALL uuid2char(uuid, vgrid_buffer(p_patch%id)%uuid)
@@ -281,9 +265,6 @@ CONTAINS
       cdiVarID_c        = vlistDefVar(cdiVlistID, cdiCellGridID,   cdiZaxisID, TSTEP_CONSTANT)
       CALL vlistDefVarName(cdiVlistID, cdiVarID_c, "z_ifc")
       CALL vlistDefVarDatatype(cdiVlistID, cdiVarID_c, DATATYPE_FLT64)
-      cdiVarID_v        = vlistDefVar(cdiVlistID, cdiVertGridID,   cdiZaxisID, TSTEP_CONSTANT)
-      CALL vlistDefVarName(cdiVlistID, cdiVarID_v, "z_ifv")
-      CALL vlistDefVarDatatype(cdiVlistID, cdiVarID_v, DATATYPE_FLT64)
       !--- add "nflat"
       iret = vlistDefAttInt(cdiVlistID, CDI_GLOBAL, "nflat", DATATYPE_INT32,  1, nflat)
 
@@ -298,20 +279,6 @@ CONTAINS
       CALL streamWriteVar(cdiFileID, cdiVarID_vct_b, vct_b, 0)
     END IF
 
-    !--- collect VERTEX coordinate field from compute PEs and write
-    !--- them via CDI:
-
-    ! allocate global 2D slice (only on work root PE)
-    ALLOCATE(r1d(MERGE(p_patch%n_patch_verts_g, 0, my_process_is_mpi_workroot())), STAT=error_status)
-    IF (error_status /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    DO jk=1,nlevp1
-      CALL exchange_data(vgrid_buffer(p_patch%id)%z_ifv(:,jk,:), r1d, p_patch%comm_pat_gather_v)
-      IF (my_process_is_mpi_workroot()) THEN
-        CALL streamWriteVarSlice(cdiFileID, cdiVarID_v, jk-1, r1d, 0)
-      END IF
-    END DO
-    DEALLOCATE(r1d, STAT=error_status)
-    IF (error_status /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     !--- collect CELL coordinate field from compute PEs and write them
     !--- via CDI:
@@ -332,7 +299,6 @@ CONTAINS
     IF (my_process_is_mpi_workroot()) THEN
       CALL streamClose(cdiFileID)
       IF (cdiCellGridID   /= CDI_UNDEFID) CALL gridDestroy(cdiCellGridID)
-      IF (cdiVertGridID   /= CDI_UNDEFID) CALL gridDestroy(cdiVertGridID)
       IF (cdiZaxisID      /= CDI_UNDEFID) CALL zaxisDestroy(cdiZaxisID)
       CALL vlistDestroy(cdiVlistID)
     END IF
@@ -346,7 +312,7 @@ CONTAINS
   !! Initial implementation by L. Kornblueh (MPI-M), F. Prill (DWD) : 2014-01-29
   !!
   !! Output of this subroutine are:
-  !!   vct_a, vct_b, vgrid_buffer%z_ifc, vgrid_buffer%z_ifv
+  !!   vct_a, vct_b, vgrid_buffer%z_ifc
   !!
   SUBROUTINE read_vgrid_file(p_patch, vct_a, vct_b, nflat, filename)
     TYPE(t_patch),          INTENT(IN)    :: p_patch
@@ -406,9 +372,6 @@ CONTAINS
     CALL read_cdi_3d(cdiFileID, 'z_ifc', p_patch%n_patch_cells_g,                  &
       &              p_patch%n_patch_cells, p_patch%cells%decomp_info%glb_index,   &
       &              nlevp1, vgrid_buffer(p_patch%id)%z_ifc )
-    CALL read_cdi_3d(cdiFileID, 'z_ifv', p_patch%n_patch_verts_g,                  &
-      &              p_patch%n_patch_verts, p_patch%verts%decomp_info%glb_index,   &
-      &              nlevp1, vgrid_buffer(p_patch%id)%z_ifv )
 
     !--- close file
     IF (my_process_is_mpi_workroot()) THEN

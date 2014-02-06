@@ -137,7 +137,6 @@ CONTAINS
 
     ! topography
     ptr_ext_data%atm%topography_c(:,:) = 0.0_wp
-    ptr_ext_data%atm%topography_v(:,:) = 0.0_wp
 
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp_ape

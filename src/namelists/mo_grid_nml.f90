@@ -72,6 +72,7 @@ MODULE mo_grid_nml
     & config_use_duplicated_connectivity  => use_duplicated_connectivity,   &
     & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
     & max_rad_dom, DEFAULT_ENDTIME,                                         &
+    & config_create_vgrid                 => create_vgrid,                  &
     & config_vertical_grid_filename       => vertical_grid_filename
 
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -134,7 +135,9 @@ MODULE mo_grid_nml
     REAL(wp) :: grid_rescale_factor, grid_angular_velocity
     INTEGER                    :: iunit
 
-    !> files containing vct_a, vct_b, z_ifc, and z_ifv
+    LOGICAL    :: create_vgrid   ! switch if files containing vct_a, vct_b, z_ifc shall be created
+
+    !> files containing vct_a, vct_b, z_ifc
     CHARACTER(LEN=filename_max) :: vertical_grid_filename(max_dom)
 
 
@@ -145,7 +148,7 @@ MODULE mo_grid_nml
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename, dynamics_radiation_grid_link,    &
       &  grid_angular_velocity, use_duplicated_connectivity,       &
-      &  use_dummy_cell_closure, vertical_grid_filename
+      &  use_dummy_cell_closure, create_vgrid, vertical_grid_filename
 
 
 !    INTEGER  :: funit
@@ -183,6 +186,8 @@ MODULE mo_grid_nml
     lredgrid_phys = .FALSE.
     use_duplicated_connectivity = config_use_duplicated_connectivity
     use_dummy_cell_closure      = config_use_dummy_cell_closure
+
+    create_vgrid = .FALSE.
 
     !----------------------------------------------------------------
     grid_rescale_factor   = 1.0_wp
@@ -256,6 +261,7 @@ MODULE mo_grid_nml
     config_dyn_radiation_grid_link = dynamics_radiation_grid_link
     config_grid_rescale_factor     = grid_rescale_factor
     config_grid_angular_velocity   = grid_angular_velocity
+    config_create_vgrid            = create_vgrid
     config_vertical_grid_filename  = vertical_grid_filename
           
   END SUBROUTINE read_grid_namelist

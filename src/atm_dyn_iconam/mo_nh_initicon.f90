@@ -213,7 +213,6 @@ MODULE mo_nh_initicon
     !
     DO jg = 1, n_dom
       initicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
-      initicon(jg)%topography_v(:,:) = ext_data(jg)%atm%topography_v(:,:)
 
       initicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
       initicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
@@ -3334,7 +3333,6 @@ MODULE mo_nh_initicon
 
       ! basic init_icon data
       ALLOCATE(initicon(jg)%topography_c    (nproma,nblks_c),        &
-               initicon(jg)%topography_v    (nproma,nblks_v),        &
                initicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
                initicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
       ! allocate groups for list of fields that must be read during initialization
@@ -3477,7 +3475,6 @@ MODULE mo_nh_initicon
 
       ! basic init_icon data
       DEALLOCATE(initicon(jg)%topography_c,     &
-                 initicon(jg)%topography_v,     &
                  initicon(jg)%z_ifc,            &
                  initicon(jg)%z_mc              )
       ! deallocate groups for list of fields that must be read during initialization

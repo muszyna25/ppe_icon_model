@@ -154,7 +154,6 @@ MODULE mo_nh_testcases
   IF ( itopo == 0 ) THEN
     DO jg = 1, n_dom
       ext_data(jg)%atm%topography_c(1:nproma,1:p_patch(jg)%nblks_c) = 0.0_wp
-      ext_data(jg)%atm%topography_v(1:nproma,1:p_patch(jg)%nblks_v) = 0.0_wp
     ENDDO
   ENDIF
 
@@ -191,25 +190,6 @@ MODULE mo_nh_testcases
         ENDDO
       ENDDO 
     ENDDO 
-    DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_v
-        IF (jb /=  p_patch(jg)%nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          IF(p_patch(jg)%geometry_info%geometry_type==planar_torus_geometry)THEN
-            z_lon = p_patch(jg)%verts%cartesian(jv,jb)%x(1)
-          ELSE
-            z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
-          END IF
-          z_dist = z_lon-z_x2_geo%lon
-          ext_data(jg)%atm%topography_v(jv,jb) = 250.0_wp &
-          & * EXP(-(z_dist/5000.0_wp)**2)*((COS(pi*z_dist/4000.0_wp))**2)
-        ENDDO
-      ENDDO 
-    ENDDO
 
   CASE ('bell')
 
@@ -239,28 +219,6 @@ MODULE mo_nh_testcases
         ENDDO
       ENDDO 
     ENDDO 
-    DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_v
-        IF (jb /=  p_patch(jg)%nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          IF (lplane) THEN
-            z_lat  = 0.0_wp!p_patch(jg)%verts%vertex(jv,jb)%lat*torus_domain_length/pi*0.5_wp
-            z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
-            z_dist = SQRT((z_lat-z_x2_geo%lat)**2+(z_lon-z_x2_geo%lon)**2)
-          ELSE
-            z_x1_cart    = gc2cc(p_patch(jg)%verts%vertex(jv,jb))
-            z_x2_cart    = gc2cc(z_x2_geo)
-            z_dist       = arc_length(z_x1_cart,z_x2_cart)
-          ENDIF
-          ext_data(jg)%atm%topography_v(jv,jb) = mount_height/ &
-                 (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
-        ENDDO
-      ENDDO 
-    ENDDO
 
   CASE ('jabw', 'jabw_s')
 
@@ -270,9 +228,7 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v)
+     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
 
   CASE ('jabw_m')  
@@ -283,11 +239,8 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v, &
-                          & opt_m_height = mount_height, &
-                          & opt_m_half_width = mount_half_width )
+     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, &
+                          & opt_m_height = mount_height, opt_m_half_width = mount_half_width )
     END DO
 
   CASE ('mrw_nh', 'mrw2_nh' , 'mwbr_const')
@@ -305,9 +258,7 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v, l_modified) 
+     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, l_modified) 
    ENDDO
 
    CALL message(TRIM(routine),'topography is initialised ')
@@ -320,9 +271,7 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v )
+     CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
 
   CASE ('PA')
@@ -366,9 +315,7 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c,     &
-                          & nblks_v, npromz_v )
+     CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
 
     END DO
     CALL message(TRIM(routine),'running g_lim_area')
@@ -392,8 +339,7 @@ MODULE mo_nh_testcases
 
     DO jg = 1, n_dom 
 
-     CALL init_nh_topo_dcmip_rest_atm ( p_patch(jg),  ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, ext_data(jg)%atm%fis  )
+     CALL init_nh_topo_dcmip_rest_atm ( p_patch(jg), ext_data(jg)%atm%topography_c, ext_data(jg)%atm%fis  )
 
     END DO
 
