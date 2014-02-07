@@ -51,6 +51,8 @@ MODULE mo_atm_phy_nwp_config
     &                               iphysproc, iphysproc_short, ismag, iedmf
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_vertical_coord_table,ONLY: vct_a
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
   USE mo_les_config,          ONLY: configure_les
@@ -64,6 +66,8 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: configure_atm_phy_nwp
   PUBLIC :: lrtm_filename
   PUBLIC :: cldopt_filename
+  PUBLIC :: ltuning_detrain, ltuning_kessler
+  PUBLIC :: ltuning_ozone, tune_rhebc_land, tune_rhebc_ocean
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -84,17 +88,17 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_turb        !! turbulence
     INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
     INTEGER  :: itype_z0         !! type of roughness length data
-    REAL(wp) :: dt_conv    !> field element for convection
-    REAL(wp) :: dt_ccov    !! field element for subscale cloud cover
-    REAL(wp) :: dt_rad     !! "-"                     radiation
-    REAL(wp) :: dt_sso     !! "-"  for subscale orographic gravity waves
-    REAL(wp) :: dt_gwd     !! "-"  for subscale gravity waves
-    REAL(wp) :: dt_fastphy !! field element for fast physics processes
-                           !! microphysics, saturation adjustment, turbulence, 
-                           !! surface (in addition: update and radheat)
-    ! hydci_pp
-    real(wp) :: mu_rain    !! parameter in gamma distribution for rain
-    real(wp) :: mu_snow    !! ...for snow
+    REAL(wp) :: dt_conv          !> field element for convection
+    REAL(wp) :: dt_ccov          !! field element for subscale cloud cover
+    REAL(wp) :: dt_rad           !! "-"                     radiation
+    REAL(wp) :: dt_sso           !! "-"  for subscale orographic gravity waves
+    REAL(wp) :: dt_gwd           !! "-"  for subscale gravity waves
+    REAL(wp) :: dt_fastphy       !! field element for fast physics processes
+                                 !! microphysics, saturation adjustment, turbulence, 
+                                 !! surface (in addition: update and radheat)
+    ! hydci_pp                   
+    REAL(wp) :: mu_rain          !! parameter in gamma distribution for rain
+    REAL(wp) :: mu_snow          !! ...for snow
 
     INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
     LOGICAL :: limpltkediff, ltkesso, lexpcor
@@ -109,16 +113,20 @@ MODULE mo_atm_phy_nwp_config
                                    !! (reduced grid only)
 
     ! Derived variables
-    !
+
     LOGICAL :: lproc_on(iphysproc) !> contains information about status of 
                                    !! corresponding physical process
-                                    !! ON: TRUE; OFF: FALSE
+                                   !! ON: TRUE; OFF: FALSE
     
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
 
     INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
                                    ! chosen grid scale microphysics
+
+    ! Tuning variables
+
+    REAL(wp), allocatable :: fac_ozone(:) ! ozone tuning profile funtion
 
   END TYPE t_atm_phy_nwp_config
 
@@ -136,43 +144,58 @@ MODULE mo_atm_phy_nwp_config
   REAL(wp) ::  &                       !> Field of calling-time interval (seconds) for
     &  dt_phy(max_dom,iphysproc_short) !! each domain and phys. process
 
+  !!--------------------------------------------------------------------------
+  !! Tuning parameters for physics
+  !!--------------------------------------------------------------------------
+  
+  ! convection:
+  ! GZ, 2013-09-13: tuning to reduce drizzle and reduce moisture bias in tropics
+  LOGICAL,  PARAMETER :: ltuning_detrain  = .TRUE.
+  LOGICAL,  PARAMETER :: ltuning_kessler  = .TRUE.
+  REAL(wp), PARAMETER :: tune_rhebc_land  = 0.7_wp  !default: 0.7
+  REAL(wp), PARAMETER :: tune_rhebc_ocean = 0.8_wp  !default: 0.9
+
+  ! ozone:
+  ! MK, 2014-01: increase ozone by maximum 50% at 15km decreasing linearly
+  !              towards 0% at 30km and 10km; goal: warmer lower stratosphere 0.5K
+  LOGICAL,  PARAMETER :: ltuning_ozone   = .TRUE.
+  REAL(wp), PARAMETER :: tune_ozone_ztop = 30000.0_wp
+  REAL(wp), PARAMETER :: tune_ozone_zmid = 15000.0_wp
+  REAL(wp), PARAMETER :: tune_ozone_zbot = 10000.0_wp 
+
 
 CONTAINS
 
-SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, dtime_adv )
- !-------------------------------------------------------------------------
-  !
-  !>
-  !! Setup NWP physics
-  !!
-  !! Read namelist for physics. Choose the physical package and subsequent
-  !! parameters.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-10-06)
-  !! revision for restructuring by Kristina Froehlich MPI-M (2011-07-12)
-
-  INTEGER, INTENT(IN) :: n_dom
-  INTEGER, INTENT(IN) :: pat_level(n_dom)
-  REAL(wp),INTENT(IN) :: dtime_adv
-
-  INTEGER :: jg
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-    &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
+  SUBROUTINE configure_atm_phy_nwp( n_dom, p_patch, dtime_adv )
+    !-------------------------------------------------------------------------
+    !
+    !>
+    !! Setup NWP physics
+    !!
+    !! Read namelist for physics. Choose the physical package and subsequent
+    !! parameters.
+    !!
+    !! @par Revision History
+    !! Initial revision by Daniel Reinert, DWD (2010-10-06)
+    !! revision for restructuring by Kristina Froehlich MPI-M (2011-07-12)
+  
+    TYPE(t_patch), TARGET,INTENT(IN) :: p_patch(:)
+    INTEGER, INTENT(IN) :: n_dom
+    REAL(wp),INTENT(IN) :: dtime_adv
+  
+    INTEGER :: jg, jk
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
 
 
     CALL message(TRIM(routine), '')
 
     DO jg = 1,n_dom
- 
-      atm_phy_nwp_config(jg)%dt_fastphy = (dtime_adv/2._wp**(pat_level(jg) &
-          &                            -  pat_level(1)))                  !seconds
-
+      atm_phy_nwp_config(jg)%dt_fastphy = (dtime_adv/2._wp**(p_patch(jg)%level &
+          &                            -  p_patch(1)%level))            !seconds
     ENDDO
 
-
     dt_phy(:,:) = 0._wp
-
 
     DO jg = 1,n_dom
 
@@ -221,10 +244,10 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, dtime_adv )
       ! Fast physics:
       ! for each fast physics process the time interval is set equal to the 
       ! time interval for advection.
-      !
+
 
       ! Slow physics
-      !
+
       dt_phy(jg,itconv) = atm_phy_nwp_config(jg)% dt_conv    ! sec
 
       dt_phy(jg,itsso)  = atm_phy_nwp_config(jg)% dt_sso     ! sec
@@ -248,11 +271,10 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, dtime_adv )
       ENDIF
 
       ! Fast physics
-      !
+
       dt_phy(jg,itfastphy)   = atm_phy_nwp_config(jg)%dt_fastphy ! sec
 
     ENDDO  ! jg loop
-
 
 
     ! issue a warning, if advective and convective timesteps are not synchronized
@@ -272,37 +294,52 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, dtime_adv )
     ENDIF
  
 
-   !Configure LES
-   DO jg = 1 , n_dom
+    !Configure LES
+    DO jg = 1, n_dom
+    
+      atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
+    
+      IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
+        CALL configure_les(jg)
+        atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
+      END IF 
+    
+      !convection should be turned off for LES
+      IF(atm_phy_nwp_config(jg)%inwp_convection>0 .AND. &
+         atm_phy_nwp_config(jg)%is_les_phy)THEN
+        CALL finish(TRIM(routine),'Convection can not be used for LES!')
+      END IF
+    
+      !inwp_cldcover should be 5 = grid scale cloud cover
+      IF(atm_phy_nwp_config(jg)%inwp_cldcover>0 .AND. &
+         atm_phy_nwp_config(jg)%is_les_phy)THEN
+    
+        IF(atm_phy_nwp_config(jg)%inwp_cldcover/=5) &
+          CALL finish(TRIM(routine),'Check the cloud cover scheme for LES!')
+    
+      END IF
+    
+    END DO
 
-     atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
+    !Configure lateral boundary condition for limited area model
+    IF(l_limited_area) THEN
+      CALL configure_latbc()
+    END IF
 
-     IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
-       CALL configure_les(jg)
-       atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
-     END IF 
-
-     !convection should be turned off for LES
-     IF(atm_phy_nwp_config(jg)%inwp_convection>0 .AND. &
-        atm_phy_nwp_config(jg)%is_les_phy)THEN
-       CALL finish(TRIM(routine),'Convection can not be used for LES!')
-     END IF
-
-     !inwp_cldcover should be 5 = grid scale cloud cover
-     IF(atm_phy_nwp_config(jg)%inwp_cldcover>0 .AND. &
-        atm_phy_nwp_config(jg)%is_les_phy)THEN
-
-       IF(atm_phy_nwp_config(jg)%inwp_cldcover/=5) &
-         CALL finish(TRIM(routine),'Check the cloud cover scheme for LES!')
-
-     END IF
-
-   END DO
-
-   !Configure lateral boundary condition for limited area model
-   IF(l_limited_area) THEN
-     CALL configure_latbc()
-   END IF    
+    !Ozone tuning function
+    DO jg = 1, n_dom
+      ALLOCATE(atm_phy_nwp_config(jg)%fac_ozone(p_patch(jg)%nlev))
+      DO jk = 1,p_patch(jg)%nlev
+        IF ( vct_a(jk+p_patch(jg)%nshift_total) > tune_ozone_zbot .AND. &
+          &  vct_a(jk+p_patch(jg)%nshift_total) < tune_ozone_ztop ) THEN
+          atm_phy_nwp_config(jg)%fac_ozone(jk) = 1.0_wp + 0.5_wp *                &
+            & min( (vct_a(jk)-tune_ozone_zbot)/(tune_ozone_zmid-tune_ozone_zbot), &
+            &      (tune_ozone_ztop-vct_a(jk))/(tune_ozone_ztop-tune_ozone_zmid) )
+       ELSE
+          atm_phy_nwp_config(jg)%fac_ozone(jk) = 1.0_wp
+        ENDIF
+      ENDDO
+    ENDDO
 
 END SUBROUTINE configure_atm_phy_nwp
 

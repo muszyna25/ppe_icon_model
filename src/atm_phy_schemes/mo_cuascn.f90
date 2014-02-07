@@ -239,8 +239,10 @@ CONTAINS
 !USE yoecldp  , ONLY : rlmin
 
   
-    USE mo_cufunctions , ONLY: foealfcu
-  
+USE mo_cufunctions       , ONLY: foealfcu
+! GZ, 2013-09-13: tuning to reduce drizzle and reduce moisture bias in tropics
+USE mo_atm_phy_nwp_config, ONLY: ltuning_detrain, ltuning_kessler
+
 
 INTEGER(KIND=jpim),INTENT(in)    :: klon 
 INTEGER(KIND=jpim),INTENT(in)    :: klev 
@@ -326,12 +328,6 @@ REAL(KIND=jprb) :: zhook_handle
 
 LOGICAL :: llklab(klon)
 
-! GZ, 2013-09-13: set this parameter to .TRUE. in order to test set of tuning changes
-! to reduce the tendency of drizzling and to reduce the humidity bias in the tropics
-LOGICAL, PARAMETER :: ltuning_test_detrain = .true. ! .FALSE.
-LOGICAL, PARAMETER :: ltuning_test_kessler = .TRUE.
-!LOGICAL, PARAMETER :: ltuning_test = .TRUE.
-
 !#include "cuadjtq.intfb.h"
 !#include "cubasmcn.intfb.h"
 !#include "cuentr.intfb.h"
@@ -353,7 +349,7 @@ z_cprc2=0.5_JPRB
 z_cwdrag=(3._jprb/8._jprb)*0.506_JPRB/0.2_JPRB/rg
 
 ! for tuning cloud water detrainment (original value 0.5)
-IF (ltuning_test_detrain) THEN
+IF (ltuning_detrain) THEN
   exp_detr = 0.25_jprb
 ELSE
   exp_detr = 0.5_jprb
@@ -460,7 +456,7 @@ ENDDO
 !        !KF
 !      ENDDO
 !ELSEIF (.NOT. PRESENT (paer_ss)) THEN
-    IF (ltuning_test_kessler) THEN
+    IF (ltuning_kessler) THEN
       DO jl=kidia,kfdia
         IF(ldland(jl)) THEN
           zdrain(jl)=1.0E4_JPRB  ! minimum cloud depth for generating precip: 100 hPa over land
@@ -872,7 +868,7 @@ DO jk=klev-1,ktdia+2,-1
 
     DO jl=kidia,kfdia
       IF(llo1(jl)) THEN
-        IF (ltuning_test_kessler) THEN
+        IF (ltuning_kessler) THEN
           IF(ldland(jl)) THEN ! Note: the following autoconversion thresholds are only reasonable when 
                               ! combined with a cloud thickness criterion (zdrain)
             zdnoprc=2.25e-4_JPRB ! autoconversion threshold: 0.225 g/kg over land
