@@ -76,7 +76,7 @@ MODULE mo_radiation_config
     !                                               !< aerosol solar (lradforcing(1)) and
     !                                               !< thermal (lradforcing(2)) radiation forcing 
     ! nmonth currently works for zonal mean ozone and the orbit (year 1987) only
-    INTEGER :: isolrad        !< mode of solar constant calculation
+    INTEGER :: isolrad = 3        !< mode of solar constant calculation
     !< default is rrtm solar constant
     !
     INTEGER :: albedo_type ! 1: albedo based on surface-type specific set of constants
