@@ -52,11 +52,15 @@ MODULE mo_art_emission_interface
     USE mo_exception,             ONLY: finish
     USE mo_nonhydro_types,        ONLY: t_nh_diag
     USE mo_ext_data_types,        ONLY: t_external_data
+    USE mo_run_config,            ONLY: iCS137,iI131,iTE132, &
+                                   &    iZR95,iXE133,iI131g, &
+                                   &    iI131o,iBA140,iRU103
     
 #ifdef __ICON_ART
 ! Infrastructure Routines
     USE mo_art_modes_linked_list, ONLY: p_mode_state,t_mode, &
-        &                               t_fields_2mom,t_fields_1mom
+        &                               t_fields_2mom,t_fields_radio, &
+        &                               t_fields_volc
     USE mo_art_data,              ONLY: p_art_data
     USE mo_art_aerosol_utilities, ONLY: art_air_properties
 ! Emission Routines
@@ -123,6 +127,7 @@ CONTAINS
           call fields%modal_param(p_art_data(jg),p_patch,p_tracer_now)
           ! Now the according emission routine has to be found
           select case(TRIM(fields%info%name))
+            ! drieg: this is not yet nice, but a working state and first approach to new structures
             case ('mode_seasa')
               call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
             case ('mode_seasb')
@@ -139,8 +144,34 @@ CONTAINS
               call finish('mo_art_emission_interface:art_emission_interface', &
                    &      'No according emission routine to mode')
           end select
-        type is (t_fields_1mom)
-          ! do the stuff
+        class is (t_fields_radio)
+          select case(TRIM(fields%info%name))
+            ! drieg: this is not yet nice, but a working state and first approach to new structures
+            case ('CS137')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iCS137),373)
+            case ('I131')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131),340)
+            case ('TE132')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iTE132),325)
+            case ('ZR95')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iZR95),184)
+            case ('XE133')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iXE133),355)
+            case ('I131g')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131g),870)
+            case ('I131o')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131o),880)
+            case ('BA140')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iBA140),384)
+            case ('RU103')
+              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iRU103),220)
+            ! And Default...
+            case default
+              call finish('mo_art_emission_interface:art_emission_interface', &
+                   &      'No according emission routine to mode')
+          end select
+        class is (t_fields_volc)
+          ! nothing to do here, see below
         class default
           call finish('mo_art_emission_interface:art_emission_interface', &
                &      'ART: Unknown mode field type')
@@ -151,57 +182,10 @@ CONTAINS
    ! ----------------------------------
    ! --- volcano emissions
    ! ----------------------------------
-
-!       IF (art_config(jg)%lart_volcano) THEN
-!         CALL art_organize_emission_volc(p_patch,p_dtime,p_rho,p_tracer_now) 
-!       ENDIF
-
-   ! ----------------------------------
-   ! --- radioactive nuclide emissions
-   ! ----------------------------------
-
-!       IF (art_config(jg)%lart_radioact) THEN
-
-!         current_element=>p_prog_list%p%first_list_element
-
-         ! ----------------------------------
-         ! --- start DO-loop over elements in list:
-         ! ----------------------------------
-
-!         DO WHILE (ASSOCIATED(current_element))
-
-         ! ----------------------------------
-         ! --- get meta data of current element:
-         ! ----------------------------------
-
-!         info=>current_element%field%info
-
-         ! ----------------------------------
-         ! ---  assure that current element is tracer
-         ! ----------------------------------
-
-!           IF (info%tracer%lis_tracer) THEN
-           ! ----------------------------------
-           ! --- retrieve  running index:
-           ! ----------------------------------
-
-!             jsp=>info%ncontained
-!             var_name=>info%name
-
-!             IF(info%tracer%tracer_class=='radioact') THEN
-!               CALL art_emiss_radioact(p_patch,p_dtime,p_tracer_now(:,:,:,jsp),p_rho,info%tracer%imis_tracer)
-!             ENDIF
-
-!           ENDIF
-           ! ----------------------------------
-           ! --- select the next element in the list
-           ! ----------------------------------
-
-!           current_element => current_element%next_list_element
-
-!         ENDDO ! loop elements
-
-!       ENDIF
+  ! drieg: this is not yet nice, but a working state and first approach to new structures
+  IF (art_config(jg)%lart_volcano) THEN
+    CALL art_organize_emission_volc(p_patch,p_dtime,p_rho,p_tracer_now) 
+  ENDIF
 
 
     ! ----------------------------------

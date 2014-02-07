@@ -52,9 +52,10 @@ MODULE mo_art_washout_interface
 
 #ifdef __ICON_ART
 ! Infrastructure Routines
-    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode, &
-        &                               t_fields_2mom,t_fields_1mom
-    USE mo_art_data,            ONLY: p_art_data
+    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode
+    USE mo_art_modes,              ONLY: t_fields_2mom,t_fields_radio, &
+        &                                t_fields_volc
+    USE mo_art_data,               ONLY: p_art_data
     USE mo_art_aerosol_utilities,  ONLY: art_air_properties
     USE mo_art_clipping,           ONLY: art_clip_tracers_zero
 ! Washout Routines
@@ -124,107 +125,35 @@ CONTAINS
     DO WHILE(ASSOCIATED(this_mode))
       ! Select type of mode
       select type (fields=>this_mode%fields)
-        type is (t_fields_2mom)
+      
+        class is (t_fields_2mom)
           ! Before washout, the modal parameters have to be calculated
           call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
-          ! calc washout
-          call art_aerosol_washout(fields,p_art_data(jg),     &
-                 &                 p_patch,dt_phy_jg,p_rho,   &
-                 &                 p_tracer_new,prm_diag,p_nh_state(jg))
-        type is (t_fields_1mom)
-          ! do the stuff
+          call art_aerosol_washout(fields,p_patch,dt_phy_jg,prm_diag,p_nh_state(jg), &
+                            &      p_tracer_new,p_rho,p_art_data(jg))
+                            
+        class is (t_fields_volc)
+          call art_washout_volc(p_patch,dt_phy_jg,prm_diag,   &
+                         &      p_tracer_new,p_rho,fields%itracer)
+                         
+        class is (t_fields_radio)
+          call art_washout_radioact(fields,p_patch,dt_phy_jg,prm_diag,  &
+                             &      p_tracer_new,p_rho,p_art_data(jg))
+                             
         class default
-          CALL finish('mo_art_washout_interface:art_washout_interface', &
+          call finish('mo_art_washout_interface:art_washout_interface', &
                &      'ART: Unknown mode field type')
       end select
+                                
       this_mode => this_mode%next_mode
     END DO
-   
-   
+  
   ! ----------------------------------
-  ! --- Clip the tracers as the washout
-  ! --- can produce negative values when
-  ! --- timestep is too high
+  ! --- Clip the tracers
   ! ----------------------------------
   
-  CALL art_clip_tracers_zero(p_tracer_new)
-  
-  
-  
-  
-! OLD STUFF  
-  
-  
-      ! ----------------------------------
-      ! --- second for monodisperse aerosol
-      ! ----------------------------------
-    
-!      current_element=>p_prog_list%p%first_list_element
-
-      ! ----------------------------------
-      ! --- start DO-loop over elements in list:
-      ! ----------------------------------
-
-!      DO WHILE (ASSOCIATED(current_element))
-
-      ! ----------------------------------
-      ! --- get meta data of current element:
-      ! ----------------------------------
-
-!      info=>current_element%field%info
-
-      ! ----------------------------------
-      ! ---  assure that current element is tracer
-      ! ----------------------------------
-
-!      IF (info%tracer%lis_tracer) THEN
-!        IF (info%tracer%lwash_tracer) THEN
-
-          ! ----------------------------------
-          ! --- retrieve  running index:
-          ! ----------------------------------
-
-!          jsp=>info%ncontained
-!          var_name=>info%name
-
-          ! ----------------------------------
-          ! --- Choose parameterisation
-          ! ----------------------------------
-
-!          SELECT CASE(info%tracer%tracer_class)
-
-!          CASE('volcash')
-
-!             CALL art_washout_volc(dt_phy_jg,       & !>in
-!             &          p_patch,                    & !>in
-!             &          prm_diag,                   & !>in
-!             &          p_rho,                   & !>in
-!             &          p_tracer_new,jsp)                !>inout 
-
-!          CASE('radioact')
-
-!             CALL art_washout_radioact(p_patch,    & !>in
-!             &          dt_phy_jg,                 & !>in
-!             &          prm_diag,                  & !>in
-!             &          p_tracer_new(:,:,:,jsp),   & !>inout
-!             &          info%tracer%imis_tracer,       & !>in  needed for nuclide specific factors
-!             &          p_tracer_new(:,:,:,iqr),   & !>in
-!             &          p_tracer_new(:,:,:,iqs)    ) !>in
-
-!          END SELECT
-          
-!        ENDIF
-!      ENDIF !lis_tracer
-
-      ! ----------------------------------
-      ! --- select the next element in the list
-      ! ----------------------------------
-
-!      current_element => current_element%next_list_element
-
-!     ENDDO !loop elements
-
-ENDIF
+    CALL art_clip_tracers_zero(p_tracer_new)
+  ENDIF
 #endif
 
   END SUBROUTINE art_washout_interface
