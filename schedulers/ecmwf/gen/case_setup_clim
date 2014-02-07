@@ -204,6 +204,7 @@ cat > ${atmo_namelist} << EOF
  output_bounds                =  0., 100000000., 86400.   ! start, end, increment
  steps_per_file               =  500
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ taxis_tunit                  =  3  ! output time unit, 3: hours, 2:min, 1:sec
  include_last                 = .TRUE.
  output_filename              = '${basename}'             ! file name base
  ml_varlist                   = ${ml_varlist}
