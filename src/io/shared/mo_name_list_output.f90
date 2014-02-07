@@ -57,10 +57,9 @@ MODULE mo_name_list_output
   USE mo_var_list_element,          ONLY: level_type_ml, level_type_pl, level_type_hl,              &
     &                                     level_type_il, lev_type_str
   ! MPI Communication routines
-  USE mo_mpi,                       ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop,               &
+  USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, p_stop,                        &
     &                                     get_my_mpi_work_id, p_max,                                &
-    &                                     get_my_mpi_work_communicator, p_mpi_wtime,                &
-    &                                     p_irecv, p_wait, p_test, p_isend
+    &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend
   ! MPI Communicators
   USE mo_mpi,                       ONLY: p_comm_work
   ! MPI Data types
@@ -81,11 +80,9 @@ MODULE mo_name_list_output
 
   USE mo_run_config,                ONLY: num_lev, num_levp1, dtime,                                &
     &                                     msg_level, output_mode, ltestcase
-  USE mo_datetime,                  ONLY: t_datetime, cly360day_to_date
   USE mo_master_nml,                ONLY: model_base_dir
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword,                        &
-    &                                     with_keywords, MAX_STRING_LEN,                            &
-    &                                     tolower, int2string
+    &                                     with_keywords
   USE mo_communication,             ONLY: exchange_data, t_comm_pattern, &
     &                                     t_comm_gather_pattern, idx_no, blk_no
   USE mo_math_constants,            ONLY: pi, pi_180
@@ -103,8 +100,7 @@ MODULE mo_name_list_output
     &                                     output_file, patch_info, lonlat_info,                     &
     &                                     i_sample
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer
-  USE mo_dictionary,                ONLY: t_dictionary, dict_finalize
-  USE mo_fortran_tools,             ONLY: assign_if_present
+  USE mo_dictionary,                ONLY: dict_finalize
   ! post-ops
   USE mo_post_op,                   ONLY: perform_post_op
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
@@ -122,7 +118,7 @@ MODULE mo_name_list_output
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
 
 ! tool dependencies, maybe restructure
-  USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
+  USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
   USE mo_lonlat_grid,               ONLY: t_lon_lat_grid, compute_lonlat_specs,                     &
     &                                     rotate_latlon_grid
@@ -200,7 +196,7 @@ CONTAINS
   !
   SUBROUTINE close_name_list_output()
     ! local variables
-    INTEGER :: i, jg
+    INTEGER :: i
 
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
@@ -208,13 +204,6 @@ CONTAINS
       & .NOT. my_process_is_io()  .AND.  &
       & .NOT. my_process_is_mpi_test()) THEN
       !-- compute PEs (senders):
-
-      ! write recent samples of meteogram output
-      DO jg = 1, n_dom
-        IF (meteogram_output_config(jg)%lenabled) THEN
-          CALL meteogram_flush_file(jg)
-        END IF
-      END DO
 
       CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
       CALL compute_shutdown_async_io()
@@ -323,32 +312,28 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(OUT)  :: opt_lhas_output   !< (Optional) Flag: .TRUE. if this async I/O PE has written during this step.
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
-    INTEGER                           :: i, idate, itime, iret, jg
+    INTEGER                           :: i, j, idate, itime, iret
     TYPE(t_output_name_list), POINTER :: p_onl
     TYPE(datetime),           POINTER :: mtime_datetime
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
+    INTEGER                           :: noutput_pe_list, list_idx
+    INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
 
     IF (ltimer) CALL timer_start(timer_write_output)
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
-    IF(use_async_name_list_io) THEN
-      IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
-        ! write recent samples of meteogram output
-        DO jg = 1, n_dom
-          IF (meteogram_output_config(jg)%lenabled) THEN
-            CALL meteogram_flush_file(jg)
-          END IF
-        END DO
-       
-        ! If asynchronous I/O is enabled, the compute PEs have to make
-        ! sure that the I/O PEs are ready with the last output step
-        ! before writing data into the I/O memory window.  This
-        ! routine (write_name_list_output) is also called from the I/O
-        ! PEs, but in this case the calling routine cares about the
-        ! flow control.
-        CALL compute_wait_for_async_io(jstep)
-      END IF
+    IF  (use_async_name_list_io      .AND.  &
+      &  .NOT. my_process_is_io()    .AND.  &
+      &  .NOT. my_process_is_mpi_test()) THEN
+      
+      ! If asynchronous I/O is enabled, the compute PEs have to make
+      ! sure that the I/O PEs are ready with the last output step
+      ! before writing data into the I/O memory window.  This routine
+      ! (write_name_list_output) is also called from the I/O PEs, but
+      ! in this case the calling routine cares about the flow control.
+      CALL compute_wait_for_async_io(jstep)
+
     ENDIF
 #endif
 ! #ifndef __NO_ICON_ATMO__
@@ -356,6 +341,11 @@ CONTAINS
 ! NOMPI
 
     IF (PRESENT(opt_lhas_output))  opt_lhas_output = .FALSE.
+
+    ! during the following loop, we collect a list of all I/O PEs for
+    ! which output is performed:
+    output_pe_list(:) = -1
+    noutput_pe_list   =  0
 
     ! Go over all output files
     OUTFILE_LOOP : DO i=1,SIZE(output_file)
@@ -432,6 +422,23 @@ CONTAINS
       END IF
 
       ! -------------------------------------------------
+      ! add I/O PE of output file to the "output_list"
+      ! -------------------------------------------------
+
+      list_idx = -1
+      DO j=1,noutput_pe_list
+        IF (output_pe_list(j) == output_file(i)%io_proc_id) THEN 
+          list_idx = j
+          EXIT
+        END IF
+      END DO
+      IF (list_idx == -1) THEN
+        noutput_pe_list = noutput_pe_list + 1
+        list_idx   = noutput_pe_list
+      END IF
+      output_pe_list(list_idx) = output_file(i)%io_proc_id
+
+      ! -------------------------------------------------
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
       CALL pass_output_step(output_file(i)%out_event)
@@ -443,7 +450,9 @@ CONTAINS
 #ifndef NOMPI
     IF (use_async_name_list_io  .AND. &
       & .NOT.my_process_is_io() .AND. &
-      & .NOT.my_process_is_mpi_test()) CALL compute_start_async_io(jstep)
+      & .NOT.my_process_is_mpi_test()) THEN
+      CALL compute_start_async_io(jstep, output_pe_list, noutput_pe_list)
+    END IF
 #endif
     ! Handle incoming "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
@@ -468,7 +477,7 @@ CONTAINS
        END IF
     END IF
     IF (ltimer) CALL timer_stop(timer_write_output)
-
+    IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": write_name_list_output done."
   END SUBROUTINE write_name_list_output
 
 
@@ -961,13 +970,6 @@ CONTAINS
     ! Tell the compute PEs that we are ready to work
     CALL async_io_send_handshake(0)
 
-    ! write recent samples of meteogram output
-    DO jg = 1, n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_flush_file(jg)
-      END IF
-    END DO
-
     ! Enter I/O loop
     DO
       ! Wait for a message from the compute PEs to start
@@ -975,7 +977,7 @@ CONTAINS
       IF(done) EXIT ! leave loop, we are done
 
       ! perform I/O
-      CALL write_name_list_output(jstep, lhas_output)
+      CALL write_name_list_output(jstep, opt_lhas_output=lhas_output)
 
       ! Inform compute PEs that we are done, if this I/O PE has
       ! written output:
@@ -1019,12 +1021,6 @@ CONTAINS
         END IF
       END IF
 
-      ! write recent samples of meteogram output
-      DO jg = 1, n_dom
-        IF (meteogram_output_config(jg)%lenabled) THEN
-          CALL meteogram_flush_file(jg)
-        END IF
-      END DO
     ENDDO
 
     ! Finalization sequence:
@@ -1074,7 +1070,7 @@ CONTAINS
     INTEGER                        :: nval, nlev_max, iv, jk, nlevs, mpierr, nv_off, np, i_dom, &
       &                               lonlat_id, i_log_dom, ierrstat
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
-    INTEGER                        :: voff(0:num_work_procs-1)
+    INTEGER                        :: voff(0:num_work_procs-1), nv_off_np(0:num_work_procs)
     REAL(sp), ALLOCATABLE          :: var1_sp(:), var2_sp(:), var3_sp(:)
     REAL(dp), ALLOCATABLE          :: var1_dp(:), var2_dp(:), var3_dp(:)
     TYPE (t_var_metadata), POINTER :: info
@@ -1083,7 +1079,7 @@ CONTAINS
 
     !-- for timing
     CHARACTER(len=10)              :: ctime
-    REAL(dp)                       :: t_get, t_write, t_copy, t_intp, t_0, mb_get, mb_wr
+    REAL(dp)                       :: t_get, t_write, t_copy, t_0, mb_get, mb_wr
 
   !------------------------------------------------------------------------------------------------
 #if defined (__SX__) && !defined (NOMPI)
@@ -1099,7 +1095,6 @@ CONTAINS
     t_get   = 0.d0
     t_write = 0.d0
     t_copy  = 0.d0
-    t_intp  = 0.d0
     mb_get  = 0.d0
     mb_wr   = 0.d0
 
@@ -1208,11 +1203,13 @@ CONTAINS
       ENDDO
 
       ! compute the total offset for each PE
-      nv_off = 0
+      nv_off       = 0
+      nv_off_np(0) = 0
       DO np = 0, num_work_procs-1
-        voff(np) = nv_off
-        nval     = p_ri%pe_own(np)*nlevs
-        nv_off   = nv_off + nval
+        voff(np)        = nv_off
+        nval            = p_ri%pe_own(np)*nlevs
+        nv_off          = nv_off + nval
+        nv_off_np(np+1) = nv_off_np(np) + p_ri%pe_own(np)
       END DO
 
       ! var1 is stored in the order in which the variable was stored on compute PEs,
@@ -1232,36 +1229,41 @@ CONTAINS
 
         t_0 = p_mpi_wtime() ! performance measurement
 
-        nv_off = 0
         IF (use_dp_mpi2io) THEN
 
+          var2_dp(-1) = 0._dp ! special value for lon-lat areas overlapping local patches
+!$OMP PARALLEL
+!$OMP DO
           DO np = 0, num_work_procs-1
-            var2_dp(-1) = 0._dp ! special value for lon-lat areas overlapping local patches
-            var2_dp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-            nv_off   = nv_off+p_ri%pe_own(np)
+            var2_dp(nv_off_np(np)+1:nv_off_np(np+1)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
             voff(np) = voff(np)+p_ri%pe_own(np)
           ENDDO
-!$OMP PARALLEL WORKSHARE
+!$OMP END DO
+!$OMP WORKSHARE
           var3_dp(1:p_ri%n_glb) = var2_dp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END PARALLEL WORKSHARE
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
         ELSE
 
+          var2_sp(-1) = 0._sp ! special value for lon-lat areas overlapping local patches
+!$OMP PARALLEL
+!$OMP DO
           DO np = 0, num_work_procs-1
-            var2_sp(-1) = 0._sp ! special value for lon-lat areas overlapping local patches
-            var2_sp(nv_off+1:nv_off+p_ri%pe_own(np)) = var1_sp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-            nv_off   = nv_off+p_ri%pe_own(np)
+            var2_sp(nv_off_np(np)+1:nv_off_np(np+1)) = var1_sp(voff(np)+1:voff(np)+p_ri%pe_own(np))
             voff(np) = voff(np)+p_ri%pe_own(np)
           ENDDO
+!$OMP END DO
           IF (have_GRIB) THEN
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
-!$OMP PARALLEL WORKSHARE
-            var3_dp(1:p_ri%n_glb) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END PARALLEL WORKSHARE
+!$OMP WORKSHARE
+            var3_dp(1:p_ri%n_glb) = REAL( var2_sp(p_ri%reorder_index(1:p_ri%n_glb)), dp)
+!$OMP END WORKSHARE
           ELSE
-!$OMP PARALLEL WORKSHARE
+!$OMP WORKSHARE
             var3_sp(1:p_ri%n_glb) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END PARALLEL WORKSHARE
+!$OMP END WORKSHARE
           END IF
+!$OMP END PARALLEL
         ENDIF
         t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
         ! Write calls (via CDIs) of the asynchronous I/O PEs:
@@ -1309,7 +1311,7 @@ CONTAINS
       WRITE (0,'(10(a,f10.3))') &  ! remark: CALL message does not work here because it writes only on PE0
            & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
            & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
-           & ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
+           & ' MB/s], times copy: ',t_copy,' s'
    !   CALL message('',message_text)
     ENDIF
 #endif
@@ -1394,12 +1396,17 @@ CONTAINS
 
     ! Receive message that we may start I/O (or should finish)
     ! 
+    ! If this I/O PE will write output in this step, or if it has
+    ! finished all its tasks and waits for the shutdown message,
+    ! launch a non-blocking receive request to compute PE #0:
+    !
     ! Note: We have to do this in a non-blocking fashion in order to
     !       receive "ready file" messages.
+    !
+    CALL p_wait()
+    CALL p_irecv(msg, p_work_pe0, 0)
+    
     IF(p_pe_work == 0) THEN
-      ! launch non-blocking receive request:
-      CALL p_wait()
-      CALL p_irecv(msg, p_work_pe0, 0)
       DO 
         ev => all_events
         HANDLE_COMPLETE_STEPS : DO
@@ -1418,10 +1425,9 @@ CONTAINS
 
         IF (p_test()) EXIT
       END DO
-      CALL p_wait()
     END IF
 
-    CALL p_bcast(msg, 0, comm=p_comm_work)
+    CALL p_wait()
     
     SELECT CASE(INT(msg(1)))
     CASE(msg_io_start)
@@ -1453,13 +1459,13 @@ CONTAINS
     !
     ! Note: We only need to wait for those I/O PEs which are involved
     !       in the current step.
-    IF(p_pe_work==0) THEN
+    IF (p_pe_work==0) THEN
       IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_wait_for_async_io, jstep=",jstep
       IF (jstep == WAIT_UNTIL_FINISHED) THEN
         CALL p_wait()
       ELSE
         wait_list(:) = -1
-        nwait_list   = 0
+        nwait_list   =  0
 
         ! Go over all output files, collect IO PEs
         OUTFILE_LOOP : DO i=1,SIZE(output_file)
@@ -1487,38 +1493,66 @@ CONTAINS
         END DO
       END IF
     ENDIF
-    ! Wait in barrier until message is here
-    CALL p_barrier(comm=p_comm_work)
+    IF (jstep /= WAIT_UNTIL_FINISHED) THEN
+      ! Wait in barrier until message is here
+      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": waiting in barrier (compute_wait_for_async_io)"
+      CALL p_barrier(comm=p_comm_work)
+      IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": barrier done (compute_wait_for_async_io)"
+    END IF
   END SUBROUTINE compute_wait_for_async_io
 
 
   !-------------------------------------------------------------------------------------------------
   !> compute_start_async_io: Send a message to I/O PEs that they should start I/O
-  !  The counterpart on the I/O side is io_wait_for_start_message
+  !  The counterpart on the I/O side is async_io_wait_for_start
   !
-  SUBROUTINE compute_start_async_io(jstep)
+  SUBROUTINE compute_start_async_io(jstep, output_pe_list, noutput_pe_list)
     INTEGER, INTENT(IN)          :: jstep
+    INTEGER, INTENT(IN)          :: output_pe_list(:), noutput_pe_list
     ! local variables
     REAL(wp) :: msg(2)
+    INTEGER  :: i
 
+    IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_start_async_io, jstep = ",jstep
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
     msg(1) = REAL(msg_io_start,    wp)
     msg(2) = REAL(jstep,           wp)
-    IF(p_pe_work==0) CALL p_send(msg, p_io_pe0, 0)
+
+    IF(p_pe_work==0) THEN
+
+      ! When this subroutine is called, we have already proceeded to
+      ! the next step. Send a "start message" to all I/O PEs which are
+      ! due for output.
+      DO i=1,noutput_pe_list
+        IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": send signal to PE ",  output_pe_list(i)
+        CALL p_isend(msg, output_pe_list(i), 0)
+      END DO
+      CALL p_wait()
+    END IF
+    IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_start_async_io done."
+
   END SUBROUTINE compute_start_async_io
 
 
   !-------------------------------------------------------------------------------------------------
   !> compute_shutdown_async_io: Send a message to I/O PEs that they should shut down
-  !  The counterpart on the I/O side is io_wait_for_start_message
+  !  The counterpart on the I/O side is async_io_wait_for_start
   !
   SUBROUTINE compute_shutdown_async_io
     REAL(wp) :: msg(2)
+    INTEGER  :: pe
 
+    IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_shutdown_async_io."
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
+    IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_shutdown_async_io barrier done."
     msg(1) = REAL(msg_io_shutdown, wp)
     msg(2:) = 0._wp
-    IF(p_pe_work==0) CALL p_send(msg, p_io_pe0, 0)
+    ! tell all I/O PEs about the shutdown
+    IF(p_pe_work==0) THEN
+      DO pe = p_io_pe0, (p_io_pe0+num_io_procs-1)
+        CALL p_send(msg, pe, 0)
+      END DO
+    END IF
   END SUBROUTINE compute_shutdown_async_io
 
   !-------------------------------------------------------------------------------------------------

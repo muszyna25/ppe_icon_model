@@ -45,7 +45,7 @@ MODULE mo_util_cdi
   USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,           &
     &                              p_comm_work, p_comm_work_test,          &
     &                              p_io, p_pe
-  USE mo_util_string,        ONLY: tolower, MAX_STRING_LEN
+  USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
@@ -441,7 +441,7 @@ CONTAINS
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
     INTEGER,                INTENT(IN) :: tileidx
 
-    CHARACTER(len=MAX_STRING_LEN) :: ydate, ytime
+    CHARACTER(len=MAX_CHAR_LENGTH)     :: ydate, ytime
     INTEGER :: cent, year, month, day    ! date
     INTEGER :: hour, minute              ! time
 

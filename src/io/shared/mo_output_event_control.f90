@@ -40,7 +40,7 @@
 MODULE mo_output_event_control
 
   USE mo_mpi,                ONLY: my_process_is_mpi_test
-  USE mo_impl_constants,     ONLY: SUCCESS
+  USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
   USE mo_kind,               ONLY: wp
   USE mo_master_nml,         ONLY: model_base_dir
@@ -58,7 +58,7 @@ MODULE mo_output_event_control
   USE mo_var_list_element,   ONLY: lev_type_str
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
-    &                              int2string, tolower, MAX_STRING_LEN
+    &                              int2string, tolower
   USE mo_name_list_output_types, ONLY: t_fname_metadata
   USE mo_io_config,              ONLY: use_set_event_to_simstep
 
@@ -230,9 +230,9 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
     INTEGER                             :: i, j, ifile, ipart
-    CHARACTER(len=MAX_STRING_LEN)       :: cfilename 
+    CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename 
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
-    CHARACTER(len=MAX_STRING_LEN)       :: fname(nstrings)        ! list for duplicate check
+    CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(nstrings)        ! list for duplicate check
     INTEGER                             :: ifname                 ! current length of "ifname"
     TYPE(datetime),  POINTER            :: file_end, step_date, mtime_begin, mtime_first, &
       &                                    mtime_date

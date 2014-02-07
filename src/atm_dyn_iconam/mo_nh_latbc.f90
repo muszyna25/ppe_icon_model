@@ -61,7 +61,6 @@ MODULE mo_nh_latbc
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
                                     p_comm_work_test, p_comm_work
   USE mo_io_units,            ONLY: filename_max
-  USE mo_util_string,         ONLY: MAX_STRING_LEN
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nh_vert_interp,      ONLY: vert_interp

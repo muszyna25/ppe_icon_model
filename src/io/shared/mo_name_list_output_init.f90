@@ -26,7 +26,8 @@ MODULE mo_name_list_output_init
     &                                             vname_len, max_dom, SUCCESS,                    &
     &                                             min_rlcell_int, min_rledge_int, min_rlvert,     &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                             MAX_TIME_LEVELS, max_levels, vname_len
+    &                                             MAX_TIME_LEVELS, max_levels, vname_len,         &
+    &                                             MAX_CHAR_LENGTH
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom,                              &
     &                                             grid_rescale_factor, start_time, end_time,      &
     &                                             DEFAULT_ENDTIME
@@ -79,7 +80,7 @@ MODULE mo_name_list_output_init
   USE mo_time_config,                       ONLY: time_config
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
-    &                                             with_keywords, insert_group, MAX_STRING_LEN,    &
+    &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no,  &
@@ -258,7 +259,7 @@ CONTAINS
 
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
     TYPE (t_keyword_list), POINTER        :: keywords => NULL()
-    CHARACTER(len=MAX_STRING_LEN)         :: cfilename
+    CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
     INTEGER                               :: iunit
 
     ! The namelist containing all variables above
