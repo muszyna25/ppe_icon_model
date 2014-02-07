@@ -1,18 +1,19 @@
 #!/bin/ksh
-MODEL_DIR=$1
+MODEL_DIR1=$1
 EXP1=$2
-EXP2=$3
+MODEL_DIR2=$3
+EXP2=$4
 TYPES="atm_phy atm_dyn lnd_phy"
 DATES='040 045 050 055 100'
 EXIT_STATUS=0
 for TYPE in $TYPES; do 
-cd ${MODEL_DIR}/experiments/${EXP1}
+cd ${MODEL_DIR1}/experiments/${EXP1}
 FILES=''
 for DATE in $DATES; do
 FILES=$FILES' '${EXP1}'_'${TYPE}'_19780101T0'${DATE}'00Z.nc'
 done
 cdo -O mergetime $FILES ${EXP1}_${TYPE}.nc
-cd ${MODEL_DIR}/experiments/${EXP2}
+cd ${MODEL_DIR2}/experiments/${EXP2}
 FILES=''
 for DATE in $DATES; do
 FILES=$FILES' '${EXP2}'_'${TYPE}'_19780101T0'${DATE}'00Z.nc'
