@@ -1112,8 +1112,8 @@ MODULE mo_nh_stepping
               CALL diffusion(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,        &
                 p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
           ELSE
-            CALL add_slowphys(p_nh_state(jg), p_patch(jg), n_now, n_new, dt_loc, &
-                              lstep_adv(jg), n_now_rcf, n_new_rcf)
+            CALL add_slowphys(p_nh_state(jg), p_patch(jg), p_int_state(jg), &
+              n_now, n_new, dt_loc, lstep_adv(jg), n_now_rcf, n_new_rcf)
           ENDIF   
         ELSE
           CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
