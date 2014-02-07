@@ -132,7 +132,7 @@ MODULE mo_vertical_grid
       &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),      &
       &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
-    REAL(wp), ALLOCATABLE :: z_mfv(:,:,:), z_ifv(:,:,:)
+    REAL(wp), ALLOCATABLE :: z_ifv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:), &
                              z_ddxt_z_half(:,:,:), z_ddxn_z_half(:,:,:)
     REAL(wp), ALLOCATABLE :: z_aux_c(:,:,:), z_aux_e(:,:,:)
@@ -271,7 +271,7 @@ MODULE mo_vertical_grid
 
       ! For the tangential slope we need temporarily also the height
       ! at the vertices
-      ALLOCATE(z_mfv(nproma,nlev,nblks_v),z_ifv(nproma,nlevp1,nblks_v))
+      ALLOCATE(z_ifv(nproma,nlevp1,nblks_v))
       ALLOCATE(z_ddxt_z_half(nproma,nlevp1,nblks_e))
       ALLOCATE(z_ddxn_z_half(nproma,nlevp1,nblks_e))
       ! Intermediate storage for fields that are optionally single precision (to circumvent duplicating subroutines)
@@ -279,23 +279,6 @@ MODULE mo_vertical_grid
 
       z_ifv = 0._wp
       CALL cells2verts_scalar(p_nh(jg)%metrics%z_ifc, p_patch(jg), p_int(jg)%cells_aw_verts, z_ifv)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = 1,nblks_v
-        IF (jb /= nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_v
-          z_mfv(nlen+1:nproma,:,jb) = 0._wp
-        ENDIF
-        DO jk = 1, nlev
-          ! geometric height of full levels
-          z_mfv(1:nlen,jk,jb) = 0.5_wp*(z_ifv(1:nlen,jk,jb) + z_ifv(1:nlen,jk+1,jb))
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
       ! Start index for slope computations
       i_startblk = p_patch(jg)%edges%start_blk(2,1)
@@ -310,7 +293,7 @@ MODULE mo_vertical_grid
            &              p_patch(jg),            &
            &              z_ddxt_z_half,          &
            &              1, nlevp1 )
-      DEALLOCATE(z_mfv,z_ifv)
+      DEALLOCATE(z_ifv)
 
       ! slope of the terrain (normal direction)
       CALL grad_fd_norm ( p_nh(jg)%metrics%z_ifc, &
