@@ -30,8 +30,8 @@
 set EXPNUM        "001"                #---experiment number---
 set EXPNUM2       "001"                #---experiment number used for score comparison---
 set SUITE2        "deia"               #---suite             used for score comparison---
-set FIRST_DATE    20130929
-set LAST_DATE     20140131
+set FIRST_DATE    20140201
+set LAST_DATE     20150131
 set MONTHS        000000               #---months to be run (not for oper)
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
@@ -322,7 +322,6 @@ suite $USER
                 edit SCWALLCLOCKLIMIT 00:20:00
                 event prepare
                 event create_dumpstate
-
         endfamily
 
         task model
@@ -416,10 +415,19 @@ suite $USER
         repeat date YMD ${FIRST_DATE} ${LAST_DATE}      # cycle over dates
         trigger (post:YMD gt endofmonth:YMD + 1)
 
+        task testday
+            on_ecgate
+            event time_eom
+            event time_domonth
+
         task eom_data2dwd
-           on_ecgate_submit
+            trigger   testday==complete
+            complete (testday==complete) and not (testday:time_eom)
+            on_ecgate_submit
 
         task eom_prepare  
+            trigger   testday==complete
+            complete (testday==complete) and not (testday:time_eom)
             on_hpc_serial
             edit SCWALLCLOCKLIMIT 24:00:00
             meter ecget     0 31 31
@@ -432,10 +440,13 @@ suite $USER
             event cpdata
 
         task eom_getmars
+            trigger   testday==complete
+            complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
 
         family eom_metview_all 
             trigger (eom_prepare == complete) and (eom_getmars == complete)
+            complete (testday==complete) and not (testday:time_eom)
             for set 1 5 ; do
                set tsk `printf %3.3i $set`
                family $tsk
@@ -448,6 +459,7 @@ suite $USER
 
         task eom_archive
             trigger eom_metview_all==complete
+            complete (testday==complete) and not (testday:time_eom)
             on_ecgate_submit
    
     endfamily
