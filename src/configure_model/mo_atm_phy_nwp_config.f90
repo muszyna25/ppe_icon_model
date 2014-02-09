@@ -68,6 +68,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: cldopt_filename
   PUBLIC :: ltuning_detrain, ltuning_kessler
   PUBLIC :: ltuning_ozone, tune_rhebc_land, tune_rhebc_ocean
+  PUBLIC :: tune_gkdrag, tune_gkwake, tune_gfluxlaun
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -163,6 +164,13 @@ MODULE mo_atm_phy_nwp_config
   REAL(wp), PARAMETER :: tune_ozone_zmid = 15000.0_wp
   REAL(wp), PARAMETER :: tune_ozone_zbot = 10000.0_wp 
 
+  ! SSO scheme:
+  REAL(wp), PARAMETER :: tune_gkwake = 1.00_wp  ! low level wake drag constant; original COSMO value 0.5
+  REAL(wp), PARAMETER :: tune_gkdrag = 0.125_wp ! gw drag constant; original COSMO value 0.075
+
+  ! Non-orographic GWD scheme
+  REAL(wp), PARAMETER :: tune_gfluxlaun = 2.50e-3_wp ! total launch momentum flux in each azimuth (rho_o x F_o)
+                                                     ! original IFS value 3.75e-3
 
 CONTAINS
 
@@ -183,9 +191,10 @@ CONTAINS
     INTEGER, INTENT(IN) :: n_dom
     REAL(wp),INTENT(IN) :: dtime_adv
   
-    INTEGER :: jg, jk
+    INTEGER :: jg, jk, jk_shift
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
+    REAL(wp) :: z_mc_ref
 
 
     CALL message(TRIM(routine), '')
@@ -330,11 +339,12 @@ CONTAINS
     DO jg = 1, n_dom
       ALLOCATE(atm_phy_nwp_config(jg)%fac_ozone(p_patch(jg)%nlev))
       DO jk = 1,p_patch(jg)%nlev
-        IF ( vct_a(jk+p_patch(jg)%nshift_total) > tune_ozone_zbot .AND. &
-          &  vct_a(jk+p_patch(jg)%nshift_total) < tune_ozone_ztop ) THEN
+        jk_shift = jk+p_patch(jg)%nshift_total
+        z_mc_ref = 0.5_wp*(vct_a(jk_shift)+vct_a(jk_shift+1))
+        IF ( z_mc_ref > tune_ozone_zbot .AND. z_mc_ref < tune_ozone_ztop ) THEN
           atm_phy_nwp_config(jg)%fac_ozone(jk) = 1.0_wp + 0.5_wp *                &
-            & min( (vct_a(jk)-tune_ozone_zbot)/(tune_ozone_zmid-tune_ozone_zbot), &
-            &      (tune_ozone_ztop-vct_a(jk))/(tune_ozone_ztop-tune_ozone_zmid) )
+            & min( (z_mc_ref-tune_ozone_zbot)/(tune_ozone_zmid-tune_ozone_zbot), &
+            &      (tune_ozone_ztop-z_mc_ref)/(tune_ozone_ztop-tune_ozone_zmid) )
        ELSE
           atm_phy_nwp_config(jg)%fac_ozone(jk) = 1.0_wp
         ENDIF
