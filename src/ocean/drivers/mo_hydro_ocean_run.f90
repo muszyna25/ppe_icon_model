@@ -488,8 +488,8 @@ CONTAINS
         & prism_thickness, &
         & patch_3d%p_patch_1d(1)%zlev_m, &
         & ocean_state(jg)%p_diag)
-write(0,*)'istime4name_list_output',jstep,istime4name_list_output(jstep)                
-        IF (istime4name_list_output(jstep).OR.jstep>0) THEN
+
+        IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
           IF (diagnostics_level == 1 ) THEN
             CALL calc_slow_oce_diagnostics( patch_3d,      &
             & ocean_state(jg),      &

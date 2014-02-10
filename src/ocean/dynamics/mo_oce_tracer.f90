@@ -559,7 +559,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
                                & p_os,                           &
                                & bc_top_tracer,                  &
                                & bc_bot_tracer,                  &
-                               & flux_vert)
+                               & flux_vert,                      &
+                               & tracer_id)
                                
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
@@ -646,7 +647,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
             ENDDO
         END DO
       END DO
-
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('BefImplDiff: trac_old', trac_old,  str_module,idt_src, in_subset=cells_in_domain)

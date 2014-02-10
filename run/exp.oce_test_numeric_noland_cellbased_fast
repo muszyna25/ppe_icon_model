@@ -169,47 +169,46 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
-!  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
-!  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
-!                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
-! 10 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
-!  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
-!  dzlev_m(1:10)      =   40.0,   40.0,   80.0,   120.0,   200.0,   300.0,   500.0,   700.0,  1000.0,  2000.0
+  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 40 unevenly spaced levels used by MPIOM/GR30
- n_zlev             =   40
- dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+! n_zlev             =   40
+! dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+!                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+!                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+!                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .FALSE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
- FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
-  FLUX_CALCULATION_VERT = 7      ! 7=upwind biased ppm
-  !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
-  !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
-  i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
-  select_solver      = 2               !  1=gmres_oce_old; 2=ocean_restart_gmres
-  solver_tolerance   = 1.0E-14         !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart   = 26   !  inner solver loop without syncing (default: 200)
-  solver_max_restart_iterations = 50   !  outer (restart solver) loop with syncing (default: 100)
+   solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_max_iter_per_restart = 26        !  outer solver loop with syncing
+  solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
   use_continuity_correction = .true.
   fast_performance_level = 11
 /
-&ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
-  !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
-  HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
-  MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
-  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
-  MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
+&ocean_tracer_transport_nml
+ !no_tracer                               =  2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT  = 7      ! 7=upwind biased ppm
 /
+&ocean_diffusion_nml
+  !k_veloc_h                          = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HORZ_VELOC_DIFF_TYPE = 3             ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  k_veloc_v                            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC   = 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
+  k_pot_temp_h                    = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_v                    = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for temperature
+  k_sal_h                                = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_v                                = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for salinity
+  MAX_VERT_DIFF_TRAC     = 0.1           ! max vertical tracer diffusion for convection used in case of instability
+  !veloc_diffusion_order      = 1             ! 1=harmonic, 2=biharmonic friction
+  !veloc_diffusion_form       = 1             ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
+/
+&ocean_physics_nml
+  !i_sea_ice                =    1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
+  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
+ /    
 &ocean_forcing_nml
   iforc_oce = 11
   ! temperature_relaxation= 0      !  0: no relaxation used
