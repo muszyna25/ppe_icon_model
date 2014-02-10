@@ -132,7 +132,7 @@ case "$fortran_compiler" in
         FC          = ftn
         F77         = "$FC"
         FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
-        CFLAGS      = -I${GRIB_API}/include -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3 
+        CFLAGS      = -I${GRIB_API}/include -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3  -D__SVN_VERSION="${SVNVERSION}"
         F77FLAGS    = "$FFLAGS"
         FCLIBS      = "-v"
         GEN_FLAGS   =
