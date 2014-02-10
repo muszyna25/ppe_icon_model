@@ -1489,12 +1489,14 @@ CONTAINS
   !! The comm_variable can be communicated
   SUBROUTINE icon_comm_var_is_ready(comm_variable_id)
     INTEGER, INTENT(in) :: comm_variable_id
-    
+    TYPE(t_comm_variable_real),pointer :: var
+
      IF(this_is_mpi_sequential) RETURN
 
 !     CALL check_active_comm_variable(comm_variable_id)
 !$OMP SINGLE
-      comm_variable(comm_variable_id)%request = communicate
+      var => comm_variable(comm_variable_id)
+      var%request = communicate
 !$OMP END SINGLE
     
   END SUBROUTINE icon_comm_var_is_ready
