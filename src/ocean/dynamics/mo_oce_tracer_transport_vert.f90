@@ -47,14 +47,14 @@ USE mo_kind,                      ONLY: wp
 USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_ocean_nml,                 ONLY: n_zlev,  &
-  &                                     UPWIND, CENTRAL, MIMETIC_MIURA, FLUX_CORR_TRANSP_vert_adpo, l_adpo_flowstrength, &
-  &                                     FLUX_CALCULATION_VERT, l_vert_limiter_advection
+  &                                     upwind, central,fct_vert_adpo,fct_vert_ppm,fct_vert_zalesak, l_adpo_flowstrength, &
+  &                                     flux_calculation_vert
 USE mo_parallel_config,           ONLY: nproma
 !USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
   &                                     timer_adpo_vert !, timer_dif_vert,
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state!,v_base
+USE mo_oce_types,                 ONLY: t_hydro_ocean_state
 USE mo_model_domain,              ONLY: t_patch,t_patch_3D
 USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -88,276 +88,6 @@ PRIVATE :: laxfr_upflux_v
 PRIVATE :: ratio_consecutive_gradients
 CONTAINS
 
-  !-------------------------------------------------------------------------
-  !! SUBROUTINE advects vertically the tracers present in the ocean model.
-  !!
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2010).
-  !!
-  !! mpi parallelized, sync required: trac_out
-  SUBROUTINE advect_flux_vertical_high_res( p_patch_3D,  &
-                                 & trac_old,             &
-                                 & p_os,                 &
-                                 & A_v,                  &
-                                 & bc_top_tracer,        &
-                                 & bc_bot_tracer,        &
-                                 & flux_div_vert,        &
-                                 & tracer_id)
-
-    !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-    TYPE(t_patch_3D ),TARGET          :: p_patch_3D
-    REAL(wp), INTENT(INOUT)           :: trac_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    REAL(wp)                          :: A_v(:,:,:) 
-    REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !new tracer
-    INTEGER, INTENT(IN)               :: tracer_id
-
-    !Local variables
-    REAL(wp) :: z_tmp
-    INTEGER  :: i_startidx_c, i_endidx_c
-    INTEGER  :: jc, jk, jb
-    INTEGER  :: z_dolic
-    REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! vertical advective tracer flux
-    REAL(wp) :: z_adv_flux_v2 (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)   
-    REAL(wp) :: z_diff_flux_v(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) 
-    REAL(wp) :: z_tflux_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) 
-    REAL(wp) :: z_tflux_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_mflux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)   
-    
-    REAL(wp) :: z_limit_phi(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_limit_psi(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-    REAL(wp) :: z_adv_flux_high (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  ! vert advective tracer flux  
-    REAL(wp) :: z_adv_flux_low (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  ! vert advective tracer flux  
-
-    
-    TYPE(t_patch), POINTER :: p_patch
-    ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_tracer_advection:advect_individual_tracer')
-    !-------------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: cells_in_domain
-    !-------------------------------------------------------------------------------
-    p_patch         => p_patch_3D%p_patch_2D(1)
-    cells_in_domain => p_patch%cells%in_domain
-
-
-    z_adv_flux_v (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
-    z_diff_flux_v(1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp
-    z_tflux_out  (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp 
-    z_tflux_in   (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp 
-    z_mflux      (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp  
-    
-    z_limit_phi  (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp
-    z_limit_psi  (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp
-
-    z_adv_flux_high(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c)= 0.0_wp  
-    z_adv_flux_low (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c)= 0.0_wp  
-    z_adv_flux_v2  (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp
-   
-!  trac_old=0.0_wp
-!  
-!  Do jk=1,n_zlev
-!  trac_old(:,jk,:)=REAL(jk,wp)
-!  p_os%p_diag%w_time_weighted = 10.0_wp*REAL(jk,wp)
-!  end do
-    CALL sync_patch_array(SYNC_C, p_patch, trac_old)
-
-    !0) For testing
-!      CALL upwind_vflux_oce( p_patch_3D,                  &
-!                             & trac_old,                   &
-!                             & p_os%p_diag%w_time_weighted,& 
-!                             & bc_top_tracer,              &
-!                             & z_adv_flux_v2,tracer_id )
-
-      CALL central_vflux_oce(p_patch_3D,                 &
-                           & trac_old,                   &
-                           & p_os%p_diag%w_time_weighted,& 
-                           & z_adv_flux_v2, tracer_id)   
-    
-    
-    !1) calculate phi-part of limiter   
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO jk = 2, n_zlev
-        DO jc = i_startidx_c, i_endidx_c
-        
-          z_diff_flux_v(jc,jk,jb)=trac_old(jc,jk-1,jb)-trac_old(jc,jk,jb)
-
-          !Determine edges with inflow (can later be done in prep-sbr). 
-          !This depends on sign of velocity: positive = outflow, negtive = inflow
-                   
-          !outflow case
-          IF(p_os%p_diag%w_time_weighted(jc,jk,jb)>=0.0)THEN
-        
-            z_tflux_out(jc,jk,jb) = p_os%p_diag%w_time_weighted(jc,jk,jb)*trac_old(jc,jk,jb)
-            z_mflux(jc,jk,jb)     = p_os%p_diag%w_time_weighted(jc,jk,jb) 
-          
-          !inflow case        
-          ELSEIF(p_os%p_diag%w_time_weighted(jc,jk,jb)<0.0)THEN
-        
-           z_tflux_in(jc,jk,jb) =-p_os%p_diag%w_time_weighted(jc,jk,jb)*trac_old(jc,jk-1,jb)          
-           z_mflux(jc,jk,jb)    =-p_os%p_diag%w_time_weighted(jc,jk,jb)
-          
-          ENDIF      
-         z_adv_flux_low(jc,jk,jb) = z_tflux_out(jc,jk,jb)-z_tflux_in(jc,jk,jb)
-         
-         z_adv_flux_high(jc,jk,jb) = z_mflux(jc,jk,jb)*z_diff_flux_v(jc,jk,jb)
-         
-         z_tmp = 2.0_wp*A_v(jc,jk,jb)/p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)    
-                  
-         !This corresponds to eq. (14) in Casulli-Zanolli         
-         z_limit_phi(jc,jk,jb) = min(1.0_wp,z_tmp/z_mflux(jc,jk,jb))
-         
-          !write(345,*)'compare',jc,jk,jb,z_adv_flux_v2(jc,jk,jb),0.5_wp*z_adv_flux_high(jc,jk,jb)+z_adv_flux_low(jc,jk,jb),&
-          !&z_adv_flux_high(jc,jk,jb),z_adv_flux_low(jc,jk,jb),z_mflux(jc,jk,jb),z_diff_flux_v(jc,jk,jb)!z_limit_phi(je,jk,jb), z_tmp, z_mflux(je,jk,jb)       
-         !z_adv_flux_h(je,jk,jb)=&
-         !&z_flux_out(je,jk,jb)-z_flux_in(je,jk,jb)&
-         !&+z_mflux(je,jk,jb)*z_diff_h(je,jk,jb)           
-         !z_adv_flux_h(je,jk,jb)=z_adv_flux_h(je,jk,jb) * p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) 
-        END DO
-      END DO
-    END DO
-    
-    
-    !2) calculate ratio of consecutive gradients: "r" for outflow edges 
-    
-    
-    !3) calculate psi-part of limiter
-    
-  stop  
-    
-    CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
-
-    IF (ltimer) CALL timer_stop(timer_adv_vert)
-
-    !divergence is calculated for advective fluxes
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            ! positive vertical divergence in direction of w (upward positive)
-            flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
-                                    &-z_adv_flux_v(jc,jk+1,jb)
-        ENDDO
-      END DO
-    END DO
-
-    CALL sync_patch_array(SYNC_C, p_patch, flux_div_vert)
-
-
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('AdvDifVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
-    !CALL dbg_print('AdvDifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
-    CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
-    CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
-    !---------------------------------------------------------------------
-  END SUBROUTINE advect_flux_vertical_high_res
-  !-------------------------------------------------------------------------
-!-------------------------------------------------------------------------------
-!>
-!! !  SUBROUTINE calculates ratio of consecutive gradients following Casulli-Zanolli.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2013).
-!!
-SUBROUTINE ratio_consecutive_gradients( p_patch_3D,       &
-                                      & w_time_weighted,  &
-                                      & trac_old,         &
-                                      & z_consec_grad)
- 
-  TYPE(t_patch_3D),TARGET, INTENT(IN):: p_patch_3D
-  REAL(wp), INTENT(IN)               :: w_time_weighted(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)  
-  REAL(wp), INTENT(IN)               :: trac_old(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp), INTENT(INOUT)            :: z_consec_grad(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
-  !
-  !Local variables
-  !REAL(wp) :: delta_z
-  INTEGER  :: i_startidx_c, i_endidx_c
-  INTEGER  :: jc, jk, jb, je
-  REAL(wp) :: z_diff_flux_v(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp) :: z_mflux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
-  REAL(wp) :: z_diff_trac, z_sum_flux_diff,z_sum_tmp_mflux,z_tmp_flux
-  
-  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain 
-  TYPE(t_patch), POINTER        :: p_patch 
-  !-------------------------------------------------------------------------------
-  p_patch         => p_patch_3D%p_patch_2D(1)
-  edges_in_domain => p_patch%edges%in_domain
-  cells_in_domain => p_patch%cells%in_domain
-  !-------------------------------------------------------------------------------  
-  z_consec_grad(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp  
-    
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-    DO jk = 1, n_zlev
-      DO jc = i_startidx_c, i_endidx_c
-
-        !Determine edges with inflow (can later be done in prep-sbr). 
-        !This depends on sign of velocity: positive = outflow, negtive = inflow         
-        z_diff_flux_v(jc,jk,jb)=trac_old(jc,jk-1,jb)-trac_old(jc,jk,jb)
-         
-        IF(w_time_weighted(je,jk,jb)>=0.0)THEN
-        
-          z_mflux(jc,jk,jb) = w_time_weighted(jc,jk,jb) 
-          
-          !inflow case        
-        ELSEIF(w_time_weighted(je,jk,jb)<0.0)THEN
-           z_mflux(jc,jk,jb) =-w_time_weighted(jc,jk,jb)          
-        ENDIF      
-      END DO
-    END DO
-  END DO  
-  
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-    DO jk = 1, n_zlev
-      DO jc = i_startidx_c, i_endidx_c
-
-        z_sum_tmp_mflux = 0.0_wp
-        z_sum_flux_diff = 0.0_wp
-          
-        !Consider outflow edges only
-        IF(w_time_weighted(jc,jk,jb)>=0.0)THEN
-            
-          !consider here inflow edges only      
-          IF(w_time_weighted(jc,jk+1,jb)<0.0)THEN
-
-            !calculate mass flux of actual edge.
-            z_tmp_flux = z_mflux(jc,jk,jb)
-         
-            z_diff_trac&
-            & = trac_old(jc,jk,jb)-trac_old(jc,jk,jb)               
-      
-            !This is in Casulli Zanolli, eq. (16) the numerator of
-            !the consecutive gradient
-             z_sum_flux_diff = z_sum_flux_diff+ z_tmp_flux*z_diff_trac!z_diff_flux_h(iii_e,jk,iib_e)
-          END IF
-          
-          !This is the final consecutive gradient as defined in neq. (16) of Casulli-Zanolli
-          !z_consec_grad(jc,jk,jb)= z_sum_flux_diff&
-          !&/(z_sum_tmp_mflux*z_diff_flux_h(ii_e,jk,ib_e)+dbl_eps)
-! IF( z_consec_grad(ii_e,jk,ib_e)/=0.0_wp)THEN              
-!  write(345,*)'consec grad', ii_e,ib_e,z_consec_grad(ii_e,jk,ib_e), z_sum_flux_diff, z_sum_tmp_mflux,&
-!  & z_diff_flux_h(ii_e,jk,ib_e)
-!  ENDIF
- !trac_old(jc,jk,jb),trac_old(ii_c1,jk,ib_c1),trac_old(ii_c2,jk,ib_c2),z_limit_phi(ii_e,jk,ib_e),&
- !&max(z_limit_phi(ii_e,jk,ib_e), min(1.0_wp,z_consec_grad(ii_e,jk,ib_e)))     
-        ENDIF           
-      END DO
-    END DO
-  END DO     
-END SUBROUTINE ratio_consecutive_gradients
-!-------------------------------------------------------------------------------
-
-
 
   !-------------------------------------------------------------------------
   !! SUBROUTINE advects vertically the tracers present in the ocean model.
@@ -371,8 +101,7 @@ END SUBROUTINE ratio_consecutive_gradients
                                  & p_os,                 &
                                  & bc_top_tracer,        &
                                  & bc_bot_tracer,        &
-                                 & flux_div_vert,        &
-                                 & tracer_id)
+                                 & flux_div_vert)
 
     !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     TYPE(t_patch_3D ),TARGET          :: p_patch_3D
@@ -381,12 +110,11 @@ END SUBROUTINE ratio_consecutive_gradients
     REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !new tracer
-    INTEGER, INTENT(IN)               :: tracer_id
 
     !Local variables
     !REAL(wp) :: delta_
-    REAL(wp) :: deriv_fst, deriv_sec, adpo_weight_upw_cntr, adpo_weight_cntr_upw
-    REAL(wp) :: prism_volume, transport_in, transport_out, adpo_r1, adpo_r2
+    REAL(wp) :: adpo_weight_cntr_upw!,deriv_fst, deriv_sec,adpo_weight_upw_cntr, 
+    REAL(wp) :: adpo_r1, adpo_r2
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb
     ! vertical advective tracer fluxes:
@@ -422,93 +150,84 @@ END SUBROUTINE ratio_consecutive_gradients
     ! Initialize timer for vertical advection
     IF (ltimer) CALL timer_start(timer_adv_vert)
 
-    !SELECT CASE(FLUX_CALCULATION_VERT)
-    !CASE(UPWIND)
-
-    IF (FLUX_CALCULATION_VERT == UPWIND .OR. FLUX_CALCULATION_VERT == FLUX_CORR_TRANSP_vert_adpo) THEN
+     SELECT CASE(flux_calculation_vert)
+     
+    CASE(upwind)
+    !IF (flux_calculation_vert == upwind .OR. flux_calculation_vert == fct_vert_adpo) THEN
 
       CALL upwind_vflux_oce( p_patch_3D,                  &
         &                    trac_old,                    &
         &                    p_os%p_diag%w_time_weighted, &
-        &                    bc_top_tracer,               &
-                            & z_adv_flux_vu,tracer_id )
+                            & z_adv_flux_v )
 
-      z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
-      &  z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+      !z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
+      !&  z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
-    ENDIF
+    CASE(fct_vert_zalesak)
+    !IF (flux_calculation_vert == central .OR. flux_calculation_vert == fct_vert_adpo) THEN
 
-    !CASE(CENTRAL)
-    IF (FLUX_CALCULATION_VERT == CENTRAL .OR. FLUX_CALCULATION_VERT == FLUX_CORR_TRANSP_vert_adpo) THEN
-
-      CALL central_vflux_oce(p_patch_3D,                  &
-        &                    trac_old,                    &
-                           & p_os%p_diag%w_time_weighted,& ! in
-                           & z_adv_flux_vc, tracer_id)
-
-
-    !CASE(CENTRAL)
-!    IF (FLUX_CALCULATION_VERT == CENTRAL .OR. FLUX_CALCULATION_VERT == ADPO) THEN
-
-!      CALL central_vflux_oce(p_patch_3D,                 &
-!                           & trac_old,                   &
-!                           & p_os%p_diag%w_time_weighted,& 
-!                           & z_adv_flux_vc, tracer_id)
-
-
-      !IF (l_vert_limiter_advection) &
-      !& CALL vflx_limiter_pd_oce( p_patch,               &
-      !                        & dtime,                   &
-      !                        & trac_old,                &
-      !                        & p_patch_3D%p_patch_1D(1)%prism_thick_c, &
-      !                        & z_adv_flux_vc)
-
-      z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = &
-      &  z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-
-    ENDIF
+      CALL central_vflux_oce(p_patch_3D,                 &
+        &                    trac_old,                   &
+        &                    p_os%p_diag%w_time_weighted,&
+        &                    z_adv_flux_v)
+        
+      CALL vflx_limiter_pd_oce( p_patch_3D,              &
+        &                       dtime,                   &
+        &                       trac_old,                &
+        &                       p_patch_3D%p_patch_1D(1)%prism_thick_c, &
+        &                       z_adv_flux_v)
 
     ! Vertical advection scheme: piecewise parabolic method (ppm)
-    !CASE(MIMETIC_MIURA)
-    IF (FLUX_CALCULATION_VERT == MIMETIC_MIURA) THEN
+    CASE(fct_vert_ppm)    !IF (flux_calculation_vert == PPM) THEN
 
 #ifndef __SX__
-      !TODO review: here p_patch_3D%p_patch_1D(1)%prism_thick_c is used as a
-      !data variable, whereas it should only contain geometrics constant in
-      !time
-      CALL upwind_vflux_ppm( p_patch_3D,                 &
-                           & trac_old,                   &
-        &                    p_os%p_diag%w_time_weighted,             &
-        &                    dtime, 1 ,                               & 
-        &                    p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
-        &                    z_adv_flux_v, tracer_id)
-#endif
-    ENDIF
 
-    ! Vertical advection scheme: FLUX_CORR_TRANSP_vert_adpo, adapted from MPIOM (Ernst Meier-Reimer)
-    IF (FLUX_CALCULATION_VERT == FLUX_CORR_TRANSP_vert_adpo) THEN
+      CALL upwind_vflux_ppm( p_patch_3D,                            &
+        &                    trac_old,                              &
+        &                    p_os%p_diag%w_time_weighted,           &
+        &                    dtime, 1 ,                             & 
+        &                    p_patch_3D%p_patch_1D(1)%prism_thick_c,&
+        &                    z_adv_flux_v)
+#endif
+    !ENDIF
+
+    ! Vertical advection scheme: fct_vert_adpo, adapted from MPIOM (Ernst Meier-Reimer)
+    CASE(fct_vert_adpo)
+    !IF (flux_calculation_vert == fct_vert_adpo) THEN
 
       IF (ltimer) CALL timer_start(timer_adpo_vert)
+      
+      CALL upwind_vflux_oce( p_patch_3D,                  &
+        &                    trac_old,                    &
+        &                    p_os%p_diag%w_time_weighted, &
+                            & z_adv_flux_vu )
+      !CALL central_vflux_oce(p_patch_3D,                  &
+      !  &                    trac_old,                    &
+      !  &                    p_os%p_diag%w_time_weighted, &
+      !  &                    z_adv_flux_vc)      
 
       CALL adpo_vtrac_oce( p_patch_3D,                              &
         &                  trac_old,                                &
         &                  p_os%p_diag%w_time_weighted,             &
         &                  dtime,                                   & 
         &                  p_patch_3D%p_patch_1D(1)%prism_thick_c,  &
-        &                  adpo_weight, tracer_id)
+        &                  adpo_weight)
 
       CALL sync_patch_array(SYNC_C, p_patch, adpo_weight)
-
-      ! FLUX_CORR_TRANSP_vert_adpo weights as well as flux divergence are defined at cell centers
+     END SELECT
+     
+    IF(flux_calculation_vert==fct_vert_adpo)THEN
+      ! fct_vert_adpo weights as well as flux divergence are defined at cell centers
       ! calculate resulting advective flux divergence using weighting factors for upwind and central
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+          DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
             ! positive vertical divergence in direction of w (upward positive)
             z_flux_div_upw          = z_adv_flux_vu(jc,jk,jb) - z_adv_flux_vu(jc,jk+1,jb)
-            z_flux_div_cnt          = z_adv_flux_vc(jc,jk,jb) - z_adv_flux_vc(jc,jk+1,jb)
-            flux_div_vert(jc,jk,jb) = z_flux_div_upw * (1.0_wp-adpo_weight(Jc,jk,jb)) + &
+            z_flux_div_cnt          = abs(p_os%p_diag%w_time_weighted(jc,jk,jb))*(trac_old(jc,jk,jb) - trac_old(jc,jk+1,jb))            
+            !debugged;replaced by previous line, PK, Feb.2014 z_flux_div_cnt          = z_adv_flux_vc(jc,jk,jb) - z_adv_flux_vc(jc,jk+1,jb)
+            flux_div_vert(jc,jk,jb) = z_flux_div_upw * (1.0_wp-adpo_weight(jc,jk,jb)) + &
               &                       z_flux_div_cnt * adpo_weight(jc,jk,jb)
           ENDDO
         END DO
@@ -521,7 +240,7 @@ END SUBROUTINE ratio_consecutive_gradients
   !   CALL dbg_print('AdvVertAdpo: adv_flux_v' ,z_adv_flux_v ,str_module, idt_src, in_subset=cells_in_domain)
   !   !---------------------------------------------------------------------
 
-    ELSE
+    ELSEIF(flux_calculation_vert/=fct_vert_adpo)THEN
 
       CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
      
@@ -536,9 +255,8 @@ END SUBROUTINE ratio_consecutive_gradients
           ENDDO
         END DO
       END DO
-
     ENDIF
-
+ 
     IF (ltimer) CALL timer_stop(timer_adv_vert)
 
     CALL sync_patch_array(SYNC_C, p_patch, flux_div_vert)
@@ -567,14 +285,12 @@ END SUBROUTINE ratio_consecutive_gradients
   !! - adapted to hydrostatic ocean core
   !!
   !! mpi parallelized, no sync
-  SUBROUTINE upwind_vflux_oce( p_patch_3D, pvar_c, pw_c,top_bc_t, pupflux_i, tracer_id )
+  SUBROUTINE upwind_vflux_oce( p_patch_3D, pvar_c, pw_c, pupflux_i )
 
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)           :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< advected cell centered variable
     REAL(wp), INTENT(INOUT)           :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
-    REAL(wp), INTENT(INOUT)           :: top_bc_t(nproma,      p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< top boundary condition traver
     REAL(wp), INTENT(INOUT)           :: pupflux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< variable in which the upwind flux is stored
-    INTEGER, INTENT(IN)               :: tracer_id
     ! local variables
     ! height based but reversed (downward increasing depth) coordinate system,
     ! grid coefficient is negative (same as pressure based atmospheric coordinate system
@@ -718,16 +434,15 @@ END SUBROUTINE ratio_consecutive_gradients
   !! Calculation of central vertical tracer fluxes
   !!
   !! @par Revision History
-  !! Petter Korn, MPI-M
+  !! Peter Korn, MPI-M
   !!
   !! mpi parallelized, no sync
-  SUBROUTINE central_vflux_oce( p_patch_3D, pvar_c, pw_c, c_flux_i, tracer_id )
+  SUBROUTINE central_vflux_oce( p_patch_3D, pvar_c, pw_c, c_flux_i )
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)  :: pvar_c(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< advected cell centered variable
     REAL(wp), INTENT(INOUT)  :: pw_c(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
     REAL(wp), INTENT(INOUT)  :: c_flux_i(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !< variable in which the central flux is stored
-    INTEGER, INTENT(IN)      :: tracer_id
     ! local variables
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
@@ -750,16 +465,10 @@ END SUBROUTINE ratio_consecutive_gradients
             IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               ! index of top half level
               jkm1 = jk - 1
-
               ! calculate vertical tracer flux using central method
               c_flux_i(jc,jk,jb) = 0.5_wp*pw_c(jc,jk,jb)              &
-                &  * (pvar_c(jc,jkm1,jb)+ pvar_c(jc,jk,jb) )          !&
-                !&          +0.5_wp*pw_c(jc,jk,jb)*pw_c(jc,jk,jb)*dtime&
-                !&          / v_base%del_zlev_i(jk)                    &
-                !&          *( pvar_c(jc,jkm1,jb) -pvar_c(jc,jk,jb))
+                &  * (pvar_c(jc,jkm1,jb)+ pvar_c(jc,jk,jb) )          
             ENDIF 
-           !zero advective flux at bottom boundary
-           !c_flux_i(jc,z_dolic+1,jb)=0.0_wp
         ENDDO
       END DO
     END DO
@@ -795,8 +504,8 @@ END SUBROUTINE ratio_consecutive_gradients
     &                         p_w,         & ! vertical velocity
     &                         p_dtime,     & ! time step
     &                         p_thick_c,   & ! layer thickness
-    &                         p_adpo_w,    & ! output: weights for upwind and central part
-    &                         tracer_id)
+    &                         p_adpo_w)      ! output: weights for upwind and central part
+ 
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
     REAL(wp), INTENT(INOUT)  :: p_cc        (nproma,n_zlev  , p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -804,13 +513,12 @@ END SUBROUTINE ratio_consecutive_gradients
     REAL(wp), INTENT(IN)     :: p_dtime                                                                  
     REAL(wp), INTENT(INOUT)  :: p_thick_c   (nproma,n_zlev,   p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  
     REAL(wp), INTENT(INOUT)  :: p_adpo_w    (nproma,n_zlev,   p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  
-    INTEGER, INTENT(IN)      :: tracer_id
 
     ! local variables
     INTEGER  :: jc, jk, jb, i_startidx_c, i_endidx_c
     REAL(wp) :: deriv_fst, deriv_sec
-    REAL(wp) :: prism_volume, new_volume, adpo_r1, adpo_r2
-    REAL(wp) :: advvol_in, advvol_out, advtrc_in, advtrc_out, wupw_in, wupw_out
+    REAL(wp) :: adpo_r1, adpo_r2,prism_volume!, new_volume, 
+    REAL(wp) :: advvol_in, advvol_out, wupw_in, wupw_out!,advtrc_in, advtrc_out, 
     REAL(wp) :: z_adpo_r1     (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_adpo_vol_in (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_adpo_vol_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -893,7 +601,7 @@ END SUBROUTINE ratio_consecutive_gradients
     ENDDO
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
+    idt_src=1  ! output print level (1-5, fix)
     !IF (tracer_id == 1) THEN
     CALL dbg_print('AdvVertAdpo: weight: r1 '   ,z_adpo_r1,     str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVertAdpo: adpo_weight'   ,p_adpo_w,      str_module,idt_src, in_subset=cells_in_domain)
@@ -930,7 +638,7 @@ END SUBROUTINE ratio_consecutive_gradients
   SUBROUTINE upwind_vflux_ppm( p_patch_3D, p_cc,        &
     &                      p_w, p_dtime, p_itype_vlimit,&
     &                      p_cellhgt_mc_now, &
-    &                      p_upflux, tracer_id)
+    &                      p_upflux)
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
 !!$      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
@@ -942,7 +650,6 @@ END SUBROUTINE ratio_consecutive_gradients
     REAL(wp), INTENT(INOUT)           :: p_cellhgt_mc_now(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     REAL(wp), INTENT(INOUT)           :: p_upflux(nproma,n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)      !< output field, tracer flux
     INTEGER, INTENT(IN)               :: p_itype_vlimit                                  !< parameter to select limiter
-    INTEGER, INTENT(IN)               :: tracer_id
 !
 !local variables
     REAL(wp) :: z_face(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)   !< face values of transported field
@@ -1174,17 +881,16 @@ END SUBROUTINE ratio_consecutive_gradients
     ! Therefore 2 additional fields z_face_up and z_face_low are
     ! introduced.
     !
-    IF (l_vert_limiter_advection) THEN
-     IF (p_itype_vlimit == islopel_vsm) THEN
-!      ! monotonic (mo) limiter
+    IF (p_itype_vlimit == islopel_vsm) THEN
+!     ! monotonic (mo) limiter
       IF (ltimer) CALL timer_start(timer_ppm_slim)
 
-      CALL v_ppm_slimiter_mo( p_patch_3D, &
-                            & p_cc,       &
-                            & z_face,     &
-                            & z_slope,    &
-                            & z_face_up,  &
-                            & z_face_low)
+        CALL v_ppm_slimiter_mo( p_patch_3D, &
+                              & p_cc,       &
+                              & z_face,     &
+                              & z_slope,    &
+                              & z_face_up,  &
+                              & z_face_low)
 
       IF (ltimer) CALL timer_stop(timer_ppm_slim)
     ELSE
@@ -1193,23 +899,21 @@ END SUBROUTINE ratio_consecutive_gradients
 ! !$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx)
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-        DO jk = slev, n_zlev
+        DO jk = slevp1, n_zlev
           ! index of bottom half level
           ikp1 = jk + 1
-          !IF ( v_base%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
-          IF ( p_patch_3D%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
-          z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)
-          z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)
-          ELSE
-          z_face_up(i_startidx:i_endidx,jk,jb)  = 0.0_wp
-          z_face_low(i_startidx:i_endidx,jk,jb) = 0.0_wp
-          ENDIF
+          !IF ( p_patch_3D%lsm_c(i_startidx:i_endidx,jk,jb) <= sea_boundary ) THEN
+            z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)
+            z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)
+          !ELSE
+          !  z_face_up(i_startidx:i_endidx,jk,jb)  = 0.0_wp
+          !  z_face_low(i_startidx:i_endidx,jk,jb) = 0.0_wp
+          !ENDIF
         ENDDO
       ENDDO
 ! !$OMP ENDDO
 ! !$OMP END PARALLEL
-     ENDIF  !  p_ityp_vlimit
-    ENDIF  ! l_vert_limiter_advection
+    ENDIF  !  p_ityp_vlimit
 
 
 ! !$OMP PARALLEL
@@ -1260,6 +964,8 @@ END SUBROUTINE ratio_consecutive_gradients
           p_upflux(jc,jk,jb) =                                  &
             &  laxfr_upflux_v( p_w(jc,jk,jb),       &
             &                z_lext_1(jc,jk), z_lext_2(jc,jk))
+            
+
         ELSE
           p_upflux(jc,jk,jb) = 0.0_wp
         ENDIF
@@ -1273,8 +979,6 @@ END SUBROUTINE ratio_consecutive_gradients
     ENDDO ! end loop over blocks
 ! !$OMP END DO
 ! !$OMP END PARALLEL
-
-
       CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
 
 
@@ -1283,7 +987,7 @@ END SUBROUTINE ratio_consecutive_gradients
       !    positive-definite (pd) limiter      !
       !    IF (p_itype_vlimit == ifluxl_vpd) THEN
       !     IF (l_vert_limiter_advection) &
-      !       & CALL vflx_limiter_pd_oce( p_patch, p_dtime, p_cc, p_cellhgt_mc_now, p_upflux)
+      !CALL vflx_limiter_pd_oce( p_patch_3D, p_dtime, p_cc, p_cellhgt_mc_now, p_upflux)
       !   ENDIF
 
     CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
@@ -1343,7 +1047,7 @@ END SUBROUTINE ratio_consecutive_gradients
       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
-        i_dolic=p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) !v_base%dolic_c(jc,jb)
+        i_dolic=p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
         DO jk = slev, i_dolic
           ! index of bottom half level
@@ -1452,9 +1156,9 @@ END SUBROUTINE ratio_consecutive_gradients
      !
      ! 1. Compute total outward mass
      !
-     DO jk = slev, elev-1
-       jkp1 = jk+1
-
+     DO jk = slev, elev
+        jkp1 = jk+1
+!       jkm1 = jk-1
        DO jc = i_startidx, i_endidx
 
          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -1504,12 +1208,16 @@ END SUBROUTINE ratio_consecutive_gradients
            z_signum(jc) = SIGN(1._wp,p_flx_tracer_v(jc,jk,jb))
 
            p_flx_tracer_v(jc,jk,jb) =  p_flx_tracer_v(jc,jk,jb)  * 0.5_wp    &
-             &                       * ( (1._wp + z_signum(jc)) * r_m(jc,jkm1) &
-             &                       +   (1._wp - z_signum(jc)) * r_m(jc,jk) )
+!              &                       * ( (1._wp + z_signum(jc)) * r_m(jc,jkm1) &
+!              &                       +   (1._wp - z_signum(jc)) * r_m(jc,jk) )
+             &                       * ( (1._wp + z_signum(jc)) * r_m(jc,jk) &
+             &                       +   (1._wp - z_signum(jc)) * r_m(jc,jkm1) )
+
          ENDIF
        ENDDO
      ENDDO
    ENDDO
+   
 ! !$OMP END DO NOWAIT
 ! !$OMP END PARALLEL
   END SUBROUTINE vflx_limiter_pd_oce
@@ -1554,5 +1262,272 @@ END SUBROUTINE ratio_consecutive_gradients
     p_upflux = 0.5_wp * (                       p_vn  *( p_psi1 + p_psi2 )    &
       &                   +  ABS( p_vn )*( p_psi2 - p_psi1 ) )
   END FUNCTION laxfr_upflux_v
+  !-------------------------------------------------------------------------
+  !! SUBROUTINE advects vertically the tracers present in the ocean model.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2010).
+  !!
+  !! mpi parallelized, sync required: trac_out
+  SUBROUTINE advect_flux_vertical_high_res( p_patch_3D,  &
+                                 & trac_old,             &
+                                 & p_os,                 &
+                                 & A_v,                  &
+                                 & bc_top_tracer,        &
+                                 & bc_bot_tracer,        &
+                                 & flux_div_vert)
+
+    !TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+    TYPE(t_patch_3D ),TARGET          :: p_patch_3D
+    REAL(wp), INTENT(INOUT)           :: trac_old(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_hydro_ocean_state), TARGET :: p_os
+    REAL(wp)                          :: A_v(:,:,:) 
+    REAL(wp)                          :: bc_top_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)                          :: bc_bot_tracer(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(INOUT)           :: flux_div_vert(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) !new tracer
+
+    !Local variables
+    REAL(wp) :: z_tmp
+    INTEGER  :: i_startidx_c, i_endidx_c
+    INTEGER  :: jc, jk, jb
+    !INTEGER  :: z_dolic
+    REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)  ! vertical advective tracer flux
+    REAL(wp) :: z_adv_flux_v2 (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)   
+    REAL(wp) :: z_diff_flux_v(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) 
+    REAL(wp) :: z_tflux_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c) 
+    REAL(wp) :: z_tflux_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_mflux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)   
+    
+    REAL(wp) :: z_limit_phi(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_limit_psi(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+    REAL(wp) :: z_adv_flux_high (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  ! vert advective tracer flux  
+    REAL(wp) :: z_adv_flux_low (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%nblks_c)  ! vert advective tracer flux  
+
+    
+    TYPE(t_patch), POINTER :: p_patch
+    ! CHARACTER(len=max_char_length), PARAMETER :: &
+    !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+    !-------------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    !-------------------------------------------------------------------------------
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    cells_in_domain => p_patch%cells%in_domain
+
+
+    z_adv_flux_v (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)= 0.0_wp
+    z_diff_flux_v(1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp
+    z_tflux_out  (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp 
+    z_tflux_in   (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp 
+    z_mflux      (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp  
+    
+    z_limit_phi  (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp
+    z_limit_psi  (1:nproma,1:n_zlev,  1:p_patch_3D%p_patch_2D(1)%nblks_c)          = 0.0_wp
+
+    z_adv_flux_high(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c)= 0.0_wp  
+    z_adv_flux_low (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%nblks_c)= 0.0_wp  
+    z_adv_flux_v2  (1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp
+   
+!  trac_old=0.0_wp
+!  
+!  Do jk=1,n_zlev
+!  trac_old(:,jk,:)=REAL(jk,wp)
+!  p_os%p_diag%w_time_weighted = 10.0_wp*REAL(jk,wp)
+!  end do
+    CALL sync_patch_array(SYNC_C, p_patch, trac_old)
+
+    !0) For testing
+!      CALL upwind_vflux_oce( p_patch_3D,                  &
+!                             & trac_old,                   &
+!                             & p_os%p_diag%w_time_weighted,& 
+!                             & z_adv_flux_v2 )
+
+      CALL central_vflux_oce(p_patch_3D,                 &
+                           & trac_old,                   &
+                           & p_os%p_diag%w_time_weighted,& 
+                           & z_adv_flux_v2)   
+    
+    
+    !1) calculate phi-part of limiter   
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+      DO jk = 2, n_zlev
+        DO jc = i_startidx_c, i_endidx_c
+        
+          z_diff_flux_v(jc,jk,jb)=trac_old(jc,jk-1,jb)-trac_old(jc,jk,jb)
+
+          !Determine edges with inflow (can later be done in prep-sbr). 
+          !This depends on sign of velocity: positive = outflow, negtive = inflow
+                   
+          !outflow case
+          IF(p_os%p_diag%w_time_weighted(jc,jk,jb)>=0.0)THEN
+        
+            z_tflux_out(jc,jk,jb) = p_os%p_diag%w_time_weighted(jc,jk,jb)*trac_old(jc,jk,jb)
+            z_mflux(jc,jk,jb)     = p_os%p_diag%w_time_weighted(jc,jk,jb) 
+          
+          !inflow case        
+          ELSEIF(p_os%p_diag%w_time_weighted(jc,jk,jb)<0.0)THEN
+        
+           z_tflux_in(jc,jk,jb) =-p_os%p_diag%w_time_weighted(jc,jk,jb)*trac_old(jc,jk-1,jb)          
+           z_mflux(jc,jk,jb)    =-p_os%p_diag%w_time_weighted(jc,jk,jb)
+          
+          ENDIF      
+         z_adv_flux_low(jc,jk,jb) = z_tflux_out(jc,jk,jb)-z_tflux_in(jc,jk,jb)
+         
+         z_adv_flux_high(jc,jk,jb) = z_mflux(jc,jk,jb)*z_diff_flux_v(jc,jk,jb)
+         
+         z_tmp = 2.0_wp*A_v(jc,jk,jb)/p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,jk,jb)    
+                  
+         !This corresponds to eq. (14) in Casulli-Zanolli         
+         z_limit_phi(jc,jk,jb) = min(1.0_wp,z_tmp/z_mflux(jc,jk,jb))
+         
+          !write(345,*)'compare',jc,jk,jb,z_adv_flux_v2(jc,jk,jb),0.5_wp*z_adv_flux_high(jc,jk,jb)+z_adv_flux_low(jc,jk,jb),&
+          !&z_adv_flux_high(jc,jk,jb),z_adv_flux_low(jc,jk,jb),z_mflux(jc,jk,jb),z_diff_flux_v(jc,jk,jb)!z_limit_phi(je,jk,jb), z_tmp, z_mflux(je,jk,jb)       
+         !z_adv_flux_h(je,jk,jb)=&
+         !&z_flux_out(je,jk,jb)-z_flux_in(je,jk,jb)&
+         !&+z_mflux(je,jk,jb)*z_diff_h(je,jk,jb)           
+         !z_adv_flux_h(je,jk,jb)=z_adv_flux_h(je,jk,jb) * p_patch_3D%p_patch_1D(1)%prism_thick_e(je,jk,jb) 
+        END DO
+      END DO
+    END DO
+    
+    
+    !2) calculate ratio of consecutive gradients: "r" for outflow edges 
+    
+    
+    !3) calculate psi-part of limiter
+    
+  stop  
+    
+    CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
+
+    IF (ltimer) CALL timer_stop(timer_adv_vert)
+
+    !divergence is calculated for advective fluxes
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+            ! positive vertical divergence in direction of w (upward positive)
+            flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
+                                    &-z_adv_flux_v(jc,jk+1,jb)
+        ENDDO
+      END DO
+    END DO
+
+    CALL sync_patch_array(SYNC_C, p_patch, flux_div_vert)
+
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('AdvDifVert: w_time_weighted',p_os%p_diag%w_time_weighted ,str_module,idt_src)
+    !CALL dbg_print('AdvDifVert: div_mass_flx_c' ,p_os%p_diag%div_mass_flx_c  ,str_module,idt_src)
+    CALL dbg_print('AdvVert: adv_flux_v'     ,z_adv_flux_v                ,str_module,idt_src)
+    CALL dbg_print('AdvVert: flux_div_vert'  ,flux_div_vert                ,str_module,idt_src)
+    !---------------------------------------------------------------------
+  END SUBROUTINE advect_flux_vertical_high_res
+  !-------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!>
+!! !  SUBROUTINE calculates ratio of consecutive gradients following Casulli-Zanolli.
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2013).
+!!
+SUBROUTINE ratio_consecutive_gradients( p_patch_3D,       &
+                                      & w_time_weighted,  &
+                                      & trac_old,         &
+                                      & z_consec_grad)
+ 
+  TYPE(t_patch_3D),TARGET, INTENT(IN):: p_patch_3D
+  REAL(wp), INTENT(IN)               :: w_time_weighted(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)  
+  REAL(wp), INTENT(IN)               :: trac_old(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp), INTENT(INOUT)            :: z_consec_grad(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c)
+  !
+  !Local variables
+  !REAL(wp) :: delta_z
+  INTEGER  :: i_startidx_c, i_endidx_c
+  INTEGER  :: jc, jk, jb, je
+  REAL(wp) :: z_diff_flux_v(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp) :: z_mflux(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_c)
+  REAL(wp) :: z_diff_trac, z_sum_flux_diff,z_sum_tmp_mflux,z_tmp_flux
+  
+  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain 
+  TYPE(t_patch), POINTER        :: p_patch 
+  !-------------------------------------------------------------------------------
+  p_patch         => p_patch_3D%p_patch_2D(1)
+  edges_in_domain => p_patch%edges%in_domain
+  cells_in_domain => p_patch%cells%in_domain
+  !-------------------------------------------------------------------------------  
+  z_consec_grad(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp  
+    
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+    DO jk = 1, n_zlev
+      DO jc = i_startidx_c, i_endidx_c
+
+        !Determine edges with inflow (can later be done in prep-sbr). 
+        !This depends on sign of velocity: positive = outflow, negtive = inflow         
+        z_diff_flux_v(jc,jk,jb)=trac_old(jc,jk-1,jb)-trac_old(jc,jk,jb)
+         
+        IF(w_time_weighted(je,jk,jb)>=0.0)THEN
+        
+          z_mflux(jc,jk,jb) = w_time_weighted(jc,jk,jb) 
+          
+          !inflow case        
+        ELSEIF(w_time_weighted(je,jk,jb)<0.0)THEN
+           z_mflux(jc,jk,jb) =-w_time_weighted(jc,jk,jb)          
+        ENDIF      
+      END DO
+    END DO
+  END DO  
+  
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+    DO jk = 1, n_zlev
+      DO jc = i_startidx_c, i_endidx_c
+
+        z_sum_tmp_mflux = 0.0_wp
+        z_sum_flux_diff = 0.0_wp
+          
+        !Consider outflow edges only
+        IF(w_time_weighted(jc,jk,jb)>=0.0)THEN
+            
+          !consider here inflow edges only      
+          IF(w_time_weighted(jc,jk+1,jb)<0.0)THEN
+
+            !calculate mass flux of actual edge.
+            z_tmp_flux = z_mflux(jc,jk,jb)
+         
+            z_diff_trac&
+            & = trac_old(jc,jk,jb)-trac_old(jc,jk,jb)               
+      
+            !This is in Casulli Zanolli, eq. (16) the numerator of
+            !the consecutive gradient
+             z_sum_flux_diff = z_sum_flux_diff+ z_tmp_flux*z_diff_trac!z_diff_flux_h(iii_e,jk,iib_e)
+          END IF
+          
+          !This is the final consecutive gradient as defined in neq. (16) of Casulli-Zanolli
+          !z_consec_grad(jc,jk,jb)= z_sum_flux_diff&
+          !&/(z_sum_tmp_mflux*z_diff_flux_h(ii_e,jk,ib_e)+dbl_eps)
+! IF( z_consec_grad(ii_e,jk,ib_e)/=0.0_wp)THEN              
+!  write(345,*)'consec grad', ii_e,ib_e,z_consec_grad(ii_e,jk,ib_e), z_sum_flux_diff, z_sum_tmp_mflux,&
+!  & z_diff_flux_h(ii_e,jk,ib_e)
+!  ENDIF
+ !trac_old(jc,jk,jb),trac_old(ii_c1,jk,ib_c1),trac_old(ii_c2,jk,ib_c2),z_limit_phi(ii_e,jk,ib_e),&
+ !&max(z_limit_phi(ii_e,jk,ib_e), min(1.0_wp,z_consec_grad(ii_e,jk,ib_e)))     
+        ENDIF           
+      END DO
+    END DO
+  END DO     
+END SUBROUTINE ratio_consecutive_gradients
+!-------------------------------------------------------------------------------
+
+
 
 END MODULE mo_oce_tracer_transport_vert

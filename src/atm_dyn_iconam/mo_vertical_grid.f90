@@ -58,7 +58,6 @@ MODULE mo_vertical_grid
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
-  USE mo_sleve_config,          ONLY: lread_smt
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
@@ -70,7 +69,7 @@ MODULE mo_vertical_grid
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state
-  USE mo_nh_init_utils,         ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord
+  USE mo_nh_init_utils,         ONLY: nflatlev
   USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -133,7 +132,7 @@ MODULE mo_vertical_grid
       &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),      &
       &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
-    REAL(wp), ALLOCATABLE :: z_ifv(:,:,:), z_mfv(:,:,:)
+    REAL(wp), ALLOCATABLE :: z_ifv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:), &
                              z_ddxt_z_half(:,:,:), z_ddxn_z_half(:,:,:)
     REAL(wp), ALLOCATABLE :: z_aux_c(:,:,:), z_aux_e(:,:,:)
@@ -169,19 +168,23 @@ MODULE mo_vertical_grid
                      'flat_height too close to the top of the innermost nested domain')
       ENDIF
 
-      ! Compute smooth topography when SLEVE coordinate is used
-      IF ( ivctype == 2 .AND. .NOT. lread_smt ) THEN
-        CALL compute_smooth_topo(p_patch(jg), p_int(jg), ext_data(jg)%atm%topography_c, &
-                      ext_data(jg)%atm%topography_smt_c, ext_data(jg)%atm%topography_v, &
-                      ext_data(jg)%atm%topography_smt_v                                 )
-      ENDIF
-
-      ! Initialize vertical coordinate for cell points
-      CALL init_vert_coord(ext_data(jg)%atm%topography_c, ext_data(jg)%atm%topography_smt_c, &
-                           p_nh(jg)%metrics%z_ifc, p_nh(jg)%metrics%z_mc, nlev,              &
-                           nblks_c, npromz_c, p_patch(jg)%nshift_total, nflatlev(jg)         )
-
 !$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1,nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+          p_nh(jg)%metrics%z_mc(nlen+1:nproma,:,jb) = 0._wp
+        ENDIF
+        DO jk = 1, nlev
+          ! geometric height of full levels
+          p_nh(jg)%metrics%z_mc(1:nlen,jk,jb) = 0.5_wp*(p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) + &
+            &                                           p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb))
+        ENDDO
+      ENDDO
+!$OMP END DO 
+
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
 
@@ -269,16 +272,13 @@ MODULE mo_vertical_grid
       ! For the tangential slope we need temporarily also the height
       ! at the vertices
       ALLOCATE(z_ifv(nproma,nlevp1,nblks_v))
-      ALLOCATE(z_mfv(nproma,nlev  ,nblks_v))
       ALLOCATE(z_ddxt_z_half(nproma,nlevp1,nblks_e))
       ALLOCATE(z_ddxn_z_half(nproma,nlevp1,nblks_e))
       ! Intermediate storage for fields that are optionally single precision (to circumvent duplicating subroutines)
       ALLOCATE(z_aux_e(nproma,nlev,nblks_e))
 
-      ! Initialize vertical coordinate for vertex points
-      CALL init_vert_coord(ext_data(jg)%atm%topography_v, ext_data(jg)%atm%topography_smt_v, &
-                           z_ifv, z_mfv, nlev, nblks_v, npromz_v, p_patch(jg)%nshift_total,  &
-                           nflatlev(jg)                                                      )
+      z_ifv = 0._wp
+      CALL cells2verts_scalar(p_nh(jg)%metrics%z_ifc, p_patch(jg), p_int(jg)%cells_aw_verts, z_ifv)
 
       ! Start index for slope computations
       i_startblk = p_patch(jg)%edges%start_blk(2,1)
@@ -289,12 +289,11 @@ MODULE mo_vertical_grid
       p_nh(jg)%metrics%ddxn_z_full = 0._wp
 
       ! slope of the terrain (tangential direction)
-      CALL grad_fd_tang ( z_ifv, &
-           &              p_patch(jg), &
-           &              z_ddxt_z_half, &
+      CALL grad_fd_tang ( z_ifv,                  &
+           &              p_patch(jg),            &
+           &              z_ddxt_z_half,          &
            &              1, nlevp1 )
       DEALLOCATE(z_ifv)
-      DEALLOCATE(z_mfv)
 
       ! slope of the terrain (normal direction)
       CALL grad_fd_norm ( p_nh(jg)%metrics%z_ifc, &

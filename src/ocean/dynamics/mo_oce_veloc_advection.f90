@@ -47,7 +47,7 @@ MODULE mo_oce_veloc_advection
   USE mo_impl_constants,      ONLY: boundary, min_dolic
   USE mo_ocean_nml,           ONLY: n_zlev!, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_diag
+  USE mo_oce_types,           ONLY: t_hydro_ocean_diag
   USE mo_oce_math_operators,  ONLY: grad_fd_norm_oce_3d, &!grad_fd_norm_oce, div_oce_3d, &
     &                               rot_vertex_ocean_3d!, rot_vertex_ocean
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product!,cc2gc, gvec2cvec, gc2cc

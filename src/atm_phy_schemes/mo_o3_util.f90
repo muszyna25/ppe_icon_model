@@ -62,6 +62,7 @@ MODULE mo_o3_util
   USE mo_physical_constants,   ONLY: amd,amo3
   USE mo_time_interpolation,   ONLY: wgt1=>wgt1_limm, wgt2=>wgt2_limm, &
                                      inm1=>inm1_limm, inm2=>inm2_limm
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone
   
   IMPLICIT NONE
 
@@ -279,7 +280,7 @@ END SUBROUTINE o3_timeint
 
     ! Input/Output field
     REAL(wp), DIMENSION(nproma,nlev_o3,nblks),INTENT(IN) :: ape_o3   ! external APE o3 data
-    REAL(wp), DIMENSION(nproma,nlev   ,nblks),INTENT(OUT):: model_o3 !converted o3 field for the model
+    REAL(wp), DIMENSION(nproma,nlev   ,nblks),INTENT(OUT):: model_o3 ! converted o3 field for the model
 
     ! help field, since ape_o3 must remain as INTENT IN
     REAL(wp), DIMENSION(nproma,nlev_o3,nblks)            :: aux_o3   ! external APE o3 data
@@ -1000,7 +1001,7 @@ END SUBROUTINE o3_timeint
       RCLPR(JK) =ZPRESH(JK)
     ENDDO
     ZPRESH(NLEV_GEMS)=110000._wp
-    RCLPR(nlev_gems)        =ZPRESH(nlev_gems)
+    RCLPR(nlev_gems) =ZPRESH(nlev_gems)
 
 
     ! volume mixing ratio to ozone pressure thickness
@@ -1042,7 +1043,7 @@ END SUBROUTINE o3_timeint
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                 i_startidx, i_endidx, rl_start, rl_end)
 
-      !Latitude interpolations
+      ! Latitude interpolation
       
       DO jkk=1,nlev_gems
 
@@ -1111,6 +1112,18 @@ END SUBROUTINE o3_timeint
       DO jk = 1,pt_patch%nlev
         DO jc = i_startidx,i_endidx
           ext_data%atm%o3(jc,jk,jb)=(ZVIOZO(jc,jk)-ZVIOZO(jc,jk-1)) / p_diag%dpres_mc(jc,jk,jb)
+
+! MK, 2014-01: tuning to increase ozone by maximum 50% at 15km decreasing linearly
+!              towards 0% at 30km and 10km; goal: warmer lower stratosphere 0.5K
+          IF ( ltuning_ozone ) THEN
+            ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) &
+                                    & * atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk)
+          ENDIF
+
+          !IF ( jk > 30 .and. jk < 55 ) THEN   ! triangle in [30,55] with maximum at L50
+          !  ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) &
+          !    * ( 1.0_wp + 0.5_wp * min( (jk-30)/20._wp, (55-jk)/5._wp ) )
+          !ENDIF
         ENDDO
       ENDDO
 

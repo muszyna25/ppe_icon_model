@@ -50,7 +50,7 @@ MODULE mo_nh_vert_interp
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp,                ONLY: edges2cells_scalar, cell_avg, &
-    &                               cells2edges_scalar
+    &                               cells2edges_scalar, cells2verts_scalar
   USE mo_parallel_config,     ONLY: nproma
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv, dtdz_standardatm
   USE mo_grid_config,         ONLY: n_dom
@@ -374,7 +374,7 @@ CONTAINS
     ! Perform vertical interpolation
 
     ! Temperature 
-    CALL compute_slope(p_patch, p_int, initicon%topography_c, initicon%topography_v, slope)
+    CALL compute_slope(p_patch, p_int, initicon%topography_c, slope)
 
     CALL temperature_intp(initicon%atm_in%temp, initicon%atm%temp,                &
                           initicon%atm_in%z3d, initicon%z_mc,                     &
@@ -2411,14 +2411,13 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE compute_slope(p_patch, p_int, topo_c, topo_v, slope_c)
+  SUBROUTINE compute_slope(p_patch, p_int, topo_c, slope_c)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
 
     ! Topography data
     REAL(wp), INTENT(IN) :: topo_c(:,:)  ! topography height of mass points
-    REAL(wp), INTENT(IN) :: topo_v(:,:)  ! topography height of vertices
 
     ! Output
     REAL(wp), INTENT(OUT) :: slope_c(:,:) ! surface slope of mass points
@@ -2442,9 +2441,12 @@ CONTAINS
     slope_norm (:,1,:) = 0._wp
     slope_tang (:,1,:) = 0._wp
     slope_abs_e(:,1,:) = 0._wp
+    z_topo_v   (:,1,:) = 0._wp
 
     z_topo_c(:,1,:) = topo_c(:,:)
-    z_topo_v(:,1,:) = topo_v(:,:)
+
+    ! Compute auxiliary topography at verices
+    CALL cells2verts_scalar(z_topo_c, p_patch, p_int%cells_aw_verts, z_topo_v, 1, 1)
 
     ! Compute slopes
     CALL grad_fd_norm ( z_topo_c, p_patch, slope_norm, 1, 1)

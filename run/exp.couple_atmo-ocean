@@ -400,9 +400,6 @@ dt_file=$dt_restart
 (( outputLength  = nyear_outpLen * day * 366 ))
 #
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-#
-init_oce=0     # 1: use ocean initialization file; 0: init with constants or analytically
 #
 # prognostic ocean initialization files are named $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
 #
@@ -561,7 +558,7 @@ cat > ${ocean_namelist} << EOF
   n_zlev             =   20               ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   20.0,  20.0, 20.0 ,  30.0,  40.0,  50.0,  70.0,  90.0,
                         120.0, 150.0, 180.0, 210.0, 250.0, 300.0, 400.0, 500.0,
-                        550.0, 600.0, 700.0, 700.0, 500.0, 500.0
+                        550.0, 600.0, 700.0, 700.0
  !l_edge_based                  = .TRUE.  ! edge- or cell-based mimetic discretization
  !l_partial_cells               = .FALSE. ! partial bottom cells=TRUE: local varying bottom depth
   FLUX_CALCULATION_HORZ         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
@@ -592,13 +589,10 @@ cat > ${ocean_namelist} << EOF
   i_ice_therm   = 1
   i_ice_dyn     = 1
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce              = ${iforc_oce} ! ocean forcing:
                                         ! NO_FORCING                 = 10
                                         ! FORCING_FROM_COUPLED_FLUX  = 14
-  itestcase_oce          = 50           ! 50=zonally homogen temperature for APE SST (Williamson)
-  init_oce_prog          = ${init_oce}  ! read ocean initialization file, see above
-  idiag_oce              =  0           !  0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation = -1           !  0: no relaxation used
                                         !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                         !  2: use SST read from OMIP/bulk forcing (iforc=12);
@@ -611,6 +605,17 @@ cat > ${ocean_namelist} << EOF
   relax_2d_mon_S         =    3.0       ! strength of 2-dim relaxation for salinity (months)
   irelax_3d_T            =    0         ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
                                         ! 3: use initial T read with init_oce=1
+/
+&ocean_initialConditions_nml
+  ! itestcase_oce              = 50           ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type      = 402
+  initial_temperature_type   = 207
+  initial_sst_type           = 'sst1'
+  initial_temperature_top    = 27.0 
+  initial_temperature_bottom = 0.0
+/
+&ocean_diagnostics_nml
+  diagnostics_level  = 0
 /
 &io_nml
 !  out_expname    = '${EXPNAME}_ocn'     ! file name base

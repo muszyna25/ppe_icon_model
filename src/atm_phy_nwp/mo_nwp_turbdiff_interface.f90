@@ -46,26 +46,30 @@
 
 MODULE mo_nwp_turbdiff_interface
 
-  USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text, finish
-  USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, igme, icosmo
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
-  USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_physical_constants,   ONLY: lh_v=>alv
-  USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_nwp_phy_state,        ONLY: phy_params 
-  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
-  USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_nonhydrostatic_config,ONLY: kstart_moist
-  USE mo_data_turbdiff,        ONLY: get_turbdiff_param, lsflcnd
-  USE src_turbdiff_new,        ONLY: organize_turbdiff
-  USE src_turbdiff,            ONLY: turbdiff
-  USE mo_gme_turbdiff,         ONLY: partura, progimp_turb
+  USE mo_kind,                   ONLY: wp
+  USE mo_exception,              ONLY: message, message_text, finish
+  USE mo_model_domain,           ONLY: t_patch
+  USE mo_impl_constants,         ONLY: min_rlcell_int, igme, icosmo, &
+    &                                  max_ntracer
+  USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
+  USE mo_loopindices,            ONLY: get_indices_c
+  USE mo_physical_constants,     ONLY: lh_v=>alv
+  USE mo_ext_data_types,         ONLY: t_external_data
+  USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nwp_phy_types,          ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_nwp_phy_state,          ONLY: phy_params 
+  USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
+  USE mo_parallel_config,        ONLY: nproma
+  USE mo_run_config,             ONLY: msg_level, iqv, iqc
+  USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
+  USE mo_nonhydrostatic_config,  ONLY: kstart_moist
+  USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd
+  USE src_turbdiff_new,          ONLY: organize_turbdiff, modvar
+  USE src_turbdiff,              ONLY: turbdiff
+  USE mo_gme_turbdiff,           ONLY: partura, progimp_turb
+
+  USE mo_art_config,             ONLY: art_config
+  USE mo_art_turbdiff_interface, ONLY: art_turbdiff_interface
 
   IMPLICIT NONE
 
@@ -129,6 +133,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
 
+  ! type structure to hand over additional tracers to turbdiff
+  TYPE(modvar) :: ptr(max_ntracer)
 
 
 !--------------------------------------------------------------
@@ -159,6 +165,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
      CALL get_turbdiff_param(jg)
   ENDIF
 
+  IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+    CALL art_turbdiff_interface( 'allocate', p_patch, p_prog_rcf, prm_nwp_tend, ptr )
+  END IF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs)  &
@@ -206,6 +215,11 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
+        CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend, &
+          &                          ptr=ptr(:), &
+          &                          p_metrics=p_metrics, p_diag=p_diag, prm_diag=prm_diag, &
+          &                          jb=jb )
+
         CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
           &  lturatm=.TRUE., ltursrf=.FALSE., iini=0, &
           &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
@@ -226,7 +240,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb), &
           &  rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb), &
           &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &
-!         &  ptr=???, &  ! for the diffusion of additional tracer variables!
+          &  ptr=ptr(:), opt_ntrac=art_config(jg)%nturb_tracer, &  ! diffusion of additional tracer variables!
           &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
           &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
           &  tke=z_tvs(:,:,:), &
@@ -246,6 +260,10 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
             &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * lh_v
         END IF
+
+        CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend, &
+          &                          ptr=ptr(:), &
+          &                          i_st=i_startidx, i_en=i_endidx, dt=tcall_turb_jg )
 
       ELSE
 
@@ -371,10 +389,13 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     ENDDO
     ! VN is updated in nwp_nh_interface (for efficiency reasons)
 
-
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+  IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+    CALL art_turbdiff_interface( 'deallocate', p_patch, p_prog_rcf, prm_nwp_tend, ptr )
+  END IF
 
 END SUBROUTINE nwp_turbdiff
 

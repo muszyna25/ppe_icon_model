@@ -50,7 +50,8 @@ MODULE mo_interpol_config
   USE mo_parallel_config,     ONLY: nproma
   USE mo_grid_config,         ONLY: grid_sphere_radius
   USE mo_math_constants,      ONLY: pi, pi2
-  USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
+  USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, &
+    & sphere_geometry, hexagonal_cell, triangular_cell
 
 
   IMPLICIT NONE
@@ -164,12 +165,11 @@ MODULE mo_interpol_config
 CONTAINS
   !>
   !!
-  SUBROUTINE configure_interpolation( global_cell_type, n_dom, grid_level, geometry_info )
+  SUBROUTINE configure_interpolation( n_dom, grid_level, geometry_info )
 
-    INTEGER,INTENT(IN) :: global_cell_type
     INTEGER,INTENT(IN) :: n_dom
     INTEGER,INTENT(IN) :: grid_level(n_dom)
-    TYPE(t_grid_geometry_info), OPTIONAL, INTENT(in) :: geometry_info
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     
     INTEGER :: jg, jlev, geometry_type
     CHARACTER(len=*),PARAMETER :: routine = 'mo_interpol_config:configure_interpol'
@@ -272,9 +272,8 @@ CONTAINS
     !AD (20 Sept 2913) Modification required for planar torus grid: the scale factor
     !is based on the width of the Gaussian but very soon it will adapted in more
     !analytical manner by Florian
-    geometry_type = sphere_geometry
-    IF (PRESENT(geometry_info)) &
-      geometry_type = geometry_info%geometry_type
+    ! geometry_type = sphere_geometry
+    geometry_type = geometry_info%geometry_type
 
     IF( geometry_type==planar_torus_geometry ) THEN
       DO jg = 1, n_dom
@@ -330,7 +329,7 @@ CONTAINS
     !  lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
     !  lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
     !-----------------------------------------------------------------------
-    IF (global_cell_type == 3) THEN
+    IF (geometry_info%cell_type == triangular_cell) THEN
 
       ! Settings for linear lsq reconstruction
 
@@ -374,12 +373,16 @@ CONTAINS
       ! triangular grid: just avoid that thickness is averaged at edges as it is
       ! needed in the hexagonal grid
       i_cori_method=1
-      
+
+    ELSE
+
+      CALL finish(TRIM(routine),"geometry_info%cell_type /= triangular_cell")
+
     ENDIF
 
     ! In case of a hexagonal model, we perform a quadratic reconstruction, and check
     ! for i_cori_method
-    IF (global_cell_type == 6) THEN
+    IF (geometry_info%cell_type == hexagonal_cell) THEN
 
       ! ... quadratic reconstruction
       lsq_high_set%dim_c   = 6

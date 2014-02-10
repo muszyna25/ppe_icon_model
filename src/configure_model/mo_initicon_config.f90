@@ -35,11 +35,10 @@
 MODULE mo_initicon_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,   &
-    &                              associate_keyword, with_keywords, &
+  USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, &
+  USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE
 
   IMPLICIT NONE
@@ -146,7 +145,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)   :: input_filename, &
       &                               model_base_dir
     INTEGER,          INTENT(IN)   :: nroot, jlev, idom
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str
+    CHARACTER(len=MAX_CHAR_LENGTH) :: result_str
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     CALL associate_keyword("<path>",   TRIM(model_base_dir),             keywords)

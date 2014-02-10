@@ -87,7 +87,7 @@ MODULE mo_io_restart
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
-    &                                 int2string, separator, MAX_STRING_LEN
+    &                                 int2string, separator
   USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
@@ -1253,7 +1253,7 @@ CONTAINS
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
-    CHARACTER(len=MAX_STRING_LEN)  :: string
+    CHARACTER(len=MAX_CHAR_LENGTH)  :: string
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size

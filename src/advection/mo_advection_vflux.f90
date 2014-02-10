@@ -497,7 +497,7 @@ CONTAINS
         &              p_iubc_adv, i_startidx, i_endidx, &! in
         &              zparent_topflx(:,jb),             &! in
         &              p_upflux(:,slev,jb),              &! out
-        &              p_upflux(:,nlevp1,jb)             )! out
+        &              p_upflux(:,nlevp1,jb), .TRUE.)     ! out
 
     ENDDO ! end loop over blocks
 !$OMP END DO NOWAIT
@@ -1042,7 +1042,7 @@ CONTAINS
           &              p_iubc_adv, i_startidx, i_endidx, &! in
           &              zparent_topflx(:,jb),             &! in
           &              p_upflux(:,slev,jb),              &! out
-          &              p_upflux(:,nlevp1,jb)             )! out
+          &              p_upflux(:,nlevp1,jb), .TRUE.)     ! out
 
       ENDDO ! end loop over blocks
 !$OMP END DO NOWAIT
@@ -1096,7 +1096,7 @@ CONTAINS
     &                      p_dtime,  ld_compute, ld_cleanup, p_itype_vlimit,   &
     &                      p_cellhgt_mc_now, p_cellmass_now, lprint_cfl,       &
     &                      p_upflux, opt_lout_edge, opt_topflx_tra, opt_slev,  &
-    &                      opt_ti_slev, opt_rlstart, opt_rlend )
+    &                      opt_ti_slev, opt_rlstart, opt_rlend, opt_elev )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_vflux:upwind_vflux_ppm_cfl'
@@ -1154,6 +1154,9 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level (tracer independent part)
       &  opt_ti_slev
 
+    INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical end   level (for sedimentation)
+      &  opt_elev
+
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
      &  opt_rlstart                    !< only valid for calculation of 'cell value'
 
@@ -1193,6 +1196,11 @@ CONTAINS
     INTEGER  :: slev, slevp1             !< vertical start level and start level +1
     INTEGER  :: slev_ti, slevp1_ti       !< vertical start level (+1)  (tracer independent part)
     INTEGER  :: nlev, nlevp1             !< number of full and half levels
+
+    ! JF: for treatment of sedimentation
+    INTEGER  :: elev                     !< vertical end level
+    LOGICAL  :: llbc_adv                 !< apply lower boundary condition?
+    INTEGER  :: ik                       !< = MIN(jk,nlev)
 
     INTEGER  :: ji_p, ji_m               !< loop variable for index list
     INTEGER  :: ist                      !< status variable
@@ -1253,7 +1261,7 @@ CONTAINS
       &  z_dummy
 
     REAL(wp) ::   &                      !< maximum CFL within one layer, and domain-wide maximum
-      &  max_cfl_lay(p_patch%nlev,p_patch%nblks_c), max_cfl_tot, max_cfl_lay_tot(p_patch%nlev)
+      &  max_cfl_lay(p_patch%nlevp1,p_patch%nblks_c), max_cfl_tot, max_cfl_lay_tot(p_patch%nlevp1)
 
     REAL(wp) ::   &                      !< auxiliaries for fractional CFL number computation
       &  z_aux_p(nproma), z_aux_m(nproma)
@@ -1324,6 +1332,20 @@ CONTAINS
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
+    ! check optional arguments
+    llbc_adv = .TRUE.
+    IF ( PRESENT(opt_elev) ) THEN
+      IF ( opt_elev == nlevp1 ) THEN
+        elev = nlevp1
+        z_lext_2(:,nlevp1) = 0._wp
+        llbc_adv = .FALSE.
+      ELSE
+        elev = nlev
+      END IF
+    ELSE
+      elev = nlev
+    END IF
+
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
@@ -1345,7 +1367,7 @@ CONTAINS
         &       i_listdim_p(nlist_max,p_patch%nblks_c),                &
         &       i_listdim_m(nlist_max,p_patch%nblks_c),                &
         &       jk_int_p(nproma,nlev,p_patch%nblks_c),                 &
-        &       jk_int_m(nproma,nlev,p_patch%nblks_c),                 &
+        &       jk_int_m(nproma,nlevp1,p_patch%nblks_c),               &
         &       z_cflfrac_p(nproma,nlevp1,p_patch%nblks_c),            &
         &       z_cflfrac_m(nproma,nlevp1,p_patch%nblks_c),            &
         &       max_cfl_blk(p_patch%nblks_c), STAT=ist                 )
@@ -1369,7 +1391,7 @@ CONTAINS
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
           &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
-        DO jk = slevp1, nlev
+        DO jk = slevp1, elev
           p_mflx_contra_v(i_startidx:i_endidx,jk,jb) =                            &
           &              p_mflx_contra_v(i_startidx:i_endidx,jk,jb)               &
           &              + SIGN(dbl_eps,p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
@@ -1380,8 +1402,8 @@ CONTAINS
 
 
 
-!$OMP DO PRIVATE(jb,jk,jc,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
-!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,       &
+!$OMP DO PRIVATE(jb,jk,jc,ik,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
+!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,          &
 !$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1401,28 +1423,28 @@ CONTAINS
       ! (fractional) Courant number at top
       z_cflfrac_p(i_startidx:i_endidx,slev_ti,jb) = 0._wp
       z_cflfrac_m(i_startidx:i_endidx,slev_ti,jb) = 0._wp
-      ! (fractional) Courant number at bottom
-      z_cflfrac_p(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+      ! (fractional) Courant number for w<0 at bottom
       z_cflfrac_m(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
 
       !
       ! compute (fractional) Courant number
       !
-      DO jk = slevp1_ti, nlev
+      DO jk = slevp1_ti, elev
 
+        ik   = MIN(jk,nlev)
         ikm1 = jk-1
 
         DO jc = i_startidx, i_endidx
 
           ! initialize shift index
-          jk_int_p(jc,jk,jb) = jk
+          jk_int_p(jc,ik,jb) = ik
           jk_int_m(jc,jk,jb) = ikm1
 
           z_dummy = p_dtime * ABS(p_mflx_contra_v(jc,jk,jb))
 
           ! compute Courant number
-          z_cflfrac_p(jc,jk,jb) = z_dummy / p_cellmass_now(jc,jk,jb)
+          z_cflfrac_p(jc,jk,jb) = z_dummy / p_cellmass_now(jc,ik,jb)
           z_cflfrac_m(jc,jk,jb) = z_dummy / p_cellmass_now(jc,ikm1,jb)
 
           max_cfl(jc,jk) = MAX(z_cflfrac_p(jc,jk,jb),z_cflfrac_m(jc,jk,jb))
@@ -1432,7 +1454,10 @@ CONTAINS
 
       ENDDO
 
-      max_cfl_blk(jb) = MAXVAL(max_cfl_lay(slevp1_ti:nlev,jb))
+      ! (fractional) Courant number  for w>0 at bottom
+      z_cflfrac_p(i_startidx:i_endidx,nlevp1,jb) = 0._wp
+
+      max_cfl_blk(jb) = MAXVAL(max_cfl_lay(slevp1_ti:elev,jb))
 
 
       ! If CFL>1 then split the CFL number into the fractional CFL number 
@@ -1445,15 +1470,12 @@ CONTAINS
 
           ! start construction of fractional Courant number
           z_aux_p(i_startidx:i_endidx) = p_dtime*ABS(p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
-          z_aux_m(i_startidx:i_endidx) = z_aux_p(i_startidx:i_endidx)
 
           ! initialize list number
           nlist_p = 0
-          nlist_m = 0
 
           ! checks whether there exists any point with 'large CFL number'
           counter_p = 1
-          counter_m = 1
 
           ! loop until no point has CFL > 1, or nlist_p > nlist_max
           DO WHILE(counter_p > 0 .AND. nlist_p < nlist_max )
@@ -1501,6 +1523,20 @@ CONTAINS
 
           ENDDO  ! DO WHILE loop
  
+        ENDDO ! end loop over vertical levels
+
+        DO jk = slevp1_ti, elev
+
+          IF (max_cfl_lay(jk,jb) <= 1._wp) CYCLE
+
+          ! start construction of fractional Courant number
+          z_aux_m(i_startidx:i_endidx) = p_dtime*ABS(p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
+
+          ! initialize list number
+          nlist_m = 0
+
+          ! checks whether there exists any point with 'large CFL number'
+          counter_m = 1
 
           ! loop until no point has CFL>nlist_m, or nlist_m > nlist_max
           DO WHILE(counter_m > 0 .AND. nlist_m < nlist_max )
@@ -1690,7 +1726,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,ikp1,jc,i_startidx,i_endidx,nlist,ji_p,ji_m,jk_shift,z_iflx_m, &
+!$OMP DO PRIVATE(jb,jk,ik,ikp1,jc,i_startidx,i_endidx,nlist,ji_p,ji_m,jk_shift,z_iflx_m, &
 !$OMP z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,ikm1,z_lext_1,z_lext_2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -1723,8 +1759,9 @@ CONTAINS
       ! On the grid points where CFL>1, they will be overwritten afterwards 
       ! This part has been adopted from the restricted time step PPM-scheme.
       !
-      DO jk = slevp1, nlev
+      DO jk = slevp1, elev
 
+        ik   = MIN(jk,nlev)
         ! index of top half level
         ikm1 = jk -1
 
@@ -1750,14 +1787,14 @@ CONTAINS
           ! note that the second coeff_grid factor in front of z_delta_p 
           ! is obsolete due to a compensating (-) sign emerging from the 
           ! computation of z_delta_p.
-          z_delta_p = z_face_up(jc,jk,jb) - z_face_low(jc,jk,jb)
-          z_a12     = p_cc(jc,jk,jb)                                    &
-            &       - 0.5_wp * (z_face_low(jc,jk,jb) + z_face_up(jc,jk,jb))
+          z_delta_p = z_face_up(jc,ik,jb) - z_face_low(jc,ik,jb)
+          z_a12     = p_cc(jc,ik,jb)                                    &
+            &       - 0.5_wp * (z_face_low(jc,ik,jb) + z_face_up(jc,ik,jb))
 
-          z_lext_2(jc,jk) = p_cc(jc,jk,jb)                              &
-            &  + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb))) &
-            &  - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,jk,jb)             &
-            &  + 2._wp*z_cflfrac_p(jc,jk,jb)*z_cflfrac_p(jc,jk,jb))
+          z_lext_2(jc,ik) = p_cc(jc,ik,jb)                              &
+            &  + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,ik,jb))) &
+            &  - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,ik,jb)             &
+            &  + 2._wp*z_cflfrac_p(jc,ik,jb)*z_cflfrac_p(jc,ik,jb))
 
           !
           ! full flux
@@ -1766,13 +1803,6 @@ CONTAINS
             &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
             &                z_lext_1(jc,jk), z_lext_2(jc,jk),  &
             &                coeff_grid )
-
-
-!DR          ! (fractional) low order flux
-!DR          z_flx_frac_low(jc,jk,jb)=
-!DR            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
-!DR            &                p_cc(jc,ikm1,jb), p_cc(jc,jk,jb),  &
-!DR            &                coeff_grid )
 
         END DO ! end loop over cells
 
@@ -1953,7 +1983,7 @@ CONTAINS
         &              p_iubc_adv, i_startidx, i_endidx, &! in
         &              zparent_topflx(:,jb),             &! in
         &              p_upflux(:,slev,jb),              &! out
-        &              p_upflux(:,nlevp1,jb)             )! out
+        &              p_upflux(:,nlevp1,jb), llbc_adv)   ! out
 
     ENDDO ! end loop over blocks
 !$OMP END DO
@@ -2067,7 +2097,7 @@ CONTAINS
   !
   SUBROUTINE set_bc_vadv(upflx_top_p1, mflx_top_p1, mflx_top, iubc_adv, &
     &                    i_start, i_end, parent_topflx, upflx_top,      &
-    &                    upflx_bottom )
+    &                    upflx_bottom, llbc_adv )
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
 !!$      &  routine = 'mo_advection_vflux: set_ubc_adv'
@@ -2088,6 +2118,8 @@ CONTAINS
       &  upflx_top(nproma)
     REAL(wp), INTENT(OUT)    :: & !< lower boundary condition
       &  upflx_bottom(nproma)
+    LOGICAL, INTENT(IN)      :: & !< apply lower boundary condition?
+      &  llbc_adv
 
 
     !-------------------------------------------------------------------------
@@ -2112,7 +2144,9 @@ CONTAINS
     !
     ! flux at bottom boundary
     !
-    upflx_bottom(i_start:i_end) = 0._wp
+    IF ( llbc_adv ) THEN
+      upflx_bottom(i_start:i_end) = 0._wp
+    END IF
 
   END SUBROUTINE set_bc_vadv
 

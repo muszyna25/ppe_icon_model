@@ -139,7 +139,7 @@ MODULE mo_surface_les
     REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, mwind, bflux
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp), POINTER :: pres_sfc(:,:)
-    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2  
+    REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
@@ -531,20 +531,28 @@ MODULE mo_surface_les
       isblk = p_patch%cells%start_blk(rl,1)
       isidx = p_patch%cells%start_idx(rl,1)
       theta_sfc = p_prog_lnd_now%t_g(isidx,isblk)
-
-      DO itr = 1 , 10
+      
+      diff = 1._wp
+      itr = 0 
+      DO WHILE (diff > 1._wp-6 .AND. itr < 30)
          bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                 theta_sfc*(spec_humi(sat_pres_water(theta_sfc),p0ref)- &
+                 theta_nlev*(spec_humi(sat_pres_water(theta_sfc),p0ref)- &
                  qv_nlev) )*grav/th_cbl(1)
 
-         theta_sfc = theta_sfc + 0.1_wp 
+         theta_sfc1 = theta_sfc + 0.01_wp 
 
-         bflx2 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                 theta_sfc*(spec_humi(sat_pres_water(theta_sfc),p0ref)- &
+         bflx2 = les_config(jg)%tran_coeff*( (theta_sfc1-theta_nlev)+vtmpc1* &
+                 theta_nlev*(spec_humi(sat_pres_water(theta_sfc1),p0ref)- &
                  qv_nlev) )*grav/th_cbl(1)
 
-         theta_sfc = theta_sfc + 0.1_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
+         theta_sfc = theta_sfc1 + 0.01_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
+
+         diff = ABS(1._wp - theta_sfc/theta_sfc1)
+         itr = itr + 1         
       END DO               
+       
+      WRITE(message_text,'(i4,f14.6,f14.7)')itr,diff,bflx2
+      CALL message('FINAL ITR, RESID, AND BFLX:',message_text )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 

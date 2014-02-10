@@ -26,12 +26,12 @@ MODULE mo_name_list_output_init
     &                                             vname_len, max_dom, SUCCESS,                    &
     &                                             min_rlcell_int, min_rledge_int, min_rlvert,     &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                             MAX_TIME_LEVELS, max_levels, vname_len
-  USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, global_cell_type,            &
+    &                                             MAX_TIME_LEVELS, max_levels, vname_len,         &
+    &                                             MAX_CHAR_LENGTH
+  USE mo_grid_config,                       ONLY: n_dom, n_phys_dom,                              &
     &                                             grid_rescale_factor, start_time, end_time,      &
     &                                             DEFAULT_ENDTIME
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
-  USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_cf_convention,                     ONLY: t_cf_var
 
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
@@ -80,7 +80,7 @@ MODULE mo_name_list_output_init
   USE mo_time_config,                       ONLY: time_config
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
-    &                                             with_keywords, insert_group, MAX_STRING_LEN,    &
+    &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no,  &
@@ -259,7 +259,7 @@ CONTAINS
 
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
     TYPE (t_keyword_list), POINTER        :: keywords => NULL()
-    CHARACTER(len=MAX_STRING_LEN)         :: cfilename
+    CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
     INTEGER                               :: iunit
 
     ! The namelist containing all variables above
@@ -306,7 +306,7 @@ CONTAINS
 
       filetype                 = FILETYPE_NC2 ! NetCDF
       mode                     = 2
-      taxis_tunit              = TUNIT_HOUR
+      taxis_tunit              = TUNIT_MINUTE
       dom(:)                   = -1
       steps_per_file           = -1
       steps_per_file_inclfirst = .TRUE.
@@ -358,7 +358,6 @@ CONTAINS
         WRITE(iunit, output_nml)                                     ! write settings to temporary text file
       END IF
 
-      WRITE(message_text,'(a,i0)') 'Read namelist "output_nml", status = ', istat
       CALL message('',message_text)
       IF(istat > 0) THEN
         WRITE(message_text,'(a,i0)') 'Read error in namelist "output_nml", status = ', istat
@@ -821,6 +820,7 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_phys_patch(jp)%n_patch_edges-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_phys_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_phys_patch(jp)%n_patch_verts-1)/nproma + 1
+          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
@@ -831,6 +831,7 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_patch(jp)%n_patch_edges_g-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_patch(jp)%n_patch_verts_g-1)/nproma + 1
+          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
         END IF
       ENDIF
     ENDDO ! jp
@@ -855,7 +856,7 @@ CONTAINS
           grid_info_mode = GRID_INFO_BCAST
           ! For hexagons, we still copy grid info from file; for
           ! triangular grids we have a faster method without file access
-          IF (global_cell_type == 6)  grid_info_mode = GRID_INFO_FILE
+          ! IF (max_cell_connectivity == 6)  grid_info_mode = GRID_INFO_FILE
           IF (PRESENT(opt_l_is_ocean)) THEN
             IF (opt_l_is_ocean) grid_info_mode = GRID_INFO_BCAST
           ENDIF
@@ -1423,6 +1424,9 @@ CONTAINS
         patch_info(jp)%grid_uuid = p_patch(jl)%grid_uuid
         ! Set information about numberOfGridUsed on work and test PE
         patch_info(jp)%number_of_grid_used = number_of_grid_used(jl)
+
+        patch_info(jp)%max_cell_connectivity = p_patch(jl)%cells%max_connectivity
+
       ENDIF
 #ifndef NOMPI
       IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
@@ -1744,8 +1748,9 @@ CONTAINS
     CHARACTER(len=1)                :: uuid_string(16)
     CHARACTER(len=1)                :: uuidOfVGrid_string(16)
     REAL(wp)                        :: pi_180
+    INTEGER                         :: max_cell_connectivity
 
-    pi_180 = ATAN(1._wp)/45._wp   
+    pi_180 = ATAN(1._wp)/45._wp
 
     IF (of%output_type == FILETYPE_GRB2) THEN
       ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
@@ -1756,6 +1761,7 @@ CONTAINS
     ENDIF
 
     i_dom = of%phys_patch_id
+    max_cell_connectivity = patch_info(i_dom)%max_cell_connectivity
 
     !
     ! The following sections add the file global properties collected in init_name_list_output
@@ -1827,7 +1833,7 @@ CONTAINS
       ! Cells
 
       of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%cells%n_glb)
-      CALL gridDefNvertex(of%cdiCellGridID, global_cell_type)
+      CALL gridDefNvertex(of%cdiCellGridID, max_cell_connectivity)
       !
       CALL gridDefXname(of%cdiCellGridID, 'clon')
       CALL gridDefXlongname(of%cdiCellGridID, 'center longitude')
@@ -1849,7 +1855,7 @@ CONTAINS
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
-      CALL gridDefNvertex(of%cdiVertGridID, 9-global_cell_type)
+      CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
       CALL gridDefXlongname(of%cdiVertGridID, 'vertex longitude')
@@ -2384,11 +2390,10 @@ CONTAINS
     SELECT CASE (of%name_list%mode)
     CASE (1)  ! forecast mode
      of%cdiTaxisID = taxisCreate(TAXIS_RELATIVE)
-     !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_SECOND)
-     !CALL taxisDefTunit (of%cdiTaxisID, TUNIT_MINUTE)
+
      IF (of%name_list%taxis_tunit > 10 .OR. of%name_list%taxis_tunit < 1 ) THEN
-       of%name_list%taxis_tunit=TUNIT_HOUR
-       CALL message('','invalid taxis_tunit, reset to TUNIT_HOUR')
+       of%name_list%taxis_tunit=TUNIT_MINUTE
+       CALL message('','invalid taxis_tunit, reset to TUNIT_MINUTE')
      END IF
      CALL taxisDefTunit (of%cdiTaxisID, of%name_list%taxis_tunit)
      ini_datetime = time_config%ini_datetime
@@ -2877,7 +2882,8 @@ CONTAINS
       CALL p_bcast(patch_info(idom)%nblks_glb_c, bcast_root, p_comm_work_2_io)
       CALL p_bcast(patch_info(idom)%nblks_glb_e, bcast_root, p_comm_work_2_io)
       CALL p_bcast(patch_info(idom)%nblks_glb_v, bcast_root, p_comm_work_2_io)
-      
+      CALL p_bcast(patch_info(idom)%max_cell_connectivity, bcast_root, p_comm_work_2_io)
+
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         CALL bcast_grid_info(patch_info(idom), bcast_root)
       END IF

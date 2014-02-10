@@ -42,8 +42,7 @@ B=4   # number of bisections applied
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=1     # 1: use ocean initialization file; 0: init analytically
+use_file_initialConditions=".true."
 # prognostic ocean initialization file must match the vertical levels
 #   ts_phc_annual-iconR${R}B0{B}-L10x500m.nc      # 10 levels, 500m each
 #   ts_phc_annual-iconR${R}B0{B}-L10_50-1000m.nc  # 10 levels, 10-1000m varying thickness
@@ -74,13 +73,12 @@ iforc=12
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
 #  2 = use all 12 datasets of full OMIP forcing
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
-iforc_type=2
-iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-# surface flux file must match the length given by iforc_len
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
+forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -147,6 +145,7 @@ cat > ${ocean_namelist} << EOF
  activate_sync_timers = .TRUE.
  write_timer_files    = .FALSE.
  msg_timestamp        = .FALSE.
+ debug_check_level    = 10
 /
 &output_nml
   output_bounds    = 0, ${outputLength}, ${dt_data}   ! buildbot: start, end, increment in seconds <60 years
@@ -157,7 +156,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .TRUE.
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       =  'group:oce_default','group:ice_default'
+  ml_varlist       =  'group:oce_default','group:ice_default','condep','mld'
 !/
 ! no complete sea ice
 !&output_nml
@@ -169,7 +168,7 @@ cat > ${ocean_namelist} << EOF
 !  ml_varlist       = 'wet_c','group:ice_default','group:ice_diag'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=5                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -198,8 +197,8 @@ cat > ${ocean_namelist} << EOF
 !                      188.0, 212.0, 204.0, 232.0, 224.0, 254.0, 244.0, 278.0, 268.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 4=mimetic_miura, 5=flux_corrected_horz
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 4=mimetic_ppm,   6=flux_corrected_vert_adpo
+  FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT = 7      ! 7=upwind biased ppm
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
@@ -228,23 +227,28 @@ cat > ${ocean_namelist} << EOF
   i_ice_therm   = 1              !  1=zero-layer, 2=Winton
   i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
 /
-&ocean_forcing_and_init_nml
-  idiag_oce          = 1              ! 1: write standard ocean diagnostics to stderr
-  iforc_oce          = ${iforc}       ! ocean forcing
-  iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
-  iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
-  init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
-  init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
-  temperature_relaxation= 0      !  0: no relaxation used
+&ocean_forcing_nml
+  iforc_oce                 = ${iforc}       ! ocean forcing
+  forcing_windstress_u_type = 1
+  forcing_windstress_v_type = 1
+  forcing_fluxes_type       = 1
+  forcing_timescale         = ${forcing_timescale}   ! length of ocean forcing data set, see above
+
+  init_oce_relax            = ${init_relax}  ! read ocean surface relaxation file, see above
+  temperature_relaxation    = 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
-  l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_enable_freshwater      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+/
+&ocean_initialConditions_nml
+  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
 /
 &ocean_diagnostics_nml
+   diagnostics_level            = 1
 ! vertex list for R2B04 only
    gibraltar(1:10)              = 2371,2374
    denmark_strait(1:10)         = 2436,2471

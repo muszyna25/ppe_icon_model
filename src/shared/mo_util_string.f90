@@ -39,6 +39,7 @@ MODULE mo_util_string
   !
   ! String conversion utilities
   !
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   IMPLICIT NONE
   !
   PRIVATE
@@ -57,7 +58,6 @@ MODULE mo_util_string
   PUBLIC :: t_keyword_list
   PUBLIC :: associate_keyword ! add a pair (keyword -> substitution) to a keyword list
   PUBLIC :: with_keywords     ! subroutine for keyword substitution
-  PUBLIC :: MAX_STRING_LEN
   PUBLIC :: remove_duplicates
   PUBLIC :: difference
   PUBLIC :: add_to_list
@@ -104,15 +104,11 @@ MODULE mo_util_string
   CHARACTER(len=5) :: bg_default = esc//orb//'49m'
   !
   CHARACTER(len=*), PARAMETER :: separator = REPEAT('-',100)
-  !
-  ! String length constants used for keyword substitution
-  INTEGER, PARAMETER :: MAX_STRING_LEN  = 256
-  INTEGER, PARAMETER :: MAX_KEYWORD_LEN = 128
 
   ! Linked list used for keyword substitution in strings
   TYPE t_keyword_list
-    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword    !< keyword string ...
-    CHARACTER(len=MAX_STRING_LEN)  :: subst      !< ... will be substituted by "subst"
+    CHARACTER(len=MAX_CHAR_LENGTH) :: keyword    !< keyword string ...
+    CHARACTER(len=MAX_CHAR_LENGTH) :: subst      !< ... will be substituted by "subst"
     TYPE(t_keyword_list), POINTER  :: next
   END TYPE t_keyword_list
 
@@ -383,8 +379,8 @@ CONTAINS
 
     ! throw error if keyword, subst are too long
     ! note: we don't call "finish" to avoid circular dep
-    IF ((LEN_TRIM(keyword) > MAX_KEYWORD_LEN) .OR.  &
-      & (LEN_TRIM(subst)   > MAX_KEYWORD_LEN))      &
+    IF ((LEN_TRIM(keyword) > MAX_CHAR_LENGTH) .OR.  &
+      & (LEN_TRIM(subst)   > MAX_CHAR_LENGTH))      &
       &  WRITE (0,*) "ERROR: keyword_list_push: keyword too long"
 
     ! insert element into linked list
@@ -404,8 +400,8 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE keyword_list_pop(list_head, keyword, subst)
     ! Parameters
-    CHARACTER(len=MAX_KEYWORD_LEN),  INTENT(OUT) :: keyword
-    CHARACTER(len=MAX_STRING_LEN),   INTENT(OUT) :: subst
+    CHARACTER(len=*),   INTENT(OUT) :: keyword
+    CHARACTER(len=*),   INTENT(OUT) :: subst
     TYPE(t_keyword_list),            POINTER     :: list_head
     ! Local parameters
     TYPE (t_keyword_list),   POINTER    :: tmp
@@ -436,7 +432,7 @@ CONTAINS
     ! Parameters
     CHARACTER(len=*), INTENT(IN)           :: keyword, subst
     CHARACTER(len=*), INTENT(IN)           :: in_str
-    CHARACTER(len=MAX_STRING_LEN)          :: out_str
+    CHARACTER(len=MAX_CHAR_LENGTH)          :: out_str
     ! Local parameters
     INTEGER :: kw_len, in_len, subs_len, pos, out_pos, upper
 
@@ -452,13 +448,13 @@ CONTAINS
       IF (in_str(pos:upper) == keyword) THEN
         pos     = pos + kw_len
         ! note: we don't call "finish" to avoid circular dep
-        IF ((out_pos+subs_len+in_len-pos-kw_len) > MAX_STRING_LEN) THEN
+        IF ((out_pos+subs_len+in_len-pos-kw_len) > MAX_CHAR_LENGTH) THEN
           WRITE (0,*) "ERROR: str_replace: string too long"
         END IF
         out_str(out_pos:(out_pos+subs_len-1)) = subst(1:subs_len)
         out_pos = out_pos + subs_len
       ELSE
-        IF ((out_pos+in_len-pos) > MAX_STRING_LEN) THEN
+        IF ((out_pos+in_len-pos) > MAX_CHAR_LENGTH) THEN
           WRITE (0,*) "ERROR: str_replace: string too long"
         END IF
         out_str(out_pos:out_pos) = in_str(pos:pos)
@@ -614,11 +610,10 @@ CONTAINS
   FUNCTION with_keywords(keyword_list, in_str) RESULT(result_str)
     TYPE(t_keyword_list), POINTER  :: keyword_list
     CHARACTER(len=*), INTENT(IN)   :: in_str
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str, subst
-    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword
+    CHARACTER(len=MAX_CHAR_LENGTH) :: result_str, subst, keyword
     
     ! note: we don't call "finish" to avoid circular dep
-    IF (LEN_TRIM(in_str) > MAX_STRING_LEN) &
+    IF (LEN_TRIM(in_str) > MAX_CHAR_LENGTH) &
       & WRITE (0,*) "ERROR: with_keywords: string too long"
     result_str = in_str
     IF (.NOT. ASSOCIATED(keyword_list)) RETURN

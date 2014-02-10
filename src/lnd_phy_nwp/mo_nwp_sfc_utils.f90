@@ -52,7 +52,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
-    &                               frlake_thrhld
+    &                               frlake_thrhld, itype_interception
   USE mo_initicon_config,     ONLY: is_coldstart_soil
   USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
@@ -1080,6 +1080,14 @@ CONTAINS
           ENDIF
         ENDDO
 
+        IF (itype_interception == 2) THEN
+          DO jc = i_startidx, i_endidx
+            lnd_diag%w_p    (jc,jb) = lnd_prog%w_p_t      (jc,jb,1)
+            lnd_diag%w_s    (jc,jb) = lnd_prog%w_s_t      (jc,jb,1)
+          ENDDO
+        ENDIF
+
+
         DO jk=1,nlev_soil
           DO jc = i_startidx, i_endidx
             lnd_diag%t_so    (jc,jk+1,jb) = lnd_prog%t_so_t    (jc,jk+1,jb,1)
@@ -1121,6 +1129,11 @@ CONTAINS
         lnd_diag%t_so    (:,:,jb) = 0._wp
         lnd_diag%w_so    (:,:,jb) = 0._wp
         lnd_diag%w_so_ice(:,:,jb) = 0._wp
+
+        IF (itype_interception == 2) THEN
+          lnd_diag%w_p    (:,jb)  = 0._wp
+          lnd_diag%w_s    (:,jb)  = 0._wp
+        ENDIF
 
         IF (lmulti_snow) THEN
           lnd_diag%t_snow_mult  (:,:,jb) = 0._wp
@@ -1167,6 +1180,22 @@ CONTAINS
                                         tilefrac * lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
             ENDIF
           ENDDO
+
+          IF (itype_interception == 2) THEN
+            DO jc = i_startidx, i_endidx
+              !
+              ! note that frac_t must be re-scaled such that SUM(frac_t(1:ntiles_lnd)) = 1
+              ! therefore we multiply by inv_frland_from_tiles
+              tilefrac = ext_data%atm%frac_t(jc,jb,isubs)        &
+                &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
+
+              lnd_diag%w_p    (jc,jb) = lnd_diag%w_p(jc,jb) + tilefrac       &
+                &                       * lnd_prog%w_p_t(jc,jb,isubs)
+              lnd_diag%w_s    (jc,jb) = lnd_diag%w_s(jc,jb) + tilefrac       &
+                &                       * lnd_prog%w_s_t(jc,jb,isubs)
+            ENDDO
+          ENDIF
+
 
           DO jk=1,nlev_soil
             DO jc = i_startidx, i_endidx

@@ -85,7 +85,7 @@
       &                               INVALID_NODE, gnat_recursive_proximity_query
     USE mo_mpi,                 ONLY: my_process_is_mpi_workroot,                           &
       &                               get_my_mpi_work_id, p_n_work,                         &
-      &                               p_max, get_my_mpi_work_communicator,                  &
+      &                               p_min, get_my_mpi_work_communicator,                  &
       &                               my_process_is_mpi_seq, p_comm_work,                   &
       &                               my_process_is_mpi_test, p_max, p_send,                &
       &                               p_recv, process_mpi_all_test_id,                      &
@@ -1333,7 +1333,7 @@
       TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
       TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
       ! Local Parameters:
-      CHARACTER(*), PARAMETER :: routine = modname//"rbf_setup_interpol_lonlat"
+      CHARACTER(*), PARAMETER :: routine = modname//"::rbf_setup_interpol_lonlat"
       ! Flag: .TRUE., if we want to erase values outside local domains
       LOGICAL,      PARAMETER :: l_cutoff_local_domains = .TRUE.
       ! Flag: .TRUE., if we want raw performance measurements
@@ -1575,10 +1575,11 @@
         rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
       CASE (2)
         ! if no shape parameter has been set: compute an estimate 
-        CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,      &
-          &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,   &
-          &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c, rbf_shape_param)
-        rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
+        CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%edges%center,              &
+          &                         ptr_int_lonlat%rbf_vec_idx, ptr_int_lonlat%rbf_vec_blk,           &
+          &                         ptr_int_lonlat%rbf_vec_stencil, rbf_vec_dim_c,                    &
+          &                         ptr_int_lonlat%global_idx, rbf_shape_param)
+        rbf_shape_param = p_min(rbf_shape_param, comm=p_comm_work)
         IF (my_process_is_stdio()) THEN
           WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
         END IF
@@ -1627,10 +1628,11 @@
           rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
         CASE (2)
           ! if no shape parameter has been set: compute an estimate 
-          CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,            &
-            &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,       &
-            &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l, rbf_shape_param)
-          rbf_shape_param = p_max(rbf_shape_param, comm=p_comm_work)
+          CALL estimate_rbf_parameter(nblks_lonlat, npromz_lonlat, ptr_patch%cells%center,              &
+            &                         ptr_int_lonlat%rbf_c2lr_idx, ptr_int_lonlat%rbf_c2lr_blk,         &
+            &                         ptr_int_lonlat%rbf_c2lr_stencil, rbf_dim_c2l,                     &
+            &                         ptr_int_lonlat%global_idx, rbf_shape_param)
+          rbf_shape_param = p_min(rbf_shape_param, comm=p_comm_work)
           IF (my_process_is_stdio()) THEN
             WRITE(0,*) routine, ": auto-estimated shape_param = ", rbf_shape_param
           END IF

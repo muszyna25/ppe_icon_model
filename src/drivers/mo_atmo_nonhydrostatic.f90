@@ -94,7 +94,8 @@ USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: action_init
-USE mo_turbulent_diagnostic, ONLY: init_les_turbulent_output, close_les_turbulent_output
+USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
+USE mo_vertical_coord_table,ONLY: vct_a
 
 !-------------------------------------------------------------------------
 
@@ -143,7 +144,6 @@ CONTAINS
 
     INTEGER :: jg, ist
     LOGICAL :: l_realcase
-    INTEGER :: pat_level(n_dom)
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     TYPE(t_sim_step_info) :: sim_step_info  
@@ -152,10 +152,6 @@ CONTAINS
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
-    DO jg=1,n_dom
-       pat_level(jg)= p_patch(jg)%level
-    ENDDO
-
     IF(iforcing == inwp) THEN
       !
       ! - generate index lists for tiles (land, ocean, lake)
@@ -163,7 +159,7 @@ CONTAINS
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
-      CALL configure_atm_phy_nwp(n_dom, pat_level(:), dtime_adv )
+      CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime_adv)
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom

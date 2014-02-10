@@ -33,8 +33,6 @@
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=0     # 1: use ocean initialization file; 0: init analytically
 # prognostic ocean initialization file must match the vertical levels
 # provide name suffix for vertical resolution
 # number of levels and thickness of surface and bottom layer
@@ -52,27 +50,25 @@ init_relax=0   # 1: use relaxation initialization file
 #   ts_surf_annual-iconR${R}B0{B}-${init_rel_suff}
 #
 #-----------------------------------------------------------------------------
-# ocean forcing (iforc=12) needs an additional flux file 
 # NO_FORCING                 = 10
 # ANALYT_FORC                = 11  - dependent on testcase
 # FORCING_FROM_FILE_FLUX     = 12  - OMIP or NCEP type forcing
 # FORCING_FROM_FILE_FIELD    = 13  - not yet
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
-iforc=10
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=1
-iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
-# surface flux file must match the length given by iforc_len
+forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -145,7 +141,7 @@ cat > ${ocean_namelist} << EOF
 /
 &run_nml
  dtime       = 3600         ! model timestep in seconds
- output      = 'nml'        ! namelist controlled output scheme
+ output      = 'none' ! 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  write_timer_files    = .TRUE.
  ! msg_timestamp        = .TRUE.
@@ -161,10 +157,10 @@ cat > ${ocean_namelist} << EOF
    'h' 'wet_c' 't' 's' 'rhopot'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
-  idbg_elev=5                     ! initialize end level for debug output
+  idbg_elev=40                     ! initialize end level for debug output
   dbg_lat_in=   30.0              ! latitude location of one cell debug output
   dbg_lon_in=  -30.0              ! longitude location of one cell debug output
   str_mod_tst='all'               ! define modules to print out in debug mode
@@ -182,8 +178,8 @@ cat > ${ocean_namelist} << EOF
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+ FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT = 7      ! 7=upwind biased ppm
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
@@ -194,7 +190,7 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction = .true.
 /
 &ocean_physics_nml
-  !i_sea_ice          =    1      ! 0 = no sea ice (default: 1 including sea ice)
+  !i_sea_ice          =    1      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   !no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   !k_veloc_h          = 7.5E+4    ! [m2/s] constant horizontal viscosity coefficient for velocity
   HORZ_VELOC_DIFF_TYPE = 3       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
@@ -208,14 +204,23 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce = 11
-  itestcase_oce = 1050
-  iforc_stat_oce = 5
-  analytic_wind_amplitude = 0.5
-  z_forc_period     = 3.0_wp
-  y_forc_period     = 3.0_wp
-  idiag_oce         =  0      !  0: no diagnostics; 1: write diagnostics to stderr
+  forcing_wind_u_amplitude = 0.5
+  forcing_windstress_u_type = 106
+  forcing_windstress_v_type = 0
+  forcing_wind_u_amplitude = 0.3
+  forcing_windstress_zonal_waveno      = 3.0
+  forcing_windstress_merid_waveno = 3.0
+/
+&ocean_initialConditions_nml
+  ! itestcase_oce = 1050
+  initial_salinity_type      = 202    
+  initial_salinity_top       = 34.1
+  initial_salinity_bottom    = 35.0
+  initial_temperature_type   = 200
+  initial_temperature_top    = 10.0 
+  initial_temperature_bottom = 10.0
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

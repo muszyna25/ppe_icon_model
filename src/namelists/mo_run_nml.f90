@@ -58,13 +58,14 @@ MODULE mo_run_nml
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish, &
     &                      config_msg_timestamp   => msg_timestamp
-  USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ, &
-                               INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY
+  USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
+                               INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY, &
+                               MAX_CHAR_LENGTH
   USE mo_io_units,       ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
   USE mo_master_control, ONLY: is_restart_run
-  USE mo_util_string,    ONLY: one_of, MAX_STRING_LEN
+  USE mo_util_string,    ONLY: one_of
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
 
   USE mo_io_restart_namelist,  ONLY: open_tmpfile, store_and_close_namelist,   &
@@ -120,7 +121,7 @@ MODULE mo_run_nml
 
   !> file name for restart/checkpoint files (containg keyword
   !> substition patterns)
-  CHARACTER(len=MAX_STRING_LEN) :: restart_filename
+  CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
 
   NAMELIST /run_nml/ ltestcase,    ldynamics,       &
                      iforcing,     ltransport,      &

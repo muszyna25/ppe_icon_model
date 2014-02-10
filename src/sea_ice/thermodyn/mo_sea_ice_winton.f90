@@ -47,7 +47,7 @@ MODULE mo_sea_ice_winton
   USE mo_ocean_nml,           ONLY: no_tracer 
   USE mo_sea_ice_nml,         ONLY: hci_layer
 !  USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 

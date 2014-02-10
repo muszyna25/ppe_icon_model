@@ -767,7 +767,7 @@ SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
           t_g, qv_s, ps, &
           u, v, w, t, qv, qc, prs, rho, epr, &
 !
-          ptr, &
+          ptr, opt_ntrac, &
 !
           tcm, tch, tfm, tfh, tfv, dzm, dzh, &
           tke, tkvm, tkvh, rcld, &
@@ -995,7 +995,8 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
 !
      w              ! vertical wind speed (defined on half levels)  ( m/s )
 
-TYPE (modvar), OPTIONAL :: ptr(:) !passive tracers
+TYPE (modvar), OPTIONAL :: ptr(:)     ! passive tracers
+INTEGER, OPTIONAL ::       opt_ntrac  ! number of passive tracers
 
 #ifdef __xlC__
 REAL (KIND=ireals), DIMENSION(ie), TARGET, INTENT(INOUT) :: &
@@ -1266,7 +1267,12 @@ REAL (KIND=ireals), TARGET :: &
  ldomomcor=(ldogrdcor .AND. lnonloc) !gradient correction for momentum
 
  IF (PRESENT(ptr)) THEN !passive tracers are present
-    ntrac=UBOUND(ptr,1) !number of tracers
+    !number of tracers
+    IF (PRESENT(opt_ntrac)) THEN
+       ntrac = opt_ntrac
+    ELSE
+       ntrac = UBOUND(ptr,1)
+    END IF
  ELSE
     ntrac=0
  END IF
@@ -3325,7 +3331,7 @@ SUBROUTINE turbdiff
       IF (lsfli(tem)) dvar(tem)%sv => shfl_s
       IF (lsfli(vap)) dvar(vap)%sv => qvfl_s
 
-      IF (PRESENT(ptr)) THEN !passive tracers are present
+      IF (PRESENT(ptr) .AND. ntrac .GE. 1) THEN !passive tracers are present
          DO m=1, ntrac
             n=liq+m
             dvar(n)%av => ptr(m)%av
@@ -4730,7 +4736,7 @@ SUBROUTINE turbdiff
 !itndcon=0
 !test
 
-            IF (lsfli(n) .AND. (.NOT.lturatm .OR. n.NE.tem .OR. n.NE.vap)) THEN
+            IF (lsfli(n) .AND. (.NOT.lturatm .OR. (n.NE.tem .AND. n.NE.vap))) THEN
                !Load effective surface layer gradients due to given flux values:
 
 !DIR$ IVDEP

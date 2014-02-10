@@ -78,7 +78,8 @@ MODULE mo_nh_testcases
                                    & init_nh_prog_mwbr_const, mount_half_width                     
   USE mo_nh_wk_exp,            ONLY: init_nh_topo_wk, init_nh_env_wk,             &
                                    & init_nh_buble_wk                       
-  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt         
+  USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
+  USE mo_nh_dcmip_hadley,      ONLY: init_nh_dcmip_hadley         
   USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer,                   &
                                    & init_nh_topo_dcmip_schaer
   USE mo_nh_dcmip_rest_atm,   ONLY : init_nh_topo_dcmip_rest_atm,                 &
@@ -153,7 +154,6 @@ MODULE mo_nh_testcases
   IF ( itopo == 0 ) THEN
     DO jg = 1, n_dom
       ext_data(jg)%atm%topography_c(1:nproma,1:p_patch(jg)%nblks_c) = 0.0_wp
-      ext_data(jg)%atm%topography_v(1:nproma,1:p_patch(jg)%nblks_v) = 0.0_wp
     ENDDO
   ENDIF
 
@@ -190,25 +190,6 @@ MODULE mo_nh_testcases
         ENDDO
       ENDDO 
     ENDDO 
-    DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_v
-        IF (jb /=  p_patch(jg)%nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          IF(p_patch(jg)%geometry_info%geometry_type==planar_torus_geometry)THEN
-            z_lon = p_patch(jg)%verts%cartesian(jv,jb)%x(1)
-          ELSE
-            z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
-          END IF
-          z_dist = z_lon-z_x2_geo%lon
-          ext_data(jg)%atm%topography_v(jv,jb) = 250.0_wp &
-          & * EXP(-(z_dist/5000.0_wp)**2)*((COS(pi*z_dist/4000.0_wp))**2)
-        ENDDO
-      ENDDO 
-    ENDDO
 
   CASE ('bell')
 
@@ -238,28 +219,6 @@ MODULE mo_nh_testcases
         ENDDO
       ENDDO 
     ENDDO 
-    DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_v
-        IF (jb /=  p_patch(jg)%nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          IF (lplane) THEN
-            z_lat  = 0.0_wp!p_patch(jg)%verts%vertex(jv,jb)%lat*torus_domain_length/pi*0.5_wp
-            z_lon  = p_patch(jg)%verts%vertex(jv,jb)%lon*torus_domain_length/pi*0.5_wp
-            z_dist = SQRT((z_lat-z_x2_geo%lat)**2+(z_lon-z_x2_geo%lon)**2)
-          ELSE
-            z_x1_cart    = gc2cc(p_patch(jg)%verts%vertex(jv,jb))
-            z_x2_cart    = gc2cc(z_x2_geo)
-            z_dist       = arc_length(z_x1_cart,z_x2_cart)
-          ENDIF
-          ext_data(jg)%atm%topography_v(jv,jb) = mount_height/ &
-                 (1.0_wp+ (z_dist/mount_half_width)**2)**1.5_wp
-        ENDDO
-      ENDDO 
-    ENDDO
 
   CASE ('jabw', 'jabw_s')
 
@@ -269,9 +228,7 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v)
+     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
 
   CASE ('jabw_m')  
@@ -282,11 +239,8 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v, &
-                          & opt_m_height = mount_height, &
-                          & opt_m_half_width = mount_half_width )
+     CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, &
+                          & opt_m_height = mount_height, opt_m_half_width = mount_half_width )
     END DO
 
   CASE ('mrw_nh', 'mrw2_nh' , 'mwbr_const')
@@ -304,9 +258,7 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v, l_modified) 
+     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, l_modified) 
    ENDDO
 
    CALL message(TRIM(routine),'topography is initialised ')
@@ -319,9 +271,7 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v )
+     CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
 
   CASE ('PA')
@@ -365,12 +315,15 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c,     &
-                          & nblks_v, npromz_v )
+     CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
 
     END DO
     CALL message(TRIM(routine),'running g_lim_area')
+
+  CASE ('dcmip_pa_12')
+
+    ! The topography has been initialized to 0 
+    CALL message(TRIM(routine),'running the dcmip_pa_12 (PA with Hadley-like circulation) test')
 
   CASE ('dcmip_gw_31')
 
@@ -386,8 +339,7 @@ MODULE mo_nh_testcases
 
     DO jg = 1, n_dom 
 
-     CALL init_nh_topo_dcmip_rest_atm ( p_patch(jg),  ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, ext_data(jg)%atm%fis  )
+     CALL init_nh_topo_dcmip_rest_atm ( p_patch(jg), ext_data(jg)%atm%topography_c, ext_data(jg)%atm%fis  )
 
     END DO
 
@@ -941,6 +893,21 @@ MODULE mo_nh_testcases
    ENDDO !jg
 
    CALL message(TRIM(routine),'End setup g_lim_area test')
+
+
+  CASE ('dcmip_pa_12')
+
+    CALL message(TRIM(routine),'setup dcmip_pa_12 (PA with Hadley-like circulation) test')
+
+    DO jg = 1, n_dom
+      CALL init_nh_dcmip_hadley( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)),  &
+        &                        p_nh_state(jg)%diag, p_int(jg),              &
+        &                        p_nh_state(jg)%metrics )
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    ENDDO
+
+    CALL message(TRIM(routine),'End setup dcmip_pa_12 test')
 
 
   CASE ('dcmip_gw_31')

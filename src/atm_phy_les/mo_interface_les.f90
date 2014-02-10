@@ -100,7 +100,8 @@ MODULE mo_interface_les
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
   USE mo_turbulent_diagnostic, ONLY: calculate_turbulent_diagnostics, &
                                      write_vertical_profiles, write_time_series, &
-                                     avg_interval_step, sampl_freq_step
+                                     avg_interval_step, sampl_freq_step,  &
+                                     is_sampling_time, is_writing_time
 
   IMPLICIT NONE
 
@@ -252,6 +253,20 @@ CONTAINS
     ELSE
       l_any_slowphys = .FALSE.
     ENDIF
+
+    !Check if time to sample data
+    IF( .NOT.linit .AND. MOD(nstep,sampl_freq_step)==0 )THEN 
+       is_sampling_time = .TRUE.
+    ELSE
+       is_sampling_time = .FALSE.
+    END IF    
+
+    !Check if time to write data
+    IF( .NOT.linit .AND. MOD(nstep,avg_interval_step)==0 )THEN
+       is_writing_time = .TRUE.
+    ELSE
+       is_writing_time = .FALSE.
+    END IF
 
     !-------------------------------------------------------------------------
     !>  Update the tracer for every advective timestep,
@@ -1650,7 +1665,7 @@ CONTAINS
 
 
     !Special diagnostics for LES runs- 1D, time series
-    IF( .NOT.linit .AND. MOD(nstep,sampl_freq_step)==0 )THEN 
+    IF( is_sampling_time )THEN 
       CALL calculate_turbulent_diagnostics(                 &
                               & pt_patch,                   & !in
                               & pt_prog,  pt_prog_rcf,      & !in
@@ -1662,7 +1677,7 @@ CONTAINS
       CALL write_time_series(prm_diag%turb_diag_0dvar, p_sim_time)
     END IF
 	    
-    IF( .NOT.linit .AND. MOD(nstep,avg_interval_step)==0 )THEN
+    IF( is_writing_time )THEN
       CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, p_sim_time)
       prm_diag%turb_diag_1dvar = 0._wp
     END IF 

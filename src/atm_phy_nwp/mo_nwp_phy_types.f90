@@ -370,6 +370,8 @@ MODULE mo_nwp_phy_types
 
     TYPE(t_ptr_tracer), ALLOCATABLE :: conv_tracer_tend(:,:) !< pointer for chemical tracer conv. tend.
 
+    TYPE(t_ptr_tracer), ALLOCATABLE :: turb_tracer_tend(:,:) !< pointer for chemical tracer turb. tend.
+
   END TYPE t_nwp_phy_tend
 
 END MODULE mo_nwp_phy_types

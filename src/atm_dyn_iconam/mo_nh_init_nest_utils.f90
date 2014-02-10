@@ -787,8 +787,7 @@ MODULE mo_nh_init_nest_utils
 
       CALL topography_blending(p_patch(jg), p_patch(jgc), p_int_state(jg),    &
                p_int_state(jgc), p_grf_state(jg)%p_dom(jn), jn,               &
-               ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c, &
-               ext_data(jgc)%atm%topography_v                                 )
+               ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c  )
 
       IF (p_patch(jgc)%n_childdom > 0) &
         CALL topo_blending_and_fbk(jgc)
@@ -801,8 +800,7 @@ MODULE mo_nh_init_nest_utils
 
       IF (lfeedback(jgc) .AND. ifeedback_type == 1) THEN
         CALL topography_feedback(p_patch(jg), p_int_state(jg), p_grf_state(jg), jn, &
-          ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c,            &
-          ext_data(jg)%atm%topography_v                                             )
+          ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c             )
       ENDIF
 
     ENDDO
@@ -818,7 +816,7 @@ MODULE mo_nh_init_nest_utils
   !! Initial release by Guenther Zaengl, DWD, (2011-07-05)
   !!
   SUBROUTINE topography_blending(p_pp, p_pc, p_intp, p_intc, p_grf, i_chidx, &
-               topo_cp, topo_cc, topo_vc)
+               topo_cp, topo_cc)
 
     ! patch at parent and child level
     TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp, p_pc
@@ -830,14 +828,13 @@ MODULE mo_nh_init_nest_utils
     ! child domain index
     INTEGER, INTENT(IN) :: i_chidx
 
-    ! topography on cells and vertices: p = parent level, c = child level
+    ! topography on cells: p = parent level, c = child level
     REAL(wp), INTENT(IN),     DIMENSION(:,:) :: topo_cp
-    REAL(wp), INTENT(INOUT),  DIMENSION(:,:) :: topo_cc, topo_vc
+    REAL(wp), INTENT(INOUT),  DIMENSION(:,:) :: topo_cc
 
     ! auxiliary fields needed for SR calls (SR's expect 3D fields)
     REAL(wp), TARGET :: z_topo_cp(nproma,1,p_pp%nblks_c)
     REAL(wp)         :: z_topo_cc(nproma,1,p_pc%nblks_c)
-    REAL(wp)         :: z_topo_vc(nproma,1,p_pc%nblks_v)
 
     ! another auxiliary needed to handle MPI parallelization, and a related pointer
     REAL(wp), ALLOCATABLE, TARGET :: z_topo_clp (:,:,:)
@@ -847,7 +844,7 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_patch),                POINTER :: ptr_pp
     TYPE(t_int_state),            POINTER :: ptr_int
 
-    INTEGER  :: jgc, jb, jc, jv, nblks_c
+    INTEGER  :: jgc, jb, jc, nblks_c
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, i_rlstart, i_rlend
     REAL(wp) :: wfac
 
@@ -868,7 +865,6 @@ MODULE mo_nh_init_nest_utils
     ENDIF
 
     z_topo_cc(:,:,:) = 0._wp
-    z_topo_vc(:,:,:) = 0._wp
 
     nblks_c = p_pp%nblks_c
 
@@ -954,68 +950,6 @@ MODULE mo_nh_init_nest_utils
 
     CALL sync_patch_array(SYNC_C,p_pc,topo_cc)
 
-    ! 3.(a) Copy blended topography to z_topo_cc to prepare interpolation to vertices
-    i_rlstart  = 1
-    i_rlend    = min_rlcell
-    i_startblk = p_pc%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_pc%cells%end_blk(i_rlend,i_nchdom)
-
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_pc, jb, i_startblk, i_endblk,         &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
-
-      DO jc = i_startidx, i_endidx
-
-        z_topo_cc(jc,1,jb) = topo_cc(jc,jb) 
-
-      ENDDO
-    ENDDO
-
-    ! 3.(b)Interpolate blended topography from cells to vertices
-    CALL cells2verts_scalar(z_topo_cc,p_pc,p_intc%cells_aw_verts,z_topo_vc,1,1)
-
-
-    ! 3.(c) Use interpolated vertex topography in boundary interpolation zone
-    i_rlstart  = 1
-    i_rlend    = grf_bdywidth_c ! grf_bdywidth_v does not exist, but indexing for vertices is the same as for cells
-    i_startblk = p_pc%verts%start_blk(i_rlstart,1)
-    i_endblk   = p_pc%verts%end_blk(i_rlend,i_nchdom)
-
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_v(p_pc, jb, i_startblk, i_endblk,         &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
-
-      DO jv = i_startidx, i_endidx
-        topo_vc(jv,jb) = z_topo_vc(jv,1,jb)
-      ENDDO
-    ENDDO
-
-    ! 3.(d) Apply blending in the grid rows for which blending has been applied to cell points
-    i_rlstart  = grf_bdywidth_c + 1
-    i_rlend    = min_rlvert
-    i_startblk = p_pc%verts%start_blk(i_rlstart,1)
-    i_endblk   = p_pc%verts%end_blk(i_rlend,i_nchdom)
-
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_v(p_pc, jb, i_startblk, i_endblk,         &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
-
-      DO jv = i_startidx, i_endidx
-
-        IF (p_pc%verts%refin_ctrl(jv,jb) > 0 .AND. &
-            p_pc%verts%refin_ctrl(jv,jb) <= grf_bdywidth_c + nudge_zone_width) THEN
-
-          wfac = REAL(p_pc%verts%refin_ctrl(jv,jb) - grf_bdywidth_c,wp)/ &
-            REAL(nudge_zone_width+1,wp)
-          topo_vc(jv,jb) = wfac*topo_vc(jv,jb) + (1._wp-wfac)*z_topo_vc(jv,1,jb)
-
-        ENDIF ! on the interior grid points, topo_cc remains unchanged
-
-      ENDDO
-    ENDDO
-
-    CALL sync_patch_array(SYNC_V,p_pc,topo_vc)
-
     DEALLOCATE(z_topo_clp)
 
   END SUBROUTINE topography_blending
@@ -1030,7 +964,7 @@ MODULE mo_nh_init_nest_utils
   !! Initial release by Guenther Zaengl, DWD, (2011-07-05)
   !!
   SUBROUTINE topography_feedback(p_pp, p_int, p_grf, i_chidx, &
-               topo_cp, topo_cc, topo_vp)
+               topo_cp, topo_cc)
 
     ! patch at parent level
     TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp
@@ -1042,13 +976,12 @@ MODULE mo_nh_init_nest_utils
     ! child domain index
     INTEGER, INTENT(IN) :: i_chidx
 
-    ! topography on cells and vertices: p = parent level, c = child level
+    ! topography on cells: p = parent level, c = child level
     REAL(wp), INTENT(IN),    DIMENSION(:,:)         :: topo_cc
-    REAL(wp), INTENT(INOUT), DIMENSION(:,:), TARGET :: topo_cp, topo_vp
+    REAL(wp), INTENT(INOUT), DIMENSION(:,:), TARGET :: topo_cp
 
-    ! auxiliary fields needed for SR calls (SR's expect 3D fields)
+    ! auxiliary field needed for SR calls (SR's expect 3D fields)
     REAL(wp) :: z_topo_cp(nproma,1,p_pp%nblks_c)
-    REAL(wp) :: z_topo_vp(nproma,1,p_pp%nblks_v)
 
     ! another auxiliary to handle MPI parallelization, and related pointer
     REAL(wp), ALLOCATABLE, TARGET :: z_topo_clp(:,:)
@@ -1057,7 +990,7 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_gridref_state), POINTER :: ptr_grf
     TYPE(t_patch),         POINTER :: ptr_pp
 
-    INTEGER  :: jgc, jb, jc, jv, ic, ib
+    INTEGER  :: jgc, jb, jc, ic, ib
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, i_rlstart, i_rlend
 
     INTEGER, POINTER, DIMENSION(:,:,:) :: iidx, iblk
@@ -1127,30 +1060,6 @@ MODULE mo_nh_init_nest_utils
 
       ENDDO
     ENDDO
-
-    ! Interpolate to vertices
-    CALL cells2verts_scalar(z_topo_cp,p_pp,p_int%cells_aw_verts,z_topo_vp,1,1)
-
-    ! Copy back to topo_vp in nest overlap area
-    i_rlstart  = 1
-    i_rlend    = min_rlvert_int
-
-    i_startblk = p_pp%verts%start_blk(i_rlstart,1)
-    i_endblk   = p_pp%verts%end_blk(i_rlend,i_nchdom)
-
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_v(p_pp, jb, i_startblk, i_endblk,         &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
-
-      DO jv = i_startidx, i_endidx
-
-        IF (p_grf%mask_ovlp_v(jv,jb,i_chidx)) topo_vp(jv,jb) = z_topo_vp(jv,1,jb)
-
-      ENDDO
-    ENDDO
-
-    CALL sync_patch_array(SYNC_V,p_pp,topo_vp)
 
     DEALLOCATE(z_topo_clp)
 

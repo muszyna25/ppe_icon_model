@@ -181,6 +181,9 @@ MODULE mo_name_list_output_types
 
     ! mode how to collect grid information (for output)
     INTEGER                              :: grid_info_mode
+
+    ! the maximum cell connectivity reproduced from the patch
+    INTEGER                              :: max_cell_connectivity
   END TYPE t_patch_info
 
 

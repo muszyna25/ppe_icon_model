@@ -1965,7 +1965,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
 
       !1D and 0D diagnostic variables that can not be part of add_var
-      ALLOCATE( diag%turb_diag_1dvar(SIZE(turb_profile_list,1),klevp1),  &
+      ALLOCATE( diag%turb_diag_1dvar(klevp1,SIZE(turb_profile_list,1)),  &
                 diag%turb_diag_0dvar(SIZE(turb_tseries_list,1)), STAT=ist)
       IF (ist/=SUCCESS)THEN
         CALL finish('mo_nwp_phy_state:new_nwp_phy_diag_list', &
@@ -2356,10 +2356,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & ldims=shape3d, lrestart=.FALSE.)
 
         ! art
-!        IF (artconf%lart) THEN
-!          CALL art_tracer_interface('turb',k_jg,nblks_c,phy_tend_list,'ddt_',  phy_tend%tracer_turb_ptr,&
-!                    & advconf,timelev,ldims=shape3d,tlev_source=1)
-!        ENDIF
+        IF (artconf%lart) THEN
+          CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list, &
+                    & 'ddt_', phy_tend%tracer_turb_ptr,                 &
+                    & advection_config(k_jg), phy_tend=phy_tend,        &
+                    & ldims=shape3d, tlev_source=1)
+        ENDIF
 
     cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
          &                            'convective tendency of tracers', DATATYPE_FLT32)
@@ -2402,9 +2404,10 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
         ! art
         IF (artconf%lart) THEN
-          CALL art_tracer_interface('conv',k_jg,kblks,phy_tend_list,&
-                    & 'ddt_',phy_tend%tracer_conv_ptr,&
-                    & advection_config(k_jg),phy_tend=phy_tend,ldims=shape3d,tlev_source=1)
+          CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list, &
+                    & 'ddt_', phy_tend%tracer_conv_ptr,                 &
+                    & advection_config(k_jg), phy_tend=phy_tend,        &
+                    & ldims=shape3d, tlev_source=1)
         ENDIF
 
 

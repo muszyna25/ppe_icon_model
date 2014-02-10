@@ -51,8 +51,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc
   & use_tracer_x_height
 USE mo_run_config,          ONLY: dtime
 USE mo_util_dbg_prnt,       ONLY: dbg_print
-USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
-  &  t_ocean_tracer, t_hydro_ocean_aux!, v_base
+USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 !USE mo_exception,           ONLY: message, finish!, message_text
 USE mo_oce_physics,         ONLY: t_ho_params
@@ -80,13 +79,11 @@ INTEGER, PARAMETER  :: top=1
 PUBLIC :: velocity_diffusion
 PUBLIC :: veloc_diff_harmonic_div_grad, veloc_diff_biharmonic_div_grad
 PUBLIC :: veloc_diff_harmonic_curl_curl, veloc_diff_biharmonic_curl_curl
-PUBLIC :: velocity_diffusion_vert_mimetic
-!PUBLIC :: velocity_diffusion_horz_rbf
-!PUBLIC :: velocity_diffusion_vert_rbf
-PUBLIC :: veloc_diffusion_vert_impl_hom
+PUBLIC :: velocity_diffusion_vert_explicit
+PUBLIC :: veloc_diffusion_vert_implicit
 PUBLIC :: tracer_diffusion_horz
-PUBLIC :: tracer_diffusion_vert_expl
-PUBLIC :: tracer_diffusion_vert_impl_hom
+PUBLIC :: tracer_diffusion_vert_explicit
+PUBLIC :: tracer_diffusion_vert_implicit
 
 CONTAINS
 
@@ -383,7 +380,6 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO je = i_startidx_e, i_endidx_e
 
-      !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
       IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
         !Get indices of two adjacent triangles
         il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -415,7 +411,6 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO jc = i_startidx_c, i_endidx_c
 
-         !IF ( v_base%lsm_c(jc,jk,jb) >= boundary ) THEN
          IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
          ELSE
@@ -442,7 +437,6 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO je = i_startidx_e, i_endidx_e
 
-      !IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
       IF (p_patch_3D%lsm_e(je,jk,jb) <= sea_boundary) THEN
         !Get indices of two adjacent triangles
         il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -475,7 +469,6 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
     DO jk = slev, elev
       DO jc = i_startidx_c, i_endidx_c
 
-         !IF ( v_base%lsm_c(jc,jk,jb) >= boundary ) THEN
          IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
          ELSE
@@ -739,64 +732,6 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl
 ! ! !-------------------------------------------------------------------------  
-! ! !
-! ! !  
-! ! !>
-! ! !! !  SUBROUTINE calculates horizontal diffusion of edge velocity via laplacian diffusion
-! ! !!    implemented as Average(div( K_H grad RBF v)).
-! ! !! 
-! ! !! @par Revision History
-! ! !! Developed  by  Peter Korn, MPI-M (2010).
-! ! !! 
-! ! !! mpi parallelized, sync required
-! ! SUBROUTINE velocity_diffusion_horz_rbf(p_patch, p_param, p_diag, laplacian_vn_out)
-! !   !
-! !   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! !   !REAL(wp), INTENT(inout)           :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-! !   TYPE(t_ho_params), INTENT(in)     :: p_param
-! !   TYPE(t_hydro_ocean_diag)          :: p_diag
-! !   REAL(wp), INTENT(inout)             :: laplacian_vn_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-! !   !
-! !   !Local variables
-! !   INTEGER :: slev, elev
-! !   INTEGER :: jk, jb, je!,jc
-! !   INTEGER :: i_startidx_e, i_endidx_e
-! !   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-! !   TYPE(t_subset_range), POINTER :: edges_in_domain
-! !   ! CHARACTER(len=max_char_length), PARAMETER :: &
-! !   !        & routine = ('mo_ocean_semi_implicit_ab:velocity_diffusion_horz')
-! !   !-------------------------------------------------------------------------------
-! !   edges_in_domain => p_patch%edges%in_domain
-! !   !-------------------------------------------------------------------------------
-! !   ! #slo# set intent out variable to zero due to nag -nan compiler-option
-! !   laplacian_vn_out(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e) = 0.0_wp
-! ! 
-! !   slev = 1
-! !   elev = n_zlev
-! ! 
-! !   !Step 2: Multiply laplacian with mixing coefficients
-! !   DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-! !     CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-! ! 
-! !     DO jk = slev, elev
-! !       DO je = i_startidx_e, i_endidx_e
-! ! 
-! !         il_c1 = p_patch%edges%cell_idx(je,jb,1)
-! !         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-! !         il_c2 = p_patch%edges%cell_idx(je,jb,2)
-! !         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! ! 
-! !         IF ( v_base%lsm_e(je,jk,jb) <= sea_boundary ) THEN
-! ! 
-! !           laplacian_vn_out(je,jk,jb) = p_param%K_veloc_h(je,jk,jb)*laplacian_vn_out(je,jk,jb)
-! !         ENDIF
-! !       ENDDO
-! !     END DO
-! !   END DO
-! !   CALL sync_patch_array(SYNC_E, p_patch,laplacian_vn_out)
-! ! 
-! ! END SUBROUTINE velocity_diffusion_horz_rbf
-!-------------------------------------------------------------------------
 !>
 !!
 !! IMPORTANT: It is assumed that the velocity vector reconstruction from
@@ -809,7 +744,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 !!  mpi parallelized LL (no sync required)
-SUBROUTINE velocity_diffusion_vert_mimetic( p_patch_3D, p_diag, p_aux,p_op_coeff,&
+SUBROUTINE velocity_diffusion_vert_explicit( p_patch_3D, p_diag, p_aux,p_op_coeff,&
                                            &p_param, laplacian_vn_out)
 
  TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
@@ -827,7 +762,6 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch_3D, p_diag, p_aux,p_op_coeff
   TYPE(t_patch), POINTER         :: p_patch 
   !-----------------------------------------------------------------------
   p_patch         => p_patch_3D%p_patch_2D(1)
-!  all_cells => p_patch%cells%all
   cells_in_domain => p_patch%cells%in_domain
   !-----------------------------------------------------------------------
 
@@ -849,41 +783,28 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch_3D, p_diag, p_aux,p_op_coeff
       IF (z_dolic >= MIN_DOLIC) THEN
         !1a) ocean surface 
         jk = slev
-   ! #slo 2011-09-08 - include effect of surface boundary condition on G_n
-   !                   eliminate in vertical diffusion: laplacian_vert
-   !    &( &
         z_u(jc,jk,jb)%x =                                                &
         & (p_aux%bc_top_veloc_cc(jc,jb)%x - p_param%A_veloc_v(jc,jk+1,jb)&
         &*(p_diag%p_vn(jc,jk,jb)%x        - p_diag%p_vn(jc,jk+1,jb)%x)   &
         & /p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))/p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
-!        &/v_base%del_zlev_i(jk+1))/v_base%del_zlev_m(jk)
+
         !1b) ocean bottom 
-        !ELSEIF ( jk == v_base%dolic_c(jc,jb) ) THEN
-        !ELSEIF ( jk == z_dolic ) THEN
         jk = z_dolic
-  !        IF(v_base%n_zlev>=2)THEN
         z_u(jc,jk,jb)%x =                                      &
         &  (p_param%A_veloc_v(jc,jk,jb)                        &
         & *(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x) &
-!        & / v_base%del_zlev_i(jk)                              &
         & / p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)              &
         & - p_aux%bc_bot_veloc_cc(jc,jb)%x)/p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)
 
-  !        ENDIF
         !1c) ocean interior 
-        !ELSEIF( jk>slev .AND. jk < v_base%dolic_c(jc,jb) ) THEN
         DO jk = slev+1, z_dolic-1
            z_u(jc,jk,jb)%x = &
            &   ( p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - &
            &                                  p_diag%p_vn(jc,jk,jb)%x)    &
-           !&   /v_base%del_zlev_i(jk)                                     &
            & / p_patch_3D%p_patch_1D(1)%del_zlev_i(jk)              &
            &  - p_param%A_veloc_v(jc,jk+1,jb)*(p_diag%p_vn(jc,jk,jb)%x -  &
            &                                   p_diag%p_vn(jc,jk+1,jb)%x) &
            & / p_patch_3D%p_patch_1D(1)%del_zlev_i(jk+1))/p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)            
-           !&   /v_base%del_zlev_i(jk+1))/v_base%del_zlev_m(jk)
-        ! ENDIF  ! jk-condition
-       !ENDIF    ! at least 2 vertical layers
         END DO ! jk ocean interior
         ENDIF  ! dolic>0
       END DO
@@ -902,147 +823,8 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch_3D, p_diag, p_aux,p_op_coeff
   CALL dbg_print('VelDiffMim: Laplacian'     ,laplacian_vn_out         ,str_module,idt_src)
   !---------------------------------------------------------------------
 
-END SUBROUTINE velocity_diffusion_vert_mimetic
+END SUBROUTINE velocity_diffusion_vert_explicit
 !-------------------------------------------------------------------------  
-
-
-! ! !-------------------------------------------------------------------------  
-! ! !>
-! ! !!
-! ! !! IMPORTANT: It is assumed that the velocity vector reconstruction from
-! ! !! edges to cells has been done before.
-! ! !!
-! ! !! input:  lives on cells (velocity points)
-! ! !! output: lives on edges (velocity points)
-! ! !!
-! ! !! @par Revision History
-! ! !! Developed  by  Peter Korn, MPI-M (2010).
-! ! !!
-! ! !!  mpi parallelized, sync required
-! ! SUBROUTINE velocity_diffusion_vert_rbf( p_patch,p_patch_3D, u_c, v_c, top_bc_u_c, top_bc_v_c,&
-! !                           &  bot_bc_u_c,  bot_bc_v_c,p_param,p_op_coeff, laplacian_vn_out)
-! !   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! !   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
-! !   ! Components of cell based variable which is vertically diffused
-! !   REAL(wp), INTENT(inout)           :: u_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   REAL(wp), INTENT(inout)           :: v_c(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   !REAL(wp), INTENT(in)              :: h_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   ! Top boundary condition for cell based variables
-! !   REAL(wp), INTENT(in)              :: top_bc_u_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   REAL(wp), INTENT(in)              :: top_bc_v_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   ! Bottom boundary condition for cell based variables
-! !   REAL(wp), INTENT(in)              :: bot_bc_u_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   REAL(wp), INTENT(in)              :: bot_bc_v_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   TYPE(t_ho_params), INTENT(in)     :: p_param
-! !   TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
-! !   ! variable in which horizontally advected velocity is stored
-! !   REAL(wp)            :: laplacian_vn_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-! ! 
-! !   INTEGER :: slev, elev     ! vertical start and end level
-! !   INTEGER :: jc, jk, jb
-! !   INTEGER :: i_startidx_c, i_endidx_c
-! !   TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   TYPE(t_subset_range), POINTER :: all_cells
-! !   REAL(wp) :: z_u(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks),  &
-! !     &         z_v(nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-! !   ! CHARACTER(len=max_char_length), PARAMETER :: &
-! !   !        & routine = ('mo_oce_diffusion:veloc diffusion vert rbf')
-! !   !-----------------------------------------------------------------------
-! !   all_cells => p_patch%cells%all
-! !   !-----------------------------------------------------------------------
-! ! 
-! !   ! #slo# set local variable to zero due to nag -nan compiler-option
-! !   z_u(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-! !   z_v(1:nproma,1:n_zlev+1,1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-! ! 
-! !   slev       = 1
-! !   elev       = n_zlev
-! ! 
-! ! 
-! !   !1 Vertical derivative of cell velocity vector times horizontal velocity
-! !   DO jk = slev, elev
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !       !IF ( v_base%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-! !       IF (p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary) THEN
-! !         !1a) 0cean surface
-! !         !check if we have at least two layers of water
-! !        !IF (v_base%dolic_c(jc,jb) >= 2) THEN
-! !         IF(jk==slev)THEN
-! !             ! u-component
-! !             z_u(jc,jk,jb) =      &
-! !             &( top_bc_u_c(jc,jb)       &
-! !             & -p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,jk,jb)-u_c(jc,jk+1,jb)) &
-! !             & /v_base%del_zlev_i(jk+1))/v_base%del_zlev_m(jk)
-! !             ! v-component
-! !             z_v(jc,jk,jb) =      &
-! !             &( top_bc_v_c(jc,jb)       &
-! !             & -p_param%A_veloc_v(jc,jk,jb)*(v_c(jc,jk,jb)-v_c(jc,jk+1,jb))&
-! !             &/v_base%del_zlev_i(jk+1)) &
-! !             & /v_base%del_zlev_m(jk)
-! !             !write(*,*)'RBD:vert-diff:top',jc,jk,jb, z_u_i(jc,jk,jb),top_bc_u_c(jc,jb)
-! ! 
-! !         !1b) ocean bottom 
-! !         !ELSEIF ( jk == v_base%dolic_c(jc,jb) ) THEN
-! !         ELSEIF ( jk==p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)) THEN
-! !           IF(v_base%n_zlev>=2)THEN
-! !             ! u-component
-! !             z_u(jc,jk,jb)              &
-! !             & = (p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,jk-1,jb)-u_c(jc,jk,jb))&
-! !             & /v_base%del_zlev_i(jk)&
-! !             & - bot_bc_u_c(jc,jb))/v_base%del_zlev_m(jk)
-! !             ! v-component
-! !             z_v(jc,jk,jb)&
-! !             & = (p_param%A_veloc_v(jc,jk,jb)*(v_c(jc,jk-1,jb)-v_c(jc,jk,jb))&
-! !             & /v_base%del_zlev_i(jk)&
-! !             & -bot_bc_v_c(jc,jb))/v_base%del_zlev_m(jk)
-! !           !write(*,*)'u-diff botom:',jk,u_c(jc,elev-1,jb),u_c(jc,elev,jb),u_c(jc,elev,jb),bot_bc_u_c(jc,jb), z_u_i(jc,jk,jb)
-! !           ENDIF
-! ! 
-! !         !1c) ocean interior 
-! !         ELSEIF(jk>slev .AND. jk < p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) ) THEN
-! !           ! u-component
-! !           z_u(jc,jk,jb)&
-! !           & = &
-! !           & ( p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,jk-1,jb)-u_c(jc,jk,jb))&
-! !           &/v_base%del_zlev_i(jk)&
-! !           & - p_param%A_veloc_v(jc,jk+1,jb)  *(u_c(jc,jk,jb)-u_c(jc,jk+1,jb))&
-! !           &/v_base%del_zlev_i(jk+1)) &
-! !           & / v_base%del_zlev_m(jk)
-! !           ! v-component
-! !           z_v(jc,jk,jb)&
-! !           & = &
-! !           & ( p_param%A_veloc_v(jc,jk,jb)*(v_c(jc,jk-1,jb)-v_c(jc,jk,jb))&
-! !           &/v_base%del_zlev_i(jk)&
-! !           & - p_param%A_veloc_v(jc,jk,jb)  *(v_c(jc,jk,jb)-v_c(jc,jk+1,jb))&
-! !           &/v_base%del_zlev_i(jk+1)) &
-! !           & / v_base%del_zlev_m(jk)
-! ! 
-! !         !1c) ocean bottom 
-! !         ENDIF  ! jk-condition
-! !         ENDIF
-! !         CALL gvec2cvec( z_u(jc,jk,jb), z_v(jc,jk,jb),       &
-! !         &               p_patch%cells%center(jc,jb)%lon,                &
-! !         &               p_patch%cells%center(jc,jb)%lat,                &
-! !         &               zu_cc(jc,jk,jb)%x(1),zu_cc(jc,jk,jb)%x(2),zu_cc(jc,jk,jb)%x(3))
-! ! 
-! !       !ENDIF   ! at least 2 vertical layers
-! !       END DO
-! !     END DO
-! !   END DO
-! ! 
-! !   ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)
-! ! !  CALL map_cell2edges_3D( p_patch, zu_cc,laplacian_vn_out,p_op_coeff)
-! !   CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
-! ! 
-! !   !---------DEBUG DIAGNOSTICS-------------------------------------------
-! !   idt_src=4  ! output print level (1-5, fix)
-! !   CALL dbg_print('VelDiffRbf: Laplacian'     ,laplacian_vn_out         ,str_module,idt_src)
-! !   !---------------------------------------------------------------------
-! ! 
-! ! END SUBROUTINE velocity_diffusion_vert_rbf
-!------------------------------------------------------------------------
 ! mpi parallelized, sync required
 SUBROUTINE tracer_diffusion_horz(p_patch_3D, trac_in, p_os, K_T, diff_flx, subset_range)
 
@@ -1162,7 +944,7 @@ END SUBROUTINE tracer_diffusion_horz
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 !! mpi parallelized, no sync required
-SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
+SUBROUTINE tracer_diffusion_vert_explicit(p_patch_3D,        &
                                     & trac_c,          &
                                     & top_bc_tracer,   & 
                                     & A_v,             &
@@ -1233,7 +1015,7 @@ SUBROUTINE tracer_diffusion_vert_expl(p_patch_3D,        &
   CALL dbg_print('TrcDiffExpl: div_diff_flx' ,div_diff_flx             ,str_module,idt_src)
   !---------------------------------------------------------------------
 
-END SUBROUTINE tracer_diffusion_vert_expl
+END SUBROUTINE tracer_diffusion_vert_explicit
 !-------------------------------------------------------------------------  
 !
 !!Subroutine implements implicit vertical diffusion for scalar fields.
@@ -1244,7 +1026,7 @@ END SUBROUTINE tracer_diffusion_vert_expl
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!
 !! The result diff_column is calculated on in_domain_cells
-SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
+SUBROUTINE tracer_diffusion_vert_implicit( p_patch_3D,               &
                                          & ocean_tracer, h_c, A_v,   &
                                          & p_op_coeff) !,  &
                                         ! & diff_column)
@@ -1395,7 +1177,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch_3D,               &
 
   ! CALL sync_patch_array(SYNC_C, p_patch, diff_column)
 
-END SUBROUTINE tracer_diffusion_vert_impl_hom
+END SUBROUTINE tracer_diffusion_vert_implicit
 !-------------------------------------------------------------------------  
 !
 !!Subroutine implements implicit vertical diffusion for horizontal velocity fields
@@ -1406,7 +1188,7 @@ END SUBROUTINE tracer_diffusion_vert_impl_hom
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!  mpi parallelized LL (no sync required)
-SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
+SUBROUTINE veloc_diffusion_vert_implicit( p_patch_3D,    &
                                         & field_column,  &
                                         & A_v,           &
                                         & p_op_coeff,    &
@@ -1457,7 +1239,6 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
     DO je = i_startidx, i_endidx
       z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!!v_base%dolic_e(je,jb)
 
-      !IF ( v_base%lsm_e(je,1,jb) <= sea_boundary ) THEN
       IF (p_patch_3D%lsm_e(je,1,jb) <= sea_boundary) THEN
         IF ( z_dolic >= MIN_DOLIC ) THEN
 
@@ -1514,7 +1295,7 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch_3D,    &
   CALL dbg_print('VelDifImplHom: diff_col'   ,diff_column              ,str_module,idt_src, in_subset=p_patch%edges%owned)
   !---------------------------------------------------------------------
 
-END SUBROUTINE veloc_diffusion_vert_impl_hom
+END SUBROUTINE veloc_diffusion_vert_implicit
 
 SUBROUTINE apply_triangular_matrix(length, upper,diagonal,lower,input,output)
   INTEGER,  INTENT(IN)  :: length

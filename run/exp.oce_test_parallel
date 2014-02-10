@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -52,8 +53,7 @@ B=4   # number of bisections applied
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=1     # 1: use ocean initialization file; 0: init analytically
+use_file_initialConditions=".true."
 # prognostic ocean initialization file must match the vertical levels
 # provide name suffix for vertical resolution
 #init_oce_suff='L10_50-1000m.nc'
@@ -84,13 +84,13 @@ iforc=12
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=2
-iforc_len=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
-# surface flux file must match the length given by iforc_len
+forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -191,8 +191,8 @@ cat > ${ocean_namelist} << EOF
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+ FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT = 7      ! 7=upwind biased ppm
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   i_bc_veloc_bot     = 1         !  0/1=bottom friction off/on
@@ -210,27 +210,32 @@ cat > ${ocean_namelist} << EOF
   k_veloc_v          = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   MAX_VERT_DIFF_VELOC= 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h       = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_h       = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v       = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h            = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_h            = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v            = 1.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&ocean_forcing_and_init_nml
-  idiag_oce          = 0              ! 1: write standard ocean diagnostics, switched of because parallel global_sum_array is not bit-identical to serial global sum
-  iforc_oce          = ${iforc}       ! ocean forcing
-  iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
-  iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
-  init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
-  init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  temperature_relaxation= 0      !  0: no relaxation used
+&ocean_forcing_nml
+  iforc_oce                 = ${iforc}       ! ocean forcing
+  iforc_type                = ${iforc_type}  ! type of ocean forcing, see above
+  forcing_windstress_u_type = 1
+  forcing_windstress_v_type = 1
+  forcing_fluxes_type       = 1
+  forcing_timescale         = ${forcing_timescale}   ! length of ocean forcing data set, see above
+
+  init_oce_relax            = ${init_relax}  ! read ocean surface relaxation file, see above
+  temperature_relaxation    = 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
-  l_forc_freshw      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_enable_freshwater      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+/
+&ocean_initialConditions_nml
+  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -40,8 +41,6 @@ B=4   # number of bisections applied
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
-# ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=0     # 1: use ocean initialization file; 0: init analytically
 # prognostic ocean initialization file must match the vertical levels
 # provide name suffix for vertical resolution
 # number of levels and thickness of surface and bottom layer
@@ -73,13 +72,13 @@ iforc=11
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
-#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
 iforc_type=1
-iforc_len=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
-# surface flux file must match the length given by iforc_len
+forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
+# surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
 #   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
-#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (forcing_timescale=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -171,8 +170,8 @@ cat > ${ocean_namelist} << EOF
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  FLUX_CALCULATION_HORZ = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  FLUX_CALCULATION_VERT = 4      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT = 7      ! 7=upwind biased ppm
   !veloc_diffusion_order = 1      ! 1=harmonic, 2=biharmonic friction
   !veloc_diffusion_form  = 1      ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
   solver_tolerance = 1.0E-11              !  absolute (new) or relative (gmres_oce_old) - to be checked
@@ -194,10 +193,8 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
   MAX_VERT_DIFF_TRAC = 0.1       ! max vertical tracer diffusion for convection used in case of instability
 /
-&ocean_forcing_and_init_nml
+&ocean_forcing_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
-  idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
@@ -206,6 +203,14 @@ cat > ${ocean_namelist} << EOF
                                  ! -1: use net surface heat flux from atmosphere as boundary condition
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
+/
+&ocean_initialConditions_nml
+  ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type      = 402
+  initial_temperature_type   = 207
+  initial_sst_type           = 'sst1'
+  initial_temperature_top    = 27.0 
+  initial_temperature_bottom = 0.0
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

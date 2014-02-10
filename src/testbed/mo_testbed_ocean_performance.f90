@@ -57,11 +57,11 @@ MODULE mo_testbed_ocean_performance
     &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
     &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
     &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
-    &                                     MIMETIC_MIURA, l_forc_freshw, l_skip_tracer
+    &                                     forcing_enable_freshwater, l_skip_tracer
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer
-  USE mo_oce_state,                 ONLY: t_hydro_ocean_state!, v_base
+  USE mo_oce_types,                 ONLY: t_hydro_ocean_state
   USE mo_model_domain,              ONLY: t_patch, t_patch_3D
   USE mo_oce_physics
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff

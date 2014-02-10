@@ -46,7 +46,7 @@ MODULE mo_extpar_config
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
-  USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,  &
+  USE mo_util_string,        ONLY: t_keyword_list, &
     &                              associate_keyword, with_keywords
   USE mo_exception,          ONLY: finish
 
@@ -88,11 +88,11 @@ CONTAINS
 
   FUNCTION generate_filename(extpar_filename, model_base_dir, grid_filename) &
     &  RESULT(result_str)
-    CHARACTER(len=*), INTENT(IN)   :: extpar_filename, &
-      &                               model_base_dir,  &
-      &                               grid_filename
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(len=*), INTENT(IN)    :: extpar_filename, &
+      &                                model_base_dir,  &
+      &                                grid_filename
+    CHARACTER(len=MAX_CHAR_LENGTH)  :: result_str
+    TYPE (t_keyword_list), POINTER  :: keywords => NULL()
 
     CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
     CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
@@ -104,14 +104,13 @@ CONTAINS
 !-----------------------------------------------------------------------
   FUNCTION generate_td_filename(extpar_td_filename, model_base_dir, grid_filename, month, year, clim) &
     &  RESULT(result_str)
-    CHARACTER(len=*), INTENT(IN)   :: extpar_td_filename, &
-      &                               model_base_dir,  &
-      &                               grid_filename
-    INTEGER, INTENT(IN)            :: month
-    INTEGER, INTENT(IN), OPTIONAL  :: year
-    LOGICAL, INTENT(IN), OPTIONAL  :: clim
-    CHARACTER(len=MAX_STRING_LEN)  :: syear,smonth
-    CHARACTER(len=MAX_STRING_LEN)  :: result_str
+    CHARACTER(len=*), INTENT(IN)    :: extpar_td_filename, &
+      &                                model_base_dir,  &
+      &                                grid_filename
+    INTEGER, INTENT(IN)             :: month
+    INTEGER, INTENT(IN), OPTIONAL   :: year
+    LOGICAL, INTENT(IN), OPTIONAL   :: clim
+    CHARACTER(len=MAX_CHAR_LENGTH)  :: syear,smonth, result_str
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = 'mo_td_ext_data:generate_td_filename:'

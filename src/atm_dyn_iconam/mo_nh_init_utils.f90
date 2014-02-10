@@ -73,8 +73,6 @@ MODULE mo_nh_init_utils
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   INTEGER:: nflat, nflatlev(max_dom)
 
   REAL(wp) :: layer_thickness        ! (m)
@@ -84,7 +82,8 @@ MODULE mo_nh_init_utils
 
   PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo, &
     &       init_vert_coord, interp_uv_2_vn, init_w, adjust_w, convert_thdvars,     &
-    &       convert_omega2w, hydro_adjust_downward
+    &       convert_omega2w, hydro_adjust_downward, prepare_hybrid_coord,           &
+    &       prepare_sleve_coord
 
 CONTAINS
   !-------------
@@ -704,21 +703,64 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M, (2009-04-14)
   !!
-  SUBROUTINE init_hybrid_coord(nlev)
+  SUBROUTINE init_hybrid_coord(nlev, vct_a, vct_b)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_init_utils:init_hybrid_coord'
 
-    INTEGER, INTENT(IN) :: nlev  !< number of full levels
+    INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
+    REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
+
     REAL(wp) :: z_height, z_flat
-    INTEGER  :: jk, ist
+    INTEGER  :: jk
     INTEGER  :: nlevp1            !< number of half levels
-    !-------------------------------------------------------------------------
 
     ! number of vertical half levels
     nlevp1 = nlev+1
 
     ! read hybrid parameters as in the hydrostatic model
+    IF ( layer_thickness < 0.0_wp) THEN
+
+      CALL read_vct (iequations,nlev)
+
+    ELSE
+
+      z_flat = REAL(nlevp1-n_flat_level,wp) * layer_thickness
+      DO jk = 1, nlevp1
+        z_height  = layer_thickness*REAL(nlevp1-jk,wp)
+        vct_a(jk) = z_height
+        IF ( z_height >= z_flat) THEN
+          vct_b(jk) = 0.0_wp
+        ELSE
+          vct_b(jk) = (z_flat - z_height)/z_flat
+        ENDIF
+      ENDDO
+
+    ENDIF
+
+  END SUBROUTINE init_hybrid_coord
+
+
+  !---------------------------------------------------------------------------
+  !> Utility routine: computes some values based on vct_a, vct_b
+  !
+  SUBROUTINE prepare_hybrid_coord(nlev, vct_a, vct_b, vct, nflatlev)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_init_utils:init_hybrid_coord'
+
+    INTEGER,  INTENT(IN)  :: nlev  !< number of full levels
+    REAL(wp), INTENT(IN)  :: vct_a(:), vct_b(:)
+    REAL(wp), INTENT(OUT) :: vct(:)
+    INTEGER,  INTENT(OUT) :: nflatlev(:)
+
+    REAL(wp) :: z_height, z_flat
+    INTEGER  :: jk, nflat
+    INTEGER  :: nlevp1            !< number of half levels
+
+    ! number of vertical half levels
+    nlevp1 = nlev+1
+
     IF ( layer_thickness < 0.0_wp) THEN
 
       CALL read_vct (iequations,nlev)
@@ -733,33 +775,11 @@ CONTAINS
 
     ELSE
 
-      ALLOCATE(vct_a(nlevp1), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine), &
-                     'allocation of vct_a failed')
-      ENDIF
-
-      ALLOCATE(vct_b(nlevp1), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine), &
-                     'allocation of vct_b failed')
-      ENDIF
-
-      ALLOCATE(vct(nlevp1*2), STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine), &
-                     'allocation of vct failed')
-      ENDIF
-
       nflat  = -1
       z_flat = REAL(nlevp1-n_flat_level,wp) * layer_thickness
       DO jk = 1, nlevp1
         z_height  = layer_thickness*REAL(nlevp1-jk,wp)
-        vct_a(jk) = z_height
-        IF ( z_height >= z_flat) THEN
-          vct_b(jk) = 0.0_wp
-        ELSE
-          vct_b(jk) = (z_flat - z_height)/z_flat
+        IF ( z_height < z_flat) THEN
           IF (nflat == -1) THEN
             nflat = jk-1
           ENDIF
@@ -769,12 +789,11 @@ CONTAINS
 
       vct(       1:       nlevp1) = vct_a(:)
       vct(nlevp1+1:nlevp1+nlevp1) = vct_b(:)
-
     ENDIF
 
     CALL message(TRIM(routine), ' coordinate setup finished')
 
-  END SUBROUTINE init_hybrid_coord
+  END SUBROUTINE prepare_hybrid_coord
 
   !---------------------------------------------------------------------------
   !>
@@ -786,44 +805,17 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2010-07-21)
   !!
-  SUBROUTINE init_sleve_coord(nlev)
+  SUBROUTINE init_sleve_coord(nlev, vct_a, vct_b)
 
-    INTEGER, INTENT(IN) :: nlev  !< number of full levels
+    INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
+    REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
+
     REAL(wp) :: z_exp
-    INTEGER  :: jk, ist
+    INTEGER  :: jk
     INTEGER  :: nlevp1        !< number of full and half levels
-
-    !-------------------------------------------------------------------------
 
     ! number of vertical levels
     nlevp1 = nlev+1
-
-
-    ! Unlike the hybrid Gal-Chen coordinate, the SLEVE coordinate uses only one
-    ! field with coordinate parameters
-    ALLOCATE(vct_a(nlevp1), STAT=ist)
-    IF(ist/=SUCCESS)THEN
-      CALL finish ('mo_nh_init_utils:init_sleve_coord', &
-                   'allocation of vct_a failed')
-    ENDIF
-
-    ! Read namelist for SLEVE coordinate
-!    is already done in the all-namelist read-routine
-!    CALL sleve_nml_setup
-
-    ! However, vct_b also needs to be defined because it is used elsewhere
-    ALLOCATE(vct_b(nlevp1), STAT=ist)
-    IF(ist/=SUCCESS)THEN
-      CALL finish ('mo_nh_init_utils:init_sleve_coord', &
-                   'allocation of vct_b failed')
-    ENDIF
-
-    ! And vct is allocated because mo_io_vlist accesses it
-    ALLOCATE(vct(nlevp1*2), STAT=ist)
-    IF(ist/=SUCCESS)THEN
-      CALL finish ('mo_nh_init_utils:init_hybrid_coord', &
-                   'allocation of vct failed')
-    ENDIF
 
     IF (min_lay_thckn > 0.01_wp) THEN
       z_exp = LOG(min_lay_thckn/top_height)/LOG(2._wp/pi*ACOS(REAL(nlev-1,wp)**stretch_fac/&
@@ -837,14 +829,45 @@ CONTAINS
         vct_a(jk)      = top_height*(2._wp/pi*ACOS(REAL(jk-1,wp)**stretch_fac/ &
           &              REAL(nlev,wp)**stretch_fac))**z_exp
         vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
-        vct(jk)        = vct_a(jk)
-        vct(jk+nlevp1) = vct_b(jk)
       ENDDO
     ELSE
      ! Use constant layer thicknesses determined by nlev and top_height
       DO jk = 1, nlevp1
         vct_a(jk) = top_height*(REAL(nlevp1,wp)-REAL(jk,wp))/REAL(nlev,wp)
         vct_b(jk) = EXP(-vct_a(jk)/5000._wp)
+      ENDDO
+    ENDIF
+
+  END SUBROUTINE init_sleve_coord
+
+  !---------------------------------------------------------------------------
+  !> Utility routine: computes some values based on vct_a, vct_b
+  !
+  SUBROUTINE prepare_sleve_coord(nlev, vct_a, vct_b, vct, nflatlev)
+
+    INTEGER,  INTENT(IN)  :: nlev  !< number of full levels
+    REAL(wp), INTENT(IN)  :: vct_a(:), vct_b(:)
+    REAL(wp), INTENT(OUT) :: vct(:)
+    INTEGER,  INTENT(OUT) :: nflatlev(:)
+
+    REAL(wp) :: z_exp
+    INTEGER  :: jk, nflat
+    INTEGER  :: nlevp1        !< number of full and half levels
+
+    ! number of vertical levels
+    nlevp1 = nlev+1
+
+    !------------------------------
+    ! derived quantities: input: vct_a, vct_b -> output: vct, nflat, nflatlev
+
+    IF (min_lay_thckn > 0.01_wp) THEN
+      DO jk = 1, nlevp1
+        vct(jk)        = vct_a(jk)
+        vct(jk+nlevp1) = vct_b(jk)
+      ENDDO
+    ELSE
+      ! Use constant layer thicknesses determined by nlev and top_height
+      DO jk = 1, nlevp1
         vct(jk)        = vct_a(jk)
         vct(jk+nlevp1) = vct_b(jk)
       ENDDO
@@ -875,7 +898,7 @@ CONTAINS
       ENDDO
     ENDIF
 
-  END SUBROUTINE init_sleve_coord
+  END SUBROUTINE prepare_sleve_coord
 
   !---------------------------------------------------------------------------
   !>
@@ -886,24 +909,20 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2010-07-21)
   !!
-  SUBROUTINE compute_smooth_topo(p_patch, p_int, topo_c, topo_smt_c, &
-                                 topo_v, topo_smt_v)
+  SUBROUTINE compute_smooth_topo(p_patch, p_int, topo_c, topo_smt_c)
 
     TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
     TYPE(t_int_state), INTENT(IN) :: p_int
 
-    ! Input fields: topography on cells and vertices
+    ! Input fields: topography on cells
     REAL(wp), INTENT(IN) :: topo_c(:,:)
-    REAL(wp), INTENT(IN) :: topo_v(:,:)
 
-    ! Output fields: smooth topography on cells and vertices
+    ! Output fields: smooth topography on cells
     REAL(wp), INTENT(OUT) :: topo_smt_c(:,:)
-    REAL(wp), INTENT(OUT) :: topo_smt_v(:,:)
 
     INTEGER  :: jb, jc, iter, niter
     INTEGER  :: i_startblk, nblks_c, i_startidx, i_endidx
     REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),nabla2_topo(nproma,1,p_patch%nblks_c)
-    REAL(wp) :: z_topo_v(nproma,1,p_patch%nblks_v)
 
     !-------------------------------------------------------------------------
 
@@ -911,7 +930,6 @@ CONTAINS
 
     ! Initialize auxiliary fields for topography with data and nullify nabla2 field
     z_topo(:,1,:)      = topo_c(:,:)
-    z_topo_v(:,1,:)    = topo_v(:,:)
     nabla2_topo(:,1,:) = 0._wp
 
     i_startblk = p_patch%cells%start_blk(2,1)
@@ -939,14 +957,8 @@ CONTAINS
 
     ENDDO
 
-    ! Interpolate smooth topography from cells to vertices
-    CALL cells2verts_scalar(z_topo,p_patch,p_int%cells_aw_verts,z_topo_v,1,1)
-
-    CALL sync_patch_array(SYNC_V,p_patch,z_topo_v)
-
     ! Store smooth topography on output fields
     topo_smt_c(:,:) = z_topo(:,1,:)
-    topo_smt_v(:,:) = z_topo_v(:,1,:)
 
   END SUBROUTINE compute_smooth_topo
 
@@ -961,7 +973,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2011-07-01)
   !!
-  SUBROUTINE init_vert_coord(topo, topo_smt, z3d_i, z3d_m,     &
+  SUBROUTINE init_vert_coord(topo, topo_smt, z3d_i,     &
                              nlev, nblks, npromz, nshift, nflat)
 
     ! Input parameters:
@@ -976,8 +988,7 @@ CONTAINS
 
  
     ! Output fields: 3D coordinate fields at interface and main levels
-    REAL(wp),  INTENT(OUT) :: z3d_i(nproma,nlev+1,nblks), &
-                              z3d_m(nproma,nlev,nblks)
+    REAL(wp),  INTENT(OUT) :: z3d_i(nproma,nlev+1,nblks)
 
     INTEGER :: jc, jk, jk1, jb, nlen, nlevp1, ierr(nblks), nerr, ktop_thicklimit(nproma)
     REAL(wp) :: z_fac1, z_fac2, z_topo_dev(nproma), min_lay_spacing, &
@@ -1001,7 +1012,6 @@ CONTAINS
       ELSE
         nlen = npromz
         z3d_i(nlen+1:nproma,:,jb) = 0._wp
-        z3d_m(nlen+1:nproma,:,jb) = 0._wp
      ENDIF
 
      z3d_i(1:nlen,nlevp1,jb) = topo(1:nlen,jb)
@@ -1058,7 +1068,8 @@ CONTAINS
        ! Smooth layer thickness ratios in the transition layer of columns where the thickness limiter has been active
        DO jc = 1, nlen
          jk = ktop_thicklimit(jc)
-         IF (jk <= nlev-2 .AND. jk >= 3) THEN
+         IF (jk <= nlev-2 .AND. jk >= 4) THEN
+           ! TODO : array access with subscript (jk-3)=0
            dz1 = z3d_i(jc,jk+1,jb)-z3d_i(jc,jk+2,jb)
            dz2 = z3d_i(jc,jk-3,jb)-z3d_i(jc,jk-2,jb)
            dzr = (dz2/dz1)**0.25_wp ! stretching factor
@@ -1069,13 +1080,9 @@ CONTAINS
        ENDDO
        ! Check if level nflat is still flat
        IF (ANY(z3d_i(1:nlen,nflat,jb) /= vct_a(nflat+nshift))) ierr(jb) = 1
+       ! Check also if ktop_thicklimit is sufficiently far away from the model top
+       IF (nlev > 6 .AND. ANY(ktop_thicklimit(1:nlen) <= 3)) ierr(jb) = ierr(jb) + 1
      ENDIF
-
-     DO jk = 1, nlev
-       ! geometric height of full levels
-       z3d_m(1:nlen,jk,jb) = 0.5_wp*(z3d_i(1:nlen,jk,jb)+z3d_i(1:nlen,jk+1,jb))
-     ENDDO
-
 
    ENDDO
 !$OMP END DO NOWAIT
@@ -1083,7 +1090,7 @@ CONTAINS
 
    nerr = SUM(ierr(1:nblks))
    IF (nerr > 0) CALL finish ('init_vert_coord: ', &
-      'flat_height in sleve_nml is too low')
+      'flat_height in sleve_nml or model top is too low')
 
   END SUBROUTINE init_vert_coord
 

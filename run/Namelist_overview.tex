@@ -1501,9 +1501,7 @@ Defined and used in: src/namelists/mo\_gribout\_nml.f90
 \hline
 cell\_type&
 I & 3& &
-Cell type\\
-3: triangular cells\\
-4: quadrilateral cells (not yet available) &
+Cell type: not used  &
 \tabularnewline
 
 \hline
@@ -1632,6 +1630,18 @@ and the radiation\_grid\_filename array. It provides the link index of the radia
 for each entry of the dynamics\_grid\_filename array.
 Indexes start at 1, an index of 0 indicates that the radiation grid is the same as the dycore grid.
 Only needs to be filled when the radiation\_grid\_filename is defined. &
+\tabularnewline
+
+\hline
+create\_vgrid &
+L & .FALSE. & &
+.TRUE.: Write vertical grid files containing (\texttt{vct\_a}, \texttt{vct\_b}, \texttt{z\_ifc}, and \texttt{z\_ifv}. &
+\tabularnewline
+
+\hline
+vertical\_grid\_filename &
+C (n\_dom) & & &
+Array of filenames. These files contain the vertical grid definition (\texttt{vct\_a}, \texttt{vct\_b}, \texttt{z\_ifc}. &
 \tabularnewline
 
 \end{longtab}
@@ -2492,10 +2502,13 @@ C &
 &
 &
 Filename of boundary data input file, default:\\
-''\texttt{<path>prepiconR<nroot>B<jlev>\_<timestamp>}.nc''. Optional
-keyword \texttt{<path>} will be substituted by
-\texttt{latbc\_path}. \texttt{<timestamp>} will be automatically
-replaced in the run-time.
+''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
+\texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and \texttt{<h>} 
+will be automatically replaced during the run-time. In case
+the time span between two consecutive boundary data is less than 1 hour, 
+one can use \texttt{<min>} and \texttt{<sec>}.
+These files must be located in
+the \texttt{latbc\_path} directory.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -3040,7 +3053,7 @@ L& .FALSE. & &
 
 \hline
 divdamp\_fac&
-R& 0.004& &
+R& 0.0025& &
 Scaling factor for divergence damping&
 lhdiff\_rcf = .TRUE.
 \tabularnewline
@@ -3051,7 +3064,9 @@ I& 4& &
 Order of divergence damping: \\
 2 = second-order divergence damping \\
 4 = fourth-order divergence damping \\
-24 = combined second-order and fourth-order divergence damping (use for data assimilation cycle only!) &
+24 = combined second-order and fourth-order divergence damping and enhanced vertical wind off-centering
+during the initial spinup phase (does not allow checkpointing/restarting ealier than 2.5 hours
+of integration) &
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 
@@ -3892,11 +3907,12 @@ L&see descr.& &
 
 \hline
  taxis\_tunit &
-I&3& &
- 3 = TUNIT\_HOUR , 2 = TUNIT\_MINUTE \\
+I&2& &
+ 1 = TUNIT\_SECOND\\ 
+ 2 = TUNIT\_MINUTE\\
+ 3 = TUNIT\_HOUR\\
  Time unit of the TAXIS\_RELATIVE time axis.
  For a complete list of possible values see cdi.inc
- Till now it only works for taxis\_tunit=3
 & mode=1
 \tabularnewline
 
@@ -5276,6 +5292,8 @@ l\_limited\_area =.TRUE.
 &&&&'\textbf{g\_lim\_area}': Initializes a series of general limited area test cases:
  itype\_atmos\_ana determines the atmospheric profile, itype\_anaprof\_uv
 determines the wind profile and itype\_topo\_ana determines the topography&
+\tabularnewline
+&&&&'\textbf{dcmip\_pa\_12}': Initializes Hadley-like meridional circulation pure advection test case.&
 \tabularnewline
 &&&&'\textbf{dcmip\_rest\_200}': atmosphere at rest test (Schaer-type mountain)&
 lcoriolis = .FALSE.

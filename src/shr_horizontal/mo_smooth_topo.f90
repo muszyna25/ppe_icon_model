@@ -72,11 +72,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-   SUBROUTINE smooth_topography (p_patch, p_int, topography_c, topography_v, sso_stdh)
+   SUBROUTINE smooth_topography (p_patch, p_int, topography_c, sso_stdh)
 
     TYPE(t_patch)      , INTENT(IN)    :: p_patch
     TYPE(t_int_state)  , INTENT(IN)    :: p_int
-    REAL(wp)           , INTENT(INOUT) :: topography_c(:,:), topography_v(:,:)
+    REAL(wp)           , INTENT(INOUT) :: topography_c(:,:)
     REAL(wp), OPTIONAL , INTENT(INOUT) :: sso_stdh(:,:)
 
     ! local variables
@@ -85,14 +85,12 @@ CONTAINS
     REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),z_nabla4_topo(nproma,1,p_patch%nblks_c),    &
       &         z_topo_old(nproma,1,p_patch%nblks_c),z_nabla2_topo(nproma,1,p_patch%nblks_c),&
       &         z_topo_c_sv(nproma,p_patch%nblks_c),z_hdiffmax(nproma,p_patch%nblks_c)
-    REAL(wp) :: z_topo_v(nproma,1,p_patch%nblks_v)
     REAL(wp) :: zmaxtop,zmintop,z_topo_new,zdcoeff,z_heightdiff_threshold,zhdiff
     LOGICAL  :: lnabla2_mask(nproma,p_patch%nblks_c)
 
 
     jg = p_patch%id
 
-    z_topo_v(:,1,:)  = topography_v(:,:)
     z_topo_c_sv(:,:) = topography_c(:,:)
 
     z_nabla4_topo(:,1,:) = 0._wp
@@ -302,15 +300,6 @@ CONTAINS
       topography_c(:,:)=z_topo(:,1,:)
 
     ENDDO !iter
-
-
-    ! Interpolate smooth topography from cells to vertices
-    z_topo(:,1,:)   = topography_c(:,:)
-    CALL cells2verts_scalar(z_topo,p_patch,p_int%cells_aw_verts,z_topo_v)
-
-    CALL sync_patch_array(SYNC_V,p_patch,z_topo_v)
-
-    topography_v(:,:) = z_topo_v(:,1,:)
 
     ! Apply correction to SSO standard deviation
     IF (PRESENT(sso_stdh)) THEN
