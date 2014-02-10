@@ -191,6 +191,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: fct_vert_adpo              = 6
   INTEGER, PARAMETER :: fct_vert_ppm               = 7  
   INTEGER, PARAMETER :: fct_vert_zalesak           = 8    
+  INTEGER, PARAMETER :: fct_vert_minmod            = 9      
   !Additional parameters for FCT: High and low order flux calculations can be
   !chosen from list above. Below is the default option
   INTEGER            :: fct_high_order_flux= central
@@ -779,7 +780,8 @@ MODULE mo_ocean_nml
      IF(      flux_calculation_vert/=upwind        &
         &.AND.flux_calculation_vert/=fct_vert_ppm  &
         &.AND.flux_calculation_vert/=fct_vert_adpo &
-        &.AND.flux_calculation_vert/=fct_vert_zalesak)THEN
+        &.AND.flux_calculation_vert/=fct_vert_zalesak&
+        &.AND.flux_calculation_vert/=fct_vert_minmod)THEN
        CALL finish(TRIM(routine), 'wrong parameter for vertical advection')   
      ENDIF
 

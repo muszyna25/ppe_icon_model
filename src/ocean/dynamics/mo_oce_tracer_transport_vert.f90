@@ -47,7 +47,8 @@ USE mo_kind,                      ONLY: wp
 USE mo_impl_constants,            ONLY: sea_boundary
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_ocean_nml,                 ONLY: n_zlev,  &
-  &                                     upwind, central,fct_vert_adpo,fct_vert_ppm,fct_vert_zalesak, l_adpo_flowstrength, &
+  &                                     upwind, central,fct_vert_adpo,fct_vert_ppm,fct_vert_zalesak,&
+  &                                     fct_vert_minmod, l_adpo_flowstrength, &
   &                                     flux_calculation_vert
 USE mo_parallel_config,           ONLY: nproma
 !USE mo_dynamics_config,           ONLY: nold, nnew
@@ -212,7 +213,7 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
 
       CALL sync_patch_array(SYNC_C, p_patch, adpo_weight)
       
-      CASE(100)
+      CASE(fct_vert_minmod)
         CALL advect_flux_vertical_high_res( p_patch_3D,  &
                                    & trac_old,             &
                                    & p_os,                 &
