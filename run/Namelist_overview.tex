@@ -2166,12 +2166,12 @@ stencil size for direct lon-lat interpolation:
 
 \hline
 rbf\_scale\_mode\_ll&
-I& 1& &
+I& 2 & &
 Specifies, how the RBF shape parameter is
 determined for lon-lat interpolation.
 1 : lookup table based on grid level (default)
 2 : determine automatically.
-So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
+So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky decomposition is likely to succeed in floating point arithmetic.
 &
 \tabularnewline
 
@@ -4494,7 +4494,7 @@ C &
 &
 File name for restart/checkpoint files (containg keyword
 substitution patterns \texttt{<gridfile>}, \texttt{<idom>}, \texttt{<rsttime>}, \texttt{<mtype>}).
-default: ''\texttt{<gridfile>\_restart\_<mtype>\_<rsttime>.nc''.
+default: ''\texttt{<gridfile>\_restart\_<mtype>\_<rsttime>.nc}''.
 &
 \tabularnewline
 
@@ -6161,6 +6161,13 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \end{itemize}
 \end{changeitem}
 
+
+\begin{changeitem}{interpol\_nml}{ 2014-02-20 }{ 16047 }
+  \begin{itemize}
+   \item Changed namelist default for \texttt{rbf\_scale\_mode\_ll}: The RBF scale factor for lat-lon interpolation is now
+      determined automatically by default.
+  \end{itemize}
+\end{changeitem}
 
 % --------------------------------------------------------------------------------------------
 
