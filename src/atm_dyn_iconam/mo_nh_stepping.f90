@@ -48,7 +48,7 @@ MODULE mo_nh_stepping
 !
 !
 
-  USE mo_kind,                ONLY: wp, i8
+  USE mo_kind,                ONLY: wp
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
     & nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
@@ -82,6 +82,7 @@ MODULE mo_nh_stepping
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
+  USE mo_nh_dcmip_hadley,     ONLY: set_nh_velocity_hadley
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh, print_maxwinds
   USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -137,10 +138,12 @@ MODULE mo_nh_stepping
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,            ONLY: t_simulation_status
+
   USE mo_art_emission_interface, ONLY: art_emission_interface
   USE mo_art_sedi_interface,  ONLY: art_sedi_interface
   USE mo_art_tools_interface, ONLY: art_tools_interface
   USE mo_art_config,          ONLY: art_config
+
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
   USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
@@ -279,7 +282,12 @@ MODULE mo_nh_stepping
   CALL allocate_nh_stepping ()
 
   ! Compute diagnostic dynamics fields for initial output and physics initialization
-  IF (.NOT.is_restart_run()) CALL diag_for_output_dyn (linit=.TRUE.)
+  IF (is_restart_run()) THEN
+    CALL diag_for_output_dyn (linit=.FALSE.)
+  ELSE
+    CALL diag_for_output_dyn (linit=.TRUE.)
+  ENDIF
+
 
   IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
@@ -582,13 +590,15 @@ MODULE mo_nh_stepping
     ! activating and immediately after terminating a model domain
     ldom_active(1:n_dom) = p_patch(1:n_dom)%ldom_active
 
-    ! This serves for enhancing the sound wave damping during the first 2 hours of integration
-    ! If mixed second-order - fourth-order divergence damping is chosen (divdamp_order=24),
-    ! the coefficient for second-order divergence damping is also updated
-    elapsed_time_global = REAL(jstep,wp)*dtime
-    IF (elapsed_time_global <= 7200._wp+REAL(iadv_rcf,wp)*dtime .AND. MOD(jstep,iadv_rcf) == 1  &
-       .AND. .NOT. is_restart_run() .AND. .NOT. ltestcase) THEN
-      CALL update_w_offctr(elapsed_time_global)
+    ! Calculations for enhanced sound-wave and gravity-wave damping during the spinup phase
+    ! if mixed second-order/fourth-order divergence damping (divdamp_order=24) is chosen.
+    ! Includes increased vertical wind off-centering during the first 2 hours of integration.
+    IF (divdamp_order==24 .AND. .NOT. is_restart_run()) THEN
+      elapsed_time_global = REAL(jstep,wp)*dtime
+      IF (elapsed_time_global <= 7200._wp+REAL(iadv_rcf,wp)*dtime .AND.  &
+          MOD(jstep,iadv_rcf) == 1  .AND. .NOT. ltestcase) THEN
+        CALL update_spinup_damping(elapsed_time_global)
+      ENDIF
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -951,6 +961,27 @@ MODULE mo_nh_stepping
             &                     p_nh_state(jg)%diag, dtadv_loc,  & !inout,in
             &                     jstep_adv(jg)%marchuk_order,     & !in
             &                     lcoupled_rho                     )
+
+
+        CASE ('DCMIP_PA_12', 'dcmip_pa_12')
+
+          ! get velocity field for the DCMIP Hadley-like meridional circulation test
+          !
+          CALL set_nh_velocity_hadley( p_patch(jg), p_nh_state(jg)%prog(n_new), & !in,inout
+            &                          p_nh_state(jg)%diag, p_int_state(jg),    & !in
+            &                          p_nh_state(jg)%metrics,                  & !in
+            &                          time_config%sim_time(jg)-dt_loc+dtadv_loc) !in
+
+          ! get mass flux and updated density for the DCMIP Hadley-like 
+          ! meridional circulation test
+          !
+          CALL integrate_density_pa(p_patch(jg), p_int_state(jg),  & !in
+            &                     p_nh_state(jg)%prog(n_now),      & !in
+            &                     p_nh_state(jg)%prog(n_new),      & !in
+            &                     p_nh_state(jg)%metrics,          & !in
+            &                     p_nh_state(jg)%diag, dtadv_loc,  & !inout,in
+            &                     jstep_adv(jg)%marchuk_order,     & !in
+            &                     lcoupled_rho                     )
         END SELECT
 
 
@@ -1030,9 +1061,9 @@ MODULE mo_nh_stepping
         idyn_timestep = MOD(jstep_adv(jg)%ntsteps,iadv_rcf)
         IF (idyn_timestep == 0) idyn_timestep = iadv_rcf
 
-        IF (iforcing == inwp .AND. lclean_mflx) THEN
+        IF (lclean_mflx) THEN
           l_recompute = .TRUE. ! always recompute velocity tendencies for predictor
-        ELSE                   ! step after a physics call
+        ELSE                   ! step after a diffusion/physics call
           l_recompute = .FALSE.
         ENDIF
 
@@ -1081,8 +1112,8 @@ MODULE mo_nh_stepping
               CALL diffusion(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,        &
                 p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .FALSE.)
           ELSE
-            CALL add_slowphys(p_nh_state(jg), p_patch(jg), n_now, n_new, dt_loc, &
-                              lstep_adv(jg), n_now_rcf, n_new_rcf)
+            CALL add_slowphys(p_nh_state(jg), p_patch(jg), p_int_state(jg), &
+              n_now, n_new, dt_loc, lstep_adv(jg), n_now_rcf, n_new_rcf)
           ENDIF   
         ELSE
           CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
@@ -1138,16 +1169,18 @@ MODULE mo_nh_stepping
               &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
             IF (art_config(jg)%lart) THEN
-!              CALL art_sedi_interface( p_patch(jg),             &!in
-!                 &      dtadv_loc,                              &!in
-!                 &      p_nh_state(jg)%prog_list(n_new_rcf),    &!in
-!                 &      p_nh_state(jg)%metrics,                 &!in
-!                 &      p_nh_state(jg)%prog(n_new)%rho,         &!in
-!                 &      p_nh_state(jg)%diag,                    &!in
-!                 &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
-!                 &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
-!                 &      prep_adv(jg)%rhodz_mc_new,              &!in
-!                 &      opt_topflx_tra=prep_adv(jg)%topflx_tra)  !in
+              CALL art_sedi_interface( p_patch(jg),             &!in
+                 &      dtadv_loc,                              &!in
+                 &      p_nh_state(jg)%prog_list(n_new_rcf),    &!in
+                 &      p_nh_state(jg)%prog(n_new_rcf),         &!in              
+                 &      p_nh_state(jg)%metrics,                 &!in
+                 &      p_nh_state(jg)%prog(n_new)%rho,         &!in
+                 &      p_nh_state(jg)%diag,                    &!in
+                 &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
+                 &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
+                 &      prep_adv(jg)%rhodz_mc_new,              &!in
+                 &      .TRUE.,                                 &!print CFL number
+                 &      opt_topflx_tra=prep_adv(jg)%topflx_tra)  !in
             ENDIF
                  
 !            IF (  iforcing==inwp .AND. inwp_turb == icosmo) THEN
@@ -1778,15 +1811,15 @@ MODULE mo_nh_stepping
 
   !-------------------------------------------------------------------------
   !>
-  !! Update of vertical wind offcentering
+  !! Update of vertical wind offcentering and divergence damping
   !!
-  !! This routine handles the increased sound-wave damping (by increasing the vertical
-  !! wind offcentering) during the initial spinup phase
+  !! This routine handles the increased sound-wave damping (by increasing the vertical wind offcentering)
+  !! and mixed second-order/fourth-order divergence damping during the initial spinup phase
   !!
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2013-06-04)
   !!
-  SUBROUTINE update_w_offctr(elapsed_time)
+  SUBROUTINE update_spinup_damping(elapsed_time)
 
     REAL(wp), INTENT(IN) :: elapsed_time
     INTEGER :: jg
@@ -1797,13 +1830,13 @@ MODULE mo_nh_stepping
 
     IF (elapsed_time <= time1) THEN ! apply slightly super-implicit weights
       min_vwind_impl_wgt = 1.1_wp
-      IF (divdamp_order == 24) divdamp_fac_o2 = 8._wp*divdamp_fac
+      divdamp_fac_o2 = 8._wp*divdamp_fac
     ELSE IF (elapsed_time <= time2) THEN ! linearly decrease minimum weights to 0.5
       min_vwind_impl_wgt = 0.5_wp + 0.6_wp*(time2-elapsed_time)/(time2-time1)
-      IF (divdamp_order == 24) divdamp_fac_o2 = 8._wp*divdamp_fac*(time2-elapsed_time)/(time2-time1)
+      divdamp_fac_o2 = 8._wp*divdamp_fac*(time2-elapsed_time)/(time2-time1)
     ELSE
       min_vwind_impl_wgt = 0.5_wp
-      IF (divdamp_order == 24) divdamp_fac_o2 = 0._wp
+      divdamp_fac_o2 = 0._wp
     ENDIF
 
     DO jg = 1, n_dom
@@ -1812,7 +1845,7 @@ MODULE mo_nh_stepping
       p_nh_state(jg)%metrics%vwind_expl_wgt(:,:) = 1._wp-p_nh_state(jg)%metrics%vwind_impl_wgt(:,:)
     ENDDO
 
-  END SUBROUTINE update_w_offctr
+  END SUBROUTINE update_spinup_damping
 
   !-------------------------------------------------------------------------
   !>

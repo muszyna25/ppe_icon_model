@@ -1135,6 +1135,7 @@ src/art_interface/mo_art_reaction_interface.f90 -text
 src/art_interface/mo_art_sedimentation_interface.f90 -text
 src/art_interface/mo_art_tools_interface.f90 -text
 src/art_interface/mo_art_tracer_interface.f90 -text
+src/art_interface/mo_art_turbdiff_interface.f90 -text
 src/art_interface/mo_art_washout_interface.f90 -text
 src/atm_dyn_icoham/m_dyn.f90 -text
 src/atm_dyn_icoham/mo_eta_coord_diag.f90 -text
@@ -1442,6 +1443,8 @@ src/include/omp_definitions.inc -text
 src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_io_restart_async.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
+src/io/atmo/mo_util_vgrid.f90 -text
+src/io/atmo/mo_util_vgrid_types.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text
@@ -1516,16 +1519,17 @@ src/namelists/mo_time_nml.f90 -text
 src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
 src/ocean/attic/impl_vert_tracer_diff -text
+src/ocean/attic/mo_oce_init.f90.old -text
 src/ocean/attic/mo_ocean_bulk-2014-01-24 -text
 src/ocean/attic/mo_ocean_intperpolation_coeffs.f90.not_used -text
 src/ocean/attic/mo_simple_expl_run -text
+src/ocean/boundary/README -text
 src/ocean/boundary/mo_oce_boundcond.f90 -text
 src/ocean/boundary/mo_oce_bulk.f90 -text
 src/ocean/boundary/mo_oce_forcing.f90 -text
 src/ocean/boundary/mo_ocean_coupling.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
 src/ocean/boundary/mo_ocean_initial_conditions.f90 -text
-src/ocean/boundary/testcases.txt -text svneol=unset#text/plain
 src/ocean/config/mo_ocean_config.f90 -text
 src/ocean/config/mo_ocean_nml.f90 -text
 src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
@@ -1694,6 +1698,7 @@ src/testcases/mo_mrw_test.f90 -text
 src/testcases/mo_ncar_testcases.f90 -text
 src/testcases/mo_nh_ape_exp.f90 -text
 src/testcases/mo_nh_dcmip_gw.f90 -text
+src/testcases/mo_nh_dcmip_hadley.f90 -text
 src/testcases/mo_nh_dcmip_rest_atm.f90 -text
 src/testcases/mo_nh_dcmip_schaer.f90 -text
 src/testcases/mo_nh_dcmip_tc.f90 -text

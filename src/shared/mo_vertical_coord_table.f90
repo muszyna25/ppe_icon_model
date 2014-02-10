@@ -64,14 +64,16 @@ MODULE mo_vertical_coord_table
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max, find_next_free_unit
   USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_impl_constants,     ONLY: success, max_char_length, ishallow_water, &
-                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere
+  USE mo_impl_constants,     ONLY: SUCCESS, max_char_length, ishallow_water,   &
+    &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere
   USE mo_physical_constants, ONLY: grav, rcpd, rd
 
   IMPLICIT NONE
 
   PUBLIC
   PRIVATE :: alloc_vct, init_vct
+  PUBLIC  :: allocate_vct_atmo
+
 
   INTEGER :: nplev          ! *number of pressure levels.
   INTEGER :: nplvp1         ! *nplev+1.*
@@ -110,6 +112,9 @@ MODULE mo_vertical_coord_table
   REAL(wp), ALLOCATABLE :: vct_a(:) ! param. A of the vertical coordinte
   REAL(wp), ALLOCATABLE :: vct_b(:) ! param. B of the vertical coordinate
   REAL(wp), ALLOCATABLE :: vct  (:) ! param. A and B of the vertical coordinate
+
+
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_vgrid'
 
 
   ! calling tree
@@ -196,23 +201,6 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     !BOC
-
-    ! allocate memory
-
-    ALLOCATE(vct_a(klev+1), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of vct_a failed')
-    ENDIF
-
-    ALLOCATE(vct_b(klev+1), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of vct_b failed')
-    ENDIF
-
-    ALLOCATE(vct((klev+1)*2), STAT=ist)
-    IF(ist/=success)THEN
-      CALL finish (TRIM(routine), ' allocation of vct failed')
-    ENDIF
 
     ! Open file
     WRITE(line,FMT='(i4)') klev
@@ -505,6 +493,26 @@ CONTAINS
     END DO
 
   END SUBROUTINE init_vct
+
+
+  !----------------------------------------------------------------------------------------------------
+  !> Utility function: Allocation of vertical coordinate tables.
+  !!
+  SUBROUTINE allocate_vct_atmo(nlevp1)
+    INTEGER,                INTENT(IN)    :: nlevp1
+    ! local variables
+    CHARACTER(*), PARAMETER   :: routine = modname//"::allocate_vct_atmo"
+    INTEGER :: error_status
+
+    ! Allocate input for init routines
+    ALLOCATE(vct_a(nlevp1), vct_b(nlevp1), STAT=error_status)
+    IF (error_status/=SUCCESS) CALL finish (TRIM(routine), 'allocation of vct_a/vct_b failed')
+    
+    ! Allocate input for derived variables of input
+    ALLOCATE(vct(nlevp1*2), STAT=error_status)
+    IF (error_status/=SUCCESS) CALL finish (TRIM(routine), 'allocation of vct failed')
+    
+  END SUBROUTINE allocate_vct_atmo
 
 END MODULE mo_vertical_coord_table
 

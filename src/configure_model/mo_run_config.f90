@@ -55,13 +55,25 @@ MODULE mo_run_config
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
   PUBLIC :: iqh, iqnh, iqnr, iqns, iqng
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6 !Running index for Volcanic Ash in ICON-ART 
+  PUBLIC :: iash1_turb,iash2_turb,iash3_turb,iash4_turb,iash5_turb,iash6_turb !J.F. Running index for turbulence 
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
+<<<<<<< .working
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0 !Running index for sea salt in ICON-ART
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0 !Running index for mineral dust in ICON-ART
   PUBLIC :: iCHBR3_TR,iCH2BR2_TR,iBRy_TR          !Running index for chemical tracer in ICON-ART - VSLS
   PUBLIC :: iCH4_TR,iCO2_TR,iCO_TR,iH2O_TR,iO3_TR !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H20-O3
   PUBLIC :: iSF6_l_TR,iSF6_r_TR,iSF6_d_TR         !Running index for chemical tracer in ICON-ART - SF6
   PUBLIC :: iN2O_TR,iTR1                          !Running index for chemical tracer in ICON-ART - other
+=======
+  PUBLIC :: iCS137_conv,iI131_conv,iTE132_conv,iZR95_conv,iXE133_conv,iI131g_conv,iI131o_conv,iBA140_conv,iRU103_conv !Running index for radioactive nuclides  in ICON-ART
+  PUBLIC :: iCS137_turb,iI131_turb,iTE132_turb,iZR95_turb,iXE133_turb,iI131g_turb,iI131o_turb,iBA140_turb,iRU103_turb !Running index for radioactive nuclides  in ICON-ART
+  PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0
+  PUBLIC :: iseasa_conv,iseasb_conv,iseasc_conv,iseasa0_conv,iseasb0_conv,iseasc0_conv
+  PUBLIC :: iseasa_turb,iseasb_turb,iseasc_turb,iseasa0_turb,iseasb0_turb,iseasc0_turb
+  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0
+  PUBLIC :: idusta_conv,idustb_conv,idustc_conv,idusta0_conv,idustb0_conv,idustc0_conv
+>>>>>>> .merge-rechts.r16027
+  PUBLIC :: idusta_turb,idustb_turb,idustc_turb,idusta0_turb,idustb0_turb,idustc0_turb
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -148,6 +160,12 @@ MODULE mo_run_config
     INTEGER :: iash4        !< Volcanic ash, fourth class
     INTEGER :: iash5        !< Volcanic ash, fifth class
     INTEGER :: iash6        !< Volcanic ash, sixth class
+    INTEGER :: iash1_turb        !< Turbulent tendencies for volcanic ash
+    INTEGER :: iash2_turb        !< 
+    INTEGER :: iash3_turb        !< 
+    INTEGER :: iash4_turb        !< 
+    INTEGER :: iash5_turb        !<
+    INTEGER :: iash6_turb        !<
     INTEGER :: iCS137       !< radioactive nuclides
     INTEGER :: iI131        !<
     INTEGER :: iTE132       !< 
@@ -157,12 +175,27 @@ MODULE mo_run_config
     INTEGER :: iI131o       !<
     INTEGER :: iBA140       !< 
     INTEGER :: iRU103       !<
+    INTEGER :: iCS137_turb  !< Turbulent tendencies for radioactive nuclides
+    INTEGER :: iI131_turb   !< 
+    INTEGER :: iTE132_turb  !< 
+    INTEGER :: iZR95_turb   !<
+    INTEGER :: iXE133_turb  !<
+    INTEGER :: iI131g_turb  !<
+    INTEGER :: iI131o_turb  !<
+    INTEGER :: iBA140_turb  !<
+    INTEGER :: iRU103_turb  !<
     INTEGER :: iseasa       !< Sea Salt Aerosol Mode A Mass Density
     INTEGER :: iseasb       !< Sea Salt Aerosol Mode B Mass Density
     INTEGER :: iseasc       !< Sea Salt Aerosol Mode C Mass Density
     INTEGER :: iseasa0      !< Sea Salt Aerosol Mode A Number Density
     INTEGER :: iseasb0      !< Sea Salt Aerosol Mode B Number Density
     INTEGER :: iseasc0      !< Sea Salt Aerosol Mode C Number Density
+    INTEGER :: iseasa_turb  !< Sea Salt Aerosol Mode A Mass Density due to turbulence
+    INTEGER :: iseasb_turb  !< Sea Salt Aerosol Mode B Mass Density due to turbulence
+    INTEGER :: iseasc_turb  !< Sea Salt Aerosol Mode C Mass Density due to turbulence
+    INTEGER :: iseasa0_turb !< Sea Salt Aerosol Mode A Number Density due to turbulence
+    INTEGER :: iseasb0_turb !< Sea Salt Aerosol Mode B Number Density due to turbulence
+    INTEGER :: iseasc0_turb !< Sea Salt Aerosol Mode C Number Density due to turbulence
     INTEGER :: idusta       !< Sea Salt Aerosol Mode A Mass Density
     INTEGER :: idustb       !< Sea Salt Aerosol Mode B Mass Density
     INTEGER :: idustc       !< Sea Salt Aerosol Mode C Mass Density
@@ -182,6 +215,12 @@ MODULE mo_run_config
     INTEGER :: iSF6_d_TR       !< chemical tracer in ICON-ART
     INTEGER :: iN2O_TR         !< chemical tracer in ICON-ART
     INTEGER :: iTR1            !< chemical tracer in ICON-ART
+    INTEGER :: idusta_turb  !< Sea Salt Aerosol Mode A Mass Density due to turbulence
+    INTEGER :: idustb_turb  !< Sea Salt Aerosol Mode B Mass Density due to turbulence
+    INTEGER :: idustc_turb  !< Sea Salt Aerosol Mode C Mass Density due to turbulence
+    INTEGER :: idusta0_turb !< Sea Salt Aerosol Mode A Number Density due to turbulence
+    INTEGER :: idustb0_turb !< Sea Salt Aerosol Mode B Number Density due to turbulence
+    INTEGER :: idustc0_turb !< Sea Salt Aerosol Mode C Number Density due to turbulence
 
     REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]
 

@@ -53,7 +53,7 @@ MODULE mo_scalar_product
   USE mo_impl_constants,     ONLY: sea_boundary, sea
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_oce_types,          ONLY: t_hydro_ocean_diag
-  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, use_edges2edges_viacell_fast
+  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates,cvec2gvec!, gc2cc, vector_product
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
   USE mo_oce_math_operators,  ONLY: rot_vertex_ocean_3d, map_edges2vert_3d
@@ -75,7 +75,7 @@ MODULE mo_scalar_product
   PUBLIC :: map_edges2edges_viacell_3d
   PUBLIC :: map_edges2edges_viavert_3D
   PUBLIC :: map_edges2edges_viacell_3D_const_z
-  PUBLIC :: map_edges2edges_viacell_2d_1lev_const_z_fast
+  ! PUBLIC :: map_edges2edges_viacell_2d_1lev_const_z_fast0
   !PRIVATE :: map_cell2edges_2d
 
 
@@ -984,12 +984,17 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3D, vn_e, operators_coefficien
     TYPE(t_subset_range), POINTER :: all_edges
     TYPE(t_patch), POINTER        :: patch_2D
 
-    IF (use_edges2edges_viacell_fast) THEN
-      CALL map_edges2edges_viacell_2d_1lev_const_z_fast( patch_3D, vn_e, operators_coefficients, out_vn_e )
-      RETURN
-    ENDIF
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2D(1)
+    IF ( patch_2D%cells%max_connectivity == 3) THEN
+      IF (fast_performance_level == 11 ) THEN
+        CALL map_edges2edges_viacell_2d_1lev_const_z_fast0( patch_3D, vn_e, operators_coefficients, out_vn_e )
+        RETURN
+      ELSEIF (fast_performance_level > 11 ) THEN
+        CALL map_edges2edges_viacell_2d_1lev_const_z_fast1( patch_3D, vn_e, operators_coefficients, out_vn_e )
+        RETURN
+      ENDIF
+    ENDIF
     !-----------------------------------------------------------------------
 
     all_edges => patch_2D%edges%all
@@ -1170,14 +1175,13 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3D, vn_e, operators_coefficien
   !-------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
-  SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast( patch_3D, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
+  SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast0( patch_3D, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)       :: patch_3D
     REAL(wp), INTENT(in)                       :: in_vn_e(nproma,patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: operators_coefficients
     REAL(wp), INTENT(INOUT)                    :: out_vn_e(nproma,patch_3D%p_patch_2D(1)%nblks_e)
 
-    !Local variables
     INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
     INTEGER :: edge_1_1_index, edge_1_2_index, edge_1_3_index
     INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
@@ -1255,12 +1259,79 @@ SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3D, vn_e, operators_coefficien
       END DO
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
 
-  END SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast
+  END SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast0
   !-----------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
-  !>
-  !!
+  SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast1( patch_3D, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)       :: patch_3D
+    REAL(wp), INTENT(in)                       :: in_vn_e(nproma,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_operator_coeff), INTENT(in)         :: operators_coefficients
+    REAL(wp), INTENT(INOUT)                    :: out_vn_e(nproma,patch_3D%p_patch_2D(1)%nblks_e)
+
+    INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
+    INTEGER :: edge_1_1_index, edge_1_2_index, edge_1_3_index
+    INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
+    INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block
+    INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
+    INTEGER :: je, jb, start_edge_index, end_edge_index
+
+    REAL(wp), POINTER :: all_coeffs(:,:,:)
+
+    TYPE(t_subset_range), POINTER :: edges_inDomain
+    TYPE(t_patch), POINTER        :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3D%p_patch_2D(1)
+
+    edges_inDomain    => patch_2D%edges%in_domain
+    all_coeffs        => operators_coefficients%edge2edge_viacell_coeff_all
+
+    DO jb = edges_inDomain%start_block, edges_inDomain%end_block
+      CALL get_index_range(edges_inDomain, jb, start_edge_index, end_edge_index)
+
+      DO je = start_edge_index, end_edge_index
+
+        out_vn_e(je,jb) = 0.0_wp
+
+        IF (patch_3D%lsm_e(je,1,jb) == sea) THEN ! this if should be removed
+
+          ! get the two cells of the edge
+          cell_1_index = patch_2D%edges%cell_idx(je,jb,1)
+          cell_1_block = patch_2D%edges%cell_blk(je,jb,1)
+          cell_2_index = patch_2D%edges%cell_idx(je,jb,2)
+          cell_2_block = patch_2D%edges%cell_blk(je,jb,2)
+
+          ! get the six edges of the two cells
+          edge_1_1_index = patch_2D%cells%edge_idx(cell_1_index, cell_1_block, 1)
+          edge_1_2_index = patch_2D%cells%edge_idx(cell_1_index, cell_1_block, 2)
+          edge_1_3_index = patch_2D%cells%edge_idx(cell_1_index, cell_1_block, 3)
+          edge_2_1_index = patch_2D%cells%edge_idx(cell_2_index, cell_2_block, 1)
+          edge_2_2_index = patch_2D%cells%edge_idx(cell_2_index, cell_2_block, 2)
+          edge_2_3_index = patch_2D%cells%edge_idx(cell_2_index, cell_2_block, 3)
+          edge_1_1_block = patch_2D%cells%edge_blk(cell_1_index, cell_1_block, 1)
+          edge_1_2_block = patch_2D%cells%edge_blk(cell_1_index, cell_1_block, 2)
+          edge_1_3_block = patch_2D%cells%edge_blk(cell_1_index, cell_1_block, 3)
+          edge_2_1_block = patch_2D%cells%edge_blk(cell_2_index, cell_2_block, 1)
+          edge_2_2_block = patch_2D%cells%edge_blk(cell_2_index, cell_2_block, 2)
+          edge_2_3_block = patch_2D%cells%edge_blk(cell_2_index, cell_2_block, 3)
+
+          out_vn_e(je,jb) = &
+                          in_vn_e(edge_1_1_index, edge_1_1_block) * all_coeffs(1, je, jb) + &
+                          in_vn_e(edge_1_2_index, edge_1_2_block) * all_coeffs(2, je, jb) + &
+                          in_vn_e(edge_1_3_index, edge_1_3_block) * all_coeffs(3, je, jb) + &
+                          in_vn_e(edge_2_1_index, edge_2_1_block) * all_coeffs(4, je, jb) + &
+                          in_vn_e(edge_2_2_index, edge_2_2_block) * all_coeffs(5, je, jb) + &
+                          in_vn_e(edge_2_3_index, edge_2_3_block) * all_coeffs(6, je, jb)
+
+        ENDIF
+      END DO
+    END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
+
+  END SUBROUTINE map_edges2edges_viacell_2d_1lev_const_z_fast1
+  !-----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
   SUBROUTINE map_edges2edges_viavert_3D(patch_3D, vn, p_vn_dual,operators_coefficients, vort_flux)
     TYPE(t_patch_3D ),TARGET,INTENT(IN)        :: patch_3D
     REAL(wp), INTENT(INOUT)                    :: vn(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)

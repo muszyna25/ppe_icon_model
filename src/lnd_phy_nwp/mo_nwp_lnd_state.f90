@@ -557,31 +557,6 @@ MODULE mo_nwp_lnd_state
     ENDIF
 
 
-    IF (itype_interception == 1) THEN
-    ! & p_prog_lnd%w_i_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('w_i_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( prog_list, vname_prefix//'w_i_t'//suffix, p_prog_lnd%w_i_t,     &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,               &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
-
-    ! fill the separate variables belonging to the container w_i
-    ALLOCATE(p_prog_lnd%w_i_ptr(ntiles_total))
-    DO jsfc = 1,ntiles_total
-      WRITE(csfc,'(i2)') jsfc  
-      CALL add_ref( prog_list, vname_prefix//'w_i_t'//suffix,                &
-           & vname_prefix//'w_i_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
-           & p_prog_lnd%w_i_ptr(jsfc)%p_2d,                                  &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
-           & t_cf_var('w_i_t_'//csfc, '', '', DATATYPE_FLT32),               &
-           & t_grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL),        &
-           & ldims=shape2d,                                                  &
-           & tlev_source=1,                                                  &
-           & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
-    ENDDO
-
-      ELSE IF (itype_interception == 2) THEN
-
     ! & p_prog_lnd%w_i_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('w_i_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL)
@@ -605,50 +580,53 @@ MODULE mo_nwp_lnd_state
     ENDDO
 
 
-    ! & p_prog_lnd%w_p_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('w_p_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( prog_list, vname_prefix//'w_p_t'//suffix, p_prog_lnd%w_p_t,     &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
+    IF (itype_interception == 2) THEN
 
-    ! fill the separate variables belonging to the container w_p
-    ALLOCATE(p_prog_lnd%w_p_ptr(ntiles_total))
-    DO jsfc = 1,ntiles_total
-      WRITE(csfc,'(i2)') jsfc  
-      CALL add_ref( prog_list, vname_prefix//'w_p_t'//suffix,                &
-           & vname_prefix//'w_p_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
-           & p_prog_lnd%w_p_ptr(jsfc)%p_2d,                                  &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
-           & t_cf_var('w_p_t_'//csfc, '', '', DATATYPE_FLT32),               &
-           & t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL),        &
-           & ldims=shape2d,                                                  &
-           & tlev_source=1,                                                  &
-           & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
-    ENDDO
+      ! & p_prog_lnd%w_p_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('w_p_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'w_p_t'//suffix, p_prog_lnd%w_p_t,     &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
-    ! & p_prog_lnd%w_s_t(nproma,nblks_c,ntiles_total)
-    cf_desc    = t_cf_var('w_s_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( prog_list, vname_prefix//'w_s_t'//suffix, p_prog_lnd%w_s_t,     &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,grib2_desc,                 &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
+      ! fill the separate variables belonging to the container w_p
+      ALLOCATE(p_prog_lnd%w_p_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        WRITE(csfc,'(i2)') jsfc  
+        CALL add_ref( prog_list, vname_prefix//'w_p_t'//suffix,                &
+             & vname_prefix//'w_p_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
+             & p_prog_lnd%w_p_ptr(jsfc)%p_2d,                                  &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+             & t_cf_var('w_p_t_'//csfc, '', '', DATATYPE_FLT32),               &
+             & t_grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL),        &
+             & ldims=shape2d,                                                  &
+             & tlev_source=1,                                                  &
+             & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
+      ENDDO
 
-    ! fill the separate variables belonging to the container w_s
-    ALLOCATE(p_prog_lnd%w_s_ptr(ntiles_total))
-    DO jsfc = 1,ntiles_total
-      WRITE(csfc,'(i2)') jsfc  
-      CALL add_ref( prog_list, vname_prefix//'w_s_t'//suffix,                &
-           & vname_prefix//'w_s_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
-           & p_prog_lnd%w_s_ptr(jsfc)%p_2d,                                  &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
-           & t_cf_var('w_s_t_'//csfc, '', '', DATATYPE_FLT32),               &
-           & t_grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL),        &
-           & ldims=shape2d,                                                  &
-           & tlev_source=1,                                                  &
-           & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
-    ENDDO
- END IF
+      ! & p_prog_lnd%w_s_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('w_s_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'w_s_t'//suffix, p_prog_lnd%w_s_t,     &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,grib2_desc,                 &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
+
+      ! fill the separate variables belonging to the container w_s
+      ALLOCATE(p_prog_lnd%w_s_ptr(ntiles_total))
+      DO jsfc = 1,ntiles_total
+        WRITE(csfc,'(i2)') jsfc  
+        CALL add_ref( prog_list, vname_prefix//'w_s_t'//suffix,                &
+             & vname_prefix//'w_s_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
+             & p_prog_lnd%w_s_ptr(jsfc)%p_2d,                                  &
+             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+             & t_cf_var('w_s_t_'//csfc, '', '', DATATYPE_FLT32),               &
+             & t_grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL),        &
+             & ldims=shape2d,                                                  &
+             & tlev_source=1,                                                  &
+             & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
+      ENDDO
+    END IF  ! itype_interception == 2
+
 
     ! & p_prog_lnd%t_so_t(nproma,nlev_soil+1,nblks_c,ntiles_total) 
     cf_desc    = t_cf_var('t_so_t', 'K', 'soil temperature (main level)', DATATYPE_FLT32)
@@ -1186,7 +1164,6 @@ MODULE mo_nwp_lnd_state
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
          & in_group=groups("multisnow_vars"))
 
-   IF (itype_interception == 1) THEN
 
     ! & p_diag_lnd%w_i(nproma,nblks_c)
     cf_desc     = t_cf_var('w_i', 'm H2O', 'weighted water content of interception water', &
@@ -1201,46 +1178,36 @@ MODULE mo_nwp_lnd_state
          &                 "mode_combined_in","mode_cosmode_in"),                &
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
-   ELSE IF (itype_interception == 2) THEN
 
-    ! & p_diag_lnd%w_i(nproma,nblks_c)
-    cf_desc     = t_cf_var('w_i', 'm H2O', 'weighted water content of interception water', &
-         &                DATATYPE_FLT32)
-    new_cf_desc = t_cf_var('w_i', 'kg/m**2', 'weighted water content of interception water', &
-         &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'w_i', p_diag_lnd%w_i,                &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
-         & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_ana_in",      &
-         &                 "mode_combined_in","mode_cosmode_in"),&
-         & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
+    IF (itype_interception == 2) THEN
 
-    ! & p_diag_lnd%w_p(nproma,nblks_c)
-    cf_desc     = t_cf_var('w_p', 'm H2O', 'weighted water content of interception water', &
-         &                DATATYPE_FLT32)
-    new_cf_desc = t_cf_var('w_p', 'kg/m**2', 'weighted water content of interception water', &
-         &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'w_p', p_diag_lnd%w_p,                &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  grib2_desc,             &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
-         & in_group=groups("land_vars"),                                         &
-         & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
+      ! & p_diag_lnd%w_p(nproma,nblks_c)
+      cf_desc     = t_cf_var('w_p', 'm H2O', 'water content of pond interception water', &
+           &                DATATYPE_FLT32)
+      new_cf_desc = t_cf_var('w_p', 'kg/m**2', 'water content of pond interception water', &
+           &                DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, vname_prefix//'w_p', p_diag_lnd%w_p,                &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  grib2_desc,             &
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+           & in_group=groups("land_vars"),                                         &
+           & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
-    ! & p_diag_lnd%w_s(nproma,nblks_c)
-    cf_desc     = t_cf_var('w_s', 'm H2O', 'weighted water content of interception water', &
-         &                DATATYPE_FLT32)
-    new_cf_desc = t_cf_var('w_s', 'kg/m**2', 'weighted water content of interception water', &
-         &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'w_s', p_diag_lnd%w_s,                &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
-         & in_group=groups("land_vars"),                                         &
-         & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
+      ! & p_diag_lnd%w_s(nproma,nblks_c)
+      cf_desc     = t_cf_var('w_s', 'm H2O', 'water content of interception snow', &
+           &                DATATYPE_FLT32)
+      new_cf_desc = t_cf_var('w_s', 'kg/m**2', 'water content of interception snow', &
+           &                DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, vname_prefix//'w_s', p_diag_lnd%w_s,                &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
+           & in_group=groups("land_vars"),                                         &
+           & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
-  END IF
+    END IF  ! itype_interception == 2
+
+
 
     ! & p_diag_lnd%t_so(nproma,nlev_soil+1,nblks_c)
     cf_desc    = t_cf_var('t_so', 'K', 'weighted soil temperature (main level)', &

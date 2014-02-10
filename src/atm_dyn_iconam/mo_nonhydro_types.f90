@@ -82,6 +82,7 @@ MODULE mo_nonhydro_types
                            !! (defined on half levels) with 2 time levels
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_tracer),ALLOCATABLE :: conv_tracer(:,:)  
+    TYPE(t_ptr_tracer),ALLOCATABLE :: turb_tracer(:,:)  
   END TYPE t_nh_prog
 
 
@@ -103,7 +104,6 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_c)                          [1/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
                               ! (nproma,nlev,nblks_e)                          [m/s^2]
-    &  ddt_exner(:,:,:),    & ! exner pressure tendency from forcing (nproma,nlev,nblks_c)  [1/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
                               ! (nproma,nlev,nblks_c)                     [1/s]
     &  ddt_temp_dyn(:,:,:), & ! rediagnosed temperature tendency from dynamics [K/s]
@@ -258,7 +258,6 @@ MODULE mo_nonhydro_types
      rho_ref_corr(:,:,:) , & 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
-
 
     ! Variables that are in single precision when "__MIXED_PRECISION" is defined
     REAL(vp), POINTER      &

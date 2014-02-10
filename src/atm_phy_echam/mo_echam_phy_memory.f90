@@ -1147,7 +1147,7 @@ CONTAINS
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+         &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('RSFC', 'kg m-2 s-1',    &
@@ -1157,7 +1157,7 @@ CONTAINS
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+         &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('SSFL', 'kg m-2 s-1',    &
@@ -1167,7 +1167,7 @@ CONTAINS
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+         &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('SSFC', 'kg m-2 s-1',    &
@@ -1177,7 +1177,7 @@ CONTAINS
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+         &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('TOTPREC', 'kg m-2 s-1',                  &

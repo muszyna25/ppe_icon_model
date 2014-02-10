@@ -142,9 +142,11 @@ MODULE mo_ocean_nml
                                                       ! bulk module; This will be replaced during the planned relaxation rewrite
 
   ! switch for reading relaxation data: 1: read from file
-  INTEGER            :: init_oce_relax = 0
+  INTEGER :: init_oce_relax = 0
 
-
+  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
+                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can 
+                                          !be run. Example: tracer tests with prescribed time-invariant velocity and height. 
   ! ----------------------------------------------------------------------------
   ! DIAGNOSTICS
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
@@ -178,19 +180,35 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
-  ! parameterized choice of tracer transport scheme
-  INTEGER, PARAMETER :: UPWIND                     = 1
-  INTEGER, PARAMETER :: CENTRAL                    = 2
-  INTEGER, PARAMETER :: MIMETIC                    = 3
-  INTEGER, PARAMETER :: MIMETIC_MIURA              = 4
-  !INTEGER, PARAMETER :: ADPO                      = 5
-  INTEGER, PARAMETER :: FLUX_CORR_TRANSP_horz      = 5
-  INTEGER, PARAMETER :: FLUX_CORR_TRANSP_vert_adpo = 6
-  !INTEGER            :: FLUX_CALCULATION_HORZ     = MIMETIC  ! consistent with l_edge_based = .FALSE.
-  !INTEGER            :: FLUX_CALCULATION_VERT     = UPWIND   ! consistent with l_edge_based = .FALSE.
-  INTEGER            :: FLUX_CALCULATION_HORZ      = MIMETIC_MIURA  ! consistent with l_edge_based = .TRUE.
-  INTEGER            :: FLUX_CALCULATION_VERT      = MIMETIC_MIURA  ! consistent with l_edge_based = .TRUE.
-  LOGICAL            :: l_adpo_flowstrength        = .TRUE.   ! .TRUE.: activate second condition for adpo weight
+  ! Parameters for tracer transport scheme
+  !
+  !Identifiers for advection schemes
+  INTEGER, PARAMETER :: upwind                     = 1
+  INTEGER, PARAMETER :: central                    = 2  
+  INTEGER, PARAMETER :: lax_friedrichs             = 3
+  INTEGER, PARAMETER :: miura_order1               = 4
+  INTEGER, PARAMETER :: fct_horz                   = 5
+  INTEGER, PARAMETER :: fct_vert_adpo              = 6
+  INTEGER, PARAMETER :: fct_vert_ppm               = 7  
+  INTEGER, PARAMETER :: fct_vert_zalesak           = 8    
+  !Additional parameters for FCT: High and low order flux calculations can be
+  !chosen from list above. Below is the default option
+  INTEGER            :: fct_high_order_flux= central
+  INTEGER            :: fct_low_order_flux = upwind 
+  !Limiters for Flux-Corrected Transport
+  INTEGER, PARAMETER :: fct_limiter_horz_zalesak   =100
+  INTEGER, PARAMETER :: fct_limiter_horz_minmod    =101
+  INTEGER, PARAMETER :: fct_limiter_horz_posdef    =102  
+  
+  !The default setting concerning tracer advection
+  !horizontal
+  INTEGER            :: flux_calculation_horz      = fct_horz      
+  INTEGER            :: fct_limiter_horz           = fct_limiter_horz_zalesak!! 
+  !vertical
+  INTEGER            :: flux_calculation_vert      = fct_vert_ppm !fct_vert_ppm
+
+  
+  LOGICAL            :: l_adpo_flowstrength        = .FALSE.   ! .TRUE.: activate second condition for adpo weight
 
 
   !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
@@ -221,7 +239,11 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_gmres             = 1
   INTEGER, PARAMETER :: select_restart_gmres     = 2
   INTEGER :: select_solver                       = select_restart_gmres
-  LOGICAL :: use_continuity_correction           = .false.
+  LOGICAL :: use_continuity_correction           = .false.  
+  INTEGER :: fast_performance_level              = 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
+                                                      ! 1 = no optimized calls
+                                                      ! 5 = standard (use of gmres restart)
+                                                      ! > 10 = latest performnce optimizations
   LOGICAL :: use_edges2edges_viacell_fast        = .false.
 
 
@@ -328,9 +350,6 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.  ! FALSE: no vertical tracer diffusion
   LOGICAL  :: l_with_horz_tracer_advection = .TRUE.  ! FALSE: no horizontal tracer advection
   LOGICAL  :: l_with_vert_tracer_advection = .TRUE.  ! FALSE: no vertical tracer advection
-  LOGICAL  :: l_horz_limiter_advection     = .TRUE.  ! FALSE: no horizontal limiter for tracer advection
-  LOGICAL  :: l_vert_limiter_advection     = .TRUE.  ! FALSE: no vertical limiter for tracer advection
-                                                     ! Note that only in vertical ppm-scheme a limiter is used
 
 
   ! special diagnostics configuration
@@ -344,8 +363,12 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_dynamics_nml/&
-    &                 FLUX_CALCULATION_HORZ        , &
-    &                 FLUX_CALCULATION_VERT        , &
+    &                 flux_calculation_horz        , &
+    &                 flux_calculation_vert        , & 
+    &                 fct_high_order_flux          , &
+    &                 fct_low_order_flux           , &
+    &                 fct_limiter_horz             , & 
+    &                 l_adpo_flowstrength          , &    
     &                 ab_beta                      , &
     &                 ab_const                     , &
     &                 ab_gam                       , &
@@ -365,7 +388,6 @@ MODULE mo_ocean_nml
     &                 i_bc_veloc_top               , &
     &                 iswm_oce                     , &
     &                 l_RIGID_LID                  , &
-    &                 l_adpo_flowstrength          , &
     &                 l_edge_based                 , &
     &                 l_inverse_flip_flop          , &
     &                 l_max_bottom                 , &
@@ -386,7 +408,8 @@ MODULE mo_ocean_nml
     &                 use_continuity_correction    , &
     &                 use_edges2edges_viacell_fast , &
     &                 veloc_diffusion_form         , &
-    &                 veloc_diffusion_order
+    &                 veloc_diffusion_order        , &
+    &                 l_time_marching
 
 
   NAMELIST/ocean_physics_nml/&
@@ -408,9 +431,7 @@ MODULE mo_ocean_nml
     &                 k_veloc_h                   , &
     &                 k_veloc_v                   , &
     &                 l_constant_mixing           , &
-    &                 l_horz_limiter_advection    , &
     &                 l_smooth_veloc_diffusion    , &
-    &                 l_vert_limiter_advection    , &
     &                 l_wind_mixing               , &
     &                 l_with_horz_tracer_advection, &
     &                 l_with_horz_tracer_diffusion, &
@@ -669,40 +690,61 @@ MODULE mo_ocean_nml
 
      IF(discretization_scheme == 1)THEN
        CALL message(TRIM(routine),'You have choosen the mimetic dicretization')
-     ELSEIF(discretization_scheme == 2)THEN
-       CALL message(TRIM(routine),'You have choosen the RBF dicretization')
+     !ELSEIF(discretization_scheme == 2)THEN
+     !  CALL message(TRIM(routine),'You have choosen the RBF dicretization')
      ELSE
        CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
      ENDIF
 
-     IF( FLUX_CALCULATION_HORZ > 6 .OR. FLUX_CALCULATION_HORZ <1 ) THEN
-       CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-6')
-     ENDIF
-
-     IF( FLUX_CALCULATION_VERT > 6 .OR. FLUX_CALCULATION_VERT <1 ) THEN
-       CALL finish(TRIM(routine), 'wrong parameter for advection scheme; use 1-6')
-     ENDIF
-
-     IF( FLUX_CALCULATION_HORZ == UPWIND .AND. l_horz_limiter_advection ) THEN
-       CALL message(TRIM(routine),'WARNING, limiter for horizontal upwind advection set to false')
-       l_horz_limiter_advection = .FALSE.
-     ENDIF
-
-     IF( FLUX_CALCULATION_HORZ == FLUX_CORR_TRANSP_horz .AND. l_horz_limiter_advection ) THEN
-       CALL message(TRIM(routine),'WARNING, limiter for horizontal flux corrected transport set to false')
-       l_horz_limiter_advection = .FALSE.
+     !consistency check for horizontal advection in edge_based configuration
+     IF(l_edge_based)THEN
+       IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind ) THEN
+         CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5')
+       ENDIF
+       !the fct case requires suitable choices of high- and low order fluxes and of limiter
+       IF( flux_calculation_horz == fct_horz) THEN
+         !high and low order flux check
+         IF(fct_low_order_flux/=upwind)THEN
+           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
+         ENDIF
+         IF(fct_high_order_flux/= central.AND.fct_high_order_flux/=lax_friedrichs.AND.fct_high_order_flux/=miura_order1)THEN
+            CALL finish(TRIM(routine), 'wrong parameter for high order advection scheme in horizontal fct')
+         ENDIF
+         !limiter check
+         IF(      fct_limiter_horz/=fct_limiter_horz_zalesak&
+            &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
+            &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
+            CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
+         ENDIF
+     
+       ENDIF
+     !consistency check for horizontal advection in cell_based configuration       
+     ELSEIF(.NOT.l_edge_based)THEN
+       IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
+         CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
+       ENDIF     
+       IF( flux_calculation_horz == fct_horz) THEN
+         !high and low order flux check
+         IF(fct_low_order_flux/=upwind)THEN
+           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
+         ENDIF
+         !there is no option for high- or low order fluxes in cell_based config, this is all prescribed.
+         !a wrong option has no effect.
+         !limiter check
+         IF(     fct_limiter_horz/=fct_limiter_horz_zalesak &
+            &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
+            &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
+           CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
+         ENDIF     
+       ENDIF     
      ENDIF
      
-     ! not necessary, limiter within ppm advection (Miura) only
-     IF( FLUX_CALCULATION_VERT == UPWIND .AND. l_vert_limiter_advection ) THEN
-       CALL message(TRIM(routine),'WARNING, UPWIND advection, limiter for vertical upwind advection set to false')
-       l_vert_limiter_advection = .FALSE.
-     ENDIF
-
-     ! not necessary, limiter within ppm advection (Miura) only
-     IF( FLUX_CALCULATION_VERT == FLUX_CORR_TRANSP_vert_adpo .AND. l_vert_limiter_advection ) THEN
-       CALL message(TRIM(routine),'WARNING, ADPO advection, limiter for vertical upwind advection set to false')
-       l_vert_limiter_advection = .FALSE.
+     !check for vertical advection
+     IF(      flux_calculation_vert/=upwind        &
+        &.AND.flux_calculation_vert/=fct_vert_ppm  &
+        &.AND.flux_calculation_vert/=fct_vert_adpo &
+        &.AND.flux_calculation_vert/=fct_vert_zalesak)THEN
+       CALL finish(TRIM(routine), 'wrong parameter for vertical advection')   
      ENDIF
 
      IF(i_bc_veloc_lateral/= 0) THEN

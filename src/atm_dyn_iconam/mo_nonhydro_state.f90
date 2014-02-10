@@ -93,12 +93,13 @@ MODULE mo_nonhydro_state
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
     &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
     &                                DATATYPE_PACK24, FILETYPE_NC2, TSTEP_CONSTANT
+  USE mo_util_vgrid_types,     ONLY: vgrid_buffer
 
   IMPLICIT NONE
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_vgrid'
 
 
   PUBLIC :: construct_nh_state    ! Constructor for the nonhydrostatic state
@@ -611,7 +612,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-                    &                 "dwd_fg_atm_vars","mode_dwd_ana_in") )
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in") )
         !QI
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
@@ -631,7 +632,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-                    &                 "dwd_fg_atm_vars","mode_dwd_ana_in")  )
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in")  )
         !QR
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
@@ -652,7 +653,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-                    &                 "dwd_fg_atm_vars","mode_dwd_ana_in")  )
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in")  )
         !QS
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
@@ -673,7 +674,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-                    &                 "dwd_fg_atm_vars","mode_dwd_ana_in")  )
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in")  )
 
         !CK>
           IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==2) THEN
@@ -1196,17 +1197,6 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_e )
 
-
-    ! ddt_exner    p_diag%ddt_exner(nproma,nlev,nblks_c)
-    ! *** needs to be saved for restart ***
-    cf_desc    = t_cf_var('exner_pressure_tendency', 's-1', 'exner pressure tendency', &
-         &                DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(0, 3, 196, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_list, 'ddt_exner', p_diag%ddt_exner,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c )
-
-
     ! ddt_exner_phy  p_diag%ddt_exner_phy(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('exner_pressure_physical_tendency', 's-1',            &
@@ -1429,7 +1419,6 @@ MODULE mo_nonhydro_state
 
 
       ! ddt_vn_adv   p_diag%ddt_vn_adv(nproma,nlev,nblks_e,n_timlevs)
-      ! *** needs to be saved for restart (TL nnow)***
       cf_desc    = t_cf_var('advective_normal_wind_tendency', 'm s-2',          &
         &                   'advective normal wind tendency', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 0, 2, 201, ibits, GRID_REFERENCE, GRID_EDGE)
@@ -1446,7 +1435,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,                           &
                     & t_cf_var('ddt_adv_vn'//suffix, 'm s-2','', DATATYPE_FLT32),  &
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE),&
-                    & ldims=shape3d_e )
+                    & ldims=shape3d_e, lrestart=.FALSE. )
       ENDDO
 
 
@@ -1972,6 +1961,8 @@ MODULE mo_nonhydro_state
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
 
+    ! local variables
+    CHARACTER(*), PARAMETER    :: routine = modname//"::new_nh_metrics_list"
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
@@ -1987,7 +1978,7 @@ MODULE mo_nonhydro_state
       &        shape2d_esquared(3), shape3d_esquared(4), shape3d_e8(4)
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
-    INTEGER :: ist
+    INTEGER :: ist, error_status
     !--------------------------------------------------------------
 
     nblks_c = p_patch%nblks_c
@@ -2046,6 +2037,12 @@ MODULE mo_nonhydro_state
                 & in_group=groups("dwd_fg_atm_vars"),                           &
                 & isteptype=TSTEP_CONSTANT )
 
+    ! The 3D coordinate field "z_ifc" exists already in a buffer
+    ! variable of module "mo_util_vgrid". We move the data to its
+    ! final place here:
+    p_metrics%z_ifc(:,:,:) = vgrid_buffer(p_patch%id)%z_ifc(:,:,:)
+    DEALLOCATE(vgrid_buffer(p_patch%id)%z_ifc, STAT=error_status)
+    IF (error_status /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ! geometric height at full levels
     ! z_mc         p_metrics%z_mc(nproma,nlev,nblks_c)

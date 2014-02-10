@@ -82,6 +82,8 @@ MODULE mo_art_config
 
     LOGICAL :: lart_conv           !< Convection of aerosol (TRUE/FALSE)
 
+    LOGICAL :: lart_turb           !< Turbulent diffusion of aerosol (TRUE/FALSE)
+
     LOGICAL :: lart_wash           !< Washout of aerosol (TRUE/FALSE)
 
     LOGICAL :: lart_rad            !< Radiative impact of aerosol (TRUE/FALSE)
@@ -123,6 +125,7 @@ MODULE mo_art_config
 
    INTEGER                     :: nblks,npromz              
    INTEGER                     :: nconv_tracer     ! number of tracers in convection 
+   INTEGER                     :: nturb_tracer     ! number of tracers in turbulence 
 
   END TYPE t_art_config
 
@@ -151,6 +154,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
   art_config(jg)%nconv_tracer=0
+  art_config(jg)%nturb_tracer=0
  
   END SUBROUTINE configure_art
 

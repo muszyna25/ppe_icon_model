@@ -61,7 +61,6 @@ MODULE mo_nh_latbc
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
                                     p_comm_work_test, p_comm_work
   USE mo_io_units,            ONLY: filename_max
-  USE mo_util_string,         ONLY: MAX_STRING_LEN
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nh_vert_interp,      ONLY: vert_interp
@@ -154,7 +153,6 @@ MODULE mo_nh_latbc
     DO tlev = 1, 2
       ! Basic icon_remap data
       ALLOCATE(p_latbc_data(tlev)%topography_c(nproma,nblks_c),         &
-               p_latbc_data(tlev)%topography_v(nproma,nblks_v),         &
                p_latbc_data(tlev)%z_ifc       (nproma,nlevp1,nblks_c),  &
                p_latbc_data(tlev)%z_mc        (nproma,nlev  ,nblks_c)   )
 
@@ -202,7 +200,6 @@ MODULE mo_nh_latbc
 !$OMP PARALLEL
 !$OMP WORKSHARE
       p_latbc_data(tlev)%topography_c(:,:) = ext_data%atm%topography_c(:,:)
-      p_latbc_data(tlev)%topography_v(:,:) = ext_data%atm%topography_v(:,:)
       p_latbc_data(tlev)%z_ifc(:,:,:) = p_nh_state%metrics%z_ifc(:,:,:)
       p_latbc_data(tlev)%z_mc (:,:,:) = p_nh_state%metrics%z_mc (:,:,:) 
 !$OMP END WORKSHARE
@@ -342,7 +339,7 @@ MODULE mo_nh_latbc
     INTEGER                             :: tlev
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
-    CHARACTER(LEN=filename_max)           :: latbc_full_filename
+    CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
     iidx           => p_patch%edges%cell_idx
     iblk           => p_patch%edges%cell_blk
@@ -357,13 +354,14 @@ MODULE mo_nh_latbc
     ENDIF
 
     IF (my_process_is_stdio()) THEN
-      latbc_full_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
+      latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
 
-      WRITE(message_text,'(a,a)') 'reading from ', TRIM(latbc_full_filename)
+      latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+      WRITE(message_text,'(a,a)') 'reading from ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
-        WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_full_filename)
+        WRITE (message_text,'(a,a)') 'file not found: ', TRIM(latbc_filename)
         CALL finish(TRIM(routine), message_text)
       ENDIF
 
@@ -375,7 +373,7 @@ MODULE mo_nh_latbc
       !
       ! get number of cells
       !
-      CALL nf(nf_inq_dimid(latbc_fileid, 'cell', dimid), routine)
+      CALL nf(nf_inq_dimid(latbc_fileid, 'ncells', dimid), routine)
       CALL nf(nf_inq_dimlen(latbc_fileid, dimid, no_cells), routine)
 
       !
@@ -388,13 +386,14 @@ MODULE mo_nh_latbc
       ! check the number of cells and vertical levels
       !
       IF(p_patch%n_patch_cells_g /= no_cells) THEN
-        CALL finish(TRIM(routine),&
-        & 'n_patch_cells_g and cells in IFS2ICON file do not match.')
+        WRITE(message_text,*) 'n_patch_cells_g does not match', &
+          &   p_patch%n_patch_cells_g, ', ', no_cells
+        CALL finish(TRIM(routine),TRIM(message_text))
       ENDIF
 
       IF(nlev_in /= no_levels) THEN
-        CALL finish(TRIM(routine),&
-        & 'nlev_in does not match the number of levels in IFS2ICON file.')
+        WRITE(message_text,*) 'nlev_in does not match', nlev_in, ', ', no_levels
+        CALL finish(TRIM(routine),TRIM(message_text))
       ENDIF
 
     END IF ! my_process_is_stdio()
@@ -473,7 +472,7 @@ MODULE mo_nh_latbc
     ! close file
     !
     IF (my_process_is_stdio()) THEN
-      WRITE(message_text,'(a,a)') 'closing file', TRIM(latbc_full_filename)
+      WRITE(message_text,'(a,a)') 'closing file ', TRIM(latbc_filename)
       CALL message(TRIM(routine), message_text)
       CALL nf(nf_close(latbc_fileid), routine)
     END IF
@@ -554,13 +553,14 @@ MODULE mo_nh_latbc
       ! check the number of cells and vertical levels
       !
       IF(p_patch%n_patch_cells_g /= no_cells) THEN
-        CALL finish(TRIM(routine),&
-        & 'n_patch_cells_g and cells in IFS2ICON file do not match.')
+        WRITE(message_text,*) 'n_patch_cells_g does not match', &
+          &   p_patch%n_patch_cells_g, ', ', no_cells
+        CALL finish(TRIM(routine),TRIM(message_text))
       ENDIF
 
       IF(nlev_in /= no_levels) THEN
-        CALL finish(TRIM(routine),&
-        & 'nlev_in does not match the number of levels in IFS2ICON file.')
+        WRITE(message_text,*) 'nlev_in does not match', nlev_in, ', ', no_levels
+        CALL finish(TRIM(routine), TRIM(message_text))
       ENDIF
 
       !

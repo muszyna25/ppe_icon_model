@@ -683,6 +683,7 @@ CONTAINS
     EVENT_LOOP: DO
       IF  ((mtime_date >= run_start)      .AND. &
         & (mtime_date >= mtime_dom_start) .AND. &
+        & (sim_end    >=  mtime_date)     .AND. &
           (mtime_restart >= mtime_date) )  THEN
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN

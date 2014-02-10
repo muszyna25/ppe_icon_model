@@ -47,6 +47,8 @@ MODULE mo_update_dyn
   USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int
   USE mo_sync,               ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_run_config,         ONLY: ntracer
+  USE mo_dynamics_config,    ONLY: lcoriolis
+
   IMPLICIT NONE
 
   PRIVATE
@@ -69,10 +71,11 @@ CONTAINS
 !! Initial revision by Daniel Reinert, DWD (2013-11-28)
 !! 
 !!
-  SUBROUTINE add_slowphys(p_nh, p_patch, nnow, nnew, dtime, &
+  SUBROUTINE add_slowphys(p_nh, p_patch, p_int, nnow, nnew, dtime, &
                           lstep_adv, nnow_rcf, nnew_rcf)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
+    TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
     TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
 
     ! Time levels
@@ -88,11 +91,19 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk  ! start and end block
     INTEGER :: i_startidx, i_endidx  ! start and end indices
     INTEGER :: i_nchdom
+    REAL(wp) :: p_diag_vt
+    ! Pointers
+    INTEGER, POINTER :: iqidx(:,:,:), iqblk(:,:,:) ! to quad edge indices
+
 
 !-----------------------------------------------------------------------
 
     ! number of vertical levels
     nlev   = p_patch%nlev
+
+    ! Set pointers to quad edges
+    iqidx => p_patch%edges%quad_idx
+    iqblk => p_patch%edges%quad_blk
 
     i_nchdom = MAX(1,p_patch%n_childdom)
 
@@ -111,7 +122,6 @@ CONTAINS
 
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
-
           ! rho (simply copy)
           p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb)
 
@@ -125,20 +135,20 @@ CONTAINS
           ! diagnose theta_v from updated exner
           p_nh%prog(nnew)%theta_v(jc,jk,jb) = (p0ref/(rd*p_nh%prog(nnew)%rho(jc,jk,jb)))  &
              &                              * p_nh%prog(nnew)%exner(jc,jk,jb)**cvd_o_rd
+        ENDDO
+      ENDDO
 
-        ENDDO  ! jc
-      ENDDO  ! jk
       IF ( lstep_adv ) THEN
         DO jt = 1, ntracer
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               ! tracer (simply copy)
               p_nh%prog(nnew_rcf)%tracer(jc,jk,jb,jt) = p_nh%prog(nnow_rcf)%tracer(jc,jk,jb,jt)
-            ENDDO  ! jc
-          ENDDO  ! jk
-        ENDDO  ! jt
+            ENDDO
+          ENDDO
+        ENDDO
       ENDIF
-    ENDDO  ! jb
+    ENDDO
 !$OMP ENDDO NOWAIT
 
 
@@ -148,7 +158,7 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx, p_diag_vt)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -159,7 +169,19 @@ CONTAINS
 
           ! vn (update)
           p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)  &
-            &                          + dtime * p_nh%diag%ddt_vn_phy(je,jk,jb)
+            &                + dtime * p_nh%diag%ddt_vn_phy(je,jk,jb)
+
+          ! add Coriolis force
+          IF ( lcoriolis ) THEN
+            ! RBF reconstruction of tangential wind component
+            p_diag_vt = &
+              p_int%rbf_vec_coeff_e(1,je,jb) * p_nh%prog(nnow)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) + &
+              p_int%rbf_vec_coeff_e(2,je,jb) * p_nh%prog(nnow)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) + &
+              p_int%rbf_vec_coeff_e(3,je,jb) * p_nh%prog(nnow)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) + &
+              p_int%rbf_vec_coeff_e(4,je,jb) * p_nh%prog(nnow)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb) &
+              &              + dtime * p_diag_vt * p_patch%edges%f_e(je,jb)
+          ENDIF
         ENDDO  ! je
       ENDDO  ! jk
     ENDDO  ! jb

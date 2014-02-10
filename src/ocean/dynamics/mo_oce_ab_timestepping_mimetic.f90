@@ -76,12 +76,12 @@ MODULE mo_oce_ab_timestepping_mimetic
     & map_edges2edges_viacell_3d_const_z
   !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
-    & grad_fd_norm_oce_2d_3d, calc_thickness! , height_related_quantities
+    & grad_fd_norm_oce_2d_3d, calc_thickness
   USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_oce_diffusion,             ONLY: velocity_diffusion,&
-    & velocity_diffusion_vert_mimetic,  &
-    & veloc_diffusion_vert_impl_hom
+    & velocity_diffusion_vert_explicit,  &
+    & veloc_diffusion_vert_implicit
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
@@ -140,13 +140,12 @@ CONTAINS
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
     & p_phys_param, timestep, op_coeffs)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)       :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET             :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in)     :: p_ext_data
     TYPE(t_sfc_flx), INTENT(inout)                :: p_sfc_flx
     TYPE (t_ho_params)                            :: p_phys_param
-    INTEGER :: timestep
-    !TYPE(t_int_state),TARGET,INTENT(IN)           :: p_int
+    INTEGER, INTENT(in)                           :: timestep
     TYPE(t_operator_coeff)                        :: op_coeffs
     !
     !Local variables
@@ -174,16 +173,16 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
     !-------------------------------------------------------------------------------
-    patch_horz => patch_3d%p_patch_2d(1)
-    all_cells  => patch_horz%cells%ALL
-    all_edges  => patch_horz%edges%ALL
+    patch_horz   => patch_3d%p_patch_2d(1)
+    all_cells    => patch_horz%cells%ALL
+    all_edges    => patch_horz%edges%ALL
     owned_cells  => patch_horz%cells%owned
     owned_edges  => patch_horz%edges%owned
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     tolerance                            = solver_tolerance
     z_h_c(1:nproma,1:patch_horz%alloc_cell_blocks) = 0.0_wp
-    z_h_e(1:nproma,1:patch_horz%nblks_e) = 0.0_wp
+    z_h_e(1:nproma,1:patch_horz%nblks_e)           = 0.0_wp
     
     CALL sync_patch_array(sync_c, patch_horz, ocean_state%p_prog(nold(1))%h)
     CALL sync_patch_array(sync_e, patch_horz, ocean_state%p_prog(nold(1))%vn)
@@ -197,37 +196,37 @@ CONTAINS
 
     ENDIF
 
-    !Update prism thickness. The prism-thickness below the surface is
-    !not updated it is initialized in construct_hydro_ocean_diag
-    !with z-coordinate-thickness.
-    !1) Thickness at cells
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF(patch_3d%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb) &
-            & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_c(jc,1,jb) +ocean_state%p_prog(nold(1))%h(jc,jb)
-        ELSE
-          !Surfacethickness over land remains zero
-          !ocean_state%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
-          patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb)= 0.0_wp
-        ENDIF
-      END DO
-    END DO
-    !2) Thickness at edges
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
-      DO je = edge_start_idx, edge_end_idx
-        IF(patch_3d%lsm_e(je,1,jb) <= sea_boundary)THEN
-          patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)&
-            & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +ocean_state%p_diag%h_e(je,jb)
-        ELSE
-          !Surfacethickness over land remains zero
-          patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)= 0.0_wp
-        ENDIF
-      END DO
-    END DO
-    
+! !     !Update prism thickness. The prism-thickness below the surface is
+! !     !not updated it is initialized in construct_hydro_ocean_diag
+! !     !with z-coordinate-thickness.
+! !     !1) Thickness at cells
+! !     DO jb = all_cells%start_block, all_cells%end_block
+! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+! !       DO jc = i_startidx_c, i_endidx_c
+! !         IF(patch_3d%lsm_c(jc,1,jb) <= sea_boundary)THEN
+! !           patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb) &
+! !             & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_c(jc,1,jb) +ocean_state%p_prog(nold(1))%h(jc,jb)
+! !         ELSE
+! !           !Surfacethickness over land remains zero
+! !           !ocean_state%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
+! !           patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb)= 0.0_wp
+! !         ENDIF
+! !       END DO
+! !     END DO
+! !     !2) Thickness at edges
+! !     DO jb = all_edges%start_block, all_edges%end_block
+! !       CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
+! !       DO je = edge_start_idx, edge_end_idx
+! !         IF(patch_3d%lsm_e(je,1,jb) <= sea_boundary)THEN
+! !           patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)&
+! !             & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +ocean_state%p_diag%h_e(je,jb)
+! !         ELSE
+! !           !Surfacethickness over land remains zero
+! !           patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)= 0.0_wp
+! !         ENDIF
+! !       END DO
+! !     END DO
+! !     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('on entry: h-old'                ,ocean_state%p_prog(nold(1))%h ,str_module, idt_src, in_subset=owned_cells)
@@ -571,13 +570,11 @@ CONTAINS
   SUBROUTINE calculate_explicit_term_ab( patch_3d, ocean_state, p_phys_param,&
     & l_initial_timestep, op_coeffs)
     
-    !TYPE(t_patch), TARGET, INTENT(in)             :: patch
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE (t_ho_params)                            :: p_phys_param
-    !TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
-    LOGICAL,INTENT(in)                            :: l_initial_timestep
-    TYPE(t_operator_coeff)                        :: op_coeffs
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    TYPE (t_ho_params)                   :: p_phys_param
+    LOGICAL,INTENT(in)                   :: l_initial_timestep
+    TYPE(t_operator_coeff)               :: op_coeffs
     !
     !local variables
     !
@@ -654,7 +651,7 @@ CONTAINS
       !   For the alternative choice "expl_vertical_velocity_diff==1" see couples of
       !   lines below below
       IF (expl_vertical_velocity_diff==0) THEN
-        CALL velocity_diffusion_vert_mimetic( patch_3d,     &
+        CALL velocity_diffusion_vert_explicit( patch_3d,     &
           & ocean_state%p_diag,            &
           & ocean_state%p_aux,op_coeffs,  &
           & p_phys_param,           &
@@ -968,7 +965,7 @@ CONTAINS
       !Surface forcing is implemented as volume forcing in top layer.
       !In this case homogeneous boundary conditions for vertical Laplacian
       
-      CALL veloc_diffusion_vert_impl_hom( patch_3d,             &
+      CALL veloc_diffusion_vert_implicit( patch_3d,             &
         & ocean_state%p_diag%vn_pred,      &
         & p_phys_param%a_veloc_v,   &
         & op_coeffs,               &
@@ -1028,12 +1025,10 @@ CONTAINS
   SUBROUTINE fill_rhs4surface_eq_ab( patch_3d, ocean_state, p_sfc_flx, op_coeffs)
     !
     ! Patch on which computation is performed
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    !
-    ! Type containing ocean state
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_sfc_flx), INTENT(in)       :: p_sfc_flx
-    TYPE(t_operator_coeff)            :: op_coeffs
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    TYPE(t_sfc_flx), INTENT(in)          :: p_sfc_flx
+    TYPE(t_operator_coeff)               :: op_coeffs
     !
     !  local variables
     !
@@ -1047,8 +1042,6 @@ CONTAINS
     REAL(wp) :: div_z_depth_int_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_z_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_vn_ab(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
-    
-    !TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,patch%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_horz
     !REAL(wp) :: thick
@@ -1082,10 +1075,8 @@ CONTAINS
         CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
         DO je = edge_start_idx, edge_end_idx
           DO jk=1,n_zlev
-            !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
             z_vn_ab(je,jk,jb)=ab_gam*ocean_state%p_diag%vn_pred(je,jk,jb)&
               & + (1.0_wp -ab_gam)* ocean_state%p_prog(nold(1))%vn(je,jk,jb)
-            !ENDIF
           END DO
         ENDDO
       END DO
@@ -1095,12 +1086,10 @@ CONTAINS
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
           DO je = edge_start_idx, edge_end_idx
-            i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)! v_base%dolic_e(je,jb)
+            i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)
             DO jk=1,i_dolic_e
-              !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
               z_vn_ab(je,jk,jb)=ab_gam*ocean_state%p_diag%vn_impl_vert_diff(je,jk,jb)&
                 & + (1.0_wp -ab_gam)* ocean_state%p_prog(nold(1))%vn(je,jk,jb)
-              !ENDIF
             END DO
           ENDDO
         END DO
@@ -1110,12 +1099,10 @@ CONTAINS
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
           DO je = edge_start_idx, edge_end_idx
-            i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)! v_base%dolic_e(je,jb)
+            i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)
             DO jk=1,i_dolic_e
-              !IF(patch_3d%lsm_e(je,jk,jb) <= sea_boundary)THEN
               z_vn_ab(je,jk,jb)=ab_gam*ocean_state%p_diag%vn_pred(je,jk,jb)&
                 & + (1.0_wp -ab_gam)* ocean_state%p_prog(nold(1))%vn(je,jk,jb)
-              !ENDIF
             END DO
           ENDDO
         END DO
@@ -1157,7 +1144,7 @@ CONTAINS
         END DO
         
       ENDIF
-      
+
       ! !-------------------------------------------------------------------------------
     ELSEIF(.NOT. l_edge_based)THEN!NOT EDGE-BASED
       ! !-------------------------------------------------------------------------------
@@ -1221,8 +1208,10 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('RHS thick_e'               ,ocean_state%p_diag%thick_e, str_module,idt_src, &
+    CALL dbg_print('RHS thick_e'               ,patch_3d%p_patch_1d(1)%prism_thick_e, str_module,idt_src, &
         & in_subset=owned_edges )
+    CALL dbg_print('RHS thick_c'               ,patch_3d%p_patch_1d(1)%prism_thick_c, str_module,idt_src, &
+        & in_subset=patch_3d%p_patch_2d(1)%cells%owned)        
     CALL dbg_print('RHS z_vn_ab'               ,z_vn_ab                  ,str_module,idt_src, &
         & in_subset=owned_edges )
     CALL dbg_print('RHS z_e'                   ,z_e                      ,str_module,idt_src, &
@@ -1244,7 +1233,7 @@ CONTAINS
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     
-    TYPE(t_patch), POINTER :: patch     ! patch on which computation is performed
+    TYPE(t_patch), POINTER :: patch    
     INTEGER :: return_status
     
     patch         => patch_3d%p_patch_2d(1)
@@ -1288,13 +1277,13 @@ CONTAINS
   FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d,coeff, thickness_e,&
     & thickness_c,op_coeffs) result(lhs)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    REAL(wp),    INTENT(inout)       :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
-    REAL(wp),    INTENT(in)          :: h_old(:,:)
-    REAL(wp),    INTENT(in)          :: coeff
-    TYPE(t_operator_coeff),INTENT(in):: op_coeffs
-    REAL(wp),    INTENT(in)          :: thickness_e(:,:)
-    REAL(wp),    INTENT(in)          :: thickness_c(:,:) !thickness of fluid column
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
+    REAL(wp),    INTENT(in)              :: h_old(:,:)
+    REAL(wp),    INTENT(in)              :: coeff
+    TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    REAL(wp),    INTENT(in)              :: thickness_e(:,:)
+    REAL(wp),    INTENT(in)              :: thickness_c(:,:) !thickness of fluid column
     !  these are small (2D) arrays and allocated once for efficiency
     ! Left-hand side calculated from iterated height
     !
@@ -1413,10 +1402,10 @@ CONTAINS
   !!
   SUBROUTINE calc_normal_velocity_ab_mimetic(patch_3d,ocean_state, op_coeffs, p_ext_data)
     !
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_operator_coeff),INTENT(in)      :: op_coeffs
-    TYPE(t_external_data), TARGET :: p_ext_data
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    TYPE(t_external_data), TARGET        :: p_ext_data
     !
     !  local variables
     INTEGER :: edge_start_idx, edge_end_idx
@@ -1556,10 +1545,10 @@ CONTAINS
   SUBROUTINE calc_vert_velocity_mim_bottomup( patch_3d, ocean_state, p_diag,op_coeffs,pw_c )
     
     TYPE(t_patch_3d), TARGET, INTENT(in) :: patch_3d       ! patch on which computation is performed
-    TYPE(t_hydro_ocean_state)         :: ocean_state
-    TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: op_coeffs
-    REAL(wp),         INTENT(inout)   :: pw_c (nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! vertical velocity on cells
+    TYPE(t_hydro_ocean_state)            :: ocean_state
+    TYPE(t_hydro_ocean_diag)             :: p_diag
+    TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    REAL(wp),         INTENT(inout)      :: pw_c (nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! vertical velocity on cells
     !
     !
     ! Local variables
@@ -1600,7 +1589,7 @@ CONTAINS
           END DO
         END DO
       END DO
-      
+     
       CALL div_oce_3d( ocean_state%p_diag%mass_flx_e,    &
         & p_patch,                   &
         & op_coeffs%div_coeff,      &
@@ -1728,7 +1717,6 @@ CONTAINS
       CALL finish(TRIM('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mim_bottomup'), &
         & 'MISMATCH in surface equation')
     ENDIF
-    
   END SUBROUTINE calc_vert_velocity_mim_bottomup
   !-------------------------------------------------------------------------
   
@@ -1736,9 +1724,9 @@ CONTAINS
   !!  The result is NOT synced. Should be done in the calling method if required
   FUNCTION inverse_primal_flip_flop(p_patch, patch_3d, op_coeffs, rhs_e, h_e) result(inv_flip_flop_e)
     !
-    TYPE(t_patch), TARGET :: p_patch
+    TYPE(t_patch), TARGET                  :: p_patch
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    TYPE(t_operator_coeff),INTENT(in)             :: op_coeffs
+    TYPE(t_operator_coeff),INTENT(in)      :: op_coeffs
     REAL(wp)      :: rhs_e(:,:,:)!(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp)      :: h_e(:,:)  !(nproma,p_patch%nblks_e)
     REAL(wp)      :: inv_flip_flop_e(SIZE(rhs_e,1),SIZE(rhs_e,2),SIZE(rhs_e,3))

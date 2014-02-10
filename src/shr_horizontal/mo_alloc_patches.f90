@@ -57,7 +57,7 @@ MODULE mo_alloc_patches
   USE mo_parallel_config,    ONLY: nproma
   USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-    & radiation_grid_filename,  global_cell_type, lplane
+    & radiation_grid_filename, lplane
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_mpi,                ONLY: my_process_is_mpi_seq
@@ -77,7 +77,7 @@ MODULE mo_alloc_patches
   PUBLIC :: allocate_basic_patch
   PUBLIC :: deallocate_basic_patch
   PUBLIC :: allocate_remaining_patch
-  PUBLIC :: allocate_patch
+  ! PUBLIC :: allocate_patch
   PUBLIC :: set_patches_grid_filename
 
   !-------------------------------------------------------------------------
@@ -482,7 +482,7 @@ CONTAINS
     ! - n_patch_verts_g
     ! - max_childdom
 
-    p_patch%cell_type = global_cell_type
+    p_patch%cell_type = p_patch%cells%max_connectivity
     max_childdom = p_patch%max_childdom
     !
     ! !grid cells

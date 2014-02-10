@@ -53,8 +53,9 @@ MODULE mo_fortran_tools
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array
     INTEGER,POINTER :: p_2d(:,:)    ! INTEGER pointer to 2D (spatial) array
   END TYPE t_ptr_i2d3d
-  
-  TYPE t_ptr_tracer                   ! Type to pass pointer arrays to convection subroutines
+
+  ! Type to pass pointer arrays to convection and turbulent diffusion subroutines
+  TYPE t_ptr_tracer
     REAL(wp), POINTER :: ptr(:,:)
     INTEGER           :: idx_tracer    
   END TYPE t_ptr_tracer

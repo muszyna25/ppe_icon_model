@@ -72,6 +72,9 @@ MODULE mo_sgs_turbulence
   USE mo_les_config,          ONLY: les_config
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_turbulent_diagnostic,ONLY: is_sampling_time, idx_sgs_th_flx, &
+                                    idx_sgs_qv_flx, idx_sgs_qc_flx, time_wt
+  USE mo_statistics,         ONLY: levels_horizontal_mean
  
   IMPLICIT NONE
 
@@ -595,7 +598,7 @@ MODULE mo_sgs_turbulence
                                p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) / thetav_e(je,jk,jb)
 
            visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                  &
-               MAX( km_min, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
+               MAX( 0._wp, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
                SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
 
          END DO
@@ -1227,7 +1230,7 @@ MODULE mo_sgs_turbulence
     !interface level variables but only nlev quantities are needed 
     REAL(wp) :: hor_tend(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: tot_tend(nproma,p_patch%nlev,p_patch%nblks_c)
-    REAL(wp) :: inv_rho_ic(nproma,p_patch%nlev,p_patch%nblks_c)
+    REAL(wp) :: inv_rho_ic(nproma,p_patch%nlev,p_patch%nblks_c)!not necessary to allocate for nlev+1
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -1582,7 +1585,7 @@ MODULE mo_sgs_turbulence
     REAL(wp),        INTENT(inout),TARGET:: tot_tend(:,:,:)!<total tendency
     REAL(wp),          INTENT(in)        :: exner(:,:,:)   !
     REAL(wp),          INTENT(in)        :: rho(:,:,:)     !density at cell center
-    TYPE(t_nwp_phy_diag),  INTENT(in)    :: prm_diag     !< atm phys vars
+    TYPE(t_nwp_phy_diag),  INTENT(inout) :: prm_diag       !< atm phys vars
     REAL(wp),          INTENT(in)        :: dt
     CHARACTER(*), INTENT(in)             :: scalar_name    
 
@@ -1591,8 +1594,9 @@ MODULE mo_sgs_turbulence
     REAL(wp) :: nabla2_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp) :: fac(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp) :: exner_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
+    REAL(wp) :: sgs_flux(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp) :: exner_me(nproma,p_patch%nlev,p_patch%nblks_e)
-    REAL(wp) :: sflux(nproma,p_patch%nblks_c)
+    REAL(wp) :: sflux(nproma,p_patch%nblks_c), outvar(p_patch%nlev+1)
 
     REAL(wp), DIMENSION(nproma,p_patch%nlev) :: a, b, c, rhs
     REAL(wp)                                 :: var_new(p_patch%nlev)
@@ -1602,7 +1606,7 @@ MODULE mo_sgs_turbulence
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, je, jc, jg
-    INTEGER  :: nlev              
+    INTEGER  :: nlev, nlevp1              
 
     IF (msg_level >= 15) &
          CALL message(TRIM(inmodule), 'diffuse_scalar')
@@ -1612,6 +1616,7 @@ MODULE mo_sgs_turbulence
 
     ! number of vertical levels
     nlev = p_patch%nlev
+    nlevp1 = nlev+1
     i_nchdom   = MAX(1,p_patch%n_childdom)
     inv_dt  = 1._wp / dt
 
@@ -1833,7 +1838,7 @@ MODULE mo_sgs_turbulence
                flux_up = diff_smag_ic(jc,nlev,jb) * (var(jc,nlev-1,jb) - var(jc,nlev,jb)) * &
                          p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) * exner_ic(jc,nlev,jb)
 
-               flux_dn  = -sflux(jc,jb) * exner_ic(jc,nlev+1,jb)
+               flux_dn  = -sflux(jc,jb) * exner_ic(jc,nlevp1,jb)
  
                tot_tend(jc,nlev,jb) = tot_tend(jc,nlev,jb) + (flux_up - flux_dn) * & 
                        p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * fac(jc,nlev,jb)
@@ -1892,7 +1897,7 @@ MODULE mo_sgs_turbulence
 
               b(jc,nlev)  = inv_dt - a(jc,nlev) 
 
-              rhs(jc,nlev)= var(jc,nlev,jb) * inv_dt + sflux(jc,jb) * exner_ic(jc,nlev+1,jb) * &
+              rhs(jc,nlev)= var(jc,nlev,jb) * inv_dt + sflux(jc,jb) * exner_ic(jc,nlevp1,jb) * &
                              p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * fac(jc,nlev,jb)
             END DO
 
@@ -1904,10 +1909,65 @@ MODULE mo_sgs_turbulence
            END DO
 
          END DO!block
-!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_DO
 !ICON_OMP_END_PARALLEL
 
     END SELECT !vert_scheme
+
+
+    !subgrid fluxes for different scalars
+
+    IF(is_sampling_time)THEN 
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
+      DO jb = i_startblk,i_endblk
+         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+         DO jk = 2, nlev
+           DO jc = i_startidx, i_endidx
+              sgs_flux(jc,jk,jb) = -diff_smag_ic(jc,jk,jb) * (var(jc,jk-1,jb) - var(jc,jk,jb)) * &
+                                   p_nh_metrics%inv_ddqz_z_half(jc,jk,jb)
+           END DO
+         END DO    
+         DO jc = i_startidx, i_endidx
+            sgs_flux(jc,1,jb) = 0._wp
+            !extrapolate for surface density
+            sgs_flux(jc,nlevp1,jb) = sflux(jc,jb)
+         END DO
+      END DO
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+
+      IF(TRIM(scalar_name)=='theta')THEN
+ 
+        CALL levels_horizontal_mean(sgs_flux, p_patch%cells%area, p_patch%cells%owned, &
+                                    outvar)
+
+        outvar = outvar * cpd**2 * rcvd
+        prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx) =  &
+               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx)+outvar(1:nlevp1)*time_wt
+
+      ELSEIF(TRIM(scalar_name)=='qv')THEN
+
+        CALL levels_horizontal_mean(sgs_flux, p_patch%cells%area, p_patch%cells%owned, &
+                                     outvar)
+
+        outvar = outvar * alv 
+        prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qv_flx) =  &
+               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qv_flx)+outvar(1:nlevp1)*time_wt
+
+      ELSEIF(TRIM(scalar_name)=='qc')THEN
+
+        CALL levels_horizontal_mean(sgs_flux, p_patch%cells%area, p_patch%cells%owned, &
+                                    outvar)
+
+        outvar = outvar * alv 
+        prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qc_flx) =  &
+               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qc_flx)+outvar(1:nlevp1)*time_wt
+
+      END IF  
+
+    END IF !is_sampling_time
 
 
   END SUBROUTINE diffuse_scalar

@@ -21,14 +21,12 @@ MODULE mo_name_list_output_gridinfo
   USE mo_math_constants,                    ONLY: pi_180, pi
   USE mo_impl_constants,                    ONLY: SUCCESS, min_rlcell_int, min_rledge_int,  &
     &                                             min_rlvert
-  USE mo_grid_config,                       ONLY: global_cell_type
   USE mo_mpi,                               ONLY: p_comm_work_2_io,                         &
     &                                             my_process_is_mpi_test, my_process_is_io, &
     &                                             my_process_is_mpi_workroot, p_bcast
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_util_string,                       ONLY: MAX_STRING_LEN
   USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
 
   USE mo_name_list_output_types,            ONLY: t_patch_info, t_grid_info, t_output_file, &
@@ -104,16 +102,16 @@ CONTAINS
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_all_grid_info"
-    INTEGER                             :: idom_log, ierrstat
+    INTEGER                             :: idom_log, ierrstat, max_cell_connectivity
     REAL(wp), ALLOCATABLE               :: lonv(:,:,:), latv(:,:,:)
 
     ! logical domain ID
     idom_log = patch_info%log_patch_id
-
+    max_cell_connectivity = p_patch%cells%max_connectivity
     !-- collect domain data on working PE 0
     ! --cells
-    ALLOCATE(lonv(nproma, p_patch%nblks_c, global_cell_type), &
-      &      latv(nproma, p_patch%nblks_c, global_cell_type), &
+    ALLOCATE(lonv(nproma, p_patch%nblks_c, max_cell_connectivity), &
+      &      latv(nproma, p_patch%nblks_c, max_cell_connectivity), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     CALL cf_1_1_grid_cells(p_patch, lonv, latv)
@@ -122,7 +120,7 @@ CONTAINS
       &                    p_patch%cells%center,                &
       &                    lonv, latv,                          &
       &                    patch_info%cells%grid_info,          &
-      &                    global_cell_type,                    &
+      &                    max_cell_connectivity,                    &
       &                    patch_info%p_pat_c)
     DEALLOCATE(lonv, latv, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
@@ -144,8 +142,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     !-- verts
-    ALLOCATE(lonv(nproma, p_patch%nblks_v, 9-global_cell_type), &
-      &      latv(nproma, p_patch%nblks_v, 9-global_cell_type), &
+    ALLOCATE(lonv(nproma, p_patch%nblks_v, 9-max_cell_connectivity), &
+      &      latv(nproma, p_patch%nblks_v, 9-max_cell_connectivity), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -160,7 +158,7 @@ CONTAINS
       &                    p_patch%verts%vertex,                &
       &                    lonv, latv,                          &
       &                    patch_info%verts%grid_info,          &
-      &                    9-global_cell_type,                  &
+      &                    9-max_cell_connectivity,                  &
       &                    patch_info%p_pat_v)
     DEALLOCATE(lonv, latv, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
@@ -261,16 +259,18 @@ CONTAINS
     INTEGER :: jc, jb, j, iidx, iblk,                  &
       &        rl_start, rl_end, i_startblk, i_endblk, &
       &        i_startidx, i_endidx, i_nchdom
+    INTEGER :: max_cell_connectivity
 
     rl_start   = 1
     rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    max_cell_connectivity = p_patch%cells%max_connectivity
 
     lonv(:,:,:) = 0.0_wp
     latv(:,:,:) = 0.0_wp
-    DO j = 1, global_cell_type
+    DO j = 1, max_cell_connectivity
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           i_startidx, i_endidx, rl_start, rl_end)
@@ -288,7 +288,7 @@ CONTAINS
     WHERE (ABS(latv(:,:,:)) < EPSILON(0.0_wp))
       latv(:,:,:) = 0.0_wp
     END WHERE
-    DO j = 1, global_cell_type
+    DO j = 1, max_cell_connectivity
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           i_startidx, i_endidx, rl_start, rl_end)
@@ -459,16 +459,18 @@ CONTAINS
     INTEGER :: jc, jb, j, iidx, iblk,                  &
       &        rl_start, rl_end, i_startblk, i_endblk, &
       &        i_startidx, i_endidx, i_nchdom
+    INTEGER :: max_cell_connectivity
 
     rl_start   = 2
     rl_end     = min_rlvert
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_startblk = p_patch%verts%start_blk(rl_start,1)
     i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)
+    max_cell_connectivity = p_patch%cells%max_connectivity
 
     lonv(:,:,:) = 0.0_wp
     latv(:,:,:) = 0.0_wp
-    DO j = 1,(9-global_cell_type)
+    DO j = 1,(9-max_cell_connectivity)
       DO jb = i_startblk, i_endblk
         CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
           &                i_startidx, i_endidx, rl_start, rl_end)
@@ -598,7 +600,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN) :: of
 
     INTEGER :: ncid, dimid, varid
-    INTEGER :: i_nc, i_ne, i_nv
+    INTEGER :: i_nc, i_ne, i_nv, max_cell_connectivity
     INTEGER :: i_dom
 
     REAL(wp), ALLOCATABLE :: clon(:), clat(:), clonv(:,:), clatv(:,:)
@@ -608,7 +610,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::copy_grid_info"
 
     i_dom = of%phys_patch_id
-
     ! Please note: The following is more or less a copy from mo_io_vlist with adaptions
     ! to the data structures used here.
     ! Unfortunately it seems necessary to open the gridfile for reading the information
@@ -619,24 +620,28 @@ CONTAINS
     ! This is just for safety and could be skipped, of course.
 
     CALL nf(nf_open(TRIM(patch_info(i_dom)%grid_filename), NF_NOWRITE, ncid))
+
+    CALL nf(nf_inq_dimid(ncid, 'nv', dimid))
+    CALL nf(nf_inq_dimlen(ncid, dimid, max_cell_connectivity))
     !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    END SELECT
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
+    CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+    ! CASE (6)
+    !  CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+    ! END SELECT
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nc))
     !
     CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
     !
-    SELECT CASE (global_cell_type)
-    CASE (3)
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
       CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    CASE (6)
+    ! CASE (6)
       CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    END SELECT
+    ! END SELECT
+
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
 
     IF(i_nc /= patch_info(i_dom)%cells%n_log) &
@@ -649,12 +654,12 @@ CONTAINS
     !---------------------------------------------------------------------------
     ! cell grid
 
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clon', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlon', varid))
-    END SELECT
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
+    CALL nf(nf_inq_varid(ncid, 'clon', varid))
+    ! CASE (6)
+    !   CALL nf(nf_inq_varid(ncid, 'vlon', varid))
+    ! END SELECT
 
     ALLOCATE(clon(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clon))
@@ -664,12 +669,12 @@ CONTAINS
     DEALLOCATE(clon)
 
 
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clat', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlat', varid))
-    END SELECT
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
+    CALL nf(nf_inq_varid(ncid, 'clat', varid))
+    ! CASE (6)
+    !  CALL nf(nf_inq_varid(ncid, 'vlat', varid))
+    ! END SELECT
 
     ALLOCATE(clat(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clat))
@@ -680,14 +685,14 @@ CONTAINS
     DEALLOCATE(clat)
 
 
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    END SELECT
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
+    CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
+    ! CASE (6)
+    ! CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
+    ! END SELECT
 
-    ALLOCATE(clonv(global_cell_type, i_nc))
+    ALLOCATE(clonv(max_cell_connectivity, i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clonv))
     CALL reorder2(patch_info(i_dom)%cells%n_glb, &
       &           patch_info(i_dom)%cells%grid_info%log_dom_index, clonv)
@@ -696,14 +701,14 @@ CONTAINS
     DEALLOCATE(clonv)
 
 
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    END SELECT
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
+    CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
+    !CASE (6)
+    !  CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
+    ! END SELECT
 
-    ALLOCATE(clatv(global_cell_type, i_nc))
+    ALLOCATE(clatv(max_cell_connectivity, i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clatv))
     CALL reorder2(patch_info(i_dom)%cells%n_glb, &
       &           patch_info(i_dom)%cells%grid_info%log_dom_index, clatv)
@@ -753,12 +758,12 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! vertex grid
 
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'vlon', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'clon', varid))
-    END SELECT
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
+    CALL nf(nf_inq_varid(ncid, 'vlon', varid))
+    ! CASE (6)
+    !  CALL nf(nf_inq_varid(ncid, 'clon', varid))
+    !END SELECT
 
     ALLOCATE(vlon(i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlon))
@@ -768,12 +773,12 @@ CONTAINS
     CALL gridDefXvals(of%cdiVertGridID, vlon)
     DEALLOCATE(vlon)
 
-    SELECT CASE (global_cell_type)
-    CASE (3)
+    ! SELECT CASE (max_cell_connectivity)
+    ! CASE (3)
       CALL nf(nf_inq_varid(ncid, 'vlat', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'clat', varid))
-    END SELECT
+    ! CASE (6)
+    !  CALL nf(nf_inq_varid(ncid, 'clat', varid))
+    !END SELECT
 
     ALLOCATE(vlat(i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlat))
@@ -783,13 +788,13 @@ CONTAINS
     CALL gridDefYvals(of%cdiVertGridID, vlat)
     DEALLOCATE(vlat)
 
-    IF(global_cell_type==3) THEN
+    !IF(max_cell_connectivity==3) THEN
       CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    ENDIF
+    !ELSEIF(max_cell_connectivity==6) THEN
+    !  CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
+    !ENDIF
 
-    ALLOCATE(vlonv(9-global_cell_type, i_nv))
+    ALLOCATE(vlonv(9-max_cell_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlonv))
     CALL reorder2(patch_info(i_dom)%verts%n_glb, &
       &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlonv)
@@ -797,13 +802,13 @@ CONTAINS
     CALL gridDefXbounds(of%cdiVertGridID, vlonv)
     DEALLOCATE(vlonv)
 
-    IF(global_cell_type==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    ENDIF
+    ! IF(max_cell_connectivity==3) THEN
+    CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
+    ! ELSEIF(max_cell_connectivity==6) THEN
+    !  CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
+    !ENDIF
 
-    ALLOCATE(vlatv(9-global_cell_type, i_nv))
+    ALLOCATE(vlatv(9-max_cell_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlatv))
     CALL reorder2(patch_info(i_dom)%verts%n_glb, &
       &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlatv)
@@ -859,9 +864,9 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::bcast_grid_info"
     INTEGER :: ierrstat, dim_c, dim_e, dim_v
 
-    dim_c =   global_cell_type
+    dim_c = patch_info%max_cell_connectivity
     dim_e =                  4
-    dim_v = 9-global_cell_type
+    dim_v = 9 - patch_info%max_cell_connectivity
 
     IF(my_process_is_io()) THEN
       ALLOCATE(patch_info%cells%grid_info%lon(nproma*patch_info%nblks_glb_c),         &

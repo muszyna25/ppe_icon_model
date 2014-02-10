@@ -115,7 +115,7 @@ MODULE mo_nh_initicon_types
   !
   TYPE :: t_initicon_state
     
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c, topography_v
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: topography_c
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
 

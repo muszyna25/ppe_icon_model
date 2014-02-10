@@ -72,6 +72,7 @@ MODULE mo_cuflxtends
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
     &                        lhook,   dr_hook, rcvd
+  USE mo_atm_phy_nwp_config, ONLY: tune_rhebc_land, tune_rhebc_ocean
   
   
   USE mo_cufunctions, ONLY: foelhmcu, foeewmcu, foealfcu, &
@@ -281,10 +282,12 @@ CONTAINS
       idbas(jl)=klev
       IF(ldland(jl)) THEN
         !!zrhebc(jl)=rhebc
-        zrhebc(jl)=0.7_jprb
+        !!zrhebc(jl)=0.7_jprb
+        zrhebc(jl) = tune_rhebc_land
       ELSE
         !!zrhebc(jl)=rhebc
-        zrhebc(jl)=0.9_jprb
+        !!zrhebc(jl)=0.9_jprb
+        zrhebc(jl) = tune_rhebc_ocean
       ENDIF
     ENDDO
     !!TO GET IDENTICAL RESULTS FOR DIFFERENT NPROMA FORCE KTOPM2 TO 2

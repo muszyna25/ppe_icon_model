@@ -70,18 +70,6 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< topographic height at cell centers      [m]
       &  topography_c(:,:)     ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), POINTER ::   &   !< smoothed topographic height at cell centers [m]
-      &  topography_smt_c(:,:) ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< topographic height at cell edges        [m]
-      &  topography_e(:,:)     ! index1=1,nproma, index2=1,nblks_e
-
-    REAL(wp), POINTER ::   &   !< topographic height at cell vertices     [m]
-      &  topography_v(:,:)     ! index1=1,nproma, index2=1,nblks_v
-
-    REAL(wp), POINTER ::   &   !< smoothed topographic height at vertices [m]
-      &  topography_smt_v(:,:) ! index1=1,nproma, index2=1,nblks_v
-
     REAL(wp), POINTER ::   &   !< geopotential (S)                        [m**2/s**2]
       &  fis(:,:)              ! index1=1,nproma, index2=1,nblks_c
 

@@ -43,6 +43,7 @@
 !
 !    !------------------------------
 !    CASE (202)
+!      ! simulates the salinity_profile_20levels array, but for any number of levels
 !      CALL salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
 !
 !    !------------------------------
@@ -64,6 +65,18 @@
 !        CALL finish(TRIM(method_name), 'Number of vertical levels > 20')
 !      ENDIF
 !
+!    !------------------------------
+!    CASE (500)
+!      ! uniform salinity or vertically linarly increasing on all cells
+!      !   it will initialize also land cells
+!      !   this is provided only for testing,
+!      !   as it should give the same results as
+!      !   for initial_salinity_type = 200
+!      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
+!      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+!        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
+!
+!    !------------------------------
 !  END init_ocean_salinity
 !  !-------------------------------------------------------------------------------
 !
@@ -630,6 +643,7 @@ CONTAINS
 
     !------------------------------
     CASE (202)
+      ! simulates the salinity_profile_20levels array, but for any number of levels
       CALL salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
 
     !------------------------------
@@ -650,6 +664,17 @@ CONTAINS
       ELSE
         CALL finish(TRIM(method_name), 'Number of vertical levels > 20')
       ENDIF
+
+    !------------------------------
+    CASE (500)
+      ! uniform salinity or vertically linarly increasing on all cells
+      !   it will initialize also land cells
+      !   this is provided only for testing,
+      !   as it should give the same results as
+      !   for initial_salinity_type = 200
+      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
+      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
 
     !------------------------------
      CASE default
@@ -754,6 +779,17 @@ CONTAINS
        CALL fill_FromVerticalArrayProfile(patch_3d, ocean_temperature, VerticalProfileValue=tprof_var)
 
     !------------------------------
+    CASE (500)
+      ! uniform salinity or vertically linarly increasing on all cells
+      !   it will initialize also land cells
+      !   this is provided only for testing,
+      !   as it should give the same results as
+      !   for initial_salinity_type = 200
+      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
+      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+
+     !------------------------------
      CASE default
       CALL finish(method_name, "unknown initial_temperature_type")
 
@@ -1494,6 +1530,51 @@ CONTAINS
       & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
   END SUBROUTINE temperature_APE
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE tracer_VerticallyLinearly_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: top_value, bottom_value
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: linear_decrease
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+          ocean_tracer(jc,1,jb) = top_value
+      END DO
+    END DO
+
+    linear_decrease = (top_value - bottom_value) / (REAL(n_zlev,wp)-1.0_wp)
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        DO jk = 2, n_zlev
+          ocean_tracer(jc,jk,jb) &
+            & = MAX(ocean_tracer(jc,jk-1,jb) - linear_decrease, bottom_value)
+        END DO
+
+      END DO
+    END DO
+
+    ! ocean_tracer(:,:,:) = top_value
+
+  END SUBROUTINE tracer_VerticallyLinearly_IncludeLand
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------

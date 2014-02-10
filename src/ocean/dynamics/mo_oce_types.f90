@@ -22,6 +22,9 @@ MODULE mo_oce_types
   PUBLIC :: t_ocean_region_volumes
   PUBLIC :: t_ocean_region_areas
   PUBLIC :: t_ocean_basins
+
+  PUBLIC :: t_operator_coeff
+
   !
   !! basis types for constructing 3-dim ocean state
   !
@@ -413,6 +416,83 @@ MODULE mo_oce_types
     INTEGER :: &
       & atlantic = 1, pacific = 3
   END TYPE t_ocean_basins
+
+  TYPE t_operator_coeff
+
+    ! 1) precomputed 3D-factors for mathematical operators (for efficiency).
+    !------------------------------------------------------------------------------
+    REAL(wp), ALLOCATABLE :: div_coeff(:,:,:,:)    ! factor for divergence (nproma,nlev,nblks_c,no_primal_edges)
+    REAL(wp), ALLOCATABLE :: rot_coeff(:,:,:,:)    ! factor for divergence (nproma,nlev,nblks_v,no_dual_edges)
+    REAL(wp), ALLOCATABLE :: grad_coeff(:,:,:)     ! factor for nabla2-scalar (nproma,nlev,nblks_e)
+    REAL(wp), ALLOCATABLE :: n2s_coeff(:,:,:,:)    ! factor for nabla2-scalar (nproma,nlev,nblks_c)
+    REAL(wp), ALLOCATABLE :: n2v_coeff(:,:,:)      ! factor for nabla2-vector (nproma,nlev,nblks_e)
+
+
+    !2) Required for description of boundary around a vertex
+    !------------------------------------------------------------------------------
+    INTEGER, ALLOCATABLE :: bnd_edges_per_vertex(:,:,:)
+    INTEGER, POINTER :: bnd_edge_idx(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+    INTEGER, POINTER :: bnd_edge_blk(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+    INTEGER, POINTER :: edge_idx(:,:,:,:)   !(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+    REAL(wp),POINTER :: orientation(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+
+    INTEGER, ALLOCATABLE :: upwind_cell_idx(:,:,:)
+    INTEGER, ALLOCATABLE :: upwind_cell_blk(:,:,:)
+    !3) Scalarproduct: The following arrays are required for the reconstruction process.
+    !------------------------------------------------------------------------------
+    !
+    ! Vector pointing from cell circumcenter to edge midpoint. In the associated
+    ! cell2edge_weight-array the cell2edge_vec is multiplied by some other geometric
+    ! quantities (edge-length, cell area). The weight is used in the reconstruction
+    ! the vector is used in the transposed reconstruction.
+    ! index=1,nproma, index2=1,nblks_c, index3=1,3
+    ! other choice would be index2=1,nblks_e, index3=1,2
+    ! Eventually switch to other second indexing if this is more appropriate
+
+    ! Vector pointing from vertex (dual center) to midpoint of dual edge
+    ! (/= midpoint of primal edge).
+    ! In the associated vertex2dualedge_mid_weight-array the vertex2dualedge_mid_vec
+    ! is multiplied by some other geometric quantities (dual edge-length, dual cell
+    ! area). The weight is used in the reconstruction the vector is used in the
+    ! transposed reconstruction.
+    ! index=1,nproma, index2=1,nblks_v, index3=1,6
+    ! other choice index2=1,nblks_e, index3=1,2
+    ! Eventually switch to other second indexing if this is more appropriate
+    ! new constructs for mimetic core:
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc(:,:,:,:)
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_t(:,:,:,:)
+    REAL(wp), ALLOCATABLE                      :: edge2edge_viacell_coeff(:,:,:,:)
+    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_top(:,:,:)       ! the same as the top edge2edge_viacell_coeff
+    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_integrated(:,:,:)! the other levels integrated
+    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_all(:,:,:)       ! all the levels integrated
+
+    !coefficient for surface layer, changes in time, in contrast to other coefficients
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_dyn(:,:,:,:)
+    !TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_dyn(:,:,:,:)
+
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc(:,:,:,:)
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:,:)
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_vector_cc(:,:,:,:)
+    REAL(wp), ALLOCATABLE                      :: edge2edge_viavert_coeff(:,:,:,:)
+
+    REAL(wp), ALLOCATABLE :: fixed_vol_norm(:,:,:)
+    REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:,:)
+    REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:,:)
+
+    !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
+    ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
+    REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
+    ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)  ! this is redundant, should be replaced by the 2D cartesian center
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge_position_cc(:,:,:)
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:)
+
+    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
+    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
+    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
+
+  END TYPE t_operator_coeff
   
 END MODULE mo_oce_types
 

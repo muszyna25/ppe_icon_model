@@ -40,6 +40,7 @@ MODULE mo_grid_config
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
   USE mo_parallel_config,    ONLY: division_method, division_file_name
+  USE mo_mpi,                ONLY: p_pe, p_io
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -61,7 +62,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PUBLIC :: init_grid_configuration, get_grid_rescale_factor
   PUBLIC :: max_rad_dom
-  PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
+  PUBLIC :: nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
@@ -69,7 +70,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: namelist_grid_angular_velocity
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
-  PUBLIC :: get_gridfile_cell_type
+  PUBLIC :: vertical_grid_filename, create_vgrid
 
 ! !   PUBLIC :: radiation_grid_distribution
   
@@ -91,7 +92,6 @@ INCLUDE 'netcdf.inc'
   ! ------------------------------------------------------------------------
   !Configuration variables
   ! ------------------------------------------------------------------------
-  INTEGER  :: global_cell_type
   INTEGER  :: nroot                    ! root division of initial edges
   INTEGER  :: start_lev                ! coarsest bisection level
   INTEGER  :: n_dom                    ! number of model domains, 1=global domain only 
@@ -133,6 +133,10 @@ INCLUDE 'netcdf.inc'
   CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
   INTEGER                     :: dynamics_radiation_grid_link(max_dom)
 
+  LOGICAL    :: create_vgrid   ! switch if files containing vct_a, vct_b, z_ifc shall be created
+  !> files containing vct_a, vct_b, z_ifc
+  CHARACTER(LEN=filename_max) :: vertical_grid_filename(max_dom)
+
   INTEGER :: no_of_dynamics_grids  = 0
   INTEGER :: no_of_radiation_grids = 0
 
@@ -150,7 +154,7 @@ CONTAINS
   SUBROUTINE init_grid_configuration
                                                
     !local variables
-    INTEGER  :: jg, ncid, cell_type
+    INTEGER  :: jg, ncid
 !    INTEGER  :: funit
     LOGICAL  :: file_exists
     CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:init_grid_configuration"
@@ -168,11 +172,13 @@ CONTAINS
     
     jg=1
     DO WHILE (dynamics_grid_filename(jg) /= "")
-      INQUIRE (FILE=dynamics_grid_filename(jg), EXIST=file_exists)
-      IF (.NOT. file_exists)   THEN
-        WRITE (message_text,'(a,a)')  TRIM(dynamics_grid_filename(jg)), &
-          " file does not exist"
-        CALL finish( TRIM(method_name), TRIM(message_text))
+      IF (p_pe == p_io) THEN
+        INQUIRE (FILE=dynamics_grid_filename(jg), EXIST=file_exists)
+        IF (.NOT. file_exists)   THEN
+          WRITE (message_text,'(a,a)')  TRIM(dynamics_grid_filename(jg)), &
+            " file does not exist"
+          CALL finish( TRIM(method_name), TRIM(message_text))
+        ENDIF
       ENDIF
       jg=jg+1
       IF (jg > max_dom) EXIT
@@ -181,11 +187,13 @@ CONTAINS
     
     jg=1
     DO WHILE (radiation_grid_filename(jg) /= "")
-      INQUIRE (FILE=radiation_grid_filename(jg), EXIST=file_exists)
-      IF (.NOT. file_exists)   THEN
-        WRITE (message_text,'(a,a)')  TRIM(radiation_grid_filename(jg)), &
-          " file does not exist"
-        CALL finish( TRIM(method_name), TRIM(message_text))
+      IF (p_pe == p_io) THEN
+        INQUIRE (FILE=radiation_grid_filename(jg), EXIST=file_exists)
+        IF (.NOT. file_exists)   THEN
+          WRITE (message_text,'(a,a)')  TRIM(radiation_grid_filename(jg)), &
+            " file does not exist"
+          CALL finish( TRIM(method_name), TRIM(message_text))
+        ENDIF
       ENDIF
       jg=jg+1
       IF (jg > max_rad_dom) EXIT
@@ -195,21 +203,15 @@ CONTAINS
 
     IF (no_of_dynamics_grids < 1) &
       CALL finish( TRIM(method_name), 'no dynamics grid is defined')
-      
+
     ! get here the nroot, eventually it should be moved into the patch info
-!     nroot = get_grid_root(dynamics_grid_filename(1))
     CALL nf(nf_open(dynamics_grid_filename(1), nf_nowrite, ncid))
     CALL get_gridfile_root_level(ncid, nroot, start_lev)
-    CALL get_gridfile_cell_type(ncid, cell_type)
+    CALL get_gridfile_sphere_radius(ncid, grid_sphere_radius)
     CALL nf(nf_close(ncid))
 
-    IF (global_cell_type /= cell_type) &
-      CALL finish(method_name, "global_cell_type /= cell_type")
-
     ! domain geometric properties
-!    CALL get_gridfile_rescale_factor(dynamics_grid_filename(1), grid_rescale_factor)
     IF ( grid_rescale_factor <= 0.0_wp ) grid_rescale_factor = 1.0_wp
-    CALL get_gridfile_sphere_radius(dynamics_grid_filename(1), grid_sphere_radius)
     grid_sphere_radius = grid_sphere_radius * grid_rescale_factor
     grid_length_rescale_factor = grid_rescale_factor
 !     grid_area_rescale_factor   = grid_rescale_factor * grid_rescale_factor
@@ -241,13 +243,6 @@ CONTAINS
     IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
     
     !------------------------------------------------------------
-    SELECT CASE (global_cell_type)
-    CASE (itri)
-      ! ok
-    CASE default
-      CALL finish( TRIM(method_name),&
-        & 'wrong cell type specifier, "global_cell_type" must be 3')
-    END SELECT
                
 !     write(0,*) no_of_dynamics_grids
 !     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)
@@ -274,21 +269,7 @@ CONTAINS
 
   END SUBROUTINE get_gridfile_root_level
   !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  SUBROUTINE get_gridfile_cell_type( ncid, cell_type )
-    INTEGER,    INTENT(in)     :: ncid
-    INTEGER,    INTENT(inout)  :: cell_type
-
-    INTEGER :: netcd_status
     
-    netcd_status = nf_get_att_int(ncid, nf_global,'grid_cell_type', cell_type)
-    IF (netcd_status /= nf_noerr) & ! old grid 
-      cell_type = global_cell_type
-
-  END SUBROUTINE get_gridfile_cell_type
-  !-------------------------------------------------------------------------
-  
   !-------------------------------------------------------------------------
 !   SUBROUTINE get_gridfile_rescale_factor( patch_file, rescale_factor )
 !     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
@@ -305,17 +286,15 @@ CONTAINS
 !   END SUBROUTINE get_gridfile_rescale_factor
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
-  SUBROUTINE get_gridfile_sphere_radius( patch_file, sphere_radius )
-    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
-    REAL(wp),   INTENT(out)          ::  sphere_radius
+  SUBROUTINE get_gridfile_sphere_radius( ncid, sphere_radius )
+    INTEGER,    INTENT(in)     :: ncid
+    REAL(wp),   INTENT(out)    ::  sphere_radius
 
-    INTEGER :: ncid, netcd_status
+    INTEGER :: netcd_status
 
-    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
     netcd_status = nf_get_att_double(ncid, nf_global,'sphere_radius', &
         & sphere_radius )
     IF (netcd_status /= nf_noerr) sphere_radius = earth_radius
-    CALL nf(nf_close(ncid))
 
   END SUBROUTINE get_gridfile_sphere_radius
   !-------------------------------------------------------------------------

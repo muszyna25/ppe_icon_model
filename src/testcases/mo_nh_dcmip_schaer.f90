@@ -92,18 +92,17 @@ MODULE mo_nh_dcmip_schaer
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_topo_dcmip_schaer( p_patch, topo_c, topo_v, fis)
+  SUBROUTINE init_nh_topo_dcmip_schaer( p_patch, topo_c, fis)
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
 
   
    REAL(wp), INTENT(INOUT)  :: topo_c    (:,:)
-   REAL(wp), INTENT(INOUT)  :: topo_v    (:,:) 
    REAL(wp), INTENT(INOUT)  :: fis       (:,:)
 
    ! local variables
-   INTEGER     :: jc, jv, jb
+   INTEGER     :: jc, jb
    REAL(wp)    :: r, z_lat, z_lon
    REAL(wp)    :: sin_tmp, cos_tmp
    INTEGER     :: i_startidx, i_endidx, i_startblk, i_endblk
@@ -149,37 +148,6 @@ MODULE mo_nh_dcmip_schaer
      ENDDO  !jc
    ENDDO  !jb
 !$OMP END DO 
-
-
-
-
-
-   i_rlstart = 1
-   i_rlend   = min_rlvert
-
-   i_startblk = p_patch%verts%start_blk(i_rlstart,1)
-   i_endblk   = p_patch%verts%end_blk(i_rlend,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jv,i_startidx,i_endidx,z_lat,z_lon,sin_tmp,cos_tmp,r)
-
-   DO jb = i_startblk, i_endblk
-
-     CALL get_indices_v(p_patch, jb, i_startblk, i_endblk,         &
-                        i_startidx, i_endidx, i_rlstart, i_rlend)
-
-     DO jv = i_startidx, i_endidx
-
-       z_lat   = p_patch%verts%vertex(jv,jb)%lat
-       z_lon   = p_patch%verts%vertex(jv,jb)%lon
-       sin_tmp = SIN(z_lat) * SIN(phic)
-       cos_tmp = COS(z_lat) * COS(phic)
-       !great circle distance
-       r = grid_sphere_radius * ACOS (sin_tmp + cos_tmp *COS(z_lon-lambdac))
-       topo_v(jv,jb) = h0 * EXP(- (r**2)/(d**2)) * (COS(pi*r/xi)**2)
-
-     ENDDO  !jv
-   ENDDO  !jb
-!$OMP END DO
 !$OMP END PARALLEL
 
 

@@ -108,6 +108,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_init'
     INTEGER :: new_nmax_entries
     
+    dict%nmax_entries = 0
     new_nmax_entries = NINITIAL
     IF (PRESENT(new_size)) new_nmax_entries = new_size
     dict%nentries        = 0

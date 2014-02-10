@@ -81,6 +81,8 @@ MODULE mo_atmo_model
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
   USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
 
+  USE mo_nonhydro_state,          ONLY: p_nh_state
+
   ! coupling
   USE mo_icon_cpl_init,           ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,      ONLY: icon_cpl_init_comp
@@ -92,7 +94,7 @@ MODULE mo_atmo_model
   USE mo_icon_cpl_finalize,       ONLY: icon_cpl_finalize
 
   ! horizontal grid, domain decomposition, memory
-  USE mo_grid_config,             ONLY: n_dom, n_dom_start, global_cell_type,                 &
+  USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
     &                                   dynamics_parent_grid_id, n_phys_dom
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_patch_local_parent
   USE mo_build_decomposition,     ONLY: build_decomposition
@@ -100,8 +102,9 @@ MODULE mo_atmo_model
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &
     &                                   destruct_icon_communication
   ! Vertical grid
-  USE mo_vertical_coord_table,    ONLY: init_vertical_coord_table, vct_a, vct_b, apzero
-  USE mo_nh_init_utils,           ONLY: init_hybrid_coord, init_sleve_coord
+  USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
+  USE mo_nh_init_utils,           ONLY: nflatlev, nflat
+  USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, init_ext_data, destruct_ext_data
@@ -226,7 +229,9 @@ CONTAINS
     INTEGER :: error_status
 
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0
+    INTEGER :: jstep0, ist
+
+    INTEGER :: nlevp1, nblks_v
 
     ! set mtime-Calendar
     CALL setCalendar(PROLEPTIC_GREGORIAN)
@@ -396,7 +401,7 @@ CONTAINS
     !--------------------------------------------------------------------------------
 
     IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
-    CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level, &
+    CALL configure_interpolation( n_dom, p_patch(1:)%level, &
                                   p_patch(1)%geometry_info )
 
     ! Allocate array for interpolation state
@@ -473,32 +478,44 @@ CONTAINS
     IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
 
    !---------------------------------------------------------------------
-   ! 8. Import vertical grid/ define vertical coordinate
+   ! Prepare dynamics and land 
    !---------------------------------------------------------------------
-    SELECT CASE (iequations)
-
-    CASE (ishallow_water)
-      CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
-
-    CASE (ihs_atm_temp, ihs_atm_theta)
-      CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
-
-    CASE (inh_atmosphere)
-      IF (ivctype == 1) THEN
-        CALL init_hybrid_coord(p_patch(1)%nlev)
-      ELSE IF (ivctype == 2) THEN
-        CALL init_sleve_coord(p_patch(1)%nlev)
-      ENDIF
-
-    CASE DEFAULT
-    END SELECT
-
-    !---------------------------------------------------------------------
-    ! 9. Horizontal and vertical grid(s) are now defined.
-    !    Assign values to derived variables in the configuration states
-    !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
+
+    IF (iequations == inh_atmosphere) THEN ! set dimensions of tile-based variables
+      CALL configure_lnd_nwp()
+    ENDIF
+
+    !------------------------------------------------------------------
+    ! Create and optionally read external data fields
+    !------------------------------------------------------------------
+    ALLOCATE (ext_data(n_dom), STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for ext_data failed')
+    ENDIF
+
+    ! allocate memory for atmospheric/oceanic external data and
+    ! optionally read those data from netCDF file.
+    IF (timers_level > 5) CALL timer_start(timer_ext_data)
+    CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
+    IF (timers_level > 5) CALL timer_stop(timer_ext_data)
+
+   !---------------------------------------------------------------------
+   ! Import vertical grid/ define vertical coordinate
+   !---------------------------------------------------------------------
+
+    CALL allocate_vct_atmo(p_patch(1)%nlevp1)
+    CALL construct_vertical_grid(p_patch(1:), p_int_state(1:), ext_data, &
+      &                          vct_a, vct_b, vct, nflatlev, nflat)
+
+
+    !---------------------------------------------------------------------
+    ! Horizontal and vertical grid(s) are now defined.
+    ! Assign values to derived variables in the configuration states
+    !---------------------------------------------------------------------
+
+
     CALL configure_diffusion( n_dom, dynamics_parent_grid_id,       &
       &                       p_patch(1)%nlev, vct_a, vct_b, apzero )
 
@@ -512,24 +529,10 @@ CONTAINS
     ENDIF
 
 
+
     !------------------------------------------------------------------
-    ! 10. Create and optionally read external data fields
+    ! 11. Repartitioning of radiation grid (Karteileiche?!)
     !------------------------------------------------------------------
-    ALLOCATE (ext_data(n_dom), STAT=error_status)
-    IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ext_data failed')
-    ENDIF
-
-    IF (iequations == inh_atmosphere) THEN ! set dimensions of tile-based variables
-      CALL configure_lnd_nwp()
-    ENDIF
-
-    ! allocate memory for atmospheric/oceanic external data and
-    ! optionally read those data from netCDF file.
-    IF (timers_level > 5) CALL timer_start(timer_ext_data)
-    CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-    IF (timers_level > 5) CALL timer_stop(timer_ext_data)
-
     CALL init_rrtm_model_repart()
 
 #ifdef MESSY

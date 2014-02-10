@@ -172,8 +172,8 @@ CONTAINS
           IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
           top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
             & - p_os%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
-          top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
-            & - p_os%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
+          top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_v(jc,jb)   &
+            & - p_os%p_diag%v(jc,1,jb) ) / z_scale(jc,jb)
           top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
             & - p_os%p_diag%p_vn(jc,1,jb)%x)/z_scale(jc,jb)
           ENDIF
