@@ -156,18 +156,18 @@ link_required_files
 # get restart files
 
 if  [ x$restart_atmo_from != "x" ] ; then
-  rm -f restart_atm.nc
-#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm.nc
+  rm -f restart_atm_DOM01.nc
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm_DOM01.nc
   cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
-  ln -s cp_restart_atm.nc restart_atm.nc
+  ln -s cp_restart_atm.nc restart_atm_DOM01.nc
   cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info .
   restart=".true."
 fi
 if  [ x$restart_ocean_from != "x" ] ; then
   rm -f restart_oce.nc
 #  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
-  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} cp_restart_oce.nc
-  ln -s cp_restart_oce.nc restart_oce.nc
+  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} cp_restart_oce_DOM01.nc
+  ln -s cp_restart_oce_DOM01.nc restart_oce_DOM01.nc
   cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info .
   restart=".true."
 fi
@@ -338,7 +338,7 @@ fi
 get_last_1_restart()
 {
   model_restart_param=$1
-  restart_list=`ls restart.*${model_restart_param}.nc`
+  restart_list=$(ls restart_*${model_restart_param}*_DOM*.nc)
   
   last_restart=""
   last_1_restart=""  

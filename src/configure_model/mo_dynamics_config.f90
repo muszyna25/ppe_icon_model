@@ -47,6 +47,7 @@ MODULE mo_dynamics_config
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_master_control,        ONLY: is_restart_run
+  USE mo_util_string,           ONLY: int2string
 
   IMPLICIT NONE
   PRIVATE
@@ -110,17 +111,13 @@ CONTAINS
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
 
-      IF (ndom>1) CALL warning(TRIM(routine), &
-      'Restart functionality can not handle multiple domains (yet)')
-
-      jdom = 1  ! only consider one domain at the moment
-      !DO jdom = 1,ndom
-        CALL get_restart_attribute( 'nold'    ,nold    (jdom) )
-        CALL get_restart_attribute( 'nnow'    ,nnow    (jdom) )
-        CALL get_restart_attribute( 'nnew'    ,nnew    (jdom) )
-        CALL get_restart_attribute( 'nnow_rcf',nnow_rcf(jdom) )
-        CALL get_restart_attribute( 'nnew_rcf',nnew_rcf(jdom) )
-      !END DO
+      DO jdom = 1,ndom
+        CALL get_restart_attribute( 'nold_DOM'//TRIM(int2string(jdom, "(i2.2)"))    ,nold    (jdom) )
+        CALL get_restart_attribute( 'nnow_DOM'//TRIM(int2string(jdom, "(i2.2)"))    ,nnow    (jdom) )
+        CALL get_restart_attribute( 'nnew_DOM'//TRIM(int2string(jdom, "(i2.2)"))    ,nnew    (jdom) )
+        CALL get_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")),nnow_rcf(jdom) )
+        CALL get_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")),nnew_rcf(jdom) )
+      END DO
 
     ELSE ! not is_restart_run
 

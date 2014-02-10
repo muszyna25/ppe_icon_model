@@ -1,3 +1,80 @@
+!> Module for writing restart files (synchronously) and for reading restart files.
+!!
+!! Note: The asynchronous implementation of the restart output can be
+!!       found in the module "mo_io_restart_async"
+!!
+!! Initial implementation: L. Kornblueh
+!!
+!! @par Copyright
+!! 2002-2011 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+!! --------------------------------------------------------------------------------
+!!
+!! Generated files:
+!! ================
+!!
+!! 1. For each domain 1, ..., n_dom, and for each restart output time step:
+!!
+!!    Restart data file
+!!    -----------------
+!!      "<gridfile>_restart_<modeltype>_<timestamp>.nc",     e.g.
+!!      "iconR2B06_DOM01_restart_atm_20110101T001200Z.nc"    (NetCDF format)
+!!
+!!    This filename can be customized using the namelist parameter
+!!    "mo_run_nml/restart_filename".
+!! 
+!!    This file contains
+!!    -  data
+!!    -  namelists
+!!    -  several attributes
+!! 
+!!    Note:
+!!    -  We read the namelists only once and assume that these
+!!       are identical for all domains.
+!!    -  Since we do not know about the total number of domains at startup,
+!!       we have to ask the current restart file for the attribute "n_dom"
+!!
+!! 2. For each domain 1, ..., n_dom, and for the LAST restart output time step:
+!!
+!!    Symbolic link to data file
+!!    --------------------------
+!!      "restart_<modeltype>_DOMxx.nc"
+!!   
+!!    Note:
+!!    -  The domain-dependent suffix "...DOMxx" is also required for non-nested setups.
+!!
+!! 3. For domain 1: 
+!!
+!!    Restart info file (ASCII text)
+!!    -----------------------------
+!!    containing the grid file name
+!!
+!! --------------------------------------------------------------------------------
+!!
 !OPTION! -pvctl conflict
 MODULE mo_io_restart
   !
@@ -9,22 +86,25 @@ MODULE mo_io_restart
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
-  USE mo_util_string,           ONLY: separator
+  USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
+    &                                 int2string, separator
   USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
-  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist
+  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist,                       &
+    &                                 read_restart_namelists
   USE mo_io_restart_attributes, ONLY: set_restart_attribute, get_restart_attribute, &
-       &                              read_attributes, delete_attributes,           &
-       &                              restart_attributes_count_text,                &
-       &                              restart_attributes_count_real,                &
-       &                              restart_attributes_count_int,                 &
-       &                              restart_attributes_count_bool
+    &                                 read_attributes, delete_attributes,           &
+    &                                 restart_attributes_count_text,                &
+    &                                 restart_attributes_count_real,                &
+    &                                 restart_attributes_count_int,                 &
+    &                                 restart_attributes_count_bool,                &
+    &                                 read_restart_attributes
   USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
-  USE mo_run_config,            ONLY: ltimer, output_mode
+  USE mo_run_config,            ONLY: ltimer, output_mode, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file, timer_write_output
   USE mo_math_utilities,        ONLY: set_zlev
@@ -65,6 +145,7 @@ MODULE mo_io_restart
   PUBLIC :: finish_restart
   PUBLIC :: write_restart_info_file
   PUBLIC :: read_restart_info_file
+  PUBLIC :: read_restart_header
   !
   TYPE t_restart_files
     CHARACTER(len=64) :: functionality
@@ -124,6 +205,10 @@ MODULE mo_io_restart
   !
   !
   CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
+  !
+  !
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -209,6 +294,71 @@ CONTAINS
   END SUBROUTINE read_restart_info_file
   !
   !------------------------------------------------------------------------------------------------
+  !> Reads attributes and namelists for all available domains from restart file.
+  SUBROUTINE read_restart_header(modeltype_str, grid_file_name)
+    CHARACTER(LEN=*), INTENT(IN)  :: modeltype_str
+    CHARACTER(LEN=*), INTENT(OUT) :: grid_file_name
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::read_restart_header"
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
+    LOGICAL :: lsuccess, lexists
+    INTEGER :: idom, total_dom
+
+    ! First read the restart master file (ASCII format) to find out
+    ! which NetCDF files the model should read.
+
+    CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
+
+    IF (lsuccess) THEN
+      CALL message( TRIM(routine),                &
+        & 'Running model in restart mode. '       &
+        & //'Horizontal grid should be read from '&
+        & //TRIM(grid_file_name) )
+    ELSE
+      CALL finish(TRIM(routine),'Failed to read restart info file')
+    END IF
+
+    idom = 1
+    rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
+
+    ! test if the domain-dependent restart file exists:
+    INQUIRE(file=TRIM(rst_filename), exist=lexists)
+    ! otherwise, give a warning and resort to the old naming scheme:
+    IF (.NOT. lexists) THEN
+      CALL finish(routine, "Restart file not found! Old (domain-independent) name for restart symlinks?")
+    END IF
+
+    ! Read all namelists used in the previous run
+    ! and store them in a buffer. These values will overwrite the
+    ! model default, and will later be overwritten if the user has
+    ! specified something different for this integraion.
+    !
+    ! Note: We read the namelists only once and assume that these
+    !       are identical for all domains.
+    CALL read_restart_namelists(TRIM(rst_filename))
+    CALL message(TRIM(routine), 'read namelists from restart file')
+
+    total_dom = 1
+    DO
+      IF (idom > total_dom) EXIT
+
+      ! Read all global attributs in the restart file and store them in a buffer.
+
+      CALL read_restart_attributes(rst_filename)
+      CALL message(TRIM(routine), 'read global attributes from restart file')
+
+      ! since we do not know about the total number of domains yet,
+      ! we have to ask the current restart file for this
+      ! information:
+      CALL get_restart_attribute( 'n_dom', total_dom )
+
+      idom = idom + 1
+      rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
+    END DO
+
+  END SUBROUTINE read_restart_header
+  !
+  !------------------------------------------------------------------------------------------------
   !
   ! YYYYMMDDThhmmssZ (T is a separator and Z means UTC as timezone)
   !
@@ -223,6 +373,7 @@ CONTAINS
   SUBROUTINE set_restart_vct(vct)
     REAL(wp), INTENT(in) :: vct(:)
     IF (lvct_initialised) RETURN
+    IF (ALLOCATED(private_vct))  DEALLOCATE(private_vct)
     ALLOCATE(private_vct(SIZE(vct)))
     private_vct(:) = vct(:)
     lvct_initialised = .TRUE.
@@ -234,6 +385,8 @@ CONTAINS
   SUBROUTINE set_restart_depth(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (ldepth_initialised) RETURN
+    IF (ALLOCATED(private_depth_half))  &
+      &  DEALLOCATE(private_depth_half, private_depth_full)
     ALLOCATE(private_depth_half(SIZE(zh)), private_depth_full(SIZE(zf)))
     private_depth_half(:) = zh(:)
     private_depth_full(:) = zf(:)
@@ -246,6 +399,8 @@ CONTAINS
   SUBROUTINE set_restart_depth_lnd(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (ldepth_lnd_initialised) RETURN
+    IF (ALLOCATED(private_depth_lnd_half)) &
+      &  DEALLOCATE(private_depth_lnd_half, private_depth_lnd_full)
     ALLOCATE(private_depth_lnd_half(SIZE(zh)), private_depth_lnd_full(SIZE(zf)))
     private_depth_lnd_half(:) = zh(:)
     private_depth_lnd_full(:) = zf(:)
@@ -258,6 +413,8 @@ CONTAINS
   SUBROUTINE set_restart_height_snow(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (lheight_snow_initialised) RETURN
+    IF (ALLOCATED(private_height_snow_half))  &
+      &  DEALLOCATE(private_height_snow_half, private_height_snow_full)
     ALLOCATE(private_height_snow_half(SIZE(zh)), private_height_snow_full(SIZE(zf)))
     private_height_snow_half(:) = zh(:)
     private_height_snow_full(:) = zf(:)
@@ -433,10 +590,10 @@ CONTAINS
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
   !
-  SUBROUTINE open_writing_restart_files(basename)
-    CHARACTER(len=*), INTENT(in) :: basename
+  SUBROUTINE open_writing_restart_files(jg, restart_filename)
+    INTEGER,          INTENT(IN) :: jg                   !< patch ID
+    CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     !
-    CHARACTER(len=1024) :: restart_filename
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
     !
@@ -459,7 +616,7 @@ CONTAINS
     CALL message('','')
     CALL message('','Open restart files:')
     CALL message('','')
-    WRITE(message_text,'(t1,a,t50,a,t84,a,t94,a)') 'file', 'var list', 'file ID', 'restart'
+    WRITE(message_text,'(t1,a,t70,a,t84,a,t94,a)') 'file', 'var list', 'file ID', 'restart'
     CALL message('',message_text)
     CALL message('','')
     !
@@ -480,6 +637,9 @@ CONTAINS
       !
       IF (.NOT. var_lists(i)%p%lrestart) CYCLE
       !
+      ! skip, if var_list does not match the current patch ID
+      IF (var_lists(i)%p%patch_id /= jg) CYCLE
+      !
       ! check restart file type
       !
       SELECT CASE (var_lists(i)%p%restart_type)
@@ -492,9 +652,6 @@ CONTAINS
       END SELECT
       !
       var_lists(i)%p%first = .TRUE.
-      !
-      restart_filename = basename//'_'//TRIM(private_restart_time) &
-           &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
       !
       IF (my_process_is_mpi_workroot()) THEN
         SELECT CASE (var_lists(i)%p%restart_type)
@@ -827,8 +984,10 @@ CONTAINS
       !
       DO j = 1, nvar_lists
         !
+        IF (i == j)                        CYCLE
         IF (var_lists(j)%p%restart_opened) CYCLE
         IF (.NOT. var_lists(j)%p%lrestart) CYCLE
+        IF (var_lists(j)%p%patch_id /= jg) CYCLE
         !
         IF (var_lists(j)%p%restart_type /= var_lists(i)%p%restart_type) THEN
           CALL finish('open_output_streams', 'different file types for the same restart file')
@@ -1063,6 +1222,7 @@ CONTAINS
   !!
   SUBROUTINE create_restart_file( patch, datetime,             &
                                 & jstep,                       &
+                                & model_type,                  &
                                 & opt_pvct,                    &
                                 & opt_t_elapsed_phy,           &
                                 & opt_lcall_phy, opt_sim_time, &
@@ -1070,11 +1230,13 @@ CONTAINS
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth, opt_depth_lnd,    &
                                 & opt_nlev_snow,               &
-                                & opt_nice_class)
+                                & opt_nice_class,              &
+                                & opt_ndom)
 
-    TYPE(t_patch),   INTENT(IN) :: patch
-    TYPE(t_datetime),INTENT(IN) :: datetime
-    INTEGER, INTENT(IN) :: jstep                ! simulation step
+    TYPE(t_patch),       INTENT(IN) :: patch
+    TYPE(t_datetime),    INTENT(IN) :: datetime
+    INTEGER,             INTENT(IN) :: jstep                ! simulation step
+    CHARACTER(len=*),    INTENT(IN) :: model_type           ! store model type
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
@@ -1086,15 +1248,16 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
+    CHARACTER(len=MAX_CHAR_LENGTH)  :: string
 
-
-    CHARACTER(LEN=132) :: string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
 
     IF (ltimer) CALL timer_start(timer_write_restart_file)
@@ -1112,11 +1275,18 @@ CONTAINS
 
     CALL set_restart_attribute( 'current_daysec' , datetime%daysec )
 
-    CALL set_restart_attribute( 'nold'    , nold    (jg))
-    CALL set_restart_attribute( 'nnow'    , nnow    (jg))
-    CALL set_restart_attribute( 'nnew'    , nnew    (jg))
-    CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
-    CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
+    CALL set_restart_attribute( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nold    (jg))
+    CALL set_restart_attribute( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnow    (jg))
+    CALL set_restart_attribute( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnew    (jg))
+    CALL set_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnow_rcf(jg))
+    CALL set_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnew_rcf(jg))
+
+    ! set no. of domains
+    IF (PRESENT(opt_ndom)) THEN
+      CALL set_restart_attribute( 'n_dom', opt_ndom)
+    ELSE
+      CALL set_restart_attribute( 'n_dom', 1)
+    END IF
 
     ! set simulation step
     CALL set_restart_attribute( 'jstep', jstep )
@@ -1244,14 +1414,18 @@ CONTAINS
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
-    message_text = get_filename_noext(patch%grid_filename)
-    WRITE(string,'(a,a)') 'restart.',TRIM(message_text)
+    CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
+    CALL associate_keyword("<idom>",       TRIM(int2string(jg, "(i2.2)")),                 keywords)
+    CALL associate_keyword("<rsttime>",    TRIM(private_restart_time),                     keywords)
+    CALL associate_keyword("<mtype>",      TRIM(model_type),                               keywords)
+    ! replace keywords in file name
+    string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    CALL open_writing_restart_files( TRIM(string) )
+    CALL open_writing_restart_files( jg, TRIM(string) )
 
     CALL write_restart( patch )
 
-    CALL close_writing_restart_files
+    CALL close_writing_restart_files(jg, opt_ndom)
     CALL finish_restart
 
     IF (ltimer) CALL timer_stop(timer_write_restart_file)
@@ -1260,7 +1434,9 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE close_writing_restart_files
+  SUBROUTINE close_writing_restart_files(jg, opt_ndom)
+    INTEGER,  INTENT(IN)           :: jg           !< patch ID
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom     !< no. of domains (appended to symlink name)
     !
     ! Loop over all the output streams and close the associated files, set
     ! opened to false
@@ -1294,7 +1470,15 @@ CONTAINS
             ENDDO
           ENDIF
           !
-          linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+          IF (PRESENT(opt_ndom)) THEN
+            IF (opt_ndom > 1) THEN
+              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
+            ELSE
+              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'_DOM01.nc'
+            END IF
+          ELSE
+            linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'_DOM01.nc'
+          END IF
           IF (util_islink(TRIM(linkname))) THEN
             iret = util_unlink(TRIM(linkname))
           ENDIF
@@ -1375,6 +1559,9 @@ CONTAINS
         ! loop over all streams associated with the file
         !
         DO j = i, nvar_lists
+
+          ! skip var_list if it does not match the current patch ID
+          IF (var_lists(j)%p%patch_id /= p_patch%id) CYCLE
 
           IF (var_lists(j)%p%cdiFileID_restart == var_lists(i)%p%cdiFileID_restart) THEN
             !
@@ -1663,9 +1850,11 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE read_restart_files(p_patch)
+  SUBROUTINE read_restart_files(p_patch, opt_ndom)
     !
+
     TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
+    INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
     !
     CHARACTER(len=80) :: restart_filename, name
     !
@@ -1699,30 +1888,30 @@ CONTAINS
     key = 0
     n = 1
     for_all_model_types: DO i = 1, nvar_lists
-! --------------------------------------------------------------
-     key = util_hashword(TRIM(var_lists(i)%p%model_type), LEN_TRIM(var_lists(i)%p%model_type), 0)
+      ! skip var_list if it does not match the current patch ID
+      IF (var_lists(i)%p%patch_id /= p_patch%id) CYCLE
+
+      key = util_hashword(TRIM(var_lists(i)%p%model_type), LEN_TRIM(var_lists(i)%p%model_type), 0)
       IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN
         abbreviations(n)%abbreviation = var_lists(i)%p%model_type
         abbreviations(n)%key = key
         n = n+1
       ENDIF
     ENDDO for_all_model_types
-! --------------------------------------------------------------
+
     nfiles = n-1
-!     write(0,*) 'nfiles=', nfiles
-    !
-!    CALL message('--','--')
-!     CALL message('--',separator)
-!     CALL message('','')
     !
     for_all_files: DO n = 1, nfiles
       model_type =TRIM(abbreviations(n)%abbreviation)
-      restart_filename = 'restart_'//TRIM(model_type)//'.nc'
-!       write(0,*) "n=", n
-!       write(0,*) "model_type=", model_type
-!       write(0,*) "restart_filename=", restart_filename
-!       write(0,*) "util_islink(TRIM(restart_filename)=", &
-!        util_islink(TRIM(restart_filename))
+      IF (PRESENT(opt_ndom) .AND. PRESENT(p_patch)) THEN
+        IF (opt_ndom > 1) THEN
+          restart_filename = 'restart_'//TRIM(model_type)//"_DOM"//TRIM(int2string(p_patch%id, "(i2.2)"))//'.nc'
+        ELSE
+          restart_filename = 'restart_'//TRIM(model_type)//'_DOM01.nc'
+        END IF
+      ELSE
+        restart_filename = 'restart_'//TRIM(model_type)//'_DOM01.nc'
+      END IF
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
         iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
@@ -1731,28 +1920,18 @@ CONTAINS
         write(0,*) "util_symlink:", iret
       ENDIF
       !
-
       string_length=LEN_TRIM(restart_filename)
       name = TRIM(restart_filename)//CHAR(0)
-      ! check if the netcdf open works
-!       write(0,*) "nf_open ", TRIM(restart_filename)
-!       CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
-!       CALL nf(nf_close(ncid))
 
       IF (my_process_is_mpi_workroot()) write(0,*) "streamOpenRead ", TRIM(restart_filename)
 
       fileID  = streamOpenRead(name)
-      IF (my_process_is_mpi_workroot()) write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
-!       write(0,*) "vlistID=",vlistID
 
       taxisID = vlistInqTaxis(vlistID)
-!       write(0,*) "taxisID=",taxisID
       !
       idate = taxisInqVdate(taxisID)
-!       write(0,*) "idate=",idate
       itime = taxisInqVtime(taxisID)
-!       write(0,*) "itime=",itime
       !
       WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
            'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
@@ -1765,6 +1944,9 @@ CONTAINS
         CALL vlistInqVarName(vlistID, varID, name)
         !
         for_all_lists: DO i = 1, nvar_lists
+          ! skip var_list if it does not match the current patch ID
+          IF (var_lists(i)%p%patch_id /= p_patch%id) CYCLE
+
           IF (var_lists(i)%p%model_type == model_type) THEN
             element => find_list_element(var_lists(i), TRIM(name))
             IF (ASSOCIATED(element)) THEN

@@ -667,6 +667,9 @@ lapack/spotrs.f -text
 /make_my_runscript -text
 /make_nat-ape-dec_runs -text
 /make_runscripts -text
+/mo_add_tracer_ref.f90 -text
+/mo_art_turbdiff_interface.f90 -text
+/mo_vert_utilities.f90 -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
 run/README -text

@@ -113,7 +113,6 @@ MODULE mo_test_nh_communication
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_master_control,      ONLY: is_restart_run
-  USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
 !   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
 !     & init_ompthread_radiation

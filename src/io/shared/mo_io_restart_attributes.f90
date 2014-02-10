@@ -40,7 +40,7 @@ MODULE mo_io_restart_attributes
     INTEGER           :: store
   END TYPE t_att_bool
   !
-  INTEGER, PARAMETER :: nmax_atts = 256
+  INTEGER, PARAMETER :: nmax_atts = 1024
   INTEGER, SAVE :: natts_text = 0
   INTEGER, SAVE :: natts_real = 0 
   INTEGER, SAVE :: natts_int  = 0 
@@ -311,30 +311,32 @@ CONTAINS
     !
     IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
       ALLOCATE(restart_attributes_text(nmax_atts))
+      natts_text = 0
     ENDIF
-    natts_text = 0
     !
     IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
       ALLOCATE(restart_attributes_real(nmax_atts))
+      natts_real = 0 
     ENDIF
-    natts_real = 0 
     !
     IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
       ALLOCATE(restart_attributes_int(nmax_atts))
+      natts_int  = 0 
     ENDIF
-    natts_int  = 0 
     !
     IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
       ALLOCATE(restart_attributes_bool(nmax_atts))
+      natts_bool = 0 
     ENDIF
-    natts_bool = 0 
     !
     DO i = 0, natts-1
       status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
       IF ( att_name(1:4) == 'nml_') CYCLE ! skip this, it is a namelist 
+
       SELECT CASE(att_type)
       CASE(DATATYPE_FLT64)
         natts_real = natts_real+1
+        IF (natts_real > SIZE(restart_attributes_real))  CALL finish("", "Too many restart arguments!")
         restart_attributes_real(natts_real)%name = TRIM(att_name)
         mlen = 1
         status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
@@ -342,6 +344,7 @@ CONTAINS
       CASE(DATATYPE_INT32)
         IF (att_name(1:5) == 'bool_') THEN
           natts_bool = natts_bool+1
+          IF (natts_bool > SIZE(restart_attributes_bool))  CALL finish("", "Too many restart arguments!")
           restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
           mlen = 1
           status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
@@ -350,6 +353,7 @@ CONTAINS
                (restart_attributes_bool(natts_bool)%store == 1)
         ELSE
           natts_int = natts_int+1
+          IF (natts_int > SIZE(restart_attributes_int))  CALL finish("", "Too many restart arguments!")
           restart_attributes_int(natts_int)%name = TRIM(att_name)
           mlen = 1
           status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
@@ -357,6 +361,7 @@ CONTAINS
         ENDIF
       CASE(DATATYPE_TXT)
         natts_text = natts_text+1
+        IF (natts_text > SIZE(restart_attributes_text))  CALL finish("", "Too many restart arguments!")
         restart_attributes_text(natts_text)%name = TRIM(att_name)
         text_len = att_len
         restart_attributes_text(natts_text)%val = ''
