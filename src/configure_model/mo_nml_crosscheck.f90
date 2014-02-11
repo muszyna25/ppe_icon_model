@@ -62,7 +62,7 @@ MODULE mo_nml_crosscheck
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
     &                              inextra_3d
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
-    &                              num_io_procs, itype_comm
+    &                              num_io_procs, itype_comm, num_restart_procs
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqv, iqc, iqi,                  &
@@ -220,6 +220,16 @@ CONTAINS
         CALL message(method_name, message_text)
       ENDIF
     ENDIF
+
+    ! If a restart event occurs, check for unsupport combinations of
+    ! namelist settings:
+    !
+    IF (nsteps >= INT(time_config%dt_restart/dtime)) THEN
+      ! processor splitting cannot be combined with synchronous restart:
+      IF ((num_restart_procs == 0) .AND. ANY(patch_weight(1:) > 0._wp)) THEN
+        CALL finish(method_name, "Processor splitting cannot be combined with synchronous restart!")
+      END IF
+    END IF
 
     ! Length of this integration is limited by length of the restart cycle.
     !

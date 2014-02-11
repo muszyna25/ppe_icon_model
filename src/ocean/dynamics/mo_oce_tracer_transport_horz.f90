@@ -677,7 +677,7 @@ CONTAINS
      CALL map_edges2edges_viacell_3d_const_z( patch_3d, &
      & p_os%p_diag%vn_time_weighted,                    &
      & p_op_coeff,                                      &
-     & adv_flux_h,                                      &
+     & z_adv_flux_high,                                 &
      & trac_old)  
     
     !2)call limiter 

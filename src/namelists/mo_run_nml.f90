@@ -52,13 +52,15 @@ MODULE mo_run_nml
                          & config_test_mode       => test_mode,       &
                          & config_write_timer_files => write_timer_files,  &
                          & t_output_mode, max_output_modes,           &
-                         & config_debug_check_level => debug_check_level
+                         & config_debug_check_level => debug_check_level, &
+                         & config_restart_filename  => restart_filename
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish, &
     &                      config_msg_timestamp   => msg_timestamp
-  USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ, &
-                               INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY
+  USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
+                               INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY, &
+                               MAX_CHAR_LENGTH
   USE mo_io_units,       ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
@@ -117,6 +119,10 @@ MODULE mo_run_nml
   !  one or multiple of "none", "nml", "totint"
   CHARACTER(len=32) :: output(max_output_modes)
 
+  !> file name for restart/checkpoint files (containg keyword
+  !> substition patterns)
+  CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
+
   NAMELIST /run_nml/ ltestcase,    ldynamics,       &
                      iforcing,     ltransport,      &
                      ntracer,                       &
@@ -130,7 +136,8 @@ MODULE mo_run_nml
                      test_mode,                     &
                      output,                        &
                      msg_timestamp,                 &
-                     debug_check_level
+                     debug_check_level,             &
+                     restart_filename
 
 CONTAINS
   !>
@@ -175,6 +182,8 @@ CONTAINS
 
     output(:) = " "
     output(1) = "default"
+
+    restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -261,6 +270,8 @@ CONTAINS
     config_check_epsilon   = check_epsilon
     config_test_mode    = test_mode
     config_debug_check_level = debug_check_level
+
+    config_restart_filename = restart_filename
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

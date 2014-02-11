@@ -701,7 +701,8 @@ MODULE mo_nh_stepping
             & opt_jstep_adv_ntstep       = jstep_adv(jg)%ntsteps,      &
             & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
             & opt_depth_lnd              = nsoil(jg),                  &
-            & opt_nlev_snow              = nsnow)
+            & opt_nlev_snow              = nsnow,                      &
+            & opt_ndom                   = n_dom)
         ENDDO
         CALL write_async_restart(datetime, jstep)
       ELSE
@@ -709,13 +710,15 @@ MODULE mo_nh_stepping
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   &
                                   & jstep                      = jstep,                      &
+                                  & model_type                 = "atm",                      &
                                   & opt_t_elapsed_phy          = t_elapsed_phy,              &
                                   & opt_lcall_phy              = lcall_phy,                  &
                                   & opt_sim_time               = time_config%sim_time(jg),   &
                                   & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                   & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
                                   & opt_depth_lnd              = nsoil(jg),                  &
-                                  & opt_nlev_snow              = nsnow )
+                                  & opt_nlev_snow              = nsnow,                      &
+                                  & opt_ndom                   = n_dom )
         END DO
 
         ! Create the master (meta) file in ASCII format which contains

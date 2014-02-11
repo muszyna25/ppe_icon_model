@@ -423,13 +423,13 @@ CONTAINS
         IF (phy_config%ljsbach) THEN
           DO jg = 1, n_dom
             CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jstep, vct,                                   &
+                                    & jstep, "atm", vct,                            &
                                     & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
           END DO
         ELSE
           DO jg = 1, n_dom
             CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jstep, vct )
+                                    & jstep, "atm", vct )
           END DO
         ENDIF
 

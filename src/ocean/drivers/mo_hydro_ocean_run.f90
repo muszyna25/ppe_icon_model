@@ -344,10 +344,13 @@ CONTAINS
       
         ! write a restart or checkpoint file
         IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-          CALL create_restart_file( patch_2d, datetime,                             &
-          & jstep, opt_depth=n_zlev,                       &
-          & opt_sim_time=time_config%sim_time(1),          &
-          & opt_nice_class=1)
+          CALL create_restart_file( patch=patch_2d,        &
+            & datetime=datetime,                           &
+            & jstep=jstep,                                 &
+            & model_type="oce",                            &
+            & opt_depth=n_zlev,                            &
+            & opt_sim_time=time_config%sim_time(1),        &
+            & opt_nice_class=1)
           ! Create the master (meta) file in ASCII format which contains
           ! info about which files should be read in for a restart run.
           CALL write_restart_info_file
@@ -488,8 +491,8 @@ CONTAINS
         & prism_thickness, &
         & patch_3d%p_patch_1d(1)%zlev_m, &
         & ocean_state(jg)%p_diag)
-write(0,*)'istime4name_list_output',jstep,istime4name_list_output(jstep)                
-        IF (istime4name_list_output(jstep).OR.jstep>0) THEN
+
+        IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
           IF (diagnostics_level == 1 ) THEN
             CALL calc_slow_oce_diagnostics( patch_3d,      &
             & ocean_state(jg),      &
@@ -534,10 +537,13 @@ write(0,*)'istime4name_list_output',jstep,istime4name_list_output(jstep)
       
         ! write a restart or checkpoint file
         IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-          CALL create_restart_file( patch_2d, datetime,                             &
-          & jstep, opt_depth=n_zlev,                       &
-          & opt_sim_time=time_config%sim_time(1),          &
-          & opt_nice_class=1)
+          CALL create_restart_file( patch = patch_2d,       &
+            & datetime=datetime,                            &
+            & jstep=jstep,                                  &
+            & model_type="oce",                             &
+            & opt_depth=n_zlev,                             &
+            & opt_sim_time=time_config%sim_time(1),         &
+            & opt_nice_class=1)
           ! Create the master (meta) file in ASCII format which contains
           ! info about which files should be read in for a restart run.
           CALL write_restart_info_file

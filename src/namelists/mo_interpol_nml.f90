@@ -191,7 +191,7 @@ CONTAINS
 
     ! mode, how the RBF shape parameter is determined for lon-lat
     ! interpolation.
-    rbf_scale_mode_ll = 1
+    rbf_scale_mode_ll = 2  ! i.e. automatic estimate
 
     ! Initialize namelist fields for scaling factors (dimension 1:depth) with dummy values
     ! A meaningful initialization follows after reading the namelist

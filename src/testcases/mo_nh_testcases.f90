@@ -441,7 +441,7 @@ MODULE mo_nh_testcases
   REAL(wp)              :: global_moist
   REAL(wp) :: z_help
 
-  LOGICAL  :: l_hydro_adjust, l_moist
+  LOGICAL  :: l_hydro_adjust, l_moist, lprofile
   
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                                    '(mo_nh_testcases) init_nh_testcase:' 
@@ -1040,13 +1040,16 @@ MODULE mo_nh_testcases
 
   CASE ('RCE','RCE_SHFLX')
 
+    ! the value of lprofile determines which vertical profile to use for the initial conditions
+    lprofile = .TRUE.             
+
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
     DO jg = 1, n_dom
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_rce ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics, lprofile )
 
-     CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), &
+      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), &
                               "cell", 0.2_wp, nlev-3, nlev )
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
@@ -1060,7 +1063,7 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), ext_data(jg), p_nh_state(jg)%metrics )
+                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
       CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), &
                                "cell", 0.2_wp, nlev-3, nlev )

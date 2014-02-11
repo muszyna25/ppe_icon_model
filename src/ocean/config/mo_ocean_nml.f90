@@ -191,6 +191,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: fct_vert_adpo              = 6
   INTEGER, PARAMETER :: fct_vert_ppm               = 7  
   INTEGER, PARAMETER :: fct_vert_zalesak           = 8    
+  INTEGER, PARAMETER :: fct_vert_minmod            = 9      
   !Additional parameters for FCT: High and low order flux calculations can be
   !chosen from list above. Below is the default option
   INTEGER            :: fct_high_order_flux= central
@@ -363,12 +364,6 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_dynamics_nml/&
-    &                 flux_calculation_horz        , &
-    &                 flux_calculation_vert        , & 
-    &                 fct_high_order_flux          , &
-    &                 fct_low_order_flux           , &
-    &                 fct_limiter_horz             , & 
-    &                 l_adpo_flowstrength          , &    
     &                 ab_beta                      , &
     &                 ab_const                     , &
     &                 ab_gam                       , &
@@ -382,7 +377,6 @@ MODULE mo_ocean_nml
     &                 dzlev_m                      , &
     &                 expl_vertical_tracer_diff    , &
     &                 expl_vertical_velocity_diff  , &
-    &                 i_apply_bulk                 , &
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
@@ -400,10 +394,6 @@ MODULE mo_ocean_nml
     &                 solver_max_iter_per_restart  , &
     &                 solver_max_restart_iterations, &
     &                 solver_tolerance             , &
-    &                 threshold_max_S              , &
-    &                 threshold_max_T              , &
-    &                 threshold_min_S              , &
-    &                 threshold_min_T              , &
     &                 threshold_vn                 , &
     &                 use_continuity_correction    , &
     &                 use_edges2edges_viacell_fast , &
@@ -412,38 +402,55 @@ MODULE mo_ocean_nml
     &                 l_time_marching
 
 
-  NAMELIST/ocean_physics_nml/&
-    &                 CWA                         , &
-    &                 CWT                         , &
-    &                 EOS_TYPE                    , &
+  NAMELIST/ocean_tracer_transport_nml/&
+    &                 no_tracer                    , &  
+    &                 flux_calculation_horz        , &
+    &                 flux_calculation_vert        , & 
+    &                 fct_high_order_flux          , &
+    &                 fct_low_order_flux           , &
+    &                 fct_limiter_horz             , & 
+    &                 l_adpo_flowstrength          , &     
+    &                 l_with_horz_tracer_advection , &
+    &                 l_with_horz_tracer_diffusion , &
+    &                 l_with_vert_tracer_advection , &
+    &                 l_with_vert_tracer_diffusion , &
+    &                 use_tracer_x_height          , &           
+    &                 threshold_max_S              , &
+    &                 threshold_max_T              , &
+    &                 threshold_min_S              , &
+    &                 threshold_min_T              
+
+
+  NAMELIST/ocean_diffusion_nml/&
     &                 HORZ_VELOC_DIFF_TYPE        , &
-    &                 MAX_VERT_DIFF_TRAC          , &
-    &                 MAX_VERT_DIFF_VELOC         , &
-    &                 N_POINTS_IN_MUNK_LAYER      , &
     &                 biharmonic_diffusion_factor , &
-    &                 bottom_drag_coeff           , &
-    &                 density_computation         , &
-    &                 i_sea_ice                   , &
     &                 k_pot_temp_h                , &
     &                 k_pot_temp_v                , &
     &                 k_sal_h                     , &
     &                 k_sal_v                     , &
     &                 k_veloc_h                   , &
     &                 k_veloc_v                   , &
+    &                 MAX_VERT_DIFF_TRAC          , &
+    &                 MAX_VERT_DIFF_VELOC         , &      
+    &                 l_smooth_veloc_diffusion    
+
+
+  NAMELIST/ocean_physics_nml/&
+    &                 CWA                         , &
+    &                 CWT                         , &
+    &                 EOS_TYPE                    , &
+    &                 N_POINTS_IN_MUNK_LAYER      , &
+    &                 bottom_drag_coeff           , &
+    &                 density_computation         , &
+    &                 i_sea_ice                   , &
     &                 l_constant_mixing           , &
-    &                 l_smooth_veloc_diffusion    , &
     &                 l_wind_mixing               , &
-    &                 l_with_horz_tracer_advection, &
-    &                 l_with_horz_tracer_diffusion, &
-    &                 l_with_vert_tracer_advection, &
-    &                 l_with_vert_tracer_diffusion, &
-    &                 no_tracer                   , &
     &                 richardson_tracer           , &
-    &                 richardson_veloc            , &
-    &                 use_tracer_x_height
+    &                 richardson_veloc            
 
 
   NAMELIST/ocean_forcing_nml/&
+    &                 i_apply_bulk                        , &  
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
     &                 forcing_fluxes_type                 , &
@@ -637,6 +644,36 @@ MODULE mo_ocean_nml
        END IF
      END SELECT
 
+     CALL position_nml ('ocean_diffusion_nml', status=i_status)
+     IF (my_process_is_stdio()) THEN
+       iunit = temp_defaults()
+       WRITE(iunit, ocean_diffusion_nml)    ! write defaults to temporary text file
+     END IF
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_diffusion_nml, iostat=istat)                            ! overwrite default settings
+       IF (my_process_is_stdio()) THEN
+         iunit = temp_settings()
+         WRITE(iunit, ocean_diffusion_nml)    ! write settings to temporary text file
+       END IF
+     END SELECT
+
+
+
+    CALL position_nml ('ocean_tracer_transport_nml', status=i_status)
+     IF (my_process_is_stdio()) THEN
+       iunit = temp_defaults()
+       WRITE(iunit, ocean_tracer_transport_nml)    ! write defaults to temporary text file
+     END IF
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_tracer_transport_nml, iostat=istat)                            ! overwrite default settings
+       IF (my_process_is_stdio()) THEN
+         iunit = temp_settings()
+         WRITE(iunit, ocean_tracer_transport_nml)    ! write settings to temporary text file
+       END IF
+     END SELECT
+     
      CALL position_nml ('ocean_forcing_nml', status=i_status)
      IF (my_process_is_stdio()) THEN
        iunit = temp_defaults()
@@ -743,7 +780,8 @@ MODULE mo_ocean_nml
      IF(      flux_calculation_vert/=upwind        &
         &.AND.flux_calculation_vert/=fct_vert_ppm  &
         &.AND.flux_calculation_vert/=fct_vert_adpo &
-        &.AND.flux_calculation_vert/=fct_vert_zalesak)THEN
+        &.AND.flux_calculation_vert/=fct_vert_zalesak&
+        &.AND.flux_calculation_vert/=fct_vert_minmod)THEN
        CALL finish(TRIM(routine), 'wrong parameter for vertical advection')   
      ENDIF
 
@@ -798,7 +836,9 @@ MODULE mo_ocean_nml
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) THEN
        WRITE(nnml_output,nml=ocean_dynamics_nml)
-       WRITE(nnml_output,nml=ocean_physics_nml)
+       WRITE(nnml_output,nml=ocean_physics_nml) 
+       WRITE(nnml_output,nml=ocean_diffusion_nml)       
+       WRITE(nnml_output,nml=ocean_tracer_transport_nml)
        WRITE(nnml_output,nml=ocean_forcing_nml)
        WRITE(nnml_output,nml=ocean_initialConditions_nml)
        WRITE(nnml_output,nml=ocean_diagnostics_nml)
