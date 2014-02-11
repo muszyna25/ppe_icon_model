@@ -81,7 +81,7 @@ MODULE mo_solve_nonhydro
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_prepadv_types,  ONLY: t_prepare_adv
-
+  USE mo_initicon_config,   ONLY: is_iau_active, iau_wgt_dyn
   IMPLICIT NONE
 
   PRIVATE
@@ -1193,6 +1193,16 @@ MODULE mo_solve_nonhydro
         ENDIF
       ENDIF
 
+      IF (is_iau_active) THEN ! add analysis increment from data assimilation
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO je = i_startidx, i_endidx
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) +  &
+              iau_wgt_dyn*p_nh%diag%vn_incr(je,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
       ! Classic Rayleigh damping mechanism for vn (requires reference state !!)
       !
       IF ( rayleigh_type == RAYLEIGH_CLASSIC ) THEN
@@ -1921,6 +1931,16 @@ MODULE mo_solve_nonhydro
               &                         - dtime*p_nh%metrics%rayleigh_w(jk) &
               &                         * ( p_nh%prog(nnew)%w(jc,jk,jb)     &
               &                         - p_nh%ref%w_ref(jc,jk,jb) )
+          ENDDO
+        ENDDO
+      ENDIF
+
+      IF (is_iau_active) THEN ! add analysis increments from data assimilation to density and exner pressure
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            z_rho_expl(jc,jk)   = z_rho_expl(jc,jk)   + iau_wgt_dyn*p_nh%diag%rho_incr(jc,jk,jb)
+            z_exner_expl(jc,jk) = z_exner_expl(jc,jk) + iau_wgt_dyn*p_nh%diag%exner_incr(jc,jk,jb)
           ENDDO
         ENDDO
       ENDIF

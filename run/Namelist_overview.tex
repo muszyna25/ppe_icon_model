@@ -1979,7 +1979,24 @@ I & 1& &
 1: start from DWD analysis \\
 2: start from IFS analysis \\
 3: combined mode: IFS atm + GME soil \\
-4: start from COSMO-DE forecast &
+4: start from COSMO-DE forecast \\
+5: start from DWD analysis with incremental analysis update &
+\tabularnewline
+
+\hline
+dt\_iau&
+R & 10800 & s &
+Time interval during which an incremental analysis update (IAU) is performed &
+init\_mode=5
+\tabularnewline
+
+\hline
+type\_iau\_wgt&
+I & 1 &  &
+Weighting function for performing IAU\\
+1: Top-Hat\\
+2: SIN2 &
+init\_mode=5
 \tabularnewline
 
 \hline

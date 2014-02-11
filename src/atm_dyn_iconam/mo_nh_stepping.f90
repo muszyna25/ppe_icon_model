@@ -101,11 +101,11 @@ MODULE mo_nh_stepping
                                     rdaylen, date_to_time
   USE mo_io_restart,          ONLY: write_restart_info_file, create_restart_file
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
-    &                               iphysproc_short, itconv, itccov, itrad, &
-    &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
-    &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int, MODE_DWDANA, MODIS, icosmo
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
+    &                               itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
+    &                               inwp, iecham, itupdate, itturb, itgscp, itsfc, icosmo,    &
+    &                               min_rlcell_int, min_rledge_int,                           &
+                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS
   USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_update_dyn,          ONLY: add_slowphys
@@ -146,7 +146,7 @@ MODULE mo_nh_stepping
 
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
   USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
-  USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
+  USE mo_nh_init_utils,       ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
                                   & read_td_ext_data_file
   USE mo_initicon_config,     ONLY: init_mode
@@ -1052,6 +1052,9 @@ MODULE mo_nh_stepping
           ENDIF
         ENDIF
 
+        IF (init_mode == MODE_DWDANA_INC) THEN ! incremental analysis mode
+          CALL compute_iau_wgt(datetime, time_config%sim_time(jg)-0.5_wp*dt_loc, dt_loc, lclean_mflx)
+        ENDIF
 
         IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
           ! apply boundary nudging if feedback is turned off and in limited-area mode

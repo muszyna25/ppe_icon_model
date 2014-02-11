@@ -108,6 +108,7 @@ MODULE mo_nh_interface_nwp
   USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
+  USE mo_initicon_config,     ONLY: is_iau_active, iau_wgt_adv
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
 
@@ -273,6 +274,7 @@ CONTAINS
 
       CALL nh_update_prog_phy(pt_patch              ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
+           &                  pt_diag               ,& !in
            &                  prm_nwp_tend          ,& !in
            &                  prm_diag              ,& !inout phyfields 
            &                  pt_prog_rcf            )!inout tracer
@@ -1673,10 +1675,11 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  SUBROUTINE nh_update_prog_phy( pt_patch, pdtime, prm_nwp_tend, &
+  SUBROUTINE nh_update_prog_phy( pt_patch, pdtime, pt_diag, prm_nwp_tend, &
     &                            prm_diag, pt_prog_rcf )
 
     TYPE(t_patch),       INTENT(IN)   :: pt_patch     !!grid/patch info.
+    TYPE(t_nh_diag)     ,INTENT(IN)   :: pt_diag      !<the diagnostic variables
     TYPE(t_nwp_phy_tend),TARGET, INTENT(IN):: prm_nwp_tend   !< atm tend vars
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !!the physics variables
     TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !!the tracer field at
@@ -1773,16 +1776,21 @@ CONTAINS
         &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
         &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
 
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
-    IF(is_ls_forcing)THEN
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
+      ! add analysis increments from data assimilation to qv
+      !
+      IF (is_iau_active) THEN
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv)  &
+              &                              + iau_wgt_adv * pt_diag%qv_incr(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
+
+
+      IF(is_ls_forcing)THEN
         DO jt=1, nqtendphy  ! qv,qc,qi
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -1791,11 +1799,13 @@ CONTAINS
                 &                       + pdtime*prm_nwp_tend%ddt_tracer_ls(jk,jt))
             ENDDO
           ENDDO
-        ENDDO
-      END DO
+        END DO
+      ENDIF  ! is_ls_forcing
+
+
+    ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-    END IF
 
   END SUBROUTINE nh_update_prog_phy
 

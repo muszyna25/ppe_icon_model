@@ -61,11 +61,11 @@ MODULE mo_nh_initicon
     &                               nml_filetype => filetype,                           &
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
-    &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,           &
-    &                               min_rlcell, min_rledge, min_rledge_int,             &
-    &                               min_rlcell_int, dzsoil_icon => dzsoil
+    &                               MODE_DWDANA_INC, MODE_IFSANA, MODE_COMBINED,        &
+    &                               MODE_COSMODE, min_rlcell, min_rledge,               &
+    &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav
+  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
@@ -202,8 +202,9 @@ MODULE mo_nh_initicon
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
-    initicon(:)%atm_in%linitialized = .FALSE.
-    initicon(:)%sfc_in%linitialized = .FALSE.
+    initicon(:)%atm_in%linitialized  = .FALSE.
+    initicon(:)%sfc_in%linitialized  = .FALSE.
+    initicon(:)%atm_inc%linitialized = .FALSE.
 
     ! Allocate memory for init_icon state
     CALL allocate_initicon (p_patch, initicon)
@@ -236,7 +237,7 @@ MODULE mo_nh_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
 
@@ -265,6 +266,17 @@ MODULE mo_nh_initicon
 
       ! process DWD atmosphere analysis data
       CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state)
+
+      ! process DWD land/surface analysis data
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    CASE (MODE_DWDANA_INC)
+
+      CALL message(TRIM(routine),'MODE_DWDANA_INC: perform initialization with '// &
+        &                        ' incremental analysis update')
+
+      ! process DWD atmosphere analysis increments
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
 
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
@@ -347,7 +359,7 @@ MODULE mo_nh_initicon
 
     ! close first guess and analysis files
     ! 
-    IF (ANY((/MODE_DWDANA,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
 
@@ -510,9 +522,11 @@ MODULE mo_nh_initicon
   !>
   !! SUBROUTINE process_dwdana_atm
   !! Initialization routine of icon:
-  !! - Reads DWD first guess and analysis(atmosphere only). 
-  !!   Data are directly written to the prognostic NH state and added.
-  !! - resulting fields are converted to the NH set of prognostic variables
+  !! - Reads DWD first guess and analysis (atmosphere only).
+  !! - First guess is converted to T, p, qx, u, v in order to compute DA 
+  !!   increments. These increments are then used to compute the analysis 
+  !!   fields in terms of the NH set of prognostic variables 
+  !!   (i.e. vn, rho, exner, theta_v )
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-20)
@@ -532,6 +546,7 @@ MODULE mo_nh_initicon
 
     ! read DWD first guess and analysis from DA for atmosphere
     ! 
+    CALL read_dwdfg_atm (p_patch, p_nh_state)
     CALL read_dwdana_atm(p_patch, p_nh_state)
 
 
@@ -540,6 +555,46 @@ MODULE mo_nh_initicon
     CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
 
   END SUBROUTINE process_dwdana_atm
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_dwdanainc_atm
+  !! Initialization routine of icon:
+  !! - Reads DWD first guess for t=T-dt_ass/2 (atmosphere only).
+  !! - Reads analysis incerements for t=T (atmosphere only) in terms of 
+  !!   \Delta T, \Delta u, \Delta v, \Delta p, \Delta qx
+  !! - Compute analysis increments in terms of the NH set of prognostic 
+  !!   variables
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !!
+  !!
+  SUBROUTINE process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:process_dwdanainc_atm'
+
+!-------------------------------------------------------------------------
+
+
+    ! read DWD first guess and analysis from DA for atmosphere
+    ! 
+    CALL read_dwdfg_atm (p_patch, p_nh_state)
+    CALL read_dwdinc_atm(p_patch)
+
+
+    ! Compute DA increments in terms of the NH set 
+    ! of prognostic variables
+    CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
+
+  END SUBROUTINE process_dwdanainc_atm
 
 
 
@@ -980,6 +1035,7 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_default_grib2(SIZE(grp_vars_ana_default))
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_grib2(SIZE(grp_vars_fg))
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_grib2(SIZE(grp_vars_ana))
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: ana_default_txt, ana_this_txt
 
 
     IF(p_pe == p_io) THEN
@@ -990,12 +1046,21 @@ MODULE mo_nh_initicon
       !====================
 
       SELECT CASE(init_mode)
-        CASE(MODE_DWDANA)
+        CASE(MODE_DWDANA, MODE_DWDANA_INC)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_dwd_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+
+          ! When starting from analysis increments, we need both 
+          ! the full FG field and the analysis increment
+          ! maybe we should create separate groups for MODE_DWDANA_INC
+          IF (init_mode == MODE_DWDANA_INC) THEN
+             CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default, (/'qv'/) , 1)
+          ENDIF
+
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
@@ -1245,10 +1310,17 @@ MODULE mo_nh_initicon
       WRITE(message_text,'(a,i2)') 'INIT_MODE ', init_mode
       CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
       CALL init_bool_table(bool_table)
+      IF (init_mode == MODE_DWDANA_INC) THEN
+        ana_default_txt = "ANA_inc (default)"
+        ana_this_txt    = "ANA_inc (this run)"
+      ELSE
+        ana_default_txt = "ANA (default)"
+        ana_this_txt    = "ANA (this run)"
+      ENDIF
       CALL add_column(bool_table, "FG (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
       CALL add_column(bool_table, "FG (this run)",           grp_vars_fg_grib2,          ngrp_vars_fg)
-      CALL add_column(bool_table, "ANA (default)",grp_vars_ana_default_grib2, ngrp_vars_ana_default)
-      CALL add_column(bool_table, "ANA (this run)",          grp_vars_ana_grib2,         ngrp_vars_ana)
+      CALL add_column(bool_table, TRIM(ana_default_txt),grp_vars_ana_default_grib2, ngrp_vars_ana_default)
+      CALL add_column(bool_table, TRIM(ana_this_txt)   ,grp_vars_ana_grib2,         ngrp_vars_ana)
       CALL print_bool_table(bool_table)
     ENDIF  ! p_pe == p_io
 
@@ -1839,9 +1911,9 @@ MODULE mo_nh_initicon
 
 
   !>
-  !! Read DWD first guess and analysis from DA (atmosphere only)
+  !! Read DWD first guess (atmosphere only)
   !!
-  !! Read DWD first guess and analysis from DA (atmosphere only)
+  !! Read DWD first guess (atmosphere only)
   !! First guess (FG) is read for theta_v, rho, vn, w, tke,
   !! whereas DA output is read for T, p, u, v, 
   !! qv, qc, qi, qr, qs.
@@ -1849,8 +1921,11 @@ MODULE mo_nh_initicon
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
   !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
+  !! Modifications by Daniel Reinert, DWD (2014-01-27)
+  !! - split off reading of FG fields
+  !! 
   !!
-  SUBROUTINE read_dwdana_atm (p_patch, p_nh_state)
+  SUBROUTINE read_dwdfg_atm (p_patch, p_nh_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
@@ -1858,12 +1933,12 @@ MODULE mo_nh_initicon
     INTEGER :: jg
     INTEGER :: nlev, nlevp1
 
-    INTEGER :: ngrp_vars_fg, ngrp_vars_ana
+    INTEGER :: ngrp_vars_fg
 
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_dwdana_atm'
+      routine = 'mo_nh_initicon:read_dwdfg_atm'
 
     !-------------------------------------------------------------------------
 
@@ -1879,7 +1954,6 @@ MODULE mo_nh_initicon
 
       ! save some paperwork
       ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
-      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
       !---------------------------------------!
       ! Read in DWD first guess (atmosphere)  !
@@ -1946,7 +2020,39 @@ MODULE mo_nh_initicon
 
     ENDDO ! loop over model domains
 
+  END SUBROUTINE read_dwdfg_atm
 
+
+
+  !>
+  !! Read full DA-analysis fields (atmosphere only)
+  !!
+  !! Read full DA-analysis fields (atmosphere only)
+  !! DA output is read for T, p, u, v, 
+  !! qv, qc, qi, qr, qs.
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-18)
+  !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
+  !! Modifications by Daniel Reinert, DWD (2014-01-27)
+  !! - split off reading of FG fields
+  !!
+  SUBROUTINE read_dwdana_atm (p_patch, p_nh_state)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+
+    INTEGER :: jg
+    INTEGER :: nlev, nlevp1
+
+    INTEGER :: ngrp_vars_ana
+
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:read_dwdana_atm'
+
+    !-------------------------------------------------------------------------
 
     !----------------------------------------!
     ! read in DWD analysis (atmosphere)      !
@@ -1963,7 +2069,6 @@ MODULE mo_nh_initicon
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! save some paperwork
-      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
 
@@ -2038,6 +2143,97 @@ MODULE mo_nh_initicon
     ENDDO ! loop over model domains
 
   END SUBROUTINE read_dwdana_atm
+
+
+
+
+  !>
+  !! Read DA-analysis increments (atmosphere only)
+  !!
+  !! Read DA-analysis increments (atmosphere only)
+  !! for T, p, u, v, qv
+  !! !! Maybe read_dwdanainc_atm and read_dwdana_atm could be 
+  !! unified !!
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !!
+  SUBROUTINE read_dwdinc_atm (p_patch)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+
+    INTEGER :: jg
+    INTEGER :: nlev, nlevp1
+
+    INTEGER ::ngrp_vars_ana
+
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:read_dwdanainc_atm'
+
+    !-------------------------------------------------------------------------
+
+    !---------------------------------------------------!
+    ! read in DWD analysis increments (atmosphere)      !
+    !---------------------------------------------------!
+
+    DO jg = 1, n_dom
+
+      ! number of vertical full and half levels
+      nlev   = p_patch(jg)%nlev
+      nlevp1 = p_patch(jg)%nlevp1
+
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      ! save some paperwork
+      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
+
+
+      IF( lread_ana .AND. p_pe == p_io ) THEN 
+        CALL message (TRIM(routine), 'read atm_ANAINC fields from '//TRIM(dwdana_file(jg)))
+      ENDIF  ! p_io
+
+
+      ! start reading DA increments (atmosphere only)
+      ! The increments temp, pres, u, v and qv which need further processing,
+      ! are stored in initicon(jg)%atm_inc.
+      !
+      my_ptr3d => initicon(jg)%atm_inc%temp
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,  &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana))
+
+      my_ptr3d => initicon(jg)%atm_inc%pres
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,  &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      my_ptr3d => initicon(jg)%atm_inc%u
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,     &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      my_ptr3d => initicon(jg)%atm_inc%v
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,     &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      my_ptr3d => initicon(jg)%atm_inc%qv
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,    &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+    ENDDO ! loop over model domains
+
+  END SUBROUTINE read_dwdinc_atm
 
 
 
@@ -2337,26 +2533,26 @@ MODULE mo_nh_initicon
 
       ! sea-ice fraction
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g,  &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                p_lnd_state(jg)%diag_lnd%fr_seaice,                                          &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! sea-ice temperature
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_ice', p_patch(jg)%n_patch_cells_g,      &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice,                                &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! sea-ice height
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'h_ice', p_patch(jg)%n_patch_cells_g,      &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice,                                &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! T_SO(0)
       my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,:,jt)
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_so', p_patch(jg)%n_patch_cells_g,       &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                my_ptr2d,                                                                    &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
@@ -2785,6 +2981,252 @@ MODULE mo_nh_initicon
     ENDIF
 
   END SUBROUTINE create_dwdana_atm
+
+
+
+
+  !>
+  !! Compute analysis increments in terms of the NH prognostic set of variables. 
+  !!
+  !!
+  !! Compute analysis increments in terms of the NH prognostic set of variables 
+  !! (atmosphere only).
+  !! 
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !!
+  SUBROUTINE create_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+
+    TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
+
+    INTEGER :: jc,je,jk,jb,jg             ! loop indices
+    INTEGER :: ist
+    INTEGER :: nlev, nlevp1               ! number of vertical levels
+    INTEGER :: nblks_c, nblks_e           ! number of blocks
+    INTEGER :: i_nchdom
+    INTEGER :: rl_start, rl_end 
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf   
+    TYPE(t_nh_diag), POINTER :: p_diag
+    INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
+
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:create_dwdanainc_atm'
+
+    ! nondimensional diffusion coefficient for interpolated velocity increment
+    REAL(wp), PARAMETER :: smtfac=0.015_wp
+
+    !-------------------------------------------------------------------------
+
+    ! for the time being, the generation of DWD analysis fields is implemented 
+    ! for the global domain, only.
+    jg = 1
+
+    ! number of vertical levels 
+    nlev      = p_patch(jg)%nlev
+    nlevp1    = p_patch(jg)%nlevp1
+
+    nblks_c   = p_patch(jg)%nblks_c
+    nblks_e   = p_patch(jg)%nblks_e
+    i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+
+
+    ! allocate temporary arrays for DA increments and a filtering term for vn
+    ALLOCATE(tempv_incr(nproma,nlev,nblks_c), &
+             nabla4_vn_incr(nproma,nlev,nblks_e), &
+             STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+    ENDIF
+
+    nabla4_vn_incr(:,:,:) = 0._wp
+
+    ! define some pointers
+    p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
+    p_prog_now_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
+    p_diag         => p_nh_state(jg)%diag
+    iidx           => p_patch(jg)%edges%cell_idx
+    iblk           => p_patch(jg)%edges%cell_blk
+
+
+    ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
+    !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v 
+    !    increment is not necessary.
+    !    The prognostic state variables are initialized with the first guess
+    !
+    !
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+    ! include boundary interpolation zone of nested domains and halo points
+    rl_start = 1
+    rl_end   = min_rlcell
+
+    i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+
+!!$          !******** CONSISTENCY CHECK ************
+!!$          ! 
+!!$          ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+!!$          ! below threshhold (currently 5E-7 kg/kg)
+!!$          ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
+!!$          ! Note: So far we are not fully convinced that the observed 'zeros' are 
+!!$          ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
+!!$          ! numerical artifacts. 
+!!$          p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
+!!$            &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
+!!$          !******** END CONSISTENCY CHECK ********
+
+
+
+          ! compute exner function (based on first guess input)
+          p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &
+            &                        * p_prog_now%theta_v(jc,jk,jb))**(rd/cvd)
+
+          ! compute full nonhydrostatic pressure from exner (based on first guess input)
+          ! required for exner- and rho increment
+          p_diag%pres(jc,jk,jb) = p0ref * (p_prog_now%exner(jc,jk,jb)**(cpd/rd))
+
+
+          ! compute virtual temperature (based on first guess input)
+          ! required for rho-increment
+          p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
+            &                    * p_prog_now%exner(jc,jk,jb)
+
+
+          ! compute temperature (based on first guess input)
+          ! required for virtual temperature increment
+          p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
+            &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+            &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)                &
+            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)                &
+            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)                &
+            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)) )
+
+
+          ! compute thermodynamic increments
+          !
+          p_diag%exner_incr(jc,jk,jb) = rd_o_cpd * p_prog_now%exner(jc,jk,jb) &
+            &                  / p_diag%pres(jc,jk,jb) * initicon(jg)%atm_inc%pres(jc,jk,jb)
+
+          tempv_incr(jc,jk,jb) = (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+            &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)               &
+            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)               &
+            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)               &
+            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)))             &
+            &                   *  initicon(jg)%atm_inc%temp(jc,jk,jb)               &
+            &                   +  vtmpc1*p_diag%temp(jc,jk,jb)                      &
+            &                   * initicon(jg)%atm_inc%qv(jc,jk,jb)
+
+          p_diag%rho_incr(jc,jk,jb) = ( initicon(jg)%atm_inc%pres(jc,jk,jb) &
+            &                / (rd*p_diag%tempv(jc,jk,jb)) )         &
+            &                - ((p_diag%pres(jc,jk,jb) * tempv_incr(jc,jk,jb)) &
+            &                / (rd*(p_diag%tempv(jc,jk,jb)**2)))
+
+          p_diag%qv_incr(jc,jk,jb) = initicon(jg)%atm_inc%qv(jc,jk,jb)
+
+        ENDDO  ! jc
+      ENDDO  ! jk
+
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+
+
+
+    ! 2) compute vn and w increments
+    !
+
+    ! include boundary interpolation zone of nested domains and the halo edges as far as possible
+    rl_start = 2
+    rl_end   = min_rledge_int - 2
+    i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          ! at cell centers the increment \vec(v_inc) is projected into the 
+          ! direction of vn and then linearly interpolated to the edge midpoint 
+          !
+          ! should we check if the vn increments are geostrophically balanced at higher levels?
+          p_diag%vn_incr(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)                &
+            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1       &
+            &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
+            &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
+            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) & 
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
+            &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
+
+        ENDDO  ! je
+      ENDDO  ! jk
+
+    ENDDO  ! jb
+!$OMP ENDDO
+!$OMP END PARALLEL
+
+    !DR required to avoid crash in nabla4_vec
+    CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
+
+    ! Compute diffusion term 
+    CALL nabla4_vec(p_diag%vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+    ! include boundary interpolation zone of nested domains but no halo points (sync follows below)
+    rl_start = 2
+    rl_end   = min_rledge_int
+
+    i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          ! computed filtered velocity increment 
+          p_diag%vn_incr(je,jk,jb) = p_diag%vn_incr(je,jk,jb) &
+            &               - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
+
+        ENDDO  ! je
+      ENDDO  ! jk
+
+    ENDDO  ! jb
+!$OMP ENDDO
+!$OMP END PARALLEL
+
+    ! deallocate temporary arrays
+    DEALLOCATE( tempv_incr, nabla4_vn_incr, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+    ENDIF
+
+  END SUBROUTINE create_dwdanainc_atm
 
 
 
@@ -3370,6 +3812,16 @@ MODULE mo_nh_initicon
                initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
                initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
 
+      IF (init_mode == MODE_DWDANA_INC) THEN
+        ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%v    (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%qv   (nproma,nlev,nblks_c      )  )
+      
+        initicon(jg)%atm_inc%linitialized = .TRUE.
+      ENDIF
+
     ENDDO ! loop over model domains
 
     ! read the map file into dictionary data structure:
@@ -3512,6 +3964,16 @@ MODULE mo_nh_initicon
                  initicon(jg)%sfc%seaice,   &
                  initicon(jg)%sfc%tsoil,    &
                  initicon(jg)%sfc%wsoil     )
+
+
+      ! atmospheric assimilation increments
+      IF (initicon(jg)%atm_inc%linitialized) THEN
+        DEALLOCATE(initicon(jg)%atm_inc%temp,    &
+                   initicon(jg)%atm_inc%pres,    &
+                   initicon(jg)%atm_inc%u   ,    &
+                   initicon(jg)%atm_inc%v   ,    &
+                   initicon(jg)%atm_inc%qv       )
+      ENDIF
 
     ENDDO ! loop over model domains
 

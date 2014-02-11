@@ -923,7 +923,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
         lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
 
-      ELSE  ! init_mode=MODE_DWDANA
+      ELSE  ! init_mode=MODE_DWDANA, MODE_DWDANA_INC
         !
         ! TKE and gz0 are not re-initialized, but re-used from the first guess
         !
