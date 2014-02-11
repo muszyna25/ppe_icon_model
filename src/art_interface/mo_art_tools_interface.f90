@@ -44,7 +44,7 @@ MODULE mo_art_tools_interface
   USE mo_nonhydro_types,       ONLY: t_nh_state
   
 #ifdef __ICON_ART
-! JF:   USE mo_art_unit_conversion,  ONLY: art_massmix2density
+  USE mo_art_unit_conversion,  ONLY: art_massmix2density
 #endif
 
   IMPLICIT NONE
@@ -74,9 +74,7 @@ SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
 #ifdef __ICON_ART
 
   IF (TRIM(defcase) .EQ. 'unit_conversion') THEN
-  ! drieg DEBUG DEBUG
-    PRINT *,'calling art_massmix2density'
-! JF:     CALL art_massmix2density(p_nh_state,jg)
+    CALL art_massmix2density(p_nh_state,jg)
   END IF
 
 #endif

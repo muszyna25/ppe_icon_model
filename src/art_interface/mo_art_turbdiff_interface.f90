@@ -51,7 +51,7 @@ MODULE mo_art_turbdiff_interface
     USE src_turbdiff_new,       ONLY: modvar
 
 #ifdef __ICON_ART
-    USE mo_art_aerosol,         ONLY: vdep_ash, sv_ash
+    USE mo_art_data,            ONLY: p_art_data
     USE mo_art_surface_value,   ONLY: art_surface_value
 #endif
 
@@ -91,7 +91,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
   TYPE(t_nh_prog),  INTENT(in)      :: p_prog_rcf    !< the prog vars
   TYPE(t_nwp_phy_tend), INTENT(in)  :: prm_nwp_tend  !< atm phys tendencies
 
-  TYPE(modvar), DIMENSION(:), INTENT(out) :: ptr     !< passive tracer pointer type structure for diffusion
+  TYPE(modvar), DIMENSION(:), INTENT(inout) :: ptr     !< passive tracer pointer type structure for diffusion
 
   TYPE(t_nh_metrics), INTENT(in), OPTIONAL    :: p_metrics
   TYPE(t_nh_diag), INTENT(in), OPTIONAL       :: p_diag        !< the diag vars
@@ -104,7 +104,11 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
   LOGICAL, INTENT(in), OPTIONAL               :: opt_fc
 
   REAL(wp), INTENT(in), OPTIONAL              :: dt
-
+  
+  REAL(wp),POINTER  ::  &
+    &  sv(:,:,:),       & !< surface value of tracer
+    &  vdep(:,:,:)        !< deposition velocity of tracer
+    
   !Local variables
   ! ---------------------------------------
 
@@ -116,91 +120,55 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
 #ifdef __ICON_ART
 
   jg  = p_patch%id
-
-  SELECT CASE( TRIM(defcase) )
-
-  CASE('allocate')
-
-    nblks = p_patch%nblks_c
-
-    IF ( art_config(jg)%lart_volcano ) THEN
-      IF ( .NOT. ALLOCATED(sv_ash) ) THEN
-        ALLOCATE( sv_ash(nproma,nblks,art_config(jg)%nturb_tracer),stat=istat )
-        sv_ash = 0.0_wp
-      END IF
-    END IF
+  IF ( art_config(jg)%lart ) THEN
+    SELECT CASE(TRIM(defcase))
     
-  CASE('setup_ptr')
-
-    IF ( .NOT. PRESENT(opt_sv) ) THEN
-      IF ( art_config(jg)%lart_volcano ) THEN
+    CASE('setup_ptr')
+      sv => p_art_data(jg)%turb_fields%sv
+      vdep => p_art_data(jg)%turb_fields%vdep
+      ! drieg:debug
+      vdep = 0.0_wp
+      IF ( .NOT. PRESENT(opt_sv) ) THEN
         CALL art_surface_value( p_patch, p_prog_rcf, p_metrics, p_diag, prm_diag, &
-          &                     jb, vdep_ash, sv_ash )
+          &                     jb, vdep, sv )
       END IF
-    END IF
 
-    DO idx_trac = 1, art_config(jg)%nturb_tracer
+      DO idx_trac = 1, art_config(jg)%nturb_tracer
 
-      ! set up pointer to tracer type structure for diffusion
-      ptr(idx_trac)%av => p_prog_rcf%turb_tracer(jb,idx_trac)%ptr
-      ptr(idx_trac)%at => prm_nwp_tend%turb_tracer_tend(jb,idx_trac)%ptr
-      ptr(idx_trac)%at =  0._wp
-
-      IF ( PRESENT(opt_sv) ) THEN
-        ptr(idx_trac)%sv => opt_sv(:,jb,idx_trac)
-        IF ( PRESENT(opt_fc) ) THEN
-          ptr(idx_trac)%fc = opt_fc
+        ! set up pointer to tracer type structure for diffusion
+        ptr(idx_trac)%av => p_prog_rcf%turb_tracer(jb,idx_trac)%ptr
+        ptr(idx_trac)%at => prm_nwp_tend%turb_tracer_tend(jb,idx_trac)%ptr
+        ptr(idx_trac)%at =  0._wp
+  
+        IF ( PRESENT(opt_sv) ) THEN
+          ptr(idx_trac)%sv => opt_sv(:,jb,idx_trac)
+          IF ( PRESENT(opt_fc) ) THEN
+            ptr(idx_trac)%fc = opt_fc
+          ELSE
+            ptr(idx_trac)%fc = .FALSE.
+          END IF
         ELSE
+          ptr(idx_trac)%sv => sv(:,jb,idx_trac)
           ptr(idx_trac)%fc = .FALSE.
         END IF
-      ELSE
-        IF ( art_config(jg)%lart_volcano ) THEN
-          ptr(idx_trac)%sv => sv_ash(:,jb,idx_trac)
-          ptr(idx_trac)%fc = .FALSE.
-        END IF
-      END IF
-
-    END DO
-
-  CASE('update_ptr')
-
-    nlev = p_patch%nlev !< Number of vertical full levels
-
-    ! update tracers due to diffusion
-    DO idx_trac = 1, art_config(jg)%nturb_tracer
-      DO jk = 1, nlev
-!DIR$ IVDEP
-        DO jc = i_st, i_en
-          ptr(idx_trac)%av(jc,jk) = MAX( 0._wp, ptr(idx_trac)%av(jc,jk)     &
-            &                     + dt * ptr(idx_trac)%at(jc,jk) )
-        END DO
       END DO
-    END DO
 
-  CASE('deallocate')
-
-    DO idx_trac = 1, art_config(jg)%nturb_tracer
-      IF ( ASSOCIATED(ptr(idx_trac)%av) ) THEN
-        NULLIFY(ptr(idx_trac)%av)
-      END IF
-      IF ( ASSOCIATED(ptr(idx_trac)%at) ) THEN
-        NULLIFY(ptr(idx_trac)%at)
-      END IF
-      IF ( ASSOCIATED(ptr(idx_trac)%sv) ) THEN
-        NULLIFY(ptr(idx_trac)%sv)
-      END IF
-    END DO
-
-    IF ( art_config(jg)%lart_volcano ) THEN
-      IF ( ALLOCATED(vdep_ash) ) THEN
-        DEALLOCATE(vdep_ash)
-      END IF
-      IF ( ALLOCATED(sv_ash) ) THEN
-        DEALLOCATE(sv_ash)
-      END IF
-    END IF
+    CASE('update_ptr')
+      nlev = p_patch%nlev !< Number of vertical full levels
+      ! update tracers due to diffusion
+      DO idx_trac = 1, art_config(jg)%nturb_tracer
+        DO jk = 1, nlev
+  !DIR$ IVDEP
+          DO jc = i_st, i_en
+            ptr(idx_trac)%av(jc,jk) = MAX( 0._wp, ptr(idx_trac)%av(jc,jk)     &
+              &                     + dt * ptr(idx_trac)%at(jc,jk) )
+          END DO
+        END DO
+        print *,'for tracer idx ',idx_trac,' min = ',MINVAL(ptr(idx_trac)%at(:,:)),' max = ',MAXVAL(ptr(idx_trac)%at(:,:))
+      END DO
     
-  END SELECT
+    END SELECT
+  END IF
 
 #endif
 
