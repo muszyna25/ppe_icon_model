@@ -30,7 +30,7 @@ MODULE mo_util_vgrid_types
       , CONTIGUOUS         &
 #endif
       ::                    &
-      z_ifc(:,:,:), z_ifv(:,:,:)
+      z_ifc(:,:,:)
 
     ! UUID of vertical grid
     CHARACTER(len=1) :: uuid(16)

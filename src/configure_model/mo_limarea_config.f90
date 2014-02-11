@@ -40,7 +40,7 @@ MODULE mo_limarea_config
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_io_units,           ONLY: filename_max
-  USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,   &
+  USE mo_util_string,        ONLY: t_keyword_list,                   &
                                    associate_keyword, with_keywords, &
                                    int2string
   USE mo_exception,          ONLY: message, message_text, finish
@@ -62,12 +62,12 @@ MODULE mo_limarea_config
   TYPE t_latbc_config
 
     ! variables from namelist
-    INTEGER                       :: itype_latbc      ! type of limited area boundary nudging
-    REAL(wp)                      :: dtime_latbc      ! dt between two consequtive external latbc files
-    INTEGER                       :: nlev_in
-    CHARACTER(LEN=filename_max)   :: latbc_filename   ! prefix of latbc files
-    CHARACTER(LEN=MAX_STRING_LEN) :: latbc_path       ! directory containing external latbc files
-    REAL(wp)                      :: lc1, lc2         ! linear interpolation coefficients
+    INTEGER                         :: itype_latbc      ! type of limited area boundary nudging
+    REAL(wp)                        :: dtime_latbc      ! dt between two consequtive external latbc files
+    INTEGER                         :: nlev_in
+    CHARACTER(LEN=filename_max)     :: latbc_filename   ! prefix of latbc files
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path       ! directory containing external latbc files
+    REAL(wp)                        :: lc1, lc2         ! linear interpolation coefficients
 
   END TYPE t_latbc_config
   !------------------------------------------------------------------------
@@ -119,11 +119,11 @@ CONTAINS
   FUNCTION generate_filename(nroot, jlev, latbc_datetime) RESULT(result_str)
     INTEGER,          INTENT(IN)                :: nroot, jlev
     TYPE(t_datetime), INTENT(IN)                :: latbc_datetime
-    CHARACTER(MAX_STRING_LEN)                   :: result_str
+    CHARACTER(MAX_CHAR_LENGTH )                 :: result_str
 
     ! Local variables
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
-    CHARACTER(MAX_STRING_LEN)                   :: str
+    CHARACTER(MAX_CHAR_LENGTH)                  :: str
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: &
       &  routine = 'mo_limarea_config::generate_filename:'
     

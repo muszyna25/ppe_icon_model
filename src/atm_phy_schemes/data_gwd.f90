@@ -44,6 +44,7 @@ MODULE data_gwd
     & jpim =>i4
   
   USE mo_cuparameters,       ONLY: lhook,   dr_hook
+  USE mo_atm_phy_nwp_config, ONLY: tune_gfluxlaun
   !==============================================================================
   
   IMPLICIT NONE
@@ -133,7 +134,8 @@ CONTAINS
     !*  --------------------------------
     
     zlaunchp=45000.0_JPRB   !launch height (Pa)
-    gfluxlaun=2.50E-3_JPRB  !total launch momentum flux in each azimuth (rho_o x F_o)
+    gfluxlaun=tune_gfluxlaun !total launch momentum flux in each azimuth (rho_o x F_o)
+                             ! (set in atm_phy_nwp_config)
     nslope=1                !s (1,0,-1 are valid values) s is the slope at small-m
     !end of the launch spectrum
     gptwo=2.0_JPRB          !2*p (3 or 2 are valid values) p is the exponent of omega

@@ -107,24 +107,23 @@ MODULE mo_nh_jabw_exp
 !-------------------------------------------------------------------------
 !
   !>
-  !! Initialization of topograpphy for the nh standard jabw test case 
+  !! Initialization of topography for the nh standard jabw test case 
   !!
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_topo_jabw( ptr_patch, topo_c, topo_v, nblks_c, npromz_c,      &
-                             &  nblks_v, npromz_v, opt_m_height, opt_m_half_width )
+  SUBROUTINE init_nh_topo_jabw( ptr_patch, topo_c, nblks_c, npromz_c, &
+                             &  opt_m_height, opt_m_half_width )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
 
     REAL(wp), INTENT (IN), OPTIONAL :: opt_m_height, opt_m_half_width
-    INTEGER, INTENT (IN) ::  nblks_c, nblks_v, npromz_c, npromz_v
+    INTEGER, INTENT (IN) ::  nblks_c, npromz_c
     REAL(wp),  INTENT(INOUT) :: topo_c    (nproma,nblks_c)
-    REAL(wp),  INTENT(INOUT) :: topo_v    (nproma,nblks_v)
     ! local variables
 
-  INTEGER        :: jc, jv, jb, nlen
+  INTEGER        :: jc, jb, nlen
   REAL(wp)       :: z_lon, z_lat
 !!$  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
 !!$    &  routine = '(mo_nh_jabw_exp) init_nh_topo_jabw:'
@@ -166,31 +165,6 @@ MODULE mo_nh_jabw_exp
             z_fac1= SIN(latC)*SIN(z_lat)+COS(latC)*COS(z_lat)*COS(z_lon-lonC) 
             z_fac2= grid_sphere_radius*ACOS(z_fac1)/mount_half_width
             topo_c(jc,jb) = topo_c(jc,jb) &
-                          & + mount_height*EXP(-z_fac2**2)
-          ENDIF 
-        ENDDO
-      ENDDO
-      DO jb = 1, nblks_v
-        IF (jb /=  nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          z_lat   = ptr_patch%verts%vertex(jv,jb)%lat
-          zsiny = SIN(z_lat)
-          zcosy = COS(z_lat)
-          tmp1  = u0*COS((1._wp-eta0)*pi_2)**1.5_wp
-          tmp2  = (-2.0_wp*zsiny**6 * (zcosy*zcosy+1.0_wp/3.0_wp) + &
-                  1.0_wp/6.3_wp ) *tmp1
-          tmp3  = ( 1.6_wp*zcosy*zcosy*zcosy * (zsiny*zsiny+2.0_wp/3.0_wp)  &
-                   - 0.5_wp*pi_2 )*grid_sphere_radius*grid_angular_velocity
-          IF ( itopo==0 ) topo_v(jv,jb) = tmp1*(tmp2+tmp3)/grav
-          IF (itopo==0 .AND. lmount ) THEN
-            z_lon = ptr_patch%verts%vertex(jv,jb)%lon
-            z_fac1= SIN(latC)*SIN(z_lat)+COS(latC)*COS(z_lat)*COS(z_lon-lonC) 
-            z_fac2= grid_sphere_radius*ACOS(z_fac1)/mount_half_width
-            topo_v(jv,jb) = topo_v(jv,jb) &
                           & + mount_height*EXP(-z_fac2**2)
           ENDIF 
         ENDDO

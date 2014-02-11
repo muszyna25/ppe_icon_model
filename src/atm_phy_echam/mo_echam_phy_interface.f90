@@ -87,6 +87,8 @@ MODULE mo_echam_phy_interface
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
+!!$  USE mo_solar_irradiance,     ONLY: read_ssi_bc, ssi_time_weights, ssi_time_interpolation
+
 
   IMPLICIT NONE
   PRIVATE
@@ -355,25 +357,11 @@ CONTAINS
       ztime_radtran = 0._wp
     ENDIF
 
-    ! Read and interpolate SST for AMIP simulations; prescribed ozone and
+    ! Read and interpolate SST for AMIP simulations; solar irradiation, prescribed ozone, and
     ! aerosol concentrations.
     !LK:
     !TODO: pass timestep as argument
     !COMMENT: lsmask == slm and is not slf!
-    IF (ltrig_rad) THEN
-      CALL time_weights_limm(datetime_radtran)   ! Calculate interpolation weights 
-                                                 ! for linear interp. of monthly means
-    END IF
-    IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
-      CALL read_amip_o3(datetime%year, p_patch)
-    END IF
-    IF (ltrig_rad .AND. irad_aero == 13) THEN
-      CALL read_aero_kinne(datetime%year, p_patch)
-    END IF
-    IF (ltrig_rad .AND. irad_aero == 15) THEN
-      CALL read_aero_kinne(datetime%year, p_patch)
-      CALL read_aero_stenchikov(datetime%year, p_patch)
-    END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN
         CALL read_amip_bc(datetime%year, p_patch)
@@ -389,6 +377,24 @@ CONTAINS
       prm_field(jg)%conc(:,1,:) = prm_field(jg)%seaice(:,:)
       prm_field(jg)%hi(:,1,:)   = prm_field(jg)%siced(:,:)
     ENDIF
+    IF (ltrig_rad) THEN
+      CALL time_weights_limm(datetime_radtran)   ! Calculate interpolation weights 
+                                                 ! for linear interp. of monthly means
+    END IF
+!!$      ! overwrite defined static TSI, SSI by time varying once
+!!$      CALL read_ssi_bc(current_date%year)
+!!$      CALL ssi_time_weights(current_date)
+!!$!      CALL ssi_time_interpolation(tsi, ssi)
+    IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
+      CALL read_amip_o3(datetime%year, p_patch)
+    END IF
+    IF (ltrig_rad .AND. irad_aero == 13) THEN
+      CALL read_aero_kinne(datetime%year, p_patch)
+    END IF
+    IF (ltrig_rad .AND. irad_aero == 15) THEN
+      CALL read_aero_kinne(datetime%year, p_patch)
+      CALL read_aero_stenchikov(datetime%year, p_patch)
+    END IF
 
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
 !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))

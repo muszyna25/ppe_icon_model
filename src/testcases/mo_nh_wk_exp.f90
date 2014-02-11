@@ -120,22 +120,20 @@ MODULE mo_nh_wk_exp
 !-------------------------------------------------------------------------
 !
   !>
-  !! Initialization of topograpphy for the Weisman Klemp test case
+  !! Initialization of topography for the Weisman Klemp test case
   !! The topography is set to 0, but the possibility  to have 
   !!  a different topography is open
   !!
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_topo_wk( ptr_patch, topo_c, topo_v, nblks_c, npromz_c,      &
-                             &  nblks_v, npromz_v )
+  SUBROUTINE init_nh_topo_wk( ptr_patch, topo_c, nblks_c, npromz_c )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
 
-    INTEGER,  INTENT (IN) ::  nblks_c, nblks_v, npromz_c, npromz_v
+    INTEGER,  INTENT (IN) ::  nblks_c, npromz_c
     REAL(wp), INTENT(INOUT) :: topo_c    (nproma,nblks_c)
-    REAL(wp), INTENT(INOUT) :: topo_v    (nproma,nblks_v)
 
     ! local variables
 
@@ -155,21 +153,9 @@ MODULE mo_nh_wk_exp
         ENDDO
       ENDDO
 
-      DO jb = 1, nblks_v
-        IF (jb /=  nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          IF ( itopo==0 ) THEN
-           topo_v(jv,jb) =0._wp
-          END IF
-        ENDDO
-      ENDDO
 
   END SUBROUTINE init_nh_topo_wk
-!-------------------------------------------------------------------------
+!------------------------------------------------------------------------
 !
   !>
   !! Initialization of prognostic state vector for the Weisman Klemp  test case 

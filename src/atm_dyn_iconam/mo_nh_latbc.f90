@@ -61,7 +61,6 @@ MODULE mo_nh_latbc
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
                                     p_comm_work_test, p_comm_work
   USE mo_io_units,            ONLY: filename_max
-  USE mo_util_string,         ONLY: MAX_STRING_LEN
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nh_vert_interp,      ONLY: vert_interp
@@ -154,7 +153,6 @@ MODULE mo_nh_latbc
     DO tlev = 1, 2
       ! Basic icon_remap data
       ALLOCATE(p_latbc_data(tlev)%topography_c(nproma,nblks_c),         &
-               p_latbc_data(tlev)%topography_v(nproma,nblks_v),         &
                p_latbc_data(tlev)%z_ifc       (nproma,nlevp1,nblks_c),  &
                p_latbc_data(tlev)%z_mc        (nproma,nlev  ,nblks_c)   )
 
@@ -202,7 +200,6 @@ MODULE mo_nh_latbc
 !$OMP PARALLEL
 !$OMP WORKSHARE
       p_latbc_data(tlev)%topography_c(:,:) = ext_data%atm%topography_c(:,:)
-      p_latbc_data(tlev)%topography_v(:,:) = ext_data%atm%topography_v(:,:)
       p_latbc_data(tlev)%z_ifc(:,:,:) = p_nh_state%metrics%z_ifc(:,:,:)
       p_latbc_data(tlev)%z_mc (:,:,:) = p_nh_state%metrics%z_mc (:,:,:) 
 !$OMP END WORKSHARE

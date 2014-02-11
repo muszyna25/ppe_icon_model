@@ -100,26 +100,24 @@ MODULE mo_nh_mrw_exp
 !-------------------------------------------------------------------------
 
   !>
-  !! Initialization of topograpphy for the nh mrw test cases 
+  !! Initialization of topography for the nh mrw test cases 
   !!
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_topo_mrw( ptr_patch, topo_c, topo_v, nblks_c, npromz_c,      &
-                             &  nblks_v, npromz_v, l_modified )
+  SUBROUTINE init_nh_topo_mrw( ptr_patch, topo_c, nblks_c, npromz_c, l_modified )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
 
   
-   INTEGER, INTENT (IN)     :: nblks_c, nblks_v, npromz_c, npromz_v
+   INTEGER, INTENT (IN)     :: nblks_c, npromz_c
    REAL(wp), INTENT(INOUT)  :: topo_c    (nproma,nblks_c)
-   REAL(wp), INTENT(INOUT)  :: topo_v    (nproma,nblks_v)  
    LOGICAL , INTENT (IN)    :: l_modified
 
     ! local variables
 
-   INTEGER        :: jc, jv, jb, nlen
+   INTEGER        :: jc, jb, nlen
    REAL(wp)       :: z_lon, z_lat
    REAL(wp)       :: z_lon_ctr, z_lat_ctr
    REAL(wp)       :: zexp, zr
@@ -159,34 +157,6 @@ MODULE mo_nh_mrw_exp
         ENDDO
       ENDDO
 !$OMP END DO 
-
-!$OMP DO PRIVATE(jb,nlen,jc,z_lat,z_lon,zr,zexp)
-      DO jb = 1, nblks_v
-        IF (jb /= nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          z_lat   = ptr_patch%verts%vertex(jv,jb)%lat
-          z_lon   = ptr_patch%verts%vertex(jv,jb)%lon
-
-          zr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr) 
-          zexp = grid_sphere_radius*ACOS(zr)/mount_half_width
-
-          IF ( itopo==0 ) THEN
-            IF (.NOT. l_modified ) THEN
-                topo_v(jv,jb) =  mount_height_mrw*EXP( - zexp*zexp )
-            ELSEIF (l_modified) THEN
-                topo_v(jv,jb) = &
-                         mount_height_mrw*EXP( - zexp*zexp )*&
-                         0.5_wp*(1._wp+COS(pi*zexp*2._wp))
-            ENDIF
-          ENDIF
-
-        ENDDO
-      ENDDO
-!$OMP END DO
 !$OMP END PARALLEL
 
   END SUBROUTINE init_nh_topo_mrw

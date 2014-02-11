@@ -56,6 +56,7 @@ MODULE mo_oce_thermodyn
     & sitodbar, sfc_press_bar
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_util_dbg_prnt,             ONLY: dbg_print
   IMPLICIT NONE
   
   PRIVATE
@@ -580,6 +581,8 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
     ENDIF
+
+   CALL dbg_print('calc_density_jmdwfg06_eos: rho', rho , "" ,5, patch_2D%cells%in_domain)
     
   END SUBROUTINE calc_density_jmdwfg06_eos
   !----------------------------------------------------------------
@@ -664,10 +667,11 @@ CONTAINS
       & + p1*(eosjmdwfgden(10)                                    &
       & +     p1t1*(eosjmdwfgden(11)*t2 + eosjmdwfgden(12)*p1) )
     
-    rhoden = 1.0_wp / (dbl_eps+den)
+    ! rhoden = 1.0_wp / (dbl_eps+den)
     
     !rhoLoc  = rhoNum*rhoDen - rho_ref
-    rho     = rhonum * rhoden
+    ! rho     = rhonum * rhoden
+    rho     = rhonum / den
     
     ! &rhoConst*9.80665_wp*dz*SItodBar,rhoConst*9.80616_wp*dz*SItodBar,dz,&
     ! &locPres*SItodBar
@@ -794,7 +798,9 @@ CONTAINS
     
     ! compute pressure first
     DO jk=1, n_zlev
-      z_p(jk) = patch_3d%p_patch_1d(1)%zlev_m(jk)*rho_ref*sitodbar
+      ! Note: this is not acurate since the top height canges,
+      !       but the difference in the density is small
+      z_p(jk) = patch_3d%p_patch_1d(1)%zlev_m(jk) * rho_ref * sitodbar
     END DO
     !  tracer 1: potential temperature
     !  tracer 2: salinity
@@ -829,6 +835,9 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
       
     ENDIF
+
+    CALL dbg_print('calc_density_mpiom: rho', rho , "" ,5, patch_2D%cells%in_domain)
+
   END SUBROUTINE calc_density_mpiom
   !-------------------------------------------------------------------------
 

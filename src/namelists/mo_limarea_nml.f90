@@ -44,11 +44,10 @@ MODULE mo_limarea_nml
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: is_restart_run
-  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist     , &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_limarea_config,      ONLY: latbc_config
-  USE mo_util_string,         ONLY: MAX_STRING_LEN
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -64,7 +63,7 @@ MODULE mo_limarea_nml
   REAL(wp)                        :: dtime_latbc    ! dt between two consequtive external latbc files
   INTEGER                         :: nlev_latbc     ! number of vertical levels in boundary data
   CHARACTER(LEN=filename_max)     :: latbc_filename ! prefix of latbc files
-  CHARACTER(LEN=MAX_STRING_LEN)   :: latbc_path     ! directory containing external latbc files
+  CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path     ! directory containing external latbc files
 
   NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, latbc_path
 

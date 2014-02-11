@@ -1068,28 +1068,26 @@ jnlayer(:,:,:)=0
 !-------------------------------------------------------------------------
 !
   !>
-  !! Initialization of topograpphy 
+  !! Initialization of topography 
   !!
   !! @par Revision History
   !!
   !!
 
-  SUBROUTINE init_nh_topo_ana( ptr_patch, lplane, topo_c, topo_v, nblks_c, npromz_c,      &
-                             &  nblks_v, npromz_v)
+  SUBROUTINE init_nh_topo_ana( ptr_patch, lplane, topo_c, nblks_c, npromz_c)
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
 
-    INTEGER,  INTENT (IN) ::  nblks_c, nblks_v, npromz_c, npromz_v
+    INTEGER,  INTENT (IN) ::  nblks_c, npromz_c
     LOGICAL,  INTENT(IN)  :: lplane
     REAL(wp), INTENT(INOUT) :: topo_c    (nproma,nblks_c)
-    REAL(wp), INTENT(INOUT) :: topo_v    (nproma,nblks_v)
 
     ! local variables
 
     REAL(wp)       :: z_lon, z_lat, z_lonc, z_latc
     REAL(wp)       :: z_dx, z_dy, z_deltay
-    INTEGER        :: jc, jv, jb, nlen
+    INTEGER        :: jc, jb, nlen
 !--------------------------------------------------------------------
 
     z_lonc = mount_lonc_deg*deg2rad
@@ -1140,54 +1138,7 @@ jnlayer(:,:,:)=0
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-      !CALL sync_patch_array(SYNC_C, ptr_patch,topo_c )
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jv,z_lat,z_lon,z_dx,z_dy,z_deltay ) 
-      DO jb = 1, nblks_v
-        IF (jb /=  nblks_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          IF ( itopo==0 ) THEN
 
-           z_lat   = ptr_patch%verts%vertex(jv,jb)%lat
-           z_lon   = ptr_patch%verts%vertex(jv,jb)%lon
-           CALL xy_distances(z_lon, z_lat, z_lonc, z_latc, &
-              & 0.0_wp, 0.0_wp, z_dx, z_dy, grid_sphere_radius, lplane)
-
-           SELECT CASE (itype_topo_ana)
-           CASE (1)  !schaer mountain
-
-            topo_v(jv,jb) = schaer_h0 * EXP (-(z_dx/schaer_a)**2)* &
-                                    ( COS(pi*z_dx/schaer_lambda)**2)
-            IF (ABS(z_dy) >= halfwidth_2dm ) THEN
-             z_deltay=ABS(z_dy)-halfwidth_2dm
-             topo_v(jv,jb) = topo_v(jv,jb)*EXP(-(z_deltay/schaer_a)**2)
-            END IF
-           CASE (2)  !gaussian_2d
-
-            topo_v(jv,jb) = m_height * EXP (-LOG(2.0_wp)*(z_dx/m_width_x)**2)
-            IF (ABS(z_dy) >= halfwidth_2dm ) THEN
-             z_deltay=ABS(z_dy)-halfwidth_2dm
-             topo_v(jv,jb) = m_height * EXP (-LOG(2.0_wp)*(z_dx**2+z_deltay**2)/m_width_x**2)
-            END IF
-           CASE (3)  !gaussian_3d
-
-            topo_v(jv,jb) = m_height * EXP (-LOG(2.0_wp)*          &
-                                            ((z_dx/m_width_x)**2+ (z_dy/m_width_y)**2))
-
-           CASE DEFAULT
-             topo_v(jv,jb) =0._wp
-           END SELECT
-
-          END IF
-        ENDDO
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-      !CALL sync_patch_array(SYNC_V, ptr_patch,topo_v )
   END SUBROUTINE init_nh_topo_ana
 !-------------------------------------------------------------------------
 !-------------------------------------------------------------------------

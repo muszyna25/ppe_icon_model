@@ -45,7 +45,7 @@ case $OPT in
       ;;
  r  ) REFERENCE=$OPTARG
       echo "REFERENCE=$REFERENCE"
-      if [ $MODE=='update' -o $MODE=='ur' -o $MODE=='un' -o $MODE=='urn' ]; then
+      if [ $MODE == 'update' -o $MODE == 'ur' -o $MODE == 'un' -o $MODE == 'urn' ]; then
         if [ ! -d ${OPTARG}/run ]; then
 	   echo 'you asked for an update test, but no reference model found'
 	   echo "reference model ''${REFERENCE}'' does not exist"
@@ -57,7 +57,7 @@ case $OPT in
 esac
 done
 echo 'test mode is '$MODE
-if [ $MODE=='update' -o $MODE=='ur' -o $MODE=='un' -o $MODE=='urn' ]; then
+if [ $MODE == 'update' -o $MODE == 'ur' -o $MODE == 'un' -o $MODE == 'urn' ]; then
   if [ ! -n ${REFERENCE} ]; then
      echo 'no reference model was specified, use -r option to specify one'
      exit 1
@@ -84,7 +84,7 @@ else
 echo "no model ${MODEL_DIR} found"
 exit
 fi
-${MODEL_DIR}/make_runscripts
+${MODEL_DIR}/make_runscripts 1> exp.mtest_icon_amip$$.sh 2> exp.mtest_icon_amip$$.sh
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
@@ -98,7 +98,10 @@ fi
 RUN_SCRIPT=exp.${EXP1}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
-${SCRIPT_DIR}/${RUN_SCRIPT}
+echo 'Performing base run'
+${SCRIPT_DIR}/${RUN_SCRIPT} 1>> exp.mtest_icon_amip$$.sh 2>> exp.mtest_icon_amip$$.sh
+else
+echo 'Found base run'
 fi # OVERWRITE
 #################### perfrom update test              ####################
 if [ ${MODE} == 'update' -o ${MODE} == 'ur' -o ${MODE} == 'un' -o ${MODE} == 'urn' ]; then
@@ -117,9 +120,12 @@ fi
 RUN_SCRIPT=exp.${EXP1}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
-${REFERENCE}/run/${RUN_SCRIPT}
+echo 'performing update test (run reference model)'
+${REFERENCE}/run/${RUN_SCRIPT} 1>> exp.mtest_icon_amip$$.sh 2>> exp.mtest_icon_amip$$.sh
+else
+echo 'found run of reference model (update test)'
 fi # OVERWRITE
-${SCRIPT_DIR}/diff_amip_test.sh $MODEL_DIR $EXP1 $REFERENCE $EXP1
+${SCRIPT_DIR}/diff_amip_test.sh $MODEL_DIR $EXP1 $REFERENCE $EXP1 "update"
 STATUS=$?
 if [ $STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -141,10 +147,13 @@ RUN_SCRIPT=exp.${EXP2}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP2}/g ${RUN_SCRIPT}
-${SCRIPT_DIR}/${RUN_SCRIPT}
+echo 'performing restart test (running restart)'
+${SCRIPT_DIR}/${RUN_SCRIPT} 1>> exp.mtest_icon_amip$$.sh 2>> exp.mtest_icon_amip$$.sh
+else
+echo 'found restart run (restart test)'
 fi # OVERWRITE
 # compare restart with base run
-$SCRIPT_DIR/diff_amip_test.sh $MODEL_DIR $EXP1 $MODEL_DIR $EXP2
+$SCRIPT_DIR/diff_amip_test.sh $MODEL_DIR $EXP1 $MODEL_DIR $EXP2 "restart"
 STATUS=$?
 if [ $STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -162,10 +171,13 @@ cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
 sed -i s/nproma=64/nproma=17/g ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP3}/g ${RUN_SCRIPT}
-${SCRIPT_DIR}/${RUN_SCRIPT}
+echo 'performing nproma test (running with nproma=17)'
+${SCRIPT_DIR}/${RUN_SCRIPT} 1>> exp.mtest_icon_amip$$.sh 2>> exp.mtest_icon_amip$$.sh
+else
+echo 'found run with nproma=17 (nproma test)'
 fi # OVERWRITE
 # compare nproma run with restarted run
-$SCRIPT_DIR/diff_amip_test.sh $MODEL_DIR $EXP2 $MODEL_DIR $EXP3
+$SCRIPT_DIR/diff_amip_test.sh $MODEL_DIR $EXP2 $MODEL_DIR $EXP3 "nproma"
 STATUS=$?
 if [ $STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -175,9 +187,9 @@ fi
 fi # MODE
 ########################################################################
 if [ $EXIT_STATUS -eq 0 ]; then
-echo "test mode ${MODE}: amip model passed all corresponding tests"
+echo -e "\033[32mtest mode ${MODE}: amip model passed all corresponding tests\033[00m"
 else
-echo "test mode ${MODE}: amip model did NOT pass the corresponding tests"
-echo 'number of tests that failed: '$EXIT_STATUS
+echo -e "\033[31mtest mode ${MODE}: amip model did NOT pass the corresponding tests\033[00m"
+echo -e "\033[31mnumber of tests that FAILED: $EXIT_STATUS\033[00m"
 fi
 exit $EXIT_STATUS

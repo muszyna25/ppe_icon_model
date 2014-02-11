@@ -27,7 +27,6 @@ MODULE mo_name_list_output_gridinfo
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_util_string,                       ONLY: MAX_STRING_LEN
   USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
 
   USE mo_name_list_output_types,            ONLY: t_patch_info, t_grid_info, t_output_file, &

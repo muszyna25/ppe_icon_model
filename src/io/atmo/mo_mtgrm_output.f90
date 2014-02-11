@@ -175,8 +175,8 @@ MODULE mo_meteogram_output
   IMPLICIT NONE
   
   PRIVATE
-  CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: modname  = 'mo_meteogram_output'
-  INTEGER,          PARAMETER :: dbg_level   = 0
+  CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: modname       = 'mo_meteogram_output'
+  INTEGER,                        PARAMETER :: dbg_level     = 0
 
   INCLUDE 'netcdf.inc'
 
@@ -198,7 +198,7 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: MAX_HEADER_SIZE      =  128  !< *p_real_dp_byte
 
   INTEGER, PARAMETER :: TAG_VARLIST          =   99  !< MPI tag for communication of variable info
-
+  INTEGER, PARAMETER :: TAG_MTGRM_MSG        = 77777 !< MPI tag (base) for communication of meteogram data
   ! flags for communication of variable info
   INTEGER, PARAMETER :: FLAG_VARLIST_ATMO    =    0
   INTEGER, PARAMETER :: FLAG_VARLIST_SFC     =    1
@@ -1332,7 +1332,8 @@ CONTAINS
       ! launch MPI message requests for station data on foreign PEs
       DO istation=1,meteogram_global_data(jg)%nstations
         IF (.NOT. l_owner(istation)) THEN
-          CALL p_irecv_packed(msg_buffer(:,istation), MPI_ANY_SOURCE, istation, max_buf_size)
+          CALL p_irecv_packed(msg_buffer(:,istation), MPI_ANY_SOURCE, &
+            &                 TAG_MTGRM_MSG + istation, max_buf_size)
         END IF
       END DO
 
@@ -1488,7 +1489,7 @@ CONTAINS
           ! (blocking) send of packed station data to IO PE:
           istation = nproma*(p_station%station_idx(2) - 1) + p_station%station_idx(1)
           CALL p_send_packed(msg_buffer(:,1), process_mpi_all_collector_id, &
-            &                istation, position)
+            &                TAG_MTGRM_MSG + istation, position)
           IF (dbg_level > 0) &
             WRITE (*,*) "Sending ", icurrent, " time slices, station ", istation
         END DO

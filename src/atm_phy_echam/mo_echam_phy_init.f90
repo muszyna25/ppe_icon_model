@@ -341,7 +341,7 @@ CONTAINS
       ! overwrite defined static TSI, SSI by time varying once
       CALL read_ssi_bc(current_date%year)
       CALL ssi_time_weights(current_date)
-      CALL ssi_time_interpolation(tsi, ssi)
+!      CALL ssi_time_interpolation(tsi, ssi)
       CALL read_amip_bc(current_date%year, p_patch(1))
       CALL amip_time_weights(current_date)
       DO jg= 1,ndomain

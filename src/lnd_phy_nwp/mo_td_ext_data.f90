@@ -58,8 +58,6 @@ MODULE mo_td_ext_data
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rlcell_int
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_util_string,         ONLY: MAX_STRING_LEN, t_keyword_list,   &
-                                 &  associate_keyword, with_keywords
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: p_test_run

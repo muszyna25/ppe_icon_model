@@ -205,6 +205,10 @@ USE mo_physical_constants , ONLY :   &
 
 ! end of mo_physical_constants
 
+USE mo_atm_phy_nwp_config, ONLY :   &
+    tune_gkwake, &    ! low level wake drag constant
+    tune_gkdrag       ! gw drag constant
+
 #endif
 
 !==============================================================================
@@ -232,8 +236,8 @@ REAL (KIND = ireals) ::      &
 ! ------------------
 ! Gsigcr  = 0.80_ireals   , &   ! top layer for low level drag
 ! Gkdrag  = 0.30          , &   ! gw drag constant (Original ECMWF value)
-  Gkdrag  = 0.125_ireals  , &   ! gw drag constant
-  Gkwake  = 1.00_ireals   , &   ! low level wake drag constant
+  Gkdrag  = tune_gkdrag   , &   ! gw drag constant (set in atm_phy_nwp_config)
+  Gkwake  = tune_gkwake   , &   ! low level wake drag constant (set in atm_phy_nwp_config)
 ! Gkdrag  = Gkdrag_read   , &   ! Gkdrag_read read in or set in gme_tuning_constants
 ! Gkwake  = Gkwake_read   , &   ! Gkwake_read read in or set in gme_tuning_constants
   Grcrit  = 0.25_ireals   , &   ! critical Richardson number
