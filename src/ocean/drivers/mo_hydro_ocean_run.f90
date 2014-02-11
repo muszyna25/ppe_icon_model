@@ -68,7 +68,7 @@ MODULE mo_hydro_ocean_run
  USE mo_oce_state,              ONLY: destruct_hydro_ocean_state,            &
     & ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
-  USE mo_oce_math_operators,     ONLY: calc_thickness
+  USE mo_oce_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
@@ -283,7 +283,7 @@ CONTAINS
 !          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
 !          ENDIF
 
-        !CALL calc_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
+        !CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
         !CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
         CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
           & p_phys_param,p_sfc_flx,&
@@ -374,7 +374,7 @@ CONTAINS
         
           IF(.NOT.l_staggered_timestep)THEN
           
-            CALL calc_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
+            CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients)
           
           !  CALL set_lateral_boundary_values( patch_3d, ocean_state(jg)%p_prog(nold(1))%vn)
           !  CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(jg), ocean_state(jg)%p_prog(nold(1))%vn)

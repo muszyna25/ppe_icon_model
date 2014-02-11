@@ -76,7 +76,7 @@ MODULE mo_oce_ab_timestepping_mimetic
     & map_edges2edges_viacell_3d_const_z
   !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
-    & grad_fd_norm_oce_2d_3d, calc_thickness
+    & grad_fd_norm_oce_2d_3d, calculate_thickness
   USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_oce_diffusion,             ONLY: velocity_diffusion,&
@@ -1509,7 +1509,7 @@ CONTAINS
     ! Update of scalar product quantities
     IF(l_staggered_timestep)THEN
       !CALL height_related_quantities(patch_3d, ocean_state, p_ext_data)
-      CALL calc_thickness(patch_3d, ocean_state, p_ext_data)
+      CALL calculate_thickness(patch_3d, ocean_state, p_ext_data, op_coeffs)
       !   CALL calc_scalar_product_veloc_3D( patch,                &
       !                                    & ocean_state%p_prog(nnew(1))%vn,&
       !                                    & ocean_state%p_prog(nnew(1))%vn,&
