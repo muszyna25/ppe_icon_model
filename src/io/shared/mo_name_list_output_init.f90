@@ -2548,6 +2548,18 @@ CONTAINS
 
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
 
+!!$        ! GRIB2 Quick hack: Set additional GRIB2 keys
+!!$        CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
+!!$          &                            get_var_tileidx(TRIM(info%name)) )
+
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        !!!          ATTENTION                    !!!
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        ! Note that re-setting of the surface types must come AFTER (re)setting
+        ! "productDefinitionTemplateNumber" in set_additional_GRIB2_keys. It was observed 
+        ! (i.e. for Ensemble output), that the surface-type information is lost again, if 
+        ! these settings are performed prior to "productDefinitionTemplateNumber"  
+
         ! Re-Set "typeOfSecondFixedSurface" for the following set of variables
         !
         ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", xxx), 0);
@@ -2586,13 +2598,14 @@ CONTAINS
           CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0)
         ENDIF
 
+
+        ! GRIB2 Quick hack: Set additional GRIB2 keys
+        CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
+          &                            get_var_tileidx(TRIM(info%name)) )
+
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
-
-      ! GRIB2 Quick hack: Set additional GRIB2 keys
-      CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
-        &                            get_var_tileidx(TRIM(info%name)) )
 
     ENDDO
     !

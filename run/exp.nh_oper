@@ -110,7 +110,6 @@ for gridfile in ${atmo_rad_grids}; do
 done
 
 
-pl_varlist="'u','v','temp','geopot'"
 
 # ------------------------
 
@@ -176,27 +175,27 @@ cat > ${atmo_namelist} << EOF
  rat_sea = 9.0
 /
 &lnd_nml
- ntiles      = 3      !!! 1 for assimilation cycle and forecast
- nlev_snow   = 2      !!! 1 for assimilation cycle and forecast
- lmulti_snow = .true. !!! .false. for assimilation cycle and forecast
+ ntiles         = 3      !!! 1 for assimilation cycle and forecast
+ nlev_snow      = 2      !!! 1 for assimilation cycle and forecast
+ lmulti_snow    = .true. !!! .false. for assimilation cycle and forecast
  itype_heatcond = 1
  idiag_snowfrac = 4
- lsnowtile = .false.
- lseaice   = .true.
- llake     = .false.  !!! optional: .true. for assimilation cycle
- itype_lndtbl = 2
- itype_root = 2
+ lsnowtile      = .false.
+ lseaice        = .true.
+ llake          = .true.
+ itype_lndtbl   = 2
+ itype_root     = 2
 /
 &radiation_nml
- irad_o3 = 7
- irad_aero = 6
- albedo_type = 2 ! Modis albedo
- vmr_co2    = 390.e-06 ! values representative for 2012
- vmr_ch4    = 1800.e-09
- vmr_n2o    = 322.0e-09
- vmr_o2     = 0.20946
- vmr_cfc11  = 240.e-12
- vmr_cfc12  = 532.e-12
+ irad_o3       = 7
+ irad_aero     = 6
+ albedo_type   = 2 ! Modis albedo
+ vmr_co2       = 390.e-06 ! values representative for 2012
+ vmr_ch4       = 1800.e-09
+ vmr_n2o       = 322.0e-09
+ vmr_o2        = 0.20946
+ vmr_cfc11     = 240.e-12
+ vmr_cfc12     = 532.e-12
 /
 &nonhydrostatic_nml
  iadv_rhotheta  = 2
@@ -360,7 +359,7 @@ cat > ${atmo_namelist} << EOF
  include_last                 =  .TRUE.
  output_filename              = '${EXP}'                ! file name base
  ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'tqv','tqc','tqi','shfl_s','lhfl_s','qhfl_s','cape', 'group:precip_vars', 'group:land_vars', 'group:multisnow_vars', 'group:rad_vars'
- pl_varlist                   = ${pl_varlist}
+ pl_varlist                   = 'u','v','temp','geopot'
  output_grid                  =  .TRUE.
 /
 &meteogram_output_nml

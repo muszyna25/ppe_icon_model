@@ -162,7 +162,7 @@ CONTAINS
           ENDIF
 
 ! checks whether the specified velocity field is non-divergent
-!Test          p_nh_prog%tracer(jc,jk,jb,2) = 1._wp
+!Test         p_nh_prog%tracer(jc,jk,jb,2) = 1._wp
 
 
           ! temperature is constant
