@@ -111,7 +111,6 @@ MODULE mo_echam_phy_init
   ! for AMIP boundary conditions
   USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
   USE mo_greenhouse_gases,     ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
-  USE mo_solar_irradiance,     ONLY: read_ssi_bc, ssi_time_weights, ssi_time_interpolation
 
   IMPLICIT NONE
 
@@ -338,10 +337,6 @@ CONTAINS
         IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
         CALL ghg_time_interpolation(current_date)
       ENDIF
-      ! overwrite defined static TSI, SSI by time varying once
-      CALL read_ssi_bc(current_date%year)
-      CALL ssi_time_weights(current_date)
-!      CALL ssi_time_interpolation(tsi, ssi)
       CALL read_amip_bc(current_date%year, p_patch(1))
       CALL amip_time_weights(current_date)
       DO jg= 1,ndomain
