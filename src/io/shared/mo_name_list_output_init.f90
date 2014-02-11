@@ -1583,7 +1583,7 @@ CONTAINS
     DO i = 1, n_points_g
       IF(reorder_index_log_dom(i)>0) THEN
         n = n+1
-        p_ri%reorder_index(n) = reorder_index_log_dom(i)
+        p_ri%reorder_index(reorder_index_log_dom(i)) = n
       ENDIF
     ENDDO
 
@@ -1699,7 +1699,7 @@ CONTAINS
     ioffset = patch_info_ll%ri%pe_off(this_pe)
     patch_info_ll%ri%reorder_index = -1
     DO i=1,intp%nthis_local_pts
-      patch_info_ll%ri%reorder_index(intp%global_idx(i)) = ioffset + i
+      patch_info_ll%ri%reorder_index(ioffset + i) = intp%global_idx(i)
     END DO
     ! merge all fields across working PEs:
     patch_info_ll%ri%reorder_index = p_max(patch_info_ll%ri%reorder_index, &

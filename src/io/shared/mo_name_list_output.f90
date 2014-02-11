@@ -1068,11 +1068,12 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::io_proc_write_name_list"
 
     INTEGER                        :: nval, nlev_max, iv, jk, nlevs, mpierr, nv_off, np, i_dom, &
-      &                               lonlat_id, i_log_dom, ierrstat
+      &                               lonlat_id, i_log_dom, ierrstat,                           &
+      &                               dst_start, dst_end, src_start, src_end
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER                        :: voff(0:num_work_procs-1), nv_off_np(0:num_work_procs)
-    REAL(sp), ALLOCATABLE          :: var1_sp(:), var2_sp(:), var3_sp(:)
-    REAL(dp), ALLOCATABLE          :: var1_dp(:), var2_dp(:), var3_dp(:)
+    REAL(sp), ALLOCATABLE          :: var1_sp(:), var3_sp(:)
+    REAL(dp), ALLOCATABLE          :: var1_dp(:), var3_dp(:)
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info) , POINTER :: p_ri
     LOGICAL                        :: have_GRIB
@@ -1126,9 +1127,9 @@ CONTAINS
     ENDDO
 
     IF (use_dp_mpi2io) THEN
-      ALLOCATE(var1_dp(nval*nlev_max), var2_dp(-1:nval), STAT=ierrstat)
+      ALLOCATE(var1_dp(nval*nlev_max), STAT=ierrstat)
     ELSE
-      ALLOCATE(var1_sp(nval*nlev_max), var2_sp(-1:nval), STAT=ierrstat)
+      ALLOCATE(var1_sp(nval*nlev_max), STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -1231,39 +1232,48 @@ CONTAINS
 
         IF (use_dp_mpi2io) THEN
 
-          var2_dp(-1) = 0._dp ! special value for lon-lat areas overlapping local patches
 !$OMP PARALLEL
-!$OMP DO
+!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
           DO np = 0, num_work_procs-1
-            var2_dp(nv_off_np(np)+1:nv_off_np(np+1)) = var1_dp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-            voff(np) = voff(np)+p_ri%pe_own(np)
+            dst_start = nv_off_np(np)+1
+            dst_end   = nv_off_np(np+1)
+            src_start = voff(np)+1
+            src_end   = voff(np)+p_ri%pe_own(np)
+            voff(np)  = src_end
+            var3_dp(p_ri%reorder_index(dst_start:dst_end)) = var1_dp(src_start:src_end)
           ENDDO
 !$OMP END DO
-!$OMP WORKSHARE
-          var3_dp(1:p_ri%n_glb) = var2_dp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
 !$OMP END PARALLEL
         ELSE
 
-          var2_sp(-1) = 0._sp ! special value for lon-lat areas overlapping local patches
-!$OMP PARALLEL
-!$OMP DO
-          DO np = 0, num_work_procs-1
-            var2_sp(nv_off_np(np)+1:nv_off_np(np+1)) = var1_sp(voff(np)+1:voff(np)+p_ri%pe_own(np))
-            voff(np) = voff(np)+p_ri%pe_own(np)
-          ENDDO
-!$OMP END DO
           IF (have_GRIB) THEN
             ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
-!$OMP WORKSHARE
-            var3_dp(1:p_ri%n_glb) = REAL( var2_sp(p_ri%reorder_index(1:p_ri%n_glb)), dp)
-!$OMP END WORKSHARE
-          ELSE
-!$OMP WORKSHARE
-            var3_sp(1:p_ri%n_glb) = var2_sp(p_ri%reorder_index(1:p_ri%n_glb))
-!$OMP END WORKSHARE
-          END IF
+!$OMP PARALLEL
+!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
+            DO np = 0, num_work_procs-1
+              dst_start = nv_off_np(np)+1
+              dst_end   = nv_off_np(np+1)
+              src_start = voff(np)+1
+              src_end   = voff(np)+p_ri%pe_own(np)
+              voff(np)  = src_end
+              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = REAL(var1_sp(src_start:src_end), dp)
+            ENDDO
+!$OMP END DO
 !$OMP END PARALLEL
+          ELSE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
+            DO np = 0, num_work_procs-1
+              dst_start = nv_off_np(np)+1
+              dst_end   = nv_off_np(np+1)
+              src_start = voff(np)+1
+              src_end   = voff(np)+p_ri%pe_own(np)
+              voff(np)  = src_end
+              var3_sp(p_ri%reorder_index(dst_start:dst_end)) = var1_sp(src_start:src_end)
+            ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+          END IF
         ENDIF
         t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
         ! Write calls (via CDIs) of the asynchronous I/O PEs:
@@ -1287,9 +1297,9 @@ CONTAINS
     ENDDO ! Loop over output variables
 
     IF (use_dp_mpi2io) THEN
-      DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
+      DEALLOCATE(var1_dp, STAT=ierrstat)
     ELSE
-      DEALLOCATE(var1_sp, var2_sp, STAT=ierrstat)
+      DEALLOCATE(var1_sp, STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
