@@ -363,6 +363,11 @@ CONTAINS
       WRITE (forecast_delta_str,'(4(i2.2))') forecast_delta%day, forecast_delta%hour, &
         &                                    forecast_delta%minute, forecast_delta%second 
       CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
+      forecast_delta_str = ""
+      WRITE (forecast_delta_str,'(i3.3,2(i2.2))') forecast_delta%day*24 + forecast_delta%hour, &
+        &                                         forecast_delta%minute, forecast_delta%second 
+      CALL associate_keyword("<hhhmmss>",        TRIM(forecast_delta_str),                                 keywords)
+
       ! keywords: compose other variants of the absolute date-time
       !
       ! "YYYYMMDDThhmmssZ"     for the basic format of ISO8601 without the
