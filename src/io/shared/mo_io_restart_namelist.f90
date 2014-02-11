@@ -10,6 +10,7 @@ MODULE mo_io_restart_namelist
   USE mo_util_string, ONLY: tocompact
   USE mo_io_units,    ONLY: find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
+  USE mo_mpi,         ONLY: p_bcast
   USE mo_cdi_constants
   !
   IMPLICIT NONE
@@ -20,7 +21,7 @@ MODULE mo_io_restart_namelist
   PUBLIC :: store_and_close_namelist
   PUBLIC :: open_and_restore_namelist
   PUBLIC :: close_tmpfile
-  PUBLIC :: read_restart_namelists
+  PUBLIC :: read_and_bcast_restart_namelists
   PUBLIC :: get_restart_namelist
   PUBLIC :: delete_restart_namelists
   PUBLIC :: nmls
@@ -290,34 +291,42 @@ CONTAINS
     !
   END SUBROUTINE close_tmpfile
   !
-  SUBROUTINE read_restart_namelists(filename)
-    CHARACTER(len=*), INTENT(in) :: filename
-    INTEGER :: fileID, vlistID
-    CHARACTER(len=64) :: att_name
-    INTEGER :: natts, att_type, att_len
-    INTEGER :: nmllen
+  SUBROUTINE read_and_bcast_restart_namelists(vlistID, lread_pe, root_pe, comm)
+    INTEGER, INTENT(IN) :: vlistID      !< CDI vlist ID
+    LOGICAL, INTENT(IN) :: lread_pe     !< .TRUE., if current PE has opened the file for reading
+    INTEGER, INTENT(IN) :: root_pe      !< rank of broadcast root PE
+    INTEGER, INTENT(IN) :: comm         !< MPI communicator
+
+    ! local variables
+    INTEGER             :: natts, att_type, att_len, nmllen, &
+      &                    i, status
+    CHARACTER(len=64)   :: att_name
 #ifdef HAVE_F2003
     CHARACTER(len=:), ALLOCATABLE :: nmlbuf
 #else
     CHARACTER(len=nmllen_max) :: nmlbuf
 #endif
-    INTEGER :: i, status
-    !
+
     IF (.NOT. ALLOCATED(restart_namelist)) THEN
       ALLOCATE(restart_namelist(nmax_nmls))
     ENDIF
     nmls = 0
     !
-    fileID  = streamOpenRead(TRIM(filename))
-    vlistID = streamInqVlist(fileID)
-    !
-    status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+    IF (lread_pe) THEN
+      status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+    END IF
+    CALL p_bcast(natts, root_pe, comm)
     !
     DO i = 0, natts-1
       att_name = ''
-      att_len = 0
-      status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+      att_len  = 0
+      IF (lread_pe) THEN
+        status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+      END IF
+      CALL p_bcast(att_name, root_pe, comm)
       IF ( att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist 
+
+      CALL p_bcast(att_len, root_pe, comm)
       nmllen = att_len
 #ifdef HAVE_F2003
       ALLOCATE(CHARACTER(len=nmllen) :: nmlbuf)
@@ -330,7 +339,10 @@ CONTAINS
              &      ' is too long, reload from restart file fails.')
       ENDIF
 #endif
-      status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), nmllen, nmlbuf)
+      IF (lread_pe) THEN
+        status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), nmllen, nmlbuf)
+      END IF
+      CALL p_bcast(nmlbuf, root_pe, comm)
       !
       nmls = nmls+1
       IF (nmls > nmax_nmls) THEN
@@ -349,8 +361,7 @@ CONTAINS
       DEALLOCATE(nmlbuf)
 #endif
     ENDDO
-    CALL streamClose(fileID)
     !
-  END SUBROUTINE read_restart_namelists
+  END SUBROUTINE read_and_bcast_restart_namelists
 
 END MODULE mo_io_restart_namelist

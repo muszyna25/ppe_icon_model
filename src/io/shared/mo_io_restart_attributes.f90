@@ -2,6 +2,7 @@ MODULE mo_io_restart_attributes
   !
   USE mo_kind,                  ONLY: wp, i8
   USE mo_exception,             ONLY: finish
+  USE mo_mpi,                   ONLY: p_bcast
   USE mo_cdi_constants
   !
   IMPLICIT NONE
@@ -10,8 +11,7 @@ MODULE mo_io_restart_attributes
   !
   PUBLIC :: set_restart_attribute
   PUBLIC :: get_restart_attribute
-  PUBLIC :: read_restart_attributes
-  PUBLIC :: read_attributes
+  PUBLIC :: read_and_bcast_attributes
   PUBLIC :: delete_attributes
   !
   PUBLIC :: restart_attributes_count_text
@@ -163,7 +163,7 @@ CONTAINS
     INTEGER :: i
     DO i = 1, natts_int
       IF (TRIM(attribute_name) == TRIM(restart_attributes_int(i)%name)) THEN
-        attribute_value = restart_attributes_int(i)%val
+        attribute_value = INT(restart_attributes_int(i)%val, i8)
         RETURN
       ENDIF
     ENDDO
@@ -259,7 +259,7 @@ CONTAINS
       CALL finish('set_restart_attribute_int','too many restart attributes for restart file')
     ELSE
       restart_attributes_int(natts_int)%name = attribute_name
-      restart_attributes_int(natts_int)%val = attribute_value
+      restart_attributes_int(natts_int)%val  = INT(attribute_value)
     ENDIF    
   END SUBROUTINE set_restart_attribute_int8
   !
@@ -285,29 +285,14 @@ CONTAINS
   END SUBROUTINE set_restart_attribute_bool
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE read_restart_attributes(filename)
-    CHARACTER(len=*), INTENT(in) :: filename
-    INTEGER :: fileID, vlistID
-    !
-    fileID = streamOpenRead(TRIM(filename))
-    vlistID = streamInqVlist(fileID)
-    !
-    CALL read_attributes(vlistID)
-    !
-    CALL streamClose(fileID)
-    !
-  END SUBROUTINE read_restart_attributes
-  !
-  SUBROUTINE read_attributes(vlistID)
-    INTEGER, INTENT(in) :: vlistID
+  SUBROUTINE read_and_bcast_attributes(vlistID, lread_pe, root_pe, comm)
+    INTEGER, INTENT(IN) :: vlistID      !< CDI vlist ID
+    LOGICAL, INTENT(IN) :: lread_pe     !< .TRUE., if current PE has opened the file for reading
+    INTEGER, INTENT(IN) :: root_pe      !< rank of broadcast root PE
+    INTEGER, INTENT(IN) :: comm         !< MPI communicator
     !
     CHARACTER(len=64) :: att_name
-    INTEGER :: natts, att_type, att_len
-    INTEGER :: status, text_len, mlen
-    !
-    INTEGER :: i
-    !
-    status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+    INTEGER :: natts, att_type, att_len, status, text_len, mlen, i
     !
     IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
       ALLOCATE(restart_attributes_text(nmax_atts))
@@ -329,48 +314,69 @@ CONTAINS
       natts_bool = 0 
     ENDIF
     !
+    IF (lread_pe) THEN
+      status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+    END IF
+    CALL p_bcast(natts, root_pe, comm)
+    !
     DO i = 0, natts-1
-      status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+      IF (lread_pe) THEN
+        status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+      END IF
+      CALL p_bcast(att_name, root_pe, comm)
       IF ( att_name(1:4) == 'nml_') CYCLE ! skip this, it is a namelist 
 
+      CALL p_bcast(att_type, root_pe, comm)
       SELECT CASE(att_type)
       CASE(DATATYPE_FLT64)
         natts_real = natts_real+1
         IF (natts_real > SIZE(restart_attributes_real))  CALL finish("", "Too many restart arguments!")
         restart_attributes_real(natts_real)%name = TRIM(att_name)
-        mlen = 1
-        status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
-             &                   TRIM(att_name), mlen, restart_attributes_real(natts_real)%val)
+        IF (lread_pe) THEN
+          mlen   = 1
+          status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
+            &                      TRIM(att_name), mlen, restart_attributes_real(natts_real)%val)
+        END IF
+        CALL p_bcast(restart_attributes_real(natts_real)%val, root_pe, comm)
       CASE(DATATYPE_INT32)
         IF (att_name(1:5) == 'bool_') THEN
           natts_bool = natts_bool+1
           IF (natts_bool > SIZE(restart_attributes_bool))  CALL finish("", "Too many restart arguments!")
           restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
-          mlen = 1
-          status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-               &                   TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
+          IF (lread_pe) THEN
+            mlen   = 1
+            status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
+              &                      TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
+          END IF
+          CALL p_bcast(restart_attributes_bool(natts_bool)%store, root_pe, comm)
           restart_attributes_bool(natts_bool)%val = &
                (restart_attributes_bool(natts_bool)%store == 1)
         ELSE
           natts_int = natts_int+1
           IF (natts_int > SIZE(restart_attributes_int))  CALL finish("", "Too many restart arguments!")
           restart_attributes_int(natts_int)%name = TRIM(att_name)
-          mlen = 1
-          status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-               &                   TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
+          IF (lread_pe) THEN
+            mlen   = 1
+            status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
+              &                      TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
+          END IF
+          CALL p_bcast(restart_attributes_int(natts_int)%val, root_pe, comm)
         ENDIF
       CASE(DATATYPE_TXT)
         natts_text = natts_text+1
         IF (natts_text > SIZE(restart_attributes_text))  CALL finish("", "Too many restart arguments!")
         restart_attributes_text(natts_text)%name = TRIM(att_name)
-        text_len = att_len
-        restart_attributes_text(natts_text)%val = ''
-        status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
-             &                   TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
+        restart_attributes_text(natts_text)%val  = ''
+        IF (lread_pe) THEN
+          text_len = att_len
+          status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
+            &                   TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
+        END IF
+        CALL p_bcast(restart_attributes_text(natts_text)%val, root_pe, comm)
       END SELECT
     ENDDO
     !
-  END SUBROUTINE read_attributes
+  END SUBROUTINE read_and_bcast_attributes
   !
   SUBROUTINE delete_attributes
     IF (ALLOCATED(restart_attributes_text)) DEALLOCATE (restart_attributes_text)

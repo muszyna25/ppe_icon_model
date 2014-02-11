@@ -79,7 +79,7 @@
 MODULE mo_io_restart
   !
   USE mo_kind,                  ONLY: wp
-  USE mo_mpi,                   ONLY: p_barrier,p_comm_work
+  USE mo_mpi,                   ONLY: p_barrier,p_comm_work,p_bcast
   USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_var_metadata_types,    ONLY: t_var_metadata
@@ -93,14 +93,14 @@ MODULE mo_io_restart
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
   USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist,                       &
-    &                                 read_restart_namelists
+    &                                 read_and_bcast_restart_namelists
   USE mo_io_restart_attributes, ONLY: set_restart_attribute, get_restart_attribute, &
-    &                                 read_attributes, delete_attributes,           &
+    &                                 delete_attributes,                            &
     &                                 restart_attributes_count_text,                &
     &                                 restart_attributes_count_real,                &
     &                                 restart_attributes_count_int,                 &
     &                                 restart_attributes_count_bool,                &
-    &                                 read_restart_attributes
+    &                                 read_and_bcast_attributes
   USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
@@ -302,7 +302,10 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::read_restart_header"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
     LOGICAL :: lsuccess, lexists
-    INTEGER :: idom, total_dom
+    INTEGER :: idom, total_dom, fileID, vlistID, root_pe
+
+    ! rank of broadcast root PE
+    root_pe = 0
 
     ! First read the restart master file (ASCII format) to find out
     ! which NetCDF files the model should read.
@@ -335,7 +338,14 @@ CONTAINS
     !
     ! Note: We read the namelists only once and assume that these
     !       are identical for all domains.
-    CALL read_restart_namelists(TRIM(rst_filename))
+    !
+    IF (my_process_is_mpi_workroot()) THEN
+      fileID  = streamOpenRead(rst_filename)
+      vlistID = streamInqVlist(fileID)
+    END IF
+    CALL read_and_bcast_restart_namelists(vlistID, my_process_is_mpi_workroot(), &
+      &                                   root_pe, p_comm_work)
+    ! note: we don't close the restart file for domain 1 yet...
     CALL message(TRIM(routine), 'read namelists from restart file')
 
     total_dom = 1
@@ -344,7 +354,19 @@ CONTAINS
 
       ! Read all global attributs in the restart file and store them in a buffer.
 
-      CALL read_restart_attributes(rst_filename)
+      IF (my_process_is_mpi_workroot()) THEN
+        WRITE(0,*) "streamOpenRead ", TRIM(rst_filename)
+        ! note: we have opened the file for domain 1 already
+        IF (idom > 1) THEN
+          fileID  = streamOpenRead(rst_filename)
+          vlistID = streamInqVlist(fileID)
+        END IF
+      END IF
+      CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
+      IF (my_process_is_mpi_workroot()) THEN
+        CALL streamClose(fileID)
+      END IF
+
       CALL message(TRIM(routine), 'read global attributes from restart file')
 
       ! since we do not know about the total number of domains yet,
@@ -1851,16 +1873,10 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE read_restart_files(p_patch, opt_ndom)
-    !
 
     TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
     INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
-    !
-    CHARACTER(len=80) :: restart_filename, name
-    !
-    INTEGER :: fileID, vlistID, gridID, zaxisID, taxisID, varID
-    INTEGER :: idate, itime
-    INTEGER :: ic, il
+    ! local variables
     !
     TYPE model_search
       CHARACTER(len=8) :: abbreviation
@@ -1870,23 +1886,24 @@ CONTAINS
     !
     TYPE (t_list_element), POINTER :: element
     TYPE (t_var_metadata), POINTER :: info
-    !
-    CHARACTER(len=8) :: model_type
-    INTEGER :: n, nfiles, i, iret, istat, key, vgrid
-    INTEGER :: gdims(5), nindex, nmiss
-    !
-    REAL(wp), POINTER :: r5d(:,:,:,:,:)
-    !
-    REAL(wp), POINTER :: rptr2d(:,:)
-    REAL(wp), POINTER :: rptr3d(:,:,:)
-    !
-    INTEGER :: string_length  !, ncid
+    CHARACTER(len=80)              :: restart_filename, name
+    INTEGER                        :: fileID, vlistID, gridID, zaxisID, taxisID,    &
+      &                                varID, idate, itime, ic, il, n, nfiles, i,   &
+      &                                iret, istat, key, vgrid, gdims(5), nindex,   &
+      &                                nmiss, string_length, nvars, root_pe
+    CHARACTER(len=8)               :: model_type
+    REAL(wp), POINTER              :: r5d(:,:,:,:,:), rptr2d(:,:), rptr3d(:,:,:)
 
-    IF (my_process_is_mpi_workroot()) write(0,*) "read_restart_files, nvar_lists=", nvar_lists
-    abbreviations(1:nvar_lists)%key = 0
+    ! rank of broadcast root PE
+    root_pe = 0
+
+    IF (my_process_is_mpi_workroot()) THEN
+      WRITE(0,*) "read_restart_files, nvar_lists=", nvar_lists
+    END IF
+    abbreviations(1:nvar_lists)%key          = 0
     abbreviations(1:nvar_lists)%abbreviation = ""
     key = 0
-    n = 1
+    n   = 1
     for_all_model_types: DO i = 1, nvar_lists
       ! skip var_list if it does not match the current patch ID
       IF (var_lists(i)%p%patch_id /= p_patch%id) CYCLE
@@ -1915,128 +1932,140 @@ CONTAINS
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
         iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
-        write(0,*) "util_rename returned:", iret
+        WRITE(0,*) "util_rename returned:", iret
         iret = util_symlink(TRIM(restart_filename)//'.bak', TRIM(restart_filename))
-        write(0,*) "util_symlink:", iret
+        WRITE(0,*) "util_symlink:", iret
       ENDIF
       !
-      string_length=LEN_TRIM(restart_filename)
-      name = TRIM(restart_filename)//CHAR(0)
+      string_length = LEN_TRIM(restart_filename)
+      name          = TRIM(restart_filename)//CHAR(0)
 
-      IF (my_process_is_mpi_workroot()) write(0,*) "streamOpenRead ", TRIM(restart_filename)
+      IF (my_process_is_mpi_workroot()) THEN
+        WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)
 
-      fileID  = streamOpenRead(name)
-      vlistID = streamInqVlist(fileID)
+        fileID  = streamOpenRead(name)
+        vlistID = streamInqVlist(fileID)
+        taxisID = vlistInqTaxis(vlistID)
+        !
+        idate   = taxisInqVdate(taxisID)
+        itime   = taxisInqVtime(taxisID)
+        !
+        WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
+          'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
+      END IF
 
-      taxisID = vlistInqTaxis(vlistID)
-      !
-      idate = taxisInqVdate(taxisID)
-      itime = taxisInqVtime(taxisID)
-      !
-      WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
-           'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
       CALL message('read_restart_files',message_text)
       !
-      CALL read_attributes(vlistID)
+      IF (my_process_is_mpi_workroot()) THEN
+        nvars = vlistNvars(vlistID)
+      END IF
+      CALL p_bcast(nvars, root_pe, comm=p_comm_work)
+      CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
       !
-      for_all_vars: DO varID = 0, vlistNvars(vlistID)-1
+      for_all_vars: DO varID = 0, (nvars-1)
         !
-        CALL vlistInqVarName(vlistID, varID, name)
+        IF (my_process_is_mpi_workroot()) THEN
+          CALL vlistInqVarName(vlistID, varID, name)
+        END IF
+        CALL p_bcast(name, root_pe, comm=p_comm_work)
         !
         for_all_lists: DO i = 1, nvar_lists
           ! skip var_list if it does not match the current patch ID
-          IF (var_lists(i)%p%patch_id /= p_patch%id) CYCLE
+          IF (var_lists(i)%p%patch_id   /= p_patch%id) CYCLE
+          IF (var_lists(i)%p%model_type /= model_type) CYCLE
 
-          IF (var_lists(i)%p%model_type == model_type) THEN
-            element => find_list_element(var_lists(i), TRIM(name))
-            IF (ASSOCIATED(element)) THEN
-              IF (element%field%info%lrestart) THEN
-                !
-                info => element%field%info
-                !
-                ! allocate temporary global array on output processor
-                ! and gather field from other processors
-                !
-                !
-                NULLIFY(r5d)
-                !
-                NULLIFY(rptr2d)
-                NULLIFY(rptr3d)
-                !
-                gridID = vlistInqVarGrid(vlistID, varID)
-                ic = gridInqSize(gridID)
+          element => find_list_element(var_lists(i), TRIM(name))
+          IF (ASSOCIATED(element)) THEN
+            IF (element%field%info%lrestart) THEN
+              !
+              info => element%field%info
+              !
+              ! allocate temporary global array on output processor
+              ! and gather field from other processors
+              !
+              NULLIFY(r5d)
+              NULLIFY(rptr2d)
+              NULLIFY(rptr3d)
+              !
+              IF (my_process_is_mpi_workroot()) THEN
+                gridID  = vlistInqVarGrid(vlistID, varID)
+                ic      = gridInqSize(gridID)
                 zaxisID = vlistInqVarZaxis(vlistID, varID)
-                vgrid = zaxisInqType(zaxisID)
+                vgrid   = zaxisInqType(zaxisID)
                 IF (vgrid == ZAXIS_SURFACE) THEN
                   il = 1
                 ELSE
                   il = zaxisInqSize(zaxisID)
                 ENDIF
-                !
-                gdims(:) = (/ ic, il, 1, 1, 1 /)
-                !
-                IF (my_process_is_mpi_workroot()) THEN
-                  ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
-                  IF (istat /= 0) THEN
-                    CALL finish('','allocation of r5d failed ...')
-                  ENDIF
-                  CALL streamReadVar(fileID, varID, r5d, nmiss)
-                ELSE
-                  ALLOCATE(r5d(gdims(1),1,gdims(3),gdims(4),gdims(5)),STAT=istat)
+              END IF
+              CALL p_bcast(ic, root_pe, comm=p_comm_work)
+              CALL p_bcast(il, root_pe, comm=p_comm_work)
+              !
+              gdims(:) = (/ ic, il, 1, 1, 1 /)
+              !
+              IF (my_process_is_mpi_workroot()) THEN
+                ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
+                IF (istat /= 0) THEN
+                  CALL finish('','allocation of r5d failed ...')
                 ENDIF
-                CALL p_barrier(comm=p_comm_work)
-                !
-                IF (info%lcontained) THEN
-                  nindex = info%ncontained
-                ELSE
-                  nindex = 1
-                ENDIF
-                !
-                SELECT CASE (info%hgrid)
-                CASE (GRID_UNSTRUCTURED_CELL)
-                  IF (info%ndims == 2) THEN
-                    rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                    CALL scatter_cells(r5d, rptr2d, p_patch=p_patch)
-                  ELSE
-                    rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                    CALL scatter_cells(r5d, rptr3d, p_patch=p_patch)
-                  ENDIF
-                CASE (GRID_UNSTRUCTURED_VERT)
-                  IF (info%ndims == 2) THEN
-                    rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                    CALL scatter_vertices(r5d, rptr2d, p_patch=p_patch)
-                  ELSE
-                    rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                    CALL scatter_vertices(r5d, rptr3d, p_patch=p_patch)
-                  ENDIF
-                CASE (GRID_UNSTRUCTURED_EDGE)
-                  IF (info%ndims == 2) THEN
-                    rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                    CALL scatter_edges(r5d, rptr2d, p_patch=p_patch)
-                  ELSE
-                    rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                    CALL scatter_edges(r5d, rptr3d, p_patch=p_patch)
-                  ENDIF
-                CASE default
-                  CALL finish('out_stream','unknown grid type')
-                END SELECT
-                !
-                ! deallocate temporary global arrays
-                !
-                IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
-                !
-                IF (my_process_is_mpi_workroot()) THEN
-                  write (0,*) ' ... read ',TRIM(element%field%info%name)
-                ENDIF
-                CYCLE for_all_vars
+                CALL streamReadVar(fileID, varID, r5d, nmiss)
+              ELSE
+                ALLOCATE(r5d(gdims(1),1,gdims(3),gdims(4),gdims(5)),STAT=istat)
               ENDIF
+              CALL p_barrier(comm=p_comm_work)
+              !
+              IF (info%lcontained) THEN
+                nindex = info%ncontained
+              ELSE
+                nindex = 1
+              ENDIF
+              !
+              SELECT CASE (info%hgrid)
+              CASE (GRID_UNSTRUCTURED_CELL)
+                IF (info%ndims == 2) THEN
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+                  CALL scatter_cells(r5d, rptr2d, p_patch=p_patch)
+                ELSE
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
+                  CALL scatter_cells(r5d, rptr3d, p_patch=p_patch)
+                ENDIF
+              CASE (GRID_UNSTRUCTURED_VERT)
+                IF (info%ndims == 2) THEN
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+                  CALL scatter_vertices(r5d, rptr2d, p_patch=p_patch)
+                ELSE
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
+                  CALL scatter_vertices(r5d, rptr3d, p_patch=p_patch)
+                ENDIF
+              CASE (GRID_UNSTRUCTURED_EDGE)
+                IF (info%ndims == 2) THEN
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+                  CALL scatter_edges(r5d, rptr2d, p_patch=p_patch)
+                ELSE
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
+                  CALL scatter_edges(r5d, rptr3d, p_patch=p_patch)
+                ENDIF
+              CASE default
+                CALL finish('out_stream','unknown grid type')
+              END SELECT
+              !
+              ! deallocate temporary global arrays
+              !
+              IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
+              !
+              IF (my_process_is_mpi_workroot()) THEN
+                WRITE (0,*) ' ... read ',TRIM(element%field%info%name)
+              ENDIF
+              CYCLE for_all_vars
             ENDIF
           ENDIF
         ENDDO for_all_lists
         CALL message('reading_restart_file','Variable '//TRIM(name)//' not defined.')
       ENDDO for_all_vars
       !
-      CALL streamClose(fileID)
+      IF (my_process_is_mpi_workroot()) THEN
+        CALL streamClose(fileID)
+      END IF
       !
     ENDDO for_all_files
     !

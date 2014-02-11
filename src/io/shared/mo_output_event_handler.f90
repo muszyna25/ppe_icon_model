@@ -147,7 +147,8 @@ MODULE mo_output_event_handler
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
     &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
-    &                                  my_process_is_mpi_test, p_pe
+    &                                  my_process_is_mpi_test, p_pe,                        &
+    &                                  my_process_is_mpi_workroot
   USE mo_fortran_tools,          ONLY: assign_if_present
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
@@ -2221,9 +2222,11 @@ CONTAINS
               ! otherwise: modify file name s.t. the new, resumed file
               ! is clearly distinguishable: We append "_<part>+"
               jpart_str = int2string(event_step_data%jpart)
-              WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
-                &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
-                &      " after restart."
+              IF (my_process_is_mpi_workroot()) THEN
+                WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
+                  &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
+                  &      " after restart."
+              END IF
               CALL modify_filename(event, trim(event_step_data%filename_string), &
                 &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
                 &       start_step=istep)
