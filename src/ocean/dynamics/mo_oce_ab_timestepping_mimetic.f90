@@ -196,37 +196,6 @@ CONTAINS
 
     ENDIF
 
-! !     !Update prism thickness. The prism-thickness below the surface is
-! !     !not updated it is initialized in construct_hydro_ocean_diag
-! !     !with z-coordinate-thickness.
-! !     !1) Thickness at cells
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !         IF(patch_3d%lsm_c(jc,1,jb) <= sea_boundary)THEN
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb) &
-! !             & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_c(jc,1,jb) +ocean_state%p_prog(nold(1))%h(jc,jb)
-! !         ELSE
-! !           !Surfacethickness over land remains zero
-! !           !ocean_state%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb)= 0.0_wp
-! !         ENDIF
-! !       END DO
-! !     END DO
-! !     !2) Thickness at edges
-! !     DO jb = all_edges%start_block, all_edges%end_block
-! !       CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
-! !       DO je = edge_start_idx, edge_end_idx
-! !         IF(patch_3d%lsm_e(je,1,jb) <= sea_boundary)THEN
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)&
-! !             & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +ocean_state%p_diag%h_e(je,jb)
-! !         ELSE
-! !           !Surfacethickness over land remains zero
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)= 0.0_wp
-! !         ENDIF
-! !       END DO
-! !     END DO
-! !     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('on entry: h-old'                ,ocean_state%p_prog(nold(1))%h ,str_module, idt_src, in_subset=owned_cells)
