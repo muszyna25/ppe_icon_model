@@ -67,7 +67,7 @@ MODULE mo_hydro_ocean_run
     & t_hydro_ocean_prog
  USE mo_oce_state,              ONLY: destruct_hydro_ocean_state,            &
     & ocean_restart_list
-  USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
+ ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_oce_math_operators,     ONLY: calc_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
@@ -376,8 +376,8 @@ CONTAINS
           
             CALL calc_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
           
-            CALL set_lateral_boundary_values( patch_3d, ocean_state(jg)%p_prog(nold(1))%vn)
-            CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(jg), ocean_state(jg)%p_prog(nold(1))%vn)
+          !  CALL set_lateral_boundary_values( patch_3d, ocean_state(jg)%p_prog(nold(1))%vn)
+          !  CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(jg), ocean_state(jg)%p_prog(nold(1))%vn)
           
             CALL calc_scalar_product_veloc_3d( patch_3d,  &
             & ocean_state(jg)%p_prog(nold(1))%vn,         &
