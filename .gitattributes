@@ -1554,6 +1554,7 @@ src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
 src/ocean/math/mo_scalar_product.f90 -text
 src/ocean/physics/mo_oce_physics.f90 -text
 src/ocean/physics/mo_oce_thermodyn.f90 -text
+src/ocean/testbed/mo_oce_operators_testbed.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
