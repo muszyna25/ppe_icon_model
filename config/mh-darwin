@@ -53,7 +53,7 @@ LAPACKROOT  =
 ZLIB_LIB    = -lz
 SZIP_LIB    = -lsz
 HDF5_LIB    = -lhdf5_hl -lhdf5
-NETCDF_LIB  = -lnetcdf
+NETCDF_LIB  = -lnetcdff -lnetcdf
 LAPACK_LIB  =
 
 LIBS        = -L../lib -lsupport -lcurl
