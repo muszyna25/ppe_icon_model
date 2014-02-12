@@ -81,7 +81,7 @@ MODULE mo_io_restart_async
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, &
     &                                   p_work_pe0, num_work_procs, MPI_SUCCESS, &
-    &                                   p_stop, p_send, p_recv, p_barrier, p_bcast, &
+    &                                   stop_mpi, p_send, p_recv, p_barrier, p_bcast, &
     &                                   my_process_is_restart, my_process_is_work, &
     &                                   p_comm_work_2_restart, p_n_work, p_int, &
     &                                   process_mpi_restart_size, p_int_i8, p_real_dp, &
@@ -702,7 +702,7 @@ CONTAINS
     CALL close_async_restart
 
     ! shut down MPI
-    CALL p_stop
+    CALL stop_mpi
 
     STOP
 

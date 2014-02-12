@@ -106,7 +106,7 @@ USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
 USE mo_edmf_param   ,ONLY : &
                 & N_VMASS  ,&                     !yomjfh
                 & NULERR                          !yomlun
-USE mo_mpi          ,ONLY : p_abort
+USE mo_mpi          ,ONLY : abort_mpi
 
 IMPLICIT NONE
 
@@ -180,7 +180,7 @@ IF (IDONE  <  KFDIA-KIDIA+1) THEN
   WRITE(NULERR,*) 'ERROR in VDFFBLEND; ITOP too large; '
   WRITE(NULERR,*) 'IDONE/KFDIA-KIDIA+1/ITOP: ', IDONE,KFDIA-KIDIA+1,ITOP
 !xmk CALL ABOR1('ERROR in VDFFBLEND; ITOP too large')
-  CALL P_ABORT
+  CALL ABORT_MPI
 ENDIF
 
 IF (LHOOK) CALL DR_HOOK('VDFFBLEND',1,ZHOOK_HANDLE)

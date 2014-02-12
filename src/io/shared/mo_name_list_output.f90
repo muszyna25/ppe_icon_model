@@ -57,7 +57,7 @@ MODULE mo_name_list_output
   USE mo_var_list_element,          ONLY: level_type_ml, level_type_pl, level_type_hl,              &
     &                                     level_type_il, lev_type_str
   ! MPI Communication routines
-  USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, p_stop,                        &
+  USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     get_my_mpi_work_id, p_max,                                &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend
   ! MPI Communicators
@@ -1038,7 +1038,7 @@ CONTAINS
     END DO
     ! Shut down MPI
     !
-    CALL p_stop
+    CALL stop_mpi
 
     STOP
 #endif
