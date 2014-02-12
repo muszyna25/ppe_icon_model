@@ -660,12 +660,12 @@ MODULE mo_nh_stepping
     ! - if (MOD(jstep,n_diag) == 0), or
     ! - in the very last time step (jstep==nsteps)
 
-    l_supervise_total_integrals =((lstep_adv(1) .AND. (jstep <= iadv_rcf)) .OR. &
-      &                           (MOD(jstep,n_diag) == 0)                 .OR. &
-      &                           (jstep==(nsteps+jstep0)))                .AND.&
-      &                           (output_mode%l_totint)
     kstep = jstep-jstep0
-    IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
+    l_supervise_total_integrals =(lstep_adv(1) .AND. (kstep <= iadv_rcf)) .OR. &
+      &                           (MOD(jstep,n_diag) == 0)                .OR. &
+      &                           (kstep==nsteps)                         .AND.&
+      &                           (output_mode%l_totint)
+    IF (kstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
     IF (l_supervise_total_integrals) THEN
 #ifdef NOMPI
