@@ -1555,6 +1555,7 @@ src/ocean/math/mo_scalar_product.f90 -text
 src/ocean/physics/mo_oce_physics.f90 -text
 src/ocean/physics/mo_oce_thermodyn.f90 -text
 src/ocean/testbed/mo_oce_operators_testbed.f90 -text
+src/ocean/testbed/mo_testbed_ocean_performance.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text
@@ -1685,7 +1686,6 @@ src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_jitter.f90 -text
 src/testbed/mo_test_netcdf_read.f90 -text
 src/testbed/mo_test_nh_communication.f90 -text
-src/testbed/mo_testbed_ocean_performance.f90 -text
 src/testcases/mo_ape_params.f90 -text
 src/testcases/mo_df_test.f90 -text
 src/testcases/mo_gw_test.f90 -text

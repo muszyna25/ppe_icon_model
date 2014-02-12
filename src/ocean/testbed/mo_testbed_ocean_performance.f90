@@ -42,8 +42,7 @@ MODULE mo_testbed_ocean_performance
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
 
-  USE mo_icon_testbed_config, ONLY: testbed_model,  &
-    & testbed_iterations, calculate_iterations
+  ! USE mo_icon_testbed_config, ONLY: testbed_iterations
 
   USE mo_ocean_model,         ONLY: construct_ocean_model, destruct_ocean_model, &
     & ocean_patch_3d, ocean_state, operators_coefficients
@@ -72,6 +71,8 @@ IMPLICIT NONE
 PRIVATE
 
 PUBLIC :: test_ocean_performance
+
+INTEGER :: testbed_iterations = 100
 
 CONTAINS
   

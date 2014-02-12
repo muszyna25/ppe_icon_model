@@ -64,8 +64,6 @@ link_source_list "src/shr_horizontal/" "mo_alloc_patches.f90 mo_ext_data_types.f
 mo_intp_data_strc.f90 mo_lonlat_grid.f90 mo_model_domain.f90 mo_model_domimp_patches.f90 
 mo_model_domimp_setup.f90 mo_reorder_patches.f90 mo_icon_interpolation_scalar.f90"
          
-link_source_list "src/testbed/" "mo_icon_testbed.f90 mo_icon_testbed_config.f90 mo_icon_testbed_nml.f90  mo_testbed_ocean_performance.f90"
-
 link_source_list "src/testcases/" "mo_ape_params.f90"
 
 #-----------------------------------------------------------------------------------
@@ -89,7 +87,7 @@ rm -f ${icon_dev_to}/config/icon_components
 cat > ${icon_dev_to}/config/icon_components << EOF
 #===============================================
 # define the components to be compiled with ICON
-icon_components=NO_ICON_ATMO NO_JSBACH
+icon_components=NO_ICON_ATMO NO_JSBACH NO_ICON_TESTBED
 EOF
 
 
