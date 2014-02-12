@@ -71,7 +71,7 @@ MODULE mo_echam_phy_init
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
   ! radiation
-  USE mo_radiation_config,     ONLY: ssi, tsi, ighg, isolrad
+  USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, ighg, isolrad
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip, ssi_default, ssi_preind
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
@@ -163,21 +163,23 @@ CONTAINS
     ! For radiation:
 
     IF (phy_config%lrad) THEN
-      ! TSI, SSI are getting overwritten in case of an AMIP simulation by time varying once (see below)
       SELECT CASE (isolrad)
       CASE (0)
-        ssi(:) = ssi_default(:)
-        tsi = SUM(ssi_default)
+        ssi_radt(:) = ssi_default(:)
+        tsi_radt = SUM(ssi_default)
+        tsi      = tsi_radt
       CASE (1)
         ! in this case, transient solar irradiation is used and has to be implemented inside
         ! the time loop (mo_echam_phy_interface)
         CONTINUE
       CASE (2)
-        ssi(:) = ssi_preind(:)
-        tsi = SUM(ssi_preind)
+        ssi_radt(:) = ssi_preind(:)
+        tsi_radt = SUM(ssi_preind)
+        tsi      = tsi_radt
       CASE (3)
-        ssi(:) = ssi_amip(:)
-        tsi = SUM(ssi_amip)
+        ssi_radt(:) = ssi_amip(:)
+        tsi_radt = SUM(ssi_amip)
+        tsi      = tsi_radt
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'

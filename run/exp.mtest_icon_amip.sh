@@ -110,7 +110,7 @@ fi # OVERWRITE
 if [ ${MODE} == 'update' -o ${MODE} == 'ur' -o ${MODE} == 'un' -o ${MODE} == 'urn' ]; then
 cd ${REFERENCE}
 if [ ${OVERWRITE} == 'yes' -o ! -d ${REFERENCE}/experiments/${EXP1} ] ;then 
-${REFERENCE}/make_runscripts
+${REFERENCE}/make_runscripts 1> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
@@ -123,7 +123,7 @@ fi
 RUN_SCRIPT=exp.${EXP1}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
-echo 'performing update test (run reference model)'
+echo 'Performing update test (run reference model)'
 ${REFERENCE}/run/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
 else
 echo 'found run of reference model (update test)'
@@ -150,7 +150,7 @@ RUN_SCRIPT=exp.${EXP2}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP2}/g ${RUN_SCRIPT}
-echo 'performing restart test (running restart)'
+echo 'Performing restart test (running restart)'
 ${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
 else
 echo 'found restart run (restart test)'
@@ -174,7 +174,7 @@ cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
 sed -i s/nproma=64/nproma=17/g ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP3}/g ${RUN_SCRIPT}
-echo 'performing nproma test (running with nproma=17)'
+echo 'Performing nproma test (running with nproma=17)'
 ${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
 else
 echo 'found run with nproma=17 (nproma test)'

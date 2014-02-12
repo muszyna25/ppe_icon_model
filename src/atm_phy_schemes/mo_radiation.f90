@@ -71,7 +71,7 @@ MODULE mo_radiation
 
   USE mo_datetime,             ONLY: rdaylen
 
-  USE mo_radiation_config,     ONLY: tsi,        ssi,         &
+  USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,    &
     &                                irad_co2,   mmr_co2,     &
     &                                irad_ch4,   mmr_ch4,     &
     &                                irad_n2o,   mmr_n2o,     &
@@ -172,7 +172,7 @@ CONTAINS
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi/4._wp ! scale ztsi to get the correct global mean insolation
+      IF (PRESENT(zsct)) zsct = tsi_radt/4._wp ! scale ztsi to get the correct global mean insolation
     ELSEIF(izenith == 1) THEN
       ! circular non-seasonal orbit, zenith angle dependent on latitude only,
       ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
@@ -180,7 +180,7 @@ CONTAINS
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi/pi ! because sun is always in local noon, the TSI needs to be
+      IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
       ! scaled by 1/pi to get the correct global mean insolation
     ELSEIF (izenith == 2) THEN
       ! circular non-seasonal orbit, no diurnal cycle
@@ -189,7 +189,7 @@ CONTAINS
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi
+      IF (PRESENT(zsct)) zsct = tsi_radt
     ELSEIF (izenith == 3) THEN  !Second: case izenith==3 (time (but no date) needed)
 
       zsmu0(:,:)=0.0_wp
@@ -243,7 +243,7 @@ CONTAINS
 
       ENDDO !jb
 
-      IF (PRESENT(zsct)) zsct = tsi
+      IF (PRESENT(zsct)) zsct = tsi_radt
 
       !Third: case izenith=4 (time and date needed)
     ELSEIF (izenith == 4) THEN
@@ -284,7 +284,7 @@ CONTAINS
 
             zsocof  = 1.000110_wp + 0.034221_wp*COS(   ztho) + 0.001280_wp*SIN(   ztho) &
               + 0.000719_wp*COS(2._wp*ztho) + 0.000077_wp*SIN(2._wp*ztho)
-            zsct_save = zsocof*tsi
+            zsct_save = zsocof*tsi_radt
             zsct_h = zsct_h + zsct_save
             n_zsct = n_zsct + 1
 
@@ -387,7 +387,7 @@ CONTAINS
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi/4._wp ! scale ztsi to get the correct global mean insolation
+      IF (PRESENT(zsct)) zsct = tsi_radt/4._wp ! scale ztsi to get the correct global mean insolation
       RETURN
     ELSEIF(izenith == 1) THEN
       ! circular non-seasonal orbit, zenith angle dependent on latitude only,
@@ -396,7 +396,7 @@ CONTAINS
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi/pi ! because sun is always in local noon, the TSI needs to be
+      IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
                                        ! scaled by 1/pi to get the correct global mean insolation
       RETURN
     ELSEIF (izenith == 2) THEN
@@ -406,7 +406,7 @@ CONTAINS
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi
+      IF (PRESENT(zsct)) zsct = tsi_radt
       RETURN
     ENDIF
 
@@ -428,7 +428,7 @@ CONTAINS
           & *COS( pt_patch%cells%center(1:ie,jb)%lon                &
           &      +zstunde/24._wp* 2._wp*pi )
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi
+      IF (PRESENT(zsct)) zsct = tsi_radt
 
     !Third: case izenith=4 (time and date needed)
     ELSEIF (izenith == 4) THEN
@@ -450,7 +450,7 @@ CONTAINS
           itaja_zsct_previous = itaja
           zsocof  = 1.000110_wp + 0.034221_wp*COS(   ztho) + 0.001280_wp*SIN(   ztho) &
             + 0.000719_wp*COS(2._wp*ztho) + 0.000077_wp*SIN(2._wp*ztho)
-          zsct_save = zsocof*tsi
+          zsct_save = zsocof*tsi_radt
         ENDIF
         zsct = zsct_save
       ENDIF
@@ -767,7 +767,7 @@ CONTAINS
     ! --- Total fluxes
     emter_all (1:jce,1:klevp1) = flx_dnlw (1:jce,1:klevp1)
     trsol_all (1:jce,1:klevp1) = flx_dnsw (1:jce,1:klevp1)                           &
-      &                          / SPREAD(cos_mu0_mod(1:jce)*tsi,2,klevp1)
+      &                          / SPREAD(cos_mu0_mod(1:jce)*tsi_radt,2,klevp1)
     !
 !!$    ! --- fluxes for JSBACH
 !!$    nir_sfc  (1:jce) = nir_sfc  (1:jce) / cos_mu0_mod (1:jce)
@@ -777,7 +777,7 @@ CONTAINS
     ! --- Clear sky fluxes
     emter_clr(1:jce,1:klevp1) = flx_dnlw_clr(1:jce,1:klevp1)
     trsol_clr(1:jce,1:klevp1) = flx_dnsw_clr(1:jce,1:klevp1)                        &
-      &                         / SPREAD(cos_mu0_mod(1:jce)*tsi,2,klevp1)
+      &                         / SPREAD(cos_mu0_mod(1:jce)*tsi_radt,2,klevp1)
 
     IF (ltimer) CALL timer_stop(timer_radiation)
 
@@ -1282,7 +1282,7 @@ CONTAINS
       &    col_dry_vr      ,wkl_vr                                           ,&
       &    cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    ,cld_piz_sw_vr  ,&
       &    aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr                   ,&
-      &    ssi                                                               ,&
+      &    ssi_radt                                                          ,&
       !    output
       &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr)
 !!$      &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr   ,&

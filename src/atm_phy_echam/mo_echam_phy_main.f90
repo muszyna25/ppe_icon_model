@@ -327,7 +327,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
-    IF (phy_config%lrad) THEN
+    IF (phy_config%lrad) THEN 
 
        SELECT CASE(izenith)
        CASE(0)

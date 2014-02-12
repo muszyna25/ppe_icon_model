@@ -1,0 +1,36 @@
+MODULE mo_time_interpolation_weights
+  ! mo_time_interpolation [module]
+  !   routines for time interpolation of external data sets
+  !
+  ! Authors;
+  !   J.S. Rast, MPI February 2014     base version
+  !  
+  !----------------------------------------------------------------------
+  !
+  ! This modules stores various time interpolation weights for 
+  ! interpolation to (i) the actual integration time step, and (ii)
+  ! the radiation time step (suffix _radt). The suffix _limm stands
+  ! for time weights and indices for linear interpolation 
+  ! of monthly means.
+  !
+  !----------------------------------------------------------------------
+
+  USE mo_kind,          ONLY: wp
+  
+  IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: t_wi_limm, wi_limm, wi_limm_radt
+
+  TYPE t_wi_limm
+    !interpolation weights wgt1, wgt2 for monthly averages with
+    !inm1 and inm2 as indices [0,..,13], respectively
+    REAL(wp)     :: wgt1, wgt2
+    INTEGER      :: inm1, inm2
+  END TYPE t_wi_limm
+
+  TYPE(t_wi_limm):: wi_limm, &
+                    wi_limm_radt
+
+  END MODULE mo_time_interpolation_weights

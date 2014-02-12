@@ -43,8 +43,7 @@ MODULE mo_aero_kinne
   USE mo_exception,            ONLY: finish
   USE mo_netcdf_read,          ONLY: netcdf_open_input, netcdf_close
   USE mo_netcdf_read,          ONLY: netcdf_read_oncells_3d_time, netcdf_read_0D
-  USE mo_time_interpolation,   ONLY: wgt1_m=>wgt1_limm, wgt2_m=>wgt2_limm, &
-                                     nmw1_m=>inm1_limm, nmw2_m=>inm2_limm
+  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
   USE mo_physical_constants,   ONLY: grav, rgrav, rd
   USE mo_echam_phy_memory,     ONLY: prm_field
 
@@ -243,11 +242,11 @@ SUBROUTINE set_aop_kinne ( jg,                                            &
         DO jl=1,kproma
            IF (kindex(jl) > 0 .and. kindex(jl) <= lev_clim ) THEN
               zq_aod_c(jl,jk)= &
-                & z_km_aer_c_mo(jl,kindex(jl),krow,nmw1_m)*wgt1_m+ &
-                & z_km_aer_c_mo(jl,kindex(jl),krow,nmw2_m)*wgt2_m
+                & z_km_aer_c_mo(jl,kindex(jl),krow,wi%inm1)*wi%wgt1+ &
+                & z_km_aer_c_mo(jl,kindex(jl),krow,wi%inm2)*wi%wgt2
               zq_aod_f(jl,jk)= &
-               & z_km_aer_f_mo(jl,kindex(jl),krow,nmw1_m)*wgt1_m+ &
-               & z_km_aer_f_mo(jl,kindex(jl),krow,nmw2_m)*wgt2_m
+               & z_km_aer_f_mo(jl,kindex(jl),krow,wi%inm1)*wi%wgt1+ &
+               & z_km_aer_f_mo(jl,kindex(jl),krow,wi%inm2)*wi%wgt2
            END IF
         END DO
      END DO
@@ -279,34 +278,34 @@ SUBROUTINE set_aop_kinne ( jg,                                            &
      END DO
 
 ! (iii) far infrared
-     zs_i(1:kproma,1:nb_lw)=1._wp-(wgt1_m*ssa_c_f(1:kproma,1:nb_lw,krow,nmw1_m)+ &
-                                   wgt2_m*ssa_c_f(1:kproma,1:nb_lw,krow,nmw2_m))
+     zs_i(1:kproma,1:nb_lw)=1._wp-(wi%wgt1*ssa_c_f(1:kproma,1:nb_lw,krow,wi%inm1)+ &
+                                   wi%wgt2*ssa_c_f(1:kproma,1:nb_lw,krow,wi%inm2))
      DO jk=1,klev
         DO jwl=1,nb_lw
            paer_tau_lw_vr(1:kproma,jk,jwl)=zq_aod_c(1:kproma,jk) * &
                 zs_i(1:kproma,jwl) * &
-                (wgt1_m*aod_c_f(1:kproma,jwl,krow,nmw1_m) + &
-                 wgt2_m*aod_c_f(1:kproma,jwl,krow,nmw2_m)) 
+                (wi%wgt1*aod_c_f(1:kproma,jwl,krow,wi%inm1) + &
+                 wi%wgt2*aod_c_f(1:kproma,jwl,krow,wi%inm2)) 
         END DO
      END DO
 ! (iii) solar radiation
 ! time interpolated single scattering albedo (omega_f, omega_c)
-     zs_c(1:kproma,1:nb_sw) = ssa_c_s(1:kproma,1:nb_sw,krow,nmw1_m)*wgt1_m + &
-                              ssa_c_s(1:kproma,1:nb_sw,krow,nmw2_m)*wgt2_m
-     zs_f(1:kproma,1:nb_sw) = ssa_f_s(1:kproma,1:nb_sw,krow,nmw1_m)*wgt1_m + &
-                              ssa_f_s(1:kproma,1:nb_sw,krow,nmw2_m)*wgt2_m
+     zs_c(1:kproma,1:nb_sw) = ssa_c_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
+                              ssa_c_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2
+     zs_f(1:kproma,1:nb_sw) = ssa_f_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
+                              ssa_f_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2
 ! time interpolated asymmetry factor x ssa (omega_c*g_c, omega_{n,a}*g_{n,a})
      zg_c(1:kproma,1:nb_sw) = zs_c(1:kproma,1:nb_sw) * &
-                              (asy_c_s(1:kproma,1:nb_sw,krow,nmw1_m)*wgt1_m + &
-                               asy_c_s(1:kproma,1:nb_sw,krow,nmw2_m)*wgt2_m)
+                              (asy_c_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
+                               asy_c_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2)
      zg_f(1:kproma,1:nb_sw) = zs_f(1:kproma,1:nb_sw) * &
-                              (asy_f_s(1:kproma,1:nb_sw,krow,nmw1_m)*wgt1_m + &
-                               asy_f_s(1:kproma,1:nb_sw,krow,nmw2_m)*wgt2_m)
+                              (asy_f_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
+                               asy_f_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2)
 ! time interpolated aerosol optical depths
-     zt_c(1:kproma,1:nb_sw)=wgt1_m*aod_c_s(1:kproma,1:nb_sw,krow,nmw1_m) + &
-                          & wgt2_m*aod_c_s(1:kproma,1:nb_sw,krow,nmw2_m)
-     zt_f(1:kproma,1:nb_sw)=wgt1_m*aod_f_s(1:kproma,1:nb_sw,krow,nmw1_m) + &
-                          & wgt2_m*aod_f_s(1:kproma,1:nb_sw,krow,nmw2_m)
+     zt_c(1:kproma,1:nb_sw)=wi%wgt1*aod_c_s(1:kproma,1:nb_sw,krow,wi%inm1) + &
+                          & wi%wgt2*aod_c_s(1:kproma,1:nb_sw,krow,wi%inm2)
+     zt_f(1:kproma,1:nb_sw)=wi%wgt1*aod_f_s(1:kproma,1:nb_sw,krow,wi%inm1) + &
+                          & wi%wgt2*aod_f_s(1:kproma,1:nb_sw,krow,wi%inm2)
 ! height interpolation
 ! calculate optical properties
   DO jk=1,klev
