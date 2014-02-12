@@ -349,6 +349,7 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       outvar = outvar * cpd           
 
      CASE('wqv')
 
