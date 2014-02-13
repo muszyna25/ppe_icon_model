@@ -18,6 +18,7 @@ MODULE mo_solar_irradiance
   USE mo_read_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                             p_nf_inq_varid, p_nf_get_vara_double, p_nf_close, &
        &                             nf_read, nf_noerr, nf_strerror, p_nf_get_var_int
+  USE mo_time_interpolation_weights,ONLY: t_wi_limm
 
   IMPLICIT NONE
 
@@ -31,7 +32,7 @@ MODULE mo_solar_irradiance
 
   CHARACTER(len=*), PARAMETER :: ssi_fn = 'bc_ssi.nc'
 
-  PUBLIC :: read_ssi_bc
+  PUBLIC :: read_ssi_bc, ssi_time_interpolation
 
   REAL(dp), SAVE :: wgt1, wgt2
   INTEGER, SAVE  :: nmw1, nmw2
@@ -121,6 +122,35 @@ CONTAINS
     DEALLOCATE(ssi_months)
 
   END SUBROUTINE read_ssi_bc
+
+  SUBROUTINE ssi_time_interpolation(wi, lradt, tsi, ssi)
+    TYPE(t_wi_limm), INTENT(in)     :: wi
+    LOGICAL, INTENT(in)             :: lradt
+    REAL(dp), INTENT(out)           :: tsi
+    REAL(dp), INTENT(out), OPTIONAL :: ssi(:)
+    CHARACTER(len=14)               :: ctsi
+
+    IF (lradt) THEN
+      IF (.NOT.PRESENT(ssi)) THEN
+        CALL finish ('ssi_time_interplation of mo_solar_irradiance', &
+                     'Interpolation to radiation time step needs ssi',exit_no=1)
+      END IF
+      tsi    = wi%wgt1 * tsi_radt_m(wi%inm1) + wi%wgt2 * tsi_radt_m(wi%inm2)
+      ssi(:) = wi%wgt1*ssi_radt_m(:,wi%inm1) + wi%wgt2*ssi_radt_m(:,wi%inm2)
+      WRITE(ctsi,'(F14.8)') tsi
+      CALL message('','Interpolated total solar irradiance and spectral ' &
+                      //'bands for radiation transfer, tsi= '//ctsi)
+
+    ELSE
+      IF (PRESENT(ssi)) THEN
+        CALL message ('ssi_time_interplation of mo_solar_irradiance', &
+                     'Interpolation of ssi not necessary')
+      END IF
+      tsi    = wi%wgt1 * tsi_m(wi%inm1) + wi%wgt2 * tsi_m(wi%inm2)
+    END IF
+       
+  END SUBROUTINE ssi_time_interpolation
+
 
   SUBROUTINE nf_check(iret)
     INTEGER, INTENT(in) :: iret

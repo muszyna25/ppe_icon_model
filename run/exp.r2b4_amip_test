@@ -137,6 +137,7 @@ cat > ${atmo_namelist} << EOF
  irad_aero        = 0            ! switch off aerosols
  ighg             = 1            ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
  izenith          = 4            ! seasonal and diurnal cycle
+ isolrad          = 1
 /
 &echam_conv_nml
 /

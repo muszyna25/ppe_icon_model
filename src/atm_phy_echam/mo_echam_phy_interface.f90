@@ -61,7 +61,8 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3, irad_aero, isolrad
+  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3, irad_aero, isolrad, &
+                                  tsi, tsi_radt, ssi_radt
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -87,7 +88,7 @@ MODULE mo_echam_phy_interface
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
-  USE mo_solar_irradiance,     ONLY: read_ssi_bc
+  USE mo_solar_irradiance,     ONLY: read_ssi_bc, ssi_time_interpolation
 
   IMPLICIT NONE
   PRIVATE
@@ -386,10 +387,10 @@ CONTAINS
     END IF
     IF (isolrad==1) THEN
       CALL read_ssi_bc(datetime%year,.FALSE.)
-!!$      CALL ssi_time_weights(current_date)
-!!$!      CALL ssi_time_interpolation(tsi, ssi)
+      CALL ssi_time_interpolation(wi_limm,.FALSE.,tsi)
       IF (ltrig_rad) THEN
          CALL read_ssi_bc(datetime_radtran%year,.TRUE.)
+         CALL ssi_time_interpolation(wi_limm_radt,.TRUE.,tsi_radt,ssi_radt)
       END IF
     END IF !isolrad
     IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
