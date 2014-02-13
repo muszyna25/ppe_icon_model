@@ -166,8 +166,6 @@ CONTAINS
   !!  mpi note: the result is on edges_in_domain.
   SUBROUTINE grad_fd_norm_oce_3d( psi_c, patch_3D, grad_coeff, grad_norm_psi_e)
 
-    !  patch_2D on which computation is performed
-    !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     REAL(wp), INTENT(IN)                   :: grad_coeff(:,:,:)!(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp), INTENT(IN)                   :: psi_c          (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -841,8 +839,8 @@ CONTAINS
     cell_thickeness => patch_3D%p_patch_1d(n_dom)%prism_thick_c
     edge_thickeness => patch_3D%p_patch_1d(n_dom)%prism_thick_e
  
-   ! sync already done
-   ! CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
+   ! test sync
+   CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
 
     !Step 1: calculate cell-located variables for 2D and 3D case
     !For 3D and for SWE thick_c contains thickness of fluid column
