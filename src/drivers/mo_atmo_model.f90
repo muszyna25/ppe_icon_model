@@ -37,7 +37,7 @@ MODULE mo_atmo_model
   ! basic modules
   USE mo_kind,                    ONLY: wp, dp
   USE mo_exception,               ONLY: message, finish, message_text
-  USE mo_mpi,                     ONLY: p_stop, my_process_is_io,                             &
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,                           &
     &                                   my_process_is_mpi_test, my_process_is_mpi_parallel,   &
     &                                   set_mpi_work_communicators, set_comm_input_bcast,     &
     &                                   null_comm_type, p_pe_work, get_my_mpi_all_id, p_min,  &
@@ -333,7 +333,7 @@ CONTAINS
         END IF
       ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
         ! Shut down MPI
-        CALL p_stop
+        CALL stop_mpi
         STOP
       ENDIF
     ELSE

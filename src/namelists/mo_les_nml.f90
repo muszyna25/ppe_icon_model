@@ -121,7 +121,7 @@ CONTAINS
     is_dry_cbl   = .FALSE.
 
     !parameters
-    smag_constant    = 0.12_wp
+    smag_constant    = 0.23_wp
     turb_prandtl     = 0.33333333333_wp
 
     bflux       = -999._wp

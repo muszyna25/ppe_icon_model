@@ -88,7 +88,7 @@ CONTAINS
 
     CALL global_mpi_barrier()
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
-!     CALL p_stop
+!     CALL stop_mpi
 !     STOP
     
     !---------------------------------------------------------------------

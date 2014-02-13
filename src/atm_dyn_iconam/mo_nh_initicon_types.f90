@@ -59,6 +59,7 @@ MODULE mo_nh_initicon_types
   PUBLIC :: t_initicon_state  !> state vector for initicon
   PUBLIC :: t_pi_atm_in
   PUBLIC :: t_pi_sfc_in
+  PUBLIC :: t_pi_atm_inc
   PUBLIC :: t_pi_atm
   PUBLIC :: t_pi_sfc
 
@@ -90,6 +91,16 @@ MODULE mo_nh_initicon_types
 
   END TYPE t_pi_sfc_in
 
+
+  ! atmospheric input increments
+  TYPE :: t_pi_atm_inc 
+
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
+
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, u, v, qv
+
+  END TYPE t_pi_atm_inc
 
   ! 
   TYPE :: t_pi_atm
@@ -124,10 +135,11 @@ MODULE mo_nh_initicon_types
 
     INTEGER :: ngrp_vars_fg, ngrp_vars_ana, ngrp_vars_fg_default, ngrp_vars_ana_default
 
-    TYPE (t_pi_atm_in) :: atm_in
-    TYPE (t_pi_sfc_in) :: sfc_in
-    TYPE (t_pi_atm)    :: atm
-    TYPE (t_pi_sfc)    :: sfc
+    TYPE (t_pi_atm_in)     :: atm_in
+    TYPE (t_pi_sfc_in)     :: sfc_in
+    TYPE (t_pi_atm_inc)    :: atm_inc
+    TYPE (t_pi_atm)        :: atm
+    TYPE (t_pi_sfc)        :: sfc
 
   END TYPE t_initicon_state
  

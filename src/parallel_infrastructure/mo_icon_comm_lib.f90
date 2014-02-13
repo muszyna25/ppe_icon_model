@@ -53,7 +53,7 @@ MODULE mo_icon_comm_lib
   USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
   USE mo_mpi,             ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_send, p_real_dp, p_int, p_bool, my_process_is_mpi_seq,   &
-     & process_mpi_all_comm, work_mpi_barrier, p_stop, &
+     & process_mpi_all_comm, work_mpi_barrier, stop_mpi, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id
   USE mo_timer,           ONLY: ltimer, timer_start, timer_stop, timer_icon_comm_sync, &
@@ -1704,7 +1704,7 @@ CONTAINS
 
 !     CALL p_barrier(process_mpi_all_comm)
 
-!    CALL p_stop
+!    CALL stop_mpi
     
   END SUBROUTINE icon_comm_sync_all
   !-----------------------------------------------------------------------

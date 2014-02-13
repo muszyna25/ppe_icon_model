@@ -46,7 +46,7 @@ MODULE mo_nh_init_utils
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_metrics
   USE mo_parallel_config,       ONLY: nproma
-  USE mo_run_config,            ONLY: msg_level
+  USE mo_run_config,            ONLY: msg_level, dtime, dtime_adv
   USE mo_grid_config,           ONLY: l_limited_area
   USE mo_dynamics_config,       ONLY: iequations
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
@@ -65,7 +65,10 @@ MODULE mo_nh_init_utils
   USE mo_intp,                  ONLY: cells2verts_scalar, edges2cells_scalar
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
-  USE mo_loopindices,           ONLY: get_indices_c, get_indices_v, get_indices_e
+  USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
+  USE mo_datetime,              ONLY: t_datetime
+  USE mo_initicon_config,       ONLY: dt_iau, type_iau_wgt, is_iau_active, &
+    &                                 iau_wgt_dyn, iau_wgt_adv
 !!$  USE mo_util_uuid,             ONLY: t_uuid,  uuid_generate, uuid_parse, &
 !!$       &                              uuid_unparse, uuid_string_length
 
@@ -84,6 +87,7 @@ MODULE mo_nh_init_utils
     &       init_vert_coord, interp_uv_2_vn, init_w, adjust_w, convert_thdvars,     &
     &       convert_omega2w, hydro_adjust_downward, prepare_hybrid_coord,           &
     &       prepare_sleve_coord
+  PUBLIC :: compute_iau_wgt
 
 CONTAINS
   !-------------
@@ -1093,6 +1097,130 @@ CONTAINS
       'flat_height in sleve_nml or model top is too low')
 
   END SUBROUTINE init_vert_coord
+
+
+  !>
+  !! Compute weights for incremental analysis update
+  !!
+  !! Compute weights for incremental analysis update.
+  !! 2 weights are provided:
+  !! - iau_wgt_dyn can be used for all fields that need to be updated 
+  !!   every (fast) dynamics time step
+  !! - iau_wgt_adv can be used for all fields that need to be updated 
+  !!   every (slow) advection time step.
+  !!
+  !! @par Revision History
+  !! Initial revision by daniel Reinert, DWD (2014-01-29)
+  !!
+  SUBROUTINE compute_iau_wgt(datetime, sim_time, dt, lreset_wgt_adv)
+
+    TYPE(t_datetime), INTENT(IN)  :: datetime
+
+    REAL(wp)        , INTENT(IN)  :: sim_time          !< Simulation time since model 
+                                                       !< start
+    REAL(wp)        , INTENT(IN)  :: dt                !< time step          
+    LOGICAL         , INTENT(IN)  :: lreset_wgt_adv    !< If true, reset the accumulated weight for the advective time step
+
+    ! local variables
+    REAL(wp)  :: time_iau_elapsed                      !< elapsed time since IAU start [s]
+    REAL(wp)  :: fct_eval                              !< result of top-hat or sin2 function
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_init_utils:compute_iau_wgt'
+    !-------------------------------------------------------------------------
+
+    ! initialize
+    IF (lreset_wgt_adv) iau_wgt_adv   = 0._wp
+
+    ! compute elapsed time (in s) since IAU start
+    !
+    ! trivial so far, however will be changed to mtime when the functionality of 
+    ! computing the timedelta between two dates becomes available.
+    time_iau_elapsed = sim_time
+
+
+    IF (time_iau_elapsed <= dt_iau) THEN
+      is_iau_active = .TRUE.
+
+      SELECT CASE (type_iau_wgt)
+        CASE(1)  ! top-hat function
+          fct_eval = iau_top_hat(dt_iau,time_iau_elapsed)
+
+        CASE(2)  ! sin2 function
+          fct_eval = iau_sin2(dt_iau,time_iau_elapsed)
+
+        CASE default
+          CALL finish(TRIM(routine),'Invalid IAU weighting function. Must be 1 or 2.')
+      END SELECT
+
+      ! compute weights by multiplying with the time step
+      iau_wgt_dyn = fct_eval * dt
+      iau_wgt_adv = iau_wgt_adv + iau_wgt_dyn
+
+    ELSE
+      is_iau_active = .FALSE.
+      iau_wgt_dyn   = 0._wp
+      iau_wgt_adv   = 0._wp
+    ENDIF
+
+!!$write(0,*) "sim_time, is_iau_active, iau_wgt_dyn, iau_wgt_adv: ", &
+!!$  & sim_time, is_iau_active, iau_wgt_dyn, iau_wgt_adv
+
+  END SUBROUTINE compute_iau_wgt
+
+
+  !>
+  !! Evaluates top-hat function at a particular point in time
+  !!
+  !! Evaluates top-hat function at a particular point in time
+  !! Top-hat function is non-zero for 0<=t<=dt and is normalized such that 
+  !! \int_{t=0}^{t=dt} f(t)\,dt=1
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-29)
+  !!
+  FUNCTION iau_top_hat (dt,cur_time)  RESULT (fct_eval)
+
+    REAL(wp), INTENT(IN) :: dt                 ! time interval [s]
+    REAL(wp), INTENT(in) :: cur_time           ! current time  [s]
+
+    REAL(wp) :: fct_eval
+    !-------------------------------------------------------------------------
+
+    IF (cur_time <= dt) THEN
+      fct_eval = 1._wp/dt
+    ELSE
+      fct_eval = 0._wp
+    ENDIF
+
+  END FUNCTION iau_top_hat
+
+
+  !>
+  !! Evaluates SIN2 function at a particular point in time
+  !!
+  !! Evaluates SIN2 function at a particular point in time
+  !! SIN2 function is non-zero for 0<=t<=dt and is normalized such that 
+  !! \int_{t=0}^{t=dt} f(t)\,dt=1
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-29)
+  !!
+  FUNCTION iau_sin2 (dt,cur_time)  RESULT (fct_eval)
+
+    REAL(wp), INTENT(IN) :: dt                 ! time interval [s]
+    REAL(wp), INTENT(in) :: cur_time           ! current time  [s]
+
+    REAL(wp) :: fct_eval
+    !-------------------------------------------------------------------------
+
+    IF (cur_time <= dt) THEN
+      fct_eval = (2._wp/dt) * SIN(pi*cur_time/dt)**2
+    ELSE
+      fct_eval = 0._wp
+    ENDIF
+
+  END FUNCTION iau_sin2
 
   !----------------------------------------------------------------------------
   ! Notes: 

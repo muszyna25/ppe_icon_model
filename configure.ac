@@ -508,16 +508,16 @@ case $host in
       MPI_INCLUDE_THREAD="thread/"
     fi
     ;;
-#  *-*-darwin*)
-#    if test -n "$MPIROOT" ; then
-#      mpifh=$(find $MPIROOT/include -name mpif.h)
-#      mpifh=${mpifh%\/mpif.h}
-#      mpifh=${mpifh##*/}
-#      if test -n $mpifh; then
-#        MPI_INCLUDE_THREAD="$mpifh/"
-#      fi
-#     fi
-#     ;;
+  *-*-darwin*)
+    if test -n "$MPIROOT" ; then
+      mpifh=$(find $MPIROOT/include -name mpif.h)
+      mpifh=${mpifh%\/mpif.h}
+      mpifh=${mpifh##*/}
+      if test -n $mpifh; then
+        MPI_INCLUDE_THREAD="$mpifh/"
+      fi
+     fi
+     ;;
   *)
     MPI_INCLUDE_THREAD=""
     ;;

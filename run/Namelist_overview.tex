@@ -1979,7 +1979,24 @@ I & 1& &
 1: start from DWD analysis \\
 2: start from IFS analysis \\
 3: combined mode: IFS atm + GME soil \\
-4: start from COSMO-DE forecast &
+4: start from COSMO-DE forecast \\
+5: start from DWD analysis with incremental analysis update &
+\tabularnewline
+
+\hline
+dt\_iau&
+R & 10800 & s &
+Time interval during which an incremental analysis update (IAU) is performed &
+init\_mode=5
+\tabularnewline
+
+\hline
+type\_iau\_wgt&
+I & 1 &  &
+Weighting function for performing IAU\\
+1: Top-Hat\\
+2: SIN2 &
+init\_mode=5
 \tabularnewline
 
 \hline
@@ -4026,7 +4043,8 @@ sets of common variables can be added to the output:
 \texttt{datetime}          \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYY-MM-DDThh:mm:ss.sssZ} \\
 \texttt{datetime2}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmssZ}         \\
 \texttt{datetime3}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmss.sssZ}     \\
-\texttt{ddhhmmss}          \>  substituted by \emph{relative} day-hour-minute-second string
+\texttt{ddhhmmss}          \>  substituted by \emph{relative} day-hour-minute-second string \\
+\texttt{hhhmmss}           \>  substituted by \emph{relative} hour-minute-second string
 \end{tabbing}
 
 
@@ -4479,7 +4497,6 @@ C(:)& ``nml'',''totint'' & &
 Main switch for enabling/disabling components of the model output. One or more choices can be set (as an array of string constants). Possible choices are:
 \begin{itemize}
 \item ``none'': switch off all output;
-\item ``vlist'' : old, vlist-based output mode;
 \item``nml'': new output mode (cf.\ \texttt{output\_nml});
 \item``totint'': computation of total integrals.
 \end{itemize}

@@ -30,7 +30,7 @@ PROGRAM grid_command
     & prepare_gridref
 #endif
  
-  USE mo_mpi,                   ONLY: start_mpi, p_stop
+  USE mo_mpi,                   ONLY: start_mpi, stop_mpi
 
   IMPLICIT NONE
 
@@ -325,6 +325,6 @@ PROGRAM grid_command
   END SELECT
   !----------------------------------------------------------
  
-  CALL p_stop()
+  CALL stop_mpi()
 
 END PROGRAM grid_command

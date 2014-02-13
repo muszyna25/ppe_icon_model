@@ -144,7 +144,7 @@ cat > ${atmo_namelist} << EOF
  num_io_procs                 = 3
  itype_comm                   = 1
  iorder_sendrecv              = 1
- use_dp_mpi2io                = .TRUE.     ! output fields gathered in DOUBLE PRECISION 
+ use_dp_mpi2io                = .FALSE.     ! output fields gathered in DOUBLE PRECISION 
 /
 &grid_nml
  cell_type                    = 3
@@ -357,7 +357,7 @@ cat > ${atmo_namelist} << EOF
  ctracer_list                 = '12345'
  ivadv_tracer                 = 3,3,3,3,3
  itype_hlimit                 = 3,4,4,4,4,0
- ihadv_tracer                 = 42,2,2,2,2,0
+ ihadv_tracer                 = 52,2,2,2,2,0
 /
 &diffusion_nml
  hdiff_order                  = 5

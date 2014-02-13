@@ -56,7 +56,8 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
     &                                VINTP_METHOD_LIN,                   &
     &                                VINTP_METHOD_LIN_NLEVP1,            &
-    &                                TASK_INTP_MSL, HINTP_TYPE_NONE, iedmf
+    &                                TASK_INTP_MSL, HINTP_TYPE_NONE,     &
+    &                                iedmf, MODE_DWDANA_INC
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
@@ -71,6 +72,7 @@ MODULE mo_nonhydro_state
     &                                iqng, iqnh, nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
+  USE mo_initicon_config,      ONLY: init_mode
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
     &                                add_ref, new_var_list, delete_var_list, &
@@ -1809,6 +1811,52 @@ MODULE mo_nonhydro_state
       ENDDO
     ENDIF
 
+
+    IF (init_mode == MODE_DWDANA_INC) THEN
+      ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('vn_incr', ' ',                   &
+        &                   'vn increment from DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 2, 34, ibits, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_diag_list, 'vn_incr', p_diag%vn_incr,                     &
+                  & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
+                  & ldims=shape3d_e, &
+                  & lrestart=.FALSE., loutput=.FALSE.)
+
+
+      ! exner_incr   p_diag%exner_incr(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('exner_incr', ' ',                   &
+        &                   'exner increment from DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 3, 26, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'exner_incr', p_diag%exner_incr,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
+                  & ldims=shape3d_c, &
+                  & lrestart=.FALSE., loutput=.TRUE.)
+
+
+      ! rho_incr   p_diag%rho_incr(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('rho_incr', ' ',                   &
+        &                   'density increment from DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 0, 3, 10, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'rho_incr', p_diag%rho_incr,                   &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
+                  & ldims=shape3d_c, &
+                  & lrestart=.FALSE., loutput=.TRUE.)
+
+
+      ! qv_incr   p_diag%qv_incr(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('qv_incr', ' ',                   &
+        &                   'specific humidity increment from DA', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(  0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'qv_incr', p_diag%qv_incr,                     &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
+                  & ldims=shape3d_c, &
+                  & lrestart=.FALSE., loutput=.TRUE.)
+
+    ENDIF  ! init_mode = MODE_DWDANA_INC
 
 
     IF(inextra_2d > 0) THEN

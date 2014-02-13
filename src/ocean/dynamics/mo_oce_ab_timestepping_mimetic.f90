@@ -76,7 +76,7 @@ MODULE mo_oce_ab_timestepping_mimetic
     & map_edges2edges_viacell_3d_const_z
   !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
-    & grad_fd_norm_oce_2d_3d, calc_thickness
+    & grad_fd_norm_oce_2d_3d, calculate_thickness
   USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_oce_diffusion,             ONLY: velocity_diffusion,&
@@ -196,37 +196,6 @@ CONTAINS
 
     ENDIF
 
-! !     !Update prism thickness. The prism-thickness below the surface is
-! !     !not updated it is initialized in construct_hydro_ocean_diag
-! !     !with z-coordinate-thickness.
-! !     !1) Thickness at cells
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
-! !         IF(patch_3d%lsm_c(jc,1,jb) <= sea_boundary)THEN
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb) &
-! !             & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_c(jc,1,jb) +ocean_state%p_prog(nold(1))%h(jc,jb)
-! !         ELSE
-! !           !Surfacethickness over land remains zero
-! !           !ocean_state%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_c(jc,1,jb)= 0.0_wp
-! !         ENDIF
-! !       END DO
-! !     END DO
-! !     !2) Thickness at edges
-! !     DO jb = all_edges%start_block, all_edges%end_block
-! !       CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
-! !       DO je = edge_start_idx, edge_end_idx
-! !         IF(patch_3d%lsm_e(je,1,jb) <= sea_boundary)THEN
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)&
-! !             & = patch_3d%p_patch_1d(n_dom)%prism_thick_flat_sfc_e(je,1,jb) +ocean_state%p_diag%h_e(je,jb)
-! !         ELSE
-! !           !Surfacethickness over land remains zero
-! !           patch_3d%p_patch_1d(n_dom)%prism_thick_e(je,1,jb)= 0.0_wp
-! !         ENDIF
-! !       END DO
-! !     END DO
-! !     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('on entry: h-old'                ,ocean_state%p_prog(nold(1))%h ,str_module, idt_src, in_subset=owned_cells)
@@ -1509,7 +1478,7 @@ CONTAINS
     ! Update of scalar product quantities
     IF(l_staggered_timestep)THEN
       !CALL height_related_quantities(patch_3d, ocean_state, p_ext_data)
-      CALL calc_thickness(patch_3d, ocean_state, p_ext_data)
+      CALL calculate_thickness(patch_3d, ocean_state, p_ext_data, op_coeffs)
       !   CALL calc_scalar_product_veloc_3D( patch,                &
       !                                    & ocean_state%p_prog(nnew(1))%vn,&
       !                                    & ocean_state%p_prog(nnew(1))%vn,&

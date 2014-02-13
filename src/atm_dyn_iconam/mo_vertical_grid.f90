@@ -1910,7 +1910,7 @@ MODULE mo_vertical_grid
 
     REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e), les_filter, &
                  z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), max_dz
-
+    
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
     INTEGER :: nlev, nlevp1, i_startblk
 
@@ -1943,18 +1943,12 @@ MODULE mo_vertical_grid
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,nblks_e
-
-      CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
-    
+     CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
       DO jk = 1 , nlev 
        DO je = i_startidx, i_endidx
          p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
-
-         !Mixing length for LES
-         !les_filter = les_config(1)%smag_constant * (p_patch%edges%quad_area(je,jb) * &
-         !             p_nh%metrics%ddqz_z_full_e(je,jk,jb))**(1._wp/3._wp) 
-
+         
          p_nh%metrics%mixing_length_sq(je,jk,jb) = (les_filter*z_me(je,jk,jb))**2    &
                       / ((les_filter/akt)**2+z_me(je,jk,jb)**2)
        END DO

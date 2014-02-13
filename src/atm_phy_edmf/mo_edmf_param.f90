@@ -781,10 +781,10 @@ END SUBROUTINE SUSSOIL
 
 SUBROUTINE ABORT_SURF(text)
   USE mo_io_units, ONLY: nerr
-  USE mo_mpi, ONLY: p_abort
+  USE mo_mpi, ONLY: abort_mpi
   CHARACTER (len=*), INTENT(in) :: text
   WRITE (nerr,'(a)')  TRIM(text)
-  CALL p_abort
+  CALL abort_mpi
 END SUBROUTINE ABORT_SURF
 
 

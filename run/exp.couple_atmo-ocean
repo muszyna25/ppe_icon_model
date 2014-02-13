@@ -561,8 +561,6 @@ cat > ${ocean_namelist} << EOF
                         550.0, 600.0, 700.0, 700.0
  !l_edge_based                  = .TRUE.  ! edge- or cell-based mimetic discretization
  !l_partial_cells               = .FALSE. ! partial bottom cells=TRUE: local varying bottom depth
-  FLUX_CALCULATION_HORZ         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
-  FLUX_CALCULATION_VERT         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
   select_solver                 = 2       ! 1=gmres_oce_old; 2=ocean_restart_gmres
   solver_tolerance              = 1.0E-14 ! absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 30      ! inner solver loop without syncing (default: 200)
@@ -570,20 +568,26 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction     = .TRUE.
   !i_bc_veloc_bot               = 1       !  0/1=bottom friction off/on
 /
-&ocean_physics_nml
-  !i_sea_ice            = 1         ! 0 = no sea ice; 1 = Winton; 2 = Semtner
-  !no_tracer            = 2         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  !k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
-  HORZ_VELOC_DIFF_TYPE = 3         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_v            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  richardson_veloc     = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
-  MAX_VERT_DIFF_VELOC  = 1.0E-5    ! max vertical viscosity coefficient
+&ocean_tracer_transport_nml
+  FLUX_CALCULATION_HORZ         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura, 5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura, 7=upwind biased ppm
+/
+&ocean_diffusion_nml
   k_pot_temp_h         = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for temperature - r2b4
   k_pot_temp_v         = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature - 20m
   k_sal_h              = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity - r2b4
   k_sal_v              = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity - 20m
-  richardson_tracer    = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
+ !k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  k_veloc_v            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_TRAC   = 0.1       ! max vertical tracer diffusion for convection used in case of instability
+  HORZ_VELOC_DIFF_TYPE = 3         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  MAX_VERT_DIFF_VELOC  = 1.0E-5    ! max vertical viscosity coefficient
+/
+&ocean_physics_nml
+ !i_sea_ice            = 1         ! 0 = no sea ice; 1 = Winton; 2 = Semtner
+ !no_tracer            = 2         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  richardson_veloc     = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
+  richardson_tracer    = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
 /
 &sea_ice_nml
   i_ice_therm   = 1
