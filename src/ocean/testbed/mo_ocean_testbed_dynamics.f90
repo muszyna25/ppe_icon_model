@@ -112,19 +112,19 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE ocean_test_dynamics( patch_3d, ocean_state, p_ext_data,          &
-    & datetime, p_sfc_flx, p_phys_param,             &
-    & p_as, p_atm_f, p_ice,operators_coefficients)
+  SUBROUTINE ocean_test_dynamics( patch_3d, ocean_state, external_data,          &
+    & datetime, surface_fluxes, physics_parameters,             &
+    & oceans_atmosphere, p_atm_f, ocean_ice,operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
+    TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
-    TYPE(t_sfc_flx)                                  :: p_sfc_flx
-    TYPE (t_ho_params)                               :: p_phys_param
-    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
+    TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE (t_ho_params)                               :: physics_parameters
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
-    TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
+    TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
@@ -169,10 +169,10 @@ CONTAINS
 !          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
 !          ENDIF
 
-        !CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
+        !CALL calculate_thickness( patch_3d, ocean_state(jg), external_data(jg))
         !CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
         CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
-          & p_phys_param,p_sfc_flx,&
+          & physics_parameters,surface_fluxes,&
           & operators_coefficients,&
           & jstep)
         ! One integration cycle finished on the lowest grid level (coarsest
@@ -184,16 +184,16 @@ CONTAINS
       
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),&
-        & p_sfc_flx,                                &
+        & surface_fluxes,                                &
         & patch_2D%cells%owned,       &
         & patch_2D%edges%owned,       &
         & patch_2D%verts%owned,       &
         & n_zlev)
           
-        CALL output_ocean( patch_3d, ocean_state, p_ext_data,          &
+        CALL output_ocean( patch_3d, ocean_state, external_data,          &
           & datetime, .false.,                  &
-          & p_sfc_flx, p_phys_param,             &
-          & p_as, p_atm_f, p_ice,operators_coefficients, &
+          & surface_fluxes, physics_parameters,             &
+          & oceans_atmosphere, p_atm_f, ocean_ice,operators_coefficients, &
           & jstep)
 
         ! Shift time indices for the next loop

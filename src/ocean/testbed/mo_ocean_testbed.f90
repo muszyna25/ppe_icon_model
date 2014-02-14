@@ -47,6 +47,7 @@ MODULE mo_ocean_testbed
   USE mo_grid_config,         ONLY: n_dom
 
   USE mo_ocean_testbed_dynamics,  ONLY: ocean_test_dynamics
+  USE mo_testbed_ocean_performance, ONLY: test_ocean_performance
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -60,31 +61,37 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE ocean_testbed( namelist_filename, shr_namelist_filename, &
-    & patch_3d, ocean_state, p_ext_data,          &
-    & datetime, p_sfc_flx, p_phys_param,             &
-    & p_as, p_atm_f, p_ice, operators_coefficients)
+    & patch_3d, ocean_state, external_data,          &
+    & datetime, surface_fluxes, physics_parameters,             &
+    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
+    TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
-    TYPE(t_sfc_flx)                                  :: p_sfc_flx
-    TYPE (t_ho_params)                               :: p_phys_param
-    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
-    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
-    TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
+    TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE (t_ho_params)                               :: physics_parameters
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
+    TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
 
     SELECT CASE (test_mode)
       CASE (10)
-        CALL ocean_test_dynamics( patch_3d, ocean_state, p_ext_data,   &
-          & datetime, p_sfc_flx, p_phys_param,             &
-          & p_as, p_atm_f, p_ice,operators_coefficients)
+        CALL ocean_test_dynamics( patch_3d, ocean_state, external_data,   &
+          & datetime, surface_fluxes, physics_parameters,             &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+
+      CASE (100)
+        CALL test_ocean_performance( namelist_filename, shr_namelist_filename, &
+          & patch_3d, ocean_state, external_data,   &
+          & surface_fluxes, physics_parameters,             &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
