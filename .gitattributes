@@ -1535,6 +1535,7 @@ src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
 src/ocean/config/mo_ocean_read_namelists.f90 -text
 src/ocean/diagnostics/mo_oce_check_tools.f90 -text
 src/ocean/diagnostics/mo_oce_diagnostics.f90 -text
+src/ocean/diagnostics/mo_ocean_statistics.f90 -text
 src/ocean/drivers/mo_hydro_ocean_run.f90 -text
 src/ocean/drivers/mo_ocean_model.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping.f90 -text
