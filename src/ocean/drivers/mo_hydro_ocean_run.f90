@@ -45,7 +45,7 @@ MODULE mo_hydro_ocean_run
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d, t_subset_range, t_patch_vert
   USE mo_grid_config,            ONLY: n_dom
   USE mo_grid_subset,            ONLY: get_index_range
-  USE mo_sync,                   ONLY: sync_patch_array, sync_e!, sync_c, sync_v
+  USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & diagnostics_level, &
     & eos_type, i_sea_ice, l_staggered_timestep, gibraltar,l_time_marching
@@ -191,6 +191,7 @@ CONTAINS
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
     !------------------------------------------------------------------
     
+    patch_2D      => patch_3d%p_patch_2d(1)
     nsteps_since_last_output = 1
     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
     
@@ -246,23 +247,23 @@ CONTAINS
         CALL calc_density( patch_3d,                        &
           & ocean_state(jg)%p_prog(nold(1))%tracer, &
           & ocean_state(jg)%p_diag%rho )
-        
+
         CALL update_ocean_statistics(ocean_state(1),                              &
           & p_sfc_flx,                            &
-          & patch_3d%p_patch_2d(1)%cells%owned,   &
-          & patch_3d%p_patch_2d(1)%edges%owned,   &
-          & patch_3d%p_patch_2d(1)%verts%owned,   &
+          & patch_2D%cells%owned,   &
+          & patch_2D%edges%owned,   &
+          & patch_2D%verts%owned,   &
           & n_zlev)
-        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_3d%p_patch_2d(1)%cells%owned)
+        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2D%cells%owned)
       ENDIF
-      
+
       CALL write_name_list_output(jstep=jstep0)
-      
+
       IF (.NOT. is_restart_run()) THEN
         CALL reset_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx)
         IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
       ENDIF
-      
+
     ENDIF ! output_mode%l_nml
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
@@ -299,9 +300,9 @@ CONTAINS
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),&
         & p_sfc_flx,                                &
-        & patch_3d%p_patch_2d(1)%cells%owned,       &
-        & patch_3d%p_patch_2d(1)%edges%owned,       &
-        & patch_3d%p_patch_2d(1)%verts%owned,       &
+        & patch_2D%cells%owned,       &
+        & patch_2D%edges%owned,       &
+        & patch_2D%verts%owned,       &
         & n_zlev)
           
 
@@ -371,6 +372,9 @@ CONTAINS
           IF (ltimer) CALL timer_start(timer_upd_flx)
           CALL update_sfcflx( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
           & jstep, datetime, operators_coefficients)
+
+          ! update_sfcflx has changed p_prog(nold(1))%h
+          CALL sync_patch_array(sync_c, patch_2D, ocean_state(jg)%p_prog(nold(1))%h)
         
           IF(.NOT.l_staggered_timestep)THEN
           
@@ -445,6 +449,7 @@ CONTAINS
             CALL calc_vert_velocity( patch_3d, ocean_state(jg),operators_coefficients)
             IF (ltimer) CALL timer_stop(timer_vert_veloc)
           ENDIF
+          !------------------------------------------------------------------------
         
           !------------------------------------------------------------------------
           ! Step 6: transport tracers and diffuse them
@@ -478,15 +483,15 @@ CONTAINS
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),&
         & p_sfc_flx,                                &
-        & patch_3d%p_patch_2d(1)%cells%owned,       &
-        & patch_3d%p_patch_2d(1)%edges%owned,       &
-        & patch_3d%p_patch_2d(1)%verts%owned,       &
+        & patch_2D%cells%owned,       &
+        & patch_2D%edges%owned,       &
+        & patch_2D%verts%owned,       &
         & n_zlev)
-        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_3d%p_patch_2d(1)%cells%owned)
+        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2D%cells%owned)
       
         dolic           => patch_3d%p_patch_1d(1)%dolic_c
         prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
-        CALL calc_fast_oce_diagnostics( patch_3d%p_patch_2d(1),      &
+        CALL calc_fast_oce_diagnostics( patch_2D,      &
         & dolic, &
         & prism_thickness, &
         & patch_3d%p_patch_1d(1)%zlev_m, &

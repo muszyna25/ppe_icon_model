@@ -156,9 +156,7 @@ CONTAINS
 
       CALL calc_vert_velocity_mim_bottomup( p_patch_3D,     &
                                   & p_os,                   &
-                                  & p_os%p_diag,            &
-                                  & p_op_coeff,             &
-                                  & p_os%p_diag%w )
+                                  & p_op_coeff )
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discretization type not supported !!')

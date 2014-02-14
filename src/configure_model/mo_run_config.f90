@@ -99,8 +99,8 @@ MODULE mo_run_config
     LOGICAL :: activate_sync_timers, write_timer_files
   
     REAL(wp):: check_epsilon   !< small value for checks
-    INTEGER :: test_mode
-    INTEGER :: debug_check_level = 0  ! Define debug checks level. This is not related to the debug output in
+    INTEGER :: test_mode = 0   !< 0= run the model, /=0 run in test mode
+    INTEGER :: debug_check_level = 10  ! Define debug checks level. This is not related to the debug output in
                                       ! mo_dbg_nml, it only controls the activation of internal checks
 
     INTEGER :: msg_level       !< how much printout is generated during runtime
