@@ -64,7 +64,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
 
@@ -90,17 +90,21 @@ MODULE mo_ocean_model
   USE mo_oce_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params
+  USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
+    & destruct_ho_params
+
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, construct_operators_coefficients, &
     & destruct_operators_coefficients
 
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
-    & prepare_ho_stepping,  finalise_ho_integration
+    & prepare_ho_stepping
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
-    & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice
-  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing
+    & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
+    & destruct_atmos_for_ocean, destruct_atmos_fluxes, destruct_sea_ice
+
+  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length, success
 
   USE mo_alloc_patches,       ONLY: destruct_patches
@@ -244,8 +248,20 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
 
-    CALL finalise_ho_integration(ocean_state, v_params, &
-      & p_as, p_atm_f, v_sea_ice, v_sfc_flx)
+    !------------------------------------------------------------------
+    ! destruct ocean physics and forcing
+    ! destruct ocean state is in control_model
+    !------------------------------------------------------------------
+!    CALL finalise_ho_integration(ocean_state, v_params, &
+!      & p_as, p_atm_f, v_sea_ice, v_sfc_flx)
+    CALL destruct_hydro_ocean_state(ocean_state)
+    !CALL destruct_hydro_ocean_base(v_base)
+    CALL destruct_ho_params(v_params)
+
+    IF(no_tracer>0) CALL destruct_ocean_forcing(v_sfc_flx)
+    CALL destruct_sea_ice(v_sea_ice)
+    CALL destruct_atmos_for_ocean(p_as)
+    CALL destruct_atmos_fluxes(p_atm_f)
 
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes

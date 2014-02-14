@@ -63,10 +63,9 @@ MODULE mo_hydro_ocean_run
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
     & update_time_indices
- USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
- USE mo_oce_state,              ONLY: destruct_hydro_ocean_state,            &
-    & ocean_restart_list
+  USE mo_oce_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_oce_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
@@ -74,15 +73,10 @@ MODULE mo_hydro_ocean_run
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
   USE mo_oce_bulk,               ONLY: update_sfcflx
-  USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
-  USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
-    & destruct_atmos_fluxes,&
-    & destruct_sea_ice,  &
-    & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
+  USE mo_sea_ice,                ONLY: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_oce_physics,            ONLY: t_ho_params, &
-    & destruct_ho_params, update_ho_params
+  USE mo_oce_physics,            ONLY: t_ho_params, update_ho_params
   USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
     & calc_density_jmdwfg06_eos_func, calc_potential_density, &
     & calc_density
@@ -114,7 +108,6 @@ MODULE mo_hydro_ocean_run
   ! public subroutines
   PUBLIC :: perform_ho_stepping
   PUBLIC :: prepare_ho_stepping
-  PUBLIC :: finalise_ho_integration
   PRIVATE:: update_intermediate_tracer_vars
   !
   CHARACTER(LEN=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
@@ -567,44 +560,8 @@ CONTAINS
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
   
-  
+
   !-------------------------------------------------------------------------
-  !>
-  !! Simple routine for finalising integration of hydrostatic ocean model.
-  !!
-  !! Simple routine for finalising integration of hydrostatic ocean model.
-  !! Calls basic routines ...
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  !
-  !
-  SUBROUTINE finalise_ho_integration(ocean_state, p_phys_param, p_as, p_atm_f, p_ice, p_sfc_flx)
-    TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state(n_dom)
-    TYPE (t_ho_params),        INTENT(inout) :: p_phys_param
-    TYPE(t_atmos_for_ocean),   INTENT(inout) :: p_as
-    TYPE(t_atmos_fluxes ),     INTENT(inout) :: p_atm_f
-    TYPE (t_sea_ice),          INTENT(inout) :: p_ice
-    TYPE(t_sfc_flx),           INTENT(inout) :: p_sfc_flx
-    
-    
-    !------------------------------------------------------------------
-    ! destruct ocean physics and forcing
-    ! destruct ocean state is in control_model
-    !------------------------------------------------------------------
-    CALL destruct_hydro_ocean_state(ocean_state)
-    !CALL destruct_hydro_ocean_base(v_base)
-    CALL destruct_ho_params(p_phys_param)
-    
-    IF(no_tracer>0) CALL destruct_ocean_forcing(p_sfc_flx)
-    CALL destruct_sea_ice(p_ice)
-    CALL destruct_atmos_for_ocean(p_as)
-    CALL destruct_atmos_fluxes(p_atm_f)
-    
-    
-  END SUBROUTINE finalise_ho_integration
-  
   SUBROUTINE update_intermediate_tracer_vars(ocean_state)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     
