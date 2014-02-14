@@ -1,5 +1,5 @@
 !>
-!! Contains the main stepping routine the 3-dim hydrostatic ocean model.
+!! Contains the main stepping method_name the 3-dim hydrostatic ocean model.
 !!
 !! @author Peter Korn, Stephan Lorenz, MPI
 !!
@@ -48,10 +48,10 @@ MODULE mo_ocean_testbed
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & diagnostics_level, &
-    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar,l_time_marching
+    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
-  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
+  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, test_mode
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
@@ -124,9 +124,40 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE ocean_testbed()
-  END SUBROUTINE ocean_testbed
+  SUBROUTINE ocean_testbed( patch_3d, ocean_state, p_ext_data,          &
+    & datetime, lwrite_restart,            &
+    & p_sfc_flx, p_phys_param,             &
+    & p_as, p_atm_f, p_ice, operators_coefficients)
 
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
+    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    LOGICAL, INTENT(in)                              :: lwrite_restart
+    TYPE(t_sfc_flx)                                  :: p_sfc_flx
+    TYPE (t_ho_params)                               :: p_phys_param
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
+    TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+
+    CHARACTER(LEN=max_char_length), PARAMETER ::  method_name = 'ocean_testbed'
+
+    SELECT CASE (test_mode)
+      CASE (10)
+        CALL ocean_test_dynamics( patch_3d, ocean_state, p_ext_data,   &
+          & datetime, lwrite_restart,            &
+          & p_sfc_flx, p_phys_param,             &
+          & p_as, p_atm_f, p_ice,operators_coefficients)
+
+      CASE DEFAULT
+        CALL finish(method_name, "Unknown test_mode")
+
+    END SELECT
+
+
+  END SUBROUTINE ocean_testbed
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -161,15 +192,18 @@ CONTAINS
     
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_ocean_testbed:ocean_test_dynamics'
+      & method_name = 'mo_ocean_testbed:ocean_test_dynamics'
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
-    CALL init_ho_lhs_fields_mimetic   ( patch_3d )
-    
+    CALL datetime_to_string(datestring, datetime)
+
+    ! IF (ltimer) CALL timer_start(timer_total)
+    CALL timer_start(timer_total)
+
+    time_config%sim_time(:) = 0.0_wp
+    jstep0 = 0
     !------------------------------------------------------------------
-    ocean_statistics = new_statistic()
-    
     ! IF(.NOT.l_time_marching)THEN
 
       !IF(itestcase_oce==28)THEN
@@ -177,7 +211,7 @@ CONTAINS
       
         CALL datetime_to_string(datestring, datetime)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-        CALL message (TRIM(routine), message_text)
+        CALL message (TRIM(method_name), message_text)
  
 !          IF(jstep==1)THEN
 !          ocean_state(jg)%p_diag%vn_time_weighted = ocean_state(jg)%p_prog(nold(1))%vn
@@ -237,8 +271,6 @@ CONTAINS
       
       END DO
     ! ENDIF!(l_no_time_marching)THEN
-    
-    CALL delete_statistic(ocean_statistics)
     
     CALL timer_stop(timer_total)
     

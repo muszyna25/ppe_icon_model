@@ -51,6 +51,7 @@ MODULE mo_ocean_model
   ! Control parameters: run control, dynamics, i/o
   !
   USE mo_run_config,          ONLY: &
+    & test_mode,              &
     & dtime,                  & !    :
     & nsteps,                 & !    :
     & ltimer,                 & !    :
@@ -121,6 +122,7 @@ MODULE mo_ocean_model
   USE mo_grid_tools,          ONLY: create_dummy_cell_closure
   USE mo_oce_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics, &
     & t_oce_timeseries
+  USE mo_ocean_testbed,       ONLY: ocean_testbed
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -221,11 +223,19 @@ CONTAINS
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),v_params, is_restart_run())
 
     !------------------------------------------------------------------
-    CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
-      & ext_data, start_datetime,                     &
-      & (nsteps == INT(time_config%dt_restart/dtime)),&
-      & v_sfc_flx,                                    &
-      & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+    IF (test_mode == 0) THEN
+      CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
+        & ext_data, start_datetime,                     &
+        & (nsteps == INT(time_config%dt_restart/dtime)),&
+        & v_sfc_flx,                                    &
+        & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+    ELSE
+      CALL ocean_testbed( ocean_patch_3d, ocean_state, &
+        & ext_data, start_datetime,                     &
+        & (nsteps == INT(time_config%dt_restart/dtime)),&
+        & v_sfc_flx,                                    &
+        & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+    ENDIF
     !------------------------------------------------------------------
 
     CALL print_timer()

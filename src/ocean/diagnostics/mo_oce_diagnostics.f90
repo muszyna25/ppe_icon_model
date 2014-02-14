@@ -191,13 +191,10 @@ MODULE mo_oce_diagnostics
   PRIVATE :: ocean_region_areas
   
 CONTAINS
+
   !-------------------------------------------------------------------------
-  !
-  !
-  !  !The constructor of the types related to ocean diagnostics
+  !  The constructor of the types related to ocean diagnostics
   !>
-  !!
-  !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!

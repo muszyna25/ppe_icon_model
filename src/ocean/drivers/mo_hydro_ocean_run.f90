@@ -47,7 +47,7 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar,l_time_marching
+    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -172,7 +172,6 @@ CONTAINS
     
     ! local variables
     INTEGER :: jstep, jg, jtrc
-    INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
     TYPE(t_patch), POINTER :: patch_2d
@@ -206,8 +205,6 @@ CONTAINS
     time_config%sim_time(:) = 0.0_wp
     
     !------------------------------------------------------------------
-    ocean_statistics = new_statistic()
-    
     jstep0 = 0
     IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
       ! get start counter for time loop from restart file:
@@ -422,8 +419,6 @@ CONTAINS
       
       ENDDO time_loop
       
-    CALL delete_statistic(ocean_statistics)
-    
     CALL timer_stop(timer_total)
     
   END SUBROUTINE perform_ho_stepping

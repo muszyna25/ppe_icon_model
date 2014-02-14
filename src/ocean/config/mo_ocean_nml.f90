@@ -144,9 +144,9 @@ MODULE mo_ocean_nml
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
 
-  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
-                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can 
-                                          !be run. Example: tracer tests with prescribed time-invariant velocity and height. 
+!  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
+!                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can
+!                                          !be run. Example: tracer tests with prescribed time-invariant velocity and height.
   ! ----------------------------------------------------------------------------
   ! DIAGNOSTICS
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
@@ -399,7 +399,6 @@ MODULE mo_ocean_nml
     &                 use_edges2edges_viacell_fast , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &
-    &                 l_time_marching              , &
     &                 fast_performance_level
 
 
