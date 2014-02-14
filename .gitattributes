@@ -1559,7 +1559,7 @@ src/ocean/math/mo_scalar_product.f90 -text
 src/ocean/physics/mo_oce_physics.f90 -text
 src/ocean/physics/mo_oce_thermodyn.f90 -text
 src/ocean/testbed/mo_ocean_testbed.f90 -text
-src/ocean/testbed/mo_ocean_testbed_dynamics.f90 -text
+src/ocean/testbed/mo_ocean_testbed_modules.f90 -text
 src/ocean/testbed/mo_ocean_testbed_operators.f90 -text
 src/ocean/testbed/mo_ocean_testbed_performance.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text

@@ -53,7 +53,7 @@ MODULE mo_testbed_ocean_performance
     &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
     &                                     forcing_enable_freshwater, l_skip_tracer
   USE mo_dynamics_config,           ONLY: nold, nnew
-  USE mo_run_config,                ONLY: dtime, ltimer
+  USE mo_run_config,                ONLY: dtime, ltimer, test_mode
   USE mo_oce_types,                 ONLY: t_hydro_ocean_state
   USE mo_model_domain,              ONLY: t_patch, t_patch_3D
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
@@ -65,12 +65,11 @@ MODULE mo_testbed_ocean_performance
 
   USE mo_grid_config,         ONLY: n_dom
 
-
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
 
-PUBLIC :: test_ocean_performance
+PUBLIC :: ocean_test_performance
 
 INTEGER :: testbed_iterations = 100
 
@@ -79,7 +78,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!
-  SUBROUTINE test_ocean_performance( namelist_filename, shr_namelist_filename, &
+  SUBROUTINE ocean_test_performance( namelist_filename, shr_namelist_filename, &
     & patch_3d, ocean_state, external_data,                     &
     & surface_fluxes, physics_parameters,             &
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
@@ -97,10 +96,34 @@ CONTAINS
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
+    CHARACTER(*), PARAMETER :: method_name = "ocean_test_performance"
+
+    SELECT CASE (test_mode)  !  1000 - 1100
+      CASE (1000)
+        CALL test_prepare_tracer_transport( patch_3d, ocean_state, operators_coefficients)
+
+      CASE DEFAULT
+        CALL finish(method_name, "Unknown test_mode")
+
+    END SELECT
+
+
+
+  END SUBROUTINE ocean_test_performance
+
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE test_prepare_tracer_transport( patch_3d, ocean_state, operators_coefficients)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+
     INTEGER :: timer_prep_trace_trans_0, timer_prep_trace_trans_1, timer_prep_trace_trans_2, &
       & timer_prep_trace_trans_3
     INTEGER :: iter
-    CHARACTER(*), PARAMETER :: method_name = "mo_testbed_ocean_performance:test_ocean_performance"
+    CHARACTER(*), PARAMETER :: method_name = "mo_testbed_ocean_performance:ocean_test_performance"
 
     !---------------------------------------------------------------------
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
@@ -161,7 +184,7 @@ CONTAINS
     !---------------------------------------------------------------------
     
 
-  END SUBROUTINE test_ocean_performance
+  END SUBROUTINE test_prepare_tracer_transport
   !-------------------------------------------------------------------------
 
 

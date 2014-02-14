@@ -7,7 +7,7 @@
 !!  Initial version by Stephan Lorenz (MPI-M), (2010-04).
 !!   - renaming and adjustment of hydrostatic ocean model V1.0.3 to ocean domain and patch_oce
 !!  Modification by Stephan Lorenz, MPI-M, 2010-10
-!!   - new module mo_ocean_testbed_dynamics including updated reconstructions
+!!   - new module mo_ocean_testbed_modules including updated reconstructions
 !
 !
 !! @par Copyright
@@ -38,7 +38,7 @@
 !! software.
 !!
 !!
-MODULE mo_ocean_testbed_dynamics
+MODULE mo_ocean_testbed_modules
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
@@ -101,7 +101,7 @@ MODULE mo_ocean_testbed_dynamics
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: ocean_test_dynamics
+  PUBLIC :: ocean_test_advection
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
@@ -112,9 +112,45 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE ocean_test_dynamics( patch_3d, ocean_state, external_data,          &
+  SUBROUTINE ocean_test_modules( patch_3d, ocean_state, external_data,          &
     & datetime, surface_fluxes, physics_parameters,             &
-    & oceans_atmosphere, p_atm_f, ocean_ice,operators_coefficients)
+    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
+    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE (t_ho_params)                               :: physics_parameters
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
+    TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+
+    CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_test_modules"
+
+    SELECT CASE (test_mode)  !  1 - 99 test ocean modules
+      CASE (1)
+        CALL ocean_test_advection( patch_3d, ocean_state, external_data,   &
+          & datetime, surface_fluxes, physics_parameters,             &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+
+      CASE DEFAULT
+        CALL finish(method_name, "Unknown test_mode")
+
+    END SELECT
+
+
+
+  END SUBROUTINE ocean_test_modules
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE ocean_test_advection( patch_3d, ocean_state, external_data,          &
+    & datetime, surface_fluxes, physics_parameters,             &
+    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
@@ -123,7 +159,7 @@ CONTAINS
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
-    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
@@ -141,7 +177,7 @@ CONTAINS
     
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & method_name = 'mo_ocean_testbed_dynamics:ocean_test_dynamics'
+      & method_name = 'mo_ocean_testbed_modules:ocean_test_advection'
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
@@ -193,7 +229,7 @@ CONTAINS
         CALL output_ocean( patch_3d, ocean_state, external_data,          &
           & datetime, .false.,                  &
           & surface_fluxes, physics_parameters,             &
-          & oceans_atmosphere, p_atm_f, ocean_ice,operators_coefficients, &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients, &
           & jstep)
 
         ! Shift time indices for the next loop
@@ -209,8 +245,8 @@ CONTAINS
     
     CALL timer_stop(timer_total)
     
-  END SUBROUTINE ocean_test_dynamics
+  END SUBROUTINE ocean_test_advection
   !-------------------------------------------------------------------------
   
   
-END MODULE mo_ocean_testbed_dynamics
+END MODULE mo_ocean_testbed_modules

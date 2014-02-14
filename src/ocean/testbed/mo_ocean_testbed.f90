@@ -46,8 +46,9 @@ MODULE mo_ocean_testbed
   USE mo_run_config,          ONLY: test_mode
   USE mo_grid_config,         ONLY: n_dom
 
-  USE mo_ocean_testbed_dynamics,  ONLY: ocean_test_dynamics
-  USE mo_testbed_ocean_performance, ONLY: test_ocean_performance
+  USE mo_ocean_testbed_modules,     ONLY: ocean_test_advection
+  USE mo_testbed_ocean_performance, ONLY: ocean_test_performance
+  USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -82,13 +83,19 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
 
     SELECT CASE (test_mode)
-      CASE (10)
-        CALL ocean_test_dynamics( patch_3d, ocean_state, external_data,   &
+      CASE (1 : 99)  !  1 - 99 test ocean modules
+        CALL ocean_test_advection( patch_3d, ocean_state, external_data,   &
           & datetime, surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
-      CASE (100)
-        CALL test_ocean_performance( namelist_filename, shr_namelist_filename, &
+      CASE (100 : 999) ! 100 - 999 test ocean operators
+        CALL ocean_test_operators( namelist_filename, shr_namelist_filename, &
+          & patch_3d, ocean_state, external_data,   &
+          & surface_fluxes, physics_parameters,             &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+
+      CASE (1000 : 1100) ! 1000 - 1100 performance tests
+        CALL ocean_test_performance( namelist_filename, shr_namelist_filename, &
           & patch_3d, ocean_state, external_data,   &
           & surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
