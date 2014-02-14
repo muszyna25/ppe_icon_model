@@ -637,6 +637,7 @@ CONTAINS
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
     TYPE(t_event_step_data),             ALLOCATABLE :: filename_metadata(:)
+    TYPE(t_event_step_data),             POINTER     :: step_data
 
     ! allocate event data structure
     ALLOCATE(p_event, STAT=ierrstat)
@@ -783,14 +784,15 @@ CONTAINS
       p_event%event_step(i)%n_pes              = 1
       ALLOCATE(p_event%event_step(i)%event_step_data(p_event%event_step(i)%n_pes), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      p_event%event_step(i)%event_step_data(1)%i_pe            = i_pe
-      p_event%event_step(i)%event_step_data(1)%datetime_string = TRIM(mtime_date_string(i))
-      p_event%event_step(i)%event_step_data(1)%i_tag           = i_tag
-      p_event%event_step(i)%event_step_data(1)%filename_string = TRIM(filename_metadata(i)%filename_string)
-      p_event%event_step(i)%event_step_data(1)%jfile           = filename_metadata(i)%jfile
-      p_event%event_step(i)%event_step_data(1)%jpart           = filename_metadata(i)%jpart
-      p_event%event_step(i)%event_step_data(1)%l_open_file     = filename_metadata(i)%l_open_file
-      p_event%event_step(i)%event_step_data(1)%l_close_file    = filename_metadata(i)%l_close_file
+      step_data => p_event%event_step(i)%event_step_data(1)
+      step_data%i_pe            = i_pe
+      step_data%datetime_string = TRIM(mtime_date_string(i))
+      step_data%i_tag           = i_tag
+      step_data%filename_string = TRIM(filename_metadata(i)%filename_string)
+      step_data%jfile           = filename_metadata(i)%jfile
+      step_data%jpart           = filename_metadata(i)%jpart
+      step_data%l_open_file     = filename_metadata(i)%l_open_file
+      step_data%l_close_file    = filename_metadata(i)%l_close_file
     END DO
     IF (ldebug) THEN
       WRITE (0,*) routine, ": defined event ",                            &
