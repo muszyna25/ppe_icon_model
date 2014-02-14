@@ -59,7 +59,6 @@ add_link_file $extreme_data_path/extpar_hdcp2_germany_776km-diam_1250m.nc extpar
 
 nudge_data_path=/pool/data/ICON/ICON-DE/NUDG_germany/1250
 add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc ifs2icon_R2B12_DOM01.nc
-add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc dwdana_R2B12_DOM01.nc
 add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc dwdFG_R2B12_DOM01.nc
 #-----------------------------------------------------------------------------
 
@@ -117,7 +116,7 @@ cat > ${atmo_namelist} << EOF
  dtime_latbc     = 10800.
  nlev_latbc      = 50
  latbc_path      = '${LATBC_PATH}'
- latbc_filename  = '<path>prep1250miconR<nroot>B<jlev>_DOM01_<timestamp>.nc'
+ latbc_filename  = '<path>prep1250miconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
 /
 &prepicon_nml
   i_oper_mode = 3           ! operation mode

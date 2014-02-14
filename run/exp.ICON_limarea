@@ -130,11 +130,11 @@ cat > ${atmo_namelist} << EOF
  dtime_latbc     = 10800.
  nlev_latbc      = ${nlev}
  latbc_path      = '${LATBC_PATH}'
- latbc_filename  = '<path>prep1250miconR2B11_DOM01_<timestamp>.nc'
-! latbc_ifs_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<timestamp>.nc'
-! latbc_icon_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<timestamp>.nc'
-! latbc_dwdana_filename  = '<path>gaf<timestamp>.grb'
-! latbc_dwdfg_filename  = '<path>gif<timestamp>.grb'
+ latbc_filename  = '<path>prep1250miconR2B11_DOM01_<y><m><d><h>.nc'
+! latbc_ifs_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
+! latbc_icon_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
+! latbc_dwdana_filename  = '<path>gaf<y><m><d><h>.grb'
+! latbc_dwdfg_filename  = '<path>gif<y><m><d><h>.grb'
 /
 &diffusion_nml
  hdiff_order      = 5
