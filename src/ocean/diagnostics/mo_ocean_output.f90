@@ -7,7 +7,7 @@
 !!  Initial version by Stephan Lorenz (MPI-M), (2010-04).
 !!   - renaming and adjustment of hydrostatic ocean model V1.0.3 to ocean domain and patch_oce
 !!  Modification by Stephan Lorenz, MPI-M, 2010-10
-!!   - new module mo_ocean_testbed including updated reconstructions
+!!   - new module mo_ocean_output including updated reconstructions
 !
 !
 !! @par Copyright
@@ -38,7 +38,7 @@
 !! software.
 !!
 !!
-MODULE mo_ocean_testbed
+MODULE mo_ocean_output
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
@@ -63,10 +63,9 @@ MODULE mo_ocean_testbed
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
     & update_time_indices
- USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
- USE mo_oce_state,              ONLY: destruct_hydro_ocean_state,            &
-    & ocean_restart_list
+  USE mo_oce_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_oce_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
@@ -74,15 +73,10 @@ MODULE mo_ocean_testbed
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
   USE mo_oce_bulk,               ONLY: update_sfcflx
-  USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
-  USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
-    & destruct_atmos_fluxes,&
-    & destruct_sea_ice,  &
-    & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
+  USE mo_sea_ice,                ONLY: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_oce_physics,            ONLY: t_ho_params, &
-    & destruct_ho_params, update_ho_params
+  USE mo_oce_physics,            ONLY: t_ho_params, update_ho_params
   USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
     & calc_density_jmdwfg06_eos_func, calc_potential_density, &
     & calc_density
@@ -106,31 +100,24 @@ MODULE mo_ocean_testbed
   IMPLICIT NONE
   
   PRIVATE
+  PUBLIC :: output_ocean
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
-  ! public interface
-  !
-  ! public subroutines
-  PUBLIC :: ocean_testbed
-  !
-  CHARACTER(LEN=12)  :: module_name = 'ocean_testbed'  ! Output of module for 1 line debug
-  !
   !-------------------------------------------------------------------------
   
 CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE ocean_testbed()
-  END SUBROUTINE ocean_testbed
-
-
-#if 0
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE ocean_test_dynamics( patch_3d, ocean_state, p_ext_data,          &
+  !! Main stepping routine for call of hydrostatic ocean model
+  !!
+  !! @par Revision History
+  !! Developed by Peter Korn, MPI-M  (2008-2010).
+  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
+  !
+  SUBROUTINE output_ocean( patch_3d, ocean_state, p_ext_data,          &
     & datetime, lwrite_restart,            &
     & p_sfc_flx, p_phys_param,             &
     & p_as, p_atm_f, p_ice,operators_coefficients)
@@ -162,55 +149,17 @@ CONTAINS
     
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_ocean_testbed:ocean_test_dynamics'
+      & routine = 'mo_ocean_output:output_ocean'
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
     nsteps_since_last_output = 1
-    CALL init_ho_lhs_fields_mimetic   ( patch_3d )
-    
     !------------------------------------------------------------------
-    ocean_statistics = new_statistic()
-    
-    ! IF(.NOT.l_time_marching)THEN
+     IF (.not. istime4name_list_output(jstep)) RETURN
 
-      !IF(itestcase_oce==28)THEN
-      DO jstep = (jstep0+1), (jstep0+nsteps)
-      
-        CALL datetime_to_string(datestring, datetime)
-        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-        CALL message (TRIM(routine), message_text)
- 
-!          IF(jstep==1)THEN
-!          ocean_state(jg)%p_diag%vn_time_weighted = ocean_state(jg)%p_prog(nold(1))%vn
-!          ocean_state(jg)%p_prog(nnew(1))%vn = ocean_state(jg)%p_prog(nold(1))%vn
-!          ocean_state(jg)%p_diag%w        =  0.0_wp!0.0833_wp!0.025_wp
-!          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
-!          ENDIF
 
-        !CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
-        !CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
-          & p_phys_param,p_sfc_flx,&
-          & operators_coefficients,&
-          & jstep)
-        ! One integration cycle finished on the lowest grid level (coarsest
-        ! resolution). Set model time.
-        CALL add_time(dtime,0,0,0,datetime)
-      
-        ! Not nice, but the name list output requires this
-        time_config%sim_time(1) = time_config%sim_time(1) + dtime
-      
-        ! update accumulated vars
-        CALL update_ocean_statistics(ocean_state(1),&
-        & p_sfc_flx,                                &
-        & patch_2D%cells%owned,       &
-        & patch_2D%edges%owned,       &
-        & patch_2D%verts%owned,       &
-        & n_zlev)
-          
-
-        IF (istime4name_list_output(jstep)) THEN
+    !------------------------------------------------------------------
+        IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
           IF (diagnostics_level == 1 ) THEN
             CALL calc_slow_oce_diagnostics( patch_3d,      &
             & ocean_state(jg),      &
@@ -219,8 +168,14 @@ CONTAINS
             & jstep-jstep0,  &
             & datetime,      &
             & oce_ts)
-                    
+            IF (no_tracer>=2) THEN
+              CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
+            ENDIF
           ENDIF
+          ! compute mean values for output interval
+          !TODO [ram] src/io/shared/mo_output_event_types.f90 for types to use
+          !TODO [ram] nsteps_since_last_output =
+          !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
         
           CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
           CALL compute_mean_ice_statistics(p_ice%acc,nsteps_since_last_output)
@@ -240,39 +195,47 @@ CONTAINS
           IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
         
         END IF
-      
-        ! Shift time indices for the next loop
-        ! this HAS to ge into the restart files, because the start with the following loop
-        CALL update_time_indices(jg)
-        ! update intermediate timestepping variables for the tracers
-        CALL update_intermediate_tracer_vars(ocean_state(jg))
-      
-        ! write a restart or checkpoint file
-        IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-          CALL create_restart_file( patch=patch_2d,        &
-            & datetime=datetime,                           &
-            & jstep=jstep,                                 &
-            & model_type="oce",                            &
-            & opt_depth=n_zlev,                            &
-            & opt_sim_time=time_config%sim_time(1),        &
-            & opt_nice_class=1)
-          ! Create the master (meta) file in ASCII format which contains
-          ! info about which files should be read in for a restart run.
-          CALL write_restart_info_file
-        END IF
-      
-        nsteps_since_last_output = nsteps_since_last_output + 1
-          
-      END DO
-    ! ENDIF!(l_no_time_marching)THEN
-    
-    CALL delete_statistic(ocean_statistics)
-    
-    CALL timer_stop(timer_total)
-    
-  END SUBROUTINE ocean_test_dynamics
+
+  END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
-#endif
+    
+  !-------------------------------------------------------------------------
+  SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
+    INTEGER, INTENT(in) :: timelevel
+    TYPE(t_hydro_ocean_diag) :: p_diag
+    TYPE(t_hydro_ocean_prog) :: p_prog
+    
+    TYPE(t_list_element), POINTER :: output_var => NULL()
+    TYPE(t_list_element), POINTER :: prog_var   => NULL()
+    CHARACTER(LEN=max_char_length) :: timelevel_str
+    !-------------------------------------------------------------------------
+    WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
+    !write(0,*)'>>>>>>>>>>>>>>>> T timelevel_str:',TRIM(timelevel_str)
+    
+    !CALL print_var_list(ocean_restart_list)
+    !prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel_str))
+    !output_var             => find_list_element(ocean_restart_list,'h')
+    !output_var%field%r_ptr => prog_var%field%r_ptr
+    !p_diag%h               => prog_var%field%r_ptr(:,:,1,1,1)
+    p_diag%h               =  p_prog%h
+    
+    !output_var             => find_list_element(ocean_restart_list,'vn')
+    !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
+    !output_var%field%r_ptr => prog_var%field%r_ptr
+    !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
+    p_diag%vn(:,:,:)       =  p_prog%vn
+    
+    !output_var             => find_list_element(ocean_restart_list,'t')
+    !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))
+    !output_var%field%r_ptr => prog_var%field%r_ptr
+    !p_diag%t               => prog_var%field%r_ptr(:,:,:,1,1)
+    IF(no_tracer>0)p_diag%t(:,:,:)        =  p_prog%tracer(:,:,:,1)
+    
+    !output_var             => find_list_element(ocean_restart_list,'s')
+    !prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel_str))
+    !output_var%field%r_ptr => prog_var%field%r_ptr
+    !p_diag%s               => prog_var%field%r_ptr(:,:,:,1,1)
+     IF(no_tracer>1)p_diag%s(:,:,:)        =  p_prog%tracer(:,:,:,2)
+  END SUBROUTINE set_output_pointers
   
-  
-END MODULE mo_ocean_testbed
+END MODULE mo_ocean_output

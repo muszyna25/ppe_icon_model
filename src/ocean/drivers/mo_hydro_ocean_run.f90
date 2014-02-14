@@ -96,6 +96,7 @@ MODULE mo_hydro_ocean_run
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
+  USE mo_ocean_output
   
   IMPLICIT NONE
   
@@ -493,42 +494,10 @@ CONTAINS
         & patch_3d%p_patch_1d(1)%zlev_m, &
         & ocean_state(jg)%p_diag)
 
-        IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
-          IF (diagnostics_level == 1 ) THEN
-            CALL calc_slow_oce_diagnostics( patch_3d,      &
-            & ocean_state(jg),      &
-            & p_sfc_flx,     &
-            & p_ice,         &
-            & jstep-jstep0,  &
-            & datetime,      &
-            & oce_ts)
-            IF (no_tracer>=2) THEN
-              CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
-            ENDIF
-          ENDIF
-          ! compute mean values for output interval
-          !TODO [ram] src/io/shared/mo_output_event_types.f90 for types to use
-          !TODO [ram] nsteps_since_last_output =
-          !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
-        
-          CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
-          CALL compute_mean_ice_statistics(p_ice%acc,nsteps_since_last_output)
-        
-          ! set the output variable pointer to the correct timelevel
-          CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-        
-          IF (output_mode%l_nml) THEN
-            CALL write_name_list_output(jstep)
-          ENDIF
-        
-          CALL message (TRIM(routine),'Write output at:')
-          CALL print_datetime(datetime)
-        
-          ! reset accumulation vars
-          CALL reset_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
-          IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
-        
-        END IF
+        CALL output_ocean( patch_3d, ocean_state, p_ext_data,          &
+          & datetime, lwrite_restart,            &
+          & p_sfc_flx, p_phys_param,             &
+          & p_as, p_atm_f, p_ice,operators_coefficients)
       
         ! Shift time indices for the next loop
         ! this HAS to ge into the restart files, because the start with the following loop
