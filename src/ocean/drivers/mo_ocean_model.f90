@@ -136,11 +136,11 @@ MODULE mo_ocean_model
   PUBLIC :: construct_ocean_model, destruct_ocean_model
   PUBLIC :: ocean_patch_3d, ocean_state, operators_coefficients
 
-  TYPE(t_patch_3d), POINTER :: ocean_patch_3d
+  TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d
   TYPE(t_atmos_for_ocean)                         :: p_as
   TYPE(t_atmos_fluxes)                            :: p_atm_f
   TYPE(t_operator_coeff)                          :: operators_coefficients
-  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET :: ocean_state(:)
+  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
   TYPE(t_datetime)                                :: start_datetime
 
   TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -230,11 +230,10 @@ CONTAINS
         & v_sfc_flx,                                    &
         & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
     ELSE
-      CALL ocean_testbed( ocean_patch_3d, ocean_state, &
-        & ext_data, start_datetime,                     &
-        & (nsteps == INT(time_config%dt_restart/dtime)),&
-        & v_sfc_flx,                                    &
-        & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+      CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
+        & ocean_patch_3d, ocean_state,                    &
+        & ext_data, start_datetime,                       &
+        & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
     ENDIF
     !------------------------------------------------------------------
 

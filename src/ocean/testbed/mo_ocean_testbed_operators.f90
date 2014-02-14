@@ -39,7 +39,7 @@
 !! software.
 !!
 !!
-MODULE mo_oce_operators_testbed
+MODULE mo_ocean_testbed_operators
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
@@ -201,5 +201,5 @@ IF(jk==1)&
   END SUBROUTINE operator_test
   !-------------------------------------------------------------------------------
 
-END MODULE mo_oce_operators_testbed
+END MODULE mo_ocean_testbed_operators
 

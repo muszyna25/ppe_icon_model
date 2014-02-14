@@ -1,9 +1,8 @@
 !>
-!! @brief Main program for the ICON atmospheric model
+!! @brief Testbed for ocean
 !!
 !! @author
 !!  Leonidas Linardakis (MPI-M)
-!!  Hui Wan             (MPI-M)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
