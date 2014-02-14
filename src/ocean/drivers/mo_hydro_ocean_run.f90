@@ -47,7 +47,6 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & diagnostics_level, &
     & eos_type, i_sea_ice, l_staggered_timestep, gibraltar,l_time_marching
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
@@ -82,9 +81,7 @@ MODULE mo_hydro_ocean_run
     & calc_density
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & construct_oce_diagnostics,&
-    & destruct_oce_diagnostics, t_oce_timeseries, &
-    & calc_moc, calc_psi
+    & t_oce_timeseries, calc_moc, calc_psi
   USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
@@ -142,6 +139,9 @@ CONTAINS
       & p_phys_param,                 &
       & operators_coefficients%matrix_vert_diff_e,&
       & operators_coefficients%matrix_vert_diff_c)
+
+     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
+
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
   
@@ -175,7 +175,6 @@ CONTAINS
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
-    TYPE(t_oce_timeseries), POINTER :: oce_ts
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER, POINTER :: dolic(:,:)
@@ -188,7 +187,6 @@ CONTAINS
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
-    CALL init_ho_lhs_fields_mimetic   ( patch_3d )
     
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far
@@ -201,10 +199,7 @@ CONTAINS
     patch_2d => patch_3d%p_patch_2d(jg)
     
     CALL datetime_to_string(datestring, datetime)
-    
-    IF (diagnostics_level == 1) &
-      & CALL construct_oce_diagnostics( patch_3d, ocean_state(jg), oce_ts, datestring)
-    
+
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
     
@@ -427,7 +422,6 @@ CONTAINS
       
       ENDDO time_loop
       
-    IF (diagnostics_level==1) CALL destruct_oce_diagnostics(oce_ts)
     CALL delete_statistic(ocean_statistics)
     
     CALL timer_stop(timer_total)

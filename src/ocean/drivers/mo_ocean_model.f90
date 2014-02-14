@@ -38,7 +38,7 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
-  USE mo_datetime,            ONLY: t_datetime
+  USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
   USE mo_name_list_output,    ONLY: close_name_list_output
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
@@ -64,7 +64,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, diagnostics_level
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
 
@@ -119,6 +119,8 @@ MODULE mo_ocean_model
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mtime,                  ONLY: setcalendar, proleptic_gregorian
   USE mo_grid_tools,          ONLY: create_dummy_cell_closure
+  USE mo_oce_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics, &
+    & t_oce_timeseries
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -139,6 +141,7 @@ MODULE mo_ocean_model
   TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET :: ocean_state(:)
   TYPE(t_datetime)                                :: start_datetime
 
+  TYPE(t_oce_timeseries), POINTER :: oce_ts
 
 CONTAINS
 
@@ -248,6 +251,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
 
+    IF (diagnostics_level==1) CALL destruct_oce_diagnostics(oce_ts)
     !------------------------------------------------------------------
     ! destruct ocean physics and forcing
     ! destruct ocean state is in control_model
@@ -308,10 +312,9 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
+    CHARACTER(LEN=32)               :: datestring
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:construct_ocean_model"
-
     INTEGER :: ist
-
     INTEGER :: error_status
     !-------------------------------------------------------------------
 
@@ -408,6 +411,9 @@ CONTAINS
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
       & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients)!,p_int_state(1:))
 
+    CALL datetime_to_string(datestring, start_datetime)
+    IF (diagnostics_level == 1) &
+      & CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), oce_ts, datestring)
 
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------

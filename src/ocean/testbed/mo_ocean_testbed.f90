@@ -102,6 +102,7 @@ MODULE mo_ocean_testbed
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
+  USE mo_ocean_output
   
   IMPLICIT NONE
   
@@ -115,7 +116,7 @@ MODULE mo_ocean_testbed
   ! public subroutines
   PUBLIC :: ocean_testbed
   !
-  CHARACTER(LEN=12)  :: module_name = 'ocean_testbed'  ! Output of module for 1 line debug
+  CHARACTER(LEN=*), PARAMETER  :: module_name = 'ocean_testbed'  ! Output of module for 1 line debug
   !
   !-------------------------------------------------------------------------
   
@@ -127,7 +128,6 @@ CONTAINS
   END SUBROUTINE ocean_testbed
 
 
-#if 0
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE ocean_test_dynamics( patch_3d, ocean_state, p_ext_data,          &
@@ -149,7 +149,6 @@ CONTAINS
     
     ! local variables
     INTEGER :: jstep, jg, jtrc
-    INTEGER :: nsteps_since_last_output
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
@@ -166,7 +165,6 @@ CONTAINS
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
-    nsteps_since_last_output = 1
     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
     
     !------------------------------------------------------------------
@@ -219,7 +217,9 @@ CONTAINS
         ! this HAS to ge into the restart files, because the start with the following loop
         CALL update_time_indices(jg)
         ! update intermediate timestepping variables for the tracers
-        CALL update_intermediate_tracer_vars(ocean_state(jg))
+        ! velocity
+        ocean_state(jg)%p_aux%g_nm1 = ocean_state(jg)%p_aux%g_n
+        ocean_state(jg)%p_aux%g_n   = 0.0_wp
       
         ! write a restart or checkpoint file
         IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
@@ -235,8 +235,6 @@ CONTAINS
           CALL write_restart_info_file
         END IF
       
-        nsteps_since_last_output = nsteps_since_last_output + 1
-          
       END DO
     ! ENDIF!(l_no_time_marching)THEN
     
@@ -246,7 +244,6 @@ CONTAINS
     
   END SUBROUTINE ocean_test_dynamics
   !-------------------------------------------------------------------------
-#endif
   
   
 END MODULE mo_ocean_testbed
