@@ -104,6 +104,8 @@ MODULE mo_ocean_output
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+
+  INTEGER :: nsteps_since_last_output = 0
   
   !-------------------------------------------------------------------------
   
@@ -120,7 +122,8 @@ CONTAINS
   SUBROUTINE output_ocean( patch_3d, ocean_state, p_ext_data,          &
     & datetime, lwrite_restart,            &
     & p_sfc_flx, p_phys_param,             &
-    & p_as, p_atm_f, p_ice,operators_coefficients)
+    & p_as, p_atm_f, p_ice,operators_coefficients, &
+    & jstep)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
@@ -133,10 +136,11 @@ CONTAINS
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    INTEGER,   INTENT(in)     :: jstep
     
+
     ! local variables
-    INTEGER :: jstep, jg, jtrc
-    INTEGER :: nsteps_since_last_output
+    INTEGER :: jg, jtrc
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
@@ -153,7 +157,8 @@ CONTAINS
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
-    nsteps_since_last_output = 1
+    jg = 1
+    nsteps_since_last_output = nsteps_since_last_output + 1
     !------------------------------------------------------------------
      IF (.not. istime4name_list_output(jstep)) RETURN
 

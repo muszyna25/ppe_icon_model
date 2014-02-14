@@ -209,38 +209,12 @@ CONTAINS
         & patch_2D%verts%owned,       &
         & n_zlev)
           
+        CALL output_ocean( patch_3d, ocean_state, p_ext_data,          &
+          & datetime, lwrite_restart,            &
+          & p_sfc_flx, p_phys_param,             &
+          & p_as, p_atm_f, p_ice,operators_coefficients, &
+          & jstep)
 
-        IF (istime4name_list_output(jstep)) THEN
-          IF (diagnostics_level == 1 ) THEN
-            CALL calc_slow_oce_diagnostics( patch_3d,      &
-            & ocean_state(jg),      &
-            & p_sfc_flx,     &
-            & p_ice,         &
-            & jstep-jstep0,  &
-            & datetime,      &
-            & oce_ts)
-                    
-          ENDIF
-        
-          CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
-          CALL compute_mean_ice_statistics(p_ice%acc,nsteps_since_last_output)
-        
-          ! set the output variable pointer to the correct timelevel
-          CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-        
-          IF (output_mode%l_nml) THEN
-            CALL write_name_list_output(jstep)
-          ENDIF
-        
-          CALL message (TRIM(routine),'Write output at:')
-          CALL print_datetime(datetime)
-        
-          ! reset accumulation vars
-          CALL reset_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
-          IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
-        
-        END IF
-      
         ! Shift time indices for the next loop
         ! this HAS to ge into the restart files, because the start with the following loop
         CALL update_time_indices(jg)

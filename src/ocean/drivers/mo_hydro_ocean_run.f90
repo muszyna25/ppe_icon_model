@@ -172,7 +172,6 @@ CONTAINS
     
     ! local variables
     INTEGER :: jstep, jg, jtrc
-    INTEGER :: nsteps_since_last_output
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
@@ -189,7 +188,6 @@ CONTAINS
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
-    nsteps_since_last_output = 1
     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
     
     !------------------------------------------------------------------
@@ -265,99 +263,6 @@ CONTAINS
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
-    IF(.NOT.l_time_marching)THEN
-
-      !IF(itestcase_oce==28)THEN
-      DO jstep = (jstep0+1), (jstep0+nsteps)
-      
-        CALL datetime_to_string(datestring, datetime)
-        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-        CALL message (TRIM(routine), message_text)
- 
-!          IF(jstep==1)THEN
-!          ocean_state(jg)%p_diag%vn_time_weighted = ocean_state(jg)%p_prog(nold(1))%vn
-!          ocean_state(jg)%p_prog(nnew(1))%vn = ocean_state(jg)%p_prog(nold(1))%vn
-!          ocean_state(jg)%p_diag%w        =  0.0_wp!0.0833_wp!0.025_wp
-!          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
-!          ENDIF
-
-        !CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg))
-        !CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
-          & p_phys_param,p_sfc_flx,&
-          & operators_coefficients,&
-          & jstep)
-        ! One integration cycle finished on the lowest grid level (coarsest
-        ! resolution). Set model time.
-        CALL add_time(dtime,0,0,0,datetime)
-      
-        ! Not nice, but the name list output requires this
-        time_config%sim_time(1) = time_config%sim_time(1) + dtime
-      
-        ! update accumulated vars
-        CALL update_ocean_statistics(ocean_state(1),&
-        & p_sfc_flx,                                &
-        & patch_2D%cells%owned,       &
-        & patch_2D%edges%owned,       &
-        & patch_2D%verts%owned,       &
-        & n_zlev)
-          
-
-        IF (istime4name_list_output(jstep)) THEN
-          IF (diagnostics_level == 1 ) THEN
-            CALL calc_slow_oce_diagnostics( patch_3d,      &
-            & ocean_state(jg),      &
-            & p_sfc_flx,     &
-            & p_ice,         &
-            & jstep-jstep0,  &
-            & datetime,      &
-            & oce_ts)
-                    
-          ENDIF
-        
-          CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
-          CALL compute_mean_ice_statistics(p_ice%acc,nsteps_since_last_output)
-        
-          ! set the output variable pointer to the correct timelevel
-          CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-        
-          IF (output_mode%l_nml) THEN
-            CALL write_name_list_output(jstep)
-          ENDIF
-        
-          CALL message (TRIM(routine),'Write output at:')
-          CALL print_datetime(datetime)
-        
-          ! reset accumulation vars
-          CALL reset_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
-          IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
-        
-        END IF
-      
-        ! Shift time indices for the next loop
-        ! this HAS to ge into the restart files, because the start with the following loop
-        CALL update_time_indices(jg)
-        ! update intermediate timestepping variables for the tracers
-        CALL update_intermediate_tracer_vars(ocean_state(jg))
-      
-        ! write a restart or checkpoint file
-        IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-          CALL create_restart_file( patch=patch_2d,        &
-            & datetime=datetime,                           &
-            & jstep=jstep,                                 &
-            & model_type="oce",                            &
-            & opt_depth=n_zlev,                            &
-            & opt_sim_time=time_config%sim_time(1),        &
-            & opt_nice_class=1)
-          ! Create the master (meta) file in ASCII format which contains
-          ! info about which files should be read in for a restart run.
-          CALL write_restart_info_file
-        END IF
-      
-        nsteps_since_last_output = nsteps_since_last_output + 1
-          
-      END DO
-    ELSEIF(l_time_marching)THEN
     
       time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
       
@@ -497,7 +402,8 @@ CONTAINS
         CALL output_ocean( patch_3d, ocean_state, p_ext_data,          &
           & datetime, lwrite_restart,            &
           & p_sfc_flx, p_phys_param,             &
-          & p_as, p_atm_f, p_ice,operators_coefficients)
+          & p_as, p_atm_f, p_ice,operators_coefficients, &
+          & jstep)
       
         ! Shift time indices for the next loop
         ! this HAS to ge into the restart files, because the start with the following loop
@@ -519,11 +425,8 @@ CONTAINS
           CALL write_restart_info_file
         END IF
       
-        nsteps_since_last_output = nsteps_since_last_output + 1
       ENDDO time_loop
       
-    ENDIF!(l_no_time_marching)THEN   
-    
     IF (diagnostics_level==1) CALL destruct_oce_diagnostics(oce_ts)
     CALL delete_statistic(ocean_statistics)
     
@@ -544,44 +447,5 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   
-  
     
-  SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
-    INTEGER, INTENT(in) :: timelevel
-    TYPE(t_hydro_ocean_diag) :: p_diag
-    TYPE(t_hydro_ocean_prog) :: p_prog
-    
-    TYPE(t_list_element), POINTER :: output_var => NULL()
-    TYPE(t_list_element), POINTER :: prog_var   => NULL()
-    CHARACTER(LEN=max_char_length) :: timelevel_str
-    !-------------------------------------------------------------------------
-    WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
-    !write(0,*)'>>>>>>>>>>>>>>>> T timelevel_str:',TRIM(timelevel_str)
-    
-    !CALL print_var_list(ocean_restart_list)
-    !prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel_str))
-    !output_var             => find_list_element(ocean_restart_list,'h')
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%h               => prog_var%field%r_ptr(:,:,1,1,1)
-    p_diag%h               =  p_prog%h
-    
-    !output_var             => find_list_element(ocean_restart_list,'vn')
-    !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
-    p_diag%vn(:,:,:)       =  p_prog%vn
-    
-    !output_var             => find_list_element(ocean_restart_list,'t')
-    !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%t               => prog_var%field%r_ptr(:,:,:,1,1)
-    IF(no_tracer>0)p_diag%t(:,:,:)        =  p_prog%tracer(:,:,:,1)
-    
-    !output_var             => find_list_element(ocean_restart_list,'s')
-    !prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel_str))
-    !output_var%field%r_ptr => prog_var%field%r_ptr
-    !p_diag%s               => prog_var%field%r_ptr(:,:,:,1,1)
-     IF(no_tracer>1)p_diag%s(:,:,:)        =  p_prog%tracer(:,:,:,2)
-  END SUBROUTINE set_output_pointers
-  
 END MODULE mo_hydro_ocean_run
