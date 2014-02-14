@@ -296,7 +296,7 @@ MODULE mo_nh_stepping
                                 &  p_patch(1:), ext_data, p_lnd_state)
   END IF
 
-  IF (iforcing == inwp .AND. is_restart_run()) THEN
+  IF (iforcing == inwp) THEN
     DO jg=1, n_dom
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       CALL init_nwp_phy( dtime                     ,&
@@ -314,28 +314,12 @@ MODULE mo_nh_stepping
            & ext_data(jg)                          ,&
            & phy_params(jg)                         )
     ENDDO
-  ELSE IF (iforcing == inwp) THEN ! for cold start, use atmospheric fields at time level nnow only
-    DO jg=1, n_dom
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-      CALL init_nwp_phy( dtime                     ,&
-           & p_patch(jg)                           ,&
-           & p_nh_state(jg)%metrics                ,&
-           & p_nh_state(jg)%prog(nnow(jg))         ,&
-           & p_nh_state(jg)%diag                   ,&
-           & prm_diag(jg)                          ,&
-           & prm_nwp_tend(jg)                      ,&
-           & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),&
-           & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
-           & p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)),&
-           & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
-           & p_lnd_state(jg)%diag_lnd              ,&
-           & ext_data(jg)                          ,&
-           & phy_params(jg)                         )
-    ENDDO
-    ! Compute diagnostic physics fields
-    CALL diag_for_output_phys
-    ! Initial call of (slow) physics schemes, including computation of transfer coefficients
-    CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
+    IF (.NOT.is_restart_run()) THEN
+      ! Compute diagnostic physics fields
+      CALL diag_for_output_phys
+      ! Initial call of (slow) physics schemes, including computation of transfer coefficients
+      CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
+    ENDIF
   ENDIF
 
   !------------------------------------------------------------------
