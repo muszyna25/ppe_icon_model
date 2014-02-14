@@ -40,6 +40,7 @@ MODULE mo_util_string
   ! String conversion utilities
   !
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_util_sort,          ONLY: quicksort
   IMPLICIT NONE
   !
   PRIVATE
@@ -64,6 +65,7 @@ MODULE mo_util_string
   PUBLIC :: one_of
   PUBLIC :: insert_group
   PUBLIC :: delete_keyword_list
+  PUBLIC :: sort_and_compress_list
 
   !
   PUBLIC :: normal, bold
@@ -681,6 +683,64 @@ CONTAINS
 
   END SUBROUTINE delete_keyword_list
   !==============================================================================
+
+
+  !> Utility function: Takes a list of integer values as an input
+  !> (without duplicates) and returns a string containing this list in
+  !> an ordered, compressed fashion.
+  !
+  !  E.g., the list
+  !     ( 1, 10, 9, 8, 3, 5, 6 )
+  !  is transformed into
+  !      1,3,5,6,8-10
+  !
+  !  Initial implementation: 2014-02-14   F. Prill (DWD)
+  !
+  SUBROUTINE sort_and_compress_list(idx_list, dst)
+    INTEGER,          INTENT(IN)  :: idx_list(:)
+    CHARACTER(LEN=*), INTENT(OUT) :: dst
+    ! local variables
+    INTEGER :: list(SIZE(idx_list)),  &  ! sorted copy
+      &        nnext(SIZE(idx_list))
+    INTEGER :: i, j, N
+
+    dst = " "
+    N = SIZE(idx_list)
+    list(:) = idx_list(:)
+    ! sort the list
+    CALL quicksort(list)
+    ! find out, how many direct successors follow:
+    j        = 1
+    nnext(:) = 0
+    DO i=2,N
+      IF (list(i) == list(i-1)) THEN
+        WRITE (0,*) "ERROR: sort_and_compress_list operates on non-unique list entries"
+      END IF
+      IF (list(i) == (list(i-1)+1)) THEN
+        nnext(j) = nnext(j) + 1
+      ELSE
+        j = i
+        nnext(j) = 1
+      END IF
+    END DO
+    ! build the result string:
+    i = 1
+    DO
+      IF (i>N) EXIT
+      IF (nnext(i) > 1) THEN
+        IF (nnext(i) == 2) THEN
+          dst = TRIM(dst)//TRIM(int2string(list(i)))//","//TRIM(int2string(list(i+1)))
+        ELSE
+          dst = TRIM(dst)//TRIM(int2string(list(i)))//"-"//TRIM(int2string(list(i+nnext(i)-1)))
+        END IF
+        i = i + nnext(i)
+      ELSE
+        dst = TRIM(dst)//TRIM(int2string(list(i)))
+        i = i + 1
+      END IF
+      IF (i < N)  dst = TRIM(dst)//", "
+    END DO
+  END SUBROUTINE sort_and_compress_list
 
   
 END MODULE mo_util_string
