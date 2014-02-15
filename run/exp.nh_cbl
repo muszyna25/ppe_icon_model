@@ -113,9 +113,11 @@ cat > ${atmo_namelist} << EOF
  is_dry_cbl        = .TRUE. 
  shflx             =  0.1  ! kinematic surface heat flux
  lhflx             =  0.0  ! knematic latent heat flux 
- smag_constant     = 0.12
  isrfc_type        = 2     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  ufric             = 0.2
+ expname           = '${EXPNAME}'
+ avg_interval_sec = 900.
+ sampl_freq_sec   = 30.
 /
 &diffusion_nml
  lhdiff_temp  = .FALSE.
@@ -164,25 +166,12 @@ const_z0  = 0.0003
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT30M"
- file_interval    = "PT30M"
+ file_interval    = "P01D"
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_insta'
  output_grid      = .TRUE.
  ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho' 
-/
-&output_nml
- filetype         = 4
- dom              = -1
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "PT10S"
- file_interval    = "P2D"
- include_last     = .TRUE.
- remap            = 0   ! triangular grid
- output_filename  = '${EXPNAME}_tseries'
- output_grid      = .TRUE.
- ml_varlist       = 'shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','z_pbl'
 /
 EOF
 #-----------------------------------------------------------------------------

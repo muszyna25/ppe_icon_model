@@ -111,11 +111,13 @@ cat > ${atmo_namelist} << EOF
 /
 &les_nml
  is_dry_cbl        = .FALSE. 
- smag_constant     = 0.12
  isrfc_type        = 3      !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  bflux             = 0.0007 !Buoyancy flux in m2/s3
  tran_coeff        = 0.02   !m/s
  ufric             = 0.2   
+ expname           = '${EXPNAME}'
+ avg_interval_sec = 900.
+ sampl_freq_sec   = 30.
 /
 &diffusion_nml
  lhdiff_temp  = .FALSE.
@@ -138,7 +140,7 @@ const_z0  = 0.0003
 /
 &transport_nml
  ihadv_tracer = 1,1,0,0,0,0,0
- ivadv_tracer = 1,1,0,0,0,0,0
+ ivadv_tracer = 30,30,0,0,0,0,0  !1=1st order upwind,3=ppm-highCFL,30-ppm
 /
 &nonhydrostatic_nml
  iadv_rhotheta = 2
@@ -164,26 +166,12 @@ const_z0  = 0.0003
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT30M"
- file_interval    = "PT30M"
+ file_interval    = "P01D" 
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_insta'
  output_grid      = .TRUE.
  ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc','clc'
-/
-&output_nml
- filetype         = 4
- dom              = -1
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "PT10S"
- file_interval    = "P2D"
- include_last     = .TRUE.
- remap            = 0   ! triangular grid
- output_filename  = '${EXPNAME}_tseries'
- output_grid      = .TRUE.
- ml_varlist       = 'shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','clct_avg','avg_qv','avg_qc',
-                    'ashfl_s','alhfl_s','aumfl_s','avmfl_s','clct','z_pbl'
 /
 EOF
 #-----------------------------------------------------------------------------
