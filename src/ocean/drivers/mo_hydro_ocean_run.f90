@@ -80,7 +80,7 @@ MODULE mo_hydro_ocean_run
     & calc_density_jmdwfg06_eos_func, calc_potential_density, &
     & calc_density
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
+  USE mo_oce_diagnostics,        ONLY: calc_fast_oce_diagnostics, &
     & t_oce_timeseries, calc_moc, calc_psi
   USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
@@ -395,7 +395,7 @@ CONTAINS
           & datetime, lwrite_restart,            &
           & p_sfc_flx, p_phys_param,             &
           & p_as, p_atm_f, p_ice,operators_coefficients, &
-          & jstep)
+          & jstep, jstep0)
       
         ! Shift time indices for the next loop
         ! this HAS to ge into the restart files, because the start with the following loop

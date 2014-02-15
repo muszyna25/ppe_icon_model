@@ -189,6 +189,8 @@ MODULE mo_oce_diagnostics
   PRIVATE :: ocean_region_volumes
   TYPE(t_ocean_region_areas),SAVE :: ocean_region_areas
   PRIVATE :: ocean_region_areas
+
+  TYPE(t_oce_timeseries),POINTER :: oce_ts
   
 CONTAINS
 
@@ -198,10 +200,9 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
-  SUBROUTINE construct_oce_diagnostics( p_patch_3d, p_os, oce_ts, datestring )
+  SUBROUTINE construct_oce_diagnostics( p_patch_3d, p_os, datestring )
     TYPE(t_patch_3d),TARGET, INTENT(inout) :: p_patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_oce_timeseries),POINTER :: oce_ts
     CHARACTER(LEN=32)                       :: datestring
     
     !local variable
@@ -431,9 +432,8 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
-  SUBROUTINE destruct_oce_diagnostics(oce_ts)
+  SUBROUTINE destruct_oce_diagnostics()
     !
-    TYPE(t_oce_timeseries),POINTER :: oce_ts
     !
     !local variables
     INTEGER :: i,iret
@@ -463,6 +463,8 @@ CONTAINS
     CALL message (TRIM(routine), 'end')
   END SUBROUTINE destruct_oce_diagnostics
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !>
   ! !  calculate_oce_diagnostics
   !
@@ -470,14 +472,13 @@ CONTAINS
   ! Developed  by  Peter Korn, MPI-M (2010).
   !
   SUBROUTINE calc_slow_oce_diagnostics(p_patch_3d, p_os, p_sfc_flx, p_ice, &
-    & timestep, datetime, oce_ts)
+    & timestep, datetime)
     TYPE(t_patch_3d ),TARGET, INTENT(in)    :: p_patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     TYPE(t_sfc_flx),    INTENT(in)          :: p_sfc_flx
     TYPE (t_sea_ice),   INTENT(in)          :: p_ice
-    INTEGER :: timestep
+    INTEGER, INTENT(in) :: timestep
     TYPE(t_datetime), INTENT(in)            :: datetime
-    TYPE(t_oce_timeseries),POINTER :: oce_ts
     
     !Local variables
     INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,

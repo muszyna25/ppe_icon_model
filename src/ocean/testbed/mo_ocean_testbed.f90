@@ -1,6 +1,16 @@
 !>
 !! @brief Testbed for ocean
 !!
+!! The test_mode variable of the run_nml defines the mode of running the ocean.
+!! When test_mode==0 the normal timesteping (perform_ho_stepping) is called,
+!! else the ocean_testbed is called. There are currently 3 testbed modules:
+!!
+!! test_mode=1-99: ocean_testbed_modules; test ocean modules like advection, diffusion, etc
+!!
+!! test_mode=99-999: ocean_test_operators; test consistency, properties, round-off errors of operators
+!!
+!! test_mode=1000-1100: ocean_test_performance; reserved for performance tests of individual routines
+!!
 !! @author
 !!  Leonidas Linardakis (MPI-M)
 !!

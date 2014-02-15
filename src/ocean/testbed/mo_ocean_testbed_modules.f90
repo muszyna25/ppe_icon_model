@@ -230,7 +230,7 @@ CONTAINS
           & datetime, .false.,                  &
           & surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients, &
-          & jstep)
+          & jstep, jstep0)
 
         ! Shift time indices for the next loop
         ! this HAS to ge into the restart files, because the start with the following loop

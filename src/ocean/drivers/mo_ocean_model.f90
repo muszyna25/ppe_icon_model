@@ -143,7 +143,7 @@ MODULE mo_ocean_model
   TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
   TYPE(t_datetime)                                :: start_datetime
 
-  TYPE(t_oce_timeseries), POINTER :: oce_ts
+!  TYPE(t_oce_timeseries), POINTER :: oce_ts
 
 CONTAINS
 
@@ -260,7 +260,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
 
-    IF (diagnostics_level==1) CALL destruct_oce_diagnostics(oce_ts)
+    IF (diagnostics_level==1) CALL destruct_oce_diagnostics()
     !------------------------------------------------------------------
     ! destruct ocean physics and forcing
     ! destruct ocean state is in control_model
@@ -422,7 +422,7 @@ CONTAINS
 
     CALL datetime_to_string(datestring, start_datetime)
     IF (diagnostics_level == 1) &
-      & CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), oce_ts, datestring)
+      & CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
 
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------

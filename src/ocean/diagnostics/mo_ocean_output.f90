@@ -123,7 +123,7 @@ CONTAINS
     & datetime, lwrite_restart,            &
     & p_sfc_flx, p_phys_param,             &
     & p_as, p_atm_f, p_ice,operators_coefficients, &
-    & jstep)
+    & jstep, jstep0)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
@@ -136,7 +136,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    INTEGER,   INTENT(in)     :: jstep
+    INTEGER,   INTENT(in)     :: jstep, jstep0
     
 
     ! local variables
@@ -144,12 +144,11 @@ CONTAINS
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring, plaindatestring
-    TYPE(t_oce_timeseries), POINTER :: oce_ts
+!    TYPE(t_oce_timeseries), POINTER :: oce_ts
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER, POINTER :: dolic(:,:)
     REAL(wp), POINTER :: prism_thickness(:,:,:)
-    INTEGER :: jstep0 ! start counter for time loop
     
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
@@ -171,8 +170,8 @@ CONTAINS
             & p_sfc_flx,     &
             & p_ice,         &
             & jstep-jstep0,  &
-            & datetime,      &
-            & oce_ts)
+            & datetime) !,      &
+            ! & oce_ts)
             IF (no_tracer>=2) THEN
               CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
             ENDIF
