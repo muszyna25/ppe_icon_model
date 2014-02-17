@@ -41,8 +41,8 @@ MODULE mo_aero_kinne
   USE mo_lrtm_par,             ONLY: nbndlw
   USE mo_srtm_config,          ONLY: nbndsw=>jpsw
   USE mo_exception,            ONLY: finish
-  USE mo_netcdf_read,          ONLY: netcdf_open_input, netcdf_close
-  USE mo_netcdf_read,          ONLY: netcdf_read_oncells_3d_time, netcdf_read_0D
+  USE mo_read_interface,       ONLY: openInputFile, closeFile, &
+    & read_oncells_3d_time, read_0D_real
   USE mo_time_interpolation,   ONLY: wgt1_m=>wgt1_limm, wgt2_m=>wgt2_limm, &
                                      nmw1_m=>inm1_limm, nmw2_m=>inm2_limm
   USE mo_physical_constants,   ONLY: grav, rgrav, rd
@@ -64,7 +64,7 @@ MODULE mo_aero_kinne
                                       z_km_aer_f_mo(:,:,:,:)
   INTEGER, SAVE                    :: pre_year=-999999
   INTEGER, PARAMETER               :: lev_clim=40, nmonths=12
-  REAL(wp), POINTER                :: dz_clim
+  REAL(wp)                         :: dz_clim
   REAL(wp)                         :: rdz_clim
   LOGICAL                          :: laero_set=.false.
 
@@ -402,110 +402,110 @@ SUBROUTINE read_months_aero_kinne ( &
   IF (imnthb == 0) THEN
     WRITE(cyear,*) iyear-1
     cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
-    ifile_id=netcdf_open_input(cfnameyear)
+    ifile_id=openInputFile(cfnameyear)
 !    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=caod,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=caod,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=12,                  end_timestep=12                      )
     CALL shape_check_fields(SHAPE(zaod(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caod, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zaod(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=cssa,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=cssa,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=12,                  end_timestep=12                      )
     CALL shape_check_fields(SHAPE(zssa(:,:,:,0:0)),SHAPE(zvar),cfnameyear,cssa, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zssa(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=casy,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=casy,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=12,                  end_timestep=12                      )
     CALL shape_check_fields(SHAPE(zasy(:,:,:,0:0)),SHAPE(zvar),cfnameyear,casy, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zasy(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=caer_ex,               &
-                                        patch=p_patch,                      levelsdim_name=clevdim,              &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=caer_ex,               &
+                                        patch=p_patch,                      levelsDimName=clevdim,               &
                                         start_timestep=12,                  end_timestep=12                      )
     CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caer_ex, &
                                  'read_months_aero_kinne','mo_aero_kinne')
     zaer_ex(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    kreturn=netcdf_close(ifile_id)
+    kreturn=closeFile(ifile_id)
   END IF
   IF (imnthe > 0) THEN
     WRITE(cyear,*) iyear
     cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
-    ifile_id=netcdf_open_input(cfnameyear)
+    ifile_id=openInputFile(cfnameyear)
     kmonthb=MAX(1,imnthb)
     kmonthe=MIN(12,imnthe)
 !    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=caod,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=caod,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=kmonthb,             end_timestep=kmonthe                 )
     CALL shape_check_fields(SHAPE(zaod(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caod, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zaod(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=cssa,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=cssa,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=kmonthb,             end_timestep=kmonthe                 )
     CALL shape_check_fields(SHAPE(zssa(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,cssa, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zssa(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=casy,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=casy,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=kmonthb,             end_timestep=kmonthe                 )
     CALL shape_check_fields(SHAPE(zasy(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,casy, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zasy(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=caer_ex,               &
-                                        patch=p_patch,                      levelsdim_name=clevdim,              &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=caer_ex,               &
+                                        patch=p_patch,                      levelsDimName=clevdim,               &
                                         start_timestep=kmonthb,             end_timestep=kmonthe                 )
     CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caer_ex, &
                                  'read_months_aero_kinne','mo_aero_kinne')
     zaer_ex(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
-    kreturn=netcdf_close(ifile_id)
+    kreturn=closeFile(ifile_id)
   END IF
   IF (imnthe == 13) THEN
     WRITE(cyear,*) iyear+1
     cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
-    ifile_id=netcdf_open_input(cfnameyear)
+    ifile_id=openInputFile(cfnameyear)
 !    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=caod,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=caod,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,               &
                                         start_timestep=1,                   end_timestep=1                       )
     CALL shape_check_fields(SHAPE(zaod(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caod, &
                                   'read_months_aero_kinne','mo_aero_kinne')    
     zaod(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=cssa,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=cssa,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=1,                   end_timestep=1                       )
     CALL shape_check_fields(SHAPE(zssa(:,:,:,13:13)),SHAPE(zvar),cfnameyear,cssa, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zssa(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=casy,                  &
-                                        patch=p_patch,                      levelsdim_name=cwldim,               &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=casy,                  &
+                                        patch=p_patch,                      levelsDimName=cwldim,                &
                                         start_timestep=1,                   end_timestep=1                       )
     CALL shape_check_fields(SHAPE(zasy(:,:,:,13:13)),SHAPE(zvar),cfnameyear,casy, &
                                   'read_months_aero_kinne','mo_aero_kinne')
     zasy(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    zvar=>netcdf_read_oncells_3d_time ( file_id=ifile_id,                   variable_name=caer_ex,               &
-                                        patch=p_patch,                      levelsdim_name=clevdim,              &
+    zvar=>read_oncells_3d_time ( file_id=ifile_id,                          variable_name=caer_ex,               &
+                                        patch=p_patch,                      levelsDimName=clevdim,               &
                                         start_timestep=1,                   end_timestep=1                       )
     CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caer_ex, &
                                  'read_months_aero_kinne','mo_aero_kinne')
     zaer_ex(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
-    dz_clim=>netcdf_read_0D (file_id=ifile_id, variable_name=cdz_clim)
-    kreturn=netcdf_close(ifile_id)
+    dz_clim = read_0D_real (file_id=ifile_id, variable_name=cdz_clim)
+    kreturn=closeFile(ifile_id)
   END IF
   END SUBROUTINE read_months_aero_kinne
 !-------------------------------------------------------------------------
