@@ -67,7 +67,7 @@ grids_folder='/pool/data/ICON/ICON-DE/GRIDS'
 atmo_dyn_grids='icon_grid_hdcp2_germany_680km-diam_1250m.nc'
 #
 #LATBC PATH
-LATBC_PATH=$LAMDATA/NUDG_germany/1250
+LATBC_PATH=$LAMDATA/NUDG_germany/1250/
 #
 #EXT DATA
 ext_data_path=$LAMDATA/EXTPAR/
@@ -129,7 +129,7 @@ cat > ${atmo_namelist} << EOF
  dtime_latbc     = 10800.
  nlev_latbc      = ${nlev}
  latbc_path      = '${LATBC_PATH}'
- latbc_filename  = '<path>prep1250miconR2B11_DOM01_<y><m><d><h>.nc'
+ latbc_filename  = 'prep1250miconR2B11_DOM01_<y><m><d><h>.nc'
 ! latbc_ifs_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
 ! latbc_icon_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
 ! latbc_dwdana_filename  = '<path>gaf<y><m><d><h>.grb'
@@ -232,7 +232,7 @@ lsq_high_ord      = 2
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT01H"
- file_interval    = "PT01D"
+ file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_ll'
  ml_varlist       = 'w','pres','pres_sfc','u','v','temp','topography_c','theta_v','z_mc','z_ifc','qv','tkvh',
@@ -247,7 +247,7 @@ lsq_high_ord      = 2
 ! output_start     = "${start_date}"
 ! output_end       = "${end_date}"
 ! output_interval  = "PT03H"
-! file_interval    = "PT01D"
+! file_interval    = "P01D"
 ! include_last     = .TRUE.
 ! output_filename  = '${EXPNAME}'
 ! ml_varlist       = 'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'topography_c','theta_v', 
@@ -260,7 +260,7 @@ lsq_high_ord      = 2
 ! output_start     = "${start_date}"
 ! output_end       = "${end_date}"
 ! output_interval  = "PT15M"
-! file_interval    = "PT01D"
+! file_interval    = "P01D"
 ! include_last     = .TRUE.
 ! output_filename  = 'radar'
 ! ml_varlist       = 'z_radar_850','tot_prec'
@@ -271,7 +271,7 @@ lsq_high_ord      = 2
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT01H"
- file_interval    = "PT01D"
+ file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'precip'
  ml_varlist       = 'tot_qv_dia','tot_qc_dia','tot_qi_dia','tqv','tqc','tqi','w','qr','qs','clc','pres',
