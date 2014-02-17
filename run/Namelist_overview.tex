@@ -4520,6 +4520,16 @@ default: ''\texttt{<gridfile>\_restart\_<mtype>\_<rsttime>.nc}''.
 &
 \tabularnewline
 
+\hline
+profiling\_output&
+I & 1& &
+controls how profiling printout is written: 
+TIMER\_MODE\_AGGREGATED=1, 
+TIMER\_MODE\_DETAILED=2,
+TIMER\_MODE\_WRITE\_FILES=3. \\
+&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
@@ -6184,12 +6194,13 @@ model expects {\bf height based} coordinates. For further information see <icon 
 \end{changeitem}
 
 
-\begin{changeitem}{interpol\_nml}{ 2014-02-20 }{ 16047 }
+\begin{changeitem}{interpol\_nml}{ 2014-02-10 }{ 16047 }
   \begin{itemize}
    \item Changed namelist default for \texttt{rbf\_scale\_mode\_ll}: The RBF scale factor for lat-lon interpolation is now
       determined automatically by default.
   \end{itemize}
 \end{changeitem}
+
 
 % --------------------------------------------------------------------------------------------
 
