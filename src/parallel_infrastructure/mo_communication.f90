@@ -2906,8 +2906,11 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
 
    !-----------------------------------------------------------------------
 
+   ! special treatment for trivial communication patterns of
+   ! sequential runs
    IF(my_process_is_mpi_seq()) THEN
-      CALL finish(routine, "Not yet implemented!")
+     CALL exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2,l_recv_exists)
+     RETURN
    END IF
 
    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
@@ -2948,6 +2951,68 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
    recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_i2d
+
+! SEQUENTIAL version of subroutine "exchange_data_r3d"
+!
+SUBROUTINE exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+
+   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+   INTEGER, INTENT(INOUT), TARGET        :: recv(:,:)
+   INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+   INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
+   INTEGER, OPTIONAL :: send_lbound2
+   LOGICAL, OPTIONAL :: l_recv_exists
+   ! local variables
+    CHARACTER(*), PARAMETER :: routine = "mo_communication:exchange_data_i2d_seq"
+   INTEGER :: i, lbound2
+
+   ! consistency checks
+   ! ------------------
+
+   ! make sure that we are in sequential mode
+   IF (.NOT. my_process_is_mpi_seq()) THEN
+     CALL finish(routine, "Internal error: sequential routine called in parallel run!")
+   END IF
+   ! further tests
+   IF ( (p_pat%np_recv /= 1) .OR. (p_pat%np_send /= 1) ) THEN
+     CALL finish(routine, "Internal error: inconsistent no. send/receive peers!")
+   END IF
+   IF ( (p_pat%recv_limits(1) - p_pat%recv_limits(0)) /= (p_pat%send_limits(1) - p_pat%send_limits(0)) ) THEN
+     CALL finish(routine, "Internal error: inconsistent sender/receiver size!")
+   END IF
+   IF ( (p_pat%recv_limits(0) /= 0) .OR. (p_pat%send_limits(0) /= 0) ) THEN
+     CALL finish(routine, "Internal error: inconsistent sender/receiver start position!")
+   END IF
+   IF ( (p_pat%recv_limits(1) /= p_pat%n_recv) .OR. (p_pat%n_recv /= p_pat%n_send) ) THEN
+     CALL finish(routine, "Internal error: inconsistent counts for sender/receiver!")
+   END IF
+
+   ! "communication" (direct copy)
+   ! -----------------------------
+
+   IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+     lbound2 = send_lbound2 - 1
+   ELSE
+     lbound2 = 0
+   ENDIF
+
+   IF(PRESENT(add)) THEN
+     DO i=1,p_pat%n_pnts
+       recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
+         &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
+         &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
+         &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+     END DO
+   ELSE
+     DO i=1,p_pat%n_pnts
+       recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
+         &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
+         &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
+     END DO
+   END IF
+
+ END SUBROUTINE exchange_data_i2d_seq
+
 !================================================================================================
 ! LOGICAL SECTION -------------------------------------------------------------------------------
 ! 

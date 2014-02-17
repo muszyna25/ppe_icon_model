@@ -1625,15 +1625,6 @@ CONTAINS
         & p_p%cells%area(:,:) )
     ENDDO
 
-!    NULLIFY(tmp_check_array)
-!    ist = netcdf_read_oncells_2D(ncid, "cell_area_p", tmp_check_array, patch)
-!    max_diff = MAXVAL(ABS(tmp_check_array(:,:) - patch%cells%area(:,:)))
-!    IF (max_diff > 0.0_wp) THEN
-!      CALL finish("check netcdf_read_oncells_2D", "Failed")
-!    ENDIF
-!    CALL p_barrier()
-!    CALL finish("check netcdf_read_oncells_2D", "Works!")
-
 
     ! p_p%edges%phys_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))
