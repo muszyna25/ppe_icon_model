@@ -190,8 +190,8 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: fct_horz                   = 5
   INTEGER, PARAMETER :: fct_vert_adpo              = 6
   INTEGER, PARAMETER :: fct_vert_ppm               = 7  
-  INTEGER, PARAMETER :: fct_vert_zalesak           = 8    
-  INTEGER, PARAMETER :: fct_vert_minmod            = 9      
+  INTEGER, PARAMETER :: fct_vert_minmod            = 8      
+  INTEGER, PARAMETER :: fct_vert_zalesak           = 9      
   !Additional parameters for FCT: High and low order flux calculations can be
   !chosen from list above. Below is the default option
   INTEGER            :: fct_high_order_flux= central

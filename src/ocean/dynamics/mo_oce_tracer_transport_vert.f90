@@ -44,7 +44,7 @@ MODULE mo_oce_tracer_transport_vert
 !
 USE mo_kind,                      ONLY: wp
 !USE mo_math_utilities,            ONLY: t_cartesian_coordinates
-USE mo_impl_constants,            ONLY: sea_boundary
+USE mo_impl_constants,            ONLY: sea_boundary, max_char_length
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_ocean_nml,                 ONLY: n_zlev,  &
   &                                     upwind, central,fct_vert_adpo,fct_vert_ppm,fct_vert_zalesak,&
@@ -121,30 +121,31 @@ CONTAINS
     INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb
     ! vertical advective tracer fluxes:
+    REAL(wp) :: z_adv_flux_v2 (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! resulting flux    
     REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! resulting flux
     REAL(wp) :: z_adv_flux_vu(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! upwind flux
-    REAL(wp) :: z_adv_flux_vc(nproma, n_zlev+1, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) ! central flux
 
     REAL(wp) :: adpo_weight(nproma, n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_flux_div_upw, z_flux_div_cnt
-REAL(wp)  :: A_v(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_c)
+    REAL(wp) :: A_v(nproma,n_zlev,p_patch_3d%p_patch_2d(1)%nblks_c)
 
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: cell_area(:,:)
 
-    ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+     CHARACTER(len=max_char_length), PARAMETER :: &
+            & routine = ('mo_tracer_advection:advect_flux_vertical')
     !-------------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
     cell_area       => p_patch%cells%area
+    
+     z_adv_flux_v2 (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+
     z_adv_flux_v (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
     z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    z_adv_flux_vc(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
     adpo_weight  (1:nproma, 1:n_zlev  , 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
     CALL sync_patch_array(SYNC_C, p_patch, trac_old)
 
     ! This is already synced in  edges_in_domain !
@@ -167,18 +168,17 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
       !&  z_adv_flux_vu(1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
     CASE(fct_vert_zalesak)
-    !IF (flux_calculation_vert == central .OR. flux_calculation_vert == fct_vert_adpo) THEN
-
-      CALL central_vflux_oce(p_patch_3D,                 &
-        &                    trac_old,                   &
-        &                    p_os%p_diag%w_time_weighted,&
-        &                    z_adv_flux_v)
-        
-      CALL vflx_limiter_pd_oce( p_patch_3D,              &
-        &                       dtime,                   &
-        &                       trac_old,                &
-        &                       p_patch_3D%p_patch_1D(1)%prism_thick_c, &
-        &                       z_adv_flux_v)
+      CALL finish(TRIM(routine), ' This option for vertical tracer transport is not supported')
+!       CALL central_vflux_oce(p_patch_3D,                 &
+!         &                    trac_old,                   &
+!         &                    p_os%p_diag%w_time_weighted,&
+!         &                    z_adv_flux_v)
+!         
+!       CALL vflx_limiter_pd_oce( p_patch_3D,              &
+!         &                       dtime,                   &
+!         &                       trac_old,                &
+!         &                       p_patch_3D%p_patch_1D(1)%prism_thick_c, &
+!         &                       z_adv_flux_v)
 
     ! Vertical advection scheme: piecewise parabolic method (ppm)
     CASE(fct_vert_ppm)    !IF (flux_calculation_vert == PPM) THEN
@@ -212,70 +212,55 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
         &                  adpo_weight)
 
       CALL sync_patch_array(SYNC_C, p_patch, adpo_weight)
-      
-      CASE(fct_vert_minmod)
-        CALL advect_flux_vertical_high_res( p_patch_3D,  &
-                                   & trac_old,             &
-                                   & p_os,                 &
-                                   & A_v,                  &
-                                   & z_adv_flux_v)      
 
-     END SELECT
-     
-    IF(flux_calculation_vert==fct_vert_adpo)THEN
       ! fct_vert_adpo weights as well as flux divergence are defined at cell centers
       ! calculate resulting advective flux divergence using weighting factors for upwind and central
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-          DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)-1
-            ! positive vertical divergence in direction of w (upward positive)
-            z_flux_div_upw          = z_adv_flux_vu(jc,jk,jb) - z_adv_flux_vu(jc,jk+1,jb)
-            z_flux_div_cnt          = abs(p_os%p_diag%w_time_weighted(jc,jk,jb))*(trac_old(jc,jk,jb) - trac_old(jc,jk+1,jb))            
-!             z_flux_div_cnt          = z_adv_flux_vc(jc,jk,jb) - z_adv_flux_vc(jc,jk+1,jb)
-            flux_div_vert(jc,jk,jb) = z_flux_div_upw * (1.0_wp-adpo_weight(jc,jk,jb)) + &
-              &                       z_flux_div_cnt * adpo_weight(jc,jk,jb)
-!  IF(jc==5.and.jb==5)THEN
-! !Do jl=1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-! write(0,*)'profile_adv:div',jc,jk,jb,z_adv_flux_vu(jc,jk,jb),z_flux_div_upw,z_flux_div_cnt,flux_div_vert(jc,jk,jb)
-! !END DO
-! ENDIF
-
+          DO jk = 2,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+          
+            !z_adv_flux_v(jc,jk,jb)=z_adv_flux_vu(jc,jk,jb)*(1.0_wp-adpo_weight(jc,jk,jb))&
+            !&+ z_adv_flux_v2(jc,jk,jb)*adpo_weight(jc,jk,jb)
+            !
+            !without the weighting factors (i.e. 1-adpo_weight=0=adpo_weigth) the added flux is identical to central flux            
+            z_adv_flux_v(jc,jk,jb)=z_adv_flux_vu(jc,jk,jb)&
+            &+0.5_wp*abs(p_os%p_diag%w_time_weighted(jc,jk,jb))&
+            &*(trac_old(jc,jk-1,jb) - trac_old(jc,jk,jb))*adpo_weight(jc,jk,jb)
+            
           ENDDO
         END DO
       END DO
-!   jc=5
-!   jb=5
-!  ! IF(jc==5.and.jb==5)THEN
-!  Do jk=1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-!  write(0,*)'profile:div_adpoweight',jc,jk,jb,flux_div_vert(jc,jk,jb),adpo_weight(jc,jk,jb)
-!  END DO
-!  !ENDIF
 
       IF (ltimer) CALL timer_stop(timer_adpo_vert)
-        
+
+      CASE(fct_vert_minmod)
+        CALL advect_flux_vertical_high_res( p_patch_3D,  &
+                                   & trac_old,           &
+                                   & p_os,               &
+                                   & A_v,                &
+                                   & z_adv_flux_v)      
+                                   
+     CASE DEFAULT
+       CALL finish(TRIM(routine), ' This option for vertical tracer transport is not supported')
+     END SELECT
+     CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)     
+     
+     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+       DO jc = i_startidx_c, i_endidx_c
+
+         DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+           ! positive vertical divergence in direction of w (upward positive)
+           flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
+                                   &-z_adv_flux_v(jc,jk+1,jb)
+         ENDDO
+       END DO
+     END DO
   !   !---------DEBUG DIAGNOSTICS-------------------------------------------
   !   idt_src=4  ! output print level (1-5, fix)
   !   CALL dbg_print('AdvVertAdpo: adv_flux_v' ,z_adv_flux_v ,str_module, idt_src, in_subset=cells_in_domain)
   !   !---------------------------------------------------------------------
-
-    ELSEIF(flux_calculation_vert/=fct_vert_adpo)THEN
-
-      CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
-     
-      !divergence is calculated for advective fluxes
-      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          DO jk = 1,p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-            ! positive vertical divergence in direction of w (upward positive)
-            flux_div_vert(jc,jk,jb) = z_adv_flux_v(jc,jk,  jb) &
-                                    &-z_adv_flux_v(jc,jk+1,jb)
-          ENDDO
-        END DO
-      END DO
-
-    ENDIF
  
     IF (ltimer) CALL timer_stop(timer_adv_vert)
 
@@ -351,19 +336,16 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
                             & trac_old,                   &
                             & p_os%p_diag%w_time_weighted,& 
                             & z_adv_flux_low )
-      CALL central_vflux_oce(patch_3D,                 &
-                           & trac_old,                   &
-                           & p_os%p_diag%w_time_weighted,& 
-                           & z_adv_flux_v2)   
     
+    CALL sync_patch_array(sync_c, patch_2d, z_adv_flux_low)
+    CALL sync_patch_array(sync_c, patch_2d, z_adv_flux_v2)
+
     
     !1) calculate phi-part of limiter   
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startidx_c, endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO jk = 2, n_zlev
+
+DO jk = 2, n_zlev
         DO jc = startidx_c, endidx_c
         
           z_diff_flux_v(jc,jk,jb)=trac_old(jc,jk-1,jb)-trac_old(jc,jk,jb)
@@ -396,11 +378,11 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
       DO jk = 2, n_zlev
         DO jc = startidx_c, endidx_c
 
-          !IF(z_consec_grad(jc,jk,jb)>0)THEN
-          !  z_limit_psi(jc,jk,jb) = z_limit_phi(jc,jk,jb)-z_limit_sigma(jc,jk,jb)
-          !ELSE
-          !  z_limit_psi(jc,jk,jb) = 0.0_wp
-          !ENDIF
+          IF(z_consec_grad(jc,jk,jb)>0)THEN
+            z_limit_psi(jc,jk,jb) = z_limit_phi(jc,jk,jb)-z_limit_sigma(jc,jk,jb)
+          ELSE
+            z_limit_psi(jc,jk,jb) = 0.0_wp
+          ENDIF
           !only low gives upwind, low +mflux*diff and without limiter gives central
           adv_flux_v(jc,jk,jb) =           &
           & z_adv_flux_low (jc,jk,jb)        &
@@ -645,110 +627,6 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
 #endif
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
-!   !>
-!   !! First order upwind scheme for vertical tracer advection
-!   !!
-!   !! Calculation of vertical tracer fluxes 
-!   !!
-!   !! @par Revision History
-!   !!!! mpi parallelized, no sync
-!   SUBROUTINE mimetic_vflux_oce( p_patch, pvar_c, pw_c, pupflux_i, tracer_id )
-! 
-!     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch           !< patch on which computation is performed
-!     REAL(wp), INTENT(INOUT)           :: pvar_c(:,:,:)    !< advected cell centered variable
-!     REAL(wp), INTENT(INOUT)           :: pw_c(:,:,:)      !< vertical velocity on cells
-!     REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
-!                                                           !< dim: (nproma,n_zlev+1,alloc_cell_blocks)
-!     INTEGER, INTENT(IN)               :: tracer_id
-!     ! local variables
-!     INTEGER  :: i_startidx_c, i_endidx_c
-!     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
-!     INTEGER  :: jkm1, jkp1, z_dolic                    !< jk - 1
-!     REAL(wp) :: w_ave(n_zlev)
-!     REAL(wp) :: w_avep1(n_zlev)
-!     !-------------------------------------------------------------------------
-!     TYPE(t_subset_range), POINTER :: cells_in_domain
-!     !-------------------------------------------------------------------------
-!     cells_in_domain => p_patch%cells%in_domain
-! 
-!     w_ave(:)  = 0.0_wp
-!     w_avep1(:)= 0.0_wp
-! 
-!     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-!         DO jc = i_startidx_c, i_endidx_c
-!           z_dolic = v_base%dolic_c(jc,jb)
-!           IF(z_dolic>=MIN_DOLIC)THEN
-!             DO jk = 2, z_dolic
-!               jkm1 = jk - 1
-!               jkp1 = jk + 1
-!               IF(pw_c(jc,jk,jb)>pw_c(jc,jkm1,jb))THEN
-! 
-!                 w_ave(jk)=pw_c(jc,jk,jb)*pvar_c(jc,jk,jb)
-!               ELSE
-!                 w_ave(jk)=pw_c(jc,jk,jb)*pvar_c(jc,jkm1,jb)
-!               ENDIF
-!              !w_avep1(jk)=0.5_wp*(pw_c(jc,jk,jb)+pw_c(jc,jkp1,jb))&
-!              !       &*pvar_c(jc,jk,jb)
-! 
-!             !pupflux_i(jc,jk,jb) = 0.5_wp*(w_ave(jk) +w_avep1(jk))
-!             !pupflux_i(jc,jk,jb) = (w_ave(jk)*v_base%del_zlev_m(jk) &
-!             !                    & +w_avep1(jk)*v_base%del_zlev_m(jkp1))&
-!             !                   & /(v_base%del_zlev_m(jk)+v_base%del_zlev_m(jkp1))
-!             END DO
-!             DO jk=1,z_dolic-1
-!               jkm1 = jk - 1
-!               jkp1 = jk + 1
-!               pupflux_i(jc,jk,jb) = (w_ave(jk)*v_base%del_zlev_m(jk) &
-!                                  & +w_avep1(jk)*v_base%del_zlev_m(jkp1))&
-!                                  & /(v_base%del_zlev_m(jk)+v_base%del_zlev_m(jkp1))
-!             END DO
-!             !w_ave(z_dolic)=0.5_wp*(pw_c(jc,z_dolic,jb)+pw_c(jc,z_dolic-1,jb))&
-!             !        &*pvar_c(jc,z_dolic,jb)
-!             !pupflux_i(jc,z_dolic,jb) = w_ave(z_dolic)*v_base%del_zlev_m(z_dolic)&
-!             !                          &/v_base%del_zlev_i(z_dolic)
-!             ! no fluxes at bottom boundary
-!             pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
-!         ENDIF
-!       END DO
-!     END DO
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !         DO jc = i_startidx, i_endidx
-! !           DO jk = 2, n_zlev
-! !            ! index of top & bottom half level
-! !            jkm1 = jk - 1
-! !            jkp1 = jk + 1
-! !              w_ave(jk)=0.5_wp*(pw_c(jc,jk,jb)+pw_c(jc,jkm1,jb))&
-! !                    &*pvar_c(jc,jk,jb)
-! !            END DO ! end cell loop
-! !        END DO ! end level loop
-! !      END DO ! end block loop
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !         DO jc = i_startidx, i_endidx
-! !          DO jk = 1, n_zlev-1
-! !            ! index of top & bottom half level
-! !            jkm1 = jk - 1
-! !            jkp1 = jk + 1
-! !             w_avep1(jk)=0.5_wp*(pw_c(jc,jkp1,jb)+pw_c(jc,jk,jb))&
-! !                    &*pvar_c(jc,jkp1,jb)
-! !            END DO ! end cell loop
-! !        END DO ! end level loop
-! !      END DO ! end block loop
-! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !         DO jc = i_startidx, i_endidx 
-! !          DO jk = 1, n_zlev-1
-! !            ! index of top & bottom half level
-! !            jkm1 = jk - 1
-! !            jkp1 = jk + 1
-! !            pupflux_i(jc,jk,jb) = 0.5_wp*(w_ave(jk)  *v_base%del_zlev_m(jk) &
-! !                                &        +w_avep1(jk)*v_base%del_zlev_m(jkp1))/v_base%del_zlev_i(jk)
-! !            END DO ! end cell loop
-! !        END DO ! end level loop
-! !      END DO ! end block loop
-!   END SUBROUTINE mimetic_vflux_oce
   !-------------------------------------------------------------------------
   !>
   !!
@@ -839,10 +717,10 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
     INTEGER  :: jc, jk, jb, i_startidx_c, i_endidx_c
     REAL(wp) :: deriv_fst, deriv_sec
     REAL(wp) :: prism_volume, new_volume, adpo_r1, adpo_r2
-    REAL(wp) :: advvol_in, advvol_out, advtrc_in, advtrc_out, wupw_in, wupw_out
+    REAL(wp) :: advvol_up, advvol_down, wupw_up, wupw_down
     REAL(wp) :: z_adpo_r1     (nproma,n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: z_adpo_vol_in (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: z_adpo_vol_out(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: z_adpo_vol_up  (nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: z_adpo_vol_down(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_patch),        POINTER :: p_patch
     REAL(wp),             POINTER :: cell_area(:,:)
     TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -851,9 +729,9 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
     cells_in_domain => p_patch%cells%in_domain
     cell_area       => p_patch%cells%area
 
-    z_adpo_r1     (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    z_adpo_vol_in (1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
-    z_adpo_vol_out(1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adpo_r1      (1:nproma, 1:n_zlev+1, 1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adpo_vol_up  (1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    z_adpo_vol_down(1:nproma, 1:n_zlev,   1:p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
 
     ! special treatment of top
     !  - boundary condition for top and bottom: pure upwind; r=R=0.0
@@ -881,40 +759,64 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
 
           ! calculation of first and second spatial derivative
           prism_volume  = p_thick_c(jc,jk,jb) * cell_area(jc,jb)
-          deriv_fst = ABS(p_cc(jc,jk-1,jb)-p_cc(jc,jk+1,jb))
+          
+          !upwind biased first derivative 
+          !IF(p_w(jc,jk,jb)<0)THEN
+          !  deriv_fst = ABS(p_cc(jc,jk-1,jb)-p_cc(jc,jk,jb))
+          !ELSE
+          !  deriv_fst = ABS(p_cc(jc,jk,jb)-p_cc(jc,jk+1,jb))
+          !ENDIF
+          deriv_fst = ABS(p_cc(jc,jk-1,jb)-p_cc(jc,jk+1,jb))          
           deriv_sec = ABS(p_cc(jc,jk-1,jb)+p_cc(jc,jk+1,jb) - 2.0_wp*p_cc(jc,jk,jb))
-
           ! first weighting factor corresponding to "r" in MPIOM documentation
           !  - second derivative is small (r->1) -> central
           !  - with small first but large second derivative there is an extremum (r->0) -> upwind
-          adpo_r1 = MAX(0.0_wp, (deriv_fst-deriv_sec) / (deriv_fst + 1.E-20_wp))
-
-          ! second weighting factor corresponding to "R" in MPIOM documentation
-          !  - weak flow or large r -> central; strong flow or small r -> upwind
-          !  - this calculation is independent of tracers, see ocadpo_base in MPIOM
-          !  - z_adpo_vol_in  is water transport wtp in mpiom, is U_in  in MPIOM documentation
-          !  - z_adpo_vol_out is water transport wtm in mpiom, is U_out in MPIOM documentation
-          !  - these transports can be replaced by upwind flux z_adv_flux_vu
-          wupw_out   = ABS(p_w(jc,jk+1,jb)) -     p_w(jc,jk+1,jb)
-          wupw_in    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk  ,jb))
-
-          ! multiplying with factors - ventilation time of the cell
-          advvol_in  = wupw_in  * 0.5_wp * p_dtime * cell_area(jc,jb)
-          advvol_out = wupw_out * 0.5_wp * p_dtime * cell_area(jc,jb)
-          z_adpo_vol_in (jc,jk,jb) = advvol_in
-          z_adpo_vol_out(jc,jk,jb) = advvol_out
-          adpo_r2 = MIN(1.0_wp, &
-            &       adpo_r1*prism_volume / (advvol_in + advvol_out + 1.E-20_wp)) * &
-            &       p_patch_3D%wet_c(jc,jk+1,jb)  ! set zero on land
-
+          adpo_r1 = MAX(0.0_wp, (deriv_fst-deriv_sec) / (deriv_fst + dbl_eps))
           z_adpo_r1(jc,jk,jb) = adpo_r1  ! for checks
-          IF (l_adpo_flowstrength) THEN
-            ! both conditions are active
-            p_adpo_w(jc,jk,jb) = adpo_r2
-          ELSE
+
+
+         IF(l_adpo_flowstrength) THEN
+           ! second weighting factor corresponding to "R" in MPIOM documentation
+           !  - weak flow or large r -> central; strong flow or small r -> upwind
+           !  - this calculation is independent of tracers, see ocadpo_base in MPIOM
+           !  - z_adpo_vol_in  is water transport wtp in mpiom, is U_in  in MPIOM documentation
+           !  - z_adpo_vol_out is water transport wtm in mpiom, is U_out in MPIOM documentation
+           !  - these transports can be replaced by upwind flux z_adv_flux_vu
+           
+           !transport upward and downward of gridcell (jc,jk,jb)
+           !
+           !if vertical velocity at cell top jk is positive -> flow goes from cell (jc,jk,jb) to (jc,jk+1,jb)
+           !flow moves upward -> wupw_up >0
+           !if vertical velocity at cell top jk is negative -> flow goes from cell (jc,jk-1,jb) to (jc,jk,jb)
+           !flow moves downward wupw_up =0
+           !if vertical velocity at cell bottom jk+1 is positive -> flow goes from cell (jc,jk+1,jb) to (jc,jk,jb)
+           !flow moves upward -> wupw_down=0
+           !if vertical velocity at cell bottom jk+1 is negative -> flow goes from cell (jc,jk,jb) to (jc,jk+1,jb)
+           !flow moves downward -> wupw_down>0
+           !
+           !this part of the volume moves up
+           wupw_up    =     p_w(jc,jk  ,jb)  + ABS(p_w(jc,jk ,jb))
+           !this part of the volume moves down
+           wupw_down   = ABS(p_w(jc,jk+1,jb)) -  p_w(jc,jk+1,jb)
+
+           ! multiplying with factors - ventilation time of the cell
+!            z_adpo_vol_up (jc,jk,jb) = wupw_up   * 0.5_wp * p_dtime * cell_area(jc,jb)
+!            z_adpo_vol_down(jc,jk,jb) = wupw_down * 0.5_wp * p_dtime * cell_area(jc,jb)
+!            p_adpo_w(jc,jk,jb) = MIN(1.0_wp, &
+!              &       adpo_r1*prism_volume / (z_adpo_vol_up(jc,jk,jb) + z_adpo_vol_down(jc,jk,jb) + 1.E-20_wp))! * &
+!              !&       p_patch_3D%wet_c(jc,jk+1,jb)  ! set zero on land
+
+           z_adpo_vol_up (jc,jk,jb)  = wupw_up   * 0.5_wp * p_dtime
+           z_adpo_vol_down(jc,jk,jb) = wupw_down * 0.5_wp * p_dtime
+
+           p_adpo_w(jc,jk,jb) = MIN(1.0_wp, &
+             &       adpo_r1*p_thick_c(jc,jk,jb) / (z_adpo_vol_up(jc,jk,jb) + z_adpo_vol_down(jc,jk,jb) + dbl_eps))! * &
+             !&       p_patch_3D%wet_c(jc,jk+1,jb)  ! set zero on land
+           
+         ELSEIF(.NOT.l_adpo_flowstrength) THEN
             ! only the first condition is active, this is when cpp-key SMOADV in MPIOM exists
             ! r1 is reduced to a maximum of 1; why is wet(jk+1) instead of wet(jk) involved?
-            p_adpo_w(jc,jk,jb) = MIN(adpo_r1,p_patch_3D%wet_c(jc,jk+1,jb))
+            p_adpo_w(jc,jk,jb) = adpo_r1!MIN(adpo_r1,p_patch_3D%wet_c(jc,jk+1,jb))
           ENDIF
 
         ENDDO
@@ -924,10 +826,10 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
     !IF (tracer_id == 1) THEN
-    CALL dbg_print('AdvVertAdpo: weight: r1 '   ,z_adpo_r1,     str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('AdvVertAdpo: adpo_weight'   ,p_adpo_w,      str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('AdvVertAdpo: adpo_vol_in'   ,z_adpo_vol_in ,str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('AdvVertAdpo: adpo_vol_out'  ,z_adpo_vol_out,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: weight: r1 '    ,z_adpo_r1,     str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: adpo_weight'    ,p_adpo_w,      str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: adpo_vol_up'    ,z_adpo_vol_up ,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('AdvVertAdpo: adpo_vol_down'  ,z_adpo_vol_down,str_module,idt_src, in_subset=cells_in_domain)
     !ENDIF
     !---------------------------------------------------------------------
 
@@ -1223,13 +1125,13 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
         DO jk = slevp1, n_zlev
           ! index of bottom half level
           ikp1 = jk + 1
-          !IF ( p_patch_3D%lsm_c(i_startidx:i_endidx,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
             z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)
             z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)
-          !ELSE
-          !  z_face_up(i_startidx:i_endidx,jk,jb)  = 0.0_wp
-          !  z_face_low(i_startidx:i_endidx,jk,jb) = 0.0_wp
-          !ENDIF
+          ELSE
+            z_face_up(i_startidx:i_endidx,jk,jb)  = 0.0_wp
+            z_face_low(i_startidx:i_endidx,jk,jb) = 0.0_wp
+          ENDIF
         ENDDO
       ENDDO
 ! !$OMP ENDDO
@@ -1487,22 +1389,20 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
      ! 1. Compute total outward mass
      !
       DO jk = slev, elev
-        jkp1 = jk+1
- !       jkm1 = jk-1
+       jkp1 = jk+1
+
        DO jc = i_startidx, i_endidx
 
          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
            ! Sum of all outgoing fluxes out of cell jk
            p_m(jc) = p_dtime                                &
-            &     * (MAX(0._wp,p_flx_tracer_v(jc,jkp1,jb))  &  ! upper half level
-            &      - MIN(0._wp,p_flx_tracer_v(jc,jk,jb)) )     ! lower half level
+            &     * (MAX(0._wp,p_flx_tracer_v(jc,jk,jb))  &  ! upper half level
+            &      - MIN(0._wp,p_flx_tracer_v(jc,jkp1,jb)) )     ! lower half level
            ! fraction which must multiply the fluxes out of cell jk to guarantee no
            ! undershoot
            ! Nominator: maximum allowable decrease \rho^n q^n
-!            r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk,jb)*p_cellhgt_mc_now(jc,jk,jb)) &
-!            &         /(p_m(jc) + dbl_eps) )
-           r_m(jc,jk) = MIN(1._wp, p_cc(jc,jk,jb)/(p_m(jc) + dbl_eps) )
-           r_m(jc,jk)=r_m(jc,jk)*p_cellhgt_mc_now(jc,jk,jb)
+            r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk,jb)*p_cellhgt_mc_now(jc,jk,jb)) &
+            &         /(p_m(jc) + dbl_eps) )
          ENDIF
        ENDDO
 
@@ -1511,19 +1411,18 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
      ! 2. Limit outward fluxes (loop over half levels)
      !    Choose r_m depending on the sign of p_mflx_tracer_v
      !
-     DO jk = slev+2, elev
+     DO jk = slev+1, elev
      jkm1 = jk-1
        DO jc = i_startidx, i_endidx
 
          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-           ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k-1 -> k
-           ! p_mflx_tracer_v(k-1/2) < 0: flux directed from cell k   -> k-1
+           ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k   -> k-1
+           ! p_mflx_tracer_v(k-1/2) < 0: flux directed from cell k-1 -> k      
            z_signum(jc) = SIGN(1._wp,p_flx_tracer_v(jc,jk,jb))
 
-           p_flx_tracer_v(jc,jkm1,jb) =  p_flx_tracer_v(jc,jk,jb)  * 0.5_wp    &
-              &                       * ( (1._wp + z_signum(jc)) * r_m(jc,jkm1) &
-              &                       +   (1._wp - z_signum(jc)) * r_m(jc,jk) )
-
+           p_flx_tracer_v(jc,jk,jb) =  p_flx_tracer_v(jc,jk,jb)  * 0.5_wp    &
+            &                       * ( (1._wp + z_signum(jc)) * r_m(jc,jk) &
+            &                       +   (1._wp - z_signum(jc)) * r_m(jc,jkm1) )
          ENDIF
        ENDDO
      ENDDO
@@ -1575,3 +1474,107 @@ A_v(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_c) = 0.0_wp
   END FUNCTION laxfr_upflux_v
 
 END MODULE mo_oce_tracer_transport_vert
+!   !>
+!   !! First order upwind scheme for vertical tracer advection
+!   !!
+!   !! Calculation of vertical tracer fluxes 
+!   !!
+!   !! @par Revision History
+!   !!!! mpi parallelized, no sync
+!   SUBROUTINE mimetic_vflux_oce( p_patch, pvar_c, pw_c, pupflux_i, tracer_id )
+! 
+!     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch           !< patch on which computation is performed
+!     REAL(wp), INTENT(INOUT)           :: pvar_c(:,:,:)    !< advected cell centered variable
+!     REAL(wp), INTENT(INOUT)           :: pw_c(:,:,:)      !< vertical velocity on cells
+!     REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
+!                                                           !< dim: (nproma,n_zlev+1,alloc_cell_blocks)
+!     INTEGER, INTENT(IN)               :: tracer_id
+!     ! local variables
+!     INTEGER  :: i_startidx_c, i_endidx_c
+!     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
+!     INTEGER  :: jkm1, jkp1, z_dolic                    !< jk - 1
+!     REAL(wp) :: w_ave(n_zlev)
+!     REAL(wp) :: w_avep1(n_zlev)
+!     !-------------------------------------------------------------------------
+!     TYPE(t_subset_range), POINTER :: cells_in_domain
+!     !-------------------------------------------------------------------------
+!     cells_in_domain => p_patch%cells%in_domain
+! 
+!     w_ave(:)  = 0.0_wp
+!     w_avep1(:)= 0.0_wp
+! 
+!     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!       CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+!         DO jc = i_startidx_c, i_endidx_c
+!           z_dolic = v_base%dolic_c(jc,jb)
+!           IF(z_dolic>=MIN_DOLIC)THEN
+!             DO jk = 2, z_dolic
+!               jkm1 = jk - 1
+!               jkp1 = jk + 1
+!               IF(pw_c(jc,jk,jb)>pw_c(jc,jkm1,jb))THEN
+! 
+!                 w_ave(jk)=pw_c(jc,jk,jb)*pvar_c(jc,jk,jb)
+!               ELSE
+!                 w_ave(jk)=pw_c(jc,jk,jb)*pvar_c(jc,jkm1,jb)
+!               ENDIF
+!              !w_avep1(jk)=0.5_wp*(pw_c(jc,jk,jb)+pw_c(jc,jkp1,jb))&
+!              !       &*pvar_c(jc,jk,jb)
+! 
+!             !pupflux_i(jc,jk,jb) = 0.5_wp*(w_ave(jk) +w_avep1(jk))
+!             !pupflux_i(jc,jk,jb) = (w_ave(jk)*v_base%del_zlev_m(jk) &
+!             !                    & +w_avep1(jk)*v_base%del_zlev_m(jkp1))&
+!             !                   & /(v_base%del_zlev_m(jk)+v_base%del_zlev_m(jkp1))
+!             END DO
+!             DO jk=1,z_dolic-1
+!               jkm1 = jk - 1
+!               jkp1 = jk + 1
+!               pupflux_i(jc,jk,jb) = (w_ave(jk)*v_base%del_zlev_m(jk) &
+!                                  & +w_avep1(jk)*v_base%del_zlev_m(jkp1))&
+!                                  & /(v_base%del_zlev_m(jk)+v_base%del_zlev_m(jkp1))
+!             END DO
+!             !w_ave(z_dolic)=0.5_wp*(pw_c(jc,z_dolic,jb)+pw_c(jc,z_dolic-1,jb))&
+!             !        &*pvar_c(jc,z_dolic,jb)
+!             !pupflux_i(jc,z_dolic,jb) = w_ave(z_dolic)*v_base%del_zlev_m(z_dolic)&
+!             !                          &/v_base%del_zlev_i(z_dolic)
+!             ! no fluxes at bottom boundary
+!             pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
+!         ENDIF
+!       END DO
+!     END DO
+! !     DO jb = all_cells%start_block, all_cells%end_block
+! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+! !         DO jc = i_startidx, i_endidx
+! !           DO jk = 2, n_zlev
+! !            ! index of top & bottom half level
+! !            jkm1 = jk - 1
+! !            jkp1 = jk + 1
+! !              w_ave(jk)=0.5_wp*(pw_c(jc,jk,jb)+pw_c(jc,jkm1,jb))&
+! !                    &*pvar_c(jc,jk,jb)
+! !            END DO ! end cell loop
+! !        END DO ! end level loop
+! !      END DO ! end block loop
+! !     DO jb = all_cells%start_block, all_cells%end_block
+! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+! !         DO jc = i_startidx, i_endidx
+! !          DO jk = 1, n_zlev-1
+! !            ! index of top & bottom half level
+! !            jkm1 = jk - 1
+! !            jkp1 = jk + 1
+! !             w_avep1(jk)=0.5_wp*(pw_c(jc,jkp1,jb)+pw_c(jc,jk,jb))&
+! !                    &*pvar_c(jc,jkp1,jb)
+! !            END DO ! end cell loop
+! !        END DO ! end level loop
+! !      END DO ! end block loop
+! !     DO jb = all_cells%start_block, all_cells%end_block
+! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+! !         DO jc = i_startidx, i_endidx 
+! !          DO jk = 1, n_zlev-1
+! !            ! index of top & bottom half level
+! !            jkm1 = jk - 1
+! !            jkp1 = jk + 1
+! !            pupflux_i(jc,jk,jb) = 0.5_wp*(w_ave(jk)  *v_base%del_zlev_m(jk) &
+! !                                &        +w_avep1(jk)*v_base%del_zlev_m(jkp1))/v_base%del_zlev_i(jk)
+! !            END DO ! end cell loop
+! !        END DO ! end level loop
+! !      END DO ! end block loop
+!   END SUBROUTINE mimetic_vflux_oce
