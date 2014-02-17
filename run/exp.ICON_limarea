@@ -63,22 +63,20 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 # absolute path to directory with LAM data
 LAMDATA=/pool/data/ICON/ICON-DE
 #
-grids_folder='/pool/data/ICON/grids/private/leonidas/hdcp2'
-atmo_dyn_grids='hdcp2_germany_680km-diam_1250m.nc'
-#grids_folder='/pool/data/ICON/ICON-DE/GRIDS'
-#atmo_dyn_grids='hdcp2_germany_776km-diam_1250m.nc'
+grids_folder='/pool/data/ICON/ICON-DE/GRIDS'
+atmo_dyn_grids='icon_grid_hdcp2_germany_680km-diam_1250m.nc'
 #
 #LATBC PATH
 LATBC_PATH=$LAMDATA/NUDG_germany/1250
 #
 #EXT DATA
 ext_data_path=$LAMDATA/EXTPAR/
-add_link_file $ext_data_path/extpar_hdcp2_germany_680km-diam_1250m.nc extpar_hdcp2_germany_680km-diam_1250m.nc 
+add_link_file $ext_data_path/extpar_hdcp2_germany_680km-diam_1250m.nc extpar_icon_grid_hdcp2_germany_680km-diam_1250m.nc 
 
 #INITIAL DATA
 init_data_path=$LAMDATA/INIT_germany/1250
-add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc ifs2icon_R2B11_DOM01.nc
-add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc dwdFG_R2B11_DOM01.nc
+add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040100.nc ifs2icon_R2B11_DOM01.nc
+add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040100.nc dwdFG_R2B11_DOM01.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -165,6 +163,7 @@ dt_rad           = 900.
  smag_constant     = 0.23
  isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
  vert_scheme_type  = 2
+ ldiag_les_out     = .FALSE.
 /
 &lnd_nml
 ntiles   = 1
@@ -256,17 +255,17 @@ lsq_high_ord      = 2
 !                      'qv','vn','umfl_s','vmfl_s'
 ! output_grid      = .TRUE.
 !/
-&output_nml
- filename_format  = "<output_filename>_<datetime2>"
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "PT15M"
- file_interval    = "PT01D"
- include_last     = .TRUE.
- output_filename  = 'radar'
- ml_varlist       = 'z_radar_850','tot_prec'
- output_grid      = .TRUE.
-/
+!&output_nml
+! filename_format  = "<output_filename>_<datetime2>"
+! output_start     = "${start_date}"
+! output_end       = "${end_date}"
+! output_interval  = "PT15M"
+! file_interval    = "PT01D"
+! include_last     = .TRUE.
+! output_filename  = 'radar'
+! ml_varlist       = 'z_radar_850','tot_prec'
+! output_grid      = .TRUE.
+!/
 &output_nml
  filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"

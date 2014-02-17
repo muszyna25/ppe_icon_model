@@ -255,17 +255,25 @@ CONTAINS
     ENDIF
 
     !Check if time to sample data
-    IF( .NOT.linit .AND. MOD(nstep,sampl_freq_step)==0 )THEN 
-       is_sampling_time = .TRUE.
+    IF(sampl_freq_step > 0)THEN
+      IF( .NOT.linit .AND. MOD(nstep,sampl_freq_step)==0 )THEN 
+         is_sampling_time = .TRUE.
+      ELSE
+         is_sampling_time = .FALSE.
+      END IF    
     ELSE
-       is_sampling_time = .FALSE.
-    END IF    
+      is_sampling_time = .FALSE.
+    END IF     
 
     !Check if time to write data
-    IF( .NOT.linit .AND. MOD(nstep,avg_interval_step)==0 )THEN
-       is_writing_time = .TRUE.
+    IF(avg_interval_step > 0)THEN
+      IF( .NOT.linit .AND. MOD(nstep,avg_interval_step)==0 )THEN
+         is_writing_time = .TRUE.
+      ELSE
+         is_writing_time = .FALSE.
+      END IF
     ELSE
-       is_writing_time = .FALSE.
+      is_writing_time = .FALSE.
     END IF
 
     !-------------------------------------------------------------------------

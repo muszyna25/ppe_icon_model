@@ -65,7 +65,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_statistics,         ONLY: levels_horizontal_mean
   USE mo_les_nml,            ONLY: avg_interval_sec, turb_profile_list, &
                                    sampl_freq_sec, turb_tseries_list, &
-                                   expname
+                                   expname, ldiag_les_out
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
@@ -682,6 +682,13 @@ CONTAINS
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
  
+   !Check if diagnostics are to be calculated or not
+   IF(.NOT.ldiag_les_out)THEN
+    sampl_freq_step   = 0
+    avg_interval_step = 0
+    RETURN
+   END IF
+
    IF(msg_level>18)CALL message(routine,'Start!')
 
    !Sampling and output frequencies in terms of time steps
@@ -897,6 +904,10 @@ CONTAINS
   !! @par Revision History
   !!
   SUBROUTINE close_les_turbulent_output
+
+   IF(.NOT.ldiag_les_out)THEN
+    RETURN
+   END IF
 
    IF( my_process_is_stdio() ) THEN
      CALL close_nc(fileid_profile) 

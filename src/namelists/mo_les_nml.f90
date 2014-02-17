@@ -49,7 +49,7 @@ MODULE mo_les_nml
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_les_namelist, sampl_freq_sec, avg_interval_sec
-  PUBLIC :: turb_profile_list, turb_tseries_list, expname
+  PUBLIC :: turb_profile_list, turb_tseries_list, expname, ldiag_les_out
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -73,7 +73,8 @@ MODULE mo_les_nml
   !Scheme for vertical discretization
   INTEGER :: vert_scheme_type !1=explicit, 2=implicit
 
-  !Parameters for output
+  !Parameters for additional diagnostic output
+  LOGICAL  :: ldiag_les_out                    !.TRUE. to turn it on
   REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
   CHARACTER(LEN=7) :: turb_tseries_list(9), turb_profile_list(26) !list of variables  
   CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
@@ -81,7 +82,7 @@ MODULE mo_les_nml
   NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
                     smag_constant, turb_prandtl, bflux, tran_coeff,   &
                     vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
-                    expname
+                    expname, ldiag_les_out
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -130,6 +131,7 @@ CONTAINS
     vert_scheme_type = 2 !implicit
 
     !output parameters
+    ldiag_les_out = .TRUE. 
     expname  = 'ICOLES'
     avg_interval_sec = 900._wp
     sampl_freq_sec   = 60._wp
@@ -190,7 +192,6 @@ CONTAINS
       les_config(jg)% bflux             =  bflux
       les_config(jg)% tran_coeff        =  tran_coeff
       les_config(jg)% vert_scheme_type  =  vert_scheme_type
-     
     END DO
 
     !-----------------------------------------------------
