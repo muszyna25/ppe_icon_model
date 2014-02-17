@@ -1127,9 +1127,6 @@ MODULE mo_nh_stepping
             &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
             &         prep_adv(jg)%topflx_tra                               )! out
 
-        ENDIF
-
-        IF ( ltransport ) THEN
           IF (lstep_adv(jg)) THEN
 
             IF (art_config(jg)%lart) THEN
