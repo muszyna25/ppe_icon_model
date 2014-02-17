@@ -78,7 +78,7 @@ MODULE mo_nh_stepping
   USE mo_time_config,         ONLY: time_config
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys, start_time, end_time
-  USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase 
+  USE mo_nh_testcases,        ONLY: init_nh_testcase 
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
@@ -145,7 +145,7 @@ MODULE mo_nh_stepping
   USE mo_art_config,          ONLY: art_config
 
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
-  USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
+  USE mo_nh_init_nest_utils,  ONLY: initialize_nest
   USE mo_nh_init_utils,       ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
                                   & read_td_ext_data_file
@@ -225,11 +225,6 @@ MODULE mo_nh_stepping
   ! for the split explict scheme, ntl is always 2
   ntl = 2
 
-  IF (ltestcase) THEN
-    CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
-  ENDIF
-
-  IF (n_dom > 1) CALL topo_blending_and_fbk(1)
 
   CALL set_nh_metrics(p_patch(1:), p_nh_state, p_int_state(1:), ext_data)
 

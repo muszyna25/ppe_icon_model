@@ -30,6 +30,7 @@ MODULE mo_util_vgrid
   USE mo_nh_init_utils,                     ONLY: init_hybrid_coord, init_sleve_coord,                  &
     &                                             init_vert_coord, compute_smooth_topo,                 &
     &                                             prepare_hybrid_coord, prepare_sleve_coord
+  USE mo_nh_init_nest_utils,                ONLY: topo_blending_and_fbk
   USE mo_communication,                     ONLY: exchange_data
   USE mo_util_string,                       ONLY: int2string
   USE mo_util_uuid,                         ONLY: uuid_generate, t_uuid, uuid2char
@@ -142,6 +143,10 @@ CONTAINS
         ! skip the following paragraph if we read vertical grid from
         ! file:
         !
+
+        ! Perform topography smoothing and feedback
+        IF (n_dom > 1) CALL topo_blending_and_fbk(1)
+
         DO jg = 1,n_dom
           nlevp1   = p_patch(jg)%nlev + 1
           ALLOCATE(topography_smt(nproma,p_patch(jg)%nblks_c))
@@ -180,6 +185,12 @@ CONTAINS
         !--- contents here:
         DO jg = 1,n_dom
           CALL read_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), TRIM(vertical_grid_filename(jg)))
+
+          ! Reset topography_c to z_ifc(nlevp1) in order to ensure identity 
+          ! in case of nesting (topography blending/feedback)
+          nlevp1 = p_patch(jg)%nlev + 1
+          ext_data(jg)%atm%topography_c(:,:) = vgrid_buffer(jg)%z_ifc(:,nlevp1,:)
+
         END DO
 
       END IF

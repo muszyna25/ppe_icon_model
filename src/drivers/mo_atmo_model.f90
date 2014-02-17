@@ -67,7 +67,7 @@ MODULE mo_atmo_model
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
-    &                                   ltimer,                                               &
+    &                                   ltimer, ltestcase,                                    &
     &                                   iforcing,                                             & !    namelist parameter
     &                                   nshift,                                               &
     &                                   num_lev,num_levp1,                                    &
@@ -84,6 +84,7 @@ MODULE mo_atmo_model
   USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
 
   USE mo_nonhydro_state,          ONLY: p_nh_state
+  USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
   ! coupling
   USE mo_icon_cpl_init,           ONLY: icon_cpl_init
@@ -470,6 +471,9 @@ CONTAINS
    !---------------------------------------------------------------------
 
     CALL allocate_vct_atmo(p_patch(1)%nlevp1)
+    IF (iequations == inh_atmosphere .AND. ltestcase) THEN
+      CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
+    ENDIF
     CALL construct_vertical_grid(p_patch(1:), p_int_state(1:), ext_data, &
       &                          vct_a, vct_b, vct, nflatlev, nflat)
 
