@@ -52,10 +52,10 @@ MODULE mo_sea_ice
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu,     &
-    &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci, &
-    &                               Cd_ia, sice, alb_sno_vis, alb_sno_nir, alb_ice_vis,         &
-    &                               alb_ice_nir
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs, &
+    &                               fr_fac, mu, alf, alv, albedoW, clw, cpd, zemiss_def, rd,   &
+    &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,    &
+    &                               alb_ice_vis, alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev
@@ -1953,9 +1953,9 @@ CONTAINS
         !Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
         !  &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
         Qatm%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
-        Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) &
+        Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
           &                    * (p_as%tafo(:,:) -Tsurf(:,:))
-        Qatm%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) &
+        Qatm%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) * fr_fac &
           &                   * (sphumida(:,:)-sphumidi(:,:))
 
         Qatm%dsensdT(:,i,:) = 0.95_wp*cpd*rhoair(:,:)*p_as%fu10(:,:)&
@@ -2156,9 +2156,9 @@ CONTAINS
     ! between the 2-m and surface temperatures.
     dragl(:,:)      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
     drags(:,:)      = 0.95_wp * dragl(:,:)
-    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) &
+    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
       &               * (p_as%tafo(:,:) -Tsurf(:,:))
-    Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) &
+    Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) * fr_fac &
       &               * (sphumida(:,:)-sphumidw(:,:))
 
     !-----------------------------------------------------------------------

@@ -231,6 +231,8 @@ MODULE mo_physical_constants
     albsm        = 0.65_wp,         & ! Albedo of snow (melting)    
     albi         = 0.66_wp,         & ! Albedo of ice (not melting)
     albim        = 0.64_wp,         & ! Albedo of ice (melting)    
+!   fr_fac       = 1.1925_wp,       & ! Frank Roeske energy budget closing factor for OMIP
+    fr_fac       = 1.0_wp,          & ! factor not active
 ! CCSM3 albedo scheme
     alb_ice_vis  = 0.73_wp,         & ! Albedo of dry ice  (visible)
     alb_ice_nir  = 0.33_wp,         & ! Albedo of dry ice  (near-infrared)
