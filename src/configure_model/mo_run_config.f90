@@ -50,7 +50,7 @@ MODULE mo_run_config
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
-  PUBLIC :: ltimer, timers_level, activate_sync_timers, write_timer_files, msg_level
+  PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
   PUBLIC :: iqh, iqnh, iqnr, iqns, iqng
@@ -74,6 +74,7 @@ MODULE mo_run_config
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
   PUBLIC :: debug_check_level
   PUBLIC :: restart_filename
+  PUBLIC :: profiling_output
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -96,7 +97,8 @@ MODULE mo_run_config
 
     LOGICAL :: ltimer          !< if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    !< what level of timers to run
-    LOGICAL :: activate_sync_timers, write_timer_files
+    LOGICAL :: activate_sync_timers
+    INTEGER :: profiling_output  !< switch defining the kind of timer output
   
     REAL(wp):: check_epsilon   !< small value for checks
     INTEGER :: test_mode = 0   !< 0= run the model, /=0 run in test mode

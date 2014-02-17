@@ -50,17 +50,18 @@ MODULE mo_run_nml
                          & config_output_mode     => output_mode,     &
                          & config_check_epsilon   => check_epsilon,   &
                          & config_test_mode       => test_mode,       &
-                         & config_write_timer_files => write_timer_files,  &
                          & t_output_mode, max_output_modes,           &
                          & config_debug_check_level => debug_check_level, &
-                         & config_restart_filename  => restart_filename
+                         & config_restart_filename  => restart_filename, &
+                         & config_profiling_output => profiling_output
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish, &
     &                      config_msg_timestamp   => msg_timestamp
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY, &
-                               MAX_CHAR_LENGTH
+                               MAX_CHAR_LENGTH, TIMER_MODE_AGGREGATED,            &
+                               TIMER_MODE_WRITE_FILES
   USE mo_io_units,       ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
@@ -119,6 +120,8 @@ MODULE mo_run_nml
   !  one or multiple of "none", "nml", "totint"
   CHARACTER(len=32) :: output(max_output_modes)
 
+  INTEGER :: profiling_output  !< switch defining the kind of timer output
+
   !> file name for restart/checkpoint files (containg keyword
   !> substition patterns)
   CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
@@ -137,7 +140,8 @@ MODULE mo_run_nml
                      output,                        &
                      msg_timestamp,                 &
                      debug_check_level,             &
-                     restart_filename
+                     restart_filename,              &
+                     profiling_output
 
 CONTAINS
   !>
@@ -184,6 +188,7 @@ CONTAINS
     output(1) = "default"
 
     restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
+    profiling_output = TIMER_MODE_AGGREGATED
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -264,7 +269,13 @@ CONTAINS
     config_ltimer          = ltimer
     config_timers_level    = timers_level
     config_activate_sync_timers = activate_sync_timers
-    config_write_timer_files = write_timer_files
+
+    IF (write_timer_files .AND. my_process_is_stdio()) THEN
+      WRITE (0,*) '!!! DEPRECATED PARAMETER "write_timer_files" !!!'
+      WRITE (0,*) '!!! this setting has been replaced by        !!!'
+      WRITE (0,*) '!!!  profiling_output = ', TIMER_MODE_WRITE_FILES
+    END IF
+
     config_msg_level       = msg_level
     config_msg_timestamp   = msg_timestamp
     config_check_epsilon   = check_epsilon
@@ -272,6 +283,7 @@ CONTAINS
     config_debug_check_level = debug_check_level
 
     config_restart_filename = restart_filename
+    config_profiling_output = profiling_output
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

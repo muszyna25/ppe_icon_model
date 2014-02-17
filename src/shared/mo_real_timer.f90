@@ -21,7 +21,11 @@ MODULE mo_real_timer
 
   USE mo_kind,            ONLY: dp
   USE mo_exception,       ONLY: finish, message, message_text
-  USE mo_util_String,     ONLY: separator
+  USE mo_util_string,     ONLY: separator, sort_and_compress_list, int2string
+  USE mo_util_table,      ONLY: t_table, initialize_table, finalize_table,    &
+    &                           add_table_column, set_table_entry, print_table
+  USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH, TIMER_MODE_WRITE_FILES,      &
+    &                           TIMER_MODE_DETAILED, TIMER_MODE_AGGREGATED
 
 #ifdef _OPENMP
   USE omp_lib,            ONLY: omp_get_thread_num, omp_get_max_threads, &
@@ -36,9 +40,10 @@ MODULE mo_real_timer
   USE mo_mpi,             ONLY: p_pe, p_io,  p_comm_work, p_comm_work_test
 #endif
 
-  USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id
+  USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id, &
+    &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max, p_sum
   USE mo_master_control,  ONLY: get_my_process_name
-  USE mo_run_config,      ONLY: write_timer_files
+  USE mo_run_config,      ONLY: profiling_output
 
 
   IMPLICIT NONE
@@ -522,7 +527,9 @@ CONTAINS
   SUBROUTINE timer_report(itimer, short)
     INTEGER, INTENT(in), OPTIONAL :: itimer      ! show this timer if present
     LOGICAL, INTENT(in), OPTIONAL :: short       ! generates condensed output if set
-
+    ! local variables
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_real_timer:timer_report'
     INTEGER :: it
 
     IF (PRESENT(itimer)) THEN
@@ -538,7 +545,14 @@ CONTAINS
       ENDIF
     ENDIF
 
-    CALL timer_report_full(it)
+    SELECT CASE(profiling_output)
+    CASE(TIMER_MODE_WRITE_FILES, TIMER_MODE_DETAILED)
+      CALL timer_report_full(it)
+    CASE(TIMER_MODE_AGGREGATED)
+      CALL timer_report_aggregated()
+    CASE DEFAULT
+      CALL finish(routine, "Undefined profiling mode!")
+    END SELECT
 
   END SUBROUTINE timer_report
 
@@ -655,7 +669,9 @@ CONTAINS
 
   END SUBROUTINE timer_report_short
 
-  !---
+
+  ! --
+
 
   SUBROUTINE timer_report_full(itimer)
     INTEGER, INTENT(in) :: itimer
@@ -681,7 +697,7 @@ CONTAINS
     ENDIF
 #endif
 
-    IF (write_timer_files) THEN
+    IF (profiling_output == TIMER_MODE_WRITE_FILES) THEN
       DO timer_file_id = 500, 5000
         INQUIRE (UNIT=timer_file_id, OPENED=unit_is_occupied)
         IF ( .NOT. unit_is_occupied ) EXIT
@@ -704,6 +720,7 @@ CONTAINS
     !
     !-- start the table output
     !
+
     CALL message ('','',all_print=.TRUE.)
     CALL message ('',separator,all_print=.TRUE.)
 
@@ -713,14 +730,18 @@ CONTAINS
       WRITE (message_text,'(a)'   ) 'Timer report'
     ENDIF
     CALL message ('',message_text,all_print=.TRUE.)
-    IF (write_timer_files) WRITE(timer_file_id, '(a)' ) TRIM(message_text)
+    IF (profiling_output == TIMER_MODE_WRITE_FILES) THEN
+      WRITE(timer_file_id, '(a)' ) TRIM(message_text)
+    END IF
 
     ! the right-aligned column heads
     WRITE (message_text, &
         '(a,  t4,a  , t32,a    , t46,a  , t54,a      , t70,a  , t86,a)') &
         'th', 'name', '# calls', 't_min', 't_average', 't_max', 't_total'
     CALL message ('',message_text,all_print=.TRUE.)
-    IF (write_timer_files) WRITE(timer_file_id, '(a)') TRIM(message_text)
+    IF (profiling_output == TIMER_MODE_WRITE_FILES) THEN
+      WRITE(timer_file_id, '(a)') TRIM(message_text)
+    END IF
 
     CALL message ('',separator,all_print=.TRUE.)
 
@@ -737,7 +758,7 @@ CONTAINS
       ENDDO
     ENDIF
 
-    IF (write_timer_files) CLOSE(timer_file_id)
+    IF (profiling_output == TIMER_MODE_WRITE_FILES) CLOSE(timer_file_id)
 
 #ifndef NOMPI
     IF (p_pe < num_test_procs+num_work_procs-1) THEN
@@ -760,16 +781,17 @@ CONTAINS
   !
   RECURSIVE SUBROUTINE print_report_hierarchical(it, timer_file_id, nd)
 
-    INTEGER, INTENT(IN)    :: it, timer_file_id, &
-                              nd              ! nesting depth
+    INTEGER, INTENT(IN)          :: it, timer_file_id, &
+                                    nd                   !<  nesting depth
 
-    INTEGER :: n, &                           ! number of sub-timers
-               subtimer_list(timer_top), &    ! valid entries: 1..n
+    INTEGER :: n, &                                      ! number of sub-timers
+               subtimer_list(timer_top), &               ! valid entries: 1..n
                k
 
   !------------------------------------------------------------------------------------------------
-    CALL print_report(it, timer_file_id, nd)
 
+    CALL print_report(it, timer_file_id, nd)
+    
     ! How many sub-timers has <it>, and which?
     n = 0
     DO k=1,timer_top
@@ -783,7 +805,6 @@ CONTAINS
     DO k=1,n
       CALL print_report_hierarchical(subtimer_list(k), timer_file_id, nd+1)
     ENDDO
-
 
   END SUBROUTINE print_report_hierarchical
 
@@ -818,7 +839,6 @@ CONTAINS
 !$OMP END PARALLEL
 #endif
   END SUBROUTINE print_report
-
 
 
   SUBROUTINE print_reportline(it, timer_file_id, nd)
@@ -858,10 +878,177 @@ CONTAINS
         REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text, &
         rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
     CALL message ('',message_text,all_print=.TRUE.)
-    IF (write_timer_files) WRITE(timer_file_id, '(a)') TRIM(message_text)
-
+    IF (profiling_output == TIMER_MODE_WRITE_FILES) THEN
+      WRITE(timer_file_id, '(a)') TRIM(message_text)
+    END IF
 
   END SUBROUTINE print_reportline
+
+
+  !---
+
+
+  SUBROUTINE timer_report_aggregated()
+    ! local variables
+    INTEGER                        :: it, irow
+    INTEGER                        :: nranks, ranks(num_work_procs)
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: ranklist_str
+    TYPE (t_table)                 :: table
+
+#ifdef _OPENMP
+    IF ( omp_in_parallel() ) &
+         CALL real_timer_abort(0,'timer_report called in parallel region')
+#endif
+
+    !-- start the table output
+    
+    IF (p_pe_work == 0) THEN
+      !-- build list of global ranks within this work communicator
+      CALL get_mpi_comm_world_ranks(p_comm_work, ranks, nranks)
+      CALL sort_and_compress_list(ranks(1:nranks), ranklist_str)
+    
+      CALL message ('','',all_print=.TRUE.)
+
+      WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str)
+      CALL message ('',message_text,all_print=.TRUE.)
+
+      !-- initialize print-out table
+      CALL initialize_table(table)
+      CALL add_table_column(table, "name")
+      CALL add_table_column(table, "# calls (total)")
+      CALL add_table_column(table, "t_min")
+      CALL add_table_column(table, "min rank")
+      CALL add_table_column(table, "t_avg")
+      CALL add_table_column(table, "t_max")
+      CALL add_table_column(table, "max rank")
+      CALL add_table_column(table, "total min")
+      CALL add_table_column(table, "total min rank")
+      CALL add_table_column(table, "total max")
+      CALL add_table_column(table, "total max rank")
+      irow = 1
+    END IF
+
+    !-- collect the timer data lines
+    DO it = 1, timer_top
+      IF (rt(it)%stat /= rt_undef_stat .AND. rt(it)%active_under == 0) THEN
+        CALL print_report_hierch_agg(table, irow, it, 0)
+      ENDIF
+    ENDDO
+    
+    IF (p_pe_work == 0) THEN
+      !-- print the table
+      CALL print_table(table, opt_delimiter='   ', opt_hline=.TRUE.)
+      CALL message ('','',all_print=.TRUE.)
+      !-- clean up
+      CALL finalize_table(table)
+    END IF
+
+  END SUBROUTINE timer_report_aggregated
+
+
+  !
+  ! print statistics for timer <it> and all of its sub-timers
+  !
+  ! Note: MPI-aggregated implementation.
+  !
+  RECURSIVE SUBROUTINE print_report_hierch_agg(table, irow, it, nd)
+    TYPE (t_table),   INTENT(INOUT)       :: table       !< print-out table
+    INTEGER,          INTENT(INOUT)       :: irow        !< table row index
+    INTEGER,          INTENT(IN)          :: it          
+    INTEGER,          INTENT(IN)          :: nd          !<  nesting depth
+    ! local variables
+    INTEGER :: n, &                                      ! number of sub-timers
+      &        subtimer_list(timer_top), &               ! valid entries: 1..n
+      &        k
+
+    CALL print_report_aggregated(table, irow, it, nd)
+    irow = irow + 1
+    
+    ! How many sub-timers has <it>, and which?
+    n = 0
+    DO k=1,timer_top
+      IF (rt(k)%active_under == it) THEN
+        n = n+1
+        subtimer_list(n) = k
+      ENDIF
+    END DO
+
+    ! print subtimers
+    DO k=1,n
+      CALL print_report_hierch_agg(table, irow, subtimer_list(k), nd+1)
+    ENDDO
+
+  END SUBROUTINE print_report_hierch_agg
+
+
+  !
+  !-- print statistics for one timer "it1", merges all ranks in MPI
+  !-- work communicator and all OMP thread-copies.
+  !
+  SUBROUTINE print_report_aggregated(table, irow, it, nd)
+    TYPE (t_table),   INTENT(INOUT)       :: table           !< print-out table
+    INTEGER,          INTENT(INOUT)       :: irow            !< table row index
+    INTEGER,          INTENT(in)          :: it
+    INTEGER,          INTENT(in)          :: nd              !< nesting depth (determines the print indention)
+    ! local variables
+    REAL(dp)            :: val_min, val_max, val_avg, val_call_n, val_tot, val_tot_min, val_tot_max
+    INTEGER             :: rank_min, rank_max, tot_rank_min, tot_rank_max
+    CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str
+
+    ! OpenMP: reduce min, max, avg of threads:
+    val_min    = HUGE(0.0_dp)
+    val_max    = 0._dp
+    val_tot    = 0._dp
+    val_call_n = 0._dp
+!$OMP PARALLEL REDUCTION(MIN: val_min)             &
+!$OMP          REDUCTION(+:   val_tot,val_call_n)  &
+!$OMP          REDUCTION(MAX: val_max)
+    val_min    = rt(it)%min
+    val_max    = rt(it)%max
+    val_tot    = rt(it)%tot
+    val_call_n = REAL(MAX(1,rt(it)%call_n), dp)
+!$OMP END PARALLEL
+
+    val_tot_min = val_tot
+    val_tot_max = val_tot
+
+    rank_min       = p_pe_work
+    rank_max       = p_pe_work
+    tot_rank_min   = p_pe_work
+    tot_rank_max   = p_pe_work
+
+    ! Note: The following operations are MPI-collective!
+    val_min     = p_min(val_min,     proc_id=rank_min, comm=p_comm_work, root=0)
+    val_max     = p_max(val_max,     proc_id=rank_max, comm=p_comm_work, root=0)
+    val_tot_min = p_min(val_tot_min, proc_id=tot_rank_min, comm=p_comm_work, root=0)
+    val_tot_max = p_max(val_tot_max, proc_id=tot_rank_max, comm=p_comm_work, root=0)
+    val_tot     = p_sum(val_tot,     comm=p_comm_work, root=0)
+    val_call_n  = p_sum(val_call_n,  comm=p_comm_work, root=0)
+
+    IF ((p_pe_work == 0) .AND. ( val_call_n > 1.e-6_dp )) THEN
+      val_avg = val_tot/val_call_n
+      min_str = time_str(val_min)
+      avg_str = time_str(val_avg)
+      max_str = time_str(val_max)
+      tot_min_str = time_str(val_tot_min)
+      tot_max_str = time_str(val_tot_max)
+
+      CALL set_table_entry(table, irow, "name",     &
+        &                  REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text)
+      CALL set_table_entry(table, irow, "# calls (total)",  TRIM(int2string(INT(val_call_n))))
+      CALL set_table_entry(table, irow, "t_min",         TRIM(min_str))
+      CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(rank_min))//"]")
+      CALL set_table_entry(table, irow, "t_avg",         TRIM(avg_str))
+      CALL set_table_entry(table, irow, "t_max",         TRIM(max_str))
+      CALL set_table_entry(table, irow, "max rank", "["//TRIM(int2string(rank_max))//"]")
+      CALL set_table_entry(table, irow, "total min",           TRIM(tot_min_str))
+      CALL set_table_entry(table, irow, "total min rank", "["//TRIM(int2string(tot_rank_min))//"]")
+      CALL set_table_entry(table, irow, "total max",           TRIM(tot_max_str))
+      CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tot_rank_max))//"]")
+    ENDIF
+
+  END SUBROUTINE print_report_aggregated
+
 
   !
   !--- set the two overhead times delta_i and delta_o (SAVEd module variables)

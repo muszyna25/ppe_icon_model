@@ -712,6 +712,7 @@ CONTAINS
     ! find out, how many direct successors follow:
     j        = 1
     nnext(:) = 0
+    nnext(1) = 1
     DO i=2,N
       IF (list(i) == list(i-1)) THEN
         WRITE (0,*) "ERROR: sort_and_compress_list operates on non-unique list entries"
@@ -738,7 +739,7 @@ CONTAINS
         dst = TRIM(dst)//TRIM(int2string(list(i)))
         i = i + 1
       END IF
-      IF (i < N)  dst = TRIM(dst)//", "
+      IF (i <= N)  dst = TRIM(dst)//", "
     END DO
   END SUBROUTINE sort_and_compress_list
 
