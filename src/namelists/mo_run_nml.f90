@@ -188,7 +188,7 @@ CONTAINS
     output(1) = "default"
 
     restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
-    profiling_output = TIMER_MODE_AGGREGATED
+    profiling_output = config_profiling_output
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 

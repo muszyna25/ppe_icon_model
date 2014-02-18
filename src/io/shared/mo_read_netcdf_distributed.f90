@@ -83,7 +83,7 @@ MODULE mo_read_netcdf_distributed
   TYPE t_basic_distrib_read_data
     INTEGER :: n_g ! global number of points (-1 if unused)
     INTEGER :: start, COUNT ! io decomposition
-    TYPE(t_glb2loc_index_lookup) :: glb2loc_index
+    TYPE(t_glb2loc_index_lookup), POINTER :: glb2loc_index
     INTEGER :: num_points_per_io_process, io_process_stride
     
     INTEGER :: n_ref ! number of times this data is referenced
@@ -182,6 +182,8 @@ CONTAINS
     basic_read_data%num_points_per_io_process = num_points_per_io_process
     basic_read_data%io_process_stride = io_process_stride
     
+    ALLOCATE(basic_read_data%glb2loc_index)
+
     CALL init_glb2loc_index_lookup(basic_read_data%glb2loc_index, n_g)
     
     ! if the process takes part in the reading
@@ -336,6 +338,7 @@ CONTAINS
     
     basic_data(idx)%n_g = -1
     CALL deallocate_glb2loc_index_lookup(basic_data(idx)%glb2loc_index)
+    DEALLOCATE(basic_data(idx)%glb2loc_index)
     
   END SUBROUTINE delete_basic_distrib_read
   

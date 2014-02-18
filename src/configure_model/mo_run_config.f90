@@ -41,7 +41,8 @@ MODULE mo_run_config
 
   USE mo_kind,           ONLY: wp
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
-                               IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH
+                               IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
+                               TIMER_MODE_AGGREGATED
   USE mo_io_units,       ONLY: filename_max
   USE mo_grid_config,    ONLY: get_grid_rescale_factor
 
@@ -98,7 +99,7 @@ MODULE mo_run_config
     LOGICAL :: ltimer          !< if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    !< what level of timers to run
     LOGICAL :: activate_sync_timers
-    INTEGER :: profiling_output  !< switch defining the kind of timer output
+    INTEGER :: profiling_output = TIMER_MODE_AGGREGATED  !< switch defining the kind of timer output
   
     REAL(wp):: check_epsilon   !< small value for checks
     INTEGER :: test_mode = 0   !< 0= run the model, /=0 run in test mode
