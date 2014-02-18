@@ -41,7 +41,12 @@ echo -e "The variables in files ${FILE1} and ${FILE2} differ or the files cannot
   EXIT_STATUS=$((EXIT_STATUS + 1))
 fi
 done # file types (atm_phy atm_dyn lnd_phy)
+if [ -s test$$.dat ]; then
+mv test$$.dat diff_${EXP2}-${EXP1}.dat
+echo -e "\033[31mThe differences are in file diff_${EXP2}-${EXP1}.dat\033[00m"
+else
 rm -f test$$.dat
+fi
 if [ $EXIT_STATUS == 0 ]; then
 echo -e "\033[32m${TEST} o.k.:\033[00m"
 echo -e "The variables in files ${MODEL_DIR1}/experiments/${EXP1}/${EXP1}_TYPE.nc and ${MODEL_DIR2}/experiments/${EXP2}/${EXP2}_TYPE.nc for TYPE=${TYPES} do not differ"

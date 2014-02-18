@@ -677,6 +677,7 @@ run/ana_varnames_map_file.txt -text
 run/dict.cmor -text
 run/dict.extpar -text
 run/diff_amip_test.sh -text
+run/diff_nat_rce_test.sh -text
 run/exec.iconrun -text
 run/exp.ICON_limarea -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
@@ -703,6 +704,8 @@ run/exp.icon-testbed_communication -text
 run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text
 run/exp.mtest_icon_amip.sh -text
+run/exp.mtest_nat_rce.sh -text
+run/exp.mtest_nat_rce_cbl_120km_nwp_test -text
 run/exp.nah_jww -text
 run/exp.nat_ape-dec -text
 run/exp.nat_jww -text

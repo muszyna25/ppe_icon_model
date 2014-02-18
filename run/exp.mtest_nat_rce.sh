@@ -10,16 +10,16 @@ if [ ! -d ${EXP_ORI} ]; then
   echo 'no experiment '${EXP_ORI}' found'
   exit 1
 fi
-if [ ! -f ${EXP_ORI}/restart.info -o ! -f ${EXP_ORI}/r2b4_amip_restart_atm_19780101T003000Z.nc ]; then
-  echo -e "\033[31mThe experiment ${EXP_ORI} did not write any restart at 19780101T003000Z\033[00m"
+if [ ! -f ${EXP_ORI}/restart.info -o ! -f ${EXP_ORI}/torus_grid_r120000s64_restart_atm_20080801T003000Z.nc ]; then
+  echo -e "\033[31mThe experiment ${EXP_ORI} did not write any restart at 20080801T003000Z\033[00m"
   exit 1
 fi
 rm -rf ${EXP_NEW}
 mkdir ${EXP_NEW}
 cd ${EXP_NEW}
 cp ../${EXP_ORI}/restart.info .
-cp ../${EXP_ORI}/r2b4_amip_restart_atm_19780101T003000Z.nc .
-ln -sf r2b4_amip_restart_atm_19780101T003000Z.nc restart_atm_DOM01.nc
+cp ../${EXP_ORI}/torus_grid_r120000s64_restart_atm_20080801T003000Z.nc .
+ln -sf torus_grid_r120000s64_restart_atm_20080801T003000Z.nc restart_atm_DOM01.nc
 }
 #################### main script ####################
 SCRIPT_DIR=`pwd`
@@ -71,10 +71,10 @@ if [ $MODE == 'update' -o $MODE == 'ur' -o $MODE == 'un' -o $MODE == 'urn' ]; th
      exit 1
   fi
 fi
-SCRIPT=r2b4_amip_test
-EXP1=r2b4_amip_base
-EXP2=r2b4_amip_restart
-EXP3=r2b4_amip_nproma
+SCRIPT=mtest_nat_rce_cbl_120km_nwp_test
+EXP1=mtest_nat_rce_cbl_120km_nwp_test_base
+EXP2=mtest_nat_rce_cbl_120km_nwp_test_restart
+EXP3=mtest_nat_rce_cbl_120km_nwp_test_nproma
 EXIT_STATUS=0
 cd ${MODEL_DIR}/
 STATUS=$?
@@ -84,10 +84,10 @@ else
 echo "no model ${MODEL_DIR} found"
 exit
 fi
-rm -f ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
-echo "Output will be in exp.mtest_icon_amip$$.output of"
+rm -f ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
+echo "Output will be in exp.mtest_nat_rce$$.output of"
 echo "$SCRIPT_DIR"
-${MODEL_DIR}/make_runscripts 1> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
+${MODEL_DIR}/make_runscripts 1> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output 2> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
@@ -102,7 +102,7 @@ RUN_SCRIPT=exp.${EXP1}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
 echo 'Performing base run'
-${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
+${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output 2>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
 STATUS=$?
 if [ $STATUS -ne 0 ]; then
 EXIT_STATUS=$((EXIT_STATUS + 1))
@@ -114,7 +114,7 @@ fi # OVERWRITE
 if [ ${MODE} == 'update' -o ${MODE} == 'ur' -o ${MODE} == 'un' -o ${MODE} == 'urn' ]; then
 cd ${REFERENCE}
 if [ ${OVERWRITE} == 'yes' -o ! -d ${REFERENCE}/experiments/${EXP1} ] ;then 
-${REFERENCE}/make_runscripts 1> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
+${REFERENCE}/make_runscripts 1> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output 2> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
@@ -128,11 +128,11 @@ RUN_SCRIPT=exp.${EXP1}.run
 cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
 echo 'Performing update test (run reference model)'
-${REFERENCE}/run/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
+${REFERENCE}/run/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output 2>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
 else
 echo 'found run of reference model (update test)'
 fi # OVERWRITE
-${SCRIPT_DIR}/diff_amip_test.sh $MODEL_DIR $EXP1 $REFERENCE $EXP1 "update"
+${SCRIPT_DIR}/diff_nat_rce_test.sh $MODEL_DIR $EXP1 $REFERENCE $EXP1 "update"
 STATUS=$?
 if [ $STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -155,12 +155,12 @@ cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
 sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP2}/g ${RUN_SCRIPT}
 echo 'Performing restart test (running restart)'
-${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
+${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output 2>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
 else
 echo 'found restart run (restart test)'
 fi # OVERWRITE
 # compare restart with base run
-$SCRIPT_DIR/diff_amip_test.sh $MODEL_DIR $EXP1 $MODEL_DIR $EXP2 "restart"
+$SCRIPT_DIR/diff_nat_rce_test.sh $MODEL_DIR $EXP1 $MODEL_DIR $EXP2 "restart"
 STATUS=$?
 if [ $STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -179,12 +179,12 @@ sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
 sed -i s/nproma=64/nproma=17/g ${RUN_SCRIPT}
 sed -i s/${SCRIPT}/${EXP3}/g ${RUN_SCRIPT}
 echo 'Performing nproma test (running with nproma=17)'
-${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output 2>> ${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
+${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output 2>> ${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
 else
 echo 'found run with nproma=17 (nproma test)'
 fi # OVERWRITE
 # compare nproma run with restarted run
-$SCRIPT_DIR/diff_amip_test.sh $MODEL_DIR $EXP2 $MODEL_DIR $EXP3 "nproma"
+$SCRIPT_DIR/diff_nat_rce_test.sh $MODEL_DIR $EXP2 $MODEL_DIR $EXP3 "nproma"
 STATUS=$?
 if [ $STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -199,8 +199,8 @@ else
 echo -e "\033[31mtest mode ${MODE}: amip model did NOT pass the corresponding tests\033[00m"
 echo -e "\033[31mnumber of tests including base run that FAILED: $EXIT_STATUS\033[00m"
 fi
-OFILE=${SCRIPT_DIR}/exp.mtest_icon_amip$$.output
+OFILE=${SCRIPT_DIR}/exp.mtest_nat_rce$$.output
 if [ -s $OFILE ]; then
-echo "Detailed output in exp.mtest_icon_amip$$.output"
+echo "Detailed output in exp.mtest_nat_rce$$.output"
 fi
 exit $EXIT_STATUS

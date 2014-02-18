@@ -16,6 +16,7 @@ MODULE mo_time_interpolation_weights
   !----------------------------------------------------------------------
 
   USE mo_kind,          ONLY: wp
+  USE mo_datetime,      ONLY: t_datetime
   
   IMPLICIT NONE
 
@@ -24,13 +25,15 @@ MODULE mo_time_interpolation_weights
   PUBLIC :: t_wi_limm, wi_limm, wi_limm_radt
 
   TYPE t_wi_limm
-    !interpolation weights wgt1, wgt2 for monthly averages with
-    !inm1 and inm2 as indices [0,..,13], respectively
-    REAL(wp)     :: wgt1, wgt2
-    INTEGER      :: inm1, inm2
+    ! time and corresponding
+    ! interpolation weights wgt1, wgt2 for monthly averages with
+    ! inm1 and inm2 as indices [0,..,13], respectively
+    TYPE(t_datetime) :: time
+    LOGICAL          :: initialized=.FALSE.
+    REAL(wp)         :: wgt1, wgt2
+    INTEGER          :: inm1, inm2
   END TYPE t_wi_limm
 
-  TYPE(t_wi_limm):: wi_limm, &
-                    wi_limm_radt
+  TYPE(t_wi_limm), SAVE   :: wi_limm, wi_limm_radt
 
   END MODULE mo_time_interpolation_weights
