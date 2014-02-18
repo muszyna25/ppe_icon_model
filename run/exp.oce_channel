@@ -127,7 +127,7 @@ cat > ${ocean_namelist} << EOF
  dtime       = 3600               ! model timestep in seconds
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
- write_timer_files    = .FALSE.
+ profiling_output = 2
 /
 &output_nml
   output_start     = "${start_date}"

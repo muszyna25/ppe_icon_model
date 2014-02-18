@@ -104,7 +104,7 @@ MODULE mo_run_nml
 
   LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
   INTEGER :: timers_level  ! what level of timers to run
-  LOGICAL :: activate_sync_timers, write_timer_files
+  LOGICAL :: activate_sync_timers
 
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
@@ -134,7 +134,6 @@ MODULE mo_run_nml
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
-                     write_timer_files,             &
                      msg_level, check_epsilon,      &
                      test_mode,                     &
                      output,                        &
@@ -177,7 +176,6 @@ CONTAINS
     ltimer               = .TRUE.
     timers_level         = 1
     activate_sync_timers = .FALSE.
-    write_timer_files    = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
     check_epsilon        = 1.e-6_wp
@@ -269,12 +267,6 @@ CONTAINS
     config_ltimer          = ltimer
     config_timers_level    = timers_level
     config_activate_sync_timers = activate_sync_timers
-
-    IF (write_timer_files .AND. my_process_is_stdio()) THEN
-      WRITE (0,*) '!!! DEPRECATED PARAMETER "write_timer_files" !!!'
-      WRITE (0,*) '!!! this setting has been replaced by        !!!'
-      WRITE (0,*) '!!!  profiling_output = ', TIMER_MODE_WRITE_FILES
-    END IF
 
     config_msg_level       = msg_level
     config_msg_timestamp   = msg_timestamp

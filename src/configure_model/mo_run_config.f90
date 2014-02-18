@@ -213,7 +213,7 @@ MODULE mo_run_config
     INTEGER :: iseasc_turb  !< Sea Salt Aerosol Mode C Mass Density due to turbulence
     INTEGER :: iseasa0_turb !< Sea Salt Aerosol Mode A Number Density due to turbulence
     INTEGER :: iseasb0_turb !< Sea Salt Aerosol Mode B Number Density due to turbulence
-    INTEGER :: iseasc0_turb !< Sea Salt Aerosol Mode C Number Density due to turbulence
+    INTEGER :: iseasc0_turb !< Sea Salt Ae rosol Mode C Number Density due to turbulence
     INTEGER :: idusta       !< Sea Salt Aerosol Mode A Mass Density
     INTEGER :: idustb       !< Sea Salt Aerosol Mode B Mass Density
     INTEGER :: idustc       !< Sea Salt Aerosol Mode C Mass Density
