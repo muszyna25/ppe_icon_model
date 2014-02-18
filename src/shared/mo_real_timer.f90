@@ -41,7 +41,8 @@ MODULE mo_real_timer
 #endif
 
   USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id, &
-    &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max, p_sum
+    &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max,  &
+    &                           num_work_procs, p_sum
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
@@ -903,13 +904,15 @@ CONTAINS
     !-- start the table output
     
     IF (p_pe_work == 0) THEN
-      !-- build list of global ranks within this work communicator
-      CALL get_mpi_comm_world_ranks(p_comm_work, ranks, nranks)
-      CALL sort_and_compress_list(ranks(1:nranks), ranklist_str)
-    
       CALL message ('','',all_print=.TRUE.)
-
-      WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str)
+      IF (num_work_procs > 1) THEN
+        !-- build list of global ranks within this work communicator
+        CALL get_mpi_comm_world_ranks(p_comm_work, ranks, nranks)
+        CALL sort_and_compress_list(ranks(1:nranks), ranklist_str)
+        WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str)
+      ELSE
+        WRITE (message_text,'(a)') 'Timer report'
+      END IF
       CALL message ('',message_text,all_print=.TRUE.)
 
       !-- initialize print-out table
@@ -917,14 +920,14 @@ CONTAINS
       CALL add_table_column(table, "name")
       CALL add_table_column(table, "# calls (total)")
       CALL add_table_column(table, "t_min")
-      CALL add_table_column(table, "min rank")
+      IF (num_work_procs > 1)  CALL add_table_column(table, "min rank")
       CALL add_table_column(table, "t_avg")
       CALL add_table_column(table, "t_max")
-      CALL add_table_column(table, "max rank")
+      IF (num_work_procs > 1)  CALL add_table_column(table, "max rank")
       CALL add_table_column(table, "total min")
-      CALL add_table_column(table, "total min rank")
+      IF (num_work_procs > 1)  CALL add_table_column(table, "total min rank")
       CALL add_table_column(table, "total max")
-      CALL add_table_column(table, "total max rank")
+      IF (num_work_procs > 1)  CALL add_table_column(table, "total max rank")
       irow = 1
     END IF
 
@@ -1037,14 +1040,18 @@ CONTAINS
         &                  REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text)
       CALL set_table_entry(table, irow, "# calls (total)",  TRIM(int2string(INT(val_call_n))))
       CALL set_table_entry(table, irow, "t_min",         TRIM(min_str))
-      CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(rank_min))//"]")
+      IF (num_work_procs > 1) &
+        CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(rank_min))//"]")
       CALL set_table_entry(table, irow, "t_avg",         TRIM(avg_str))
       CALL set_table_entry(table, irow, "t_max",         TRIM(max_str))
-      CALL set_table_entry(table, irow, "max rank", "["//TRIM(int2string(rank_max))//"]")
+      IF (num_work_procs > 1) &
+        CALL set_table_entry(table, irow, "max rank", "["//TRIM(int2string(rank_max))//"]")
       CALL set_table_entry(table, irow, "total min",           TRIM(tot_min_str))
-      CALL set_table_entry(table, irow, "total min rank", "["//TRIM(int2string(tot_rank_min))//"]")
+      IF (num_work_procs > 1) &
+        CALL set_table_entry(table, irow, "total min rank", "["//TRIM(int2string(tot_rank_min))//"]")
       CALL set_table_entry(table, irow, "total max",           TRIM(tot_max_str))
-      CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tot_rank_max))//"]")
+      IF (num_work_procs > 1) &
+        CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tot_rank_max))//"]")
     ENDIF
 
   END SUBROUTINE print_report_aggregated
