@@ -29,6 +29,8 @@ PROGRAM grid_command
   USE mo_global_grid_generator, ONLY: global_graph_generator, global_grid_generator, &
     & prepare_gridref
 #endif
+
+  USE mo_run_config,            ONLY: profiling_output, TIMER_MODE_DETAILED
  
   USE mo_mpi,                   ONLY: start_mpi, stop_mpi
 
@@ -94,6 +96,8 @@ PROGRAM grid_command
 !   CALL get_command_argument(2, param_1)
 
   CALL start_mpi()
+
+  profiling_output = TIMER_MODE_DETAILED
 
   OPEN (500, FILE = command_file,STATUS = 'OLD')
   READ (500, *) command, param_1

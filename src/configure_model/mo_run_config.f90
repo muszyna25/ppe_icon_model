@@ -42,7 +42,7 @@ MODULE mo_run_config
   USE mo_kind,           ONLY: wp
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
-                               TIMER_MODE_AGGREGATED
+                               TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   USE mo_io_units,       ONLY: filename_max
   USE mo_grid_config,    ONLY: get_grid_rescale_factor
 
@@ -75,7 +75,8 @@ MODULE mo_run_config
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
   PUBLIC :: debug_check_level
   PUBLIC :: restart_filename
-  PUBLIC :: profiling_output
+  PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
+
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
