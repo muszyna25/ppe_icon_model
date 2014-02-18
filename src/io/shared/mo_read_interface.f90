@@ -87,6 +87,8 @@ MODULE mo_read_interface
 
   PUBLIC :: read_0D_real
   PUBLIC :: read_1D
+  PUBLIC :: read_2D_time
+  PUBLIC :: read_3D_time
   PUBLIC :: read_oncells_2D
   PUBLIC :: read_oncells_2D_time
   PUBLIC :: read_oncells_3D_time
@@ -103,6 +105,14 @@ MODULE mo_read_interface
     MODULE PROCEDURE read_REAL_1D_filename
     MODULE PROCEDURE read_REAL_1D_fileid
   END INTERFACE read_1D
+
+  INTERFACE read_2D_time
+    MODULE PROCEDURE read_REAL_2D_time_fileid
+  END INTERFACE read_2D_time
+
+  INTERFACE read_3D_time
+    MODULE PROCEDURE read_REAL_3D_time_fileid
+  END INTERFACE read_3D_time
 
   INTERFACE read_oncells_2D
     MODULE PROCEDURE read_REAL_ONCELLS_2D_filename

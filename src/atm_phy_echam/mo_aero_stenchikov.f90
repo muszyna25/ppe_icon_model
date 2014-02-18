@@ -43,8 +43,8 @@ MODULE mo_aero_stenchikov
   USE mo_lrtm_par,               ONLY: nbndlw
   USE mo_srtm_config,            ONLY: nbndsw=>jpsw
   USE mo_exception,              ONLY: finish
-  USE mo_netcdf_read,            ONLY: netcdf_open_input, netcdf_close
-  USE mo_netcdf_read,            ONLY: netcdf_read_2d_time, netcdf_read_3d_time, netcdf_read_1d
+  USE mo_read_interface,         ONLY: openInputFile, closeFile
+  USE mo_read_interface,         ONLY: read_2d_time, read_3d_time, read_1d
   USE mo_time_interpolation,     ONLY: wgt1_m=>wgt1_limm, wgt2_m=>wgt2_limm, &
                                        nmw1_m=>inm1_limm, nmw2_m=>inm2_limm
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
@@ -501,29 +501,29 @@ END SUBROUTINE pressure_index
   END IF
   WRITE(ckyear,*) kyear
   cfname='sato'//TRIM(ADJUSTL(ckyear))//'.nc'
-  ifile_id=netcdf_open_input(cfname)
+  ifile_id=openInputFile(cfname)
   cdim_names(1)=cwave_dim
   cdim_names(2)=clat_dim
   cdim_names(3)='time'
-  zvar2d=>netcdf_read_2d_time(file_id=ifile_id, variable_name='tauttl', &
+  zvar2d=>read_2d_time(file_id=ifile_id, variable_name='tauttl', &
          dim_names=cdim_names(1:3), start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar2d(:,:,1),'aod',ktime_step)
   cdim_names(4)=cdim_names(3)
   cdim_names(3)=clev_dim
-  zvar3d=>netcdf_read_3d_time(file_id=ifile_id, variable_name='exts', &
+  zvar3d=>read_3d_time(file_id=ifile_id, variable_name='exts', &
          dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'ext',ktime_step)
-  zvar3d=>netcdf_read_3d_time(file_id=ifile_id, variable_name='omega', &
+  zvar3d=>read_3d_time(file_id=ifile_id, variable_name='omega', &
          dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'ssa',ktime_step)
-  zvar3d=>netcdf_read_3d_time(file_id=ifile_id, variable_name='asymm', &
+  zvar3d=>read_3d_time(file_id=ifile_id, variable_name='asymm', &
          dim_names=cdim_names, start_timestep=kmonth, end_timestep=kmonth)
   CALL reorder_stenchikov (zvar3d(:,:,:,1),'asy',ktime_step)
-  zpmid=>netcdf_read_1d(file_id=ifile_id, variable_name=clev_dim)
+  zpmid=>read_1d(file_id=ifile_id, variable_name=clev_dim)
 ! convert pressure into Pa from hPa
   zpmid=100._wp*zpmid
   CALL p_lim_stenchikov(zpmid)
-  zlat=>netcdf_read_1d(file_id=ifile_id, variable_name=clat_dim)
+  zlat=>read_1d(file_id=ifile_id, variable_name=clat_dim)
   IF (SIZE(zlat)/=lat_clim) THEN
     WRITE(ci_length,*) SIZE(zlat)
     WRITE(cj_length,*) lat_clim
@@ -538,7 +538,7 @@ END SUBROUTINE pressure_index
   r_lat_max=r_lat_clim(lat_clim)               ! this is the value at the S-pole (so -89)
   r_rdeltalat=ABS(1.0_wp/(r_lat_clim(2)-r_lat_clim(1)))
   DEALLOCATE(zpmid,zlat,zvar2d,zvar3d)
-  kreturn=netcdf_close(ifile_id)
+  kreturn=closeFile(ifile_id)
   END SUBROUTINE read_months_aero_stenchikov
 !-------------------------------------------------------------------------
 ! 

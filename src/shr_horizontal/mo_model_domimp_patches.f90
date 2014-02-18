@@ -157,8 +157,6 @@ MODULE mo_model_domimp_patches
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
 
-!  USE mo_netcdf_read,        ONLY: netcdf_read_oncells_2D
-
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
   ! mo_read_netcdf_parallel where only 1 processor is reading
