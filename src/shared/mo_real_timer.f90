@@ -550,7 +550,11 @@ CONTAINS
     CASE(TIMER_MODE_WRITE_FILES, TIMER_MODE_DETAILED)
       CALL timer_report_full(it)
     CASE(TIMER_MODE_AGGREGATED)
-      CALL timer_report_aggregated()
+      IF (it > 0) THEN
+        CALL timer_report_full(it)
+      ELSE
+        CALL timer_report_aggregated()
+      END IF
     CASE DEFAULT
       CALL finish(routine, "Undefined profiling mode!")
     END SELECT
