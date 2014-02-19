@@ -96,6 +96,7 @@ cat > ${atmo_namelist} << EOF
  iforcing    = ${iforcing}  !
  ntracer     = 2                ! number of tracers - default 0
  msg_level   = 10           ! detailed report during integration
+ profiling_output = 3
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere

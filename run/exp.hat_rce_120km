@@ -164,6 +164,7 @@ cat >> ${atmo_namelist} << EOF
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
  output         = 'nml'
+ profiling_output = 3
 /
 &echam_phy_nml
  lcover           = .FALSE.

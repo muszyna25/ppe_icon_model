@@ -97,6 +97,7 @@ cat > ${atmo_namelist} << EOF
  timers_level = 100         !
  msg_level   = 15           ! detailed report during integration
  output      = 'nml','totint'      
+ profiling_output = 3
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere

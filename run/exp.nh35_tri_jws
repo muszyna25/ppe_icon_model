@@ -108,6 +108,7 @@ cat > ${atmo_namelist} << EOF
  ltimer = .TRUE.
  timers_level = 10
  activate_sync_timers = .TRUE.
+ profiling_output = 3
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere

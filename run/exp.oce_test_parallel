@@ -146,8 +146,8 @@ cat > ${ocean_namelist} << EOF
  dtime       = 3600         ! model timestep in seconds
  output      = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- profiling_output = 2
- msg_timestamp        = .TRUE.
+ profiling_output = 3
+ msg_timestamp    = .TRUE.
 /
 &output_nml
   output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment

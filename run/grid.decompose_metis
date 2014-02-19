@@ -12,9 +12,11 @@ GRIDDIR=grids
 WRKDIR=${basedir}/$GRIDDIR
 run_commmand="${start} $bindir/grid_command"
 commandFile=command.grid
-command=decompose_metis
 cd $WRKDIR
 #-----------------------------------------------------------------------------
+
+command=decompose_metis
+command=decompose_geometric_medial
 
 grid_file="iconR2B04-ocean_etopo40_planet"
 dec_size=32
