@@ -150,7 +150,7 @@ CONTAINS
     END IF
        
 !    WRITE(0,*) 'interpolation weights (time,wgt1,wgt2,inm1,inm2):', &
-    wi%time%year, wi%time%month, wi%time%day, wi%time%hour, wi%time%minute, wi%time%second
+!    wi%time%year, wi%time%month, wi%time%day, wi%time%hour, wi%time%minute, wi%time%second
 !    WRITE(0,*) wi%wgt1, wi%wgt2, wi%inm1, wi%inm2
 !    WRITE(0,*) 'lradt=',lradt,'tsi=',tsi
 !    IF (lradt) WRITE(*,*) 'ssi=',ssi
