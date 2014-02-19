@@ -251,7 +251,7 @@
     ! sum of 14 bands is: 1361.371
 
     REAL(wp), PARAMETER :: ssi_preind(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
-                                ! preindutrial CMIP5 simulation (average from 1944-1856)
+                                ! preindustrial CMIP5 simulation (average from 1844-1856)
       & 11.95005_wp, 20.14612_wp, 23.40302_wp, 22.09443_wp, 55.41679_wp, &
       & 102.512_wp , 24.69536_wp, 347.4719_wp, 217.2217_wp, 343.2816_wp, &
       & 129.3001_wp, 47.07624_wp, 3.130199_wp, 13.17521_wp /)

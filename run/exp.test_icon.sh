@@ -236,7 +236,6 @@ else
 EXIT_STATUS=$(($EXIT_STATUS + 1))
 fi
 fi # MODE
-echo 'after update test'
 #################### perform restart test             ####################
 if [ ${MODE} == 'restart' -o ${MODE} == 'ur' -o ${MODE} == 'rn' -o ${MODE} == 'urn' ]; then
 if [ ${OVERWRITE} == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP2} ]; then
