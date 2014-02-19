@@ -165,6 +165,7 @@ MODULE mo_sgs_turbulence
     !Initialize
     IF(p_test_run)THEN
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
+      thetav(:,:,:)     = 0._wp
     END IF
 
     !Convert temperature/tempv to potential/thetav temperature: all routines within 
