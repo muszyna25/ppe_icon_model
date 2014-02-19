@@ -1008,29 +1008,6 @@ MODULE mo_nh_stepping
                                          p_nh_state(jg)%diag)
         ENDIF
 
-        ! Determine which physics packages must be called/not called at the current
-        ! time step
-        IF ( iforcing == inwp ) THEN
-          CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
-            &                      .FALSE.,                        &! in
-            &                      t_elapsed_phy,                  &! inout
-            &                      lcall_phy )                      ! out
-
-          IF (msg_level >= 13) THEN
-            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
-              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
-
-            CALL message(TRIM(routine), TRIM(message_text))
-            IF(ltransport) THEN
-              WRITE(message_text,'(a,i4,l4)') 'call advection',jg , lstep_adv(jg)
-              CALL message('integrate_nh', TRIM(message_text))
-            ELSE IF(.NOT. ltransport) THEN
-              WRITE(message_text,'(a,l4)') 'no advection, ltransport=', ltransport
-              CALL message('integrate_nh', TRIM(message_text))
-            ENDIF
-          ENDIF
-        ENDIF
-
         IF (init_mode == MODE_DWDANA_INC) THEN ! incremental analysis mode
           CALL compute_iau_wgt(datetime, time_config%sim_time(jg)-0.5_wp*dt_loc, dt_loc, lclean_mflx)
         ENDIF
@@ -1134,6 +1111,11 @@ MODULE mo_nh_stepping
             ENDIF   
 
 
+            IF (msg_level >= 13) THEN
+              WRITE(message_text,'(a,i2)') 'call advection  DOM:',jg
+              CALL message('integrate_nh', TRIM(message_text))
+            ENDIF
+
             CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,      & !in
               &          jstep_adv(jg)%marchuk_order,                          & !in
               &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1170,9 +1152,9 @@ MODULE mo_nh_stepping
 !            ENDIF
 
 
-           ENDIF  !lstep_adv
+          ENDIF  !lstep_adv
 
-        ENDIF
+        ENDIF !ltransport
 
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 .AND. lstep_adv(jg)) THEN
@@ -1191,6 +1173,19 @@ MODULE mo_nh_stepping
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
        
+          ! Determine which physics packages must be called/not called at the current
+          ! time step
+          CALL time_ctrl_physics ( dt_phy, lstep_adv, dtadv_loc, jg,  &! in
+            &                      .FALSE.,                           &! in
+            &                      t_elapsed_phy,                     &! inout
+            &                      lcall_phy )                         ! out
+
+          IF (msg_level >= 13) THEN
+            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
+              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
+            CALL message(TRIM(routine), TRIM(message_text))
+          END IF
+
           !Call interface for LES physics
           IF(atm_phy_nwp_config(jg)%is_les_phy)THEN     
 
