@@ -143,7 +143,7 @@ cat > ${ocean_namelist} << EOF
  dtime       = 3600         ! model timestep in seconds
  output      = 'none' ! 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
- write_timer_files    = .TRUE.
+ profiling_output = 3
  ! msg_timestamp        = .TRUE.
 /
 &output_nml
@@ -208,11 +208,10 @@ cat > ${ocean_namelist} << EOF
  /    
 &ocean_forcing_nml
   iforc_oce = 11
-  forcing_wind_u_amplitude = 0.5
   forcing_windstress_u_type = 106
   forcing_windstress_v_type = 0
   forcing_wind_u_amplitude = 0.3
-  forcing_windstress_zonal_waveno      = 3.0
+  forcing_windstress_zonal_waveno = 3.0
   forcing_windstress_merid_waveno = 3.0
 /
 &ocean_initialConditions_nml

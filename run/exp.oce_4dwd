@@ -131,7 +131,7 @@ cat > ${ocean_namelist} << EOF
  dtime       = 3600         ! model timestep in seconds
  output      = 'nml'      ! We are still using the old output mechanism
  activate_sync_timers = .TRUE.
- write_timer_files    = .FALSE.
+ profiling_output = 2
  msg_timestamp        = .FALSE.
 /
 &output_nml

@@ -143,7 +143,7 @@ cat > ${ocean_namelist} << EOF
  dtime       = 3600               ! model timestep in seconds
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
- write_timer_files    = .FALSE.
+ profiling_output = 3
  msg_timestamp        = .FALSE.
  debug_check_level    = 10
 /
@@ -196,7 +196,7 @@ cat > ${ocean_namelist} << EOF
 &ocean_tracer_transport_nml
  !no_tracer                               =  2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
-  FLUX_CALCULATION_VERT  = 7      ! 7=upwind biased ppm
+  FLUX_CALCULATION_VERT = 7      ! 7=upwind biased ppm
 /
 &ocean_diffusion_nml
   !k_veloc_h                          = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity

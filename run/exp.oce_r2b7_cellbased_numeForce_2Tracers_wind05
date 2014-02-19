@@ -35,25 +35,17 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-02T00:00:00Z"
+  end_date="2005-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
-# model/output timing
-nhours_data=1       # ocean model output interval hours [hours]
-outputInterval="PT0${nhours_data}H"
-start_date_output="2001-01-01T0${nhours_data}:00:00Z"
-dt_data=`expr ${nhours_data} \* 3600`
+# model timing
+
+year=31536000
 
 # restart
-years_restart=10     # stop model for restart [days]
-steps_per_file=360
-(( day = 24 * 3600 ))
-(( year = 365 * day ))
-(( dt_data       = nhours_data * 3600))
-(( dt_file       = ndays_file    * day )) 
-(( dt_checkpoint = years_restart * year )) 
-(( dt_restart    = years_restart * year )) 
-(( outputLength = year ))
+years_restart=1     # stop model for restart [days]
+dt_checkpoint=`expr ${years_restart} \* ${year}`
+dt_restart=`expr ${years_restart} \* ${year}`
 #
 #-----------------------------------------------------------------------------
 #
@@ -90,15 +82,14 @@ cat > ${ocean_namelist} << EOF
  ! msg_timestamp      = .TRUE.
 /
 &output_nml
- output_filename  = "r2b7"
+ output_filename  = "20km"
  filename_format  = "<output_filename>_<datetime2>"
-!output_bounds    = 0,${dt_restart},${dt_data}
-  output_start     = "${start_date}"                  ! production runs: start in ISO-format
-  output_end       = "${end_date}"                    ! production runs: end in ISO-format
-  output_interval  = "PT01H"                 ! production runs: interval in ISO-format
- steps_per_file   = 12
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "P05D"                           !        "PT24H"
+ steps_per_file   = 73
  output_grid      = .TRUE.
- ml_varlist       = 'h' 't' 's' 'rhopot' 'w_acc' 'u_acc' 'v_acc' 'u' 'v' 'w' 'bc_top_u' 'bc_top_v' 'bc_bot_u' 'bc_bot_u' 'bc_bot_v' 'bc_bot_w' 'bc_top_w'
+ ml_varlist       = 'h_acc' 't_acc' 's_acc' 'rhopot_acc' 'w_acc' 'u_acc' 'v_acc'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
@@ -112,7 +103,11 @@ cat > ${ocean_namelist} << EOF
 &ocean_dynamics_nml
 ! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   40
- dzlev_m(1:40)      =   18.0,   16.0,   16.0,   16.0,   16.0,   16.0,   16.0,   16.0,   20.0,   25.0,
+ ! dzlev_m(1:40)      =   18.0,   16.0,   16.0,   16.0,   16.0,   16.0,   16.0,   16.0,   20.0,   25.0,
+ !                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+ !                      100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+ !                      220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+ dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
                         30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
                        100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
                        220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
@@ -152,7 +147,7 @@ cat > ${ocean_namelist} << EOF
   iforc_oce = 11
   forcing_windstress_u_type = 106
   forcing_windstress_v_type = 0 ! 106
-  forcing_wind_u_amplitude = 1.0
+  forcing_wind_u_amplitude = 0.5
   forcing_wind_v_amplitude = 0.05
   forcing_windstress_zonal_waveno = 3.0
   forcing_windstress_merid_waveno = 3.0
@@ -168,7 +163,7 @@ cat > ${ocean_namelist} << EOF
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .FALSE.          ! sync after each timestep
-  use_set_event_to_simstep = .true. 
+  use_set_event_to_simstep = .false. 
 /
 EOF
 #-----------------------------------------------------------------------------

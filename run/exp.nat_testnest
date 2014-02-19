@@ -132,7 +132,7 @@ cat > ${atmo_namelist} << EOF
  msg_level   = 20           ! detailed report during integration
  ltimer = .true.
  activate_sync_timers = .true.
- write_timer_files = .TRUE.
+ profiling_output = 3
  output       = 'none'
 /
 &dynamics_nml

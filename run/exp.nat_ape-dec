@@ -163,7 +163,7 @@ cat >> ${atmo_namelist} << EOF
  ltimer = ${ltimer}
  timers_level = ${timers_level}
  activate_sync_timers = ${activate_sync_timers}
- write_timer_files = .TRUE.
+ profiling_output = 3
  output       = ${output}
 /
 &dynamics_nml

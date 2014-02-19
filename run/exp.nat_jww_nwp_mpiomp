@@ -150,6 +150,7 @@ cat > ${atmo_namelist} << EOF
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
  ltimer         = .true.
+ profiling_output = 3
 /
 &nwp_phy_nml
 inwp_gscp       = 10

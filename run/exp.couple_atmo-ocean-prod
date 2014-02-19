@@ -280,7 +280,7 @@ cat > $atmo_namelist << EOF
  ltimer       = .TRUE.
  timers_level = 10
  activate_sync_timers = .FALSE.
- write_timer_files    = .TRUE.
+ profiling_output = 3
  msg_timestamp        = .TRUE.
 /
 &ha_testcase_nml
@@ -542,7 +542,7 @@ cat > ${ocean_namelist} << EOF
  dtime                = ${dtime}     ! [s] timestep in seconds
  ltimer               = .TRUE. 
  activate_sync_timers = .FALSE.
- write_timer_files    = .TRUE.
+ profiling_output = 3
  msg_timestamp        = .TRUE.
  msg_level            = 12
 /

@@ -100,6 +100,7 @@ cat > ${atmo_namelist} << EOF
  ltimer = .TRUE.
  timers_level = 5
  activate_sync_timers = .TRUE.
+ profiling_output = 3
  output="nml"
 /
 &dynamics_nml
