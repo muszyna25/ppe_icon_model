@@ -661,7 +661,7 @@ MODULE mo_nh_latbc
       ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
       !
 !$OMP PARALLEL
-!$OMP DO PRIVATE (jk,jc,jb) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE (jk,jc,jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,p_patch%nblks_c
 
         IF (jb /= p_patch%nblks_c) THEN
@@ -670,13 +670,8 @@ MODULE mo_nh_latbc
           i_endidx = p_patch%npromz_c
         ENDIF
 
-#ifdef __LOOP_EXCHANGE
-        DO jc = 1, i_endidx
-          DO jk = 1, nlev_in
-#else
         DO jk = 1, nlev_in
           DO jc = 1, i_endidx
-#endif
 
         ! Note: In future, we want to z3d from boundary data.
         !

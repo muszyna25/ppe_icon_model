@@ -667,6 +667,8 @@ MODULE mo_nh_initicon
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicons:process_ifsana_atm'
 
+    LOGICAL :: lomega_in
+
 !-------------------------------------------------------------------------
 
 
@@ -674,11 +676,17 @@ MODULE mo_nh_initicon
     ! 
     CALL read_ifs_atm(p_patch, initicon)
 
+    IF (init_mode == MODE_COSMODE) THEN
+      lomega_in = .FALSE. ! in this case, w is provided as input
+    ELSE
+      lomega_in = .TRUE.  ! from hydrostatic models, omega is provided instead of w
+    ENDIF
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon)
+    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon, &
+                         opt_convert_omega2w=lomega_in)
 
     
     ! Finally copy the results to the prognostic model variables
@@ -1643,13 +1651,9 @@ MODULE mo_nh_initicon
             i_endidx = p_patch(jg)%npromz_c
           ENDIF
 
-#ifdef __LOOP_EXCHANGE
-          DO jc = 1, i_endidx
-            DO jk = 1, nlev_in
-#else
           DO jk = 1, nlev_in
             DO jc = 1, i_endidx
-#endif          
+
               initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
                 &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
               initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
