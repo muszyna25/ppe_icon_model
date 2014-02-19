@@ -895,7 +895,7 @@ CONTAINS
 
   SUBROUTINE timer_report_aggregated()
     ! local variables
-    INTEGER                        :: it, irow
+    INTEGER                        :: it, irow, max_threads
     INTEGER                        :: nranks, ranks(num_work_procs)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: ranklist_str
     TYPE (t_table)                 :: table
@@ -918,6 +918,14 @@ CONTAINS
         WRITE (message_text,'(a)') 'Timer report'
       END IF
       CALL message ('',message_text,all_print=.TRUE.)
+
+      max_threads = 1
+!$    max_threads = omp_get_max_threads()
+
+      IF (max_threads > 1) THEN
+        WRITE (message_text,'(a)') '(master thread only)'
+        CALL message ('',message_text,all_print=.TRUE.)
+      END IF
 
       !-- initialize print-out table
       CALL initialize_table(table)
@@ -1002,18 +1010,14 @@ CONTAINS
     INTEGER             :: rank_min, rank_max, tot_rank_min, tot_rank_max
     CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str
 
-    ! OpenMP: reduce min, max, avg of threads:
-    val_min    = HUGE(0.0_dp)
-    val_max    = 0._dp
-    val_tot    = 0._dp
-    val_call_n = 0._dp
-!$OMP PARALLEL REDUCTION(MIN: val_min)             &
-!$OMP          REDUCTION(+:   val_tot,val_call_n)  &
-!$OMP          REDUCTION(MAX: val_max)
+    ! OpenMP: We take the values of the master thread
+!$OMP PARALLEL 
+!$OMP MASTER
     val_min    = rt(it)%min
     val_max    = rt(it)%max
     val_tot    = rt(it)%tot
     val_call_n = REAL(MAX(1,rt(it)%call_n), dp)
+!$OMP END MASTER
 !$OMP END PARALLEL
 
     val_tot_min = val_tot
