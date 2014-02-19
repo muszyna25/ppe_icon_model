@@ -8,6 +8,7 @@
 #          Luis Kornblueh, MPIM, March 2013
 #          Marco Giorgetta, MPIM, April 2013
 #          Reiner Schnur, MPIM, April 2013  
+#          Sebastian Rast, MPIM, February 2014
 # 
 #__________________________________________________________________________________________________
 # This script starts a spin-up run for the AMIP experiment from an analytically initialized, zonally 
@@ -95,6 +96,7 @@ cat > ${atmo_namelist} << EOF
  ntracer          = 5            ! number of tracers
  iforcing         = 2            ! ECHAM physics                --> echam_phy_nml
  msg_level        = 10           ! detailed report during integration 
+ restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
 /
 &ha_testcase_nml
  ctest_name       = 'AMIP'       ! test case identifier
@@ -137,6 +139,7 @@ cat > ${atmo_namelist} << EOF
  irad_aero        = 0            ! switch off aerosols
  ighg             = 1            ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
  izenith          = 4            ! seasonal and diurnal cycle
+ isolrad          = 1
 /
 &echam_conv_nml
 /
