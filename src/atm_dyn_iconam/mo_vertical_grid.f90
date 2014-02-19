@@ -1927,11 +1927,17 @@ MODULE mo_vertical_grid
 !$OMP END PARALLEL WORKSHARE
     ENDIF
 
-    CALL cells2edges_scalar(p_nh%metrics%z_mc, p_patch, p_int%c_lin_e, z_me, opt_rlend=min_rledge_int)
+    !First get height above ground level
+    CALL cells2edges_scalar(p_nh%metrics%geopot_agl, p_patch, p_int%c_lin_e, z_me, &
+                            opt_rlend=min_rledge_int)     
     CALL sync_patch_array(SYNC_E, p_patch, z_me)
 
+    !divide by gravity to get z
+    z_me = z_me / grav  
+
     !Use the quadrilateral area to decide the les filter. 
-    max_dz = MAXVAL(p_nh%metrics%z_mc(:,nlev-5,:))
+    max_dz = MAXVAL(p_nh%metrics%ddqz_z_full_e(:,nlev,:))
+    max_dz = global_max(max_dz) 
     les_filter = les_config(1)%smag_constant*(max_dz*2._wp*p_patch%geometry_info%mean_cell_area)**0.33333_wp
 
     IF (msg_level >= 10) THEN
