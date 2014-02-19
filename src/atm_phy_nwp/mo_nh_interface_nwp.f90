@@ -67,7 +67,6 @@ MODULE mo_nh_interface_nwp
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
-  USE mo_intp,               ONLY: edges2cells_scalar
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -298,18 +297,10 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_start(timer_phys_u_v)
       
-      SELECT CASE (pt_patch%cell_type)
-      CASE (3)
-        CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
-          &                        pt_patch,              & !< patch
-          &                        pt_int_state,          & !< interpolation state
-          &                        pt_diag%u, pt_diag%v )   !<  reconstr. u,v wind
-      CASE (6)
-        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
-          &                     pt_int_state%hex_east ,pt_diag%u)
-        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
-          &                     pt_int_state%hex_north,pt_diag%v)
-      END SELECT
+      CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
+        &                        pt_patch,              & !< patch
+        &                        pt_int_state,          & !< interpolation state
+        &                        pt_diag%u, pt_diag%v )   !<  reconstr. u,v wind
 
       IF (timers_level > 3) CALL timer_stop(timer_phys_u_v)
 
