@@ -28,7 +28,7 @@ COMMAND=$1
 echo "usage: ${COMMAND} [-e] [-h] [-m base|update|restart|nproma|ur|un|rn|urn] [-o yes|no] [-r <reference model path>]" 
 echo '-e : experiment:'
 echo '     r2b4_amip (hydrostatic amip experiment)'
-echo '     mtest_nat_rce_cbl_120km_nwp (non-hydtrostatic, radiative-convective equilibrium, nwp physics, torus grid'
+echo '     mtest_nat_rce_cbl_120km_nwp (non-hydrostatic, radiative-convective equilibrium, nwp physics, torus grid'
 echo '-h : display help'
 echo '-m : test mode, either single tests like base, update, restart or nproma test or'
 echo '     combined tests like ur (update and restart) possible'
@@ -36,6 +36,7 @@ echo '-o : ''yes'': overwrite existing experiments, that is the default'
 echo '     ''no'': use existing experiments'
 echo '-r : reference model path'
 }
+#------------------------------------------------------------------------
 function diff_results
 {
 MODEL_DIR1=$1
@@ -45,7 +46,7 @@ EXP2=$4
 TEST=$5
 #TYPES: defined in main script and used from main script 
 #DATES: defined in main script and used from main script 
-EXIT_STATUS=0
+DIFF_STATUS=0
 #create more beautiful output for variables MODEL_DIR[12]
 cd $MODEL_DIR1; MODEL_DIR1=`pwd`
 cd $MODEL_DIR2; MODEL_DIR2=`pwd`
@@ -80,7 +81,7 @@ STATUS=`echo $?`
 if [ $STATUS -ne 0 -o -s test$$.dat ]; then
 echo -e "\033[31m${TEST} test FAILED:\033[00m"
 echo -e "The variables in files ${FILE1} and ${FILE2} differ or the files cannot be compared"
-  EXIT_STATUS=$((EXIT_STATUS + 1))
+  DIFF_STATUS=$((DIFF_STATUS + 1))
 fi
 done # file types 
 if [ -s test$$.dat ]; then
@@ -89,11 +90,12 @@ echo -e "\033[31mThe differences are in file diff_${EXP2}-${EXP1}.dat\033[00m"
 else
 rm -f test$$.dat
 fi
-if [ $EXIT_STATUS == 0 ]; then
+if [ $DIFF_STATUS == 0 ]; then
 echo -e "\033[32m${TEST} o.k.:\033[00m"
 echo -e "The variables in files ${MODEL_DIR1}/experiments/${EXP1}/${EXP1}_TYPE.nc and ${MODEL_DIR2}/experiments/${EXP2}/${EXP2}_TYPE.nc for TYPE=${TYPES} do not differ"
 fi
-exit $EXIT_STATUS
+echo $DIFF_STATUS
+#exit $DIFF_STATUS
 }
 #################### main script ########################################
 SCRIPT_DIR=`pwd`
@@ -228,13 +230,13 @@ else
 echo 'found run of reference model (update test)'
 fi # OVERWRITE
 diff_results $MODEL_DIR $EXP1 $REFERENCE $EXP1 "update"
-STATUS=$?
-if [ $STATUS == 0 ]; then
+if [ $DIFF_STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
 else
 EXIT_STATUS=$(($EXIT_STATUS + 1))
 fi
 fi # MODE
+echo 'after update test'
 #################### perform restart test             ####################
 if [ ${MODE} == 'restart' -o ${MODE} == 'ur' -o ${MODE} == 'rn' -o ${MODE} == 'urn' ]; then
 if [ ${OVERWRITE} == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP2} ]; then
@@ -256,8 +258,7 @@ echo 'found restart run (restart test)'
 fi # OVERWRITE
 # compare restart with base run
 diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP2 "restart"
-STATUS=$?
-if [ $STATUS == 0 ]; then
+if [ $DIFF_STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
 else
 EXIT_STATUS=$(($EXIT_STATUS + 1))
@@ -280,8 +281,7 @@ echo 'found run with nproma=17 (nproma test)'
 fi # OVERWRITE
 # compare nproma run with restarted run
 diff_results $MODEL_DIR $EXP2 $MODEL_DIR $EXP3 "nproma"
-STATUS=$?
-if [ $STATUS == 0 ]; then
+if [ $DIFF_STATUS == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
 else
 EXIT_STATUS=$(($EXIT_STATUS + 1))
