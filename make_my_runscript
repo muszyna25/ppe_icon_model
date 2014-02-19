@@ -41,10 +41,10 @@ base_folder=$(pwd)
 input_folder=run
 #==============================================================================
 # Define run parameters
-   exp_name="hdcp2_germany_776km-diam_1250m_test"
+   exp_name="ICON_limarea"
 
 # Define how many nodes to use 
-  no_of_nodes=2
+  no_of_nodes=4
 
 #   Define how many mpi procs to use per node.
 #   On thunder this should be 16.
@@ -55,7 +55,7 @@ mpi_procs_pernode=16
 openmp_threads=4
 
 #   The wall clock time in "hh:mm:ss"
-cpu_time="01:00:00"
+cpu_time="04:00:00"
 #==============================================================================
 nproma=32
 memory_model="Huge"

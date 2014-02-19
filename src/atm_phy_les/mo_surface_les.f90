@@ -551,8 +551,8 @@ MODULE mo_surface_les
          itr = itr + 1         
       END DO               
        
-      WRITE(message_text,'(i4,f14.6,f14.7)')itr,diff,bflx2
-      CALL message('FINAL ITR, RESID, AND BFLX:',message_text )
+      !WRITE(message_text,'(i4,f14.6,f14.7)')itr,diff,bflx2
+      !CALL message('FINAL ITR, RESID, AND BFLX:',message_text )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 

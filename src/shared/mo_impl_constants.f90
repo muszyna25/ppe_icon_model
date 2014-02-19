@@ -554,6 +554,14 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: UNDEF_TIMELEVEL        = -2 !< means "undefined time level"
   INTEGER, PARAMETER, PUBLIC :: ALL_TIMELEVELS         = -1 !< means "active at all time levels"
 
+  !-----------------------------!
+  !  PROFILING OUTPUT VERBOSITY !
+  !-----------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_AGGREGATED  = 1
+  INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_DETAILED    = 2
+  INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_WRITE_FILES = 3
+
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

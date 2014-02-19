@@ -38,7 +38,7 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
-  USE mo_datetime,            ONLY: t_datetime
+  USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
   USE mo_name_list_output,    ONLY: close_name_list_output
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
@@ -51,6 +51,7 @@ MODULE mo_ocean_model
   ! Control parameters: run control, dynamics, i/o
   !
   USE mo_run_config,          ONLY: &
+    & test_mode,              &
     & dtime,                  & !    :
     & nsteps,                 & !    :
     & ltimer,                 & !    :
@@ -64,7 +65,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: oce_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, diagnostics_level
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d, p_patch_local_parent
 
@@ -90,17 +91,21 @@ MODULE mo_ocean_model
   USE mo_oce_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params
+  USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
+    & destruct_ho_params
+
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, construct_operators_coefficients, &
     & destruct_operators_coefficients
 
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
-    & prepare_ho_stepping,  finalise_ho_integration
+    & prepare_ho_stepping
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
-    & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice
-  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing
+    & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
+    & destruct_atmos_for_ocean, destruct_atmos_fluxes, destruct_sea_ice
+
+  USE mo_oce_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
   USE mo_impl_constants,      ONLY: max_char_length, success
 
   USE mo_alloc_patches,       ONLY: destruct_patches
@@ -115,6 +120,9 @@ MODULE mo_ocean_model
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mtime,                  ONLY: setcalendar, proleptic_gregorian
   USE mo_grid_tools,          ONLY: create_dummy_cell_closure
+  USE mo_oce_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics, &
+    & t_oce_timeseries
+  USE mo_ocean_testbed,       ONLY: ocean_testbed
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -128,13 +136,14 @@ MODULE mo_ocean_model
   PUBLIC :: construct_ocean_model, destruct_ocean_model
   PUBLIC :: ocean_patch_3d, ocean_state, operators_coefficients
 
-  TYPE(t_patch_3d), POINTER :: ocean_patch_3d
+  TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d
   TYPE(t_atmos_for_ocean)                         :: p_as
   TYPE(t_atmos_fluxes)                            :: p_atm_f
   TYPE(t_operator_coeff)                          :: operators_coefficients
-  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET :: ocean_state(:)
+  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
   TYPE(t_datetime)                                :: start_datetime
 
+!  TYPE(t_oce_timeseries), POINTER :: oce_ts
 
 CONTAINS
 
@@ -214,11 +223,18 @@ CONTAINS
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),v_params, is_restart_run())
 
     !------------------------------------------------------------------
-    CALL perform_ho_stepping( ocean_patch_3d, ocean_state,                    &
-      & ext_data, start_datetime,                     &
-      & (nsteps == INT(time_config%dt_restart/dtime)),&
-      & v_sfc_flx,                                    &
-      & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+    IF (test_mode == 0) THEN
+      CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
+        & ext_data, start_datetime,                     &
+        & (nsteps == INT(time_config%dt_restart/dtime)),&
+        & v_sfc_flx,                                    &
+        & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+    ELSE
+      CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
+        & ocean_patch_3d, ocean_state,                    &
+        & ext_data, start_datetime,                       &
+        & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+    ENDIF
     !------------------------------------------------------------------
 
     CALL print_timer()
@@ -244,8 +260,21 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
 
-    CALL finalise_ho_integration(ocean_state, v_params, &
-      & p_as, p_atm_f, v_sea_ice, v_sfc_flx)
+    IF (diagnostics_level==1) CALL destruct_oce_diagnostics()
+    !------------------------------------------------------------------
+    ! destruct ocean physics and forcing
+    ! destruct ocean state is in control_model
+    !------------------------------------------------------------------
+!    CALL finalise_ho_integration(ocean_state, v_params, &
+!      & p_as, p_atm_f, v_sea_ice, v_sfc_flx)
+    CALL destruct_hydro_ocean_state(ocean_state)
+    !CALL destruct_hydro_ocean_base(v_base)
+    CALL destruct_ho_params(v_params)
+
+    IF(no_tracer>0) CALL destruct_ocean_forcing(v_sfc_flx)
+    CALL destruct_sea_ice(v_sea_ice)
+    CALL destruct_atmos_for_ocean(p_as)
+    CALL destruct_atmos_fluxes(p_atm_f)
 
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
@@ -292,10 +321,9 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
+    CHARACTER(LEN=32)               :: datestring
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:construct_ocean_model"
-
     INTEGER :: ist
-
     INTEGER :: error_status
     !-------------------------------------------------------------------
 
@@ -392,6 +420,9 @@ CONTAINS
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
       & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients)!,p_int_state(1:))
 
+    CALL datetime_to_string(datestring, start_datetime)
+    IF (diagnostics_level == 1) &
+      & CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
 
   END SUBROUTINE construct_ocean_model
   !--------------------------------------------------------------------------

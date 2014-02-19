@@ -205,6 +205,7 @@ MODULE mo_mpi
   PUBLIC :: p_alltoallv
   PUBLIC :: p_clear_request
   PUBLIC :: p_mpi_wtime
+  PUBLIC :: get_mpi_comm_world_ranks
 
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
@@ -6058,23 +6059,29 @@ CONTAINS
   END SUBROUTINE work_mpi_barrier
   !------------------------------------------------------
 
-  FUNCTION p_sum_dp_0d (zfield, comm) RESULT (p_sum)
+  !> computes a global sum of real numbers
+  !
+  ! @param[in]    root     (Optional:) root PE, otherwise we perform an
+  !                                    ALLREDUCE operation
+  FUNCTION p_sum_dp_0d (zfield, comm, root) RESULT (p_sum)
 
-    REAL(dp)                      :: p_sum
-    REAL(dp),          INTENT(in) :: zfield
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    REAL(dp)                        :: p_sum
+    REAL(dp),  INTENT(in)           :: zfield
+    INTEGER,   INTENT(in)           :: comm
+    INTEGER,   INTENT(in), OPTIONAL :: root
 #ifndef NOMPI
     INTEGER :: p_comm
 
-    IF (PRESENT(comm)) THEN
-       p_comm = comm
-    ELSE
-       p_comm = process_mpi_all_comm
-    ENDIF
+    p_comm = comm
 
     IF (my_process_is_mpi_parallel()) THEN
-       CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
-            MPI_SUM, p_comm, p_error)
+      IF (PRESENT(root)) THEN
+        CALL MPI_REDUCE (zfield, p_sum, 1, p_real_dp, &
+          MPI_SUM, root, p_comm, p_error)
+      ELSE
+        CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
+          MPI_SUM, p_comm, p_error)
+      END IF
     ELSE
        p_sum = zfield
     END IF
@@ -6506,13 +6513,31 @@ CONTAINS
 
   END FUNCTION p_max_3d
 
-  FUNCTION p_min_0d (zfield, comm) RESULT (p_min)
 
-    REAL(dp),          INTENT(in) :: zfield
-    INTEGER, OPTIONAL, INTENT(in) :: comm
-    REAL(dp)                      :: p_min
+  !> computes a global minimum of real numbers
+  !
+  ! @param[out]   proc_id  (Optional:) PE number of maximum value
+  ! @param[inout] keyval   (Optional:) additional meta information
+  ! @param[in]    root     (Optional:) root PE, otherwise we perform an
+  !                                    ALL-TO-ALL operation
+  !
+  ! The parameter @p keyval can be used to communicate
+  ! additional data on the maximum value, e.g., the level
+  ! index where the maximum occurred.
+  !
+  FUNCTION p_min_0d (zfield, proc_id, keyval, comm, root) RESULT (p_min)
+
+    REAL(dp)                         :: p_min
+    REAL(dp),          INTENT(in)    :: zfield
+    INTEGER, OPTIONAL, INTENT(inout) :: proc_id
+    INTEGER, OPTIONAL, INTENT(inout) :: keyval
+    INTEGER, OPTIONAL, INTENT(in)    :: root
+    INTEGER, OPTIONAL, INTENT(in)    :: comm
+
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER  :: p_comm
+    INTEGER  :: meta_info, ikey
+    REAL(dp) :: in_val(2), rcv_val(2)
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6521,8 +6546,37 @@ CONTAINS
     ENDIF
 
     IF (my_process_is_mpi_all_parallel()) THEN
-       CALL MPI_ALLREDUCE (zfield, p_min, 1, p_real_dp, &
+
+      IF (PRESENT(proc_id) .OR. PRESENT(keyval)) THEN
+        ! encode meta information
+        meta_info = 0
+        IF (PRESENT(keyval))  meta_info = meta_info + keyval*process_mpi_all_size
+        IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
+        ! use MPI_MINLOC to transfer additional data
+        in_val(1) = zfield
+        in_val(2) = REAL( meta_info, wp )
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
+            MPI_MINLOC, root, p_comm, p_error)
+        ELSE
+          CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
+            MPI_MINLOC, p_comm, p_error)
+        END IF
+        ! decode meta info:
+        p_min = rcv_val(1)
+        ikey = INT(rcv_val(2)+0.5)/process_mpi_all_size
+        IF (PRESENT(keyval))  keyval  = ikey
+        IF (PRESENT(proc_id)) proc_id = INT(rcv_val(2)+0.5) - ikey
+      ELSE
+        ! compute simple (standard) minimum
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (zfield, p_min, 1, p_real_dp, &
+            MPI_MIN, root, p_comm, p_error)
+        ELSE
+          CALL MPI_ALLREDUCE (zfield, p_min, 1, p_real_dp, &
             MPI_MIN, p_comm, p_error)
+        END IF
+     END IF
     ELSE
        p_min = zfield
     END IF
@@ -7111,5 +7165,55 @@ CONTAINS
     p_mpi_wtime = 0d0
 #endif
   END FUNCTION p_mpi_wtime
+
+
+  !--------------------------------------------------------------------
+
+
+  !> @return Global MPI ranks within communicator "comm"
+  !
+  SUBROUTINE get_mpi_comm_world_ranks(comm, global_ranks, nranks)
+    INTEGER, INTENT(IN)  :: comm               !< MPI communicator
+    INTEGER, INTENT(OUT) :: global_ranks(:)    !< Output: list of global MPI ranks in communicator "comm"
+    INTEGER, INTENT(OUT) :: nranks             !< Output: number of entries in rank list
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:get_mpi_comm_world_ranks")
+    INTEGER              :: p_error, grp_comm, grp_comm_world, i
+    INTEGER, ALLOCATABLE :: comm_ranks(:)
+
+#if !defined(NOMPI)
+    nranks = 0
+    IF (comm /= MPI_COMM_NULL) THEN
+      ! inquire communicator size
+      CALL MPI_COMM_SIZE (comm, nranks, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_COMM_SIZE operation!')
+
+      IF (nranks > SIZE(global_ranks))  CALL finish (routine, 'Input array too small!')
+      ALLOCATE(comm_ranks(nranks))
+      comm_ranks(1:nranks) = (/ (i, i=0,(nranks-1)) /)
+
+      CALL MPI_COMM_GROUP(comm, grp_comm, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_COMM_GROUP operation!')
+      CALL MPI_COMM_GROUP(MPI_COMM_WORLD, grp_comm_world,  p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_COMM_GROUP operation!')
+
+      global_ranks(:) = 0
+      CALL MPI_GROUP_TRANSLATE_RANKS(grp_comm, nranks, comm_ranks, &
+        &                            grp_comm_world, global_ranks, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_GROUP_TRANSLATE_RANKS operation!')
+
+      CALL MPI_GROUP_FREE(grp_comm,       p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_GROUP_FREE operation!')
+      CALL MPI_GROUP_FREE(grp_comm_world, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_GROUP_FREE operation!')
+
+      DEALLOCATE(comm_ranks)
+    END IF
+#else
+    nranks = 1
+    global_ranks(1) = 0
+#endif
+  END SUBROUTINE get_mpi_comm_world_ranks
+
 
 END MODULE mo_mpi

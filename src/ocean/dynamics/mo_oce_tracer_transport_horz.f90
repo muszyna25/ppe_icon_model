@@ -1772,8 +1772,8 @@ CONTAINS
             & r_p(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)))  )
           
           ! Limited flux
-          flx_tracer_high(je,jk,jb) = flx_tracer_low(je,jk,jb)               &
-            & + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
+          !flx_tracer_high(je,jk,jb) = flx_tracer_low(je,jk,jb)               &
+          !  & + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
             
           flx_tracer_final(je,jk,jb) = flx_tracer_low(je,jk,jb)               &
             & + MIN(1._wp,r_frac) * z_anti(je,jk,jb)            

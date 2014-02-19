@@ -839,8 +839,8 @@ CONTAINS
     cell_thickeness => patch_3D%p_patch_1d(n_dom)%prism_thick_c
     edge_thickeness => patch_3D%p_patch_1d(n_dom)%prism_thick_e
  
-   ! test sync
-   CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
+     ! already done after update fluxes
+!    CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
 
     !Step 1: calculate cell-located variables for 2D and 3D case
     !For 3D and for SWE thick_c contains thickness of fluid column

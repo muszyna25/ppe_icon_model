@@ -63,21 +63,20 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 # absolute path to directory with LAM data
 LAMDATA=/pool/data/ICON/ICON-DE
 #
-grids_folder='/pool/data/ICON/grids/private/leonidas/hdcp2'
-atmo_dyn_grids='hdcp2_germany_680km-diam_1250m.nc'
-#grids_folder='/pool/data/ICON/ICON-DE/icon-grid_generator/grids'
-#atmo_dyn_grids='hdcp2_germany_776km-diam_1250m.nc'
+grids_folder='/pool/data/ICON/ICON-DE/GRIDS'
+atmo_dyn_grids='icon_grid_hdcp2_germany_680km-diam_1250m.nc'
 #
 #LATBC PATH
-LATBC_PATH=$LAMDATA/NUDG_germany/1250
+LATBC_PATH=$LAMDATA/NUDG_germany/1250/
 #
-# initial conditions
+#EXT DATA
 ext_data_path=$LAMDATA/EXTPAR/
-add_link_file $ext_data_path/extpar_hdcp2_germany_680km-diam_1250m.nc extpar_hdcp2_germany_680km-diam_1250m.nc 
+add_link_file $ext_data_path/extpar_hdcp2_germany_680km-diam_1250m.nc extpar_icon_grid_hdcp2_germany_680km-diam_1250m.nc 
 
-nudge_data_path=$LAMDATA/NUDG_germany/1250
-add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc ifs2icon_R2B11_DOM01.nc
-add_link_file $nudge_data_path/prephdcp2_germany_680km-diam_1250m_2013040900.nc dwdFG_R2B11_DOM01.nc
+#INITIAL DATA
+init_data_path=$LAMDATA/INIT_germany/1250
+add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040100.nc ifs2icon_R2B11_DOM01.nc
+add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040100.nc dwdFG_R2B11_DOM01.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -130,11 +129,11 @@ cat > ${atmo_namelist} << EOF
  dtime_latbc     = 10800.
  nlev_latbc      = ${nlev}
  latbc_path      = '${LATBC_PATH}'
- latbc_filename  = '<path>prep1250miconR2B11_DOM01_<timestamp>.nc'
-! latbc_ifs_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<timestamp>.nc'
-! latbc_icon_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<timestamp>.nc'
-! latbc_dwdana_filename  = '<path>gaf<timestamp>.grb'
-! latbc_dwdfg_filename  = '<path>gif<timestamp>.grb'
+ latbc_filename  = 'prep1250miconR2B11_DOM01_<y><m><d><h>.nc'
+! latbc_ifs_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
+! latbc_icon_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
+! latbc_dwdana_filename  = '<path>gaf<y><m><d><h>.grb'
+! latbc_dwdfg_filename  = '<path>gif<y><m><d><h>.grb'
 /
 &diffusion_nml
  hdiff_order      = 5
@@ -164,6 +163,7 @@ dt_rad           = 900.
  smag_constant     = 0.23
  isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
  vert_scheme_type  = 2
+ ldiag_les_out     = .FALSE.
 /
 &lnd_nml
 ntiles   = 1
@@ -183,7 +183,7 @@ itype_lndtbl   =  2
  irad_aero = 6
 /
 &interpol_nml
-nudge_zone_width  = 8
+nudge_zone_width  = 8  !-1 create nudge zone in grid
 lsq_high_ord      = 2
 /
 &gridref_nml
@@ -228,31 +228,54 @@ lsq_high_ord      = 2
  lkeep_in_sync    = .true.
 /
 &output_nml
- filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
- dom                = -1                   ! output for all subdomains
+ filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT06H"
- file_interval    = "PT01D"
+ output_interval  = "PT01H"
+ file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_ll'
- ml_varlist       = 'w','pres','pres_sfc','u','v','temp','topography_c','theta_v','z_mc','z_ifc','qv','tkvh','umfl_s'
+ ml_varlist       = 'w','pres','pres_sfc','u','v','temp','topography_c','theta_v','z_mc','z_ifc','qv','tkvh',
+                     'umfl_s','clc','t_g'
  remap            = 1
  reg_lon_def      =  6.,0.01,15.
  reg_lat_def      = 48.,0.01, 53.
  output_grid      = .TRUE.
 /
+!&output_nml
+! filename_format  = "<output_filename>_<datetime2>"
+! output_start     = "${start_date}"
+! output_end       = "${end_date}"
+! output_interval  = "PT03H"
+! file_interval    = "P01D"
+! include_last     = .TRUE.
+! output_filename  = '${EXPNAME}'
+! ml_varlist       = 'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'topography_c','theta_v', 
+!                     'z_mc','z_ifc','t_g','group:pbl_vars','gz0','tke','tkvh','group:phys_tendencies',
+!                      'qv','vn','umfl_s','vmfl_s'
+! output_grid      = .TRUE.
+!/
+!&output_nml
+! filename_format  = "<output_filename>_<datetime2>"
+! output_start     = "${start_date}"
+! output_end       = "${end_date}"
+! output_interval  = "PT15M"
+! file_interval    = "P01D"
+! include_last     = .TRUE.
+! output_filename  = 'radar'
+! ml_varlist       = 'z_radar_850','tot_prec'
+! output_grid      = .TRUE.
+!/
 &output_nml
- filetype           = 4                    ! output format: 2=GRIB2, 4=NETCDFv2
- dom                = -1                   ! output for all subdomains
+ filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT06H"
- file_interval    = "PT01D"
+ output_interval  = "PT01H"
+ file_interval    = "P01D"
  include_last     = .TRUE.
- output_filename  = '${EXPNAME}'
- ml_varlist       = 'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'topography_c','theta_v', 'z_mc','z_ifc',
-                     't_g','group:pbl_vars','gz0','tke','tkvh','group:phys_tendencies','qv','vn','umfl_s','vmfl_s'
+ output_filename  = 'precip'
+ ml_varlist       = 'tot_qv_dia','tot_qc_dia','tot_qi_dia','tqv','tqc','tqi','w','qr','qs','clc','pres',
+                     'pres_sfc','temp','group:rad_vars'
  output_grid      = .TRUE.
 /
 &extpar_nml

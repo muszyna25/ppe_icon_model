@@ -192,6 +192,8 @@ doc/technical/dwd_database/pics/icosahedron.png -text
 doc/technical/dwd_database/pics/icosahedron_spherical.png -text
 doc/technical/dwd_database/pics/lon-lat-grid.png -text
 doc/technical/dwd_database/pics/nsection.png -text
+doc/technical/dwd_database/radiation_variables.pdf -text
+doc/technical/dwd_database/radiation_variables.tex -text
 doc/technical/dwd_database/title_toc.tex -text
 doc/technical/dwd_database/versionhistory.tex -text
 doc/technical/dwd_database/vertical_levels_i.txt -text
@@ -676,8 +678,6 @@ run/add_required_ocean_files -text
 run/ana_varnames_map_file.txt -text
 run/dict.cmor -text
 run/dict.extpar -text
-run/diff_amip_test.sh -text
-run/diff_nat_rce_test.sh -text
 run/exec.iconrun -text
 run/exp.ICON_limarea -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
@@ -703,8 +703,7 @@ run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_communication -text
 run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text
-run/exp.mtest_icon_amip.sh -text
-run/exp.mtest_nat_rce.sh -text
+run/exp.mtest_icon.sh -text
 run/exp.mtest_nat_rce_cbl_120km_nwp_test -text
 run/exp.nah_jww -text
 run/exp.nat_ape-dec -text
@@ -741,6 +740,7 @@ run/exp.oce_default -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_newInput_woLand -text
 run/exp.oce_r2b5 -text
+run/exp.oce_r2b7_cellbased_numeForce_noTracer_wind10_incOutput -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
 run/exp.oce_test_numeric_noland_cellbased -text
@@ -1465,6 +1465,8 @@ src/io/shared/mo_output_event_control.f90 -text
 src/io/shared/mo_output_event_handler.f90 -text
 src/io/shared/mo_output_event_types.f90 -text
 src/io/shared/mo_post_op.f90 -text
+src/io/shared/mo_read_interface.f90 -text
+src/io/shared/mo_read_netcdf_distributed.f90 -text
 src/io/shared/mo_read_netcdf_parallel.f90 -text
 src/io/shared/mo_util_bool_table.f90 -text
 src/io/shared/mo_util_cdi.f90 -text
@@ -1538,6 +1540,8 @@ src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
 src/ocean/config/mo_ocean_read_namelists.f90 -text
 src/ocean/diagnostics/mo_oce_check_tools.f90 -text
 src/ocean/diagnostics/mo_oce_diagnostics.f90 -text
+src/ocean/diagnostics/mo_ocean_output.f90 -text
+src/ocean/diagnostics/mo_ocean_statistics.f90 -text
 src/ocean/drivers/mo_hydro_ocean_run.f90 -text
 src/ocean/drivers/mo_ocean_model.f90 -text
 src/ocean/dynamics/mo_oce_ab_timestepping.f90 -text
@@ -1557,8 +1561,10 @@ src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
 src/ocean/math/mo_scalar_product.f90 -text
 src/ocean/physics/mo_oce_physics.f90 -text
 src/ocean/physics/mo_oce_thermodyn.f90 -text
-src/ocean/testbed/mo_oce_operators_testbed.f90 -text
-src/ocean/testbed/mo_testbed_ocean_performance.f90 -text
+src/ocean/testbed/mo_ocean_testbed.f90 -text
+src/ocean/testbed/mo_ocean_testbed_modules.f90 -text
+src/ocean/testbed/mo_ocean_testbed_operators.f90 -text
+src/ocean/testbed/mo_ocean_testbed_performance.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text
 src/parallel_infrastructure/mo_communication.f90 -text
 src/parallel_infrastructure/mo_complete_subdivision.f90 -text

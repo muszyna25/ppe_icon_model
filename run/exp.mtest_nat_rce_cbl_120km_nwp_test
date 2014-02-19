@@ -166,6 +166,7 @@ cat >> ${atmo_namelist} << EOF
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
  output         = 'nml'
+ restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
 /
 &nwp_phy_nml
  inwp_gscp       = 1 
@@ -208,7 +209,7 @@ cat >> ${atmo_namelist} << EOF
  file_interval    = "PT10M"
  include_last     = .TRUE.           ! flag whether to include the last time step
  remap            = 0                ! lon/lat output
- output_filename  = '${EXPNAME}'     ! file name base
+ output_filename  = "${EXPNAME}_atm"     ! file name base
  output_grid      = .TRUE.
  ml_varlist       = 'tsfctrad','rh','qv','qc','qi','u','v','w','temp','shfl_s','lhfl_s','qhfl_s','rain_gsp_rate','rain_con_rate','tot_prec_rate_avg','clc','tsfc_ref','clct','tot_qv_dia','aqhfl_s','pres_sfc','pres','sob_s','sob_t','athb_t','athb_s','asob_t','asob_s','thb_s','flxdwswtoa','z_ifc','z_mc','rho','lwflxclr','lwflxall','trsolclr','trsolall','group:rad_vars','group:cloud_diag','group:precip_vars','group:additional_precip_vars'
 /

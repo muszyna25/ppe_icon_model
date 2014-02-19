@@ -40,7 +40,8 @@ MODULE mo_o3
   USE mo_model_domain,             ONLY: t_patch
   USE mo_parallel_config,          ONLY: nproma, p_test_run
   USE mo_run_config,               ONLY: nlev
-  USE mo_netcdf_read,              ONLY: netcdf_read_oncells_3D_time, nf
+  USE mo_read_interface,           ONLY: read_oncells_3D_time
+  USE mo_netcdf_read,              ONLY: nf
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
   USE mo_physical_constants,       ONLY: amo3, amd
@@ -78,29 +79,29 @@ CONTAINS
         write(cyear,'(i4)') year
         fname='ozone'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
-        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3', &
+        zo3_plev=>read_oncells_3D_time(filename=fname,variable_name='O3', &
                   patch=p_patch,start_timestep=2,end_timestep=12)
         o3_plev(:,:,:,2:12)=vmr2mmr_o3*zo3_plev(:,:,:,1:11)
         write(cyear,'(i4)') year+1
         fname='ozone'//TRIM(cyear)//'.nc'
-        zo3_plev=>netcdf_read_oncells_3d_time(filename=fname,variable_name='O3',patch=p_patch, &
+        zo3_plev=>read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
                   start_timestep=1, end_timestep=1)
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
       ELSE
         write(cyear,'(i4)') year
         fname='ozone'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
-        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
+        zo3_plev=>read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch)
         ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
         o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
         write(cyear,'(i4)') year-1
         fname='ozone'//TRIM(cyear)//'.nc'
-        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
+        zo3_plev=>read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
                   start_timestep=12,end_timestep=12)
         o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
         write(cyear,'(i4)') year+1
         fname='ozone'//TRIM(cyear)//'.nc'
-        zo3_plev=>netcdf_read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
+        zo3_plev=>read_oncells_3D_time(filename=fname,variable_name='O3',patch=p_patch, &
                   start_timestep=1,end_timestep=1)
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)       
       END IF

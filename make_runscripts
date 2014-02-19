@@ -401,6 +401,13 @@ create_restart test_oce_default
 
 
 #==============================================================================
+# special treatment for exp.test_oce_default
+#
+cpu_time="02:00:00"
+create_restart test_nat_rce_cbl_120km_nwp
+
+
+#==============================================================================
 # special treatment for test_nh35_tri_jws
 # this includes the restart in the exp.test_nh35_tri_jws_restart
 #

@@ -115,20 +115,19 @@ done
 
 cat > ${atmo_namelist} << EOF
 &parallel_nml
- nproma         = 1024
+ nproma         = 1024  ! valid for NEC only; set 8 for CRAY and 16 or 24 for IBM
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
- num_io_procs   = 1
+ num_io_procs   = 1   ! up to one PE per output stream is possible
  itype_comm     = 1
- iorder_sendrecv = 1
+ iorder_sendrecv = 1  ! set 3 for CRAY (slightly faster)
 /
 &grid_nml
- cell_type = 3            ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
  radiation_grid_filename = ${radiation_grid_filename}
  dynamics_parent_grid_id = 0,1
- lredgrid_phys           = .true.,.true.
+ lredgrid_phys           = .true.
  lfeedback               = .true.
  ifeedback_type          = 2
 /
@@ -140,17 +139,15 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev        = 90
- lvert_nest     = .true.
  nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
  dtime          = ${dtime}     ! timestep in seconds
  ldynamics      = .TRUE.       ! dynamics
  ltransport     = .true.
- ntracer        = 5            ! default: 0
  iforcing       = 3            ! NWP forcing
  ltestcase      = .false.      ! false: run with real data
- msg_level      = 7            ! detailed report during integration
- ltimer         = .true.
- timers_level   = 1
+ msg_level      = 7            ! print maximum wind speeds every 5 time steps
+ ltimer         = .false.      ! set .TRUE. for detailed timer output
+ timers_level   = 1            ! can be increased up to 10 for detailed timer output
  output         = "nml"
 /
 &nwp_phy_nml
@@ -207,18 +204,15 @@ cat > ${atmo_namelist} << EOF
  rayleigh_coeff = 0.10
  iadv_rcf       = 5
  lhdiff_rcf     = .true.
- divdamp_fac    = 0.004
- divdamp_order  = 24
+ divdamp_order  = 24  ! may become unnecessary with incremental analysis update
  divdamp_type   = 3     !!! optional: 2 for assimilation cycle
- l_open_ubc     = .true.
- l_nest_rcf     = .true.
- l_masscorr_nest= .true.
+ l_open_ubc     = .false.
  igradp_method  = 3
  l_zdiffu_t     = .true.
  thslp_zdiffu   = 0.02
  thhgtd_zdiffu  = 125.
  htop_moist_proc= 22500.
- hbot_qvsubstep = 22500.
+ hbot_qvsubstep = 22500. ! use 19000. with R3B7
 /
 &sleve_nml
  min_lay_thckn   = 20.
@@ -238,8 +232,8 @@ cat > ${atmo_namelist} << EOF
 &transport_nml
  ctracer_list  = '12345'
  ivadv_tracer  = 3,3,3,3,3
- itype_hlimit  = 3,4,4,4,4,0
- ihadv_tracer  = 52,2,2,2,2,0
+ itype_hlimit  = 3,4,4,4,4
+ ihadv_tracer  = 52,2,2,2,2
 /
 &diffusion_nml
  hdiff_order      = 5
@@ -249,8 +243,6 @@ cat > ${atmo_namelist} << EOF
  hdiff_smag_fac   = 0.015
  lhdiff_vn        = .TRUE.
  lhdiff_temp      = .TRUE.
- hdiff_multfac    = 1.0
- hdiff_tv_ratio   = 1.0
 /
 &interpol_nml
  nudge_zone_width  = 8
@@ -264,8 +256,8 @@ cat > ${atmo_namelist} << EOF
  heightdiff_threshold = 3000.
 /
 &io_nml
- itype_pres_msl = 3
- itype_rh       = 2
+ itype_pres_msl = 4  ! IFS method with bug fix for self-consistency between SLP and geopotential
+ itype_rh       = 1  ! RH w.r.t. water
 /
 &nh_pzlev_nml
  nplev       = 5     ! number of p level output (attention: levels in [Pa] and top-down)
@@ -363,7 +355,7 @@ cat > ${atmo_namelist} << EOF
  output_grid                  =  .TRUE.
 /
 &meteogram_output_nml
- lmeteogram_enabled= .TRUE.
+ lmeteogram_enabled= .FALSE.
  n0_mtgrm          = 0              ! meteogram initial time step (0 is first step!)
  ninc_mtgrm        = 300  ! meteogram output interval (in terms of time steps)
  ldistributed      = .false.
