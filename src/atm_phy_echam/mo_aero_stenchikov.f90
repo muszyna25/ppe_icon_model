@@ -45,8 +45,7 @@ MODULE mo_aero_stenchikov
   USE mo_exception,              ONLY: finish
   USE mo_read_interface,         ONLY: openInputFile, closeFile
   USE mo_read_interface,         ONLY: read_2d_time, read_3d_time, read_1d
-  USE mo_time_interpolation,     ONLY: wgt1_m=>wgt1_limm, wgt2_m=>wgt2_limm, &
-                                       nmw1_m=>inm1_limm, nmw2_m=>inm2_limm
+  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
@@ -134,10 +133,10 @@ SUBROUTINE read_aero_stenchikov(kyear, p_patch)
   CHARACTER(len=20)             :: cfname_base,cyr
   CHARACTER(len=25)             :: cfname
 
-  IF (nmw2_m == inm2_time_interpolation) RETURN
+  IF (wi%inm2 == inm2_time_interpolation) RETURN
   IF (ALLOCATED(aod_v_s)) THEN
     CALL shift_months_aero_stenchikov
-    imonth(1)=nmw2_m
+    imonth(1)=wi%inm2
     iyear(1)=kyear
     IF (imonth(1) == 13 ) THEN
       imonth(1)=1
@@ -148,8 +147,8 @@ SUBROUTINE read_aero_stenchikov(kyear, p_patch)
     nmonths=1
   ELSE
     CALL su_aero_stenchikov
-    imonth(1)=nmw1_m
-    imonth(2)=nmw2_m
+    imonth(1)=wi%inm1
+    imonth(2)=wi%inm2
     iyear(1)=kyear
     iyear(2)=kyear
     IF (imonth(1) == 0) THEN
@@ -162,7 +161,7 @@ SUBROUTINE read_aero_stenchikov(kyear, p_patch)
     END IF
     nmonths=2
   ENDIF
-  inm2_time_interpolation=nmw2_m
+  inm2_time_interpolation=wi%inm2
   DO imonths=1,nmonths
   CALL read_months_aero_stenchikov ( &
                      'tautl',            'exts',            'omega',              'asym',  &
@@ -258,17 +257,17 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
            w1_lat=wgt1_lat(jl)
            w2_lat=wgt2_lat(jl)
            idx_lev=kindex(jl,jk)
-           zext_s(jl,jk,jwl)=wgt1_m*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zext_s(jl,jk,jwl)=wi%wgt1*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wgt2_m*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             wi%wgt2*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm2))
-           zomg_s(jl,jk,jwl)=wgt1_m*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zomg_s(jl,jk,jwl)=wi%wgt1*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wgt2_m*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             wi%wgt2*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm2))
-           zasy_s(jl,jk,jwl)=wgt1_m*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zasy_s(jl,jk,jwl)=wi%wgt1*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wgt2_m*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             wi%wgt2*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm2))
         END DO
      END DO
@@ -279,9 +278,9 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
         w2_lat=wgt2_lat(jl)
-        zaod_s(jl,jwl)=wgt1_m*(w1_lat*aod_v_s(jwl,idx_lat_1,nm1)+ &
+        zaod_s(jl,jwl)=wi%wgt1*(w1_lat*aod_v_s(jwl,idx_lat_1,nm1)+ &
                                w2_lat*aod_v_s(jwl,idx_lat_2,nm1))+ &
-                       wgt2_m*(w1_lat*aod_v_s(jwl,idx_lat_1,nm2)+ &
+                       wi%wgt2*(w1_lat*aod_v_s(jwl,idx_lat_1,nm2)+ &
                                w2_lat*aod_v_s(jwl,idx_lat_2,nm2))
      END DO
   END DO
@@ -340,13 +339,13 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
            w1_lat=wgt1_lat(jl)
            w2_lat=wgt2_lat(jl)
            idx_lev=kindex(jl,jk)
-           zext_t(jl,jk,jwl)=wgt1_m*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zext_t(jl,jk,jwl)=wi%wgt1*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wgt2_m*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             wi%wgt2*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm2))
-           zomg_t(jl,jk,jwl)=wgt1_m*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zomg_t(jl,jk,jwl)=wi%wgt1*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wgt2_m*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             wi%wgt2*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm2))
         END DO
      END DO
@@ -357,9 +356,9 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
         w2_lat=wgt2_lat(jl)
-        zaod_t(jl,jwl)=wgt1_m*(w1_lat*aod_v_t(jwl,idx_lat_1,nm1)+ &
+        zaod_t(jl,jwl)=wi%wgt1*(w1_lat*aod_v_t(jwl,idx_lat_1,nm1)+ &
                                w2_lat*aod_v_t(jwl,idx_lat_2,nm1))+ &
-                       wgt2_m*(w1_lat*aod_v_t(jwl,idx_lat_1,nm2)+ &
+                       wi%wgt2*(w1_lat*aod_v_t(jwl,idx_lat_1,nm2)+ &
                                w2_lat*aod_v_t(jwl,idx_lat_2,nm2))
      END DO
   END DO

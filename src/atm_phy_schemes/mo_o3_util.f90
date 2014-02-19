@@ -60,8 +60,7 @@ MODULE mo_o3_util
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_o3_gems_data,         ONLY: rghg7
   USE mo_physical_constants,   ONLY: amd,amo3
-  USE mo_time_interpolation,   ONLY: wgt1=>wgt1_limm, wgt2=>wgt2_limm, &
-                                     inm1=>inm1_limm, inm2=>inm2_limm
+  USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm_radt
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone
   
   IMPLICIT NONE
@@ -91,8 +90,8 @@ SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
     REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,0:13) :: ext_o3
     REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)      :: o3_time_int
 
-    o3_time_int(1:kproma,:)=wgt1*ext_o3(1:kproma,:,inm1)+ &
-                            wgt2*ext_o3(1:kproma,:,inm2)
+    o3_time_int(1:kproma,:)=wi%wgt1*ext_o3(1:kproma,:,wi%inm1)+ &
+                            wi%wgt2*ext_o3(1:kproma,:,wi%inm2)
 END SUBROUTINE o3_timeint
 
  SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&

@@ -119,10 +119,16 @@ MODULE mo_datetime
 
   PUBLIC :: string_to_datetime, datetime_to_string,  date_len
 
+  PUBLIC :: OPERATOR(==)
+
   INTERFACE month2hour
     MODULE PROCEDURE month2hour_clim
     MODULE PROCEDURE month2hour_year
   END INTERFACE month2hour
+
+  INTERFACE OPERATOR(==)
+    MODULE PROCEDURE l_comp_date_eq
+  END INTERFACE 
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -1394,4 +1400,21 @@ CONTAINS
          &  -MAX(1-MODULO(myy,100),0)     &
          &  +MAX(1-MODULO(myy,400),0)
   END FUNCTION mleapy
+
+  LOGICAL FUNCTION l_comp_date_eq(date1,date2)
+
+    TYPE(t_datetime),INTENT(in)      :: date1, date2
+
+    l_comp_date_eq = .FALSE.
+    IF (date1%year   == date2%year   .AND. &
+        date1%month  == date2%month  .AND. &
+        date1%day    == date2%day    .AND. &
+        date1%hour   == date2%hour   .AND. &
+        date1%minute == date2%minute .AND. &
+        date1%second == date2%second ) THEN
+      l_comp_date_eq = .TRUE.
+    END IF
+
+  END FUNCTION l_comp_date_eq
+
 END MODULE mo_datetime
