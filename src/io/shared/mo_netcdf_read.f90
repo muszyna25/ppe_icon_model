@@ -43,9 +43,9 @@
 !! software.
 !!
 !!
+#define define_fill_target REAL(wp), TARGET, OPTIONAL
 !#define define_fill_target REAL(wp), TARGET, ALLOCATABLE, OPTIONAL
 !#define define_fill_target REAL(wp), POINTER, OPTIONAL
-#define define_fill_target REAL(wp), TARGET, OPTIONAL
 
 MODULE mo_netcdf_read
 
@@ -421,13 +421,6 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       netcdf_read_REAL_1D_fileid => fill_array
-      IF (.NOT. ASSOCIATED(netcdf_read_REAL_1D_fileid)) THEN
-        CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_1D_fileid(var_size(1)), stat=return_status )
-        IF (return_status /= success) THEN
-          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_1D_fileid )')
-        ENDIF
-      ENDIF
     ELSE
       ALLOCATE( netcdf_read_REAL_1D_fileid(var_size(1)), stat=return_status )
       IF (return_status /= success) THEN
@@ -524,14 +517,6 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       netcdf_read_REAL_2D_time_fileid => fill_array
-      IF (.NOT. ASSOCIATED(netcdf_read_REAL_2D_time_fileid)) THEN
-        CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_2D_time_fileid(var_size(1),var_size(2),time_steps), stat=return_status )
-        IF (return_status /= success) THEN
-          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_2D_time_fileid )')
-        ENDIF
-        netcdf_read_REAL_2D_time_fileid(:,:,:)=0.0_wp
-      ENDIF
     ELSE
       ALLOCATE( netcdf_read_REAL_2D_time_fileid(var_size(1),var_size(2),time_steps), stat=return_status )
       IF (return_status /= success) THEN
@@ -631,15 +616,6 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       netcdf_read_REAL_3D_time_fileid => fill_array
-      IF (.NOT. ASSOCIATED(netcdf_read_REAL_3D_time_fileid)) THEN
-        CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_3D_time_fileid(var_size(1),var_size(2),&
-                  var_size(3),time_steps), stat=return_status )
-        IF (return_status /= success) THEN
-          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_3D_time_fileid )')
-        ENDIF
-        netcdf_read_REAL_3D_time_fileid(:,:,:,:)=0.0_wp
-      ENDIF
     ELSE
       ALLOCATE( netcdf_read_REAL_3D_time_fileid(var_size(1),var_size(2), &
                 var_size(3),time_steps), stat=return_status )
@@ -718,14 +694,6 @@ CONTAINS
 
     IF (PRESENT(fill_array)) THEN
       netcdf_read_REAL_ONCELLS_2D_fileid => fill_array
-      IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_fileid)) THEN
-        CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%alloc_cell_blocks), stat=return_status )
-        IF (return_status /= success) THEN
-          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid )')
-        ENDIF
-        netcdf_read_REAL_ONCELLS_2D_fileid(:,:) = 0.0_wp
-      ENDIF
     ELSE
       ALLOCATE( netcdf_read_REAL_ONCELLS_2D_fileid(nproma, patch%alloc_cell_blocks), stat=return_status )
       IF (return_status /= success) THEN
@@ -856,14 +824,6 @@ CONTAINS
     !-----------------------
     IF (PRESENT(fill_array)) THEN
       netcdf_read_REAL_ONCELLS_2D_1extdim_fileid => fill_array
-      IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_2D_1extdim_fileid)) THEN
-        CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%alloc_cell_blocks, time_steps), stat=return_status )
-        IF (return_status /= success) THEN
-          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid )')
-        ENDIF
-       netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(:,:,:) = 0.0_wp
-      ENDIF
     ELSE
       ALLOCATE( netcdf_read_REAL_ONCELLS_2D_1extdim_fileid(nproma, patch%alloc_cell_blocks, time_steps), stat=return_status )
       IF (return_status /= success) THEN
@@ -1026,16 +986,6 @@ CONTAINS
     !-----------------------
     IF (PRESENT(fill_array)) THEN
       netcdf_read_REAL_ONCELLS_3D_1extdim_fileid => fill_array
-      IF (.NOT. ASSOCIATED(netcdf_read_REAL_ONCELLS_3D_1extdim_fileid)) THEN
-        CALL warning(method_name, "fill_array is not allocated")
-        ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid &
-          & (nproma, file_vertical_levels, patch%alloc_cell_blocks, time_steps), &
-          & stat=return_status )
-        IF (return_status /= success) THEN
-          CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid )')
-        ENDIF
-        netcdf_read_REAL_ONCELLS_3D_1extdim_fileid(:,:,:,:) = 0.0_wp
-      ENDIF
     ELSE
       ALLOCATE( netcdf_read_REAL_ONCELLS_3D_1extdim_fileid &
         & (nproma, file_vertical_levels, patch%alloc_cell_blocks, time_steps), &

@@ -13,7 +13,7 @@
 !!
 !! @par Revision History
 !! Moved to mo_util_netcd from mo_ext_data by Daniel reinert, DWD (2012-02-01)
-!! Moved from mo_util_netcdf, added read_oncells, by L. Linardakis, (2013-03-15)
+!! Moved from mo_util_netcdf, added read_onCells, by L. Linardakis, (2013-03-15)
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -43,9 +43,8 @@
 !! software.
 !!
 !!
-!#define define_fill_target REAL(wp), TARGET, ALLOCATABLE, OPTIONAL
-!#define define_fill_target REAL(wp), POINTER, OPTIONAL
-#define define_fill_target REAL(wp), TARGET, OPTIONAL
+#define define_fill_target REAL(wp), TARGET, ALLOCATABLE, OPTIONAL
+#define define_return_pointer REAL(wp), POINTER, OPTIONAL
 
 MODULE mo_read_interface
 
@@ -69,11 +68,10 @@ MODULE mo_read_interface
 
   USE mo_netcdf_read,      ONLY: netcdf_open_input, netcdf_close, &
     & netcdf_read_0D_real, netcdf_read_1D, netcdf_read_2D_time, netcdf_read_3D_time, &
-    & netcdf_read_oncells_2D, netcdf_read_oncells_2D_extdim, netcdf_read_oncells_3D_extdim
+    & netcdf_read_onCells_2D, netcdf_read_onCells_2D_extdim, netcdf_read_onCells_3D_extdim
 
 
   !-------------------------------------------------------------------------
-
   IMPLICIT NONE
   PRIVATE
 
@@ -82,6 +80,7 @@ MODULE mo_read_interface
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: read_netcdf_broadcast_method, read_netcdf_distribute_method
+  PUBLIC :: t_stream_id
 
   PUBLIC :: openInputFile, closeFile
 
@@ -89,55 +88,63 @@ MODULE mo_read_interface
   PUBLIC :: read_1D
   PUBLIC :: read_2D_time
   PUBLIC :: read_3D_time
-  PUBLIC :: read_oncells_2D
-  PUBLIC :: read_oncells_2D_time
-  PUBLIC :: read_oncells_3D_time
-  PUBLIC :: read_oncells_2D_extdim
-  PUBLIC :: read_oncells_3D_extdim
+  PUBLIC :: read_onCells_2D
+  PUBLIC :: read_onCells_2D_time
+  PUBLIC :: read_onCells_3D_time
+  PUBLIC :: read_onCells_2D_extdim
+  PUBLIC :: read_onCells_3D_extdim
 
   !--------------------------------------------------------
+  TYPE t_stream_id
+    INTEGER  :: file_id
+    INTEGER  :: return_status
+    INTEGER  :: current_state
+    INTEGER  :: input_method
+  END TYPE t_stream_id
+  !--------------------------------------------------------
+
   INTERFACE read_0D_real
     MODULE PROCEDURE read_REAL_0D_filename
-    MODULE PROCEDURE read_REAL_0D_fileid
+    MODULE PROCEDURE read_REAL_0D_streamid
   END INTERFACE read_0D_real
 
   INTERFACE read_1D
     MODULE PROCEDURE read_REAL_1D_filename
-    MODULE PROCEDURE read_REAL_1D_fileid
+    MODULE PROCEDURE read_REAL_1D_streamid
   END INTERFACE read_1D
 
   INTERFACE read_2D_time
-    MODULE PROCEDURE read_REAL_2D_time_fileid
+    MODULE PROCEDURE read_REAL_2D_time_streamid
   END INTERFACE read_2D_time
 
   INTERFACE read_3D_time
-    MODULE PROCEDURE read_REAL_3D_time_fileid
+    MODULE PROCEDURE read_REAL_3D_time_streamid
   END INTERFACE read_3D_time
 
-  INTERFACE read_oncells_2D
-    MODULE PROCEDURE read_REAL_ONCELLS_2D_filename
-    MODULE PROCEDURE read_REAL_ONCELLS_2D_fileid
-  END INTERFACE read_oncells_2D
+  INTERFACE read_onCells_2D
+    MODULE PROCEDURE read_REAL_onCells_2D_filename
+    MODULE PROCEDURE read_REAL_onCells_2D_streamid
+  END INTERFACE read_onCells_2D
 
-  INTERFACE read_oncells_2D_time
-    MODULE PROCEDURE read_REAL_ONCELLS_2D_time_filename
-    MODULE PROCEDURE read_REAL_ONCELLS_2D_time_fileid
-  END INTERFACE read_oncells_2D_time
+  INTERFACE read_onCells_2D_time
+    MODULE PROCEDURE read_REAL_onCells_2D_time_filename
+    MODULE PROCEDURE read_REAL_onCells_2D_time_streamid
+  END INTERFACE read_onCells_2D_time
 
-  INTERFACE read_oncells_2D_extdim
-    MODULE PROCEDURE read_REAL_ONCELLS_2D_1extdim_filename
-    MODULE PROCEDURE read_REAL_ONCELLS_2D_1extdim_fileid
-  END INTERFACE read_oncells_2D_extdim
+  INTERFACE read_onCells_2D_extdim
+    MODULE PROCEDURE read_REAL_onCells_2D_1extdim_filename
+    MODULE PROCEDURE read_REAL_onCells_2D_1extdim_streamid
+  END INTERFACE read_onCells_2D_extdim
 
-  INTERFACE read_oncells_3D_time
-    MODULE PROCEDURE read_REAL_ONCELLS_3D_time_filename
-    MODULE PROCEDURE read_REAL_ONCELLS_3D_time_fileid
-  END INTERFACE read_oncells_3D_time
+  INTERFACE read_onCells_3D_time
+    MODULE PROCEDURE read_REAL_onCells_3D_time_filename
+    MODULE PROCEDURE read_REAL_onCells_3D_time_streamid
+  END INTERFACE read_onCells_3D_time
 
-  INTERFACE read_oncells_3D_extdim
-    MODULE PROCEDURE read_REAL_ONCELLS_3D_1extdim_filename
-    MODULE PROCEDURE read_REAL_ONCELLS_3D_1extdim_fileid
-  END INTERFACE read_oncells_3D_extdim
+  INTERFACE read_onCells_3D_extdim
+    MODULE PROCEDURE read_REAL_onCells_3D_1extdim_filename
+    MODULE PROCEDURE read_REAL_onCells_3D_1extdim_streamid
+  END INTERFACE read_onCells_3D_extdim
 
   INTEGER, PARAMETER :: MAX_VAR_DIMS = 16 ! NF_MAX_VAR_DIMS
 
@@ -147,333 +154,305 @@ MODULE mo_read_interface
   CHARACTER(LEN=*), PARAMETER :: std_cells_dim_name_2 = 'ncells'
   CHARACTER(LEN=*), PARAMETER :: std_time_dim_name_1  = 'time'
 
-  INTEGER :: current_read_method
-
 CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_1D_filename(filename, variable_name, fill_array, read_method)
-    REAL(wp), POINTER :: read_REAL_1D_filename(:)
-
+  SUBROUTINE read_REAL_1D_filename(filename, variable_name, fill_array, return_pointer, input_method, return_status)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:)
-    INTEGER, OPTIONAL :: read_method
+    define_return_pointer        :: return_pointer(:)
+    INTEGER, OPTIONAL :: input_method
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER :: file_id
-    INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_2D_filename'
+    TYPE(t_stream_id) :: stream_id
+   ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_filename'
 
-    file_id = openInputFile(filename, read_method)
-    read_REAL_1D_filename => &
-      & read_REAL_1D_fileid( &
-      & file_id=file_id, variable_name=variable_name, fill_array=fill_array)
-    return_status = closeFile(file_id)
 
-  END FUNCTION read_REAL_1D_filename
+    stream_id = openInputFile(filename, input_method)
+    CALL read_REAL_1D_streamid( &
+      & stream_id=stream_id, variable_name=variable_name, fill_array=fill_array, return_pointer=return_pointer)
+    CALL closeFile(stream_id)
+
+  END SUBROUTINE read_REAL_1D_filename
   !-------------------------------------------------------------------------
 
- !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_ONCELLS_2D_filename(filename, variable_name, fill_array, patch, read_method)
-    REAL(wp), POINTER :: read_REAL_ONCELLS_2D_filename(:,:)
+  SUBROUTINE read_REAL_onCells_2D_filename(filename, variable_name, fill_array, return_pointer, patch, input_method, return_status)
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:)
+    define_return_pointer        :: return_pointer(:,:)
     TYPE(t_patch), TARGET        :: patch
-    INTEGER, OPTIONAL :: read_method
+    INTEGER, OPTIONAL :: input_method
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER :: file_id
-    INTEGER :: return_status    
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_2D_filename'
+    TYPE(t_stream_id) :: stream_id
+    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_filename'
 
-    file_id = openInputFile(filename, read_method)
-    read_REAL_ONCELLS_2D_filename => &
-      & read_REAL_ONCELLS_2D_fileid( &
-      & file_id=file_id, variable_name=variable_name, fill_array=fill_array, patch=patch)
-    return_status = closeFile(file_id)
+    stream_id = openInputFile(filename, input_method)
+    CALL read_REAL_onCells_2D_streamid( &
+      & stream_id=stream_id, variable_name=variable_name, fill_array=fill_array, return_pointer=return_pointer, patch=patch)
+    CALL closeFile(stream_id)
                               
-  END FUNCTION read_REAL_ONCELLS_2D_filename
+  END SUBROUTINE read_REAL_onCells_2D_filename
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_ONCELLS_2D_time_filename(filename, variable_name, fill_array, patch, &
-    & start_timestep, end_timestep, read_method )
-
-    REAL(wp), POINTER            :: read_REAL_ONCELLS_2D_time_filename(:,:,:)
+  SUBROUTINE read_REAL_onCells_2D_time_filename(filename, variable_name, fill_array, return_pointer, patch, &
+    & start_timestep, end_timestep, input_method, return_status )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target   :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
-    INTEGER, OPTIONAL :: read_method
+    INTEGER, OPTIONAL :: input_method
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER :: file_id
-    INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_2D_time_filename'
+    TYPE(t_stream_id) :: stream_id
+    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_time_filename'
 
-    file_id = openInputFile(filename, read_method)
-    read_REAL_ONCELLS_2D_time_filename =>   &
-      & read_REAL_ONCELLS_2D_time_fileid(file_id=file_id, variable_name=variable_name, &
-      & fill_array=fill_array, patch=patch, start_timestep=start_timestep, end_timestep=end_timestep)
-    return_status = closeFile(file_id)
+    stream_id = openInputFile(filename, input_method)
+    CALL read_REAL_onCells_2D_time_streamid(stream_id=stream_id, variable_name=variable_name, &
+      & fill_array=fill_array, return_pointer=return_pointer, patch=patch, &
+      & start_timestep=start_timestep, end_timestep=end_timestep)
+    CALL closeFile(stream_id)
 
-  END FUNCTION read_REAL_ONCELLS_2D_time_filename
+  END SUBROUTINE read_REAL_onCells_2D_time_filename
   !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_ONCELLS_2D_1extdim_filename(filename, variable_name, fill_array, patch, &
-    & start_extdim, end_extdim, extdim_name, read_method )
-
-    REAL(wp), POINTER            :: read_REAL_ONCELLS_2D_1extdim_filename(:,:,:)
+  SUBROUTINE read_REAL_onCells_2D_1extdim_filename(filename, variable_name, fill_array, return_pointer, patch, &
+    & start_extdim, end_extdim, extdim_name, input_method, return_status )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target   :: fill_array(:,:,:)
+    define_fill_target           :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
-    INTEGER, OPTIONAL :: read_method
+    INTEGER, OPTIONAL :: input_method
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER :: file_id
-    INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_2D_1extdim_filename'
+    TYPE(t_stream_id) :: stream_id
+    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_1extdim_filename'
 
-    file_id = openInputFile(filename, read_method)
-    read_REAL_ONCELLS_2D_1extdim_filename => &
-      & read_REAL_ONCELLS_2D_1extdim_fileid(file_id=file_id, variable_name=variable_name, &
-      & fill_array=fill_array, patch=patch, &
+    stream_id = openInputFile(filename, input_method)
+    CALL read_REAL_onCells_2D_1extdim_streamid(stream_id=stream_id, variable_name=variable_name, &
+      & fill_array=fill_array, return_pointer=return_pointer, patch=patch, &
       & start_extdim=start_extdim, end_extdim=end_extdim, extdim_name=extdim_name )
-    return_status = closeFile(file_id)
+    CALL closeFile(stream_id)
 
-  END FUNCTION read_REAL_ONCELLS_2D_1extdim_filename
+  END SUBROUTINE read_REAL_onCells_2D_1extdim_filename
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_ONCELLS_3D_time_filename(filename, variable_name, fill_array, patch, &
-    & start_timestep, end_timestep, levelsDimName, read_method )
-
-    REAL(wp), POINTER :: read_REAL_ONCELLS_3D_time_filename(:,:,:,:)
+  SUBROUTINE read_REAL_onCells_3D_time_filename(filename, variable_name, fill_array, return_pointer, patch, &
+    & start_timestep, end_timestep, levelsDimName, input_method, return_status )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
-    INTEGER, OPTIONAL :: read_method
+    INTEGER, OPTIONAL :: input_method
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER :: file_id
-    INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_3D_time_filename'
+    TYPE(t_stream_id) :: stream_id
+    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_3D_time_filename'
 
-    file_id = openInputFile(filename, read_method)
-    read_REAL_ONCELLS_3D_time_filename => &
-      & read_REAL_ONCELLS_3D_time_fileid( &
-      & file_id=file_id,                         &
+    stream_id = openInputFile(filename, input_method)
+    CALL read_REAL_onCells_3D_time_streamid( &
+      & stream_id=stream_id,                     &
       & variable_name=variable_name,             &
       & fill_array=fill_array,                   &
+      & return_pointer=return_pointer,           &
       & patch=patch,                             &
-      & levelsDimName=levelsDimName,           &
+      & levelsDimName=levelsDimName,             &
       & start_timestep=start_timestep,  end_timestep=end_timestep)
-    return_status = closeFile(file_id)
+    CALL closeFile(stream_id)
 
-  END FUNCTION read_REAL_ONCELLS_3D_time_filename
+  END SUBROUTINE read_REAL_onCells_3D_time_filename
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_ONCELLS_3D_1extdim_filename(filename, variable_name, fill_array, patch, &
-    & start_extdim, end_extdim, levelsDimName, extdim_name, read_method )
-
-    REAL(wp), POINTER :: read_REAL_ONCELLS_3D_1extdim_filename(:,:,:,:)
+  SUBROUTINE read_REAL_onCells_3D_1extdim_filename(filename, variable_name, fill_array, return_pointer, patch, &
+    & start_extdim, end_extdim, levelsDimName, extdim_name, input_method, return_status )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target             :: fill_array(:,:,:,:)
+    define_fill_target           :: fill_array(:,:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
-    INTEGER, OPTIONAL :: read_method
+    INTEGER, OPTIONAL :: input_method
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER :: file_id
-    INTEGER :: return_status
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_3D_1extdim_filename'
+    TYPE(t_stream_id) :: stream_id
+    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_3D_1extdim_filename'
 
-    file_id = openInputFile(filename, read_method)
-    read_REAL_ONCELLS_3D_1extdim_filename => read_REAL_ONCELLS_3D_1extdim_fileid( &
-      & file_id=file_id,                          &
+    stream_id = openInputFile(filename, input_method)
+    CALL read_REAL_onCells_3D_1extdim_streamid(    &
+      & stream_id=stream_id,                      &
       & variable_name=variable_name,              &
       & fill_array=fill_array,                    &
-      &  patch=patch,                             &
+      & return_pointer=return_pointer,           &
+      & patch=patch,                              &
       & start_extdim=start_extdim,  end_extdim=end_extdim, &
-      & levelsDimName=levelsDimName,            &
+      & levelsDimName=levelsDimName,              &
       & extdim_name=extdim_name)
-    return_status = closeFile(file_id)
+    CALL closeFile(stream_id)
 
-  END FUNCTION read_REAL_ONCELLS_3D_1extdim_filename
+  END SUBROUTINE read_REAL_onCells_3D_1extdim_filename
   !-------------------------------------------------------------------------
-  FUNCTION read_REAL_0D_filename(filename, variable_name)
+  FUNCTION read_REAL_0D_filename(filename, variable_name, return_status)
 
-    REAL(wp), POINTER            :: read_REAL_0D_filename
+    REAL(wp)  :: read_REAL_0D_filename
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER                      :: file_id
-    INTEGER :: return_status
+    TYPE(t_stream_id) :: stream_id
 
-    file_id = openInputFile(filename, read_method=read_netcdf_broadcast_method)
-    read_REAL_0D_filename = read_0D_real(file_id, variable_name)
-    return_status = closeFile(file_id)
+    stream_id = openInputFile(filename, input_method=read_netcdf_broadcast_method)
+    read_REAL_0D_filename = read_0D_real(stream_id, variable_name, return_status)
+    CALL closeFile(stream_id)
 
   END FUNCTION read_REAL_0D_filename
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_0D_fileid(file_id, variable_name)
+  FUNCTION read_REAL_0D_streamid(stream_id, variable_name, return_status)
 
-    REAL(wp)            :: read_REAL_0D_fileid
+    REAL(wp)    :: read_REAL_0D_streamid
+    INTEGER, OPTIONAL :: return_status
 
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
 
-    read_REAL_0D_fileid = netcdf_read_0D_real(file_id, variable_name)
+    read_REAL_0D_streamid = netcdf_read_0D_real(stream_id%file_id, variable_name)
 
-  END FUNCTION read_REAL_0D_fileid
+  END FUNCTION read_REAL_0D_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_1D_fileid(file_id, variable_name, fill_array)
+  SUBROUTINE read_REAL_1D_streamid(stream_id, variable_name, fill_array, return_pointer)
 
-    REAL(wp), POINTER            :: read_REAL_1D_fileid(:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:)
+    define_return_pointer        :: return_pointer(:)
 
-    INTEGER :: varid, var_type, var_dims
-    INTEGER :: var_size(MAX_VAR_DIMS)
-    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: return_status
+    REAL(wp), POINTER            :: tmp_pointer(:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_1D_streamid'
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_1D_fileid'
-
-
-    SELECT CASE(current_read_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      read_REAL_1D_fileid => netcdf_read_1D(file_id, variable_name, fill_array)
+      tmp_pointer => netcdf_read_1D(stream_id%file_id, variable_name, fill_array)
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION read_REAL_1D_fileid
+  END SUBROUTINE read_REAL_1D_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_2D_time_fileid(file_id, variable_name, fill_array, dim_names, start_timestep, end_timestep)
+  SUBROUTINE read_REAL_2D_time_streamid(stream_id, variable_name, fill_array, return_pointer, &
+    & dim_names, start_timestep, end_timestep)
 
-    REAL(wp), POINTER            :: read_REAL_2D_time_fileid(:,:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
     INTEGER, INTENT(IN), OPTIONAL:: start_timestep, end_timestep
 
-    INTEGER :: varid, var_type, var_dims
-    INTEGER :: var_size(MAX_VAR_DIMS)
-    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: file_time_steps, time_steps, start_time, end_time
-    INTEGER :: start_read_index(3), count_read_index(3)
-    INTEGER :: idim
-    INTEGER :: return_status
+    REAL(wp), POINTER            :: tmp_pointer(:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_2D_time_streamid'
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_2D_time_fileid'
-
-    SELECT CASE(current_read_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      read_REAL_2D_time_fileid => netcdf_read_2D_time(file_id, variable_name, fill_array, dim_names, start_timestep, end_timestep)
+      tmp_pointer => netcdf_read_2D_time(stream_id%file_id, variable_name, &
+        & fill_array, dim_names, start_timestep, end_timestep)
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION read_REAL_2D_time_fileid
+  END SUBROUTINE read_REAL_2D_time_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_3D_time_fileid(file_id, variable_name, fill_array, dim_names, start_timestep, end_timestep)
+  SUBROUTINE read_REAL_3D_time_streamid(stream_id, variable_name, fill_array, return_pointer, &
+    & dim_names, start_timestep, end_timestep)
 
-    REAL(wp), POINTER            :: read_REAL_3D_time_fileid(:,:,:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:,:)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
     INTEGER, INTENT(IN), OPTIONAL:: start_timestep, end_timestep
 
-    INTEGER :: varid, var_type, var_dims
-    INTEGER :: var_size(MAX_VAR_DIMS)
-    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: file_time_steps, time_steps, start_time, end_time
-    INTEGER :: start_read_index(4), count_read_index(4)
-    INTEGER :: idim
-    INTEGER :: return_status
+    REAL(wp), POINTER            :: tmp_pointer(:,:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_3D_time_streamid'
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_3D_time_fileid'
-
-    SELECT CASE(current_read_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      read_REAL_3D_time_fileid => netcdf_read_3D_time(file_id, variable_name, fill_array, dim_names, start_timestep, end_timestep)
+      tmp_pointer => netcdf_read_3D_time(stream_id%file_id, variable_name, &
+        & fill_array, dim_names, start_timestep, end_timestep)
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION read_REAL_3D_time_fileid
+  END SUBROUTINE read_REAL_3D_time_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  FUNCTION read_REAL_ONCELLS_2D_fileid(file_id, variable_name, fill_array, patch)
+  SUBROUTINE read_REAL_onCells_2D_streamid(stream_id, variable_name, fill_array, return_pointer, patch)
 
-    REAL(wp), POINTER            :: read_REAL_ONCELLS_2D_fileid(:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:)
+    define_return_pointer        :: return_pointer(:,:)
     TYPE(t_patch), TARGET        :: patch
 
-    INTEGER :: total_number_of_cells
-    INTEGER :: varid, var_type, var_dims
-    INTEGER :: var_size(MAX_VAR_DIMS)
-    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: return_status
-    REAL(wp), POINTER :: tmp_array(:)
+    REAL(wp), POINTER            :: tmp_pointer(:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_streamid'
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_2D_fileid'
-
-    SELECT CASE(current_read_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      read_REAL_ONCELLS_2D_fileid => netcdf_read_oncells_2D(file_id, variable_name, fill_array, patch)
+      tmp_pointer => netcdf_read_onCells_2D(stream_id%file_id, variable_name, fill_array, patch)
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION read_REAL_ONCELLS_2D_fileid
+  END SUBROUTINE read_REAL_onCells_2D_streamid
   !-------------------------------------------------------------------------
 
   
@@ -483,21 +462,21 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  FUNCTION read_REAL_ONCELLS_2D_time_fileid(file_id, variable_name, fill_array, patch, &
+  SUBROUTINE read_REAL_onCells_2D_time_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
     & start_timestep, end_timestep)
-    REAL(wp), POINTER            :: read_REAL_ONCELLS_2D_time_fileid(:,:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target   :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
-    read_REAL_ONCELLS_2D_time_fileid => read_REAL_ONCELLS_2D_1extdim_fileid(&
-      & file_id=file_id, variable_name=variable_name, fill_array=fill_array, patch=patch, &
+    CALL read_REAL_onCells_2D_1extdim_streamid(&
+      & stream_id=stream_id, variable_name=variable_name, fill_array=fill_array, &
+      & return_pointer=return_pointer, patch=patch, &
       & start_extdim=start_timestep, end_extdim=end_timestep, extdim_name="time" )
 
-  END FUNCTION read_REAL_ONCELLS_2D_time_fileid
+  END SUBROUTINE read_REAL_onCells_2D_time_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -506,31 +485,32 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  FUNCTION read_REAL_ONCELLS_2D_1extdim_fileid(file_id, variable_name, fill_array, patch, &
+  SUBROUTINE read_REAL_onCells_2D_1extdim_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
     & start_extdim, end_extdim, extdim_name )
 
-    REAL(wp), POINTER            :: read_REAL_ONCELLS_2D_1extdim_fileid(:,:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target   :: fill_array(:,:,:)
+    define_fill_target           :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_2D_1extdim_fileid'
+    REAL(wp), POINTER            :: tmp_pointer(:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_1extdim_streamid'
 
-    SELECT CASE(current_read_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      read_REAL_ONCELLS_2D_1extdim_fileid => &
-         & netcdf_read_oncells_2D_extdim(file_id, variable_name, fill_array, patch, &
+      tmp_pointer => &
+         & netcdf_read_onCells_2D_extdim(stream_id%file_id, variable_name, fill_array, patch, &
          & start_extdim, end_extdim, extdim_name )
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION read_REAL_ONCELLS_2D_1extdim_fileid
+  END SUBROUTINE read_REAL_onCells_2D_1extdim_streamid
   !-------------------------------------------------------------------------
 
 
@@ -540,28 +520,28 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  FUNCTION read_REAL_ONCELLS_3D_time_fileid(file_id, variable_name, fill_array, patch, &
+  SUBROUTINE read_REAL_onCells_3D_time_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
     & start_timestep, end_timestep, levelsDimName)
 
-    REAL(wp), POINTER  :: read_REAL_ONCELLS_3D_time_fileid(:,:,:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target            :: fill_array(:,:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
 
-    read_REAL_ONCELLS_3D_time_fileid => read_REAL_ONCELLS_3D_1extdim_fileid(&
-      & file_id=file_id,                        &
+    CALL read_REAL_onCells_3D_1extdim_streamid(&
+      & stream_id=stream_id,                    &
       & variable_name=variable_name,            &
       & fill_array=fill_array,                  &
+      & return_pointer=return_pointer,          &
       & patch=patch,                            &
       & start_extdim=start_timestep,  end_extdim=end_timestep, &
       & levelsDimName=levelsDimName,          &
       & extdim_name="time")
 
-  END FUNCTION read_REAL_ONCELLS_3D_time_fileid
+  END SUBROUTINE read_REAL_onCells_3D_time_streamid
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -570,67 +550,55 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  FUNCTION read_REAL_ONCELLS_3D_1extdim_fileid(file_id, variable_name, fill_array, patch, &
+  SUBROUTINE read_REAL_onCells_3D_1extdim_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
     & start_extdim, end_extdim, levelsDimName, extdim_name )
 
-    REAL(wp), POINTER  :: read_REAL_ONCELLS_3D_1extdim_fileid(:,:,:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:,:)
     TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name, levelsDimName
 
-    INTEGER :: total_number_of_cells
-    INTEGER :: varid, var_type, var_dims
-    INTEGER, TARGET :: var_size(MAX_VAR_DIMS)
-    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    REAL(wp), POINTER  :: tmp_pointer(:,:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_3D_1extdim_streamid'
 
-    INTEGER :: file_vertical_levels, file_time_steps, time_steps, start_time, end_time
-    INTEGER :: start_allocated_step, end_allocated_step
- !   LOGICAL :: use_time_range
-    INTEGER :: start_read_index(3), count_read_index(3)
-
-    INTEGER :: return_status
-    REAL(wp), POINTER :: tmp_array(:,:,:)
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_ONCELLS_3D_1extdim_fileid'
-
-    SELECT CASE(current_read_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      read_REAL_ONCELLS_3D_1extdim_fileid => &
-         & netcdf_read_oncells_3D_extdim(file_id, variable_name, fill_array, patch, &
+      tmp_pointer => &
+         & netcdf_read_onCells_3D_extdim(stream_id%file_id, variable_name, fill_array, patch, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
+      IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
 
 
-  END FUNCTION read_REAL_ONCELLS_3D_1extdim_fileid
+  END SUBROUTINE read_REAL_onCells_3D_1extdim_streamid
   !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION openInputFile(filename, read_method)
+  TYPE(t_stream_id) FUNCTION openInputFile(filename, input_method)
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER, OPTIONAL, INTENT(IN) :: read_method
+    INTEGER, OPTIONAL, INTENT(IN) :: input_method
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:openInputFile'
 
-    IF (present(read_method)) THEN
-      current_read_method = read_method
+    IF (present(input_method)) THEN
+      openInputFile%input_method = input_method
     ELSE
-      current_read_method = default_read_method
+      openInputFile%input_method = default_read_method
     ENDIF
 
-    SELECT CASE(current_read_method)
+    SELECT CASE(openInputFile%input_method)
     CASE (read_netcdf_broadcast_method)
-      openInputFile = netcdf_open_input(filename)
+      openInputFile%file_id = netcdf_open_input(filename)
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
     
   END FUNCTION openInputFile
@@ -638,20 +606,20 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  INTEGER FUNCTION closeFile(file_id)
-    INTEGER, INTENT(IN) :: file_id
+  SUBROUTINE closeFile(stream_id)
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:closeFile'
 
-    SELECT CASE(current_read_method)
+    SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      closeFile = netcdf_close(file_id)
+      stream_id%return_status = netcdf_close(stream_id%file_id)
     CASE (read_netcdf_distribute_method)
     CASE default
-      CALL finish(method_name, "unknown read_method")
+      CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION closeFile
+  END SUBROUTINE closeFile
   !-------------------------------------------------------------------------
   
 
