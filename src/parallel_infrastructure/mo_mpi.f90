@@ -6250,8 +6250,8 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in)    :: comm
 #ifndef NOMPI
     INTEGER  :: p_comm
-    INTEGER  :: meta_info, ikey
-    REAL(dp) :: in_val(2), rcv_val(2)
+    INTEGER  :: meta_info, ikey, rank
+    DOUBLE PRECISION :: in_val(2), rcv_val(2)
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6268,10 +6268,12 @@ CONTAINS
         IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
         ! use MPI_MAXLOC to transfer additional data
         in_val(1) = zfield
-        in_val(2) = REAL( meta_info, wp )
+        in_val(2) = DBLE( meta_info )
         IF (PRESENT(root)) THEN
           CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
             MPI_MAXLOC, root, p_comm, p_error)
+          CALL MPI_COMM_RANK(p_comm, rank, p_error)
+          if (rank /= root)  rcv_val = 0.
         ELSE
           CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
             MPI_MAXLOC, p_comm, p_error)
@@ -6536,8 +6538,8 @@ CONTAINS
 
 #ifndef NOMPI
     INTEGER  :: p_comm
-    INTEGER  :: meta_info, ikey
-    REAL(dp) :: in_val(2), rcv_val(2)
+    INTEGER  :: meta_info, ikey, rank
+    DOUBLE PRECISION :: in_val(2,1), rcv_val(2,1)
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6553,20 +6555,22 @@ CONTAINS
         IF (PRESENT(keyval))  meta_info = meta_info + keyval*process_mpi_all_size
         IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
         ! use MPI_MINLOC to transfer additional data
-        in_val(1) = zfield
-        in_val(2) = REAL( meta_info, wp )
+        in_val(1,1) = DBLE( zfield )
+        in_val(2,1) = DBLE( meta_info )
         IF (PRESENT(root)) THEN
           CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
             MPI_MINLOC, root, p_comm, p_error)
+          CALL MPI_COMM_RANK(p_comm, rank, p_error)
+          if (rank /= root)  rcv_val = 0.
         ELSE
           CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
             MPI_MINLOC, p_comm, p_error)
         END IF
         ! decode meta info:
-        p_min = rcv_val(1)
-        ikey = INT(rcv_val(2)+0.5)/process_mpi_all_size
+        p_min = rcv_val(1,1)
+        ikey = INT(rcv_val(2,1)+0.5)/process_mpi_all_size
         IF (PRESENT(keyval))  keyval  = ikey
-        IF (PRESENT(proc_id)) proc_id = INT(rcv_val(2)+0.5) - ikey
+        IF (PRESENT(proc_id)) proc_id = INT(rcv_val(2,1)+0.5) - ikey
       ELSE
         ! compute simple (standard) minimum
         IF (PRESENT(root)) THEN
