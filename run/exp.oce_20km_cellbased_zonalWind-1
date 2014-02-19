@@ -147,9 +147,9 @@ cat > ${ocean_namelist} << EOF
   iforc_oce = 11
   forcing_windstress_u_type = 106
   forcing_windstress_v_type = 0 ! 106
-  forcing_wind_u_amplitude = 0.5
-  forcing_wind_v_amplitude = 0.05
-  forcing_windstress_zonal_waveno = 3.0
+  forcing_wind_u_amplitude = -1.0
+  forcing_wind_v_amplitude = 0.0
+  forcing_windstress_zonal_waveno = 4.0
   forcing_windstress_merid_waveno = 3.0
 /
 &ocean_initialConditions_nml
