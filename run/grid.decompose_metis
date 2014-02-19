@@ -16,12 +16,13 @@ cd $WRKDIR
 #-----------------------------------------------------------------------------
 
 command=decompose_metis
-command=decompose_geometric_medial
+command=decompose_geometric_medial_cluster
 
 grid_file="iconR2B04-ocean_etopo40_planet"
 dec_size=32
-use_sea_land_mask=yes
+use_sea_land_mask=no # yes
 decomposition_file=${grid_file}-${dec_size}-metis.cell_domain_ids
+decomposition_file=${grid_file}-${dec_size}-medial.cell_domain_ids
 
 #-----------------------------------------------------------------------------
 if [ $use_sea_land_mask = yes ] ; then
@@ -31,6 +32,8 @@ else
 fi
 
 echo $command $grid_file.nc $dec_size $decomposition_file 1 $sea_land_mask > $commandFile
+echo $command $grid_file.nc $dec_size 0 1 $decomposition_file > $commandFile
+
 ${run_commmand}
 
 #-----------------------------------------------------------------------------
