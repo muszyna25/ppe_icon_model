@@ -929,17 +929,6 @@ CONTAINS
 
       !-- initialize print-out table
       CALL initialize_table(table)
-      CALL add_table_column(table, "name")
-      CALL add_table_column(table, "# calls (total)")
-      CALL add_table_column(table, "t_min")
-      IF (num_work_procs > 1)  CALL add_table_column(table, "min rank")
-      CALL add_table_column(table, "t_avg")
-      CALL add_table_column(table, "t_max")
-      IF (num_work_procs > 1)  CALL add_table_column(table, "max rank")
-      CALL add_table_column(table, "total min")
-      IF (num_work_procs > 1)  CALL add_table_column(table, "total min rank")
-      CALL add_table_column(table, "total max")
-      IF (num_work_procs > 1)  CALL add_table_column(table, "total max rank")
       irow = 1
     END IF
 
@@ -1041,12 +1030,13 @@ CONTAINS
       min_str = time_str(val_min)
       avg_str = time_str(val_avg)
       max_str = time_str(val_max)
-      tot_min_str = time_str(val_tot_min)
-      tot_max_str = time_str(val_tot_max)
+
+      WRITE (tot_min_str, '(f12.3)') val_tot_min
+      WRITE (tot_max_str, '(f12.3)') val_tot_max
 
       CALL set_table_entry(table, irow, "name",     &
         &                  REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text)
-      CALL set_table_entry(table, irow, "# calls (total)",  TRIM(int2string(INT(val_call_n))))
+      CALL set_table_entry(table, irow, "# calls",  TRIM(int2string(INT(val_call_n))))
       CALL set_table_entry(table, irow, "t_min",         TRIM(min_str))
       IF (num_work_procs > 1) &
         CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(rank_min))//"]")
@@ -1054,10 +1044,10 @@ CONTAINS
       CALL set_table_entry(table, irow, "t_max",         TRIM(max_str))
       IF (num_work_procs > 1) &
         CALL set_table_entry(table, irow, "max rank", "["//TRIM(int2string(rank_max))//"]")
-      CALL set_table_entry(table, irow, "total min",           TRIM(tot_min_str))
+      CALL set_table_entry(table, irow, "total min (s)",           TRIM(tot_min_str))
       IF (num_work_procs > 1) &
         CALL set_table_entry(table, irow, "total min rank", "["//TRIM(int2string(tot_rank_min))//"]")
-      CALL set_table_entry(table, irow, "total max",           TRIM(tot_max_str))
+      CALL set_table_entry(table, irow, "total max (s)",           TRIM(tot_max_str))
       IF (num_work_procs > 1) &
         CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tot_rank_max))//"]")
     ENDIF
