@@ -104,6 +104,10 @@ EXPERIMENT='r2b4_amip'
 MODE='rn'
 REFERENCE=''
 OVERWRITE='yes'
+if [[ "$LOADLBATCH" ]]; then
+# change for blizzard
+PATH=/client/bin:$PATH
+fi 
 while getopts ":e:hm:o:r:" OPT; do
 case $OPT in
  h  ) print_usage $0
@@ -289,7 +293,11 @@ fi # MODE
 ########################################################################
 if [ $EXIT_STATUS -eq 0 ]; then
   echo -e "\033[32mtest mode ${MODE}: ${EXPERIMENT} passed all corresponding tests\033[00m"
-  echo "OK" > ${SCRIPT_DIR}/finish.status
+  RESULT_DIR="${SCRIPT_DIR}/../experiments/test_icon.sh"
+  if [ ! -d ${RESULT_DIR} ]; then
+    mkdir ${RESULT_DIR}
+  fi
+  echo "OK" > ${RESULT_DIR}/finish.status
 else
   echo -e "\033[31mtest mode ${MODE}: ${EXPERIMENT} did NOT pass the corresponding tests\033[00m"
   echo -e "\033[31mnumber of tests including base run that FAILED: $EXIT_STATUS\033[00m"
