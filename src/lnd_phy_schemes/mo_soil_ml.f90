@@ -5047,20 +5047,12 @@ SUBROUTINE terra_multlay_init (                &
 ! Subroutine arguments: None
 ! --------------------
 
-  INTEGER (KIND=iintegers)              ::  &
-    ierror                        ! error status variable
-
-  CHARACTER (LEN=80)                    ::  &
-    yerror
 !
 ! Local parameters:
 ! ----------------
 
   REAL    (KIND=ireals   ), PARAMETER ::  &
-    zepsi  = 1.0E-6_ireals , & ! security constant
-    zalfa  = 1.0_ireals    , & ! degree of impliciteness (1: full implicit,
-                               !    (0.5: Cranck-Nicholson)
-    rho_i  = 910._ireals       ! density of solid ice (soil model)  (kg/m**3)
+    zepsi  = 1.0E-6_ireals ! security constant
 
 ! Local scalars:
 ! -------------
@@ -5069,7 +5061,6 @@ SUBROUTINE terra_multlay_init (                &
     kso            , & ! loop index for soil moisture layers           
     ksn            , & ! loop index for snow layers
     i,ic           , & ! loop index in x-direction              
-    icount_snow    , & ! Counter for snow
     icount_soil    , & ! "true" soil
     icount_rockice , & ! rock and ice points
     mstyp          , & ! soil type index
@@ -5077,35 +5068,14 @@ SUBROUTINE terra_multlay_init (                &
     iends          , & ! end   index for x-direction     
     ns
 
-  REAL    (KIND=ireals   ) ::  &
-    zdel_t_so          ! auxiliary variable
+!  REAL    (KIND=ireals   ) ::  &
+!    zdel_t_so          ! auxiliary variable
 
   REAL    (KIND=ireals   ) ::  &
     zpsi0=.01_ireals    ! air entry potential at water saturation (m)
 
   REAL    (KIND=ireals   ) ::  &
-!
-!   Statement functions
-!
-    zsf_heav       , & ! Statement function: Heaviside function
-    zsf_psat_iw    , & ! Saturation water vapour pressure over ice or water
-                       ! depending on temperature "zstx"
-    zsf_qsat       , & ! Specific humidity at saturation pressure
-                       ! (depending on the saturation water vapour pressure
-                       !  "zspsatx" and the air pressure "zspx")
-    zsf_dqvdt_iw   , & ! Statement function: First derivative of specific
-                       ! saturation humidity
-                       ! with respect to temperature (depending on temperature
-                       ! "zstx" and saturation specific humidity pressure
-                       ! "zsqsatx")
-    zstx           , & ! dummy argument for Stmt. function
-    zspx           , & ! dummy argument for Stmt. function
-    zspsatx        , & ! dummy argument for Stmt. function
-    zsqsatx        , & ! dummy argument for Stmt. function
-    z2iw           , & ! dummy argument for Stmt. function
-    z4iw           , & ! dummy argument for Stmt. function
-    zroota    (ie) , & ! root density profile parameter (1/m)
-    z234iw             ! dummy argument for Stmt. function
+    zroota    (ie) ! root density profile parameter (1/m)
 
 
   REAL    (KIND=ireals   ) ::  &
@@ -5180,16 +5150,6 @@ SUBROUTINE terra_multlay_init (                &
 !------------------------------------------------------------------------------
 
 
-! Declaration of STATEMENT-FUNCTIONS
-
-  zsf_heav     (zstx                    ) = 0.5_ireals+SIGN( 0.5_ireals, zstx )
-  zsf_psat_iw  (zstx,z2iw   ,z4iw       )                                     &
-                   = b1*EXP(z2iw*(zstx - b3)/(zstx - z4iw))
-  zsf_qsat     (zspsatx, zspx           )                                     &
-                   = rdv*zspsatx/(zspx-o_m_rdv*zspsatx)
-  zsf_dqvdt_iw (zstx,zsqsatx,z4iw,z234iw)                                     &
-                   = z234iw*(1._ireals+rvd_m_o*zsqsatx)*zsqsatx/(zstx-z4iw)**2
-
 
 !------------------------------------------------------------------------------
 ! Section I.1: Initializations
@@ -5198,14 +5158,6 @@ SUBROUTINE terra_multlay_init (                &
 ! Horizontal domain for computation
   istarts = istartpar
   iends   = iendpar
-
-!>JH
-!  prg_gsp=0._ireals ! graupel not implemented yet 
-!<JH
-
-  ierror = 0
-  yerror = '        '
-
 
 ! grids for temperature and water content
 
@@ -5224,10 +5176,6 @@ SUBROUTINE terra_multlay_init (                &
 
 
 
-!---loop over tiles---
-!DO ns=nsubs0ubs1
-!---------------------
-
 
 ! Prepare basic surface properties (for land-points only)
   icount_soil=0
@@ -5236,11 +5184,11 @@ SUBROUTINE terra_multlay_init (                &
         mstyp       = soiltyp_subs(i)        ! soil type
         m_styp(i) = mstyp                     ! array for soil type
         IF (mstyp >= 3) THEN
-        icount_soil=icount_soil+1
-        soil_list(icount_soil)=i
+          icount_soil=icount_soil+1
+          soil_list(icount_soil)=i
         ELSE
-        icount_rockice=icount_rockice+1
-        rockice_list(icount_rockice)=i
+          icount_rockice=icount_rockice+1
+          rockice_list(icount_rockice)=i
         END IF
         zdw   (i)  = cdw0  (mstyp)
         zdw1  (i)  = cdw1  (mstyp)
@@ -5272,10 +5220,6 @@ SUBROUTINE terra_multlay_init (                &
 
 ! print*,i,zporv(i),zclayf(i),zpsis(i),zb_por(i)
 
-!<JH
-!DR        IF(m_styp(i) < 9 ) llandmask(i) = .true.
-!>JH      ENDIF
-
   ENDDO
  
 
@@ -5283,8 +5227,8 @@ SUBROUTINE terra_multlay_init (                &
   DO kso = 1, ke_soil
     DO i = istarts, iends
 !     IF(llandmask(i)) THEN        ! for land-points only
-      mstyp           = soiltyp_subs(i)         ! soil type
-      zalam(i,kso)  = cala0(mstyp)              ! heat conductivity parameter
+      mstyp         = soiltyp_subs(i)         ! soil type
+      zalam(i,kso)  = cala0(mstyp)            ! heat conductivity parameter
 !     ENDIF
     ENDDO
   ENDDO
@@ -5295,24 +5239,23 @@ SUBROUTINE terra_multlay_init (                &
 ! For ntstep=0 : Some preparations
 ! ================================
 
-!!$  IF (ntstep == 0) THEN
     w_so_new(:,:) = w_so_now(:,:)
 
 !   Provide for a soil moisture 1 % above air dryness point, reset soil
 !   moisture to zero in case of ice and rock
     DO kso   = 1,ke_soil+1
-        DO ic = 1, icount_soil
-           i=soil_list(ic)
-              w_so_now (i,kso) = MAX(w_so_now(i,kso),                     &
-                                           1.01_ireals*zadp(i)*zdzhs(kso) )
-              w_so_new (i,kso) = MAX(w_so_new(i,kso),                     &
-                                           1.01_ireals*zadp(i)*zdzhs(kso) )
-        END DO
-         DO ic = 1, icount_rockice
-           i=rockice_list(ic)
-              w_so_now(i,kso) = 0.0_ireals
-              w_so_new(i,kso) = 0.0_ireals
-        END DO
+      DO ic = 1, icount_soil
+        i=soil_list(ic)
+        w_so_now (i,kso) = MAX(w_so_now(i,kso),                     &
+                           1.01_ireals*zadp(i)*zdzhs(kso) )
+        w_so_new (i,kso) = MAX(w_so_new(i,kso),                     &
+                           1.01_ireals*zadp(i)*zdzhs(kso) )
+      END DO
+      DO ic = 1, icount_rockice
+        i=rockice_list(ic)
+        w_so_now(i,kso) = 0.0_ireals
+        w_so_new(i,kso) = 0.0_ireals
+      END DO
     END DO
 
 
@@ -5545,11 +5488,7 @@ SUBROUTINE terra_multlay_init (                &
 
     ENDIF  ! is_coldstart
 
-!!$ ENDIF             ! ntstep = 0
 
-!---loop over tiles---
-!END DO !ns=nsubs0,nsubs1
-!---------------------
 
 #ifdef __ICON__
   IF (msg_level >= 19) THEN
