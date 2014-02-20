@@ -286,7 +286,7 @@ CONTAINS
     IF(diffusion_config(jg)%lhdiff_w)&
        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog%w)
 
-    !add only those tracers that aer diffused inside
+    !add all tracers that are used in satad
     IF(ltransport) &
       CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer) 
 
