@@ -170,6 +170,7 @@ CONTAINS
     i    =  1
     icol = -1
     COLFIND_LOOP : DO
+      IF (i > table%n_columns)  EXIT COLFIND_LOOP
       IF (TRIM(column_title) == TRIM(table%column(i)%title)) THEN
         icol = i
         EXIT COLFIND_LOOP
@@ -191,7 +192,16 @@ CONTAINS
     INTEGER :: icol
 
     icol =  get_column_index(table, column_title)
-    IF (icol == -1)  CALL finish(routine, "Column title not found!")
+
+    ! for convenience: create colums when called for the first row
+    IF (icol == -1) THEN
+      IF (irow == 1) THEN
+        CALL add_table_column(table, column_title)
+        icol =  get_column_index(table, column_title)
+      ELSE
+        CALL finish(routine, "Column title not found!")
+      END IF
+    END IF
     CALL resize_column(table%column(icol), irow)
     table%column(icol)%row(irow) = TRIM(entry_str)
     table%column(icol)%width     = MAX(table%column(icol)%width, LEN_TRIM(entry_str))
