@@ -76,8 +76,8 @@ MODULE mo_nh_initicon
   USE mo_util_string,         ONLY: tolower, toupper, difference, add_to_list, one_of
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
-    &                               llake, isub_lake, ntiles_water
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, lseaice, llake, &
+    &                               isub_lake, ntiles_water
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml, &
