@@ -165,7 +165,6 @@ MODULE mo_sgs_turbulence
     !Initialize
     IF(p_test_run)THEN
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
-      thetav(:,:,:)     = 0._wp
     END IF
 
     !Convert temperature/tempv to potential/thetav temperature: all routines within 
@@ -175,8 +174,8 @@ MODULE mo_sgs_turbulence
     !where prog vars are updated on halo points in the end only if
     !my_process_is_mpi_all_parallel()  is TRUE
 
-    rl_start   = 2
-    rl_end     = min_rlcell_int-2
+    rl_start   = 1
+    rl_end     = min_rlcell
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
@@ -195,11 +194,6 @@ MODULE mo_sgs_turbulence
     END DO
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-
-    !AD (Feb 18 2014):this sync is required- don't know why     
-    IF(l_limited_area)&
-       CALL sync_patch_array(SYNC_C, p_patch, thetav)
-
 
     CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &

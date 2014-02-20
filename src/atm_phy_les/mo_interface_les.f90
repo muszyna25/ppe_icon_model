@@ -68,8 +68,8 @@ MODULE mo_interface_les
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqm_max,   &
-    &                              msg_level, ltimer, timers_level, nqtendphy
-  USE mo_io_config,          ONLY: lflux_avg
+    &                              msg_level, ltimer, timers_level, nqtendphy,  &
+                                   ltransport
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -277,6 +277,20 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------------
+    !>  Additional syns required for physics before 3D turbulence
+    !-------------------------------------------------------------------------
+    IF(diffusion_config(jg)%lhdiff_temp)&
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_prog%theta_v, &
+                                   pt_prog%exner)
+
+    IF(diffusion_config(jg)%lhdiff_w)&
+       CALL sync_patch_array(SYNC_C, pt_patch, pt_prog%w)
+
+    !add only those tracers that aer diffused inside
+    IF(ltransport) &
+      CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer) 
+
+    !-------------------------------------------------------------------------
     !>  Update the tracer for every advective timestep,
     !!  all other updates are done in dynamics
     !-------------------------------------------------------------------------
@@ -288,8 +302,8 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
       
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int-2
+      rl_start = 1
+      rl_end   = min_rlcell
 
       CALL nh_update_prog_phy( pt_patch             ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
@@ -301,7 +315,8 @@ CONTAINS
     
     ENDIF
 
-    IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
+    IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsso)  .OR. &
+         lcall_phy_jg(itgwd) .OR. linit ) THEN
     
       !-------------------------------------------------------------------------
       !>
@@ -315,18 +330,10 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_start(timer_phys_u_v)
       
-      SELECT CASE (pt_patch%cell_type)
-      CASE (3)
-        CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
-          &                        pt_patch,              & !< patch
-          &                        pt_int_state,          & !< interpolation state
-          &                        pt_diag%u, pt_diag%v )   !<  reconstr. u,v wind
-      CASE (6)
-        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
-          &                     pt_int_state%hex_east ,pt_diag%u)
-        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
-          &                     pt_int_state%hex_north,pt_diag%v)
-      END SELECT
+      CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
+        &                        pt_patch,              & !< patch
+        &                        pt_int_state,          & !< interpolation state
+        &                        pt_diag%u, pt_diag%v )   !<  reconstr. u,v wind
 
       IF (timers_level > 3) CALL timer_stop(timer_phys_u_v)
 
@@ -354,10 +361,11 @@ CONTAINS
     IF (lcall_phy_jg(itsatad)) THEN
 
       IF (msg_level >= 15) CALL message(TRIM(routine), 'satad')
+      IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
 
       ! exclude boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int-2
+      rl_start = 1
+      rl_end   = min_rlcell
 
       i_startblk = pt_patch%cells%start_blk(rl_start,1)
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
@@ -382,7 +390,6 @@ CONTAINS
         !-------------------------------------------------------------------------
 
 !#ifdef __BOUNDCHECK
-          IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
           CALL satad_v_3D( &
                & maxiter  = 10                             ,& !> IN
                & tol      = 1.e-3_wp                       ,& !> IN
@@ -398,9 +405,6 @@ CONTAINS
                & kup      = nlev                            & !> IN
               !& count, errstat,                              !> OUT
                )
-          IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
-
-        IF (timers_level > 2) CALL timer_start(timer_phys_exner)
 
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
@@ -427,6 +431,7 @@ CONTAINS
         ENDIF
 
         DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)                        &
@@ -438,11 +443,12 @@ CONTAINS
 
           ENDDO
         ENDDO
-        IF (timers_level > 2) CALL timer_stop(timer_phys_exner)
       ENDDO ! nblks
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+      IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
 
     ELSE ! satad turned off
 
@@ -620,6 +626,7 @@ CONTAINS
         ENDIF
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
 
             pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)          &
@@ -1003,49 +1010,6 @@ CONTAINS
 
         ENDIF
 
-        IF ( p_sim_time > 1.e-6_wp .AND. lflux_avg) THEN
-
-         !sum up for averaged fluxes
-          !T.R.: this is not correct for output after 1st timestep,
-          !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
-          !leading to wrong averaging.
-          DO jc =  i_startidx, i_endidx
-
-          prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%lwflxsfc_a(jc,jb) = ( prm_diag%lwflxsfc_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%swflxtoa_a(jc,jb) = ( prm_diag%swflxtoa_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 &  + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb))  &
-                                 &  * r_sim_time
-          prm_diag%lwflxtoa_a(jc,jb) = ( prm_diag%lwflxtoa_a(jc,jb)                     &
-                                 &  * (p_sim_time - dt_phy_jg(itfastphy))               &
-                                 & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)) &
-                                 &  * r_sim_time
-          ENDDO
-
-        ELSEIF ( .NOT. lflux_avg ) THEN
-
-          DO jc =  i_startidx, i_endidx
-
-          prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb)
-          prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb)
-          prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb)
-          prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb)                    &
-                                & + dt_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)
-          END DO
-
-
-        END IF
-
       ENDDO ! blocks
 
 !$OMP END DO NOWAIT
@@ -1162,6 +1126,7 @@ CONTAINS
         ! artificial Rayleigh friction: active if GWD or SSO scheme is active
         IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
           DO jk = 1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
               rfric_fac = MAX(0._wp, 8.e-4_wp*(vabs-ustart))
@@ -1176,6 +1141,7 @@ CONTAINS
 
         ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
@@ -1187,7 +1153,7 @@ CONTAINS
                                                     prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
           ENDDO
         ENDDO
- 
+!DIR$ IVDEP
         z_ddt_temp(i_startidx:i_endidx,:,jb) =                                                   &
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
@@ -1219,6 +1185,7 @@ CONTAINS
 
         ! Convert temperature tendency into Exner function tendency
         DO jk = 1, nlev
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &

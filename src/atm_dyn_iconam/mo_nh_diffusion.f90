@@ -72,7 +72,6 @@ MODULE mo_nh_diffusion
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_exception,           ONLY: finish
 
   IMPLICIT NONE
@@ -1059,14 +1058,13 @@ MODULE mo_nh_diffusion
 !$OMP END PARALLEL
 
       ! This could be further optimized, but applications without physics are quite rare; 
-      ! For LES physics, the sync is always necessary here
-      IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp .OR. atm_phy_nwp_config(jg)%is_les_phy) THEN
+      IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp ) THEN
         CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
       ENDIF
 
     ENDIF ! temperature diffusion
 
-    IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp .OR. atm_phy_nwp_config(jg)%is_les_phy) THEN
+    IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp ) THEN
       IF (diffusion_config(jg)%lhdiff_w) CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w)
     ENDIF
 
