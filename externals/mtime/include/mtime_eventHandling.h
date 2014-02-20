@@ -115,7 +115,7 @@ void
 deallocateEvent(struct _event* e);
 
 bool
-isCurrentEventActive(struct _event* e, struct _datetime* current_dt);
+isCurrentEventActive(struct _event* e, struct _datetime* current_dt,  struct _timedelta* allowedtimedeltadelta_buffer);
 
 bool
 iseventNextInNextDays(struct _event* e);

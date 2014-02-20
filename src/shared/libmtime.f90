@@ -1006,7 +1006,8 @@ end module mtime_timedelta
 !___________________________________________________________________________________________________________
 module mtime_events
   !
-  use, intrinsic :: iso_c_binding, only: c_int64_t, c_char, c_null_char, c_bool, c_ptr, c_loc, c_f_pointer
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_char, c_null_char, c_bool, c_ptr, c_loc, c_f_pointer, &
+    &                                    c_null_ptr
   use mtime_datetime
   !
   implicit none
@@ -1079,7 +1080,7 @@ module mtime_events
       character(c_char), dimension(*) :: string
     end function my_eventtostring
     !
-    function my_isCurrentEventActive(my_event, my_datetime) result(ret) bind(c, name='isCurrentEventActive')
+    function my_isCurrentEventActive(my_event, my_datetime, my_allowed_slack) result(ret) bind(c, name='isCurrentEventActive')
 #ifdef __SX__
       use, intrinsic :: iso_c_binding, only: c_bool, c_ptr
 #else
@@ -1087,6 +1088,7 @@ module mtime_events
 #endif
       type(c_ptr), value :: my_event
       type(c_ptr), value :: my_datetime
+      type(c_ptr), value :: my_allowed_slack
       logical(c_bool) :: ret
     end function my_isCurrentEventActive
     !
@@ -1130,11 +1132,17 @@ contains
   end subroutine eventToString
   !
   !
-  function isCurrentEventActive(my_event, my_datetime) result(ret)
-    type(event), pointer :: my_event
-    type(datetime), pointer :: my_datetime
+  function isCurrentEventActive(my_event, my_datetime, my_allowed_slack) result(ret)
+    USE mtime_timedelta
+    type(event), pointer     :: my_event
+    type(datetime), pointer  :: my_datetime
+    type(timedelta), pointer, OPTIONAL :: my_allowed_slack
     logical(c_bool) :: ret
-    ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime))
+    if (present(my_allowed_slack)) then 
+    ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime), c_loc(my_allowed_slack))
+    else
+    ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime), c_null_ptr)
+    end if
   end function isCurrentEventActive
 end module mtime_events
 !>
@@ -1209,7 +1217,7 @@ module mtime_eventgroups
     !
     function my_removeeventfromeventgroup(evname, evgrp) result(ret) bind(c, name='removeEventFromEventGroup')
 #ifdef __SX__
-      use, intrinsic :: iso_c_binding, only: c_bool, c_char, c_ptr
+      use, intrinsic :: iso_c_binding, only: c_bool, c_char, c_ptr 
 #else
       import :: c_bool, c_char, c_ptr
 #endif

@@ -74,6 +74,11 @@ extern const int monthSpecificDeltaInMonthsLeapyear[12][13];
 extern const int monthSpecificDeltaInMonths365[12][13];
 extern const int monthSpecificDeltaInMonths360[12][13];
 
+/* Used as dummy string to init TimeDeltas in the lib. */
+extern const char initDummyTDString[];
+extern const char initDummyDString[];
+extern const char initDummyDTString[];
+
 typedef enum
 {
   equal_to      =  0,

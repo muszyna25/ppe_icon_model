@@ -393,6 +393,58 @@ deallocateEvent(struct _event* e)
 }
 
 
+/* INTERNAL FUNCTION. */
+static 
+compare_return_val
+isTriggerTimeInRange(struct _datetime* current_dt, struct _datetime* triggerNextEventDateTime, struct _timedelta* alloweddelta)
+{
+  int cmp_val_flag = -128;
+
+  /* If alloweddelta is defined, return the status of current_dt vis-a-vis trigger time +/- allowed delta.  */
+  if(alloweddelta && (alloweddelta->sign == '+'))
+    {
+      int upper_val_flag = -128;
+      int lower_val_flag = -128;
+
+      struct _datetime *dt_upperbound              = newDateTime(initDummyDTString);
+      struct _datetime *dt_lowerbound              = newDateTime(initDummyDTString);
+      struct _timedelta *td_alloweddelta_substract = constructAndCopyTimeDelta(alloweddelta);
+      td_alloweddelta_substract->sign = '-'; /* Change sign to obtain substraction. */
+ 
+      upper_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,alloweddelta,dt_upperbound));
+      lower_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,td_alloweddelta_substract,dt_lowerbound));
+
+      if ( 
+           (upper_val_flag == less_than || upper_val_flag == equal_to)
+           &&
+           (lower_val_flag == greater_than || lower_val_flag == equal_to)
+         )
+        {
+          cmp_val_flag = equal_to;
+        }
+      else if (upper_val_flag == greater_than)
+        {
+          cmp_val_flag = greater_than;
+        }
+      else if (lower_val_flag == less_than)
+        {
+          cmp_val_flag = less_than;
+        }
+
+      //Cleaup.
+      deallocateDateTime(dt_upperbound);
+      deallocateDateTime(dt_lowerbound);
+      deallocateTimeDelta(td_alloweddelta_substract); 
+    }
+  else /* If alloweddelta is not defined or is malformed (negative sign is not permitted), return as normal (follow exact match for equal).  */
+    {
+      cmp_val_flag = compareDatetime(current_dt,triggerNextEventDateTime);
+    }
+   
+  return cmp_val_flag;
+}
+
+
 /*! \cond PRIVATE */
 /*  Internal event. Should not be exposed to the user.*/
 static
@@ -407,7 +459,8 @@ setEvent(struct _event* e)
 /**
  * @brief Check if this event is active by comparing event's trigger time with current_dt.
  *
- *        The current_dt must exactly match event's trigger time.
+ *        The current_dt must EXACTLY match event's trigger time. The lib has no builtin clock but relies on isCurrentEventActive(.) 
+ *        being called (polled) from the application at fixed interals.
  *
  * @param  event
  *         A pointer to struct _event. This is the event being tested.
@@ -420,43 +473,48 @@ setEvent(struct _event* e)
  */
 
 bool
-isCurrentEventActive(struct _event* event, struct _datetime* current_dt)
+isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct _timedelta* allowed_slack)
 {
-  if ((event != NULL )&& (current_dt != NULL) ){
- 
-  /* In case the current_dt starts ahead of event->eventReferenceDateTime, we need to update the event->triggerNextEventDateTime  
-     or else the events will never trigger. 
-  */
-  if (
-	event->nextEventIsFirst 
-	&& 
-	(compareDatetime(current_dt,event->eventReferenceDateTime) == greater_than) 
-	&& 
-	(compareDatetime(current_dt,event->triggerNextEventDateTime) == greater_than)
-     )
-    {
-      /* If last date is defined, check if current_dt is ahead of event->eventLastDateTime and do not execute this step */
-      if (!(event->eventLastDateTime && (compareDatetime(current_dt,event->eventLastDateTime) == greater_than)))
-      	{
-	  struct _timedelta* modulo_td = newTimeDelta("PT00.000S"); 
-          /* Get the first trigger time and update.*/
-      	  moduloTimeDeltaFromDateTime(event->eventReferenceDateTime, event->eventInterval, current_dt, modulo_td);
-      	  addTimeDeltaToDateTime(current_dt,modulo_td,event->triggerNextEventDateTime);
-          deallocateTimeDelta(modulo_td);
-        }
-    }
+  if ((event != NULL ) && (current_dt != NULL)){ // allowed_slack can be NULL.
 
-  if(compareDatetime(current_dt,event->triggerNextEventDateTime) == equal_to)
+  /* If current_dt is not in trigger range, exit. */
+    if (compareDatetime(current_dt,event->eventFirstDateTime) == less_than) 
+      return false;
+  /* If last date is defined, check if current_dt is ahead of event->eventLastDateTime. Return on false. 
+     Note: !(event->triggerCurrentEvent) helps execute rest of the function one-more-time after the final event trigger and thus clear all flags. */
+  if (event->eventLastDateTime && (compareDatetime(current_dt,event->eventLastDateTime) == greater_than) && !(event->triggerCurrentEvent)) 
+      return false;
+
+
+  int cmp_val_flag = -128;
+
+  struct _timedelta* slack = NULL;
+  if (allowed_slack)
+     slack = constructAndCopyTimeDelta(allowed_slack);
+  else
+     slack = newTimeDelta(initDummyTDString); // Init slack to PT00.000S
+
+  /* In case the current_dt starts ahead of event->triggerNextEventDateTime, we need to update the event->triggerNextEventDateTime 
+     to the next possible trigger time or else the events will never trigger. */
+  if (
+       (event->nextEventIsFirst)
+       &&
+       (isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, slack) == greater_than)
+     )
+       {
+             struct _timedelta* modulo_td = newTimeDelta(initDummyTDString);
+             /* Get the first trigger time and update. */
+             moduloTimeDeltaFromDateTime(event->triggerNextEventDateTime, event->eventInterval, current_dt, modulo_td);
+             addTimeDeltaToDateTime(current_dt,modulo_td,event->triggerNextEventDateTime);
+             /* Cleanup. */
+             deallocateTimeDelta(modulo_td);
+       }
+
+
+  /* Check if trigger time is now. */
+  if(isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, slack) == equal_to)
     {
       /* If current Datetime is equal to next trigger datetime, Event is active. */
-
-
-      if ((event->eventLastDateTime) && (compareDatetime(current_dt,event->eventLastDateTime) == greater_than))
-        {
-	  /* If event->eventLastDateTime is defined and current_dt > event->eventLastDateTime, event has expired. 
-	  Clear all flags and return false. */
-	  goto return_on_false;
-        }
 
 
       /* If the event being triggred is the first event to be triggered, it is all of FirstIn*  */
@@ -474,28 +532,64 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt)
 	  event->eventisFirstInYear = true;
 	}
 
-
-
-      /* Set the new next-trigger datetime and the new previous-triggered-datetime. */
+      struct _datetime* tmp_dt = newDateTime(initDummyDTString);
+      /* Set previous-triggered-datetime to now. */
       replaceDatetime(event->triggerNextEventDateTime, event->triggeredPreviousEventDateTime);
-      addTimeDeltaToDateTime(event->triggerNextEventDateTime,event->eventInterval,event->triggerNextEventDateTime);
+      /* Set the new next-trigger datetime. If eventLastDateTime is defined, then update should not happen
+         if current_dt + eventInterval > eventLastDateTime */
+      if ( 
+            !( event->eventLastDateTime 
+               && 
+               ( 
+                 ( cmp_val_flag = isTriggerTimeInRange ( addTimeDeltaToDateTime(current_dt, event->eventInterval,tmp_dt), 
+                                                         event->eventLastDateTime, 
+                                                         slack
+                                                       )
+                 ) == greater_than 
+               )
+             )
+         ) 
+        {
+          addTimeDeltaToDateTime(event->triggerNextEventDateTime,event->eventInterval,event->triggerNextEventDateTime);
+        }
+      deallocateDateTime(tmp_dt); // Cleanup.
 
       /* Set event.*/
       event->triggerCurrentEvent = true;      
-     
 
 
-      /* If the future event (not the current event being triggered) has a different day/month/year, current event must be LastIn* */
-      if(iseventNextInNextDays(event) == true)
+      /* If the future event (not the current event being triggered) has a different day/month/year, current event must be LastIn*.
+         Notice that triggerNextEventDateTime is now the FUTURE event after the update above. */
+      if(
+	      (	event->eventLastDateTime 
+		&& 
+		(cmp_val_flag == greater_than)
+	      ) 
+	      || 
+	      (iseventNextInNextDays(event) == true)
+        )
 	{
 	  event->eventisLastInDay = true;
 	}
       
-      if(iseventNextInNextMonths(event) == true)
+      if(
+              ( event->eventLastDateTime 
+                && 
+                (cmp_val_flag == greater_than)
+              )
+              ||
+              (iseventNextInNextMonths(event) == true))
 	{
 	  event->eventisLastInMonth = true;
 	}
-      if(iseventNextInNextYears(event) == true)
+
+      if(
+              ( event->eventLastDateTime 
+                && 
+                (cmp_val_flag == greater_than)
+              )
+              || 
+              (iseventNextInNextYears(event) == true))
 	{
 	  event->eventisLastInYear = true;
 	}
@@ -503,14 +597,15 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt)
       /* Reset indicating this is no longer true. */
       event->nextEventIsFirst = false;
 
+      deallocateTimeDelta(slack);
       return true;
     }
-  else if ((event->triggerCurrentEvent == true) && (compareDatetime(current_dt,event->triggerNextEventDateTime) == less_than))
+  else if (event->triggerCurrentEvent == true)
     {
-      return_on_false:
       /* This is the next iteration after event was set in last call. Reset event. Return false. */
       event->triggerCurrentEvent 	= false;
 
+      /* Reset all the flags. */
       event->eventisFirstInDay 		= false;
       event->eventisFirstInMonth 	= false;
       event->eventisFirstInYear 	= false;
@@ -519,12 +614,12 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt)
       event->eventisLastInYear 		= false;
     }
 
+  deallocateTimeDelta(slack);
   return false;
 }
-else
-  return false;
+  else 
+    return false;
 }
-
 
 /* Is next event in next day(s) of previous event. */
 bool

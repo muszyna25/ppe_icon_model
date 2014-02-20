@@ -103,6 +103,11 @@ static calendarType _calendar_type = CALENDAR_NOT_SET;
 /* Flag to disallow change in calendar type.  */
 static bool calendar_initialized = false;
 
+/* Used as dummy string to init data-structures in the lib. */
+const char initDummyDTString[] = "0-01-01T00:00:00.000";
+const char initDummyDString[]  = "0-01-01";
+const char initDummyTDString[] = "PT00.000S";
+
 /**
  * @brief To initialize a new calendar
  *
