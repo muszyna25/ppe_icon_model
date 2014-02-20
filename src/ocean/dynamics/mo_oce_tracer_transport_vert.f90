@@ -824,7 +824,7 @@ DO jk = 2, n_zlev
     ENDDO
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     !IF (tracer_id == 1) THEN
     CALL dbg_print('AdvVertAdpo: weight: r1 '    ,z_adpo_r1,     str_module,idt_src, in_subset=cells_in_domain)
     CALL dbg_print('AdvVertAdpo: adpo_weight'    ,p_adpo_w,      str_module,idt_src, in_subset=cells_in_domain)
