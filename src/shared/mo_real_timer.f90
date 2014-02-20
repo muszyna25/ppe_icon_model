@@ -1169,14 +1169,20 @@ CONTAINS
     rest = rest-REAL(s,dp)
     WRITE(s_str,'(i2.2)') s
 
-    IF (d > 0) THEN
+    IF (h > 100) THEN
       x = TRIM(d_str)//'d'//TRIM(h_str)//'h'
-    ELSEIF (h > 0) THEN
+    ELSEIF (m > 1000) THEN
       x = TRIM(h_str)//'h'//TRIM(m_str)//'m'
-    ELSEIF (m > 0) THEN
+    ELSEIF (ts >= 10000.0_dp) THEN
       x = TRIM(m_str)//'m'//TRIM(s_str)//'s'
+    ELSEIF (ts >= 1000.0_dp) THEN
+      WRITE(x,'(f8.1,a)') ts, 's'
+    ELSEIF (ts >= 100.0_dp) THEN
+      WRITE(x,'(f8.2,a)') ts, 's'
+    ELSEIF (ts >= 10.0_dp) THEN
+      WRITE(x,'(f8.3,a)') ts, 's'
     ELSEIF (ts >= 1.0_dp) THEN
-      WRITE(x,'(f7.4,a)') ts, 's'
+      WRITE(x,'(f8.4,a)') ts, 's'
     ELSE
       WRITE(x,'(f8.5,a)') ts, 's'
     ENDIF
