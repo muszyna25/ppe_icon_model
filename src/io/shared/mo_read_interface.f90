@@ -43,7 +43,7 @@
 !! software.
 !!
 !!
-#define define_fill_target REAL(wp), TARGET, ALLOCATABLE, OPTIONAL
+#define define_fill_target REAL(wp), TARGET, OPTIONAL
 #define define_return_pointer REAL(wp), POINTER, OPTIONAL
 
 MODULE mo_read_interface
