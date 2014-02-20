@@ -978,16 +978,16 @@ DO jk = 2, n_zlev
         ikp1    = MIN( ikp1_ic, n_zlev )
 
         DO jc = i_startidx, i_endidx
-          !IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( p_patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
-          !ELSE
-          !  z_slope_u = 0.0_wp
-          !ENDIF
-          !IF ( p_patch_3D%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
+          ELSE
+            z_slope_u = 0.0_wp
+          ENDIF
+          IF ( p_patch_3D%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
             z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
-          !ELSE
-          !  z_slope_l = 0.0_wp
-          !ENDIF
+          ELSE
+            z_slope_l = 0.0_wp
+          ENDIF
 
           IF ((z_slope_u * z_slope_l) > 0._wp) THEN
 
@@ -1122,7 +1122,8 @@ DO jk = 2, n_zlev
 ! !$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx)
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
-        DO jk = slevp1, n_zlev
+        DO jc = i_startidx, i_endidx
+        DO jk = slevp1, n_zlev-1
           ! index of bottom half level
           ikp1 = jk + 1
           IF ( p_patch_3D%lsm_c(jc,ikp1,jb) <= sea_boundary ) THEN
@@ -1133,6 +1134,7 @@ DO jk = 2, n_zlev
             z_face_low(i_startidx:i_endidx,jk,jb) = 0.0_wp
           ENDIF
         ENDDO
+        END DO
       ENDDO
 ! !$OMP ENDDO
 ! !$OMP END PARALLEL

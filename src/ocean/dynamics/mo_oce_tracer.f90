@@ -756,7 +756,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
     ENDIF ! lvertical_diff_implicit
   ENDIF!iswm_oce /= 1)
-
+Do jk=1,n_zlev
+write(0,*)'trace:rmax-min:',jk,maxval(new_ocean_tracer%concentration(:,jk,:)),minval(new_ocean_tracer%concentration(:,jk,:))
+END DO
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module,idt_src, in_subset=cells_in_domain)
