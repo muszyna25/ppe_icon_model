@@ -193,7 +193,7 @@ CONTAINS
 
     icol =  get_column_index(table, column_title)
 
-    ! for convenience: create colums when called for the first row
+    ! for convenience: create colunms when called for the first row
     IF (icol == -1) THEN
       IF (irow == 1) THEN
         CALL add_table_column(table, column_title)

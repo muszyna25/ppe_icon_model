@@ -2909,7 +2909,7 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
    ! special treatment for trivial communication patterns of
    ! sequential runs
    IF(my_process_is_mpi_seq()) THEN
-     CALL exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2,l_recv_exists)
+     CALL exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2)
      RETURN
    END IF
 
@@ -2954,14 +2954,13 @@ END SUBROUTINE exchange_data_i2d
 
 ! SEQUENTIAL version of subroutine "exchange_data_r3d"
 !
-SUBROUTINE exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2, l_recv_exists)
+SUBROUTINE exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2)
 
    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
    INTEGER, INTENT(INOUT), TARGET        :: recv(:,:)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
    INTEGER, OPTIONAL :: send_lbound2
-   LOGICAL, OPTIONAL :: l_recv_exists
    ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_communication:exchange_data_i2d_seq"
    INTEGER :: i, lbound2
