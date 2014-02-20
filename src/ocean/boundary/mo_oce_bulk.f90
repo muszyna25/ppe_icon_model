@@ -84,7 +84,7 @@ USE mo_dbg_nml,             ONLY: idbg_mxmn
 USE mo_oce_types,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW
+USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -534,10 +534,10 @@ CONTAINS
         ENDDO
 
         ! Ocean albedo model
-        Qatm%albvisdirw = albedoW
-        Qatm%albvisdifw = albedoW
-        Qatm%albnirdirw = albedoW
-        Qatm%albnirdifw = albedoW
+        Qatm%albvisdirw = albedoW_sim
+        Qatm%albvisdifw = albedoW_sim
+        Qatm%albnirdirw = albedoW_sim
+        Qatm%albnirdifw = albedoW_sim
 
         ! #slo# 2012-12:
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
@@ -647,7 +647,7 @@ CONTAINS
        !      p_sfc_flx%forc_hflx(jc,jb)                 &
        !      & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
        !      & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-       !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW)     ! incoming SW radiation flux
+       !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW_sim) ! incoming SW radiation flux
 
             ENDDO
           ENDDO

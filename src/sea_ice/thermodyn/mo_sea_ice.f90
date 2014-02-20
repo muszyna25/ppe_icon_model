@@ -52,9 +52,9 @@ MODULE mo_sea_ice
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs, &
-    &                               fr_fac, mu, alf, alv, albedoW, clw, cpd, zemiss_def, rd,   &
-    &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,    &
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs,   &
+    &                               fr_fac, mu, alf, alv, albedoW_sim, clw, cpd, zemiss_def, rd, &
+    &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,      &
     &                               alb_ice_vis, alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_statistics,          ONLY: add_fields
@@ -802,10 +802,10 @@ CONTAINS
     p_atm_f%albvisdif (:,:,:) = albi
     p_atm_f%albnirdir (:,:,:) = albi
     p_atm_f%albnirdif (:,:,:) = albi
-    p_atm_f%albvisdirw(:,:) = albedoW
-    p_atm_f%albvisdifw(:,:) = albedoW
-    p_atm_f%albnirdirw(:,:) = albedoW
-    p_atm_f%albnirdifw(:,:) = albedoW
+    p_atm_f%albvisdirw(:,:) = albedoW_sim
+    p_atm_f%albvisdifw(:,:) = albedoW_sim
+    p_atm_f%albnirdirw(:,:) = albedoW_sim
+    p_atm_f%albnirdifw(:,:) = albedoW_sim
 
     CALL message(TRIM(routine), 'end' )
 
