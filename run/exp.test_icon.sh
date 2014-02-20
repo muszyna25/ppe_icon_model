@@ -289,7 +289,7 @@ fi # MODE
 ########################################################################
 if [ $EXIT_STATUS -eq 0 ]; then
   echo -e "\033[32mtest mode ${MODE}: ${EXPERIMENT} passed all corresponding tests\033[00m"
-  echo $EXIT_STATUS > ${SCRIPT_DIR}/finish.status
+  echo "OK" > ${SCRIPT_DIR}/finish.status
 else
   echo -e "\033[31mtest mode ${MODE}: ${EXPERIMENT} did NOT pass the corresponding tests\033[00m"
   echo -e "\033[31mnumber of tests including base run that FAILED: $EXIT_STATUS\033[00m"
