@@ -47,7 +47,6 @@ MODULE mo_mtime_extensions
   IMPLICIT NONE
   
   PRIVATE
-  PUBLIC :: isCurrentEventActive
   PUBLIC :: getPTStringFromMS
   PUBLIC :: getTimeDeltaFromDateTime
   PUBLIC :: get_duration_string
@@ -58,16 +57,6 @@ MODULE mo_mtime_extensions
 
 
   INTERFACE
-    FUNCTION my_isCurrentEventActive(my_event, current_dt) RESULT(ret) BIND(c,name='isCurrentEventActive')
-#ifdef __SX__
-      USE, INTRINSIC :: iso_c_binding, ONLY: c_bool, c_ptr
-#else
-      import :: c_bool, c_ptr
-#endif
-      LOGICAL(c_bool) :: ret
-      TYPE(c_ptr), value :: my_event
-      TYPE(c_ptr), value :: current_dt
-    END FUNCTION my_isCurrentEventActive
 
     SUBROUTINE my_getptstringfromms(ms, ptstr) BIND(c, name='getPTStringFromMS')
 #ifdef __SX__
@@ -97,13 +86,6 @@ MODULE mo_mtime_extensions
 
 CONTAINS 
   
-  FUNCTION isCurrentEventActive(my_event, current_dt) 
-    LOGICAL :: isCurrentEventActive
-    TYPE(datetime),  POINTER :: current_dt
-    TYPE(event),     POINTER :: my_event
-    isCurrentEventActive = LOGICAL(my_isCurrentEventActive(C_LOC(my_event), C_LOC(current_dt)))
-  END FUNCTION isCurrentEventActive
-
   SUBROUTINE getPTStringFromMS(ms, string)
     INTEGER, INTENT(in) :: ms
     CHARACTER(len=max_timedelta_str_len), INTENT(out) :: string

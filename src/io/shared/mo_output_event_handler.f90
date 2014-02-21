@@ -158,8 +158,6 @@ MODULE mo_output_event_handler
     &                                  deallocateEvent, newDatetime, OPERATOR(>=),          &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
     &                                  deallocateTimedelta
-  USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS,             &
-    &                                  get_duration_string
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
