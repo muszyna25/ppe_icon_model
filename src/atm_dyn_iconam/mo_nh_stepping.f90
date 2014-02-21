@@ -401,7 +401,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: jstep, jg, kstep
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
-    &                                     l_nml_output, &
+    &                                     l_nml_output, lprint_timestep, &
     &                                     l_supervise_total_integrals,  &
     &                                     lwrite_checkpoint, ldom_active(n_dom)
   TYPE(t_simulation_status)            :: simulation_status
@@ -460,7 +460,14 @@ MODULE mo_nh_stepping
     IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
-    IF (msg_level >= 2 .OR. (jstep == (jstep0+1)) .OR. MOD(jstep,100) == 0) THEN
+    IF (msg_level > 2) THEN
+      lprint_timestep = MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8
+    ELSE
+      lprint_timestep = MOD(jstep,100) == 0
+    ENDIF
+    lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 ! always print the first time step
+
+    IF (lprint_timestep) THEN
       WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
       CALL message(TRIM(routine),message_text)
     ENDIF
