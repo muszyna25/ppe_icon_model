@@ -761,7 +761,7 @@ run/exp.test_hat_jww-moist_cld-cnv-vdf -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf_ptest -text
 run/exp.test_hat_jww_ptest -text
 run/exp.test_hat_rce_120km -text
-run/exp.test_icon.sh -text
+run/exp.test_icon -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
 run/exp.test_nh35_tri_jws -text
