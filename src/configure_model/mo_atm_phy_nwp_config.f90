@@ -165,8 +165,8 @@ MODULE mo_atm_phy_nwp_config
   REAL(wp), PARAMETER :: tune_ozone_zbot = 10000.0_wp 
 
   ! SSO scheme:
-  REAL(wp), PARAMETER :: tune_gkwake = 1.00_wp  ! low level wake drag constant; original COSMO value 0.5
-  REAL(wp), PARAMETER :: tune_gkdrag = 0.125_wp ! gw drag constant; original COSMO value 0.075
+  REAL(wp), PARAMETER :: tune_gkwake = 1.333_wp  ! low level wake drag constant; original COSMO value 0.5
+  REAL(wp), PARAMETER :: tune_gkdrag = 0.1_wp    ! gw drag constant; original COSMO value 0.075
 
   ! Non-orographic GWD scheme
   REAL(wp), PARAMETER :: tune_gfluxlaun = 2.50e-3_wp ! total launch momentum flux in each azimuth (rho_o x F_o)
