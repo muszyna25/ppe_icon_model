@@ -1033,7 +1033,7 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('vt_acc','m/s','tangential velocity', datatype_flt32),&
       & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev,nblks_e/)) !  ,in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'mass_flx_e_acc', p_os_acc%mass_flx_e, grid_unstructured_edge, &
       & za_depth_below_sea, &
       & t_cf_var('mass_flx_e_acc','','mass flux at edges', datatype_flt32),&
