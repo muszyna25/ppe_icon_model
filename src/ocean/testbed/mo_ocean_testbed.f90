@@ -59,6 +59,7 @@ MODULE mo_ocean_testbed
   USE mo_ocean_testbed_modules,     ONLY: ocean_test_advection
   USE mo_testbed_ocean_performance, ONLY: ocean_test_performance
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
+  USE mo_ocean_testbed_read,        ONLY: ocean_test_read
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -109,6 +110,10 @@ CONTAINS
           & patch_3d, ocean_state, external_data,   &
           & surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+
+      CASE (1101) ! 1000 - 1100 performance tests
+        CALL ocean_test_read( namelist_filename, shr_namelist_filename, &
+          & patch_3d)
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")

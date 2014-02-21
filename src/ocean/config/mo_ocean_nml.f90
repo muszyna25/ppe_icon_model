@@ -56,6 +56,8 @@ MODULE mo_ocean_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
+  USE mo_io_units,           ONLY: filename_max
+
 #ifndef __NO_ICON_ATMO__
   USE mo_coupling_config,    ONLY: is_coupled_run
 #endif
@@ -498,6 +500,7 @@ MODULE mo_ocean_nml
   CHARACTER(LEN                           = max_char_length) :: initial_sst_type                                      = 'sst1'
   INTEGER  :: initial_velocity_type       = 0
   REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
+  CHARACTER(filename_max) :: InitialState_InputFileName   !< file name for reading in
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -514,7 +517,8 @@ MODULE mo_ocean_nml
     & initial_velocity_amplitude , &
     & topography_type            , &
     & topography_height_reference, &
-    & sea_surface_height_type
+    & sea_surface_height_type    , &
+    & InitialState_InputFileName
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &
