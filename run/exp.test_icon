@@ -297,7 +297,7 @@ else
   echo -e "\033[31mtest mode ${MODE}: ${EXPERIMENT} did NOT pass the corresponding tests\033[00m"
   echo -e "\033[31mnumber of tests including base run that FAILED: $EXIT_STATUS\033[00m"
 fi
-echo $EXIT_STATUS > ${SCRIPT_DIR}/exp.test_icon.sh.run.status
+echo $EXIT_STATUS > ${SCRIPT_DIR}/exp.test_icon.run.status
 OFILE=${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
 if [ -s "$OFILE" ]; then
 echo "Detailed output in exp.${EXPERIMENT}_$$.output"
