@@ -180,6 +180,7 @@ cat > ${ocean_namelist} << EOF
    solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart = 20        !  outer solver loop with syncing
   solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
+  use_continuity_correction=.true.
 /
 &ocean_tracer_transport_nml
  !no_tracer                               =  2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
