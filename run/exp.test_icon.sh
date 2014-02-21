@@ -6,7 +6,7 @@ MODEL_DIR=$1
 EXP_ORI=$2
 EXP_NEW=$3
 cd ${MODEL_DIR}/experiments
-if [ ! -d ${EXP_ORI} ]; then
+if [ ! -d "${EXP_ORI}" ]; then
   echo 'no experiment '${EXP_ORI}' found'
   exit 1
 fi
@@ -67,7 +67,7 @@ cdo -O sub ${EXP2}_${TYPE}.nc ../${EXP1}/${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}
 if [ -z "${REMAP_FILE}" ]; then
 cdo remapdis,${RESOL} diff_${EXP2}-${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
 else
-if [ -f ${REMAP_FILE} ]; then
+if [ -f "${REMAP_FILE}" ]; then
 cdo remap,${RESOL},${REMAP_FILE} diff_${EXP2}-${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
 fi
 fi
@@ -78,7 +78,7 @@ FILE1=${MODEL_DIR1}/experiments/${EXP1}/${EXP1}_${TYPE}.nc
 FILE2=${MODEL_DIR2}/experiments/${EXP2}/${EXP2}_${TYPE}.nc
 cdo diff ${FILE1} ${FILE2} > test$$.dat
 STATUS=`echo $?`
-if [ $STATUS -ne 0 -o -s test$$.dat ]; then
+if [ "$STATUS" -ne 0 -o -s test$$.dat ]; then
 echo -e "\033[31m${TEST} test FAILED:\033[00m"
 echo -e "The variables in files ${FILE1} and ${FILE2} differ or the files cannot be compared"
   DIFF_STATUS=$((DIFF_STATUS + 1))
@@ -90,11 +90,11 @@ echo -e "\033[31mThe differences are in file diff_${EXP2}-${EXP1}.dat\033[00m"
 else
 rm -f test$$.dat
 fi
-if [ $DIFF_STATUS == 0 ]; then
+if [ "$DIFF_STATUS" == 0 ]; then
 echo -e "\033[32m${TEST} o.k.:\033[00m"
 echo -e "The variables in files ${MODEL_DIR1}/experiments/${EXP1}/${EXP1}_TYPE.nc and ${MODEL_DIR2}/experiments/${EXP2}/${EXP2}_TYPE.nc for TYPE=${TYPES} do not differ"
 fi
-echo $DIFF_STATUS
+#echo $DIFF_STATUS
 #exit $DIFF_STATUS
 }
 #################### main script ########################################
@@ -113,19 +113,19 @@ case $OPT in
  h  ) print_usage $0
       exit 1 ;;
  m  ) MODE=$OPTARG 
-      if [ $MODE != 'base' -a $MODE != 'update' -a $MODE != 'restart' -a $MODE != 'nproma' -a $MODE != 'ur' -a $MODE != 'un' -a $MODE != 'ur' -a $MODE != 'rn' -a $MODE != 'urn' ]; then
+      if [ "$MODE" != 'base' -a "$MODE" != 'update' -a "$MODE" != 'restart' -a "$MODE" != 'nproma' -a "$MODE" != 'ur' -a "$MODE" != 'un' -a "$MODE" != 'ur' -a "$MODE" != 'rn' -a "$MODE" != 'urn' ]; then
       print_usage $0
       exit 1
       fi 
       ;;
  e  ) EXPERIMENT=$OPTARG
-      if [ $EXPERIMENT != 'r2b4_amip' -a $EXPERIMENT != 'mtest_nat_rce_cbl_120km_nwp' ]; then
+      if [ "$EXPERIMENT" != 'r2b4_amip' -a "$EXPERIMENT" != 'mtest_nat_rce_cbl_120km_nwp' ]; then
       print_usage $0
       exit 1
       fi
       ;;
  r  ) REFERENCE=$OPTARG
-      if [ $MODE == 'update' -o $MODE == 'ur' -o $MODE == 'un' -o $MODE == 'urn' ]; then
+      if [ "$MODE" == 'update' -o "$MODE" == 'ur' -o "$MODE" == 'un' -o "$MODE" == 'urn' ]; then
         if [ ! -d ${REFERENCE}/run ]; then
 	   echo 'you asked for an update test, but no reference model found'
 	   echo "reference model ''${REFERENCE}'' does not exist"
@@ -134,21 +134,21 @@ case $OPT in
       fi
       ;;
  o  ) OVERWRITE=$OPTARG
-      if [ $OVERWRITE != 'yes' -a $OVERWRITE != 'no' ]; then
+      if [ "$OVERWRITE" != 'yes' -a "$OVERWRITE" != 'no' ]; then
       print_usage $0
       exit 1
       fi
       ;;
 esac
 done
-if [ ${EXPERIMENT} == 'r2b4_amip' ]; then
+if [ "${EXPERIMENT}" == 'r2b4_amip' ]; then
 TYPES='atm_phy atm_dyn lnd_phy'
 DATES='19780101T004000Z 19780101T004500Z 19780101T005000Z 19780101T005500Z 19780101T010000Z'
 RESOL='t63grid'
 REMAP_FILE='/pool/data/ICON/grids/private/r2b4_amip/remapdis_r2b4_amip_cell_t63grid.nc'
 RESTART_DATE='19780101T003000Z'
 fi
-if [ ${EXPERIMENT} == 'mtest_nat_rce_cbl_120km_nwp' ]; then
+if [ "${EXPERIMENT}" == 'mtest_nat_rce_cbl_120km_nwp' ]; then
 TYPES='atm'
 DATES='20080801T004000Z 20080801T005000Z 20080801T010000Z'
 RESOL='r320x20'
@@ -156,7 +156,7 @@ REMAP_FILE=''
 RESTART_DATE='20080801T003000Z'
 fi
 echo 'test mode is '$MODE
-if [ $MODE == 'update' -o $MODE == 'ur' -o $MODE == 'un' -o $MODE == 'urn' ]; then
+if [ "$MODE" == 'update' -o "$MODE" == 'ur' -o "$MODE" == 'un' -o "$MODE" == 'urn' ]; then
   if [ -z "${REFERENCE}" ]; then
      echo -e '\033[31mno reference model was specified, use -r option to specify one\033[00m'
      print_usage
@@ -167,7 +167,7 @@ if [ $MODE == 'update' -o $MODE == 'ur' -o $MODE == 'un' -o $MODE == 'urn' ]; th
 # get standardized paths
   cd ${REFERENCE}; REFERENCE=`pwd`
   cd ${MODEL_DIR}; MODEL_DIR=`pwd`
-  if [ ${REFERENCE} == ${MODEL_DIR} ]; then
+  if [ "${REFERENCE}" == "${MODEL_DIR}" ]; then
      echo 'reference model and test model are the same'
      exit 1
   fi
@@ -179,7 +179,7 @@ EXP3=${EXPERIMENT}_nproma
 EXIT_STATUS=0
 cd ${MODEL_DIR}/
 STATUS=$?
-if [ ${STATUS} == 0 ]; then
+if [ "${STATUS}" == 0 ]; then
 echo "found model ${MODEL_DIR}"
 else
 echo "no model ${MODEL_DIR} found"
@@ -193,7 +193,7 @@ if [ ! -d experiments ]; then
 mkdir experiments
 fi
 #################### perform base run without restart ####################
-if [ ${OVERWRITE} == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP1} ]; then
+if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP1} ]; then
 cd run
 if [ ! -f exp.${SCRIPT}.run ]; then
 echo 'did not find base runscript 'exp.${SCRIPT}.run
@@ -205,16 +205,16 @@ sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
 echo 'Performing base run'
 ${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
 STATUS=$?
-if [ $STATUS -ne 0 ]; then
+if [ "$STATUS" -ne 0 ]; then
 EXIT_STATUS=$((EXIT_STATUS + 1))
 fi
 else
 echo 'Found base run'
 fi # OVERWRITE
 #################### perfrom update test              ####################
-if [ ${MODE} == 'update' -o ${MODE} == 'ur' -o ${MODE} == 'un' -o ${MODE} == 'urn' ]; then
+if [ "${MODE}" == 'update' -o "${MODE}" == 'ur' -o "${MODE}" == 'un' -o "${MODE}" == 'urn' ]; then
 cd ${REFERENCE}
-if [ ${OVERWRITE} == 'yes' -o ! -d ${REFERENCE}/experiments/${EXP1} ] ;then 
+if [ "${OVERWRITE}" == 'yes' -o ! -d ${REFERENCE}/experiments/${EXP1} ] ;then 
 ${REFERENCE}/make_runscripts 1> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
 if [ ! -d experiments ]; then
 mkdir experiments
@@ -234,15 +234,15 @@ else
 echo 'found run of reference model (update test)'
 fi # OVERWRITE
 diff_results $MODEL_DIR $EXP1 $REFERENCE $EXP1 "update"
-if [ $DIFF_STATUS == 0 ]; then
+if [ "$DIFF_STATUS" == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
 else
 EXIT_STATUS=$(($EXIT_STATUS + 1))
 fi
 fi # MODE
 #################### perform restart test             ####################
-if [ ${MODE} == 'restart' -o ${MODE} == 'ur' -o ${MODE} == 'rn' -o ${MODE} == 'urn' ]; then
-if [ ${OVERWRITE} == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP2} ]; then
+if [ "${MODE}" == 'restart' -o "${MODE}" == 'ur' -o "${MODE}" == 'rn' -o "${MODE}" == 'urn' ]; then
+if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP2} ]; then
 copy_experiment ${MODEL_DIR} ${EXP1} ${EXP2}
 if [ $? -ne 0 ]; then
   echo "could not get base experiment ${EXP1} or create new experiment ${EXP2}"
@@ -261,15 +261,15 @@ echo 'found restart run (restart test)'
 fi # OVERWRITE
 # compare restart with base run
 diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP2 "restart"
-if [ $DIFF_STATUS == 0 ]; then
+if [ "$DIFF_STATUS" == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
 else
 EXIT_STATUS=$(($EXIT_STATUS + 1))
 fi
 fi # MODE
 #################### perform nproma test             ####################
-if [ ${MODE} == 'nproma' -o ${MODE} == 'un' -o ${MODE} == 'rn' -o ${MODE} == 'urn' ]; then
-if [ ${OVERWRITE} == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP3} ]; then
+if [ "${MODE}" == 'nproma' -o "${MODE}" == 'un' -o "${MODE}" == 'rn' -o "${MODE}" == 'urn' ]; then
+if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP3} ]; then
 copy_experiment ${MODEL_DIR} ${EXP1} ${EXP3}
 cd ${MODEL_DIR}/run/
 RUN_SCRIPT=exp.${EXP3}.run
@@ -284,26 +284,22 @@ echo 'found run with nproma=17 (nproma test)'
 fi # OVERWRITE
 # compare nproma run with restarted run
 diff_results $MODEL_DIR $EXP2 $MODEL_DIR $EXP3 "nproma"
-if [ $DIFF_STATUS == 0 ]; then
+if [ "$DIFF_STATUS" == 0 ]; then
 EXIT_STATUS=$(($EXIT_STATUS + 0))
 else
 EXIT_STATUS=$(($EXIT_STATUS + 1))
 fi
 fi # MODE
 ########################################################################
-if [ $EXIT_STATUS -eq 0 ]; then
+if [ "$EXIT_STATUS" -eq 0 ]; then
   echo -e "\033[32mtest mode ${MODE}: ${EXPERIMENT} passed all corresponding tests\033[00m"
-  RESULT_DIR="${SCRIPT_DIR}/../experiments/test_icon.sh"
-  if [ ! -d ${RESULT_DIR} ]; then
-    mkdir ${RESULT_DIR}
-  fi
-  echo "OK" > ${RESULT_DIR}/finish.status
 else
   echo -e "\033[31mtest mode ${MODE}: ${EXPERIMENT} did NOT pass the corresponding tests\033[00m"
   echo -e "\033[31mnumber of tests including base run that FAILED: $EXIT_STATUS\033[00m"
 fi
+echo $EXIT_STATUS > ${SCRIPT_DIR}/exp.test_icon.sh.run.status
 OFILE=${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
-if [ -s $OFILE ]; then
+if [ -s "$OFILE" ]; then
 echo "Detailed output in exp.${EXPERIMENT}_$$.output"
 fi
 exit $EXIT_STATUS

@@ -220,6 +220,9 @@ check_accept_script()
        *_rce_*)
           accepted_script="false"
           ;;
+       *test_icon*)
+          accepted_script="false"
+          ;;
       #  post.test_hat_jw*)
       #    accepted_script="false"
       #    ;;
