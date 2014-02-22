@@ -64,7 +64,7 @@ MODULE mo_ocean_testbed_modules
     & calc_vert_velocity,       &
     & update_time_indices
   USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog
+    & t_hydro_ocean_prog, t_ocean_tracer
   USE mo_oce_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
@@ -97,14 +97,15 @@ MODULE mo_ocean_testbed_modules
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
   USE mo_ocean_output
-  
+  USE mo_oce_diffusion,          ONLY:  tracer_diffusion_vert_implicit
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: ocean_test_advection
+  PUBLIC :: ocean_test_modules
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=12)           :: debug_string = 'testbed     '  ! Output of module for 1 line debug
   
   !-------------------------------------------------------------------------
   
@@ -135,6 +136,10 @@ CONTAINS
           & datetime, surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
+      CASE (2)
+        CALL test_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,  &
+           & operators_coefficients)
+
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
 
@@ -145,6 +150,36 @@ CONTAINS
   END SUBROUTINE ocean_test_modules
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE test_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,       &
+    & operators_coefficients)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE (t_ho_params)                               :: physics_parameters
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+
+    INTEGER :: inner_iter, outer_iter
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    TYPE(t_ocean_tracer), POINTER :: ocean_tracer
+
+    ocean_tracer => ocean_state(1)%p_prog(nold(1))%ocean_tracers(1)
+    cells_in_domain => patch_3d%p_patch_2D(1)%cells%in_domain
+    CALL dbg_print('tracer', ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
+    !---------------------------------------------------------------------
+
+    DO outer_iter=1,1000
+      DO inner_iter=1,1000
+        CALL tracer_diffusion_vert_implicit( patch_3D, ocean_tracer, ocean_state(1)%p_prog(nold(1))%h, &
+          & physics_parameters%A_tracer_v(:,:,:, 1), operators_coefficients)
+      ENDDO
+      WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, tracer'
+      CALL dbg_print(message_text, ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
+    ENDDO
+
+
+  END SUBROUTINE test_diffusion_vert_implicit
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>

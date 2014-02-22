@@ -56,7 +56,7 @@ MODULE mo_ocean_testbed
   USE mo_run_config,          ONLY: test_mode
   USE mo_grid_config,         ONLY: n_dom
 
-  USE mo_ocean_testbed_modules,     ONLY: ocean_test_advection
+  USE mo_ocean_testbed_modules,     ONLY: ocean_test_modules
   USE mo_testbed_ocean_performance, ONLY: ocean_test_performance
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
@@ -95,7 +95,7 @@ CONTAINS
 
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules
-        CALL ocean_test_advection( patch_3d, ocean_state, external_data,   &
+        CALL ocean_test_modules( patch_3d, ocean_state, external_data,   &
           & datetime, surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
