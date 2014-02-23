@@ -45,7 +45,7 @@ MODULE mo_oce_boundcond
   USE mo_physical_constants, ONLY: rho_ref
   USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea, min_rlcell, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
-  USE mo_ocean_nml,          ONLY: iswm_oce, i_bc_veloc_top, i_bc_veloc_bot
+  USE mo_ocean_nml,          ONLY: iswm_oce, i_bc_veloc_top, i_bc_veloc_bot, forcing_smooth_steps
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_run_config,         ONLY: dtime
   USE mo_exception,          ONLY: message, finish
@@ -60,6 +60,7 @@ MODULE mo_oce_boundcond
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array
+  USE mo_master_control,     ONLY: is_restart_run
   
   IMPLICIT NONE
   
@@ -79,6 +80,7 @@ MODULE mo_oce_boundcond
   INTEGER, PARAMETER :: top=1
   CHARACTER(len=12)  :: str_module = 'oceBoundCond'  ! Output of module for 1 line debug
   INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
+  INTEGER            :: current_step = 0
 
 CONTAINS
   
@@ -110,6 +112,7 @@ CONTAINS
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp):: z_scale(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: smooth_coeff
     TYPE(t_subset_range), POINTER :: all_cells   
     TYPE(t_patch), POINTER        :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -129,11 +132,11 @@ CONTAINS
     ENDIF
 
     ! set to zero (NAG)
-    top_bc_u_c (:,:)      = 0.0_wp
-    top_bc_v_c (:,:)      = 0.0_wp
-    top_bc_u_cc(:,:)%x(1) = 0.0_wp
-    top_bc_u_cc(:,:)%x(2) = 0.0_wp
-    top_bc_u_cc(:,:)%x(3) = 0.0_wp
+!    top_bc_u_c (:,:)      = 0.0_wp
+!    top_bc_v_c (:,:)      = 0.0_wp
+!    top_bc_u_cc(:,:)%x(1) = 0.0_wp
+!    top_bc_u_cc(:,:)%x(2) = 0.0_wp
+!    top_bc_u_cc(:,:)%x(3) = 0.0_wp
 
     SELECT CASE (i_bc_veloc_top)
 
@@ -176,6 +179,31 @@ CONTAINS
             & - p_os%p_diag%v(jc,1,jb) ) / z_scale(jc,jb)
           top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
             & - p_os%p_diag%p_vn(jc,1,jb)%x)/z_scale(jc,jb)
+          ENDIF
+        END DO
+      END DO
+
+    CASE (3) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer as in 2
+             ! but gradually increase the for forcing_smooth_steps
+
+      IF (is_restart_run()) THEN
+        smooth_coeff = 1.0_wp
+      ELSE
+        smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
+        current_step = current_step + 1
+      ENDIF
+
+      ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
+            & - p_os%p_diag%u(jc,1,jb) ) * smooth_coeff / z_scale(jc,jb)
+          top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_v(jc,jb)   &
+            & - p_os%p_diag%v(jc,1,jb) ) * smooth_coeff / z_scale(jc,jb)
+          top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
+            & - p_os%p_diag%p_vn(jc,1,jb)%x) * smooth_coeff / z_scale(jc,jb)
           ENDIF
         END DO
       END DO

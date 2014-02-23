@@ -732,6 +732,7 @@ run/exp.nh_moist_cbl -text
 run/exp.nh_oper -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
+run/exp.oce_10km_cellbased_zonalWind -text
 run/exp.oce_20km_cellbased_zonalWind-1 -text
 run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text

@@ -1169,10 +1169,11 @@ SUBROUTINE tracer_diffusion_vert_implicit( p_patch_3D,               &
           residual(jc,jk,jb) = field_column(jc,jk,jb)*dt_inv - old_tracer_column(jk)
         ENDDO
 
-
       ENDIF ! z_dolic > 0
-    END DO
-  END DO
+
+    END DO ! jc = i_startidx_c, i_endidx_c
+  END DO ! jb = cells_in_domain%start_block, cells_in_domain%end_block
+
   CALL dbg_print('VertTracDiffImpl:residual' ,residual ,str_module,5, in_subset=p_patch%cells%owned)
 
   ! CALL sync_patch_array(SYNC_C, p_patch, diff_column)
@@ -1187,7 +1188,6 @@ END SUBROUTINE tracer_diffusion_vert_implicit
 !!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
-!!  mpi parallelized LL (no sync required)
 SUBROUTINE veloc_diffusion_vert_implicit( p_patch_3D,    &
                                         & field_column,  &
                                         & A_v,           &
@@ -1220,6 +1220,7 @@ SUBROUTINE veloc_diffusion_vert_implicit( p_patch_3D,    &
   p_patch   => p_patch_3D%p_patch_2D(1)
   all_edges => p_patch%edges%all
   !-----------------------------------------------------------------------
+
   slev = 1
   dt_inv=1.0_wp/dtime
 

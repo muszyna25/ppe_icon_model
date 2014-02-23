@@ -91,50 +91,6 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
-  ! ------------------------------------------------------------------------
-  ! FORCING {
-  ! parameterized forcing for ocean model:
-  INTEGER, PARAMETER :: NO_FORCING                = 10
-  INTEGER, PARAMETER :: ANALYT_FORC               = 11
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12  ! OMIP or NCEP type forcing
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13  ! not yet
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
-  INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
-
-  ! read time varying OMIP or NCEP flux forcing from file:
-                      ! 1: read wind stress (records 1, 2) and temperature (record 3)
-                      ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
-                      ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
-                      ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
-                      ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-  INTEGER            :: iforc_type = 10
-
-  ! new/renamed switches
-  ! length of time varying flux forcing: 12: read 12 months, other: read daily values
-  INTEGER  :: forcing_timescale                    = 1
-  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
-  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
-  LOGICAL  :: use_new_forcing                      = .FALSE.
-  ! _type variables range
-  !    0    : not used
-  !   1:100 : file based input
-  ! 101:200 : analytic setup
-  ! forcing_windstress_(u|v|fluxes)_type values
-  ! 1   : omip input
-  ! 5   : ncep input
-  INTEGER  :: forcing_fluxes_type                  = 0
-  INTEGER  :: forcing_windstress_u_type            = 0
-  INTEGER  :: forcing_windstress_v_type            = 0
-
-  REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
-!DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
-  REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
-  REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
-  REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
-  REAL(wp) :: forcing_center                       = 0.0_wp
-  ! } END FORCING
-
 
   INTEGER            :: relax_temp_type           = 0 ! will cover parts of init_oce_relax
   INTEGER            :: relax_temp_param          = 0 ! replacement for relaxation_param
@@ -451,6 +407,50 @@ MODULE mo_ocean_nml
     &                 richardson_veloc            
 
 
+  ! ------------------------------------------------------------------------
+  ! FORCING {
+  ! parameterized forcing for ocean model:
+  INTEGER, PARAMETER :: NO_FORCING                = 10
+  INTEGER, PARAMETER :: ANALYT_FORC               = 11
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12  ! OMIP or NCEP type forcing
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13  ! not yet
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
+  INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
+
+  ! read time varying OMIP or NCEP flux forcing from file:
+                      ! 1: read wind stress (records 1, 2) and temperature (record 3)
+                      ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
+                      ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
+                      ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
+                      ! 5: read full NCEP datasets; read monthly mean data of consecutive years
+  INTEGER            :: iforc_type = 10
+
+  ! new/renamed switches
+  ! length of time varying flux forcing: 12: read 12 months, other: read daily values
+  INTEGER  :: forcing_timescale                    = 1
+  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
+  LOGICAL  :: use_new_forcing                      = .FALSE.
+  ! _type variables range
+  !    0    : not used
+  !   1:100 : file based input
+  ! 101:200 : analytic setup
+  ! forcing_windstress_(u|v|fluxes)_type values
+  ! 1   : omip input
+  ! 5   : ncep input
+  INTEGER  :: forcing_fluxes_type                  = 0
+  INTEGER  :: forcing_windstress_u_type            = 0
+  INTEGER  :: forcing_windstress_v_type            = 0
+
+  REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
+!DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
+  REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
+  REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
+  REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
+  REAL(wp) :: forcing_center                       = 0.0_wp
+  INTEGER  :: forcing_smooth_steps                 = 100
+
   NAMELIST/ocean_forcing_nml/&
     &                 i_apply_bulk                        , &  
     &                 forcing_center                      , &
@@ -480,7 +480,9 @@ MODULE mo_ocean_nml
     &                 relaxation_param                    , &
     &                 seaice_limit                        , &
     &                 temperature_relaxation              , &
+    &                 forcing_smooth_steps                , &
     &                 use_new_forcing
+  ! } END FORCING
 
   !----------------------------------------------------------------------------
   ! initial conditions
@@ -796,9 +798,9 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'free-slip boundary condition for velocity currently not supported')
      ENDIF
-     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 2) THEN
+     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 3) THEN
        CALL finish(TRIM(routine), &
-         &  'top boundary condition for velocity currently not supported: choose = 0 or =1 or =2')
+         &  'top boundary condition for velocity currently not supported: choose = 0,1,2,3')
      ENDIF
      IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
        CALL finish(TRIM(routine), &

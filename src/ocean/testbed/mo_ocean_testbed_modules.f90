@@ -97,7 +97,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
   USE mo_ocean_output
-  USE mo_oce_diffusion,          ONLY:  tracer_diffusion_vert_implicit
+  USE mo_oce_diffusion,          ONLY:  tracer_diffusion_vert_implicit, veloc_diffusion_vert_implicit
   IMPLICIT NONE
   PRIVATE
 
@@ -137,7 +137,11 @@ CONTAINS
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
       CASE (2)
-        CALL test_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,  &
+        CALL test_tracer_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,  &
+           & operators_coefficients)
+
+      CASE (3)
+        CALL test_velocity_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,  &
            & operators_coefficients)
 
       CASE DEFAULT
@@ -151,7 +155,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE test_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,       &
+  SUBROUTINE test_tracer_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,       &
     & operators_coefficients)
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
@@ -165,9 +169,12 @@ CONTAINS
 
     ocean_tracer => ocean_state(1)%p_prog(nold(1))%ocean_tracers(1)
     cells_in_domain => patch_3d%p_patch_2D(1)%cells%in_domain
-    CALL dbg_print('tracer', ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
+    ocean_tracer%concentration(:,:,:) = 0.0_wp
+    ocean_tracer%concentration(:,1,:) = 1.0_wp
+
+    CALL dbg_print('tracer', ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
     DO outer_iter=1,1000
       DO inner_iter=1,1000
         CALL tracer_diffusion_vert_implicit( patch_3D, ocean_tracer, ocean_state(1)%p_prog(nold(1))%h, &
@@ -177,8 +184,46 @@ CONTAINS
       CALL dbg_print(message_text, ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
     ENDDO
 
+  END SUBROUTINE test_tracer_diffusion_vert_implicit
+  !-------------------------------------------------------------------------
 
-  END SUBROUTINE test_diffusion_vert_implicit
+  !-------------------------------------------------------------------------
+  SUBROUTINE test_velocity_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,       &
+    & operators_coefficients)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE (t_ho_params)                               :: physics_parameters
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+
+    INTEGER :: inner_iter, outer_iter
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    REAL(wp), POINTER :: vn_inout(:,:,:), vn_out(:,:,:)
+
+    edges_in_domain => patch_3d%p_patch_2D(1)%edges%in_domain
+    !---------------------------------------------------------------------
+    vn_inout  => ocean_state(1)%p_diag%vn_pred
+    vn_out    => ocean_state(1)%p_diag%vn_impl_vert_diff
+    ! vn_inout(:,1,:) = 1.0
+    vn_inout(:,:,:) = 0.0
+    vn_inout(:,1,:) = 1.0
+
+    CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_in_domain)
+
+    DO outer_iter=1,1000
+      DO inner_iter=1,1000
+        CALL veloc_diffusion_vert_implicit( patch_3d,  &
+          & vn_inout,                                  &
+          & physics_parameters%a_veloc_v,              &
+          & operators_coefficients,                    &
+          & vn_out)
+      ENDDO
+      WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, vn'
+      CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_in_domain)
+    ENDDO
+    return
+
+  END SUBROUTINE test_velocity_diffusion_vert_implicit
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
