@@ -319,15 +319,6 @@ CONTAINS
         CALL finish(TRIM(routine),'Convection can not be used for LES!')
       END IF
     
-      !inwp_cldcover should be 5 = grid scale cloud cover
-      IF(atm_phy_nwp_config(jg)%inwp_cldcover>0 .AND. &
-         atm_phy_nwp_config(jg)%is_les_phy)THEN
-    
-        IF(atm_phy_nwp_config(jg)%inwp_cldcover/=5) &
-          CALL finish(TRIM(routine),'Check the cloud cover scheme for LES!')
-    
-      END IF
-    
     END DO
 
     !Configure lateral boundary condition for limited area model
