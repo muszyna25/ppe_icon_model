@@ -537,6 +537,10 @@ CONTAINS
 
        CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
 
+     CASE DEFAULT !In case calculations are performed somewhere else
+      
+       outvar = 0._wp
+       
      END SELECT
 
      !Calculate time mean
