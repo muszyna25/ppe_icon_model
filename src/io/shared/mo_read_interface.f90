@@ -75,8 +75,6 @@ MODULE mo_read_interface
   IMPLICIT NONE
   PRIVATE
 
-  INCLUDE 'netcdf.inc'
-
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: read_netcdf_broadcast_method, read_netcdf_distribute_method
@@ -96,10 +94,12 @@ MODULE mo_read_interface
 
   !--------------------------------------------------------
   TYPE t_stream_id
-    INTEGER  :: file_id
-    INTEGER  :: return_status
-    INTEGER  :: current_state
-    INTEGER  :: input_method
+    INTEGER  :: stream_id           ! future use
+    INTEGER  :: file_id             ! netcdf file id, or similar
+    INTEGER  :: return_status       ! the latest operation return status
+    INTEGER  :: current_state       ! the state of the stream, opened, prefetching, etc. future use
+    INTEGER  :: input_method        ! read_netcdf_broadcast_method, read_netcdf_distribute_method, etc
+    TYPE(t_patch), POINTER :: patch ! the patch associated with the stream
   END TYPE t_stream_id
   !--------------------------------------------------------
 
