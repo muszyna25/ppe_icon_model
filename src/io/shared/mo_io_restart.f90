@@ -1874,7 +1874,7 @@ CONTAINS
   !
   SUBROUTINE read_restart_files(p_patch, opt_ndom)
 
-    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
+    TYPE(t_patch), INTENT(in) :: p_patch
     INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
     ! local variables
     !
@@ -1920,7 +1920,7 @@ CONTAINS
     !
     for_all_files: DO n = 1, nfiles
       model_type =TRIM(abbreviations(n)%abbreviation)
-      IF (PRESENT(opt_ndom) .AND. PRESENT(p_patch)) THEN
+      IF (PRESENT(opt_ndom)) THEN
         IF (opt_ndom > 1) THEN
           restart_filename = 'restart_'//TRIM(model_type)//"_DOM"//TRIM(int2string(p_patch%id, "(i2.2)"))//'.nc'
         ELSE

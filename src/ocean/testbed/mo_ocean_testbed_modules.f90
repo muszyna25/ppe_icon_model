@@ -204,9 +204,8 @@ CONTAINS
     !---------------------------------------------------------------------
     vn_inout  => ocean_state(1)%p_diag%vn_pred
     vn_out    => ocean_state(1)%p_diag%vn_impl_vert_diff
-    ! vn_inout(:,1,:) = 1.0
-    vn_inout(:,:,:) = 0.0
-    vn_inout(:,1,:) = 1.0
+     vn_inout(:,:,:) = 10.0
+    !vn_inout(:,1,:) = 1.0
 
     CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_in_domain)
 
