@@ -242,11 +242,9 @@ CONTAINS
           & patch_2D%verts%owned,   &
           & n_zlev)
         IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2D%cells%owned)
-      ENDIF
 
-      CALL write_name_list_output(jstep=jstep0)
+        CALL write_name_list_output(jstep=jstep0)
 
-      IF (.NOT. is_restart_run()) THEN
         CALL reset_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx)
         IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
       ENDIF
