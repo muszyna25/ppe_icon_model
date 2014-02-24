@@ -246,6 +246,7 @@ cat > ${ocean_namelist} << EOF
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
+  use_set_event_to_simstep = .false. 
 /
 EOF
 #-----------------------------------------------------------------------------
