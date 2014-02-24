@@ -1138,6 +1138,14 @@ CONTAINS
         dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
       END IF
       local_i = local_i + 1
+      !================================================================================================
+      ! special treatment of ocean model: model_date/run_start is the time at
+      ! the beginning of the timestep. Output is written at the and of the
+      ! timestep
+      IF (is_restart_run() .AND. my_process_is_ocean()) THEN
+        CALL get_datetime_string(p_onl%output_start, time_config%cur_datetime, opt_td_string=p_onl%output_interval)
+      ENDIF
+
 
       ! I/O PEs communicate their event data, the other PEs create the
       ! event data only locally for their own event control:
