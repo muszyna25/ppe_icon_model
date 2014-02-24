@@ -43,7 +43,7 @@ MODULE mo_mtime_extensions
     &                    newTimedelta, deallocateTimedelta, OPERATOR(+),               &
     &                    setCalendar, PROLEPTIC_GREGORIAN
   USE mo_datetime, ONLY: t_datetime
-  USE mo_exception,ONLY: message
+  USE mo_exception,ONLY: message,finish
   IMPLICIT NONE
   
   PRIVATE
@@ -110,10 +110,11 @@ CONTAINS
 
   !> compute an ISO 8601 datetime string from a "t_datetime" object
   !
-  SUBROUTINE get_datetime_string(datetime_string, timestamp, opt_add_seconds)
+  SUBROUTINE get_datetime_string(datetime_string, timestamp, opt_add_seconds, opt_td_string)
     CHARACTER(LEN=MAX_DATETIME_STR_LEN), INTENT(INOUT) :: datetime_string
     TYPE(t_datetime),                    INTENT(INOUT) :: timestamp
     INTEGER, OPTIONAL,                   INTENT(IN)    :: opt_add_seconds !< additional offset
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN), OPTIONAL     :: opt_td_string
     ! local variables
     INTEGER                  :: add_seconds, additional_days, iadd_days
     TYPE(datetime),  POINTER :: mtime_datetime
@@ -141,6 +142,15 @@ CONTAINS
         CALL deallocateTimedelta(delta_1day)
       ENDIF
     END IF
+    IF (PRESENT(opt_td_string)) THEN
+      mtime_td => newTimedelta(TRIM(opt_td_string))
+      mtime_datetime =   mtime_datetime + mtime_td
+      CALL deallocateTimedelta(mtime_td)
+    ENDIF
+
+    IF (PRESENT(opt_add_seconds) .AND. PRESENT(opt_td_string)) THEN
+      CALL finish('get_datetime_string','to many optional arguments')
+    ENDIF
 
     CALL datetimeToString(mtime_datetime, result_string)
     CALL deallocateDatetime(mtime_datetime)
