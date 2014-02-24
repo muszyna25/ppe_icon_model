@@ -173,11 +173,11 @@ CONTAINS
 
     !-------------------------------------------------------------------
     IF (is_restart_run()) THEN
+      jg = 1 !no nesting
       ! This is an resumed integration. Read model state from restart file(s).
 #ifdef NOMPI
       CALL read_restart_files( ocean_patch_3d%p_patch_2d(jg) )
 #else
-      jg = 1 !no nesting
       !DO jg = ,n_dom
       CALL read_restart_files( ocean_patch_3d%p_patch_2d(jg) )
       !END DO
