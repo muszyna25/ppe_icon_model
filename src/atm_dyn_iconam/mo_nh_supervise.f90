@@ -43,7 +43,8 @@ MODULE mo_nh_supervise
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: n_dom, l_limited_area
+  USE mo_grid_config,         ONLY: n_dom, l_limited_area, grid_sphere_radius
+  USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime, msg_level, &
     &                               ltransport, ntracer, lforcing, iforcing
@@ -100,7 +101,8 @@ CONTAINS
       &           z1(nproma,patch(1)%nblks_c), &
       &           z2(nproma,patch(1)%nblks_c), &
       &           z3(nproma,patch(1)%nblks_c), &
-      &           z4(nproma,patch(1)%nblks_c)
+      &           z4(nproma,patch(1)%nblks_c), &
+      &           z5(nproma,patch(1)%nblks_c)
 #endif
 
     REAL (wp):: z_total_tracer(ntracer)       ! total tracer mass
@@ -203,8 +205,8 @@ CONTAINS
         ENDDO
       ENDDO
       DO jc = 1, nlen
-        z_mean_surfp = z_mean_surfp + diag%pres_sfc(jc,jb)/      &
-          &  REAL(patch(jg)%n_patch_cells_g,wp)
+        z_mean_surfp = z_mean_surfp + diag%pres_sfc(jc,jb)*patch(jg)%cells%area(jc,jb) /  &
+          &  (4._wp*grid_sphere_radius**2*pi)
       ENDDO
     ENDDO
     z_total_energy = z_int_energy+z_kin_energy+z_pot_energy
@@ -221,6 +223,7 @@ CONTAINS
       z2(1:nlen,jb) = 0.0_wp
       z3(1:nlen,jb) = 0.0_wp
       z4(1:nlen,jb) = 0.0_wp
+      z5(1:nlen,jb) = 0.0_wp
       DO jk = 1,nlev
         z0(1:nlen) = patch(jg)%cells%area(1:nlen,jb)      &
           & *nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) &
@@ -234,14 +237,14 @@ CONTAINS
         z4(1:nlen,jb) = z4(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*nh_state(jg)%metrics%geopot(1:nlen,jk,jb)*z0(1:nlen)
       ENDDO
+      z5(1:nlen,jb) = diag%pres_sfc(1:nlen,jb)*patch(jg)%cells%area(1:nlen,jb)
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z1(:,jb) = 0._wp
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z2(:,jb) = 0._wp
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z3(:,jb) = 0._wp
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z4(:,jb) = 0._wp
-      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) diag%pres_sfc(:,jb) = 0._wp
+      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z5(:,jb) = 0._wp
     ENDDO
-    z_mean_surfp = global_sum_array( diag%pres_sfc )/      &
-      &     REAL(patch(jg)%n_patch_cells_g,wp)
+    z_mean_surfp = global_sum_array( z5 )/(4._wp*grid_sphere_radius**2*pi)
     z_total_mass = global_sum_array( z1 )
     z_kin_energy = global_sum_array( z2 )
     z_int_energy = global_sum_array( z3 )
