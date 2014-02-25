@@ -865,7 +865,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           &                    DATATYPE_FLT32)
         new_cf_desc = t_cf_var('albvisdif', '%','UV visible albedo for diffuse radiation', &
           &                    DATATYPE_FLT32)
-        grib2_desc  = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc  = t_grib2_var(0, 19, 222, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'albvisdif', diag%albvisdif,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d, in_group=groups("rad_vars"),                         &
@@ -878,7 +878,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           &                    DATATYPE_FLT32)
         new_cf_desc = t_cf_var('albvisdir', '%','UV visible albedo for direct radiation', &
           &                    DATATYPE_FLT32)
-        grib2_desc  = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc  = t_grib2_var(192, 128, 15, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'albvisdir', diag%albvisdir,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d,                                                      &
@@ -891,7 +891,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           &                    DATATYPE_FLT32)
         new_cf_desc = t_cf_var('albnirdif', '%', 'Near IR albedo for diffuse radiation',&
           &                    DATATYPE_FLT32)
-        grib2_desc  = t_grib2_var(192, 128, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc  = t_grib2_var(0, 19, 223, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'albnirdif', diag%albnirdif,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d, in_group=groups("rad_vars"),                         &
@@ -904,7 +904,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           &                    DATATYPE_FLT32)
         new_cf_desc = t_cf_var('albnirdir', '%', 'Near IR albedo for direct radiation',&
           &                    DATATYPE_FLT32)
-        grib2_desc  = t_grib2_var(192, 128, 18, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc  = t_grib2_var(192, 128, 17, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'albnirdir', diag%albnirdir,                   &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d,                                                      &
@@ -934,7 +934,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                & diag%albdif_t_ptr(jsfc)%p_2d,                                 &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('albdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
-               & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
+               & t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL),      &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
@@ -943,7 +943,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           cf_desc    = t_cf_var('albvisdif_t', '', &
             &                   'tile-based UV visible albedo for diffusive radiation',&
             &                   DATATYPE_FLT32)
-          grib2_desc = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
+          grib2_desc = t_grib2_var(0, 19, 222, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'albvisdif_t', diag%albvisdif_t,               &
             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
             & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
@@ -958,7 +958,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                & diag%albvisdif_t_ptr(jsfc)%p_2d,                              &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('albvisdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
-               & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
+               & t_grib2_var(0, 19, 222, ibits, GRID_REFERENCE, GRID_CELL),    &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
@@ -967,7 +967,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
           cf_desc    = t_cf_var('albnirdif_t', '', &
             &                   'tile-based near IR albedo for diffuse radiation',&
             &                   DATATYPE_FLT32)
-          grib2_desc = t_grib2_var(0, 19, 1, ibits, GRID_REFERENCE, GRID_CELL)
+          grib2_desc = t_grib2_var(0, 19, 223, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_var( diag_list, 'albnirdif_t', diag%albnirdif_t,               &
             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
             & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
@@ -982,7 +982,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                & diag%albnirdif_t_ptr(jsfc)%p_2d,                              &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('albnirdif_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
-               & t_grib2_var(192, 128, 243, ibits, GRID_REFERENCE, GRID_CELL), &
+               & t_grib2_var(0, 19, 223, ibits, GRID_REFERENCE, GRID_CELL),    &
                & ldims=shape2d, lrestart=.TRUE.                                )
           ENDDO
 
