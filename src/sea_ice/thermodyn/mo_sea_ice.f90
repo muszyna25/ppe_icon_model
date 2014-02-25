@@ -1740,6 +1740,8 @@ CONTAINS
     endif
 
     ! This should not be needed
+    ! TODO ram - remove all instances of p_patch%cells%area(:,:) and test
+    ! See also dynamics_fem/mo_ice_fem_utils.f90
     DO k=1,ice%kice
       ice%vol (:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
       ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
