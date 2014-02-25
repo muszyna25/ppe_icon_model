@@ -338,7 +338,7 @@ fi
 get_last_1_restart()
 {
   model_restart_param=$1
-  restart_list=$(ls *restart_*${model_restart_param}*_DOM*.nc)
+  restart_list=$(ls *restart_*${model_restart_param}*_*T*Z.nc)
   
   last_restart=""
   last_1_restart=""  
