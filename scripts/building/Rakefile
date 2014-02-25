@@ -443,56 +443,65 @@ def doCmpExpDirs(build,dirA,dirB)
   expA, expB = File.basename(dirA), File.basename(dirB)
   #check model outout
   call(connect(build,<<-EOS
+      selection='-select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4'
+      debug="#{ENV.has_key?('DEBUG')}"
+      [[ $debug = 'true' ]] && set -x
       cd experiments/;
       fileA=$(ls -1 #{dirA}/#{expA}*.nc | head -1);
       fileB=$(ls -1 #{dirB}/#{expB}*.nc | head -1);
+      fileA=/tmp/#{expA}.nc
+      fileB=/tmp/#{expB}.nc
+      [[ -f ${fileA} ]] && rm ${fileA}
+      [[ -f ${fileB} ]] && rm ${fileB}
+      cdo cat #{dirA}/#{expA}*.nc ${fileA}
+      cdo cat #{dirB}/#{expB}*.nc ${fileB}
       [[ -f diffOut ]] && rm diffOut
       cdo diffv $fileA $fileB > diffOut
       if test -s diffOut
       then
-        echo "DIFF found !!"
+        echo "DIFF found in OUTPUT!!"
         cat diffOut
         cdo sinfov $fileA
         cdo sinfov $fileA
         echo "FILE:  $fileA ===================================================="
         cdo showname $fileA
-          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileA
+          cdo infov ${selection} $fileA
         echo "FILE:  $fileB ===================================================="
         cdo showname $fileB
-          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileB
+          cdo infov ${selection} $fileB
       else
-        echo "no DIFF found"
+        echo "no DIFF found in OUTPUT"
         echo "FILE:  $fileA ===================================================="
-          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileA
+          [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileA
         echo "FILE:  $fileB ===================================================="
-          cdo infov -select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4 $fileB
+          [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileB
       fi
                EOS
               ),true)
   # check possbile restart files
   call(connect(build,<<-EOS
       cd experiments/;
-      fileA=#{dirA}/restart_oce.nc
-      fileB=#{dirB}/restart_oce.nc
+      fileA=#{dirA}/restart_oce_DOM01.nc
+      fileB=#{dirB}/restart_oce_DOM01.nc
       if test -f "$fileA" -a -f "$fileB" ; then
         [[ -f diffOut ]]  && rm diffOut
         cdo diffv $fileA $fileB > diffOut;
         if test -s diffOut
         then
-          echo "DIFF found !!"
+          echo "DIFF found in restart files!!"
           cat diffOut
           cdo sinfov $fileA
           cdo sinfov $fileA
         else
-          echo "no DIFF found"
-          cdo showname $fileA
-          cdo showname $fileB
+          echo "no DIFF found in restart files"
+          echo "FILE:  $fileA ===================================================="
+          echo "FILE:  $fileB ===================================================="
         fi
       else
         echo "No restart available for #{dirA} of #{dirB}"
       fi;
                EOS
-              ),true) if false
+              ),true)
 end
 def doCheckExp(build,exp)
   var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
@@ -732,6 +741,11 @@ task :check ,[:p] do |t,args|
   }.each {|k,v|
     puts [k.rjust(16,' '),v.ljust(20,' ')].join(': ')
   }
+end
+
+desc "Create tags file"
+task :tags do
+  sh "ctags Rakefile"
 end
 
 # vim:ft=ruby
