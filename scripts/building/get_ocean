@@ -70,7 +70,7 @@ link_source_list "src/testcases/" "mo_ape_params.f90"
 #get the rest
 cd ${icon_dev_from}/run
 run_scripts=`ls *oce*`
-run_scripts="$run_scripts exec.iconrun"
+run_scripts="$run_scripts exec.iconrun add_run_routines"
 cd -
 
 link_source_list "run/" "$run_scripts"

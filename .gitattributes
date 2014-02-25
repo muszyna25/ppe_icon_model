@@ -675,6 +675,7 @@ run/README -text
 run/add_required_atmo_hydrostatic_files -text
 run/add_required_atmo_non-hydrostatic_files -text
 run/add_required_ocean_files -text
+run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/dict.cmor -text
 run/dict.extpar -text
