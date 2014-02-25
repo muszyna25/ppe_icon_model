@@ -68,20 +68,20 @@ case $param in
     exp_list=`ls exp.*`
     post_list=`ls post.*`
     ;;
-  test)  # create only tests for buildbot
+  test)  # create _all_ scripts for use in buildbot
     make_restart_exp="true"
     make_restart_post="true"
     make_bb_grid="true"
     grid_list=""
-    exp_list=`ls exp.test_*`
-    post_list=`ls post.test_*`
+    exp_list=`ls exp.*`
+    post_list=`ls post.*`
     ;;
-  post_test)  # create only postprocessing for buildbot
+  post_test)  # create _all_ post-processing scripts for buildbot
     make_restart_post="true"
     make_bb_grid="false"
     grid_list=""
     exp_list=""
-    post_list=`ls post.test_*`
+    post_list=`ls post.*`
     ;;
   *)  # create only one experiment
     make_bb_grid="false"
