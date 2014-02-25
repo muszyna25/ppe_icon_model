@@ -268,7 +268,11 @@ def checkVar(build,exp,varname,timestep,level)
          if [ #{level} -ne 0 ]; then
            selectOP="$selectOP -sellevidx,#{level}";
          fi
-         cdo infov -selname,#{varname} $selectOP $file
+         set -x
+         if [ "#{varname}" != '_ALL' ]; then
+           selectOP="$selectOP -selname,#{varname}";
+         fi
+         cdo infov $selectOP $file
       done
       EOS
   ))
