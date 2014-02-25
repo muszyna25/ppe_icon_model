@@ -584,14 +584,14 @@ CONTAINS
        ! THFLX, total heat flux
        !
        buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
-       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) + &
-        &             RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) + &
-        &             RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !net non-solar fluxes for ocean
+       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
+       buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) !sensible heat flux
+       buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
 #ifdef YAC_coupling
-       CALL yac_fput ( field_id(5), nbr_hor_points, 2, 1, 1, buffer, ierror )
+       CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, ierror )
 #else
-       field_shape(3) = 2
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+       field_shape(3) = 4
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
 #endif
        !
        ! ICEATM, Ice state determined by atmosphere

@@ -638,12 +638,12 @@ CONTAINS
              ! THFLX, total heat flux
              !
              buffer(:,1) =  RESHAPE ( field%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
-             buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) + &
-              &             RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) + &
-              &             RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !net non-solar fluxes for ocean
-             field_shape(3) = 2
+             buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
+             buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) ! sensible heat flux
+             buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
+             field_shape(3) = 4
              CALL ICON_cpl_put_init ( field_id(5), field_shape, &
-                                      buffer(1:nbr_hor_points,1:2), ierror )
+                                      buffer(1:nbr_hor_points,1:4), ierror )
              !
              ! ICEATM, Ice state determined by atmosphere
              !
