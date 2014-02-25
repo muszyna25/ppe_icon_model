@@ -109,9 +109,6 @@ ulimit -s unlimited
 calldir=$(pwd)
 thisdir=$(pwd)
 basedir=${thisdir%/*}                   # determine base directory
-# cd $(dirname $0)
-bindir="${basedir}/build/x86_64-unknown-linux-gnu/bin"   # binaries
-BUILDDIR=build/x86_64-unknown-linux-gnu
 MODEL_BASE_PATH=$basedir
 ICON_BASE_PATH=$basedir
 export ICON_BASE_PATH

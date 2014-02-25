@@ -86,6 +86,9 @@ then
   . ../setting
 fi
 #-----------------------------------------------------------------------------
+bindir="\${basedir}/$use_builddir/bin"   # binaries
+BUILDDIR=$use_builddir
+#-----------------------------------------------------------------------------
 EOF
 
 
@@ -482,6 +485,7 @@ set_run_target_thunder()
     use_queue="mpi-compute"
   fi
   queue="$use_queue"
+  # queue="mpi-develop"
 
   # ------------------------------------
   s_cpu_time=""
