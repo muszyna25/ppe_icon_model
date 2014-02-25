@@ -5065,8 +5065,7 @@ SUBROUTINE terra_multlay_init (                &
     icount_rockice , & ! rock and ice points
     mstyp          , & ! soil type index
     istarts        , & ! start index for x-direction      
-    iends          , & ! end   index for x-direction     
-    ns
+    iends              ! end   index for x-direction
 
 !  REAL    (KIND=ireals   ) ::  &
 !    zdel_t_so          ! auxiliary variable
@@ -5321,6 +5320,10 @@ SUBROUTINE terra_multlay_init (                &
     END DO
 
 
+    ! Note that a few parts need to be shifted to the .NOT. is_coldstart branch.
+    ! I.e. those which are dealing with the contributions from the analysis.
+    ! Currently, the multi layer soil model starts from the FG.
+    IF ( is_coldstart ) THEN
 
 !   Initialization of snow density, if necessary
 !   --------------------------------------------
@@ -5411,8 +5414,6 @@ SUBROUTINE terra_multlay_init (                &
       END IF
     ENDIF
 
-
-    IF ( is_coldstart ) THEN
 
 !     Initialization of soil ice content
 !     ----------------------------------

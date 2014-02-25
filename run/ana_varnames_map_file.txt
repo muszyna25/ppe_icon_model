@@ -26,6 +26,11 @@ freshsnow           FRESHSNW
 w_snow              W_SNOW
 rho_snow            RHO_SNOW
 h_snow              H_SNOW
+t_snow_mult         T_SNOW_M
+rho_snow_mult       RHO_SNOW_M
+wtot_snow           W_SNOW_M
+wliq_snow           WLIQ_SNOW_M
+dzh_snow            H_SNOW_M
 w_i                 W_I
 w_so                W_SO
 w_so_ice            W_SO_ICE

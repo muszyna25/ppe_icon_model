@@ -2427,6 +2427,42 @@ MODULE mo_nh_initicon
           &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
 
 
+     ! multi layer snow fields
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 't_snow_mult',              &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow+1, my_ptr3d,                                      &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'rho_snow_mult',            &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%wtot_snow_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'wtot_snow',                &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%wliq_snow_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'wliq_snow',                &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%dzh_snow_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'dzh_snow',                 &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
 
      ! multi layer fields 
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
