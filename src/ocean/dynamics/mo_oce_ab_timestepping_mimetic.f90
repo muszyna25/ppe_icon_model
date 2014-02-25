@@ -188,7 +188,7 @@ CONTAINS
     CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_prog(nold(1))%vn)
     
     IF (is_initial_timestep(timestep) ) THEN
-      IF (l_staggered_timestep ) CALL calc_scalar_product_veloc_3d( patch_3d,&
+      IF (l_staggered_timestep ) CALL calc_scalar_product_veloc_3D( patch_3d,&
                                                                   & ocean_state%p_prog(nold(1))%vn,&
                                                                   & ocean_state%p_prog(nold(1))%vn,&
                                                                   & ocean_state%p_diag,            &
