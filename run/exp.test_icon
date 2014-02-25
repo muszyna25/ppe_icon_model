@@ -188,7 +188,7 @@ fi
 rm -f ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
 echo "Output will be in exp.${EXPERIMENT}_$$.output of"
 echo "$SCRIPT_DIR"
-${MODEL_DIR}/make_runscripts 1> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
+${MODEL_DIR}/config/make_target_runscript in_script=exp.${SCRIPT} 1> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
@@ -215,7 +215,7 @@ fi # OVERWRITE
 if [ "${MODE}" == 'update' -o "${MODE}" == 'ur' -o "${MODE}" == 'un' -o "${MODE}" == 'urn' ]; then
 cd ${REFERENCE}
 if [ "${OVERWRITE}" == 'yes' -o ! -d ${REFERENCE}/experiments/${EXP1} ] ;then 
-${REFERENCE}/make_runscripts 1> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
+${REFERENCE}/config/make_target_runscript in_script=exp.${SCRIPT} 1> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
 if [ ! -d experiments ]; then
 mkdir experiments
 fi
