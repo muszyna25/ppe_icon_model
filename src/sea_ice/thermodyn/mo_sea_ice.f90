@@ -1769,6 +1769,8 @@ CONTAINS
       ! Hibler's way to change the concentration
       ice%conc(:,1,:) = MAX( 0._wp, ice%conc(:,1,:) &
         &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
+      ! TODO: Change 0.5 in the line above to a namelist parameter (leadclose)
+      ! Default in MPIOM is 0.25
 
       ! New ice and snow thickness
       ice%hi  (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
