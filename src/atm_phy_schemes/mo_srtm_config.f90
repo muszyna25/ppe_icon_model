@@ -3,7 +3,7 @@
 #endif
   MODULE mo_srtm_config
 
-    USE mo_kind, ONLY : wp
+    USE mo_kind,             ONLY: wp
 
     IMPLICIT NONE
 
@@ -11,7 +11,8 @@
     PUBLIC :: setup_srtm, jpg, jpinpx, jpb1, jpb2, jpgpt, jpsw, ng16, ng17,&
       &       ng18, ng19, ng20, ng21, ng22, ng23, ng24, ng25, ng26, ng27,  &
       &       ng28, ng29, nspa, nspb, ngc, preflog, tref, repclc, replog,  &
-      &       wavenum1, wavenum2, delwave, ssi_default, ssi_amip, ssi_preind
+      &       wavenum1, wavenum2, delwave, ssi_default, ssi_amip, ssi_rce, &
+      &       ssi_preind
 
     SAVE
 
@@ -242,6 +243,14 @@
       & 3.4719231470000005E+02_wp, 1.2949501812000000E+02_wp, 50.1522503011060650_wp   , &
       & 3.0799387010047838_wp    , 12.8893773299999985_wp  /)
     ! sum of 14 bands is: 1.3682223735968237E+03
+
+    ! for the cases that use a Radiative-Convective equilibrium setup
+    ! assumes a cos(zenith angle) = pi/4
+    REAL(wp), PARAMETER :: ssi_rce(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
+      & 3.803964_wp,  6.413186_wp,  7.44969_wp,   7.032908_wp,  17.63879_wp, &
+      & 32.63096_wp,  7.861645_wp,  110.624_wp,   69.16621_wp,  109.3144_wp, &
+      & 41.19017_wp,  15.00594_wp, 1.009717_wp,   4.195554_wp  /)
+      ! sum of 14 bands is: 433.3371 
 
     REAL(wp), PARAMETER :: ssi_amip(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
                                 ! AMIP-type CMIP5 simulation (average from 1979-1988)
