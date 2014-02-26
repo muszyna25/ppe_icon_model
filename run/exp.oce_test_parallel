@@ -156,18 +156,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_nmlOuput"
   ! Output Variable List:
-  ml_varlist       =
-   'wet_c' 'wet_e' 'basin_c' 'regio_c' 'dolic_c' 'dolic_e' 'bottom_thick_c' 'column_thick_c' 'bottom_thick_e' 'column_thick_e' 
-   't' 's' 'u' 'v' 'w' 'h' 'u_vint' 't_acc' 's_acc' 'u_acc' 'v_acc' 'rhopot' 'rhopot_acc' 
-   'vn' 'vt' 'vort' 'K_veloc_h' 'A_veloc_v' 
-   'forc_wind_u' 'forc_wind_v' 'forc_swflx' 'forc_lwflx' 'forc_ssflx' 'forc_slflx' 
-   'forc_wind_u_acc' 'forc_wind_v_acc' 'forc_swflx_acc' 'forc_lwflx_acc' 'forc_ssflx_acc' 'forc_slflx_acc' 
-   'forc_precip' 'forc_evap' 'forc_runoff' 'forc_fwrelax' 'forc_fw_bc' 'forc_fw_tot' 
-   'forc_precip_acc' 'forc_evap_acc' 'forc_runoff_acc' 'forc_fwrelax_acc' 'forc_fw_bc_acc' 'forc_fw_tot_acc' 
-   'forc_tracer_relax_s' 'forc_tracer_s' 'forc_tracer_t' 
-   'forc_tracer_relax_acc_t' 'forc_tracer_acc_t' 
-   'forc_tracer_relax_acc_s' 'forc_tracer_acc_s' 
-   'hi' 'hs' 'concSum' 
+  ml_varlist       = 'group:oce_default','group:oce_diag','group:ice_default','group:ice_diag'
 /
 &dbg_index_nml
   idbg_mxmn=2                     ! initialize MIN/MAX  debug output
