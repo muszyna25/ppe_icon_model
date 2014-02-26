@@ -217,10 +217,6 @@ scripts/postprocessing/testcases/HS_postpro_scripts/*.settings
 scripts/postprocessing/testcases/HS_postpro_scripts/.cproject
 scripts/postprocessing/testcases/HS_postpro_scripts/.project
 scripts/postprocessing/testcases/HS_postpro_scripts/icon-dev
-scripts/postprocessing/testcases/JWw-Moist_postpro_scripts/*.settings
-scripts/postprocessing/testcases/JWw-Moist_postpro_scripts/.cproject
-scripts/postprocessing/testcases/JWw-Moist_postpro_scripts/.project
-scripts/postprocessing/testcases/JWw-Moist_postpro_scripts/icon-dev
 scripts/postprocessing/testcases/JWw_postpro_scripts/*.settings
 scripts/postprocessing/testcases/JWw_postpro_scripts/.cproject
 scripts/postprocessing/testcases/JWw_postpro_scripts/.project

@@ -791,7 +791,6 @@ run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_hat_jww -text
-run/post.test_hat_jww-moist_cld-cnv-vdf -text
 run/post.test_nat_jww_nwp_mpiomp -text
 run/post.test_nh35_tri_jws -text
 run/post.test_nh3_tri_tracer_solid_body -text
@@ -986,9 +985,6 @@ scripts/postprocessing/testcases/HS_postpro_driver.bash -text
 scripts/postprocessing/testcases/HS_postpro_scripts/HS_plot_PS-mean_time_series.ncl -text
 scripts/postprocessing/testcases/HS_postpro_scripts/HS_plot_T-var_time_series.ncl -text
 scripts/postprocessing/testcases/HS_postpro_scripts/HS_plot_climate_colored.ncl -text
-scripts/postprocessing/testcases/JWw-Moist_postpro_driver.bash -text
-scripts/postprocessing/testcases/JWw-Moist_postpro_scripts/JWw-Moist_plot_PS-Precip.ncl -text
-scripts/postprocessing/testcases/JWw-Moist_postpro_scripts/JWw-Moist_plot_omega-cloud.ncl -text
 scripts/postprocessing/testcases/JWw_postpro_driver.bash -text
 scripts/postprocessing/testcases/JWw_postpro_scripts/JWw_PS-T_evol_resources.ncl -text
 scripts/postprocessing/testcases/JWw_postpro_scripts/JWw_PS_colormap.rgb -text

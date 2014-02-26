@@ -382,14 +382,6 @@ create_restart()
 }
 
 #==============================================================================
-# special treatment for test_hat_jww-moist_cld-cnv-vdf
-# this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
-#
-cpu_time="04:00:00"
-create_restart test_hat_jww-moist_cld-cnv-vdf 
-
-
-#==============================================================================
 # special treatment for test_hat_jww
 # this includes the restart in the test_hat_jww
 cpu_time="04:00:00"
