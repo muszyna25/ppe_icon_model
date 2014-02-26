@@ -301,7 +301,6 @@ MODULE mo_oce_types
       & u(:,:,:)                ,&
       & v(:,:,:)                ,&
       & w(:,:,:)                ,& ! vertical velocity. Unit [m/s].
-      & vt(:,:,:)               ,& ! tangential velocity component at edges. Unit [m/s].
       & rho(:,:,:)              ,& ! density. Unit: [kg/m^3]
       & rhopot(:,:,:)           ,& ! potential density. Unit: [kg/m^3]
       & mass_flx_e(:,:,:)       ,& ! mass flux at edges. Unit [?].

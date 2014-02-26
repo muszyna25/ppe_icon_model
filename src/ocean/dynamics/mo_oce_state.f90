@@ -1029,11 +1029,6 @@ CONTAINS
       & t_cf_var('w_acc','m/s','vertical velocity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
-    CALL add_var(ocean_default_list, 'vt_acc', p_os_acc%vt, grid_unstructured_edge, &
-      & za_depth_below_sea, &
-      & t_cf_var('vt_acc','m/s','tangential velocity', DATATYPE_FLT32),&
-      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/)) !  ,in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'mass_flx_e_acc', p_os_acc%mass_flx_e, grid_unstructured_edge, &
       & za_depth_below_sea, &
       & t_cf_var('mass_flx_e_acc','','mass flux at edges', DATATYPE_FLT32),&
