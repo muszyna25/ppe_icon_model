@@ -1038,9 +1038,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
         ENDIF
 
 
-        !        diag%cosmu0    (nproma,       nblks),          &
-        cf_desc    = t_cf_var('cosmu0', '', '', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        !        diag%cosmu0    (nproma,nblks)
+        cf_desc    = t_cf_var('cosmu0', '-', 'Cosine of solar zenith angle', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(192, 214, 1, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'cosmu0', diag%cosmu0,                         &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
@@ -1055,7 +1055,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
         ! &       diag% flxdwswtoa(nproma,       nblks),          &
         cf_desc    = t_cf_var('flxdwswtoa', 'W m-2', 'downward shortwave flux at TOA', &
              &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 4, 2, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 4, 7, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'flxdwswtoa', diag%flxdwswtoa,              &
           & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,             &
           & ldims=shape2d, lrestart=.FALSE.,in_group=groups("rad_vars"))
@@ -1099,7 +1099,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
             a_steptype= TSTEP_ACCUM
         END IF
         WRITE(name,'(A,A5)') TRIM(prefix),"thb_t"
-        WRITE(long_name,'(A26,A4,A18)') "longwave  net flux at TOA ", meaning, &
+        WRITE(long_name,'(A26,A4,A18)') "TOA net thermal radiation ", meaning, &
                                       & " since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                          TRIM(long_name), DATATYPE_FLT32)
@@ -1111,7 +1111,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
 
         ! &      diag%swflxtoa_a(nproma,nblks_c)
         WRITE(name,'(A,A5)') TRIM(prefix),"sob_t"
-        WRITE(long_name,'(A26,A4,A18)') "shortwave net flux at TOA ", meaning, &
+        WRITE(long_name,'(A26,A4,A18)') "TOA net solar radiation ", meaning, &
                                       &" since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                         TRIM(long_name), DATATYPE_FLT32)
@@ -1124,7 +1124,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
         
         ! &      diag%lwflxsfc_a(nproma,nblks_c)
         WRITE(name,'(A,A5)') TRIM(prefix),"thb_s"
-        WRITE(long_name,'(A30,A4,A18)') "longwave  net flux at surface ", meaning, &
+        WRITE(long_name,'(A30,A4,A18)') "surface net thermal radiation ", meaning, &
                                       &" since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                      TRIM(long_name), DATATYPE_FLT32)
@@ -1137,7 +1137,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
 
         ! &      diag%swflxsfc_a(nproma,nblks_c)
         WRITE(name,'(A,A5)') TRIM(prefix),"sob_s"
-        WRITE(long_name,'(A30,A4,A18)') "shortwave net flux at surface ", meaning, &
+        WRITE(long_name,'(A30,A4,A18)') "Surface net solar radiation ", meaning, &
                                       &" since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                    TRIM(long_name), DATATYPE_FLT32)
@@ -1146,6 +1146,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
           & isteptype=a_steptype, in_group=groups("rad_vars"))
+
+
+        ! &       diag%asod_t(nproma,nblks)
+        WRITE(name,'(A,A5)') TRIM(prefix),"sod_t"
+        WRITE(long_name,'(A30,A4,A18)') "Top down solar radiation ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 4, 7, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%asod_t,                    &
+          & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,             &
+          & ldims=shape2d,                                                   &
+          & isteptype=a_steptype, in_group=groups("rad_vars"))
+
+
 
 
         ! &      diag%vio3(nproma,nblks_c)
@@ -1513,58 +1528,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
              & t_grib2_var(0, 0, 10, ibits, GRID_REFERENCE, GRID_CELL),   & 
              & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
         ENDDO
-
-
-!!$!
-!!$!DR Note that this is potentially the same as umfl_s_t
-!!$!
-!!$        ! &      diag%ustr_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
-!!$        cf_desc    = t_cf_var('ustr_s_t', 'm2 s-2 ', 'tile-based surface U stress',        &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, 'ustr_s_t', diag%ustr_s_t,                                &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
-!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!!$
-!!$        ! fill the separate variables belonging to the container ustr_s_t
-!!$        ALLOCATE(diag%ustr_s_t_ptr(ntiles_total+ntiles_water))
-!!$        DO jsfc = 1,ntiles_total+ntiles_water
-!!$          WRITE(csfc,'(i1)') jsfc
-!!$          CALL add_ref( diag_list, 'ustr_s_t',                            &
-!!$             & 'ustr_s_t_'//TRIM(ADJUSTL(csfc)),                          &
-!!$             & diag%ustr_s_t_ptr(jsfc)%p_2d,                              &
-!!$             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
-!!$             & t_cf_var('ustr_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
-!!$             & t_grib2_var(0, 2, 17, ibits, GRID_REFERENCE, GRID_CELL),   & 
-!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-!!$        ENDDO
-
-
-!!$!
-!!$!DR Note that this is potentially the same as vmfl_s
-!!$!
-!!$        ! &      diag%vstr_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
-!!$        cf_desc    = t_cf_var('vstr_s_t', 'm2 s-2 ', 'tile-based surface V stress',        &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, 'vstr_s_t', diag%vstr_s_t,                                &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,   &
-!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!!$
-!!$        ! fill the separate variables belonging to the container vstr_s_t
-!!$        ALLOCATE(diag%vstr_s_t_ptr(ntiles_total+ntiles_water))
-!!$        DO jsfc = 1,ntiles_total+ntiles_water
-!!$          WRITE(csfc,'(i1)') jsfc
-!!$          CALL add_ref( diag_list, 'vstr_s_t',                            &
-!!$             & 'vstr_s_t_'//TRIM(ADJUSTL(csfc)),                          &
-!!$             & diag%vstr_s_t_ptr(jsfc)%p_2d,                              &
-!!$             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
-!!$             & t_cf_var('vstr_s_t_'//TRIM(csfc), '', '', DATATYPE_FLT32), &
-!!$             & t_grib2_var(0, 2, 18, ibits, GRID_REFERENCE, GRID_CELL),   & 
-!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-!!$        ENDDO
-
-
 
 
         ! &      diag%lhfl_bs_t(nproma,nblks_c,ntiles_total)
@@ -2058,98 +2021,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     END IF
 
 
-        !  Height of 0 deg C level
-        cf_desc    = t_cf_var('hzerocl', '', 'height_of_0_deg_C_level', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'hzerocl', diag%hzerocl,                         &
-          & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc, grib2_desc,        &
-          & ldims=shape2d, lrestart=.FALSE.)
+    !  Height of 0 deg C level
+    cf_desc    = t_cf_var('hzerocl', '', 'height_of_0_deg_C_level', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 3, 6, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'hzerocl', diag%hzerocl,                         &
+      & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE.)
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &
                  'construction of NWP physical fields finished')  
-
-!! NOT USED SO FAR
-!!$        ! &      diag%t_2m_t(nproma,nblks_c,ntiles_total)
-!!$        cf_desc    = t_cf_var('t_2m_t', 'K ', 'tile-based temperature in 2m', DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, 't_2m_t', diag%t_2m_t,                                   &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc, ldims=shape3dsubs, &
-!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!!$
-!!$        ! fill the separate variables belonging to the container t_2m_t
-!!$        ALLOCATE(diag%t_2m_t_ptr(ntiles_total))
-!!$        DO jsfc = 1,ntiles_total
-!!$          WRITE(csfc,'(i1)') jsfc
-!!$          CALL add_ref( diag_list, 't_2m_t',                              &
-!!$             & 't_2m_t_'//TRIM(ADJUSTL(csfc)),                            &
-!!$             & diag%t_2m_t_ptr(jsfc)%p_2d,                                &
-!!$             & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M,                      &
-!!$             & t_cf_var('t_2m_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),   &
-!!$             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-!!$        ENDDO
-!!$
-!!$        ! &      diag%qv_2m_t(nproma,nblks_c,ntiles_total)
-!!$        cf_desc    = t_cf_var('qv_2m_t', 'kg kg-1 ', 'tile-based water vapor content in 2m', &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, 'qv_2m_t', diag%qv_2m_t,                                 &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc, ldims=shape3dsubs, &
-!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!!$      
-!!$        ! fill the separate variables belonging to the container qv_2m_t
-!!$        ALLOCATE(diag%qv_2m_t_ptr(ntiles_total))
-!!$        DO jsfc = 1,ntiles_total
-!!$          WRITE(csfc,'(i1)') jsfc
-!!$          CALL add_ref( diag_list, 'qv_2m_t',                             &
-!!$             & 'qv_2m_t_'//TRIM(ADJUSTL(csfc)),                           &
-!!$             & diag%qv_2m_t_ptr(jsfc)%p_2d,                               &
-!!$             & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M,                      &
-!!$             & t_cf_var('qv_2m_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),  &
-!!$             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-!!$        ENDDO
-!!$
-!!$        ! &      diag%td_2m_t(nproma,nblks_c,ntiles_total)
-!!$        cf_desc    = t_cf_var('td_2m_t', 'K ', 'tile-based dew point in 2m', DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, 'td_2m_t', diag%td_2m_t,                                 &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc, ldims=shape3dsubs, &
-!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!!$      
-!!$        ! fill the separate variables belonging to the container td_2m_t
-!!$        ALLOCATE(diag%td_2m_t_ptr(ntiles_total))
-!!$        DO jsfc = 1,ntiles_total
-!!$          WRITE(csfc,'(i1)') jsfc
-!!$          CALL add_ref( diag_list, 'td_2m_t',                             &
-!!$             & 'td_2m_t_'//TRIM(ADJUSTL(csfc)),                           &
-!!$             & diag%td_2m_t_ptr(jsfc)%p_2d,                               &
-!!$             & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M,                      &
-!!$             & t_cf_var('td_2m_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),  &
-!!$             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-!!$        ENDDO
-!!$
-!!$        ! &      diag%rh_2m_t(nproma,nblks_c,ntiles_total)
-!!$        cf_desc    = t_cf_var('rh_2m_t', '% ', 'tile-based relative humidity in 2m', &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 0, 11, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, 'rh_2m_t', diag%rh_2m_t,                                 &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc, ldims=shape3dsubs, &
-!!$          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-!!$      
-!!$        ! fill the separate variables belonging to the container rh_2m_t
-!!$        ALLOCATE(diag%rh_2m_t_ptr(ntiles_total))
-!!$        DO jsfc = 1,ntiles_total
-!!$          WRITE(csfc,'(i1)') jsfc
-!!$          CALL add_ref( diag_list, 'rh_2m_t',                             &
-!!$             & 'rh_2m_t_'//TRIM(ADJUSTL(csfc)),                           &
-!!$             & diag%rh_2m_t_ptr(jsfc)%p_2d,                               &
-!!$             & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M,                      &
-!!$             & t_cf_var('rh_2m_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),  &
-!!$             & t_grib2_var(0, 4, 0, ibits, GRID_REFERENCE, GRID_CELL),    &
-!!$             & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
-!!$        ENDDO
 
 END SUBROUTINE new_nwp_phy_diag_list
 

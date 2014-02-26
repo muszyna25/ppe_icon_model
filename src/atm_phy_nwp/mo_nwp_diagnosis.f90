@@ -117,8 +117,8 @@ CONTAINS
 
     TYPE(t_patch),   TARGET, INTENT(in)   :: pt_patch    !<grid/patch info.
     TYPE(t_nh_diag), TARGET, INTENT(inout):: pt_diag     !<the diagnostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout):: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout):: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_nh_prog), TARGET, INTENT(in)   :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(in)   :: pt_prog_rcf !<the prognostic variables (with
                                                          !< red. calling frequency for tracers!
     TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
 
@@ -466,7 +466,11 @@ CONTAINS
     !
     ! radiative fluxes
     !------------------
-    ! - longwave/shortwave net flux at surface/TOA
+    ! - top net solar radiation
+    ! - top down solar radiation
+    ! - top net thermal radiation
+    ! - surface net solar radiation
+    ! - surface net thermal radiation
 
     IF ( p_sim_time > 1.e-6_wp) THEN
 
@@ -587,6 +591,11 @@ CONTAINS
                 &                                   prm_diag%lwflxall(jc,1,jb), &
                 &                                   t_wgt)
 
+              ! time averaged top down solar radiation
+              prm_diag%asod_t    (jc,jb) = time_avg(prm_diag%asod_t    (jc,jb), &
+                &                                   prm_diag%flxdwswtoa(jc,jb), &
+                &                                   t_wgt)
+
             ENDDO
 
           ENDIF  ! lcall_phy_jg(itradheat)
@@ -663,6 +672,11 @@ CONTAINS
               ! accumulated longwave net flux at TOA
               prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb) &
                                    &   + prm_diag%lwflxall(jc,1,jb)   &
+                                   &   * dt_phy_jg(itfastphy)
+
+              ! accumulated top down solar radiation
+              prm_diag%asod_t    (jc,jb) = prm_diag%asod_t(jc,jb)     &
+                                   &   + prm_diag%flxdwswtoa(jc,jb)   &
                                    &   * dt_phy_jg(itfastphy)
             END DO
           ENDIF  ! lcall_phy_jg(itradheat)
