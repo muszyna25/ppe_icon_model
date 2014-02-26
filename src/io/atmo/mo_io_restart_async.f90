@@ -2,6 +2,9 @@
 !! Contains routines for asynchronous restart Output
 !! --------------------------------------------------------
 !!
+!! Note: The synchronous implementation of the restart output can be
+!!       found in the module "mo_io_restart". See module header for
+!!       more details on generated files.
 !!
 !! @par Revision History
 !! Initial implementation by Joerg Benkenstein (2013-01-15)
@@ -67,16 +70,18 @@ MODULE mo_io_restart_async
   USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
-  USE mo_run_config,              ONLY: msg_level
+  USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
   USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
   USE mo_cdi_constants
+  USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
+    &                                   int2string
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, &
     &                                   p_work_pe0, num_work_procs, MPI_SUCCESS, &
-    &                                   p_stop, p_send, p_recv, p_barrier, p_bcast, &
+    &                                   stop_mpi, p_send, p_recv, p_barrier, p_bcast, &
     &                                   my_process_is_restart, my_process_is_work, &
     &                                   p_comm_work_2_restart, p_n_work, p_int, &
     &                                   process_mpi_restart_size, p_int_i8, p_real_dp, &
@@ -128,7 +133,7 @@ MODULE mo_io_restart_async
 
   ! minimum number of dynamic restart patch data
   ! id, l_dom_active, time levels and optional attributes
-  INTEGER, PARAMETER :: MIN_DYN_RESTART_PDATA     = 21
+  INTEGER, PARAMETER :: MIN_DYN_RESTART_PDATA     = 23
 
   ! maximumm number of verticale axes
   INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 19
@@ -204,8 +209,8 @@ MODULE mo_io_restart_async
   ! Below, "points" refers to either cells, edges or verts.
   !
   TYPE t_reorder_data
-    INTEGER :: n_glb  ! Global number of points per physical patch
-    INTEGER :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
+    INTEGER :: n_glb  ! Global number of points per logical patch
+    INTEGER :: n_own  ! Number of own points (without halo, only belonging to logical patch)
                       ! Only set on compute PEs, set to 0 on restart PEs
     INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)
                       ! idx and blk for own points, only set on compute PEs
@@ -266,10 +271,13 @@ MODULE mo_io_restart_async
     ! process id
     INTEGER :: restart_proc_id
 
+    ! id of PE0 of working group (/= 0 in case of processor splitting)
+    INTEGER :: work_pe0_id
+
     ! base file name contains already logical patch ident
     CHARACTER(LEN=filename_max) :: base_filename
 
-    ! dynamic patch arguments (mandotary)
+    ! dynamic patch arguments (mandatory)
     INTEGER :: nold,nnow,nnew,nnew_rcf,nnow_rcf
 
     ! dynamic patch arguments (optionally)
@@ -287,6 +295,9 @@ MODULE mo_io_restart_async
     INTEGER               :: opt_jstep_adv_marchuk_order
     LOGICAL               :: l_opt_sim_time
     REAL(wp)              :: opt_sim_time
+    LOGICAL               :: l_opt_ndom
+    INTEGER               :: opt_ndom
+    !
     INTEGER               :: n_opt_pvct
     REAL(wp), ALLOCATABLE :: opt_pvct(:)
     INTEGER               :: n_opt_lcall_phy
@@ -404,7 +415,8 @@ CONTAINS
                                 &   opt_depth,                    &
                                 &   opt_depth_lnd,                &
                                 &   opt_nlev_snow,                &
-                                &   opt_nice_class)
+                                &   opt_nice_class,               &
+                                &   opt_ndom )
 
     INTEGER,  INTENT(IN)           :: patch_id
     LOGICAL,  INTENT(IN)           :: l_dom_active
@@ -419,6 +431,7 @@ CONTAINS
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:)
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
 
     TYPE(t_patch_data), POINTER    :: p_pd
     INTEGER                        :: ierrstat
@@ -434,11 +447,12 @@ CONTAINS
 
     IF(.NOT. (my_process_is_work())) RETURN
 
-    ! only the first compute PE needs the dynamic restart arguments
-    IF(p_pe_work == 0) THEN
+    ! find patch
+    p_pd => find_patch(patch_id, subname)
 
-      ! find patch
-      p_pd => find_patch(patch_id, subname)
+    ! usually, only the first compute PE needs the dynamic restart arguments
+    ! in the case of processor splitting, the first PE of the split subset needs them as well
+    IF (p_pe_work == 0 .OR. p_pe_work == p_pd%work_pe0_id) THEN
 
       ! set activity flag
       p_pd%l_dom_active = l_dom_active
@@ -465,7 +479,7 @@ CONTAINS
         ENDIF
         p_pd%opt_t_elapsed_phy = opt_t_elapsed_phy
       ENDIF
-!
+      !
       IF (PRESENT(opt_lcall_phy)) THEN
         IF (SIZE(opt_lcall_phy) /= p_pd%n_opt_lcall_phy) THEN
           CALL finish(subname, WRONG_ARRAY_SIZE//'opt_lcall_phy')
@@ -525,6 +539,13 @@ CONTAINS
         p_pd%l_opt_sim_time = .TRUE.
       ELSE
         p_pd%l_opt_sim_time = .FALSE.
+      ENDIF
+
+      IF (PRESENT(opt_ndom)) THEN
+        p_pd%opt_ndom = opt_ndom
+        p_pd%l_opt_ndom = .TRUE.
+      ELSE
+        p_pd%l_opt_ndom = .FALSE.
       ENDIF
   ENDIF
 #endif
@@ -588,8 +609,8 @@ CONTAINS
 
           ! collective call to write the restart variables
           CALL restart_write_var_list(p_pd)
-
-          CALL create_restart_file_link(p_pd%restart_file, p_pd%restart_proc_id)
+          CALL create_restart_file_link(p_pd%restart_file, p_pd%restart_proc_id, p_pd%id, &
+            &                           p_pd%l_opt_ndom, p_pd%opt_ndom )
           CALL create_restart_info_file(p_pd%restart_file)
           CALL close_restart_file(p_pd%restart_file)
 
@@ -681,7 +702,7 @@ CONTAINS
     CALL close_async_restart
 
     ! shut down MPI
-    CALL p_stop
+    CALL stop_mpi
 
     STOP
 
@@ -837,6 +858,8 @@ CONTAINS
           p_pd%opt_jstep_adv_marchuk_order    = p_msg(incr(i))
           p_pd%l_opt_sim_time                 = get_flag(p_msg(incr(i)))
           p_pd%opt_sim_time                   = p_msg(incr(i))
+          p_pd%l_opt_ndom                     = get_flag(p_msg(incr(i)))
+          p_pd%opt_ndom                       = p_msg(incr(i))
 
           ! optional parameter arrays
           IF (p_pd%n_opt_pvct > 0) THEN
@@ -946,6 +969,48 @@ CONTAINS
     ! make sure all are here
     CALL p_barrier(comm=p_comm_work)
 
+    ! if processor splitting is applied, the time-dependent data need to be transferred
+    ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
+    DO j = 2, SIZE(patch_data)
+
+      p_pd => patch_data(j)
+
+      IF (p_pd%work_pe0_id /= 0) THEN
+
+        IF (p_pe_work == 0) THEN
+          CALL p_recv(p_pd%l_dom_active, p_pd%work_pe0_id, 0)
+          CALL p_recv(nnow(p_pd%id),     p_pd%work_pe0_id, 0)
+          CALL p_recv(nnew(p_pd%id),     p_pd%work_pe0_id, 0)
+          CALL p_recv(nnew_rcf(p_pd%id), p_pd%work_pe0_id, 0)
+          CALL p_recv(nnow_rcf(p_pd%id), p_pd%work_pe0_id, 0)
+
+          CALL p_recv(p_pd%opt_jstep_adv_ntstep,        p_pd%work_pe0_id, 0)
+          CALL p_recv(p_pd%opt_jstep_adv_marchuk_order, p_pd%work_pe0_id, 0)
+          CALL p_recv(p_pd%opt_sim_time,                p_pd%work_pe0_id, 0)
+
+          IF (ALLOCATED(p_pd%opt_lcall_phy))     CALL p_recv(p_pd%opt_lcall_phy,     p_pd%work_pe0_id, 0)
+          IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) CALL p_recv(p_pd%opt_t_elapsed_phy, p_pd%work_pe0_id, 0)
+
+        ELSE IF (p_pe_work == p_pd%work_pe0_id) THEN
+
+          CALL p_send(p_pd%l_dom_active, 0, 0)
+          CALL p_send(nnow(p_pd%id),     0, 0)
+          CALL p_send(nnew(p_pd%id),     0, 0)
+          CALL p_send(nnew_rcf(p_pd%id), 0, 0)
+          CALL p_send(nnow_rcf(p_pd%id), 0, 0)
+
+          CALL p_send(p_pd%opt_jstep_adv_ntstep,        0, 0)
+          CALL p_send(p_pd%opt_jstep_adv_marchuk_order, 0, 0)
+          CALL p_send(p_pd%opt_sim_time,                0, 0)
+
+          IF (ALLOCATED(p_pd%opt_lcall_phy))     CALL p_send(p_pd%opt_lcall_phy,     0, 0)
+          IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) CALL p_send(p_pd%opt_t_elapsed_phy, 0, 0)
+
+        ENDIF
+      ENDIF
+
+    ENDDO
+
     IF(p_pe_work == 0) THEN
 
       ! create message array
@@ -1005,6 +1070,8 @@ CONTAINS
         p_msg(incr(i)) = REAL(p_pd%opt_jstep_adv_marchuk_order, wp)
         p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_sim_time)
         p_msg(incr(i)) = p_pd%opt_sim_time
+        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_ndom)
+        p_msg(incr(i)) = p_pd%opt_ndom
 
         ! optional parameter arrays
         IF (ALLOCATED(p_pd%opt_pvct)) THEN
@@ -1744,6 +1811,7 @@ CONTAINS
       p_pd => patch_data(jg)
       IF (my_process_is_work()) THEN
         p_pd%id              = p_patch(jg)%id
+        p_pd%work_pe0_id     = p_patch(jg)%proc0
         p_pd%l_dom_active    = p_patch(jg)%ldom_active
         p_pd%nlev            = p_patch(jg)%nlev
         p_pd%cell_type       = p_patch(jg)%cell_type
@@ -1758,6 +1826,7 @@ CONTAINS
 
       ! transfer data to restart PEs
       CALL p_bcast(p_pd%id,              bcast_root, p_comm_work_2_restart)
+      CALL p_bcast(p_pd%work_pe0_id,     bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%l_dom_active,    bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%nlev,            bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%cell_type,       bcast_root, p_comm_work_2_restart)
@@ -1780,15 +1849,15 @@ CONTAINS
 
         ! set reorder data on work PE
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells, &
-                              p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%phys_id,    &
+                              p_patch(jl)%cells%decomp_info%owner_mask,                   &
                               p_patch(jl)%cells%decomp_info%glb_index, p_pd%cells)
 
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges, &
-                              p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%phys_id,    &
+                              p_patch(jl)%edges%decomp_info%owner_mask,                   &
                               p_patch(jl)%edges%decomp_info%glb_index, p_pd%edges)
 
         CALL set_reorder_data(jg, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
-                              p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%phys_id,    &
+                              p_patch(jl)%verts%decomp_info%owner_mask,                   &
                               p_patch(jl)%verts%decomp_info%glb_index, p_pd%verts)
       ENDIF
 
@@ -1909,20 +1978,18 @@ CONTAINS
   !
   ! Sets the reorder data for cells/edges/verts.
   !
-  SUBROUTINE set_reorder_data(phys_patch_id, n_points_g, n_points, owner_mask, phys_id, &
-                              glb_index, reo)
+  SUBROUTINE set_reorder_data(patch_id, n_points_g, n_points, owner_mask, glb_index, reo)
 
-    INTEGER, INTENT(IN) :: phys_patch_id   ! Physical patch ID
+    INTEGER, INTENT(IN) :: patch_id        ! Logical patch ID
     INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
     INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
     LOGICAL, INTENT(IN) :: owner_mask(:,:) ! owner_mask for logical patch
-    INTEGER, INTENT(IN) :: phys_id(:,:)    ! phys_id for logical patch
     INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
 
     TYPE(t_reorder_data), INTENT(INOUT) :: reo ! Result: reorder data
 
     INTEGER :: i, n, il, ib, mpi_error, ierrstat
-    LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
+    LOGICAL, ALLOCATABLE :: owner_mask_1d(:) ! non-blocked owner mask for (logical) patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
     CHARACTER (LEN=MAX_ERROR_LENGTH) :: error_message
 
@@ -1935,17 +2002,16 @@ CONTAINS
     ! just for safety
     IF(my_process_is_restart()) CALL finish(subname, NO_COMPUTE_PE)
 
-    ! set the physical patch owner mask
-    ALLOCATE(phys_owner_mask(n_points))
+    ! set the non-blocked patch owner mask
+    ALLOCATE(owner_mask_1d(n_points))
     DO i = 1, n_points
       il = idx_no(i)
       ib = blk_no(i)
-      phys_owner_mask(i) = owner_mask(il,ib)
-      phys_owner_mask(i) = phys_owner_mask(i) .AND. (phys_id(il,ib) == phys_patch_id)
+      owner_mask_1d(i) = owner_mask(il,ib)
     ENDDO
 
-    ! get number of owned cells/edges/verts (without halos, physical patch only)
-    reo%n_own = COUNT(phys_owner_mask(:))
+    ! get number of owned cells/edges/verts (without halos)
+    reo%n_own = COUNT(owner_mask_1d(:))
 
     ! set index arrays to own cells/edges/verts
     ALLOCATE(reo%own_idx(reo%n_own), STAT=ierrstat)
@@ -1959,7 +2025,7 @@ CONTAINS
 
     n = 0
     DO i = 1, n_points
-      IF(phys_owner_mask(i)) THEN
+      IF(owner_mask_1d(i)) THEN
         n = n+1
         reo%own_idx(n) = idx_no(i)
         reo%own_blk(n) = blk_no(i)
@@ -1984,7 +2050,7 @@ CONTAINS
       reo%pe_off(i) = reo%pe_off(i-1) + reo%pe_own(i-1)
     ENDDO
 
-    ! get global number of points for current (physical!) patch
+    ! get global number of points for current patch
     reo%n_glb = SUM(reo%pe_own(:))
 
     ! Get the global index numbers of the data when it is gathered on PE 0
@@ -2008,11 +2074,11 @@ CONTAINS
 
     DO i = 1, reo%n_glb
       ! reorder_index_log_dom stores where a global point in logical domain comes from.
-      ! It is nonzero only at the physical patch locations
+      ! It is nonzero only at the patch locations
       reorder_index_log_dom(glbidx_glb(i)) = i
     ENDDO
 
-    ! gather the reorder index for the physical domain
+    ! gather the reorder index
     n = 0
     DO i = 1, n_points_g
       IF(reorder_index_log_dom(i)>0) THEN
@@ -2033,7 +2099,7 @@ CONTAINS
       CALL finish(subname,TRIM(error_message))
     ENDIF
 
-    DEALLOCATE(phys_owner_mask)
+    DEALLOCATE(owner_mask_1d)
     DEALLOCATE(glbidx_own)
     DEALLOCATE(glbidx_glb)
     DEALLOCATE(reorder_index_log_dom)
@@ -2325,16 +2391,23 @@ CONTAINS
     CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
     CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
 
+    ! set no. of domains
+    IF (p_pd%l_opt_ndom) THEN
+      CALL set_restart_attribute( 'n_dom', p_pd%opt_ndom)
+    ELSE
+      CALL set_restart_attribute( 'n_dom', 1)
+    END IF
+
     ! set simulation step
     CALL set_restart_attribute( 'jstep', p_ra%jstep )
 
     ! set time levels
     jg = p_pd%id
-    CALL set_restart_attribute( 'nold'    , p_pd%nold)
-    CALL set_restart_attribute( 'nnow'    , p_pd%nnow)
-    CALL set_restart_attribute( 'nnew'    , p_pd%nnew)
-    CALL set_restart_attribute( 'nnow_rcf', p_pd%nnow_rcf)
-    CALL set_restart_attribute( 'nnew_rcf', p_pd%nnew_rcf)
+    CALL set_restart_attribute( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nold)
+    CALL set_restart_attribute( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnow)
+    CALL set_restart_attribute( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnew)
+    CALL set_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow_rcf)
+    CALL set_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew_rcf)
 
     ! additional restart-output for nonhydrostatic model
     IF (p_pd%l_opt_sim_time) THEN
@@ -2924,7 +2997,6 @@ CONTAINS
   ! Initialize the variable list of the given restart file.
   !
   SUBROUTINE init_restart_variables(p_rf)
-
     TYPE(t_restart_file), POINTER, INTENT(IN) :: p_rf
 
     TYPE(t_var_data), POINTER     :: p_vars(:)
@@ -3233,6 +3305,7 @@ CONTAINS
     CHARACTER(LEN=32)             :: datetime
     INTEGER                       :: restart_type, i
     CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'open_restart_file'
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -3272,10 +3345,12 @@ CONTAINS
     datetime = iso8601(restart_args%datetime)
 
     ! build the file name
-    p_rf%filename = 'restart.'// &
-      &             TRIM(get_filename_noext(p_pd%base_filename))//'_'// &
-      &             TRIM(datetime)//'_'// &
-      &             TRIM(p_rf%model_type)//'.nc'
+    CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(p_pd%base_filename)),   keywords)
+    CALL associate_keyword("<idom>",       TRIM(int2string(p_pd%id, "(i2.2)")),            keywords)
+    CALL associate_keyword("<rsttime>",    TRIM(datetime),                                 keywords)
+    CALL associate_keyword("<mtype>",      TRIM(p_rf%model_type),                          keywords)
+    ! replace keywords in file name
+    p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
     p_rf%cdiFileID = streamOpenWrite(p_rf%filename, restart_type)
 
@@ -3337,10 +3412,13 @@ CONTAINS
   !
   ! Creates a symbolic link from the given restart file.
   !
-  SUBROUTINE create_restart_file_link (rf, proc_id)
+  SUBROUTINE create_restart_file_link (rf, proc_id, jg, l_opt_ndom, opt_ndom)
 
     TYPE (t_restart_file), INTENT(INOUT)  :: rf
-    INTEGER, INTENT(IN)                   :: proc_id
+    INTEGER,               INTENT(IN)     :: proc_id
+    INTEGER,               INTENT(IN)     :: jg                   !< patch ID
+    LOGICAL                               :: l_opt_ndom
+    INTEGER                               :: opt_ndom
 
     INTEGER                               :: iret, id
     CHARACTER(LEN=5)                      :: str_id
@@ -3354,7 +3432,11 @@ CONTAINS
       WRITE(str_id, '(I5)')id
     ENDIF
     rf%linkprefix = 'restart'//TRIM(str_id)
-    rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//'.nc'
+    IF (l_opt_ndom .AND. (opt_ndom > 1)) THEN
+      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
+    ELSE
+      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//'_DOM01.nc'
+    END IF
 
     ! delete old symbolic link, if exists
     IF (util_islink(TRIM(rf%linkname))) THEN

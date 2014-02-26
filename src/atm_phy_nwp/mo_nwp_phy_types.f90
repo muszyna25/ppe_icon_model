@@ -282,13 +282,15 @@ MODULE mo_nwp_phy_types
       & ::                  &
       & z0m     (:,:)       !< aerodynamic roughness length
 
-    !> Parameter fields for LES turbulence
+    !> Diagnostics for LES turbulence
     REAL(wp), POINTER      &
 #ifdef _CRAYFTN
       , CONTIGUOUS         &
 #endif
       ::                   &
-      z_pbl(:,:)            !> Boundary layer height  (m)
+      z_pbl(:,:)          ,& !> Boundary layer height  (m)
+      buoyancy_prod(:,:,:),& !> Buoyant production/loss term in TKE equation
+      mech_prod(:,:,:)       !> Mechanical production/loss term in TKE equation
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
     REAL(wp), POINTER       &

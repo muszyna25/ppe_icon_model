@@ -147,7 +147,8 @@ MODULE mo_output_event_handler
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
     &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
-    &                                  my_process_is_mpi_test, p_pe
+    &                                  my_process_is_mpi_test, p_pe,                        &
+    &                                  my_process_is_mpi_workroot
   USE mo_fortran_tools,          ONLY: assign_if_present
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
@@ -157,8 +158,6 @@ MODULE mo_output_event_handler
     &                                  deallocateEvent, newDatetime, OPERATOR(>=),          &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
     &                                  deallocateTimedelta
-  USE mo_mtime_extensions,       ONLY: isCurrentEventActive, getPTStringFromMS,             &
-    &                                  get_duration_string
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
@@ -636,6 +635,7 @@ CONTAINS
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
     TYPE(t_event_step_data),             ALLOCATABLE :: filename_metadata(:)
+    TYPE(t_event_step_data),             POINTER     :: step_data
 
     ! allocate event data structure
     ALLOCATE(p_event, STAT=ierrstat)
@@ -782,14 +782,15 @@ CONTAINS
       p_event%event_step(i)%n_pes              = 1
       ALLOCATE(p_event%event_step(i)%event_step_data(p_event%event_step(i)%n_pes), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      p_event%event_step(i)%event_step_data(1)%i_pe            = i_pe
-      p_event%event_step(i)%event_step_data(1)%datetime_string = TRIM(mtime_date_string(i))
-      p_event%event_step(i)%event_step_data(1)%i_tag           = i_tag
-      p_event%event_step(i)%event_step_data(1)%filename_string = TRIM(filename_metadata(i)%filename_string)
-      p_event%event_step(i)%event_step_data(1)%jfile           = filename_metadata(i)%jfile
-      p_event%event_step(i)%event_step_data(1)%jpart           = filename_metadata(i)%jpart
-      p_event%event_step(i)%event_step_data(1)%l_open_file     = filename_metadata(i)%l_open_file
-      p_event%event_step(i)%event_step_data(1)%l_close_file    = filename_metadata(i)%l_close_file
+      step_data => p_event%event_step(i)%event_step_data(1)
+      step_data%i_pe            = i_pe
+      step_data%datetime_string = TRIM(mtime_date_string(i))
+      step_data%i_tag           = i_tag
+      step_data%filename_string = TRIM(filename_metadata(i)%filename_string)
+      step_data%jfile           = filename_metadata(i)%jfile
+      step_data%jpart           = filename_metadata(i)%jpart
+      step_data%l_open_file     = filename_metadata(i)%l_open_file
+      step_data%l_close_file    = filename_metadata(i)%l_close_file
     END DO
     IF (ldebug) THEN
       WRITE (0,*) routine, ": defined event ",                            &
@@ -2221,9 +2222,11 @@ CONTAINS
               ! otherwise: modify file name s.t. the new, resumed file
               ! is clearly distinguishable: We append "_<part>+"
               jpart_str = int2string(event_step_data%jpart)
-              WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
-                &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
-                &      " after restart."
+              IF (my_process_is_mpi_workroot()) THEN
+                WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
+                  &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
+                  &      " after restart."
+              END IF
               CALL modify_filename(event, trim(event_step_data%filename_string), &
                 &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
                 &       start_step=istep)

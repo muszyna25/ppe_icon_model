@@ -163,7 +163,15 @@ MODULE mo_nonhydro_types
     &  dw_int(:,:,:),      & ! Storage field for vertical nesting: w at parent interface level
     &  dw_ubc(:,:),        & ! Storage field for vertical nesting: w at child upper boundary
     &  q_int(:,:,:),       & ! Storage field for vertical nesting: q at parent interface level
-    &  q_ubc(:,:,:)          ! Storage field for vertical nesting: q at child upper boundary
+    &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
+
+    !
+    ! c) analysis increments (necessary for incremental analysis update)
+    &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
+    &  exner_incr(:,:,:),   & ! exner inrement                   [-]
+    &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
+    &  qv_incr   (:,:,:)      ! specific humidity increment      [kg/kg]
+
 
 
     REAL(wp), POINTER ::    & !

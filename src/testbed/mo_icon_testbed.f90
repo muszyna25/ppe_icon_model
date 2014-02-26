@@ -42,10 +42,6 @@ MODULE mo_icon_testbed
     & test_netcdf_read_model, testbed_ocean_model
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
-#ifndef __NO_ICON_OCEAN__
-  USE mo_testbed_ocean_performance, ONLY: test_ocean_performance
-#endif
-
 #ifndef __NO_ICON_ATMO__
   USE mo_test_coupler,        ONLY: test_coupler
   USE mo_test_communication,  ONLY: test_communication
@@ -79,11 +75,6 @@ CONTAINS
       ! do nothing
       RETURN
 
-#ifndef __NO_ICON_OCEAN__
-    CASE(testbed_ocean_model)
-      ! do nothing
-      CALL test_ocean_performance(testbed_namelist_filename,shr_namelist_filename)
-#endif
 
 #ifndef __NO_ICON_ATMO__
     CASE(test_coupler_model)

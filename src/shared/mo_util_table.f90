@@ -170,6 +170,7 @@ CONTAINS
     i    =  1
     icol = -1
     COLFIND_LOOP : DO
+      IF (i > table%n_columns)  EXIT COLFIND_LOOP
       IF (TRIM(column_title) == TRIM(table%column(i)%title)) THEN
         icol = i
         EXIT COLFIND_LOOP
@@ -191,7 +192,16 @@ CONTAINS
     INTEGER :: icol
 
     icol =  get_column_index(table, column_title)
-    IF (icol == -1)  CALL finish(routine, "Column title not found!")
+
+    ! for convenience: create colunms when called for the first row
+    IF (icol == -1) THEN
+      IF (irow == 1) THEN
+        CALL add_table_column(table, column_title)
+        icol =  get_column_index(table, column_title)
+      ELSE
+        CALL finish(routine, "Column title not found!")
+      END IF
+    END IF
     CALL resize_column(table%column(icol), irow)
     table%column(icol)%row(irow) = TRIM(entry_str)
     table%column(icol)%width     = MAX(table%column(icol)%width, LEN_TRIM(entry_str))
@@ -201,10 +211,11 @@ CONTAINS
 
   !> Print a table.
   !
-  SUBROUTINE print_table(table, opt_delimiter, opt_dstfile)
+  SUBROUTINE print_table(table, opt_delimiter, opt_dstfile, opt_hline)
     TYPE (t_table),   INTENT(IN)           :: table
     CHARACTER(LEN=3), INTENT(IN), OPTIONAL :: opt_delimiter   !< (optional) delimiter character
     INTEGER,          INTENT(IN), OPTIONAL :: opt_dstfile     !< (optional) output file
+    LOGICAL,          INTENT(IN), OPTIONAL :: opt_hline       !< (optional) draw head/foot horizontal line
 
     ! local variables
     INTEGER                       :: dst, irow, icol, width
@@ -212,6 +223,10 @@ CONTAINS
     CHARACTER(LEN=64)             :: format_str
     CHARACTER(LEN=MAX_COLUMN_LEN) :: entry_str
     CHARACTER(LEN=3)              :: delimiter
+    LOGICAL                       :: hline
+
+    hline = .FALSE.
+    IF (PRESENT(opt_hline))  hline = opt_hline
 
     delimiter = ' | '
     IF (PRESENT(opt_delimiter))  delimiter = opt_delimiter
@@ -222,6 +237,18 @@ CONTAINS
     ! construct and print the table header
     WRITE (dst,*) "" ! new line
 
+    ! optional head line
+    IF (hline) THEN
+      WRITE (dst,"(a1)", advance='no') " " ! indent
+      DO icol = 1, table%n_columns
+        width = table%column(icol)%width
+        format_str = "(a"//TRIM(int2string(width))//',a)'
+        WRITE (dst,TRIM(format_str), advance='no') REPEAT('-',width), delimiter
+      END DO
+      WRITE (dst,*) "" ! new line
+    END IF
+
+    WRITE (dst,"(a1)", advance='no') " " ! indent
     DO icol = 1, table%n_columns
       title_str = table%column(icol)%title
       width = MIN(table%column(icol)%width,MAX_TITLE_LEN)
@@ -229,6 +256,7 @@ CONTAINS
       WRITE (dst,TRIM(format_str), advance='no') ADJUSTL(title_str(1:width)), delimiter
     END DO
     WRITE (dst,*) "" ! new line
+    WRITE (dst,"(a1)", advance='no') " " ! indent
     DO icol = 1, table%n_columns
       width = table%column(icol)%width
       format_str = "(a"//TRIM(int2string(width))//',a)'
@@ -239,6 +267,7 @@ CONTAINS
 
     ! write the table contents
     LOOP : DO irow=1,table%n_rows
+      WRITE (dst,"(a1)", advance='no') " " ! indent
       DO icol = 1, table%n_columns
         entry_str  = " "
         IF (table%column(icol)%n_rows >= irow) THEN
@@ -249,6 +278,21 @@ CONTAINS
       END DO
       WRITE (dst,*) "" ! new line
     END DO LOOP
+
+    ! optional foot line
+    IF (hline) THEN
+      WRITE (dst,"(a1)", advance='no') " " ! indent
+      DO icol = 1, table%n_columns
+        width = table%column(icol)%width
+        format_str = "(a"//TRIM(int2string(width))//',a)'
+        IF (icol < table%n_columns) THEN
+          WRITE (dst,TRIM(format_str), advance='no') REPEAT('-',width), "---"
+        ELSE
+          WRITE (dst,TRIM(format_str), advance='no') REPEAT('-',width), "   "
+        END IF
+      END DO
+      WRITE (dst,*) "" ! new line
+    END IF
   END SUBROUTINE print_table
 
 END MODULE mo_util_table

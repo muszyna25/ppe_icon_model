@@ -212,7 +212,7 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: p0sl_bg         = 101325._wp  ! [Pa]     sea level pressure
 
 !----------below are parameters for sea-ice model---------------
-  REAL(wp), PARAMETER ::           &
+  REAL(wp), PARAMETER ::            &
     ks           = 0.31_wp,         & ! heat conductivity snow     [J  / (m s K)]
     ki           = 2.1656_wp,       & ! heat conductivity ice      [J  / (m s K)]   
     rhoi         = 917.0_wp,        & ! density of sea ice         [kg / m**3]
@@ -225,12 +225,20 @@ MODULE mo_physical_constants
     muS          = mu*Sice,         & ! = - (sea-ice liquidus 
                                       ! (aka melting) temperature) [C]
 !   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
-    albedoW      = 0.07_wp,         & ! albedo of the ocean 
-! MPIOM albedo scheme
-    albs         = 0.75_wp,         & ! Albedo of snow (not melting)
-    albsm        = 0.65_wp,         & ! Albedo of snow (melting)    
-    albi         = 0.66_wp,         & ! Albedo of ice (not melting)
-    albim        = 0.64_wp,         & ! Albedo of ice (melting)    
+    albedoW      = 0.07_wp,         & ! albedo of the ocean used in atmosphere
+! MPIOM albedo scheme without OMIP update
+!   albs         = 0.75_wp,         ! Albedo of snow (not melting)
+!   albsm        = 0.65_wp,         ! Albedo of snow (melting)    
+!   albi         = 0.66_wp,         ! Albedo of ice (not melting)
+!   albim        = 0.64_wp,         ! Albedo of ice (melting)    
+! MPIOM albedo scheme for OMIP, tuned for MPIOM
+    albedoW_sim  = 0.10_wp,         & ! albedo of the ocean used in sea ice model
+    albs         = 0.85_wp,         & ! Albedo of snow (not melting)
+    albsm        = 0.70_wp,         & ! Albedo of snow (melting)    
+    albi         = 0.75_wp,         & ! Albedo of ice (not melting)
+    albim        = 0.70_wp,         & ! Albedo of ice (melting)    
+    fr_fac       = 1.1925_wp,       & ! Frank Roeske energy budget closing factor for OMIP
+!   fr_fac       = 1.0_wp,          ! factor not active
 ! CCSM3 albedo scheme
     alb_ice_vis  = 0.73_wp,         & ! Albedo of dry ice  (visible)
     alb_ice_nir  = 0.33_wp,         & ! Albedo of dry ice  (near-infrared)

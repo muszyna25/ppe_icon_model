@@ -68,7 +68,7 @@ MODULE mo_nwp_phy_init
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
-  USE mo_radiation_config,    ONLY: ssi, tsi,irad_o3, irad_aero, rad_csalbw 
+  USE mo_radiation_config,    ONLY: ssi_radt, tsi_radt,irad_o3, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
@@ -504,17 +504,17 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !    prm_diag%lfglac (:,:) = ext_data%atm%soiltyp(:,:) == 1  !soiltyp=ice
 
     ! solar flux (W/m2) in 14 SW bands
-    ssi(:) = ssi_amip(:)
+    ssi_radt(:) = ssi_amip(:)
     ! solar constant (W/m2)
-    tsi    = SUM(ssi(:))
+    tsi_radt    = SUM(ssi_radt(:))
 
 
     !------------------------------------------
     !< set conditions for Aqua planet experiment  
     !------------------------------------------
     IF ( nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52' ) THEN
-      ssi(:) = ssi(:)*1365._wp/tsi
-      tsi = 1365._wp
+      ssi_radt(:) = ssi_radt(:)*1365._wp/tsi_radt
+      tsi_radt = 1365._wp
     ENDIF  ! APE
 
     
@@ -634,17 +634,17 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     END SELECT
 
     ! solar flux (W/m2) in 14 SW bands    
-    ssi(:) = ssi_amip(:)
+    ssi_radt(:) = ssi_amip(:)
     ! solar constant (W/m2)
-    tsi    = SUM(ssi(:))
+    tsi_radt    = SUM(ssi_radt(:))
 
 
     !------------------------------------------
     !< set conditions for Aqua planet experiment  
     !------------------------------------------
     IF ( nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52' ) THEN
-      ssi(:) = ssi(:)*1365._wp/tsi
-      tsi = 1365._wp
+      ssi_radt(:) = ssi_radt(:)*1365._wp/tsi_radt
+      tsi_radt = 1365._wp
     ENDIF
     
     CALL rad_aibi
@@ -923,7 +923,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
         lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
 
-      ELSE  ! init_mode=MODE_DWDANA
+      ELSE  ! init_mode=MODE_DWDANA, MODE_DWDANA_INC
         !
         ! TKE and gz0 are not re-initialized, but re-used from the first guess
         !

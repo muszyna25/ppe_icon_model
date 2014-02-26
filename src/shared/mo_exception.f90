@@ -46,7 +46,7 @@
 MODULE mo_exception
 
   USE mo_io_units, ONLY: nerr, nlog, filename_max
-  USE mo_mpi,      ONLY: run_is_global_mpi_parallel, p_abort, my_process_is_stdio, &
+  USE mo_mpi,      ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
     & get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0, proc_split, comm_lev
   USE mo_kind,     ONLY: wp
 
@@ -198,7 +198,7 @@ CONTAINS
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
 
     IF (run_is_global_mpi_parallel()) THEN
-      CALL p_abort
+      CALL abort_mpi
     ELSE
 #ifndef __STANDALONE
        CALL util_exit(iexit)

@@ -37,7 +37,7 @@ MODULE mo_atmo_model
   ! basic modules
   USE mo_kind,                    ONLY: wp, dp
   USE mo_exception,               ONLY: message, finish, message_text
-  USE mo_mpi,                     ONLY: p_stop, my_process_is_io,                             &
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,                           &
     &                                   my_process_is_mpi_test, my_process_is_mpi_parallel,   &
     &                                   set_mpi_work_communicators, set_comm_input_bcast,     &
     &                                   null_comm_type, p_pe_work, get_my_mpi_all_id, p_min,  &
@@ -53,7 +53,9 @@ MODULE mo_atmo_model
     &                                   use_async_restart_output
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
+  USE mo_util_string,             ONLY: int2string
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_io_restart,              ONLY: read_restart_header
   USE mo_io_restart_attributes,   ONLY: get_restart_attribute
 
   ! namelist handling; control parameters: run control, dynamics
@@ -65,7 +67,7 @@ MODULE mo_atmo_model
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
-    &                                   ltimer,                                               &
+    &                                   ltimer, ltestcase,                                    &
     &                                   iforcing,                                             & !    namelist parameter
     &                                   nshift,                                               &
     &                                   num_lev,num_levp1,                                    &
@@ -82,6 +84,7 @@ MODULE mo_atmo_model
   USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
 
   USE mo_nonhydro_state,          ONLY: p_nh_state
+  USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
   ! coupling
   USE mo_icon_cpl_init,           ONLY: icon_cpl_init
@@ -128,13 +131,11 @@ MODULE mo_atmo_model
   USE mo_io_restart_async,        ONLY: restart_main_proc                                       ! main procedure for Restart PEs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_io_restart,              ONLY: read_restart_info_file
-  USE mo_io_restart_namelist,     ONLY: read_restart_namelists, delete_restart_namelists
-  USE mo_io_restart_attributes,   ONLY: read_restart_attributes
-  USE mo_time_config,            ONLY: time_config      ! variable
-  USE mo_mtime_extensions,       ONLY: get_datetime_string
-  USE mo_output_event_types,     ONLY: t_sim_step_info
-  USE mtime,                     ONLY: setCalendar, PROLEPTIC_GREGORIAN
+  USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
+  USE mo_time_config,             ONLY: time_config      ! variable
+  USE mo_mtime_extensions,        ONLY: get_datetime_string
+  USE mo_output_event_types,      ONLY: t_sim_step_info
+  USE mtime,                      ONLY: setCalendar, PROLEPTIC_GREGORIAN
 
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
@@ -220,16 +221,11 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-
+    ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:init_atmo_model"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
-    LOGICAL :: lsuccess
-    INTEGER :: jg, jgp
-
-    INTEGER :: error_status
-
-    TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0, ist
+    INTEGER                        :: jg, jgp, jstep0, error_status
+    TYPE(t_sim_step_info)          :: sim_step_info  
 
     INTEGER :: nlevp1, nblks_v
 
@@ -242,38 +238,9 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
+
     IF (is_restart_run()) THEN
-
-      ! First read the restart master file (ASCII format) to find out
-      ! which NetCDF files the model should read.
-      ! Comment by Hui Wan:
-      ! The namelist variable atmo_restart_info_filename should be
-      ! an input argument of the subroutine read_restart_info_file.
-
-      CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-
-      IF (lsuccess) THEN
-        CALL message( TRIM(routine),                          &
-                    & 'Running model in restart mode. '       &
-                    & //'Horizontal grid should be read from '&
-                    & //TRIM(grid_file_name) )
-      ELSE
-        CALL finish(TRIM(routine),'Failed to read restart info file')
-      END IF
-
-      ! Read all namelists used in the previous run
-      ! and store them in a buffer. These values will overwrite the
-      ! model default, and will later be overwritten if the user has
-      ! specified something different for this integraion.
-
-      CALL read_restart_namelists('restart_atm.nc')
-      CALL message(TRIM(routine), 'read namelists from atm restart file')
-
-      ! Read all global attributs in the restart file and store them in a buffer.
-
-      CALL read_restart_attributes('restart_atm.nc')
-      CALL message(TRIM(routine), 'read global attributes from atm restart file')
-
+      CALL read_restart_header("atm", grid_file_name)
     END IF ! is_restart_run()
 
     !---------------------------------------------------------------------
@@ -369,7 +336,7 @@ CONTAINS
         END IF
       ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
         ! Shut down MPI
-        CALL p_stop
+        CALL stop_mpi
         STOP
       ENDIF
     ELSE
@@ -506,6 +473,9 @@ CONTAINS
    !---------------------------------------------------------------------
 
     CALL allocate_vct_atmo(p_patch(1)%nlevp1)
+    IF (iequations == inh_atmosphere .AND. ltestcase) THEN
+      CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
+    ENDIF
     CALL construct_vertical_grid(p_patch(1:), p_int_state(1:), ext_data, &
       &                          vct_a, vct_b, vct, nflatlev, nflat)
 

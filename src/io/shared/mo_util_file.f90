@@ -181,7 +181,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(out) :: filename
     INTEGER,          INTENT(in)  :: klen
     ! local variables
-    INTEGER, PARAMETER :: N_RETRIES = 10
+    INTEGER, PARAMETER :: N_RETRIES = 50
     INTEGER              :: i
     LOGICAL              :: lexists
     CHARACTER (LEN=klen) :: new_filename

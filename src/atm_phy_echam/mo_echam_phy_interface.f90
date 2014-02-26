@@ -61,7 +61,8 @@ MODULE mo_echam_phy_interface
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3, irad_aero
+  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3, irad_aero, isolrad, &
+                                  tsi, tsi_radt, ssi_radt
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
@@ -71,7 +72,7 @@ MODULE mo_echam_phy_interface
     & timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
     & timer_echam_sync_temp , timer_echam_sync_tracers
   USE mo_time_interpolation,ONLY: time_weights_limm
-                                
+  USE mo_time_interpolation_weights, ONLY: wi_limm, wi_limm_radt      
   USE mo_coupling_config,    ONLY: is_coupled_run
 #ifdef YAC_coupling
   USE finterface_description ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
@@ -87,6 +88,7 @@ MODULE mo_echam_phy_interface
   USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
     &                              get_current_amip_bc_year
   USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
+  USE mo_solar_irradiance,     ONLY: read_ssi_bc, ssi_time_interpolation
 
   IMPLICIT NONE
   PRIVATE
@@ -355,25 +357,11 @@ CONTAINS
       ztime_radtran = 0._wp
     ENDIF
 
-    ! Read and interpolate SST for AMIP simulations; prescribed ozone and
+    ! Read and interpolate SST for AMIP simulations; solar irradiation, prescribed ozone, and
     ! aerosol concentrations.
     !LK:
     !TODO: pass timestep as argument
     !COMMENT: lsmask == slm and is not slf!
-    IF (ltrig_rad) THEN
-      CALL time_weights_limm(datetime_radtran)   ! Calculate interpolation weights 
-                                                 ! for linear interp. of monthly means
-    END IF
-    IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
-      CALL read_amip_o3(datetime%year, p_patch)
-    END IF
-    IF (ltrig_rad .AND. irad_aero == 13) THEN
-      CALL read_aero_kinne(datetime%year, p_patch)
-    END IF
-    IF (ltrig_rad .AND. irad_aero == 15) THEN
-      CALL read_aero_kinne(datetime%year, p_patch)
-      CALL read_aero_stenchikov(datetime%year, p_patch)
-    END IF
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN
         CALL read_amip_bc(datetime%year, p_patch)
@@ -389,6 +377,32 @@ CONTAINS
       prm_field(jg)%conc(:,1,:) = prm_field(jg)%seaice(:,:)
       prm_field(jg)%hi(:,1,:)   = prm_field(jg)%siced(:,:)
     ENDIF
+! Calculate interpolation weights for linear interpolation
+! of monthly means onto the actual integration time step
+    CALL time_weights_limm(datetime, wi_limm)
+    IF (ltrig_rad) THEN
+! Calculate interpolation weights for linear interpolation
+! of monthly means onto the radiation time steps
+      CALL time_weights_limm(datetime_radtran,wi_limm_radt)   
+    END IF
+    IF (isolrad==1) THEN
+      CALL read_ssi_bc(datetime%year,.FALSE.)
+      CALL ssi_time_interpolation(wi_limm,.FALSE.,tsi)
+      IF (ltrig_rad) THEN
+         CALL read_ssi_bc(datetime_radtran%year,.TRUE.)
+         CALL ssi_time_interpolation(wi_limm_radt,.TRUE.,tsi_radt,ssi_radt)
+      END IF
+    END IF !isolrad
+    IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
+      CALL read_amip_o3(datetime%year, p_patch)
+    END IF
+    IF (ltrig_rad .AND. irad_aero == 13) THEN
+      CALL read_aero_kinne(datetime%year, p_patch)
+    END IF
+    IF (ltrig_rad .AND. irad_aero == 15) THEN
+      CALL read_aero_kinne(datetime%year, p_patch)
+      CALL read_aero_stenchikov(datetime%year, p_patch)
+    END IF
 
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
 !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
@@ -570,14 +584,14 @@ CONTAINS
        ! THFLX, total heat flux
        !
        buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
-       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) + &
-        &             RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) + &
-        &             RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !net non-solar fluxes for ocean
+       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
+       buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) !sensible heat flux
+       buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
 #ifdef YAC_coupling
-       CALL yac_fput ( field_id(5), nbr_hor_points, 2, 1, 1, buffer, ierror )
+       CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, ierror )
 #else
-       field_shape(3) = 2
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+       field_shape(3) = 4
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
 #endif
        !
        ! ICEATM, Ice state determined by atmosphere

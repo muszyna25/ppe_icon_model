@@ -78,7 +78,7 @@ MODULE mo_nh_stepping
   USE mo_time_config,         ONLY: time_config
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys, start_time, end_time
-  USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase 
+  USE mo_nh_testcases,        ONLY: init_nh_testcase 
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity
@@ -101,11 +101,11 @@ MODULE mo_nh_stepping
                                     rdaylen, date_to_time
   USE mo_io_restart,          ONLY: write_restart_info_file, create_restart_file
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
-    &                               iphysproc_short, itconv, itccov, itrad, &
-    &                               itradheat, itsso, itsatad, itgwd, inwp, iecham, &
-    &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
-                                    min_rledge_int, MODE_DWDANA, MODIS, icosmo
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
+    &                               itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
+    &                               inwp, iecham, itupdate, itturb, itgscp, itsfc, icosmo,    &
+    &                               min_rlcell_int, min_rledge_int,                           &
+                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS
   USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_update_dyn,          ONLY: add_slowphys
@@ -145,8 +145,8 @@ MODULE mo_nh_stepping
   USE mo_art_config,          ONLY: art_config
 
   USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
-  USE mo_nh_init_nest_utils,  ONLY: initialize_nest, topo_blending_and_fbk
-  USE mo_nh_init_utils,       ONLY: hydro_adjust_downward
+  USE mo_nh_init_nest_utils,  ONLY: initialize_nest
+  USE mo_nh_init_utils,       ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
                                   & read_td_ext_data_file
   USE mo_initicon_config,     ONLY: init_mode
@@ -225,11 +225,6 @@ MODULE mo_nh_stepping
   ! for the split explict scheme, ntl is always 2
   ntl = 2
 
-  IF (ltestcase) THEN
-    CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
-  ENDIF
-
-  IF (n_dom > 1) CALL topo_blending_and_fbk(1)
 
   CALL set_nh_metrics(p_patch(1:), p_nh_state, p_int_state(1:), ext_data)
 
@@ -296,7 +291,7 @@ MODULE mo_nh_stepping
                                 &  p_patch(1:), ext_data, p_lnd_state)
   END IF
 
-  IF (iforcing == inwp .AND. is_restart_run()) THEN
+  IF (iforcing == inwp) THEN
     DO jg=1, n_dom
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
       CALL init_nwp_phy( dtime                     ,&
@@ -314,28 +309,12 @@ MODULE mo_nh_stepping
            & ext_data(jg)                          ,&
            & phy_params(jg)                         )
     ENDDO
-  ELSE IF (iforcing == inwp) THEN ! for cold start, use atmospheric fields at time level nnow only
-    DO jg=1, n_dom
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-      CALL init_nwp_phy( dtime                     ,&
-           & p_patch(jg)                           ,&
-           & p_nh_state(jg)%metrics                ,&
-           & p_nh_state(jg)%prog(nnow(jg))         ,&
-           & p_nh_state(jg)%diag                   ,&
-           & prm_diag(jg)                          ,&
-           & prm_nwp_tend(jg)                      ,&
-           & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),&
-           & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
-           & p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)),&
-           & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
-           & p_lnd_state(jg)%diag_lnd              ,&
-           & ext_data(jg)                          ,&
-           & phy_params(jg)                         )
-    ENDDO
-    ! Compute diagnostic physics fields
-    CALL diag_for_output_phys
-    ! Initial call of (slow) physics schemes, including computation of transfer coefficients
-    CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
+    IF (.NOT.is_restart_run()) THEN
+      ! Compute diagnostic physics fields
+      CALL diag_for_output_phys
+      ! Initial call of (slow) physics schemes, including computation of transfer coefficients
+      CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
+    ENDIF
   ENDIF
 
   !------------------------------------------------------------------
@@ -422,7 +401,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: jstep, jg, kstep
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
-    &                                     l_nml_output, &
+    &                                     l_nml_output, lprint_timestep, &
     &                                     l_supervise_total_integrals,  &
     &                                     lwrite_checkpoint, ldom_active(n_dom)
   TYPE(t_simulation_status)            :: simulation_status
@@ -481,7 +460,14 @@ MODULE mo_nh_stepping
     IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
-    IF (msg_level >= 2 .OR. (jstep == (jstep0+1)) .OR. MOD(jstep,100) == 0) THEN
+    IF (msg_level > 2) THEN
+      lprint_timestep = MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8
+    ELSE
+      lprint_timestep = MOD(jstep,100) == 0
+    ENDIF
+    lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 ! always print the first time step
+
+    IF (lprint_timestep) THEN
       WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
       CALL message(TRIM(routine),message_text)
     ENDIF
@@ -660,12 +646,12 @@ MODULE mo_nh_stepping
     ! - if (MOD(jstep,n_diag) == 0), or
     ! - in the very last time step (jstep==nsteps)
 
-    l_supervise_total_integrals =((lstep_adv(1) .AND. (jstep <= iadv_rcf)) .OR. &
-      &                           (MOD(jstep,n_diag) == 0)                 .OR. &
-      &                           (jstep==(nsteps+jstep0)))                .AND.&
-      &                           (output_mode%l_totint)
     kstep = jstep-jstep0
-    IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
+    l_supervise_total_integrals =(lstep_adv(1) .AND. (kstep <= iadv_rcf)) .OR. &
+      &                           (MOD(jstep,n_diag) == 0)                .OR. &
+      &                           (kstep==nsteps)                         .AND.&
+      &                           (output_mode%l_totint)
+    IF (kstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
     IF (l_supervise_total_integrals) THEN
 #ifdef NOMPI
@@ -701,7 +687,8 @@ MODULE mo_nh_stepping
             & opt_jstep_adv_ntstep       = jstep_adv(jg)%ntsteps,      &
             & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
             & opt_depth_lnd              = nsoil(jg),                  &
-            & opt_nlev_snow              = nsnow)
+            & opt_nlev_snow              = nsnow,                      &
+            & opt_ndom                   = n_dom)
         ENDDO
         CALL write_async_restart(datetime, jstep)
       ELSE
@@ -709,13 +696,15 @@ MODULE mo_nh_stepping
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
           CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   &
                                   & jstep                      = jstep,                      &
+                                  & model_type                 = "atm",                      &
                                   & opt_t_elapsed_phy          = t_elapsed_phy,              &
                                   & opt_lcall_phy              = lcall_phy,                  &
                                   & opt_sim_time               = time_config%sim_time(jg),   &
                                   & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                   & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
                                   & opt_depth_lnd              = nsoil(jg),                  &
-                                  & opt_nlev_snow              = nsnow )
+                                  & opt_nlev_snow              = nsnow,                      &
+                                  & opt_ndom                   = n_dom )
         END DO
 
         ! Create the master (meta) file in ASCII format which contains
@@ -1026,29 +1015,9 @@ MODULE mo_nh_stepping
                                          p_nh_state(jg)%diag)
         ENDIF
 
-        ! Determine which physics packages must be called/not called at the current
-        ! time step
-        IF ( iforcing == inwp ) THEN
-          CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
-            &                      .FALSE.,                        &! in
-            &                      t_elapsed_phy,                  &! inout
-            &                      lcall_phy )                      ! out
-
-          IF (msg_level >= 13) THEN
-            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
-              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
-
-            CALL message(TRIM(routine), TRIM(message_text))
-            IF(ltransport) THEN
-              WRITE(message_text,'(a,i4,l4)') 'call advection',jg , lstep_adv(jg)
-              CALL message('integrate_nh', TRIM(message_text))
-            ELSE IF(.NOT. ltransport) THEN
-              WRITE(message_text,'(a,l4)') 'no advection, ltransport=', ltransport
-              CALL message('integrate_nh', TRIM(message_text))
-            ENDIF
-          ENDIF
+        IF (init_mode == MODE_DWDANA_INC) THEN ! incremental analysis mode
+          CALL compute_iau_wgt(datetime, time_config%sim_time(jg)-0.5_wp*dt_loc, dt_loc, lclean_mflx)
         ENDIF
-
 
         IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
           ! apply boundary nudging if feedback is turned off and in limited-area mode
@@ -1137,9 +1106,6 @@ MODULE mo_nh_stepping
             &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
             &         prep_adv(jg)%topflx_tra                               )! out
 
-        ENDIF
-
-        IF ( ltransport ) THEN
           IF (lstep_adv(jg)) THEN
 
             IF (art_config(jg)%lart) THEN
@@ -1152,6 +1118,11 @@ MODULE mo_nh_stepping
                 &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
             ENDIF   
 
+
+            IF (msg_level >= 13) THEN
+              WRITE(message_text,'(a,i2)') 'call advection  DOM:',jg
+              CALL message('integrate_nh', TRIM(message_text))
+            ENDIF
 
             CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,      & !in
               &          jstep_adv(jg)%marchuk_order,                          & !in
@@ -1189,9 +1160,9 @@ MODULE mo_nh_stepping
 !            ENDIF
 
 
-           ENDIF  !lstep_adv
+          ENDIF  !lstep_adv
 
-        ENDIF
+        ENDIF !ltransport
 
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 .AND. lstep_adv(jg)) THEN
@@ -1210,6 +1181,19 @@ MODULE mo_nh_stepping
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
        
+          ! Determine which physics packages must be called/not called at the current
+          ! time step
+          CALL time_ctrl_physics ( dt_phy, lstep_adv, dtadv_loc, jg,  &! in
+            &                      .FALSE.,                           &! in
+            &                      t_elapsed_phy,                     &! inout
+            &                      lcall_phy )                         ! out
+
+          IF (msg_level >= 13) THEN
+            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
+              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
+            CALL message(TRIM(routine), TRIM(message_text))
+          END IF
+
           !Call interface for LES physics
           IF(atm_phy_nwp_config(jg)%is_les_phy)THEN     
 

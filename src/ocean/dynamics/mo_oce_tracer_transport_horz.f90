@@ -677,7 +677,7 @@ CONTAINS
      CALL map_edges2edges_viacell_3d_const_z( patch_3d, &
      & p_os%p_diag%vn_time_weighted,                    &
      & p_op_coeff,                                      &
-     & adv_flux_h,                                      &
+     & z_adv_flux_high,                                 &
      & trac_old)  
     
     !2)call limiter 
@@ -1772,8 +1772,8 @@ CONTAINS
             & r_p(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)))  )
           
           ! Limited flux
-          flx_tracer_high(je,jk,jb) = flx_tracer_low(je,jk,jb)               &
-            & + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
+          !flx_tracer_high(je,jk,jb) = flx_tracer_low(je,jk,jb)               &
+          !  & + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
             
           flx_tracer_final(je,jk,jb) = flx_tracer_low(je,jk,jb)               &
             & + MIN(1._wp,r_frac) * z_anti(je,jk,jb)            

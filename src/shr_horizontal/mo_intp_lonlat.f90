@@ -1589,7 +1589,7 @@
       ! fallback solution:
       IF (rbf_shape_param <= 0._wp) &
         &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-      WRITE(message_text,*) routine, ": chosen rbf_shape_param = ", rbf_shape_param
+      WRITE(message_text,*) ": chosen rbf_shape_param = ", rbf_shape_param
       CALL message(routine, TRIM(message_text))
 
       CALL rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int_lonlat, in_points, nblks_lonlat, &
@@ -1642,7 +1642,7 @@
         ! fallback solution:
         IF (rbf_shape_param <= 0._wp) &
           &  rbf_shape_param = rbf_vec_scale_ll(MAX(ptr_patch%id,1))
-        WRITE(message_text,*) routine, ": chosen rbf_shape_param = ", rbf_shape_param
+        WRITE(message_text,*) ": chosen rbf_shape_param = ", rbf_shape_param
         CALL message(routine, TRIM(message_text))
         ! compute coefficients:
         CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, in_points, &

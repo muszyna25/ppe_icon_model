@@ -85,7 +85,6 @@ MODULE mo_advection_stepping
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
 
@@ -738,9 +737,7 @@ CONTAINS
     ! follow AFTER the call of NWP physics.
     ! For efficiency, the synchronization is applied for all tracers at once
 
-    !AD: However, do the sync if Smagorisnky turbulence scheme is used even though
-    !    iforcing==inwp 
-    IF (iforcing /= inwp .OR. atm_phy_nwp_config(jg)%is_les_phy) THEN
+    IF (iforcing /= inwp) THEN
       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=p_tracer_new)
     ENDIF
 

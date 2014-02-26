@@ -71,8 +71,8 @@ MODULE mo_echam_phy_init
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
   ! radiation
-  USE mo_radiation_config,     ONLY: ssi, tsi, ighg
-  USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
+  USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, ighg, isolrad
+  USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip, ssi_default, ssi_preind
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
@@ -111,7 +111,6 @@ MODULE mo_echam_phy_init
   ! for AMIP boundary conditions
   USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
   USE mo_greenhouse_gases,     ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
-  USE mo_solar_irradiance,     ONLY: read_ssi_bc, ssi_time_weights, ssi_time_interpolation
 
   IMPLICIT NONE
 
@@ -164,9 +163,28 @@ CONTAINS
     ! For radiation:
 
     IF (phy_config%lrad) THEN
-      ! TSI, SSI are getting overwritten in case of an AMIP simulation by time varying once (see below)
-      ssi(:) = ssi_amip(:)
-      tsi    = SUM(ssi(:))
+      SELECT CASE (isolrad)
+      CASE (0)
+        ssi_radt(:) = ssi_default(:)
+        tsi_radt = SUM(ssi_default)
+        tsi      = tsi_radt
+      CASE (1)
+        ! in this case, transient solar irradiation is used and has to be implemented inside
+        ! the time loop (mo_echam_phy_interface)
+        CONTINUE
+      CASE (2)
+        ssi_radt(:) = ssi_preind(:)
+        tsi_radt = SUM(ssi_preind)
+        tsi      = tsi_radt
+      CASE (3)
+        ssi_radt(:) = ssi_amip(:)
+        tsi_radt = SUM(ssi_amip)
+        tsi      = tsi_radt
+      CASE default
+        WRITE (message_text, '(a,i2,a)') &
+             'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
+        CALL message('init_echam_phy', message_text)
+      END SELECT
       CALL setup_srtm
       CALL lrtm_setup('rrtmg_lw.nc')
       CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
@@ -321,10 +339,6 @@ CONTAINS
         IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
         CALL ghg_time_interpolation(current_date)
       ENDIF
-      ! overwrite defined static TSI, SSI by time varying once
-      CALL read_ssi_bc(current_date%year)
-      CALL ssi_time_weights(current_date)
-      CALL ssi_time_interpolation(tsi, ssi)
       CALL read_amip_bc(current_date%year, p_patch(1))
       CALL amip_time_weights(current_date)
       DO jg= 1,ndomain
@@ -624,12 +638,12 @@ CONTAINS
              ! THFLX, total heat flux
              !
              buffer(:,1) =  RESHAPE ( field%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
-             buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) + &
-              &             RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) + &
-              &             RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !net non-solar fluxes for ocean
-             field_shape(3) = 2
+             buffer(:,2) =  RESHAPE ( field%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
+             buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) ! sensible heat flux
+             buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
+             field_shape(3) = 4
              CALL ICON_cpl_put_init ( field_id(5), field_shape, &
-                                      buffer(1:nbr_hor_points,1:2), ierror )
+                                      buffer(1:nbr_hor_points,1:4), ierror )
              !
              ! ICEATM, Ice state determined by atmosphere
              !

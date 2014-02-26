@@ -1100,6 +1100,8 @@ CONTAINS
             p_ice%conc(jc,jk,jb)= p_ice%conc(jc,jk,jb)-dtime*flux_conc(jc,jk,jb)
             p_ice%vols(jc,jk,jb)= p_ice%vols(jc,jk,jb)-dtime*flux_hs  (jc,jk,jb)
           ENDIF
+          ! TODO ram - remove p_patch%cells%area(jc,jb) and test
+          ! See also thermodyn/mo_sea_ice.f90
           IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN 
             p_ice%hi(jc,jk,jb) = p_ice%vol (jc,jk,jb)   &
               &         /( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )

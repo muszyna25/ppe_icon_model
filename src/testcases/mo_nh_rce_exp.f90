@@ -66,7 +66,7 @@ MODULE mo_nh_rce_exp
   !! Initialization of prognostic state vector for the nh RCE test case 
   !!
   SUBROUTINE init_nh_state_rce_glb( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-  &                           ptr_int, ptr_ext_data, ptr_metrics)
+  &                           ptr_int, ptr_metrics)
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
@@ -77,8 +77,6 @@ MODULE mo_nh_rce_exp
       &  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
       &  ptr_nh_diag
-    TYPE(t_external_data), INTENT(INOUT):: &  !< external data
-      &  ptr_ext_data
     TYPE(t_nh_metrics),    INTENT(IN)   :: &
       &  ptr_metrics                          !< NH metrics state
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector

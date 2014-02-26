@@ -84,7 +84,7 @@ USE mo_dbg_nml,             ONLY: idbg_mxmn
 USE mo_oce_types,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW
+USE mo_physical_constants,  ONLY: rho_ref, als, alv, tmelt, tf, mu, clw, albedoW_sim
 USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
 USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -534,10 +534,10 @@ CONTAINS
         ENDDO
 
         ! Ocean albedo model
-        Qatm%albvisdirw = albedoW
-        Qatm%albvisdifw = albedoW
-        Qatm%albnirdirw = albedoW
-        Qatm%albnirdifw = albedoW
+        Qatm%albvisdirw = albedoW_sim
+        Qatm%albvisdifw = albedoW_sim
+        Qatm%albnirdirw = albedoW_sim
+        Qatm%albnirdifw = albedoW_sim
 
         ! #slo# 2012-12:
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
@@ -647,7 +647,7 @@ CONTAINS
        !      p_sfc_flx%forc_hflx(jc,jb)                 &
        !      & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
        !      & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-       !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW)     ! incoming SW radiation flux
+       !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW_sim) ! incoming SW radiation flux
 
             ENDDO
           ENDDO
@@ -869,29 +869,30 @@ CONTAINS
     !    since there is no forc_hflx over open water when using OMIP-forcing
     !  - i_apply_bulk=1 provides net surface heat flux globally
     !
+    IF (no_tracer > 0) THEN
+      IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. i_apply_bulk == 1) THEN
 
-    IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. i_apply_bulk == 1) THEN
+        ! Heat flux boundary condition for diffusion
+        !   D = d/dz(K_v*dT/dz)  where
+        ! Boundary condition at surface (upper bound of D at center of first layer)
+        !   is calculated from net surface heat flux Q_s [W/m2]
+        !   which is calculated by the atmosphere (coupled) or read from flux file (see above)
+        !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
+        !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
+        ! discretized:
+        !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*clw)
 
-      ! Heat flux boundary condition for diffusion
-      !   D = d/dz(K_v*dT/dz)  where
-      ! Boundary condition at surface (upper bound of D at center of first layer)
-      !   is calculated from net surface heat flux Q_s [W/m2]
-      !   which is calculated by the atmosphere (coupled) or read from flux file (see above)
-      !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
-      !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
-      ! discretized:
-      !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*clw)
+        p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*clw)
 
-      p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*clw)
+        !---------DEBUG DIAGNOSTICS-------------------------------------------
+        idt_src=1  ! output print level (1-5, fix)
+        CALL dbg_print('UpdSfc: T-forc-hflx[W/m2]' ,p_sfc_flx%forc_hflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        idt_src=3  ! output print level (1-5, fix)
+        z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
+        CALL dbg_print('UpdSfc:T-forc-trac[K*m/s]' ,z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        !---------------------------------------------------------------------
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: T-forc-hflx[W/m2]' ,p_sfc_flx%forc_hflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=3  ! output print level (1-5, fix)
-      z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
-      CALL dbg_print('UpdSfc:T-forc-trac[K*m/s]' ,z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-
+      END IF
     END IF
 
     !-------------------------------------------------------------------------

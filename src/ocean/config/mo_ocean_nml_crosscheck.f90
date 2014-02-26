@@ -50,8 +50,7 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_datetime,          ONLY: add_time, print_datetime_all
   USE mo_io_config,         ONLY: dt_checkpoint
   USE mo_grid_config,       ONLY: grid_rescale_factor
-  USE mo_ocean_nml,         ONLY: select_solver, select_restart_gmres, select_gmres, &
-    & use_absolute_solver_tolerance
+  USE mo_ocean_nml
 
   IMPLICIT NONE
 
@@ -193,6 +192,12 @@ CONTAINS
         CALL finish(method_name, "Unknown solver")
 
     END SELECT
+
+    IF (no_tracer < 1) THEN
+      CALL warning("oce_crosscheck", "no_tracer < 1, set l_constant_mixing=TRUE")
+      l_constant_mixing = .TRUE.
+    ENDIF
+
 
   END SUBROUTINE oce_crosscheck
 

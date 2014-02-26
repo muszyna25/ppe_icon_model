@@ -330,14 +330,16 @@ CONTAINS
   
 
   !-------------------------------------------------------------------------
-  SUBROUTINE apply_initial_conditions(patch_2d, patch_3d, ocean_state, external_data, &
+  SUBROUTINE apply_initial_conditions(patch_3d, ocean_state, external_data, &
     & operators_coeff)
-    TYPE(t_patch),TARGET,INTENT(in)   :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data)             :: external_data
     TYPE(t_operator_coeff)            :: operators_coeff
 
+    TYPE(t_patch),POINTER            :: patch_2d
+
+    patch_2d => patch_3d%p_patch_2d(1)
     sphere_radius = grid_sphere_radius
     u0 = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
 
@@ -627,6 +629,9 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF (no_tracer < 2) RETURN        ! no salinity
+
+    ocean_salinity(:,:,:) = 0.0_wp
+
     IF (initial_salinity_type < 200) RETURN ! not analytic salinity
 
     SELECT CASE (initial_salinity_type)
@@ -699,6 +704,9 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF (no_tracer < 1) RETURN        ! no temperature
+
+    ocean_temperature(:,:,:) = 0.0_wp
+
     IF (initial_temperature_type < 200) RETURN ! not analytic temperature
 
     SELECT CASE (initial_temperature_type)
@@ -809,6 +817,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_velocity'
     !-------------------------------------------------------------------------
 
+    normal_velocity(:,:,:) = 0.0_wp
+
     IF (initial_velocity_type < 200) RETURN ! not analytic velocity
 
     SELECT CASE (initial_velocity_type)
@@ -854,7 +864,10 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
     !-------------------------------------------------------------------------
 
+    ocean_height(:,:) = 0.0_wp
+
     IF (sea_surface_height_type < 200) RETURN ! not analytic sea height
+
 
     patch_2d => patch_3d%p_patch_2d(1)
 

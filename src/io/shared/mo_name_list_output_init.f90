@@ -1138,6 +1138,14 @@ CONTAINS
         dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
       END IF
       local_i = local_i + 1
+      !================================================================================================
+      ! special treatment of ocean model: model_date/run_start is the time at
+      ! the beginning of the timestep. Output is written at the and of the
+      ! timestep
+      IF (is_restart_run() .AND. my_process_is_ocean()) THEN
+        CALL get_datetime_string(p_onl%output_start, time_config%cur_datetime, opt_td_string=p_onl%output_interval)
+      ENDIF
+
 
       ! I/O PEs communicate their event data, the other PEs create the
       ! event data only locally for their own event control:
@@ -1583,7 +1591,7 @@ CONTAINS
     DO i = 1, n_points_g
       IF(reorder_index_log_dom(i)>0) THEN
         n = n+1
-        p_ri%reorder_index(n) = reorder_index_log_dom(i)
+        p_ri%reorder_index(reorder_index_log_dom(i)) = n
       ENDIF
     ENDDO
 
@@ -1699,7 +1707,7 @@ CONTAINS
     ioffset = patch_info_ll%ri%pe_off(this_pe)
     patch_info_ll%ri%reorder_index = -1
     DO i=1,intp%nthis_local_pts
-      patch_info_ll%ri%reorder_index(intp%global_idx(i)) = ioffset + i
+      patch_info_ll%ri%reorder_index(ioffset + i) = intp%global_idx(i)
     END DO
     ! merge all fields across working PEs:
     patch_info_ll%ri%reorder_index = p_max(patch_info_ll%ri%reorder_index, &
@@ -2548,6 +2556,18 @@ CONTAINS
 
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
 
+!!$        ! GRIB2 Quick hack: Set additional GRIB2 keys
+!!$        CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
+!!$          &                            get_var_tileidx(TRIM(info%name)) )
+
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        !!!          ATTENTION                    !!!
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        ! Note that re-setting of the surface types must come AFTER (re)setting
+        ! "productDefinitionTemplateNumber" in set_additional_GRIB2_keys. It was observed 
+        ! (i.e. for Ensemble output), that the surface-type information is lost again, if 
+        ! these settings are performed prior to "productDefinitionTemplateNumber"  
+
         ! Re-Set "typeOfSecondFixedSurface" for the following set of variables
         !
         ! GRIB_CHECK(grib_set_long(gh, "typeOfSecondFixedSurface", xxx), 0);
@@ -2586,13 +2606,14 @@ CONTAINS
           CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstFixedSurface", 0)
         ENDIF
 
+
+        ! GRIB2 Quick hack: Set additional GRIB2 keys
+        CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
+          &                            get_var_tileidx(TRIM(info%name)) )
+
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
-
-      ! GRIB2 Quick hack: Set additional GRIB2 keys
-      CALL set_additional_GRIB2_keys(vlistID, varID, gribout_config(of%phys_patch_id), &
-        &                            get_var_tileidx(TRIM(info%name)) )
 
     ENDDO
     !

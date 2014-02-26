@@ -113,7 +113,7 @@ MODULE mo_ocean_initialization
   !public interface
   !
   ! subroutines
-  PUBLIC :: set_lateral_boundary_values
+  ! PUBLIC :: set_lateral_boundary_values
   PUBLIC :: init_ho_base
   PUBLIC :: init_ho_basins
   PUBLIC :: init_coriolis_oce
@@ -157,36 +157,36 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !
-  SUBROUTINE set_lateral_boundary_values( patch_3d, vn )
-    
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
-    REAL(wp)                             :: vn(:,:,:)
-    
-    ! local variables
-    INTEGER :: jb, je, jk
-    INTEGER :: i_startidx_e, i_endidx_e
-    INTEGER :: slev,elev
-    TYPE(t_subset_range), POINTER :: all_edges
-    TYPE(t_patch), POINTER :: patch_2d
-    !---------------------------------------------------------------
-    patch_2d   => patch_3d%p_patch_2d(1)
-    all_edges => patch_2d%edges%ALL
-    
-    ! blocking
-    slev         = 1
-    elev         = n_zlev
-    
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO jk = slev, elev
-        DO je= i_startidx_e, i_endidx_e
-          IF ( patch_3d%lsm_e(je,jk,jb) >= boundary ) THEN
-            vn(je,jk,jb) = 0.0_wp
-          ENDIF
-        END DO
-      END DO
-    END DO
-  END SUBROUTINE set_lateral_boundary_values
+!  SUBROUTINE set_lateral_boundary_values( patch_3d, vn )
+!
+!    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+!    REAL(wp)                             :: vn(:,:,:)
+!
+!    ! local variables
+!    INTEGER :: jb, je, jk
+!    INTEGER :: i_startidx_e, i_endidx_e
+!    INTEGER :: slev,elev
+!    TYPE(t_subset_range), POINTER :: all_edges
+!    TYPE(t_patch), POINTER :: patch_2d
+!    !---------------------------------------------------------------
+!    patch_2d   => patch_3d%p_patch_2d(1)
+!    all_edges => patch_2d%edges%ALL
+!
+!    ! blocking
+!    slev         = 1
+!    elev         = n_zlev
+!
+!    DO jb = all_edges%start_block, all_edges%end_block
+!      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+!      DO jk = slev, elev
+!        DO je= i_startidx_e, i_endidx_e
+!          IF ( patch_3d%lsm_e(je,jk,jb) >= boundary ) THEN
+!            vn(je,jk,jb) = 0.0_wp
+!          ENDIF
+!        END DO
+!      END DO
+!    END DO
+!  END SUBROUTINE set_lateral_boundary_values
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------

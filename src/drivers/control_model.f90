@@ -59,7 +59,7 @@ PROGRAM control_model
 #endif
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
-  USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_global_root
+  USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process!, radiation_process
@@ -244,7 +244,7 @@ PROGRAM control_model
 
   ! Shut down MPI
   !
-  CALL p_stop
+  CALL stop_mpi
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN

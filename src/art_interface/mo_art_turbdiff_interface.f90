@@ -127,7 +127,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
       sv => p_art_data(jg)%turb_fields%sv
       vdep => p_art_data(jg)%turb_fields%vdep
       ! drieg:debug
-      vdep = 0.0_wp
+      vdep = 0.01_wp
       IF ( .NOT. PRESENT(opt_sv) ) THEN
         CALL art_surface_value( p_patch, p_prog_rcf, p_metrics, p_diag, prm_diag, &
           &                     jb, vdep, sv )
@@ -164,7 +164,6 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
               &                     + dt * ptr(idx_trac)%at(jc,jk) )
           END DO
         END DO
-        print *,'for tracer idx ',idx_trac,' min = ',MINVAL(ptr(idx_trac)%at(:,:)),' max = ',MAXVAL(ptr(idx_trac)%at(:,:))
       END DO
     
     END SELECT

@@ -61,11 +61,11 @@ MODULE mo_nh_initicon
     &                               nml_filetype => filetype,                           &
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
-    &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,           &
-    &                               min_rlcell, min_rledge, min_rledge_int,             &
-    &                               min_rlcell_int, dzsoil_icon => dzsoil
+    &                               MODE_DWDANA_INC, MODE_IFSANA, MODE_COMBINED,        &
+    &                               MODE_COSMODE, min_rlcell, min_rledge,               &
+    &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav
+  USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
@@ -76,8 +76,8 @@ MODULE mo_nh_initicon
   USE mo_util_string,         ONLY: tolower, toupper, difference, add_to_list, one_of
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lmulti_snow, nlev_snow, lseaice,&
-    &                               llake, isub_lake, ntiles_water
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, lseaice, llake, &
+    &                               isub_lake, ntiles_water
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml, &
@@ -202,8 +202,9 @@ MODULE mo_nh_initicon
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
-    initicon(:)%atm_in%linitialized = .FALSE.
-    initicon(:)%sfc_in%linitialized = .FALSE.
+    initicon(:)%atm_in%linitialized  = .FALSE.
+    initicon(:)%sfc_in%linitialized  = .FALSE.
+    initicon(:)%atm_inc%linitialized = .FALSE.
 
     ! Allocate memory for init_icon state
     CALL allocate_initicon (p_patch, initicon)
@@ -236,7 +237,7 @@ MODULE mo_nh_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
 
@@ -265,6 +266,17 @@ MODULE mo_nh_initicon
 
       ! process DWD atmosphere analysis data
       CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state)
+
+      ! process DWD land/surface analysis data
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    CASE (MODE_DWDANA_INC)
+
+      CALL message(TRIM(routine),'MODE_DWDANA_INC: perform initialization with '// &
+        &                        ' incremental analysis update')
+
+      ! process DWD atmosphere analysis increments
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
 
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
@@ -347,7 +359,7 @@ MODULE mo_nh_initicon
 
     ! close first guess and analysis files
     ! 
-    IF (ANY((/MODE_DWDANA,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
 
@@ -510,9 +522,11 @@ MODULE mo_nh_initicon
   !>
   !! SUBROUTINE process_dwdana_atm
   !! Initialization routine of icon:
-  !! - Reads DWD first guess and analysis(atmosphere only). 
-  !!   Data are directly written to the prognostic NH state and added.
-  !! - resulting fields are converted to the NH set of prognostic variables
+  !! - Reads DWD first guess and analysis (atmosphere only).
+  !! - First guess is converted to T, p, qx, u, v in order to compute DA 
+  !!   increments. These increments are then used to compute the analysis 
+  !!   fields in terms of the NH set of prognostic variables 
+  !!   (i.e. vn, rho, exner, theta_v )
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-20)
@@ -532,6 +546,7 @@ MODULE mo_nh_initicon
 
     ! read DWD first guess and analysis from DA for atmosphere
     ! 
+    CALL read_dwdfg_atm (p_patch, p_nh_state)
     CALL read_dwdana_atm(p_patch, p_nh_state)
 
 
@@ -540,6 +555,46 @@ MODULE mo_nh_initicon
     CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
 
   END SUBROUTINE process_dwdana_atm
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_dwdanainc_atm
+  !! Initialization routine of icon:
+  !! - Reads DWD first guess for t=T-dt_ass/2 (atmosphere only).
+  !! - Reads analysis incerements for t=T (atmosphere only) in terms of 
+  !!   \Delta T, \Delta u, \Delta v, \Delta p, \Delta qx
+  !! - Compute analysis increments in terms of the NH set of prognostic 
+  !!   variables
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !!
+  !!
+  SUBROUTINE process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:process_dwdanainc_atm'
+
+!-------------------------------------------------------------------------
+
+
+    ! read DWD first guess and analysis from DA for atmosphere
+    ! 
+    CALL read_dwdfg_atm (p_patch, p_nh_state)
+    CALL read_dwdinc_atm(p_patch)
+
+
+    ! Compute DA increments in terms of the NH set 
+    ! of prognostic variables
+    CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
+
+  END SUBROUTINE process_dwdanainc_atm
 
 
 
@@ -612,6 +667,8 @@ MODULE mo_nh_initicon
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicons:process_ifsana_atm'
 
+    LOGICAL :: lomega_in
+
 !-------------------------------------------------------------------------
 
 
@@ -619,11 +676,17 @@ MODULE mo_nh_initicon
     ! 
     CALL read_ifs_atm(p_patch, initicon)
 
+    IF (init_mode == MODE_COSMODE) THEN
+      lomega_in = .FALSE. ! in this case, w is provided as input
+    ELSE
+      lomega_in = .TRUE.  ! from hydrostatic models, omega is provided instead of w
+    ENDIF
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon)
+    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon, &
+                         opt_convert_omega2w=lomega_in)
 
     
     ! Finally copy the results to the prognostic model variables
@@ -980,6 +1043,7 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_default_grib2(SIZE(grp_vars_ana_default))
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_grib2(SIZE(grp_vars_fg))
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_grib2(SIZE(grp_vars_ana))
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: ana_default_txt, ana_this_txt
 
 
     IF(p_pe == p_io) THEN
@@ -990,12 +1054,21 @@ MODULE mo_nh_initicon
       !====================
 
       SELECT CASE(init_mode)
-        CASE(MODE_DWDANA)
+        CASE(MODE_DWDANA, MODE_DWDANA_INC)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
           grp_name ='mode_dwd_fg_in' 
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+
+          ! When starting from analysis increments, we need both 
+          ! the full FG field and the analysis increment
+          ! maybe we should create separate groups for MODE_DWDANA_INC
+          IF (init_mode == MODE_DWDANA_INC) THEN
+             CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default, (/'qv'/) , 1)
+          ENDIF
+
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
@@ -1245,10 +1318,17 @@ MODULE mo_nh_initicon
       WRITE(message_text,'(a,i2)') 'INIT_MODE ', init_mode
       CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
       CALL init_bool_table(bool_table)
+      IF (init_mode == MODE_DWDANA_INC) THEN
+        ana_default_txt = "ANA_inc (default)"
+        ana_this_txt    = "ANA_inc (this run)"
+      ELSE
+        ana_default_txt = "ANA (default)"
+        ana_this_txt    = "ANA (this run)"
+      ENDIF
       CALL add_column(bool_table, "FG (default)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
       CALL add_column(bool_table, "FG (this run)",           grp_vars_fg_grib2,          ngrp_vars_fg)
-      CALL add_column(bool_table, "ANA (default)",grp_vars_ana_default_grib2, ngrp_vars_ana_default)
-      CALL add_column(bool_table, "ANA (this run)",          grp_vars_ana_grib2,         ngrp_vars_ana)
+      CALL add_column(bool_table, TRIM(ana_default_txt),grp_vars_ana_default_grib2, ngrp_vars_ana_default)
+      CALL add_column(bool_table, TRIM(ana_this_txt)   ,grp_vars_ana_grib2,         ngrp_vars_ana)
       CALL print_bool_table(bool_table)
     ENDIF  ! p_pe == p_io
 
@@ -1571,13 +1651,9 @@ MODULE mo_nh_initicon
             i_endidx = p_patch(jg)%npromz_c
           ENDIF
 
-#ifdef __LOOP_EXCHANGE
-          DO jc = 1, i_endidx
-            DO jk = 1, nlev_in
-#else
           DO jk = 1, nlev_in
             DO jc = 1, i_endidx
-#endif          
+
               initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
                 &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
               initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
@@ -1839,9 +1915,9 @@ MODULE mo_nh_initicon
 
 
   !>
-  !! Read DWD first guess and analysis from DA (atmosphere only)
+  !! Read DWD first guess (atmosphere only)
   !!
-  !! Read DWD first guess and analysis from DA (atmosphere only)
+  !! Read DWD first guess (atmosphere only)
   !! First guess (FG) is read for theta_v, rho, vn, w, tke,
   !! whereas DA output is read for T, p, u, v, 
   !! qv, qc, qi, qr, qs.
@@ -1849,8 +1925,11 @@ MODULE mo_nh_initicon
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
   !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
+  !! Modifications by Daniel Reinert, DWD (2014-01-27)
+  !! - split off reading of FG fields
+  !! 
   !!
-  SUBROUTINE read_dwdana_atm (p_patch, p_nh_state)
+  SUBROUTINE read_dwdfg_atm (p_patch, p_nh_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
@@ -1858,12 +1937,12 @@ MODULE mo_nh_initicon
     INTEGER :: jg
     INTEGER :: nlev, nlevp1
 
-    INTEGER :: ngrp_vars_fg, ngrp_vars_ana
+    INTEGER :: ngrp_vars_fg
 
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_dwdana_atm'
+      routine = 'mo_nh_initicon:read_dwdfg_atm'
 
     !-------------------------------------------------------------------------
 
@@ -1879,7 +1958,6 @@ MODULE mo_nh_initicon
 
       ! save some paperwork
       ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
-      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
       !---------------------------------------!
       ! Read in DWD first guess (atmosphere)  !
@@ -1946,7 +2024,39 @@ MODULE mo_nh_initicon
 
     ENDDO ! loop over model domains
 
+  END SUBROUTINE read_dwdfg_atm
 
+
+
+  !>
+  !! Read full DA-analysis fields (atmosphere only)
+  !!
+  !! Read full DA-analysis fields (atmosphere only)
+  !! DA output is read for T, p, u, v, 
+  !! qv, qc, qi, qr, qs.
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-18)
+  !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
+  !! Modifications by Daniel Reinert, DWD (2014-01-27)
+  !! - split off reading of FG fields
+  !!
+  SUBROUTINE read_dwdana_atm (p_patch, p_nh_state)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+
+    INTEGER :: jg
+    INTEGER :: nlev, nlevp1
+
+    INTEGER :: ngrp_vars_ana
+
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:read_dwdana_atm'
+
+    !-------------------------------------------------------------------------
 
     !----------------------------------------!
     ! read in DWD analysis (atmosphere)      !
@@ -1963,7 +2073,6 @@ MODULE mo_nh_initicon
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! save some paperwork
-      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
 
@@ -2038,6 +2147,97 @@ MODULE mo_nh_initicon
     ENDDO ! loop over model domains
 
   END SUBROUTINE read_dwdana_atm
+
+
+
+
+  !>
+  !! Read DA-analysis increments (atmosphere only)
+  !!
+  !! Read DA-analysis increments (atmosphere only)
+  !! for T, p, u, v, qv
+  !! !! Maybe read_dwdanainc_atm and read_dwdana_atm could be 
+  !! unified !!
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !!
+  SUBROUTINE read_dwdinc_atm (p_patch)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+
+    INTEGER :: jg
+    INTEGER :: nlev, nlevp1
+
+    INTEGER ::ngrp_vars_ana
+
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:read_dwdanainc_atm'
+
+    !-------------------------------------------------------------------------
+
+    !---------------------------------------------------!
+    ! read in DWD analysis increments (atmosphere)      !
+    !---------------------------------------------------!
+
+    DO jg = 1, n_dom
+
+      ! number of vertical full and half levels
+      nlev   = p_patch(jg)%nlev
+      nlevp1 = p_patch(jg)%nlevp1
+
+      ! Skip reading the atmospheric input data if a model domain 
+      ! is not active at initial time
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      ! save some paperwork
+      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
+
+
+      IF( lread_ana .AND. p_pe == p_io ) THEN 
+        CALL message (TRIM(routine), 'read atm_ANAINC fields from '//TRIM(dwdana_file(jg)))
+      ENDIF  ! p_io
+
+
+      ! start reading DA increments (atmosphere only)
+      ! The increments temp, pres, u, v and qv which need further processing,
+      ! are stored in initicon(jg)%atm_inc.
+      !
+      my_ptr3d => initicon(jg)%atm_inc%temp
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,  &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana))
+
+      my_ptr3d => initicon(jg)%atm_inc%pres
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,  &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      my_ptr3d => initicon(jg)%atm_inc%u
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,     &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      my_ptr3d => initicon(jg)%atm_inc%v
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,     &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+      my_ptr3d => initicon(jg)%atm_inc%qv
+      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,    &
+        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+        &                  nlev, my_ptr3d,                                                       &
+        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
+    ENDDO ! loop over model domains
+
+  END SUBROUTINE read_dwdinc_atm
 
 
 
@@ -2227,6 +2427,42 @@ MODULE mo_nh_initicon
           &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
 
 
+     ! multi layer snow fields
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 't_snow_mult',              &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow+1, my_ptr3d,                                      &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_mult_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'rho_snow_mult',            &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%wtot_snow_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'wtot_snow',                &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%wliq_snow_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'wliq_snow',                &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%dzh_snow_t(:,:,:,jt)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'dzh_snow',                 &
+          &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_snow, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
 
      ! multi layer fields 
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
@@ -2337,26 +2573,26 @@ MODULE mo_nh_initicon
 
       ! sea-ice fraction
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'fr_seaice', p_patch(jg)%n_patch_cells_g,  &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                p_lnd_state(jg)%diag_lnd%fr_seaice,                                          &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! sea-ice temperature
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_ice', p_patch(jg)%n_patch_cells_g,      &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice,                                &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! sea-ice height
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 'h_ice', p_patch(jg)%n_patch_cells_g,      &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice,                                &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! T_SO(0)
       my_ptr2d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,:,jt)
       CALL read_data_2d (filetype_ana(jg), fileID_ana(jg), 't_so', p_patch(jg)%n_patch_cells_g,       &
-        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,                      &
+        &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,          &
         &                my_ptr2d,                                                                    &
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
@@ -2489,119 +2725,53 @@ MODULE mo_nh_initicon
 
     !-------------------------------------------------------------------------
 
-    ! for the time being, the generation of DWD analysis fields is implemented 
-    ! for the global domain, only.
-    jg = 1
+    DO jg = 1, n_dom
 
-    ! number of vertical levels 
-    nlev      = p_patch(jg)%nlev
-    nlevp1    = p_patch(jg)%nlevp1
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-    nblks_c   = p_patch(jg)%nblks_c
-    nblks_e   = p_patch(jg)%nblks_e
-    i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+      ! number of vertical levels 
+      nlev      = p_patch(jg)%nlev
+      nlevp1    = p_patch(jg)%nlevp1
 
-
-    ! allocate temporary arrays for nonhydrostatic pressure, DA increments and a filtering term for vn
-    ! note that an explicit temperature increment is not required (see below)
-    ALLOCATE(zpres_nh (nproma,nlev,nblks_c),  &
-             pres_incr(nproma,nlev,nblks_c),  &
-             u_incr   (nproma,nlev,nblks_c),  &
-             v_incr   (nproma,nlev,nblks_c),  &
-             vn_incr  (nproma,nlev,nblks_e),  &
-             w_incr   (nproma,nlevp1,nblks_c),&
-             nabla4_vn_incr(nproma,nlev,nblks_e), &
-             STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
-    ENDIF
-
-    nabla4_vn_incr(:,:,:) = 0._wp
-
-    ! define some pointers
-    p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
-    p_prog_now_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
-    p_diag         => p_nh_state(jg)%diag
-    iidx           => p_patch(jg)%edges%cell_idx
-    iblk           => p_patch(jg)%edges%cell_blk
-
-    ! Recompute u and v from the first guess in order to compute the wind increment
-    ! coming from the data assimilation
-    CALL rbf_vec_interpol_cell(p_prog_now%vn, p_patch(jg), p_int_state(jg), p_diag%u, p_diag%v)
-
-    ! 1) first guess in terms of rho, theta_v, qx is converted to 
-    ! T, p, qx. Note, that zpres_nh is the full (nonhydrostatic) pressure field, whereas
-    ! p_diag%pres is the hydrostatically integrated pressure field
-    !
-    ! Note that the diagnose_pres_temp routine cannot be used at this moment because
-    ! the exner function still needs to be computed
-    !
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-
-    ! include boundary interpolation zone of nested domains and halo points
-    rl_start = 1
-    rl_end   = min_rlcell
-
-    i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+      nblks_c   = p_patch(jg)%nblks_c
+      nblks_e   = p_patch(jg)%nblks_e
+      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
-    DO jb = i_startblk, i_endblk
+      ! allocate temporary arrays for nonhydrostatic pressure, DA increments and a 
+      ! filtering term for vn
+      ! note that an explicit temperature increment is not required (see below)
+      ALLOCATE(zpres_nh (nproma,nlev,nblks_c),  &
+               pres_incr(nproma,nlev,nblks_c),  &
+               u_incr   (nproma,nlev,nblks_c),  &
+               v_incr   (nproma,nlev,nblks_c),  &
+               vn_incr  (nproma,nlev,nblks_e),  &
+               w_incr   (nproma,nlevp1,nblks_c),&
+               nabla4_vn_incr(nproma,nlev,nblks_e), &
+               STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+      ENDIF
 
-      CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
+      nabla4_vn_incr(:,:,:) = 0._wp
 
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
+      ! define some pointers
+      p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
+      p_prog_now_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
+      p_diag         => p_nh_state(jg)%diag
+      iidx           => p_patch(jg)%edges%cell_idx
+      iblk           => p_patch(jg)%edges%cell_blk
 
-          !******** CONSISTENCY CHECK ************
-          ! 
-          ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
-          ! below threshhold (currently 5E-7 kg/kg)
-          ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
-          ! Note: So far we are not fully convinced that the observed 'zeros' are 
-          ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
-          ! numerical artifacts. 
-          p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
-            &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
-          !******** END CONSISTENCY CHECK ********
+      ! Recompute u and v from the first guess in order to compute the wind increment
+      ! coming from the data assimilation
+      CALL rbf_vec_interpol_cell(p_prog_now%vn, p_patch(jg), p_int_state(jg), p_diag%u, p_diag%v)
 
-          ! compute exner function
-          p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &
-            &                        * p_prog_now%theta_v(jc,jk,jb))**(rd/cvd)
-
-          ! compute full nonhydrostatic pressure
-          zpres_nh(jc,jk,jb) = p_prog_now%exner(jc,jk,jb)**(cpd/rd) * p0ref
-
-          ! compute virtual temperature
-          p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
-            &                    * p_prog_now%exner(jc,jk,jb)
-
-          ! compute temperature (currently unused - but we could use it to check the hydrostatic
-          ! balance of the DA increments)
-          p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
-            &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
-            &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)                &
-            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)                &
-            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)                &
-            &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)) )
-
-        ENDDO  ! jc
-      ENDDO  ! jk
-
-    ENDDO  ! jb
-!$OMP END DO
-!$OMP END PARALLEL
-
-    ! Recompute the hydrostatically integrated pressure from the first guess
-    CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, p_patch(jg), &
-      &                      opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
-
-
-    IF (lread_ana) THEN
-
-      ! 2) compute DA increments and add them to the first guess
+      ! 1) first guess in terms of rho, theta_v, qx is converted to 
+      ! T, p, qx. Note, that zpres_nh is the full (nonhydrostatic) pressure field, whereas
+      ! p_diag%pres is the hydrostatically integrated pressure field
+      !
+      ! Note that the diagnose_pres_temp routine cannot be used at this moment because
+      ! the exner function still needs to be computed
       !
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
@@ -2622,33 +2792,413 @@ MODULE mo_nh_initicon
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 
-            ! pressure increment - should we verify that it is in hydrostatic balance with 
-            ! the temperature increment?
-            pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
+            !******** CONSISTENCY CHECK ************
+            ! 
+            ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+            ! below threshhold (currently 5E-7 kg/kg)
+            ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
+            ! Note: So far we are not fully convinced that the observed 'zeros' are 
+            ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
+            ! numerical artifacts. 
+            p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
+             &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
+            !******** END CONSISTENCY CHECK ********
 
-            ! increments for u and v - will be interpolated to edge points below
-            u_incr(jc,jk,jb) = initicon(jg)%atm%u(jc,jk,jb) - p_diag%u(jc,jk,jb)
-            v_incr(jc,jk,jb) = initicon(jg)%atm%v(jc,jk,jb) - p_diag%v(jc,jk,jb)
+            ! compute exner function
+            p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &
+              &                        * p_prog_now%theta_v(jc,jk,jb))**(rd/cvd)
 
-            ! add pressure increment to the nonhydrostatic pressure
-            zpres_nh(jc,jk,jb) = zpres_nh(jc,jk,jb) + pres_incr(jc,jk,jb)
+            ! compute full nonhydrostatic pressure
+            zpres_nh(jc,jk,jb) = p_prog_now%exner(jc,jk,jb)**(cpd/rd) * p0ref
 
-            ! temperature increment is not needed explicitly. Note that lateron the analysed 
-            ! temperature field initicon(jg)%atm%temp, instead of the first guess 
-            ! temperature field p_diag%temp is used to compute the virtual temperature 
-            ! and lateron the virtual potential temperature.
+            ! compute virtual temperature
+            p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
+              &                    * p_prog_now%exner(jc,jk,jb)
+
+            ! compute temperature (currently unused - but we could use it to check the hydrostatic
+            ! balance of the DA increments)
+            p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
+              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+              &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)                &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)                &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)                &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)) )
 
           ENDDO  ! jc
         ENDDO  ! jk
 
       ENDDO  ! jb
 !$OMP END DO
+!$OMP END PARALLEL
 
+      ! Recompute the hydrostatically integrated pressure from the first guess
+      CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, &
+        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
+
+
+      IF (lread_ana) THEN
+
+        ! 2) compute DA increments and add them to the first guess
+        !
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+        ! include boundary interpolation zone of nested domains and halo points
+        rl_start = 1
+        rl_end   = min_rlcell
+
+        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+
+              ! pressure increment - should we verify that it is in hydrostatic balance with 
+              ! the temperature increment?
+              pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
+
+              ! increments for u and v - will be interpolated to edge points below
+              u_incr(jc,jk,jb) = initicon(jg)%atm%u(jc,jk,jb) - p_diag%u(jc,jk,jb)
+              v_incr(jc,jk,jb) = initicon(jg)%atm%v(jc,jk,jb) - p_diag%v(jc,jk,jb)
+
+              ! add pressure increment to the nonhydrostatic pressure
+              zpres_nh(jc,jk,jb) = zpres_nh(jc,jk,jb) + pres_incr(jc,jk,jb)
+
+              ! temperature increment is not needed explicitly. Note that lateron the analysed 
+              ! temperature field initicon(jg)%atm%temp, instead of the first guess 
+              ! temperature field p_diag%temp is used to compute the virtual temperature 
+              ! and lateron the virtual potential temperature.
+
+            ENDDO  ! jc
+          ENDDO  ! jk
+
+        ENDDO  ! jb
+!$OMP END DO
+
+
+        ! include boundary interpolation zone of nested domains and the halo edges 
+        ! as far as possible
+        rl_start = 2
+        rl_end   = min_rledge_int - 2
+
+        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              ! at cell centers the increment \vec(v_inc) is projected into the 
+              ! direction of vn and then linearly interpolated to the edge midpoint 
+              !
+              ! should we check if the vn increments are geostrophically balanced at higher levels?
+              vn_incr(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)                  &
+                &               *(u_incr(iidx(je,jb,1),jk,iblk(je,jb,1))            &
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1  &
+                &               + v_incr(iidx(je,jb,1),jk,iblk(je,jb,1))            &
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2) &
+                &               + p_int_state(jg)%c_lin_e(je,2,jb)                  &
+                &               *(u_incr(iidx(je,jb,2),jk,iblk(je,jb,2))            & 
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1  &
+                &               + v_incr(iidx(je,jb,2),jk,iblk(je,jb,2))            &
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
+
+            ENDDO  ! je
+          ENDDO  ! jk
+
+        ENDDO  ! jb
+!$OMP ENDDO
+!$OMP END PARALLEL
+
+        ! required to avoid crash in nabla4_vec
+        CALL sync_patch_array(SYNC_E,p_patch(jg),vn_incr)
+
+        ! Compute diffusion term 
+        CALL nabla4_vec(vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
+
+        ! Compute vertical wind increment consistent with the vn increment
+        ! (strictly spoken, this should be done after the filtering step, 
+        ! but the difference is negligible)
+        CALL init_w(p_patch(jg), p_int_state(jg), vn_incr, p_nh_state(jg)%metrics%z_ifc, w_incr)
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+        ! include boundary interpolation zone of nested domains but no halo points (sync follows below)
+        rl_start = 2
+        rl_end   = min_rledge_int
+
+        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_incr_smt)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              ! computed filtered velocity increment 
+              vn_incr_smt = vn_incr(je,jk,jb)   &
+                &         - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
+
+              ! add vn_incr_smt to first guess
+              p_prog_now%vn(je,jk,jb) = p_prog_now%vn(je,jk,jb) + vn_incr_smt
+
+            ENDDO  ! je
+          ENDDO  ! jk
+
+        ENDDO  ! jb
+!$OMP ENDDO
+
+        ! include boundary interpolation zone of nested domains but no halo points 
+        ! (sync follows below)
+        rl_start = 2
+        rl_end   = min_rlcell_int
+
+        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlevp1
+            DO jc = i_startidx, i_endidx
+
+              ! add w_incr to first guess
+              p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb) 
+
+            ENDDO  ! jc
+          ENDDO  ! jk
+
+        ENDDO  ! jb
+!$OMP ENDDO
+!$OMP END PARALLEL
+
+        CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
+        CALL sync_patch_array(SYNC_C,p_patch(jg),p_prog_now%w)
+
+
+        ! TO DO: remove qc, where rh<90%
+
+
+        ! 3) Convert analysis back to the NH set of prognostic variables
+        !
+
+        ! Compute virtual temperature
+        CALL virtual_temp(p_patch(jg), initicon(jg)%atm%temp, & !in
+          &               p_prog_now%tracer(:,:,:,iqv),       & !in
+          &               p_prog_now%tracer(:,:,:,iqc),       & !in
+          &               p_prog_now%tracer(:,:,:,iqi),       & !in
+          &               p_prog_now%tracer(:,:,:,iqr),       & !in
+          &               p_prog_now%tracer(:,:,:,iqs),       & !in
+          &               p_diag%tempv                        ) !out  
+
+        ! Convert thermodynamic variables into set of NH prognostic variables
+        CALL convert_thdvars(p_patch(jg), zpres_nh,  & !in
+          &                  p_diag%tempv,           & !in
+          &                  p_prog_now%rho,         & !out
+          &                  p_prog_now%exner,       & !out
+          &                  p_prog_now%theta_v      ) !out
+
+
+      ENDIF  ! lread_ana
+
+
+      ! deallocate temporary arrays
+      DEALLOCATE( zpres_nh, pres_incr, u_incr, v_incr, vn_incr, nabla4_vn_incr, w_incr, STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+      ENDIF
+
+    ENDDO  ! jg domain loop
+
+  END SUBROUTINE create_dwdana_atm
+
+
+
+
+  !>
+  !! Compute analysis increments in terms of the NH prognostic set of variables. 
+  !!
+  !!
+  !! Compute analysis increments in terms of the NH prognostic set of variables 
+  !! (atmosphere only).
+  !! 
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !!
+  SUBROUTINE create_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+
+    TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
+
+    INTEGER :: jc,je,jk,jb,jg             ! loop indices
+    INTEGER :: ist
+    INTEGER :: nlev, nlevp1               ! number of vertical levels
+    INTEGER :: nblks_c, nblks_e           ! number of blocks
+    INTEGER :: i_nchdom
+    INTEGER :: rl_start, rl_end 
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf   
+    TYPE(t_nh_diag), POINTER :: p_diag
+    INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
+
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:create_dwdanainc_atm'
+
+    ! nondimensional diffusion coefficient for interpolated velocity increment
+    REAL(wp), PARAMETER :: smtfac=0.015_wp
+
+    !-------------------------------------------------------------------------
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      ! number of vertical levels 
+      nlev      = p_patch(jg)%nlev
+      nlevp1    = p_patch(jg)%nlevp1
+
+      nblks_c   = p_patch(jg)%nblks_c
+      nblks_e   = p_patch(jg)%nblks_e
+      i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+
+
+      ! allocate temporary arrays for DA increments and a filtering term for vn
+      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), &
+               nabla4_vn_incr(nproma,nlev,nblks_e), &
+               STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+      ENDIF
+
+      nabla4_vn_incr(:,:,:) = 0._wp
+
+      ! define some pointers
+      p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
+      p_prog_now_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
+      p_diag         => p_nh_state(jg)%diag
+      iidx           => p_patch(jg)%edges%cell_idx
+      iblk           => p_patch(jg)%edges%cell_blk
+
+
+      ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
+      !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v 
+      !    increment is not necessary.
+      !    The prognostic state variables are initialized with the first guess
+      !
+      !
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+      ! include boundary interpolation zone of nested domains and halo points
+      rl_start = 1
+      rl_end   = min_rlcell
+
+      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+
+!!$          !******** CONSISTENCY CHECK ************
+!!$          ! 
+!!$          ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+!!$          ! below threshhold (currently 5E-7 kg/kg)
+!!$          ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
+!!$          ! Note: So far we are not fully convinced that the observed 'zeros' are 
+!!$          ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
+!!$          ! numerical artifacts. 
+!!$          p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
+!!$            &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
+!!$          !******** END CONSISTENCY CHECK ********
+
+
+
+            ! compute exner function (based on first guess input)
+            p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &
+              &                        * p_prog_now%theta_v(jc,jk,jb))**(rd/cvd)
+
+            ! compute full nonhydrostatic pressure from exner (based on first guess input)
+            ! required for exner- and rho increment
+            p_diag%pres(jc,jk,jb) = p0ref * (p_prog_now%exner(jc,jk,jb)**(cpd/rd))
+
+
+            ! compute virtual temperature (based on first guess input)
+            ! required for rho-increment
+            p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
+              &                    * p_prog_now%exner(jc,jk,jb)
+
+
+            ! compute temperature (based on first guess input)
+            ! required for virtual temperature increment
+              p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
+              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+              &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)                &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)                &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)                &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)) )
+
+
+            ! compute thermodynamic increments
+            !
+            p_diag%exner_incr(jc,jk,jb) = rd_o_cpd * p_prog_now%exner(jc,jk,jb) &
+              &                  / p_diag%pres(jc,jk,jb) * initicon(jg)%atm_inc%pres(jc,jk,jb)
+
+            tempv_incr(jc,jk,jb) = (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
+              &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)               &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)               &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)               &
+              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)))             &
+              &                   *  initicon(jg)%atm_inc%temp(jc,jk,jb)               &
+              &                   +  vtmpc1*p_diag%temp(jc,jk,jb)                      &
+              &                   * initicon(jg)%atm_inc%qv(jc,jk,jb)
+
+            p_diag%rho_incr(jc,jk,jb) = ( initicon(jg)%atm_inc%pres(jc,jk,jb) &
+              &                / (rd*p_diag%tempv(jc,jk,jb)) )         &
+              &                - ((p_diag%pres(jc,jk,jb) * tempv_incr(jc,jk,jb)) &
+              &                / (rd*(p_diag%tempv(jc,jk,jb)**2)))
+
+            p_diag%qv_incr(jc,jk,jb) = initicon(jg)%atm_inc%qv(jc,jk,jb)
+
+          ENDDO  ! jc
+        ENDDO  ! jk
+
+      ENDDO  ! jb
+!$OMP END DO NOWAIT
+
+
+
+      ! 2) compute vn increments (w increment neglected)
+      !
 
       ! include boundary interpolation zone of nested domains and the halo edges as far as possible
       rl_start = 2
       rl_end   = min_rledge_int - 2
-
       i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
       i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
 
@@ -2664,15 +3214,15 @@ MODULE mo_nh_initicon
             ! direction of vn and then linearly interpolated to the edge midpoint 
             !
             ! should we check if the vn increments are geostrophically balanced at higher levels?
-            vn_incr(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)                  &
-              &               *(u_incr(iidx(je,jb,1),jk,iblk(je,jb,1))            &
-              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1  &
-              &               + v_incr(iidx(je,jb,1),jk,iblk(je,jb,1))            &
-              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2) &
-              &               + p_int_state(jg)%c_lin_e(je,2,jb)                  &
-              &               *(u_incr(iidx(je,jb,2),jk,iblk(je,jb,2))            & 
-              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1  &
-              &               + v_incr(iidx(je,jb,2),jk,iblk(je,jb,2))            &
+            p_diag%vn_incr(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)                &
+              &               *(initicon(jg)%atm_inc%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1       &
+              &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
+              &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
+              &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) & 
+              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
+              &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
               &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
 
           ENDDO  ! je
@@ -2682,16 +3232,11 @@ MODULE mo_nh_initicon
 !$OMP ENDDO
 !$OMP END PARALLEL
 
-      !DR required to avoid crash in nabla4_vec
-      CALL sync_patch_array(SYNC_E,p_patch(jg),vn_incr)
-      CALL sync_patch_array(SYNC_C,p_patch(jg),w_incr)
+      ! required to avoid crash in nabla4_vec
+      CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
 
       ! Compute diffusion term 
-      CALL nabla4_vec(vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
-
-      ! Compute vertical wind increment consistent with the vn increment
-      ! (strictly spoken, this should be done after the filtering step, but the difference is negligible)
-      CALL init_w(p_patch(jg), p_int_state(jg), vn_incr, p_nh_state(jg)%metrics%z_ifc, w_incr)
+      CALL nabla4_vec(p_diag%vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
@@ -2702,7 +3247,7 @@ MODULE mo_nh_initicon
       i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
       i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_incr_smt)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -2711,80 +3256,25 @@ MODULE mo_nh_initicon
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             ! computed filtered velocity increment 
-            vn_incr_smt = vn_incr(je,jk,jb) - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
-
-            ! add vn_incr_smt to first guess
-            p_prog_now%vn(je,jk,jb) = p_prog_now%vn(je,jk,jb) + vn_incr_smt
+            p_diag%vn_incr(je,jk,jb) = p_diag%vn_incr(je,jk,jb) &
+              &               - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
 
           ENDDO  ! je
         ENDDO  ! jk
 
       ENDDO  ! jb
 !$OMP ENDDO
-
-      ! include boundary interpolation zone of nested domains but no halo points (sync follows below)
-      rl_start = 2
-      rl_end   = min_rlcell_int
-
-      i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jk = 1, nlevp1
-          DO jc = i_startidx, i_endidx
-
-            ! add w_incr to first guess
-            p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb) 
-
-          ENDDO  ! jc
-        ENDDO  ! jk
-
-      ENDDO  ! jb
-!$OMP ENDDO
 !$OMP END PARALLEL
 
-      CALL sync_patch_array(SYNC_E,p_patch(jg),p_prog_now%vn)
-      CALL sync_patch_array(SYNC_C,p_patch(jg),p_prog_now%w)
+      ! deallocate temporary arrays
+      DEALLOCATE( tempv_incr, nabla4_vn_incr, STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+      ENDIF
 
+    ENDDO  ! jg domain loop
 
-      ! TO DO: remove qc, where rh<90%
-
-
-      ! 3) Convert analysis back to the NH set of prognostic variables
-      !
-
-      ! Compute virtual temperature
-      CALL virtual_temp(p_patch(jg), initicon(jg)%atm%temp, & !in
-        &               p_prog_now%tracer(:,:,:,iqv),       & !in
-        &               p_prog_now%tracer(:,:,:,iqc),       & !in
-        &               p_prog_now%tracer(:,:,:,iqi),       & !in
-        &               p_prog_now%tracer(:,:,:,iqr),       & !in
-        &               p_prog_now%tracer(:,:,:,iqs),       & !in
-        &               p_diag%tempv                        ) !out  
-
-      ! Convert thermodynamic variables into set of NH prognostic variables
-      CALL convert_thdvars(p_patch(jg), zpres_nh,  & !in
-        &                  p_diag%tempv,           & !in
-        &                  p_prog_now%rho,         & !out
-        &                  p_prog_now%exner,       & !out
-        &                  p_prog_now%theta_v      ) !out
-
-
-    ENDIF  ! lread_ana
-
-
-    ! deallocate temporary arrays
-    DEALLOCATE( zpres_nh, pres_incr, u_incr, v_incr, vn_incr, nabla4_vn_incr, w_incr, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
-    ENDIF
-
-  END SUBROUTINE create_dwdana_atm
+  END SUBROUTINE create_dwdanainc_atm
 
 
 
@@ -2816,125 +3306,127 @@ MODULE mo_nh_initicon
     INTEGER :: i_startidx, i_endidx
   !-------------------------------------------------------------------------
 
-    ! for the time being, the generation of DWD analysis fields is implemented 
-    ! for the global domain, only.
-    jg = 1
-
-    nblks_c   = p_patch(jg)%nblks_c
-    ntlr      = nnow_rcf(jg)
-
     ! get CDImissval
     missval = cdiInqMissval()
 
-    rl_start = 1
-    rl_end   = min_rlcell
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      nblks_c   = p_patch(jg)%nblks_c
+      ntlr      = nnow_rcf(jg)
+
+      rl_start = 1
+      rl_end   = min_rlcell
 
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_c
+      DO jb = 1, nblks_c
 
-      CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
-                         i_startidx, i_endidx, rl_start, rl_end)
+        CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
+                           i_startidx, i_endidx, rl_start, rl_end)
 
 
-      !get SST from first soil level t_so (for sea and lake points)
+        !get SST from first soil level t_so (for sea and lake points)
 !CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-         jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-         p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                  & ! nproma.nlev_soil+1,nblks,ntiles_total
-                                  & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
-      END DO
+        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  & ! nproma.nlev_soil+1,nblks,ntiles_total
+                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+        END DO
 !CDIR NODEP,VOVERTAKE,VOB
-      DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-        jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-        p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
-                                  & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
-      END DO
+        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
+                                    & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
+        END DO
 
 
 
-      !***********************************!
-      ! Consistency checks                !
-      !***********************************!
+        !***********************************!
+        ! Consistency checks                !
+        !***********************************!
 
-      DO jt = 1, ntiles_total
+        DO jt = 1, ntiles_total
 
-        ! Check consistency between w_snow and rho_snow
-        !
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
-           jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
-
-           IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
-             &  .AND. (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) )  THEN
-
-             ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
-             p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
-           ENDIF
-        ENDDO  ! ic
-
-
-        ! Catch problematic coast cases: ICON-land but GME ocean for moisture
-        !
-        DO jk = 1, nlev_soil
+          ! Check consistency between w_snow and rho_snow
+          !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
-             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
-                ! set dummy value (50% of pore volume)
-                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
-                  &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
-             ENDIF
-             ! And temperature for ICON-land but COSMODE ocean
-             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
-                ! set to first layer value
-                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = &
-                  & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt) 
+
+             IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
+               &  .AND. (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) )  THEN
+
+               ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
+               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
              ENDIF
           ENDDO  ! ic
 
-          ! w_so_t, t_so_t: 
-          ! Search for CDI missval and replace it by meaningful value
-          ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
-          ! the huge value range.
-          DO jc = i_startidx, i_endidx
-             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) == missval)) THEN
-               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = 0._wp
-             ENDIF
-             IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) == missval)) THEN
-               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = 0._wp
-             ENDIF
 
-          ENDDO  ! jc
+          ! Catch problematic coast cases: ICON-land but GME ocean for moisture
+          !
+          DO jk = 1, nlev_soil
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
+                  ! set dummy value (50% of pore volume)
+                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
+                    &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
+               ENDIF
+               ! And temperature for ICON-land but COSMODE ocean
+               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
+                  ! set to first layer value
+                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = &
+                    & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt) 
+               ENDIF
+            ENDDO  ! ic
 
-        ENDDO  ! jk
+            ! w_so_t, t_so_t: 
+            ! Search for CDI missval and replace it by meaningful value
+            ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
+            ! the huge value range.
+            DO jc = i_startidx, i_endidx
+               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) == missval)) THEN
+                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = 0._wp
+               ENDIF
+               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) == missval)) THEN
+                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = 0._wp
+               ENDIF
 
-      ENDDO  ! jt
+            ENDDO  ! jc
+
+          ENDDO  ! jk
+
+        ENDDO  ! jt
 
 
-      ! fr_seaice, h_ice, t_ice: 
-      ! Search for CDI missval and replace it by meaningful value
-      ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
-      ! the huge value range.
-      DO jc = i_startidx, i_endidx
-        IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) == missval) THEN
-          p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
-        ENDIF
-        IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) == missval) THEN
-          p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) = 0._wp
-        ENDIF
-        IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) == missval) THEN
-          p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = 0._wp
-        ENDIF
-      ENDDO  ! jc
+        ! fr_seaice, h_ice, t_ice: 
+        ! Search for CDI missval and replace it by meaningful value
+        ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
+        ! the huge value range.
+        DO jc = i_startidx, i_endidx
+          IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) == missval) THEN
+            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
+          ENDIF
+          IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) == missval) THEN
+            p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice(jc,jb) = 0._wp
+          ENDIF
+          IF (p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) == missval) THEN
+            p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice(jc,jb) = 0._wp
+          ENDIF
+        ENDDO  ! jc
 
-    END DO  ! jb
+      END DO  ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 
 
     ! Initialization of t_g_t(:,:,isub_water) with t_seasfc is performed in 
     ! mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
+
+    ENDDO  ! jg domain loop
 
   END SUBROUTINE create_dwdana_sfc
   !-------------------------------------------------------------------------
@@ -3370,6 +3862,16 @@ MODULE mo_nh_initicon
                initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
                initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
 
+      IF (init_mode == MODE_DWDANA_INC) THEN
+        ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%v    (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%qv   (nproma,nlev,nblks_c      )  )
+      
+        initicon(jg)%atm_inc%linitialized = .TRUE.
+      ENDIF
+
     ENDDO ! loop over model domains
 
     ! read the map file into dictionary data structure:
@@ -3512,6 +4014,16 @@ MODULE mo_nh_initicon
                  initicon(jg)%sfc%seaice,   &
                  initicon(jg)%sfc%tsoil,    &
                  initicon(jg)%sfc%wsoil     )
+
+
+      ! atmospheric assimilation increments
+      IF (initicon(jg)%atm_inc%linitialized) THEN
+        DEALLOCATE(initicon(jg)%atm_inc%temp,    &
+                   initicon(jg)%atm_inc%pres,    &
+                   initicon(jg)%atm_inc%u   ,    &
+                   initicon(jg)%atm_inc%v   ,    &
+                   initicon(jg)%atm_inc%qv       )
+      ENDIF
 
     ENDDO ! loop over model domains
 

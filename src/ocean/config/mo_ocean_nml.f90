@@ -56,6 +56,8 @@ MODULE mo_ocean_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
+  USE mo_io_units,           ONLY: filename_max
+
 #ifndef __NO_ICON_ATMO__
   USE mo_coupling_config,    ONLY: is_coupled_run
 #endif
@@ -89,50 +91,6 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
-  ! ------------------------------------------------------------------------
-  ! FORCING {
-  ! parameterized forcing for ocean model:
-  INTEGER, PARAMETER :: NO_FORCING                = 10
-  INTEGER, PARAMETER :: ANALYT_FORC               = 11
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12  ! OMIP or NCEP type forcing
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13  ! not yet
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
-  INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
-
-  ! read time varying OMIP or NCEP flux forcing from file:
-                      ! 1: read wind stress (records 1, 2) and temperature (record 3)
-                      ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
-                      ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
-                      ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
-                      ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-  INTEGER            :: iforc_type = 10
-
-  ! new/renamed switches
-  ! length of time varying flux forcing: 12: read 12 months, other: read daily values
-  INTEGER  :: forcing_timescale                    = 1
-  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
-  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
-  LOGICAL  :: use_new_forcing                      = .FALSE.
-  ! _type variables range
-  !    0    : not used
-  !   1:100 : file based input
-  ! 101:200 : analytic setup
-  ! forcing_windstress_(u|v|fluxes)_type values
-  ! 1   : omip input
-  ! 5   : ncep input
-  INTEGER  :: forcing_fluxes_type                  = 0
-  INTEGER  :: forcing_windstress_u_type            = 0
-  INTEGER  :: forcing_windstress_v_type            = 0
-
-  REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
-!DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
-  REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
-  REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
-  REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
-  REAL(wp) :: forcing_center                       = 0.0_wp
-  ! } END FORCING
-
 
   INTEGER            :: relax_temp_type           = 0 ! will cover parts of init_oce_relax
   INTEGER            :: relax_temp_param          = 0 ! replacement for relaxation_param
@@ -144,9 +102,9 @@ MODULE mo_ocean_nml
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
 
-  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
-                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can 
-                                          !be run. Example: tracer tests with prescribed time-invariant velocity and height. 
+!  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
+!                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can
+!                                          !be run. Example: tracer tests with prescribed time-invariant velocity and height.
   ! ----------------------------------------------------------------------------
   ! DIAGNOSTICS
   ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
@@ -190,7 +148,8 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: fct_horz                   = 5
   INTEGER, PARAMETER :: fct_vert_adpo              = 6
   INTEGER, PARAMETER :: fct_vert_ppm               = 7  
-  INTEGER, PARAMETER :: fct_vert_zalesak           = 8    
+  INTEGER, PARAMETER :: fct_vert_minmod            = 8      
+  INTEGER, PARAMETER :: fct_vert_zalesak           = 9      
   !Additional parameters for FCT: High and low order flux calculations can be
   !chosen from list above. Below is the default option
   INTEGER            :: fct_high_order_flux= central
@@ -363,12 +322,6 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_dynamics_nml/&
-    &                 flux_calculation_horz        , &
-    &                 flux_calculation_vert        , & 
-    &                 fct_high_order_flux          , &
-    &                 fct_low_order_flux           , &
-    &                 fct_limiter_horz             , & 
-    &                 l_adpo_flowstrength          , &    
     &                 ab_beta                      , &
     &                 ab_const                     , &
     &                 ab_gam                       , &
@@ -382,7 +335,6 @@ MODULE mo_ocean_nml
     &                 dzlev_m                      , &
     &                 expl_vertical_tracer_diff    , &
     &                 expl_vertical_velocity_diff  , &
-    &                 i_apply_bulk                 , &
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
@@ -400,50 +352,107 @@ MODULE mo_ocean_nml
     &                 solver_max_iter_per_restart  , &
     &                 solver_max_restart_iterations, &
     &                 solver_tolerance             , &
-    &                 threshold_max_S              , &
-    &                 threshold_max_T              , &
-    &                 threshold_min_S              , &
-    &                 threshold_min_T              , &
     &                 threshold_vn                 , &
     &                 use_continuity_correction    , &
     &                 use_edges2edges_viacell_fast , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &
-    &                 l_time_marching
+    &                 fast_performance_level
 
 
-  NAMELIST/ocean_physics_nml/&
-    &                 CWA                         , &
-    &                 CWT                         , &
-    &                 EOS_TYPE                    , &
+  NAMELIST/ocean_tracer_transport_nml/&
+    &                 no_tracer                    , &  
+    &                 flux_calculation_horz        , &
+    &                 flux_calculation_vert        , & 
+    &                 fct_high_order_flux          , &
+    &                 fct_low_order_flux           , &
+    &                 fct_limiter_horz             , & 
+    &                 l_adpo_flowstrength          , &     
+    &                 l_with_horz_tracer_advection , &
+    &                 l_with_horz_tracer_diffusion , &
+    &                 l_with_vert_tracer_advection , &
+    &                 l_with_vert_tracer_diffusion , &
+    &                 use_tracer_x_height          , &           
+    &                 threshold_max_S              , &
+    &                 threshold_max_T              , &
+    &                 threshold_min_S              , &
+    &                 threshold_min_T              
+
+
+  NAMELIST/ocean_diffusion_nml/&
     &                 HORZ_VELOC_DIFF_TYPE        , &
-    &                 MAX_VERT_DIFF_TRAC          , &
-    &                 MAX_VERT_DIFF_VELOC         , &
-    &                 N_POINTS_IN_MUNK_LAYER      , &
     &                 biharmonic_diffusion_factor , &
-    &                 bottom_drag_coeff           , &
-    &                 density_computation         , &
-    &                 i_sea_ice                   , &
     &                 k_pot_temp_h                , &
     &                 k_pot_temp_v                , &
     &                 k_sal_h                     , &
     &                 k_sal_v                     , &
     &                 k_veloc_h                   , &
     &                 k_veloc_v                   , &
-    &                 l_constant_mixing           , &
-    &                 l_smooth_veloc_diffusion    , &
-    &                 l_wind_mixing               , &
-    &                 l_with_horz_tracer_advection, &
-    &                 l_with_horz_tracer_diffusion, &
-    &                 l_with_vert_tracer_advection, &
-    &                 l_with_vert_tracer_diffusion, &
-    &                 no_tracer                   , &
-    &                 richardson_tracer           , &
-    &                 richardson_veloc            , &
-    &                 use_tracer_x_height
+    &                 MAX_VERT_DIFF_TRAC          , &
+    &                 MAX_VERT_DIFF_VELOC         , &      
+    &                 l_smooth_veloc_diffusion    
 
+
+  NAMELIST/ocean_physics_nml/&
+    &                 CWA                         , &
+    &                 CWT                         , &
+    &                 EOS_TYPE                    , &
+    &                 N_POINTS_IN_MUNK_LAYER      , &
+    &                 bottom_drag_coeff           , &
+    &                 density_computation         , &
+    &                 i_sea_ice                   , &
+    &                 l_constant_mixing           , &
+    &                 l_wind_mixing               , &
+    &                 richardson_tracer           , &
+    &                 richardson_veloc            
+
+
+  ! ------------------------------------------------------------------------
+  ! FORCING {
+  ! parameterized forcing for ocean model:
+  INTEGER, PARAMETER :: NO_FORCING                = 10
+  INTEGER, PARAMETER :: ANALYT_FORC               = 11
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12  ! OMIP or NCEP type forcing
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13  ! not yet
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
+  INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
+
+  ! read time varying OMIP or NCEP flux forcing from file:
+                      ! 1: read wind stress (records 1, 2) and temperature (record 3)
+                      ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
+                      ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
+                      ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
+                      ! 5: read full NCEP datasets; read monthly mean data of consecutive years
+  INTEGER            :: iforc_type = 10
+
+  ! new/renamed switches
+  ! length of time varying flux forcing: 12: read 12 months, other: read daily values
+  INTEGER  :: forcing_timescale                    = 1
+  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
+  LOGICAL  :: use_new_forcing                      = .FALSE.
+  ! _type variables range
+  !    0    : not used
+  !   1:100 : file based input
+  ! 101:200 : analytic setup
+  ! forcing_windstress_(u|v|fluxes)_type values
+  ! 1   : omip input
+  ! 5   : ncep input
+  INTEGER  :: forcing_fluxes_type                  = 0
+  INTEGER  :: forcing_windstress_u_type            = 0
+  INTEGER  :: forcing_windstress_v_type            = 0
+
+  REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
+!DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
+  REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
+  REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
+  REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
+  REAL(wp) :: forcing_center                       = 0.0_wp
+  INTEGER  :: forcing_smooth_steps                 = 100
 
   NAMELIST/ocean_forcing_nml/&
+    &                 i_apply_bulk                        , &  
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
     &                 forcing_fluxes_type                 , &
@@ -471,7 +480,9 @@ MODULE mo_ocean_nml
     &                 relaxation_param                    , &
     &                 seaice_limit                        , &
     &                 temperature_relaxation              , &
+    &                 forcing_smooth_steps                , &
     &                 use_new_forcing
+  ! } END FORCING
 
   !----------------------------------------------------------------------------
   ! initial conditions
@@ -491,6 +502,7 @@ MODULE mo_ocean_nml
   CHARACTER(LEN                           = max_char_length) :: initial_sst_type                                      = 'sst1'
   INTEGER  :: initial_velocity_type       = 0
   REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
+  CHARACTER(filename_max) :: InitialState_InputFileName   !< file name for reading in
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -507,7 +519,8 @@ MODULE mo_ocean_nml
     & initial_velocity_amplitude , &
     & topography_type            , &
     & topography_height_reference, &
-    & sea_surface_height_type
+    & sea_surface_height_type    , &
+    & InitialState_InputFileName
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &
@@ -591,7 +604,10 @@ MODULE mo_ocean_nml
      ! (done so far by all MPI processes)
 
      CALL open_nml(TRIM(filename))
-
+     !==================================================================
+     ! NOTE: DO NOT USE STATUS FLAG in READ(nnml) WITHOUT CHECKING IT  !
+     ! This will result undetected unread namelists                    !
+     !==================================================================
      ! setup for the ocean_run_nml
      ignore_land_points = config_ignore_land_points
      CALL position_nml ('ocean_run_nml', status=i_status)
@@ -601,7 +617,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_run_nml, iostat=istat)                           ! overwrite default settings
+       READ (nnml, ocean_run_nml)                           ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_run_nml)   ! write settings to temporary text file
@@ -616,7 +632,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_dynamics_nml, iostat=istat)                         ! overwrite default settings
+       READ (nnml, ocean_dynamics_nml)                         ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_dynamics_nml) ! write settings to temporary text file
@@ -630,13 +646,43 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_physics_nml, iostat=istat)                            ! overwrite default settings
+       READ (nnml, ocean_physics_nml)                            ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_physics_nml)    ! write settings to temporary text file
        END IF
      END SELECT
 
+     CALL position_nml ('ocean_diffusion_nml', status=i_status)
+     IF (my_process_is_stdio()) THEN
+       iunit = temp_defaults()
+       WRITE(iunit, ocean_diffusion_nml)    ! write defaults to temporary text file
+     END IF
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_diffusion_nml)                            ! overwrite default settings
+       IF (my_process_is_stdio()) THEN
+         iunit = temp_settings()
+         WRITE(iunit, ocean_diffusion_nml)    ! write settings to temporary text file
+       END IF
+     END SELECT
+
+
+
+    CALL position_nml ('ocean_tracer_transport_nml', status=i_status)
+     IF (my_process_is_stdio()) THEN
+       iunit = temp_defaults()
+       WRITE(iunit, ocean_tracer_transport_nml)    ! write defaults to temporary text file
+     END IF
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_tracer_transport_nml)                            ! overwrite default settings
+       IF (my_process_is_stdio()) THEN
+         iunit = temp_settings()
+         WRITE(iunit, ocean_tracer_transport_nml)    ! write settings to temporary text file
+       END IF
+     END SELECT
+     
      CALL position_nml ('ocean_forcing_nml', status=i_status)
      IF (my_process_is_stdio()) THEN
        iunit = temp_defaults()
@@ -644,7 +690,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_forcing_nml, iostat=istat)                          ! overwrite default settings
+       READ (nnml, ocean_forcing_nml)                          ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_forcing_nml)  ! write settings to temporary text file
@@ -658,7 +704,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_initialConditions_nml, iostat=istat)                          ! overwrite default settings
+       READ (nnml, ocean_initialConditions_nml)                          ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_initialConditions_nml)  ! write settings to temporary text file
@@ -672,7 +718,7 @@ MODULE mo_ocean_nml
      END IF
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_diagnostics_nml, iostat=istat)                           ! overwrite default settings
+       READ (nnml, ocean_diagnostics_nml)                           ! overwrite default settings
        IF (my_process_is_stdio()) THEN
          iunit = temp_settings()
          WRITE(iunit, ocean_diagnostics_nml)   ! write settings to temporary text file
@@ -743,7 +789,8 @@ MODULE mo_ocean_nml
      IF(      flux_calculation_vert/=upwind        &
         &.AND.flux_calculation_vert/=fct_vert_ppm  &
         &.AND.flux_calculation_vert/=fct_vert_adpo &
-        &.AND.flux_calculation_vert/=fct_vert_zalesak)THEN
+        &.AND.flux_calculation_vert/=fct_vert_zalesak&
+        &.AND.flux_calculation_vert/=fct_vert_minmod)THEN
        CALL finish(TRIM(routine), 'wrong parameter for vertical advection')   
      ENDIF
 
@@ -751,9 +798,9 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'free-slip boundary condition for velocity currently not supported')
      ENDIF
-     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 2) THEN
+     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 3) THEN
        CALL finish(TRIM(routine), &
-         &  'top boundary condition for velocity currently not supported: choose = 0 or =1 or =2')
+         &  'top boundary condition for velocity currently not supported: choose = 0,1,2,3')
      ENDIF
      IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
        CALL finish(TRIM(routine), &
@@ -798,7 +845,9 @@ MODULE mo_ocean_nml
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) THEN
        WRITE(nnml_output,nml=ocean_dynamics_nml)
-       WRITE(nnml_output,nml=ocean_physics_nml)
+       WRITE(nnml_output,nml=ocean_physics_nml) 
+       WRITE(nnml_output,nml=ocean_diffusion_nml)       
+       WRITE(nnml_output,nml=ocean_tracer_transport_nml)
        WRITE(nnml_output,nml=ocean_forcing_nml)
        WRITE(nnml_output,nml=ocean_initialConditions_nml)
        WRITE(nnml_output,nml=ocean_diagnostics_nml)

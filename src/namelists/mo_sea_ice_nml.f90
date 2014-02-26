@@ -80,6 +80,8 @@ MODULE mo_sea_ice_nml
                                         !  This is only necessary for runs which start off from a
                                         !  still ocean, i.e. not re-start
   REAL(wp),PUBLIC :: hci_layer          !< Thickness of stabilizing constant heat capacity layer
+  REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
+
   INTEGER         :: iunit
 
   NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
@@ -108,6 +110,7 @@ CONTAINS
     hnull       = 0.5_wp
     hmin        = 0.05_wp
     hci_layer   = 0.10_wp
+    leadclose_1 = 0.5_wp
 
     ramp_wind   = 10._wp
 

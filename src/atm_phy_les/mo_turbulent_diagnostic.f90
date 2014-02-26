@@ -65,7 +65,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_statistics,         ONLY: levels_horizontal_mean
   USE mo_les_nml,            ONLY: avg_interval_sec, turb_profile_list, &
                                    sampl_freq_sec, turb_tseries_list, &
-                                   expname
+                                   expname, ldiag_les_out
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
@@ -349,6 +349,7 @@ CONTAINS
        END IF  
 
        CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       outvar = outvar * cpd           
 
      CASE('wqv')
 
@@ -536,6 +537,21 @@ CONTAINS
 
        CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
 
+     CASE('bynprd')
+       !Buoyancy production term
+       CALL levels_horizontal_mean(prm_diag%buoyancy_prod, p_patch%edges%primal_edge_length, &
+                                   p_patch%edges%owned, outvar(1:nlev))
+
+     CASE('mechprd')
+       !Mechanical production term: prm_diag%mech_prod / 2
+       CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%edges%primal_edge_length,  &
+                                   p_patch%edges%owned, outvar(1:nlev))
+       outvar = outvar * 0.5_wp          
+ 
+     CASE DEFAULT !In case calculations are performed somewhere else
+      
+       outvar = 0._wp
+       
      END SELECT
 
      !Calculate time mean
@@ -681,6 +697,13 @@ CONTAINS
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
  
+   !Check if diagnostics are to be calculated or not
+   IF(.NOT.ldiag_les_out)THEN
+    sampl_freq_step   = 0
+    avg_interval_step = 0
+    RETURN
+   END IF
+
    IF(msg_level>18)CALL message(routine,'Start!')
 
    !Sampling and output frequencies in terms of time steps
@@ -798,6 +821,14 @@ CONTAINS
        unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
        idx_sgs_qc_flx = n
+     CASE('bynprd') 
+       longname = 'Buoyancy production term in TKE Eq.'
+       unit     = 'm**2/s**3'
+     CASE('mechprd') 
+       longname = 'Mechanical production term in TKE Eq.'
+       unit     = 'm**2/s**3'
+     CASE DEFAULT 
+         CALL finish(routine,'This variable does not exist!')
      END SELECT
 
      dimname(2) = tname
@@ -896,6 +927,10 @@ CONTAINS
   !! @par Revision History
   !!
   SUBROUTINE close_les_turbulent_output
+
+   IF(.NOT.ldiag_les_out)THEN
+    RETURN
+   END IF
 
    IF( my_process_is_stdio() ) THEN
      CALL close_nc(fileid_profile) 

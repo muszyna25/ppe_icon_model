@@ -55,7 +55,7 @@ MODULE mo_nh_torus_exp
   USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_math_constants,      ONLY: pi, pi2
+  USE mo_math_constants,      ONLY: pi, pi2, rad2deg
   USE mo_math_utilities,      ONLY: gnomonic_proj, t_geographical_coordinates, &
      &                              t_cartesian_coordinates, gc2cc, az_eqdist_proj
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -71,6 +71,7 @@ MODULE mo_nh_torus_exp
   USE mo_satad,               ONLY: spec_humi, sat_pres_water
   USE mo_les_config,          ONLY: les_config
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_vert_utilities,      ONLY: vert_intp_linear_1d
 
   IMPLICIT NONE
@@ -78,7 +79,7 @@ MODULE mo_nh_torus_exp
   PRIVATE
 
   PUBLIC :: init_nh_state_cbl, cbl_stevens_fluxes, init_nh_state_rico, &
-            & init_nh_state_rce, init_nh_state_rce_cbl
+            & init_nh_state_rce, init_nh_state_rce_cbl, sfcflx_uniform 
   PUBLIC :: init_nh_state_gate
 
   !DEFINED PARAMETERS (Stevens 2007 JAS) for init_nh_state_cbl:
@@ -727,7 +728,7 @@ MODULE mo_nh_torus_exp
   !! Initialization of prognostic state vector for RCE case on torus  
   !!
   SUBROUTINE init_nh_state_rce( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-    &                           ptr_int, ptr_ext_data, ptr_metrics)
+    &                           ptr_int, ptr_metrics, lprofile)
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
@@ -738,15 +739,14 @@ MODULE mo_nh_torus_exp
       &  ptr_nh_prog
     TYPE(t_nh_diag),       INTENT(INOUT):: &  !< diagnostic state vector
       &  ptr_nh_diag
-    TYPE(t_external_data), INTENT(INOUT):: &  !< external data
-      &  ptr_ext_data
     TYPE(t_nh_metrics),    INTENT(IN)   :: &
       &  ptr_metrics                          !< NH metrics state
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
+    LOGICAL,               INTENT(IN)   :: lprofile
 
     REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
-    REAL(wp) :: tsfc_init ! initial sfc temp
+    REAL(wp) :: topo_height,thth,curr_height
     INTEGER  :: jc,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev                  !< number of full and half levels
@@ -770,84 +770,137 @@ MODULE mo_nh_torus_exp
     i_rcstartlev = 2
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
-    !tsfc_init    = 302.15_wp
-    ! tmelt = 273.15 K; default ape_sst_val = 29 K
-    tsfc_init    = tmelt + ape_sst_val
+    ! Tracers: all zero by default
+    ptr_nh_prog%tracer(:,:,:,:) = 0._wp
 
     !Set some reference density
-    rho_sfc = zp0 / (rd * tsfc_init )
+    rho_sfc = zp0 / (rd * th_cbl(1) )
 
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = zp0
 
-    ! Tracers: all zero by default
-    ptr_nh_prog%tracer(:,:,:,:) = 0._wp
+    IF (lprofile) THEN ! use an LES-baed initial profile: DEFAULT
 
-    !!Tracers
-    !IF(.NOT.les_config(jg)%is_dry_cbl)THEN
-    !  DO jk = 1, nlev
-    !    ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = rh_sfc * spec_humi(sat_pres_water(th_cbl(1)),zp0) * &
-    !              EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
-    !  END DO
-    !END IF
+      topo_height=13000._wp
+      thth=th_cbl(1)+(4.8_wp/1000._wp)*topo_height
 
-    DO jb = 1, nblks_c
+      DO jb = 1, nblks_c
 
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
+        IF (jb /= nblks_c) THEN
+           nlen = nproma
+        ELSE
+           nlen = npromz_c
+        ENDIF
 
-      ntropo = 0
-      DO jk = nlev, 1, -1
-         ! init potential temperature
-         z_help(1:nlen) = tsfc_init + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*th_cbl(2))
-         ! constant temperature above tropopause
-         if ((ptr_metrics%z_mc(1,jk,jb) > z_tropo) .and. (ntropo == 0)) then
-            ntropo = 1
-            zt00   = z_help(1)
-            zh00   = ptr_metrics%z_mc(1,jk,jb)
-         endif
-         if (ptr_metrics%z_mc(1,jk,jb) > z_tropo) then
-            z_help(1:nlen) = zt00 + (ptr_metrics%z_mc(1:nlen,jk,jb)-zh00) * dtdz_st
-         endif
+        !Tracers
+        DO jk = 1, nlev
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.0185_wp*&
+          & EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/2800._wp)
+        END DO
 
-         ! virtual potential temperature
-         ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
-      END DO
+        DO jk = nlev, 1, -1
+           ! init potential temperature
 
-      !Get hydrostatic pressure and exner at lowest level
-      ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+           ! temperature above tropopause according to Cathy H. profile(from LES)
+           IF (ptr_metrics%z_mc(1,jk,jb) < topo_height) then
+             z_help(1:nlen) = th_cbl(1) + (4.8_wp/1000._wp)*ptr_metrics%z_mc(1:nlen,jk,jb)
+           ELSE ! (ptr_metrics%z_mc(1,jk,jb) < z_tropo) then
+             z_help(1:nlen) = thth + (22._wp/1000._wp)*(ptr_metrics%z_mc(1:nlen,jk,jb)-topo_height)
+           ENDIF 
 
-      !Get exner at other levels
-      DO jk = nlev-1, 1, -1
-         z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
-                                     ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
+           ! virtual potential temperature
+           ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+        END DO
+
+        !Get hydrostatic pressure and exner at lowest level
+        ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+
+        !Get exner at other levels
+        DO jk = nlev-1, 1, -1
+           z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
+                                       ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
    
-         ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
-            &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
-      END DO
+           ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
+              &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+        END DO
 
-      IF ( jb == 1 ) THEN
-        DO jk = 1,nlev
-          write(*,*) 'RCE case setup: level, p, T, theta,v, qv: ', jk,   &
-            & ptr_nh_prog%exner(1,jk,jb)**(cpd/rd) * p0ref,              &
-            & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb), &
-            & ptr_nh_prog%theta_v(1,jk,jb),                              &
-            & ptr_nh_prog%tracer(1,jk,jb,iqv)
-        ENDDO
-      ENDIF
+        IF ( jb == 1 ) THEN
+          DO jk = 1,nlev
+            write(*,*) 'RCE case setup: level, p, Tv, theta,v, qv: ', jk,   &
+              & ptr_nh_prog%exner(1,jk,jb)**(cpd/rd) * p0ref,              &
+              & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb), &
+              & ptr_nh_prog%theta_v(1,jk,jb),                              &
+              & ptr_nh_prog%tracer(1,jk,jb,iqv)
+          ENDDO
+        ENDIF
 
-      DO jk = 1 , nlev
-        ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
-      END DO !jk
+        DO jk = 1 , nlev
+          ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
+                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+        END DO !jk
 
-    ENDDO !jb
+      ENDDO !jb
 
+    ELSE ! use profile based on CBL testcase: older RCE exps used this
+      DO jb = 1, nblks_c
+
+        IF (jb /= nblks_c) THEN
+           nlen = nproma
+        ELSE
+           nlen = npromz_c
+        ENDIF
+
+        ntropo = 0
+        DO jk = nlev, 1, -1
+           ! init potential temperature
+           z_help(1:nlen) = th_cbl(1) + max(0._wp, (ptr_metrics%z_mc(1:nlen,jk,jb)-zh0)*th_cbl(2))
+           ! constant temperature above tropopause
+           if ((ptr_metrics%z_mc(1,jk,jb) > z_tropo) .and. (ntropo == 0)) then
+              ntropo = 1
+              zt00   = z_help(1)
+              zh00   = ptr_metrics%z_mc(1,jk,jb)
+           endif
+           if (ptr_metrics%z_mc(1,jk,jb) > z_tropo) then
+              z_help(1:nlen) = zt00 + (ptr_metrics%z_mc(1:nlen,jk,jb)-zh00) * dtdz_st
+           endif
+
+           ! virtual potential temperature
+           ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+        END DO
+
+        !Get hydrostatic pressure and exner at lowest level
+        ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
+        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+
+        !Get exner at other levels
+        DO jk = nlev-1, 1, -1
+           z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
+                                       ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
+   
+           ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
+              &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+        END DO
+
+        IF ( jb == 1 ) THEN
+          DO jk = 1,nlev
+            write(*,*) 'RCE case setup: level, p, T, theta,v, qv: ', jk,   &
+              & ptr_nh_prog%exner(1,jk,jb)**(cpd/rd) * p0ref,              &
+              & ptr_nh_prog%exner(1,jk,jb) * ptr_nh_prog%theta_v(1,jk,jb), &
+              & ptr_nh_prog%theta_v(1,jk,jb),                              &
+              & ptr_nh_prog%tracer(1,jk,jb,iqv)
+          ENDDO
+        ENDIF
+
+        DO jk = 1 , nlev
+          ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
+                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+        END DO !jk
+
+      ENDDO !jb
+    ENDIF ! lprofile
     
     !Mean wind and reference
     ptr_nh_prog%vn    = 0._wp
@@ -866,7 +919,7 @@ MODULE mo_nh_torus_exp
   !!
   !!
   SUBROUTINE init_nh_state_rce_cbl( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
-    &                           ptr_int, ptr_metrics)
+    &                           ptr_int, ptr_metrics )
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,  INTENT(IN)   :: &  !< patch on which computation is performed
@@ -989,6 +1042,55 @@ MODULE mo_nh_torus_exp
     ptr_nh_ref%w_ref  = ptr_nh_prog%w
 
   END SUBROUTINE init_nh_state_rce_cbl 
+!-------------------------------------------------------------------------
+!
+! This subroutine creates a simple two valued field for the sensible heat flux
+! and the water vapor flux.  The domain is simply divided in two with the 
+! division determined by the longitude value given.  on each side of the 
+! division the sensible and latent heat fluxes have different values.
+!
+  SUBROUTINE sfcflx_uniform(ptr_patch, shflux_sfc, sh_high, sh_low, qvflux_sfc,   &
+    & qv_high, qv_low, wallLonDeg)
+    TYPE(t_patch),TARGET,  INTENT(IN) :: ptr_patch  !< patch on which computation is performed
+    REAL(wp), INTENT(in) :: wallLonDeg
+    REAL(wp), INTENT(out):: shflux_sfc(:,:) ! sensible heat flux [W/m2]
+    REAL(wp), INTENT(out):: qvflux_sfc(:,:) ! Water vapor flux at sfc [kg/kg]
+    Real(wp), INTENT(in) :: sh_high   ! upper value of sensible heat flux
+    Real(wp), INTENT(in) :: sh_low    ! lower value of sensible heat flux
+    Real(wp), INTENT(in) :: qv_high   ! upper value of vapor flux
+    Real(wp), INTENT(in) :: qv_low    ! lower value of vapor flux
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+
+!-------------------------------------------------------------------------
+
+    all_cells => ptr_patch%cells%ALL
+
+    !Add horizontal variation
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        lat_deg = ptr_patch%cells%center(jc,jb)%lat * rad2deg
+        lon_deg = ptr_patch%cells%center(jc,jb)%lon * rad2deg
+
+        IF((lon_deg) >= wallLonDeg) THEN
+          shflux_sfc(jc,jb) = sh_high
+          qvflux_sfc(jc,jb) = qv_high
+        ELSE
+          shflux_sfc(jc,jb) = sh_low
+          qvflux_sfc(jc,jb) = qv_low
+        ENDIF
+
+      END DO
+    END DO
+
+  END SUBROUTINE sfcflx_uniform
 !-------------------------------------------------------------------------
 ! 
 

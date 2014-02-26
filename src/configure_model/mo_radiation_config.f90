@@ -76,7 +76,7 @@ MODULE mo_radiation_config
     !                                               !< aerosol solar (lradforcing(1)) and
     !                                               !< thermal (lradforcing(2)) radiation forcing 
     ! nmonth currently works for zonal mean ozone and the orbit (year 1987) only
-    INTEGER :: isolrad        !< mode of solar constant calculation
+    INTEGER :: isolrad = 3        !< mode of solar constant calculation
     !< default is rrtm solar constant
     !
     INTEGER :: albedo_type ! 1: albedo based on surface-type specific set of constants
@@ -143,14 +143,21 @@ MODULE mo_radiation_config
     REAL(wp), PARAMETER :: vpp_n2o(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
     !
     !
-    ! --- solar activity
+    ! --- solar activity for radiation time step (this time step can be
+    !     different from the actual integration time step, in general it
+    !     is in the future relative to actual time step)
     !
-    REAL(wp) :: ssi(14)  !< spectrally resolved solar irradiance (SSI) [W/m2]
-    !                    !< at 1 AU distance from the sun
+    REAL(wp) :: ssi_radt(14)  !< spectrally resolved solar irradiance (SSI) 
+    !                         !< [W/m2] at 1 AU distance from the sun
   
-    REAL(wp) :: tsi      !< total solar irradiance (TSI) [W/m2]
+    REAL(wp) :: tsi_radt !< total solar irradiance (TSI) [W/m2]
     !                    !< at 1 AU distance from the sun
-    !                    !< = SUM(ssi(:))
+    !                    !< = SUM(ssi_radt(:))
+    !
+    ! --- solar activity for actual time step (for calculation of heating
+    !     rates)
+    !
+    REAL(wp) :: tsi
     !
     ! --- other parameters
     !

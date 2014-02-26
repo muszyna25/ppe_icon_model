@@ -50,15 +50,18 @@ MODULE mo_run_nml
                          & config_output_mode     => output_mode,     &
                          & config_check_epsilon   => check_epsilon,   &
                          & config_test_mode       => test_mode,       &
-                         & config_write_timer_files => write_timer_files,  &
                          & t_output_mode, max_output_modes,           &
-                         & config_debug_check_level => debug_check_level
+                         & config_debug_check_level => debug_check_level, &
+                         & config_restart_filename  => restart_filename, &
+                         & config_profiling_output => profiling_output
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish, &
     &                      config_msg_timestamp   => msg_timestamp
-  USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ, &
-                               INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY
+  USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
+                               INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY, &
+                               MAX_CHAR_LENGTH, TIMER_MODE_AGGREGATED,            &
+                               TIMER_MODE_WRITE_FILES, TIMER_MODE_DETAILED
   USE mo_io_units,       ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
@@ -101,7 +104,7 @@ MODULE mo_run_nml
 
   LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
   INTEGER :: timers_level  ! what level of timers to run
-  LOGICAL :: activate_sync_timers, write_timer_files
+  LOGICAL :: activate_sync_timers
 
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
@@ -117,6 +120,12 @@ MODULE mo_run_nml
   !  one or multiple of "none", "nml", "totint"
   CHARACTER(len=32) :: output(max_output_modes)
 
+  INTEGER :: profiling_output  !< switch defining the kind of timer output
+
+  !> file name for restart/checkpoint files (containg keyword
+  !> substition patterns)
+  CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
+
   NAMELIST /run_nml/ ltestcase,    ldynamics,       &
                      iforcing,     ltransport,      &
                      ntracer,                       &
@@ -125,12 +134,13 @@ MODULE mo_run_nml
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
-                     write_timer_files,             &
                      msg_level, check_epsilon,      &
                      test_mode,                     &
                      output,                        &
                      msg_timestamp,                 &
-                     debug_check_level
+                     debug_check_level,             &
+                     restart_filename,              &
+                     profiling_output
 
 CONTAINS
   !>
@@ -166,7 +176,6 @@ CONTAINS
     ltimer               = .TRUE.
     timers_level         = 1
     activate_sync_timers = .FALSE.
-    write_timer_files    = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
     check_epsilon        = 1.e-6_wp
@@ -175,6 +184,9 @@ CONTAINS
 
     output(:) = " "
     output(1) = "default"
+
+    restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
+    profiling_output = config_profiling_output
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -255,12 +267,24 @@ CONTAINS
     config_ltimer          = ltimer
     config_timers_level    = timers_level
     config_activate_sync_timers = activate_sync_timers
-    config_write_timer_files = write_timer_files
+
     config_msg_level       = msg_level
     config_msg_timestamp   = msg_timestamp
     config_check_epsilon   = check_epsilon
     config_test_mode    = test_mode
     config_debug_check_level = debug_check_level
+
+    config_restart_filename = restart_filename
+#ifdef __SX__
+    IF (profiling_output == TIMER_MODE_AGGREGATED) THEN
+      IF (my_process_is_stdio()) THEN
+        WRITE (0,*) "!!! SX9 does not support aggregated timer output   !!!"
+        WRITE (0,*) "!!! due to the length restriction for output lines !!!"
+      END IF
+      profiling_output =TIMER_MODE_DETAILED
+    END IF
+#endif
+    config_profiling_output = profiling_output
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

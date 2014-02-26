@@ -125,8 +125,7 @@ MODULE mo_mpi
 #endif
 
   ! start/stop methods
-  PUBLIC :: start_mpi
-  PUBLIC :: p_stop, p_abort
+  PUBLIC :: start_mpi, stop_mpi, abort_mpi
 
   ! split the global communicator to _process_mpi_communicator
   PUBLIC :: split_global_mpi_communicator
@@ -206,6 +205,7 @@ MODULE mo_mpi
   PUBLIC :: p_alltoallv
   PUBLIC :: p_clear_request
   PUBLIC :: p_mpi_wtime
+  PUBLIC :: get_mpi_comm_world_ranks
 
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
@@ -827,7 +827,7 @@ CONTAINS
     CHARACTER (len=*), INTENT(in) :: text
 
     WRITE (nerr,'(i4.4,a,a,a,a)') my_global_mpi_id, ": ", TRIM(name), ": ", TRIM(text)
-    CALL p_abort
+    CALL abort_mpi
 
   END SUBROUTINE finish
   !------------------------------------------------------------------------------
@@ -1411,7 +1411,7 @@ CONTAINS
         WRITE (nerr,'(a,a)') method_name, &
           & ' MPI_COMM_FREE failed. p_start needs to be called before.'
         WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-        CALL p_abort
+        CALL abort_mpi
       END IF
     ENDIF
     ! assign MPI communicator generated elsewhere to process_mpi_all_comm
@@ -1421,7 +1421,7 @@ CONTAINS
        WRITE (nerr,'(a,a)') method_name,&
          & ' MPI_COMM_DUP failed for process_mpi_all_comm.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 
     ! get local PE identification
@@ -1430,7 +1430,7 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_RANK failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     ELSE
 #ifdef DEBUG
        WRITE (nerr,'(a,a,i4,a)') method_name, ' my_process_mpi_all_id ', &
@@ -1445,7 +1445,7 @@ CONTAINS
        WRITE (nerr,'(a,a,i4,a)') method_name, ' PE: ',&
          & my_process_mpi_all_id, ' MPI_COMM_SIZE failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 
 
@@ -1453,14 +1453,14 @@ CONTAINS
 !     IF (p_error /= MPI_SUCCESS) THEN
 !        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work.'
 !        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-!        CALL p_abort
+!        CALL abort_mpi
 !     END IF
 !
 !     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work_test,p_error)
 !     IF (p_error /= MPI_SUCCESS) THEN
 !        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work_test.'
 !        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-!        CALL p_abort
+!        CALL abort_mpi
 !     END IF
 
 #endif
@@ -1614,7 +1614,7 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 
 #endif
@@ -1625,7 +1625,7 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_RANK failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 
     ! Information ...
@@ -1645,7 +1645,7 @@ CONTAINS
        WRITE (nerr,'(a,a,i4,a)') method_name ,' PE: ', my_global_mpi_id, &
        &  ' MPI_COMM_SIZE failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 
     ! for non blocking calls
@@ -1659,7 +1659,7 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
       WRITE (nerr,'(a,a)') method_name , ' MPI_GET_VERSION failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-      CALL p_abort
+      CALL abort_mpi
     END IF
 
     IF (my_global_mpi_id == 0) THEN
@@ -1808,7 +1808,7 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
-  SUBROUTINE p_stop
+  SUBROUTINE stop_mpi
 
     ! finish MPI and clean up all PEs
 
@@ -1821,17 +1821,17 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a)') ' MPI_FINALIZE failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
     process_is_mpi_parallel = .FALSE.
     DEALLOCATE(p_request)
 #endif
 
-  END SUBROUTINE p_stop
+  END SUBROUTINE stop_mpi
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
-  SUBROUTINE p_abort
+  SUBROUTINE abort_mpi
 
     ! this routine should be used instead of abort, util_abort() or STOP
     ! in all routines for proper clean up of all PEs
@@ -1852,11 +1852,11 @@ CONTAINS
 #ifndef __STANDALONE
     CALL util_exit(1)
 #else
-    STOP 'mo_mpi: p_abort ..'
+    STOP 'mo_mpi: abort_mpi ..'
 #endif
 #endif
 
-  END SUBROUTINE p_abort
+  END SUBROUTINE abort_mpi
   !------------------------------------------------------------------------------
 
   ! communicator set up
@@ -1884,7 +1884,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
          & ' MPI_COMM_GROUP failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 
     ! communicator is process_mpi_all_comm
@@ -1897,7 +1897,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             &' MPI_GROUP_INCL failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 
        CALL MPI_COMM_CREATE (process_mpi_all_comm, group_d, p_communicator_tmp, &
@@ -1907,7 +1907,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             &' MPI_COMM_CREATE failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 
        IF (my_process_mpi_all_id == 0) p_communicator_d = p_communicator_tmp
@@ -1923,7 +1923,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             & ' MPI_GROUP_INCL failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 
        CALL MPI_COMM_CREATE (process_mpi_all_comm, group_d, p_communicator_tmp, &
@@ -1933,7 +1933,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             & ' MPI_COMM_CREATE failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 
        IF (my_process_mpi_all_id /= 0) p_communicator_d = p_communicator_tmp
@@ -1951,7 +1951,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             & ' MPI_GROUP_INCL failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 
        CALL MPI_COMM_CREATE (process_mpi_all_comm, group_a, p_communicator_tmp, &
@@ -1961,7 +1961,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             & ' MPI_COMM_CREATE failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
        IF(p_communicator_tmp/=MPI_COMM_NULL) &
          p_communicator_a = p_communicator_tmp
@@ -1979,7 +1979,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             & ' MPI_GROUP_INCL failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 
        CALL MPI_COMM_CREATE (process_mpi_all_comm, group_b, p_communicator_tmp, &
@@ -1989,7 +1989,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, &
             & ' MPI_COMM_CREATE failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
        IF(p_communicator_tmp/=MPI_COMM_NULL) &
          p_communicator_b = p_communicator_tmp
@@ -2002,7 +2002,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' PE: ', my_process_mpi_all_id, '&
          & MPI_BARRIER failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 
     IF (debug_parallel >= 0 .AND. my_process_mpi_all_id == 0) THEN
@@ -2051,7 +2051,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2085,7 +2085,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2119,7 +2119,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2153,7 +2153,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2187,7 +2187,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2221,7 +2221,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2255,7 +2255,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2289,7 +2289,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2323,7 +2323,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2357,7 +2357,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2391,7 +2391,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2426,7 +2426,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2460,7 +2460,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2494,7 +2494,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2528,7 +2528,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2562,7 +2562,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2596,7 +2596,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2652,7 +2652,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2692,7 +2692,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2729,7 +2729,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2766,7 +2766,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2803,7 +2803,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2840,7 +2840,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2877,7 +2877,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2914,7 +2914,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2951,7 +2951,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -2987,7 +2987,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3024,7 +3024,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3062,7 +3062,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3099,7 +3099,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3136,7 +3136,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3173,7 +3173,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3210,7 +3210,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3247,7 +3247,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3283,7 +3283,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3318,7 +3318,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3352,7 +3352,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3386,7 +3386,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3420,7 +3420,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3454,7 +3454,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3488,7 +3488,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3522,7 +3522,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3556,7 +3556,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3590,7 +3590,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3624,7 +3624,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3659,7 +3659,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3693,7 +3693,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3727,7 +3727,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3761,7 +3761,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3795,7 +3795,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3868,7 +3868,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3906,7 +3906,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3942,7 +3942,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -3979,7 +3979,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4016,7 +4016,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4053,7 +4053,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4091,7 +4091,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4127,7 +4127,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4164,7 +4164,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4201,7 +4201,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4238,7 +4238,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4277,7 +4277,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4313,7 +4313,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4350,7 +4350,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4387,7 +4387,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4424,7 +4424,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4806,7 +4806,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
             ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4836,7 +4836,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
             ' to ', p_destination, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4876,7 +4876,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i4,a,i6,a)') ' MPI_SENDRECV by ', my_process_mpi_all_id, &
             ' to ', p_dest, ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4911,7 +4911,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i4,a,i6,a)') ' MPI_SENDRECV by ', my_process_mpi_all_id, &
             ' to ', p_dest, ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4946,7 +4946,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i4,a,i6,a)') ' MPI_SENDRECV by ', my_process_mpi_all_id, &
             ' to ', p_dest, ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -4981,7 +4981,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a,i4,a,i4,a,i6,a)') ' MPI_SENDRECV by ', my_process_mpi_all_id, &
             ' to ', p_dest, ' from ', p_source, ' for tag ', p_tag, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5023,7 +5023,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5063,7 +5063,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5104,7 +5104,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5146,7 +5146,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5188,7 +5188,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5229,7 +5229,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5270,7 +5270,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5311,7 +5311,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5352,7 +5352,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5393,7 +5393,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5434,7 +5434,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5475,7 +5475,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5516,7 +5516,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5557,7 +5557,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5599,7 +5599,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5640,7 +5640,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5681,7 +5681,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5722,7 +5722,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5763,7 +5763,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5804,7 +5804,7 @@ CONTAINS
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
             ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 #endif
 #endif
@@ -5846,7 +5846,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
                ' failed.'
           WRITE (nerr,'(a,i4)') ' Error = ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 #endif
     ENDIF
@@ -5891,7 +5891,7 @@ CONTAINS
           WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
                ' failed.'
           WRITE (nerr,'(a,i4)') ' Error = ', p_error
-          CALL p_abort
+          CALL abort_mpi
        END IF
 #endif
     ENDIF
@@ -5929,7 +5929,7 @@ CONTAINS
              WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_IPROBE on ', my_process_mpi_all_id, &
                   ' for tag ', p_tagtable(i), ' failed.'
              WRITE (nerr,'(a,i4)') ' Error = ', p_error
-             CALL p_abort
+             CALL abort_mpi
           END IF
 #endif
           IF (flag) THEN
@@ -5942,7 +5942,7 @@ CONTAINS
                   & my_process_mpi_all_id, &
                      ' for tag ', p_tag, ' from ' , p_source, ' failed.'
                 WRITE (nerr,'(a,i4)') ' Error = ', p_error
-                CALL p_abort
+                CALL abort_mpi
              END IF
 #endif
              EXIT
@@ -6017,7 +6017,7 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BARRIER on ', my_process_mpi_all_id, ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 !#endif
 #endif
@@ -6034,7 +6034,7 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' global_mpi_barrier on ', get_my_global_mpi_id(), ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 !#endif
 #endif
@@ -6051,7 +6051,7 @@ CONTAINS
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' global_mpi_barrier on ', get_my_global_mpi_id(), ' failed.'
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
+       CALL abort_mpi
     END IF
 !#endif
 #endif
@@ -6059,23 +6059,29 @@ CONTAINS
   END SUBROUTINE work_mpi_barrier
   !------------------------------------------------------
 
-  FUNCTION p_sum_dp_0d (zfield, comm) RESULT (p_sum)
+  !> computes a global sum of real numbers
+  !
+  ! @param[in]    root     (Optional:) root PE, otherwise we perform an
+  !                                    ALLREDUCE operation
+  FUNCTION p_sum_dp_0d (zfield, comm, root) RESULT (p_sum)
 
-    REAL(dp)                      :: p_sum
-    REAL(dp),          INTENT(in) :: zfield
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    REAL(dp)                        :: p_sum
+    REAL(dp),  INTENT(in)           :: zfield
+    INTEGER,   INTENT(in)           :: comm
+    INTEGER,   INTENT(in), OPTIONAL :: root
 #ifndef NOMPI
     INTEGER :: p_comm
 
-    IF (PRESENT(comm)) THEN
-       p_comm = comm
-    ELSE
-       p_comm = process_mpi_all_comm
-    ENDIF
+    p_comm = comm
 
     IF (my_process_is_mpi_parallel()) THEN
-       CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
-            MPI_SUM, p_comm, p_error)
+      IF (PRESENT(root)) THEN
+        CALL MPI_REDUCE (zfield, p_sum, 1, p_real_dp, &
+          MPI_SUM, root, p_comm, p_error)
+      ELSE
+        CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
+          MPI_SUM, p_comm, p_error)
+      END IF
     ELSE
        p_sum = zfield
     END IF
@@ -6244,8 +6250,8 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in)    :: comm
 #ifndef NOMPI
     INTEGER  :: p_comm
-    INTEGER  :: meta_info, ikey
-    REAL(dp) :: in_val(2), rcv_val(2)
+    INTEGER  :: meta_info, ikey, rank
+    DOUBLE PRECISION :: in_val(2), rcv_val(2)
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6262,10 +6268,12 @@ CONTAINS
         IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
         ! use MPI_MAXLOC to transfer additional data
         in_val(1) = zfield
-        in_val(2) = REAL( meta_info, wp )
+        in_val(2) = DBLE( meta_info )
         IF (PRESENT(root)) THEN
           CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
             MPI_MAXLOC, root, p_comm, p_error)
+          CALL MPI_COMM_RANK(p_comm, rank, p_error)
+          if (rank /= root)  rcv_val = 0.
         ELSE
           CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
             MPI_MAXLOC, p_comm, p_error)
@@ -6507,13 +6515,31 @@ CONTAINS
 
   END FUNCTION p_max_3d
 
-  FUNCTION p_min_0d (zfield, comm) RESULT (p_min)
 
-    REAL(dp),          INTENT(in) :: zfield
-    INTEGER, OPTIONAL, INTENT(in) :: comm
-    REAL(dp)                      :: p_min
+  !> computes a global minimum of real numbers
+  !
+  ! @param[out]   proc_id  (Optional:) PE number of maximum value
+  ! @param[inout] keyval   (Optional:) additional meta information
+  ! @param[in]    root     (Optional:) root PE, otherwise we perform an
+  !                                    ALL-TO-ALL operation
+  !
+  ! The parameter @p keyval can be used to communicate
+  ! additional data on the maximum value, e.g., the level
+  ! index where the maximum occurred.
+  !
+  FUNCTION p_min_0d (zfield, proc_id, keyval, comm, root) RESULT (p_min)
+
+    REAL(dp)                         :: p_min
+    REAL(dp),          INTENT(in)    :: zfield
+    INTEGER, OPTIONAL, INTENT(inout) :: proc_id
+    INTEGER, OPTIONAL, INTENT(inout) :: keyval
+    INTEGER, OPTIONAL, INTENT(in)    :: root
+    INTEGER, OPTIONAL, INTENT(in)    :: comm
+
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER  :: p_comm
+    INTEGER  :: meta_info, ikey, rank
+    DOUBLE PRECISION :: in_val(2,1), rcv_val(2,1)
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6522,8 +6548,39 @@ CONTAINS
     ENDIF
 
     IF (my_process_is_mpi_all_parallel()) THEN
-       CALL MPI_ALLREDUCE (zfield, p_min, 1, p_real_dp, &
+
+      IF (PRESENT(proc_id) .OR. PRESENT(keyval)) THEN
+        ! encode meta information
+        meta_info = 0
+        IF (PRESENT(keyval))  meta_info = meta_info + keyval*process_mpi_all_size
+        IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
+        ! use MPI_MINLOC to transfer additional data
+        in_val(1,1) = DBLE( zfield )
+        in_val(2,1) = DBLE( meta_info )
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
+            MPI_MINLOC, root, p_comm, p_error)
+          CALL MPI_COMM_RANK(p_comm, rank, p_error)
+          if (rank /= root)  rcv_val = 0.
+        ELSE
+          CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
+            MPI_MINLOC, p_comm, p_error)
+        END IF
+        ! decode meta info:
+        p_min = rcv_val(1,1)
+        ikey = INT(rcv_val(2,1)+0.5)/process_mpi_all_size
+        IF (PRESENT(keyval))  keyval  = ikey
+        IF (PRESENT(proc_id)) proc_id = INT(rcv_val(2,1)+0.5) - ikey
+      ELSE
+        ! compute simple (standard) minimum
+        IF (PRESENT(root)) THEN
+          CALL MPI_REDUCE (zfield, p_min, 1, p_real_dp, &
+            MPI_MIN, root, p_comm, p_error)
+        ELSE
+          CALL MPI_ALLREDUCE (zfield, p_min, 1, p_real_dp, &
             MPI_MIN, p_comm, p_error)
+        END IF
+     END IF
     ELSE
        p_min = zfield
     END IF
@@ -7112,5 +7169,55 @@ CONTAINS
     p_mpi_wtime = 0d0
 #endif
   END FUNCTION p_mpi_wtime
+
+
+  !--------------------------------------------------------------------
+
+
+  !> @return Global MPI ranks within communicator "comm"
+  !
+  SUBROUTINE get_mpi_comm_world_ranks(comm, global_ranks, nranks)
+    INTEGER, INTENT(IN)  :: comm               !< MPI communicator
+    INTEGER, INTENT(OUT) :: global_ranks(:)    !< Output: list of global MPI ranks in communicator "comm"
+    INTEGER, INTENT(OUT) :: nranks             !< Output: number of entries in rank list
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:get_mpi_comm_world_ranks")
+    INTEGER              :: p_error, grp_comm, grp_comm_world, i
+    INTEGER, ALLOCATABLE :: comm_ranks(:)
+
+#if !defined(NOMPI)
+    nranks = 0
+    IF (comm /= MPI_COMM_NULL) THEN
+      ! inquire communicator size
+      CALL MPI_COMM_SIZE (comm, nranks, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_COMM_SIZE operation!')
+
+      IF (nranks > SIZE(global_ranks))  CALL finish (routine, 'Input array too small!')
+      ALLOCATE(comm_ranks(nranks))
+      comm_ranks(1:nranks) = (/ (i, i=0,(nranks-1)) /)
+
+      CALL MPI_COMM_GROUP(comm, grp_comm, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_COMM_GROUP operation!')
+      CALL MPI_COMM_GROUP(MPI_COMM_WORLD, grp_comm_world,  p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_COMM_GROUP operation!')
+
+      global_ranks(:) = 0
+      CALL MPI_GROUP_TRANSLATE_RANKS(grp_comm, nranks, comm_ranks, &
+        &                            grp_comm_world, global_ranks, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_GROUP_TRANSLATE_RANKS operation!')
+
+      CALL MPI_GROUP_FREE(grp_comm,       p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_GROUP_FREE operation!')
+      CALL MPI_GROUP_FREE(grp_comm_world, p_error)
+      IF (p_error /= MPI_SUCCESS)  CALL finish (routine, 'Error in MPI_GROUP_FREE operation!')
+
+      DEALLOCATE(comm_ranks)
+    END IF
+#else
+    nranks = 1
+    global_ranks(1) = 0
+#endif
+  END SUBROUTINE get_mpi_comm_world_ranks
+
 
 END MODULE mo_mpi

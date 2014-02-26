@@ -18,33 +18,36 @@ MODULE mo_solar_irradiance
   USE mo_read_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                             p_nf_inq_varid, p_nf_get_vara_double, p_nf_close, &
        &                             nf_read, nf_noerr, nf_strerror, p_nf_get_var_int
+  USE mo_time_interpolation_weights,ONLY: t_wi_limm
 
   IMPLICIT NONE
 
   PRIVATE
 
-  REAL(dp), POINTER :: local_tsi(:) => NULL()
-  REAL(dp), POINTER :: local_ssi(:,:) => NULL()
+  REAL(dp), POINTER :: tsi_radt_m(:) => NULL(), tsi_m(:) => NULL()
+  REAL(dp), POINTER :: ssi_radt_m(:,:) => NULL()
 
   INTEGER, ALLOCATABLE :: ssi_years(:)
   INTEGER, ALLOCATABLE :: ssi_months(:)
 
   CHARACTER(len=*), PARAMETER :: ssi_fn = 'bc_ssi.nc'
 
-  PUBLIC :: read_ssi_bc
-  PUBLIC :: ssi_time_weights
-  PUBLIC :: ssi_time_interpolation
+  PUBLIC :: read_ssi_bc, ssi_time_interpolation
 
   REAL(dp), SAVE :: wgt1, wgt2
   INTEGER, SAVE  :: nmw1, nmw2
 
-  LOGICAL, SAVE :: ssi_file_read = .FALSE.
-  INTEGER, SAVE :: last_year = 0
+  LOGICAL, SAVE :: lread_solar = .TRUE., lread_solar_radt = .TRUE.
+  INTEGER, SAVE :: last_year = -999999, last_year_radt = -999999
 
 CONTAINS
 
-  SUBROUTINE read_ssi_bc(year)
+  SUBROUTINE read_ssi_bc(year, lradt)
     INTEGER, INTENT(in) :: year
+    LOGICAL, INTENT(in) :: lradt ! lradt=.true.: read data for radiation time step
+                                 ! the radiation time step may be in the future
+                                 ! lradt=.false.: read data for heating rates only
+                                 ! data needed at every integration time step
 
     INTEGER :: ncid, ndimid, nvarid
     INTEGER :: ssi_time_entries
@@ -56,11 +59,13 @@ CONTAINS
     ym1 = year - 1
     yp1 = year + 1
 
-    IF (last_year /= year) THEN
-      ssi_file_read = .FALSE.
+    IF (lradt) THEN
+       IF (last_year_radt /= year ) lread_solar_radt=.TRUE.
+    ELSE
+       IF (last_year /= year) lread_solar=.TRUE.
     ENDIF
 
-    IF (ssi_file_read) THEN
+    IF (.NOT.lread_solar_radt .AND. .NOT.lread_solar) THEN
       CALL message('','Solar irradiance data already read ...')
       RETURN
     ENDIF
@@ -75,8 +80,12 @@ CONTAINS
     ALLOCATE (ssi_years(ssi_time_entries))
     ALLOCATE (ssi_months(ssi_time_entries))
 
-    ALLOCATE (local_tsi(0:13))
-    ALLOCATE (local_ssi(ssi_numwl,0:13))
+    IF (lradt) THEN
+       IF (.NOT.(ASSOCIATED(tsi_radt_m))) ALLOCATE(tsi_radt_m(0:13))
+       IF (.NOT.(ASSOCIATED(ssi_radt_m))) ALLOCATE(ssi_radt_m(ssi_numwl,0:13))
+    ELSE
+       IF (.NOT.(ASSOCIATED(tsi_m)))      ALLOCATE(tsi_m(0:13))
+    END IF
 
     CALL nf_check(p_nf_inq_varid(ncid, 'year', nvarid))
     CALL nf_check(p_nf_get_var_int (ncid, nvarid, ssi_years))
@@ -88,21 +97,24 @@ CONTAINS
 
     ! not adding 1 in calculating the offset leads to an index to December of ym1
     idx = 12*(year - first_year)
-    if (idx < 1) then
+    IF (idx < 1) THEN
       CALL finish('','No solar irradiance data available for the requested year')
-    endif
+    END IF
 
     CALL nf_check(p_nf_inq_varid (ncid, 'TSI', nvarid))
     start(1) = idx
     cnt(1) = 14
-    CALL nf_check(p_nf_get_vara_double(ncid, nvarid, start, cnt, local_tsi))
-
-    CALL nf_check(p_nf_inq_varid (ncid, 'SSI', nvarid))
-    start(1) = 1;   cnt(1) = ssi_numwl;
-    start(2) = idx; cnt(2) = 14;
-    CALL nf_check(p_nf_get_vara_double (ncid, nvarid, start, cnt, local_ssi))
-
-    ssi_file_read = .TRUE.
+    IF (lradt) THEN
+       CALL nf_check(p_nf_get_vara_double(ncid, nvarid, start, cnt, tsi_radt_m))
+       CALL nf_check(p_nf_inq_varid (ncid, 'SSI', nvarid))
+       start(1) = 1;   cnt(1) = ssi_numwl;
+       start(2) = idx; cnt(2) = 14;
+       CALL nf_check(p_nf_get_vara_double (ncid, nvarid, start, cnt, ssi_radt_m))
+       lread_solar_radt=.FALSE.
+    ELSE
+       CALL nf_check(p_nf_get_vara_double(ncid, nvarid, start, cnt, tsi_m))
+       lread_solar=.FALSE.
+    END IF
 
     CALL nf_check(p_nf_close(ncid))
 
@@ -111,97 +123,39 @@ CONTAINS
 
   END SUBROUTINE read_ssi_bc
 
-  SUBROUTINE ssi_time_weights(current_date)
+  SUBROUTINE ssi_time_interpolation(wi, lradt, tsi, ssi)
+    TYPE(t_wi_limm), INTENT(in)     :: wi
+    LOGICAL, INTENT(in)             :: lradt
+    REAL(dp), INTENT(out)           :: tsi
+    REAL(dp), INTENT(out), OPTIONAL :: ssi(:)
+    CHARACTER(len=14)               :: ctsi
 
-    TYPE(t_datetime), INTENT(in) :: current_date
+    IF (lradt) THEN
+      IF (.NOT.PRESENT(ssi)) THEN
+        CALL finish ('ssi_time_interplation of mo_solar_irradiance', &
+                     'Interpolation to radiation time step needs ssi',exit_no=1)
+      END IF
+      tsi    = wi%wgt1 * tsi_radt_m(wi%inm1) + wi%wgt2 * tsi_radt_m(wi%inm2)
+      ssi(:) = wi%wgt1*ssi_radt_m(:,wi%inm1) + wi%wgt2*ssi_radt_m(:,wi%inm2)
+      WRITE(ctsi,'(F14.8)') tsi
+      CALL message('','Interpolated total solar irradiance and spectral ' &
+                      //'bands for radiation transfer, tsi= '//ctsi)
 
-    ! calculates weighting factores for AMIP sst and sea ice
-
-    TYPE(t_datetime) :: next_date
-
-    TYPE(t_datetime) :: date_monm1, date_monp1
-    INTEGER   :: yr, mo, dy, hr, mn, se
-    INTEGER   :: isec
-    INTEGER   :: imp1, imm1, imlenm1, imlen, imlenp1
-    REAL (dp) :: zsec, zdayl
-    REAL (dp) :: zmohlf, zmohlfp1, zmohlfm1
-
-    ! time of next timestep and split
-    !
-    next_date = current_date
-    CALL add_time(dtime,0,0,0,next_date)
-    CALL date_to_time(next_date)
-
-    yr = next_date%year
-    mo = next_date%month
-    dy = next_date%day
-    hr = next_date%hour
-    mn = next_date%minute
-    se = INT(next_date%second)
-
-    ! month index for AMIP data  (0..13)
-    imp1 = mo+1
-    imm1 = mo-1
-
-    ! determine length of months and position within current month
-
-    date_monm1%calendar = next_date%calendar
-    IF (imm1 ==  0) THEN
-      date_monm1%year = yr-1;  date_monm1%month = 12;   date_monm1%day = 1;
     ELSE
-      date_monm1%year = yr;    date_monm1%month = imm1; date_monm1%day = 1;
-    ENDIF
-    date_monm1%hour = 0;   date_monm1%minute = 0; date_monm1%second   = 0;
-    CALL date_to_time(date_monm1)
-
-    date_monp1%calendar = next_date%calendar
-    IF (imp1 == 13) THEN
-      date_monp1%year = yr+1;  date_monp1%month = 1;    date_monp1%day = 1;
-    ELSE
-      date_monp1%year = yr;    date_monp1%month = imp1; date_monp1%day = 1;
-    ENDIF
-    date_monp1%hour     = 0;   date_monp1%minute   = 0;    date_monp1%second   = 0;
-    CALL date_to_time(date_monp1)
-
-    imlenm1 = date_monm1%monlen
-    imlen   = next_date%monlen
-    imlenp1 = date_monp1%monlen
-
-    zdayl    = rdaylen
-    zmohlfm1 = imlenm1*zdayl*0.5_dp
-    zmohlf   = imlen  *zdayl*0.5_dp
-    zmohlfp1 = imlenp1*zdayl*0.5_dp
-
-    ! weighting factors for first/second half of month
-
-    nmw1   = mo
-
-    ! seconds in the present month
-    isec = (dy-1) * idaylen + INT(next_date%daysec)
-    zsec = REAL(isec,dp)
-
-    IF(zsec <= zmohlf) THEN                     ! first part of month
-      wgt1   = (zmohlfm1+zsec)/(zmohlfm1+zmohlf)
-      wgt2   = 1.0_dp-wgt1
-      nmw2   = imm1
-    ELSE                                        ! second part of month
-      wgt2   = (zsec-zmohlf)/(zmohlf+zmohlfp1)
-      wgt1   = 1.0_dp-wgt2
-      nmw2   = imp1
-    ENDIF
-
-  END SUBROUTINE ssi_time_weights
-
-  SUBROUTINE ssi_time_interpolation(tsi, ssi)
-    REAL(dp), INTENT(out) :: tsi
-    REAL(dp), INTENT(out) :: ssi(:)
-
-    tsi    = wgt1 * local_tsi(nmw1) + wgt2 * local_tsi(nmw2)
-    ssi(:) = wgt1 * local_ssi(:,nmw1) + wgt2 * local_ssi(:,nmw2)
-
-    CALL message('','Interpolated total solar irradiance and spectral bands of TSI.')
-
+      IF (PRESENT(ssi)) THEN
+        CALL message ('ssi_time_interplation of mo_solar_irradiance', &
+                     'Interpolation of ssi not necessary')
+      END IF
+      tsi    = wi%wgt1 * tsi_m(wi%inm1) + wi%wgt2 * tsi_m(wi%inm2)
+    END IF
+       
+!    WRITE(0,*) 'interpolation weights (time,wgt1,wgt2,inm1,inm2):', &
+!    wi%time%year, wi%time%month, wi%time%day, wi%time%hour, wi%time%minute, wi%time%second
+!    WRITE(0,*) wi%wgt1, wi%wgt2, wi%inm1, wi%inm2
+!    WRITE(0,*) 'lradt=',lradt,'tsi=',tsi
+!    IF (lradt) WRITE(*,*) 'ssi=',ssi
   END SUBROUTINE ssi_time_interpolation
+
 
   SUBROUTINE nf_check(iret)
     INTEGER, INTENT(in) :: iret

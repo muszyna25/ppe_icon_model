@@ -43,9 +43,9 @@ MODULE mo_sea_ice_zerolayer
   USE mo_run_config,          ONLY: dtime
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
-    &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
-    &                               cpd, zemiss_def,rd, stbo,tmelt   
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf,  &
+    &                               mu,mus,ci, alf, I_0, alv, clw,    &
+    &                               cpd, zemiss_def, rd, stbo, tmelt   
   USE mo_ocean_nml,           ONLY: no_tracer
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, hci_layer
   USE mo_util_dbg_prnt,       ONLY: dbg_print

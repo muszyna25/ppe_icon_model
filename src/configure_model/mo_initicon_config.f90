@@ -43,9 +43,13 @@ MODULE mo_initicon_config
 
   IMPLICIT NONE
 
+  PRIVATE 
+
   PUBLIC :: configure_initicon
 
   PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
+  PUBLIC :: dt_iau
+  PUBLIC :: type_iau_wgt
   PUBLIC :: l_sst_in
   PUBLIC :: lread_ana     
   PUBLIC :: l_coarse2fine_mode
@@ -57,6 +61,8 @@ MODULE mo_initicon_config
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
   PUBLIC :: is_coldstart_soil
+  PUBLIC :: is_iau_active
+  PUBLIC :: iau_wgt_dyn, iau_wgt_adv
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
@@ -79,6 +85,13 @@ MODULE mo_initicon_config
                                            ! to fine resolutions over mountainous terrain
 
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
+
+  REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
+                            ! Only required for init_mode=MODE_DWDANA_INC
+  INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
+                            ! 1: Top-hat
+                            ! 2: SIN2
+                            ! Only required for init_mode=MODE_DWDANA_INC
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
@@ -107,6 +120,11 @@ MODULE mo_initicon_config
   INTEGER :: nlev_in   = 0  !< number of model levels of input data
 
   LOGICAL :: is_coldstart_soil        !< if .TRUE. perform cold-start of soil model
+
+  LOGICAL :: is_iau_active = .FALSE.  !< determines whether IAU is active at current time
+
+  REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
+  REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
 CONTAINS
 

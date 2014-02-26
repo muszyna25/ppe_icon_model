@@ -52,16 +52,15 @@ MODULE mo_sea_ice
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs, mu,     &
-    &                               alf, alv, albedoW, clw, cpd, zemiss_def,rd, stbo,tmelt, ci, &
-    &                               Cd_ia, sice, alb_sno_vis, alb_sno_nir, alb_ice_vis,         &
-    &                               alb_ice_nir
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs,   &
+    &                               fr_fac, mu, alf, alv, albedoW_sim, clw, cpd, zemiss_def, rd, &
+    &                               stbo, tmelt, ci, Cd_ia, sice, alb_sno_vis, alb_sno_nir,      &
+    &                               alb_ice_vis, alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_statistics,          ONLY: add_fields
   USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
-    &                               i_ice_albedo
-
+    &                               i_ice_albedo, leadclose_1
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_oce_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list
@@ -802,10 +801,10 @@ CONTAINS
     p_atm_f%albvisdif (:,:,:) = albi
     p_atm_f%albnirdir (:,:,:) = albi
     p_atm_f%albnirdif (:,:,:) = albi
-    p_atm_f%albvisdirw(:,:) = albedoW
-    p_atm_f%albvisdifw(:,:) = albedoW
-    p_atm_f%albnirdirw(:,:) = albedoW
-    p_atm_f%albnirdifw(:,:) = albedoW
+    p_atm_f%albvisdirw(:,:) = albedoW_sim
+    p_atm_f%albvisdifw(:,:) = albedoW_sim
+    p_atm_f%albnirdirw(:,:) = albedoW_sim
+    p_atm_f%albnirdifw(:,:) = albedoW_sim
 
     CALL message(TRIM(routine), 'end' )
 
@@ -1740,6 +1739,8 @@ CONTAINS
     endif
 
     ! This should not be needed
+    ! TODO ram - remove all instances of p_patch%cells%area(:,:) and test
+    ! See also dynamics_fem/mo_ice_fem_utils.f90
     DO k=1,ice%kice
       ice%vol (:,k,:) = ice%hi(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
       ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
@@ -1766,7 +1767,10 @@ CONTAINS
     WHERE ( ice%hiold(:,1,:) > ice%hi(:,1,:) .AND. ice%hi(:,1,:) > 0._wp )
       ! Hibler's way to change the concentration
       ice%conc(:,1,:) = MAX( 0._wp, ice%conc(:,1,:) &
-        &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
+        &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*leadclose_1/ice%hiold(:,1,:) )
+      ! &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
+      ! TODO: Change 0.5 in the line above to a namelist parameter (leadclose)
+      ! Default in MPIOM is 0.25
 
       ! New ice and snow thickness
       ice%hi  (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
@@ -1953,9 +1957,9 @@ CONTAINS
         !Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
         !  &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
         Qatm%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
-        Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) &
+        Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
           &                    * (p_as%tafo(:,:) -Tsurf(:,:))
-        Qatm%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) &
+        Qatm%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) * fr_fac &
           &                   * (sphumida(:,:)-sphumidi(:,:))
 
         Qatm%dsensdT(:,i,:) = 0.95_wp*cpd*rhoair(:,:)*p_as%fu10(:,:)&
@@ -2156,9 +2160,9 @@ CONTAINS
     ! between the 2-m and surface temperatures.
     dragl(:,:)      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
     drags(:,:)      = 0.95_wp * dragl(:,:)
-    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) &
+    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
       &               * (p_as%tafo(:,:) -Tsurf(:,:))
-    Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) &
+    Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) * fr_fac &
       &               * (sphumida(:,:)-sphumidw(:,:))
 
     !-----------------------------------------------------------------------

@@ -251,20 +251,20 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-04-23)
   !! - generalized for p- and z-based vertical coordinate systems
   !!
-  FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2, p_coeff_grid )  RESULT(p_upflux)
+  FUNCTION laxfr_upflux_v( p_w, p_psi1, p_psi2, p_coeff_grid )  RESULT(p_upflux)
     !
 
     IMPLICIT NONE
 
-    REAL(wp), INTENT(in) :: p_vn
+    REAL(wp), INTENT(in) :: p_w
     REAL(wp), INTENT(in) :: p_psi1, p_psi2
     REAL(wp), INTENT(in) :: p_coeff_grid
 
     REAL(wp) :: p_upflux
 
     !-----------------------------------------------------------------------
-    p_upflux = 0.5_wp * (                       p_vn  *( p_psi1 + p_psi2 )    &
-      &                   - p_coeff_grid * ABS( p_vn )*( p_psi2 - p_psi1 ) )
+    p_upflux = 0.5_wp * (                       p_w  *( p_psi1 + p_psi2 )    &
+      &                   - p_coeff_grid * ABS( p_w )*( p_psi2 - p_psi1 ) )
 
   END FUNCTION laxfr_upflux_v
 

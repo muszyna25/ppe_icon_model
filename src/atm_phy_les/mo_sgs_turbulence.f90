@@ -74,14 +74,14 @@ MODULE mo_sgs_turbulence
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_turbulent_diagnostic,ONLY: is_sampling_time, idx_sgs_th_flx, &
                                     idx_sgs_qv_flx, idx_sgs_qc_flx, time_wt
-  USE mo_statistics,         ONLY: levels_horizontal_mean
- 
+  USE mo_statistics,          ONLY: levels_horizontal_mean
+  USE mo_grid_config,         ONLY: l_limited_area
+
   IMPLICIT NONE
 
   PRIVATE
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  REAL(wp), PARAMETER :: km_min      = 0.01_wp !min viscosity
   REAL(wp), PARAMETER :: z_1by3      = 1._wp/3._wp
 
   !Parameter for vertical scheme type
@@ -163,15 +163,8 @@ MODULE mo_sgs_turbulence
              )
 
     !Initialize
-    
-    !Important to initialize the visc_sfc_c in the lateral boundary
-    !zone if it exists- isrc_type=1
-    visc_sfc_c(:,:,:) = km_min
-
     IF(p_test_run)THEN
-!ICON_OMP_WORKSHARE
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
-!ICON_OMP_END_WORKSHARE
     END IF
 
     !Convert temperature/tempv to potential/thetav temperature: all routines within 
@@ -181,8 +174,8 @@ MODULE mo_sgs_turbulence
     !where prog vars are updated on halo points in the end only if
     !my_process_is_mpi_all_parallel()  is TRUE
 
-    rl_start   = 2
-    rl_end     = min_rlcell_int-2
+    rl_start   = 1
+    rl_end     = min_rlcell
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
@@ -202,10 +195,9 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
 
-    IF(les_config(jg)%isrfc_type>0) & 
-      CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
-                              p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
-                              p_nh_prog%tracer(:,:,:,iqv), visc_sfc_c(:,1,:))
+    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+                            p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
+                            p_nh_prog%tracer(:,:,:,iqv), visc_sfc_c(:,1,:))
 
     CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                            thetav, visc_sfc_c)
@@ -279,7 +271,7 @@ MODULE mo_sgs_turbulence
     REAL(wp),          INTENT(in)        :: visc_sfc_c(:,:,:) !< apparent visc at surface
 
     ! local variables
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: DD, div_of_stress, visc_smag_e, &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: div_of_stress, visc_smag_e, &
                                                vn_ie, vt_ie, thetav_e, thetav_ie
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
@@ -308,7 +300,6 @@ MODULE mo_sgs_turbulence
     !Allocation
     ALLOCATE( vn_ie(nproma,nlevp1,p_patch%nblks_e),        &
               vt_ie(nproma,nlevp1,p_patch%nblks_e),        &
-              DD(nproma,nlev,p_patch%nblks_e),             &
               visc_smag_e(nproma,nlev,p_patch%nblks_e),    &
               thetav_e(nproma,nlev,p_patch%nblks_e),       &
               thetav_ie(nproma,nlevp1,p_patch%nblks_e),    &
@@ -492,7 +483,9 @@ MODULE mo_sgs_turbulence
             D_33       =     2._wp * (w_ie(je,jk,jb) - w_ie(je,jkp1,jb)) *   &
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)               
            
-            DD(je,jk,jb)   = D_11**2 + D_22**2 + D_33**2  + 2._wp * ( D_12**2 + D_13**2 + D_23**2 )             
+            !Mechanical prod is half of this value
+            prm_diag%mech_prod(je,jk,jb) = D_11**2 + D_22**2 + D_33**2 + &
+                                          2._wp * ( D_12**2 + D_13**2 + D_23**2 )             
 
             !calculate divergence to get the deviatoric part of stress tensor in 
             !diffusion: D_11-1/3*(D_11+D_22+D_33)
@@ -537,8 +530,8 @@ MODULE mo_sgs_turbulence
     ! some additional interpolations. 
     
     CALL cells2edges_scalar(thetav, p_patch, p_int%c_lin_e, thetav_e,  &
-                            opt_rlstart=4, opt_rlend= min_rledge_int)
-
+                            opt_rlstart=4, opt_rlend=min_rledge_int)
+ 
     rl_start = 4
     rl_end   = min_rledge_int
 
@@ -557,10 +550,6 @@ MODULE mo_sgs_turbulence
          END DO
        END DO
       DO je = i_startidx, i_endidx
-          !thetav_ie(je,nlevp1,jb) = p_nh_metrics%wgtfacq_e(je,1,jb)*thetav_e(je,nlev,jb) +   &
-          !                          p_nh_metrics%wgtfacq_e(je,2,jb)*thetav_e(je,nlev-1,jb) + &
-          !                          p_nh_metrics%wgtfacq_e(je,3,jb)*thetav_e(je,nlev-2,jb)
-
           thetav_ie(je,1,jb) = p_nh_metrics%wgtfacq1_e(je,1,jb)*thetav_e(je,1,jb) + &
                                p_nh_metrics%wgtfacq1_e(je,2,jb)*thetav_e(je,2,jb) + &
                                p_nh_metrics%wgtfacq1_e(je,3,jb)*thetav_e(je,3,jb)
@@ -570,15 +559,17 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_PARALLEL
 
     CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, rho_e, &
-                            opt_rlstart=4, opt_rlend=min_rledge_int-1)
+                            opt_rlstart=4, opt_rlend=min_rledge_int)
 
     CALL cells2edges_scalar(visc_sfc_c, p_patch, p_int%c_lin_e, visc_sfc_e, &
                             opt_rlstart=4, opt_rlend=min_rledge_int)
 
     !3(b) Calculate stability corrected turbulent viscosity
-    ! visc = mixing_length_sq * SQRT(DD/2) * SQRT(1-Ri/Pr) where Ri = (g/thetav)*d_thetav_dz/(DD/2), 
-    ! where Brunt_vaisala_freq = (g/thetav)*d_thetav_dz. After simplification: 
-    ! visc = mixing_length_sq * SQRT[ DD/2 - (Brunt_vaisala_frq/Pr) ]
+    !MP = Mechanical prod term calculated above
+    !visc = mixing_length_sq * SQRT(MP/2) * SQRT(1-Ri/Pr) where 
+    !Ri = (g/thetav)*d_thetav_dz/(MP/2), where Brunt_vaisala_freq (byncy prod term) 
+    !   = (g/thetav)*d_thetav_dz. 
+    !After simplification: visc = mixing_length_sq * SQRT[ MP/2 - (Brunt_vaisala_frq/Pr) ]
 
     rl_start = 4
     rl_end   = min_rledge_int
@@ -587,19 +578,20 @@ MODULE mo_sgs_turbulence
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx,brunt_vaisala_frq)
+!ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jk = 1 , nlev-1
          DO je = i_startidx, i_endidx
 
-           brunt_vaisala_frq = grav * (thetav_ie(je,jk,jb)-thetav_ie(je,jk+1,jb)) * &
-                               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) / thetav_e(je,jk,jb)
+           prm_diag%buoyancy_prod(je,jk,jb) = grav*(thetav_ie(je,jk,jb)-thetav_ie(je,jk+1,jb))* &
+                               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)/thetav_e(je,jk,jb)
 
-           visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                  &
+           visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                 &
                MAX( 0._wp, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
-               SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
+               SQRT(MAX(0._wp, prm_diag%mech_prod(je,jk,jb)*0.5_wp - &
+                               les_config(1)%rturb_prandtl*prm_diag%buoyancy_prod(je,jk,jb))) ) 
 
          END DO
        END DO
@@ -616,8 +608,8 @@ MODULE mo_sgs_turbulence
          DO je = i_startidx, i_endidx
            z1 = p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * 2._wp
            z2 = p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb) 
-           visc_smag_e(je,nlev,jb) = MAX( km_min,  &
-                (z1*visc_sfc_e(je,1,jb)+z2*visc_smag_e(je,nlev-1,jb))/(z1+z2) )
+           visc_smag_e(je,nlev,jb) = (z1*visc_sfc_e(je,1,jb) + &
+                                      z2*visc_smag_e(je,nlev-1,jb))/(z1+z2) 
          END DO
     END DO
 !ICON_OMP_END_DO
@@ -755,7 +747,7 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_PARALLEL
 
     !DEALLOCATE variables
-    DEALLOCATE( DD, div_of_stress, visc_smag_e, vn_ie, vt_ie, thetav_e, thetav_ie )
+    DEALLOCATE( div_of_stress, visc_smag_e, vn_ie, vt_ie, thetav_e, thetav_ie )
   
   END SUBROUTINE smagorinsky_model
   !-------------------------------------------------------------------------------------

@@ -82,6 +82,8 @@ MODULE mo_surface_les
 
   PUBLIC :: surface_conditions
 
+  REAL(wp), PARAMETER :: km_min      = 0.01_wp !min viscosity
+
   !Parameters for surface layer parameterizations: From RB Stull's book
   REAL(wp), PARAMETER :: bsm = 4.7_wp  !Businger Stable Momentum
   REAL(wp), PARAMETER :: bum = 15._wp  !Businger Untable Momentum
@@ -144,7 +146,7 @@ MODULE mo_surface_les
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
-    INTEGER :: nlev, jg, itr
+    INTEGER :: nlev, jg, itr, jkp1
     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_surface_les:surface_conditions'
 
@@ -158,14 +160,20 @@ MODULE mo_surface_les
     ! number of vertical levels
     nlev = p_patch%nlev
     jk   = nlev
+    jkp1 =  jk+1
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
-   
-    !exclude halo 
+ 
+    !AD(18-02-2014):Set some minimal value for visc_sfc_c in 
+    !the boundary zone. 
+    visc_sfc_c  = km_min
+ 
+    !loop indices: exclude halo 
     rl_start   = grf_bdywidth_c+1 
     rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)         
+
 
     SELECT CASE(les_config(jg)%isrfc_type)
 
@@ -181,232 +189,8 @@ MODULE mo_surface_les
 
      !Calculate visc_sfc_c for this case (03-12-2013)
 
-     !1) Get roughness length
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,jc,jt,ic,i_startidx,i_endidx,lc_class,z0_mod,mwind,exner,zrough, &
-!!$OMP theta_sfc,RIB),ICON_OMP_RUNTIME_SCHEDULE
-!      DO jb = i_startblk,i_endblk
-!         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                            i_startidx, i_endidx, rl_start, rl_end)
-!
-!         prm_diag%gz0(i_startidx:i_endidx,jb) = 0._wp
-!
-!         IF (atm_phy_nwp_config(jg)%itype_z0 == 2) THEN
-!
-!           !land tile points
-!           DO jt = 1, ntiles_total                   
-!             DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
-!                ! works for the following two cases
-!                ! 1. snow-covered and snow_free tiles treated separately
-!                ! 2. snow_covered and snow_free areas combined in one tile
-!                jc = ext_data%atm%idx_lst_t(ic,jb,jt)
-!                lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
-!                ! Reduction of land-cover related roughness length when the vegetation is below 75%
-!                IF (ext_data%atm%z0_lcc(lc_class) >= 0.5_wp) THEN ! high vegetation; maximum reduction to 40%
-!                  z0_mod = ext_data%atm%z0_lcc(lc_class) * SQRT( MAX(0.16_wp, &
-!                           MIN(1._wp,1.3333_wp*ext_data%atm%plcov_t(jc,jb,jt)) ))
-!                ELSE ! lower vegetation, maximum reduction to 70%
-!                  z0_mod = ext_data%atm%z0_lcc(lc_class) * SQRT( MAX(0.5_wp, &
-!                           MIN(1._wp,1.3333_wp*ext_data%atm%plcov_t(jc,jb,jt)) ))
-!                ENDIF
-!                ! ensure that z0 does not fall below the minimum allowed value
-!                z0_mod = MAX(z0_mod,ext_data%atm%z0_lcc_min(lc_class))
-!
-!                ! Modify roughness length depending on snow cover
-!                prm_diag%gz0_t(jc,jb,jt) = grav *( (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt)**2)*z0_mod + &
-!                        p_diag_lnd%snowfrac_t(jc,jb,jt)**2*ext_data%atm%z0_lcc_min(lc_class) )
-!
-!                !Aggregate
-!                prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+prm_diag%gz0_t(jc,jb,jt)*ext_data%atm%frac_t(jc,jb,jt)
-!             ENDDO
-!           ENDDO
-!
-!           DO jt = ntiles_total+1 , ntiles_total+ntiles_water
-!             !sea points (open water)
-!             IF(jt == ntiles_total+1)THEN
-!               DO ic = 1 , ext_data%atm%spw_count(jb)
-!                 jc = ext_data%atm%idx_lst_spw(ic,jb)
-!
-!                 !Mean wind at nlev
-!                 mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
-!           
-!                 !previous z0
-!                 IF(linit)THEN
-!                    zrough = init_gz(p_nh_metrics%z_mc(jc,jk,jb),mwind) * rgrav 
-!                 ELSE
-!                    zrough = prm_diag%gz0_t(jc,jb,jt) * rgrav
-!                 END IF
-!
-!                 !sfc theta
-!                 theta_sfc = p_prog_lnd_new%t_g_t(jc,jb,jt) / EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
-!
-!                 !Bulk Richardson no at first model level
-!                 RIB = grav * (theta(jc,jk,jb)-theta_sfc) * ( p_nh_metrics%z_mc(jc,jk,jb)- &
-!                               zrough ) / (theta_sfc * mwind**2)
-!
-!                 prm_diag%gz0_t(jc,jb,jt) = alpha0 * MAX (                             &
-!                          diag_ustar_sq(p_nh_metrics%z_mc(jc,jk,jb),zrough,RIB,mwind), &
-!                          diag_wstar_sq(p_nh_metrics%z_mc(jc,jk,jb),zrough,RIB,mwind)  )
-!
-!                 !Aggregate
-!                 prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+prm_diag%gz0_t(jc,jb,jt)*ext_data%atm%frac_t(jc,jb,jt)
-!               END DO
-!             !Lake points 
-!             ELSEIF(jt == ntiles_total+2)THEN
-!               DO ic = 1 , ext_data%atm%fp_count(jb)
-!                 jc = ext_data%atm%idx_lst_fp(ic,jb)
-! 
-!                 !Mean wind at nlev
-!                 mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
-!             
-!                 !previous z0
-!                 IF(linit)THEN
-!                    zrough = init_gz(p_nh_metrics%z_mc(jc,jk,jb),mwind) * rgrav 
-!                 ELSE
-!                    zrough = prm_diag%gz0_t(jc,jb,jt) * rgrav
-!                 END IF
-! 
-!                 !sfc theta
-!                 theta_sfc = p_prog_lnd_new%t_g_t(jc,jb,jt) / EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
-! 
-!                 !Bulk Richardson no at first model level
-!                 RIB = grav * (theta(jc,jk,jb)-theta_sfc) * ( p_nh_metrics%z_mc(jc,jk,jb)- &
-!                               zrough ) / (theta_sfc * mwind**2)
-! 
-!                 prm_diag%gz0_t(jc,jb,jt) = alpha0 * MAX (                             &
-!                          diag_ustar_sq(p_nh_metrics%z_mc(jc,jk,jb),zrough,RIB,mwind), &
-!                          diag_wstar_sq(p_nh_metrics%z_mc(jc,jk,jb),zrough,RIB,mwind)  )
-! 
-!                 !Aggregate
-!                 prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+prm_diag%gz0_t(jc,jb,jt)*ext_data%atm%frac_t(jc,jb,jt)
-!               END DO
-!             !Sea ice points 
-!             ELSEIF(jt == ntiles_total+3)THEN
-!               DO ic = 1 , ext_data%atm%spi_count(jb)
-!                 jc = ext_data%atm%idx_lst_spi(ic,jb)
-!                 prm_diag%gz0_t(jc,jb,jt) = z0_ice * grav
-!
-!                 !Aggregate
-!                 prm_diag%gz0(jc,jb) = prm_diag%gz0(jc,jb)+prm_diag%gz0_t(jc,jb,jt)*ext_data%atm%frac_t(jc,jb,jt)
-!               END DO
-!             ELSE
-!               CALL finish( TRIM(routine),'wrong value of ntiles_total + ntiles_water')
-!             END IF
-!
-!           END DO !jt
-!
-!         ELSE
-!            CALL finish( TRIM(routine),'only itype_z0=2 works for moment with isrfc_type=1! ')
-!         ENDIF
-!
-!      END DO !for jb
-!!$OMP END DO
-!
-!    !2. Now do surface calculations following COSMO docs
-!
-!!$OMP DO PRIVATE(jb,jc,jt,i_startidx,i_endidx,exner,zrough,theta_sfc,mwind,z_mc, &
-!!$OMP RIB,zh,rhos,bflux,ustar,obukhov_length,tot_v_new,rtot_v_old),ICON_OMP_RUNTIME_SCHEDULE
-!     DO jb = i_startblk,i_endblk
-!        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                           i_startidx, i_endidx, rl_start, rl_end)
-!
-!        DO jc = i_startidx , i_endidx
-!
-!           !Surface exner
-!           exner = EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
-!
-!           !Roughness length
-!           zrough = prm_diag%gz0(jc,jb) * rgrav
-!
-!           !Get surface pot. temperature
-!           theta_sfc = p_prog_lnd_new%t_g(jc,jb) / exner
-!
-!           !Mean wind at nlev
-!           mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
-!          
-!           !Z height to be used as a reference height in surface layer
-!           z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
-!
-!           !Bulk Richardson no at first model level
-!           RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
-!
-!           !Momentum transfer coefficient
-!           tcn_mom             = (akt/LOG(z_mc/zrough))**2
-!           prm_diag%tcm(jc,jb) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
-!
-!           !Heat transfer coefficient
-!           zh = MIN(zrough,zh_max)
-!           tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zh))
-!           prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zh,tcn_heat)
-!
-!           !Get surface fluxes
-!           !rho at surface: no qc at suface
-!           rhos   =  pres_sfc(jc,jb)/( rd * &
-!                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
-!
-!           !kinematic fluxes
-!           th_flx                  = prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
-!           prm_diag%qhfl_s(jc,jb)  = prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
-!          
-!           !full fluxes
-!           prm_diag%shfl_s(jc,jb)  = rhos*cpd*th_flx
-!           prm_diag%lhfl_s(jc,jb)  = rhos*alv*prm_diag%qhfl_s(jc,jb)
-!           prm_diag%umfl_s(jc,jb)  = -rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%u(jc,jk,jb) 
-!           prm_diag%vmfl_s(jc,jb)  = -rhos*prm_diag%tcm(jc,jb)*mwind*p_nh_diag%v(jc,jk,jb) 
-!
-!           !Diagnostics for TERRA
-!           
-!           !Buoyancy flux
-!           bflux = grav*(th_flx + vtmpc1*theta_sfc*prm_diag%qhfl_s(jc,jb))/theta_sfc
-!           ustar = SQRT( diag_ustar_sq(z_mc,zrough,RIB,mwind) )
-!           obukhov_length = -ustar**3 / (akt * bflux)
-!
-!           tot_v_new = ABS( ustar * businger_mom(zrough,10._wp,obukhov_length) / akt ) 
-!
-!           !u/v_10m initialized in nwp_phy_init 
-!           rtot_v_old = 1._wp / SQRT( prm_diag%u_10m(jc,jb)**2 + prm_diag%v_10m(jc,jb)**2 )
-!
-!            prm_diag%u_10m(jc,jb) = prm_diag%u_10m(jc,jb) * tot_v_new * rtot_v_old
-!            prm_diag%v_10m(jc,jb) = prm_diag%v_10m(jc,jb) * tot_v_new * rtot_v_old
-!            prm_diag%tfv(jc,jb) = 1._wp   
-!      
-!         END DO !jc
-!
-!         !Copy aggregated variables to tiles based variables
-!         DO jt = 1 , ntiles_total+ntiles_water
-!          DO jc = i_startidx , i_endidx
-!            prm_diag%tcm_t(jc,jb,jt) = prm_diag%tcm(jc,jb)
-!            prm_diag%tch_t(jc,jb,jt) = prm_diag%tch(jc,jb)
-!            prm_diag%tfv_t(jc,jb,jt) = prm_diag%tfv(jc,jb)
-!            prm_diag%shfl_s_t(jc,jb,jt) = prm_diag%shfl_s(jc,jb)
-!            prm_diag%lhfl_s_t(jc,jb,jt) = prm_diag%lhfl_s(jc,jb)
-!            prm_diag%qhfl_s_t(jc,jb,jt) = prm_diag%qhfl_s(jc,jb)
-!            prm_diag%u_10m_t(jc,jb,jt) = prm_diag%u_10m(jc,jb)
-!            prm_diag%v_10m_t(jc,jb,jt) = prm_diag%v_10m(jc,jb)
-!          END DO
-!         END DO
-!
-!         !Maximum gust
-!         prm_diag%dyn_gust(i_startidx:i_endidx,jb) = MAX(                               &
-!           &               nwp_dyn_gust( prm_diag%u_10m(i_startidx:i_endidx,jb),        &
-!           &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
-!           &                             prm_diag%tcm  (i_startidx:i_endidx,jb),        &
-!           &                             p_nh_diag%u   (i_startidx:i_endidx,nlev,jb),   &
-!           &                             p_nh_diag%v   (i_startidx:i_endidx,nlev,jb)),  &
-!           &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
-!
-!         prm_diag%gust10(i_startidx:i_endidx,jb) = MAX(                      & 
-!             &                   prm_diag%gust10  (i_startidx:i_endidx,jb),  &
-!             &                   prm_diag%dyn_gust(i_startidx:i_endidx,jb) )  
-!
-!
-!       END DO !jb
-!!$OMP END DO 
-!!$OMP END PARALLEL
-!
-
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,mwind,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,mwind,rhos,z_mc),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -423,8 +207,9 @@ MODULE mo_surface_les
            rhos   =  pres_sfc(jc,jb)/( rd * &
                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
-           visc_sfc_c(jc,jb) = ABS(prm_diag%tch(jc,jb)*mwind*p_nh_metrics%z_mc(jc,jk,jb)*&
-                                   les_config(jg)%turb_prandtl)
+           z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
+           visc_sfc_c(jc,jb) = rhos * ABS(prm_diag%tch(jc,jb)*mwind*z_mc* &
+                                          les_config(jg)%turb_prandtl)
          END DO  
       END DO
 !$OMP END DO 
@@ -465,7 +250,7 @@ MODULE mo_surface_les
             mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
             !Z height
-            z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
+            z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
 
             !Now diagnose friction velocity (ustar)
             IF(les_config(jg)%ufric<0._wp)THEN
@@ -500,7 +285,7 @@ MODULE mo_surface_les
 
            !Get apparent viscosity at the surface from the surface fluxes: to be used
            !in mo_sgs_turbulence
-           visc_sfc_c(jc,jb) = rhos*ABS(les_config(jg)%shflx)*p_nh_metrics%z_mc(jc,jk,jb)* &
+           visc_sfc_c(jc,jb) = rhos*ABS(les_config(jg)%shflx)*z_mc* &
                                les_config(jg)%turb_prandtl/ABS(theta(jc,jk,jb)-theta_sfc) 
 
          END DO  
@@ -551,11 +336,11 @@ MODULE mo_surface_les
          itr = itr + 1         
       END DO               
        
-      WRITE(message_text,'(i4,f14.6,f14.7)')itr,diff,bflx2
-      CALL message('FINAL ITR, RESID, AND BFLX:',message_text )
+      !WRITE(message_text,'(i4,f14.6,f14.7)')itr,diff,bflx2
+      !CALL message('FINAL ITR, RESID, AND BFLX:',message_text )
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,z_mc,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -564,15 +349,16 @@ MODULE mo_surface_les
             !Mean wind at nlev
             mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
+            z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
+
             !Now diagnose friction velocity (ustar)
             IF(les_config(jg)%ufric<0._wp)THEN
               !Roughness length
               zrough = prm_diag%gz0(jc,jb) * rgrav
 
               !Bulk Richardson no at first model level
-              RIB = grav * (theta(jc,jk,jb)-theta_sfc) * ( p_nh_metrics%z_mc(jc,jk,jb)- &
-                            zrough ) / (theta_sfc * mwind**2)
-              ustar = SQRT( diag_ustar_sq(p_nh_metrics%z_mc(jc,jk,jb),zrough,RIB,mwind) )
+              RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough)/(theta_sfc*mwind**2)
+              ustar = SQRT( diag_ustar_sq(z_mc,zrough,RIB,mwind) )
             ELSE
               ustar = les_config(jg)%ufric
             END IF
@@ -594,7 +380,7 @@ MODULE mo_surface_les
 
            !Get apparent viscosity at the surface from the surface fluxes: to be used
            !in mo_sgs_turbulence
-           visc_sfc_c(jc,jb) = rhos*ABS(les_config(jg)%tran_coeff)*p_nh_metrics%z_mc(jc,jk,jb)*&
+           visc_sfc_c(jc,jb) = rhos*ABS(les_config(jg)%tran_coeff)*z_mc*&
                                les_config(jg)%turb_prandtl
 
          END DO  
@@ -633,9 +419,11 @@ MODULE mo_surface_les
             prm_diag%umfl_s(jc,jb)  = umfl * rhos
             prm_diag%vmfl_s(jc,jb)  = vmfl * rhos
 
+            z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
+
            !Get apparent viscosity at the surface from the surface fluxes: to be used
            !in mo_sgs_turbulence
-           visc_sfc_c(jc,jb) = rhos*ABS(shfl)*p_nh_metrics%z_mc(jc,jk,jb)* &
+           visc_sfc_c(jc,jb) = rhos*ABS(shfl)*z_mc* &
                                les_config(jg)%turb_prandtl/ABS(theta(jc,jk,jb)-th0_rico) 
 
         END DO  
@@ -665,7 +453,7 @@ MODULE mo_surface_les
            mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
           
            !Z height to be used as a reference height in surface layer
-           z_mc = p_nh_metrics%z_mc(jc,jk,jb)             
+           z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
 
            !Bulk Richardson no at first model level
            RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
@@ -698,7 +486,16 @@ MODULE mo_surface_les
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    !No fluxes
+    CASE(0)
+      prm_diag%shfl_s  = 0._wp
+      prm_diag%lhfl_s  = 0._wp 
+      prm_diag%umfl_s  = 0._wp 
+      prm_diag%vmfl_s  = 0._wp 
+      visc_sfc_c       = km_min
+
   END SELECT 
+
 
   !Sync is required for mom fluxes and visc_sfc_c
   CALL sync_patch_array(SYNC_C, p_patch, visc_sfc_c)

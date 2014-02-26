@@ -157,8 +157,6 @@ MODULE mo_model_domimp_patches
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
 
-!  USE mo_netcdf_read,        ONLY: netcdf_read_oncells_2D
-
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
   ! mo_read_netcdf_parallel where only 1 processor is reading
@@ -1624,15 +1622,6 @@ CONTAINS
       CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index, &
         & p_p%cells%area(:,:) )
     ENDDO
-
-!    NULLIFY(tmp_check_array)
-!    ist = netcdf_read_oncells_2D(ncid, "cell_area_p", tmp_check_array, patch)
-!    max_diff = MAXVAL(ABS(tmp_check_array(:,:) - patch%cells%area(:,:)))
-!    IF (max_diff > 0.0_wp) THEN
-!      CALL finish("check netcdf_read_oncells_2D", "Failed")
-!    ENDIF
-!    CALL p_barrier()
-!    CALL finish("check netcdf_read_oncells_2D", "Works!")
 
 
     ! p_p%edges%phys_id(:,:)
