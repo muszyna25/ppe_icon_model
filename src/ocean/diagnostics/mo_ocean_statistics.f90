@@ -138,7 +138,6 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%w             , ocean_state%p_diag%w             , cells,max_zlev+1)
     CALL add_fields(ocean_state%p_acc%div_mass_flx_c, ocean_state%p_diag%div_mass_flx_c, cells)
     CALL add_fields(ocean_state%p_acc%rho           , ocean_state%p_diag%rho           , cells)
-    CALL add_fields(ocean_state%p_acc%vt            , ocean_state%p_diag%vt            , edges)
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,max_zlev)
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
@@ -206,7 +205,6 @@ CONTAINS
     p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
     p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
-    p_acc%vt                        = p_acc%vt                       /REAL(nsteps_since_last_output,wp)
     p_acc%mass_flx_e                = p_acc%mass_flx_e               /REAL(nsteps_since_last_output,wp)
     p_acc%vort                      = p_acc%vort                     /REAL(nsteps_since_last_output,wp)
     p_acc%kin                       = p_acc%kin                      /REAL(nsteps_since_last_output,wp)
@@ -251,7 +249,6 @@ CONTAINS
     p_acc%w                         = 0.0_wp
     p_acc%div_mass_flx_c            = 0.0_wp
     p_acc%rho                       = 0.0_wp
-    p_acc%vt                        = 0.0_wp
     p_acc%mass_flx_e                = 0.0_wp
     p_acc%vort                      = 0.0_wp
     p_acc%kin                       = 0.0_wp
