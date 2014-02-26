@@ -1752,7 +1752,9 @@ CONTAINS
       ice%vol  (:,1,:) = ice%vol(:,1,:)         &
         &       + ( 1._wp-ice%conc(:,1,:) )*ice%newice(:,:)*p_patch%cells%area(:,:)
 
-      ! Hibler's way to change the concentration
+      ! Hibler's way to change the concentration 
+      !  - the formulation here uses the default values of leadclose parameters 2 and 3 in MPIOM:
+      !    1 and 0 respectively
       ice%conc (:,1,:) = min( 1._wp,    &
         &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp-ice%conc(:,1,:) )/hnull )
 
@@ -1765,12 +1767,9 @@ CONTAINS
     ! This is where concentration, and thickness change due to ice melt (we must conserve volme)
     ! A.k.a. lateral melt
     WHERE ( ice%hiold(:,1,:) > ice%hi(:,1,:) .AND. ice%hi(:,1,:) > 0._wp )
-      ! Hibler's way to change the concentration
+      ! Hibler's way to change the concentration (leadclose parameter 1)
       ice%conc(:,1,:) = MAX( 0._wp, ice%conc(:,1,:) &
         &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*leadclose_1/ice%hiold(:,1,:) )
-      ! &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*0.5_wp/ice%hiold(:,1,:) )
-      ! TODO: Change 0.5 in the line above to a namelist parameter (leadclose)
-      ! Default in MPIOM is 0.25
 
       ! New ice and snow thickness
       ice%hi  (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
