@@ -161,7 +161,10 @@ CONTAINS
     LOGICAL  :: lcompute_gt
     LOGICAL  :: lcleanup_gt
 
+#ifdef __ICON_ART
     TYPE(t_mode), POINTER   :: this_mode
+#endif
+
 
 #ifdef __ICON_ART
 

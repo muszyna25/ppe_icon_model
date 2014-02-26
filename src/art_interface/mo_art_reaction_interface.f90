@@ -88,7 +88,9 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &
       &  p_tracer_now(:,:,:,:)               !< tracer mixing ratios (specific concentrations)
 
+#ifdef __ICON_ART
     TYPE(t_mode), POINTER   :: this_mode
+#endif
     INTEGER  :: jg                           !< domain index
 
     !-----------------------------------------------------------------------

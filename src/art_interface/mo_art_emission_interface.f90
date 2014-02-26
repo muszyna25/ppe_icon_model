@@ -106,7 +106,9 @@ CONTAINS
 
     INTEGER  :: jg                !< patch id
                                                      
+#ifdef __ICON_ART
     TYPE(t_mode), POINTER   :: this_mode
+#endif
     !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
