@@ -825,6 +825,7 @@ END SUBROUTINE message
 !   Snow parameters
 !
     zsnow_rate     , & ! rate of snow fall            [kg/m**2 s]
+    zrain_rate     , & ! rate of rain fall            [kg/m**2 s]
     zdsn_new       , & ! snow age refresh increment   [-]
     zdsn_old       , & ! snow age decay increment     [-]
     zdz_snow(ie)    ! snow depth (not for snow heat content but snow
@@ -1190,7 +1191,7 @@ END SUBROUTINE message
     zdlam    (ie)      , & ! heat conductivity parameter
     zdw      (ie)      , & ! hydrological diff.parameter
     zdw1     (ie)      , & ! hydrological diff.parameter
-    zkw      (ie)      , & ! hydrological cond.parameter
+    zkw      (ie,ke_soil+1), & ! hydrological cond.parameter
     zkw1     (ie)      , & ! hydrological cond.parameter
     zik2     (ie)      , & ! minimum infiltration rate
     zpwp     (ie)      , & ! plant wilting point  (fraction of volume)
@@ -1392,7 +1393,7 @@ END SUBROUTINE message
     END IF
     zdw   (i)  = cdw0  (mstyp)
     zdw1  (i)  = cdw1  (mstyp)
-    zkw   (i)  = ckw0  (mstyp)
+    zkw   (i,:)  = ckw0  (mstyp)
     zkw1  (i)  = ckw1  (mstyp)
     zik2  (i)  = cik2  (mstyp)
     zporv(i)  = cporv(mstyp)              ! pore volume
@@ -1427,6 +1428,10 @@ END SUBROUTINE message
           mstyp           = soiltyp_subs(i)        ! soil type
           zalam(i,kso)  = cala0(mstyp)              ! heat conductivity parameter
 !        ENDIF
+!<JH
+!fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
+!          zkw   (i,kso) = zkw   (i,kso)*EXP(-2._ireals*(zmls(kso)-rootdp(i)))
+!>JH
       ENDDO
   ENDDO
 
@@ -1756,12 +1761,36 @@ END SUBROUTINE message
           zsnow_rate = prs_gsp(i)+prs_con(i)              ! [kg/m**2 s]
         ENDIF
 
-        ! linear decay equals 1.0 in 28 days
-        zdsn_old   = zdt/86400._ireals/28._ireals
+        zrain_rate = prr_gsp(i)+prr_con(i)  ! [kg/m**2 s]
 
+!!$        ! linear decay equals 1.0 in 28 days -> new 12.5 days
+!!$        zdsn_old   = zdt/86400._ireals/12.5_ireals
+!!$
+!!$!             snow age during melting
+!!$        IF (t_snow_now(i) >= 271.15_ireals .OR. zrain_rate > 0._ireals) THEN 
+!!$        zdsn_old   = 1._ireals-exp(-dt/(86400._ireals*4._ireals)) ! 4d
+!!$        END IF
+!!$
+!!$        ! linear growth rate equals 1.0 in 1 day for a constant
+!!$        ! snow rate of 5 mmH2O (kg/m**2) per day (0.2) -> new 10 mmH2O (kg/m**2) per day (0.1)
+!!$        zdsn_new   = zdt*zsnow_rate*0.1_ireals   !
+!!$
+!!$
+!!$        ! reduce decay rate, if new snow is falling and as function of snow
+!!$        ! age itself
+!!$        zdsn_old   = (zdsn_old - zdsn_new)*freshsnow(i)
+!!$        zdsn_old   = MAX(zdsn_old,0._ireals)
+!!$
+!!$        freshsnow(i) = freshsnow(i) + zdsn_new-zdsn_old
+!!$
+!!$        freshsnow(i) = MIN(1._ireals,MAX(0._ireals,freshsnow(i)))
+
+       ! linear decay equals 1.0 in 28 days
+        zdsn_old   = zdt/86400._ireals/28._ireals
         ! linear growth rate equals 1.0 in 1 day for a constant
         ! snow rate of 5 mmH2O (kg/m**2) per day
         zdsn_new   = zdt*zsnow_rate*0.2_ireals   !
+
 
         ! reduce decay rate, if new snow is falling and as function of snow
         ! age itself
@@ -1771,6 +1800,7 @@ END SUBROUTINE message
         freshsnow(i) = freshsnow(i) + zdsn_new-zdsn_old
 
         freshsnow(i) = MIN(1._ireals,MAX(0._ireals,freshsnow(i)))
+
      END IF
 !   END IF
   ENDDO
@@ -2568,6 +2598,7 @@ END IF
         zinfmx(i) = zrock(i)*zfr_ice_free*csvoro &
                  *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
                  zporv(i)-zw_fr(i,1))/zporv(i) + zik2(i) )
+!        zinfmx = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w 
 
         ! to avoid pore volume water excess of the uppermost layer by 
         ! infiltration
@@ -2739,7 +2770,8 @@ ELSE   IF (itype_interception == 2) THEN
         zinfmx(i) = zrock(i)*zfr_ice_free *csvoro &
          *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
             zporv(i)-zw_fr(i,1))/zporv(i) + zik2(i) )
-           
+!         zinfmx = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w           
+
 !       to avoid pore volume water excess of the uppermost layer by infiltration
         zinfmx(i) = MIN(zinfmx(i), (zporv(i) - zw_fr(i,1))*zdzhs(1)*zrhwddt)
           
@@ -2816,7 +2848,7 @@ ELSE   IF (itype_interception == 2) THEN
                                                /zdzms(2)
           zdlw_fr_ksop05 = zredp05*zdw(i)*EXP(zdw1(i)*                        &
                            (zporv(i)-zlw_fr_ksop05)/(zporv(i)-zadp(i)) )
-          zklw_fr_ksop05 = zredp05*zkw(i)*EXP(zkw1(i)*                        &
+          zklw_fr_ksop05 = zredp05*zkw(i,1)*EXP(zkw1(i)*                        &
                            (zporv(i)-zlw_fr_ksop05)/(zporv(i)-zadp(i)) )
   
   
@@ -2864,9 +2896,9 @@ ELSE   IF (itype_interception == 2) THEN
                                (zporv(i)-zlw_fr_ksom05)/(zporv(i)-zadp(i)) )
             zdlw_fr_ksop05= zredp05*zdw(i)*EXP( zdw1(i)*   &
                                (zporv(i)-zlw_fr_ksop05)/(zporv(i)-zadp(i)) )
-            zklw_fr_ksom05= zredm05*zkw(i)*EXP( zkw1(i)*   &
+            zklw_fr_ksom05= zredm05*zkw(i,kso)*EXP( zkw1(i)*   &
                                (zporv(i)-zlw_fr_ksom05)/(zporv(i)-zadp(i)) )
-            zklw_fr_ksop05= zredp05*zkw(i)*EXP( zkw1(i)*   &
+            zklw_fr_ksop05= zredp05*zkw(i,kso)*EXP( zkw1(i)*   &
                                (zporv(i)-zlw_fr_ksop05)/(zporv(i)-zadp(i)) )
   
             ! coefficients for implicit flux computation
@@ -2918,7 +2950,7 @@ ELSE   IF (itype_interception == 2) THEN
 
           z1dgam1 = zdt/zdzhs(ke_soil_hy)
           zgam2m05  = zdlw_fr_ksom05/zdzms(ke_soil_hy)
-          zklw_fr_ksom05= zredm05*zkw(i)*EXP( zkw1(i)* &
+          zklw_fr_ksom05= zredm05*zkw(i,ke_soil_hy)*EXP( zkw1(i)* &
                             (zporv(i)-zlw_fr_ksom05)/(zporv(i)-zadp(i)) )
           zaga(i,ke_soil_hy) = -zalfa* zgam2m05*z1dgam1
           zagb(i,ke_soil_hy) = 1._ireals+ zalfa*zgam2m05*z1dgam1
@@ -3031,7 +3063,7 @@ ELSE   IF (itype_interception == 2) THEN
                               /zdzms(kso)
             zdlw_fr_ksom05= zredm05*zdw(i)*EXP(zdw1(i) *  &
                             (zporv(i)-zlw_fr_ksom05)/(zporv(i)-zadp(i)) )
-            zklw_fr_ksom05= zredm05*zkw(i) * EXP(zkw1(i)* &
+            zklw_fr_ksom05= zredm05*zkw(i,kso) * EXP(zkw1(i)* &
                             (zporv(i)-zlw_fr_ksom05)/(zporv(i)-zadp(i)) )
   
             IF (kso> ke_soil_hy) zdlw_fr_ksom05=0.0_ireals   ! no flux gradient 
@@ -3043,7 +3075,7 @@ ELSE   IF (itype_interception == 2) THEN
                    (zdlw_fr_ksom05 * (zlw_fr_kso_new+zice_fr_kso-zlw_fr_ksom1_new-zice_fr_ksom1) &
                      /zdzms(kso) - zklw_fr_ksom05)
             zredm = 1._ireals-zice_fr_kso/(zlw_fr_kso+zice_fr_kso)
-            zklw_fr_kso_new = zredm*zkw(i) * EXP(zkw1(i)* &
+            zklw_fr_kso_new = zredm*zkw(i,kso) * EXP(zkw1(i)* &
                               (zporv(i) - zlw_fr_kso_new)/(zporv(i) - zadp(i)) )
   
             ! actual gravitation water flux
@@ -3058,9 +3090,9 @@ ELSE   IF (itype_interception == 2) THEN
   
                zdlw_fr_kso = zredm05*zdw(i)*EXP(zdw1(i) *  &
                     (zporv(i)-zlw_fr_kso_new)/(zporv(i)-zadp(i)) )
-               zklw_fr_kso = zredm05*zkw(i) * EXP(zkw1(i)* &
+               zklw_fr_kso = zredm05*zkw(i,kso) * EXP(zkw1(i)* &
                     (zporv(i)-zlw_fr_kso_new)/(zporv(i)-zadp(i)) )
-               zklw_fr_ksom1 = zredm05*zkw(i) * EXP(zkw1(i)* &
+               zklw_fr_ksom1 = zredm05*zkw(i,kso) * EXP(zkw1(i)* &
                     (zporv(i)-zlw_fr_ksom1_new)/(zporv(i)-zadp(i)) )
   
                zdhydcond_dlwfr=( zklw_fr_kso - zklw_fr_ksom1 ) / zdelta_sm
