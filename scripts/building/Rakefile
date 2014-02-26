@@ -444,9 +444,9 @@ def doCmpExps(build,expA,expB)
               ),true)
 end
 def doCmpExpDirs(build,dirA,dirB)
-  expA, expB = File.basename(dirA), File.basename(dirB)
-  #check model outout
-  call(connect(build,<<-EOS
+  checkOutput = lambda {|dirA,dirB|
+    expA, expB = File.basename(dirA), File.basename(dirB)
+    call(connect(build,<<-EOS
       selection='-select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4'
       debug="#{ENV.has_key?('DEBUG')}"
       [[ $debug = 'true' ]] && set -x
@@ -465,25 +465,26 @@ def doCmpExpDirs(build,dirA,dirB)
       then
         echo "DIFF found in OUTPUT!!"
         cat diffOut
-        cdo sinfov $fileA
-        cdo sinfov $fileA
-        echo "FILE:  $fileA ===================================================="
+        echo "FILE:  $fileA ========================"
         cdo showname $fileA
-          cdo infov ${selection} $fileA
-        echo "FILE:  $fileB ===================================================="
+          [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileA
+        echo "FILE:  $fileB ========================"
         cdo showname $fileB
-          cdo infov ${selection} $fileB
+          [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileB
       else
         echo "no DIFF found in OUTPUT"
-        echo "FILE:  $fileA ===================================================="
+        echo "FILE:  $fileA ========================"
           [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileA
-        echo "FILE:  $fileB ===================================================="
+        echo "FILE:  $fileB ========================"
           [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileB
       fi
                EOS
               ),true)
-  # check possbile restart files
-  call(connect(build,<<-EOS
+  }
+
+  checkRestart = lambda{|dirA,dirB|
+    expA, expB = File.basename(dirA), File.basename(dirB)
+    call(connect(build,<<-EOS
       cd experiments/;
       fileA=#{dirA}/restart_oce_DOM01.nc
       fileB=#{dirB}/restart_oce_DOM01.nc
@@ -494,18 +495,26 @@ def doCmpExpDirs(build,dirA,dirB)
         then
           echo "DIFF found in restart files!!"
           cat diffOut
-          cdo sinfov $fileA
-          cdo sinfov $fileA
         else
           echo "no DIFF found in restart files"
-          echo "FILE:  $fileA ===================================================="
-          echo "FILE:  $fileB ===================================================="
+          echo "FILE:  $fileA ======================"
+          echo "FILE:  $fileB ======================"
         fi
       else
         echo "No restart available for #{dirA} of #{dirB}"
       fi;
                EOS
               ),true)
+  }
+
+  if ENV.has_key?('CHECK') then
+    checks = ENV['CHECK'].split(',')
+    checkOutput[dirA,dirB]  if checks.include?('output')
+    checkRestart[dirA,dirB] if checks.include?('restart')
+  else  
+    checkOutput[dirA,dirB]
+    checkRestart[dirA,dirB]
+  end
 end
 def doCheckExp(build,exp)
   var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
@@ -747,9 +756,4 @@ task :check ,[:p] do |t,args|
   }
 end
 
-desc "Create tags file"
-task :tags do
-  sh "ctags Rakefile"
-end
-
-# vim:ft=ruby
+# vim:ft=ruby,foldmethod=syntax
