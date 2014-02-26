@@ -271,7 +271,7 @@ MODULE mo_sgs_turbulence
     REAL(wp),          INTENT(in)        :: visc_sfc_c(:,:,:) !< apparent visc at surface
 
     ! local variables
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: DD, div_of_stress, visc_smag_e, &
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: div_of_stress, visc_smag_e, &
                                                vn_ie, vt_ie, thetav_e, thetav_ie
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
@@ -300,7 +300,6 @@ MODULE mo_sgs_turbulence
     !Allocation
     ALLOCATE( vn_ie(nproma,nlevp1,p_patch%nblks_e),        &
               vt_ie(nproma,nlevp1,p_patch%nblks_e),        &
-              DD(nproma,nlev,p_patch%nblks_e),             &
               visc_smag_e(nproma,nlev,p_patch%nblks_e),    &
               thetav_e(nproma,nlev,p_patch%nblks_e),       &
               thetav_ie(nproma,nlevp1,p_patch%nblks_e),    &
@@ -484,7 +483,9 @@ MODULE mo_sgs_turbulence
             D_33       =     2._wp * (w_ie(je,jk,jb) - w_ie(je,jkp1,jb)) *   &
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)               
            
-            DD(je,jk,jb)   = D_11**2 + D_22**2 + D_33**2  + 2._wp * ( D_12**2 + D_13**2 + D_23**2 )             
+            !Mechanical prod is half of this value
+            prm_diag%mech_prod(je,jk,jb) = D_11**2 + D_22**2 + D_33**2 + &
+                                          2._wp * ( D_12**2 + D_13**2 + D_23**2 )             
 
             !calculate divergence to get the deviatoric part of stress tensor in 
             !diffusion: D_11-1/3*(D_11+D_22+D_33)
@@ -564,9 +565,11 @@ MODULE mo_sgs_turbulence
                             opt_rlstart=4, opt_rlend=min_rledge_int)
 
     !3(b) Calculate stability corrected turbulent viscosity
-    ! visc = mixing_length_sq * SQRT(DD/2) * SQRT(1-Ri/Pr) where Ri = (g/thetav)*d_thetav_dz/(DD/2), 
-    ! where Brunt_vaisala_freq = (g/thetav)*d_thetav_dz. After simplification: 
-    ! visc = mixing_length_sq * SQRT[ DD/2 - (Brunt_vaisala_frq/Pr) ]
+    !MP = Mechanical prod term calculated above
+    !visc = mixing_length_sq * SQRT(MP/2) * SQRT(1-Ri/Pr) where 
+    !Ri = (g/thetav)*d_thetav_dz/(MP/2), where Brunt_vaisala_freq (byncy prod term) 
+    !   = (g/thetav)*d_thetav_dz. 
+    !After simplification: visc = mixing_length_sq * SQRT[ MP/2 - (Brunt_vaisala_frq/Pr) ]
 
     rl_start = 4
     rl_end   = min_rledge_int
@@ -575,19 +578,20 @@ MODULE mo_sgs_turbulence
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx,brunt_vaisala_frq)
+!ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jk = 1 , nlev-1
          DO je = i_startidx, i_endidx
 
-           brunt_vaisala_frq = grav * (thetav_ie(je,jk,jb)-thetav_ie(je,jk+1,jb)) * &
-                               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) / thetav_e(je,jk,jb)
+           prm_diag%buoyancy_prod(je,jk,jb) = grav*(thetav_ie(je,jk,jb)-thetav_ie(je,jk+1,jb))* &
+                               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)/thetav_e(je,jk,jb)
 
            visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                 &
                MAX( 0._wp, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
-               SQRT(MAX(0._wp, DD(je,jk,jb)*0.5_wp-les_config(1)%rturb_prandtl*brunt_vaisala_frq)) ) 
+               SQRT(MAX(0._wp, prm_diag%mech_prod(je,jk,jb)*0.5_wp - &
+                               les_config(1)%rturb_prandtl*prm_diag%buoyancy_prod(je,jk,jb))) ) 
 
          END DO
        END DO
@@ -743,7 +747,7 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_PARALLEL
 
     !DEALLOCATE variables
-    DEALLOCATE( DD, div_of_stress, visc_smag_e, vn_ie, vt_ie, thetav_e, thetav_ie )
+    DEALLOCATE( div_of_stress, visc_smag_e, vn_ie, vt_ie, thetav_e, thetav_ie )
   
   END SUBROUTINE smagorinsky_model
   !-------------------------------------------------------------------------------------

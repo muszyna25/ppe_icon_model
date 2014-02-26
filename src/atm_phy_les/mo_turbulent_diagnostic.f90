@@ -537,6 +537,17 @@ CONTAINS
 
        CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
 
+     CASE('bynprd')
+       !Buoyancy production term
+       CALL levels_horizontal_mean(prm_diag%buoyancy_prod, p_patch%edges%primal_edge_length, &
+                                   p_patch%edges%owned, outvar(1:nlev))
+
+     CASE('mechprd')
+       !Mechanical production term: prm_diag%mech_prod / 2
+       CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%edges%primal_edge_length,  &
+                                   p_patch%edges%owned, outvar(1:nlev))
+       outvar = outvar * 0.5_wp          
+ 
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -810,6 +821,14 @@ CONTAINS
        unit     = 'W/m2'
        is_at_full_level(n) = .FALSE.
        idx_sgs_qc_flx = n
+     CASE('bynprd') 
+       longname = 'Buoyancy production term in TKE Eq.'
+       unit     = 'm**2/s**3'
+     CASE('mechprd') 
+       longname = 'Mechanical production term in TKE Eq.'
+       unit     = 'm**2/s**3'
+     CASE DEFAULT 
+         CALL finish(routine,'This variable does not exist!')
      END SELECT
 
      dimname(2) = tname
