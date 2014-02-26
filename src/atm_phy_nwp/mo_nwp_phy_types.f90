@@ -148,6 +148,7 @@ MODULE mo_nwp_phy_types
                                  !! convective surface precipitation rate
       &   gsp_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
                                  !! grid-scale surface precipitation rate
+      &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cape    (:,:),       & !! convective available energy
       &   con_gust(:,:),       & !! convective gusts near surface
       &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
@@ -214,13 +215,13 @@ MODULE mo_nwp_phy_types
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]
       &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
-      &  lwflxsfc_a(:,:),      & !! longwave net flux at surface [W/m2], accumulated or mean since last output
-      &  swflxsfc_a(:,:),      & !! shortwave net flux at surface [W/m2], accumulated or mean since last output
-      &  lwflxtoa_a(:,:),      & !! longwave net flux at toa [W/m2], accumulated or mean since last output
-      &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since last output
+      &  lwflxsfc_a(:,:),      & !! Surface net thermal radiation [W/m2], accumulated or mean since model start
+      &  swflxsfc_a(:,:),      & !! Surface net solar radiation [W/m2], accumulated or mean since model start
+      &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
+      &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
+      &  asod_t    (:,:)         !! Top down solar radiation  [W/m2], accumulated or mean since model start
                                  !! _a means average values if lflux_avg=.TRUE.
                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
-      &  acdnc(:,:,:)            !! cloud droplet number concentration [1/m**3]
 
 
 
