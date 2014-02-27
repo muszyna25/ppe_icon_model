@@ -199,6 +199,14 @@ $buildCall = lambda {|build|
 # call the system command
 $_temps = []
 
+def setSelection
+  var  = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
+  ts   = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
+  lev  = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
+  show = ENV.values_at('VAR','TS','LEV').uniq != [nil]
+
+  [var,ts,lev,show]
+end
 # optional connection command
 def connect(build,command,targetDir=$targetDir[build,false])
   cmd      = ''
@@ -478,12 +486,11 @@ def doRunPost(build,exp)
   call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
 end
 def doCmpExps(build,expA,expB)
-  var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
-  ts  = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
-  lev = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
+  var,ts,lev,show = setSelection
+
   call(connect(build,<<-EOS
     debug="#{ENV.has_key?('DEBUG')}"
-    showDiffSelection="#{ENV.values_at('VAR','TS','LEV').uniq != [nil]}"
+    showDiffSelection="#{show}"
     [[ $debug = 'true' ]] && set -x
     #{joinModelOutput(expA)}
     #{joinModelOutput(expB)}
@@ -497,33 +504,29 @@ def doCmpExps(build,expA,expB)
             ),true)
 end
 def doCmpDirs(build,dirA,dirB,expA=File.basename(dirA),expB=File.basename(dirB))
+  var,ts,lev,show = setSelection
+
   checkOutput = lambda {|dirA,dirB|
     call(connect(build,<<-EOS
-      selection='-select,name=forc_wind_u,forc_wind_v,timestep=1,2,3,4'
-      selection=''
       debug="#{ENV.has_key?('DEBUG')}"
+      showDiffSelection="#{show}"
       [[ $debug = 'true' ]] && set -x
-      fileA=$(tempfile -s #{expA}.nc)
-      fileB=$(tempfile -s #{expB}.nc)
-      [[ -f ${fileA} ]] && rm ${fileA}
-      [[ -f ${fileB} ]] && rm ${fileB}
-      cdo cat #{dirA}/#{expA}*.nc ${fileA}
-      cdo cat #{dirB}/#{expB}*.nc ${fileB}
-      #{diffThese("${fileA}","${fileB}")}
-      echo "FILE:  $fileA ========================"
-      cdo showname $fileA
-      [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileA
-      echo "FILE:  $fileB ========================"
-      cdo showname $fileB
-      [[ ${debug} = 'true' ]] && cdo infov ${selection} $fileB
-      rm $fileA $fileB
-               EOS
-              ),true)
+      #{joinModelOutput(expA)}
+      #{joinModelOutput(expB)}
+      #{diffThese("${joinModelOutput_#{expA}}","${joinModelOutput_#{expB}}")}
+      [[ $showDiffSelection = 'true' ]] && (
+          #{selectBy(var,ts,lev)}
+          cdo infov ${selectBy} -sub ${joinModelOutput_#{expA}} ${joinModelOutput_#{expB}} 
+        )
+      #{rmJoinedModelOutput(expA,expB)}
+    EOS
+    ),true)
   }
 
   checkRestart = lambda{|dirA,dirB|
     call(connect(build,<<-EOS
       debug="#{ENV.has_key?('DEBUG')}"
+      showDiffSelection="#{show}"
       [[ $debug = 'true' ]] && set -x
       fileA=#{dirA}/restart_oce_DOM01.nc
       fileB=#{dirB}/restart_oce_DOM01.nc
@@ -556,9 +559,8 @@ def doCmpDirs(build,dirA,dirB,expA=File.basename(dirA),expB=File.basename(dirB))
   end
 end
 def doCheckExp(build,exp)
-  var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
-  ts  = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
-  lev = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
+  var,ts,lev,_ = setSelection
+
   if ENV.has_key?('CHECK') then
     checks = ENV['CHECK'].split(',')
     checks.each {|check|
