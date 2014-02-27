@@ -431,7 +431,7 @@ CONTAINS
 
     CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=p_patch%id)
     CALL default_var_list_settings( ocean_params_list,         &
-      &                             lrestart=.TRUE.,           &
+      &                             lrestart=.FALSE.,           &
       &                             restart_type=FILETYPE_NC2, &
       &                             model_type='oce' )
 
