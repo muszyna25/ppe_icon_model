@@ -5585,6 +5585,11 @@ SUBROUTINE terra_multlay_init (                &
       END DO
     END IF
 
+  ELSE  ! .NOT. is_coldstart (i.e. assimilation cycle and forecast)
+
+    ! To be filled. Here, information provided by analysis should be added 
+    ! to the multi-layer snow fields.
+
   ENDIF  ! is_coldstart
 
 
