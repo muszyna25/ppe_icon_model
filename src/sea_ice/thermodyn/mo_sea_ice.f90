@@ -1171,13 +1171,14 @@ CONTAINS
       CALL ice_growth_zerolayer (p_patch, p_os, ice, QatmAve%rpreci)
     END IF
 
-    CALL dbg_print('IceSlow: hi after growth'       ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: Conc. after growth'    ,ice%conc ,str_module,5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: ConcSum. after growth' ,ice%concSum ,str_module,5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_ice%u bef. dyn'   ,ice%u_prog,             str_module,5, &
-      & in_subset=p_patch%verts%owned)                                    
-    CALL dbg_print('IceSlow: p_ice%v bef. dyn'   ,ice%v_prog,             str_module,5, &
-      & in_subset=p_patch%verts%owned)                                    
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('IceSlow: hi after growth'       ,ice%hi   ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. after growth'    ,ice%conc ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('IceSlow: p_ice%u bef. dyn'    ,ice%u_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: p_ice%v bef. dyn'    ,ice%v_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
+    !---------------------------------------------------------------------
 
     CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
@@ -1732,6 +1733,8 @@ CONTAINS
     REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
 
+    CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module,4, in_subset=p_patch%cells%owned)
+
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
     else
@@ -1795,6 +1798,8 @@ CONTAINS
       ice%E2   (:,1,:) = 0.0_wp
       ice%vol  (:,1,:) = 0.0_wp
     ENDWHERE
+
+    CALL dbg_print('IceConcCh: IceConc end' ,ice%conc, str_module,4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_conc_change
 
