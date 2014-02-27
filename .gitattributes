@@ -703,7 +703,6 @@ run/exp.icon-testbed_communication -text
 run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text
 run/exp.mtest_nat_rce_cbl_120km_nwp_test -text
-run/exp.nah_jww -text
 run/exp.nat_ape-dec -text
 run/exp.nat_jww -text
 run/exp.nat_jww_410 -text
@@ -784,7 +783,6 @@ run/grid.remove_land_points -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
 run/mapfile_vlist.txt -text
-run/post.nah_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.plot_icon_grids -text
