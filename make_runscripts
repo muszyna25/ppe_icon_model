@@ -276,10 +276,6 @@ do
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       cpu_time="03:00:00" memory_model="small" queue="$queue"
       ;;
-    *oce_default*)
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize
-      ;;
     *)
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize
@@ -379,7 +375,6 @@ create_restart()
 
 #==============================================================================
 # special treatment for test_hat_jww
-# this includes the restart in the test_hat_jww
 cpu_time="04:00:00"
 create_restart test_hat_jww 
 
@@ -392,7 +387,7 @@ create_restart test_oce_default
 
 
 #==============================================================================
-# special treatment for exp.test_oce_default
+# special treatment for test_nat_rce_cbl_120km_nwp
 #
 cpu_time="02:00:00"
 create_restart test_nat_rce_cbl_120km_nwp
