@@ -218,7 +218,7 @@ CONTAINS
     &                            ihadv_tracer, ivadv_tracer, lturb_tracer,              &
     &                            lsed_tracer, ldep_tracer, lconv_tracer,                &
     &                            lwash_tracer,rdiameter_tracer, rrho_tracer,            &
-    &                            halflife_tracer,imis_tracer) RESULT(tracer_meta) 
+    &                            halflife_tracer,imis_tracer,lifetime_tracer) RESULT(tracer_meta) 
 
     LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
     CHARACTER(len=*), INTENT(IN), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...) 
@@ -229,10 +229,11 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: ldep_tracer     ! dry deposition (TRUE/FALSE)  
     LOGICAL, INTENT(IN), OPTIONAL :: lconv_tracer    ! convection  (TRUE/FALSE)
     LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer    ! washout (TRUE/FALSE)
-    REAL(wp), INTENT(IN), OPTIONAL :: rdiameter_tracer! particle diameter in m
-    REAL(wp), INTENT(IN), OPTIONAL :: rrho_tracer     ! particle density in kg m^-3
-    REAL(wp), INTENT(IN), OPTIONAL :: halflife_tracer       ! radioactive half-life in s^-1
-    INTEGER, INTENT(IN), OPTIONAL :: imis_tracer         ! IMIS number
+    REAL(wp),INTENT(IN), OPTIONAL :: rdiameter_tracer! particle diameter in m
+    REAL(wp),INTENT(IN), OPTIONAL :: rrho_tracer     ! particle density in kg m^-3
+    REAL(wp),INTENT(IN), OPTIONAL :: halflife_tracer ! radioactive half-life in s^-1
+    INTEGER, INTENT(IN), OPTIONAL :: imis_tracer     ! IMIS number
+    REAL(wp),INTENT(IN), OPTIONAL :: lifetime_tracer ! lifetime of a chemical tracer
 
     TYPE(t_tracer_meta) :: tracer_meta               ! tracer metadata
 
@@ -303,28 +304,35 @@ CONTAINS
     IF ( PRESENT(rdiameter_tracer) ) THEN
       tracer_meta%rdiameter_tracer = rdiameter_tracer
     ELSE
-      tracer_meta%rdiameter_tracer = 1.0e-6_wp  ! particle diameter in m
+      tracer_meta%rdiameter_tracer = 1.0e-6_wp ! particle diameter in m
     ENDIF
 
     ! rrho_tracer
     IF ( PRESENT(rrho_tracer) ) THEN
       tracer_meta%rrho_tracer = rrho_tracer
     ELSE
-      tracer_meta%rrho_tracer = 1000.0_wp       ! particle density in kg m^-3
+      tracer_meta%rrho_tracer = 1000.0_wp      ! particle density in kg m^-3
     ENDIF
 
     ! halflife_tracer
     IF ( PRESENT(halflife_tracer) ) THEN
       tracer_meta%halflife_tracer = halflife_tracer
     ELSE
-      tracer_meta%halflife_tracer = 0.0_wp       ! half-life in s^-1
+      tracer_meta%halflife_tracer = 0.0_wp     ! half-life in s^-1
     ENDIF
 
     ! imis_tracer
     IF ( PRESENT(imis_tracer) ) THEN
       tracer_meta%imis_tracer = imis_tracer
     ELSE
-      tracer_meta%imis_tracer = -999       ! IMIS number
+      tracer_meta%imis_tracer = -999           ! IMIS number
+    ENDIF
+    
+    ! lifetime_tracer
+    IF ( PRESENT(lifetime_tracer) ) THEN
+      tracer_meta%lifetime_tracer = lifetime_tracer
+    ELSE
+      tracer_meta%lifetime_tracer = -999       ! lifetime of a chemical tracer
     ENDIF
 
   END FUNCTION create_tracer_metadata

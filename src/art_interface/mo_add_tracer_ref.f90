@@ -83,7 +83,7 @@ CONTAINS
     &        lis_tracer,tracer_class,                                              &
     &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,                &
     &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,            &
-    &        rrho_tracer, halflife_tracer, imis_tracer, post_op)
+    &        rrho_tracer, halflife_tracer, imis_tracer, post_op,lifetime_tracer)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
@@ -115,7 +115,8 @@ CONTAINS
     REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
     REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer! radioactive half-life in s^-1
     INTEGER             , INTENT(in), OPTIONAL :: imis_tracer    ! IMIS number
-    TYPE(t_post_op_meta), INTENT(IN), OPTIONAL :: post_op
+    TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op        ! post operation (e.g. scale with const. factor or rho)
+    REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer! lifetime of a chemical tracer
 
 
     ! Local variables:
@@ -186,7 +187,8 @@ CONTAINS
       &                                  rdiameter_tracer = rdiameter_tracer, &
       &                                  rrho_tracer      = rrho_tracer,      &
       &                                  halflife_tracer  = halflife_tracer,  &
-      &                                  imis_tracer      = imis_tracer)
+      &                                  imis_tracer      = imis_tracer,      &
+      &                                  lifetime_tracer  = lifetime_tracer)
 
 
 

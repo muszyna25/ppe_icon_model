@@ -99,6 +99,8 @@ MODULE mo_art_nml
     LOGICAL :: lart_volclist  !< Input of Volcano coordinates. TRUE:use nml, FALSE:external data file is used.
 
     CHARACTER (LEN=120) :: volcanofile_path
+    
+    CHARACTER (LEN=120) :: art_folder
 
     LOGICAL :: lart_radioact                !< Treatment of volcanic ash (TRUE/FALSE)
    
@@ -106,11 +108,15 @@ MODULE mo_art_nml
 
     CHARACTER (LEN=120) :: radioactfile_path
 
+    LOGICAL :: lart_chemtracer                !< Treatment of chemical tracer (TRUE/FALSE)
+
+    LOGICAL :: lart_loss_chemtracer           !< Treatment of chemical loss (TRUE/FALSE)
+
     NAMELIST/art_nml/ lart, lart_seasalt, lart_dust, lart_volcano, lart_emiss,        &
    &               lart_conv, lart_wash, lart_rad, lart_cloud,                        &
    &               nart_emis_volcano_update,art_volclist_tot, lart_volclist,          &
    &               volcanofile_path,lart_radioact,lart_decay_radioact,                &
-   &               radioactfile_path
+   &               radioactfile_path, lart_chemtracer,lart_loss_chemtracer, art_folder
 
 CONTAINS
 
@@ -170,6 +176,10 @@ CONTAINS
     lart_decay_radioact       = .FALSE.    !< Treatment of radioactive decay
     radioactfile_path         =  "./radioactfile"
 
+    lart_chemtracer           = .FALSE.     !< Treatment of chemical tracer (TRUE/FALSE)
+    lart_loss_chemtracer      = .FALSE.     !< Treatment of chemical loss (TRUE/FALSE)
+
+    art_folder                =  "./art/"
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -241,6 +251,9 @@ CONTAINS
       art_config(jg)%lart_radioact            = lart_radioact
       art_config(jg)%lart_decay_radioact      = lart_radioact
       art_config(jg)%radioactfile_path        = radioactfile_path
+      art_config(jg)%lart_chemtracer          = lart_chemtracer
+      art_config(jg)%lart_loss_chemtracer     = lart_loss_chemtracer
+      art_config(jg)%art_folder               = art_folder
       
       nblks=nvolc/nproma+1
       npromz=nvolc-nproma*(nblks-1)

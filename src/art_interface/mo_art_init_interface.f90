@@ -1,7 +1,7 @@
 !>
-!! Provides interface to the ART-routine for using tools
+!! Provides interface to the ART-routine for initializing ART type structures. 
 !!
-!! This module provides an interface to the ART-routine art_ini_tracer.
+!! This module provides an interface to the ART-routine art_init_all_dom
 !! The interface is written in such a way, that ICON will compile and run 
 !! properly, even if the ART-routines are not available at compile time.
 !!
@@ -9,7 +9,7 @@
 !! @author Daniel Rieger, KIT
 !!
 !! @par Revision History
-!! Initial revision by Daniel Rieger (2013-12-16)
+!! Initial revision by Daniel Rieger (2013-09-13)
 !!
 !! @par Copyright
 !! 2002-2010 by DWD, MPI-M, and KIT.
@@ -38,48 +38,39 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+MODULE mo_art_init_interface
 
-MODULE mo_art_tools_interface
-
-  USE mo_nonhydro_types,       ONLY: t_nh_state
-  
 #ifdef __ICON_ART
-  USE mo_art_unit_conversion,  ONLY: art_massmix2density
+  USE mo_art_init_all_dom,        ONLY: art_init_all_dom
+  USE mo_art_clean_up,            ONLY: art_clean_up
 #endif
-
-  IMPLICIT NONE
   
+  IMPLICIT NONE
+
   PRIVATE
 
-  PUBLIC  :: art_tools_interface 
+  PUBLIC :: art_init_interface
 
 CONTAINS
 
-SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
-  !>
-  !! Interface for ART tools
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Rieger, KIT (2013-12-16)
-  
-  character(len=*),intent(in) :: & 
-    &  defcase                !< definition of case 
+  SUBROUTINE art_init_interface(n_dom,defcase)
+
+    INTEGER,intent(in) :: n_dom     !< number of model domains
+    CHARACTER(LEN=*),intent(in) :: defcase  !< construction or destruction?
     
-  type(t_nh_state),target,intent(in)   ::  &
-    &  p_nh_state
-
-  integer,intent(in)            :: &
-    &  jg                     !< domain index
-  
 #ifdef __ICON_ART
-
-  IF (TRIM(defcase) .EQ. 'unit_conversion') THEN
-    CALL art_massmix2density(p_nh_state,jg)
-  END IF
-
+    
+    
+    if (TRIM(defcase) == 'construct') then
+      CALL art_init_all_dom(n_dom)
+    end if
+    
+    if (TRIM(defcase) == 'destruct') then
+      CALL art_clean_up(n_dom)
+    end if
+    
 #endif
-  
-  
-END SUBROUTINE art_tools_interface
-  
-END MODULE mo_art_tools_interface
+
+  END SUBROUTINE art_init_interface
+
+END MODULE mo_art_init_interface

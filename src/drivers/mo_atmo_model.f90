@@ -137,6 +137,8 @@ MODULE mo_atmo_model
   USE mo_output_event_types,      ONLY: t_sim_step_info
   USE mtime,                      ONLY: setCalendar, PROLEPTIC_GREGORIAN
 
+  ! ART
+  USE mo_art_init_interface,      ONLY: art_init_interface
 
   !-------------------------------------------------------------------------
 
@@ -507,6 +509,14 @@ CONTAINS
     CALL messy_initialize
 #endif
 
+    !------------------------------------------------------------------
+    ! 11. Create ART data fields
+    !------------------------------------------------------------------
+    
+    CALL art_init_interface(n_dom,'construct')
+
+    !------------------------------------------------------------------
+
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_model
@@ -572,6 +582,9 @@ CONTAINS
 !    IF (use_icon_comm) THEN
       CALL destruct_icon_communication()
 !    ENDIF
+
+    ! Destruct ART data fields
+    CALL art_init_interface(n_dom,'destruct')
 
     CALL message(TRIM(routine),'clean-up finished')
 

@@ -165,10 +165,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
      CALL get_turbdiff_param(jg)
   ENDIF
 
-  IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
-    CALL art_turbdiff_interface( 'allocate', p_patch, p_prog_rcf, prm_nwp_tend, ptr )
-  END IF
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs)  &
 !$OMP ICON_OMP_GUIDED_SCHEDULE
@@ -392,10 +388,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-  IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
-    CALL art_turbdiff_interface( 'deallocate', p_patch, p_prog_rcf, prm_nwp_tend, ptr )
-  END IF
 
 END SUBROUTINE nwp_turbdiff
 

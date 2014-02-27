@@ -40,6 +40,7 @@
 !!
 MODULE mo_art_tracer_interface
     USE mo_model_domain,         ONLY: t_patch
+    USE mo_exception,            ONLY: message
     USE mo_linked_list,          ONLY: t_var_list
     USE mo_fortran_tools,        ONLY: t_ptr_2d3d
     USE mo_advection_config,     ONLY: t_advection_config
@@ -48,7 +49,7 @@ MODULE mo_art_tracer_interface
     USE mo_art_config,           ONLY: art_config
 #ifdef __ICON_ART
     USE mo_art_tracer,           ONLY: art_tracer
-    USE mo_art_initialization,   ONLY: art_init_aerosol
+    USE mo_art_init,             ONLY: art_init
 #endif
 
   IMPLICIT NONE
@@ -103,12 +104,13 @@ CONTAINS
     !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
-  
+      CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
+      
       CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&
        & tlev_source) 
       
       IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
-        CALL art_init_aerosol(jg,this_list)
+        CALL art_init(jg,this_list)
       END IF
 #endif
 

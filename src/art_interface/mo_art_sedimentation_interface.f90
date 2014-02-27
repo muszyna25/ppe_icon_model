@@ -46,18 +46,25 @@ MODULE mo_art_sedi_interface
     USE mo_impl_constants,         ONLY: min_rlcell
     USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
     USE mo_art_config,             ONLY: art_config
-    USE mo_exception,              ONLY: message, message_text, finish
+    USE mo_exception,              ONLY: finish
     USE mo_linked_list,            ONLY: t_var_list, t_list_element
     USE mo_var_metadata_types,     ONLY: t_var_metadata, t_tracer_meta
     USE mo_advection_vflux,        ONLY: upwind_vflux_ppm_cfl
     USE mo_run_config,             ONLY: ntracer
     USE mo_loopindices,            ONLY: get_indices_c
 #ifdef __ICON_ART
+! infrastructure routines
+    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode
+    USE mo_art_modes,              ONLY: t_fields_2mom,t_fields_radio, &
+        &                                t_fields_volc
+    USE mo_art_data,               ONLY: p_art_data
+    USE mo_art_clipping,           ONLY: art_clip_tracers_zero
+! sedimentation and deposition routines
     USE mo_art_sedi_volc,          ONLY: art_sedi_volc
-    USE mo_art_aerosol,            ONLY: p_mflx_contra_vsed, vdep_ash
-    USE mo_art_aerosol,            ONLY: p_art_mode,nmodes,imode_seasa,imode_seasb,imode_seasc
-    USE mo_art_sedi_depo,          ONLY: art_calc_v_sed_dep
-    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_properties
+!    USE mo_art_aerosol,            ONLY: p_mflx_contra_vsed, vdep_ash
+!    USE mo_art_aerosol,            ONLY: p_art_mode,nmodes,imode_seasa,imode_seasb,imode_seasc
+!    USE mo_art_sedi_depo,          ONLY: art_calc_v_sed_dep
+!    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_properties
 #endif
 
   IMPLICIT NONE
@@ -135,227 +142,127 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL:: &       !< vertical tracer flux at upper boundary
       &  opt_topflx_tra(:,:,:)               !< NH: [kg/m**2/s]
                                              !< dim: (nproma,nblks_c,ntracer)
-
-    ! local variables:
-
+                                             
     REAL(wp), ALLOCATABLE :: &      !< upwind flux at half levels due to sedimentation
       &  p_upflux_sed(:,:,:)          !< dim: (nproma,nlevp1,nblks_c)
-
-    TYPE(t_list_element), POINTER :: current_element !< returns the reference to
-                                                     !< current element in list
-    TYPE(t_var_metadata), POINTER :: info            !< returns reference to tracer
-                                                     !< metadata of current element
-
-    INTEGER, POINTER :: jsp                          !< returns index of element
-
-    INTEGER          :: n                            !<loop variable
-
-    CHARACTER(len=32), POINTER :: var_name            !< returns a character containing the name
-                                                     !< of current ash component without the time level
-                                                     !< suffix at the end. e.g. qash1(.TL1)
-
-    REAL(wp), POINTER  :: diameter_ash, &
-    &                     rho_ash                !<  resturns diameter and density of volcanic ash particles
-
-    CHARACTER(*), PARAMETER :: art_routine = TRIM("mo_art_sedimentation_interface:art_sedi_interface")
-
-    INTEGER  :: jg,jc,jk,ikp1,jb           !< loop index for: patch,index in block,full and half levels,block
-    INTEGER  :: nlev,nlevp1,nblks,istat, &
+      
+    REAL(wp),POINTER :: &
+      &  mflx_contra_vsed(:,:,:)
+      
+    INTEGER  :: jc,jk,ikp1,jb           !< loop index for: index in block,full and half levels,block
+    INTEGER  :: nlev,nlevp1,nblks, &
     &           i_nchdom, i_rlstart, i_rlend,  i_startblk, i_endblk,i_startidx, i_endidx
-    INTEGER  :: p_iubc, &                !< Upper boundary condition. Default value=0, no upper bc cond.
-    &           p_itype_vlimit           !< Type of limiter for vertical transport. Default val. =1, semi-monotone slope limiter.
-    LOGICAL  :: lcompute_gt, lcleanup_gt !Compute and clean up geometrical terms in connection to flux calculation.
+      
+    INTEGER  :: jg                      !< patch id
+    INTEGER  :: jsp
+    INTEGER  :: i
+    INTEGER  :: iubc=0                  !< upper boundary condition 0 = none
+    INTEGER  :: itype_vlimit=2          !< Monotone limiter
+    LOGICAL  :: lcompute_gt
+    LOGICAL  :: lcleanup_gt
 
-    INTEGER, ALLOCATABLE  :: idx_trac_arr(:)     !< Array to map jsp of tracer list element to idx_trac
-    INTEGER  :: idx_trac
+#ifdef __ICON_ART
+    TYPE(t_mode), POINTER   :: this_mode
+#endif
 
-    !-----------------------------------------------------------------------
 
 #ifdef __ICON_ART
 
-jg  = p_patch%id
+  lcompute_gt=.TRUE. ! compute geometrical terms
+  lcleanup_gt=.TRUE. ! clean up geometrical terms. obs. this i currently done for all components. improvement:
+                     ! compute values for first component, cleanup after last component.
 
-IF(art_config(jg)%lart) THEN
-
-    nlev      = p_patch%nlev        !< Number of vertical full levels
-    nlevp1    = p_patch%nlevp1      !< Number of vertical half levels
-    nblks     = p_patch%nblks_c
-
-    !Get all cell enitities, except halos
-    i_nchdom  = MAX(1,p_patch%n_childdom)
-    i_rlstart = 1  !is always one
-    i_rlend   = min_rlcell
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-
-    ! First calculation of sedimentation and deposition velocity for the modal aerosol
-    CALL art_air_properties(p_patch)
-    DO n=1, nmodes
-      CALL art_modal_parameters(p_patch,p_art_mode(n),p_tracer_new,'SEDIMENTATION')
-      WRITE(*,*) 'Calculating sedimentation velocity for ', p_art_mode(n)%zname
-      CALL art_calc_v_sed_dep(p_patch,p_metrics,p_diag,p_art_mode(n),p_rho,p_tracer_new)
-    ENDDO
-
-    p_iubc =0        ! No upper boundary condition
-    p_itype_vlimit=2 ! Monotone limiter
-
-
-    ALLOCATE(p_mflx_contra_vsed(nproma,nlevp1,nblks),p_upflux_sed(nproma,nlevp1,nblks),stat=istat)
-
-    lcompute_gt=.TRUE. ! compute geometrical terms
-    lcleanup_gt=.TRUE. ! clean up geometrical terms. obs. this i currently done for all components. improvement:
-                       ! compute values for first component, cleanup after last component.
-
-
-    current_element=>p_prog_list%p%first_list_element
-
-      !start DO-loop over elements in list:
-    DO WHILE (ASSOCIATED(current_element))
-
-      !get meta data of current element:
-      info=>current_element%field%info
-
-      ! assure that current element is tracer
-      IF (info%tracer%lis_tracer) THEN
-        IF (info%tracer%lsed_tracer) THEN
-
-        ! ----------------------------------
-        ! --- retrieve  running index
-        ! ----------------------------------
-
-          jsp           =>  info%ncontained
-          var_name      =>  info%name
-          diameter_ash  =>  info%tracer%rdiameter_tracer
-          rho_ash       =>  info%tracer%rrho_tracer
-
-          WRITE (message_text,*) 'Sedimentation of ',var_name,' with idx= ',jsp,info%tracer%lsed_tracer
-          CALL message(TRIM(art_routine),message_text)
-
-        ! ----------------------------------
-        ! --- calculate sedimentation velocities
-        ! ----------------------------------
-
-          SELECT CASE(info%tracer%tracer_class)
-
-            CASE('volcash')
-
-              IF ( info%tracer%ldep_tracer ) THEN
-
-                IF ( .NOT. ALLOCATED(vdep_ash) ) THEN
-                  ALLOCATE( vdep_ash(nproma,nblks,art_config(jg)%nturb_tracer),stat=istat )
-                  vdep_ash = 0.0_wp
-                END IF
-                IF ( .NOT. ALLOCATED(idx_trac_arr) ) THEN
-                  ALLOCATE( idx_trac_arr(nblks),stat=istat )
-                  idx_trac_arr = 0
-                END IF
-
-                DO jb = i_startblk, i_endblk
-                  idxloop: DO idx_trac = 1, art_config(jg)%nturb_tracer
-                    IF ( p_prog%turb_tracer(jb,idx_trac)%idx_tracer == jsp ) THEN
-                      idx_trac_arr(jb) = idx_trac
-                      EXIT idxloop
-                    END IF
-                  END DO idxloop
-                END DO
-
-                CALL art_sedi_volc(p_patch,p_dtime,p_metrics,     &
-                  &                p_rho,                         &
-                  &                p_diag,                        &
-                  &                diameter_ash,rho_ash,          &
-                  &                p_mflx_contra_vsed,            &
-                  &                vdep_ash=vdep_ash,             &
-                  &                idx_trac_arr=idx_trac_arr)
-
-              ELSE
-
-                CALL art_sedi_volc(p_patch,p_dtime,p_metrics,     &
-                  &                p_rho,                         &
-                  &                p_diag,                        &
-                  &                diameter_ash,rho_ash,          &
-                  &                p_mflx_contra_vsed)
-
-              END IF
-
-            CASE('radioact')
-
-              WRITE (message_text,*) 'Sedimentation of ',var_name,' currently not possible'
-              CALL message(TRIM(art_routine),message_text)
-              p_mflx_contra_vsed = 0.0_wp
-
-            CASE('mode_seasa')
-              p_mflx_contra_vsed = p_art_mode(imode_seasa)%mflx_contra_vsed3
-            CASE('mode_seasa_number')
-              p_mflx_contra_vsed = p_art_mode(imode_seasa)%mflx_contra_vsed0
-            CASE('mode_seasb')
-              p_mflx_contra_vsed = p_art_mode(imode_seasb)%mflx_contra_vsed3
-            CASE('mode_seasb_number')
-              p_mflx_contra_vsed = p_art_mode(imode_seasb)%mflx_contra_vsed0
-            CASE('mode_seasc')
-              p_mflx_contra_vsed = p_art_mode(imode_seasc)%mflx_contra_vsed3
-            CASE('mode_seasc_number')
-              p_mflx_contra_vsed = p_art_mode(imode_seasc)%mflx_contra_vsed0
-
-          END SELECT
-
+  jg     = p_patch%id
+  nlevp1 = p_patch%nlevp1      !< Number of vertical half levels
+  nblks  = p_patch%nblks_c
+  
+  !Get all cell enitities, except halos
+  i_nchdom  = MAX(1,p_patch%n_childdom)
+  i_rlstart = 1  !is always one
+  i_rlend   = min_rlcell
+  i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+  i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+  
+  IF(art_config(jg)%lart) THEN 
+  
+    ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
+    
+!drieg: i think we do not need the air properties at this point, but i am not sure  yet
+!    CALL art_air_properties(p_patch,p_art_data(jg))
+    
+    this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+   
+    DO WHILE(ASSOCIATED(this_mode))
+      ! Select type of mode
+      select type (fields=>this_mode%fields)
+      
+        class is (t_fields_2mom)
+          ! Before washout, the modal parameters have to be calculated
+          call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
+          
+          ! call the sedi for 2mom
+                            
+        class is (t_fields_volc)
+          call art_sedi_volc( p_patch,p_metrics,p_rho,            &
+            &              p_diag,                                & 
+            &              fields%diam,fields%rho,                &
+            &              fields%flx_contra_vsed3) 
+          mflx_contra_vsed => fields%flx_contra_vsed3
+        class is (t_fields_radio)
+         
+        class default
+          call finish('mo_art_washout_interface:art_washout_interface', &
+            &         'ART: Unknown mode field type')
+      end select
+    
+      
+      do i=1, this_mode%fields%info%njsp ! loop through the tracer mass mixing ratios contained in the mode
+        jsp = this_mode%fields%info%jsp(i)
+        print *,'jsp: ',jsp
         ! ----------------------------------
         ! --- calculate vertical flux term due to sedimentation
         ! ----------------------------------
-
-          CALL upwind_vflux_ppm_cfl( p_patch, p_tracer_new(:,:,:,jsp), p_iubc,    &! in
-            &                  p_mflx_contra_vsed, p_dtime, lcompute_gt,          &! in
-            &                  lcleanup_gt, p_itype_vlimit,                       &! in
-            &                  p_cellhgt_mc_now, p_rhodz_new, lprint_cfl,         &! in
-            &                  p_upflux_sed(:,:,:), opt_elev=nlevp1 )              ! out
+        
+        CALL upwind_vflux_ppm_cfl(p_patch, p_tracer_new(:,:,:,jsp),           & !< in
+          &                       iubc, mflx_contra_vsed, p_dtime,            & !< in
+          &                       lcompute_gt, lcleanup_gt, itype_vlimit,     & !< in
+          &                       p_cellhgt_mc_now, p_rhodz_new, lprint_cfl,  & !< in
+          &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )        !< out
 
         ! ----------------------------------
         ! --- update mixing ratio after sedimentation
         ! ----------------------------------
 
-            DO jb = i_startblk, i_endblk
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+            &                i_startidx, i_endidx, i_rlstart, i_rlend)
+          DO jk = 1, nlev
+            ! index of bottom half level
+            ikp1 = jk + 1
+            DO jc = i_startidx, i_endidx
 
-              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-                       i_startidx, i_endidx, i_rlstart, i_rlend)
+              p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp)               &
+                &                          - p_dtime * (  p_upflux_sed(jc,jk,  jb)    &
+                &                                       - p_upflux_sed(jc,ikp1,jb) )  &
+                &                          / p_rhodz_new(jc,jk,jb)
 
-              DO jk = 1, nlev
-                ! index of bottom half level
-                ikp1 = jk + 1
-                DO jc = i_startidx, i_endidx
+            END DO!jc
+          END DO !jk
+        END DO !jb      
+      end do ! i
+      
+      this_mode => this_mode%next_mode
+    END DO
+  
+  ! ----------------------------------
+  ! --- Clip the tracers
+  ! ----------------------------------
+  
+    CALL art_clip_tracers_zero(p_tracer_new)
+    
+    DEALLOCATE(p_upflux_sed)
+  ENDIF
 
-                  p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp)               &
-                    &                          - p_dtime * (  p_upflux_sed(jc,jk,  jb)    &
-                    &                                       - p_upflux_sed(jc,ikp1,jb) )  &
-                    &                          / p_rhodz_new(jc,jk,jb)
-
-                  IF (p_tracer_new(jc,jk,jb,jsp) .LT. 0.0_wp) THEN
-                    WRITE(*,*) 'After Sedi: Tracer ',var_name,' below 0: ',p_tracer_new(jc,jk,jb,jsp)
-                    p_tracer_new(jc,jk,jb,jsp) = 0.0_wp
-                    WRITE(*,*) 'p_upflux_sed_jk',p_upflux_sed(jc,jk,jb),'p_upflux_sed_ikp1',p_upflux_sed(jc,ikp1,jb)
-                    WRITE(*,*) 'Diameter:',p_art_mode(imode_seasc)%diameter(jc,jk,jb)
-                  ENDIF
-
-                END DO!jc
-              END DO !jk
-
-            END DO !jb
-
-        ENDIF !lsed_tracer
-      ENDIF !lis_tracer
-
-      ! ----------------------------------
-      ! --- select the next element in the list
-      ! ----------------------------------
-
-      current_element => current_element%next_list_element
-
-    ENDDO !loop elements
-
-    DEALLOCATE(p_mflx_contra_vsed,p_upflux_sed)
-    IF ( ALLOCATED(idx_trac_arr) ) THEN
-      DEALLOCATE(idx_trac_arr)
-    END IF
-
-ENDIF !lart
 #endif
 
   END SUBROUTINE art_sedi_interface

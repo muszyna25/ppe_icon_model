@@ -553,11 +553,12 @@ CONTAINS
 
       IF (art_config(jg)%lart) THEN
 
-       CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
+        CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list, &
+                  &          pt_diag,                            &
+                  &          pt_prog_rcf%tracer)
 
-       CALL art_washout_interface(dt_phy_jg(itfastphy),          & !>in
+        CALL art_washout_interface(dt_phy_jg(itfastphy),         & !>in
                   &          pt_patch,                           & !>in
-                  &          p_prog_list,                        & !>in
                   &          prm_diag,                           & !>in
                   &          pt_prog%rho,                        & !>in
                   &          pt_prog_rcf%tracer)                   !>inout

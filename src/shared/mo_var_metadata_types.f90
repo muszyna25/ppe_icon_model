@@ -100,11 +100,12 @@ MODULE mo_var_metadata_types
     LOGICAL :: lconv_tracer       ! convection  (TRUE/FALSE)
     LOGICAL :: lwash_tracer       ! washout (TRUE/FALSE)
     !
-    REAL(wp) :: rdiameter_tracer   ! particle diameter in m
-    REAL(wp) :: rrho_tracer        ! particle density in kg m^-3
+    REAL(wp) :: rdiameter_tracer  ! particle diameter in m
+    REAL(wp) :: rrho_tracer       ! particle density in kg m^-3
     !
     REAL(wp) :: halflife_tracer   ! radioactive half-life in s^-1
-    INTEGER  :: imis_tracer     ! IMIS number
+    INTEGER  :: imis_tracer       ! IMIS number
+    REAL(wp) :: lifetime_tracer   ! lifetime of a chemical tracer
     !
   END TYPE t_tracer_meta
 
