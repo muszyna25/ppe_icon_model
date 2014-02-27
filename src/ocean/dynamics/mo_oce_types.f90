@@ -151,7 +151,7 @@ MODULE mo_oce_types
   TYPE t_hydro_ocean_diag
     
     REAL(wp), POINTER ::        &
-      & vt(:,:,:)             ,& ! tangential velocity component at edges. Unit [m/s].
+    ! & vt(:,:,:)             ,& ! tangential velocity component at edges. Unit [m/s].
     ! dimension: (nproma,n_zlev, nblks_e)
       & rho(:,:,:)            ,& ! density. Unit: [kg/m^3]
     ! dimension: (nproma,n_zlev, alloc_cell_blocks)
