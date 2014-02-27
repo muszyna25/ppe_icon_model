@@ -1029,24 +1029,24 @@ END SUBROUTINE message
 !
 !   Statement functions
 !
-    zsf_heav       , & ! Statement function: Heaviside function
-    zsf_psat_iw    , & ! Saturation water vapour pressure over ice or water
-                       ! depending on temperature "zstx"
-    zsf_qsat       , & ! Specific humidity at saturation pressure
-                       ! (depending on the saturation water vapour pressure
-                       !  "zspsatx" and the air pressure "zspx")
-    zsf_dqvdt_iw   , & ! Statement function: First derivative of specific
-                       ! saturation humidity
-                       ! with respect to temperature (depending on temperature
-                       ! "zstx" and saturation specific humidity pressure
-                       ! "zsqsatx")
-    watrcon_RT, watrcon_BC , & !
-    watrdiff_RT,watrdiff_BC, & !
-    ks,ds, lw,tw,m,a,kw1,dw1,pv,adp ,& 
-    zstx           , & ! dummy argument for Stmt. function
-    zspx           , & ! dummy argument for Stmt. function
-    zspsatx        , & ! dummy argument for Stmt. function
-    zsqsatx        , & ! dummy argument for Stmt. function
+!!$    zsf_heav       , & ! Statement function: Heaviside function
+!!$    zsf_psat_iw    , & ! Saturation water vapour pressure over ice or water
+!!$                       ! depending on temperature "zstx"
+!!$    zsf_qsat       , & ! Specific humidity at saturation pressure
+!!$                       ! (depending on the saturation water vapour pressure
+!!$                       !  "zspsatx" and the air pressure "zspx")
+!!$    zsf_dqvdt_iw   , & ! Statement function: First derivative of specific
+!!$                       ! saturation humidity
+!!$                       ! with respect to temperature (depending on temperature
+!!$                       ! "zstx" and saturation specific humidity pressure
+!!$                       ! "zsqsatx")
+!!$    watrcon_RT, watrcon_BC , & !
+!!$    watrdiff_RT,watrdiff_BC, & !
+!!$    ks,ds, lw,tw,m,a,kw1,dw1,pv,adp ,& 
+!!$    zstx           , & ! dummy argument for Stmt. function
+!!$    zspx           , & ! dummy argument for Stmt. function
+!!$    zspsatx        , & ! dummy argument for Stmt. function
+!!$    zsqsatx        , & ! dummy argument for Stmt. function
     z2iw           , & ! dummy argument for Stmt. function
     z4iw           , & ! dummy argument for Stmt. function
     z234iw         , & ! dummy argument for Stmt. function
@@ -1332,22 +1332,24 @@ END SUBROUTINE message
 
 ! Declaration of STATEMENT-FUNCTIONS
 
-  zsf_heav     (zstx                    ) = 0.5_ireals+SIGN( 0.5_ireals, zstx )
-  zsf_psat_iw  (zstx,z2iw   ,z4iw       )                                     &
-                   = b1*EXP(z2iw*(zstx - b3)/(zstx - z4iw))
-  zsf_qsat     (zspsatx, zspx           )                                     &
-                   = rdv*zspsatx/(zspx-o_m_rdv*zspsatx)
-  zsf_dqvdt_iw (zstx,zsqsatx,z4iw,z234iw)                                     &
-                   = z234iw*(1._ireals+rvd_m_o*zsqsatx)*zsqsatx/(zstx-z4iw)**2
+!!$  zsf_heav     (zstx                    ) = 0.5_ireals+SIGN( 0.5_ireals, zstx )
+!!$  zsf_psat_iw  (zstx,z2iw   ,z4iw       )                                     &
+!!$                   = b1*EXP(z2iw*(zstx - b3)/(zstx - z4iw))
 
-  watrcon_RT   (ks,lw,kw1,pv,adp   )  =  ks*EXP(kw1*(pv-lw)/(pv-adp))
+!!$  zsf_qsat     (zspsatx, zspx           )                                     &
+!!$                   = rdv*zspsatx/(zspx-o_m_rdv*zspsatx)
 
-  watrdiff_RT  (ds,lw,dw1,pv,adp   )  =  ds*EXP(dw1*(pv-lw)/(pv-adp))
+!!$  zsf_dqvdt_iw (zstx,zsqsatx,z4iw,z234iw)                                     &
+!!$                   = z234iw*(1._ireals+rvd_m_o*zsqsatx)*zsqsatx/(zstx-z4iw)**2
 
-  watrcon_BC(ks,tw,m) = ks*tw**(5._ireals/2._ireals+2._ireals/ &
-                           ((1._ireals/(1._ireals-m))-1._ireals))
-  watrdiff_BC(ks,tw,m,a,pv,adp)=ks/(a*((1._ireals/(1._ireals-m))-1._ireals)*(pv-adp))*&
-            tw**(3._ireals/2._ireals + 1._ireals/((1._ireals/(1._ireals-m))-1._ireals))
+!!$  watrcon_RT   (ks,lw,kw1,pv,adp   )  =  ks*EXP(kw1*(pv-lw)/(pv-adp))
+!!$
+!!$  watrdiff_RT  (ds,lw,dw1,pv,adp   )  =  ds*EXP(dw1*(pv-lw)/(pv-adp))
+!!$
+!!$  watrcon_BC(ks,tw,m) = ks*tw**(5._ireals/2._ireals+2._ireals/ &
+!!$                           ((1._ireals/(1._ireals-m))-1._ireals))
+!!$  watrdiff_BC(ks,tw,m,a,pv,adp)=ks/(a*((1._ireals/(1._ireals-m))-1._ireals)*(pv-adp))*&
+!!$            tw**(3._ireals/2._ireals + 1._ireals/((1._ireals/(1._ireals-m))-1._ireals))
 
 
 !------------------------------------------------------------------------------
@@ -5585,6 +5587,11 @@ SUBROUTINE terra_multlay_init (                &
       END DO
     END IF
 
+  ELSE  ! .NOT. is_coldstart (i.e. assimilation cycle and forecast)
+
+    ! To be filled. Here, information provided by analysis should be added 
+    ! to the multi-layer snow fields.
+
   ENDIF  ! is_coldstart
 
 
@@ -5670,21 +5677,48 @@ END SUBROUTINE tgcom
 
 !==============================================================================
 
-!!$FUNCTION watrcon_RT(ks,lw,kw1,pv,adp) 
-!!$   implicit none
-!!$   real (KIND=ireals   ), intent(in)  :: ks,lw,kw1,pv,adp
-!!$   real (KIND=ireals   ) watrcon_RT
-!!$
-!!$   watrcon_RT=ks*EXP(kw1*(pv-lw)/(pv-adp)) 
-!!$END FUNCTION watrcon_RT
-!!$
-!!$FUNCTION watrdiff_RT(ds,lw,dw1,pv,adp) 
-!!$   implicit none
-!!$   real (KIND=ireals   ), intent(in)  ::  ds,lw,dw1,pv,adp
-!!$   real (KIND=ireals   ) watrdiff_RT
-!!$
-!!$   watrdiff_RT = ds*EXP(dw1*(pv-lw)/(pv-adp)) 
-!!$END FUNCTION watrdiff_RT
+REAL (KIND = ireals) FUNCTION zsf_heav (zstx) !Heaviside function
+   implicit none
+   real (KIND=ireals   ), intent(in)  :: zstx
+   zsf_heav      = 0.5_ireals+SIGN( 0.5_ireals, zstx )
+END FUNCTION zsf_heav
+
+REAL (KIND = ireals) FUNCTION zsf_psat_iw  (zstx,z2iw   ,z4iw)! Saturation water vapour pressure over ice or water
+                                                              ! depending on temperature "zstx"
+   implicit none
+   real (KIND=ireals   ), intent(in)  :: zstx,z2iw   ,z4iw
+   zsf_psat_iw   = b1*EXP(z2iw*(zstx - b3)/(zstx - z4iw))
+END FUNCTION zsf_psat_iw
+
+
+REAL (KIND = ireals) FUNCTION zsf_qsat  (zspsatx, zspx     ) ! Specific humidity at saturation pressure
+                                                             ! (depending on the saturation water vapour pressure
+   implicit none
+   real (KIND=ireals   ), intent(in)  :: zspsatx, zspx          
+  zsf_qsat      = rdv*zspsatx/(zspx-o_m_rdv*zspsatx)
+END FUNCTION zsf_qsat
+
+REAL (KIND = ireals) FUNCTION zsf_dqvdt_iw (zstx,zsqsatx,z4iw,z234iw) ! First derivative of specific saturation humidity
+                                                                      ! with respect to temperature (depending on temperature
+                                                                      ! "zstx" and saturation specific humidity pressure
+                                                                      ! "zsqsatx")
+   implicit none
+   real (KIND=ireals   ), intent(in)  :: zstx,zsqsatx,z4iw,z234iw
+  zsf_dqvdt_iw  = z234iw*(1._ireals+rvd_m_o*zsqsatx)*zsqsatx/(zstx-z4iw)**2
+END FUNCTION zsf_dqvdt_iw
+
+
+REAL (KIND = ireals) FUNCTION watrcon_RT(ks,lw,kw1,pv,adp) 
+   implicit none
+   real (KIND=ireals   ), intent(in)  :: ks,lw,kw1,pv,adp
+   watrcon_RT=ks*EXP(kw1*(pv-lw)/(pv-adp)) 
+END FUNCTION watrcon_RT
+
+REAL (KIND = ireals) FUNCTION watrdiff_RT(ds,lw,dw1,pv,adp) 
+   implicit none
+   real (KIND=ireals   ), intent(in)  ::  ds,lw,dw1,pv,adp
+   watrdiff_RT = ds*EXP(dw1*(pv-lw)/(pv-adp)) 
+END FUNCTION watrdiff_RT
 
 
 !------------------------------------------------------------------------------

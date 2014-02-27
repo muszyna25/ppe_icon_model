@@ -188,7 +188,7 @@ MODULE mo_nwp_phy_types
       &  htop_con(:,:),        & !! height of top of convection [m]
       &  htop_dc(:,:),         & !! height above msl of the top of dry convection [m]
       &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
-      &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (qv,qc,qi), icluding vertical 
+      &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (qv,qc,qi), including vertical 
                                  !! integrals of qr and qs 
       &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
                                  !! vertically integrated tot_cld (qv,qc,qi)
@@ -219,7 +219,15 @@ MODULE mo_nwp_phy_types
       &  swflxsfc_a(:,:),      & !! Surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
-      &  asod_t    (:,:)         !! Top down solar radiation  [W/m2], accumulated or mean since model start
+      &  asod_t    (:,:),      & !! Top down solar radiation  [W/m2], accumulated or mean since model start
+      &  asou_t    (:,:),      & !! Top up solar radiation  [W/m2], accumulated or mean since model start
+      &  asod_s    (:,:),      & !! Surface down solar radiation  [W/m2], accumulated or mean since model start
+      &  asou_s    (:,:),      & !! Surface up solar radiation  [W/m2], accumulated or mean since model start
+      &  athd_s    (:,:),      & !! Surface down thermal radiation [W/m2], accumulated or mean since model start
+      &  athu_s    (:,:),      & !! Surface up thermal radiation [W/m2], accumulated or mean since model start
+      &  asodird_s (:,:),      & !! Surface down solar direct rad. [W/m2], accumulated or mean since model start 
+      &  asodifd_s (:,:),      & !! Surface down solar diff. rad. [W/m2], accumulated or mean since model start 
+      &  asodifu_s (:,:)         !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
                                  !! _a means average values if lflux_avg=.TRUE.
                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
 

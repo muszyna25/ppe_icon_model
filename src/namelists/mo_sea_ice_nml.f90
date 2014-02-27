@@ -85,7 +85,7 @@ MODULE mo_sea_ice_nml
   INTEGER         :: iunit
 
   NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
-    &           i_Qio_type, hci_layer
+    &           i_Qio_type, hci_layer, leadclose_1
 
 CONTAINS
   !>
