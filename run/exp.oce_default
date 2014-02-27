@@ -88,7 +88,7 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #-----------------------------------------------------------------------------
 # model timing
 #ndays_file=3660      # new output file generation interval [days]
-((  days_checkp   = 10 ))   # write restart file interval [days]
+((  days_checkp   = 1  ))   # write restart file interval [days]
 ((  days_restart  = 2  ))   # stop model for restart [days]
 ((  hours_data    = 6  ))   # ocean model output interval hours [hours] - for test runs
 ((  days_file     = 10 ))   # write restart file interval [days]
