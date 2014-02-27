@@ -298,6 +298,7 @@ MODULE mo_ocean_initial_conditions
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: apply_initial_conditions, init_ocean_bathymetry
+  PUBLIC :: fill_tracer_x_height
   
   !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'

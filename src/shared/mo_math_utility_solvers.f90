@@ -110,10 +110,29 @@ MODULE mo_math_utility_solvers
   PUBLIC :: choldec
   PUBLIC :: choldec_v
   PUBLIC :: inv_mat
-    
+  PUBLIC :: apply_triangular_matrix
   
 CONTAINS
   
+  SUBROUTINE apply_triangular_matrix(length, upper,diagonal,lower,input,output)
+    INTEGER,  INTENT(IN)  :: length
+    REAL(wp), INTENT(IN)  :: upper(1:length)     ! (u1,u2,...,uN-1,0)
+    REAL(wp), INTENT(IN)  :: diagonal(1:length)
+    REAL(wp), INTENT(IN)  :: lower(1:length)     ! (0,l1,l2,...,lN-1)
+    REAL(wp), INTENT(IN)  :: input(1:length)
+    REAL(wp), INTENT(INOUT) :: output(1:length)
+
+    INTEGER :: i
+
+    ! first element
+    output(1) = diagonal(1)*input(1) + upper(1)*input(2)
+    ! loop
+    DO i = 2, length-1
+      output(i) = lower(i)*input(i-1) + diagonal(i)*input(i) + upper(i)*input(i+1)
+    ENDDO
+    ! last element
+    output(length) = lower(length)*input(length-1) + diagonal(length)*input(length)
+  END SUBROUTINE apply_triangular_matrix
   
   !-------------------------------------------------------------------------
   !>

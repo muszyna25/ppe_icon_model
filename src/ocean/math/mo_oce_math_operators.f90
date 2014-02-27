@@ -827,17 +827,21 @@ CONTAINS
 
     INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
     REAL(wp) :: top_vn_1, top_vn_2, integrated_vn
-    REAL(wp), POINTER :: top_coeffs(:,:,:), integrated_coeffs(:,:,:), all_coeffs(:,:,:)
+    REAL(wp), POINTER :: top_coeffs(:,:,:), integrated_coeffs(:,:,:), sum_to_2D_coeffs(:,:,:)
     REAL(wp), POINTER :: cell_thickeness(:,:,:), edge_thickeness(:,:,:)
+    REAL(wp), POINTER :: inv_cell_thickeness(:,:,:), inv_edge_thickeness(:,:,:)
     REAL(wp)  :: cell_thickeness_1, cell_thickeness_2
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-    patch_2D           => patch_3D%p_patch_2D(1)
-    all_cells       => patch_2D%cells%all
-    all_edges       => patch_2D%edges%all
-    edges_in_domain => patch_2D%edges%in_domain
-    cell_thickeness => patch_3D%p_patch_1d(n_dom)%prism_thick_c
-    edge_thickeness => patch_3D%p_patch_1d(n_dom)%prism_thick_e
+    patch_2D            => patch_3D%p_patch_2D(1)
+    all_cells           => patch_2D%cells%all
+    all_edges           => patch_2D%edges%all
+    edges_in_domain     => patch_2D%edges%in_domain
+    cell_thickeness     => patch_3D%p_patch_1d(n_dom)%prism_thick_c
+    inv_cell_thickeness => patch_3D%p_patch_1d(n_dom)%inv_prism_thick_c
+    edge_thickeness     => patch_3D%p_patch_1d(n_dom)%prism_thick_e
+    inv_edge_thickeness => patch_3D%p_patch_1d(n_dom)%inv_prism_thick_e
+
  
      ! already done after update fluxes
 !    CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
@@ -868,9 +872,6 @@ CONTAINS
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
         !calculate for each fluid colum the total depth, i.e.
         !from bottom boundary to surface height
         !the bottom boundary is zlev_i(dolic+1) since zlev_i(1)=0 (air-sea-boundary at h=0
@@ -973,22 +974,36 @@ CONTAINS
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF(patch_3d%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          cell_thickeness(jc,1,jb) &
-            & = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,1,jb) +ocean_state%p_prog(nold(1))%h(jc,jb)
+          cell_thickeness(jc,1,jb) = &
+            & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,1,jb) + ocean_state%p_prog(nold(1))%h(jc,jb)
+
+          patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,2,jb) = 0.5_wp * &
+              & (cell_thickeness(jc,1,jb) + cell_thickeness(jc,2,jb))
+
+          inv_cell_thickeness(jc,1,jb) = 1.0_wp / cell_thickeness(jc,1,jb)
+
+          patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,2,jb) = &
+            1.0_wp / patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,2,jb)
+
         ELSE
-          !Surfacethickness over land remains zero
+          !Surface thickness over land remains zero
           !ocean_state%p_diag%prism_thick_c(jc,1,jb) = 0.0_wp
           cell_thickeness(jc,1,jb)= 0.0_wp
         ENDIF
       END DO
     END DO
+
     !2) Thickness at edges
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
       DO je = edge_start_idx, edge_end_idx
         IF(patch_3d%lsm_e(je,1,jb) <= sea_boundary)THEN
+
           edge_thickeness(je,1,jb)&
-            & = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,jb) +ocean_state%p_diag%h_e(je,jb)
+            & = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,jb) + ocean_state%p_diag%h_e(je,jb)
+
+          inv_edge_thickeness(je,1,jb)= 1.0_wp / edge_thickeness(je,1,jb)
+
         ELSE
           !Surfacethickness over land remains zero
           edge_thickeness(je,1,jb)= 0.0_wp
@@ -1000,7 +1015,7 @@ CONTAINS
     ! update the coefficients for the edge2edge_viacell_1D fast operator
     top_coeffs        => operators_coefficients%edge2edge_viacell_coeff_top
     integrated_coeffs => operators_coefficients%edge2edge_viacell_coeff_integrated
-    all_coeffs        => operators_coefficients%edge2edge_viacell_coeff_all
+    sum_to_2D_coeffs  => operators_coefficients%edge2edge_viacell_coeff_all
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, edge_start_idx, edge_end_idx)
       DO je = edge_start_idx, edge_end_idx
@@ -1015,12 +1030,12 @@ CONTAINS
           cell_thickeness_1 = cell_thickeness(cell_1_index, 1, cell_1_block)
           cell_thickeness_2 = cell_thickeness(cell_2_index, 1, cell_2_block)
 
-          all_coeffs(1, je, jb) = top_coeffs(1, je, jb) * cell_thickeness_1 + integrated_coeffs(1, je, jb)
-          all_coeffs(2, je, jb) = top_coeffs(2, je, jb) * cell_thickeness_1 + integrated_coeffs(2, je, jb)
-          all_coeffs(3, je, jb) = top_coeffs(3, je, jb) * cell_thickeness_1 + integrated_coeffs(3, je, jb)
-          all_coeffs(4, je, jb) = top_coeffs(4, je, jb) * cell_thickeness_2 + integrated_coeffs(4, je, jb)
-          all_coeffs(5, je, jb) = top_coeffs(5, je, jb) * cell_thickeness_2 + integrated_coeffs(5, je, jb)
-          all_coeffs(6, je, jb) = top_coeffs(6, je, jb) * cell_thickeness_2 + integrated_coeffs(6, je, jb)
+          sum_to_2D_coeffs(1, je, jb) = top_coeffs(1, je, jb) * cell_thickeness_1 + integrated_coeffs(1, je, jb)
+          sum_to_2D_coeffs(2, je, jb) = top_coeffs(2, je, jb) * cell_thickeness_1 + integrated_coeffs(2, je, jb)
+          sum_to_2D_coeffs(3, je, jb) = top_coeffs(3, je, jb) * cell_thickeness_1 + integrated_coeffs(3, je, jb)
+          sum_to_2D_coeffs(4, je, jb) = top_coeffs(4, je, jb) * cell_thickeness_2 + integrated_coeffs(4, je, jb)
+          sum_to_2D_coeffs(5, je, jb) = top_coeffs(5, je, jb) * cell_thickeness_2 + integrated_coeffs(5, je, jb)
+          sum_to_2D_coeffs(6, je, jb) = top_coeffs(6, je, jb) * cell_thickeness_2 + integrated_coeffs(6, je, jb)
 
         ENDIF
       END DO

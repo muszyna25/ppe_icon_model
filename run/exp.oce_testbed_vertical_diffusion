@@ -103,6 +103,7 @@ LOC='none'
 grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
 ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
 ocean_grids="iconR2B02-ocean_etopo40_planet.nc"
+ocean_grids=iconR2B00-ocean_aqua_planet.nc
 
 p_test_run=${p_test:=".false."}
 if [ $p_test_run = ".true." ] ; then
@@ -140,7 +141,7 @@ cat > ${ocean_namelist} << EOF
  output      = 'none' ! 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output = 3
- test_mode     = 3
+ test_mode     = 2
  ! msg_timestamp        = .TRUE.
 /
 &dbg_index_nml
@@ -154,14 +155,19 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
-!  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
-!  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
-!                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
- n_zlev             =   40
- dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
+! n_zlev             =   40
+! dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+!                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+!                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+!                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+! n_zlev             =   40
+! dzlev_m(1:40)      =  100,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,
+!                       100,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,
+!                       100,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,
+!                       100,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0,   100.0
   l_edge_based    = .FALSE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
   solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
@@ -169,11 +175,6 @@ cat > ${ocean_namelist} << EOF
   solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
   use_continuity_correction = .true.
   fast_performance_level = 12
-/
-&ocean_tracer_transport_nml
- !no_tracer                               =  2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
-  FLUX_CALCULATION_VERT  = 7      ! 7=upwind biased ppm
 /
 &ocean_diffusion_nml
   !k_veloc_h                          = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
@@ -192,6 +193,7 @@ cat > ${ocean_namelist} << EOF
   no_tracer             = 2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   flux_calculation_horz = 5      !5=FCT with Zalesak limiter
   flux_calculation_vert = 7      ! 7=upwind biased ppm
+  use_tracer_x_height = .true.
 /
 &ocean_forcing_nml
   iforc_oce = 11
@@ -212,8 +214,8 @@ cat > ${ocean_namelist} << EOF
 &ocean_initialConditions_nml
   ! itestcase_oce = 1050
   initial_salinity_type      = 200    
-  initial_salinity_top       = 34.8
-  initial_salinity_bottom    = 35.2
+  initial_salinity_top       = 35.0
+  initial_salinity_bottom    = 35.0
   initial_temperature_type   = 200
   initial_temperature_top    = 10.0 
   initial_temperature_bottom = 10.0
