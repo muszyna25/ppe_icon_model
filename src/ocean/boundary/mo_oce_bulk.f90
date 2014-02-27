@@ -491,6 +491,8 @@ CONTAINS
             p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) & 
               &                        *( p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) )
             ! Precipitation on ice is snow when we're below the freezing point
+            ! TODO: Use 10 m temperature, not Tsurf - Also, do this in calc_bulk_flux_oce and
+            ! calc_bulk_flux_ice
             WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
               Qatm%rpreci(:,:) = p_sfc_flx%forc_precip(:,:)
               Qatm%rprecw(:,:) = 0._wp
