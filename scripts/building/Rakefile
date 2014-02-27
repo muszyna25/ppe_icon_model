@@ -260,7 +260,7 @@ end
 def joinModelOutput(exp,ifilePattern: "#{exp}*.nc")
   "
   cd experiments;
-  joinModelOutput_#{exp}=$(tempfile)_#{exp}.nc;
+  joinModelOutput_#{exp}=$(tempfile -s _#{exp}.nc);
   [[ -f ${#{exp}_Output} ]] && rm ${joinModelOutput_#{exp}};
   cdo cat #{exp}/#{ifilePattern} ${joinModelOutput_#{exp}};
   cd -;
@@ -289,18 +289,18 @@ def selectBy(varname,timestep,level)
     fi
   EOS
 end
-def diffThese(fileA,fileB)
+def diffThese(fileA,fileB,diffThese='diffThese')
   out = <<-EOS
-      diffThese=$(tempfile)_diffThese
-      cdo diffv #{fileA} #{fileB} > $diffThese
-      if test -s $diffThese
+      #{diffThese}=$(tempfile -s _diffThese)
+      cdo diffv #{fileA} #{fileB} > $#{diffThese}
+      if test -s $#{diffThese}
       then
         echo "DIFF found in OUTPUT!!"
-        cat $diffThese
+      [[ $debug = 'true' ]] && cat $#{diffThese}
       else
         echo "no DIFF found in OUTPUT"
       fi
-      [[ -f ${diffThese} ]] && rm ${diffThese}
+      [[ -f ${#{diffThese}} ]] && rm ${#{diffThese}}
   EOS
 end
 # check a single variable with infov
@@ -478,15 +478,23 @@ def doRunPost(build,exp)
   call(connect(build,"./make_runscripts ; cd run;./post.#{exp}.run;"))
 end
 def doCmpExps(build,expA,expB)
-    call(connect(build,<<-EOS
-      debug="#{ENV.has_key?('DEBUG')}"
-      [[ $debug = 'true' ]] && set -x
-      #{joinModelOutput(expA)}
-      #{joinModelOutput(expB)}
-      #{diffThese("${joinModelOutput_#{expA}}","${joinModelOutput_#{expB}}")}
-      #{rmJoinedModelOutput(expA,expB)}
-               EOS
-              ),true)
+  var = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
+  ts  = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
+  lev = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
+  call(connect(build,<<-EOS
+    debug="#{ENV.has_key?('DEBUG')}"
+    showDiffSelection="#{ENV.values_at('VAR','TS','LEV').uniq != [nil]}"
+    [[ $debug = 'true' ]] && set -x
+    #{joinModelOutput(expA)}
+    #{joinModelOutput(expB)}
+    #{diffThese("${joinModelOutput_#{expA}}","${joinModelOutput_#{expB}}")}
+    [[ $showDiffSelection = 'true' ]] && (
+        #{selectBy(var,ts,lev)}
+        cdo infov ${selectBy} -sub ${joinModelOutput_#{expA}} ${joinModelOutput_#{expB}} 
+      )
+    #{rmJoinedModelOutput(expA,expB)}
+             EOS
+            ),true)
 end
 def doCmpDirs(build,dirA,dirB,expA=File.basename(dirA),expB=File.basename(dirB))
   checkOutput = lambda {|dirA,dirB|
@@ -495,8 +503,8 @@ def doCmpDirs(build,dirA,dirB,expA=File.basename(dirA),expB=File.basename(dirB))
       selection=''
       debug="#{ENV.has_key?('DEBUG')}"
       [[ $debug = 'true' ]] && set -x
-      fileA=$(tempfile)#{expA}.nc
-      fileB=$(tempfile)#{expB}.nc
+      fileA=$(tempfile -s #{expA}.nc)
+      fileB=$(tempfile -s #{expB}.nc)
       [[ -f ${fileA} ]] && rm ${fileA}
       [[ -f ${fileB} ]] && rm ${fileB}
       cdo cat #{dirA}/#{expA}*.nc ${fileA}
