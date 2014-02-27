@@ -793,6 +793,7 @@ run/post.test_hat_jww -text
 run/post.test_nat_jww_nwp_mpiomp -text
 run/post.test_nh35_tri_jws -text
 run/post.test_nh3_tri_tracer_solid_body -text
+run/post.test_oce_acc -text
 run/post.test_oce_default -text
 run/post.test_oce_numeric -text
 run/post.test_oce_tracer_conservation -text

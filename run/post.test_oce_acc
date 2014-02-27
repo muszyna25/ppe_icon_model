@@ -1,0 +1,41 @@
+EXP="test_oce_acc"
+varNames2D="h"
+varNames3D="t s rhopot u v"
+varNames="${varNames2D} ${varNames3D}"
+# ================================================================================
+# technical stuff
+basePath=${ICON_BASE_PATH}
+dataPath="${baseBath}../experiments/${EXP}/"
+scriptPath="/pool/data/ICON/tools"
+nclCaller="nclsh"
+plotCmd="${scriptPath}/icon_plot.ncl"
+# set the CDO path for the dwd to a local installation
+case "$(hostname -d)" in
+  dwd.de)
+    CDO="/e/uhome/extrmuel/local/bin/cdo"
+    ;;
+  *)
+    CDO="cdo"
+esac
+# ================================================================================
+# plotting
+## find the last input file
+cd ${dataPath}
+iFile=$(ls ${EXP}* | tail -n 1)
+if [[ ! -f ${iFile} ]]; then
+  echo "Could not find the input file '${iFile}'"
+  echo "Give up!"
+  exit 1
+fi
+
+iFiles=$(ls ${EXP}*)
+
+for file in $iFiles; do 
+  echo "CHECKING FILE: $file ========================================="
+  for var in $varNames; do 
+    cdo diffv -selname,$var $file -selname,${var}_acc $file
+  done
+done
+
+exit
+
