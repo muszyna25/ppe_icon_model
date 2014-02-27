@@ -228,7 +228,7 @@ def checkAcc(build,exp,var)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
       var=#{var} ruby -rcdo <<-EOR
-      ofiles        = Dir.glob("#{exp}*.nc")
+      ofiles        = Dir.glob("#{exp}*")
       names         = Cdo.showname(input: ofiles[0])[0].split
       acc_names     = names.grep(/_acc/)
       non_acc_names = acc_names.map {|n| n[0..-5]}
