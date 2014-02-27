@@ -269,7 +269,7 @@ def checkVar(build,exp,varname,timestep,level)
            selectOP="$selectOP -sellevidx,#{level}";
          fi
          set -x
-         if [ "#{varname}" != '_ALL' ]; then
+         if [ "#{varname}" != '__ALL' ]; then
            selectOP="$selectOP -selname,#{varname}";
          fi
          cdo infov $selectOP $file
@@ -756,4 +756,4 @@ task :check ,[:p] do |t,args|
   }
 end
 
-# vim:ft=ruby,foldmethod=syntax
+# vim:ft=ruby
