@@ -2619,13 +2619,6 @@ ntiles>1
 \tabularnewline
 
 \hline
-nztlev &
-I&
-2&
-&
-used time integration scheme&
-\tabularnewline
-\hline
 lmulti\_snow &
 L&
 .TRUE.&
@@ -2643,18 +2636,22 @@ maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
 
 \hline
 idiag\_snowfrac &
-I & 1 &  & Type of snow-fraction diagnosis: 1 = based on SWE only, 2--4 = more advanced experimental methods &
+I & 1 &  & Type of snow-fraction diagnosis: \\
+1 = based on SWE only\\
+2--4 = more advanced experimental methods &
 \tabularnewline
 
 \hline
 itype\_lndtbl &
-I & 1 &  & Table values used for associating surface parameters to land-cover classes: 1 = defaults from extpar,
-2 = IFS values for globcover classes (currently no effect in case of glc2000 data) &
+I & 1 &  & Table values used for associating surface parameters to land-cover classes: \\
+1 = defaults from extpar (GLC2000 and GLOBCOVER2009)\\
+2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only)\\
+3 = even more tuned version (EXPERIMENTAL!!, GLOBCOVER2009 only) &
 \tabularnewline
 
 \hline
 itype\_root &
-I & 1 &  & root density distribution: \\
+I & 2 &  & root density distribution: \\
 1 = constant\\
 2 = exponential &
 \tabularnewline
@@ -2669,7 +2666,7 @@ L&
 \hline
 llake &
 L&
-.FALSE.&
+.TRUE.&
 &
 .TRUE. for use of lake model&
 \tabularnewline

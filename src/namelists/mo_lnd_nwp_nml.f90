@@ -203,7 +203,7 @@ MODULE mo_lnd_nwp_nml
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
     itype_lndtbl   = 1       ! choice of table for associating surface parameters to land-cover classes
-    itype_root     = 1       ! type of root density distribution
+    itype_root     = 2       ! type of root density distribution
                              ! 1: constant
                              ! 2: exponential
     itype_heatcond = 1       ! type of soil heat conductivity
@@ -214,8 +214,8 @@ MODULE mo_lnd_nwp_nml
     lana_rho_snow  =.TRUE.   ! if .TRUE., take rho_snow-values from analysis file 
 
 
-    lseaice    = .TRUE.
-    llake      = .FALSE.     ! if .TRUE., lake model ist used
+    lseaice    = .TRUE.      ! .TRUE.: sea-ice model is used
+    llake      = .TRUE.      ! .TRUE.: lake model is used
     
 
 
