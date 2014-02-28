@@ -402,10 +402,11 @@ CONTAINS
     INTEGER :: istat
 
     file_ti   = 'total_integrals.dat'
-    n_file_ti = find_next_free_unit(10,200)
-    OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=istat)
+    n_file_ti = find_next_free_unit(100,1000)
+    write(0,*) "n_file_ti", n_file_ti
+    OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),ACTION="write", FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
-      CALL finish('supervise_total_integrals_nh','could not open datafile')
+      CALL finish('supervise_total_integrals_nh','could not open total_integrals.dat')
     ENDIF
     WRITE (n_file_ti,'(A8,6A20)')'TIMESTEP',&
       '            m/m0 -1,',&
@@ -431,10 +432,10 @@ CONTAINS
 
 
       file_ti   = 'tracer_total_integrals.dat'
-      n_file_tti = find_next_free_unit(10,200)
-      OPEN(UNIT=n_file_tti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=istat)
+      n_file_tti = find_next_free_unit(100,1000)
+      OPEN(UNIT=n_file_tti,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
       IF (istat/=SUCCESS) THEN
-        CALL finish('supervise_total_integrals_nh','could not open datafile')
+        CALL finish('supervise_total_integrals_nh','could not open tracer_total_integrals.dat')
       ENDIF
       WRITE (n_file_tti,'(A22,A22,A22,3A40)') &
         ' TIMESTEP            ,',&
@@ -446,8 +447,8 @@ CONTAINS
     ENDIF
 
     file_ti   = 'check_global_quantities.dat'
-    check_total_quant_fileid = find_next_free_unit(10,200)
-    OPEN(UNIT=check_total_quant_fileid,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=istat)
+    check_total_quant_fileid = find_next_free_unit(100,1000)
+    OPEN(UNIT=check_total_quant_fileid,FILE=TRIM(file_ti),ACTION="write",FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open check_global_quantities.dat')
     ENDIF
