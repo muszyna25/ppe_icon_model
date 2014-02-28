@@ -42,7 +42,7 @@ B=4
 start_date="2008-09-01T00:00:00Z"
 end_date="2008-09-08T00:00:00Z"
 ndays_restart=60  # no restart for tests, this is done automatically
-ndays_checkp=1
+hours_checkp=12
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -50,7 +50,7 @@ dtime=300
 (( dt_data       = 1   * 3600 ))
 (( dt_diag       = 1   * 3600 ))
 (( dt_file       = 30    * 86400 ))
-(( dt_checkpoint = ndays_checkp  * 86400 ))
+(( dt_checkpoint = hours_checkp  * hour ))
 (( dt_restart    = ndays_restart * 86400 ))
 (( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
 (( steps_per_file = simLength / dt_data )) # output intervals per file interval

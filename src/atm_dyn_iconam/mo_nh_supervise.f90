@@ -141,6 +141,7 @@ CONTAINS
       z_total_tracer_0   = 0.0_wp
     END IF
 
+    !  write(0,*) 'k_step=', k_step
     ! Open the datafile
     IF (k_step == 1 .AND. my_process_is_stdio()) THEN
       CALL open_total_integral_files()
@@ -403,7 +404,7 @@ CONTAINS
 
     file_ti   = 'total_integrals.dat'
     n_file_ti = find_next_free_unit(100,1000)
-    write(0,*) "n_file_ti", n_file_ti
+    ! write(0,*) "n_file_ti", n_file_ti
     OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),ACTION="write", FORM='FORMATTED',IOSTAT=istat)
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open total_integrals.dat')
