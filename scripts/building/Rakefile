@@ -452,13 +452,10 @@ def doRunExp(build,exp,post=false)
   nprocs = ENV.has_key?('PROCS') ? ENV['PROCS'] : 4
   runScript = (post) ? 'post' : 'exp'
   runScript << '.' + exp +'.run'
-  call(connect(build,"cd experiments/#{exp}; test -f $(echo #{exp}*.nc* | cut -d ' ' -f 1) && rm #{exp}*.nc*"))
+
+  # clean up old experiment folder
+  call(connect(build,"cd experiments; rm -rf ./#{exp}"))
   call(connect(build,<<-EOS
-      cd experiments/#{exp};
-      test -f $(echo #{exp}*.nc | cut -d \' \' -f 1) && rm #{exp}*.nc
-               EOS
-              ))
-              call(connect(build,<<-EOS
       ./make_runscripts #{exp};
       cd run;
       perl -pi.bak -e 's/submit=.*/submit=""/' #{runScript} ;
