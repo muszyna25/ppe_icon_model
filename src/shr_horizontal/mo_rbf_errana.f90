@@ -51,7 +51,6 @@ MODULE mo_rbf_errana
     &                                gc2cc
   USE mo_math_utility_solvers, ONLY: solve_chol_v, solve_chol, choldec, choldec_v
 
-
   IMPLICIT NONE
   PUBLIC :: estimate_rbf_parameter
 
@@ -356,9 +355,11 @@ CONTAINS
     REAL(wp), PARAMETER :: tol_r        =   1.e-3_wp  ! threshold for correlation coefficient
     REAL(wp), PARAMETER :: tol_c0       =      2._wp  ! lower threshold for shape parameter search
     REAL(wp), PARAMETER :: tol_c1       =  1.e-10_wp  ! given stability threshold
+    REAL(wp), PARAMETER :: tol_resample =   1.e-7_wp  ! threshold for double-log regression: add new sample
 
     ! local variables
-    REAL(wp) :: r(nproma), a1, a2, q(nproma), beta(nproma), c_tol(nproma), sum_y, sum_z
+    REAL(wp) :: r(nproma), a1, a2, q(nproma), beta(nproma), c_tol(nproma), &
+      &         sum_y, sum_z, denom
     REAL(wp) :: c_seq(nproma,n), t_seq(nproma,n), z(n), y(n), result_val(dst_nblks_c)
     INTEGER  :: i, start_idx, end_idx, jc, jb, itest_stride, kdim(nproma)
     LOGICAL  :: lflag(nproma)
@@ -428,7 +429,16 @@ CONTAINS
           a1       = (REAL(n,wp) * DOT_PRODUCT(y,z) - sum_y*sum_z)
           q(jc)    = a1/a2
           beta(jc) = (sum_y - q(jc)*sum_z)/n
-          r(jc)    = a1/(SQRT(a2)*SQRT(REAL(n,wp)*DOT_PRODUCT(y,y) - sum_y*sum_y))  ! correlation coefficient
+          denom    = SQRT(a2)*SQRT(REAL(n,wp)*DOT_PRODUCT(y,y) - sum_y*sum_y)
+          IF (denom < tol_resample) THEN
+            ! now, there seems to be a problem: the function samples
+            ! do not reveal a double-log form.
+            !
+            ! skip the current test and add another (smaller) test
+            ! value to our set of samples:
+            CYCLE
+          END IF
+          r(jc)    = a1/denom  ! correlation coefficient
           IF (c_seq(jc,n)  <= tol_c0) lflag(jc) = .TRUE.
           IF (ABS(1-r(jc)) <= tol_r)  lflag(jc) = .TRUE.
         END DO
