@@ -389,6 +389,7 @@ USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperat
                                  cpdr  => rcpd  , & ! (specific heat of dry air at constant press)^-1
                                  g     => grav  , & ! acceleration due to gravity
                                  sigma => stbo  , & ! Boltzmann-constant
+                                 rho_w => rhoh2o, & ! density of liquid water (kg/m^3)
                                  rdocp => rd_o_cpd  ! r_d / cp_d
 !
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
@@ -397,8 +398,7 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
                                  b4w   => c4les , & !!               -- " --
                                  b4i   => c4ies , & !!               -- " --
                                  b234w => c5les     !!               -- " --
-!
-USE mo_cuparameters,       ONLY: rho_w => rhoh2o ! density of liquid water (kg/m^3)
+
 !
 USE mo_phyparam_soil   
 !

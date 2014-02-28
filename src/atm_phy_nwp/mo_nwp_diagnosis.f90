@@ -53,7 +53,7 @@ MODULE mo_nwp_diagnosis
   USE mo_kind,               ONLY: wp
 
   USE mo_impl_constants,     ONLY: itccov, itradheat, itturb, itfastphy, &
-    &                              min_rlcell_int, icosmo, igme, iedmf, ismag
+    &                              min_rlcell_int
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_exception,          ONLY: message, message_text
@@ -76,19 +76,19 @@ MODULE mo_nwp_diagnosis
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC  :: nwp_diagnosis
+  PUBLIC  :: nwp_statistics
+  PUBLIC  :: nwp_diag_for_output
   PUBLIC  :: nwp_diag_output_1
   PUBLIC  :: nwp_diag_output_2
 
 CONTAINS
 
   !>
-  !! <Short description of the subroutine for listings and indices>
+  !! Computation of time averages, accumulated variables and vertical integrals
   !!
-  !! <Describe the purpose of the subroutine and its algorithm(s).>
-  !! <Include any applicable external references inline as module::procedure,>
-  !! <external_procedure(), or by using @see.>
-  !! <Don't forget references to literature.>
+  !! Computation of time averages, accumulated variables and vertical integrals 
+  !! for output. The statistics are valid from the beginning of the forecast 
+  !! to the output time.
   !!
   !! @par Revision History
   !! Add calculation of high-, mid-, and low-level cloud cover, height
@@ -96,38 +96,32 @@ CONTAINS
   !! Add height of 0 deg C level    by Helmut Frank, DWD (2013-03-11)
   !!
   !!
-  SUBROUTINE nwp_diagnosis(lcall_phy_jg,                  & !input
-                            & dt_phy_jg,p_sim_time,       & !input
-                            & kstart_moist,               & !input
+  SUBROUTINE nwp_statistics(lcall_phy_jg,                 & !in
+                            & dt_phy_jg, p_sim_time,      & !in
+                            & kstart_moist,               & !in
                             & ih_clch, ih_clcm,           & !in
-                            & pt_patch, p_metrics,        & !input
+                            & pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
                             & pt_diag,                    & !inout
-                            & prm_diag)    
+                            & prm_diag                    ) !inout   
                             
 
-    !>
-    ! !INPUT PARAMETERS:
+    LOGICAL,            INTENT(IN)   :: lcall_phy_jg(:) !< physics package time control (switches)
+                                                        !< for domain jg
+    REAL(wp),           INTENT(IN)   :: dt_phy_jg(:)    !< time interval for all physics
+                                                        !< packages on domain jg
+    REAL(wp),           INTENT(IN)   :: p_sim_time
 
-    LOGICAL, INTENT(IN)          ::   &             !< physics package time control (switches)
-         &                          lcall_phy_jg(:) !< for domain jg
-    REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
-                                                    !< packages on domain jg
-    REAL(wp),INTENT(in)          :: p_sim_time
-
-    TYPE(t_patch),   TARGET, INTENT(in)   :: pt_patch    !<grid/patch info.
-    TYPE(t_nh_diag), TARGET, INTENT(inout):: pt_diag     !<the diagnostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(in)   :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(in)   :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_patch),      INTENT(IN)   :: pt_patch    !<grid/patch info.
+    TYPE(t_nh_diag),    INTENT(INOUT):: pt_diag     !<the diagnostic variables
+    TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with
                                                          !< red. calling frequency for tracers!
-    TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
+    TYPE(t_nh_metrics), INTENT(in)   :: p_metrics
 
-    TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
+    TYPE(t_nwp_phy_diag), INTENT(inout):: prm_diag
 
     ! Local
-
-    ! Local array bounds:
-
     INTEGER :: nlev, nlevp1            !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
@@ -138,31 +132,23 @@ CONTAINS
     REAL(wp):: t_wgt                   !< weight for running time average
 
     INTEGER :: jc,jk,jb,jg      !block index
+    INTEGER :: jk_max
     INTEGER :: kstart_moist
     INTEGER :: ih_clch, ih_clcm
 
-!h  INTEGER :: ioverlap(nproma)
-!h  REAL(wp):: cld_cov(nproma)
-    REAL(wp):: clearsky(nproma)
 
-    REAL(wp):: zbuoy, zqsat, zcond
-    INTEGER :: mtop_min
-    REAL(wp):: ztp(nproma), zqp(nproma)
-    INTEGER :: mlab(nproma)
-    REAL(wp), PARAMETER :: grav_o_cpd = grav/cpd
+    REAL(wp):: clearsky(nproma)
+    REAL(wp):: d_theta_dz, d_theta_dz_max
+
 
     REAL(wp), PARAMETER:: eps_clc = 1.e-7_wp
 
-    REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
+  !-----------------------------------------------------------------
 
-    INTEGER  :: jk_max
-    REAL(wp) :: d_theta_dz, d_theta_dz_max
-
-
-    ! local variables related to the blocking
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
+
     ! number of vertical levels
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1    
@@ -181,18 +167,20 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
     
-! if cloud cover is called, vertical integration of cloud content
-! (for iqv, iqc, iqi)
 
 !$OMP PARALLEL
     IF ( lcall_phy_jg(itccov) ) THEN
 
-!$OMP DO PRIVATE(jb,z_help,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
+
+        ! if cloud cover is called, vertical integration of cloud content
+        ! (for iqv, iqc, iqi)
+        !
         prm_diag%tot_cld_vi(i_startidx:i_endidx,jb,1:3) = 0.0_wp
 
         DO jk = kstart_moist, nlev
@@ -208,47 +196,14 @@ CONTAINS
                                              z_help * prm_diag%tot_cld(jc,jk,jb,iqc)
            prm_diag%tot_cld_vi(jc, jb,iqi) = prm_diag%tot_cld_vi(jc, jb,iqi)    + &
                                              z_help * prm_diag%tot_cld(jc,jk,jb,iqi)
-          ENDDO
-        ENDDO
-      ENDDO ! nblks  
-!$OMP END DO
+          ENDDO  ! jc
+        ENDDO  ! jk
 
-! Calculation of cloud cover (Maximum-Random Overlap) (icc)
 
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk, ioverlap, cld_cov) ICON_OMP_DEFAULT_SCHEDULE
-!h     DO jb = i_startblk, i_endblk
-!h       !
-!h       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-!h         & i_startidx, i_endidx, rl_start, rl_end)
-!h       ioverlap(:) = 1
-!h       cld_cov(:)  = 0.0_wp
-!h       DO jk = kstart_moist, nlev
-!h         DO jc = i_startidx, i_endidx
-!h           IF (ioverlap(jc) == 1) THEN
-!h             cld_cov(jc) = MAX(prm_diag%tot_cld(jc,jk,jb,icc), cld_cov(jc))
-!h           ELSE
-!h             cld_cov(jc) = 1._wp - (1._wp-cld_cov(jc)) * &
-!h                        & (1._wp - prm_diag%tot_cld(jc,jk,jb,icc) )
-!h           END IF
-!h           IF (prm_diag%tot_cld(jc,jk,jb,icc) <= 1.e-6_wp) THEN
-!h             ioverlap(jc)=0
-!h           ELSE
-!h             ioverlap(jc)=1
-!h           ENDIF
-!h         ENDDO
-!h       ENDDO
-!h       prm_diag%tot_cld_vi(:,jb,icc) = cld_cov(:)
-!h     ENDDO ! nblks  
-!!$OMP END DO
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,clearsky) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        !
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
 
         ! cloud cover calculation
         ! note: the conversion into % is done within the internal output postprocessing
+        !
         DO jc = i_startidx, i_endidx
           clearsky(jc) = 1._wp - prm_diag%clc(jc,kstart_moist,jb)
         ENDDO
@@ -316,83 +271,13 @@ CONTAINS
       ENDDO ! nblks
 !$OMP END DO
 
-! height of convection base and top, hbas_con, htop_con
-
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        !
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
-          IF ( prm_diag%locum(jc,jb)) THEN
-            prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
-            prm_diag%htop_con(jc,jb) = p_metrics%z_mc ( jc, prm_diag%mtop_con(jc,jb), jb)
-          ELSE
-            prm_diag%hbas_con(jc,jb) = 0._wp
-            prm_diag%htop_con(jc,jb) = 0._wp
-          END IF
-        ENDDO
-      ENDDO
-!$OMP END DO
-
-! height of the top of dry convection
- 
-      mtop_min = (ih_clch+ih_clcm)/2     ! minimum top index for dry convection
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk, mlab,ztp,zqp, zbuoy, zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx 
-          prm_diag%htop_dc(jc,jb) = zundef
-          mlab(jc) = 1
-          ztp (jc) = pt_diag%temp(jc,nlev,jb) + 0.25_wp
-          zqp (jc) = pt_prog_rcf%tracer(jc,nlev,jb,iqv)
-        ENDDO
-
-        DO jk = nlev-1, mtop_min, -1
-          DO jc = i_startidx, i_endidx 
-            IF ( mlab(jc) == 1) THEN
-              ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
-             &                                 -p_metrics%z_mc(jc,jk+1,jb) )
-              zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - pt_diag%tempv(jc,jk,jb)
-              zqsat = spec_humi( sat_pres_water(ztp(jc)), pt_diag%pres(jc,jk,jb) )
-              zcond = zqp(jc) - zqsat
-
-              IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
-                prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
-              ELSE
-                mlab(jc) = 0
-              END IF
-            END IF
-          ENDDO
-        ENDDO
-
-        DO jc = i_startidx, i_endidx 
-          IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
-            prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
-           &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
-            IF ( prm_diag%locum(jc,jb)) THEN
-              prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
-             &                               prm_diag%hbas_con(jc,jb) )
-            END IF
-          ELSE
-            prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
-          END IF
-        ENDDO
-
-      ENDDO ! nblks   
-!$OMP END DO
-
     END IF !cloud cover
 
 
 
- !! Calculate vertically integrated values of the grid-scale tracers q1, q2, q3, q4 and q5 
- !! and average values of the vertically integrated values from the model start 
+ !! Calculate vertically integrated values of the grid-scale tracers q1, q2, q3, q4 and q5
  
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk,z_help) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_help) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -409,37 +294,6 @@ CONTAINS
         ENDDO
       ENDDO
 
-    ENDDO ! nblks   
-!$OMP END DO
-
-!  height of 0 deg C level "hzerocl". Not higher than htop_moist_proc
- 
-!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
-
-!     Surface temperature below 0 deg C
-      WHERE( pt_diag%temp(i_startidx:i_endidx,nlev,jb) < tmelt)
-        prm_diag%hzerocl(i_startidx:i_endidx,jb) = zundef
-      ELSEWHERE
-        prm_diag%hzerocl(i_startidx:i_endidx,jb) = 0._wp
-      END WHERE
-      !AD(MPIM): ending the loop at kstart_moist+1 to avoid runtime error in dry case
-      DO jk = nlev, kstart_moist+1, -1
-        DO jc = i_startidx, i_endidx 
-          IF ( prm_diag%hzerocl(jc,jb) /= 0._wp) THEN
-            CYCLE
-          ELSE IF ( pt_diag%temp(jc,jk  ,jb) >= tmelt .AND. &
-           &        pt_diag%temp(jc,jk-1,jb) <  tmelt ) THEN
-            prm_diag%hzerocl(jc,jb) = p_metrics%z_ifc(jc,jk-1,jb) -  &
-           &      ( p_metrics%z_ifc(jc,jk-1,jb) - p_metrics%z_ifc(jc,jk,jb) )*  &
-           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                     &
-           &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
-          END IF
-        ENDDO
-      ENDDO
     ENDDO ! nblks   
 !$OMP END DO
 
@@ -732,7 +586,193 @@ CONTAINS
 !$OMP END PARALLEL  
 
 
-  END SUBROUTINE nwp_diagnosis
+  END SUBROUTINE nwp_statistics
+
+
+
+
+
+  !>
+  !! Diagnostics which are only required for output
+  !!
+  !! Diagnostics which are only required for output. Should contain all 
+  !! those computations which are purely diagnostic and only required for 
+  !! (meteogram) output.
+  !!
+  !! Available diagnostics:
+  !! - height of convection base and top: hbas_con, htop_con
+  !! - height of the top of dry convection: htop_dc
+  !! - height of 0 deg C level: hzerocl
+  !!
+  !! @par Revision History
+  !! Add calculation of high-, mid-, and low-level cloud cover, height
+  !! of base and top of convection  by Helmut Frank, DWD (2013-01-17)
+  !! Add height of 0 deg C level    by Helmut Frank, DWD (2013-03-11)
+  !! Modification by Daniel Reinert (2014-02-27)
+  !! - separated all those diagnostics which are only required at output 
+  !!   times and moved them into a separate routine.
+  !!
+  !!
+  SUBROUTINE nwp_diag_for_output(lcall_phy_jg,            & !in
+                            & kstart_moist,               & !in
+                            & ih_clch, ih_clcm,           & !in
+                            & pt_patch, p_metrics,        & !in
+                            & pt_prog_rcf,                & !in
+                            & pt_diag,                    & !in
+                            & prm_diag                    ) !inout    
+              
+    LOGICAL,         INTENT(IN)   :: lcall_phy_jg(:) !< physics package time control (switches)
+                                                     !< for domain jg
+    INTEGER,         INTENT(IN)   :: kstart_moist
+    INTEGER,         INTENT(IN)   :: ih_clch, ih_clcm
+
+    TYPE(t_patch),   INTENT(IN)   :: pt_patch    !<grid/patch info.
+    TYPE(t_nh_prog), INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with
+                                                 !< red. calling frequency for tracers!
+    TYPE(t_nh_metrics)  ,INTENT(IN) :: p_metrics
+
+    TYPE(t_nh_diag),     INTENT(IN)   :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
+
+    ! Local
+    INTEGER :: jc,jk,jb                !< loop index
+    INTEGER :: nlev, nlevp1            !< number of full levels
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
+
+    REAL(wp):: zbuoy, zqsat, zcond
+    INTEGER :: mtop_min
+    REAL(wp):: ztp(nproma), zqp(nproma)
+    INTEGER :: mlab(nproma)
+
+    REAL(wp), PARAMETER :: grav_o_cpd = grav/cpd
+
+    REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
+
+  !-----------------------------------------------------------------
+
+
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    ! number of vertical levels
+    nlev   = pt_patch%nlev
+    nlevp1 = pt_patch%nlevp1    
+
+
+    ! exclude nest boundary interpolation zone
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+    ! minimum top index for dry convection
+    mtop_min = (ih_clch+ih_clcm)/2    
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+      !
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+
+      IF ( lcall_phy_jg(itccov) ) THEN
+
+        !
+        ! height of convection base and top, hbas_con, htop_con
+        ! 
+        DO jc = i_startidx, i_endidx
+          IF ( prm_diag%locum(jc,jb)) THEN
+            prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
+            prm_diag%htop_con(jc,jb) = p_metrics%z_mc ( jc, prm_diag%mtop_con(jc,jb), jb)
+          ELSE
+            prm_diag%hbas_con(jc,jb) = 0._wp
+            prm_diag%htop_con(jc,jb) = 0._wp
+          END IF
+        ENDDO  ! jc
+
+
+        !
+        ! height of the top of dry convection
+        !
+        DO jc = i_startidx, i_endidx 
+          prm_diag%htop_dc(jc,jb) = zundef
+          mlab(jc) = 1
+          ztp (jc) = pt_diag%temp(jc,nlev,jb) + 0.25_wp
+          zqp (jc) = pt_prog_rcf%tracer(jc,nlev,jb,iqv)
+        ENDDO
+
+        DO jk = nlev-1, mtop_min, -1
+          DO jc = i_startidx, i_endidx 
+            IF ( mlab(jc) == 1) THEN
+              ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
+             &                                 -p_metrics%z_mc(jc,jk+1,jb) )
+              zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - pt_diag%tempv(jc,jk,jb)
+              zqsat = spec_humi( sat_pres_water(ztp(jc)), pt_diag%pres(jc,jk,jb) )
+              zcond = zqp(jc) - zqsat
+
+              IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
+                prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
+              ELSE
+                mlab(jc) = 0
+              END IF
+            END IF
+          ENDDO
+        ENDDO
+
+        DO jc = i_startidx, i_endidx 
+          IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
+            prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
+           &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
+            IF ( prm_diag%locum(jc,jb)) THEN
+              prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
+             &                               prm_diag%hbas_con(jc,jb) )
+            END IF
+          ELSE
+            prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
+          END IF
+        ENDDO
+
+      END IF !cloud cover
+
+
+      !
+      ! height of 0 deg C level "hzerocl". Not higher than htop_moist_proc
+      !
+      ! Surface temperature below 0 deg C
+      WHERE( pt_diag%temp(i_startidx:i_endidx,nlev,jb) < tmelt)
+        prm_diag%hzerocl(i_startidx:i_endidx,jb) = zundef
+      ELSEWHERE
+        prm_diag%hzerocl(i_startidx:i_endidx,jb) = 0._wp
+      END WHERE
+
+      !AD(MPIM): ending the loop at kstart_moist+1 to avoid runtime error in dry case
+      DO jk = nlev, kstart_moist+1, -1
+        DO jc = i_startidx, i_endidx 
+          IF ( prm_diag%hzerocl(jc,jb) /= 0._wp) THEN
+            CYCLE
+          ELSE IF ( pt_diag%temp(jc,jk  ,jb) >= tmelt .AND. &
+           &        pt_diag%temp(jc,jk-1,jb) <  tmelt ) THEN
+            prm_diag%hzerocl(jc,jb) = p_metrics%z_ifc(jc,jk-1,jb) -  &
+           &      ( p_metrics%z_ifc(jc,jk-1,jb) - p_metrics%z_ifc(jc,jk,jb) )*  &
+           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                     &
+           &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
+          END IF
+        ENDDO
+      ENDDO
+
+    ENDDO  ! jb
+!$OMP END DO
+
+!$OMP END PARALLEL  
+
+
+  END SUBROUTINE nwp_diag_for_output
+
 
   !-------------------------------------------------------------------------
   !>

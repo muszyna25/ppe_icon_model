@@ -52,14 +52,13 @@ MODULE mo_nwp_conv_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params
   USE mo_run_config,           ONLY: iqv, iqc, iqi !, iqs
-  USE mo_physical_constants,   ONLY: grav, alv
+  USE mo_physical_constants,   ONLY: grav
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_fortran_tools,        ONLY: t_ptr_tracer
   USE mo_art_config,           ONLY: art_config
-  USE mo_cuparameters,         ONLY: lmfscv
+!!$  USE mo_cuparameters,         ONLY: lmfscv
 
   IMPLICIT NONE
 
