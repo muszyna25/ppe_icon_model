@@ -315,7 +315,8 @@ end
 def checkVar(build,exp,varname,timestep,level)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
-      for file in $(ls -rc #{exp}*.nc*); do
+      for file in $(ls -rc #{exp}*); do
+        echo "CHECKING FILE: $file   >>>>>>>>>>>>>>>>>>>>> "
         #{selectBy(varname,timestep,level)}
         cdo infov ${selectBy} $file
       done
