@@ -63,17 +63,17 @@ init_rel_suff='20m.nc'  # 20m thickness
 grid_ext="etopo40_planet"
 #=============================================================================
 # SETUP FOR mpiom-like INPUT
-external_interpolation_type="mpiom"
-init_oce_suff='L20.nc'
-init_rel_suff='surf.nc'
+#external_interpolation_type="mpiom"
+#init_oce_suff='L20.nc'
+#init_rel_suff='surf.nc'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID (newgeom)
 # provide an ocean horizontal grid file
-grid_ext="etopo40_planet_newgeom"
-use_gridfile_for_grabbing_externale_data='true'
+#grid_ext="etopo40_planet_newgeom"
+#use_gridfile_for_grabbing_externale_data='true'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
-grid_ext="etopo40_planet_newgeom_noinland"
+#grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #=============================================================================
