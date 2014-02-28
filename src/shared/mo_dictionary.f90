@@ -402,7 +402,7 @@ CONTAINS
     ! Fortran equivalent to C isblank function
     LOGICAL FUNCTION isblank(c)
       CHARACTER(LEN=1) :: c
-      IF(c==' ' .OR. ICHAR(c)==9) THEN
+      IF(c==' ' .OR. ICHAR(c)==9 .OR. ICHAR(c)==0) THEN
         ! Blank or Tab
         isblank = .TRUE.
       ELSE
