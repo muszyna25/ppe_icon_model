@@ -384,6 +384,8 @@ create_restart test_hat_jww
 #
 cpu_time="01:00:00"
 create_restart test_oce_default
+# create restart test for accumulation variable to be checked
+create_restart test_oce_acc
 
 
 #==============================================================================
