@@ -34,7 +34,6 @@ ocean_namelist=NAMELIST_${EXPNAME}
 # global resolution
 R=2   # nroot
 B=4   # number of bisections applied
-#
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
@@ -73,6 +72,7 @@ grid_ext="etopo40_planet"
 #use_gridfile_for_grabbing_externale_data='true'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
+#use_gridfile_for_grabbing_externale_data='true'
 #grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"

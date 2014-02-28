@@ -45,7 +45,6 @@ ocean_namelist=NAMELIST_${EXPNAME}
 # global resolution
 R=2   # nroot
 B=4   # number of bisections applied
-#
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
@@ -69,6 +68,24 @@ init_relax=0   # 1: use relaxation initialization file
 #init_rel_suff='20m.nc'  # 20m thickness
 #   ts_surf_annual-iconR${R}B0{B}-${init_rel_suff}
 #
+grid_ext="etopo40_planet"
+#=============================================================================
+# SETUP FOR mpiom-like INPUT
+#external_interpolation_type="mpiom"
+#init_oce_suff='L20.nc'
+#init_rel_suff='surf.nc'
+#-----------------------------------------------------------------------------
+# SETUP FOR mpiom-like INPUT ON NEW GRID (newgeom)
+# provide an ocean horizontal grid file
+#grid_ext="etopo40_planet_newgeom"
+#use_gridfile_for_grabbing_externale_data='true'
+#-----------------------------------------------------------------------------
+# SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
+use_gridfile_for_grabbing_externale_data='true'
+#grid_ext="etopo40_planet_newgeom_noinland"
+#-----------------------------------------------------------------------------
+ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
+#=============================================================================
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 
 # NO_FORCING                 = 10
@@ -82,10 +99,7 @@ iforc=12
 # type of OMIP or NCEP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
 #  2 = use all 12 datasets of full OMIP forcing
-#  3 = u/v-stress [and temperature relaxation], heat and mass flux
-#  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
 #  5 = use full NCEP datasets; read monthly mean data of consecutive years, set forcing_timescale=12 !
-iforc_type=2
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
 # surface flux file must match the length given by forcing_timescale
 #   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
@@ -99,29 +113,29 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=2        # ocean model output interval hours [hours]
-ndays_file=3650      # new output file generation interval [days]
-ndays_checkp=90      # write restart file interval [days]
-ndays_restart=1      # stop model for restart [days]
+((  days_checkp   = 10  ))   # write restart file interval [days]
+((  days_restart  = 20  ))   # stop model for restart [days]
+((  hours_data    = 2  ))   # ocean model output interval hours [hours] - for test runs
+((  days_file     = 10 ))   # write restart file interval [days]
+((  year_output   = 10 ))   # stop writing model output to file [years]
+(( hour           = 3600 ))
+(( day            = 24*hour))
+(( year           = 365 *  day))
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-dt_data=`expr ${nhours_data} \* 3600`
-dt_file=`expr ${ndays_file} \* 86400`
-dt_checkpoint=`expr ${ndays_checkp} \* 86400`
-dt_restart=`expr ${ndays_restart} \* 86400`
-(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
-(( steps_per_file = simLength / dt_data )) # output intervals per file interval
+(( dt_data        = hours_data   * hour ))      # used for output_bounds and buildbot
+(( dt_checkpoint  = days_checkp  * day ))
+(( dt_restart     = days_restart * day ))
+(( dt_file        = days_file    * day ))
+(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
+(( outputLength   = year_output * year ))
+(( steps_per_file = outputLength / dt_data ))       # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
 ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #
-#-----------------------------------------------------------------------------
-# provide an ocean horizontal grid file
-  grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
-#
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
 #-----------------------------------------------------------------------------
 #
@@ -147,15 +161,14 @@ cat > ${ocean_namelist} << EOF
  output      = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output = 3
- msg_timestamp    = .TRUE.
 /
 &output_nml
-  output_bounds    = ${dt_data}, ${dt_restart}, ${dt_data}   !start, end, increment
+  output_start     = "${start_date}"
+  output_end       = "${end_date}"
+  output_interval  = "PT0${hours_data}H"
   steps_per_file   = ${steps_per_file}
-  include_last     = .TRUE.
   output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_nmlOuput"
-  ! Output Variable List:
+  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   ml_varlist       = 'group:oce_default','group:oce_diag','group:ice_default','group:ice_diag'
 /
 &dbg_index_nml
@@ -195,9 +208,9 @@ cat > ${ocean_namelist} << EOF
   HORZ_VELOC_DIFF_TYPE = 3             ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v                            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC   = 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h                    = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_h                    = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v                    = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                                = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_h                                = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v                                = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for salinity
   MAX_VERT_DIFF_TRAC     = 0.1           ! max vertical tracer diffusion for convection used in case of instability
   !veloc_diffusion_order      = 1             ! 1=harmonic, 2=biharmonic friction
@@ -207,15 +220,17 @@ cat > ${ocean_namelist} << EOF
   !i_sea_ice                =    1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
- /    
+/
+&sea_ice_nml
+  i_ice_therm   = 1              !  1=zero-layer, 2=Winton
+  i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
+/
 &ocean_forcing_nml
   iforc_oce                 = ${iforc}       ! ocean forcing
-  iforc_type                = ${iforc_type}  ! type of ocean forcing, see above
   forcing_windstress_u_type = 1
   forcing_windstress_v_type = 1
   forcing_fluxes_type       = 1
   forcing_timescale         = ${forcing_timescale}   ! length of ocean forcing data set, see above
-
   init_oce_relax            = ${init_relax}  ! read ocean surface relaxation file, see above
   temperature_relaxation    = 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -238,5 +253,3 @@ EOF
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
-
-

@@ -60,6 +60,23 @@ init_rel_suff='20m.nc'  # 20m thickness
 # surface relaxation file must match the thickness of the surface level
 #   ts_surf_annual-iconR${R}B0{B}-50m.nc          # 50m thickness
 #
+grid_ext="etopo40_planet"
+#=============================================================================
+# SETUP FOR mpiom-like INPUT
+#external_interpolation_type="mpiom"
+#init_oce_suff='L20.nc'
+#init_rel_suff='surf.nc'
+#-----------------------------------------------------------------------------
+# SETUP FOR mpiom-like INPUT ON NEW GRID (newgeom)
+# provide an ocean horizontal grid file
+#grid_ext="etopo40_planet_newgeom"
+#use_gridfile_for_grabbing_externale_data='true'
+#-----------------------------------------------------------------------------
+# SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
+#grid_ext="etopo40_planet_newgeom_noinland"
+#-----------------------------------------------------------------------------
+ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
+#=============================================================================
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 
 # NO_FORCING                 = 10
@@ -112,11 +129,6 @@ nout_interv="P${days_data}D"                    # ocean model output interval in
 # model parameters
 ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #
-#-----------------------------------------------------------------------------
-# provide an ocean horizontal grid file
-  grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
-#
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
 #-----------------------------------------------------------------------------
 #
