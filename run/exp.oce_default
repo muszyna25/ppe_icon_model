@@ -60,6 +60,23 @@ init_rel_suff='20m.nc'  # 20m thickness
 # surface relaxation file must match the thickness of the surface level
 #   ts_surf_annual-iconR${R}B0{B}-50m.nc          # 50m thickness
 #
+grid_ext="etopo40_planet"
+#=============================================================================
+# SETUP FOR mpiom-like INPUT
+external_interpolation_type="mpiom"
+init_oce_suff='L20.nc'
+init_rel_suff='surf.nc'
+#-----------------------------------------------------------------------------
+# SETUP FOR mpiom-like INPUT ON NEW GRID (newgeom)
+# provide an ocean horizontal grid file
+grid_ext="etopo40_planet_newgeom"
+use_gridfile_for_grabbing_externale_data='true'
+#-----------------------------------------------------------------------------
+# SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
+grid_ext="etopo40_planet_newgeom_noinland"
+#-----------------------------------------------------------------------------
+ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
+#=============================================================================
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 
 # NO_FORCING                 = 10
@@ -87,9 +104,8 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #
 #-----------------------------------------------------------------------------
 # model timing
-#ndays_file=3660      # new output file generation interval [days]
 ((  days_checkp   = 10  ))   # write restart file interval [days]
-((  days_restart  = 2  ))   # stop model for restart [days]
+((  days_restart  = 20  ))   # stop model for restart [days]
 ((  hours_data    = 6  ))   # ocean model output interval hours [hours] - for test runs
 ((  days_file     = 10 ))   # write restart file interval [days]
 ((  year_output   = 10 ))   # stop writing model output to file [years]
@@ -111,11 +127,6 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 # model parameters
 ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #
-#-----------------------------------------------------------------------------
-# provide an ocean horizontal grid file
-  grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
-#
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
 #-----------------------------------------------------------------------------
 #
@@ -191,9 +202,9 @@ cat > ${ocean_namelist} << EOF
   HORZ_VELOC_DIFF_TYPE = 3             ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_v                            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC   = 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h                    = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_h                    = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v                    = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                                = 1.0E+3   ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_h                                = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v                                = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for salinity
   MAX_VERT_DIFF_TRAC     = 0.1           ! max vertical tracer diffusion for convection used in case of instability
   !veloc_diffusion_order      = 1             ! 1=harmonic, 2=biharmonic friction
@@ -214,7 +225,6 @@ cat > ${ocean_namelist} << EOF
   forcing_windstress_v_type = 1
   forcing_fluxes_type       = 1
   forcing_timescale         = ${forcing_timescale}   ! length of ocean forcing data set, see above
-
   init_oce_relax            = ${init_relax}  ! read ocean surface relaxation file, see above
   temperature_relaxation    = 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -223,6 +233,7 @@ cat > ${ocean_namelist} << EOF
   irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   forcing_enable_freshwater      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_set_runoff_to_zero      = .TRUE.    ! set runoff to zero for comparison to MPIOM
 /
 &ocean_initialConditions_nml
   use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
