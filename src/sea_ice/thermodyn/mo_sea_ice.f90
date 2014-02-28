@@ -1205,8 +1205,8 @@ CONTAINS
     CALL dbg_print('IceSlow: p_ice%u'            ,ice%u_prog,             str_module,3, in_subset=p_patch%verts%owned)
     CALL dbg_print('IceSlow: p_ice%v'            ,ice%v_prog,             str_module,3, in_subset=p_patch%verts%owned)
     CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi,                 str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: Conc. endOf slow'   ,ice%conc,               str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: ConcSum. endOf slow',ice%concSum,            str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc.  EndOf slow'  ,ice%conc,               str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSumEndOf slow',  ice%concSum,            str_module,3, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%prog(nold)%vn' ,p_os%p_prog(nold(1))%vn,str_module,5, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%prog(nnew)%vn' ,p_os%p_prog(nnew(1))%vn,str_module,5, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%u'        ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
@@ -1758,7 +1758,11 @@ CONTAINS
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
     ENDWHERE
 
-    ! This is where concentration, and thickness change due to ice melt (we must conserve volme)
+    CALL dbg_print('IceConcCh: conc New ' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hi   New ' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hs   New ' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+
+    ! This is where concentration, and thickness change due to ice melt (we must conserve volume)
     ! A.k.a. lateral melt
     WHERE ( ice%hiold(:,1,:) > ice%hi(:,1,:) .AND. ice%hi(:,1,:) > 0._wp )
       ! Hibler's way to change the concentration (leadclose parameter 1)
@@ -1770,6 +1774,10 @@ CONTAINS
       ice%hs  (:,1,:) = ice%vols(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
     ENDWHERE
+
+    CALL dbg_print('IceConcCh: conc latMlt' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hi   latMlt' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hs   latMlt' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Ice cannot grow thinner than hmin
     WHERE ( ice%hi(:,1,:) > 0._wp )
@@ -1791,6 +1799,7 @@ CONTAINS
     ENDWHERE
 
     CALL dbg_print('IceConcCh: IceConc end' ,ice%conc, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hi at   end' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_conc_change
 
