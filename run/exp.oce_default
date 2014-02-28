@@ -33,12 +33,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=4   # number of bisections applied
+B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -88,7 +88,7 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #-----------------------------------------------------------------------------
 # model timing
 #ndays_file=3660      # new output file generation interval [days]
-((  days_checkp   = 1  ))   # write restart file interval [days]
+((  days_checkp   = 10  ))   # write restart file interval [days]
 ((  days_restart  = 2  ))   # stop model for restart [days]
 ((  hours_data    = 6  ))   # ocean model output interval hours [hours] - for test runs
 ((  days_file     = 10 ))   # write restart file interval [days]
