@@ -1202,24 +1202,15 @@ CONTAINS
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
-    CALL dbg_print('IceSlow: p_os%prog(nold)%vn' ,p_os%p_prog(nold(1))%vn,str_module,5, &
-      & in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn' ,p_os%p_prog(nnew(1))%vn,str_module,5, &
-      & in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_os%diag%u'        ,p_os%p_diag%u,          str_module,5, &
-      & in_subset=p_patch%cells%owned)                                    
-    CALL dbg_print('IceSlow: p_os%diag%v'        ,p_os%p_diag%v,          str_module,5, &
-      & in_subset=p_patch%cells%owned)                                    
-    CALL dbg_print('IceSlow: p_ice%u'            ,ice%u_prog,             str_module,5, &
-      & in_subset=p_patch%verts%owned)                                    
-    CALL dbg_print('IceSlow: p_ice%v'            ,ice%v_prog,             str_module,5, &
-      & in_subset=p_patch%verts%owned)                                    
-    CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi,                 str_module,5, &
-      & in_subset=p_patch%cells%owned)                                    
-    CALL dbg_print('IceSlow: Conc. endOf slow'   ,ice%conc,               str_module,5, &
-      & in_subset=p_patch%cells%owned)                                    
-    CALL dbg_print('IceSlow: ConcSum. endOf slow',ice%concSum,            str_module,5, &
-      & in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_ice%u'            ,ice%u_prog,             str_module,3, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: p_ice%v'            ,ice%v_prog,             str_module,3, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi,                 str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc. endOf slow'   ,ice%conc,               str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSum. endOf slow',ice%concSum,            str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nold)%vn' ,p_os%p_prog(nold(1))%vn,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn' ,p_os%p_prog(nnew(1))%vn,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%diag%u'        ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%diag%v'        ,p_os%p_diag%v,          str_module,4, in_subset=p_patch%cells%owned)
 
     IF (ltimer) CALL timer_stop(timer_ice_slow)
 
@@ -1621,8 +1612,8 @@ CONTAINS
     Delhsnow  (:,:) = SUM( ( ice%hs(:,:,:) - ice%hsold(:,:,:) )*ice%conc(:,:,:), 2 )
     snowiceave(:,:) = SUM( ice%snow_to_ice(:,:,:)*ice% conc(:,:,:), 2 )
 
-    CALL dbg_print('SeaIce : Delhice '        ,Delhice    ,str_module,5)
-    CALL dbg_print('SeaIce : Delhsnow'        ,Delhsnow   ,str_module,5)
+    CALL dbg_print('SeaIce : Delhice '        ,Delhice    ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('SeaIce : Delhsnow'        ,Delhsnow   ,str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
@@ -1733,7 +1724,7 @@ CONTAINS
     REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
 
-    CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module, 3, in_subset=p_patch%cells%owned)
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1799,7 +1790,7 @@ CONTAINS
       ice%vol  (:,1,:) = 0.0_wp
     ENDWHERE
 
-    CALL dbg_print('IceConcCh: IceConc end' ,ice%conc, str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: IceConc end' ,ice%conc, str_module, 3, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_conc_change
 
@@ -2002,16 +1993,16 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulk: stress_x'        ,Qatm%stress_x     ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: stress_y'        ,Qatm%stress_y     ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: tafoK'           ,tafoK             ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: sphumida'        ,sphumida          ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: rhoair'          ,rhoair            ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: stress_x'       ,Qatm%stress_x   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: stress_y'       ,Qatm%stress_y   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: tafoK'          ,tafoK           ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: sphumida'       ,sphumida        ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: rhoair'         ,rhoair          ,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulk: Tsurf ice'       ,Tsurf             ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%LWnet ice'  ,Qatm%LWnet        ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%sens ice'   ,Qatm%sens         ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%lat ice'    ,Qatm%lat          ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: Tsurf ice'      ,Tsurf           ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: Qatm%LWnet ice' ,Qatm%LWnet      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: Qatm%sens ice'  ,Qatm%sens       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: Qatm%lat ice'   ,Qatm%lat        ,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_ice
@@ -2190,18 +2181,18 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulk: stress_xw'       ,Qatm%stress_xw    ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: stress_yw'       ,Qatm%stress_yw    ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: tafoK'           ,tafoK             ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: sphumida'        ,sphumida          ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: rhoair'          ,rhoair            ,str_module,idt_src)
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulk: Tsurf ocean'     ,Tsurf             ,str_module,idt_src)
+    CALL dbg_print('CalcBulk: stress_xw'       ,Qatm%stress_xw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: stress_yw'       ,Qatm%stress_yw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: tafoK'           ,tafoK           ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: sphumida'        ,sphumida        ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: rhoair'          ,rhoair          ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    idt_src=3  ! output print level (1-5, fix)                                                                    
+    CALL dbg_print('CalcBulk: Tsurf ocean'     ,Tsurf           ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulk: Tsurf ocean (nnew)', &
-      &                      p_os%p_prog(nnew(1))%tracer(:,1,:,1), str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%LWnetw'     ,Qatm%LWnetw       ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%sensw'      ,Qatm%sensw        ,str_module,idt_src)
-    CALL dbg_print('CalcBulk: Qatm%latw'       ,Qatm%latw         ,str_module,idt_src)
+      &     p_os%p_prog(nnew(1))%tracer(:,1,:,1), str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: Qatm%LWnetw'     ,Qatm%LWnetw     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: Qatm%sensw'      ,Qatm%sensw      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulk: Qatm%latw'       ,Qatm%latw       ,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_oce

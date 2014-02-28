@@ -46,7 +46,6 @@ MODULE mo_sea_ice_winton
     &                               mu,mus,ci, alf, I_0
   USE mo_ocean_nml,           ONLY: no_tracer 
   USE mo_sea_ice_nml,         ONLY: hci_layer
-!  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
@@ -505,11 +504,11 @@ CONTAINS
     END DO
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------
-  CALL dbg_print('GrowWinton: Q_surplus', Q_surplus, 'ice_growth_winton',5)
-  CALL dbg_print('GrowWinton: ice%hi'   , ice%hi   , 'ice_growth_winton',5)
-  CALL dbg_print('GrowWinton: ice%Qtop' , ice%Qtop , 'ice_growth_winton',5)
-  CALL dbg_print('GrowWinton: ice%Qbot' , ice%Qbot , 'ice_growth_winton',5)
-  CALL dbg_print('GrowWinton: ice%Tsurf', ice%Tsurf, 'ice_growth_winton',5)
+  CALL dbg_print('GrowWinton: ice%hi'   , ice%hi   , 'ice_growth_winton',3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('GrowWinton: Q_surplus', Q_surplus, 'ice_growth_winton',4, in_subset=p_patch%cells%owned)
+  CALL dbg_print('GrowWinton: ice%Qtop' , ice%Qtop , 'ice_growth_winton',4, in_subset=p_patch%cells%owned)
+  CALL dbg_print('GrowWinton: ice%Qbot' , ice%Qbot , 'ice_growth_winton',4, in_subset=p_patch%cells%owned)
+  CALL dbg_print('GrowWinton: ice%Tsurf', ice%Tsurf, 'ice_growth_winton',4, in_subset=p_patch%cells%owned)
 !---------------------------------------------------------------------
     
   END SUBROUTINE ice_growth_winton
