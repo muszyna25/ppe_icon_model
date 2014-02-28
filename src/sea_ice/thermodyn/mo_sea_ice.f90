@@ -1799,7 +1799,8 @@ CONTAINS
     ENDWHERE
 
     CALL dbg_print('IceConcCh: IceConc end' ,ice%conc, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceConcCh: hi at   end' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hi at   end' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hs at   end' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_conc_change
 
