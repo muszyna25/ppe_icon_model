@@ -13,12 +13,6 @@
 # Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
 #-----------------------------------------------------------------------------
-#
-# The following information is included to present some information on the buildbot-html main page
-#
-# _bb_table_Description_  parallelized ocean with land sea mask and bathymetry
-# _bb_table_Model_        ocean
-# _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
 #
 # These variables are set in the header section of the completed run script:
@@ -81,7 +75,7 @@ grid_ext="etopo40_planet"
 #use_gridfile_for_grabbing_externale_data='true'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
-use_gridfile_for_grabbing_externale_data='true'
+#use_gridfile_for_grabbing_externale_data='true'
 #grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
