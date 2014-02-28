@@ -77,7 +77,7 @@ case "$fortran_compiler" in
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
         DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all "$FCHECK"
-        STD_FLAGS   = -march=native -O0 "$DEBUG_FLAGS" -D__LOOP_EXCHANGE 
+        STD_FLAGS   = -march=native -O2 "$DEBUG_FLAGS" -D__LOOP_EXCHANGE 
         HIOPT_FLAGS = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
         FC          = gfortran
@@ -149,7 +149,7 @@ case "$fortran_compiler" in
         # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = ifort
-        STD_FLAGS   = -O2 -msse2 -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+        STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
         FDEBUG      = -check bounds -check pointers -check uninit -debug -g -traceback
         FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
  #      FFLAGS      = "$FDEBUG" -O0 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE

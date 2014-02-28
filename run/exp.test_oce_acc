@@ -88,8 +88,8 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #-----------------------------------------------------------------------------
 # model timing
 #ndays_file=3660      # new output file generation interval [days]
-((  days_checkp   = 10 ))   # write restart file interval [days]
-((  days_restart  = 1  ))   # stop model for restart [days]
+((  hours_checkp   = 6 ))   # write restart file interval [days]
+((  days_restart  = 10  ))   # stop model for restart [days]
 ((  hours_data    = 1  ))   # ocean model output interval hours [hours] - for test runs
 ((  days_file     = 10 ))   # write restart file interval [days]
 ((  year_output   = 10 ))   # stop writing model output to file [years]
@@ -100,7 +100,7 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
 (( dt_data        = hours_data   * hour ))      # used for output_bounds and buildbot
-(( dt_checkpoint  = days_checkp  * day ))
+(( dt_checkpoint  = hours_checkp  * hour ))
 (( dt_restart     = days_restart * day ))
 (( dt_file        = days_file    * day ))
 (( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
