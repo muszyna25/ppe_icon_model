@@ -33,12 +33,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global resolution
 R=2   # nroot
-B=4   # number of bisections applied
+B=2   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #-----------------------------------------------------------------------------
@@ -88,29 +88,25 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #-----------------------------------------------------------------------------
 # model timing
 #ndays_file=3660      # new output file generation interval [days]
-#ndays_checkp=1       # write restart file interval [days]
-ndays_restart=7320   # stop model for restart [days]
-# this is valid for short runs <60 years using output_bounds in output_nml
-#nhours_data=6        # ocean model output interval hours [hours] - for test runs
-#nyear_outpLen=1      # stop writing model output to file [years]
-# this is valid for production runs using output_start, output_end, output_interval in output_nml
-ndays_data=30        # ocean model output interval [days]  - no longer than 30 days ??
+((  days_checkp   = 9999  ))   # write restart file interval [days]
+((  days_restart  = 7320  ))   # stop model for restart [days]
+((  hours_data    = 6  ))   # ocean model output interval hours [hours] - for test runs
+((  days_data     = 30 ))
+((  days_file     = 9999 ))   # write restart file interval [days]
+((  year_output   = 10 ))   # stop writing model output to file [years]
+(( hour           = 3600 ))
+(( day            = 24*hour))
+(( year           = 365 *  day))
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-nout_interv="P$0{ndays_data}D"                   # ocean model output interval in days <10 days
-nout_interv="P${ndays_data}D"                    # ocean model output interval in days
-#(( dt_data       = nhours_data   * 3600 ))      # used for output_bounds and buildbot
-#(( dt_checkpoint = ndays_checkp  * 86400 ))
-(( dt_data       = ndays_data    * 86400 ))      # used for production runs
-(( dt_restart    = ndays_restart * 86400 ))
-#(( dt_file       = ndays_file    * 86400 ))     # not yet tested
-dt_file=$dt_restart                              # dt_file!=dt_restart not yet tested for mtime
-dt_checkpoint=$dt_restart                        # for production runs both must be equal
-#(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
-#(( steps_per_file = simLength / dt_data ))       # output intervals per file interval
-(( steps_per_file = dt_restart / dt_data ))       # output intervals per file
-#(( outputLength  = nyear_outpLen * 86400*365 ))  # for output_bounds only
+nout_interv="P${days_data}D"                    # ocean model output interval in days
+(( dt_data       =  days_data   * day ))      # used for output_bounds and buildbot
+(( dt_restart    =  days_restart * day))
+(( dt_file        = days_file    * day ))
+(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
+(( outputLength   = year_output * year ))
+(( steps_per_file = outputLength / dt_data ))       # output intervals per file interval
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -149,12 +145,10 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
-! output_bounds    = 0, ${outputLength}, ${dt_data}   ! buildbot: start, end, increment in seconds <60 years
   output_start     = "${start_date}"                  ! production runs: start in ISO-format
   output_end       = "${end_date}"                    ! production runs: end in ISO-format
   output_interval  = "${nout_interv}"                 ! production runs: interval in ISO-format
   steps_per_file   = ${steps_per_file}
-! include_last     = .TRUE.                           ! leads to suffix "_part_2+"
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   filename_format  = "<output_filename>_<datetime2>"
@@ -209,7 +203,7 @@ cat > ${ocean_namelist} << EOF
   !i_sea_ice                =    1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
- /    
+/
 &sea_ice_nml
   i_ice_therm   = 1              !  1=zero-layer, 2=Winton
   i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
@@ -246,7 +240,6 @@ cat > ${ocean_namelist} << EOF
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.         ! sync after each timestep
-  use_set_event_to_simstep = .false. 
 /
 EOF
 #-----------------------------------------------------------------------------
