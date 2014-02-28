@@ -437,7 +437,8 @@ MODULE mo_echam_phy_memory
       &    u_cnv    (:,:,:),   & !< u-wind tendency from cumulus convection
       &    v_cnv    (:,:,:),   & !< v-wind tendency from cumulus convection
       &    q_cnv    (:,:,:,:), & !< tracer tendency from cumulus convection
-      &    x_dtr    (:,:,:),   & !< cloud water/ice tendency due to detrainment (memory_g3b:xtec)
+      &    xl_dtr   (:,:,:),   & !< cloud liquid tendency due to detrainment (memory_g3b:xtecl)
+      &    xi_dtr   (:,:,:),   & !< cloud ice tendency due to detrainment (memory_g3b:xteci)
       !
       ! vertical turbulent mixing ("vdiff")
       !
@@ -1938,11 +1939,18 @@ CONTAINS
     !------------------------------
     ! Detrainment
     !------------------------------
-    ! &       tend%    x_dtr  (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('detrain_rate', 's-1', '', DATATYPE_FLT32)
+
+    ! &       tend%    xl_dtr  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('liquid_detrain_rate', 's-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'x_dtr', tend%x_dtr,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'xl_dtr', tend%xl_dtr,                  &
+    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
+   ! &       tend%    xi_dtr  (nproma,nlev,nblks),          &
+   cf_desc    = t_cf_var('ice_detrain_rate', 's-1', '', DATATYPE_FLT32)
+   grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+   CALL add_var( tend_list, prefix//'xi_dtr', tend%xi_dtr,                  &
+   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     !-------------------
     ! Tracer tendencies

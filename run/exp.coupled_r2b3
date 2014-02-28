@@ -281,7 +281,6 @@ cat > $atmo_namelist << EOF
  ctracer_list = 'vwi45' ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
- lcover    = .FALSE.
  lcond     = .TRUE.
  lconv     = .TRUE.
  lvdiff    = .TRUE.

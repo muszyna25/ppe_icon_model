@@ -82,6 +82,8 @@ MODULE mo_echam_phy_init
 
   ! cumulus convection
   USE mo_convect_tables,       ONLY: init_convect_tables
+  USE mo_echam_convect_tables, &
+    & ONLY: init_echam_convect_tables => init_convect_tables 
 
   ! stratiform clouds and cloud cover
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
@@ -226,8 +228,10 @@ CONTAINS
 
     ! Lookup tables for saturation vapour pressure
 
-    IF (phy_config%lconv.OR.phy_config%lcond.OR.phy_config%lvdiff) &
-    CALL init_convect_tables
+    IF (phy_config%lconv.OR.phy_config%lcond.OR.phy_config%lvdiff) THEN
+       CALL init_convect_tables
+       CALL init_echam_convect_tables 
+    END IF
 
     ! For large scale condensation:
 
@@ -866,7 +870,8 @@ CONTAINS
       field% albnirdif(:,  :) = 0.07_wp ! albedo in the NIR range for diffuse radiation
                                              ! (set to the albedo of water for testing)
 
-      tend% x_dtr(:,:,:)   = 0._wp  !"xtec" in ECHAM
+      tend% xl_dtr(:,:,:)  = 0._wp  !"xtecl" in ECHAM
+      tend% xi_dtr(:,:,:)  = 0._wp  !"xteci" in ECHAM
 !$OMP END WORKSHARE
 
       IF (phy_config%ljsbach) THEN

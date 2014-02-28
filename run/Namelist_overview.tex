@@ -1271,11 +1271,11 @@ Switch on large scale condensation.& iforcing = 2
 \tabularnewline
 
 \hline
-lcover &
-L& .FALSE.&&
-.TRUE. for prognostic cloud cover scheme, .FALSE. for diagnostic scheme.&
+icover &
+I& 1&&
+1 = diagnostic Sunquist cloud cover scheme,\par 2 = prognostic Tompkins cloud cover scheme.&
 iforcing = 2\par
-Note: lcover = .TRUE. runs, but has not been evaluated (yet) in ICON.
+Note: icover = 2, has not been used (yet) in ICON.
 \tabularnewline
 
 \hline
@@ -6202,6 +6202,13 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \begin{itemize}
    \item Changed namelist default for \texttt{rbf\_scale\_mode\_ll}: The RBF scale factor for lat-lon interpolation is now
       determined automatically by default.
+  \end{itemize}
+\end{changeitem}
+
+
+\begin{changeitem}{echam\_phy\_nml}{ 2014-02-27 }{ 16313 }
+  \begin{itemize}
+   \item Replace the logical switch \texttt{ lcover } by the integer switch \texttt{ icover } that is used in ECHAM-6.2. Values are transferred as follows: .FALSE. = 1 (=default), .TRUE. = 2.
   \end{itemize}
 \end{changeitem}
 

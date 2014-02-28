@@ -57,7 +57,7 @@ MODULE mo_echam_phy_main
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_cucall,              ONLY: cucall
+  USE mo_cumastr,             ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: timer_start, timer_stop,          &
@@ -305,11 +305,11 @@ CONTAINS
 
       CALL cover( jce, nbdim, jks,          &! in
         &         nlev, nlevp1,             &! in
-        &         phy_config%lcover,        &! in
-        &         itype,  zfrw,             &! in
+        &         phy_config%icover,        &! in
+        &         itype,  zfrw, zfri,       &! in
         &         field% presi_old(:,:,jb), &! in
         &         field% presm_old(:,:,jb), &! in
-        &         field% omega(:,:,jb),     &! in    vervel
+        &         field%  geom(:,:,jb),     &! in
         &         field%  temp(:,:,jb),     &! in    tm1
         &         field%     q(:,:,jb,iqv), &! in    qm1
         &         field%     q(:,:,jb,iqc), &! in    xlm1
@@ -1192,7 +1192,8 @@ CONTAINS
     ! 7.1   INITIALIZE ARRAYS FOR CONVECTIVE PRECIPITATION
     !       AND COPY ARRAYS FOR CONVECTIVE CLOUD PARAMETERS
 
-    tend% x_dtr(jcs:jce,:,jb) = 0._wp
+    tend% xl_dtr(jcs:jce,:,jb) = 0._wp
+    tend% xi_dtr(jcs:jce,:,jb) = 0._wp
     zqtec  (jcs:jce,:) = 0._wp
 
     field% rsfc(:,jb) = 0._wp
@@ -1205,22 +1206,22 @@ CONTAINS
       IF (ltimer) call timer_start(timer_cucall)
 
       CALL cucall( echam_conv_config%iconv,   &! in
-        &          echam_conv_config%lmfdudv, &! in
-        &          echam_conv_config%lmfdd,   &! in
-        &          echam_conv_config%lmfmid,  &! in
-        &          echam_conv_config%dlev,    &! in
-        &          echam_conv_config%cmftau,  &! in
-        &          echam_conv_config%cmfctop, &! in
-        &          echam_conv_config%cprcon,  &! in
-        &          echam_conv_config%cminbuoy,&! in
-        &          echam_conv_config%entrpen, &! in
+!        &          echam_conv_config%lmfdudv, &! in
+!        &          echam_conv_config%lmfdd,   &! in
+!        &          echam_conv_config%lmfmid,  &! in
+!        &          echam_conv_config%dlev,    &! in
+!        &          echam_conv_config%cmftau,  &! in
+!        &          echam_conv_config%cmfctop, &! in
+!        &          echam_conv_config%cprcon,  &! in
+!        &          echam_conv_config%cminbuoy,&! in
+!        &          echam_conv_config%entrpen, &! in
         &          echam_conv_config%nmctop,  &! in
         &          echam_conv_config%cevapcu, &! in
         &          jce, nbdim, nlev,          &! in
         &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
-!0      &          jb,                        &! in     row index
-        &          pdtime, psteplen,          &! in
+        &          jb,                        &! in     row index
+        &          psteplen,                  &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% temp(:,:,jb),       &! in     tm1
         &          field% u(:,:,jb),          &! in     um1
@@ -1245,14 +1246,16 @@ CONTAINS
         &          tend% q(:,:,jb,iqv),       &! inout  qte
         &          tend% q(:,:,jb,iqt:),      &! inout  xtte
         &          zqtec,                     &! inout
-        &          tend% x_dtr(:,:,jb),       &! inout  xtec
+!        &          tend% x_dtr(:,:,jb),       &! inout  xtec
+        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
+        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
         &          field% rsfc(:,jb),         &! out
         &          field% ssfc(:,jb),         &! out
         &          field% topmax(:,jb),       &! inout
         &          itype,                     &! inout
         &          ilab,                      &! out
-        &          zcvcbot,                   &! out
-        &          zwcape,                    &! out
+!        &          zcvcbot,                   &! out
+!        &          zwcape,                    &! out
         &          tend%temp_cnv(:,:,jb),     &! out
         &          tend%   u_cnv(:,:,jb),     &! out
         &          tend%   v_cnv(:,:,jb),     &! out
@@ -1303,8 +1306,12 @@ CONTAINS
           &        field% q(:,:,jb,iqi),     &! in. xim1
           &        zcair(:,:),               &! in
           &        invb,                      &! in (from "cover")
+          &        zcd,                      &! in
+          &        zcv,                      &! in
           &        zqtec,                     &! inout (there is a clip inside)
-          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
+!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
+          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
+          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
           &         tend% temp(:,:,jb),       &! inout.  tte
           &         tend% q(:,:,jb,iqv),      &! inout.  qte
           &         tend% q(:,:,jb,iqc),      &! inout. xlte

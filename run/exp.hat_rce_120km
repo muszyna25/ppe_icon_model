@@ -36,10 +36,10 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-  end_date="2008-08-11T00:00:00Z"
+  end_date="2008-08-31T00:00:00Z"
 #
-(( dt_restart    = 10 * day )) # [s] time between model restarts = length of run
-(( dt_checkpoint =  1 * day )) # [s] time between restart file writing
+(( dt_restart    = 30 * day )) # [s] time between model restarts = length of run
+(( dt_checkpoint = 30 * day )) # [s] time between restart file writing
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -167,7 +167,6 @@ cat >> ${atmo_namelist} << EOF
  profiling_output = 3
 /
 &echam_phy_nml
- lcover           = .FALSE.
  lrad             = .TRUE.
  lvdiff           = .TRUE.
  lgw_hines        = .FALSE.

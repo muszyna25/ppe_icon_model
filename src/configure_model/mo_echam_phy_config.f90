@@ -43,7 +43,7 @@ MODULE mo_echam_phy_config
   PRIVATE
   PUBLIC :: t_echam_phy_config, echam_phy_config   !< derived type and variable
   PUBLIC :: configure_echam_phy                       !< subroutine
-  PUBLIC :: get_lrad, get_lcond, get_lcover        !< functions
+  PUBLIC :: get_lrad, get_lcond, get_icover        !< functions
   PUBLIC :: get_lconv, get_lvdiff, get_lgw_hines   !< functions
   PUBLIC :: get_ljsbach, get_lamip
 
@@ -58,7 +58,7 @@ MODULE mo_echam_phy_config
     LOGICAL :: lvdiff      !<  .true. for vertical diffusion.
     LOGICAL :: lconv       !<  .true. for moist convection
     LOGICAL :: lcond       !<  .true. for large scale condensation
-    LOGICAL :: lcover      !<  .true. for prognostic cloud cover scheme
+    INTEGER :: icover      !<  default 1 for Sundqvist scheme, 2 for Tompkins
     LOGICAL :: lgw_hines   !<  .true. for atmospheric gravity wave drag
 
     LOGICAL :: llandsurf   !<  .true. for surface exchanges. (lsurf in ECHAM6)
@@ -188,9 +188,9 @@ CONTAINS
   END FUNCTION get_lcond
   !>
   !!
-  LOGICAL FUNCTION get_lcover()
-    get_lcover = echam_phy_config%lcover
-  END FUNCTION get_lcover
+  INTEGER FUNCTION get_icover()
+    get_icover = echam_phy_config%icover
+  END FUNCTION get_icover
   !>
   !!
   LOGICAL FUNCTION get_lgw_hines()

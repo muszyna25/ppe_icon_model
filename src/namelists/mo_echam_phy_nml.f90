@@ -65,7 +65,7 @@ MODULE mo_echam_phy_nml
   LOGICAL :: lvdiff     !< .true. for vertical diffusion.
   LOGICAL :: lconv      !< .true. for moist convection
   LOGICAL :: lcond      !< .true. for large scale condensation
-  LOGICAL :: lcover     !< .true. for prognostic cloud cover scheme
+  INTEGER :: icover     !< default 1 for Sundqvist scheme, 2 for Tompkins
   LOGICAL :: llandsurf  !< .true. for surface exchanges. (lsurf in ECHAM6)
   LOGICAL :: lssodrag   !< .true. for subgrid scale orographic drag,
                         !< by blocking and gravity waves (lgwdrag in ECHAM6)
@@ -81,7 +81,7 @@ MODULE mo_echam_phy_nml
 
 
   NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond,  &
-                         & lcover, lssodrag, lgw_hines, &
+                         & icover, lssodrag, lgw_hines, &
                          & llandsurf, lice, lmeltpond,  &
                          & lamip, lmlo, ljsbach, lhd, dt_rad!!$, lmidatm
 
@@ -101,7 +101,7 @@ CONTAINS
     lvdiff    = .TRUE.
     lconv     = .TRUE.
     lcond     = .TRUE.
-    lcover    = .FALSE.
+    icover    = 1
     llandsurf = .FALSE.
     lssodrag  = .FALSE.
     lgw_hines = .FALSE.
@@ -169,7 +169,7 @@ CONTAINS
     echam_phy_config% lvdiff    = lvdiff                                              
     echam_phy_config% lconv     = lconv                                               
     echam_phy_config% lcond     = lcond                                               
-    echam_phy_config% lcover    = lcover                                              
+    echam_phy_config% icover    = icover                                              
     echam_phy_config% llandsurf = llandsurf                                           
     echam_phy_config% lssodrag  = lssodrag                                            
     echam_phy_config% lgw_hines = lgw_hines                                           

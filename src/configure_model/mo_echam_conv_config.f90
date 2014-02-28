@@ -61,23 +61,23 @@ MODULE mo_echam_conv_config
     INTEGER :: ncvmicro  !< 0 or 1. Scheme for convective microphysics
   
     LOGICAL :: lmfpen    !< true when penetrative convection is switched on
-    LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
-    LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
-    LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
+!    LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
+!    LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
+!    LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
 
-    REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". 
+!    REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". 
                          !< Critical thickness (unit: Pa) necessary for 
                          !< the onset of convective precipitation
   
-    REAL(wp) :: cmftau   !< characteristic adjustment time scale
+!    REAL(wp) :: cmftau   !< characteristic adjustment time scale
                          !< (replaces "ztau" in "cumastr"
-    REAL(wp) :: cmfctop  !< fractional convective mass flux across the 
+!    REAL(wp) :: cmfctop  !< fractional convective mass flux across the 
                          !< top of cloud
-    REAL(wp) :: cprcon   !< coefficient for determining conversion
+!    REAL(wp) :: cprcon   !< coefficient for determining conversion
                          !< from cloud water to rain
   
-    REAL(wp) :: cminbuoy !< minimum excess buoyancy
-    REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
+!    REAL(wp) :: cminbuoy !< minimum excess buoyancy
+!    REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
  
     ! Currently unused namelist variables 
     !INTEGER :: nauto        !< autoconversion scheme. 1 or 2.
@@ -150,16 +150,13 @@ CONTAINS
     END SELECT
 
     CALL print_value(' lmfpen   ', echam_conv_config% lmfpen)
-    CALL print_value(' lmfmid   ', echam_conv_config% lmfmid)
-    CALL print_value(' lmfdd    ', echam_conv_config% lmfdd)
-    CALL print_value(' lmfdudv  ', echam_conv_config% lmfdudv)
 
-    CALL print_value(' cmftau   ', echam_conv_config% cmftau)
-    CALL print_value(' cmfctop  ', echam_conv_config% cmfctop)
-    CALL print_value(' cprcon   ', echam_conv_config% cprcon)
-    CALL print_value(' cminbuoy ', echam_conv_config% cminbuoy)
-    CALL print_value(' entrpen  ', echam_conv_config% entrpen)
-    CALL print_value(' dlev     ', echam_conv_config% dlev)
+!    CALL print_value(' cmftau   ', echam_conv_config% cmftau)
+!    CALL print_value(' cmfctop  ', echam_conv_config% cmfctop)
+!    CALL print_value(' cprcon   ', echam_conv_config% cprcon)
+!    CALL print_value(' cminbuoy ', echam_conv_config% cminbuoy)
+!    CALL print_value(' entrpen  ', echam_conv_config% entrpen)
+!    CALL print_value(' dlev     ', echam_conv_config% dlev)
 
     CALL message('','---------------------------')
     CALL message('','')

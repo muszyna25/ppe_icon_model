@@ -58,27 +58,15 @@ MODULE mo_echam_conv_nml
   INTEGER :: ncvmicro  !< 0 or 1. Scheme for convective microphysics
 
   LOGICAL :: lmfpen    !< true when penetrative convection is switched on
-  LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
-  LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
-  LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
+!  LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
+!  LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
+!  LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
 
-  REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". 
-                       !< Critical thickness (unit: Pa) necessary for the 
-                       !< onset of convective precipitation
-  REAL(wp) :: cmftau   !< characteristic adjustment time scale
-                       !< (replaces "ztau" in "cumastr")
-  REAL(wp) :: cmfctop  !< fractional convective mass flux across the top of cloud 
-  REAL(wp) :: cprcon   !< coefficient for determining conversion
-                       !< from cloud water to rain
-  REAL(wp) :: cminbuoy !< minimum excess buoyancy
-  REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
+
 
   NAMELIST/echam_conv_nml/ ncvmicro, iconv,   &
-                           lmfpen,   lmfmid,  &
-                           lmfdd,    lmfdudv, &
-                           dlev,     cmftau,  &
-                           cmfctop,  cprcon,  &
-                           cminbuoy, entrpen
+                           lmfpen 
+
 
 CONTAINS
   !>
@@ -99,17 +87,6 @@ CONTAINS
     iconv    = 1
 
     lmfpen   = .TRUE.
-    lmfmid   = .TRUE.
-    lmfdd    = .TRUE.
-    lmfdudv  = .TRUE.
-
-    dlev     = 3.0E4_wp   ! 300 hPa
-    cmftau   = 10800._wp  ! 3 hours
-    cmfctop  = 0.21_wp
-
-    cprcon   = 2.E-4_wp
-    cminbuoy = 0.1_wp
-    entrpen  = 1.0E-4_wp
 
     !-------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -170,16 +147,6 @@ CONTAINS
     echam_conv_config% iconv    = iconv
     echam_conv_config% ncvmicro = ncvmicro
     echam_conv_config% lmfpen   = lmfpen
-    echam_conv_config% lmfmid   = lmfmid
-    echam_conv_config% lmfdd    = lmfdd
-    echam_conv_config% lmfdudv  = lmfdudv
-
-    echam_conv_config% dlev     = dlev
-    echam_conv_config% cmftau   = cmftau
-    echam_conv_config% cmfctop  = cmfctop
-    echam_conv_config% cprcon   = cprcon
-    echam_conv_config% cminbuoy = cminbuoy
-    echam_conv_config% entrpen  = entrpen
 
   END SUBROUTINE read_echam_conv_namelist
   !-------------

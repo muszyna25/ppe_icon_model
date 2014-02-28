@@ -1,44 +1,91 @@
+!>
+!! @brief Module diagnoses cloud cover for current timestep
 !!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
+!! @remarks
+!!     In ECHAM4 all cloud cover calculations were performed
+!!     in routine CLOUD.  The routine diagnosed the cloud cover
+!!     from the previous timestep using m1 variables, but then
+!!     used a "first guess" calculation of T and Q to give a
+!!     cloud cover estimate for the next timestep.  This meant
+!!     that the radiation scheme used cloud cover values that were
+!!     from a different timestep to the temperature and water vapour
+!!     values, and also that the T and Q values were anyway
+!!     preliminary.  Finally, the cover calculation was performed
+!!     twice each timestep, when one calculation suffices.
 !!
-!! @author <name, affiliation>
-!! @author <name, affiliation>
+!!     This scheme calculates cover diagnostically and is called
+!!     once at the beginning of each timestep.  It uses the
+!!     standard relative humidity calculation from Lohmann and
+!!     Roeckner (96), or the method from the new prognostic
+!!     scheme of Tompkins.  The choice of which scheme to use is
+!!     controlled by the parameter switch ICOVER, which is set in
+!!     namelist PHYSCTL along with lsurf etc... Note that even if
+!!     icover.EQ.1 (RH scheme) you can't restart this model version
+!!     from restart files saved from a different model version, since
+!!     the two extra prognostic equations, pxvar and pxskew are still
+!!     stored even though they are not actively used.  However, this means
+!!     that once you have restart files from this version, you are able
+!!     change icover at will.
 !!
+!!     In the new scheme the variable xskew is provided
+!!     as outlined in the reference, this variable represents
+!!     directly the Beta distribution shape parameter "q"
+!!     The shape parameter "p" (zbetap) a tunable parameter and it is
+!!     recommended that this be set to a low constant 1.5<p<2.0
+!!     (This may be changed later to prognostic to allow negative skewness
+!!     from downdraft detrainment, see ref. for details).
+!!
+!!     from xi,xl,q,xskew and zbetap, the Beta distribution is defined
+!!     and cloud cover is diagnosable.  For the iteration, Ridders' method
+!!     is used (see Numerical Recipes).
+!!
+!!     Attention:
+!!     In the current version the advective tendencies of skewness
+!!     and variance are set to zero.
+!!
+!! @references.
+!!     Diagnostic CC scheme: Lohmann and Roeckner 96, Clim. Dyn.
+!!     Prognostic CC scheme: Tompkins 2002, J. Atmos. Sci.
+!!
+!! @author A. Tompkins    MPI-Hamburg        2000
+!!         K. Ketelesen   NEC,         April 2002
+!!         L. Kornblueh   MPI-Hamburg, April 2002
 !!
 !! @par Revision History
-!! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
+!!       v2: first working version
+!!       v5: lookup table added
+!!       v8: zriddr and functions replaced for vectorization
+!!       v9: optimizations, longer vector loop and less indirect addressing
+!!          - introduction of additional arrays
+!!          - change structure if "beta function scheme" IF block
+!!          - scattered loops "ictit" and "ictdg" are collected over "kproma" and "klev"
+!!          - intoducing additional arrays to hold data in "ictit" and "ictdg"
+!!            addressing scheme
+!! - Taken from ECHAM6.2, wrapped in module and modified for ICON
+!!   by Monika Esch, MPI-M (2013-11)
 !!
 !! @par Copyright
-!! 2002-2010 by DWD and MPI-M
-!! This software is provided for non-commercial use only.
-!! See the LICENSE and the WARRANTY conditions.
+!!   2013 by Max-Planck-Institut for Meteorology (MPI-M).
+!!   This software is provided for non-commerical use only.
+!!   See the LICENSE and the WARRANTY conditions
 !!
 !! @par License
-!! The use of ICON is hereby granted free of charge for an unlimited time,
-!! provided the following rules are accepted and applied:
-!! <ol>
-!! <li> You may use or modify this code for your own non commercial and non
-!!    violent purposes.
-!! <li> The code may not be re-distributed without the consent of the authors.
-!! <li> The copyright notice and statement of authorship must appear in all
-!!    copies.
-!! <li> You accept the warranty conditions (see WARRANTY).
-!! <li> In case you intend to use the code commercially, we oblige you to sign
-!!    an according license agreement with DWD and MPI-M.
-!! </ol>
+!!   The use of ICON is hereby granted free of charge for an unlimited time,
+!!   provided:
+!!   <ol>
+!!    <li> Its use is limited to own non-commercial and non-violent purposes;
+!!    <li> The code is not re-distributed without the consent of DWD and MPI-M;
+!!    <li> This header appears in all copies of the code;
+!!    <li> You accept the warranty conditions (see WARRANTY).
+!!   </ol>
+!!   Commericial use of the code is allowed subject to a separate licensing
+!!   agreement with the DWD and MPI-M
 !!
 !! @par Warranty
-!! This code has been tested up to a certain level. Defects and weaknesses,
-!! which may be included in the code, do not establish any warranties by the
-!! authors.
-!! The authors do not make any warranty, express or implied, or assume any
-!! liability or responsibility for the use, acquisition or application of this
-!! software.
-!!
+!!   This code is distributed in the hope that it will be useful, but WITHOUT
+!!   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+!!   FITNESS FOR A PARTICULAR PURPOSE.
+!
 #ifdef __xlC__
 @PROCESS HOT
 @PROCESS XLF90(NOSIGNEDZERO)
@@ -49,218 +96,115 @@
 
 MODULE mo_cover
 
-  USE mo_kind,               ONLY : wp
-  USE mo_physical_constants, ONLY : rd, cpd, vtmpc1
-  USE mo_convect_tables,     ONLY : prepare_ua_index, lookup_ua_eor_uaw
-  USE mo_echam_cloud_params, ONLY : jbmin1, ncctop, cqtmin, cbeta_pq      &
-                                  , jbmin, jbmax                          &
-                                  , csatsc, ccwmin, cbeta_pq_max, nbetaq  &
-                                  , cbetaqs, rbetak, nbetax, tbetai       &
-                                  , cvarmin, cmmrmax, crt, crs            &
-                                  , nex
+USE mo_kind,               ONLY : wp
+USE mo_physical_constants, ONLY : vtmpc1, cpd, grav
+USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline                      &
+                                , lookup_ua_eor_uaw_spline
+USE mo_echam_cloud_params, ONLY : ncctop, cqtmin, cbeta_pq, jbmin, jbmax, csatsc &
+                                , ccwmin, cbeta_pq_max, nbetaq, cbetaqs, rbetak  &
+                                , nbetax, tbetai, cvarmin, cmmrmax, crt, crs, nex
 #ifdef _PROFILE
-  USE mo_profile,         ONLY : trace_start, trace_stop
+USE mo_profile,            ONLY : trace_start, trace_stop
 #endif
-
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cover
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
-
-SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
+!>
+!!
+!!
+SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1                  &
+                         , icover                                                &
 !
 ! - INPUT  1D .
-                         , ktype,    pfrw                                &
+                         , ktype,    pfrw,     pfri                              &
 ! - INPUT  2D .
-                         , paphm1,   papm1                               &
-                         , pvervel,  ptm1                                &
-                         , pqm1,     pxlm1,    pxim1                     &
+                         , paphm1,   papm1,    pgeo                              &
+                         , ptm1,     pqm1,     pxlm1                             &
+                         , pxim1                                                 &
 ! - INPUT AND OUTPUT, 2D
-                         , paclc,    pxvar,    pxskew                    &
+                         , paclc,    pxvar,    pxskew                            &
 ! - OUTPUT 1D .
-                         , knvb,     printop                             &
+                         , knvb,     printop                                     &
 ! - OUTPUT 2D .
-                         , pbetaa,   pbetab,   pbetass                   &
-                 )
-!-----------------------------------------------------------------------
-!     *Cover*
-!          Diagnoses cloud cover for current timestep
+                         , pbetaa,   pbetab                                      &
+                         , pbetass                                               &
+       )
+!---------------------------------------------------------------------------------
 !
-!     Subject.
-!     --------
-!     In ECHAM4 all cloud cover calculations were performed
-!     in routine CLOUD.  The routine diagnosed the cloud cover
-!     from the previous timestep using m1 variables, but then
-!     used a "first guess" calculation of T and Q to give a
-!     cloud cover estimate for the next timestep.  This meant
-!     that the radiation scheme used cloud cover values that were
-!     from a different timestep to the temperature and water vapour
-!     values, and also that the T and Q values were anyway
-!     preliminary.  Finally, the cover calculation was performed
-!     twice each timestep, when one calculation suffices.
-!
-!     This scheme calculates cover diagnostically and is called
-!     once at the beginning of each timestep.  It uses the
-!     standard relative humidity calculation from Lohmann and
-!     Roeckner (96), or the method from the new prognostic
-!     scheme of Tompkins.  The choice of which scheme to use is
-!     controlled by the parameter switch LCOVER, which is set in
-!     namelist PHYSCTL along with lsurf etc... Note that even if
-!     lcover=.false. (RH scheme) you can't restart this model version
-!     from restart files saved from a different model version, since
-!     the two extra prognostic equations, pxvar and pxskew are still
-!     stored even though they are not actively used.  However, this means
-!     that once you have restart files from this version, you are able
-!     change lcover at will.
-!
-!     In the new scheme the variable xskew is provided
-!     as outlined in the reference, this variable represents
-!     directly the Beta distribution shape parameter "q"
-!     The shape parameter "p" (zbetap) a tunable parameter and it is
-!     recommended that this be set to a low constant 1.5<p<2.0
-!     (This may be changed later to prognostic to allow negative skewness
-!     from downdraft detrainment, see ref. for details).
-!
-!     from xi,xl,q,xskew and zbetap, the Beta distribution is defined
-!     and cloud cover is diagnosable.  For the iteration, Ridders' method
-!     is used (see Numerical Recipes).
-!
-!     Attention:
-!     In the current version the advective tendencies of skewness
-!     and variance are set to zero.
-!
-!     INTERFACE.
-!     ----------
-!
-!     *Call cover*
-!
-!     Input arguments.
-!     ----- ----------
-!  - 1D
-!  ktype    : type of convection
-!  pfrw     :
-!
-!  - 2D
-!  paphm1   : pressure at half levels                              (n-1)
-!  papm1    : pressure at full levels                              (n-1)
-!  pvervel  : vertical velocity in pressure coordiante             (n)
-!  ptm1     : temperature                                          (n-1)
-!  pqm1     : specific humidity                                    (n-1)
-!  pxlm1    : cloud liquid water                                   (n-1)
-!  pxim1    : cloud ice                                            (n-1)
-!
-!     Input and output arguments.
-!     ---------------------------
-!  - 2D
-!  paclc    : cloud cover
-!  pxvar    : the beta distribution width "b-a"                    (n-1)
-!  pxskew   : the beta distribution shape parameter "q"            (n-1)
-!
-!     Output arguments.
-!     ------ ----------
-!  - 1D
-!  knvb     :
-!  pfrw     :
-!
-!  - 2D
-!  pbetaa   : the beta distribution minimum a                      (n-1)
-!  pbetab   : the beta distribution maximum b                      (n-1)
-!  pbetass  :
-!
-!     Method.
-!     -------
-!     see References
-!
-!     References.
-!     ----------
-!     Diagnostic CC scheme: Lohmann and Roeckner 96, Clim. Dyn.
-!     Prognostic CC scheme: Tompkins 2002, J. Atmos. Sci.
-!
-!     Authors.
-!     -------
-!     A. Tompkins    MPI-Hamburg  2000
-!     K. Ketelesen   NEC, April 2002
-!     L. Kornblueh   MPI, April 2002
-!
-!     Modifications.
-!     --------------
-!     view cover
-!       v2: first working version
-!       v5: lookup table added
-!       v8: zriddr and functions replaced for vectorization
-!       v9: optimizations, longer vector loop and less indirect addressing
-!          - introduction of additional arrays
-!          - change structure if "beta function scheme" IF block
-!          - scattered loops "ictit" and "ictdg" are collected over "kproma" and "klev"
-!          - intoducing additional arrays to hold data in "ictit" and "ictdg"
-!            addressing scheme
-!
-  INTEGER, INTENT(IN)    :: kproma, kbdim, ktdia, klev, klevp1
-  LOGICAL, INTENT(IN)    :: lcover
-  INTEGER, INTENT(IN)    ::  ktype(kbdim)
-  REAL(wp),INTENT(IN)    ::   pfrw(kbdim)
-  REAL(wp),INTENT(IN)    :: paphm1(kbdim,klevp1),   papm1(kbdim,klev)
-  REAL(wp),INTENT(IN)    ::   ptm1(kbdim,klev),   pvervel(kbdim,klev)
-  REAL(wp),INTENT(IN)    ::   pqm1(kbdim,klev)
-  REAL(wp),INTENT(IN)    ::  pxlm1(kbdim,klev),     pxim1(kbdim,klev)
+  INTEGER, INTENT(IN)    :: kbdim, klevp1, klev, kproma, ktdia
+  INTEGER, INTENT(IN)    ::  &
+      & icover                !< cloud cover scheme
+  INTEGER, INTENT(IN)    ::  &
+      & ktype(kbdim)          !< type of convection
+  REAL(wp),INTENT(IN)    ::  &
+      & pfrw(kbdim)         ,&!< water mask
+      & pfri(kbdim)           !< ice mask
+  REAL(wp),INTENT(IN)    ::  &
+      & paphm1(kbdim,klevp1),&!< pressure at half levels                   (n-1)
+      & papm1(kbdim,klev)   ,&!< pressure at full levels                   (n-1)
+      & pgeo(kbdim,klev)    ,&!<
+      & pqm1(kbdim,klev)    ,&!< specific humidity                         (n-1)
+      & ptm1(kbdim,klev)    ,&!< temperature                               (n-1)
+      & pxlm1(kbdim,klev)   ,&!< cloud liquid water                        (n-1)
+      & pxim1(kbdim,klev)     !< cloud ice                                 (n-1)
+  REAL(wp),INTENT(INOUT) ::  &
+      & paclc(kbdim,klev)   ,&!< cloud cover
+      & pxvar(kbdim,klev)   ,&!< the beta distribution width "b-a"         (n-1)
+      & pxskew(kbdim,klev)    !< the beta distribution shape parameter "q" (n-1)
+  INTEGER, INTENT(OUT)   ::  &
+      & knvb(kbdim)
+  REAL(wp),INTENT(OUT)   ::  &
+      & printop(kbdim)
+  REAL(wp),INTENT(OUT)   ::  &
+      & pbetaa(kbdim,klev)  ,&!< the beta distribution minimum a           (n-1)
+      & pbetab(kbdim,klev)  ,&!< the beta distribution maximum b           (n-1)
+      & pbetass(kbdim,klev)
 
-  REAL(wp),INTENT(INOUT) ::  paclc(kbdim,klev)
-  REAL(wp),INTENT(INOUT) ::  pxvar(kbdim,klev),    pxskew(kbdim,klev)
+  INTEGER :: jl, jk, kbeta, jb, jt
+  INTEGER :: locnt, nl, ilev
+  REAL(wp):: zdtdz, zcor, zbetai0, zbetai1, zrhc, zsat, zqr
+  INTEGER :: itv1(kproma*klev), itv2(kproma*klev)
 
-  INTEGER, INTENT(INOUT)   ::  knvb(kbdim)                               ! out
-  REAL(wp),INTENT(INOUT)   ::  printop(kbdim)                            ! out
-  REAL(wp),INTENT(INOUT)   ::  pbetaa(kbdim,klev),   pbetab(kbdim,klev)  ! out
-  REAL(wp),INTENT(INOUT)   ::  pbetass(kbdim,klev)                       ! out
 !
-! Local variables -----------------------------------------------
+!   Temporary arrays
 !
-  INTEGER  :: jl, jk, kbeta, jb, jt
-  INTEGER  :: locnt, nl
-  REAL(wp) :: rdcpd, zdthdp, zcor, zbetai0, zbetai1
-  REAL(wp) :: zrhc, zsat, zqr
-
-  INTEGER  ::  itv1(kproma*klev), itv2(kproma*klev)
-  REAL(wp) ::  zdthmin(kbdim),    ztheta(kbdim,klev)
-
+  REAL(wp)   ::  zdtmin(kbdim), za(kbdim) 
 !
 !   Pointers and counters for iteration and diagnostic loop:
 !
-  INTEGER :: iptit(2,kproma*klev), iptdg(2,kproma*klev)                &
-           , iqidx_l1(kproma*klev)
+  INTEGER :: iptit(2,kproma*klev), iptdg(2,kproma*klev), iqidx_l1(kproma*klev)
   INTEGER :: ictdg, ictit, ix, ix1, ix2, iq, nphase
   INTEGER :: iqidx(kproma,klev)
 !
 !   variables required for zriddr iteration scheme:
 !
-  REAL(wp) :: fh(kproma*klev), fl(kproma*klev), fm(kproma*klev)        &
-            , fnew(kproma*klev), xh(kproma*klev), xl(kproma*klev)      &
-            , xm(kproma*klev), xnew(kproma*klev)
+  REAL(wp) :: fh(kproma*klev),   fl(kproma*klev),   fm(kproma*klev)              &
+            , fnew(kproma*klev), xh(kproma*klev),   xl(kproma*klev)              &
+            , xm(kproma*klev),   xnew(kproma*klev)
 
   REAL(wp) :: unused = -1.11e30_wp
-  REAL(wp) :: ztt, zx1, zx2, zvar, zvartarget, zss, zqt, zpp, zqq      &
-            , zaa, zbb, zjk, zlo2, zpq, zpqi, zppi             &
-            , zqqi, zaa2, zbb2, paclc1
-  REAL(wp) :: zqsm1(kproma*klev), zskew1(kproma*klev)                  &
-            , zskew2(kproma*klev), zskew(kbdim)
+  REAL(wp) :: ztt, zx1, zx2, zvar, zvartarget, zss, zqt, zpp, zqq, zaa, zbb, zjk &
+            , zlo2, zpq, zpqi, zppi, zqqi, zaa2, zbb2, paclc1, zgam
+  REAL(wp) :: zqsm1(kproma*klev),   zskew1(kproma*klev)                          &
+            , zskew2(kproma*klev),  zskew(kbdim)
   REAL(wp) :: zbetaqt(kproma,klev), zbetacl(kproma,klev), ua(kproma)
 
   LOGICAL :: lo1, lo2, lao, lao1
   INTEGER :: liter(kproma*klev)
 
-  INTEGER :: icond(kproma)
-  REAL(wp) :: pqm1_l1(kproma*klev), pqm1_l2(kproma*klev), zpapm1i(kbdim,klev) &
-            , ztmp(kproma*klev), zalpha1(kproma*klev), zalpha2(kproma*klev)
-  REAL(wp) :: zbetaqt_l1(kproma*klev), zbetacl_l1(kproma*klev)         &
+  REAL(wp) :: pqm1_l1(kproma*klev),    pqm1_l2(kproma*klev)                      &
+            , zpapm1i(kbdim,klev),     ztmp(kproma*klev)                         &
+            , zalpha1(kproma*klev),    zalpha2(kproma*klev)
+  REAL(wp) :: zbetaqt_l1(kproma*klev), zbetacl_l1(kproma*klev)                   &
             , zbetass_l1(kproma*klev)
-  REAL(wp) :: zbetaqt_l2(kproma*klev), zbetacl_l2(kproma*klev)         &
-            , zbetass_l2(kproma*klev)
+  REAL(wp) :: zbetaqt_l2(kproma*klev), zbetass_l2(kproma*klev)
 
-  REAL(wp) :: zknvb(kbdim),zphase(kbdim)
+  REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
-  INTEGER :: lo(kbdim,klev),loidx(kproma*klev)
+  INTEGER :: lo(kbdim,klev),           loidx(kproma*klev)
 
 !   number of iteration loops.  In a small test, most gridpoints
 !   converged in 2 to 4 iterations, with occassionally as many as
@@ -275,75 +219,64 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
   CALL trace_start ('cover', 9)
 #endif
 !
-!   Computational constants
-!
-  rdcpd  = rd/cpd
-!
 !   Initialize variables
 !
-  DO jl=1,kproma
-    zdthmin(jl)=0.0_wp
-    zknvb(jl)  =1.0_wp
-    printop(jl)=1.0_wp
+  DO jl = 1,kproma
+    zdtmin(jl) =-0.25_wp * grav/cpd   ! fraction of dry adiabatic lapse rate
+    zknvb(jl)  = 1.0_wp
+    printop(jl)= 0.0_wp
   END DO
 !
   DO jk = ktdia,klev
      DO jl = 1,kproma
         zpapm1i(jl,jk) = SWDIV_NOCHK(1._wp,papm1(jl,jk))
-        ztheta(jl,jk) = ptm1(jl,jk)*(1.0e5_wp*zpapm1i(jl,jk))**rdcpd
      END DO
   END DO
 !
-  IF (lcover) THEN
+  IF (icover.EQ.2) THEN
      kbeta = MAX(ncctop,ktdia)
   ELSE
      kbeta = klev+1
-  END IF ! lcover
+  END IF ! icover
 !
 !       1.3   Checking occurrence of low-level inversion
-!             (below 1000 m, sea points only, no convection)
-!
-
+!             (below 2000 m, sea points only, no convection)
+!  
   locnt = 0
   DO jl = 1,kproma
-     IF (pfrw(jl).GT.0._wp.AND.ktype(jl).EQ.0) THEN
+     IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
         locnt = locnt + 1
         loidx(locnt) = jl
      END IF
   END DO
 
   IF (locnt.GT.0) THEN
-     DO jk = klev,jbmin1,-1
+     DO jk = klev,jbmin,-1
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
 !IBM* novector
         DO nl = 1,locnt
            jl = loidx(nl)
-           ztmp(nl) = (ztheta(jl,jk)-ztheta(jl,jk-1)) / (papm1(jl,jk)-papm1(jl,jk-1))
+           ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))*grav/(pgeo(jl,jk-1)-pgeo(jl,jk))
         END DO
 
         zjk = REAL(jk,wp)
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
         DO nl = 1,locnt
            jl = loidx(nl)
-           zdthdp      = ztmp(nl)
-           zknvb(jl)   = FSEL(zdthdp-zdthmin(jl),zknvb(jl),zjk)
-           !        zknvb(jl)    = MERGE(zjk,zknvb(jl),zdthdp .LT. zdthmin(jl))
-           zdthmin(jl) = MIN(zdthdp,zdthmin(jl))
+           zdtdz       = MIN(0.0_wp, ztmp(nl))
+           zknvb(jl)   = FSEL(zdtmin(jl)-zdtdz,zknvb(jl),zjk)
+           zdtmin(jl)  = MAX(zdtdz,zdtmin(jl))
         END DO
      END DO
   END IF
   knvb(1:kproma) = INT(zknvb(1:kproma))
-
-
 !
-!   Tunable parameters now in mo_cloud.f90
+!   Tunable parameters now in mo_echam_cloud_params.f90
 !
   IF (ncctop > 1) THEN
-    DO jk=1,ncctop-1
-      DO jl=1,kproma
+    DO jk = 1,ncctop-1
+      DO jl = 1,kproma
         pbetaa(jl,jk)=0.0_wp
         pbetab(jl,jk)=0.0_wp
         pxvar(jl,jk)=cqtmin
@@ -354,55 +287,55 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 !
   ictit=0
   ictdg=0
-  DO jk=ktdia,klev
-    IF (lcover .AND. jk >= ncctop) THEN  ! beta function scheme
+  DO jk = ktdia,klev
+    IF (icover.EQ.2 .AND. jk >= ncctop) THEN  ! beta function scheme
 !
 !       1.   Calculate the saturation mixing ratio
 !
-        CALL prepare_ua_index('cover (1)',kproma,ptm1(1,jk),itv1(1),pxim1(1,jk), &
-                             & nphase,zphase,itv2(1))
-        CALL lookup_ua_eor_uaw(kproma,itv1(1),nphase,itv2(1),ua(1))
+        CALL prepare_ua_index_spline('cover (1)',kproma,ptm1(1,jk),itv1(1)       &
+                                    ,za(1),pxim1(1,jk),nphase,zphase,itv2(1))
+        CALL lookup_ua_eor_uaw_spline(kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
 
 !IBM* NOVECTOR
-        DO jl=1,kproma
+        DO jl = 1,kproma
            zqsm1(jl) = MIN(ua(jl)*zpapm1i(jl,jk),0.5_wp)
            zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl))
            zqsm1(jl) = zqsm1(jl)*zcor
-           icond(jl) = INT(FSEL(-pvervel(jl,jk),0._wp,1._wp))
         END DO
 
         IF (kproma > 0) THEN
-           DO jl=1,kproma
+           DO jl = 1,kproma
               jb=knvb(jl)
-              lo2=(jb.GE.jbmin .AND. jb.LE.jbmax .AND. icond(jl).GT.0)
-              lo1=(jk.EQ.jb .OR. jk.EQ.jb+1)
+              lo2=(jb.GE.jbmin .AND. jb.LE.jbmax)
+              lo1=(jk.EQ.jb)
               IF (lo2.AND.lo1) THEN
                  zqsm1(jl)=zqsm1(jl)*csatsc
-                 printop(jl)=REAL(jb,wp)
+                 printop(jl)=100._wp
               END IF
-           ENDDO
+           END DO
         END IF
         !
         !       2.    calculate cloud cover
         !
         !   Don't need to iterate at every gridpoint, thus make pointers
         !
-        DO jl=1,kproma
+        DO jl = 1,kproma
            zskew(jl) = MAX(MIN(pxskew(jl,jk),cbeta_pq_max),cbeta_pq)
            ztmp(jl)  = (zskew(jl)-cbeta_pq)/rbetak+1._wp
         END DO
 
         ztmp(1:kproma) = LOG(ztmp(1:kproma))
-        iqidx(1:kproma,jk) = INT((REAL(nbetaq,wp)/cbetaqs)*ztmp(1:kproma)+0.5_wp)
+        iqidx(1:kproma,jk) = INT((nbetaq/cbetaqs)*ztmp(1:kproma)+0.5_wp)
 
         IF (kproma > 0) THEN
-           DO jl=1,kproma
+           DO jl = 1,kproma
               zbetacl(jl,jk)=MAX(0._wp,pxlm1(jl,jk))+MAX(0._wp,pxim1(jl,jk))
 
               zbetaqt(jl,jk)=MAX(cqtmin,pqm1(jl,jk))+zbetacl(jl,jk)
               pbetass(jl,jk)=MAX(pqm1(jl,jk),zqsm1(jl)) !safety
 
-              ! lo=(pxim1(jl,jk)>ccwmin .OR. pxlm1(jl,jk)>ccwmin) .AND. pqm1(jl,jk)<pbetass(jl,jk)
+              !        lo=(pxim1(jl,jk)>ccwmin .OR. pxlm1(jl,jk)>ccwmin)         &
+              !            .AND. pqm1(jl,jk)<pbetass(jl,jk)
 
               zlo2 = FSEL(ccwmin-pxim1(jl,jk),0._wp,1._wp)
               zlo2 = FSEL(ccwmin-pxlm1(jl,jk),zlo2,1._wp)
@@ -412,7 +345,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
         END IF
 
         IF (ktdia > 0) THEN
-           DO jl=1,kproma
+           DO jl = 1,kproma
 
               IF (lo(jl,1).EQ.0) THEN
                  ! mpuetz: this is the more probable path
@@ -421,7 +354,6 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
                  iptdg(2,ictdg)=jk
                  pqm1_l2(ictdg)    = pqm1(jl,jk)
                  zbetaqt_l2(ictdg) = zbetaqt(jl,jk)
-                 zbetacl_l2(ictdg) = zbetacl(jl,jk)
                  zbetass_l2(ictdg) = pbetass(jl,jk)
                  zskew2(ictdg)     = zskew(jl)
               ELSE
@@ -439,13 +371,13 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 !
 !   setup index for skewness, q, in lookup table (doesn't change)
 !
-           ENDDO
+           END DO
         END IF
 
-    ENDIF !lcover
-  ENDDO
+    ENDIF !icover.EQ.2
+  END DO
 !
-  IF (lcover) THEN
+  IF (icover.EQ.2) THEN
 !
 !   Partially cloudy: Iterative gridpoints
 !   uses func using ridders' method, return the root of a function
@@ -453,31 +385,31 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 !
 !
 !IBM* novector
-  DO jl=1,ictit
+  DO jl = 1,ictit
      !
      !   Lower bound < 0 to catch occassional overflow
      !
-     zx1 =-0.1_wp
-     xl(jl)=zx1
+     zx1         = -0.1_wp
+     xl(jl)      = zx1
 
-     ztt=(zbetass_l1(jl)-zx1)*cbeta_pq /                     &
-          ((zbetaqt_l1(jl)-zx1)*(cbeta_pq+zskew1(jl)))
-     ztt=REAL(nbetax,wp)*MAX(MIN(ztt,1.0_wp),0.0_wp)
+     ztt         = (zbetass_l1(jl)-zx1)*cbeta_pq /                               &
+                            ((zbetaqt_l1(jl)-zx1)*(cbeta_pq+zskew1(jl)))
+     ztt         = REAL(nbetax,wp)*MAX(MIN(ztt,1.0_wp),0.0_wp)
      zalpha1(jl) = ztt - AINT(ztt,wp)
      itv1(jl)    = INT(ztt)
   END DO
 
 !IBM* novector
-  DO jl=1,ictit
+  DO jl = 1,ictit
 
-     zx2 =(cbeta_pq+zskew1(jl))*zbetaqt_l1(jl) - cbeta_pq*zbetass_l1(jl)
+     zx2 = (cbeta_pq+zskew1(jl))*zbetaqt_l1(jl) - cbeta_pq*zbetass_l1(jl)
      zx2 = zx2 / zskew1(jl)
      zx2 = MIN(zx2,zbetaqt_l1(jl),zbetass_l1(jl))
      xh(jl)=zx2
   END DO
 
 !IBM* novector
-  DO jl=1,ictit
+  DO jl = 1,ictit
      zx2 = xh(jl)
      ztt = (zbetass_l1(jl)-zx2)*cbeta_pq
      ztt = ztt / ((zbetaqt_l1(jl)-zx2)*(cbeta_pq+zskew1(jl)))
@@ -493,9 +425,8 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
   END DO
 
   IF (ictit > 0) THEN ! mpuetz : don't fuse with previous loop
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-     DO jl=1,ictit
+     DO jl = 1,ictit
         ix1 = itv1(jl)
         ix2 = itv2(jl)
         zx1 = xl(jl)
@@ -503,30 +434,30 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 
         iq = iqidx_l1(jl)
 
-        zbetai0=zalpha1(jl)*tbetai(0,iq,ix1+1) + (1._wp - zalpha1(jl))*tbetai(0,iq,ix1)
-        zbetai1=zalpha1(jl)*tbetai(1,iq,ix1+1) + (1._wp - zalpha1(jl))*tbetai(1,iq,ix1)
-        fl(jl)=(zbetaqt_l1(jl)-zx1)*zbetai1 -                              &
-             (zbetass_l1(jl)-zx1)*zbetai0 +                                &
+        zbetai0=zalpha1(jl)*tbetai(0,iq,ix1+1) +                                 &
+                                   (1._wp - zalpha1(jl))*tbetai(0,iq,ix1)
+        zbetai1=zalpha1(jl)*tbetai(1,iq,ix1+1) +                                 &
+                                   (1._wp - zalpha1(jl))*tbetai(1,iq,ix1)
+        fl(jl)=(zbetaqt_l1(jl)-zx1)*zbetai1 -                                    &
+             (zbetass_l1(jl)-zx1)*zbetai0 +                                      &
              zbetass_l1(jl)-MAX(cqtmin,pqm1_l1(jl))
         !
         !   3 conditions for the maximum iteration bound: a<qs,a<qt,b>qs
         !
-        zbetai0=zalpha2(jl)*tbetai(0,iq,ix2+1) + (1._wp - zalpha2(jl))*tbetai(0,iq,ix2)
-        zbetai1=zalpha2(jl)*tbetai(1,iq,ix2+1) + (1._wp - zalpha2(jl))*tbetai(1,iq,ix2)
-        fh(jl)=(zbetaqt_l1(jl)-zx2)*zbetai1 -                              &
-             (zbetass_l1(jl)-zx2)*zbetai0 +                                &
-             zbetass_l1(jl)-MAX(cqtmin,pqm1_l1(jl))
-        !    PRINT '(A6,3 I7,2 E26.18,I2)','liter',jl,itv1(jl),itv2(jl),fl(jl),fh(jl)
+        zbetai0=zalpha2(jl)*tbetai(0,iq,ix2+1) +                                 &
+                                   (1._wp - zalpha2(jl))*tbetai(0,iq,ix2)
+        zbetai1=zalpha2(jl)*tbetai(1,iq,ix2+1) +                                 &
+                                   (1._wp - zalpha2(jl))*tbetai(1,iq,ix2)
+        fh(jl)=(zbetaqt_l1(jl)-zx2)*zbetai1 - (zbetass_l1(jl)-zx2)*zbetai0 +     &
+                                   zbetass_l1(jl)-MAX(cqtmin,pqm1_l1(jl))
      END DO
   END IF
 
-!  IF (ictit > 0) STOP 'debug'
-
 !IBM* NOVECTOR
-  DO jt=1,niter   ! short iteration loop
+  DO jt = 1,niter   ! short iteration loop
 
      locnt = 1
-     DO jl=1,ictit
+     DO jl = 1,ictit
         loidx(locnt) = jl
         locnt = locnt + liter(jl)
      END DO
@@ -534,9 +465,8 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 
      IF (locnt.EQ.0) exit   ! all sites converged
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-     DO nl=1,locnt   ! longer loop over indices
+     DO nl = 1,locnt   ! longer loop over indices
         jl = loidx(nl)
         xm(jl)=0.5_wp*(xl(jl)+xh(jl))
         ztt=(zbetass_l1(jl)-xm(jl))*cbeta_pq
@@ -546,63 +476,62 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
         itv1(nl)    = INT(ztt)
      END DO
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-     DO nl=1,locnt   ! longer loop over indices
+     DO nl = 1,locnt   ! longer loop over indices
         jl = loidx(nl)
         iq = iqidx_l1(jl)
         ix = itv1(nl)
 
-        zbetai0=zalpha1(nl)*tbetai(0,iq,ix+1) + (1._wp - zalpha1(nl))*tbetai(0,iq,ix)
-        zbetai1=zalpha1(nl)*tbetai(1,iq,ix+1) + (1._wp - zalpha1(nl))*tbetai(1,iq,ix)
+        zbetai0=zalpha1(nl)*tbetai(0,iq,ix+1) +                                  &
+                                   (1._wp - zalpha1(nl))*tbetai(0,iq,ix)
+        zbetai1=zalpha1(nl)*tbetai(1,iq,ix+1) +                                  &
+                                   (1._wp - zalpha1(nl))*tbetai(1,iq,ix)
 
-        fm(jl)=(zbetaqt_l1(jl)-xm(jl))*zbetai1-                        &
-             (zbetass_l1(jl)-xm(jl))*zbetai0+                          &
-             zbetass_l1(jl)-MAX(cqtmin,pqm1_l1(jl))
+        fm(jl)=(zbetaqt_l1(jl)-xm(jl))*zbetai1-                                  &
+                                   (zbetass_l1(jl)-xm(jl))*zbetai0+              &
+                                    zbetass_l1(jl)-MAX(cqtmin,pqm1_l1(jl))
         ztmp(nl)=MAX(fm(jl)**2-fl(jl)*fh(jl),0._wp)
      END DO
 
      ztmp(1:locnt) = SQRT(ztmp(1:locnt))
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-     DO nl=1,locnt   ! longer loop over indices
+     DO nl = 1,locnt   ! longer loop over indices
         jl = loidx(nl)
 
         ztt = ztmp(nl)
-        ztt = xm(jl)+(xm(jl)-xl(jl))                                   &
+        ztt = xm(jl)+(xm(jl)-xl(jl))                                             &
             * (sign(1._wp,fl(jl)-fh(jl))*SWDIV_NOCHK(fm(jl),ztt)) !update formula
         ztt = FSEL(-ztmp(nl),xnew(jl),ztt)
 
         liter(jl) = INT(FSEL(ziter_acc*zbetacl_l1(jl)-ABS(xnew(jl)-ztt),0._wp,1._wp))
 !        IF (abs(xnew(jl)-ztt).le.ziter_acc*zbetacl_l1(jl)) liter(jl)=.false.
         xnew(jl)=ztt
-        ztt=(zbetass_l1(jl)-xnew(jl))*cbeta_pq/                        &
-             ((zbetaqt_l1(jl)-xnew(jl))*                               &
-             (cbeta_pq+zskew1(jl)))
+        ztt=(zbetass_l1(jl)-xnew(jl))*cbeta_pq/                                  &
+                            ((zbetaqt_l1(jl)-xnew(jl))* (cbeta_pq+zskew1(jl)))
         ztt=REAL(nbetax,wp)*MAX(MIN(ztt,1.0_wp),0.0_wp)
         zalpha1(nl) = ztt - DINT(ztt)
         itv1(nl) = INT(ztt)
      END DO
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-     DO nl=1,locnt   ! longer loop over indices
+     DO nl = 1,locnt   ! longer loop over indices
         jl = loidx(nl)
         iq = iqidx_l1(jl)
         ix = itv1(nl)
 
-        zbetai0=zalpha1(nl)*tbetai(0,iq,ix+1) + (1._wp - zalpha1(nl))*tbetai(0,iq,ix)
-        zbetai1=zalpha1(nl)*tbetai(1,iq,ix+1) + (1._wp - zalpha1(nl))*tbetai(1,iq,ix)
+        zbetai0=zalpha1(nl)*tbetai(0,iq,ix+1) +                                  &
+                                   (1._wp - zalpha1(nl))*tbetai(0,iq,ix)
+        zbetai1=zalpha1(nl)*tbetai(1,iq,ix+1) +                                  &
+                                   (1._wp - zalpha1(nl))*tbetai(1,iq,ix)
 
-        fnew(jl)=(zbetaqt_l1(jl)-xnew(jl))*zbetai1-                    &
-             (zbetass_l1(jl)-xnew(jl))*zbetai0+                        &
-             zbetass_l1(jl)-MAX(cqtmin,pqm1_l1(jl))
+        fnew(jl)=(zbetaqt_l1(jl)-xnew(jl))*zbetai1-                              &
+                                   (zbetass_l1(jl)-xnew(jl))*zbetai0+            &
+                                    zbetass_l1(jl)-MAX(cqtmin,pqm1_l1(jl))
      END DO
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-     DO nl=1,locnt   ! longer loop over indices
+     DO nl = 1,locnt   ! longer loop over indices
         jl = loidx(nl)
 !
 !   bookkeeping to keep the root bracketed on next iteration.
@@ -621,15 +550,14 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
         ENDIF
     END DO
 
-  ENDDO !niter
+  END DO !niter
 !
 !   Set a and diagnose b
 !
 !DIR$ CONCURRENT
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
 !IBM* novector
-  DO nl=1,ictit
+  DO nl = 1,ictit
      jl = iptit(1,nl)
      jk = iptit(2,nl)
      zvartarget=MAX(cqtmin,cvarmin*pqm1_l1(nl))
@@ -643,15 +571,14 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
      zbb=MAX(zbb,zaa+zvartarget)
      pbetaa(jl,jk)=zaa
      pbetab(jl,jk)=zbb
- ENDDO
+ END DO
 !
 !   Overcast or clear sky: Diagnostic gridpoints
 !
 !DIR$ CONCURRENT
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
 !IBM* novector
-  DO nl=1,ictdg
+  DO nl = 1,ictdg
      jl = iptdg(1,nl)
      jk = iptdg(2,nl)
      zvartarget=MAX(cqtmin,cvarmin*pqm1_l2(nl))
@@ -689,15 +616,15 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
     zbb=MAX(zbb,zaa+zvartarget)
     pbetaa(jl,jk)=zaa
     pbetab(jl,jk)=zbb
-  ENDDO
+  END DO
 !
   IF (kbeta <= klev) THEN
 
      ! beta function scheme
 
      nl = 0
-     DO jk=kbeta,klev
-        DO jl=1,kproma
+     DO jk = kbeta,klev
+        DO jl = 1,kproma
 !
 !   Define variance
 !
@@ -719,8 +646,8 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 
      locnt = 1
      IF (kproma > 0) THEN
-     DO jk=kbeta,klev
-        DO jl=1,kproma
+     DO jk = kbeta,klev
+        DO jl = 1,kproma
            iptit(1,locnt) = jl
            iptit(2,locnt) = jk
            locnt = locnt + lo(jl,jk)
@@ -731,11 +658,10 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 
      IF (locnt.GT.0) THEN
 
-        ! compute paclc using beta function scheme for all (jl,jk) where  0 < pcalc < 1
+! compute paclc using beta function scheme for all (jl,jk) where  0 < pcalc < 1
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-        DO nl=1,locnt
+        DO nl = 1,locnt
            jl = iptit(1,nl)
            jk = iptit(2,nl)
 
@@ -743,16 +669,15 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
            ztt=REAL(nbetax,wp)*MAX(MIN(ztt,1.0_wp),0.0_wp)
            zalpha1(nl) = ztt - DINT(ztt)
 
-!#define __power6opt__
 #ifdef __power6opt__
            loidx(nl)   = INT(ztt)
         END DO
 
-        ! power6 optimization : split loop to hide float-to-int coversion load-hit-store latency
+! power6 optimization : split loop to hide float-to-int coversion 
+!                       load-hit-store latency
 
-!CDIR NODEP
 !IBM* ASSERT(NODEPS)
-        DO nl=1,locnt
+        DO nl = 1,locnt
            jl = iptit(1,nl)
            jk = iptit(2,nl)
            ix = loidx(nl)
@@ -761,7 +686,8 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 #endif
            iq = iqidx(jl,jk)
 
-           zbetai0 = zalpha1(nl)*tbetai(0,iq,ix+1) +(1._wp - zalpha1(nl))*tbetai(0,iq,ix)
+           zbetai0 = zalpha1(nl)*tbetai(0,iq,ix+1) +                             &
+                                       (1._wp - zalpha1(nl))*tbetai(0,iq,ix)
            paclc(jl,jk) = MAX(zbetacl(jl,jk)/cmmrmax,1.0_wp - zbetai0)
            !    Fractional cloud cover > 0.01 required for middle atmosphere
            paclc(jl,jk) = MAX(MIN(paclc(jl,jk),1.0_wp),0.01_wp)
@@ -769,41 +695,45 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
 
      END IF
   END IF
- END IF   ! lcover
+ END IF   ! icover.EQ.2
 !
 !       1.   Calculate the saturation mixing ratio
 !
   IF (ktdia < kbeta) THEN
 
-     DO jk=ktdia,kbeta-1
+     DO jk = ktdia,kbeta-1
 
-        CALL prepare_ua_index('cover (2)',kproma,ptm1(1,jk),itv1(1), &
-          &                   pxim1(1,jk),nphase,zphase,itv2)
-        CALL lookup_ua_eor_uaw(kproma,itv1(1),nphase,itv2(1),ua(1))
+        CALL prepare_ua_index_spline('cover (2)',kproma,ptm1(1,jk),itv1(1),      &
+                                         za(1),pxim1(1,jk),nphase,zphase,itv2)
+        CALL lookup_ua_eor_uaw_spline(kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
 
 !IBM* novector
-        DO jl=1,kproma
+        DO jl = 1,kproma
            zqsm1(jl) = MIN(ua(jl)*zpapm1i(jl,jk),0.5_wp)
            zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl))
            zqsm1(jl) = zqsm1(jl)*zcor
-        ENDDO
+        END DO
 !
 !       Threshold relative humidity, qsat and cloud cover
 !       This is from cloud, and is the original calculation for
 !       cloud cover, based on relative humidity
 !       (Lohmann and Roeckner, Clim. Dyn.  96)
 !
-      DO jl=1,kproma
+      DO jl = 1,kproma
 !
-        zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)                &
-             /papm1(jl,jk))**nex)
+        zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
         zsat=1._wp
         jb=knvb(jl)
-        lao=(jb.GE.jbmin .AND. jb.LE.jbmax .AND. pvervel(jl,jk).GT.0._wp)
-        lao1=(jk.EQ.jb .OR. jk.EQ.jb+1)
+        lao=(jb.GE.jbmin .AND. jb.LE.jbmax)
+        lao1=(jk.EQ.jb)
+        ilev=klev
         IF (lao .AND. lao1) THEN
-          printop(jl)=REAL(jb,wp)
-          zsat=csatsc
+!          ilev=klevp1-jb
+          ilev=100
+          printop(jl)=REAL(ilev,wp)
+          zdtdz = (ptm1(jl,jb-1)-ptm1(jl,jb))*grav/(pgeo(jl,jb-1)-pgeo(jl,jb))
+          zgam  = MAX(0.0_wp,-zdtdz*cpd/grav)
+          zsat  = MIN(1.0_wp,csatsc+zgam)
         END IF
         zqr=pqm1(jl,jk)/(zqsm1(jl)*zsat)
         paclc(jl,jk)=(zqr-zrhc)/(1.0_wp-zrhc)
@@ -811,7 +741,7 @@ SUBROUTINE cover (         kproma,   kbdim, ktdia, klev, klevp1, lcover  &
         paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))
       END DO !jl
      END DO  !jk
-  END IF ! "pseudo lcover=false"
+  END IF ! "pseudo icover.EQ.1"
 
 #ifdef _PROFILE
   CALL trace_stop ('cover', 9)

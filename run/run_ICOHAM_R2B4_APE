@@ -148,7 +148,6 @@ cat > NAMELIST_ICON << EOF
 &dynamics_ctl
 /
 &echam_phy_nml
- lcover = .FALSE.           ! switch off prognostic cloud cover scheme (Tompkins 2002)
  lcond  = .TRUE.            ! switch on  large-scale condensation
  lconv  = .TRUE.            ! switch on  cumulus convection
  lvdiff = .TRUE.            ! switch on  surface and PBL processes
