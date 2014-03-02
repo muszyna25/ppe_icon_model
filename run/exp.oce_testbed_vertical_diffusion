@@ -103,7 +103,7 @@ LOC='none'
 grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
 ocean_grids="iconR2B04-ocean_etopo40_planet_newgeom_noinland.nc"
 ocean_grids="iconR2B02-ocean_etopo40_planet.nc"
-ocean_grids=iconR2B00-ocean_aqua_planet.nc
+ocean_grids="iconR2B00-ocean_aqua_planet.nc"
 
 p_test_run=${p_test:=".false."}
 if [ $p_test_run = ".true." ] ; then

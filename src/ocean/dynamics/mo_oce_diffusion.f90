@@ -1017,9 +1017,7 @@ SUBROUTINE tracer_diffusion_vert_explicit(p_patch_3D,        &
 
 END SUBROUTINE tracer_diffusion_vert_explicit
 
-
   !-------------------------------------------------------------------------
-  !
   !!Subroutine implements implicit vertical diffusion for scalar fields.
   !>
   !! sbr identical to sbr above but now with homogeneous boundary conditions
@@ -1029,15 +1027,17 @@ END SUBROUTINE tracer_diffusion_vert_explicit
   !! Preconditioning by Leonidas Linardakis, MPI-M (2014)
   !!
   !! The result ocean_tracer%concetration is calculated on domain_cells
+  !-------------------------------------------------------------------------
   SUBROUTINE tracer_diffusion_vert_implicit( patch_3D,               &
                                            & ocean_tracer, h_c, A_v,   &
-                                           & p_op_coeff )
+                                           & operators_coefficients ) !,  &
+                                          ! & diff_column)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET     :: p_op_coeff
+    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
     !
     !
     INTEGER :: slev
@@ -1107,17 +1107,17 @@ END SUBROUTINE tracer_diffusion_vert_explicit
         !------------------------------------
         ! solver from lapack
         !
-        ! eliminate lower diagonal
-        DO jk=slev, z_dolic-1
-          fact(jk+1) = a( jk+1 ) / b( jk )
-          b( jk+1 ) = b( jk+1 ) - fact(jk+1) * c( jk )
-          column_tracer( jk+1 ) = column_tracer( jk+1 ) - fact(jk+1) * column_tracer( jk )
+        ! eliminate upper diagonal
+        DO jk=z_dolic-1, slev, -1
+          fact(jk+1)  = c( jk ) / b( jk+1 )
+          b( jk ) = b( jk ) - fact(jk+1) * a( jk +1 )
+          column_tracer( jk ) = column_tracer( jk ) - fact(jk+1) * column_tracer( jk+1 )
         ENDDO
 
         !     Back solve with the matrix U from the factorization.
-        column_tracer( z_dolic ) = column_tracer( z_dolic ) / b( z_dolic )
-        DO jk =  z_dolic-1, 1, -1
-          column_tracer( jk ) = ( column_tracer( jk ) - c( jk ) * column_tracer( jk+1 ) ) / b( jk )
+        column_tracer( 1 ) = column_tracer( 1 ) / b( 1 )
+        DO jk =  2,z_dolic
+          column_tracer( jk ) = ( column_tracer( jk ) - a( jk ) * column_tracer( jk-1 ) ) / b( jk )
         ENDDO
 
         DO jk = 1, z_dolic

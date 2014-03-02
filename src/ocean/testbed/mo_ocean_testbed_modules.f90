@@ -185,7 +185,7 @@ CONTAINS
     CALL dbg_print('tracer', ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
 
     CALL fill_tracer_x_height(patch_3d, ocean_state(1))
-    write(0,*) ocean_tracer%concentration_x_height(:, :, 1)
+!    write(0,*) ocean_tracer%concentration_x_height(:, :, 1)
     sum_trace = SUM(ocean_tracer%concentration_x_height(1, :, 1))
     WRITE(message_text,'(f18.10)') sum_trace
     CALL message("sum=", message_text)
@@ -219,6 +219,7 @@ CONTAINS
     INTEGER :: inner_iter, outer_iter
     TYPE(t_subset_range), POINTER :: edges_in_domain
     REAL(wp), POINTER :: vn_inout(:,:,:), vn_out(:,:,:)
+    REAL(wp) :: sum_vn
 
     edges_in_domain => patch_3d%p_patch_2D(1)%edges%in_domain
     !---------------------------------------------------------------------
@@ -228,9 +229,18 @@ CONTAINS
     !vn_inout(:,1,:) = 1.0
 
     CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_in_domain)
+    sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
+    WRITE(message_text,'(f18.10)') sum_vn
+    CALL message("sum=", message_text)
 
     DO outer_iter=1,1000
       DO inner_iter=1,1000
+
+        CALL update_diffusion_matrices( patch_3d,     &
+          & physics_parameters,                       &
+          & operators_coefficients%matrix_vert_diff_e,&
+          & operators_coefficients%matrix_vert_diff_c)
+
         CALL veloc_diffusion_vert_implicit( patch_3d,  &
           & vn_inout,                                  &
           & physics_parameters%a_veloc_v,              &
@@ -239,6 +249,10 @@ CONTAINS
       ENDDO
       WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, vn'
       CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_in_domain)
+      sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
+      WRITE(message_text,'(f18.10)') sum_vn
+      CALL message("sum=", message_text)
+
     ENDDO
     return
 
@@ -351,7 +365,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE tracer_diffusion_vert_implicit_r1( patch_3D,               &
                                            & ocean_tracer, h_c, A_v,   &
-                                           & p_op_coeff, &
+                                           & operators_coefficients, &
                                            & residual_3D  ) !,  &
                                           ! & diff_column)
 
@@ -359,7 +373,7 @@ CONTAINS
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET     :: p_op_coeff
+    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
     REAL(wp), INTENT(inout) :: residual_3D(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     ! REAL(wp), INTENT(inout)           :: diff_column(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !
@@ -527,16 +541,137 @@ CONTAINS
   !------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+  !!Subroutine implements implicit vertical diffusion for scalar fields.
+  !>
+  !! sbr identical to sbr above but now with homogeneous boundary conditions
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2011).
+  !! Preconditioning by Leonidas Linardakis, MPI-M (2014)
+  !!
+  !! The result ocean_tracer%concetration is calculated on domain_cells
+  !-------------------------------------------------------------------------
   SUBROUTINE tracer_diffusion_vert_implicit_r2( patch_3D,               &
                                            & ocean_tracer, h_c, A_v,   &
-                                           & p_op_coeff ) !,  &
+                                           & operators_coefficients ) !,  &
                                           ! & diff_column)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET     :: p_op_coeff
+    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
+    !
+    !
+    INTEGER :: slev
+    INTEGER :: jc, jk, jb
+    INTEGER :: i_startidx_c, i_endidx_c
+    REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
+    REAL(wp) :: fact(1:n_zlev)
+    ! REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
+    ! REAL(wp) :: inv_prism_thickness(1:n_zlev)
+    REAL(wp) :: dt_inv
+    REAL(wp), POINTER   :: field_column(:,:,:)
+    REAL(wp) :: column_tracer(1:n_zlev)
+    REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
+    INTEGER  :: z_dolic
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    TYPE(t_patch), POINTER         :: patch_2D
+    REAL(wp) :: prism_thickness(1:n_zlev)
+    REAL(wp) :: prisms_center_distance(1:n_zlev), unit(1:n_zlev)
+    !-----------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    field_column    => ocean_tracer%concentration
+    !-----------------------------------------------------------------------
+    slev   = 1
+    dt_inv = 1.0_wp/dtime
+
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+
+        IF (z_dolic <= 0 ) CYCLE
+
+        DO jk=1,z_dolic
+          inv_prism_thickness(jk)        = patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)
+          inv_prisms_center_distance(jk) = patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+        ENDDO
+
+        !------------------------------------
+        ! Fill triangular matrix
+        ! b is diagonal, a is the lower diagonal, c is the upper
+        !   top level
+        a(1) = 0.0_wp
+        c(1) = -A_v(jc,2,jb) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+        b(1) = dt_inv - c(1)
+        DO jk = 2, z_dolic-1
+          a(jk) = - A_v(jc,jk,jb)   * inv_prism_thickness(jk) * inv_prisms_center_distance(jk)
+          c(jk) = - A_v(jc,jk+1,jb) * inv_prism_thickness(jk) * inv_prisms_center_distance(jk+1)
+          b(jk) = dt_inv - a(jk) - c(jk)
+        END DO
+        ! bottom
+        a(z_dolic) = -A_v(jc,z_dolic,jb) * inv_prism_thickness(z_dolic) * inv_prisms_center_distance(z_dolic)
+        b(z_dolic) = dt_inv - a(z_dolic)
+
+        ! precondition: multiply with the diagonal (1, b1, b2, ...)
+        column_tracer(1) = field_column(jc,1,jb) * dt_inv
+        DO jk = 2, z_dolic
+          a(jk) = a(jk) *  b(jk-1)
+          b(jk) = b(jk) *  b(jk-1)
+          c(jk) = dt_inv * b(jk-1) - a(jk) - b(jk)
+
+          column_tracer(jk) = field_column(jc,jk,jb) * dt_inv * b(jk-1)
+
+        ENDDO
+        c(z_dolic) = 0.0_wp
+
+        !------------------------------------
+        ! solver from lapack
+        !
+        ! eliminate upper diagonal
+        DO jk=z_dolic-1, slev, -1
+          fact(jk+1)  = c( jk ) / b( jk+1 )
+          b( jk ) = b( jk ) - fact(jk+1) * a( jk +1 )
+          column_tracer( jk ) = column_tracer( jk ) - fact(jk+1) * column_tracer( jk+1 )
+        ENDDO
+
+        !     Back solve with the matrix U from the factorization.
+        column_tracer( 1 ) = column_tracer( 1 ) / b( 1 )
+        DO jk =  2,z_dolic
+          column_tracer( jk ) = ( column_tracer( jk ) - a( jk ) * column_tracer( jk-1 ) ) / b( jk )
+        ENDDO
+
+        DO jk = 1, z_dolic
+          ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk)
+        ENDDO
+
+      END DO ! jc = i_startidx_c, i_endidx_c
+    END DO ! jb = cells_in_domain%start_block, cells_in_domain%end_block
+
+  END SUBROUTINE tracer_diffusion_vert_implicit_r2
+  !------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !!Subroutine implements implicit vertical diffusion for scalar fields.
+  !>
+  !! sbr identical to sbr above but now with homogeneous boundary conditions
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2011).
+  !! Preconditioning by Leonidas Linardakis, MPI-M (2014)
+  !!
+  !! The result ocean_tracer%concetration is calculated on domain_cells
+  SUBROUTINE tracer_diffusion_vert_implicit_r0( patch_3D,               &
+                                           & ocean_tracer, h_c, A_v,   &
+                                           & operators_coefficients )
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
+    TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
+    REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
+    REAL(wp), INTENT(inout)              :: A_v(:,:,:)
+    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
     !
     !
     INTEGER :: slev
@@ -626,7 +761,8 @@ CONTAINS
       END DO ! jc = i_startidx_c, i_endidx_c
     END DO ! jb = cells_in_domain%start_block, cells_in_domain%end_block
 
-  END SUBROUTINE tracer_diffusion_vert_implicit_r2
+  END SUBROUTINE tracer_diffusion_vert_implicit_r0
   !------------------------------------------------------------------------
+
   
 END MODULE mo_ocean_testbed_modules
