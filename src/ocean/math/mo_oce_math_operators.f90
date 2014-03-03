@@ -1042,7 +1042,7 @@ CONTAINS
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
     
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('heightRelQuant: h_e'    ,ocean_state%p_diag%h_e        ,str_module,idt_src, &
       & in_subset=patch_2D%edges%owned)
     idt_src=3

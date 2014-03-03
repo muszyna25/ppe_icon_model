@@ -186,7 +186,7 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
   INTEGER :: slev, elev
   INTEGER :: jk, jb, je,jc
   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: i_startidx_c, i_endidx_c
+  INTEGER :: start_index, end_index
   INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: idx_cartesian
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
@@ -207,12 +207,12 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
 
   ! loop over cells in local domain + halo
   DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    CALL get_index_range(all_cells, jb, start_index, end_index)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
     DO jk = slev, elev
-      DO jc = i_startidx_c, i_endidx_c
+      DO jc = start_index, end_index
           z_div_grad_u(jc,jk,jb)%x =  0.0_wp
       END DO
     END DO
@@ -263,13 +263,13 @@ SUBROUTINE veloc_diff_harmonic_div_grad( p_patch_3D, p_param, p_diag,&
   iblk => p_patch%cells%edge_blk
 
   DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    CALL get_index_range(all_cells, jb, start_index, end_index)
 
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
     DO jk = slev, elev
-      DO jc = i_startidx_c, i_endidx_c
+      DO jc = start_index, end_index
 
          !IF ( v_base%lsm_c(jc,jk,jb) >= boundary ) THEN
          IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
@@ -325,7 +325,7 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
   INTEGER :: slev, elev
   INTEGER :: jk, jb, je,jc
   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: i_startidx_c, i_endidx_c
+  INTEGER :: start_index, end_index
   INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: idx_cartesian
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
@@ -350,12 +350,12 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
 
   ! loop over cells in local domain + halo
   DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    CALL get_index_range(all_cells, jb, start_index, end_index)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
     DO jk = slev, elev
-      DO jc = i_startidx_c, i_endidx_c
+      DO jc = start_index, end_index
           z_div_grad_u(jc,jk,jb)%x =  0.0_wp
       END DO
     END DO
@@ -403,13 +403,13 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
   iblk => p_patch%cells%edge_blk
 
   DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    CALL get_index_range(all_cells, jb, start_index, end_index)
 
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
     DO jk = slev, elev
-      DO jc = i_startidx_c, i_endidx_c
+      DO jc = start_index, end_index
 
          IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
@@ -461,13 +461,13 @@ SUBROUTINE veloc_diff_biharmonic_div_grad( p_patch_3D, p_param, p_diag,&
   iblk => p_patch%cells%edge_blk
 
   DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    CALL get_index_range(all_cells, jb, start_index, end_index)
 
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
     DO jk = slev, elev
-      DO jc = i_startidx_c, i_endidx_c
+      DO jc = start_index, end_index
 
          IF (p_patch_3D%lsm_c(jc,jk,jb) >= boundary) THEN
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
@@ -959,7 +959,7 @@ SUBROUTINE tracer_diffusion_vert_explicit(p_patch_3D,        &
   !Local variables
   INTEGER                       :: slev, elev
   INTEGER                       :: jc, jk, jb
-  INTEGER                       :: i_startidx_c, i_endidx_c
+  INTEGER                       :: start_index, end_index
   INTEGER                       :: z_dolic
   ! vertical diffusive tracer flux
   REAL(wp)                      :: z_diff_flx(nproma, n_zlev+1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -977,8 +977,8 @@ SUBROUTINE tracer_diffusion_vert_explicit(p_patch_3D,        &
 
   !1 Vertical derivative of tracer
   DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-    DO jc = i_startidx_c, i_endidx_c
+    CALL get_index_range(all_cells, jb, start_index, end_index)
+    DO jc = start_index, end_index
       z_dolic  = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
       IF ( z_dolic >=MIN_DOLIC ) THEN
         !1a) 0cean surface
@@ -1042,7 +1042,7 @@ END SUBROUTINE tracer_diffusion_vert_explicit
     !
     INTEGER :: slev
     INTEGER :: jc, jk, jb
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: start_index, end_index
     REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
     REAL(wp) :: fact(1:n_zlev)
     ! REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
@@ -1054,8 +1054,6 @@ END SUBROUTINE tracer_diffusion_vert_explicit
     INTEGER  :: z_dolic
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER         :: patch_2D
-    REAL(wp) :: prism_thickness(1:n_zlev)
-    REAL(wp) :: prisms_center_distance(1:n_zlev), unit(1:n_zlev)
     !-----------------------------------------------------------------------
     patch_2D        => patch_3D%p_patch_2D(1)
     cells_in_domain => patch_2D%cells%in_domain
@@ -1065,8 +1063,8 @@ END SUBROUTINE tracer_diffusion_vert_explicit
     dt_inv = 1.0_wp/dtime
 
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
+      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
+      DO jc = start_index, end_index
         z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
         IF (z_dolic <= 0 ) CYCLE
@@ -1124,7 +1122,7 @@ END SUBROUTINE tracer_diffusion_vert_explicit
           ocean_tracer%concentration(jc,jk,jb) = column_tracer(jk)
         ENDDO
 
-      END DO ! jc = i_startidx_c, i_endidx_c
+      END DO ! jc = start_index, end_index
     END DO ! jb = cells_in_domain%start_block, cells_in_domain%end_block
 
   END SUBROUTINE tracer_diffusion_vert_implicit
@@ -1157,7 +1155,7 @@ END SUBROUTINE tracer_diffusion_vert_explicit
 !    !Local variables
 !    INTEGER :: slev
 !    INTEGER :: jc, jk, jb
-!    INTEGER :: i_startidx_c, i_endidx_c
+!    INTEGER :: start_index, end_index
 !    REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
 !    REAL(wp) :: fact
 !    ! REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
@@ -1187,8 +1185,8 @@ END SUBROUTINE tracer_diffusion_vert_explicit
 !    dt_inv = 1.0_wp/dtime
 !
 !    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
-!      DO jc = i_startidx_c, i_endidx_c
+!      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
+!      DO jc = start_index, end_index
 !        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 !
 !        IF (z_dolic > 0 ) THEN
@@ -1287,7 +1285,7 @@ END SUBROUTINE tracer_diffusion_vert_explicit
 !
 !        ENDIF ! z_dolic > 0
 !
-!      END DO ! jc = i_startidx_c, i_endidx_c
+!      END DO ! jc = start_index, end_index
 !    END DO ! jb = cells_in_domain%start_block, cells_in_domain%end_block
 !
 !    CALL dbg_print('VertTracDiffImpl:residual' ,residual ,str_module,5, in_subset=p_patch%cells%owned)
