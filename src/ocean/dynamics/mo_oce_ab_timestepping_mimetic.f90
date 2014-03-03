@@ -936,12 +936,12 @@ CONTAINS
       CALL veloc_diffusion_vert_implicit( patch_3d,             &
         & ocean_state%p_diag%vn_pred,      &
         & p_phys_param%a_veloc_v,   &
-        & op_coeffs,               &
-        & ocean_state%p_diag%vn_impl_vert_diff)
-      IF(l_rigid_lid)THEN
-        ocean_state%p_diag%vn_pred(1:nproma,1:n_zlev,1:patch_2D%nblks_e) &
-          & = ocean_state%p_diag%vn_impl_vert_diff(1:nproma,1:n_zlev,1:patch_2D%nblks_e)
-      ENDIF
+        & op_coeffs) !,               &
+!        & ocean_state%p_diag%vn_impl_vert_diff)
+!      IF(l_rigid_lid)THEN
+!        ocean_state%p_diag%vn_pred(1:nproma,1:n_zlev,1:patch_2D%nblks_e) &
+!          & = ocean_state%p_diag%vn_impl_vert_diff(1:nproma,1:n_zlev,1:patch_2D%nblks_e)
+!      ENDIF
       
     ENDIF
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -954,7 +954,7 @@ CONTAINS
       & in_subset=owned_edges)
     
     IF (expl_vertical_velocity_diff == 1 .AND. iswm_oce /= 1) THEN
-      CALL dbg_print('ImplVelocDiff vertical'    ,ocean_state%p_diag%vn_impl_vert_diff ,str_module,idt_src, &
+      CALL dbg_print('ImplVelocDiff vertical'    ,ocean_state%p_diag%vn_pred ,str_module,idt_src, &
         & in_subset=owned_edges )
     ELSE
       CALL dbg_print('VelocLaPlac vertical'      ,ocean_state%p_diag%laplacian_vert    ,str_module,idt_src, &
@@ -1036,7 +1036,7 @@ CONTAINS
     ! LL: this should not be required
     CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%vn_pred)
     CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_prog(nold(1))%vn)
-    CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%vn_impl_vert_diff)
+    ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%vn_impl_vert_diff)
     
     IF(iswm_oce == 1)THEN
       DO jb = all_edges%start_block, all_edges%end_block
@@ -1056,8 +1056,8 @@ CONTAINS
           DO je = edge_start_idx, edge_end_idx
             i_dolic_e =  patch_3d%p_patch_1d(1)%dolic_e(je,jb)
             DO jk=1,i_dolic_e
-              z_vn_ab(je,jk,jb)=ab_gam*ocean_state%p_diag%vn_impl_vert_diff(je,jk,jb)&
-                & + (1.0_wp -ab_gam)* ocean_state%p_prog(nold(1))%vn(je,jk,jb)
+              z_vn_ab(je,jk,jb)=ab_gam * ocean_state%p_diag%vn_pred(je,jk,jb) &
+                & + (1.0_wp -ab_gam) * ocean_state%p_prog(nold(1))%vn(je,jk,jb)
             END DO
           ENDDO
         END DO

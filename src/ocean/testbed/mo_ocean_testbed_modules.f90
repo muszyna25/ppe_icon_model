@@ -218,14 +218,13 @@ CONTAINS
 
     INTEGER :: inner_iter, outer_iter
     TYPE(t_subset_range), POINTER :: edges_in_domain
-    REAL(wp), POINTER :: vn_inout(:,:,:), vn_out(:,:,:)
+    REAL(wp), POINTER :: vn_inout(:,:,:)
     REAL(wp) :: sum_vn
 
     edges_in_domain => patch_3d%p_patch_2D(1)%edges%in_domain
     !---------------------------------------------------------------------
     vn_inout  => ocean_state(1)%p_diag%vn_pred
-    vn_out    => ocean_state(1)%p_diag%vn_impl_vert_diff
-     vn_inout(:,:,:) = 10.0
+    vn_inout(:,:,:) = 10.0
     !vn_inout(:,1,:) = 1.0
 
     CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_in_domain)
@@ -244,8 +243,7 @@ CONTAINS
         CALL veloc_diffusion_vert_implicit( patch_3d,  &
           & vn_inout,                                  &
           & physics_parameters%a_veloc_v,              &
-          & operators_coefficients,                    &
-          & vn_out)
+          & operators_coefficients)
       ENDDO
       WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, vn'
       CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_in_domain)

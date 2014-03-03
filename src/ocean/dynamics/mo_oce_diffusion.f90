@@ -1309,14 +1309,14 @@ END SUBROUTINE tracer_diffusion_vert_explicit
 SUBROUTINE veloc_diffusion_vert_implicit( p_patch_3D,    &
                                         & field_column,  &
                                         & A_v,           &
-                                        & p_op_coeff,    &
-                                        & diff_column)
+                                        & p_op_coeff) !,    &
+!                                        & diff_column)
   TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
   REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !surface height at edges, relevant for thickness of first cell 
   REAL(wp), INTENT(inout)           :: A_v(:,:,:)   
   TYPE(t_operator_coeff), TARGET    :: p_op_coeff
-  REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+!  REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
   !
   !Local variables
   INTEGER :: slev
@@ -1342,7 +1342,7 @@ SUBROUTINE veloc_diffusion_vert_implicit( p_patch_3D,    &
   slev = 1
   dt_inv=1.0_wp/dtime
 
-  diff_column(1:nproma,1:n_zlev,1:p_patch%nblks_e)= 0.0_wp
+  ! diff_column(1:nproma,1:n_zlev,1:p_patch%nblks_e)= 0.0_wp
 
   field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)&
   &=field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)*dt_inv
@@ -1393,9 +1393,9 @@ SUBROUTINE veloc_diffusion_vert_implicit( p_patch_3D,    &
           DO jk = z_dolic-1,1,-1
             field_column(je,jk,jb) = field_column(je,jk,jb)-c(jk)*field_column(je,jk+1,jb)
           END DO
-          DO jk = 1,z_dolic!-1
-            diff_column(je,jk,jb) = field_column(je,jk,jb)
-          END DO
+!          DO jk = 1,z_dolic!-1
+!            diff_column(je,jk,jb) = field_column(je,jk,jb)
+!          END DO
         !ELSEIF ( z_dolic < MIN_DOLIC ) THEN
         !  diff_column(je,1:z_dolic,jb) = 0.0_wp
         !  field_column(je,1:z_dolic,jb)= 0.0_wp
@@ -1410,8 +1410,8 @@ SUBROUTINE veloc_diffusion_vert_implicit( p_patch_3D,    &
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=5  ! output print level (1-5, fix)
-  CALL dbg_print('VelDifImplHom: field_col'  ,field_column             ,str_module,idt_src, in_subset=p_patch%edges%owned)
-  CALL dbg_print('VelDifImplHom: diff_col'   ,diff_column              ,str_module,idt_src, in_subset=p_patch%edges%owned)
+!  CALL dbg_print('VelDifImplHom: field_col'  ,field_column             ,str_module,idt_src, in_subset=p_patch%edges%owned)
+!  CALL dbg_print('VelDifImplHom: diff_col'   ,diff_column              ,str_module,idt_src, in_subset=p_patch%edges%owned)
   !---------------------------------------------------------------------
 
 END SUBROUTINE veloc_diffusion_vert_implicit

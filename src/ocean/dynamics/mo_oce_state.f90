@@ -624,12 +624,12 @@ CONTAINS
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
     ! predicted vn normal velocity component
-    CALL add_var(ocean_restart_list, 'vn_impl_vert_diff', p_os_diag%vn_impl_vert_diff,&
-      & grid_unstructured_edge, za_depth_below_sea, &
-      & t_cf_var('vn_impl_vert_diff','m/s','predicted vn normal velocity component', &
-      & DATATYPE_FLT32),&
-      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+!    CALL add_var(ocean_restart_list, 'vn_impl_vert_diff', p_os_diag%vn_impl_vert_diff,&
+!      & grid_unstructured_edge, za_depth_below_sea, &
+!      & t_cf_var('vn_impl_vert_diff','m/s','predicted vn normal velocity component', &
+!      & DATATYPE_FLT32),&
+!      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
+!      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
     
     CALL add_var(ocean_restart_list, 'vn_time_weighted', p_os_diag%vn_time_weighted, &
       & grid_unstructured_edge, za_depth_below_sea, &

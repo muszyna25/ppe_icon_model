@@ -187,7 +187,7 @@ MODULE mo_oce_types
     ! dimension: (nproma, n_zlev, nblks_e)
       & vn_pred(:,:,:)        ,& ! predicted normal velocity vector at edges.
     ! dimension: (nproma, n_zlev, nblks_e)
-      & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
+    !  & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
     ! dimension: (nproma, n_zlev, nblks_e)
       & vn_time_weighted(:,:,:),&  ! predicted normal velocity vector at edges.
     ! dimension: (nproma, n_zlev, nblks_e)
@@ -308,7 +308,7 @@ MODULE mo_oce_types
       & u_vint(:,:)             ,& ! barotropic zonal velocity. Unit [m*m/s]
       & ptp_vn(:,:,:)           ,& ! normal velocity after mapping P^T P
       & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
-      & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
+      ! & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
       & vn_time_weighted(:,:,:) ,&  ! predicted normal velocity vector at edges.
       & w_time_weighted(:,:,:)  ,& ! predicted normal velocity vector at cells.
       & vort(:,:,:)             ,& ! vorticity at triangle vertices. Unit [1/s]
