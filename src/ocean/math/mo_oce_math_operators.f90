@@ -1008,7 +1008,7 @@ CONTAINS
           inv_edge_thickeness(je,1,jb)= 1.0_wp / edge_thickeness(je,1,jb)
 
           inv_faces_center_distance(je,2,jb) = 2.0_wp / &
-              & (edge_thickeness(jc,1,jb) + edge_thickeness(jc,2,jb))
+              & (edge_thickeness(je,1,jb) + edge_thickeness(je,2,jb))
 
         ELSE
           !Surfacethickness over land remains zero

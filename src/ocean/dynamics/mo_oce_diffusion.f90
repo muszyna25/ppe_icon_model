@@ -1290,16 +1290,16 @@ END SUBROUTINE tracer_diffusion_vert_explicit
 !  END SUBROUTINE tracer_diffusion_vertical_implicit
 
 
-!-------------------------------------------------------------------------  
-!
-!!Subroutine implements implicit vertical diffusion for horizontal velocity fields
-!!by inverting a scalar field..
-!>
-!! sbr identical to previous one, except for homogeneous boundary conditions
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2011).
-!! Optimized ofr round-off erros, Leonidas Linardakis, MPI-M (2014)
+  !-------------------------------------------------------------------------
+  !
+  !!Subroutine implements implicit vertical diffusion for horizontal velocity fields
+  !!by inverting a scalar field..
+  !>
+  !! sbr identical to previous one, except for homogeneous boundary conditions
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2011).
+  !! Optimized ofr round-off erros, Leonidas Linardakis, MPI-M (2014)
   !------------------------------------------------------------------------
   SUBROUTINE velocity_diffusion_vertical_implicit( patch_3D,               &
                                            & velocity, A_v,   &

@@ -218,25 +218,32 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
 
     INTEGER :: inner_iter, outer_iter
-    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_subset_range), POINTER :: edges_owned, cells_owned
     REAL(wp), POINTER :: vn_inout(:,:,:)
     REAL(wp) :: sum_vn
 
-    edges_in_domain => patch_3d%p_patch_2D(1)%edges%in_domain
+    edges_owned => patch_3d%p_patch_2D(1)%edges%owned
+    cells_owned => patch_3d%p_patch_2D(1)%cells%owned
     !---------------------------------------------------------------------
+!    CALL dbg_print('edge invthi', patch_3D%p_patch_1D(1)%inv_prism_thick_e,  debug_string, 1, in_subset=edges_owned)
+!    CALL dbg_print('edge incent', patch_3D%p_patch_1D(1)%inv_prism_center_dist_e,  debug_string, 1, in_subset=edges_owned)
+!    CALL dbg_print('cell invthi', patch_3D%p_patch_1D(1)%inv_prism_thick_c,  debug_string, 1, in_subset=cells_owned)
+!    CALL dbg_print('cell invcent', patch_3D%p_patch_1D(1)%inv_prism_center_dist_c,  debug_string, 1, in_subset=cells_owned)
+    !---------------------------------------------------------------------
+
     vn_inout  => ocean_state(1)%p_diag%vn_pred
     vn_inout(:,:,:) = 10.0
     !vn_inout(:,1,:) = 1.0
 
-    CALL dbg_print('vn diffu', physics_parameters%a_veloc_v,  debug_string, 1, in_subset=edges_in_domain)
+    CALL dbg_print('vn diffu', physics_parameters%a_veloc_v,  debug_string, 1, in_subset=edges_owned)
 
-    CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_in_domain)
+    CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_owned)
     sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
     WRITE(message_text,'(f18.10)') sum_vn
     CALL message("sum=", message_text)
 
     DO outer_iter=1,1000
-      DO inner_iter=1,1000
+      DO inner_iter=1,10
 
 !        CALL update_diffusion_matrices( patch_3d,     &
 !          & physics_parameters,                       &
@@ -249,7 +256,7 @@ CONTAINS
           & operators_coefficients)
       ENDDO
       WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, vn'
-      CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_in_domain)
+      CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_owned)
       sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
       WRITE(message_text,'(f18.10)') sum_vn
       CALL message("sum=", message_text)
@@ -850,5 +857,104 @@ CONTAINS
   END SUBROUTINE velocity_diffusion_vertical_implicit_r1
   !------------------------------------------------------------------------
 
+   !------------------------------------------------------------------------
+  SUBROUTINE velocity_diffusion_vertical_implicit_r2( patch_3D,               &
+                                           & velocity, A_v,   &
+                                           & operators_coefficients ) !,  &
+                                          ! & diff_column)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
+    REAL(wp), INTENT(inout)              :: velocity(:,:,:)   ! on edges
+    REAL(wp), INTENT(inout)              :: A_v(:,:,:)
+    TYPE(t_operator_coeff),TARGET        :: operators_coefficients
+    !
+    REAL(wp) :: dt_inv
+    REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
+    REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev), diagonal_product
+    REAL(wp) :: column_velocity(1:n_zlev)
+    REAL(wp) :: fact(1:n_zlev)
+
+    INTEGER :: bottom_level
+    INTEGER :: edge_index, jk, edge_block
+    INTEGER :: start_index, end_index
+    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_patch), POINTER         :: patch_2D
+
+    !-----------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    all_edges       => patch_2D%edges%all
+    dt_inv = 1.0_wp/dtime
+    !-----------------------------------------------------------------------
+
+    DO edge_block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, edge_block, start_index, end_index)
+      DO edge_index = start_index, end_index
+        bottom_level = patch_3D%p_patch_1D(1)%dolic_e(edge_index,edge_block)
+
+        IF (bottom_level < 1 ) CYCLE
+
+        ! Note : the inv_prism_thick_e, inv_prism_center_dist_e should be updated in calculate_thickness
+        DO jk=1, bottom_level
+          inv_prism_thickness(jk)        = patch_3D%p_patch_1D(1)%inv_prism_thick_e(edge_index,jk,edge_block)
+          inv_prisms_center_distance(jk) = patch_3d%p_patch_1D(1)%inv_prism_center_dist_e(edge_index,jk,edge_block)
+        ENDDO
+
+        !------------------------------------
+        ! Fill triangular matrix
+        ! b is diagonal, a is the lower diagonal, c is the upper
+        !   top level
+        a(1) = 0.0_wp
+        c(1) = -A_v(edge_index,2,edge_block) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+        b(1) = dt_inv - c(1)
+        DO jk = 2, bottom_level-1
+          a(jk) = - A_v(edge_index,jk,edge_block)   * inv_prism_thickness(jk) * inv_prisms_center_distance(jk)
+          c(jk) = - A_v(edge_index,jk+1,edge_block) * inv_prism_thickness(jk) * inv_prisms_center_distance(jk+1)
+          b(jk) = dt_inv - a(jk) - c(jk)
+        END DO
+        ! bottom
+        a(bottom_level) = -A_v(edge_index,bottom_level,edge_block) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+        b(bottom_level) = dt_inv - a(bottom_level)
+
+        ! precondition: set diagonal equal to diagonal_product
+        diagonal_product = PRODUCT(b(1:bottom_level))
+
+        DO jk = 1, bottom_level
+           fact(jk) = diagonal_product / b(jk)
+           a(jk)  = a(jk)  * fact(jk)
+           b(jk)  = diagonal_product
+           c(jk)  = dt_inv * fact(jk) - a(jk) - b(jk)
+           column_velocity(jk) = velocity(edge_index,jk,edge_block) * dt_inv * fact(jk)
+        ENDDO
+        c(bottom_level) = 0.0_wp
+
+        !------------------------------------
+        ! solver from lapack
+        !
+        ! eliminate upper diagonal
+        DO jk = bottom_level-1, 1, -1
+          fact(jk+1)  = c( jk ) / b( jk+1 )
+          b( jk ) = b( jk ) - fact(jk+1) * a( jk +1 )
+          column_velocity( jk ) = column_velocity( jk ) - fact(jk+1) * column_velocity( jk+1 )
+        ENDDO
+
+        !     Back solve with the matrix U from the factorization.
+        column_velocity( 1 ) = column_velocity( 1 ) / b( 1 )
+        DO jk = 2, bottom_level
+          column_velocity( jk ) = ( column_velocity( jk ) - a( jk ) * column_velocity( jk-1 ) ) / b( jk )
+        ENDDO
+
+        DO jk = 1, bottom_level
+          velocity(edge_index,jk,edge_block) = column_velocity(jk)
+        ENDDO
+        DO jk = bottom_level, n_zlev
+          velocity(edge_index,jk,edge_block) = 0.0_wp
+        ENDDO
+
+
+      END DO ! edge_index = start_index, end_index
+    END DO ! edge_block = cells_in_domain%start_block, cells_in_domain%end_block
+
+  END SUBROUTINE velocity_diffusion_vertical_implicit_r2
+  !------------------------------------------------------------------------
   
 END MODULE mo_ocean_testbed_modules
