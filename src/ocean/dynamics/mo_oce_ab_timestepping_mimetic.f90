@@ -81,7 +81,7 @@ MODULE mo_oce_ab_timestepping_mimetic
   
   USE mo_oce_diffusion,             ONLY: velocity_diffusion,&
     & velocity_diffusion_vert_explicit,  &
-    & veloc_diffusion_vert_implicit
+    & velocity_diffusion_vertical_implicit
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
@@ -933,7 +933,7 @@ CONTAINS
       !Surface forcing is implemented as volume forcing in top layer.
       !In this case homogeneous boundary conditions for vertical Laplacian
       
-      CALL veloc_diffusion_vert_implicit( patch_3d,             &
+      CALL velocity_diffusion_vertical_implicit( patch_3d,             &
         & ocean_state%p_diag%vn_pred,      &
         & p_phys_param%a_veloc_v,   &
         & op_coeffs) !,               &

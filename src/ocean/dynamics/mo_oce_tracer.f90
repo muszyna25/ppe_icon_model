@@ -64,7 +64,7 @@ USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
 USE mo_oce_physics
 USE mo_sea_ice_types,             ONLY: t_sfc_flx
-USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_implicit, tracer_diffusion_vert_explicit
+USE mo_oce_diffusion,             ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit
 USE mo_oce_tracer_transport_horz, ONLY: advect_diffuse_horz
 USE mo_oce_tracer_transport_vert, ONLY: advect_flux_vertical
 USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
@@ -660,7 +660,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       !calculate vert diffusion impicit: result is stored in trac_out
       ! no sync because of columnwise computation     
       IF ( l_with_vert_tracer_diffusion ) THEN
-        CALL tracer_diffusion_vert_implicit( &
+        CALL tracer_diffusion_vertical_implicit( &
           & p_patch_3D,                      &
           & new_ocean_tracer,                &
           & A_v,                             &

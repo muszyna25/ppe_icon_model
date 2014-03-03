@@ -830,6 +830,7 @@ CONTAINS
     REAL(wp), POINTER :: top_coeffs(:,:,:), integrated_coeffs(:,:,:), sum_to_2D_coeffs(:,:,:)
     REAL(wp), POINTER :: cell_thickeness(:,:,:), edge_thickeness(:,:,:)
     REAL(wp), POINTER :: inv_cell_thickeness(:,:,:), inv_edge_thickeness(:,:,:)
+    REAL(wp), POINTER :: inv_prisms_center_distance(:,:,:), inv_faces_center_distance(:,:,:)
     REAL(wp)  :: cell_thickeness_1, cell_thickeness_2
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
@@ -839,8 +840,10 @@ CONTAINS
     edges_in_domain     => patch_2D%edges%in_domain
     cell_thickeness     => patch_3D%p_patch_1d(n_dom)%prism_thick_c
     inv_cell_thickeness => patch_3D%p_patch_1d(n_dom)%inv_prism_thick_c
+    inv_prisms_center_distance => patch_3d%p_patch_1d(1)%inv_prism_center_dist_c
     edge_thickeness     => patch_3D%p_patch_1d(n_dom)%prism_thick_e
     inv_edge_thickeness => patch_3D%p_patch_1d(n_dom)%inv_prism_thick_e
+    inv_faces_center_distance => patch_3d%p_patch_1d(1)%inv_prism_center_dist_e
 
  
      ! already done after update fluxes
@@ -982,7 +985,7 @@ CONTAINS
 
           inv_cell_thickeness(jc,1,jb) = 1.0_wp / cell_thickeness(jc,1,jb)
 
-          patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,2,jb) = &
+          inv_prisms_center_distance(jc,2,jb) = &
             1.0_wp / patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,2,jb)
 
         ELSE
@@ -1003,6 +1006,9 @@ CONTAINS
             & = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,jb) + ocean_state%p_diag%h_e(je,jb)
 
           inv_edge_thickeness(je,1,jb)= 1.0_wp / edge_thickeness(je,1,jb)
+
+          inv_faces_center_distance(je,2,jb) = 2.0_wp / &
+              & (edge_thickeness(jc,1,jb) + edge_thickeness(jc,2,jb))
 
         ELSE
           !Surfacethickness over land remains zero
