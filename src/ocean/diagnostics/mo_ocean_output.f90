@@ -68,7 +68,7 @@ MODULE mo_ocean_output
   USE mo_oce_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_oce_math_operators,     ONLY: calculate_thickness
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
+  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file

@@ -80,7 +80,7 @@ MODULE mo_operator_ocean_coeff_3d
   PUBLIC  :: t_operator_coeff
   PUBLIC  :: construct_operators_coefficients
   PUBLIC  :: destruct_operators_coefficients
-  PUBLIC  :: update_diffusion_matrices
+  ! PUBLIC  :: update_diffusion_matrices
 
 
   !these two parameters are set below in sbr "allocate_operators_coefficients"

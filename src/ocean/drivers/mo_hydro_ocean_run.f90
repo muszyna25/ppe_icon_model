@@ -67,7 +67,7 @@ MODULE mo_hydro_ocean_run
   USE mo_oce_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_oce_math_operators,     ONLY: calculate_thickness
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, update_diffusion_matrices
+  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
@@ -135,10 +135,10 @@ CONTAINS
     ELSE
     ENDIF
 
-    CALL update_diffusion_matrices( patch_3d,         &
-      & p_phys_param,                 &
-      & operators_coefficients%matrix_vert_diff_e,&
-      & operators_coefficients%matrix_vert_diff_c)
+!    CALL update_diffusion_matrices( patch_3d,         &
+!      & p_phys_param,                 &
+!      & operators_coefficients%matrix_vert_diff_e,&
+!      & operators_coefficients%matrix_vert_diff_c)
 
      CALL init_ho_lhs_fields_mimetic   ( patch_3d )
 
@@ -313,10 +313,10 @@ CONTAINS
           END SELECT
           IF (ltimer) CALL timer_stop(timer_upd_phys)
         
-          CALL update_diffusion_matrices( patch_3d,   &
-          & p_phys_param,                             &
-          & operators_coefficients%matrix_vert_diff_e,&
-          & operators_coefficients%matrix_vert_diff_c)
+!          CALL update_diffusion_matrices( patch_3d,   &
+!          & p_phys_param,                             &
+!          & operators_coefficients%matrix_vert_diff_e,&
+!          & operators_coefficients%matrix_vert_diff_c)
         
           !------------------------------------------------------------------------
           ! solve for new free surface
