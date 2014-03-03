@@ -112,6 +112,7 @@ MODULE mo_interface_les
 
   REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd
+  INTEGER             :: ncount = 0
 
   PUBLIC :: les_phy_interface
 
@@ -258,6 +259,7 @@ CONTAINS
     IF(sampl_freq_step > 0)THEN
       IF( .NOT.linit .AND. MOD(nstep,sampl_freq_step)==0 )THEN 
          is_sampling_time = .TRUE.
+         ncount = ncount + 1
       ELSE
          is_sampling_time = .FALSE.
       END IF    
@@ -1665,7 +1667,8 @@ CONTAINS
     END IF
 	    
     IF( is_writing_time )THEN
-      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, p_sim_time)
+      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, p_sim_time, ncount)
+      ncount = 0
       prm_diag%turb_diag_1dvar = 0._wp
     END IF 
 

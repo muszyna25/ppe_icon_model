@@ -73,7 +73,7 @@ MODULE mo_sgs_turbulence
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_turbulent_diagnostic,ONLY: is_sampling_time, idx_sgs_th_flx, &
-                                    idx_sgs_qv_flx, idx_sgs_qc_flx, time_wt
+                                    idx_sgs_qv_flx, idx_sgs_qc_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
   USE mo_grid_config,         ONLY: l_limited_area
 
@@ -283,7 +283,7 @@ MODULE mo_sgs_turbulence
     INTEGER  :: nlev, nlevp1             !< number of full levels
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-    INTEGER :: rl_start, rl_end
+    INTEGER :: rl_start, rl_end, jg
     INTEGER :: jk, jb, jc, je, ic, jkp1, jv, jkm1, jcn, jbn, jvn
 
     !--------------------------------------------------------------------------
@@ -291,6 +291,7 @@ MODULE mo_sgs_turbulence
     IF (msg_level >= 15) &
          CALL message(TRIM(inmodule), 'smagorinsky_model')
 
+    jg = p_patch%id
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -483,7 +484,7 @@ MODULE mo_sgs_turbulence
             D_33       =     2._wp * (w_ie(je,jk,jb) - w_ie(je,jkp1,jb)) *   &
                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)               
            
-            !Mechanical prod is half of this value
+            !Mechanical prod is half of this value divided by km
             prm_diag%mech_prod(je,jk,jb) = D_11**2 + D_22**2 + D_33**2 + &
                                           2._wp * ( D_12**2 + D_13**2 + D_23**2 )             
 
@@ -567,7 +568,7 @@ MODULE mo_sgs_turbulence
     !3(b) Calculate stability corrected turbulent viscosity
     !MP = Mechanical prod term calculated above
     !visc = mixing_length_sq * SQRT(MP/2) * SQRT(1-Ri/Pr) where 
-    !Ri = (g/thetav)*d_thetav_dz/(MP/2), where Brunt_vaisala_freq (byncy prod term) 
+    !Ri = (g/thetav)*d_thetav_dz/(MP/2), where Brunt_vaisala_freq (byncy prod term/kh) 
     !   = (g/thetav)*d_thetav_dz. 
     !After simplification: visc = mixing_length_sq * SQRT[ MP/2 - (Brunt_vaisala_frq/Pr) ]
 
@@ -591,7 +592,7 @@ MODULE mo_sgs_turbulence
            visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                 &
                MAX( 0._wp, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
                SQRT(MAX(0._wp, prm_diag%mech_prod(je,jk,jb)*0.5_wp - &
-                               les_config(1)%rturb_prandtl*prm_diag%buoyancy_prod(je,jk,jb))) ) 
+                               les_config(jg)%rturb_prandtl*prm_diag%buoyancy_prod(je,jk,jb))) ) 
 
          END DO
        END DO
@@ -696,7 +697,7 @@ MODULE mo_sgs_turbulence
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jk = 1 , nlev
          DO je = i_startidx, i_endidx
-           diff_smag_e(je,jk,jb) = visc_smag_e(je,jk,jb) * les_config(1)%rturb_prandtl
+           diff_smag_e(je,jk,jb) = visc_smag_e(je,jk,jb) * les_config(jg)%rturb_prandtl
          END DO
        END DO
     END DO
@@ -718,7 +719,7 @@ MODULE mo_sgs_turbulence
          DO jc = i_startidx, i_endidx
            diff_smag_ic(jc,jk,jb) = ( p_nh_metrics%wgtfac_c(jc,jk,jb)*visc_smag_c(jc,jk,jb) + &
                                   (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*visc_smag_c(jc,jk-1,jb) &
-                                  ) * les_config(1)%rturb_prandtl   
+                                  ) * les_config(jg)%rturb_prandtl   
          END DO
        END DO     
     END DO      
@@ -739,7 +740,7 @@ MODULE mo_sgs_turbulence
        !now calculate tkvm
        DO jk = 1 , nlevp1
          DO jc = i_startidx, i_endidx
-           prm_diag%tkvm(jc,jk,jb) = prm_diag%tkvh(jc,jk,jb) * les_config(1)%turb_prandtl 
+           prm_diag%tkvm(jc,jk,jb) = prm_diag%tkvh(jc,jk,jb) * les_config(jg)%turb_prandtl 
          END DO
        END DO     
     END DO      
@@ -1937,7 +1938,7 @@ MODULE mo_sgs_turbulence
 
         outvar = outvar * cpd**2 * rcvd
         prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx) =  &
-               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx)+outvar(1:nlevp1)*time_wt
+               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx)+outvar(1:nlevp1)
 
       ELSEIF(TRIM(scalar_name)=='qv')THEN
 
@@ -1946,7 +1947,7 @@ MODULE mo_sgs_turbulence
 
         outvar = outvar * alv 
         prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qv_flx) =  &
-               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qv_flx)+outvar(1:nlevp1)*time_wt
+               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qv_flx)+outvar(1:nlevp1)
 
       ELSEIF(TRIM(scalar_name)=='qc')THEN
 
@@ -1955,7 +1956,7 @@ MODULE mo_sgs_turbulence
 
         outvar = outvar * alv 
         prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qc_flx) =  &
-               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qc_flx)+outvar(1:nlevp1)*time_wt
+               prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qc_flx)+outvar(1:nlevp1)
 
       END IF  
 

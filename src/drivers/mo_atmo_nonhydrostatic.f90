@@ -469,8 +469,11 @@ CONTAINS
       END DO
     END IF
 
-    IF(atm_phy_nwp_config(1)%is_les_phy) &
-      CALL close_les_turbulent_output
+    !Close LES diag files
+    DO jg = 1 , n_dom
+     IF(atm_phy_nwp_config(jg)%is_les_phy) &
+       CALL close_les_turbulent_output(jg)
+    END DO
 
     CALL message(TRIM(routine),'clean-up finished')
     

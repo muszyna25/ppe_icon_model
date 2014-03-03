@@ -37,8 +37,9 @@ MODULE mo_les_config
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_grid_config,         ONLY: is_plane_torus
+  USE mo_math_constants,      ONLY: dbl_eps
 
   IMPLICIT NONE
   PRIVATE
@@ -73,6 +74,11 @@ MODULE mo_les_config
     !Scheme for vertical discretization
     INTEGER :: vert_scheme_type !1=explicit, 2=implicit
 
+    !Parameters for additional diagnostic output
+    LOGICAL  :: ldiag_les_out                    !.TRUE. to turn it on
+    REAL(wp) :: avg_interval_sec, sampl_freq_sec !averaging and sampling time 
+    CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
+
   END TYPE t_les_config
   !>
   !!
@@ -80,11 +86,12 @@ MODULE mo_les_config
 
   CONTAINS
 
-  SUBROUTINE configure_les(jg)
+  SUBROUTINE configure_les(jg, dtime_adv)
   !--------------------------------------------------------------------------------------
   !  Set up LES parameters 
   !--------------------------------------------------------------------------------------
     INTEGER, INTENT(IN) :: jg !patch id
+    REAL(wp),INTENT(IN) :: dtime_adv
 
     CHARACTER(*), PARAMETER :: routine = "mo_les_config:configure_les:"
 
@@ -127,6 +134,42 @@ MODULE mo_les_config
        les_config(jg)%lhflx = 0._wp
     END IF
 
+    !Adjust sampling and frequency time
+    IF(les_config(jg)%ldiag_les_out)THEN
+
+     IF( MOD(les_config(jg)%avg_interval_sec, dtime_adv) > 10._wp*dbl_eps )  THEN
+      WRITE(message_text,'(a,2F13.4)') &
+        &'WARNING: averaging interval and advective timesteps not synchronized: ', &
+        & les_config(jg)%avg_interval_sec, dtime_adv
+      CALL message(TRIM(routine), TRIM(message_text))
+
+      les_config(jg)%avg_interval_sec =   &
+           REAL((FLOOR(les_config(jg)%avg_interval_sec/dtime_adv) + 1),wp) * dtime_adv
+
+      WRITE(message_text,'(a,2F13.4)') &
+          'implicit synchronization in configure_les: avg_interval_sec =', &
+          les_config(jg)%avg_interval_sec
+      CALL message(TRIM(routine), TRIM(message_text))
+     END IF
+
+     IF( MOD(les_config(jg)%sampl_freq_sec, dtime_adv) > 10._wp*dbl_eps )  THEN
+      WRITE(message_text,'(a,2F13.4)') &
+        &'WARNING: sampling frequency and advective timesteps not synchronized: ', &
+        & les_config(jg)%sampl_freq_sec, dtime_adv
+      CALL message(TRIM(routine), TRIM(message_text))
+
+      les_config(jg)%sampl_freq_sec =   &
+           REAL((FLOOR(les_config(jg)%sampl_freq_sec/dtime_adv) + 1),wp) * dtime_adv
+
+      WRITE(message_text,'(a,2F13.4)') &
+         'implicit synchronization in configure_les: sampl_freq_sec =', &
+         les_config(jg)%sampl_freq_sec
+      CALL message(TRIM(routine), TRIM(message_text))
+     END IF
+
+    ENDIF
+     
+ 
   END SUBROUTINE configure_les
 
 END MODULE mo_les_config

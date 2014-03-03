@@ -290,7 +290,7 @@ CONTAINS
     !
     ! DR: a clean implementation would require to put the following lines into 
     ! a jg-loop.
-    IF( MOD( dtime_adv,atm_phy_nwp_config(1)%dt_conv) > 10._wp*dbl_eps )  THEN
+    IF( MOD(atm_phy_nwp_config(1)%dt_conv,dtime_adv) > 10._wp*dbl_eps )  THEN
       WRITE(message_text,'(a,2F9.1)') &
         &'WARNING: convective and advective timesteps not synchronized: ', &
         & dt_phy(1,itconv), dtime_adv
@@ -309,7 +309,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%is_les_phy = .FALSE. 
     
       IF(atm_phy_nwp_config(jg)%inwp_turb==ismag)THEN
-        CALL configure_les(jg)
+        CALL configure_les(jg,dtime_adv)
         atm_phy_nwp_config(jg)%is_les_phy = .TRUE. 
       END IF 
     

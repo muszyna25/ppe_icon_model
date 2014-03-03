@@ -48,8 +48,8 @@ MODULE mo_les_nml
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: read_les_namelist, sampl_freq_sec, avg_interval_sec
-  PUBLIC :: turb_profile_list, turb_tseries_list, expname, ldiag_les_out
+  PUBLIC :: read_les_namelist
+  PUBLIC :: turb_profile_list, turb_tseries_list
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -192,6 +192,10 @@ CONTAINS
       les_config(jg)% bflux             =  bflux
       les_config(jg)% tran_coeff        =  tran_coeff
       les_config(jg)% vert_scheme_type  =  vert_scheme_type
+      les_config(jg)% ldiag_les_out     =  ldiag_les_out
+      les_config(jg)% expname           =  expname
+      les_config(jg)% avg_interval_sec  =  avg_interval_sec
+      les_config(jg)% sampl_freq_sec    =  sampl_freq_sec
     END DO
 
     !-----------------------------------------------------

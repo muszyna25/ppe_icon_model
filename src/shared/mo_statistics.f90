@@ -542,7 +542,7 @@ CONTAINS
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
 
-    IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+    IF (in_subset%no_of_holes > 0) CALL warning(method_name, "there are holes in the subset")
 
     no_of_threads = 1
     myThreadNo = 0

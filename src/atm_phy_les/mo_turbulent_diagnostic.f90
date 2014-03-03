@@ -63,9 +63,8 @@ MODULE mo_turbulent_diagnostic
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_lnd_diag 
   USE mo_parallel_config,    ONLY: nproma
   USE mo_statistics,         ONLY: levels_horizontal_mean
-  USE mo_les_nml,            ONLY: avg_interval_sec, turb_profile_list, &
-                                   sampl_freq_sec, turb_tseries_list, &
-                                   expname, ldiag_les_out
+  USE mo_les_nml,            ONLY: turb_profile_list, turb_tseries_list
+  USE mo_les_config,         ONLY: les_config
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
@@ -80,7 +79,6 @@ MODULE mo_turbulent_diagnostic
   INTEGER  :: fileid_tseries, fileid_profile
   INTEGER  :: sampl_freq_step, avg_interval_step
   LOGICAL  :: is_sampling_time, is_writing_time
-  REAL(wp) :: time_wt
 
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
@@ -96,7 +94,7 @@ MODULE mo_turbulent_diagnostic
   PUBLIC  :: calculate_turbulent_diagnostics, write_vertical_profiles, write_time_series
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
   PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
-  PUBLIC  :: time_wt, idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
+  PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
 
 CONTAINS
 
@@ -152,6 +150,7 @@ CONTAINS
     IF(msg_level>18) & 
       CALL message(routine,'Start!')
 
+    jg         = p_patch%id
     nlev       = p_patch%nlev
     nlevp1     = nlev + 1
     
@@ -186,8 +185,6 @@ CONTAINS
                  !Some vertical profiles
 !======================================================================================
     
-    time_wt = sampl_freq_sec / avg_interval_sec
-
     nvar = SIZE(turb_profile_list,1)
 
     !Loop over all variables
@@ -556,9 +553,9 @@ CONTAINS
 
      !Calculate time mean
      IF(is_at_full_level(n))THEN
-       prm_diag%turb_diag_1dvar(1:nlev,n) = prm_diag%turb_diag_1dvar(1:nlev,n)+outvar(1:nlev)*time_wt
+       prm_diag%turb_diag_1dvar(1:nlev,n) = prm_diag%turb_diag_1dvar(1:nlev,n)+outvar(1:nlev)
      ELSE
-       prm_diag%turb_diag_1dvar(1:nlevp1,n) = prm_diag%turb_diag_1dvar(1:nlevp1,n)+outvar(1:nlevp1)*time_wt
+       prm_diag%turb_diag_1dvar(1:nlevp1,n) = prm_diag%turb_diag_1dvar(1:nlevp1,n)+outvar(1:nlevp1)
      END IF
 
     END DO!nvar
@@ -617,12 +614,17 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE write_vertical_profiles(outvar, sim_time)
+  SUBROUTINE write_vertical_profiles(outvar, sim_time, ncount)
     REAL(wp), INTENT(IN) :: outvar(:,:), sim_time
+    INTEGER, INTENT (IN) :: ncount
 
     INTEGER :: nvar, n
+    REAL(wp):: inv_ncount
  
     !Write profiles
+      
+    inv_ncount = 1._wp / REAL(ncount,wp)
+
     nvar = SIZE(turb_profile_list,1)
 
     !Loop over all variables
@@ -632,7 +634,8 @@ CONTAINS
       CALL writevar_nc(fileid_profile, tname, sim_time, nrec_profile) 
 
       DO n = 1 , nvar       
-       CALL writevar_nc(fileid_profile, TRIM(turb_profile_list(n)), outvar(:,n), nrec_profile) 
+       CALL writevar_nc(fileid_profile, TRIM(turb_profile_list(n)),  &
+                        outvar(:,n)*inv_ncount, nrec_profile) 
       END DO
 
     END IF
@@ -693,12 +696,14 @@ CONTAINS
    CHARACTER (LEN=80)                        :: longname, unit
    REAL(wp), ALLOCATABLE                     :: dimvalues(:,:)
    INTEGER,  ALLOCATABLE                     :: dimsize(:)
-   INTEGER :: n, nlev, nlevp1, nvar
+   INTEGER :: n, nlev, nlevp1, nvar, jg
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
  
+   jg = p_patch%id
+
    !Check if diagnostics are to be calculated or not
-   IF(.NOT.ldiag_les_out)THEN
+   IF(.NOT.les_config(jg)%ldiag_les_out)THEN
     sampl_freq_step   = 0
     avg_interval_step = 0
     RETURN
@@ -707,8 +712,8 @@ CONTAINS
    IF(msg_level>18)CALL message(routine,'Start!')
 
    !Sampling and output frequencies in terms of time steps
-   sampl_freq_step   = MAX(1,NINT(sampl_freq_sec/dtime))
-   avg_interval_step = MAX(1,NINT(avg_interval_sec/dtime))
+   sampl_freq_step   = NINT(les_config(jg)%sampl_freq_sec/dtime)
+   avg_interval_step = NINT(les_config(jg)%avg_interval_sec/dtime)
 
    nlev   = p_patch%nlev
    nlevp1 = nlev + 1
@@ -722,7 +727,7 @@ CONTAINS
 
    !open profile file
    IF( my_process_is_stdio() ) &
-     CALL open_nc(TRIM(expname)//'_profile.nc', fileid_profile, nrec_profile, time, ldelete)
+     CALL open_nc(TRIM(les_config(jg)%expname)//'_profile.nc', fileid_profile, nrec_profile, time, ldelete)
  
    !addvar
    nvar = SIZE(turb_profile_list,1)
@@ -822,11 +827,11 @@ CONTAINS
        is_at_full_level(n) = .FALSE.
        idx_sgs_qc_flx = n
      CASE('bynprd') 
-       longname = 'Buoyancy production term in TKE Eq.'
-       unit     = 'm**2/s**3'
+       longname = 'Buoyancy production divided by eddy diffusivity.'
+       unit     = '1/s2'
      CASE('mechprd') 
-       longname = 'Mechanical production term in TKE Eq.'
-       unit     = 'm**2/s**3'
+       longname = 'Mechanical production divided by eddy viscosity.'
+       unit     = '1/s2'
      CASE DEFAULT 
          CALL finish(routine,'This variable does not exist!')
      END SELECT
@@ -862,7 +867,7 @@ CONTAINS
 
    !open time series file
    IF( my_process_is_stdio() ) &
-      CALL open_nc(TRIM(expname)//'_tseries.nc', fileid_tseries, nrec_tseries, time, ldelete)
+      CALL open_nc(TRIM(les_config(jg)%expname)//'_tseries.nc', fileid_tseries, nrec_tseries, time, ldelete)
  
    !addvar
    nvar = SIZE(turb_tseries_list,1)
@@ -926,9 +931,10 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE close_les_turbulent_output
+  SUBROUTINE close_les_turbulent_output(jg)
+   INTEGER, INTENT(IN) :: jg
 
-   IF(.NOT.ldiag_les_out)THEN
+   IF(.NOT.les_config(jg)%ldiag_les_out)THEN
     RETURN
    END IF
 
