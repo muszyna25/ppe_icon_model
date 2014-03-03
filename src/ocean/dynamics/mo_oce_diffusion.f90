@@ -1029,13 +1029,13 @@ END SUBROUTINE tracer_diffusion_vert_explicit
   !! The result ocean_tracer%concetration is calculated on domain_cells
   !-------------------------------------------------------------------------
   SUBROUTINE tracer_diffusion_vert_implicit( patch_3D,               &
-                                           & ocean_tracer, h_c, A_v,   &
+                                           & ocean_tracer, A_v,   &
                                            & operators_coefficients ) !,  &
                                           ! & diff_column)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
-    REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
+!    REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
     TYPE(t_operator_coeff),TARGET     :: operators_coefficients
     !

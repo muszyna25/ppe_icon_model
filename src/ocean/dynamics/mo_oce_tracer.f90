@@ -663,7 +663,6 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
         CALL tracer_diffusion_vert_implicit( &
           & p_patch_3D,                      &
           & new_ocean_tracer,                &
-          & p_os%p_prog(nnew(1))%h(:,:),     &
           & A_v,                             &
           & p_op_coeff)!,                      &
           !&                                  trac_new(:,:,:))

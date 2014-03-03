@@ -192,7 +192,7 @@ CONTAINS
 
     DO outer_iter=1,1000
       DO inner_iter=1,1000
-        CALL tracer_diffusion_vert_implicit( patch_3D, ocean_tracer, ocean_state(1)%p_prog(nold(1))%h, &
+        CALL tracer_diffusion_vert_implicit( patch_3D, ocean_tracer, &
           & physics_parameters%A_tracer_v(:,:,:, 1), operators_coefficients) !, residual)
       ENDDO
 
