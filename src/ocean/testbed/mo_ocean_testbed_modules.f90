@@ -229,6 +229,7 @@ CONTAINS
 !    CALL dbg_print('edge incent', patch_3D%p_patch_1D(1)%inv_prism_center_dist_e,  debug_string, 1, in_subset=edges_owned)
 !    CALL dbg_print('cell invthi', patch_3D%p_patch_1D(1)%inv_prism_thick_c,  debug_string, 1, in_subset=cells_owned)
 !    CALL dbg_print('cell invcent', patch_3D%p_patch_1D(1)%inv_prism_center_dist_c,  debug_string, 1, in_subset=cells_owned)
+!    STOP
     !---------------------------------------------------------------------
 
     vn_inout  => ocean_state(1)%p_diag%vn_pred
@@ -243,7 +244,7 @@ CONTAINS
     CALL message("sum=", message_text)
 
     DO outer_iter=1,1000
-      DO inner_iter=1,10
+      DO inner_iter=1,1000
 
 !        CALL update_diffusion_matrices( patch_3d,     &
 !          & physics_parameters,                       &

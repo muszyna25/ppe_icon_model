@@ -1761,8 +1761,8 @@ CONTAINS
     cells%one_edge_in_domain%vertical_levels => cells_vertical_levels
     
     edges%ALL%vertical_levels           => edges_vertical_levels
-    edges%in_domain%vertical_levels         => edges_vertical_levels
     edges%in_domain%vertical_levels     => edges_vertical_levels
+    edges%owned%vertical_levels         => edges_vertical_levels
     edges%not_owned%vertical_levels     => edges_vertical_levels
     edges%not_in_domain%vertical_levels => edges_vertical_levels
     
@@ -1774,7 +1774,7 @@ CONTAINS
     cells%one_edge_in_domain%max_vertical_levels = n_zlev
     
     edges%ALL%max_vertical_levels           = n_zlev
-    edges%in_domain%max_vertical_levels         = n_zlev
+    edges%in_domain%max_vertical_levels     = n_zlev
     edges%in_domain%max_vertical_levels     = n_zlev
     edges%not_owned%max_vertical_levels     = n_zlev
     edges%not_in_domain%max_vertical_levels = n_zlev

@@ -1062,7 +1062,7 @@ END SUBROUTINE tracer_diffusion_vert_explicit
       DO jc = start_index, end_index
         bottom_level = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
 
-        IF (bottom_level < 1 ) CYCLE
+        IF (bottom_level < 2 ) CYCLE ! nothing to diffuse
 
         DO jk=1,bottom_level
           inv_prism_thickness(jk)        = patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,jb)
@@ -1334,7 +1334,7 @@ END SUBROUTINE tracer_diffusion_vert_explicit
       DO edge_index = start_index, end_index
         bottom_level = patch_3D%p_patch_1D(1)%dolic_e(edge_index,edge_block)
 
-        IF (bottom_level < 1 ) CYCLE
+        IF (bottom_level < 2 ) CYCLE ! nothing to diffuse
 
         ! Note : the inv_prism_thick_e, inv_prism_center_dist_e should be updated in calculate_thickness
         DO jk=1, bottom_level
