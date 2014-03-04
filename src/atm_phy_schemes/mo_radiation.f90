@@ -164,18 +164,20 @@ CONTAINS
 
     ie = kbdim
 
-    !First: cases izenith==0 to izenith==2 (no date and time needed)
     IF (izenith == 0) THEN
-      ! for testing: provisional setting of cos(zenith angle) and TSI
-      ! The global mean insolation is TSI/4 (ca. 340 W/m2)
+    ! local insolation = constant = global mean insolation (ca. 340 W/m2)
+    ! zenith angle = 0,
       DO jb = 1, pt_patch%nblks_c
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/4._wp ! scale ztsi to get the correct global mean insolation
     ELSEIF(izenith == 1) THEN
-      ! circular non-seasonal orbit, zenith angle dependent on latitude only,
-      ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
+    ! circular non-seasonal orbit,
+    ! perpetual equinox,
+    ! no diurnal cycle,
+    ! local time always 12:00
+    ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
@@ -183,14 +185,20 @@ CONTAINS
       IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
       ! scaled by 1/pi to get the correct global mean insolation
     ELSEIF (izenith == 2) THEN
-      ! circular non-seasonal orbit, no diurnal cycle
-      ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
+    ! circular non-seasonal orbit,
+    ! perpetual equinox,
+    ! no diurnal cycle,
+    ! local time always  07:14:15 or 16:45:45
+    ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
     ELSEIF (izenith == 3) THEN  !Second: case izenith==3 (time (but no date) needed)
+    ! circular non-seasonal orbit,
+    ! perpetual equinox,
+    ! with diurnal cycle,
 
       zsmu0(:,:)=0.0_wp
       n_cosmu0pos(:,:) = 0
@@ -245,8 +253,9 @@ CONTAINS
 
       IF (PRESENT(zsct)) zsct = tsi_radt
 
-      !Third: case izenith=4 (time and date needed)
     ELSEIF (izenith == 4) THEN
+    ! elliptical seasonal orbit,
+    !  with diurnal cycle
 
       zsct_h = 0.0_wp
       zsmu0(:,:)=0.0_wp
@@ -339,6 +348,21 @@ CONTAINS
           zsct = zsct_save
         ENDIF
       ENDIF
+
+    ELSEIF (izenith == 5) THEN
+     ! Radiative convective equilibrium
+     ! circular non-seasonal orbit,
+     ! perpetual equinox,
+     ! no diurnal cycle,
+     ! the product tsi*cos(zenith angle) should equal 340 W/m2
+     ! see Popke et al. 2013 and Cronin 2013
+      DO jb = 1, pt_patch%nblks_c
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        !zsmu0(1:ie,jb) = pi/4._wp ! zenith = 45 deg
+        !zsmu0(1:ie,jb) = 2._wp/3._wp ! Cronin: zenith = 48.19
+        zsmu0(1:ie,jb) = 0.7854_wp ! Popke: zenith = 38
+      ENDDO
+      IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
 
     ENDIF
 
@@ -465,6 +489,21 @@ CONTAINS
 
       ENDDO
       
+    ELSEIF (izenith == 5) THEN
+     ! Radiative convective equilibrium
+     ! circular non-seasonal orbit,
+     ! perpetual equinox,
+     ! no diurnal cycle,
+     ! the product tsi*cos(zenith angle) should equal 340 W/m2
+     ! see Popke et al. 2013 and Cronin 2013
+      DO jb = 1, pt_patch%nblks_c
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        !zsmu0(1:ie,jb) = pi/4._wp ! zenith = 45 deg
+        !zsmu0(1:ie,jb) = 2._wp/3._wp ! Cronin: zenith = 48.19
+        zsmu0(1:ie,jb) = 0.7854_wp ! Popke: zenith = 38
+      ENDDO
+      IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
+
     ENDIF
 
   END SUBROUTINE pre_radiation_nwp
