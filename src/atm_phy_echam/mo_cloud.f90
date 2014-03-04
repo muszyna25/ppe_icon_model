@@ -128,7 +128,6 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
                          , paclcov,    pqvi                                      &
                          , pxlvi,      pxivi                                     &
                          , prsfl,      pssfl                                     &
-
 ! - OUTPUT 2D .
                          , prelhum                                               &
                          , ptte_prc,  pqte_prc                                   &
