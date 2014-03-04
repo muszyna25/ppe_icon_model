@@ -1355,7 +1355,8 @@ END SUBROUTINE tracer_diffusion_vert_explicit
           b(jk) = dt_inv - a(jk) - c(jk)
         END DO
         ! bottom
-        a(bottom_level) = -A_v(edge_index,bottom_level,edge_block) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+        a(bottom_level) = -A_v(edge_index,bottom_level,edge_block) * inv_prism_thickness(bottom_level) * &
+          & inv_prisms_center_distance(bottom_level)
         b(bottom_level) = dt_inv - a(bottom_level)
 
         ! precondition: set diagonal equal to diagonal_product
