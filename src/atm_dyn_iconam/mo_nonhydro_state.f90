@@ -528,6 +528,9 @@ MODULE mo_nonhydro_state
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'rho'//suffix, p_prog%rho,  &
       &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
       &           ldims=shape3d_c,                                             &
+      &           vert_interp=create_vert_interp_metadata(                     &
+      &              vert_intp_type=vintp_types("P","Z","I"),                  &
+      &              vert_intp_method=VINTP_METHOD_LIN ),                      &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",            &
       &                           "mode_dwd_fg_in") )
 
