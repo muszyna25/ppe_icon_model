@@ -235,7 +235,9 @@ CONTAINS
     vn_inout  => ocean_state(1)%p_diag%vn_pred
     vn_inout(:,:,:) = 10.0
     !vn_inout(:,1,:) = 1.0
-
+    physics_parameters%a_veloc_v(:,:,:) = REAL(INT(physics_parameters%a_veloc_v(:,:,:) * 16777216.0_wp), wp) / 16777216.0_wp
+    ! physics_parameters%a_veloc_v(:,:,:) = 1.0_wp
+    CALL dbg_print('vn diffu', physics_parameters%a_veloc_v,  debug_string, 1, in_subset=edges_owned)
     CALL dbg_print('vn diffu', physics_parameters%a_veloc_v,  debug_string, 1, in_subset=edges_owned)
 
     CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_owned)
@@ -448,7 +450,8 @@ CONTAINS
               b(jk) = dt_inv - a(jk) - c(jk)
             END DO
             !bottom
-            a(bottom_level) = -A_v(jc,bottom_level,jb) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+            a(bottom_level) = -A_v(jc,bottom_level,jb) * inv_prism_thickness(bottom_level) * &
+              & inv_prisms_center_distance(bottom_level)
             c(bottom_level) = 0.0_wp
             b(bottom_level) = dt_inv - a(bottom_level)
 
@@ -817,7 +820,8 @@ CONTAINS
           b(jk) = dt_inv - a(jk) - c(jk)
         END DO
         ! bottom
-        a(bottom_level) = -A_v(edge_index,bottom_level,edge_block) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+        a(bottom_level) = -A_v(edge_index,bottom_level,edge_block) * inv_prism_thickness(bottom_level) * &
+          & inv_prisms_center_distance(bottom_level)
         b(bottom_level) = dt_inv - a(bottom_level)
 
         ! precondition: set diagonal equal to diagonal_product
@@ -913,7 +917,8 @@ CONTAINS
           b(jk) = dt_inv - a(jk) - c(jk)
         END DO
         ! bottom
-        a(bottom_level) = -A_v(edge_index,bottom_level,edge_block) * inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+        a(bottom_level) = -A_v(edge_index,bottom_level,edge_block) * inv_prism_thickness(bottom_level) * &
+          & inv_prisms_center_distance(bottom_level)
         b(bottom_level) = dt_inv - a(bottom_level)
 
         ! precondition: set diagonal equal to diagonal_product
