@@ -77,7 +77,7 @@ MODULE mo_nh_initicon
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, lseaice, llake, &
-    &                               isub_lake, ntiles_water
+    &                               isub_lake, ntiles_water, lmulti_snow
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml, &
@@ -2427,6 +2427,7 @@ MODULE mo_nh_initicon
           &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
 
 
+     IF (lmulti_snow) THEN
      ! multi layer snow fields
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_snow_mult_t(:,:,:,jt)
         CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 't_snow_mult',              &
@@ -2462,6 +2463,7 @@ MODULE mo_nh_initicon
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
           &                nlev_snow, my_ptr3d,                                        &
           &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+     END IF ! lmulti_snow
 
 
      ! multi layer fields 
@@ -4110,4 +4112,3 @@ MODULE mo_nh_initicon
   END SUBROUTINE deallocate_ifs_sfc
 
 END MODULE mo_nh_initicon
-
