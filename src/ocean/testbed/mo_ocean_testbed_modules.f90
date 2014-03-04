@@ -150,6 +150,11 @@ CONTAINS
         CALL test_velocity_diffusion_vert_implicit( patch_3d, ocean_state, physics_parameters,  &
            & operators_coefficients)
 
+      CASE (4)
+        CALL test_surface_flux( patch_3d, ocean_state, external_data,   &
+          & datetime, surface_fluxes, physics_parameters,               &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
+
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
 
@@ -370,6 +375,64 @@ CONTAINS
     CALL timer_stop(timer_total)
     
   END SUBROUTINE ocean_test_advection
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE test_surface_flux( patch_3d, ocean_state, external_data, &
+    & datetime, surface_fluxes, physics_parameters,              &
+    & p_as, Qatm, p_ice, operators_coefficients)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
+    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE(t_ho_params)                                :: physics_parameters
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: Qatm
+    TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    
+    ! local variables
+    INTEGER :: jstep, jg, jtrc
+    !INTEGER :: ocean_statistics
+    !LOGICAL                         :: l_outputtime
+    CHARACTER(LEN=32)               :: datestring
+    TYPE(t_patch), POINTER :: patch_2d
+    TYPE(t_patch_vert), POINTER :: patch_1d
+    INTEGER :: jstep0 ! start counter for time loop
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
+    !------------------------------------------------------------------
+    
+    patch_2D      => patch_3d%p_patch_2d(1)
+    CALL datetime_to_string(datestring, datetime)
+
+    ! IF (ltimer) CALL timer_start(timer_total)
+    !CALL timer_start(timer_total)
+
+    !time_config%sim_time(:) = 0.0_wp
+    jstep0 = 0
+    !------------------------------------------------------------------
+
+      DO jstep = (jstep0+1), (jstep0+nsteps)
+      
+        CALL datetime_to_string(datestring, datetime)
+        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+        CALL message (TRIM(method_name), message_text)
+
+        ! Set model time.
+        CALL add_time(dtime,0,0,0,datetime)
+        CALL update_sfcflx(patch_3D, ocean_state(n_dom), p_as, p_ice, Qatm, surface_fluxes, jstep, datetime, &
+          &  operators_coefficients)
+
+      END DO
+    
+    !CALL timer_stop(timer_total)
+    
+  END SUBROUTINE test_surface_flux
   !-------------------------------------------------------------------------
   
 
