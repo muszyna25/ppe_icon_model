@@ -37,9 +37,10 @@ atmo_namelist=NAMELIST_${EXPNAME}
 # global timing
 start_date="2008-08-01T00:00:00Z"
   end_date="2008-08-02T00:00:00Z"
+steps_per_file=3
 #
-(( dt_restart    = 100 * day )) # [s] time between model restarts = length of run
-(( dt_checkpoint =   2 * hour )) # [s] time between restart file writing
+(( dt_restart    = 10 * day )) # [s] time between model restarts = length of run
+(( dt_checkpoint =  1 * day )) # [s] time between restart file writing
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -160,7 +161,6 @@ cat >> ${atmo_namelist} << EOF
  ltestcase      = .TRUE.       ! run testcase
  msg_level      = 12           ! detailed report during integration
  output         = 'nml'
- profiling_output = 3
 /
 &nwp_phy_nml
  inwp_gscp       = 1 
@@ -198,8 +198,9 @@ cat >> ${atmo_namelist} << EOF
  dom              = -1
  output_start     = "${start_date}" 
  output_end       = "${end_date}" 
- output_interval  = "PT06H"
- file_interval    = "P10D"
+ output_interval  = "PT00H10M"
+! file_interval    = "PT00H30M"
+ steps_per_file   = ${steps_per_file}
  include_last     = .TRUE.           ! flag whether to include the last time step
  remap            = 0                ! lon/lat output
  output_filename  = '${EXPNAME}'     ! file name base

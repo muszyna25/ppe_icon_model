@@ -89,6 +89,7 @@ MODULE mo_nh_testcases
                                    & init_nh_anaprof_uv, init_nh_topo_ana,        &
                                    & itype_atmo_ana, init_nh_atmo_ana_poly
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random, init_nh_state_prog_isoRest
+  USE mo_random_util,          ONLY: add_random_noise_global
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
   USE mo_nh_rce_exp,           ONLY: init_nh_state_rce_glb
   USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl,init_nh_state_rce_cbl,        &
@@ -1030,8 +1031,11 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rce_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
                       
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", th_perturb, nlev-3, nlev ) 
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )   
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
@@ -1049,8 +1053,11 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rce ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics, lprofile )
 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), &
-                              "cell", 0.2_wp, nlev-3, nlev )
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )   
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 !
@@ -1065,8 +1072,11 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), &
-                               "cell", 0.2_wp, nlev-3, nlev )
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )   
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 !
