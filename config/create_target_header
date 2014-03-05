@@ -124,14 +124,6 @@ cat >> $output_script << EOF
 nproma=$use_nproma
 cdo="${cdo}"
 cdo_diff="${cdo} ${cdo_diff}"
-#=============================================================================
-second=1                                 # [s] 1 second
-minute=60                                # [s] 1 minute
-hour=3600                                # [s] 1 hour
-day=86400                                # [s] 1 day
-month=2592000                            # [s] 30 days
-year=315705600                           # [s] 1 year
-#=============================================================================
 EOF
 
 #for i in {1..$no_of_free_variables}
@@ -485,7 +477,7 @@ set_run_target_thunder()
     use_queue="mpi-compute"
   fi
   queue="$use_queue"
-  # queue="mpi-develop"
+  #queue="mpi-develop"
 
   # ------------------------------------
   s_cpu_time=""

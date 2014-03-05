@@ -78,7 +78,7 @@ case "$fortran_compiler" in
 
         DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all "$FCHECK"
         STD_FLAGS   = -march=native -O2 "$DEBUG_FLAGS" -D__LOOP_EXCHANGE 
-        HIOPT_FLAGS = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
+        HIOPT_FLAGS = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE -g
 
         FC          = gfortran
         FFLAGS      = "$FCPP" "$FLANG" "$FWARN"
@@ -289,7 +289,8 @@ case "$ac_sitename" in
                       MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel13
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
-                      HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
+                      HIOPT_FLAGS = -O3 -fpp -mkl -static -xHost -xAVX -g -traceback -g -D__LOOP_EXCHANGE
+                      STD_FLAGS   = -O2 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
                       load_modules="gcc/4.7.2" "intel/13.2.0" "${load_modules}"
                       ;;
                     nag)
