@@ -465,7 +465,8 @@ MODULE mo_nh_stepping
     ELSE
       lprint_timestep = MOD(jstep,100) == 0
     ENDIF
-    lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 ! always print the first time step
+    ! always print the first and the last time step
+    lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 .OR. jstep == jstep0+nsteps
 
     IF (lprint_timestep) THEN
       WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
