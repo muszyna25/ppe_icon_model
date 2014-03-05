@@ -70,7 +70,6 @@ MODULE mo_sea_ice_types
       &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  forc_slflx       (:,:),     & ! surface latent heat flux                                  [W/m2]
       &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_snow        (:,:),     & ! total snow flux                                           [m/s]
       &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
       &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
       &  forc_fw_bc       (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
@@ -93,7 +92,6 @@ MODULE mo_sea_ice_types
       &  forc_ssflx_acc       (:,:),     &
       &  forc_slflx_acc       (:,:),     &
       &  forc_precip_acc      (:,:),     &
-      &  forc_snow_acc        (:,:),     &
       &  forc_evap_acc        (:,:),     &
       &  forc_runoff_acc      (:,:),     &
       &  forc_fw_bc_acc       (:,:),     &
@@ -191,7 +189,6 @@ MODULE mo_sea_ice_types
       &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  forc_slflx       (:,:),     & ! surface latent heat flux                                  [W/m2]
       &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_snow        (:,:),     & ! total snow flux                                           [m/s]
       &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
       &  forc_runoff      (:,:)!     & ! river runoff flux                                         [m/s]
   !   &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
