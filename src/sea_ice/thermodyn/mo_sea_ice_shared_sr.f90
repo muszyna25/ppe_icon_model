@@ -123,7 +123,9 @@ CONTAINS
         ENDDO
       ENDDO
     END DO
-    CALL dbg_print('o-i-heat: zHeatOceI' ,zHeatOceI,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('o-i-heat: Tfw'       ,Tfw          ,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('o-i-heat: zUnderIce' ,ice%zUnderIce,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('o-i-heat: zHeatOceI' ,zHeatOceI    ,str_module,3, in_subset=p_patch%cells%owned)
   END SUBROUTINE oce_ice_heatflx
 
 

@@ -379,12 +379,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE test_surface_flux( patch_3d, ocean_state, external_data, &
+  SUBROUTINE test_surface_flux( patch_3d, p_os, external_data, &
     & datetime, surface_fluxes, physics_parameters,              &
     & p_as, Qatm, p_ice, operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
@@ -417,18 +417,26 @@ CONTAINS
     jstep0 = 0
     !------------------------------------------------------------------
 
-      DO jstep = (jstep0+1), (jstep0+nsteps)
-      
-        CALL datetime_to_string(datestring, datetime)
-        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-        CALL message (TRIM(method_name), message_text)
+    !  Overwrite init:
+    WHERE (p_ice%hi(:,1,:) > 1.0_wp)
+      p_ice%hi(:,1,:) = 0.3_wp
+      p_ice%hs(:,1,:) = 0.1_wp
+      p_ice%conc(:,1,:) = 0.1_wp
+      p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1) = -0.8_wp
+    ENDWHERE
 
-        ! Set model time.
-        CALL add_time(dtime,0,0,0,datetime)
-        CALL update_sfcflx(patch_3D, ocean_state(n_dom), p_as, p_ice, Qatm, surface_fluxes, jstep, datetime, &
-          &  operators_coefficients)
+    DO jstep = (jstep0+1), (jstep0+nsteps)
+    
+      CALL datetime_to_string(datestring, datetime)
+      WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+      CALL message (TRIM(method_name), message_text)
 
-      END DO
+      ! Set model time.
+      CALL add_time(dtime,0,0,0,datetime)
+      CALL update_sfcflx(patch_3D, p_os(n_dom), p_as, p_ice, Qatm, surface_fluxes, jstep, datetime, &
+        &  operators_coefficients)
+
+    END DO
     
     !CALL timer_stop(timer_total)
     

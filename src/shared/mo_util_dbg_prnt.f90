@@ -606,7 +606,7 @@ CONTAINS
     strmod=TRIM(str_mod_src)
     
     ! surface level output only
-    jk = 1
+    jk = 0
     
     
     ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
@@ -619,15 +619,15 @@ CONTAINS
       ! write value at index
       IF (ndimblk == loc_nblks_c) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,981) '   VALUE ', strmod, strout, jk, p_array(c_i,c_b), &
+          & WRITE(iout,981) '        VALUE ', strmod, strout, jk, p_array(c_i,c_b), &
           & (' C',i,':',p_array(nc_i(i),nc_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_e) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
+          & WRITE(iout,982) '        VALUE ', strmod, strout, jk, &
           & (' E',i,':',p_array(ne_i(i),ne_b(i)),i=1,3)
       ELSE IF (ndimblk == loc_nblks_v) THEN
         IF (my_process_is_stdio()) &
-          & WRITE(iout,982) '   VALUE ', strmod, strout, jk, &
+          & WRITE(iout,982) '        VALUE ', strmod, strout, jk, &
           & (' V',i,':',p_array(nv_i(i),nv_b(i)),i=1,3)
       END IF
       

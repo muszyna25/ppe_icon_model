@@ -512,7 +512,7 @@ CONTAINS
         ELSE
           Tfw = Tf
         ENDIF
-        CALL dbg_print('UpdSfc: i-alb (bef ifast)'  ,Qatm%albvisdir ,str_module,5, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: i-alb (bef ifast)'  ,Qatm%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
 
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -561,6 +561,8 @@ CONTAINS
         CALL dbg_print('UpdSfc: T1 before slow'    ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: T2 before slow'    ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: TSurf before slow' ,p_ice%tsurf    ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Qtop  before slow' ,p_ice%Qtop     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: Qbot  before slow' ,p_ice%Qbot     ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: i-alb before slow' ,Qatm%albvisdir ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 

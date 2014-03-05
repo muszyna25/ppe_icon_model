@@ -295,7 +295,6 @@ CONTAINS
       CALL oce_ice_heatflx (p_patch, p_os,ice,Tfw,zHeatOceI)
 !!$    ELSE IF ( i_ice_therm == 3) THEN
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
-      ! #slo:# in case sea-ice dynamics included, then ice_therm is reset to 1 -> no oce_ice_heatflx is calculated!
     END IF
     
     DO jb = 1,p_patch%nblks_c
