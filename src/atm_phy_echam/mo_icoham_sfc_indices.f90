@@ -85,7 +85,7 @@ CONTAINS
         nsfc_type = 3
         igbm      = 0
 
-      CASE('APE','APE_nh','RCE','RCEhydro')
+      CASE('APE','APE_nh','RCE','RCE_glb','RCE_SHFLX','RCEhydro','RCE_CBL')
       ! Aqua-planet simulation, no land, no ice;
       ! No needed to distinguish the aggregated grid-box mean
       ! and the value on different types of surface
@@ -96,7 +96,7 @@ CONTAINS
         iice      = 999
         ilnd      = 999
 
-      CASE('APEi','APEc')
+      CASE('APEi','APEc','APEc_nh')
       ! Aqua-planet simulation with ice, but no land;
 
         iwtr      = 1
@@ -105,7 +105,7 @@ CONTAINS
         igbm      = 0
         ilnd      = 999
 
-      CASE('JWw-Moist','LDF-Moist')
+      CASE('JWw-Moist','LDF-Moist','jabw_m')
       ! Baroclinic wave test, no land, no ice.
 
         iwtr      = 1
