@@ -592,10 +592,10 @@ CONTAINS
     IF (temperature_relaxation > 0) THEN
       idt_src=0  ! output print level - 0: print in any case
       z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL dbg_print('init relaxation - T'       ,z_c                     ,str_module,idt_src)
+      CALL dbg_print('init relaxation - T'       ,z_c      ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
       IF (irelax_2d_s > 0) THEN
         z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-        CALL dbg_print('init relaxation - S'       ,z_c                   ,str_module,idt_src)
+        CALL dbg_print('init relaxation - S'       ,z_c   ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
       END IF
     END IF
 
