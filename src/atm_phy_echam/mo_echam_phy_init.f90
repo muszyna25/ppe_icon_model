@@ -67,12 +67,13 @@ MODULE mo_echam_phy_init
 
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
+  USE mo_nh_testcases_nml,     ONLY: nh_test_name 
   USE mo_ape_params,           ONLY: ape_sst
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
   ! radiation
   USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, ighg, isolrad
-  USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip, ssi_default, ssi_preind
+  USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip, ssi_default, ssi_preind, ssi_rce
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
@@ -187,6 +188,13 @@ CONTAINS
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
         CALL message('init_echam_phy', message_text)
       END SELECT
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+        tsi_radt = 0._wp
+        ! solar flux (W/m2) in 14 SW bands
+        ssi_radt(:) = ssi_rce(:)
+        ! solar constant (W/m2)
+        tsi_radt    = SUM(ssi_radt(:))
+      ENDIF
       CALL setup_srtm
       CALL lrtm_setup('rrtmg_lw.nc')
       CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
@@ -925,6 +933,11 @@ CONTAINS
 
       tend% temp_cld(:,:,:)   = 0._wp
       tend%    q_cld(:,:,:,:) = 0._wp
+
+      tend% temp_phy(:,:,:)   = 0._wp
+      tend%    q_phy(:,:,:,:) = 0._wp
+      tend%    u_phy(:,:,:)   = 0._wp
+      tend%    v_phy(:,:,:)   = 0._wp
 
       tend% temp_cnv(:,:,:)   = 0._wp
       tend%    q_cnv(:,:,:,:) = 0._wp
