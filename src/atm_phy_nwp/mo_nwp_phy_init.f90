@@ -69,7 +69,7 @@ MODULE mo_nwp_phy_init
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi_radt, tsi_radt,irad_o3, irad_aero, rad_csalbw 
-  USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
+  USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip, ssi_rce
   USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,                       &
     &                               init_aerosol_props_tanre_rg,                    &
@@ -174,7 +174,17 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ! Reference atmosphere parameters
   REAL(wp), PARAMETER :: htropo = 11000._wp       ! [m]    tropopause height
   REAL(wp), PARAMETER :: t00    = 288.15_wp       ! [m]    temperature at sea level
+
+  REAL(wp), PARAMETER :: grav_o_rd = grav / rd
+  REAL(wp), PARAMETER :: cpd_o_rd  = cpd  / rd
+
   REAL(wp) :: ttropo, ptropo, temp, zfull
+
+  REAL(wp) :: dz1, dz2, dz3 
+  REAL(wp), ALLOCATABLE :: zrefpres(:,:,:)   ! ref press computed from ref exner
+  REAL(wp), ALLOCATABLE :: zreftemp(:,:,:)   ! ref temp computed from ref exner
+  REAL(wp), ALLOCATABLE :: zpres_sfc(:,:)    ! ref sfc press 
+  REAL(wp), ALLOCATABLE :: zpres_ifc(:,:,:)  ! ref press at interfaces
 
   LOGICAL :: lland, lglac
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
@@ -192,7 +202,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   CHARACTER (LEN=25) :: eroutine=''
   CHARACTER (LEN=80) :: errormsg=''
 
-  INTEGER :: khydromet, ktrac
+  INTEGER :: num_blks_c
 
   INTEGER :: k1500m                  ! index of first half level above 1500m
   INTEGER :: istatus=0
@@ -211,6 +221,31 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   i_lc_si= ext_data%atm%i_lc_snow_ice
 
+  num_blks_c = p_patch%nblks_c
+
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+    ! allocate storage var for press to be used in o3_pl2ml
+    ALLOCATE (zrefpres(nproma,nlev,num_blks_c),STAT=istatus)
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), &
+                 'allocation of zrefpres failed')
+    END IF
+    ALLOCATE (zreftemp(nproma,nlev,num_blks_c),STAT=istatus)
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), &
+                 'allocation of zreftemp failed')
+    END IF
+    ALLOCATE (zpres_sfc(nproma,num_blks_c),STAT=istatus)
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), &
+                 'allocation of zpres_sfc failed')
+    END IF
+    ALLOCATE (zpres_ifc(nproma,nlevp1,num_blks_c),STAT=istatus)
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), &
+                 'allocation of zpres_ifc failed')
+    END IF
+  END IF
 
   ! for both restart and non-restart runs. Could not be included into 
   ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
@@ -509,13 +544,20 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     tsi_radt    = SUM(ssi_radt(:))
 
 
-    !------------------------------------------
-    !< set conditions for Aqua planet experiment  
-    !------------------------------------------
+    !--------------------------------------------------
+    !< set conditions for Aqua planet or RCE experiment  
+    !--------------------------------------------------
     IF ( nh_test_name == 'APE_nh' .OR. nh_test_name == 'dcmip_tc_52' ) THEN
       ssi_radt(:) = ssi_radt(:)*1365._wp/tsi_radt
       tsi_radt = 1365._wp
     ENDIF  ! APE
+
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+      ! solar flux (W/m2) in 14 SW bands
+      ssi_radt(:) = ssi_rce(:)
+      ! solar constant (W/m2)
+      tsi_radt    = SUM(ssi_radt(:))
+    ENDIF
 
     
     CALL setup_srtm
@@ -561,31 +603,73 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
             zcdnc=zn2*1.e6_wp
           ENDIF
           prm_diag%acdnc(jc,jk,jb) = zcdnc
+          IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+            !--- computation of reference pressure field from the reference exner field
+            zrefpres(jc,jk,jb) = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
+            ! here we choose to use temp to compute sfc pres instead of tempv
+            zreftemp(jc,jk,jb) = p_metrics%theta_ref_mc(jc,jk,jb)*zrefpres(jc,jk,jb)
+            ! Reference Potential temperature, full level mass points
+
+            ! we also need pres at interface levels; first we need sfc press...
+            ! Height differences between surface and third-lowest main level
+            dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
+            dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
+            dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
+
+            ! Compute surface pressure starting from third-lowest level
+            zpres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(p_metrics%exner_ref_mc(jc,nlev-2,jb)) + & 
+              grav_o_rd*(dz1/zreftemp(jc,nlev,jb) + dz2/zreftemp(jc,nlev-1,jb) +     &   
+              dz3/zreftemp(jc,nlev-2,jb)) )
+
+            zpres_ifc(jc,nlevp1,jb) = zpres_sfc(jc,jb)
+          END IF
         END DO !jc
       END DO   !jk
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+        ! compute interface from nlev-1 to TOA 
+        DO jk = nlev,2,-1
+          DO jc = 1, i_endidx
+            ! pressure at interface levels
+            zpres_ifc(jc,jk,jb) = SQRT(zrefpres(jc,jk,jb)*zrefpres(jc,jk-1,jb) )
+          END DO
+          DO jc = 1, i_endidx !pres at top ifc = pres at top model lev
+            zpres_ifc(jc,1,jb) = zrefpres(jc,1,jb) 
+          END DO
+        END DO
+      END IF 
 
 
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
-      IF (irad_o3 == io3_ape .AND. .NOT. is_restart_run()) THEN
+      !IF (irad_o3 == io3_ape .AND. .NOT. is_restart_run()) THEN
+      IF (irad_o3 == io3_ape ) THEN
 
 !        CALL o3_zl2ml(p_patch%nblks_c,p_patch%npromz_c,        & ! 
 !          &           nlev_o3,      nlev,                      & ! vertical levels in/out
 !          &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
 !          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
  
-        CALL o3_pl2ml ( kproma= i_endidx, kbdim=nproma,  &
-          & nlev_pres = nlev_o3,klev= nlev ,             &
-          & pfoz = ext_data%atm_td%pfoz(:),              &
-          & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
-          & ppf = p_diag%pres (:,:,jb),                  &! in  pres
-          & pph = p_diag%pres_ifc(:,:,jb),               &! in  pres_halfl
-          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in
-          & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT 
-        
+        IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+          CALL o3_pl2ml ( kproma= i_endidx, kbdim=nproma,  &
+            & nlev_pres = nlev_o3,klev= nlev ,             &
+            & pfoz = ext_data%atm_td%pfoz(:),              &
+            & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
+            & ppf = zrefpres (:,:,jb),                  &! in  pres
+            & pph = zpres_ifc(:,:,jb),               &! in  pres_halfl
+            & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in
+            & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT 
+        ELSE ! default behaviour
+          CALL o3_pl2ml ( kproma= i_endidx, kbdim=nproma,  &
+            & nlev_pres = nlev_o3,klev= nlev ,             &
+            & pfoz = ext_data%atm_td%pfoz(:),              &
+            & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
+            & ppf = p_diag%pres (:,:,jb),                  &! in  pres
+            & pph = p_diag%pres_ifc(:,:,jb),               &! in  pres_halfl
+            & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in
+            & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT 
+        ENDIF  
       ENDIF
-
 
     ENDDO      !jb
 !$OMP END DO NOWAIT
@@ -638,6 +722,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! solar constant (W/m2)
     tsi_radt    = SUM(ssi_radt(:))
 
+    IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+      tsi_radt = 0._wp
+      ! solar flux (W/m2) in 14 SW bands
+      ssi_radt(:) = ssi_rce(:)
+      ! solar constant (W/m2)
+      tsi_radt    = SUM(ssi_radt(:))
+    ENDIF
 
     !------------------------------------------
     !< set conditions for Aqua planet experiment  
@@ -715,6 +806,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ENDIF !inwp_radiation
 
+  IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+    DEALLOCATE (zrefpres)
+    DEALLOCATE (zreftemp)
+    DEALLOCATE (zpres_sfc)
+    DEALLOCATE (zpres_ifc)
+  END IF
 
   !----------------------------------------------------------------
   !< initializations needed both for convection and inwp_cldcover=1 
