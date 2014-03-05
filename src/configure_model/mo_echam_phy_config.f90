@@ -99,7 +99,7 @@ CONTAINS
     IF (ltestcase) THEN
 
       SELECT CASE (TRIM(ctest_name))
-      CASE('APE','APEi','APEc','JWw-Moist','LDF-Moist','RCEhydro')
+      CASE('APE','APEi','APEc','JWw-Moist','LDF-Moist','jabw_m','APE_nh','RCE','RCE_CBL','RCE_glb','RCE_SHFLX','RCEhydro')
 
         echam_phy_config% llandsurf = .FALSE.
         echam_phy_config% lssodrag  = .FALSE.
