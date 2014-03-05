@@ -421,15 +421,22 @@ MODULE mo_echam_phy_memory
       !
       ! all processes
       !
-      &    u        (:,:,:)  , & !< accumulated tendency
-      &    v        (:,:,:)  , & !< accumulated tendency
-      & temp        (:,:,:)  , & !< accumulated tendency
-      &    q        (:,:,:,:), & !< accumulated tendency
+      &    u       (:,:,:)  , & !< accumulated tendency
+      &    v       (:,:,:)  , & !< accumulated tendency
+      & temp       (:,:,:)  , & !< accumulated tendency
+      &    q       (:,:,:,:), & !< accumulated tendency
+      !
+      ! all physics processes
+      !
+      &    u_phy   (:,:,:)  , & !< accumulated tendency
+      &    v_phy   (:,:,:)  , & !< accumulated tendency
+      & temp_phy   (:,:,:)  , & !< accumulated tendency
+      &    q_phy   (:,:,:,:), & !< accumulated tendency
       !
       ! cloud microphysics
       !
-      & temp_cld    (:,:,:)  , & !< temperature tendency from cloud microphysical processes
-      &    q_cld    (:,:,:,:), & !< tracer tendency from cloud microphysical process
+      & temp_cld   (:,:,:)  , & !< temperature tendency from cloud microphysical processes
+      &    q_cld   (:,:,:,:), & !< tracer tendency from cloud microphysical process
       !
       ! cumulus convection
       !
@@ -442,29 +449,30 @@ MODULE mo_echam_phy_memory
       !
       ! vertical turbulent mixing ("vdiff")
       !
-      & temp_vdf  (:,:,:),     & !< temperature tendency due to turbulent mixing
-      &    u_vdf  (:,:,:),     & !< u-wind tendency due to turbulent mixing
-      &    v_vdf  (:,:,:),     & !< v-wind tendency due to turbulent mixing
-      &    q_vdf  (:,:,:,:),   & !< tracer tendency due to turbulent mixing
+      & temp_vdf   (:,:,:)  , & !< temperature tendency due to turbulent mixing
+      &    u_vdf   (:,:,:)  , & !< u-wind tendency due to turbulent mixing
+      &    v_vdf   (:,:,:)  , & !< v-wind tendency due to turbulent mixing
+      &    q_vdf   (:,:,:,:), & !< tracer tendency due to turbulent mixing
       !
       ! Hines param. for atmospheric gravity waves
       !
-      & u_gwh       (:,:,:)  , & !< u-wind tendency from Hines gravity wave param.
-      & v_gwh       (:,:,:)  , & !< v-wind tendency from Hines gravity wave param.
-      & temp_gwh    (:,:,:)  , & !< temperature tendency from Hines gravity wave param.
+      & u_gwh      (:,:,:)  , & !< u-wind tendency from Hines gravity wave param.
+      & v_gwh      (:,:,:)  , & !< v-wind tendency from Hines gravity wave param.
+      & temp_gwh   (:,:,:)  , & !< temperature tendency from Hines gravity wave param.
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
-      & u_sso       (:,:,:)  , & !< ZonalW-tendency from sso drag
-      & v_sso       (:,:,:)  , & !< MeridW-tendency from sso drag
-      & temp_sso    (:,:,:)  , & !< Temp-tendency from sso drag
+      & u_sso      (:,:,:)  , & !< u-wind tendency from sso drag
+      & v_sso      (:,:,:)  , & !< v-wind tendency from sso drag
+      & temp_sso   (:,:,:)  , & !< temperature tendency from sso drag
       !
       ! radiation
       !
-      & temp_radsw  (:,:,:)  , & !< Temp-tendency from radiation
-      & temp_radlw  (:,:,:)      !< Temp-tendency from radiation
+      & temp_radsw (:,:,:)  , & !< temperature tendency from radiation
+      & temp_radlw (:,:,:)      !< temperature tendency from radiation
 
     TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: q_phy_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_cld_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_cnv_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: q_vdf_ptr(:)
@@ -1828,6 +1836,12 @@ CONTAINS
     CALL add_var( tend_list, prefix//'temp', tend%temp,                    &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+    ! &       tend% temp_phy  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'temp_phy', tend%temp_phy,            &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
     ! &       tend% temp_radsw(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_radsw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1873,10 +1887,16 @@ CONTAINS
     !------------------------------
     ! U-wind tendencies
     !------------------------------
-   !ALLOCATE( tend%    u      (nproma,nlev,nblks),          &
+    ! &       tend%    u      (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( tend_list, prefix//'u', tend%u,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
+    ! &       tend%    u_phy  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('u_wind_tendency_phy', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'u_phy', tend%u_phy,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     ! &       tend%    u_cnv  (nproma,nlev,nblks),          &
@@ -1910,6 +1930,12 @@ CONTAINS
     cf_desc    = t_cf_var('v_wind_tendency', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( tend_list, prefix//'v', tend%v,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
+    ! &       tend%    v_phy  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('v_wind_tendency_phy', 'm s-2', '', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'v_phy', tend%v_phy,                          &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     ! &       tend%    v_cnv  (nproma,nlev,nblks),          &
@@ -1964,6 +1990,14 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
+    CALL add_var( tend_list, prefix//'q_phy', tend%q_phy,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
+                & t_cf_var('tend_q_phy', 's-1', 'tracer tendency phyiscs',     &
+                & DATATYPE_FLT32),                                             &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+                & ldims = shape_trc,                                           &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+
     CALL add_var( tend_list, prefix//'q_cld', tend%q_cld,                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                              &
                 & t_cf_var('tend_q_cld', 's-1', 'tracer tendency condensational', &
@@ -1991,6 +2025,7 @@ CONTAINS
     ! Referrence to individual tracer, for I/O                                            
                                                                                             
     ALLOCATE(tend%     q_ptr(ktracer))
+    ALLOCATE(tend% q_phy_ptr(ktracer))
     ALLOCATE(tend% q_cld_ptr(ktracer))
     ALLOCATE(tend% q_cnv_ptr(ktracer))
     ALLOCATE(tend% q_vdf_ptr(ktracer))
@@ -2003,6 +2038,14 @@ CONTAINS
                   & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc), 's-1', '',         &
                   &          DATATYPE_FLT32),                                      &       
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &       
+                  & ldims=(/kproma,klev,kblks/))                                        
+                                                                                          
+      CALL add_ref( tend_list, prefix//'q_phy',                                           &       
+                  & prefix//'q'//ctracer_list(jtrc:jtrc)//'_phy', tend%q_phy_ptr(jtrc)%p, &       
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                    &       
+                  & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc)//'_phy', 's-1', '',        &
+                  &          DATATYPE_FLT32),                                             &       
+                  & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &       
                   & ldims=(/kproma,klev,kblks/))                                        
                                                                                           
       CALL add_ref( tend_list, prefix//'q_cld',                                           &       

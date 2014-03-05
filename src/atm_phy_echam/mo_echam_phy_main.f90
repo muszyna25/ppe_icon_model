@@ -80,6 +80,7 @@ MODULE mo_echam_phy_main
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
                                   & ih_vdiff=>ih, iqv_vdiff=>iqv
   USE mo_gw_hines,            ONLY: gw_hines
+  USE mo_ml_ocean,            ONLY: ml_ocean
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
@@ -219,6 +220,14 @@ CONTAINS
     field  => prm_field(jg)
     tend   => prm_tend (jg)
     atm_td => ext_data(jg)%atm_td
+
+    ! provisionally copy the incoming tedencies
+
+    tend% temp_phy (jcs:jce,:,jb)   = tend% temp (jcs:jce,:,jb)
+    tend%    u_phy (jcs:jce,:,jb)   = tend%    u (jcs:jce,:,jb)
+    tend%    v_phy (jcs:jce,:,jb)   = tend%    v (jcs:jce,:,jb)
+    tend%    q_phy (jcs:jce,:,jb,:) = tend%    q (jcs:jce,:,jb,:)
+
 
     ! 2. local switches and parameters
 
@@ -361,6 +370,13 @@ CONTAINS
          zyearfrac = 2._wp * pi * (REAL(datetime%yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
          ztsi = (1.000110_wp + 0.034221_wp * COS(zyearfrac) + 0.001280_wp * SIN(zyearfrac) &
             + 0.000719_wp * COS(2._wp * zyearfrac) + 0.000077_wp * SIN(2._wp * zyearfrac)) * tsi
+       CASE(5)
+       ! Radiative convective equilibrium
+       ! circular non-seasonal orbit,
+       ! perpetual equinox,
+       ! no diurnal cycle,
+       ! the product tsi*cos(zenith angle) should equal 340 W/m2
+         ztsi = tsi ! no rescale becuase tsi has been adjusted in echam_phy_init with ssi_rce
        END SELECT
 
 
@@ -453,6 +469,17 @@ CONTAINS
             field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
                                        COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
                                        COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
+          CASE(5) 
+          ! Radiative convective equilibrium
+          ! circular non-seasonal orbit,
+          ! perpetual equinox,
+          ! no diurnal cycle,
+          ! see Popke et al. 2013 and Cronin 2013
+          !cosmu0 = pi/4._wp ! zenith = 45 deg
+          !cosmu0 = 2._wp/3._wp ! Cronin: zenith = 48.19
+
+            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
+
           END SELECT
 
 
@@ -982,6 +1009,15 @@ CONTAINS
 
     ENDIF ! ljsbach
 
+    IF (phy_config%lmlo) THEN
+      CALL ml_ocean ( nbdim, jcs, jce, pdtime,pahflw=field%lhflx_tile(:,jb,:),                 &
+                     & pahfsw=field%shflx_tile(:,jb,:),ptrflw=field%lwflxsfc(:,jb), &
+                     & psoflw=field%swflxsfc(:,jb),ptsw=field%tsfc(:,jb) )
+!
+! update tsfc_tile (radheat also uses tsfc) if ml_ocean is called
+      field%tsfc_tile(:,jb,1) = field%tsfc(:,jb) 
+    ENDIF
+
     ! Merge surface temperatures
     field%tsfc(:,jb) = 0._wp
     DO jsfc=1,nsfc_type
@@ -1362,6 +1398,13 @@ CONTAINS
     ! accumulated total precipitation flux => average when output
        field% totprec_avg (jcs:jce,jb) =  field% totprec_avg (jcs:jce,jb)          &
             &                            +field% totprec     (jcs:jce,jb) * pdtime
+
+    ! Now compute tendencies from physics alone
+
+    tend% temp_phy (jcs:jce,:,jb)   = tend% temp (jcs:jce,:,jb)   - tend% temp_phy (jcs:jce,:,jb)
+    tend%    u_phy (jcs:jce,:,jb)   = tend%    u (jcs:jce,:,jb)   - tend%    u_phy (jcs:jce,:,jb)
+    tend%    v_phy (jcs:jce,:,jb)   = tend%    v (jcs:jce,:,jb)   - tend%    v_phy (jcs:jce,:,jb)
+    tend%    q_phy (jcs:jce,:,jb,:) = tend%    q (jcs:jce,:,jb,:) - tend%    q_phy (jcs:jce,:,jb,:)
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
