@@ -727,7 +727,7 @@ CONTAINS
 
 
         IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
-          IF ( izenith > 4)  &
+          IF ( izenith > 5)  &
             CALL finish(TRIM(method_name), 'Coose a valid case for rad_nml: izenith.')
         ENDIF
       END SELECT ! iforcing
