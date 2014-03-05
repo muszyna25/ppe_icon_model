@@ -1758,14 +1758,14 @@ CONTAINS
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
     ENDWHERE
 
-    CALL dbg_print('IceConcCh: conc New ' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceConcCh: hi   New ' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceConcCh: hs   New ' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: conc leadcl' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hi   leadcl' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hs   leadcl' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
 
     ! This is where concentration, and thickness change due to ice melt (we must conserve volume)
     ! A.k.a. lateral melt
     WHERE ( ice%hiold(:,1,:) > ice%hi(:,1,:) .AND. ice%hi(:,1,:) > 0._wp )
-      ! Hibler's way to change the concentration (leadclose parameter 1)
+      ! Hibler's way to change the concentration due to lateral melting (leadclose parameter 1)
       ice%conc(:,1,:) = MAX( 0._wp, ice%conc(:,1,:) &
         &        - ( ice%hiold(:,1,:)-ice%hi(:,1,:) )*ice%conc(:,1,:)*leadclose_1/ice%hiold(:,1,:) )
 

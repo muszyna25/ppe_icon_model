@@ -421,8 +421,8 @@ CONTAINS
     WHERE (p_ice%hi(:,1,:) > 1.0_wp)
       p_ice%hi(:,1,:) = 0.3_wp
       p_ice%hs(:,1,:) = 0.1_wp
-      p_ice%conc(:,1,:) = 0.1_wp
-      p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1) = -0.8_wp
+      p_ice%conc(:,1,:) = 0.5_wp
+      p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1) = -1.7_wp
     ENDWHERE
 
     DO jstep = (jstep0+1), (jstep0+nsteps)

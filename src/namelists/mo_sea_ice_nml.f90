@@ -106,6 +106,7 @@ CONTAINS
     i_ice_albedo= 1
     i_ice_dyn   = 0
     i_Qio_type  = 2
+    !i_Qio_type  = 1
 
     hnull       = 0.5_wp
     hmin        = 0.05_wp
@@ -174,6 +175,7 @@ CONTAINS
     END IF
 
     IF (i_ice_dyn == 0) THEN
+    !IF (i_ice_dyn == 0 .AND. i_Qio_type /= 1) THEN
       CALL message(TRIM(routine), 'i_Qio_type set to 1 because i_ice_dyn is 0')
       i_Qio_type = 1
     ENDIF
