@@ -57,7 +57,7 @@ PROGRAM control_model
 #if defined (__INTEL_COMPILER) && ! defined (VARLIST_INITIZIALIZE_WITH_NAN)
   USE, INTRINSIC :: ieee_arithmetic
 #endif
-  USE mo_exception,           ONLY: message_text, message, finish
+  USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_io_units,            ONLY: filename_max
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,  &

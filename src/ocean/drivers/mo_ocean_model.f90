@@ -157,8 +157,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
 
-    INTEGER :: jg, ist
-    INTEGER :: error_status
+    INTEGER :: jg
     TYPE(t_sim_step_info) :: sim_step_info
     INTEGER :: jstep0
     CHARACTER(LEN=max_char_length) :: grid_file_name

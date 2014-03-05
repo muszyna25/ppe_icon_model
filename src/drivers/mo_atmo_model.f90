@@ -227,8 +227,6 @@ CONTAINS
     INTEGER                        :: jg, jgp, jstep0, error_status
     TYPE(t_sim_step_info)          :: sim_step_info  
 
-    INTEGER :: nlevp1, nblks_v
-
     ! set mtime-Calendar
     CALL setCalendar(PROLEPTIC_GREGORIAN)
 
