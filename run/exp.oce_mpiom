@@ -11,7 +11,7 @@
 #-----------------------------------------------------------------------------
 # Basic specifications for the ICON ocean model: comparison to MPIOM
 # --------------------------------------
-# Stephan Lorenz, MPI-M, 2011-01 / 2013-07
+# Stephan Lorenz, MPI-M, 2011-01 / 2014-03
 #
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
@@ -34,6 +34,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 # global resolution
 R=2   # nroot
 B=4   # number of bisections applied
+# 
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
@@ -77,6 +78,7 @@ grid_ext="etopo40_planet"
 #-----------------------------------------------------------------------------
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #=============================================================================
+#
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 
 # NO_FORCING                 = 10
@@ -100,38 +102,39 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
-  end_date="2062-01-01T00:00:00Z"
+  end_date="2051-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-#ndays_file=3660      # new output file generation interval [days]
-((  days_checkp   = 9999  ))   # write restart file interval [days]
-((  days_restart  = 7320  ))   # stop model for restart [days]
-((  hours_data    = 6  ))   # ocean model output interval hours [hours] - for test runs
-((  days_data     = 30 ))
-((  days_file     = 9999 ))   # write restart file interval [days]
-((  year_output   = 10 ))   # stop writing model output to file [years]
-(( hour           = 3600 ))
-(( day            = 24*hour))
-(( year           = 365 *  day))
+((  days_restart  = 7320    )) # stop model for restart [days]
+((  hours_data    = 6       )) # ocean model output interval hours [hours] - for test runs
+((  days_data     = 30      )) # ocean model output interval [days]  - no longer than 30 days ??
+#((  days_checkp   = 9999    )) # write checkpoint file interval [days]
+#((  days_file     = 9999    )) # new output file generation interval [days]
+#((  year_output   = 10      )) # stop writing model output to file [years] - used for output_bounds
+(( hour           = 3600    ))
+(( day            = 24*hour ))
+(( year           = 365*day ))
 #
 #-----------------------------------------------------------------------------
-# calculate model timesteps using $ndays
-nout_interv="P${days_data}D"                    # ocean model output interval in days
-(( dt_data       =  days_data   * day ))      # used for output_bounds and buildbot
-(( dt_restart    =  days_restart * day))
-(( dt_file        = days_file    * day ))
-(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
-(( outputLength   = year_output * year ))
-(( steps_per_file = outputLength / dt_data ))       # output intervals per file interval
+# calculate model timesteps
+nout_interv="P$0{ndays_data}D"                 # ocean model output interval in days <10
+nout_interv="P${days_data}D"                   # ocean model output interval in days
+(( dt_data       =  days_data    * day ))      # used for output_bounds and buildbot
+(( dt_restart    =  days_restart * day ))
+#(( dt_file       =  days_file    * day ))
+#(( dt_checkpoint =  days_checkp  * day ))
+dt_checkpoint    = dt_restart
+#(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
+#(( outputLength   = year_output * year ))
+#(( steps_per_file = outputLength / dt_data ))     # output intervals per file - output_bounds
+(( steps_per_file = dt_restart / dt_data ))       # output intervals per file
 #
 #-----------------------------------------------------------------------------
 # model parameters
 ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 #
-# 
 #-----------------------------------------------------------------------------
-#
 # write ICON namelist parameters
 # ------------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
@@ -139,8 +142,8 @@ ocean_model_equations=-1 # equation system: -1=hydrost. ocean
 cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
- p_test_run     =  .false.     
  nproma         = ${nproma}
+ p_test_run     = .false.     
  l_fast_sum     = .true.          ! false: results are reproducable, gmres_oce_old is used; true: production run
 /
 &grid_nml
@@ -153,10 +156,11 @@ cat > ${ocean_namelist} << EOF
  dtime       = 3600               ! model timestep in seconds
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
- profiling_output = 2
+ profiling_output     = 2
  msg_timestamp        = .FALSE.
 /
 &output_nml
+! output_bounds    = 0, ${outputLength}, ${dt_data}   ! buildbot: start, end, increment in seconds <60 years
   output_start     = "${start_date}"                  ! production runs: start in ISO-format
   output_end       = "${end_date}"                    ! production runs: end in ISO-format
   output_interval  = "${nout_interv}"                 ! production runs: interval in ISO-format
@@ -188,53 +192,57 @@ cat > ${ocean_namelist} << EOF
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-   solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart = 20        !  outer solver loop with syncing
   solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
-  use_continuity_correction=.true.
+  use_continuity_correction=.true.        !  height adjustment to vertical velocity in dynamics
 /
 &ocean_tracer_transport_nml
- !no_tracer                               =  2     ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  FLUX_CALCULATION_HORZ = 5      !5=FCT with Zalesak limiter
-  FLUX_CALCULATION_VERT  = 7      ! 7=upwind biased ppm
+! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter
+  FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm; 8=FCT with zalesak limiter
+  ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
+! fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
+! fct_high_order_flux   = 2      ! horizontal high order method: 1=upwind, 2=central (def), 3=lax_friedrichs, 4=miura_order1
+  threshold_min_T       = -5.0   ! to avoid abort
 /
 &ocean_diffusion_nml
-  !k_veloc_h                          = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
-  HORZ_VELOC_DIFF_TYPE = 3             ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_v                            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC   = 1.0E-5    ! max vertical velocity viscosity for convection used in case of instability
-  k_pot_temp_h                    = 400.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v                    = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                                = 400.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v                                = 1.0E-5     ! [m/s]  vertical background diffusion coefficient for salinity
-  MAX_VERT_DIFF_TRAC     = 0.1           ! max vertical tracer diffusion for convection used in case of instability
-  !veloc_diffusion_order      = 1             ! 1=harmonic, 2=biharmonic friction
-  !veloc_diffusion_form       = 1             ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
+! k_veloc_h                   = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HORZ_VELOC_DIFF_TYPE        = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  k_veloc_v                   = 5.0E-5   ! [m/s]  vertical background viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC         = 1.0E-5   ! max vertical velocity viscosity for convection used in case of instability
+  k_pot_temp_h                =  400.0   ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_v                = 1.0E-5   ! [m/s]  vertical background diffusion coefficient for temperature
+  k_sal_h                     =  400.0   ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_v                     = 1.0E-5   ! [m/s]  vertical background diffusion coefficient for salinity
+  MAX_VERT_DIFF_TRAC          = 0.1      ! max vertical tracer diffusion for convection used in case of instability
+! veloc_diffusion_order       = 1        ! 1=harmonic, 2=biharmonic friction
+! veloc_diffusion_form        = 1        ! 1: graddiv, 2: curlcurl form of laplacian horizontal velocity diffusion
 /
 &ocean_physics_nml
-  !i_sea_ice                =    1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
-  richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
-  richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
-/
+! i_sea_ice                   = 1        ! 0 = no sea ice; 1 = sea ice model on
+  richardson_veloc            = 2.0e-3   ! factor for vertical viscosity coefficient in PP scheme
+  richardson_tracer           = 2.0e-3   ! factor for vertical diffusion coefficient in PP scheme
+/    
 &sea_ice_nml
   i_ice_therm   = 1              !  1=zero-layer, 2=Winton
   i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
 /
 &ocean_forcing_nml
-  iforc_oce                 = ${iforc}       ! ocean forcing
-  forcing_windstress_u_type = 1
-  forcing_windstress_v_type = 1
-  forcing_fluxes_type       = 1
-  forcing_timescale         = ${forcing_timescale}   ! length of ocean forcing data set, see above
-  init_oce_relax            = ${init_relax}  ! read ocean surface relaxation file, see above
-  temperature_relaxation    = 0      !  0: no relaxation used
-                                 !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
-  relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
-                                 ! this value is divided by number of seconds per month (=30*24*3600)
-  irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
-  relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
-  forcing_enable_freshwater      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
-  forcing_set_runoff_to_zero      = .TRUE.    ! set runoff to zero for comparison to MPIOM
+  iforc_oce                   = ${iforc}       ! ocean forcing
+  forcing_windstress_u_type   = 1
+  forcing_windstress_v_type   = 1
+  forcing_fluxes_type         = 1
+  forcing_timescale   = ${forcing_timescale}   ! length of ocean forcing data set, see above
+  init_oce_relax              = ${init_relax}  ! read ocean surface relaxation file, see above
+  temperature_relaxation      = 0        ! 0: no relaxation used
+                                         ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
+  relaxation_param            = 1.0      ! strength of 2-dim relaxation for temperature (months)
+                                         ! this value is divided by number of seconds per month (=30*24*3600)
+  irelax_2d_S                 = 1        ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
+  relax_2d_mon_S              = 3.0      ! strength of 2-dim relaxation for salinity (months)
+  forcing_enable_freshwater   = .TRUE.   ! apply freshwater forcing boundary condition (OMIP only)
+  forcing_set_runoff_to_zero  = .TRUE.   ! set runoff to zero for comparison to MPIOM
 /
 &ocean_initialConditions_nml
   use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
