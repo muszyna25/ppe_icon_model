@@ -201,8 +201,16 @@ CONTAINS
     CALL dbg_print('on entry: h-old'                ,ocean_state%p_prog(nold(1))%h ,str_module, idt_src, in_subset=owned_cells)
     CALL dbg_print('on entry: h-new'                ,ocean_state%p_prog(nnew(1))%h ,str_module, idt_src, in_subset=owned_cells)
     CALL dbg_print('on entry: vn-old'               ,ocean_state%p_prog(nold(1))%vn,str_module, idt_src, in_subset=owned_edges)
+
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('on entry: vn-new'               ,ocean_state%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
+!    IF (MOD(timestep,12) == 0) THEN
+!       idbg_mxmn=5
+!       CALL dbg_print('on entry: vn-new'             ,ocean_state%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
+!       CALL dbg_print('on entry: w'                  ,ocean_state%p_diag%w,str_module, idt_src,  in_subset=owned_cells)
+!       idbg_mxmn=1
+!    ELSE
+       CALL dbg_print('on entry: vn-new'               ,ocean_state%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
+!    ENDIF
     !---------------------------------------------------------------------
     
     ! abort condition for elevation and vn:
@@ -219,9 +227,13 @@ CONTAINS
       & ocean_state%p_aux%bc_top_u, ocean_state%p_aux%bc_top_v, &
       & ocean_state%p_aux%bc_top_veloc_cc)
     
-    
     ! Apply bot boundary condition for horizontal velocity
     CALL bot_bound_cond_horz_veloc(patch_3d, ocean_state, p_phys_param, op_coeffs)
+
+    ! CALL dbg_print('bc_top_vn', ocean_state%p_aux%bc_top_vn, str_module, idt_src,  in_subset=owned_edges)
+    ! CALL dbg_print('bc_bot_vn', ocean_state%p_aux%bc_bot_vn, str_module, idt_src,  in_subset=owned_edges)
+    !---------------------------------------------------------------------
+
     
     IF (ltimer) CALL timer_start(timer_ab_expl)
     CALL calculate_explicit_term_ab(patch_3d, ocean_state, p_phys_param, &

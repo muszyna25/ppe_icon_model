@@ -112,7 +112,7 @@ CONTAINS
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp):: z_scale(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: smooth_coeff
+    REAL(wp) :: smooth_coeff, u_diff, v_diff, stress_coeff
     TYPE(t_subset_range), POINTER :: all_cells   
     TYPE(t_patch), POINTER        :: patch_2D
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -198,12 +198,15 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
-            & - p_os%p_diag%u(jc,1,jb) ) * smooth_coeff / z_scale(jc,jb)
-          top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_v(jc,jb)   &
-            & - p_os%p_diag%v(jc,1,jb) ) * smooth_coeff / z_scale(jc,jb)
-          top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
-            & - p_os%p_diag%p_vn(jc,1,jb)%x) * smooth_coeff / z_scale(jc,jb)
+            u_diff = p_sfc_flx%forc_wind_u(jc,jb) - p_os%p_diag%u(jc,1,jb)
+            v_diff = p_sfc_flx%forc_wind_v(jc,jb) - p_os%p_diag%v(jc,1,jb)
+
+            stress_coeff = smooth_coeff / z_scale(jc,jb)
+
+            top_bc_u_c(jc,jb)    = u_diff * stress_coeff
+            top_bc_v_c(jc,jb)    = v_diff * stress_coeff
+            top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
+              & - p_os%p_diag%p_vn(jc,1,jb)%x) * stress_coeff
           ENDIF
         END DO
       END DO
@@ -239,8 +242,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !! Modified by Stephan Lorenz,     MPI-M (2010-07)
-  !!  mpi parallelized LL
-  !!
   SUBROUTINE bot_bound_cond_horz_veloc( patch_3D, p_os, p_phys_param, p_op_coeff)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D

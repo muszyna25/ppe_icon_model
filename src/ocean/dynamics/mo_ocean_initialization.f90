@@ -1775,7 +1775,7 @@ CONTAINS
     
     edges%ALL%max_vertical_levels           = n_zlev
     edges%in_domain%max_vertical_levels     = n_zlev
-    edges%in_domain%max_vertical_levels     = n_zlev
+    edges%owned%max_vertical_levels         = n_zlev
     edges%not_owned%max_vertical_levels     = n_zlev
     edges%not_in_domain%max_vertical_levels = n_zlev
     

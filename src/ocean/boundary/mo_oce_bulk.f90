@@ -1180,9 +1180,6 @@ CONTAINS
 
     REAL(wp) :: zonal_str
     REAL(wp) :: z_lat, z_lon, z_lat_deg
-    REAL(wp) :: forcing_windstress_zonal_waveno = 1.0_wp !=1.0: single gyre
-                                       !=2.0: double gyre
-                                       !=n.0: n-gyre
     REAL(wp) :: y_length               !basin extension in y direction in degrees
     REAL(wp) :: z_T_init(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst

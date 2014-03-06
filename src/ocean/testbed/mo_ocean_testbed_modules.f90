@@ -47,7 +47,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & diagnostics_level, use_tracer_x_height, &
+    & diagnostics_level, use_tracer_x_height, k_veloc_v, &
     & eos_type, i_sea_ice, l_staggered_timestep, gibraltar
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
@@ -227,6 +227,9 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_owned, cells_owned
     REAL(wp), POINTER :: vn_inout(:,:,:)
     REAL(wp) :: sum_vn
+    REAL(wp) :: ref, power_2
+    REAL(wp) :: binary_significant_digits = 5
+
 
     edges_owned => patch_3d%p_patch_2D(1)%edges%owned
     cells_owned => patch_3d%p_patch_2D(1)%cells%owned
@@ -237,13 +240,20 @@ CONTAINS
 !    CALL dbg_print('cell invcent', patch_3D%p_patch_1D(1)%inv_prism_center_dist_c,  debug_string, 1, in_subset=cells_owned)
 !    STOP
     !---------------------------------------------------------------------
-
     vn_inout  => ocean_state(1)%p_diag%vn_pred
-    vn_inout(:,:,:) = 10.0
-    !vn_inout(:,1,:) = 1.0
-    physics_parameters%a_veloc_v(:,:,:) = REAL(INT(physics_parameters%a_veloc_v(:,:,:) * 16777216.0_wp), wp) / 16777216.0_wp
+    vn_inout(:,:,:) = 0.0
+    vn_inout(:,1,:) = 1.0
+
+    ref = 1._wp / k_veloc_v
+    power_2 = (LOG(ref) / LOG(2._wp))
+    write(0,*) ref, LOG(ref), power_2, CEILING(power_2 + binary_significant_digits)
+    power_2 = REAL(2**CEILING(power_2 + binary_significant_digits),wp)
+    write(0,*) "mult=", power_2
+    k_veloc_v = REAL(INT(k_veloc_v * power_2), wp) / power_2
+    physics_parameters%a_veloc_v(:,:,:) = k_veloc_v
+
+
     ! physics_parameters%a_veloc_v(:,:,:) = 1.0_wp
-    CALL dbg_print('vn diffu', physics_parameters%a_veloc_v,  debug_string, 1, in_subset=edges_owned)
     CALL dbg_print('vn diffu', physics_parameters%a_veloc_v,  debug_string, 1, in_subset=edges_owned)
 
     CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_owned)
