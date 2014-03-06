@@ -82,7 +82,7 @@ MODULE mo_surface_les
 
   PUBLIC :: surface_conditions
 
-  REAL(wp), PARAMETER :: km_min      = 0.01_wp !min viscosity
+  REAL(wp), PARAMETER :: km_min  = 0.01_wp !min viscosity
 
   !Parameters for surface layer parameterizations: From RB Stull's book
   REAL(wp), PARAMETER :: bsm = 4.7_wp  !Businger Stable Momentum

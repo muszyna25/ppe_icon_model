@@ -82,7 +82,7 @@ MODULE mo_sgs_turbulence
   PRIVATE
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  REAL(wp), PARAMETER :: z_1by3      = 1._wp/3._wp
+  REAL(wp),         PARAMETER :: z_1by3  = 1._wp/3._wp
 
   !Parameter for vertical scheme type
   INTEGER, PARAMETER :: iexplicit = 1
@@ -617,9 +617,6 @@ MODULE mo_sgs_turbulence
 !ICON_OMP_END_PARALLEL
 
     CALL sync_patch_array(SYNC_E, p_patch, visc_smag_e)
-
-    idt_src = 4 
-    CALL dbg_print('visc_smag_e:' ,visc_smag_e,str_module,idt_src,p_patch%edges%owned)
 
     !--------------------------------------------------------------------------
     !4) Interpolate viscosity and strain rates to different locations: calculate them for 
@@ -1936,7 +1933,7 @@ MODULE mo_sgs_turbulence
         CALL levels_horizontal_mean(sgs_flux, p_patch%cells%area, p_patch%cells%owned, &
                                     outvar)
 
-        outvar = outvar * cpd**2 * rcvd
+        outvar = outvar * cpd
         prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx) =  &
                prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx)+outvar(1:nlevp1)
 
