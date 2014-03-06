@@ -141,7 +141,7 @@ cat > ${ocean_namelist} << EOF
  output      = 'none' ! 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output = 3
- test_mode     = 2
+ test_mode     = 3
  ! msg_timestamp        = .TRUE.
 /
 &dbg_index_nml
