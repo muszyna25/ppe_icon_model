@@ -110,11 +110,11 @@ CONTAINS
             SELECT CASE ( i_Qio_type )
               CASE (1)
               ! ALL energy of warm water over the whole grid area is used for melting ice - divide by concentration
-              ! zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
-              !   &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/(dtime*ice%conc(jc,k,jb))
-              ! Old (2014-02) formulation: part of warm water below ice covered area used only
                 zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
-                  &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/dtime
+                  &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/(dtime*ice%conc(jc,k,jb))
+              ! Old (2014-02) formulation: part of warm water below ice covered area used only
+              ! zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
+              !   &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/dtime
               CASE(2)
               ! energy of warm water over the ice covered part of grid area is used for melting ice - no division
                 u_star = SQRT(Cd_io*( (p_os%p_diag%u(jc,1,jb)-ice%u(jc,jb))**2 + &
