@@ -78,6 +78,7 @@ MODULE mo_ocean_testbed_modules
     & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
+  USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
   USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
     & calc_density_jmdwfg06_eos_func, calc_potential_density, &
@@ -395,6 +396,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
+    REAL(wp):: draft(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     INTEGER :: jstep, jg, jtrc
     !INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
@@ -424,6 +426,14 @@ CONTAINS
       p_ice%conc(:,1,:) = 0.5_wp
       p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1) = -1.7_wp
     ENDWHERE
+
+    ! TODO: use prism_thick_flat_sfc_c instead of del_zlev_m
+    draft(:,:) = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
+    p_ice%zUnderIce(:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:) +  p_os(n_dom)%p_prog(nold(1))%h(:,:) &
+      &                    - draft(:,:) * p_ice%conc(:,1,:)
+
+    CALL dbg_print('sfcflx: draft    ' ,draft          ,debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
+    CALL dbg_print('sfcflx: zUnderIce' ,p_ice%zUnderIce,debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
 
     DO jstep = (jstep0+1), (jstep0+nsteps)
     
