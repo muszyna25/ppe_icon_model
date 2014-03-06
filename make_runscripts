@@ -391,8 +391,8 @@ create_restart test_oce_acc
 #==============================================================================
 # special treatment for test_nat_rce_cbl_120km_nwp
 #
-cpu_time="02:00:00"
-create_restart test_nat_rce_cbl_120km_nwp
+#cpu_time="02:00:00"
+#create_restart test_nat_rce_cbl_120km_nwp
 
 
 #==============================================================================
