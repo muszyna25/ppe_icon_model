@@ -437,6 +437,7 @@ CONTAINS
 
     DO jstep = (jstep0+1), (jstep0+nsteps)
     
+      p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)

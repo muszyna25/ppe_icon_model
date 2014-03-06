@@ -380,6 +380,7 @@ CONTAINS
 !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('GrowZero: ice%hi'     ,ice%hi     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('GrowZero: ice%hs'     ,ice%hs     ,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('GrowZero: Q_surplus'  ,Q_surplus  ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero: ice%Qtop'   ,ice%Qtop   ,str_module,idt_src, in_subset=p_patch%cells%owned)
