@@ -70,7 +70,7 @@ atmo_dyn_grids='icon_grid_hdcp2_germany_680km-diam_1250m.nc'
 LATBC_PATH=$LAMDATA/NUDG_germany/1250/
 #
 #EXT DATA
-ext_data_path=$LAMDATA/EXTPAR/
+ext_data_path=$LAMDATA/EXTPAR
 add_link_file $ext_data_path/extpar_hdcp2_germany_680km-diam_1250m.nc extpar_icon_grid_hdcp2_germany_680km-diam_1250m.nc 
 
 #INITIAL DATA

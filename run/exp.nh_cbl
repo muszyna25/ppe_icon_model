@@ -116,12 +116,12 @@ cat > ${atmo_namelist} << EOF
  isrfc_type        = 2     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  ufric             = 0.2
  expname           = '${EXPNAME}'
- avg_interval_sec = 900.
+ avg_interval_sec = 1200.
  sampl_freq_sec   = 30.
 /
 &diffusion_nml
- lhdiff_temp  = .FALSE.
- lhdiff_vn    = .FALSE.
+ lhdiff_temp  = .TRUE.
+ lhdiff_vn    = .TRUE.
  lhdiff_w     = .FALSE.
  hdiff_order  = 4
 /
