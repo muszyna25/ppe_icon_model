@@ -999,8 +999,7 @@ CONTAINS
       draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     END WHERE
 
-    !ice%zUnderIce (:,:)   = dzw(1) + zo (:,:) &
-    !  &                     - sum(draft(:,:,:) * ice%conc(:,:,:),2)
+    ! TODO: use prism_thick_flat_sfc_c instead of del_zlev_m
     ice%zUnderIce (:,:)   = v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) &
       &                      - sum(draft(:,:,:) * ice%conc(:,:,:),2)
 
@@ -1009,6 +1008,16 @@ CONTAINS
       CALL ice_init_fem
       CALL ice_fem_grid_post(p_patch)
     ENDIF
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('IceInit: hi       ' ,ice%hi       ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceInit: conc     ' ,ice%conc     ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    idt_src=4  ! output print level (1-5, fix)        
+    CALL dbg_print('IceInit: Tfw      ' ,Tfw          ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceInit: draft    ' ,draft        ,str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceInit: zUnderIce' ,ice%zUnderIce,str_module, idt_src, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
       
     CALL message(TRIM(routine), 'end' )
 
@@ -1612,9 +1621,6 @@ CONTAINS
     Delhsnow  (:,:) = SUM( ( ice%hs(:,:,:) - ice%hsold(:,:,:) )*ice%conc(:,:,:), 2 )
     snowiceave(:,:) = SUM( ice%snow_to_ice(:,:,:)*ice% conc(:,:,:), 2 )
 
-    CALL dbg_print('SeaIce : Delhice '        ,Delhice    ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('SeaIce : Delhsnow'        ,Delhsnow   ,str_module, 4, in_subset=p_patch%cells%owned)
-
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
     heatOceW(:,:) = ( QatmAve%SWnetw(:,:)                       &
@@ -1633,6 +1639,13 @@ CONTAINS
       heatOceW(:,:)   = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) )     &
         &     *ice%zUnderIce(:,:)*(1.0_wp-ice%concSum(:,:))*clw*rho_ref/dtime
     ENDWHERE
+
+    CALL dbg_print('UpperOceTS: Delhice  ', Delhice      ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: Delhsnow ', Delhsnow     ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: draft    ', draft        ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: newice   ', ice%newice   ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Diagnosis: collect the 4 parts of heat fluxes into the p_sfc_flx variables - no flux under ice:
     p_sfc_flx%forc_swflx(:,:) = QatmAve%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
@@ -1698,6 +1711,8 @@ CONTAINS
       p_sfc_flx%forc_slflx(:,:) = 0.0_wp
     END WHERE
 
+    CALL dbg_print('UpperOceTS: FwBcIce  ', p_sfc_flx%forc_fw_bc_ice, str_module, 4, in_subset=p_patch%cells%owned)
+
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
   !
@@ -1724,7 +1739,8 @@ CONTAINS
     REAL(wp) :: sss(nproma,p_patch%alloc_cell_blocks)
     REAL(wp) :: Tfw(nproma,p_patch%alloc_cell_blocks) ! Ocean freezing temperature [C]
 
-    CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: IceConc beg' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: vol  at beg' ,ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
 
     if ( no_tracer >= 2 ) then
       Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -1799,8 +1815,10 @@ CONTAINS
     ENDWHERE
 
     CALL dbg_print('IceConcCh: IceConc end' ,ice%conc, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceConcCh: hi at   end' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceConcCh: hs at   end' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hi   at end' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: hs   at end' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: vol  at end' ,ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceConcCh: vols at end' ,ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_conc_change
 

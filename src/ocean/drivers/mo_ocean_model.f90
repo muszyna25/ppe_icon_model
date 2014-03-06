@@ -503,6 +503,10 @@ CONTAINS
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
+
+    ! initialize ocean indices for debug output (including 3-dim lsm)
+    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, external_data )
+
     CALL init_ho_params(patch_3d, p_phys_param)
 
     CALL apply_initial_conditions(patch_3d, p_os(jg), external_data(jg), p_op_coeff)
@@ -514,9 +518,6 @@ CONTAINS
       &                     p_sfc_flx)
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D, p_os(jg), p_ice)
-
-    ! initialize ocean indices for debug output (including 3-dim lsm)
-    CALL init_oce_index( patch_3d%p_patch_2d,patch_3d, p_os, external_data )
 
     IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
 
