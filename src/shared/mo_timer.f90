@@ -554,6 +554,7 @@ CONTAINS
 
     IF (.NOT. lopenmp) THEN
       ! do nothing
+      time_s = 0.
     ELSE
 !$    time_s = REAL(omp_get_wtime())
     END IF
@@ -568,6 +569,8 @@ CONTAINS
     REAL, INTENT(IN) :: time_s
     ! local variables:
     LOGICAL :: lopenmp
+
+    lopenmp = .FALSE.
 !$  lopenmp = .TRUE.
 
     IF (.NOT. lopenmp) THEN
