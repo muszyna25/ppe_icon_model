@@ -87,8 +87,6 @@ MODULE mo_gw_hines
   INTEGER  :: naz        = 8
 
   REAL(wp) :: slope      = 1.0_wp
-! In case of slope = 1 some optimizations are possible
-#define slope_1
 
   REAL(wp) :: f1         = 1.5_wp 
   REAL(wp) :: f2         = 0.3_wp 
@@ -784,12 +782,13 @@ CONTAINS
     REAL(wp) :: visc, visc_min, f2mfac
 
     REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons)! , vtmp3(nlons), maxdiff
-#ifndef slope_1
-    INTEGER, PARAMETER  :: sp1=2
-    REAL(wp), PARAMETER :: sp2=2.0
-#else
-    REAL(wp) :: sp1, sp2
-#endif
+
+    ! Here for optimization purposes distinguish:
+    ! - the standard slope = 1 -> slope+1=2
+    INTEGER,  PARAMETER :: s1p1_par_integer = 2      ! for use as exponential
+    REAL(wp), PARAMETER :: s1p1_par_real    = 2.0_wp ! for use as factor
+    ! - the generic  slope = 1., 1.5 or 2.
+    REAL(wp) :: sp1_var_real                         ! for use as exponential and factor
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_wavnum'
 
@@ -801,10 +800,8 @@ CONTAINS
 
     visc_min = 1.e-10_wp
 
-#ifndef slope_1
-    sp1 = slope + 1.0_wp
-    sp2 = slope + 1.0_wp
-#endif
+    sp1_var_real = slope + 1.0_wp
+
     mmsq = m_min**2
 
     !
@@ -863,17 +860,19 @@ CONTAINS
     !
     
      IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) ) THEN
+       ! here slope=1 -> use parameters s1p1_par_integer for exponential and s1p1_par_real for factor
        DO n = 1,naz
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
           DO j = 1,nlorms
              i = ilorms(j)
                 m_alpha(i,levbot,n) = bvfb(i)/(f1*sigma_alpha(i,levbot,n) + f2*sigma_t(i,levbot))
-                ak_alpha(i,n)   = 2.0_wp*sigsqh_alpha(i,levbot,n)/(m_alpha(i,levbot,n)**2 - mmsq)
+                ak_alpha(i,n)   = s1p1_par_real * sigsqh_alpha(i,levbot,n)/(m_alpha(i,levbot,n)**s1p1_par_integer - mmsq)
                 mmin_alpha(i,n) = m_alpha(i,levbot,n)
           END DO
        END DO
      ELSE
+       ! here slope/=1 -> use variable real for exponential and factor
        DO n = 1,naz
 !IBM* ASSERT(NODEPS)
           DO j = 1,nlorms
@@ -881,13 +880,13 @@ CONTAINS
              vtmp1(j) = m_alpha(i,levbot,n)
           END DO
 
-          vtmp1(1:nlorms) = vtmp1(1:nlorms)**(-sp1)
+          vtmp1(1:nlorms) = vtmp1(1:nlorms)**(-sp1_var_real)
 
 !IBM* ASSERT(NODEPS)
           DO j = 1,nlorms
              i = ilorms(j)
                 m_alpha(i,levbot,n) = bvfb(i)/(f1*sigma_alpha(i,levbot,n) + f2*sigma_t(i,levbot))
-                ak_alpha(i,n)       = sigsqh_alpha(i,levbot,n) * vtmp1(j) * sp2
+                ak_alpha(i,n)       = sp1_var_real * sigsqh_alpha(i,levbot,n) * vtmp1(j) 
                 mmin_alpha(i,n)     = m_alpha(i,levbot,n)
           END DO
        END DO
@@ -1199,23 +1198,21 @@ CONTAINS
     INTEGER  :: i, l, lev1p, lev2m, k
     REAL(wp) ::  dendz, dendz2
     
-#ifndef slope_1
     REAL(wp) ::  inv_slope
     REAL(wp) ::  densb_slope(nlons)
-#endif
     !-----------------------------------------------------------------------
     !
     lev1p = lev1 + 1
     lev2m = lev2 - 1
     lev2p = lev2 + 1
-    !
-    !  sum over azimuths for case where slope = 1.
-    !
     DO k = 1, nazmth
       DO i = il1,il2
         ak_k_alpha(i,k) = ak_alpha(i,k)*k_alpha(i,k)
       END DO
     END DO
+    !
+    !  for case where slope = 1.:
+    !
     IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) )  THEN
        !
        !  case with 4 azimuths.
@@ -1248,22 +1245,17 @@ CONTAINS
           END DO
        END IF
 
-    END IF
     !
-    !  sum over azimuths for case where slope not equal to 1.
+    !  for case where slope /= 1.:
     !
-    IF ( ABS(slope-1.0_wp) > EPSILON(1.0_wp) )  THEN
+    ELSE
        !
        !  case with 4 azimuths.
        !
        IF (naz==4)  THEN
           DO l = lev1,lev2
              DO i = il1,il2
-#ifdef slope_1
-                flux(i,l,:) = ak_k_alpha(i,:)*m_alpha(i,l,:)
-#else
                 flux(i,l,:) = ak_k_alpha(i,:)*m_alpha(i,l,:)**slope
-#endif
                 flux_u(i,l) = flux(i,l,1) - flux(i,l,3)
                 flux_v(i,l) = flux(i,l,2) - flux(i,l,4)
              END DO
@@ -1276,11 +1268,7 @@ CONTAINS
           DO l = lev1,lev2
              DO k = 1, nazmth
                 DO i = il1,il2
-#ifdef slope_1
-                  flux(i,l,k) = ak_k_alpha(i,k)*m_alpha(i,l,k)
-#else
                   flux(i,l,k) = ak_k_alpha(i,k)*m_alpha(i,l,k)**slope
-#endif
                 END DO
              END DO
              DO i = il1,il2
@@ -1296,34 +1284,40 @@ CONTAINS
     !
     !  calculate flux from sum.
     !
+    !
+    !  for case where slope = 1.:
+    !
+    IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) )  THEN
+       DO l = lev1,lev2
+          DO i = il1,il2
+             flux_u(i,l) = flux_u(i,l) * densb(i)
+             flux_v(i,l) = flux_v(i,l) * densb(i)
+          END DO
+          DO k = 1, nazmth
+             DO i = il1,il2
+                flux(i,l,k) = flux(i,l,k) * densb(i)
+             END DO
+          END DO
+       END DO
 
-#ifdef slope_1
-    DO l = lev1,lev2
-       DO i = il1,il2
-          flux_u(i,l) = flux_u(i,l) * densb(i)
-          flux_v(i,l) = flux_v(i,l) * densb(i)
-       END DO
-       DO k = 1, nazmth
+    !
+    !  for case where slope /= 1.:
+    !
+    ELSE
+       inv_slope = 1._wp / slope
+       densb_slope(il1:il2) = densb(il1:il2) * inv_slope
+       DO l = lev1,lev2
           DO i = il1,il2
-            flux(i,l,k) = flux(i,l,k) * densb(i)
+             flux_u(i,l) = flux_u(i,l) * densb_slope(i)
+             flux_v(i,l) = flux_v(i,l) * densb_slope(i)
+          END DO
+          DO k = 1, nazmth
+             DO i = il1,il2
+                flux(i,l,k) = flux(i,l,k) * densb_slope(i)
+             END DO
           END DO
        END DO
-    END DO
-#else
-    inv_slope = 1._wp / slope
-    densb_slope(il1:il2) = densb(il1:il2) * inv_slope
-    DO l = lev1,lev2
-       DO i = il1,il2
-          flux_u(i,l) = flux_u(i,l) * densb_slope(i)
-          flux_v(i,l) = flux_v(i,l) * densb_slope(i)
-       END DO
-       DO k = 1, nazmth
-          DO i = il1,il2
-            flux(i,l,k) = flux(i,l,k) * densb_slope(i)
-          END DO
-       END DO
-    END DO
-#endif
+    END IF
     !
     !  calculate drag at intermediate levels
     !      
