@@ -704,6 +704,7 @@ run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text
 run/exp.mtest_nat_rce_cbl_120km_nwp_test -text
 run/exp.nat_ape-dec -text
+run/exp.nat_ape_R2B04 -text
 run/exp.nat_jww -text
 run/exp.nat_jww_410 -text
 run/exp.nat_jww_nwp_mpiomp -text

@@ -1,0 +1,229 @@
+#!/bin/ksh
+#=============================================================================
+# basic aquaplanet setup using NWP physics with the nh core.
+#
+# Date: 2014.3.6 Levi Silvers
+#
+#=============================================================================
+#=============================================================================
+# 
+# This section of the run script contains the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+#=============================================================================
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
+#
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-08-01T00:00:00Z"
+end_date="2009-08-15T00:00:00Z"
+end_date2="2008-09-10T00:00:00Z"
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=120
+#
+restart_months=12  
+(( dt_checkpoint = restart_months * month )) # checkpointing not yet supported for coupling fields
+(( dt_restart    = restart_months * month ))
+#
+output_interval="PT06H"
+output_interval2="PT01H"
+steps_per_file=40   # 10 days 
+steps_per_file2=24   # 1 day 
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=3             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm.,
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+#-----------------------------------------------------------------------------
+# the grid parameters
+atmo_dyn_grids="iconR2B04-grid.nc"
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+# ------------------------
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+! iorder_sendrecv = 3
+ nproma         = 16
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+! use_icon_comm   = .true.
+! icon_comm_method = 1 
+! max_send_recv_buffer_size = 262144
+! max_mpi_message_size = 8192
+! l_fast_sum     = .true.
+! division_method=1
+! division_file_name=""
+! parallel_radiation_mode=0
+! use_dycore_barrier = .false.
+/
+&grid_nml
+ cell_type = 3        ! triangular cells
+ dynamics_grid_filename = "$atmo_dyn_grids",
+/
+&run_nml
+ num_lev      = 70,          ! number of full levels of vertical grid
+ dtime        = ${dtime}     ! [s] timestep in seconds
+ ldynamics    = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport   = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ iforcing     = 3            !  
+ ltestcase    = .TRUE.       ! run testcase                 --> testcase_ctl
+ ntracer      = 5            ! number of tracers
+ msg_level    = 12           ! detailed report during integration
+ ltimer       = .FALSE.
+ timers_level = 100
+ output       = "nml","totint"
+/
+&nwp_phy_nml
+ inwp_gscp       = 1
+ inwp_convection = 1
+ inwp_radiation  = 1        ! 1: RRTM, 2: Ritter-Geleyn
+ inwp_cldcover   = 1        ! 0: no cld, 1: grid scale, 3: COSMO
+ inwp_turb       = 1        ! 1: Raschendorfer, 3: EDMF-DUALM, 4: ECHAM
+ inwp_satad      = 1
+ inwp_sso        = 0
+ inwp_gwd        = 1
+ inwp_surface    = 0
+! efdt_min_raylfric  = 7200.
+/
+!&turbdiff_nml
+! tkhmin  = 0.2
+! tkmmin  = 0.2
+! pat_len = 100.
+! c_diff  = 0.2
+! rat_sea = 9.0
+!/
+&radiation_nml
+ irad_o3    = 6             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone
+ irad_aero  = 0             ! switch off aerosols
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+/
+&nonhydrostatic_nml
+ iadv_rhotheta   = 2
+ ivctype         = 2        ! set vertical grid automatically using sleve_ctl
+ itime_scheme    = 4    ! default 4; 5: modified Matsuno for better numerical stability of sound waves
+! exner_expol     = 0.666    ! exner function extrapolation?
+! vwind_offctr    = 0.5     ! off-centering for time differencing (like alpha in turb)
+ damp_height     = 50000.  ! damping height (set about 10km below top)
+ rayleigh_coeff  = 0.10     ! Rayleigh coefficient for damping in upper levels
+ iadv_rcf        = 5   ! microphysics and turb and sat adj 
+ l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
+! igradp_method   = 3        ! new default
+/
+&sleve_nml                  ! vertical grid standard output for message level >= 15
+ min_lay_thckn   = 20.      ! lowest level thickness (between half-levels)
+! top_height      = 75000.
+ top_height      = 55000.
+ stretch_fac     = 0.9      ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+ decay_scale_1   = 4000.    ! decay scales for topography
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+ flat_height     = 16000.
+/
+&time_nml
+ dt_restart   = ${dt_restart}  ! 1 month
+/
+&dynamics_nml
+ iequations      = 3  
+ idiv_method     = 1
+ divavg_cntrwgt  = 0.50
+ lcoriolis       = .TRUE.
+/
+&nh_testcase_nml
+ nh_test_name      = 'APE_nh'     ! test case identifier
+ ape_sst_case      = 'sst1'
+/
+&transport_nml
+ ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+! ihadv_tracer  = 32,2,2,2,2,0
+! ivadv_tracer  = 3,3,3,3,3,0
+! ! igrad_c_miura = 1
+! lvadv_tracer  = .TRUE.
+! lstrang       = .FALSE.
+! itype_hlimit = 3,4,4,4,4,0
+! itype_vlimit  = 1
+! iord_backtraj = 1          ! default: 1
+/
+&diffusion_nml
+ hdiff_order      = 5
+ itype_vn_diffu   = 1
+ itype_t_diffu    = 2
+ hdiff_efdt_ratio = 36.0
+ hdiff_smag_fac   = 0.015
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+/
+&io_nml
+ dt_checkpoint    = ${dt_checkpoint}
+ itype_rh       = 1  ! RH w.r.t. water
+/
+!&nh_pzlev_nml
+! nplev       = 5     ! number of p level output (attention: levels in [Pa] and top-down)
+! nzlev       = 10     ! number of z level output (attention: levels in [m] and top-down)
+! plevels     = 20000,30000,50000,70000,85000
+! zlevels     = 10000,8000,6000,5000,4000,3000,2000,1000,500,100
+!/
+&interpol_nml
+ lsq_high_ord     = 3
+/
+&output_nml
+ filetype         = 4  ! output format: 2=GRIB2, 4=NETCDFv2
+ dom              = -1
+ output_start     = "${start_date}" 
+ output_end       = "${end_date}" 
+ output_interval  = "${output_interval}"
+ steps_per_file   = ${steps_per_file}
+ include_last     = .TRUE.           ! flag whether to include the last time step
+ remap            = 0                ! lon/lat output
+ output_filename  = '${EXPNAME}'     ! file name base
+ output_grid      = .TRUE.
+ ml_varlist       = 't_g','rh','qv','w','shfl_s','lhfl_s','pres_sfc','z_ifc','z_mc','group:rad_vars','group:cloud_diag','group:precip_vars','group:additional_precip_vars'
+/
+&output_nml
+ filetype         = 4  ! output format: 2=GRIB2, 4=NETCDFv2
+ dom              = -1
+ output_start     = "${start_date}" 
+ output_end       = "${end_date2}" 
+ output_interval  = "${output_interval2}"
+ steps_per_file   = ${steps_per_file2}
+ include_last     = .TRUE.           ! flag whether to include the last time step
+ remap            = 0                ! lon/lat output
+ output_filename  = '${EXPNAME}_more'     ! file name base
+ output_grid      = .TRUE.
+ ml_varlist       = 't_g','rh','qv','u','v','w','temp','shfl_s','lhfl_s','pres_sfc','z_ifc','z_mc','group:rad_vars','group:cloud_diag','group:precip_vars','group:additional_precip_vars'
+/
+EOF
+#---------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_non-hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
+#----------------------------------------------------------------------------------
