@@ -672,15 +672,15 @@ CONTAINS
       ENDIF
 
     !------------------------------
-    CASE (500)
-      ! uniform salinity or vertically linarly increasing on all cells
-      !   it will initialize also land cells
-      !   this is provided only for testing,
-      !   as it should give the same results as
-      !   for initial_salinity_type = 200
-      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
-      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
-        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
+!    CASE (500)
+!      ! uniform salinity or vertically linarly increasing on all cells
+!      !   it will initialize also land cells
+!      !   this is provided only for testing,
+!      !   as it should give the same results as
+!      !   for initial_salinity_type = 200
+!      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
+!      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_salinity, &
+!        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
 
     !------------------------------
      CASE default
@@ -788,15 +788,15 @@ CONTAINS
        CALL fill_FromVerticalArrayProfile(patch_3d, ocean_temperature, VerticalProfileValue=tprof_var)
 
     !------------------------------
-    CASE (500)
-      ! uniform salinity or vertically linarly increasing on all cells
-      !   it will initialize also land cells
-      !   this is provided only for testing,
-      !   as it should give the same results as
-      !   for initial_salinity_type = 200
-      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
-      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
-        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+!    CASE (500)
+!      ! uniform salinity or vertically linarly increasing on all cells
+!      !   it will initialize also land cells
+!      !   this is provided only for testing,
+!      !   as it should give the same results as
+!      !   for initial_salinity_type = 200
+!      CALL message(TRIM(method_name), ': horizontally homogenous, vertically linear INCLUDING LAND')
+!      CALL tracer_VerticallyLinearly_IncludeLand(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
+!        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
      !------------------------------
      CASE default
@@ -1547,51 +1547,51 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE tracer_VerticallyLinearly_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
-    REAL(wp), TARGET :: ocean_tracer(:,:,:)
-    REAL(wp), INTENT(in) :: top_value, bottom_value
-
-    TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_subset_range), POINTER :: all_cells
-
-    INTEGER :: jb, jc, je, jk
-    INTEGER :: start_cell_index, end_cell_index
-    REAL(wp) :: linear_increase
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
-    !-------------------------------------------------------------------------
-
-    patch_2d => patch_3d%p_patch_2d(1)
-    all_cells => patch_2d%cells%ALL
-
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-      DO jc = start_cell_index, end_cell_index
-          ocean_tracer(jc,1,jb) = top_value
-      END DO
-    END DO
-
-    linear_increase = (bottom_value - top_value) / (REAL(n_zlev,wp)-1.0_wp)
-
-    ! write(0,*) n_zlev
-    ! write(0,*) bottom_value, top_value, linear_increase
-
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-      DO jc = start_cell_index, end_cell_index
-
-        DO jk = 2, n_zlev
-          ocean_tracer(jc,jk,jb) &
-            & = ocean_tracer(jc,jk-1,jb) + linear_increase
-        !  write(0,*) ocean_tracer(jc,jk,jb), ocean_tracer(jc,jk-1,jb)
-        END DO
-      END DO
-    END DO
-
-    ! ocean_tracer(:,:,:) = top_value
-
-  END SUBROUTINE tracer_VerticallyLinearly_IncludeLand
+!  SUBROUTINE tracer_VerticallyLinearly_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
+!    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+!    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+!    REAL(wp), INTENT(in) :: top_value, bottom_value
+!
+!    TYPE(t_patch),POINTER   :: patch_2d
+!    TYPE(t_subset_range), POINTER :: all_cells
+!
+!    INTEGER :: jb, jc, je, jk
+!    INTEGER :: start_cell_index, end_cell_index
+!    REAL(wp) :: linear_increase
+!
+!    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
+!    !-------------------------------------------------------------------------
+!
+!    patch_2d => patch_3d%p_patch_2d(1)
+!    all_cells => patch_2d%cells%ALL
+!
+!    DO jb = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+!      DO jc = start_cell_index, end_cell_index
+!          ocean_tracer(jc,1,jb) = top_value
+!      END DO
+!    END DO
+!
+!    linear_increase = (bottom_value - top_value) / (REAL(n_zlev,wp)-1.0_wp)
+!
+!    ! write(0,*) n_zlev
+!    ! write(0,*) bottom_value, top_value, linear_increase
+!
+!    DO jb = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+!      DO jc = start_cell_index, end_cell_index
+!
+!        DO jk = 2, n_zlev
+!          ocean_tracer(jc,jk,jb) &
+!            & = ocean_tracer(jc,jk-1,jb) + linear_increase
+!        !  write(0,*) ocean_tracer(jc,jk,jb), ocean_tracer(jc,jk-1,jb)
+!        END DO
+!      END DO
+!    END DO
+!
+!    ! ocean_tracer(:,:,:) = top_value
+!
+!  END SUBROUTINE tracer_VerticallyLinearly_IncludeLand
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------

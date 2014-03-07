@@ -71,13 +71,13 @@ MODULE mo_statistics
   
   INTERFACE global_minmaxmean
     MODULE PROCEDURE MinMaxMean_2D
-    MODULE PROCEDURE MinMaxMean_3D_TotalLevels
+    MODULE PROCEDURE MinMaxMean_3D_AllLevels
     MODULE PROCEDURE MinMaxMean_2D_InRange
-    MODULE PROCEDURE MinMaxMean_3D_TotalLevels_InRange
+    MODULE PROCEDURE MinMaxMean_3D_AllLevels_InRange
   END INTERFACE global_minmaxmean
   
   INTERFACE subset_sum
-    MODULE PROCEDURE Sum_3D_TotalLevels_InIndexed
+    MODULE PROCEDURE Sum_3D_AllLevels_InIndexed
     ! MODULE PROCEDURE globalspace_3d_sum_max_level_array
   END INTERFACE subset_sum
 
@@ -240,15 +240,15 @@ CONTAINS
     minmaxmean(:) = 1234567890
   END FUNCTION MinMaxMean_2D
   !-----------------------------------------------------------------------
-  FUNCTION MinMaxMean_3D_TotalLevels(values, start_level, end_level) result(minmaxmean)
+  FUNCTION MinMaxMean_3D_AllLevels(values, start_level, end_level) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:,:)
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
-    
+
     CALL warning(module_name, "not available without subset input")
     minmaxmean(:) = 1234567890
-    
-  END FUNCTION MinMaxMean_3D_TotalLevels
+
+  END FUNCTION MinMaxMean_3D_AllLevels
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -313,7 +313,7 @@ CONTAINS
   !>
   ! Returns the min max mean in a 3D array in a given range subset
   ! The results are over all levels
-  FUNCTION MinMaxMean_3D_TotalLevels_InRange(values, in_subset, start_level, end_level) result(minmaxmean)
+  FUNCTION MinMaxMean_3D_AllLevels_InRange(values, in_subset, start_level, end_level) result(minmaxmean)
     REAL(wp), INTENT(in) :: values(:,:,:)
     TYPE(t_subset_range), TARGET :: in_subset
     INTEGER, OPTIONAL :: start_level, end_level
@@ -321,7 +321,7 @@ CONTAINS
     
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
     INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical, number_of_values
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':MinMaxMean_3D_TotalLevels'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':MinMaxMean_3D_AllLevels'
     
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
     
@@ -390,8 +390,9 @@ CONTAINS
 
     ! the global min, max, mean, is avaliable only to stdio process
     CALL gather_minmaxmean(min_value, max_value, sum_value, number_of_values, minmaxmean)
+    ! write(0,"(a, 1pg26.18, 1pg26.18, 1pg26.18)") "minmaxmean:", minmaxmean(1:3)
     
-  END FUNCTION MinMaxMean_3D_TotalLevels_InRange
+  END FUNCTION MinMaxMean_3D_AllLevels_InRange
   !-----------------------------------------------------------------------
   
   
@@ -401,7 +402,7 @@ CONTAINS
   ! and optional weights with the original 3D index (weights)
   ! or using the the subset index ( subset_indexed_weights ( level, sunset_index)).
   ! The sum is over all levels.
-  FUNCTION Sum_3D_TotalLevels_InIndexed(values, indexed_subset, start_level, end_level, weights, &
+  FUNCTION Sum_3D_AllLevels_InIndexed(values, indexed_subset, start_level, end_level, weights, &
     & subset_indexed_weights) result(total_sum)
     REAL(wp) :: values(:,:,:)
     TYPE(t_subset_indexed), TARGET :: indexed_subset
@@ -415,7 +416,7 @@ CONTAINS
     INTEGER :: i, block, idx, level,  start_vertical, end_vertical
     INTEGER :: communicator
     !    INTEGER :: idx
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_TotalLevels_InIndexed'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_InIndexed'
     
     
     IF (PRESENT(start_level)) THEN
@@ -478,7 +479,7 @@ CONTAINS
       
     ENDIF
     
-  END FUNCTION Sum_3D_TotalLevels_InIndexed
+  END FUNCTION Sum_3D_AllLevels_InIndexed
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -763,6 +764,8 @@ CONTAINS
       minmaxmean(3) = sum_value / REAL(number_of_values, wp)
       
     ENDIF
+  !  write(0,"(a, 1pg26.18, 1pg26.18, 1pg26.18)") "gather_minmaxmean:", min_value, max_value, sum_value
+  !  write(0,*) "number_of_values:",  number_of_values
 
   END SUBROUTINE gather_minmaxmean
   !-----------------------------------------------------------------------
@@ -833,7 +836,7 @@ CONTAINS
 !    INTEGER :: i, block, idx, level
 !    INTEGER :: communicator
 !    !    INTEGER :: idx
-!    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_TotalLevels_InIndexed'
+!    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_InIndexed'
 !
 !    IF (.NOT. PRESENT(indexed_subset)) &
 !      & CALL finish(method_name,  "Currently requires indexed_subset parameter. Abort.")

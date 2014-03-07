@@ -170,6 +170,7 @@ doc/style/gnames_horiz_grid.tex -text
 doc/style/gnames_prog_sing_lev.tex -text
 doc/style/icon_standard.pdf -text
 doc/style/icon_standard.tex -text
+doc/technical/.directory -text
 doc/technical/Diagnostics_and_Debugging.tex -text
 doc/technical/ICONAM_Coupling_to_Physics.tex -text
 doc/technical/async_restart/ICONImplementierungAsynchronerRestart-img001.png -text
@@ -733,6 +734,7 @@ run/exp.nh_oper -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
 run/exp.oce_10km_cellbased_zonalWind -text
+run/exp.oce_10km_etopo02_cellbased_zonalWind_TempRelax -text
 run/exp.oce_20km_cellbased_zonalWind-1 -text
 run/exp.oce_4dwd -text
 run/exp.oce_aqpl -text
@@ -740,7 +742,6 @@ run/exp.oce_channel -text
 run/exp.oce_default -text
 run/exp.oce_mpiom -text
 run/exp.oce_r2b5 -text
-run/exp.oce_r2b7_cellbased_numeForce_noTracer_wind10_incOutput -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
 run/exp.oce_test_numeric_noland_cellbased -text

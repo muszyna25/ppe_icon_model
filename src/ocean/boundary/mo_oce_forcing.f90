@@ -51,7 +51,8 @@ MODULE mo_oce_forcing
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
     & forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
-    & forcing_windstress_u_type, forcing_windstress_v_type
+    & forcing_windstress_u_type, forcing_windstress_v_type,    &
+    & forcing_windstress_zonalWavePhase
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_exception,           ONLY: finish, message, message_text
@@ -835,7 +836,9 @@ CONTAINS
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
 
-    field_2d(:,:) = MERGE(amplitude * COS(lat(:,:)) * COS(zonal_waveno * lat(:,:)), 0.0_wp, mask(:,:) <= threshold)
+    field_2d(:,:) = MERGE(amplitude * COS(lat(:,:)) * &
+      & COS(forcing_windstress_zonalWavePhase + zonal_waveno * ABS(lat(:,:))), 0.0_wp, mask(:,:) <= threshold)
+
   END SUBROUTINE zonal_periodic_zero_at_pols
 
   SUBROUTINE cells_zonal_periodic(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
