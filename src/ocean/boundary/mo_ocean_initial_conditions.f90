@@ -1541,7 +1541,7 @@ CONTAINS
     END DO
 
     CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
-      & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
+      & bottom_value=initial_temperature_bottom)
 
   END SUBROUTINE temperature_APE
   !-------------------------------------------------------------------------------
@@ -1621,7 +1621,7 @@ CONTAINS
       END DO
     END DO
 
-    CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
+    CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, bottom_value)
 
   END SUBROUTINE tracer_VerticallyLinearly
   !-------------------------------------------------------------------------------
@@ -1629,10 +1629,10 @@ CONTAINS
   !-------------------------------------------------------------------------------
   ! decrease tvertically linerarly the given tracer based on the top level value
   ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
-  SUBROUTINE increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
+  SUBROUTINE increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
-    REAL(wp), INTENT(in) :: top_value, bottom_value
+    REAL(wp), INTENT(in) :: bottom_value
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1644,11 +1644,12 @@ CONTAINS
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-    linear_increase = (bottom_value - top_value ) / (REAL(n_zlev,wp)-1.0_wp)
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
+
+        linear_increase = (bottom_value - ocean_tracer(jc, 1,jb) ) / (REAL(n_zlev,wp)-1.0_wp)
 
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ocean_tracer(jc,jk,jb) &
