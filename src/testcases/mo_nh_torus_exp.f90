@@ -747,12 +747,21 @@ MODULE mo_nh_torus_exp
 
     REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
     REAL(wp) :: topo_height,thth,curr_height
+    REAL(wp), ALLOCATABLE :: zpot_temp(:)
+    REAL(wp), ALLOCATABLE :: zq_sat(:)
     INTEGER  :: jc,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev                  !< number of full and half levels
     INTEGER  :: nlen, i_rcstartlev, jcn, jbn, jg, ntropo
+    INTEGER  :: istatus=0
+    LOGICAL  :: analyticprof ! determines if init profile is from ext file
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+     routine = 'mo_nh_torus_exp:init_nh_state_rce'
 
   !-------------------------------------------------------------------------
+
+
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
@@ -770,6 +779,20 @@ MODULE mo_nh_torus_exp
     i_rcstartlev = 2
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
+    ! when false, this switch will result in theta and qv being read from an ext file
+    ! rather than computed analytically
+    analyticprof = .FALSE.
+
+    ! allocate storage var for press to be used in o3_pl2ml
+    ALLOCATE (zpot_temp(nlev),STAT=istatus)
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), 'allocation of pot_temp failed')
+    END IF
+    ALLOCATE (zq_sat(nlev),STAT=istatus)
+    IF(istatus/=SUCCESS)THEN
+      CALL finish (TRIM(routine), 'allocation of q_sat failed')
+    END IF
+
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
 
@@ -784,6 +807,10 @@ MODULE mo_nh_torus_exp
       topo_height=13000._wp
       thth=th_cbl(1)+(4.8_wp/1000._wp)*topo_height
 
+      IF (.NOT. analyticprof) THEN
+        CALL read_ext_profile(nlev, ptr_metrics, zpot_temp, zq_sat)
+      END IF
+
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -793,24 +820,34 @@ MODULE mo_nh_torus_exp
         ENDIF
 
         !Tracers
-        DO jk = 1, nlev
-          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.0185_wp*&
-          & EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/2800._wp)
-        END DO
+        IF (analyticprof) THEN
+          DO jk = 1, nlev
+            ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.0185_wp*&
+            & EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/2800._wp)
+          END DO
+        ELSE ! get iqv from external file
+          ! qsat = incomping specific humidity from Cathy's file
+          DO jk = 1, nlev
+            ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = zq_sat(jk)
+          END DO
+        END IF
 
         DO jk = nlev, 1, -1
-           ! init potential temperature
+          ! init potential temperature
+          IF (analyticprof) THEN
+            ! temperature above tropopause according to Cathy H. profile(from LES)
+            IF (ptr_metrics%z_mc(1,jk,jb) < topo_height) then
+              z_help(1:nlen) = th_cbl(1) + (4.8_wp/1000._wp)*ptr_metrics%z_mc(1:nlen,jk,jb)
+            ELSE ! (ptr_metrics%z_mc(1,jk,jb) < z_tropo) then
+              z_help(1:nlen) = thth + (22._wp/1000._wp)*(ptr_metrics%z_mc(1:nlen,jk,jb)-topo_height)
+            END IF 
+          ELSE ! get init pot temp from external file
+            z_help(1:nlen) = zpot_temp(jk)
+          END IF
 
-           ! temperature above tropopause according to Cathy H. profile(from LES)
-           IF (ptr_metrics%z_mc(1,jk,jb) < topo_height) then
-             z_help(1:nlen) = th_cbl(1) + (4.8_wp/1000._wp)*ptr_metrics%z_mc(1:nlen,jk,jb)
-           ELSE ! (ptr_metrics%z_mc(1,jk,jb) < z_tropo) then
-             z_help(1:nlen) = thth + (22._wp/1000._wp)*(ptr_metrics%z_mc(1:nlen,jk,jb)-topo_height)
-           ENDIF 
-
-           ! virtual potential temperature
-           ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+          ! virtual potential temperature
+          ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
+            0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
         END DO
 
         !Get hydrostatic pressure and exner at lowest level
@@ -1092,6 +1129,123 @@ MODULE mo_nh_torus_exp
 
   END SUBROUTINE sfcflx_uniform
 !-------------------------------------------------------------------------
-! 
+!-------------------------------------------------------------------------
+!>
+!  theta & qv are read from vprof_in file
+!
+!  both of these are then interpolated to model levels 
+!
+!!
+SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
 
-  END MODULE mo_nh_torus_exp
+  INTEGER, INTENT(IN) :: nlev  ! number of model levels
+  REAL(wp),    INTENT(OUT) :: pot_temp(:)
+  !REAL(wp),    INTENT(OUT) :: q_sat(:,:,:)
+  REAL(wp),    INTENT(OUT) :: q_sat(:)
+  TYPE(t_nh_metrics),    INTENT(IN)   :: &
+    &  ptr_metrics                          !< NH metrics state
+
+  REAL(wp), ALLOCATABLE ::  &
+    height(:),              & !height [m]
+    temp(:),                & !temperature [K]
+    wind_u(:),              & !u wind [m/s]
+    wind_v(:),              & !v wind [m/s]
+    q_sat_mn(:)               !domain mn qsat
+
+  REAL(wp), ALLOCATABLE :: zpressure(:)
+  REAL(wp)              :: z_temp(nlev)
+  REAL(wp)              :: z_qsat(nlev)
+
+  CHARACTER(len=20) :: file1,file2, filler
+
+  ! Local variables
+  CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+       &   'mo_nh_torus_exp:read_ext_profile'
+
+  INTEGER :: ist, iunit, iunit2
+  INTEGER :: jk, klev 
+
+  !-------------------------------------------------------------------------
+
+  ALLOCATE(zpressure(339))
+
+  file1='vprof_in'
+
+  ! Open files
+  iunit = find_next_free_unit(10,100)
+  write(*,*) 'IUNIT =',iunit
+
+  OPEN (unit=iunit,file=TRIM(file1), &
+    &  action='READ', status='OLD', IOSTAT=ist)
+
+  IF(ist/=success)THEN
+    CALL finish (TRIM(routine), 'open vertical sound file failed')
+  ENDIF
+
+  ! determine number of data rows in file(assuming no header info)
+  klev = 0
+  DO
+    READ (iunit,*,IOSTAT=ist)! height(jk), temp(jk), q_sat(jk), wind_u(jk), wind_w(jk)
+    IF (ist /= 0) EXIT
+    klev = klev + 1
+  END DO
+  IF (ist > 0) THEN ! a read error occured
+    CALL message('','An error occurred while reading soundin file')
+  ELSE ! the end of the data in the file was reached
+    WRITE(message_text,'(A,I6,A)')'End of profile reached with ',klev,' values.'
+    CALL message('', TRIM(message_text))
+  ENDIF
+
+  ALLOCATE(height(klev),temp(klev),wind_u(klev),wind_v(klev),q_sat_mn(klev))
+
+  CLOSE(iunit)
+  iunit = find_next_free_unit(10,100)
+  OPEN (unit=iunit,file=TRIM(file1), &
+    &  action='READ', status='OLD', IOSTAT=ist)
+
+  IF(ist/=success)THEN
+    CALL finish (TRIM(routine), 'open vertical sound file failed')
+  ENDIF
+
+  ! initialize fields to zero
+  height = 0.0_wp
+  temp = 0.0_wp
+  q_sat_mn = 0.0_wp
+  wind_v = 0.0_wp
+  wind_u = 0.0_wp
+  zpressure = 0.0_wp
+
+  write(*,*) 'incoming data fields from file ',file1
+  write(*,*) 'height, temp, q_sat_mn, wind_u, wind_v'
+  DO jk=klev,1,-1 
+    READ (iunit,*,IOSTAT=ist) height(jk), temp(jk), q_sat_mn(jk), wind_u(jk), wind_v(jk)
+    IF(ist/=success)THEN
+      CALL finish (TRIM(routine), 'reading profile file failed')
+    ENDIF
+  END DO
+
+  !Now perform interpolation to grid levels assuming:
+  !a) linear interpolation
+  !b) Beyond the last Z level the values are linearly extrapolated 
+  !c) Assuming model grid is flat-NOT on sphere
+
+  CALL vert_intp_linear_1d(height,temp,ptr_metrics%z_mc(2,:,2),z_temp)
+  CALL vert_intp_linear_1d(height,q_sat_mn,ptr_metrics%z_mc(2,:,2),z_qsat)
+  !!CALL vert_intp_linear_1d(invgrid,invar,outvgrid,outvar)
+
+  q_sat = z_qsat*0.001_wp
+  pot_temp = z_temp
+  
+  DEALLOCATE(height)
+  DEALLOCATE(temp)
+  DEALLOCATE(wind_u)
+  DEALLOCATE(wind_v)
+  DEALLOCATE(q_sat_mn)
+  DEALLOCATE(zpressure)
+
+  CLOSE(iunit)
+  CLOSE(iunit2)
+
+END SUBROUTINE  read_ext_profile
+
+END MODULE mo_nh_torus_exp
