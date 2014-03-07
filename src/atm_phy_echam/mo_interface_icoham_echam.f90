@@ -39,7 +39,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_echam_phy_interface
+MODULE mo_interface_icoham_echam
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message, finish
@@ -92,10 +92,10 @@ MODULE mo_echam_phy_interface
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: echam_phy_interface
+  PUBLIC :: interface_icoham_echam
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_interface'
+  CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_icoham_echam'
 
 CONTAINS
   !>
@@ -118,14 +118,14 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid level
   !! rather than the entire grid tree.
 
-  SUBROUTINE echam_phy_interface( datetime,             &! in
-    &                             pdtime, psteplen, jg, &! in
-    &                             p_patch,              &! in
-    &                             p_int_state,          &! in
-    &                             dyn_prog_old,         &! in
-    &                             dyn_diag_old,         &! in
-    &                             dyn_prog_new,         &! in
-    &                             dyn_tend             ) ! inout
+  SUBROUTINE interface_icoham_echam( datetime,             &! in
+    &                                pdtime, psteplen, jg, &! in
+    &                                p_patch,              &! in
+    &                                p_int_state,          &! in
+    &                                dyn_prog_old,         &! in
+    &                                dyn_diag_old,         &! in
+    &                                dyn_prog_new,         &! in
+    &                                dyn_tend             ) ! inout
 
     ! Arguments
  
@@ -176,7 +176,7 @@ CONTAINS
     !--------------
     INTEGER:: temp_comm, tracers_comm  ! communicators
     INTEGER:: return_status
-    CHARACTER(*), PARAMETER :: method_name = "echam_phy_interface"
+    CHARACTER(*), PARAMETER :: method_name = "interface_icoham_echam"
 
 !++jsr
 !temporary local variables
@@ -334,9 +334,9 @@ CONTAINS
       ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
                     ( MOD(NINT(datetime%daysec),NINT(phy_config%dt_rad)) == 0 )
       ! IF (ltrig_rad) THEN
-      !   CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
+      !   CALL message('mo_interface_icoham_echam:physc','Radiative transfer called at:')
       !   CALL print_datetime(datetime)
-      !   CALL message('mo_echam_phy_interface:physc','Radiative transfer computed for:')
+      !   CALL message('mo_interface_icoham_echam:physc','Radiative transfer computed for:')
       !   CALL print_datetime(datetime_radtran)
       ! ENDIF
 
@@ -796,6 +796,6 @@ CONTAINS
 
   IF (ltimer) CALL timer_stop(timer_phy2dyn)
   !--------------------------
-  END SUBROUTINE echam_phy_interface
+  END SUBROUTINE interface_icoham_echam
 
-END MODULE mo_echam_phy_interface
+END MODULE mo_interface_icoham_echam

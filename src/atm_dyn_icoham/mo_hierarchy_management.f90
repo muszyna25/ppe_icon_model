@@ -99,7 +99,7 @@ MODULE mo_hierarchy_management
   USE mo_ha_testcases,        ONLY: ctest_name,rotate_axis_deg
   USE mo_impl_constants,      ONLY: success, MAX_CHAR_LENGTH
   USE mo_expensive_functions, ONLY: convert_t2theta_lin, convert_theta2t_lin
-  USE mo_echam_phy_interface, ONLY: echam_phy_interface
+  USE mo_interface_icoham_echam, ONLY: interface_icoham_echam
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_impl_constants,      ONLY: tracer_only, two_tl_si,         &
@@ -561,14 +561,14 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_now), &! in
               &                     p_hydro_state(jg)%diag       )  ! inout
 
-            CALL echam_phy_interface( grid_datetime,                 &! in
-              &                       zdtime, zdtime, jg,            &! in
-              &                       p_patch(jg),                   &! in
-              &                       p_int_state(jg),               &! in
-              &                       p_hydro_state(jg)%prog(n_now), &! inout
-              &                       p_hydro_state(jg)%diag,        &! in
-              &                       p_hydro_state(jg)%prog(n_new), &! in
-              &                       p_hydro_state(jg)%tend_phy )    ! inout
+            CALL interface_icoham_echam( grid_datetime,                 &! in
+              &                          zdtime, zdtime, jg,            &! in
+              &                          p_patch(jg),                   &! in
+              &                          p_int_state(jg),               &! in
+              &                          p_hydro_state(jg)%prog(n_now), &! inout
+              &                          p_hydro_state(jg)%diag,        &! in
+              &                          p_hydro_state(jg)%prog(n_new), &! in
+              &                          p_hydro_state(jg)%tend_phy )    ! inout
 
 
             ! At this point the %tend_phy state contains the accumulated tendencies.
@@ -708,14 +708,14 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_old), &! in
               &                     p_hydro_state(jg)%diag         )! inout
 
-            CALL echam_phy_interface( grid_datetime,                 &! in
-              &                       zdtime, 2._wp*zdtime, jg,      &! in
-              &                       p_patch(jg),                   &! in
-              &                       p_int_state(jg),               &! in
-              &                       p_hydro_state(jg)%prog(n_old), &! inout
-              &                       p_hydro_state(jg)%diag,        &! in
-              &                       p_hydro_state(jg)%prog(n_new), &! in
-              &                       p_hydro_state(jg)%tend_dyn     )! inout
+            CALL interface_icoham_echam( grid_datetime,                 &! in
+              &                          zdtime, 2._wp*zdtime, jg,      &! in
+              &                          p_patch(jg),                   &! in
+              &                          p_int_state(jg),               &! in
+              &                          p_hydro_state(jg)%prog(n_old), &! inout
+              &                          p_hydro_state(jg)%diag,        &! in
+              &                          p_hydro_state(jg)%prog(n_new), &! in
+              &                          p_hydro_state(jg)%tend_dyn     )! inout
 
             ! Explicit dynamics, tracer transport and physics computation have all
             ! been finished. The %tend_dyn state contains the accumulated tendencies.
@@ -903,14 +903,14 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_now), &! in
               &                     p_hydro_state(jg)%diag       )  ! inout
 
-            CALL echam_phy_interface( grid_datetime,                 &! in
-              &                       zdtime, zdtime, jg,            &! in
-              &                       p_patch(jg),                   &! in
-              &                       p_int_state(jg),               &! in
-              &                       p_hydro_state(jg)%prog(n_now), &! inout
-              &                       p_hydro_state(jg)%diag,        &! in
-              &                       p_hydro_state(jg)%prog(n_new), &! in
-              &                       p_hydro_state(jg)%tend_phy )    ! inout
+            CALL interface_icoham_echam( grid_datetime,                 &! in
+              &                          zdtime, zdtime, jg,            &! in
+              &                          p_patch(jg),                   &! in
+              &                          p_int_state(jg),               &! in
+              &                          p_hydro_state(jg)%prog(n_now), &! inout
+              &                          p_hydro_state(jg)%diag,        &! in
+              &                          p_hydro_state(jg)%prog(n_new), &! in
+              &                          p_hydro_state(jg)%tend_phy )    ! inout
 
             CALL update_prog_state( zdtime, p_patch(jg),             &! in
               &                     p_hydro_state(jg)%tend_phy,      &! in
@@ -966,10 +966,10 @@ CONTAINS
 !!$            &                   p_hydro_state(jg)%prog(n_new), &! in
 !!$            &                   p_hydro_state(jg)%diag       )  ! inout
 !!$
-!!$          CALL echam_phy_interface( p_patch(jg), p_int_state(jg),  &! in
-!!$            &                       p_hydro_state(jg)%prog(n_new), &! in
-!!$            &                       p_hydro_state(jg)%diag,        &! in
-!!$            &                       p_hydro_state(jg)%tend_phy )    ! inout
+!!$          CALL interface_icoham_echam( p_patch(jg), p_int_state(jg),  &! in
+!!$            &                          p_hydro_state(jg)%prog(n_new), &! in
+!!$            &                          p_hydro_state(jg)%diag,        &! in
+!!$            &                          p_hydro_state(jg)%tend_phy )    ! inout
 !!$
 !!$           CALL update_prog_state( zdtime, p_patch(jg),              &! in
 !!$             &                     p_hydro_state(jg)%tend_phy,       &! in

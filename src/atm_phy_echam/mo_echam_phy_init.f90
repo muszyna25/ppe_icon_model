@@ -173,7 +173,7 @@ CONTAINS
         tsi      = tsi_radt
       CASE (1)
         ! in this case, transient solar irradiation is used and has to be implemented inside
-        ! the time loop (mo_echam_phy_interface)
+        ! the time loop (mo_interface_icoham_echam)
         CONTINUE
       CASE (2)
         ssi_radt(:) = ssi_preind(:)
