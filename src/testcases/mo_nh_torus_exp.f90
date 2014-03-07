@@ -781,7 +781,7 @@ MODULE mo_nh_torus_exp
 
     ! when false, this switch will result in theta and qv being read from an ext file
     ! rather than computed analytically
-    analyticprof = .FALSE.
+    analyticprof = .TRUE.
 
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zpot_temp(nlev),STAT=istatus)
