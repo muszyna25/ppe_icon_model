@@ -118,7 +118,7 @@ start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps
-nout_interv="P$0{ndays_data}D"                 # ocean model output interval in days <10
+nout_interv="P0${ndays_data}D"                 # ocean model output interval in days <10
 nout_interv="P${days_data}D"                   # ocean model output interval in days
 (( dt_data       =  days_data    * day ))      # used for output_bounds and buildbot
 (( dt_restart    =  days_restart * day ))

@@ -116,8 +116,8 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps
-nout_interv       = "PT${hours_data}H"          # ocean model output interval in hours
-nout_interv       = "PT$0{hours_data}H"         # ocean model output interval in hours <10
+  nout_interv="PT${hours_data}H"                # ocean model output interval in hours
+  nout_interv="PT0${hours_data}H"               # ocean model output interval in hours <10
 (( dt_data        = hours_data   * hour ))      # used for output_bounds and buildbot
 (( dt_checkpoint  = days_checkp  * day ))
 (( dt_restart     = days_restart * day ))
@@ -160,7 +160,7 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"
   output_end       = "${end_date}"
 ! output_interval  = "PT0${hours_data}H"
-  output_interval  = ${nout_interv}
+  output_interval  = "${nout_interv}"
   steps_per_file   = ${steps_per_file}
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
