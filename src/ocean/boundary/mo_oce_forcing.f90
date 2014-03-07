@@ -621,7 +621,7 @@ CONTAINS
     CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_v,&
       & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
-    IF (init_oce_relax == 1) THEN
+    IF (init_oce_relax > 0) THEN
       CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
     END IF
   END SUBROUTINE init_ocean_forcing
