@@ -1056,6 +1056,9 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
     all_cells => patch_3d%p_patch_2d(1)%cells%ALL
+
+    ! z_press is used uninitialized
+    ! z_press=rho_ref*patch_3d%p_patch_1d(1)%zlev_m(jk)*sitodbar ! grav
     
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE

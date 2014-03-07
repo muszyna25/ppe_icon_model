@@ -102,7 +102,7 @@ CONTAINS
     ! Set default values
     !------------------------------------------------------------------
     kice        = 1
-    i_ice_therm = 2
+    i_ice_therm = 1
     i_ice_albedo= 1
     i_ice_dyn   = 0
     i_Qio_type  = 1
