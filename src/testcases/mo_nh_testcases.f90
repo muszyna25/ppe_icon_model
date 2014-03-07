@@ -377,12 +377,6 @@ MODULE mo_nh_testcases
    ! Running Radiative Convective Equilibrium testcase
    CALL message(TRIM(routine),'running ICON in Radiative Convective Equilibrium')
 
-  CASE ('RCE_SHFLX')
-
-   ! Running Radiative Convective Equilibrium testcase with explicitly give
-   ! sensible and latent heat fluxes
-   CALL message(TRIM(routine),'running ICON in RCE with explicit sfc heat fluxes')
-
   CASE ('RICO')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
@@ -1042,7 +1036,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup RCE_CBL test')
 
-  CASE ('RCE','RCE_SHFLX')
+  CASE ('RCE')
 
     ! the value of lprofile determines which vertical profile to use for the initial conditions
     lprofile = .TRUE.             

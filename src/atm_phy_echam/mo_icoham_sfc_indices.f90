@@ -85,7 +85,7 @@ CONTAINS
         nsfc_type = 3
         igbm      = 0
 
-      CASE('APE','APE_nh','RCE','RCE_glb','RCE_SHFLX','RCEhydro','RCE_CBL')
+      CASE('APE','APE_nh','RCE','RCE_glb','RCEhydro','RCE_CBL')
       ! Aqua-planet simulation, no land, no ice;
       ! No needed to distinguish the aggregated grid-box mean
       ! and the value on different types of surface
