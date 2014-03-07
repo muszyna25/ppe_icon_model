@@ -1533,9 +1533,9 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
          DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
-          ocean_temperature(jc,jk,jb) = MAX( &
+          ocean_temperature(jc,jk,jb) = MIN(MAX( &
             & ape_sst(initial_sst_type, patch_2d%cells%center(jc,jb)%lat) - tmelt,  & ! SST in Celsius
-            & initial_temperature_bottom)
+            & initial_temperature_bottom), initial_temperature_top)
         END DO
       END DO
     END DO
