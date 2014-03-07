@@ -775,6 +775,10 @@ CONTAINS
       CALL temperature_circularLonLatPerturbation(patch_3d, ocean_temperature)
 
     !------------------------------
+    CASE (212)
+      CALL temperature_smoothAPE(patch_3d, ocean_temperature)
+
+    !------------------------------
     CASE (401)
       ! assign from adhoc array values
       IF(n_zlev==4)THEN
@@ -1544,6 +1548,45 @@ CONTAINS
       & bottom_value=initial_temperature_bottom)
 
   END SUBROUTINE temperature_APE
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_smoothAPE(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: temperature_difference
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
+    !-------------------------------------------------------------------------
+    ! Important:
+    !   use initial_temperature_top=27.0 initial_temperature_bottom=0.0
+    !   to be consistent with the old setup
+    CALL message(TRIM(method_name), ' using sst1')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    temperature_difference = initial_temperature_top - initial_temperature_bottom
+    
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+          ocean_temperature(jc,jk,jb) = initial_temperature_bottom + &
+            & COS(patch_2d%cells%center(jc,jb)%lat)**2 * temperature_difference
+        END DO
+      END DO
+    END DO
+
+    CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
+      & bottom_value=initial_temperature_bottom)
+
+  END SUBROUTINE temperature_smoothAPE
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
