@@ -541,7 +541,9 @@ CONTAINS
   END SUBROUTINE init_timer
 
 
-  !> Low-level timing routine: start timing (also for multi-threaded runs)
+  !> Low-level timing routine: start timing.
+  !
+  !  @note Currently implemented for multi-threaded runs only!
   SUBROUTINE tic(time_s)
 !$  USE OMP_LIB
 
@@ -561,7 +563,9 @@ CONTAINS
   END SUBROUTINE tic
 
   !> Low-level timing routine: stop timing, return elapsed time in
-  !> seconds (also for multi-threaded runs)
+  !> seconds.
+  !
+  !  @note Currently implemented for multi-threaded runs only!
   FUNCTION toc(time_s)
 !$  USE OMP_LIB
 
