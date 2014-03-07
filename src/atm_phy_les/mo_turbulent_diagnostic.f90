@@ -82,6 +82,7 @@ MODULE mo_turbulent_diagnostic
 
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
+  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
   
   CHARACTER(20) :: tname     = 'time'
   CHARACTER(20) :: tlongname = 'Time'
@@ -94,7 +95,7 @@ MODULE mo_turbulent_diagnostic
   PUBLIC  :: calculate_turbulent_diagnostics, write_vertical_profiles, write_time_series
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
   PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
-  PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
+  PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx, idx_sgs_u_flx, idx_sgs_v_flx
 
 CONTAINS
 
@@ -811,6 +812,16 @@ CONTAINS
        longname = '(mass) eddy viscosity'
        unit     = 'kg/ms'
        is_at_full_level(n) = .FALSE.
+     CASE('wud') !diffuse u flux
+       longname = '(mass) subgrid zonal wind flux'
+       unit     = 'kg/ms2'
+       is_at_full_level(n) = .FALSE.
+       idx_sgs_u_flx = n
+     CASE('wvd') !diffuse flux
+       longname = '(mass) subgrid meridional wind flux'
+       unit     = 'kg/ms2'
+       is_at_full_level(n) = .FALSE.
+       idx_sgs_v_flx = n
      CASE('wthd') !diffuse flux
        longname = 'subgrid potential temperature flux'
        unit     = 'W/m2'
