@@ -23,7 +23,7 @@ MODULE mo_real_timer
   USE mo_exception,       ONLY: finish, message, message_text
   USE mo_util_string,     ONLY: separator, sort_and_compress_list, int2string
   USE mo_util_table,      ONLY: t_table, initialize_table, finalize_table,    &
-    &                           add_table_column, set_table_entry, print_table
+    &                           set_table_entry, print_table
   USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH, TIMER_MODE_WRITE_FILES,      &
     &                           TIMER_MODE_DETAILED, TIMER_MODE_AGGREGATED
 
@@ -1159,20 +1159,14 @@ CONTAINS
     rest = rest-REAL(s,dp)
     WRITE(s_str,'(i2.2)') s
 
-    IF (h > 100) THEN
+    IF (d > 0) THEN
       x = TRIM(d_str)//'d'//TRIM(h_str)//'h'
-    ELSEIF (m > 1000) THEN
+    ELSEIF (h > 0) THEN
       x = TRIM(h_str)//'h'//TRIM(m_str)//'m'
-    ELSEIF (ts >= 10000.0_dp) THEN
+    ELSEIF (m > 0) THEN
       x = TRIM(m_str)//'m'//TRIM(s_str)//'s'
-    ELSEIF (ts >= 1000.0_dp) THEN
-      WRITE(x,'(f8.1,a)') ts, 's'
-    ELSEIF (ts >= 100.0_dp) THEN
-      WRITE(x,'(f8.2,a)') ts, 's'
-    ELSEIF (ts >= 10.0_dp) THEN
-      WRITE(x,'(f8.3,a)') ts, 's'
     ELSEIF (ts >= 1.0_dp) THEN
-      WRITE(x,'(f8.4,a)') ts, 's'
+      WRITE(x,'(f7.4,a)') ts, 's'
     ELSE
       WRITE(x,'(f8.5,a)') ts, 's'
     ENDIF
