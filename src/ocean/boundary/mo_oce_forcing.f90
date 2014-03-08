@@ -578,7 +578,7 @@ CONTAINS
         DO jc = start_cell_index, end_cell_index
           DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
             p_sfc_flx%forc_tracer_relax(jc,jb,1) = relax_temperature_min + &
-              & COS(patch_2d%cells%center(jc,jb)%lat)**2 * temperature_difference
+              & COS(patch_2d%cells%center(jc,jb)%lat)**3 * temperature_difference
           END DO
         END DO
       END DO
@@ -852,6 +852,7 @@ CONTAINS
     lon(:,:) = subset%patch%cells%center(:,:)%lon
 
     field_2d(:,:) = MERGE(amplitude * COS(lat(:,:)) * &
+      & COS(zonal_waveno * lat(:,:)) * & 
       & COS(forcing_windstress_zonalWavePhase + zonal_waveno * ABS(lat(:,:))), 0.0_wp, mask(:,:) <= threshold)
 
   END SUBROUTINE zonal_periodic_zero_at_pols
