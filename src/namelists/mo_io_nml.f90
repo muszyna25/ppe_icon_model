@@ -126,11 +126,13 @@ CONTAINS
       &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
       &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
 
+    LOGICAL ::  use_set_event_to_simstep
+    
     NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
       &              inextra_2d, inextra_3d,                 &
       &              lflux_avg, itype_pres_msl, itype_rh,    &
       &              output_nml_dict, netcdf_dict,           &
-      &              lzaxis_reference
+      &              lzaxis_reference, use_set_event_to_simstep
 
     !-----------------------
     ! 1. default settings
