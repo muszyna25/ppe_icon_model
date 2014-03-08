@@ -166,7 +166,6 @@ MODULE mo_output_event_handler
   USE mo_name_list_output_types, ONLY: t_fname_metadata
   USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
     &                                  set_table_entry, print_table, t_table
-  USE mo_io_config,              ONLY: use_set_event_to_simstep
   IMPLICIT NONE
 
   ! public subroutines + functions:
@@ -2176,9 +2175,6 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  ! LL: Unreadable names, what is n_pes? ev_step? n_event_steps?  i_event_step? !
-  !     I just disable it through the namelist use_set_event_to_simstep             !
-  !
   SUBROUTINE set_event_to_simstep(event, jstep, lrecover_open_file)
     TYPE(t_output_event), INTENT(INOUT), target :: event              !< output event data structure
     INTEGER,              INTENT(IN)            :: jstep              !< simulation step
@@ -2207,33 +2203,29 @@ CONTAINS
 
         event_step_data%l_open_file = .TRUE.
 
-        IF (use_set_event_to_simstep) THEN
-
-          IF (event_step_data%jpart > 1) THEN
-            ! Resuming after a restart means that we have to open the
-            ! file for output though this has not been planned
-            ! initially. We must find a unique suffix then for this new
-            ! file (otherwise we would overwrite the file from the last
-            ! step) and we must inform the user about this incident.
-            IF (.NOT. lrecover_open_file) THEN
-              ! simply throw an error message
-              CALL finish(routine, "Attempt to overwrite existing file after restart!")
-            ELSE
-              ! otherwise: modify file name s.t. the new, resumed file
-              ! is clearly distinguishable: We append "_<part>+"
-              jpart_str = int2string(event_step_data%jpart)
-              IF (my_process_is_mpi_workroot()) THEN
-                WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
-                  &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
-                  &      " after restart."
-              END IF
-              CALL modify_filename(event, trim(event_step_data%filename_string), &
-                &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
-                &       start_step=istep)
+        IF (event_step_data%jpart > 1) THEN
+          ! Resuming after a restart means that we have to open the
+          ! file for output though this has not been planned
+          ! initially. We must find a unique suffix then for this new
+          ! file (otherwise we would overwrite the file from the last
+          ! step) and we must inform the user about this incident.
+          IF (.NOT. lrecover_open_file) THEN
+            ! simply throw an error message
+            CALL finish(routine, "Attempt to overwrite existing file after restart!")
+          ELSE
+            ! otherwise: modify file name s.t. the new, resumed file
+            ! is clearly distinguishable: We append "_<part>+"
+            jpart_str = int2string(event_step_data%jpart)
+            IF (my_process_is_mpi_workroot()) THEN
+              WRITE (0,*) "Modify filename ", TRIM(event_step_data%filename_string), " to ", &
+                &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
+                &      " after restart."
             END IF
+            CALL modify_filename(event, trim(event_step_data%filename_string), &
+              &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
+              &       start_step=istep)
           END IF
-
-        END IF  !(.not. use_set_event_to_simstep)
+        END IF
 
       END DO
     END IF

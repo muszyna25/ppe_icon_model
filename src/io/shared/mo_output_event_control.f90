@@ -59,7 +59,6 @@ MODULE mo_output_event_control
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
     &                              int2string, tolower
   USE mo_name_list_output_types, ONLY: t_fname_metadata
-  USE mo_io_config,              ONLY: use_set_event_to_simstep
 
 
   IMPLICIT NONE
@@ -301,40 +300,20 @@ CONTAINS
     ! --------------------------------------------------------------
     ! prescribe, in which steps the output file is opened or closed:
     ! --------------------------------------------------------------
-    IF (.not.use_set_event_to_simstep .and.  &
-       & TRIM(fname_metadata%file_interval) == "") THEN
 
-      ! use fname_metadata%steps_per_file
-      result_fnames(:)%l_open_file = .false.
-      result_fnames(:)%l_close_file = .false.
-      ! ignore the first output
-      result_fnames(1)%l_open_file = .TRUE.
-      result_fnames(1)%l_close_file = .TRUE.
-      result_fnames(2)%l_open_file = .TRUE.
-      ! write(0,*) "nstrings=", nstrings
-      DO i=fname_metadata%steps_per_file+1, nstrings-1, fname_metadata%steps_per_file
-        ! write(0,*) "  i=", i
+    DO i=1,nstrings
+      IF (i == 1) THEN
+        result_fnames(i)%l_open_file = .TRUE.
+      ELSE
+        result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
+      END IF
+      IF (i==nstrings) THEN
         result_fnames(i)%l_close_file = .TRUE.
-        result_fnames(i+1)%l_open_file = .TRUE.
-      END DO
-      result_fnames(nstrings)%l_close_file = .TRUE.
+      ELSE
+        result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
+      END IF
+    END DO
 
-    ELSE
-
-      DO i=1,nstrings
-        IF (i == 1) THEN
-          result_fnames(i)%l_open_file = .TRUE.
-        ELSE
-          result_fnames(i)%l_open_file = (result_fnames(i-1)%jfile /= result_fnames(i)%jfile)
-        END IF
-        IF (i==nstrings) THEN
-          result_fnames(i)%l_close_file = .TRUE.
-        ELSE
-          result_fnames(i)%l_close_file = (result_fnames(i+1)%jfile /= result_fnames(i)%jfile)
-        END IF
-      END DO
-
-    ENDIF
     ! ----------------------------------------------
     ! Set actual output file name (insert keywords):
     ! ----------------------------------------------

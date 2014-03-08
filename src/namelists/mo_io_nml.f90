@@ -62,8 +62,7 @@ MODULE mo_io_nml
                                  & config_output_nml_dict         => output_nml_dict        , &
                                  & config_netcdf_dict             => netcdf_dict            , &
                                  & config_lzaxis_reference        => lzaxis_reference       , &
-                                 & config_itype_rh                => itype_rh               , &
-                                 & config_use_set_event_to_simstep => use_set_event_to_simstep
+                                 & config_itype_rh                => itype_rh
 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
@@ -122,7 +121,6 @@ CONTAINS
     LOGICAL :: lzaxis_reference           ! use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric
                                           ! output fields
 
-    LOGICAL ::  use_set_event_to_simstep
 
     CHARACTER(LEN=filename_max) :: &
       &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
@@ -132,7 +130,7 @@ CONTAINS
       &              inextra_2d, inextra_3d,                 &
       &              lflux_avg, itype_pres_msl, itype_rh,    &
       &              output_nml_dict, netcdf_dict,           &
-      &              lzaxis_reference,  use_set_event_to_simstep
+      &              lzaxis_reference
 
     !-----------------------
     ! 1. default settings
@@ -151,7 +149,6 @@ CONTAINS
     netcdf_dict             = ' '
 
     lzaxis_reference        = .TRUE. ! use ZAXIS_REFERENCE (generalVertical)
-    use_set_event_to_simstep = .TRUE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -197,7 +194,6 @@ CONTAINS
     config_output_nml_dict         = output_nml_dict
     config_netcdf_dict             = netcdf_dict
     config_lzaxis_reference        = lzaxis_reference
-    config_use_set_event_to_simstep = use_set_event_to_simstep
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
