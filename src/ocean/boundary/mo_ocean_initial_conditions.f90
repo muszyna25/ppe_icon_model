@@ -1576,7 +1576,7 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+        DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
           ocean_temperature(jc,jk,jb) = initial_temperature_bottom + &
             & COS(patch_2d%cells%center(jc,jb)%lat)**2 * temperature_difference
         END DO

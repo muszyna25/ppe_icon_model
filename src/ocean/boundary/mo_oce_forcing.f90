@@ -52,7 +52,8 @@ MODULE mo_oce_forcing
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
     & forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
     & forcing_windstress_u_type, forcing_windstress_v_type,    &
-    & forcing_windstress_zonalWavePhase
+    & forcing_windstress_zonalWavePhase, relax_temperature_min, &
+    & relax_temperature_max
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_exception,           ONLY: finish, message, message_text
@@ -438,22 +439,23 @@ CONTAINS
     CHARACTER(filename_max) :: relax_init_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: i_lev, no_cells, no_levels, jb, jc
+    INTEGER :: i_lev, no_cells, no_levels, jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
     INTEGER :: ncid, dimid
-    INTEGER :: i_startidx_c, i_endidx_c
 
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_relax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp):: temperature_difference
 
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
+    all_cells => patch_2d%cells%ALL
 
     ! Read relaxation data from file
     IF (init_oce_relax == 1) THEN
 
       ! sphere_radius = grid_sphere_radius
       ! u0 =(2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
-      all_cells => patch_2d%cells%ALL
 
       CALL message (TRIM(routine), 'start')
 
@@ -545,8 +547,8 @@ CONTAINS
       IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
           IF ( patch_3d%lsm_c(jc,1,jb) > sea_boundary ) THEN
             p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
             IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
@@ -565,10 +567,23 @@ CONTAINS
     !
     !-------------------------------------------------------
 
-    !   IF (irelax_2d_T == 3) THEN
-    IF (temperature_relaxation == 3) THEN
+    SELECT CASE(temperature_relaxation)
+    CASE(3)
       p_sfc_flx%forc_tracer_relax(:,:,1) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
-    END IF
+
+    CASE(4)
+      temperature_difference = relax_temperature_max - relax_temperature_min
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+            p_sfc_flx%forc_tracer_relax(jc,jb,1) = relax_temperature_min + &
+              & COS(patch_2d%cells%center(jc,jb)%lat)**2 * temperature_difference
+          END DO
+        END DO
+      END DO
+
+    END SELECT
 
     IF (irelax_2d_s == 3) THEN
       IF (no_tracer > 1) THEN

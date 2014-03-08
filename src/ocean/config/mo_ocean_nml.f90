@@ -451,7 +451,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
   INTEGER  :: forcing_smooth_steps                 = 100
-
+  REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
+  REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
 
   NAMELIST/ocean_forcing_nml/&
     &                 i_apply_bulk                        , &  
@@ -483,6 +484,8 @@ MODULE mo_ocean_nml
     &                 relaxation_param                    , &
     &                 seaice_limit                        , &
     &                 temperature_relaxation              , &
+    &                 relax_temperature_min               , &
+    &                 relax_temperature_max               , &
     &                 forcing_smooth_steps                , &
     &                 use_new_forcing
   ! } END FORCING
