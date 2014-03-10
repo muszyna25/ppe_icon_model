@@ -885,6 +885,7 @@ module mtime_timedelta
   public :: deallocateTimedelta
   public :: timedeltaToString
   public :: operator(+)
+  public :: operator(<)
   !
   !> provides a string length for toString 
   integer, parameter :: max_timedelta_str_len = 32
@@ -904,6 +905,10 @@ module mtime_timedelta
     module procedure addtimedeltatodatetime
     module procedure adddatetimetotimedelta
   end interface operator (+)
+  !
+  interface operator (<)
+    module procedure timedelta_lt
+  end interface operator (<)
   !
   interface
     !
@@ -996,6 +1001,76 @@ contains
     type(c_ptr) :: dummy_ptr
     dummy_ptr = my_addtimedeltatodatetime(c_loc(op1), c_loc(op2), c_loc(ret))
   end function addDatetimeToTimedelta
+  !
+  FUNCTION timedelta_lt(op1, op2) RESULT(lt)
+    LOGICAL :: lt
+    TYPE(timedelta), TARGET, INTENT(in) :: op1
+    TYPE(timedelta), TARGET, INTENT(in) :: op2
+    
+    IF ((op1%sign == '-') .AND. (op2%sign == '+')) THEN
+      lt = .TRUE.
+    ELSE IF ((op1%sign == '+') .AND. (op2%sign == '-')) THEN
+      lt = .FALSE.
+    ELSE IF ((op1%sign == '+') .AND. (op2%sign == '+')) THEN
+      lt = ( (op1%year < op2%year)                                    .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month <  op2%month))                                  .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   <  op2%day  ))                                  .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  <  op2%hour ))                                  .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  == op2%hour )  .AND.                                  &
+        &  (op1%minute<  op2%minute))                                 .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  == op2%hour )  .AND.                                  &
+        &  (op1%minute== op2%minute) .AND.                                  &
+        &  (op1%second<  op2%second))                                 .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  == op2%hour )  .AND.                                  &
+        &  (op1%minute== op2%minute) .AND.                                  &
+        &  (op1%second== op2%second) .AND.                                  &
+        &  (op1%ms    <  op2%ms    )) )
+    ELSE IF ((op1%sign == '-') .AND. (op2%sign == '-')) THEN
+      lt = ( (op1%year < op2%year)                                    .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month >  op2%month))                                  .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   >  op2%day  ))                                  .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  >  op2%hour ))                                  .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  == op2%hour )  .AND.                                  &
+        &  (op1%minute>  op2%minute))                                 .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  == op2%hour )  .AND.                                  &
+        &  (op1%minute== op2%minute) .AND.                                  &
+        &  (op1%second>  op2%second))                                 .OR.  &
+        & ((op1%year  == op2%year)   .AND.                                  &
+        &  (op1%month == op2%month)  .AND.                                  &
+        &  (op1%day   == op2%day  )  .AND.                                  &
+        &  (op1%hour  == op2%hour )  .AND.                                  &
+        &  (op1%minute== op2%minute) .AND.                                  &
+        &  (op1%second== op2%second) .AND.                                  &
+        &  (op1%ms    >  op2%ms    )) )
+    END IF
+  END FUNCTION timedelta_lt
   !
 end module mtime_timedelta
 !>
