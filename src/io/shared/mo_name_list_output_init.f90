@@ -262,7 +262,7 @@ CONTAINS
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
     TYPE (t_keyword_list), POINTER        :: keywords => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
-    INTEGER                               :: iunit
+    INTEGER                               :: iunit, lonlat_id
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
@@ -277,7 +277,13 @@ CONTAINS
       output_bounds, output_time_unit,                       &
       ready_file, file_interval, reg_def_mode
 
-    ! Open input file and position to first namelist 'output_nml'
+    ! -- preliminary checks:
+    !
+    ! We need dtime
+    IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
+
+
+    ! -- Open input file and position to first namelist 'output_nml'
 
     CALL open_nml(TRIM(filename))
 
@@ -304,7 +310,7 @@ CONTAINS
       ENDIF
       lrewind = .FALSE.
 
-      ! Set all variables in output_nml to their default values
+      ! -- Set all variables in output_nml to their default values
 
       filetype                 = FILETYPE_NC2 ! NetCDF
       mode                     = 2
@@ -335,20 +341,9 @@ CONTAINS
       output_bounds(:)         = -1._wp
       output_time_unit         = 1
       ready_file               = DEFAULT_EVENT_NAME
+      lonlat_id                = 0
 
-      !------------------------------------------------------------------
-      !  If this is a resumed integration, overwrite the defaults above
-      !  by values used in the previous integration.
-      !  RJ: Disabled:
-      !  The output_nml namelists need not be written to the restart files.
-      !------------------------------------------------------------------
-      !IF (is_restart_run()) THEN
-      !  funit = open_and_restore_namelist('output_nml')
-      !  READ(funit,NML=output_nml)
-      !  CALL close_tmpfile(funit)
-      !END IF
-
-      ! Read output_nml
+      ! -- Read output_nml
 
       IF (my_process_is_stdio())  THEN
         iunit = temp_defaults()
@@ -367,13 +362,31 @@ CONTAINS
       ENDIF
 
       nnamelists = nnamelists+1
-      ! Check input
 
-      ! We need dtime for this check
-      IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
+      ! -- Consistency checks:
+
+      IF ((steps_per_file == -1) .AND. (TRIM(file_interval) == "")) THEN
+        CALL finish(routine, "Please specify either <steps_per_file> or <file_interval>!")
+      END IF
+      IF ((steps_per_file /= -1) .AND. (TRIM(file_interval) /= "")) THEN
+        CALL finish(routine, "User has specified conflicting parameters <steps_per_file>, <file_interval>!")
+      END IF
+      IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) THEN
+        CALL finish(routine,'Unsupported value for remap')
+      END IF
+      IF ((reg_lon_def(3) >  reg_lon_def(1)) .AND. &
+        & (reg_lon_def(2) <= 0._wp)) THEN
+        CALL finish(routine,'Illegal LON increment')
+      END IF
+      IF ((reg_lat_def(3) /= reg_lat_def(1)) .AND. &
+        & (reg_lat_def(2) == 0._wp)) THEN
+        CALL finish(routine,'Illegal LAT increment')
+      END IF
+      IF(reg_lon_def(3)<reg_lon_def(1)) CALL finish(routine,'end lon < start lon')
+
+      ! -- Scale output bounds
 
       IF (output_bounds(1) > -1._wp) THEN
-        ! Output bounds
         ! output_bounds is always in seconds - the question is what to do with months or years
         ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
         SELECT CASE(output_time_unit)
@@ -388,7 +401,56 @@ CONTAINS
         END SELECT
       END IF
 
-      ! Allocate next output_name_list
+      ! -- Read the map files into dictionary data structures
+
+      CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
+      CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
+
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      IF(output_nml_dict     /= ' ') THEN
+        cfilename = TRIM(with_keywords(keywords, output_nml_dict))
+        CALL message(routine, "load dictionary file.")
+        CALL dict_loadfile(varnames_dict, cfilename)
+      END IF
+      IF(netcdf_dict /= ' ') THEN
+        cfilename = TRIM(with_keywords(keywords, netcdf_dict))
+        CALL message(routine, "load dictionary file (output names).")
+        CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
+      END IF
+
+      ! -- If "remap=1": lon-lat interpolation requested
+
+#ifndef __NO_ICON_ATMO__
+      IF (remap == REMAP_REGULAR_LATLON) THEN
+        ! Register a lon-lat grid data structure in global list
+        lonlat_id = get_free_lonlat_grid()
+        lonlat => lonlat_grid_list(lonlat_id)
+
+        lonlat%grid%reg_lon_def(:) = reg_lon_def(:)
+        lonlat%grid%reg_lat_def(:) = reg_lat_def(:)
+        lonlat%grid%north_pole(:)  = north_pole(:)
+        lonlat%grid%reg_def_mode   = reg_def_mode
+        ! compute some additional entries of lon-lat grid specification:
+        CALL compute_lonlat_specs(lonlat%grid)
+        CALL compute_lonlat_blocking(lonlat%grid, nproma)
+
+        ! Flag those domains, which are used for this lon-lat grid:
+        !     If dom(:) was not specified in namelist input, it is set
+        !     completely to -1.  In this case all domains are wanted in
+        !     the output
+        IF (dom(1) < 0)  THEN
+          lonlat%l_dom(:) = .TRUE.
+        ELSE
+          DOM_LOOP : DO i = 1, max_dom
+            IF (dom(i) < 0) exit DOM_LOOP
+            lonlat%l_dom( dom(i) ) = .TRUE.
+          ENDDO DOM_LOOP
+        END IF
+      ENDIF
+#endif
+! #ifndef __NO_ICON_ATMO__
+
+      ! -- Allocate next output_name_list
 
       IF(.NOT.ASSOCIATED(first_output_name_list)) THEN
         ! Allocate first name_list
@@ -429,31 +491,7 @@ CONTAINS
       p_onl%additional_days          = 0
       p_onl%output_bounds(:)         = output_bounds(:)
       p_onl%ready_file               = ready_file
-
-      ! consistency checks:
-      IF ((steps_per_file == -1) .AND. (TRIM(file_interval) == "")) THEN
-        CALL finish(routine, "Please specify either <steps_per_file> or <file_interval>!")
-      END IF
-
-      IF ((steps_per_file /= -1) .AND. (TRIM(file_interval) /= "")) THEN
-        CALL finish(routine, "User has specified conflicting parameters <steps_per_file>, <file_interval>!")
-      END IF
-
-      ! read the map files into dictionary data structures
-      CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
-      CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
-
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-      IF(output_nml_dict     /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, output_nml_dict))
-        CALL message(routine, "load dictionary file.")
-        CALL dict_loadfile(varnames_dict, cfilename)
-      END IF
-      IF(netcdf_dict /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, netcdf_dict))
-        CALL message(routine, "load dictionary file (output names).")
-        CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
-      END IF
+      p_onl%lonlat_id                = lonlat_id
 
       ! translate variables names according to variable name
       ! dictionary:
@@ -488,62 +526,8 @@ CONTAINS
         p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
       END DO
 
-      ! If "remap=1": lon-lat interpolation requested
-      IF(remap/=REMAP_NONE .AND. remap/=REMAP_REGULAR_LATLON) &
-        CALL finish(routine,'Unsupported value for remap')
-#ifndef __NO_ICON_ATMO__
-      IF (remap == REMAP_REGULAR_LATLON) THEN
-        ! Register a lon-lat grid data structure in global list
-        p_onl%lonlat_id = get_free_lonlat_grid()
-        lonlat => lonlat_grid_list(p_onl%lonlat_id)
-
-        lonlat%grid%reg_lon_def(:) = reg_lon_def(:)
-        lonlat%grid%reg_lat_def(:) = reg_lat_def(:)
-        lonlat%grid%north_pole(:)  = north_pole(:)
-        lonlat%grid%reg_def_mode   = reg_def_mode
-        ! compute some additional entries of lon-lat grid specification:
-        CALL compute_lonlat_specs(lonlat%grid)
-        CALL compute_lonlat_blocking(lonlat%grid, nproma)
-
-        ! consistency checks:
-        IF ((reg_lon_def(3) >  reg_lon_def(1)) .AND. &
-          & (reg_lon_def(2) <= 0._wp)) THEN
-          CALL finish(routine,'Illegal LON increment')
-        END IF
-        IF ((reg_lat_def(3) /= reg_lat_def(1)) .AND. &
-          & (reg_lat_def(2) == 0._wp)) THEN
-          CALL finish(routine,'Illegal LAT increment')
-        END IF
-        IF(reg_lon_def(3)<reg_lon_def(1)) CALL finish(routine,'end lon < start lon')
-
-        ! Flag those domains, which are used for this lon-lat grid:
-        !     If dom(:) was not specified in namelist input, it is set
-        !     completely to -1.  In this case all domains are wanted in
-        !     the output
-        IF (p_onl%dom(1) < 0)  THEN
-          lonlat%l_dom(:) = .TRUE.
-        ELSE
-          DOM_LOOP : DO i = 1, max_dom
-            IF (p_onl%dom(i) < 0) exit DOM_LOOP
-            lonlat%l_dom( p_onl%dom(i) ) = .TRUE.
-          ENDDO DOM_LOOP
-        END IF
-      ENDIF
-#endif
-! #ifndef __NO_ICON_ATMO__
-
       p_onl%next => NULL()
 
-      !-----------------------------------------------------
-      ! Store the namelist for restart
-      ! RJ: Disabled:
-      ! The output_nml namelists need not be written to the restart files.
-      !-----------------------------------------------------
-      !IF(my_process_is_stdio())  THEN
-      !  funit = open_tmpfile()
-      !  WRITE(funit,NML=output_nml)
-      !  CALL store_and_close_namelist(funit, 'output_nml')
-      !ENDIF
       !-----------------------------------------------------
       ! write the contents of the namelist to an ASCII file
       !-----------------------------------------------------
