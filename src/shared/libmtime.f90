@@ -884,6 +884,7 @@ module mtime_timedelta
   public :: newTimedelta
   public :: deallocateTimedelta
   public :: timedeltaToString
+  public :: getTotalMilliSecondsTimeDelta
   public :: operator(+)
   public :: operator(<)
   !
@@ -954,6 +955,17 @@ module mtime_timedelta
       type(c_ptr), value :: ret_datetime
       type(c_ptr) :: datetime_ptr
     end function my_addtimedeltatodatetime
+    !
+    function my_gettotalmillisecondstimedelta(my_timedelta, my_datetime) &
+            &   bind(c, name='getTotalMilliSecondsTimeDelta')
+#ifdef __SX__
+      use, intrinsic :: iso_c_binding, only: c_ptr, c_int64_t
+#else
+      import :: c_ptr, c_int64_t
+#endif
+      integer(c_int64_t) :: my_gettotalmillisecondstimedelta
+      type(c_ptr), value :: my_timedelta, my_datetime
+    end function my_gettotalmillisecondstimedelta
     !
   end interface
   !
@@ -1071,6 +1083,17 @@ contains
         &  (op1%ms    >  op2%ms    )) )
     END IF
   END FUNCTION timedelta_lt
+  ! 
+  !WARNING: TD 0 is error. If you know your TD is 0, ignore the error flag.
+  function getTotalMilliSecondsTimeDelta(td, dt, errno)  !OK-TESTED.
+    integer(c_int64_t) :: getTotalMilliSecondsTimeDelta
+    type(timedelta), target, intent(in):: td
+    type(datetime), target :: dt
+    integer, optional:: errno
+    if (present(errno)) errno = 0
+    getTotalMilliSecondsTimeDelta = my_gettotalmillisecondstimedelta(c_loc(td), c_loc(dt))
+    if ((getTotalMilliSecondsTimeDelta == 0) .and. present(errno)) errno = 5 * 100 + 8
+  end function getTotalMilliSecondsTimeDelta
   !
 end module mtime_timedelta
 !>
