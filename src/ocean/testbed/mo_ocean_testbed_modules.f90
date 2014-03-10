@@ -102,6 +102,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_parallel_config,        ONLY: nproma
   USE mo_math_utility_solvers,   ONLY: apply_triangular_matrix
   USE mo_ocean_initial_conditions, ONLY: fill_tracer_x_height
+  USE mo_statistics
 
   IMPLICIT NONE
   PRIVATE
@@ -179,7 +180,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_ocean_tracer), POINTER :: ocean_tracer
     REAL(wp) :: residual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: sum_trace
+    REAL(wp) :: mean_trace
 
     ocean_tracer => ocean_state(1)%p_prog(nold(1))%ocean_tracers(1)
     cells_in_domain => patch_3d%p_patch_2D(1)%cells%in_domain
@@ -191,11 +192,13 @@ CONTAINS
 
     CALL dbg_print('tracer', ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
 
-    CALL fill_tracer_x_height(patch_3d, ocean_state(1))
+!    CALL fill_tracer_x_height(patch_3d, ocean_state(1))
 !    write(0,*) ocean_tracer%concentration_x_height(:, :, 1)
-    sum_trace = SUM(ocean_tracer%concentration_x_height(1, :, 1))
-    WRITE(message_text,'(f18.10)') sum_trace
-    CALL message("sum=", message_text)
+!    sum_trace = SUM(ocean_tracer%concentration_x_height(1, :, 1))
+    mean_trace = total_mean(values=ocean_tracer%concentration, weights=patch_3d%p_patch_1d(1)%prism_volume, &
+      & in_subset=cells_in_domain)
+    WRITE(message_text,'(f18.10)') mean_trace
+    CALL message("mean_trace=", message_text)
 
     DO outer_iter=1,1000
       DO inner_iter=1,1000
@@ -205,10 +208,12 @@ CONTAINS
 
       WRITE(message_text,'(i6,a)') outer_iter, 'x1000 iter, tracer'
       CALL dbg_print(message_text, ocean_tracer%concentration,  debug_string, 1, in_subset=cells_in_domain)
-      CALL fill_tracer_x_height(patch_3d, ocean_state(1))
-      sum_trace = SUM(ocean_tracer%concentration_x_height(1, :, 1))
-      WRITE(message_text,'(f18.10)') sum_trace
-      CALL message("sum=", message_text)
+
+      mean_trace = total_mean(values=ocean_tracer%concentration, weights=patch_3d%p_patch_1d(1)%prism_volume, &
+        & in_subset=cells_in_domain)
+      WRITE(message_text,'(f18.10)') mean_trace
+      CALL message("mean_trace=", message_text)
+
     ENDDO
 
   END SUBROUTINE test_tracer_diffusion_vertical_implicit

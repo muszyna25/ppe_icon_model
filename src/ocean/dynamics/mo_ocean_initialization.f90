@@ -1547,6 +1547,9 @@ CONTAINS
           patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
+          patch_3d%p_patch_1d(1)%prism_volume(jc,jk,jb)           = &
+            & patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb) * &
+            & patch_3d%p_patch_2d(1)%cells%area(jc,jb)
           
           patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)

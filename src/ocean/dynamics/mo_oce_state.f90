@@ -1144,7 +1144,7 @@ CONTAINS
   SUBROUTINE destruct_patch_3d(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)    :: patch_3d
-    
+
     DEALLOCATE(patch_3d%p_patch_1d(n_dom)%del_zlev_m)
     DEALLOCATE(patch_3d%p_patch_1d(n_dom)%inv_del_zlev_m)
     DEALLOCATE(patch_3d%p_patch_1d(n_dom)%zlev_m)
@@ -1341,6 +1341,12 @@ CONTAINS
       & grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('cons thick','m','prism thickness at cells', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+    CALL add_var(ocean_default_list, 'prism_volume', patch_3d%p_patch_1d(1)%prism_volume, &
+      & grid_unstructured_cell, &
+      & za_depth_below_sea, &
+      & t_cf_var('cons thick','m','prism volume (cells)', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'prism_thick_e', patch_3d%p_patch_1d(n_dom)%prism_thick_e, &

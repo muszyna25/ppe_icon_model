@@ -983,6 +983,9 @@ CONTAINS
           patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,2,jb) = 0.5_wp * &
               & (cell_thickeness(jc,1,jb) + cell_thickeness(jc,2,jb))
 
+          patch_3d%p_patch_1d(1)%prism_volume(jc,1,jb) = cell_thickeness(jc,1,jb) * &
+            &  patch_2D%cells%area(jc,jb)
+
           inv_cell_thickeness(jc,1,jb) = 1.0_wp / cell_thickeness(jc,1,jb)
 
           inv_prisms_center_distance(jc,2,jb) = &

@@ -58,7 +58,7 @@ MODULE mo_statistics
   IMPLICIT NONE
   
   PRIVATE
-  
+#define VerticalDim_Position 2
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
@@ -67,8 +67,11 @@ MODULE mo_statistics
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
 #ifndef __ICON_GRID_GENERATOR__
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
-  PUBLIC :: accumulate_mean, levels_horizontal_mean
+  PUBLIC :: accumulate_mean, levels_horizontal_mean, total_mean
   
+  ! simple min max mean (no weights)
+  ! uses the range in_subset
+  ! used from the debug print
   INTERFACE global_minmaxmean
     MODULE PROCEDURE MinMaxMean_2D
     MODULE PROCEDURE MinMaxMean_3D_AllLevels
@@ -76,17 +79,27 @@ MODULE mo_statistics
     MODULE PROCEDURE MinMaxMean_3D_AllLevels_InRange
   END INTERFACE global_minmaxmean
   
+  ! weighted total sum, uses indexed subset
+  ! used for calculating total fluxes acros given paths
   INTERFACE subset_sum
-    MODULE PROCEDURE Sum_3D_AllLevels_InIndexed
+    MODULE PROCEDURE Sum_3D_AllLevels_3Dweights_InIndexed
     ! MODULE PROCEDURE globalspace_3d_sum_max_level_array
   END INTERFACE subset_sum
 
+  ! function, restuns the total weighted mean across all levels
+  INTERFACE total_mean
+    MODULE PROCEDURE TotalWeightedMean_3D_InRange_3Dweights
+  END INTERFACE total_mean
+
+  ! for each level, adds to the level accumulated_mean the weighted spatial level mean
   INTERFACE accumulate_mean
     MODULE PROCEDURE AccumulateMean_3D_EachLevel_InRange_2Dweights
   END INTERFACE accumulate_mean
 
+  ! for each level, gives the weighted spatial level mean
   INTERFACE levels_horizontal_mean
     MODULE PROCEDURE LevelHorizontalMean_3D_InRange_2Dweights
+    MODULE PROCEDURE LevelHorizontalMean_3D_InRange_3Dweights
     MODULE PROCEDURE HorizontalMean_2D_InRange_2Dweights
   END INTERFACE levels_horizontal_mean
 
@@ -260,7 +273,7 @@ CONTAINS
     REAL(wp) :: minmaxmean(3)
     
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value
-    INTEGER :: block, startidx, endidx, number_of_values, idx
+    INTEGER :: block, start_index, end_index, number_of_values, idx
     
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
     ! init the min, max values
@@ -269,11 +282,11 @@ CONTAINS
     number_of_values = 0
     
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx, idx) reduction(+:number_of_values, sum_value) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx) reduction(+:number_of_values, sum_value) &
 !ICON_OMP reduction(MIN:min_value) reduction(MAX:max_value)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           IF (in_subset%vertical_levels(idx,block) > 0) THEN
             min_value    = MIN(min_value, values(idx, block))
             max_value    = MAX(max_value, values(idx, block))
@@ -287,15 +300,15 @@ CONTAINS
       
     ELSE ! no in_subset%vertical_levels
       
-!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
-        min_in_block = MINVAL(values(startidx:endidx, block))
-        max_in_block = MAXVAL(values(startidx:endidx, block))
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        min_in_block = MINVAL(values(start_index:end_index, block))
+        max_in_block = MAXVAL(values(start_index:end_index, block))
         min_value    = MIN(min_value, min_in_block)
         max_value    = MAX(max_value, max_in_block)
-        sum_value    = sum_value + SUM(values(startidx:endidx, block))
+        sum_value    = sum_value + SUM(values(start_index:end_index, block))
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       ! compute the total number of values
@@ -320,7 +333,7 @@ CONTAINS
     REAL(wp) :: minmaxmean(3)
     
     REAL(wp) :: min_in_block, max_in_block, min_value, max_value, sum_value, global_number_of_values
-    INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical, number_of_values
+    INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical, number_of_values
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':MinMaxMean_3D_AllLevels'
     
     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
@@ -331,9 +344,9 @@ CONTAINS
       start_vertical = 1
     ENDIF
     IF (PRESENT(end_level)) THEN
-      end_vertical = start_level
+      end_vertical = end_level
     ELSE
-      end_vertical = SIZE(values, 2)
+      end_vertical = SIZE(values, VerticalDim_Position)
     ENDIF
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
@@ -344,11 +357,11 @@ CONTAINS
     number_of_values = 0
     
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx, idx) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx) &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value, number_of_values)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           !            write(0,*) "end_vertical:", end_vertical," vertical_levels:", in_subset%vertical_levels(idx,block)
           DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block))
             min_value    = MIN(min_value, values(idx, level, block))
@@ -363,16 +376,16 @@ CONTAINS
       
     ELSE ! no in_subset%vertical_levels
       
-!ICON_OMP_PARALLEL_DO PRIVATE(block, startidx, endidx)  &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index)  &
 !ICON_OMP  reduction(MIN:min_value) reduction(MAX:max_value) reduction(+:sum_value)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
+        CALL get_index_range(in_subset, block, start_index, end_index)
         DO level = start_vertical, end_vertical
-          min_in_block = MINVAL(values(startidx:endidx, level, block))
-          max_in_block = MAXVAL(values(startidx:endidx, level, block))
+          min_in_block = MINVAL(values(start_index:end_index, level, block))
+          max_in_block = MAXVAL(values(start_index:end_index, level, block))
           min_value    = MIN(min_value, min_in_block)
           max_value    = MAX(max_value, max_in_block)
-          sum_value    = sum_value + SUM(values(startidx:endidx, level, block))
+          sum_value    = sum_value + SUM(values(start_index:end_index, level, block))
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -402,7 +415,7 @@ CONTAINS
   ! and optional weights with the original 3D index (weights)
   ! or using the the subset index ( subset_indexed_weights ( level, sunset_index)).
   ! The sum is over all levels.
-  FUNCTION Sum_3D_AllLevels_InIndexed(values, indexed_subset, start_level, end_level, weights, &
+  FUNCTION Sum_3D_AllLevels_3Dweights_InIndexed(values, indexed_subset, start_level, end_level, weights, &
     & subset_indexed_weights) result(total_sum)
     REAL(wp) :: values(:,:,:)
     TYPE(t_subset_indexed), TARGET :: indexed_subset
@@ -416,7 +429,7 @@ CONTAINS
     INTEGER :: i, block, idx, level,  start_vertical, end_vertical
     INTEGER :: communicator
     !    INTEGER :: idx
-    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_InIndexed'
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_3Dweights_InIndexed'
     
     
     IF (PRESENT(start_level)) THEN
@@ -425,9 +438,9 @@ CONTAINS
       start_vertical = 1
     ENDIF
     IF (PRESENT(end_level)) THEN
-      end_vertical = start_level
+      end_vertical = end_level
     ELSE
-      end_vertical = SIZE(values, 2)
+      end_vertical = SIZE(values, VerticalDim_Position)
     ENDIF
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
@@ -479,7 +492,7 @@ CONTAINS
       
     ENDIF
     
-  END FUNCTION Sum_3D_AllLevels_InIndexed
+  END FUNCTION Sum_3D_AllLevels_3Dweights_InIndexed
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
@@ -508,9 +521,9 @@ CONTAINS
       start_vertical = 1
     ENDIF
     IF (PRESENT(end_level)) THEN
-      end_vertical = start_level
+      end_vertical = end_level
     ELSE
-      end_vertical = SIZE(values, 2)
+      end_vertical = SIZE(values, VerticalDim_Position)
     ENDIF
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
@@ -539,7 +552,7 @@ CONTAINS
     INTEGER, OPTIONAL :: start_level, end_level
 
     REAL(wp), ALLOCATABLE :: sum_value(:,:), total_sum(:), sum_weight(:,:), total_weight(:)
-    INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical
+    INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: allocated_levels, no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
 
@@ -563,9 +576,9 @@ CONTAINS
       start_vertical = 1
     ENDIF
     IF (PRESENT(end_level)) THEN
-      end_vertical = start_level
+      end_vertical = end_level
     ELSE
-      end_vertical = SIZE(values, 2)
+      end_vertical = SIZE(values, VerticalDim_Position)
     ENDIF
     IF (start_vertical > end_vertical) &
       & CALL finish(method_name, "start_vertical > end_vertical")
@@ -578,10 +591,10 @@ CONTAINS
     sum_value(:,  myThreadNo) = 0.0_wp
     sum_weight(:,  myThreadNo) = 0.0_wp
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_DO PRIVATE(block, startidx, endidx, idx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block))
             sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
               & values(idx, level, block) * weights(idx, block)
@@ -593,10 +606,10 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_DO PRIVATE(block, startidx, endidx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           ! since we have the same numbder of vertical layers, the weight is the same
           ! for all levels. Compute it only for the first level, and then copy it
           sum_weight(start_vertical, myThreadNo)  = sum_weight(start_vertical, myThreadNo) + weights(idx, block)
@@ -645,6 +658,168 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   ! Returns the weighted average for each level in a 3D array in a given range subset.
+  REAL(wp) FUNCTION TotalWeightedMean_3D_InRange_3Dweights(values, weights, in_subset, start_level, end_level)
+
+    REAL(wp), INTENT(in) :: values(:,:,:) ! in
+    REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    INTEGER, OPTIONAL :: start_level, end_level
+
+    REAL(wp), ALLOCATABLE, TARGET :: levelWeights(:), levelMean(:)
+    REAL(wp) ::  totalWeight, totalSum
+    INTEGER :: level, start_vertical, end_vertical, allocated_levels
+!    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
+
+    IF (PRESENT(start_level)) THEN
+      start_vertical = start_level
+    ELSE
+      start_vertical = 1
+    ENDIF
+    IF (PRESENT(end_level)) THEN
+      end_vertical = end_level
+    ELSE
+      end_vertical = SIZE(values, VerticalDim_Position)
+    ENDIF
+    allocated_levels = SIZE(values, VerticalDim_Position)
+    ALLOCATE( levelWeights(allocated_levels), levelMean(allocated_levels) )
+
+    CALL LevelHorizontalMean_3D_InRange_3Dweights(values=values, weights=weights, in_subset=in_subset, &
+      & mean=levelMean, start_level=start_level, end_level=end_level, sumLevelWeights=levelWeights)
+
+    totalSum = 0.0_wp
+    totalWeight = 0.0_wp
+    DO level = start_vertical, end_vertical
+      totalSum    = totalSum    + levelMean(level) * levelWeights(level)
+      totalWeight = totalWeight + levelWeights(level)
+    ENDDO
+
+    TotalWeightedMean_3D_InRange_3Dweights = totalSum / totalWeight
+    DEALLOCATE(levelWeights, levelMean)
+
+  END FUNCTION TotalWeightedMean_3D_InRange_3Dweights
+
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the weighted average for each level in a 3D array in a given range subset.
+  SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights(values, weights, in_subset, mean, start_level, end_level, sumLevelWeights)
+    REAL(wp), INTENT(in) :: values(:,:,:) ! in
+    REAL(wp), INTENT(in) :: weights(:,:,:)  ! in
+    TYPE(t_subset_range), TARGET :: in_subset
+    REAL(wp), TARGET, INTENT(inout) :: mean(:)   ! mean for each level
+    INTEGER, OPTIONAL :: start_level, end_level
+    REAL(wp), TARGET, OPTIONAL, INTENT(inout) :: sumLevelWeights(:)   ! the sum of the weights in each level
+
+    REAL(wp), ALLOCATABLE :: sum_value(:,:), total_sum(:), sum_weight(:,:), total_weight(:)
+    INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
+    INTEGER :: allocated_levels, no_of_threads, myThreadNo
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
+
+    IF (in_subset%no_of_holes > 0) CALL warning(method_name, "there are holes in the subset")
+
+    no_of_threads = 1
+    myThreadNo = 0
+#ifdef _OPENMP
+    no_of_threads = omp_get_max_threads()
+#endif
+
+    allocated_levels = SIZE(mean)
+    ALLOCATE( sum_value(allocated_levels, 0:no_of_threads-1), &
+      & total_sum(allocated_levels), &
+      & sum_weight(allocated_levels, 0:no_of_threads-1), &
+      & total_weight(allocated_levels) )
+
+    IF (PRESENT(start_level)) THEN
+      start_vertical = start_level
+    ELSE
+      start_vertical = 1
+    ENDIF
+    IF (PRESENT(end_level)) THEN
+      end_vertical = end_level
+    ELSE
+      end_vertical = SIZE(values, VerticalDim_Position)
+    ENDIF
+    IF (start_vertical > end_vertical) &
+      & CALL finish(method_name, "start_vertical > end_vertical")
+    IF ( allocated_levels < end_vertical) &
+      & CALL finish(method_name, "allocated_levels < end_vertical")
+
+!ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+!$  myThreadNo = omp_get_thread_num()
+!ICON_OMP_SINGLE
+!$  no_of_threads = OMP_GET_NUM_THREADS()
+!ICON_OMP_END_SINGLE NOWAIT
+    sum_value(:,  myThreadNo) = 0.0_wp
+    sum_weight(:,  myThreadNo) = 0.0_wp
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block))
+            sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
+              & values(idx, level, block) * weights(idx, level, block)
+            sum_weight(level, myThreadNo)  = sum_weight(level, myThreadNo) + weights(idx, level, block)
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ELSE ! no in_subset%vertical_levels
+
+!ICON_OMP_DO PRIVATE(block, start_index, end_index)
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          ! since we have the same numbder of vertical layers, the weight is the same
+          ! for all levels. Compute it only for the first level, and then copy it
+          DO level = start_vertical, end_vertical
+            sum_value(level, myThreadNo)  = sum_value(level, myThreadNo) + &
+              & values(idx, level, block) * weights(idx,level, block)
+            sum_weight(level, myThreadNo)  = sum_weight(start_vertical, myThreadNo) + weights(idx, level, block)
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_END_DO
+
+    ENDIF
+!ICON_OMP_END_PARALLEL
+
+    ! gather the total level sum of this process in total_sum(level)
+    total_sum(:)     = 0.0_wp
+    total_weight(:) = 0.0_wp
+    DO myThreadNo=0, no_of_threads-1
+      DO level = start_vertical, end_vertical
+        ! write(0,*) myThreadNo, level, " sum=", sum_value(level, myThreadNo), sum_weight(level, myThreadNo)
+        total_sum(level)    = total_sum(level)    + sum_value(level, myThreadNo)
+        total_weight(level) = total_weight(level) + sum_weight(level, myThreadNo)
+      ENDDO
+    ENDDO
+    DEALLOCATE(sum_value, sum_weight)
+
+    ! Collect the value and weight sums (at all procs)
+    CALL gather_sums(total_sum, total_weight)
+
+    ! Get average and add
+    mean(:) = 0.0_wp
+    DO level = start_vertical, end_vertical
+      ! write(0,*) level, ":", total_sum(level), total_weight(level), accumulated_mean(level)
+      mean(level) = total_sum(level)/total_weight(level)
+    ENDDO
+
+    IF (PRESENT(sumLevelWeights)) THEN
+      sumLevelWeights(:) = total_weight(:)
+    ENDIF
+
+    DEALLOCATE(total_sum, total_weight)
+
+  END SUBROUTINE LevelHorizontalMean_3D_InRange_3Dweights
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the weighted average for each level in a 3D array in a given range subset.
   SUBROUTINE HorizontalMean_2D_InRange_2Dweights(values, weights, in_subset, mean)
     REAL(wp), INTENT(in) :: values(:,:) ! in
     REAL(wp), INTENT(in) :: weights(:,:)  ! in
@@ -653,7 +828,7 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE :: sum_value(:), sum_weight(:)
     REAL(wp):: total_sum, total_weight
-    INTEGER :: block, level, startidx, endidx, idx, start_vertical, end_vertical
+    INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
     INTEGER :: no_of_threads, myThreadNo
     CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':HorizontalMean_2D_InRange_2Dweights'
 
@@ -676,10 +851,10 @@ CONTAINS
     sum_value(myThreadNo) = 0.0_wp
     sum_weight(myThreadNo) = 0.0_wp
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_DO PRIVATE(block, startidx, endidx, idx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           DO level = 1, MIN(1, in_subset%vertical_levels(idx,block))
             sum_value(myThreadNo)  = sum_value(myThreadNo) + &
               & values(idx, block) * weights(idx, block)
@@ -691,10 +866,10 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_DO PRIVATE(block, startidx, endidx)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index)
       DO block = in_subset%start_block, in_subset%end_block
-        CALL get_index_range(in_subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           ! since we have the same numbder of vertical layers, the weight is the same
           ! for all levels. Compute it only for the first level, and then copy it
           sum_weight(myThreadNo)  = sum_weight(myThreadNo) + weights(idx, block)
@@ -836,7 +1011,7 @@ CONTAINS
 !    INTEGER :: i, block, idx, level
 !    INTEGER :: communicator
 !    !    INTEGER :: idx
-!    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_InIndexed'
+!    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_3Dweights_InIndexed'
 !
 !    IF (.NOT. PRESENT(indexed_subset)) &
 !      & CALL finish(method_name,  "Currently requires indexed_subset parameter. Abort.")
@@ -1363,7 +1538,7 @@ CONTAINS
     INTEGER,INTENT(in),OPTIONAL :: levels
     LOGICAL,INTENT(in),OPTIONAL :: force_level
     
-    INTEGER :: idx,block,level,startidx,endidx
+    INTEGER :: idx,block,level,start_index,end_index
     
     INTEGER :: mylevels
     LOGICAL :: my_force_level
@@ -1376,8 +1551,8 @@ CONTAINS
     
     IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. my_force_level) THEN
       DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           DO level = 1, MAX(mylevels,subset%vertical_levels(idx,block))
             f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
           END DO
@@ -1385,8 +1560,8 @@ CONTAINS
       END DO
     ELSE
       DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, startidx, endidx)
-        DO idx = startidx, endidx
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
           DO level = 1, mylevels
             f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
           END DO

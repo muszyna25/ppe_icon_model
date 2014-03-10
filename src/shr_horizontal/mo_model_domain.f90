@@ -929,6 +929,8 @@ MODULE mo_model_domain
     REAL(wp), POINTER ::                &
       &  prism_thick_c(:,:,:),          & ! individual prism thickness at cells. Unit [m].
                                           ! This array includes the free surface. dimension: (nproma, n_zlev, nblks_c)
+      &  prism_volume(:,:,:),           & ! individual prism volume (cells). Unit [m^3].
+                                          ! This array includes the free surface. dimension: (nproma, n_zlev, nblks_c)
       &  prism_thick_e(:,:,:),          & ! individual prism thickness at edges. Unit [m].
                                           ! This array includes the free surface. dimension: (nproma, n_zlev, nblks_e)
       &  prism_thick_flat_sfc_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].
