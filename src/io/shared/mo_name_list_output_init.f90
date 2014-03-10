@@ -131,7 +131,9 @@ MODULE mo_name_list_output_init
     &                                             t_lon_lat_data, get_free_lonlat_grid,           &
     &                                             lonlat_grid_list, n_lonlat_grids
 
-  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
+  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,    &
+    &                                             timedelta, newTimedelta, deallocateTimedelta,   &
+    &                                             OPERATOR(<)
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
@@ -681,14 +683,16 @@ CONTAINS
     LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
     INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
       &                                   jp, idom, jg, local_i, idom_log,                  &
-      &                                   grid_info_mode, ierrstat, jl
-    TYPE (t_output_name_list), POINTER :: p_onl
-    TYPE (t_output_file), POINTER      :: p_of
-    TYPE(t_list_element), POINTER      :: element
-    TYPE(t_fname_metadata)             :: fname_metadata
-    TYPE(t_par_output_event), POINTER  :: ev
-    TYPE (t_sim_step_info)             :: dom_sim_step_info
-    TYPE(t_cf_var), POINTER            :: this_cf
+      &                                   grid_info_mode, ierrstat, jl, idummy
+    TYPE (t_output_name_list), POINTER   :: p_onl
+    TYPE (t_output_file),      POINTER   :: p_of
+    TYPE(t_list_element),      POINTER   :: element
+    TYPE(t_fname_metadata)               :: fname_metadata
+    TYPE(t_par_output_event),  POINTER   :: ev
+    TYPE (t_sim_step_info)               :: dom_sim_step_info
+    TYPE(t_cf_var),            POINTER   :: this_cf
+    TYPE(timedelta),           POINTER   :: mtime_output_interval, mtime_lower_bound
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
 
     l_print_list = .FALSE.
     i_sample     = 1
@@ -964,6 +968,20 @@ CONTAINS
           END IF
         END IF
       END IF
+
+      !--- consistency check: do not allow output intervals < dtime*iadv_rcf:
+      mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval))
+      CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
+        &                      lower_bound_str, idummy)
+      IF (idummy > 0)  CALL finish(routine, "Internal error!")
+      mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
+      IF (mtime_output_interval < mtime_lower_bound) THEN
+        CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval)//" < dtime*iadv_rcf !")
+      END IF
+      CALL deallocateTimedelta(mtime_output_interval)
+      CALL deallocateTimedelta(mtime_lower_bound)
+      !----------------------------------------------------------------------
+      ! 
 
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
