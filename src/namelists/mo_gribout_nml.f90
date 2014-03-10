@@ -143,8 +143,6 @@ MODULE mo_gribout_nml
   LOGICAL :: lgribout_24bit             ! write thermodynamic fields rho, theta_v, T, p
                                         ! with 24bit precision
 
-  ! Local definition for ensemble products
-  INTEGER :: productDefinitionTemplateNumber
 
   INTEGER :: typeOfEnsembleForecast,        &
     &        localTypeOfEnsembleForecast,   &
@@ -165,7 +163,6 @@ MODULE mo_gribout_nml
     &                    generatingCenter,                &
     &                    generatingSubcenter,             &
     &                    ldate_grib_act,                  &
-    &                    productDefinitionTemplateNumber, &
     &                    typeOfEnsembleForecast,          &
     &                    localTypeOfEnsembleForecast,     &
     &                    numberOfForecastsInEnsemble,     &
@@ -222,7 +219,6 @@ CONTAINS
     localDefinitionNumber                = UNDEFINED
     generatingCenter                     = UNDEFINED  ! output generating center
     generatingSubcenter                  = UNDEFINED  ! output generating subcenter
-    productDefinitionTemplateNumber      = UNDEFINED  ! (undefined, will not be set if unchanged)
     typeOfEnsembleForecast               = UNDEFINED  ! (undefined, will not be set if unchanged)
     localTypeOfEnsembleForecast          = UNDEFINED  ! (undefined, will not be set if unchanged)
     numberOfForecastsInEnsemble          = UNDEFINED  ! (undefined, will not be set if unchanged)
@@ -288,8 +284,6 @@ CONTAINS
         &                generatingSubcenter
       gribout_config(jg)%ldate_grib_act                    = &
         &                ldate_grib_act
-      gribout_config(jg)%productDefinitionTemplateNumber   = &
-        &                productDefinitionTemplateNumber
       gribout_config(jg)%typeOfEnsembleForecast            = &
         &                typeOfEnsembleForecast
       gribout_config(jg)%localTypeOfEnsembleForecast       = &
@@ -354,8 +348,6 @@ CONTAINS
       CALL preset_value("localDefinitionNumber",           localDefinitionNumber,             253 , quiet=.FALSE. )
       ! 5  : "control and perturbed forecast products"
       CALL preset_value("typeOfProcessedData",             typeOfProcessedData,                 5 , quiet=.FALSE. )
-      ! 1  : individual ensemble forecast
-      CALL preset_value("productDefinitionTemplateNumber", productDefinitionTemplateNumber,     1 , quiet=.FALSE. )
       ! Note: atmospheric chemical constituents -> 41
       !       statistically processed data      -> 11
       CALL preset_value("typeOfEnsembleForecast",          typeOfEnsembleForecast,            192 , quiet=.FALSE. )

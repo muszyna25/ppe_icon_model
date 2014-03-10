@@ -124,8 +124,6 @@ MODULE mo_gribout_config
     LOGICAL :: lgribout_24bit             ! write thermodynamic fields rho, theta_v, T, p
                                           ! with 24bit precision
 
-    ! Local definiton for ensemble products
-    INTEGER :: productDefinitionTemplateNumber
 
     INTEGER :: typeOfEnsembleForecast,        &
       &        localTypeOfEnsembleForecast,   &

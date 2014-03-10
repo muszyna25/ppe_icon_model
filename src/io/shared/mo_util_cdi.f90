@@ -444,6 +444,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH)     :: ydate, ytime
     INTEGER :: cent, year, month, day    ! date
     INTEGER :: hour, minute              ! time
+    INTEGER :: steptype
 
     IF (grib_conf%ldate_grib_act) THEN
       ! get date and time
@@ -521,9 +522,23 @@ CONTAINS
         ! Local definition for ensemble products
         ! --------------------------------------
 
-        IF (grib_conf%productDefinitionTemplateNumber /= -1)                              &
-          &   CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",   &
-          &                          grib_conf%productDefinitionTemplateNumber)
+        ! Switch between template 
+        ! 1: Individual ensemble forecast, control and perturbed, at a horizontal level 
+        !    or in a horizontal layer at a point in time.
+        ! and 
+        ! 11: Individual ensemble forecast, control and perturbed, at a horizontal level 
+        !     or in a horizontal layer, in a continuous or non-continuous time interval
+        ! depending on variable-specific stepType
+        !!! Note that this is only a workaround, since we cannot guarantee that !!!
+        !!! no information (keys) set prior to that template-switch gets lost.  !!!
+        steptype = vlistInqVarTsteptype(vlistID, varID)
+        IF ( ANY((/TSTEP_INSTANT,TSTEP_CONSTANT/) == steptype) ) THEN 
+          CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",1)
+        ELSE
+          CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",11)
+        ENDIF
+
+
         IF (grib_conf%typeOfEnsembleForecast /= -1)                                       &
           &   CALL vlistDefVarIntKey(vlistID, varID, "typeOfEnsembleForecast" ,           &
           &                          grib_conf%typeOfEnsembleForecast)
