@@ -95,19 +95,19 @@ case ${target} in
     # DWD SX9
     # -------
     sx9)
-        configureoption="--host=sx9 --with-setup=sx9"
+        configureoption="--host=sx9 --with-setup=sx9 --without-ocean"
         ;;
 
     sx9omp)
-        configureoption="--host=sx9 --with-setup=sx9omp"
+        configureoption="--host=sx9 --with-setup=sx9omp --without-ocean"
         ;;
 
     sx9mpiomp)
-        configureoption="--host=sx9 --with-setup=sx9mpiomp"
+        configureoption="--host=sx9 --with-setup=sx9mpiomp --without-ocean"
         ;;
 
     sx9ftromp)
-        configureoption="--host=sx9 --with-setup=sx9ftromp"
+        configureoption="--host=sx9 --with-setup=sx9ftromp --without-ocean"
         ;;
 
     # Default (for unspecified target)

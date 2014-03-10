@@ -219,7 +219,19 @@ fi
   
 dnl ######################################################################
 dnl define the packages
+
 use_components_file=config/icon_components
+
+AC_ARG_WITH([ocean],
+            [AC_HELP_STRING([--with-ocean=no],
+                            [compile without ocean])],,
+                            with_ocean=yes)
+
+if [[ $with_ocean = no ]]; then
+  use_components_file=config/icon_components_no_ocean
+  echo "icon_components=NO_ICON_OCEAN" > $use_components_file
+fi
+
 if test -f $use_components_file ; then
   AC_GET_MH($use_components_file)
 fi
@@ -832,7 +844,7 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}"
+config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --with_ocean="${with_ocean}"
 
 #-----------------------------------------------------------------------------
 case $host in

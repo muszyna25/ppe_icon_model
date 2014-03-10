@@ -13,7 +13,10 @@ use File::Path;
 GetOptions( 
 	    'target=s'  => \$target,
             'srcdirs=s' => \$srcdirs,
+            'with_ocean=s' => \$with_ocean,
 	    ) or die "\n\nUsage: config/createMakefiles.pl --target=<OS_CPU> --srcdirs=< list of src directories>\n";  
+
+
 
 $target =~ s/\s+//g;
 
@@ -318,6 +321,7 @@ sub ScanDirectory {
         next if ($name eq "nh");
         next if ($name eq "phys");
         next if ($name eq "sw_options");
+        next if (($with_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
 
         if (-d $name){
 	    $nextpath="$workpath/$name";
