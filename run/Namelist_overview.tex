@@ -3789,7 +3789,7 @@ R&0,90& &
 R&None& &
  Post-processing times (in seconds): start, end, increment.
  We choose  the advection time step matching or following the 
- requested output time.
+ requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
  See namelist parameters \texttt{output\_start}, \texttt{output\_end}, \texttt{output\_interval}
  for an alternative specification of output events.
 &
@@ -3825,7 +3825,7 @@ C&\'' \''& &
 C&\'' \''& &
  ISO8601 time stamp for repeating output intervals.
  We choose  the advection time step matching or following the 
- requested output time.
+ requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
  An example for this time stamp format is given below.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
