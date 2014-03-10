@@ -123,7 +123,7 @@ cat > ${ocean_namelist} << EOF
   forcing_wind_u_amplitude = -0.25
   forcing_wind_v_amplitude = 0.0
   forcing_windstress_zonal_waveno = 8.0
-  forcing_windstress_zonalWavePhase = 2.0   ! 115 degrees
+  forcing_windstress_zonalWavePhas= 2.0   ! 115 degrees
   forcing_windstress_merid_waveno = 3.0
   forcing_smooth_steps            = 4320
   temperature_relaxation          = 3
