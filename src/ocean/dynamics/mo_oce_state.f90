@@ -590,13 +590,13 @@ CONTAINS
     ! reconstructed u velocity component
     CALL add_var(ocean_default_list, 'u', p_os_diag%u, grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('u','m/s','u velocity component', DATATYPE_FLT32),&
+      & t_cf_var('u','m/s','u zonal velocity component', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
     ! reconstructed v velocity component
     CALL add_var(ocean_default_list, 'v', p_os_diag%v, grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('v','m/s','v velocity component', DATATYPE_FLT32),&
+      & t_cf_var('v','m/s','v meridional velocity component', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
     ! reconstrcuted velocity in cartesian coordinates
@@ -1004,13 +1004,13 @@ CONTAINS
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
     CALL add_var(ocean_default_list, 'u_acc', p_os_acc%u, grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('u_acc','m/s','meridional velocity component', DATATYPE_FLT32),&
+      & t_cf_var('u_acc','m/s','zonal velocity component', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
     ! reconstructed v velocity component
     CALL add_var(ocean_default_list, 'v_acc', p_os_acc%v, grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('v_acc','m/s','zonal velocity component', DATATYPE_FLT32),&
+      & t_cf_var('v_acc','m/s','meridional velocity component', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
     CALL add_var(ocean_default_list, 'rhopot_acc', p_os_acc%rhopot, grid_unstructured_cell, &
