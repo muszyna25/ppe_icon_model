@@ -1626,7 +1626,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    IF (msg_level >= 13) THEN ! extended diagnostic
+    IF (msg_level >= 20) THEN ! extended diagnostic
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))
     ENDIF
    

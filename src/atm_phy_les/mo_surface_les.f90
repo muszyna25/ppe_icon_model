@@ -138,7 +138,7 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
     REAL(wp),          INTENT(inout)     :: visc_sfc_c(:,:)!apparent visc at surface
 
-    REAL(wp) :: rhos, th0_srf, obukhov_length, z_mc, ustar, inv_mwind, mwind, bflux
+    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp), POINTER :: pres_sfc(:,:)
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
@@ -222,11 +222,12 @@ MODULE mo_surface_les
       prm_diag%vmfl_s  = - prm_diag%vmfl_s
  
     !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
+    !Ideally, one should do an iteration to get ustar corresponding to given fluxes
     CASE(2)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,th0_srf,bflux,mwind,z_mc, &
-!$OMP            RIB,ustar,obukhov_length,theta_sfc,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,mwind,z_mc,RIB, &
+!$OMP            ustar,obukhov_length,theta_sfc,rhos),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -240,11 +241,7 @@ MODULE mo_surface_les
 
             !Get reference surface pot. temperature
             !First time step t_g takes value assigned in nwp_phy_init          
-            th0_srf = p_prog_lnd_now%t_g(jc,jb) / exner
-
-            !Buoyancy flux
-            bflux = grav*(les_config(jg)%shflx +  &
-                   vtmpc1*th0_srf*les_config(jg)%lhflx)/th0_srf
+            theta_sfc = p_prog_lnd_now%t_g(jc,jb) / exner
 
             !Mean wind at nlev
             mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
@@ -255,15 +252,21 @@ MODULE mo_surface_les
             !Now diagnose friction velocity (ustar)
             IF(les_config(jg)%ufric<0._wp)THEN
               !Bulk Richardson no at first model level
-              RIB = grav * (theta(jc,jk,jb)-th0_srf) * (z_mc - zrough) / (th0_srf * mwind**2)
+              RIB = grav * (theta(jc,jk,jb)-theta_sfc)*(z_mc-zrough)/(theta_sfc*mwind**2)
+              !first guess
               ustar = SQRT( diag_ustar_sq(z_mc,zrough,RIB,mwind) )
+              DO itr = 1 , 5
+                !"-" sign in the begining because ustar*thstar = -shflx
+                obukhov_length = - theta_sfc*ustar**3/(akt*grav*les_config(jg)%shflx)
+                ustar = mwind / businger_mom(zrough,z_mc,obukhov_length)  
+              END DO
+
             ELSE
               ustar = les_config(jg)%ufric
+              obukhov_length = -theta_sfc*ustar**3/(akt*grav*les_config(jg)%shflx)
             END IF
 
-            !"-" sign in the begining because ustar*thstar = -shflx
-            obukhov_length = -ustar**3 / (akt * bflux)
-             
+            !New temperature
             theta_sfc   = theta(jc,jk,jb) + les_config(jg)%shflx / ustar * &
                           businger_heat(zrough,z_mc,obukhov_length) 
 
@@ -285,8 +288,8 @@ MODULE mo_surface_les
 
            !Get apparent viscosity at the surface from the surface fluxes: to be used
            !in mo_sgs_turbulence
-           visc_sfc_c(jc,jb) = rhos*ABS(les_config(jg)%shflx)*z_mc* &
-                               les_config(jg)%turb_prandtl/ABS(theta(jc,jk,jb)-theta_sfc) 
+           visc_sfc_c(jc,jb) = ABS(rhos*les_config(jg)%shflx*z_mc* &
+                               les_config(jg)%turb_prandtl/(theta(jc,jk,jb)-theta_sfc)) 
 
          END DO  
       END DO
@@ -340,14 +343,15 @@ MODULE mo_surface_les
       !CALL message('FINAL ITR, RESID, AND BFLX:',message_text )
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,z_mc,mwind,RIB,ustar,rhos),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,z_mc,mwind,RIB,ustar, &
+!$OMP            obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
          DO jc = i_startidx, i_endidx
 
             !Mean wind at nlev
-            mwind  = MAX( min_wind,SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
+            mwind  = MAX( min_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
            
             z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
 
@@ -359,6 +363,12 @@ MODULE mo_surface_les
               !Bulk Richardson no at first model level
               RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough)/(theta_sfc*mwind**2)
               ustar = SQRT( diag_ustar_sq(z_mc,zrough,RIB,mwind) )
+              DO itr = 1 , 5
+                obukhov_length = - theta_sfc*ustar**3/(akt*grav* les_config(jg)%tran_coeff*&
+                                   (theta_sfc-theta(jc,jk,jb)))
+                ustar = mwind / businger_mom(zrough,z_mc,obukhov_length)  
+              END DO
+
             ELSE
               ustar = les_config(jg)%ufric
             END IF
@@ -373,8 +383,10 @@ MODULE mo_surface_les
             rhos   =  p0ref/( rd * &
                       p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
-            prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff*(theta_sfc-theta(jc,jk,jb))
-            prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
+            prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff* &
+                                     (theta_sfc-theta(jc,jk,jb))
+            prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff* &
+                                     (p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
             prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%u(jc,jk,jb) / mwind
             prm_diag%vmfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
@@ -423,8 +435,8 @@ MODULE mo_surface_les
 
            !Get apparent viscosity at the surface from the surface fluxes: to be used
            !in mo_sgs_turbulence
-           visc_sfc_c(jc,jb) = rhos*ABS(shfl)*z_mc* &
-                               les_config(jg)%turb_prandtl/ABS(theta(jc,jk,jb)-th0_rico) 
+           visc_sfc_c(jc,jb) = ABS(rhos*shfl*z_mc* &
+                               les_config(jg)%turb_prandtl/(theta(jc,jk,jb)-th0_rico)) 
 
         END DO  
       END DO
@@ -479,7 +491,8 @@ MODULE mo_surface_les
 
            !Get apparent viscosity at the surface from the surface fluxes: to be used
            !in mo_sgs_turbulence
-           visc_sfc_c(jc,jb) = rhos*ABS(prm_diag%tch(jc,jb))*mwind*z_mc*les_config(jg)%turb_prandtl
+           visc_sfc_c(jc,jb) = rhos*ABS(prm_diag%tch(jc,jb))*mwind*z_mc* &
+                               les_config(jg)%turb_prandtl
            
          END DO
       END DO   
@@ -508,9 +521,8 @@ MODULE mo_surface_les
   !>
   !! factor_heat
   !!------------------------------------------------------------------------
-  !! Businger Dyer similarity profile for neutral and unstable case for scalars
-  !! Stable case is still to be done
-  !! Beniot, On the integral of the surface layer profile-gradient functions (JAM), 1977
+  !! Businger Dyer similarity profile:
+  !! Louis (1979) A Parametirc model of vertical eddy fluxes in the atmosphere 
   !! and R. B. Stull's book
   !!------------------------------------------------------------------------
   !! @par Revision History
@@ -562,8 +574,8 @@ MODULE mo_surface_les
   !>
   !! factor_mom
   !!------------------------------------------------------------------------
-  !! Businger Dyer similarity profile for neutral and unstable case for velocities
-  !! Beniot, On the integral of the surface layer profile-gradient functions (JAM), 1977
+  !! Businger Dyer similarity profile: 
+  !! Louis (1979) A Parametirc model of vertical eddy fluxes in the atmosphere 
   !! and R. B. Stull's book
   !!------------------------------------------------------------------------
   FUNCTION businger_mom(z0, z1, L) RESULT(factor)
