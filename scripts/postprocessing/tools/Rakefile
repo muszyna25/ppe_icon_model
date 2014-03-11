@@ -58,8 +58,15 @@ COMPARISON_REG        = {:oce => @_FILES[OCE_REGPLOT_TEST_FILE], :atm => @_FILES
 
 CLEAN.add(*Dir.glob(["test_*.png","remapnn_*nc","zonmean_*.nc"]))
 
+desc "check if all input files are available at the correct place"
+task :checkInput do
+  @_FILES.each {|_,file|
+    puts "Search file:'#{file}' ............... #{File.exist?(file) ? '   found' : ' NOT found'}"
+  }
+end
+
 desc "move test input to remote machine"
-task :syncInput do
+task :syncInput => [:checkInput] do
   if `hostname`.chomp == 'thingol' then
     user, host, port, remoteDir = 'm300064','localhost',40022,REMOTE_DATA_DIR
     jq = JobQueue.new
