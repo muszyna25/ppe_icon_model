@@ -3060,7 +3060,7 @@ MODULE mo_nh_initicon
     TYPE(t_nh_diag), POINTER :: p_diag
     INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr, w_incr
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:create_dwdanainc_atm'
@@ -3274,11 +3274,59 @@ MODULE mo_nh_initicon
       ENDIF
 
 
-      ! If IAU-window is chosen to be zero, then analysis increments are added directly.
+      !
+      ! If IAU-window is chosen to be zero, then analysis increments are added in one go.
       !
       IF (dt_iau == 0._wp) THEN
 
+        ! For the special case that increments are added in one go,  
+        ! compute vertical wind increment consistent with the vn increment
+        ! Note that here the filtered velocity increment is used.
+        ALLOCATE(w_incr(nproma,nlevp1,nblks_c), STAT=ist)
+        IF (ist /= SUCCESS) THEN
+          CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
+        ENDIF
+
+        CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
+
+        CALL init_w(p_patch(jg), p_int_state(jg), p_diag%vn_incr, p_nh_state(jg)%metrics%z_ifc, w_incr)
+
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+        rl_start = 1
+        rl_end   = min_rlcell
+        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+
+              p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
+ 
+              p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
+
+              ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+              ! below threshhold (currently 5E-7 kg/kg)
+              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,p_prog_now_rcf%tracer(jc,jk,jb,iqv)  &
+                &                                 + p_diag%qv_incr(jc,jk,jb) )
+
+              ! Remember to update theta_v
+              p_prog_now%theta_v(jc,jk,jb) = (p0ref/rd) * p_prog_now%exner(jc,jk,jb)**(cvd/rd) &
+                &                          / p_prog_now%rho(jc,jk,jb)
+
+            ENDDO  ! jc
+          ENDDO  ! jk
+
+        ENDDO  ! jb
+!$OMP ENDDO
+
+
         rl_start = 2
         rl_end   = min_rledge_int - 2
         i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
@@ -3299,8 +3347,12 @@ MODULE mo_nh_initicon
         ENDDO  ! jb
 !$OMP ENDDO NOWAIT
 
-        rl_start = 1
-        rl_end   = min_rlcell
+
+        ! include boundary interpolation zone of nested domains but no halo points 
+        ! (sync follows below)
+        rl_start = 2
+        rl_end   = min_rlcell_int
+
         i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
         i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
@@ -3308,27 +3360,28 @@ MODULE mo_nh_initicon
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-            & i_startidx, i_endidx, rl_start, rl_end)
+                             i_startidx, i_endidx, rl_start, rl_end)
 
-          DO jk = 1, nlev
+          DO jk = 1, nlevp1
             DO jc = i_startidx, i_endidx
 
-              p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
- 
-              p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
+              ! add w_incr to first guess
+              p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb) 
 
-              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)  &
-                &                                 + p_diag%qv_incr(jc,jk,jb)
-
-              ! Remember to update theta_v
-              p_prog_now%theta_v(jc,jk,jb) = (p0ref/rd) * p_prog_now%exner(jc,jk,jb)**(cvd/rd) &
-                &                          / p_prog_now%rho(jc,jk,jb)
             ENDDO  ! jc
           ENDDO  ! jk
 
         ENDDO  ! jb
 !$OMP ENDDO
 !$OMP END PARALLEL
+
+        CALL sync_patch_array(SYNC_C,p_patch(jg),p_prog_now%w)
+
+        ! deallocate temporary arrays
+        DEALLOCATE( w_incr, STAT=ist )
+        IF (ist /= SUCCESS) THEN
+          CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
+        ENDIF
       ENDIF  ! dt_iau = 0
 
 
