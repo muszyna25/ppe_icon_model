@@ -63,7 +63,7 @@
 !!  Modification by Daniel Reinert, DWD (2009-12-14)
 !!  - renamed grad_lsq_cell -> recon_lsq_cell_l
 !!  Modification by Leonidas Linardakis, MPI-M (2010-21-01)
-!!  - splitted mo_math_operators into submodules
+!!  - split mo_math_operators into submodules
 !!
 !! @par To Do
 !! Boundary exchange, nblks in presence of halos and dummy edge

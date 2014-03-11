@@ -63,7 +63,7 @@
 !!  Modification by Daniel Reinert, DWD (2009-12-14)
 !!  - renamed grad_lsq_cell -> recon_lsq_cell_l
 !!  Modification by Leonidas Linardakis, MPI-M (2010-21-01)
-!!  - splitted mo_math_operators into submodules
+!!  - split mo_math_operators into submodules
 !!  Modification by Daniel Reinert, DWD (2010-04-12)
 !!  - added subroutine recon_lsq_cell_q for third order accurate least-squares
 !!    reconstruction of an arbitrary field. Based on cell centered values.

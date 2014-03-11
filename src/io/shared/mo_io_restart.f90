@@ -1253,7 +1253,8 @@ CONTAINS
                                 & opt_depth, opt_depth_lnd,    &
                                 & opt_nlev_snow,               &
                                 & opt_nice_class,              &
-                                & opt_ndom)
+                                & opt_ndom,                    &
+                                & opt_output_jfile )
 
     TYPE(t_patch),       INTENT(IN) :: patch
     TYPE(t_datetime),    INTENT(IN) :: datetime
@@ -1262,7 +1263,7 @@ CONTAINS
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd   ! vertical levels soil model
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd               ! vertical levels soil model
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
@@ -1271,6 +1272,7 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
     INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
@@ -1279,8 +1281,8 @@ CONTAINS
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     IF (ltimer) CALL timer_start(timer_write_restart_file)
     !----------------
@@ -1415,6 +1417,13 @@ CONTAINS
 !      izlev = 0
     END IF
 #endif
+
+    IF (PRESENT(opt_output_jfile)) THEN 
+      DO i=1,SIZE(opt_output_jfile)
+        WRITE(attname,'(a,i2.2)') 'output_jfile_',i
+        CALL set_restart_attribute( TRIM(attname), opt_output_jfile(i) )
+      END DO
+    END IF
 
     IF (.NOT.PRESENT(opt_nice_class)) THEN
       nice_class = 1

@@ -1167,7 +1167,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
     INTEGER,  INTENT(IN) ::    &    !< number of sub-timesteps into which p_dtime
-      &  p_ncycl                    !< is splitted (p_ncycl=1 : no subcycling)
+      &  p_ncycl                    !< is split (p_ncycl=1 : no subcycling)
 
     LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. compute geometrical terms
       &  ld_compute

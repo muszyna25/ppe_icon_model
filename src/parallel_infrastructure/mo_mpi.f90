@@ -186,13 +186,14 @@ MODULE mo_mpi
   PUBLIC :: work_mpi_barrier
 
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
-  PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,       &
-    &       p_irecv_packed, p_send_packed,              &
-    &       p_pack_int, p_pack_bool, p_pack_real,       &
-    &       p_pack_int_1d, p_pack_real_1d,              &
-    &       p_pack_string, p_pack_real_2d,              &
-    &       p_unpack_int, p_unpack_bool, p_unpack_real, &
-    &       p_unpack_int_1d, p_unpack_real_1d,          &
+  PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,         &
+    &       p_irecv_packed, p_send_packed, p_recv_packed, &
+    &       p_bcast_packed,                               &
+    &       p_pack_int, p_pack_bool, p_pack_real,         &
+    &       p_pack_int_1d, p_pack_real_1d,                &
+    &       p_pack_string, p_pack_real_2d,                &
+    &       p_unpack_int, p_unpack_bool, p_unpack_real,   &
+    &       p_unpack_int_1d, p_unpack_real_1d,            &
     &       p_unpack_string, p_unpack_real_2d, p_test
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
@@ -235,7 +236,7 @@ MODULE mo_mpi
   PUBLIC :: p_int_i8
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
-  PUBLIC :: p_real_dp_byte, p_real_sp_byte
+  PUBLIC :: p_real_dp_byte, p_real_sp_byte, p_int_byte
 
   PUBLIC ::get_mpi_time,ellapsed_mpi_time
 
@@ -4782,6 +4783,36 @@ CONTAINS
 #endif
   END SUBROUTINE p_unpack_real_2d
 
+  SUBROUTINE p_recv_packed (t_buffer, p_source, p_tag, p_count, comm)
+
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_source, p_tag
+    INTEGER,   INTENT(IN)    :: p_count
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_RECV (t_buffer, p_count, MPI_PACKED, p_source, p_tag, &
+      p_comm, p_status, p_error)
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_recv_packed
+
   SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm)
 
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
@@ -4827,7 +4858,6 @@ CONTAINS
     ELSE
        p_comm = process_mpi_all_comm
     ENDIF
-
     CALL MPI_SEND (t_buffer, p_count, MPI_PACKED, p_destination, p_tag, &
       p_comm, p_error)
 
@@ -4842,6 +4872,39 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_send_packed
+
+  SUBROUTINE p_bcast_packed (t_buffer, p_source, p_count, comm)
+    CHARACTER, INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in)    :: p_source
+    INTEGER,   INTENT(in)    :: p_count
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_BCAST (t_buffer, p_count, MPI_PACKED, p_source, &
+            p_comm, p_error)
+
+#ifdef DEBUG
+    WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast successful.'
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+
+#endif
+  END SUBROUTINE p_bcast_packed
+
 
   !
   !================================================================================================
@@ -5017,7 +5080,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5057,7 +5120,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5098,7 +5161,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5140,7 +5203,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5182,7 +5245,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5223,7 +5286,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5264,7 +5327,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5305,7 +5368,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5346,7 +5409,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5387,7 +5450,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5428,7 +5491,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5469,7 +5532,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5510,7 +5573,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5551,7 +5614,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5593,7 +5656,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5634,7 +5697,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5675,7 +5738,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5716,7 +5779,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5757,7 +5820,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5798,7 +5861,7 @@ CONTAINS
 
 #ifdef DEBUG
     WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
      IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5840,7 +5903,7 @@ CONTAINS
        CALL MPI_BCAST (t_buffer, lexlength, p_char, p_source, p_comm, p_error)
 #ifdef DEBUG
        WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
        IF (p_error /= MPI_SUCCESS) THEN
           WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
@@ -5885,7 +5948,7 @@ CONTAINS
        CALL MPI_BCAST (t_buffer, buflen, p_char, p_source, p_comm, p_error)
 #ifdef DEBUG
        WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
-            ' with broadcast number ', nbcast, ' succesfull.'
+            ' with broadcast number ', nbcast, ' successful.'
 
        IF (p_error /= MPI_SUCCESS) THEN
           WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &

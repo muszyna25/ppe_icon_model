@@ -232,8 +232,8 @@ CONTAINS
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(nstrings)        ! list for duplicate check
     INTEGER                             :: ifname                 ! current length of "ifname"
-    TYPE(datetime),  POINTER            :: file_end, step_date, mtime_begin, mtime_first, &
-      &                                    mtime_date
+    TYPE(datetime),  POINTER            :: file_end, step_date, mtime_begin, &
+      &                                    mtime_first, mtime_date
     TYPE(timedelta), POINTER            :: delta, forecast_delta
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string, forecast_delta_str
 
@@ -250,8 +250,9 @@ CONTAINS
       mtime_first  => newDatetime(TRIM(date_string(1)))
       ! special treatment for the initial time step written at the
       ! begin of the simulation: The first file gets one extra entry
-      IF ((mtime_begin == mtime_first) .AND.  &
-        & fname_metadata%steps_per_file_inclfirst) THEN
+      IF ( (mtime_begin == mtime_first)              .AND.  &
+        &  fname_metadata%steps_per_file_inclfirst   .AND.  &
+        &  (fname_metadata%jfile_offset == 0) ) THEN
         result_fnames(1)%jfile = 1
         result_fnames(1)%jpart = 1
         DO i=2,nstrings
@@ -295,6 +296,10 @@ CONTAINS
       END DO OUTSTEP_LOOP
       CALL deallocateDatetime(file_end)
       CALL deallocateTimedelta(delta)
+    END IF
+    ! add offset to file numbers:
+    IF (fname_metadata%jfile_offset /= 0) THEN
+      result_fnames(1:nstrings)%jfile = result_fnames(1:nstrings)%jfile + fname_metadata%jfile_offset - 1
     END IF
 
     ! --------------------------------------------------------------
@@ -389,8 +394,6 @@ CONTAINS
 
     ! clean up
     CALL deallocateDatetime(mtime_begin)
-
-
 
   END FUNCTION generate_output_filenames
 

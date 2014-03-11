@@ -351,7 +351,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! Preliminary diagnosis of snow-cover fraction for initialization of splitted tile index list
+        ! Preliminary diagnosis of snow-cover fraction for initialization of split tile index list
 
 ! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
 ! a segmentation fault otherwise

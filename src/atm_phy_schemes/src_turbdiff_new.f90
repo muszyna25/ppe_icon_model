@@ -1630,7 +1630,7 @@ SUBROUTINE turbtran
 !  Modification of the laminar limit without touching the value of z0m, as the actual
 !  formulation became numerical unstable during a test assimilation run.
 ! 2.17       2002/05/08 Ulrich Schaettler
-!  Optimizations for vectorization: splitted the big loop in Section 4
+!  Optimizations for vectorization: split the big loop in Section 4
 ! 2.18       2002/07/16 Ulrich Schaettler
 !  Added a test for variables dz_s0_h, fac_h_2d before a division
 !  (because of problems on the NEC)

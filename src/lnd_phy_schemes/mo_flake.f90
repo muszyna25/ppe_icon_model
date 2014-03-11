@@ -384,7 +384,7 @@ CONTAINS
   !! Initial release by Dmitrii Mironov, DWD (2013-06-05)
   !! 
   !! Modification by Daniel Reinert, DWD (2013-06-26)
-  !! - error message splitted into two parts, since the message length exceeded 
+  !! - error message split into two parts, since the message length exceeded 
   !!   limit on SX9.
   !! Modification by Daniel Reinert, DWD (2013-06-27)
   !! - removed initialization of FLake variables at new time step. This should 

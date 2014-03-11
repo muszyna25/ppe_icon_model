@@ -48,128 +48,126 @@ MODULE mo_nh_stepping
 !
 !
 
-  USE mo_kind,                ONLY: wp
-  USE mo_nonhydro_state,      ONLY: p_nh_state
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
-    & nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
-  USE mo_diffusion_config,     ONLY: diffusion_config
-  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
-  USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time
-  USE mo_parallel_config,      ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
-  USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
-    &                                ldynamics, ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level, test_mode, output_mode
-  USE mo_radiation_config,     ONLY: albedo_type
-  USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
-    &                               timer_total, timer_model_init, timer_nudging,    &
-    &                               timer_bdy_interp, timer_feedback, timer_nesting, &
-    &                               timer_integrate_nh, timer_nh_diagnostics
-  USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
-  USE mo_nwp_phy_init,        ONLY: init_nwp_phy
-  USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params, prm_nwp_diag_list, &
-                                    prm_nwp_tend_list
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
-  USE mo_nwp_lnd_state,       ONLY: p_lnd_state
-  USE mo_ext_data_state,      ONLY: ext_data, interpol_monthly_mean
-  USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
-  USE mo_extpar_config,       ONLY: itopo
-  USE mo_limarea_config,      ONLY: latbc_config
-  USE mo_model_domain,        ONLY: p_patch
-  USE mo_time_config,         ONLY: time_config
-  USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
-    &                               n_dom_start, lredgrid_phys, start_time, end_time
-  USE mo_nh_testcases,        ONLY: init_nh_testcase 
-  USE mo_nh_testcases_nml,    ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
-  USE mo_nh_pa_test,          ONLY: set_nh_w_rho
-  USE mo_nh_df_test,          ONLY: get_nh_df_velocity
-  USE mo_nh_dcmip_hadley,     ONLY: set_nh_velocity_hadley
-  USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh, print_maxwinds
-  USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, p_int_state
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
-    &                               verts2cells_scalar
-  USE mo_grf_intp_data_strc,  ONLY: p_grf_state
-  USE mo_gridref_config,      ONLY: l_density_nudging, grf_intmethod_e
-  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
-  USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
-                                    complete_nesting_setup, prep_bdy_nudging,      &
-                                    outer_boundary_nudging, nest_boundary_nudging, &
-                                    prep_rho_bdy_nudging, density_boundary_nudging,&
-                                    prep_outer_bdy_nudging
-  USE mo_nh_feedback,         ONLY: feedback, relax_feedback
-  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time, check_newday, &
-                                    rdaylen, date_to_time
-  USE mo_io_restart,          ONLY: write_restart_info_file, create_restart_file
-  USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
-    &                               itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                               inwp, iecham, itupdate, itturb, itgscp, itsfc, icosmo,    &
-    &                               min_rlcell_int, min_rledge_int,                           &
-                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS
-  USE mo_math_divrot,         ONLY: div, div_avg, rot_vertex
-  USE mo_solve_nonhydro,      ONLY: solve_nh
-  USE mo_update_dyn,          ONLY: add_slowphys
-  USE mo_advection_stepping,  ONLY: step_advection
-  USE mo_integrate_density_pa,ONLY: integrate_density_pa
-  USE mo_nh_dtp_interface,    ONLY: prepare_tracer
-  USE mo_nh_diffusion,        ONLY: diffusion
-  USE mo_mpi,                 ONLY: my_process_is_mpi_parallel,                      &
-    &                               proc_split, push_glob_comm, pop_glob_comm,       &
-    &                               get_my_mpi_all_id
+  USE mo_kind,                     ONLY: wp
+  USE mo_nonhydro_state,           ONLY: p_nh_state
+  USE mo_nonhydrostatic_config,    ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
+    &                                    nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
+  USE mo_diffusion_config,         ONLY: diffusion_config
+  USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
+  USE mo_io_config,                ONLY: l_outputtime, l_diagtime, is_checkpoint_time
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
+  USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
+    &                                    ldynamics, ltransport, ntracer, lforcing, iforcing, &
+    &                                    msg_level, test_mode, output_mode
+  USE mo_radiation_config,         ONLY: albedo_type
+  USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
+    &                                    timer_total, timer_model_init, timer_nudging,    &
+    &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
+    &                                    timer_integrate_nh, timer_nh_diagnostics
+  USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config
+  USE mo_nwp_phy_init,             ONLY: init_nwp_phy
+  USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params, prm_nwp_diag_list, &
+    &                                    prm_nwp_tend_list
+  USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
+  USE mo_nwp_lnd_state,            ONLY: p_lnd_state
+  USE mo_ext_data_state,           ONLY: ext_data, interpol_monthly_mean
+  USE mo_lnd_jsbach_config,        ONLY: lnd_jsbach_config
+  USE mo_extpar_config,            ONLY: itopo
+  USE mo_limarea_config,           ONLY: latbc_config
+  USE mo_model_domain,             ONLY: p_patch
+  USE mo_time_config,              ONLY: time_config
+  USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
+    &                                    n_dom_start, lredgrid_phys, start_time, end_time
+  USE mo_nh_testcases,             ONLY: init_nh_testcase 
+  USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
+  USE mo_nh_pa_test,               ONLY: set_nh_w_rho
+  USE mo_nh_df_test,               ONLY: get_nh_df_velocity
+  USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
+  USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds
+  USE mo_intp_data_strc,           ONLY: t_int_state, t_lon_lat_intp, p_int_state
+  USE mo_intp_rbf,                 ONLY: rbf_vec_interpol_cell
+  USE mo_intp,                     ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
+    &                                    verts2cells_scalar
+  USE mo_grf_intp_data_strc,       ONLY: p_grf_state
+  USE mo_gridref_config,           ONLY: l_density_nudging, grf_intmethod_e
+  USE mo_grf_bdyintp,              ONLY: interpol_scal_grf
+  USE mo_nh_nest_utilities,        ONLY: compute_tendencies, boundary_interpolation,    &
+                                         complete_nesting_setup, prep_bdy_nudging,      &
+                                         outer_boundary_nudging, nest_boundary_nudging, &
+                                         prep_rho_bdy_nudging, density_boundary_nudging,&
+                                         prep_outer_bdy_nudging
+  USE mo_nh_feedback,              ONLY: feedback, relax_feedback
+  USE mo_datetime,                 ONLY: t_datetime, print_datetime, add_time, check_newday, &
+                                         rdaylen, date_to_time
+  USE mo_io_restart,               ONLY: write_restart_info_file, create_restart_file
+  USE mo_exception,                ONLY: message, message_text, finish
+  USE mo_impl_constants,          ONLY:  SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
+    &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
+    &                                    inwp, iecham, itupdate, itturb, itgscp, itsfc, icosmo,    &
+    &                                    min_rlcell_int, min_rledge_int,                           &
+    &                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS
+  USE mo_math_divrot,              ONLY: div, div_avg, rot_vertex
+  USE mo_solve_nonhydro,           ONLY: solve_nh
+  USE mo_update_dyn,               ONLY: add_slowphys
+  USE mo_advection_stepping,       ONLY: step_advection
+  USE mo_integrate_density_pa,     ONLY: integrate_density_pa
+  USE mo_nh_dtp_interface,         ONLY: prepare_tracer
+  USE mo_nh_diffusion,             ONLY: diffusion
+  USE mo_mpi,                      ONLY: my_process_is_mpi_parallel,                      &
+    &                                    proc_split, push_glob_comm, pop_glob_comm,       &
+    &                                    get_my_mpi_all_id
+
 #ifdef NOMPI
-  USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
+  USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
   
-  USE mo_sync,                ONLY: sync_patch_array_mult, &
-                                    SYNC_C, SYNC_E, sync_patch_array
-  USE mo_nh_interface_nwp,    ONLY: nwp_nh_interface
-  USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
-  USE mo_vertical_grid,       ONLY: set_nh_metrics
-  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
+  USE mo_sync,                     ONLY: sync_patch_array_mult, &
+                                         SYNC_C, SYNC_E, sync_patch_array
+  USE mo_nh_interface_nwp,         ONLY: nwp_nh_interface
+  USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
+  USE mo_vertical_grid,            ONLY: set_nh_metrics
+  USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_control,      ONLY: is_restart_run
-  USE mo_io_restart_attributes,ONLY: get_restart_attribute
+  USE mo_master_control,           ONLY: is_restart_run
+  USE mo_io_restart_attributes,    ONLY: get_restart_attribute
+  USE mo_meteogram_config,         ONLY: meteogram_output_config
+  USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
+  USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output
+  USE mo_name_list_output_init,    ONLY: output_file
+  USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
+  USE mo_pp_tasks,                 ONLY: t_simulation_status
+  USE mo_art_emission_interface,   ONLY: art_emission_interface
+  USE mo_art_sedi_interface,       ONLY: art_sedi_interface
+  USE mo_art_tools_interface,      ONLY: art_tools_interface
+  USE mo_art_config,               ONLY: art_config
+                                   
+  USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sstice, update_ndvi
+  USE mo_nh_init_nest_utils,       ONLY: initialize_nest, topo_blending_and_fbk
+  USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
+  USE mo_td_ext_data,              ONLY: set_actual_td_ext_data,  &
+                                       & read_td_ext_data_file
+  USE mo_initicon_config,          ONLY: init_mode
+  USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
+  USE mo_ls_forcing,               ONLY: init_ls_forcing
+  USE mo_nh_latbc,                 ONLY: prepare_latbc_data , read_latbc_data, &
+    &                                    deallocate_latbc_data, p_latbc_data,   &
+    &                                    read_latbc_tlev, last_latbc_tlev, &
+    &                                    update_lin_interc
+  USE mo_interface_les,            ONLY: les_phy_interface
+  USE mo_io_restart_async,         ONLY: prepare_async_restart, write_async_restart, &
+    &                                    close_async_restart, set_data_async_restart
+  USE mo_nh_prepadv_types,         ONLY: prep_adv, jstep_adv
+  USE mo_action,                   ONLY: reset_action
+  USE mo_output_event_handler,     ONLY: get_current_jfile
+                                   
+#ifdef MESSY                       
+  USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
+    &                                  , IOMODE_RST
+#ifdef MESSYTIMER                  
+  USE messy_main_timer_bi,         ONLY: messy_timer_reset_time 
 
-!   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
-!     & init_ompthread_radiation
-!   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
-  USE mo_meteogram_config,    ONLY: meteogram_output_config
-  USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
-  USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
-  USE mo_pp_scheduler,        ONLY: new_simulation_status, pp_scheduler_process
-  USE mo_pp_tasks,            ONLY: t_simulation_status
-
-  USE mo_art_emission_interface, ONLY: art_emission_interface
-  USE mo_art_sedi_interface,  ONLY: art_sedi_interface
-  USE mo_art_tools_interface, ONLY: art_tools_interface
-  USE mo_art_config,          ONLY: art_config
-
-  USE mo_nwp_sfc_utils,       ONLY: aggregate_landvars, update_sstice, update_ndvi
-  USE mo_nh_init_nest_utils,  ONLY: initialize_nest
-  USE mo_nh_init_utils,       ONLY: hydro_adjust_downward, compute_iau_wgt
-  USE mo_td_ext_data,         ONLY: set_actual_td_ext_data,  &
-                                  & read_td_ext_data_file
-  USE mo_initicon_config,     ONLY: init_mode
-  USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
-  USE mo_ls_forcing,          ONLY: init_ls_forcing
-  USE mo_nh_latbc,            ONLY: prepare_latbc_data , read_latbc_data, &
-    &                               deallocate_latbc_data, p_latbc_data,   &
-    &                               read_latbc_tlev, last_latbc_tlev, &
-    &                               update_lin_interc
-  USE mo_interface_les,       ONLY: les_phy_interface
-  USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
-    &                               close_async_restart, set_data_async_restart
-  USE mo_nh_prepadv_types,    ONLY: prep_adv, jstep_adv
-  USE mo_action,              ONLY: reset_action
-
-#ifdef MESSY
-  USE messy_main_channel_bi,  ONLY: messy_channel_write_output &
-    &                             , IOMODE_RST
-#ifdef MESSYTIMER
-  USE messy_main_timer_bi,    ONLY: messy_timer_reset_time 
 #endif
 #endif
-
   IMPLICIT NONE
 
   PRIVATE
@@ -267,9 +265,9 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: jg
 
-!$  INTEGER omp_get_num_threads
-!$  INTEGER omp_get_max_threads
-!$  INTEGER omp_get_max_active_levels
+!!$  INTEGER omp_get_num_threads
+!!$  INTEGER omp_get_max_threads
+!!$  INTEGER omp_get_max_active_levels
 !-----------------------------------------------------------------------
 
   IF (timers_level > 3) CALL timer_start(timer_model_init)
@@ -405,19 +403,23 @@ MODULE mo_nh_stepping
     &                                     l_supervise_total_integrals,  &
     &                                     lwrite_checkpoint, ldom_active(n_dom)
   TYPE(t_simulation_status)            :: simulation_status
-
   TYPE(t_datetime)                     :: datetime_old
 
-  INTEGER           :: nsoil(n_dom), nsnow
-  REAL(wp)          :: elapsed_time_global
-  INTEGER           :: jstep0 ! start counter for time loop
+  INTEGER                              :: nsoil(n_dom), nsnow, i
+  REAL(wp)                             :: elapsed_time_global
+  INTEGER                              :: jstep0 ! start counter for time loop
+  INTEGER, ALLOCATABLE                 :: output_jfile(:)
 
-!$  INTEGER omp_get_num_threads
+!!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
 
   lwrite_checkpoint = .FALSE.
+
+  ! allocate temporary variable for restarting purposes
+  ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
+  IF (ierr /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed!')
 
   ! Prepare number of soil/snow layers for TERRA/JSBACH to be used for restart file creation below.
   ! AD: Initialize with 0 to avoid errors with certain compilers
@@ -455,6 +457,11 @@ MODULE mo_nh_stepping
   TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
 
     CALL add_time(dtime,0,0,0,datetime)
+
+    ! store state of output files for restarting purposes
+    DO i=1,SIZE(output_file)
+      output_jfile(i) = get_current_jfile(output_file(i)%out_event)
+    END DO
 
     ! read boundary data if necessary
     IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
@@ -689,7 +696,8 @@ MODULE mo_nh_stepping
             & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
             & opt_depth_lnd              = nsoil(jg),                  &
             & opt_nlev_snow              = nsnow,                      &
-            & opt_ndom                   = n_dom)
+            & opt_ndom                   = n_dom,                      &
+            & opt_output_jfile           = output_jfile )
         ENDDO
         CALL write_async_restart(datetime, jstep)
       ELSE
@@ -705,7 +713,8 @@ MODULE mo_nh_stepping
                                   & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
                                   & opt_depth_lnd              = nsoil(jg),                  &
                                   & opt_nlev_snow              = nsnow,                      &
-                                  & opt_ndom                   = n_dom )
+                                  & opt_ndom                   = n_dom,                      &
+                                  & opt_output_jfile           = output_jfile )
         END DO
 
         ! Create the master (meta) file in ASCII format which contains
@@ -724,11 +733,16 @@ MODULE mo_nh_stepping
     ! timer sync
     CALL messy_timer_reset_time
 #endif
+
   ENDDO TIME_LOOP
 
   IF (use_async_restart_output) CALL close_async_restart
 
   IF (ltimer) CALL timer_stop(timer_total)
+
+  ! clean up
+  DEALLOCATE(output_jfile, STAT=ierr)
+  IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
 
   END SUBROUTINE perform_nh_timeloop
   !-------------------------------------------------------------------------
@@ -738,7 +752,7 @@ MODULE mo_nh_stepping
   !! integrate_nh
   !!
   !! Performs dynamics time stepping:  Rotational modes (helicity bracket) and
-  !! divergent modes (Poisson bracket) are splitted using Strang splitting.
+  !! divergent modes (Poisson bracket) are split using Strang splitting.
   !!
   !!
   !! @par Revision History

@@ -20,6 +20,7 @@ MODULE mo_name_list_output_init
 #endif
 ! USE_CRAY_POINTER
 
+  ! constants and global settings
   USE mo_cdi_constants          ! We need all
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, ihs_ocean, zml_soil,              &
@@ -28,18 +29,64 @@ MODULE mo_name_list_output_init
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
     &                                             MAX_TIME_LEVELS, max_levels, vname_len,         &
     &                                             MAX_CHAR_LENGTH
+  USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
+  USE mo_master_nml,                        ONLY: model_base_dir
+  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
+  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
+  ! basic utility modules
+  USE mo_exception,                         ONLY: finish, message, message_text
+  USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
+    &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
+  USE mo_fortran_tools,                     ONLY: assign_if_present
+  USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
+  USE mo_util_uuid,                         ONLY: t_uuid, uuid2char, uuid_data_length
+  USE mo_io_util,                           ONLY: get_file_extension
+  USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
+    &                                             with_keywords, insert_group,                    &
+    &                                             tolower, int2string
+  USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
+    &                                             set_zlev, set_del_zlev
+  USE mo_datetime,                          ONLY: t_datetime
+  USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_cf_convention,                     ONLY: t_cf_var
+  USE mo_io_restart_attributes,             ONLY: get_restart_attribute
+  USE mo_model_domain,                      ONLY: t_patch, p_patch, p_phys_patch
+  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
+  ! config modules
+  USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
+
+  USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
+    &                                             msg_level, output_mode, ltestcase,              &
+    &                                             number_of_grid_used
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom,                              &
     &                                             grid_rescale_factor, start_time, end_time,      &
     &                                             DEFAULT_ENDTIME
-  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
-  USE mo_cf_convention,                     ONLY: t_cf_var
-
-  USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, lzaxis_reference
-  USE mo_io_util,                           ONLY: get_file_extension
+  USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
+    &                                             first_output_name_list,                         &
+    &                                             add_var_desc
+  USE mo_time_config,                       ONLY: time_config
   USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
-  USE mo_exception,                         ONLY: finish, message, message_text
+  USE mo_dynamics_config,                   ONLY: iequations
+  ! MPI Communication routines
+  USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
+    &                                             get_my_mpi_work_communicator,                   &
+    &                                             p_comm_work, p_comm_work_2_io,                  &
+    &                                             p_comm_io, p_comm_work_io,                      &
+    &                                             p_int, p_int_i8, p_real_dp, p_real_sp,          &
+    &                                             my_process_is_stdio, my_process_is_mpi_test,    &
+    &                                             my_process_is_mpi_workroot,                     &
+    &                                             my_process_is_mpi_seq, my_process_is_io,        &
+    &                                             my_process_is_mpi_ioroot,                       &
+    &                                             process_mpi_stdio_id, process_work_io0,         &
+    &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
+    &                                             p_pe_work, p_io_pe0, p_pe
+  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no,  &
+    &                                             t_comm_gather_pattern
+  ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
+  ! variable lists
   USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
@@ -49,48 +96,28 @@ MODULE mo_name_list_output_init
     &                                             get_var_tileidx
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
     &                                             level_type_il
-  USE mo_util_uuid,                         ONLY: t_uuid, uuid2char, uuid_data_length
-  ! MPI Communication routines
-  USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
-    &                                             get_my_mpi_work_communicator
-  ! MPI Communicators
-  USE mo_mpi,                               ONLY: p_comm_work, p_comm_work_2_io,                  &
-    &                                             p_comm_io, p_comm_work_io
-  ! MPI Data types
-  USE mo_mpi,                               ONLY: p_int, p_int_i8, p_real_dp, p_real_sp
-  ! MPI Process type intrinsics
-  USE mo_mpi,                               ONLY: my_process_is_stdio, my_process_is_mpi_test,    &
-    &                                             my_process_is_mpi_workroot,                     &
-    &                                             my_process_is_mpi_seq, my_process_is_io,        &
-    &                                             my_process_is_mpi_ioroot
-  ! MPI Process IDs
-  USE mo_mpi,                               ONLY: process_mpi_stdio_id, process_work_io0
-  ! MPI Process group sizes
-  USE mo_mpi,                               ONLY: process_mpi_io_size, num_work_procs, p_n_work
-  ! Processor numbers
-  USE mo_mpi,                               ONLY: p_pe_work, p_io_pe0, p_pe
-
-  USE mo_model_domain,                      ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
-
-  USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
-    &                                             msg_level, output_mode, ltestcase,              &
-    &                                             number_of_grid_used
-  USE mo_datetime,                          ONLY: t_datetime
-  USE mo_time_config,                       ONLY: time_config
-  USE mo_master_nml,                        ONLY: model_base_dir
-  USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
-    &                                             with_keywords, insert_group,                    &
-    &                                             tolower, int2string
-  USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no,  &
-    &                                             t_comm_gather_pattern
-  USE mo_math_constants,                    ONLY: pi
-  USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
-    &                                             set_zlev, set_del_zlev
-  USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
-    &                                             first_output_name_list,                         &
-    &                                             add_var_desc
+  ! lon-lat interpolation
+  USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
+    &                                             compute_lonlat_specs
+  USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
+    &                                             t_lon_lat_data, get_free_lonlat_grid,           &
+    &                                             lonlat_grid_list, n_lonlat_grids
+  ! output events
+  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,    &
+    &                                             timedelta, newTimedelta, deallocateTimedelta,   &
+    &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
+    &                                             getTotalMilliSecondsTimeDelta, datetime,        &
+    &                                             OPERATOR(+), datetimeToString
+  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
+  USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
+    &                                             DEFAULT_EVENT_NAME, t_par_output_event
+  USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
+    &                                             generate_output_filenames
+  USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
+    &                                             complete_event_setup, union_of_all_events,      &
+    &                                             print_output_event, trigger_output_step_irecv,  &
+    &                                             set_event_to_simstep
+  ! name list output
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc,                      &
     &                                             t_patch_info, t_reorder_info, t_grid_info,      &
@@ -104,12 +131,6 @@ MODULE mo_name_list_output_init
     &                                             copy_grid_info, bcast_grid_info,                &
     &                                             deallocate_all_grid_info,                       &
     &                                             GRID_INFO_NONE, GRID_INFO_FILE, GRID_INFO_BCAST
-  USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
-    &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
-  USE mo_fortran_tools,                     ONLY: assign_if_present
-  USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
-  ! post-ops
-  USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m
@@ -122,29 +143,6 @@ MODULE mo_name_list_output_init
   USE mo_vertical_coord_table,              ONLY: vct
   USE mo_nonhydrostatic_config,             ONLY: ivctype
 #endif
-  USE mo_dynamics_config,                   ONLY: iequations
-
-! #ifndef __NO_ICON_ATMO__
-  USE mo_lonlat_grid,                       ONLY: t_lon_lat_grid, compute_lonlat_blocking,        &
-    &                                             compute_lonlat_specs
-  USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
-    &                                             t_lon_lat_data, get_free_lonlat_grid,           &
-    &                                             lonlat_grid_list, n_lonlat_grids
-
-  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,    &
-    &                                             timedelta, newTimedelta, deallocateTimedelta,   &
-    &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
-    &                                             getTotalMilliSecondsTimeDelta, datetime,        &
-    &                                             OPERATOR(+), datetimeToString
-  USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
-    &                                             DEFAULT_EVENT_NAME, t_par_output_event
-  USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
-    &                                             generate_output_filenames
-  USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
-    &                                             complete_event_setup, union_of_all_events,      &
-    &                                             print_output_event, trigger_output_step_irecv,  &
-    &                                             set_event_to_simstep
-  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
 
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
   USE mo_coupling_config,                   ONLY: is_coupled_run
@@ -167,7 +165,6 @@ MODULE mo_name_list_output_init
   PUBLIC :: output_file
   PUBLIC :: patch_info
   PUBLIC :: lonlat_info
-  PUBLIC :: i_sample
   ! subroutines
   PUBLIC :: read_name_list_output_namelists
   PUBLIC :: parse_variable_groups
@@ -191,12 +188,6 @@ MODULE mo_name_list_output_init
 
   ! Broadcast root for intercommunicator broadcasts form compute PEs to IO PEs using p_comm_work_2_io
   INTEGER :: bcast_root
-  !------------------------------------------------------------------------------------------------
-
-  !------------------------------------------------------------------------------------------------
-  ! local copy of iadv_rcf, reducing dependencies and core specialities
-  INTEGER :: i_sample
-  !------------------------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------------------------
   ! dictionaries for variable names:
@@ -659,7 +650,7 @@ CONTAINS
   !  the domains and variables.
   !
   SUBROUTINE init_name_list_output(sim_step_info, &
-    &                              opt_lprintlist, opt_isample, opt_l_is_ocean)
+    &                              opt_lprintlist, opt_l_is_ocean)
 
 #ifndef NOMPI
 #ifdef  __SUNPRO_F95
@@ -676,7 +667,6 @@ CONTAINS
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
 
     LOGICAL, OPTIONAL, INTENT(in) :: opt_lprintlist
-    INTEGER, OPTIONAL, INTENT(in) :: opt_isample
     LOGICAL, OPTIONAL, INTENT(in) :: opt_l_is_ocean
 
     ! local variables:
@@ -698,6 +688,7 @@ CONTAINS
       &                                     mtime_interval
     TYPE(datetime),            POINTER   :: mtime_datetime
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
+    CHARACTER(len=MAX_CHAR_LENGTH)     :: attname   ! attribute name
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start,     &
       &                                     output_interval
@@ -706,9 +697,7 @@ CONTAINS
     LOGICAL                              :: include_last
 
     l_print_list = .FALSE.
-    i_sample     = 1
     CALL assign_if_present(l_print_list, opt_lprintlist)
-    CALL assign_if_present(i_sample, opt_isample)
 
     ! ---------------------------------------------------------------------------
 
@@ -736,12 +725,6 @@ CONTAINS
                  &            element%field%info%loutput, '  ',     &
                  &            TRIM(this_cf%long_name)
             CALL message('',message_text)
-            ! WRITE (message_text,'(a,a,i4,i4,i4)') &
-            !      &     '    ',element%field%info%name,              &
-            !      &            element%field%info%grib2%number,      &
-            !      &            element%field%info%grib2%category,    &
-            !      &            element%field%info%grib2%discipline
-            ! CALL message('',message_text)
             element => element%next_list_element
           ENDDO
         ENDIF
@@ -1199,6 +1182,15 @@ CONTAINS
       fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
       fname_metadata%extn                       = TRIM(get_file_extension(p_onl%filetype))
 
+      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+        ! Restart case: Get starting index of ouput from restart file
+        !               (if there is such an attribute available).
+        WRITE(attname,'(a,i2.2)') 'output_jfile_',i
+        CALL get_restart_attribute(TRIM(attname), fname_metadata%jfile_offset, opt_default=0)
+      ELSE
+        fname_metadata%jfile_offset             = 0
+      END IF
+
       ! set model domain start/end time
       dom_sim_step_info = sim_step_info
       CALL get_datetime_string(dom_sim_step_info%dom_start_time, time_config%ini_datetime, NINT(start_time(p_of%log_patch_id)))
@@ -1210,7 +1202,7 @@ CONTAINS
       local_i = local_i + 1
 
       ! special treatment of ocean model: model_date/run_start is the time at
-      ! the beginning of the timestep. Output is written at the and of the
+      ! the beginning of the timestep. Output is written at the end of the
       ! timestep
       IF (is_restart_run() .AND. my_process_is_ocean()) THEN
         CALL get_datetime_string(p_onl%output_start, time_config%cur_datetime, opt_td_string=p_onl%output_interval)

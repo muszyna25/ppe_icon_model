@@ -144,9 +144,11 @@ CONTAINS
   !
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE get_restart_att_int_by_name(attribute_name, attribute_value)
+  SUBROUTINE get_restart_att_int_by_name(attribute_name, attribute_value, &
+    &                                    opt_default)
     CHARACTER(len=*), INTENT(in)  :: attribute_name
     INTEGER,          INTENT(out) :: attribute_value
+    INTEGER,          INTENT(IN), OPTIONAL :: opt_default
     INTEGER :: i
     DO i = 1, natts_int
       IF (TRIM(attribute_name) == TRIM(restart_attributes_int(i)%name)) THEN
@@ -154,7 +156,11 @@ CONTAINS
         RETURN
       ENDIF
     ENDDO
-    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
+    IF (PRESENT(opt_default)) THEN
+      attribute_value = opt_default
+    ELSE
+      CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
+    END IF
   END SUBROUTINE get_restart_att_int_by_name
   !
   SUBROUTINE get_restart_att_int8_by_name(attribute_name, attribute_value)
@@ -203,85 +209,103 @@ CONTAINS
   !
   !------------------------------------------------------------------------------------------------
   !
+  !
+  !> Searches in a given attribute name list "list" for the name which
+  !> is to be set. If the name already exists (case sensitive search)
+  !> then return the index "idx" s.t. the current value is
+  !> overwritten, otherwise expand the list of attributes and return
+  !> the index of its tail.
+  !
+  SUBROUTINE find_or_expand_list(name, list, nlist, idx)
+    CHARACTER(LEN=*), INTENT(IN)    :: name
+    CHARACTER(LEN=*), INTENT(IN)    :: list(:)
+    INTEGER,          INTENT(INOUT) :: nlist
+    INTEGER,          INTENT(INOUT) :: idx
+    ! local variables
+    INTEGER :: i
+
+    idx = -1
+    loop : DO i=1,nlist
+      IF (TRIM(name) == TRIM(list(i))) THEN
+        idx=i
+        EXIT loop
+      END IF
+    END DO loop
+
+    IF (idx == -1) THEN
+      nlist = nlist+1
+      idx   = nlist
+      IF (nlist > nmax_atts) THEN
+        CALL finish('find_or_expand_list','Too many restart attributes for restart file')
+      END IF
+    END IF
+  END SUBROUTINE find_or_expand_list
+  !
   SUBROUTINE set_restart_attribute_text(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     CHARACTER(len=*), INTENT(in) :: attribute_value
+    INTEGER :: idx
     IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
       ALLOCATE(restart_attributes_text(nmax_atts))
     ENDIF
-    natts_text = natts_text+1
-    IF (natts_text > nmax_atts) THEN
-      CALL finish('set_restart_attribute_text','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_text(natts_text)%name = attribute_name
-      restart_attributes_text(natts_text)%val = attribute_value
-    ENDIF    
+    CALL find_or_expand_list(attribute_name, restart_attributes_text(:)%name, natts_text, idx)
+    restart_attributes_text(idx)%name = attribute_name
+    restart_attributes_text(idx)%val  = attribute_value
   END SUBROUTINE set_restart_attribute_text
   !
   SUBROUTINE set_restart_attribute_real(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     REAL(wp),         INTENT(in) :: attribute_value
+    INTEGER :: idx
     IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
       ALLOCATE(restart_attributes_real(nmax_atts))
     ENDIF
-    natts_real = natts_real+1
-    IF (natts_real > nmax_atts) THEN
-      CALL finish('set_restart_attribute_real','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_real(natts_real)%name = attribute_name
-      restart_attributes_real(natts_real)%val  = attribute_value
-    ENDIF    
+    CALL find_or_expand_list(attribute_name, restart_attributes_real(:)%name, natts_real, idx)
+    restart_attributes_real(idx)%name = attribute_name
+    restart_attributes_real(idx)%val  = attribute_value
   END SUBROUTINE set_restart_attribute_real
   !
   SUBROUTINE set_restart_attribute_int(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     INTEGER,          INTENT(in) :: attribute_value
+    INTEGER :: idx
     IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
       ALLOCATE(restart_attributes_int(nmax_atts))
     ENDIF
-    natts_int = natts_int+1
-    IF (natts_int > nmax_atts) THEN
-      CALL finish('set_restart_attribute_int','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_int(natts_int)%name = attribute_name
-      restart_attributes_int(natts_int)%val = attribute_value
-    ENDIF    
+    CALL find_or_expand_list(attribute_name, restart_attributes_int(:)%name, natts_int, idx)
+    restart_attributes_int(idx)%name = attribute_name
+    restart_attributes_int(idx)%val = attribute_value
   END SUBROUTINE set_restart_attribute_int
   !
   SUBROUTINE set_restart_attribute_int8(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     INTEGER(i8),      INTENT(in) :: attribute_value
+    INTEGER :: idx
     IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
       ALLOCATE(restart_attributes_int(nmax_atts))
     ENDIF
-    natts_int = natts_int+1
-    IF (natts_int > nmax_atts) THEN
-      CALL finish('set_restart_attribute_int','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_int(natts_int)%name = attribute_name
-      restart_attributes_int(natts_int)%val  = INT(attribute_value)
-    ENDIF    
+    CALL find_or_expand_list(attribute_name, restart_attributes_int(:)%name, natts_int, idx)
+    restart_attributes_int(idx)%name = attribute_name
+    restart_attributes_int(idx)%val  = INT(attribute_value)
   END SUBROUTINE set_restart_attribute_int8
   !
   SUBROUTINE set_restart_attribute_bool(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     LOGICAL,          INTENT(in) :: attribute_value
+    INTEGER :: idx
     IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
       ALLOCATE(restart_attributes_bool(nmax_atts))
     ENDIF
-    natts_bool = natts_bool+1
-    IF (natts_bool > nmax_atts) THEN
-      CALL finish('set_restart_attribute_bools','too many restart attributes for restart file')
+    CALL find_or_expand_list(attribute_name, restart_attributes_bool(:)%name, natts_bool, idx)
+
+    restart_attributes_bool(idx)%name = 'bool_'//TRIM(attribute_name)
+    restart_attributes_bool(idx)%val  = attribute_value
+    ! for storing follows the C convention: false = 0, true = 1
+    IF (attribute_value) THEN
+      restart_attributes_bool(idx)%store = 1        
     ELSE
-      restart_attributes_bool(natts_bool)%name = 'bool_'//TRIM(attribute_name)
-      restart_attributes_bool(natts_bool)%val = attribute_value
-      ! for storing follows the C convention: false = 0, true = 1
-      IF (attribute_value) THEN
-        restart_attributes_bool(natts_bool)%store = 1        
-      ELSE
-        restart_attributes_bool(natts_bool)%store = 0        
-      ENDIF
-    ENDIF    
+      restart_attributes_bool(idx)%store = 0        
+    ENDIF
   END SUBROUTINE set_restart_attribute_bool
   !------------------------------------------------------------------------------------------------
   !

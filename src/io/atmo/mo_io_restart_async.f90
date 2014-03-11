@@ -59,7 +59,6 @@ MODULE mo_io_restart_async
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
-  USE mo_name_list_output_init,   ONLY: output_file
   USE mo_name_list_output_types,  ONLY: max_z_axes
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
@@ -79,13 +78,17 @@ MODULE mo_io_restart_async
     &                                   int2string
 
 #ifndef NOMPI
-  USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, &
-    &                                   p_work_pe0, num_work_procs, MPI_SUCCESS, &
-    &                                   stop_mpi, p_send, p_recv, p_barrier, p_bcast, &
-    &                                   my_process_is_restart, my_process_is_work, &
-    &                                   p_comm_work_2_restart, p_n_work, p_int, &
-    &                                   process_mpi_restart_size, p_int_i8, p_real_dp, &
-    &                                   p_comm_work_restart, p_mpi_wtime
+  USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
+    &                                   p_work_pe0, num_work_procs, MPI_SUCCESS,          &
+    &                                   stop_mpi, p_send, p_recv, p_barrier, p_bcast,     &
+    &                                   my_process_is_restart, my_process_is_work,        &
+    &                                   p_comm_work_2_restart, p_n_work, p_int,           &
+    &                                   process_mpi_restart_size, p_int_i8, p_real_dp,    &
+    &                                   p_comm_work_restart, p_mpi_wtime,                 &
+    &                                   p_send_packed, p_recv_packed, p_bcast_packed,     &
+    &                                   p_pack_int, p_pack_bool, p_pack_real,             &
+    &                                   p_unpack_int, p_unpack_bool, p_unpack_real,       &
+    &                                   p_int_byte
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -316,7 +319,9 @@ MODULE mo_io_restart_async
 #ifdef HAVE_F2003
     INTEGER           :: n_max_attrib_tlen
 #endif
-    INTEGER           :: noutput_files
+
+    INTEGER               :: n_opt_output_file
+    INTEGER, ALLOCATABLE  :: opt_output_jfile(:)
   END TYPE t_restart_args
   TYPE(t_restart_args), TARGET :: restart_args
 
@@ -416,25 +421,28 @@ CONTAINS
                                 &   opt_depth_lnd,                &
                                 &   opt_nlev_snow,                &
                                 &   opt_nice_class,               &
-                                &   opt_ndom )
+                                &   opt_ndom,                     &
+                                &   opt_output_jfile )
 
-    INTEGER,  INTENT(IN)           :: patch_id
-    LOGICAL,  INTENT(IN)           :: l_dom_active
+    INTEGER,              INTENT(IN)           :: patch_id
+    LOGICAL,              INTENT(IN)           :: l_dom_active
+                          
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_depth
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_depth_lnd
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_jstep_adv_ntstep
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_nlev_snow
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_nice_class
+    REAL(wp),             INTENT(IN), OPTIONAL :: opt_sim_time
+    LOGICAL ,             INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
+    REAL(wp),             INTENT(IN), OPTIONAL :: opt_pvct(:)
+    REAL(wp),             INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:)
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+    INTEGER,              INTENT(IN), OPTIONAL :: opt_ndom            !< no. of domains (appended to symlink name)
 
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntstep
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
-    LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:)
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
-
-    TYPE(t_patch_data), POINTER    :: p_pd
-    INTEGER                        :: ierrstat
+    TYPE(t_patch_data),   POINTER  :: p_pd
+    TYPE(t_restart_args), POINTER  :: p_ra
+    INTEGER                        :: ierrstat, i
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_data_async_restart'
 
 #ifdef NOMPI
@@ -447,12 +455,34 @@ CONTAINS
 
     IF(.NOT. (my_process_is_work())) RETURN
 
+    p_ra => restart_args
     ! find patch
     p_pd => find_patch(patch_id, subname)
 
     ! usually, only the first compute PE needs the dynamic restart arguments
     ! in the case of processor splitting, the first PE of the split subset needs them as well
     IF (p_pe_work == 0 .OR. p_pe_work == p_pd%work_pe0_id) THEN
+
+      ! ----------------------------------------------------------------
+      ! Patch-independent attributes (only communicated through patch 1)
+      ! ----------------------------------------------------------------
+
+      IF (patch_id == 1) THEN
+        p_ra%n_opt_output_file = 0
+        IF (PRESENT(opt_output_jfile)) THEN
+          p_ra%n_opt_output_file = SIZE(opt_output_jfile)
+          IF (.NOT. ALLOCATED(p_ra%opt_output_jfile)) THEN
+            ALLOCATE(p_ra%opt_output_jfile(p_ra%n_opt_output_file), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+          ENDIF
+          p_ra%opt_output_jfile(:) = opt_output_jfile(:)
+        ENDIF
+
+      END IF
+
+      ! --------------------------
+      ! Patch-dependent attributes
+      ! --------------------------
 
       ! set activity flag
       p_pd%l_dom_active = l_dom_active
@@ -479,7 +509,7 @@ CONTAINS
         ENDIF
         p_pd%opt_t_elapsed_phy = opt_t_elapsed_phy
       ENDIF
-      !
+
       IF (PRESENT(opt_lcall_phy)) THEN
         IF (SIZE(opt_lcall_phy) /= p_pd%n_opt_lcall_phy) THEN
           CALL finish(subname, WRONG_ARRAY_SIZE//'opt_lcall_phy')
@@ -547,7 +577,7 @@ CONTAINS
       ELSE
         p_pd%l_opt_ndom = .FALSE.
       ENDIF
-  ENDIF
+    ENDIF ! (pe_work == 0)
 #endif
 
   END SUBROUTINE set_data_async_restart
@@ -562,7 +592,7 @@ CONTAINS
     INTEGER,          INTENT(IN)    :: jstep
 
     TYPE(t_patch_data), POINTER     :: p_pd
-    INTEGER                         :: idx, noutput_files
+    INTEGER                         :: idx
 
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
 
@@ -579,8 +609,7 @@ CONTAINS
 
     IF (my_process_is_work()) THEN
       CALL compute_wait_for_restart
-      noutput_files = SIZE(output_file,1)
-      CALL compute_start_restart (datetime, jstep, noutput_files)
+      CALL compute_start_restart (datetime, jstep)
     END IF
 
     ! do the restart output
@@ -766,8 +795,9 @@ CONTAINS
 
     TYPE(t_patch_data), POINTER    :: p_pd
     TYPE(t_restart_args), POINTER  :: p_ra
-    INTEGER                        :: i, j, k, ierrstat
-    REAL(wp), POINTER              :: p_msg(:)
+    INTEGER                        :: i, j, k, ierrstat, position, MAX_BUF_SIZE, &
+      &                               iheader, this_patch, calday
+    CHARACTER, POINTER             :: p_msg(:)
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'restart_wait_for_start'
 
     ! set output parameter to default value
@@ -779,87 +809,88 @@ CONTAINS
 
     ! create message array
     p_msg => get_message_array(subname)
+    position     = 0
+    MAX_BUF_SIZE = SIZE(p_msg)
 
     ! receive message that we may start restart (or should finish)
     IF(p_pe_work == 0) THEN
-      CALL p_recv(p_msg, p_work_pe0, 0)
-#ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS9)subname,' p_pe=',p_pe, &
-        & ' p_recv got msg=',INT(p_msg(1)),' len=',SIZE(p_msg), &
-        & ' from pe=',p_work_pe0
-#endif
+      CALL p_recv_packed(p_msg, p_work_pe0, 0, MAX_BUF_SIZE)
     ENDIF
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
       & ' call p_bcast with communicator=',p_comm_work
 #endif
-    CALL p_bcast(p_msg, 0, comm=p_comm_work)
+    CALL p_bcast_packed(p_msg, 0, MAX_BUF_SIZE, comm=p_comm_work)
 
-    SELECT CASE(INT(p_msg(1)))
+    CALL p_unpack_int(p_msg, MAX_BUF_SIZE, position, iheader, p_comm_work)
+    SELECT CASE(iheader)
 
       CASE(MSG_RESTART_START)
-
-#ifdef DEBUG
-        DO i = 1, SIZE(p_msg)
-          PRINT *,subname, ' p_msg(i)=',i,': ',p_msg(i)
-        ENDDO
-#endif
 
         done = .FALSE.
 
         ! get patch independent arguments
         p_ra => restart_args
-        p_ra%datetime%year    = INT (p_msg(4))
-        p_ra%datetime%month   = INT (p_msg(5))
-        p_ra%datetime%day     = INT (p_msg(6))
-        p_ra%datetime%hour    = INT (p_msg(7))
-        p_ra%datetime%minute  = INT (p_msg(8))
-        p_ra%datetime%second  = REAL(p_msg(9),  wp)
-        p_ra%datetime%caltime = REAL(p_msg(10), wp)
-        p_ra%datetime%calday  = INT (p_msg(11), i8)
-        p_ra%datetime%daysec  = REAL(p_msg(12), wp)
-        nnew(1)               = INT (p_msg(13))
-        nnew_rcf(1)           = INT (p_msg(14))
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%year,    p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%month,   p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%day,     p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%hour,    p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%minute,  p_comm_work)
+        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%second,  p_comm_work)
+        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%caltime, p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, calday,                p_comm_work)
+        p_ra%datetime%calday = INT(calday,8)
+        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%daysec,  p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew(1),               p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew_rcf(1),           p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%jstep,            p_comm_work)
 
-        p_ra%noutput_files    = INT (p_msg(15))
-        p_ra%jstep            = INT (p_msg(16))
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%n_opt_output_file, p_comm_work)
+        IF (p_ra%n_opt_output_file > 0) THEN
+          IF (.NOT. ALLOCATED(p_ra%opt_output_jfile)) THEN
+            ALLOCATE(p_ra%opt_output_jfile(p_ra%n_opt_output_file), STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+          ENDIF
+          DO i=1,p_ra%n_opt_output_file
+            CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%opt_output_jfile(i), p_comm_work)
+          END DO
+        END IF
 
         ! get patch dependent arguments
-        i = MIN_DYN_RESTART_ARGS
-
         DO j = 1, SIZE(patch_data)
 
           ! find the patch of the current patch id
-          p_pd => find_patch(INT(p_msg(incr(i))), subname)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, this_patch,            p_comm_work)
+          p_pd => find_patch(this_patch, subname)
 
           ! activity flag
-          p_pd%l_dom_active = get_flag(p_msg(incr(i)))
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_dom_active,     p_comm_work)
 
           ! time levels
-          p_pd%nold     = INT(p_msg(incr(i)))
-          p_pd%nnow     = INT(p_msg(incr(i)))
-          p_pd%nnew     = INT(p_msg(incr(i)))
-          p_pd%nnew_rcf = INT(p_msg(incr(i)))
-          p_pd%nnow_rcf = INT(p_msg(incr(i)))
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nold,             p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnow,             p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnew,             p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnew_rcf,         p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnow_rcf,         p_comm_work)
 
           ! optional parameter values
-          p_pd%l_opt_depth                    = get_flag(p_msg(incr(i)))
-          p_pd%opt_depth                      = p_msg(incr(i))
-          p_pd%l_opt_depth_lnd                = get_flag(p_msg(incr(i)))
-          p_pd%opt_depth_lnd                  = p_msg(incr(i))
-          p_pd%l_opt_nlev_snow                = get_flag(p_msg(incr(i)))
-          p_pd%opt_nlev_snow                  = p_msg(incr(i))
-          p_pd%l_opt_nice_class               = get_flag(p_msg(incr(i)))
-          p_pd%opt_nice_class                 = p_msg(incr(i))
-          p_pd%l_opt_jstep_adv_ntstep         = get_flag(p_msg(incr(i)))
-          p_pd%opt_jstep_adv_ntstep           = p_msg(incr(i))
-          p_pd%l_opt_jstep_adv_marchuk_order  = get_flag(p_msg(incr(i)))
-          p_pd%opt_jstep_adv_marchuk_order    = p_msg(incr(i))
-          p_pd%l_opt_sim_time                 = get_flag(p_msg(incr(i)))
-          p_pd%opt_sim_time                   = p_msg(incr(i))
-          p_pd%l_opt_ndom                     = get_flag(p_msg(incr(i)))
-          p_pd%opt_ndom                       = p_msg(incr(i))
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_depth,      p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_depth,        p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_depth_lnd,  p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_depth_lnd,    p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_nlev_snow,  p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_nlev_snow,    p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_nice_class, p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_nice_class,   p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_jstep_adv_ntstep, p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_jstep_adv_ntstep,   p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_jstep_adv_marchuk_order, p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_jstep_adv_marchuk_order,   p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_sim_time,   p_comm_work)
+          CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_sim_time,     p_comm_work)
+          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_ndom,       p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_ndom,         p_comm_work)
 
           ! optional parameter arrays
           IF (p_pd%n_opt_pvct > 0) THEN
@@ -868,7 +899,7 @@ CONTAINS
               IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_pvct)
-              p_pd%opt_pvct(k) = p_msg(incr(i))
+              CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_pvct(k),  p_comm_work)
             ENDDO
           ENDIF
 
@@ -878,7 +909,7 @@ CONTAINS
               IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_lcall_phy)
-               p_pd%opt_lcall_phy(k) = get_flag(p_msg(incr(i)))
+              CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%opt_lcall_phy(k),  p_comm_work)
             ENDDO
           ENDIF
 
@@ -888,7 +919,7 @@ CONTAINS
               IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_t_elapsed_phy)
-               p_pd%opt_t_elapsed_phy(k) = p_msg(incr(i))
+              CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_t_elapsed_phy(k),  p_comm_work)
             ENDDO
           ENDIF
         ENDDO
@@ -950,15 +981,15 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(datetime, jstep, noutput_files)
+  SUBROUTINE compute_start_restart(datetime, jstep)
 
     TYPE(t_datetime), INTENT(IN)  :: datetime
     INTEGER,          INTENT(IN)  :: jstep
-    INTEGER,          INTENT(IN)  :: noutput_files
 
-    TYPE(t_patch_data), POINTER   :: p_pd
-    REAL(wp), POINTER             :: p_msg(:)
-    INTEGER                       :: i, j, k
+    TYPE(t_patch_data),   POINTER  :: p_pd
+    TYPE(t_restart_args), POINTER  :: p_ra
+    CHARACTER, POINTER             :: p_msg(:)
+    INTEGER                        :: i, j, k, position, MAX_BUF_SIZE
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'compute_start_restart'
 
 #ifdef DEBUG
@@ -968,6 +999,8 @@ CONTAINS
 
     ! make sure all are here
     CALL p_barrier(comm=p_comm_work)
+
+    p_ra => restart_args
 
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
@@ -1015,92 +1048,88 @@ CONTAINS
 
       ! create message array
       p_msg => get_message_array(subname)
+      position     = 0
+      MAX_BUF_SIZE = SIZE(p_msg)
 
       ! set command id
-      p_msg(1) = REAL(MSG_RESTART_START,  wp)
+      CALL p_pack_int(MSG_RESTART_START,         p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
       ! set patch independent arguments
-      p_msg(4)  = REAL(datetime%year,     wp)
-      p_msg(5)  = REAL(datetime%month,    wp)
-      p_msg(6)  = REAL(datetime%day,      wp)
-      p_msg(7)  = REAL(datetime%hour,     wp)
-      p_msg(8)  = REAL(datetime%minute,   wp)
-      p_msg(9)  = REAL(datetime%second,   wp)
-      p_msg(10) = REAL(datetime%caltime,  wp)
-      p_msg(11) = REAL(datetime%calday,   wp)
-      p_msg(12) = REAL(datetime%daysec,   wp)
-      p_msg(13) = REAL(nnew(1),           wp)
-      p_msg(14) = REAL(nnew_rcf(1),       wp)
+      CALL p_pack_int( datetime%year,            p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( datetime%month,           p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( datetime%day,             p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( datetime%hour,            p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( datetime%minute,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_real(datetime%second,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_real(datetime%caltime,         p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( INT(datetime%calday),     p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_real(datetime%daysec,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( nnew(1),                  p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( nnew_rcf(1),              p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( jstep,                    p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
-      p_msg(15) = REAL(noutput_files,     wp)
-      p_msg(16) = REAL(jstep,             wp)
+      CALL p_pack_int( p_ra%n_opt_output_file,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      IF (p_ra%n_opt_output_file > 0) THEN
+        DO i=1,p_ra%n_opt_output_file
+          CALL p_pack_int( p_ra%opt_output_jfile(i),  p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        END DO
+      END IF
 
       ! set data of all patches
-      i = MIN_DYN_RESTART_ARGS
-
       DO j = 1, SIZE(patch_data)
 
         p_pd => patch_data(j)
 
         ! patch id
-        p_msg(incr(i)) = p_pd%id
+        CALL p_pack_int( p_pd%id,                p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
         ! activity flag
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_dom_active)
+        CALL p_pack_bool(p_pd%l_dom_active,      p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
         ! time levels
-        p_msg(incr(i)) = REAL(nold(p_pd%id),    wp)
-        p_msg(incr(i)) = REAL(nnow(p_pd%id),    wp)
-        p_msg(incr(i)) = REAL(nnew(p_pd%id),    wp)
-        p_msg(incr(i)) = REAL(nnew_rcf(p_pd%id),wp)
-        p_msg(incr(i)) = REAL(nnow_rcf(p_pd%id),wp)
+        CALL p_pack_int( nold(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( nnow(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( nnew(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( nnow_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
         ! optional parameter values
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_depth)
-        p_msg(incr(i)) = REAL(p_pd%opt_depth, wp)
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_depth_lnd)
-        p_msg(incr(i)) = REAL(p_pd%opt_depth_lnd, wp)
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_nlev_snow)
-        p_msg(incr(i)) = REAL(p_pd%opt_nlev_snow, wp)
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_nice_class)
-        p_msg(incr(i)) = REAL(p_pd%opt_nice_class, wp)
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_jstep_adv_ntstep)
-        p_msg(incr(i)) = REAL(p_pd%opt_jstep_adv_ntstep, wp)
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_jstep_adv_marchuk_order)
-        p_msg(incr(i)) = REAL(p_pd%opt_jstep_adv_marchuk_order, wp)
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_sim_time)
-        p_msg(incr(i)) = p_pd%opt_sim_time
-        p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%l_opt_ndom)
-        p_msg(incr(i)) = p_pd%opt_ndom
+        CALL p_pack_bool(p_pd%l_opt_depth,      p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_depth,        p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_depth_lnd,  p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_depth_lnd,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_nlev_snow,  p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_nlev_snow,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_nice_class, p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_nice_class,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_jstep_adv_ntstep, p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_jstep_adv_ntstep,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_jstep_adv_marchuk_order, p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_jstep_adv_marchuk_order,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_sim_time,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_real( p_pd%opt_sim_time,     p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_ndom,        p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_ndom,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
         ! optional parameter arrays
         IF (ALLOCATED(p_pd%opt_pvct)) THEN
           DO k = 1, SIZE(p_pd%opt_pvct)
-             p_msg(incr(i)) = REAL(p_pd%opt_pvct(k), wp)
+            CALL p_pack_real(p_pd%opt_pvct(k),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
           ENDDO
         ENDIF
         IF (ALLOCATED(p_pd%opt_lcall_phy)) THEN
           DO k = 1, SIZE(p_pd%opt_lcall_phy)
-             p_msg(incr(i)) = MERGE(1._wp, 0._wp, p_pd%opt_lcall_phy(k))
+            CALL p_pack_bool(p_pd%opt_lcall_phy(k),     p_msg, MAX_BUF_SIZE, position, p_comm_work)
           ENDDO
         ENDIF
         IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) THEN
           DO k = 1, SIZE(p_pd%opt_t_elapsed_phy)
-             p_msg(incr(i)) = REAL(p_pd%opt_t_elapsed_phy(k), wp)
+            CALL p_pack_real(p_pd%opt_t_elapsed_phy(k), p_msg, MAX_BUF_SIZE, position, p_comm_work)
           ENDDO
         ENDIF
       ENDDO
 
-#ifdef DEBUG
-      DO i = 1, SIZE(p_msg)
-        PRINT *,subname, ' p_msg(i)=',i,': ',p_msg(i)
-      ENDDO
-
-      WRITE (nerr,FORMAT_VALS9)subname,' p_pe=',p_pe, &
-        & ' send message=',INT(p_msg(1)),' len=',SIZE(p_msg), &
-        & ' to pe=',p_restart_pe0
-#endif
-      CALL p_send(p_msg, p_restart_pe0, 0)
+      CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
 
       IF (ASSOCIATED(p_msg)) DEALLOCATE(p_msg)
     ENDIF
@@ -1114,8 +1143,9 @@ CONTAINS
   !
   SUBROUTINE compute_shutdown_restart
 
-    REAL(wp), POINTER           :: p_msg(:)
+    CHARACTER, POINTER          :: p_msg(:)
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'compute_shutdown_restart'
+    INTEGER :: position, MAX_BUF_SIZE
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
@@ -1129,14 +1159,11 @@ CONTAINS
 
       ! create message array
       p_msg => get_message_array(subname)
-      p_msg(1) = REAL(MSG_RESTART_SHUTDOWN, wp)
+      position     = 0
+      MAX_BUF_SIZE = SIZE(p_msg)
+      CALL p_pack_int(MSG_RESTART_SHUTDOWN, p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
-#ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS9)subname,' p_pe=',p_pe, &
-        & ' send message=',INT(p_msg(1)),' len=',SIZE(p_msg), &
-        & ' to pe=',p_restart_pe0
-#endif
-      CALL p_send(p_msg, p_restart_pe0, 0)
+      CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
 
       IF (ASSOCIATED(p_msg)) DEALLOCATE(p_msg)
     ENDIF
@@ -1149,7 +1176,7 @@ CONTAINS
   !  between compute and restart PEs.
   !
   FUNCTION get_message_array (subname) 
-    REAL(wp), POINTER             :: get_message_array(:)
+    CHARACTER, POINTER            :: get_message_array(:)
     CHARACTER(LEN=*), INTENT(in)  :: subname
 
     INTEGER                       :: ierrstat, n_msg
@@ -1172,43 +1199,12 @@ CONTAINS
       & ' calculated message size=',n_msg
 #endif
 
-    ! allocate memory
-    ALLOCATE (get_message_array(n_msg), STAT=ierrstat)
+    ! allocate memory (with 2x safety margin ;) )
+    ALLOCATE (get_message_array(2*n_msg*p_int_byte), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
-    get_message_array = 0._wp ! initialize array to avoid Cray compiler warning
 
   END FUNCTION get_message_array
 
-  !------------------------------------------------------------------------------------------------
-  !
-  !  Helper function to increment the given integer value.
-  !
-  FUNCTION incr(ival)
-
-    INTEGER, INTENT(INOUT) :: ival
-    INTEGER                :: incr
-
-    ival = ival + 1
-    incr = ival
-
-  END FUNCTION incr
-
-  !------------------------------------------------------------------------------------------------
-  !
-  !  Helper function to convert a given real value into a flag.
-  !
-  FUNCTION get_flag(rval)
-
-    REAL(wp), INTENT(IN) :: rval
-    LOGICAL              :: get_flag
-
-    IF (rval == 1._wp) THEN
-      get_flag = .TRUE.
-    ELSE
-      get_flag = .FALSE.
-    ENDIF
-
-  END FUNCTION get_flag
 
   !------------------------------------------------------------------------------------------------
   !
@@ -2338,15 +2334,17 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, nlev_soil, &
       &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
-      &                               nlena, nlenb, nlenc, nlend
+      &                               nlena, nlenb, nlenc, nlend, i,current_jfile
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
-    CHARACTER(LEN=256) :: executable, user_name, os_name, host_name, tmp_string
-    CHARACTER(LEN=  8) :: date_string
-    CHARACTER(LEN= 10) :: time_string
+    CHARACTER(LEN=256)             :: executable, user_name, os_name, host_name, &
+      &                               tmp_string
+    CHARACTER(LEN=  8)             :: date_string
+    CHARACTER(LEN= 10)             :: time_string
+    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
@@ -2498,6 +2496,14 @@ CONTAINS
     CALL set_vertical_grid_def(p_pd%v_grid_defs(17), ZA_GENERIC_ICE         , nice_class   )
     CALL set_vertical_grid_def(p_pd%v_grid_defs(18), ZA_DEPTH_RUNOFF_S      , 1            )
     CALL set_vertical_grid_def(p_pd%v_grid_defs(19), ZA_DEPTH_RUNOFF_G      , 1            )
+
+    IF (p_ra%n_opt_output_file > 0) THEN
+      DO i=1,p_ra%n_opt_output_file
+        current_jfile = p_ra%opt_output_jfile(i)
+        WRITE(attname,'(a,i2.2)') 'output_jfile_',i
+        CALL set_restart_attribute( TRIM(attname), current_jfile )
+      END DO
+    END IF
 
   END SUBROUTINE set_restart_attributes
 
@@ -2943,7 +2949,8 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: rDefLevelVal
     LOGICAL,  INTENT(IN), OPTIONAL :: lOcean
 
-    REAL(wp), ALLOCATABLE          :: rDefLevelVec(:), rDefLevelVecH(:)
+    REAL(wp), ALLOCATABLE          :: rDefLevelVec(:)
+!    REAL(wp), ALLOCATABLE          :: rDefLevelVecH(:)
     INTEGER                        :: ierrstat, i, iUsedDefLevels
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'create_cdi_zaxis'

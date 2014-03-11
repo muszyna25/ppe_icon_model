@@ -97,8 +97,7 @@ MODULE mo_name_list_output
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
-    &                                     output_file, patch_info, lonlat_info,                     &
-    &                                     i_sample
+    &                                     output_file, patch_info, lonlat_info
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer
   USE mo_dictionary,                ONLY: dict_finalize
   ! post-ops
@@ -965,7 +964,7 @@ CONTAINS
     END DO
 
     ! Initialize name list output, this is a collective call for all PEs
-    CALL init_name_list_output(sim_step_info, opt_isample=isample)
+    CALL init_name_list_output(sim_step_info)
 
     ! Tell the compute PEs that we are ready to work
     CALL async_io_send_handshake(0)

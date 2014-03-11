@@ -375,7 +375,7 @@ CONTAINS
         CALL get_restart_attribute("jstep", jstep0)
       END IF
       sim_step_info%jstep0    = jstep0
-      CALL init_name_list_output(sim_step_info, opt_isample=iadv_rcf)
+      CALL init_name_list_output(sim_step_info)
     END IF
 
 

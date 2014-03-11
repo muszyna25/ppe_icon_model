@@ -323,6 +323,7 @@ MODULE mo_name_list_output_types
     CHARACTER(LEN=FILENAME_MAX)           :: filename_format                  !< output filename format (contains keywords)
     CHARACTER(LEN=FILENAME_MAX)           :: filename_pref                    !< Prefix of output file name
     CHARACTER(LEN=16)                     :: extn                             !< filename extension
+    INTEGER                               :: jfile_offset                     !< offset for filename numbers
   END TYPE t_fname_metadata
 
 

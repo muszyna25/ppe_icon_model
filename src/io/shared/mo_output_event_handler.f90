@@ -188,6 +188,7 @@ MODULE mo_output_event_handler
   PUBLIC :: get_current_date
   PUBLIC :: get_current_step
   PUBLIC :: get_current_filename
+  PUBLIC :: get_current_jfile
   PUBLIC :: check_write_readyfile
   PUBLIC :: check_open_file
   PUBLIC :: check_close_file
@@ -262,10 +263,10 @@ MODULE mo_output_event_handler
   INTEGER, PARAMETER :: ROOT_OUTEVENT         = 0
 
   !> Internal switch for debugging output
-  LOGICAL, PARAMETER :: ldebug  = .FALSE.
+  LOGICAL, PARAMETER :: ldebug                = .FALSE.
 
   !> Max. no. of steps printed out to stderr
-  INTEGER, PARAMETER :: MAX_PRINTOUT = 2000
+  INTEGER, PARAMETER :: MAX_PRINTOUT          = 2000
 
 
   !---------------------------------------------------------------
@@ -1531,6 +1532,32 @@ CONTAINS
   END FUNCTION get_current_filename
 
 
+  !> @return current file number.
+  !  @author F. Prill, DWD
+  !
+  FUNCTION get_current_jfile(event)
+    INTEGER :: get_current_jfile
+    TYPE(t_par_output_event), INTENT(IN) :: event
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_current_jfile"
+    INTEGER :: istep
+
+    istep = MIN(event%output_event%i_event_step, event%output_event%n_event_steps)
+    IF (istep == 0) THEN
+      get_current_jfile = 0
+      RETURN
+    END IF
+    ! We cannot check events that are the union of multiple other
+    ! events:
+    IF (event%output_event%event_step(istep)%n_pes > 1) THEN
+      WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
+        &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
+      CALL finish(routine, "Error! Multi-part event step!")
+    END IF
+    get_current_jfile = event%output_event%event_step(istep)%event_step_data(1)%jfile
+  END FUNCTION get_current_jfile
+
+
   !> @return .TRUE. if this PE should write a ready file for the given
   !          event.
   !  @author F. Prill, DWD
@@ -1916,6 +1943,7 @@ CONTAINS
     CALL p_pack_string(TRIM(fname_metadata%filename_format), buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(fname_metadata%filename_pref),   buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(fname_metadata%extn),            buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_int(fname_metadata%jfile_offset,             buffer, MAX_BUF_SIZE, position, icomm)
     ! encode this event's MPI tag
     CALL p_pack_int(i_tag,                                   buffer, MAX_BUF_SIZE, position, icomm)
   END SUBROUTINE pack_metadata
@@ -1968,6 +1996,7 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_format,           icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_pref,             icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%extn,                      icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%jfile_offset,              icomm)
     ! decode this event's MPI tag                                                                 
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, i_tag,                                    icomm)
   END SUBROUTINE unpack_metadata
