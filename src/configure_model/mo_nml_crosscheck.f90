@@ -95,6 +95,7 @@ MODULE mo_nml_crosscheck
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau
   USE mo_nh_testcases_nml,   ONLY: linit_tracer_fv,nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
@@ -309,7 +310,7 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: jt   ! tracer loop index
     INTEGER :: i_listlen
-    INTEGER :: z_go_hex(3), z_go_tri(11), z_nogo_tri(3)   ! for crosscheck
+    INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
 
     !--------------------------------------------------------------------
@@ -866,6 +867,20 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Realcase runs
     !--------------------------------------------------------------------
+
+    IF (init_mode == 5) THEN   ! start from dwd analysis with incremental update
+
+      ! check analysis update window
+      !
+      IF ( (dt_iau > 0._wp) .AND. (dt_iau < REAL(iadv_rcf,wp)*dtime)) THEN
+        ! If dt_iau is chosen to be larger than 0, it must be >= dtime_adv at least.
+        dt_iau = dtime_adv
+        WRITE (message_text,'(a,a,f6.2)') "Wrong value for dt_iau. ", &
+          &   "If >0 then at least equal to advective tstep ",REAL(iadv_rcf,wp)*dtime
+        CALL finish('initicon_nml:', TRIM(message_text))
+      ENDIF 
+
+    ENDIF
 
 
     ! check meteogram configuration

@@ -55,7 +55,7 @@ MODULE mo_nh_initicon
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, nlev_in, nlevsoil_in, l_sst_in,          &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, nlevsoil_in, l_sst_in,  &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               generate_filename,                                  &
     &                               nml_filetype => filetype,                           &
@@ -3157,7 +3157,7 @@ MODULE mo_nh_initicon
 
             ! compute temperature (based on first guess input)
             ! required for virtual temperature increment
-              p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
+            p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
               &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
               &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)                &
               &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)                &
@@ -3272,6 +3272,65 @@ MODULE mo_nh_initicon
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
+
+
+      ! If IAU-window is chosen to be zero, then analysis increments are added directly.
+      !
+      IF (dt_iau == 0._wp) THEN
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+        rl_start = 2
+        rl_end   = min_rledge_int - 2
+        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_prog_now%vn(je,jk,jb) = p_prog_now%vn(je,jk,jb) + p_diag%vn_incr(je,jk,jb)
+            ENDDO  ! je
+          ENDDO  ! jk
+
+        ENDDO  ! jb
+!$OMP ENDDO NOWAIT
+
+        rl_start = 1
+        rl_end   = min_rlcell
+        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+
+              p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
+ 
+              p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
+
+              p_prog_now_rcf%tracer(jc,jk,jb,iqv) = p_prog_now_rcf%tracer(jc,jk,jb,iqv)  &
+                &                                 + p_diag%qv_incr(jc,jk,jb)
+
+              ! Remember to update theta_v
+              p_prog_now%theta_v(jc,jk,jb) = (p0ref/rd) * p_prog_now%exner(jc,jk,jb)**(cvd/rd) &
+                &                          / p_prog_now%rho(jc,jk,jb)
+            ENDDO  ! jc
+          ENDDO  ! jk
+
+        ENDDO  ! jb
+!$OMP ENDDO
+!$OMP END PARALLEL
+      ENDIF  ! dt_iau = 0
+
 
     ENDDO  ! jg domain loop
 
