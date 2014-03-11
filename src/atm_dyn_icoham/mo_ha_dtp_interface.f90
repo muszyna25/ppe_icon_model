@@ -555,24 +555,11 @@ CONTAINS
                      & p_diag%wpres_mc                          )  ! inout
 
     ! Relative vorticity at cell centers
-    SELECT CASE (p_patch%cell_type)
-    CASE (3)
-      CALL rot_vertex( p_prog%vn, p_patch, p_int_state, p_diag%rel_vort )
-      CALL sync_patch_array( SYNC_V, p_patch, p_diag%rel_vort )
-      CALL verts2cells_scalar( p_diag%rel_vort, p_patch,   &
-                             & p_int_state%verts_aw_cells, &
-                             & p_diag%rel_vort_c          )
-    CASE (6)
-      CALL rot_vertex( p_prog%vn, p_patch, p_int_state, p_diag%rel_vort )
-      CALL sync_patch_array( SYNC_V, p_patch, p_diag%rel_vort )
-      CALL verts2edges_scalar( p_diag%rel_vort, p_patch, &
-                             & p_int_state%tria_aw_rhom, &
-                             & p_diag%rel_vort_e )
-      CALL sync_patch_array( SYNC_E, p_patch, p_diag%rel_vort_e )
-      CALL edges2cells_scalar( p_diag%rel_vort_e, p_patch, &
-                             & p_int_state%r_aw_c,         &
-                             & p_diag%rel_vort_c   )
-    END SELECT
+    CALL rot_vertex( p_prog%vn, p_patch, p_int_state, p_diag%rel_vort )
+    CALL sync_patch_array( SYNC_V, p_patch, p_diag%rel_vort )
+    CALL verts2cells_scalar( p_diag%rel_vort, p_patch,   &
+      &                      p_int_state%verts_aw_cells, &
+      &                      p_diag%rel_vort_c          )
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE prepare_echam_phy

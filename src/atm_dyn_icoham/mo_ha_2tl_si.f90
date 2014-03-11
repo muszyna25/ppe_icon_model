@@ -477,12 +477,12 @@ MODULE mo_ha_2tl_si
 ! 4.3 Horizontal advection and Coriolis force
 
    CALL vn_adv_horizontal( pt_now%vn,                           &! in
-                           pt_diag%rel_vort, pt_diag%rel_vort_e,&! in
-                           pt_diag%mass_flux_e, pt_diag%delp_c, &! in
+                           pt_diag%rel_vort,                    &! in
+                           pt_diag%delp_c,                      &! in
                            pt_patch, pt_int_state,              &! in
                            z_ddt_vn_slow,                       &! inout
                            pt_diag%e_kin, pt_diag%vt,           &! inout
-                           pt_diag%delp_v, pt_diag%delp_e)       ! inout
+                           pt_diag%delp_v)                       ! inout
 
 ! 5. Energy conversion terms include both fast and slow components
 

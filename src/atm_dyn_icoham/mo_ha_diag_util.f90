@@ -116,26 +116,14 @@ CONTAINS
 
     ! Relative vorticity at vertices
 
-    SELECT CASE (pt_patch%cell_type)
-    CASE (3)
-      CALL rot_vertex (pt_prog%vn, pt_patch, pt_int_state, pt_diag%rel_vort)
-      
-      IF (use_icon_comm) THEN
-        rel_vort_comm = new_icon_comm_variable(pt_diag%rel_vort, pt_patch%sync_verts_not_owned, &
-          & status=is_ready, scope=until_sync, name="update_diag rel_vort")
-      ELSE
-        CALL sync_patch_array(SYNC_V, pt_patch, pt_diag%rel_vort)
-      ENDIF
-      
-    CASE (6)
-      CALL rot_vertex (pt_prog%vn, pt_patch, pt_int_state, pt_diag%rel_vort)
-      CALL verts2edges_scalar(pt_diag%rel_vort, pt_patch, pt_int_state%tria_aw_rhom, &
-      &                       pt_diag%rel_vort_e)
-      CALL sync_patch_array(SYNC_E, pt_patch, pt_diag%rel_vort_e)
-      CALL edges2verts_scalar(pt_diag%rel_vort_e, pt_patch, pt_int_state%e_1o3_v, &                      
-      &                       pt_diag%rel_vort)
+    CALL rot_vertex (pt_prog%vn, pt_patch, pt_int_state, pt_diag%rel_vort)
+    
+    IF (use_icon_comm) THEN
+      rel_vort_comm = new_icon_comm_variable(pt_diag%rel_vort, pt_patch%sync_verts_not_owned, &
+        & status=is_ready, scope=until_sync, name="update_diag rel_vort")
+    ELSE
       CALL sync_patch_array(SYNC_V, pt_patch, pt_diag%rel_vort)
-    END SELECT
+    ENDIF
 
     ! Variables needed for output but not for time stepping
 
@@ -716,23 +704,11 @@ CONTAINS
 
     ! Reconstruct zonal and meridional wind at cell centers
 
-    SELECT CASE(p_patch%cell_type)
-    CASE(3)
-      CALL rbf_vec_interpol_cell( p_prog%vn,    &! IN: normal wind
-      &                           p_patch,      &! patch
-      &                           p_int_state,  &! interpolation state
-      &                           p_diag%u,     &! reconstructed u wind
-      &                           p_diag%v   )   ! reconstructed y wind
-    CASE(6)
-      CALL edges2cells_scalar( p_prog%vn,             &! IN: normal wind
-      &                        p_patch,               &! patch
-      &                        p_int_state%hex_east,  &! interpolation state
-      &                        p_diag%u              ) ! reconstr. u wind
-      CALL edges2cells_scalar( p_prog%vn,             &! IN: normal wind
-      &                        p_patch,               &! patch
-      &                        p_int_state%hex_north, &! interpolation state
-      &                        p_diag%v              ) ! reconstr. v wind
-    END SELECT !triangle vs hexagon
+    CALL rbf_vec_interpol_cell( p_prog%vn,    &! IN: normal wind
+      &                         p_patch,      &! patch
+      &                         p_int_state,  &! interpolation state
+      &                         p_diag%u,     &! reconstructed u wind
+      &                         p_diag%v   )   ! reconstructed y wind
 
     ! Vertical velocity omega=dp/dt
 

@@ -210,29 +210,15 @@ CONTAINS
 
 
 
-    SELECT CASE (p_patch%cell_type)
-    CASE (3)
-!     LL The physics runs only on the owned cells
-!        but the following rbf_vec_interpol_cell may use the halos(?)
-!      CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
-      CALL rbf_vec_interpol_cell( dyn_prog_old%vn,      &! in
-        &                         p_patch, p_int_state, &! in
-        &                         prm_field(jg)%u,      &! out
-        &                         prm_field(jg)%v,      &! out
-        &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in
-    CASE (6)
-      CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
-      CALL edges2cells_scalar(dyn_prog_old%vn,p_patch, &
-        &                     p_int_state%hex_east ,prm_field(jg)%u)
-      CALL edges2cells_scalar(dyn_prog_old%vn,p_patch, &
-        &                     p_int_state%hex_north,prm_field(jg)%v)
-    END SELECT
+    ! LL The physics runs only on the owned cells
+    !  but the following rbf_vec_interpol_cell may use the halos(?)
+    CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
 
-!     LL The physics runs only on the owned cells
-!        thus no knowledge of the halo u, v is needed.
-!     CALL sync_patch_array( SYNC_C, p_patch, prm_field(jg)%u )
-!     CALL sync_patch_array( SYNC_C, p_patch, prm_field(jg)%v )
-    
+    CALL rbf_vec_interpol_cell( dyn_prog_old%vn,      &! in
+      &                         p_patch, p_int_state, &! in
+      &                         prm_field(jg)%u,      &! out
+      &                         prm_field(jg)%v,      &! out
+      &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in    
 
 !$OMP PARALLEL WORKSHARE
     prm_field(jg)%         q(:,:,:,:) = dyn_prog_old%     tracer(:,:,:,:)
@@ -274,28 +260,15 @@ CONTAINS
     ! transfer tendencies
 
 
-    SELECT CASE (p_patch%cell_type)
-    CASE (3)
-!     LL The physics runs only on the owned cells
-!        but the following rbf_vec_interpol_cell may use the halos(?)
-!     CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
-      CALL rbf_vec_interpol_cell( dyn_tend%vn,          &! in
-        &                         p_patch, p_int_state, &! in
-        &                         prm_tend(jg)%u,       &! out
-        &                         prm_tend(jg)%v,       &! out
-        &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in
-    CASE (6)
-      CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
-      CALL edges2cells_scalar(dyn_tend%vn,p_patch, &
-        &                     p_int_state%hex_east ,prm_tend(jg)%u)
-      CALL edges2cells_scalar(dyn_tend%vn,p_patch, &
-        &                     p_int_state%hex_north,prm_tend(jg)%v)
-    END SELECT
+    ! LL The physics runs only on the owned cells
+    !    but the following rbf_vec_interpol_cell may use the halos(?)
+    CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
 
-!   LL The physics runs only on the owned cells
-!       thus no knowledge of the halo u, v is needed.
-!    CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%u )
-!    CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%v )
+    CALL rbf_vec_interpol_cell( dyn_tend%vn,          &! in
+      &                         p_patch, p_int_state, &! in
+      &                         prm_tend(jg)%u,       &! out
+      &                         prm_tend(jg)%v,       &! out
+      &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE

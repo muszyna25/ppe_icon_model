@@ -130,14 +130,8 @@ CONTAINS
     zc2vn = k2*1._wp/SQRT(3._wp)
     zc4vn = k4/3._wp
 
-    SELECT CASE (patch%cell_type)
-    CASE (6)
-      zc2temp = hdiff_tv_ratio*k2*2._wp/9._wp/SQRT(3._wp)
-      zc4temp = hdiff_tv_ratio*k4*4._wp/81._wp/3.0_wp
-    CASE (3)
-      zc2temp = hdiff_tv_ratio*k2*4._wp/3._wp/SQRT(3._wp)
-      zc4temp = hdiff_tv_ratio*k4*16._wp/27._wp
-    END SELECT
+    zc2temp = hdiff_tv_ratio*k2*4._wp/3._wp/SQRT(3._wp)
+    zc4temp = hdiff_tv_ratio*k4*16._wp/27._wp
 
     ! For nested domain
 

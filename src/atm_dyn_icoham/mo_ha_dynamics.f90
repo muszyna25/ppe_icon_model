@@ -190,12 +190,12 @@ CONTAINS
    ! LL: this is already synced by the continuity
 !    CALL sync_patch_array( SYNC_E, pt_patch, pt_diag%mass_flux_e )
    CALL vn_adv_horizontal( pt_prog%vn,                          &! in
-                           pt_diag%rel_vort, pt_diag%rel_vort_e,&! in
-                           pt_diag%mass_flux_e, pt_diag%delp_c, &! in
+                           pt_diag%rel_vort,                    &! in
+                           pt_diag%delp_c,                      &! in
                            pt_patch, pt_int_state,              &! in
                            pt_tend_dyn%vn,                      &! inout
                            pt_diag%e_kin, pt_diag%vt,           &! inout
-                           pt_diag%delp_v, pt_diag%delp_e,      &! inout
+                           pt_diag%delp_v,                      &! inout
                            opt_rlstart=grf_bdywidth_e+1 )        ! for nesting
 
 ! Pressure gradient force and adiabatic heating

@@ -210,12 +210,9 @@ MODULE mo_hdiff
       z_nabla2_e(:,:,:) = 0.0_wp
     ENDIF
 !--------------------
-    IF ((pt_patch%cell_type == 3) .AND.               &
-      &  (diffusion_config(k_jg)%hdiff_order == 5)) THEN
+    IF (diffusion_config(k_jg)%hdiff_order == 5) THEN
        !
        ! Compute diffusion coefficient for Smagorinsky diffusion
-       ! ** NOT implemented for cell_type = 6 because      **
-       ! ** RBF interpolation is used to compute deformation **
 
        ! a) Calculation of diffusion coefficient
 
@@ -497,19 +494,10 @@ MODULE mo_hdiff
         !---------------------------
         IF (diffusion_config(k_jg)%lhdiff_temp) THEN
 
-          SELECT CASE (pt_patch%cell_type)
-          CASE (6)
-            ! old
-            !diff_multfac = 2._wp/3._wp*SQRT(3._wp)*hdiff_tv_ratio*diffusion_config(k_jg)%k2
-            diff_multfac = 2._wp/9._wp*hdiff_tv_ratio*diffusion_config(k_jg)%k2/SQRT(3._wp)
-            ! rejected new
-            !!diff_multfac = 2._wp/9._wp*hdiff_tv_ratio*diffusion_config(k_jg)%k2
-          CASE (3)
-            ! old
-            diff_multfac = 4._wp/3._wp/SQRT(3._wp)*hdiff_tv_ratio*diffusion_config(k_jg)%k2
-            ! rejected new
-            !!diff_multfac = 4._wp/3._wp*hdiff_tv_ratio*diffusion_config(k_jg)%k2
-          END SELECT
+          ! old
+          diff_multfac = 4._wp/3._wp/SQRT(3._wp)*hdiff_tv_ratio*diffusion_config(k_jg)%k2
+          ! rejected new
+          !!diff_multfac = 4._wp/3._wp*hdiff_tv_ratio*diffusion_config(k_jg)%k2
 
           IF (.NOT.ltheta_dyn) THEN
 
@@ -948,19 +936,10 @@ MODULE mo_hdiff
           i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
           i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-          SELECT CASE (pt_patch%cell_type)
-          CASE (6)
-            ! old
-            !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/3._wp
-            diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/81._wp/3.0_wp
-            ! rejected new
-            !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/81._wp
-          CASE (3)
-            !old
-            diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/27._wp
-            !rejected new
-            !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
-          END SELECT
+          !old
+          diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/27._wp
+          !rejected new
+          !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
 
           IF (.NOT.ltheta_dyn) THEN
 
@@ -1126,19 +1105,10 @@ MODULE mo_hdiff
            i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
            i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-           SELECT CASE (pt_patch%cell_type)
-           CASE (6)
-             ! old
-             !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/3._wp
-             diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/81._wp/3._wp
-             ! rejected new
-             !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/81._wp
-           CASE (3)
-             ! old
-             diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/27._wp
-             ! rejected new
-             !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
-           END SELECT
+           ! old
+           diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/27._wp
+           ! rejected new
+           !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
 
 !$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
@@ -1165,18 +1135,9 @@ MODULE mo_hdiff
            i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
            i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-           SELECT CASE (pt_patch%cell_type)
-           CASE (6)
-             ! old
-             !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/3._wp
-             diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/81._wp/3._wp 
-             ! rejected new
-             !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*4._wp/81._wp 
-           CASE (3)
-             ! old
-             diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/27._wp
-             !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
-           END SELECT
+           ! old
+           diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/27._wp
+           !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
 
 !$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk

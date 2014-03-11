@@ -303,18 +303,16 @@ CONTAINS
   !! Separated from mo_nonlinear_advection and re-written
   !! by Hui Wan (MPI-M, 2009-11-20)
   !!
-  SUBROUTINE vn_adv_horizontal( p_vn, p_vort, p_vort_e, p_mflux_e, p_delp_c,   &
-                                pt_patch, pt_int,                    &
-                                p_ddt_vn, p_kin, p_vt,               &
-                                p_delp_v, p_delp_e,                  &
-                                opt_rlstart, opt_rlend              )
+  SUBROUTINE vn_adv_horizontal( p_vn, p_vort, p_delp_c,  &
+                                pt_patch, pt_int,        &
+                                p_ddt_vn, p_kin, p_vt,   &
+                                p_delp_v,                &
+                                opt_rlstart, opt_rlend  )
   !! Arguments
   IMPLICIT NONE
 
   REAL(wp),INTENT(IN) :: p_vn     (:,:,:)  !< normal velocity at edges
   REAL(wp),INTENT(IN) :: p_vort   (:,:,:)  !< relative vorticity at dual centers
-  REAL(wp),INTENT(IN) :: p_vort_e (:,:,:)  !< relative vorticity at edges
-  REAL(wp),INTENT(IN) :: p_mflux_e(:,:,:)  !< mass flux at edges
   REAL(wp),INTENT(IN) :: p_delp_c (:,:,:)  !< pseudo-dencity at cell centers
 
   TYPE(t_patch),    TARGET,INTENT(IN) :: pt_patch
@@ -324,29 +322,17 @@ CONTAINS
   REAL(wp),INTENT(INOUT) :: p_kin    (:,:,:) !< kinetic energy at cell centers
   REAL(wp),INTENT(INOUT) :: p_vt     (:,:,:) !< tangential wind at edges
   REAL(wp),INTENT(INOUT) :: p_delp_v (:,:,:) !< pseudo-dencity at dual grid
-  REAL(wp),INTENT(INOUT) :: p_delp_e (:,:,:) !< pseudo-dencity at edges
 
   INTEGER,INTENT(IN),OPTIONAL :: opt_rlstart, opt_rlend
                                  !< start and end values of refin_ctrl flag
   !! Local variables
 
-  INTEGER  :: jb,jbs,jbe,is,ie,je,jk,ji
-  INTEGER  :: nblks_e, npromz_e, i_nchdom, nlen, nincr, nblks_c, npromz_c
+  INTEGER  :: jb,jbs,jbe,is,ie,jk
+  INTEGER  :: nblks_e, npromz_e, i_nchdom, nblks_c, npromz_c
   INTEGER  :: rl_start, rl_end
 
   REAL(wp) :: z_tmp_e    ( nproma, nlev, pt_patch%nblks_e )
-  REAL(wp) :: z_tmp_c    ( nproma, nlev, pt_patch%nblks_c )
-  REAL(wp) :: z_tmp_v    ( nproma, nlev, pt_patch%nblks_v )
   REAL(wp) :: z_vort_e   ( nproma, nlev, pt_patch%nblks_e )
-  REAL(wp) :: z_potvort_r( nproma, nlev, pt_patch%nblks_e )
-  REAL(wp) :: z_potvort_c( nproma, nlev, pt_patch%nblks_c )
-  REAL(wp) :: z_potvort_v( nproma, nlev, pt_patch%nblks_v )
-  REAL(wp) :: z_u_e      ( nproma, nlev, pt_patch%nblks_e )
-  REAL(wp) :: z_v_e      ( nproma, nlev, pt_patch%nblks_e )
-  REAL(wp) :: z_u_c      ( nproma, nlev, pt_patch%nblks_c )
-  REAL(wp) :: z_v_c      ( nproma, nlev, pt_patch%nblks_c )
-
-  INTEGER, DIMENSION(:,:,:),   POINTER :: ieidx, ieblk, icidx, icblk, ividx, ivblk
 
 ! Dimension parameters
 
@@ -365,11 +351,7 @@ CONTAINS
                             pt_int%cells_aw_verts, p_delp_v)
   ENDIF
 
-SELECT CASE (pt_patch%cell_type)
-CASE(3)
-!=====================================================================
-! Triangular model
-!=====================================================================
+!-----------------------------------------
 ! Kinetic energy and tangential velocity
 !-----------------------------------------
 
@@ -438,282 +420,6 @@ CASE(3)
    ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-CASE(6)
-!=====================================================================
-! Hexagonal model
-!=====================================================================
-! Tangential velocity is not needed in the hexagonal model.
-! Kinetic energy is defined from the normal component at edges,
-! and then interpolated to cell centers.
-!------------------------------------------------------------------
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = 1, nblks_e
-
-     IF (jb /= nblks_e) THEN
-       nlen = nproma
-     ELSE
-       nlen = npromz_e
-     ENDIF
-
-     z_tmp_e(1:nlen,:,jb) = 0.5_wp * p_vn(1:nlen,:,jb) * p_vn(1:nlen,:,jb)
-  ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  CALL edges2cells_scalar( z_tmp_e, pt_patch, pt_int%e_inn_c, &! in
-                           p_kin, opt_rlstart=2              ) ! out,in
-
-  IF (i_cori_method >= 2 )THEN
-
-    CALL edges2verts_scalar( z_tmp_e, pt_patch, pt_int%e_inn_v, &! in
-                             z_tmp_v                             ) ! out,in
-    CALL sync_patch_array(SYNC_V,pt_patch,z_tmp_v)
-    CALL verts2cells_scalar( z_tmp_v, pt_patch, pt_int%verts_aw_cells, &! in
-                             z_tmp_c                             ) ! out,in
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_c
-      ENDIF
-      DO jk = 1,nlev
-        p_kin(1:nlen,jk,jb) = sick_o*p_kin(1:nlen,jk,jb)+sick_a*z_tmp_c(1:nlen,jk,jb)
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  ENDIF
-
-!----------------------------------
-! Absolute vorticity flux
-!----------------------------------
-! Horizontal interpolation of thickness to vertex
-
-  ! Absolute potential vorticity at rhombi
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = 1, nblks_e
-    IF (jb /= nblks_e) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_e
-    ENDIF
-    DO jk = 1,nlev
-      z_potvort_r(1:nlen,jk,jb) = ( p_vort_e(1:nlen,jk,jb)             &
-                                   +pt_patch%edges%f_e(1:nlen,jb) )    &
-                                   /p_delp_e(1:nlen,jk,jb)
-    ENDDO
-  ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  SELECT CASE (i_cori_method)
-  CASE (1,2)
-
-    ! Tendency of vn caused by vorticity flux
-
-    ieidx => pt_int%heli_vn_idx
-    ieblk => pt_int%heli_vn_blk
-    SELECT CASE (i_cori_method)
-    CASE (1)
-      nincr = 14
-    CASE (2)
-      nincr = 10
-    END SELECT
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,ji,je) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-#ifdef __LOOP_EXCHANGE
-      DO je = 1, nlen
-        DO ji = 1, nincr
-          DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-        DO ji = 1, nincr
-          DO je = 1, nlen
-#endif
-            p_ddt_vn(je,jk,jb) =  p_ddt_vn(je,jk,jb)             &
-            & +pt_int%heli_coeff(ji,je,jb)                       &
-            & *p_mflux_e(ieidx(ji,je,jb),jk,ieblk(ji,je,jb))     &
-            & *( z_potvort_r(ieidx(ji,je,jb),jk,ieblk(ji,je,jb)) &
-            &   +z_potvort_r(je             ,jk,jb             ))
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  CASE (3) ! i_cori_method
-
-    ieidx => pt_patch%edges%quad_idx
-    ieblk => pt_patch%edges%quad_blk
-    icidx => pt_patch%edges%cell_idx
-    icblk => pt_patch%edges%cell_blk
-
-    ! first, reconstruct mass flux vectors at centers of rhombi and hexagons
-    CALL edges2cells_scalar(p_mflux_e,pt_patch,pt_int%hex_east  ,z_u_c)
-    CALL edges2cells_scalar(p_mflux_e,pt_patch,pt_int%hex_north ,z_v_c)
-    CALL edges2edges_scalar(p_mflux_e,pt_patch,pt_int%quad_east ,z_u_e)
-    CALL edges2edges_scalar(p_mflux_e,pt_patch,pt_int%quad_north,z_v_e)
-
-    ! second, average absolute potential vorticity from rhombi to centers
-    IF (l_corner_vort) THEN
-      CALL edges2verts_scalar(z_potvort_r,pt_patch,pt_int%e_1o3_v       ,z_tmp_v)
-      CALL sync_patch_array(SYNC_V,pt_patch,z_tmp_v)
-      CALL verts2cells_scalar(z_tmp_v    ,pt_patch,pt_int%verts_aw_cells,z_potvort_c)
-    ELSE
-      CALL edges2cells_scalar(z_potvort_r,pt_patch,pt_int%e_aw_c,z_potvort_c)
-    ENDIF
-
-    ! third, multiply the absolute vorticities with the velocities,
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-      DO jk = 1,nlev
-        z_u_e(1:nlen,jk,jb) = z_u_e(1:nlen,jk,jb)*z_potvort_r(1:nlen,jk,jb)
-        z_v_e(1:nlen,jk,jb) = z_v_e(1:nlen,jk,jb)*z_potvort_r(1:nlen,jk,jb)
-      ENDDO
-    ENDDO
-!$OMP END DO
-!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_c
-      ENDIF
-      DO jk = 1,nlev
-        z_u_c(1:nlen,jk,jb) = z_u_c(1:nlen,jk,jb)*z_potvort_c(1:nlen,jk,jb)
-        z_v_c(1:nlen,jk,jb) = z_v_c(1:nlen,jk,jb)*z_potvort_c(1:nlen,jk,jb)
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-!$OMP PARALLEL
-    ! fourth, compute vorticity flux term
-!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-#ifdef __LOOP_EXCHANGE
-      DO je = 1, nlen
-        DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-        DO je = 1, nlen
-#endif
-          p_ddt_vn(je,jk,jb) =  p_ddt_vn(je,jk,jb)             &
-          & + pt_int%heli_coeff( 1,je,jb)*z_v_c(icidx(je,jb,1),jk,icblk(je,jb,1))&
-          & + pt_int%heli_coeff( 2,je,jb)*z_u_c(icidx(je,jb,1),jk,icblk(je,jb,1))&
-          & + pt_int%heli_coeff( 3,je,jb)*z_v_c(icidx(je,jb,2),jk,icblk(je,jb,2))&
-          & + pt_int%heli_coeff( 4,je,jb)*z_u_c(icidx(je,jb,2),jk,icblk(je,jb,2))&
-          & + pt_int%heli_coeff( 5,je,jb)*z_v_e(je            ,jk,jb            )&
-          & + pt_int%heli_coeff( 6,je,jb)*z_u_e(je            ,jk,jb            )&
-          & + pt_int%heli_coeff( 7,je,jb)*z_v_e(ieidx(je,jb,1),jk,ieblk(je,jb,1))&
-          & + pt_int%heli_coeff( 8,je,jb)*z_u_e(ieidx(je,jb,1),jk,ieblk(je,jb,1))&
-          & + pt_int%heli_coeff( 9,je,jb)*z_v_e(ieidx(je,jb,2),jk,ieblk(je,jb,2))&
-          & + pt_int%heli_coeff(10,je,jb)*z_u_e(ieidx(je,jb,2),jk,ieblk(je,jb,2))&
-          & + pt_int%heli_coeff(11,je,jb)*z_v_e(ieidx(je,jb,3),jk,ieblk(je,jb,3))&
-          & + pt_int%heli_coeff(12,je,jb)*z_u_e(ieidx(je,jb,3),jk,ieblk(je,jb,3))&
-          & + pt_int%heli_coeff(13,je,jb)*z_v_e(ieidx(je,jb,4),jk,ieblk(je,jb,4))&
-          & + pt_int%heli_coeff(14,je,jb)*z_u_e(ieidx(je,jb,4),jk,ieblk(je,jb,4))
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  CASE(4) ! the same as i_cori_method=3 but instead edge PVs use corner PVs
-
-    ieidx => pt_patch%edges%quad_idx
-    ieblk => pt_patch%edges%quad_blk
-    icidx => pt_patch%edges%cell_idx
-    icblk => pt_patch%edges%cell_blk
-    ividx => pt_patch%edges%vertex_idx
-    ivblk => pt_patch%edges%vertex_blk
-
-    ! first, reconstruct mass flux vectors at centers of rhombi and hexagons
-    CALL edges2cells_scalar(p_mflux_e,pt_patch,pt_int%hex_east  ,z_u_c)
-    CALL edges2cells_scalar(p_mflux_e,pt_patch,pt_int%hex_north ,z_v_c)
-    CALL edges2edges_scalar(p_mflux_e,pt_patch,pt_int%quad_east ,z_u_e)
-    CALL edges2edges_scalar(p_mflux_e,pt_patch,pt_int%quad_north,z_v_e)
-
-    ! second, average absolute potential vorticity from rhombi to vertices and centers
-    CALL edges2verts_scalar(z_potvort_r,pt_patch,pt_int%e_1o3_v,z_potvort_v)
-    CALL sync_patch_array(SYNC_V,pt_patch,z_potvort_v)
-    IF (l_corner_vort) THEN
-      CALL verts2cells_scalar(z_potvort_v,pt_patch,pt_int%verts_aw_cells,z_potvort_c)
-    ELSE
-      CALL edges2cells_scalar(z_potvort_r,pt_patch,pt_int%e_aw_c,z_potvort_c)
-    ENDIF
-
-!$OMP PARALLEL
-    ! third, compute vorticity flux term
-!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-#ifdef __LOOP_EXCHANGE
-      DO je = 1, nlen
-        DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-        DO je = 1, nlen
-#endif
-          p_ddt_vn(je,jk,jb) =  p_ddt_vn(je,jk,jb)             &
-          & + (pt_int%heli_coeff( 1,je,jb)*z_v_c(icidx(je,jb,1),jk,icblk(je,jb,1)) &
-          &   +pt_int%heli_coeff( 2,je,jb)*z_u_c(icidx(je,jb,1),jk,icblk(je,jb,1)))&
-          &                         *z_potvort_c(icidx(je,jb,1),jk,icblk(je,jb,1)) &
-          & + (pt_int%heli_coeff( 3,je,jb)*z_v_c(icidx(je,jb,2),jk,icblk(je,jb,2)) &
-          &   +pt_int%heli_coeff( 4,je,jb)*z_u_c(icidx(je,jb,2),jk,icblk(je,jb,2)))&
-          &                         *z_potvort_c(icidx(je,jb,2),jk,icblk(je,jb,2)) &
-          & + (pt_int%heli_coeff( 5,je,jb)*z_v_e(je            ,jk,jb            ) &
-          &   +pt_int%heli_coeff( 6,je,jb)*z_u_e(je            ,jk,jb            ))&
-          &                 *0.5_wp*(z_potvort_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) &
-          &                         +z_potvort_v(ividx(je,jb,2),jk,ivblk(je,jb,2)))&
-          & + (pt_int%heli_coeff( 7,je,jb)*z_v_e(ieidx(je,jb,1),jk,ieblk(je,jb,1)) &
-          &   +pt_int%heli_coeff( 8,je,jb)*z_u_e(ieidx(je,jb,1),jk,ieblk(je,jb,1)) &
-          &   +pt_int%heli_coeff( 9,je,jb)*z_v_e(ieidx(je,jb,2),jk,ieblk(je,jb,2)) &
-          &   +pt_int%heli_coeff(10,je,jb)*z_u_e(ieidx(je,jb,2),jk,ieblk(je,jb,2)))&
-          &                         *z_potvort_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) &
-          & + (pt_int%heli_coeff(11,je,jb)*z_v_e(ieidx(je,jb,3),jk,ieblk(je,jb,3)) &
-          &   +pt_int%heli_coeff(12,je,jb)*z_u_e(ieidx(je,jb,3),jk,ieblk(je,jb,3)) &
-          &   +pt_int%heli_coeff(13,je,jb)*z_v_e(ieidx(je,jb,4),jk,ieblk(je,jb,4)) &
-          &   +pt_int%heli_coeff(14,je,jb)*z_u_e(ieidx(je,jb,4),jk,ieblk(je,jb,4)))&
-          &                         *z_potvort_v(ividx(je,jb,2),jk,ivblk(je,jb,2))
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  END SELECT ! i_cori_method
-
-END SELECT 
 
 !=============================================================================
 ! Calculate the gradient of kinetic energy, and accumulate velocity tendency
