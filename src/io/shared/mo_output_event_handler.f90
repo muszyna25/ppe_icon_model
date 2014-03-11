@@ -1944,6 +1944,8 @@ CONTAINS
     CALL p_pack_string(TRIM(fname_metadata%filename_pref),   buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_string(TRIM(fname_metadata%extn),            buffer, MAX_BUF_SIZE, position, icomm)
     CALL p_pack_int(fname_metadata%jfile_offset,             buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_int(fname_metadata%npartitions,              buffer, MAX_BUF_SIZE, position, icomm)
+    CALL p_pack_int(fname_metadata%ifile_partition,          buffer, MAX_BUF_SIZE, position, icomm)
     ! encode this event's MPI tag
     CALL p_pack_int(i_tag,                                   buffer, MAX_BUF_SIZE, position, icomm)
   END SUBROUTINE pack_metadata
@@ -1997,6 +1999,8 @@ CONTAINS
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%filename_pref,             icomm)
     CALL p_unpack_string(buffer, MAX_BUF_SIZE, position, fname_metadata%extn,                      icomm)
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%jfile_offset,              icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%npartitions,               icomm)
+    CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, fname_metadata%ifile_partition,           icomm)
     ! decode this event's MPI tag                                                                 
     CALL p_unpack_int(   buffer, MAX_BUF_SIZE, position, i_tag,                                    icomm)
   END SUBROUTINE unpack_metadata

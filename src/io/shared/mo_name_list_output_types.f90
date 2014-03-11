@@ -324,6 +324,11 @@ MODULE mo_name_list_output_types
     CHARACTER(LEN=FILENAME_MAX)           :: filename_pref                    !< Prefix of output file name
     CHARACTER(LEN=16)                     :: extn                             !< filename extension
     INTEGER                               :: jfile_offset                     !< offset for filename numbers
+
+    !> "stream_partitions": Split one namelist into concurrent,
+    !> alternating files:
+    INTEGER                               :: npartitions                      !< total no. of stream partitions
+    INTEGER                               :: ifile_partition                  !< this file's partition index
   END TYPE t_fname_metadata
 
 

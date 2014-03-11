@@ -227,7 +227,7 @@ CONTAINS
     TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
-    INTEGER                             :: i, j, ifile, ipart
+    INTEGER                             :: i, j, ifile, ipart, total_index
     CHARACTER(len=MAX_CHAR_LENGTH)      :: cfilename 
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH)      :: fname(nstrings)        ! list for duplicate check
@@ -339,6 +339,8 @@ CONTAINS
       CALL associate_keyword("<levtype>",         TRIM(lev_type_str(fname_metadata%ilev_type)),             keywords)
       CALL associate_keyword("<levtype_l>",       TRIM(tolower(lev_type_str(fname_metadata%ilev_type))),    keywords)
       CALL associate_keyword("<jfile>",           TRIM(int2string(result_fnames(i)%jfile, "(i4.4)")),       keywords)
+      CALL associate_keyword("<npartitions>",     TRIM(int2string(fname_metadata%npartitions)),             keywords)
+      CALL associate_keyword("<ifile_partition>", TRIM(int2string(fname_metadata%ifile_partition)),         keywords)
       CALL associate_keyword("<datetime>",        TRIM(date_string(i)),                                     keywords)
       ! keywords: compute current forecast time (delta):
       mtime_date => newDatetime(TRIM(date_string(i)))
@@ -368,6 +370,17 @@ CONTAINS
         &                      mtime_date%time%ms, 'Z'
       CALL associate_keyword("<datetime3>",       TRIM(dtime_string),                                       keywords)
       CALL deallocateDatetime(mtime_date)
+
+      ! "total_index": If we have split one namelist into concurrent,
+      !                alternating files, compute the file index,
+      !                which an "unsplit" namelist would have
+      !                produced:
+      IF (fname_metadata%npartitions > 1) THEN
+        total_index = fname_metadata%npartitions*(result_fnames(i)%jfile-1) + fname_metadata%ifile_partition
+      ELSE
+        total_index = result_fnames(i)%jfile
+      END IF
+      CALL associate_keyword("<total_index>", TRIM(int2string(total_index)), keywords)
 
       cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
       IF(my_process_is_mpi_test()) THEN

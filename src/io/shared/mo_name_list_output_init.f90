@@ -1076,11 +1076,7 @@ CONTAINS
             END SELECT
 
             ! Fill data members of "t_output_file" data structures
-            IF (npartitions == 1) THEN
-              p_of%filename_pref   = TRIM(p_onl%output_filename)
-            ELSE
-              p_of%filename_pref   = TRIM(p_onl%output_filename)//"_"//TRIM(int2string(ifile_partition))
-            END IF
+            p_of%filename_pref   = TRIM(p_onl%output_filename)
             p_of%phys_patch_id   = idom
             p_of%log_patch_id    = patch_info(idom)%log_patch_id
             p_of%output_type     = p_onl%filetype
@@ -1181,6 +1177,8 @@ CONTAINS
       fname_metadata%filename_format            = TRIM(p_onl%filename_format)
       fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
       fname_metadata%extn                       = TRIM(get_file_extension(p_onl%filetype))
+      fname_metadata%npartitions                = p_of%npartitions
+      fname_metadata%ifile_partition            = p_of%ifile_partition
 
       IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
         ! Restart case: Get starting index of ouput from restart file
@@ -1237,7 +1235,9 @@ CONTAINS
           CALL message(routine, message_text)
         END IF
         ! - The "include_last" flag is set to .FALSE.
-        include_last = .FALSE.
+        include_last                  = .FALSE.
+        ! - The "steps_per_file" counter is set to 1
+        fname_metadata%steps_per_file = 1        
         !
         CALL deallocateTimedelta(mtime_interval)
         CALL deallocateDatetime(mtime_datetime)
