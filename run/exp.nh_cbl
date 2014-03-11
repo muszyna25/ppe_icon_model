@@ -114,9 +114,9 @@ cat > ${atmo_namelist} << EOF
  shflx             =  0.1  ! kinematic surface heat flux
  lhflx             =  0.0  ! knematic latent heat flux 
  isrfc_type        = 2     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
- ufric             = 0.2
+ ufric             = 0.45
  expname           = '${EXPNAME}'
- avg_interval_sec = 1200.
+ avg_interval_sec = 900.
  sampl_freq_sec   = 30.
 /
 &diffusion_nml

@@ -114,9 +114,9 @@ cat > ${atmo_namelist} << EOF
  isrfc_type        = 3      !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  bflux             = 0.0007 !Buoyancy flux in m2/s3
  tran_coeff        = 0.02   !m/s
- ufric             = 0.2   
+ ufric             = 0.45
  expname           = '${EXPNAME}'
- avg_interval_sec = 1200.
+ avg_interval_sec = 900.
  sampl_freq_sec   = 30.
 /
 &diffusion_nml
