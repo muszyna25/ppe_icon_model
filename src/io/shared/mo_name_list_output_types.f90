@@ -250,6 +250,13 @@ MODULE mo_name_list_output_types
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
     CHARACTER(LEN=vname_len)  :: il_varlist(max_var_il)   ! name of isentropic level fields
 
+    !> "stream_partitions": Split one namelist into concurrent,
+    !> alternating files:
+    INTEGER                   :: stream_partitions_ml, &
+      &                          stream_partitions_pl, &
+      &                          stream_partitions_hl, &
+      &                          stream_partitions_il
+
     ! --------------------
     ! horizontal interpol.
     ! --------------------
@@ -338,6 +345,11 @@ MODULE mo_name_list_output_types
 
     INTEGER                               :: remap                            !< Copy of remap from associated namelist
     INTEGER                               :: io_proc_id                       !< ID of process doing I/O on this file
+
+    !> indices when one namelist has been split into concurrent,
+    !> alternating files ("stream_partitions"):
+    INTEGER                               :: npartitions                      !< total no. of parts
+    INTEGER                               :: ifile_partition                  !< index of this file
 
     ! Used for async IO only
     TYPE(t_mem_win)                       :: mem_win                          !< data structure containing variables for MPI memory window

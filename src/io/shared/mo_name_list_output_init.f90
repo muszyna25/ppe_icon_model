@@ -16,7 +16,7 @@
 MODULE mo_name_list_output_init
 
 #ifndef USE_CRAY_POINTER
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
 #endif
 ! USE_CRAY_POINTER
 
@@ -133,7 +133,9 @@ MODULE mo_name_list_output_init
 
   USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,    &
     &                                             timedelta, newTimedelta, deallocateTimedelta,   &
-    &                                             OPERATOR(<)
+    &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
+    &                                             getTotalMilliSecondsTimeDelta, datetime,        &
+    &                                             OPERATOR(+), datetimeToString
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
@@ -264,6 +266,13 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
     INTEGER                               :: iunit, lonlat_id
 
+    !> "stream_partitions": Split one namelist into concurrent,
+    !> alternating files:
+    INTEGER                               :: stream_partitions_ml, &
+      &                                      stream_partitions_pl, &
+      &                                      stream_partitions_hl, &
+      &                                      stream_partitions_il
+
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
       mode, taxis_tunit, dom,                                &
@@ -275,7 +284,9 @@ CONTAINS
       p_levels, h_levels, i_levels,                          &
       output_start, output_end, output_interval,             &
       output_bounds, output_time_unit,                       &
-      ready_file, file_interval, reg_def_mode
+      ready_file, file_interval, reg_def_mode,               &
+      stream_partitions_ml, stream_partitions_pl,            &
+      stream_partitions_hl, stream_partitions_il
 
     ! -- preliminary checks:
     !
@@ -342,6 +353,10 @@ CONTAINS
       output_time_unit         = 1
       ready_file               = DEFAULT_EVENT_NAME
       lonlat_id                = 0
+      stream_partitions_ml     = 1
+      stream_partitions_pl     = 1
+      stream_partitions_hl     = 1
+      stream_partitions_il     = 1
 
       ! -- Read output_nml
 
@@ -462,7 +477,7 @@ CONTAINS
         p_onl => p_onl%next
       ENDIF
 
-      ! Set next output_name_list from values read
+      ! -- Set next output_name_list from values read
 
       p_onl%filetype                 = filetype
       p_onl%mode                     = mode
@@ -492,9 +507,13 @@ CONTAINS
       p_onl%output_bounds(:)         = output_bounds(:)
       p_onl%ready_file               = ready_file
       p_onl%lonlat_id                = lonlat_id
+      p_onl%stream_partitions_ml     = stream_partitions_ml
+      p_onl%stream_partitions_pl     = stream_partitions_pl
+      p_onl%stream_partitions_hl     = stream_partitions_hl
+      p_onl%stream_partitions_il     = stream_partitions_il
 
-      ! translate variables names according to variable name
-      ! dictionary:
+      ! -- translate variables names according to variable name
+      !    dictionary:
       DO i=1,max_var_ml
         p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
           &                            default=p_onl%ml_varlist(i))
@@ -528,9 +547,8 @@ CONTAINS
 
       p_onl%next => NULL()
 
-      !-----------------------------------------------------
-      ! write the contents of the namelist to an ASCII file
-      !-----------------------------------------------------
+      ! -- write the contents of the namelist to an ASCII file
+
       IF(my_process_is_stdio()) WRITE(nnml_output,nml=output_nml)
 
     ENDDO
@@ -664,10 +682,11 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_name_list_output"
 
-    LOGICAL                            :: l_print_list ! Flag. Enables  a list of all variables
-    INTEGER                            :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
-      &                                   jp, idom, jg, local_i, idom_log,                  &
-      &                                   grid_info_mode, ierrstat, jl, idummy
+    LOGICAL                              :: l_print_list ! Flag. Enables  a list of all variables
+    INTEGER                              :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
+      &                                     jp, idom, jg, local_i, idom_log,                  &
+      &                                     grid_info_mode, ierrstat, jl, idummy, ifile,      &
+      &                                     npartitions, ifile_partition
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE (t_output_file),      POINTER   :: p_of
     TYPE(t_list_element),      POINTER   :: element
@@ -675,8 +694,16 @@ CONTAINS
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE (t_sim_step_info)               :: dom_sim_step_info
     TYPE(t_cf_var),            POINTER   :: this_cf
-    TYPE(timedelta),           POINTER   :: mtime_output_interval, mtime_lower_bound
+    TYPE(timedelta),           POINTER   :: mtime_output_interval, mtime_lower_bound,          &
+      &                                     mtime_interval
+    TYPE(datetime),            POINTER   :: mtime_datetime
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
+
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start,     &
+      &                                     output_interval
+    INTEGER                              :: additional_days
+    INTEGER(c_int64_t)                   :: total_ms
+    LOGICAL                              :: include_last
 
     l_print_list = .FALSE.
     i_sample     = 1
@@ -915,25 +942,20 @@ CONTAINS
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
 
-    ! Get the number of output files needed (by counting the domains per name list)
-
+    ! Date-time computations:
+    !
+    ! There are two alternative implementations for setting the output
+    ! intervals, "output_bounds" and "output_start" / "output_end" /
+    ! "output_interval". The former defines the output events relative
+    ! to the simulation start (in seconds) and the latter define the
+    ! output events by setting ISO8601-conforming date-time strings.
+    !
+    ! If the user has set a value for "output_bounds", we compute the
+    ! "output_start" / "output_end" / "output_interval" from this
+    ! info:
     p_onl => first_output_name_list
-    nfiles = 0
     DO
-
       IF(.NOT.ASSOCIATED(p_onl))  EXIT
-
-      ! First, do some date-time computations: There are two
-      ! alternative implementations for setting the output intervals,
-      ! "output_bounds" and "output_start" / "output_end" /
-      ! "output_interval". The former defines the output events
-      ! relative to the simulation start (in seconds) and the latter
-      ! define the output events by setting ISO8601-conforming
-      ! date-time strings.
-      !
-      ! If the user has set a value for "output_bounds", we compute
-      ! the "output_start" / "output_end" / "output_interval" from
-      ! this info:
 
       IF (p_onl%output_bounds(1) > -1._wp) THEN
         CALL get_datetime_string(p_onl%output_start, sim_step_info%sim_start, INT(p_onl%output_bounds(1)))
@@ -964,8 +986,17 @@ CONTAINS
       END IF
       CALL deallocateTimedelta(mtime_output_interval)
       CALL deallocateTimedelta(mtime_lower_bound)
-      !----------------------------------------------------------------------
-      ! 
+
+      p_onl => p_onl%next
+    ENDDO
+
+    ! Get the number of output files needed (by counting the domains per name list)
+
+    p_onl => first_output_name_list
+    nfiles = 0
+    DO
+
+      IF(.NOT.ASSOCIATED(p_onl))  EXIT
 
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
@@ -975,12 +1006,22 @@ CONTAINS
           CALL finish(routine,message_text)
         ENDIF
         DO i_typ = 1, 4
-          ! Check if name_list has variables of corresponding type
-          IF(i_typ == 1 .AND. p_onl%ml_varlist(1) == ' ') CYCLE
-          IF(i_typ == 2 .AND. p_onl%pl_varlist(1) == ' ') CYCLE
-          IF(i_typ == 3 .AND. p_onl%hl_varlist(1) == ' ') CYCLE
-          IF(i_typ == 4 .AND. p_onl%il_varlist(1) == ' ') CYCLE
-          nfiles = nfiles+1
+          ! Check if name_list has variables of corresponding type,
+          ! then increase file counter.
+          SELECT CASE(i_typ)
+          CASE (1)
+            IF (p_onl%ml_varlist(1) == ' ') CYCLE
+          nfiles = nfiles + p_onl%stream_partitions_ml
+          CASE (2)
+            IF (p_onl%pl_varlist(1) == ' ') CYCLE
+          nfiles = nfiles + p_onl%stream_partitions_pl
+          CASE (3) 
+            IF (p_onl%hl_varlist(1) == ' ') CYCLE
+            nfiles = nfiles + p_onl%stream_partitions_hl
+          CASE (4)
+            IF (p_onl%il_varlist(1) == ' ') CYCLE
+            nfiles = nfiles + p_onl%stream_partitions_il
+          END SELECT
         ENDDO
       ENDDO
 
@@ -1000,14 +1041,14 @@ CONTAINS
     ! Loop over all output namelists, set up the output_file struct for all associated files
 
     p_onl => first_output_name_list
-    nfiles = 0
-    DO
+    ifile = 0
+    LOOP_NML : DO
 
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
       ! Loop over all domains for which this name list should be used
 
-      DO i = 1, SIZE(p_onl%dom)
+      LOOP_DOM : DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
         idom = p_onl%dom(i)
 
@@ -1016,54 +1057,77 @@ CONTAINS
         DO i_typ = 1, 4
 
           ! Check if name_list has variables of corresponding type
-          IF(i_typ == 1 .AND. p_onl%ml_varlist(1) == ' ') CYCLE
-          IF(i_typ == 2 .AND. p_onl%pl_varlist(1) == ' ') CYCLE
-          IF(i_typ == 3 .AND. p_onl%hl_varlist(1) == ' ') CYCLE
-          IF(i_typ == 4 .AND. p_onl%il_varlist(1) == ' ') CYCLE
-
-          nfiles = nfiles+1
-          p_of => output_file(nfiles)
-
           SELECT CASE(i_typ)
+          CASE (1)
+            IF (p_onl%ml_varlist(1) == ' ') CYCLE
+            npartitions = p_onl%stream_partitions_ml
+          CASE (2)
+            IF (p_onl%pl_varlist(1) == ' ') CYCLE
+            npartitions = p_onl%stream_partitions_pl
+          CASE (3) 
+            IF (p_onl%hl_varlist(1) == ' ') CYCLE
+            npartitions = p_onl%stream_partitions_hl
+          CASE (4)
+            IF (p_onl%il_varlist(1) == ' ') CYCLE
+            npartitions = p_onl%stream_partitions_il
+          END SELECT
+
+          IF (npartitions > 1) THEN
+            WRITE(message_text,'(a,i4,a)') "Fork file into: ", npartitions, " concurrent parts."
+            CALL message(routine, message_text)
+          END IF
+
+          ! Split one namelist into concurrent, alternating files:
+          DO ifile_partition = 1,npartitions
+
+            ifile = ifile+1
+            p_of => output_file(ifile)
+
+            SELECT CASE(i_typ)
             CASE(1); p_of%ilev_type = level_type_ml
             CASE(2); p_of%ilev_type = level_type_pl
             CASE(3); p_of%ilev_type = level_type_hl
             CASE(4); p_of%ilev_type = level_type_il
-          END SELECT
+            END SELECT
 
-          ! Set prefix of output_file name
-          p_of%filename_pref = TRIM(p_onl%output_filename)
-          ! Fill data members of "t_output_file" data structures
-          p_of%phys_patch_id = idom
-          p_of%log_patch_id  = patch_info(idom)%log_patch_id
-          p_of%output_type   = p_onl%filetype
-          p_of%name_list     => p_onl
-          p_of%remap         = p_onl%remap
+            ! Fill data members of "t_output_file" data structures
+            IF (npartitions == 1) THEN
+              p_of%filename_pref   = TRIM(p_onl%output_filename)
+            ELSE
+              p_of%filename_pref   = TRIM(p_onl%output_filename)//"_"//TRIM(int2string(ifile_partition))
+            END IF
+            p_of%phys_patch_id   = idom
+            p_of%log_patch_id    = patch_info(idom)%log_patch_id
+            p_of%output_type     = p_onl%filetype
+            p_of%name_list       => p_onl
+            p_of%remap           = p_onl%remap
+            p_of%cdiCellGridID   = CDI_UNDEFID
+            p_of%cdiEdgeGridID   = CDI_UNDEFID
+            p_of%cdiVertGridID   = CDI_UNDEFID
+            p_of%cdiLonLatGridID = CDI_UNDEFID
+            p_of%cdiTaxisID      = CDI_UNDEFID
+            p_of%cdiZaxisID(:)   = CDI_UNDEFID
+            p_of%cdiVlistID      = CDI_UNDEFID
 
-          p_of%cdiCellGridID   = CDI_UNDEFID
-          p_of%cdiEdgeGridID   = CDI_UNDEFID
-          p_of%cdiVertGridID   = CDI_UNDEFID
-          p_of%cdiLonLatGridID = CDI_UNDEFID
-          p_of%cdiTaxisID      = CDI_UNDEFID
-          p_of%cdiZaxisID(:)   = CDI_UNDEFID
-          p_of%cdiVlistID      = CDI_UNDEFID
+            p_of%npartitions     = npartitions
+            p_of%ifile_partition = ifile_partition
 
-          ! Select all var_lists which belong to current logical domain and i_typ
-          nvl = 0
-          DO j = 1, nvar_lists
+            ! Select all var_lists which belong to current logical domain and i_typ
+            nvl = 0
+            DO j = 1, nvar_lists
 
-            IF(.NOT. var_lists(j)%p%loutput) CYCLE
-            ! patch_id in var_lists always corresponds to the LOGICAL domain
-            IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
+              IF(.NOT. var_lists(j)%p%loutput) CYCLE
+              ! patch_id in var_lists always corresponds to the LOGICAL domain
+              IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
 
-            IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
+              IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
 
-            nvl = nvl + 1
-            vl_list(nvl) = j
+              nvl = nvl + 1
+              vl_list(nvl) = j
 
-          ENDDO
+            ENDDO
 
-          SELECT CASE(i_typ)
+            SELECT CASE(i_typ)
             CASE(1)
               CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
             CASE(2)
@@ -1072,15 +1136,17 @@ CONTAINS
               CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
             CASE(4)
               CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
-          END SELECT
+            END SELECT
+
+          END DO ! ifile_partition
 
         ENDDO ! i_typ
 
-      ENDDO ! i=1,ndom
+      ENDDO LOOP_DOM ! i=1,ndom
 
       p_onl => p_onl%next
-
-    ENDDO
+      
+    ENDDO LOOP_NML
 
     ! Set ID of process doing I/O
     DO i = 1, nfiles
@@ -1140,7 +1206,7 @@ CONTAINS
         dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
       END IF
       local_i = local_i + 1
-      !================================================================================================
+
       ! special treatment of ocean model: model_date/run_start is the time at
       ! the beginning of the timestep. Output is written at the and of the
       ! timestep
@@ -1148,14 +1214,50 @@ CONTAINS
         CALL get_datetime_string(p_onl%output_start, time_config%cur_datetime, opt_td_string=p_onl%output_interval)
       ENDIF
 
+      include_last    = p_onl%include_last
+      output_interval = p_onl%output_interval
+      additional_days = p_onl%additional_days
+      output_start    = p_onl%output_start
 
-      ! I/O PEs communicate their event data, the other PEs create the
-      ! event data only locally for their own event control:
+      ! Handle the case that one namelist has been split into
+      ! concurrent, alternating files:
+      !
+      IF (p_of%npartitions > 1) THEN
+        mtime_interval => newTimedelta(output_interval)
+        mtime_datetime => newDatetime(output_start)
+        !
+        ! - The start_date gets an offset of
+        !         "(ifile_partition - 1) * output_interval"
+        DO ifile=1,(p_of%ifile_partition-1)
+          mtime_datetime = mtime_datetime + mtime_interval
+        END DO
+        CALL datetimeToString(mtime_datetime, output_start)
+        ! - The output_interval is replaced by "
+        !         "npartitions * output_interval"
+        total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
+        total_ms = total_ms + additional_days*86400000
+        total_ms = total_ms * p_of%npartitions
+        CALL get_duration_string(INT(total_ms/1000), output_interval, additional_days)
+        IF (p_of%ifile_partition == 1) THEN
+          WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", output_interval
+          CALL message(routine, message_text)
+        END IF
+        ! - The "include_last" flag is set to .FALSE.
+        include_last = .FALSE.
+        !
+        CALL deallocateTimedelta(mtime_interval)
+        CALL deallocateDatetime(mtime_datetime)
+      END IF
+
+      ! ------------------------------------------------------------------------------------------
+      ! --- I/O PEs communicate their event data, the other PEs create
+      ! --- the event data only locally for their own event control:
       p_of%out_event => new_parallel_output_event(p_onl%ready_file,                              &
-        &                  p_onl%output_start, p_onl%output_end, p_onl%output_interval,          &
-        &                  p_onl%additional_days, p_onl%include_last,                            &
+        &                  output_start, p_onl%output_end, output_interval,                      &
+        &                  additional_days, include_last,                                        &
         &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
         &                  generate_output_filenames, local_i, p_comm_io)
+      ! ------------------------------------------------------------------------------------------
       IF (dom_sim_step_info%jstep0 > 0) &
         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
     END DO
