@@ -538,7 +538,7 @@ CONTAINS
         ALLOCATE(tmp(wrk_p_parent_patch_g%n_patch_cells))
 
         IF(division_method(patch_no) == div_geometric) THEN
-          CALL divide_subset_geometric( flag_c, n_proc, wrk_p_parent_patch_g, tmp)
+          CALL divide_subset_geometric( flag_c, n_proc, wrk_p_parent_patch_g, tmp, .TRUE.)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_g, tmp)
@@ -575,7 +575,7 @@ CONTAINS
         ! Divide complete patch
 
         IF(division_method(patch_no) == div_geometric) THEN
-          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_g, cell_owner)
+          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_g, cell_owner, .FALSE.)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_g, cell_owner)
@@ -2383,13 +2383,15 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !!
   SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_divide_patch, &
-                                     owner)
+                                     owner, lparent_level)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
     TYPE(t_patch), INTENT(in) :: wrk_divide_patch
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
+    LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
+                              ! the parent grid level (true) or for the target grid level (false) 
 
     INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1)
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
@@ -2397,7 +2399,7 @@ CONTAINS
                ncell_offset(0:max_phys_dom)
     REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:)
     REAL(wp) :: cclat, cclon, corr_ratio(max_phys_dom)
-    LOGICAL  :: lsplit_merged_domains
+    LOGICAL  :: lsplit_merged_domains, locean
 
     !-----------------------------------------------------------------------
 
@@ -2407,6 +2409,12 @@ CONTAINS
       ELSE
         WRITE(0,*) 'divide_patch: Using geometric area subdivision (normal)'
       ENDIF
+    ENDIF
+
+    IF (get_my_process_type() == ocean_process) THEN
+      locean = .TRUE.
+    ELSE
+      locean = .FALSE.
     ENDIF
 
     ! Initialization of cell owner field
@@ -2610,7 +2618,9 @@ CONTAINS
 
           ! Disregard outer nest boundary points for the time being. They do very little
           ! computational work, so they can be added to the closest PEs afterwards
-          IF (wrk_divide_patch%cells%refin_ctrl(jl,jb) == -1) THEN
+          IF (lparent_level .AND. wrk_divide_patch%cells%refin_ctrl(jl,jb) == -1   .OR.     &
+              .NOT. lparent_level .AND. wrk_divide_patch%cells%refin_ctrl(jl,jb) >= 1 .AND. &
+               wrk_divide_patch%cells%refin_ctrl(jl,jb) <= 3 .AND. .NOT. locean) THEN
             nn = nn+1
             cell_desc(3,npt-nn) = REAL(j,wp)
             CYCLE
@@ -2685,7 +2695,9 @@ CONTAINS
         IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
           jb = blk_no(j) ! block index
           jl = idx_no(j) ! line index
-          IF (wrk_divide_patch%cells%refin_ctrl(jl,jb) /= -1) THEN
+          IF (lparent_level .AND. wrk_divide_patch%cells%refin_ctrl(jl,jb) /= -1   .OR.     &
+              .NOT. lparent_level .AND. (wrk_divide_patch%cells%refin_ctrl(jl,jb) <= 0 .OR. &
+               wrk_divide_patch%cells%refin_ctrl(jl,jb) >= 4) .OR. locean) THEN
             nc = nc+1
             owner(j) = NINT(cell_desc(4,nc))
           ENDIF
@@ -2704,10 +2716,12 @@ CONTAINS
           jl = idx_no(j) ! line index
           DO ii = 1, wrk_divide_patch%cells%num_edges(jl,jb)
             jn = idx_1d(wrk_divide_patch%cells%neighbor_idx(jl,jb,ii),wrk_divide_patch%cells%neighbor_blk(jl,jb,ii))
-            IF (owner(jn) >= 0) THEN
-              owner(j) = owner(jn)
-              nc = nc + 1
-              EXIT
+            IF (jn > 0) THEN
+              IF (owner(jn) >= 0) THEN
+                owner(j) = owner(jn)
+                nc = nc + 1
+                EXIT
+              ENDIF
             ENDIF
           ENDDO
         ENDDO
