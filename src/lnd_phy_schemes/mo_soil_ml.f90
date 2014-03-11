@@ -1467,16 +1467,14 @@ END SUBROUTINE message
   ! Set three-dimensional variables
   DO kso = 1, ke_soil
       DO i = istarts, iends
-!        IF(llandmask(i)) THEN        ! for land-points only
-          mstyp           = soiltyp_subs(i)        ! soil type
-          zalam(i,kso)  = cala0(mstyp)              ! heat conductivity parameter
-    zpsis(i,kso)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i,kso))
-    zb_por(i,kso)   = 2.91_ireals + .159_ireals*zclayf(i,kso)
-    zedb(i,kso)     = 1._ireals/zb_por(i,kso)
-!        ENDIF
+        mstyp           = soiltyp_subs(i)        ! soil type
+        zalam(i,kso)  = cala0(mstyp)              ! heat conductivity parameter
+        zpsis(i,kso)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i,kso))
+        zb_por(i,kso)   = 2.91_ireals + .159_ireals*zclayf(i,kso)
+        zedb(i,kso)     = 1._ireals/zb_por(i,kso)
 !<JH
-!fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
-!          zkw   (i,kso) = zkw   (i,kso)*EXP(-2._ireals*(zmls(kso)-rootdp(i)))
+        !fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
+        zkw   (i,kso) = zkw   (i,kso)*EXP(-2._ireals*(zmls(kso)-rootdp(i)))
 !>JH
 
       ENDDO
@@ -1826,37 +1824,17 @@ END SUBROUTINE message
           zsnow_rate = prs_gsp(i)+prs_con(i)              ! [kg/m**2 s]
         ENDIF
 
-!!$        zrain_rate = prr_gsp(i)+prr_con(i)  ! [kg/m**2 s]
-!!$
-!!$        ! linear decay equals 1.0 in 28 days -> new 12.5 days
-!!$        zdsn_old   = zdt/86400._ireals/12.5_ireals
-!!$
-!!$!             snow age during melting
-!!$        IF (t_snow_now(i) >= 271.15_ireals .OR. zrain_rate > 0._ireals) THEN 
-!!$        zdsn_old   = 1._ireals-exp(-dt/(86400._ireals*4._ireals)) ! 4d
-!!$        END IF
-!!$
-!!$        ! linear growth rate equals 1.0 in 1 day for a constant
-!!$        ! snow rate of 5 mmH2O (kg/m**2) per day (0.2) -> new 10 mmH2O (kg/m**2) per day (0.1)
-!!$        zdsn_new   = zdt*zsnow_rate*0.1_ireals   !
-!!$
-!!$
-!!$        ! reduce decay rate, if new snow is falling and as function of snow
-!!$        ! age itself
-!!$        zdsn_old   = (zdsn_old - zdsn_new)*freshsnow(i)
-!!$        zdsn_old   = MAX(zdsn_old,0._ireals)
-!!$
-!!$        freshsnow(i) = freshsnow(i) + zdsn_new-zdsn_old
-!!$
-!!$        freshsnow(i) = MIN(1._ireals,MAX(0._ireals,freshsnow(i)))
+        zrain_rate = prr_gsp(i)+prr_con(i)  ! [kg/m**2 s]
 
-       ! linear decay equals 1.0 in 28 days
-        zdsn_old   = zdt/86400._ireals/28._ireals
+        ! temperature-dependent aging timescale: 3 days at freezing point, 28 days below -5 deg C
+        ztau_snow = 86400._ireals*MIN(28.0_ireals,3._ireals+5._ireals*(t0_melt-MIN(t0_melt,t_snow_now(i))))
 
-        ! linear growth rate equals 1.0 in 1 day for a constant
-        ! snow rate of 5 mmH2O (kg/m**2) per day
-        zdsn_new   = zdt*zsnow_rate*0.2_ireals   !
+        ! decay rate for fresh snow including contribution by rain (full aging after 10 mm of rain)
+        zdsn_old   = zdt/ztau_snow + zdt*zrain_rate*0.1_ireals
 
+        ! linear growth rate equals 1.0 in 1 day for a temperature-dependent snow rate between
+        ! 10 mmH2O (kg/m**2) per day (0.1) and 5 mmH2O (kg/m**2) per day (0.2) 
+        zdsn_new   = zdt*zsnow_rate*(0.1_ireals + MIN(0.1_ireals,0.02_ireals*(t0_melt-t(i))))
 
         ! reduce decay rate, if new snow is falling and as function of snow
         ! age itself
@@ -2661,11 +2639,11 @@ END IF
         zwinstr(i) = MAX(0.0_ireals,zwinstr(i))
 
         ! maximum infiltration rate of the soil (rock/ice/water-exclusion
-        zinfmx(i) = zrock(i)*zfr_ice_free*csvoro &
-                 *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
-                 zporv(i,1)-zw_fr(i,1))/zporv(i,1) + zik2(i) )
+   !     zinfmx(i) = zrock(i)*zfr_ice_free*csvoro &
+   !              *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
+   !              zporv(i,1)-zw_fr(i,1))/zporv(i,1) + zik2(i) )
 
-!!$        zinfmx = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w
+        zinfmx(i) = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w
 
 
         ! to avoid pore volume water excess of the uppermost layer by 
@@ -2835,11 +2813,11 @@ ELSE   IF (itype_interception == 2) THEN
         zvers(i) =  zrhwddt*zro_wi + (1._ireals - zf_wi(i))*zrr(i) ! Test  Excess over zwimax will infiltrated
 
 !       maximum infiltration rate of the soil (rock/ice/water-exclusion
-        zinfmx(i) = zrock(i)*zfr_ice_free *csvoro &
-         *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
-            zporv(i,1)-zw_fr(i,1))/zporv(i,1) + zik2(i) )
+  !      zinfmx(i) = zrock(i)*zfr_ice_free *csvoro &
+  !       *( cik1*MAX(0.5_ireals,plcov(i))*MAX(0.0_ireals,           &
+  !          zporv(i,1)-zw_fr(i,1))/zporv(i,1) + zik2(i) )
 
-!!$        zinfmx = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w
+        zinfmx(i) = zrock(i)*zfr_ice_free*csvoro*zkw(i,1)*rho_w
            
 !       to avoid pore volume water excess of the uppermost layer by infiltration
         zinfmx(i) = MIN(zinfmx(i), (zporv(i,1) - zw_fr(i,1))*zdzhs(1)*zrhwddt)

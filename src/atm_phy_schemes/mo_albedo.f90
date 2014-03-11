@@ -568,6 +568,7 @@ CONTAINS
     REAL(wp):: snow_frac               !< snow cover fraction
     REAL(wp):: zsalb_snow              !< snow albedo (predictor)
     REAL(wp):: zsnow_alb               !< snow albedo (corrector)
+    REAL(wp):: t_fac                   !< factor for temperature dependency of zsnow_alb over glaciers
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -595,7 +596,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,      &
+!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,&
 !$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea,   &
 !$OMP            i_count_flk,i_count_seaice) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -636,8 +637,7 @@ CONTAINS
 
             ! Consider effects of aging on solar snow albedo
             !
-            zsalb_snow = csalb_snow_min + &
-              & lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
+            zsalb_snow = csalb_snow_min + lnd_diag%freshsnow_t(jc,jb,jt)*(csalb_snow_max-csalb_snow_min)
 
             ! special treatment for forests and artificial surfaces
             ! - aging of snow not considered
@@ -646,6 +646,13 @@ CONTAINS
             ! get land cover class
             ilu = ext_data%atm%lc_class_t(jc,jb,jt) 
             zsnow_alb = MIN(zsalb_snow, ABS(ext_data%atm%snowalb_lcc(ilu)))
+
+            ! increase snowalb_min over glaciers if the snow is cold enough
+            ! this is needed to prevent unrealistically low albedos over Antarctica
+            IF (ext_data%atm%alb_dif(jc,jb) > zsnow_alb) THEN
+              t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
+              zsnow_alb = (1._wp-t_fac)*zsalb_snow + t_fac*ext_data%atm%alb_dif(jc,jb)
+            ENDIF
 
             ! snow cover fraction
             IF (lnd_prog%w_snow_t(jc,jb,jt) > 0.0_wp) THEN
