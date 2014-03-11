@@ -3917,23 +3917,10 @@ L&see descr.& &
 \tabularnewline
 
 \hline
- stream\_partitions\_ml &
-I&1& &
-Splits model level output of this namelist into several concurrent alternating files.
-&
-\tabularnewline
-
-\hline
  stream\_partitions\_hl &
 I&1& &
 Splits height level output of this namelist into several concurrent alternating files.
-&
-\tabularnewline
-
-\hline
- stream\_partitions\_pl &
-I&1& &
-Splits pressure level output of this namelist into several concurrent alternating files.
+See namelist parameter \texttt{stream\_partitions\_ml} for details.
 &
 \tabularnewline
 
@@ -3941,6 +3928,25 @@ Splits pressure level output of this namelist into several concurrent alternatin
  stream\_partitions\_il &
 I&1& &
 Splits isentropic level output of this namelist into several concurrent alternating files.
+See namelist parameter \texttt{stream\_partitions\_ml} for details.
+&
+\tabularnewline
+
+\hline
+ stream\_partitions\_ml &
+I&1& &
+Splits model level output of this namelist into several concurrent alternating files.
+The output is split into $N$ files, where the start date of part $i$ gets an offset
+of $(i-1)*\texttt{output\_interval}$. The output interval is then replaced by $N*\texttt{output\_interval}$
+and the \texttt{include\_last} flag is set to \texttt{.FALSE.}.
+&
+\tabularnewline
+
+\hline
+ stream\_partitions\_pl &
+I&1& &
+Splits pressure level output of this namelist into several concurrent alternating files.
+See namelist parameter \texttt{stream\_partitions\_ml} for details.
 &
 \tabularnewline
 
