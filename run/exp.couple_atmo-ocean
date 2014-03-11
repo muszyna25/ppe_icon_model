@@ -65,7 +65,7 @@ dt_coupling=1800
 #
 # restart and checkpoint intervals
 #
-ndays_restart=300
+ndays_restart=3
 ndays_checkpoint=$ndays_restart  # checkpointing not yet supported for coupling fields
 #
 (( dt_checkpoint = ${ndays_checkpoint} * day ))
