@@ -52,7 +52,7 @@ MODULE mo_oce_forcing
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
     & forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
     & forcing_windstress_u_type, forcing_windstress_v_type,    &
-    & forcing_windstress_zonalWavePhase, relax_temperature_min, &
+    & forcing_windstress_zonalWavePhas, relax_temperature_min, &
     & relax_temperature_max
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -853,7 +853,7 @@ CONTAINS
 
     field_2d(:,:) = MERGE(amplitude * COS(lat(:,:)) * &
       & COS(zonal_waveno * lat(:,:)) * & 
-      & COS(forcing_windstress_zonalWavePhase + zonal_waveno * ABS(lat(:,:))), 0.0_wp, mask(:,:) <= threshold)
+      & COS(forcing_windstress_zonalWavePhas + zonal_waveno * ABS(lat(:,:))), 0.0_wp, mask(:,:) <= threshold)
 
   END SUBROUTINE zonal_periodic_zero_at_pols
 
