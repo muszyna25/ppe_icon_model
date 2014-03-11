@@ -4077,8 +4077,8 @@ sets of common variables can be added to the output:
 \texttt{hhhmmss}           \>  substituted by \emph{relative} hour-minute-second string     \\
 \texttt{npartitions}       \>  If namelist is split into concurrent files: number of stream partitions.           \\
 \texttt{ifile\_partition}  \>  If namelist is split into concurrent files: stream partition index of this file.   \\
-\texttt{total\_index}      \>  If namelist is split into concurrent files: substituted by the file index, \\ 
-                           \>  which an "unsplit" namelist would have produced
+\texttt{total\_index}      \>  If namelist is split into concurrent files: substituted by the file counter \\ 
+                           \>  (like in \texttt{jfile}), which an "unsplit" namelist would have produced
 \end{tabbing}
 
 
