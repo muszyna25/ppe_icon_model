@@ -3937,8 +3937,10 @@ See namelist parameter \texttt{stream\_partitions\_ml} for details.
 I&1& &
 Splits model level output of this namelist into several concurrent alternating files.
 The output is split into $N$ files, where the start date of part $i$ gets an offset
-of $(i-1)*\texttt{output\_interval}$. The output interval is then replaced by $N*\texttt{output\_interval}$
-and the \texttt{include\_last} flag is set to \texttt{.FALSE.}.
+of $(i-1)*\texttt{output\_interval}$. 
+The output interval is then replaced by $N*\texttt{output\_interval}$,
+the \texttt{include\_last} flag is set to \texttt{.FALSE.}, and
+the \texttt{steps\_per\_file} counter is set to \texttt{1}.
 &
 \tabularnewline
 
@@ -4072,7 +4074,11 @@ sets of common variables can be added to the output:
 \texttt{datetime2}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmssZ}         \\
 \texttt{datetime3}         \>  substituted by ISO-8601 date-time stamp in format \texttt{YYYYMMDDThhmmss.sssZ}     \\
 \texttt{ddhhmmss}          \>  substituted by \emph{relative} day-hour-minute-second string \\
-\texttt{hhhmmss}           \>  substituted by \emph{relative} hour-minute-second string
+\texttt{hhhmmss}           \>  substituted by \emph{relative} hour-minute-second string     \\
+\texttt{npartitions}       \>  If namelist is split into concurrent files: number of stream partitions.           \\
+\texttt{ifile\_partition}  \>  If namelist is split into concurrent files: stream partition index of this file.   \\
+\texttt{total\_index}      \>  If namelist is split into concurrent files: substituted by the file index, \\ 
+                           \>  which an "unsplit" namelist would have produced
 \end{tabbing}
 
 
