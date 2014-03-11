@@ -976,16 +976,18 @@ CONTAINS
       END IF
 
       !--- consistency check: do not allow output intervals < dtime*iadv_rcf:
-      mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval))
-      CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
-        &                      lower_bound_str, idummy)
-      IF (idummy > 0)  CALL finish(routine, "Internal error!")
-      mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
-      IF (mtime_output_interval < mtime_lower_bound) THEN
-        CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval)//" < dtime*iadv_rcf !")
-      END IF
-      CALL deallocateTimedelta(mtime_output_interval)
-      CALL deallocateTimedelta(mtime_lower_bound)
+      if (p_onl%additional_days == 0) then
+         mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval))
+         CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
+              &                      lower_bound_str, idummy)
+         IF (idummy > 0)  CALL finish(routine, "Internal error!")
+         mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
+         IF (mtime_output_interval < mtime_lower_bound) THEN
+            CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval)//" < dtime*iadv_rcf !")
+         END IF
+         CALL deallocateTimedelta(mtime_output_interval)
+         CALL deallocateTimedelta(mtime_lower_bound)
+      end if
 
       p_onl => p_onl%next
     ENDDO
