@@ -223,6 +223,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   num_blks_c = p_patch%nblks_c
 
+  dz1 = 0.0_wp
+  dz2 = 0.0_wp
+  dz3 = 0.0_wp
+
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zrefpres(nproma,nlev,num_blks_c),STAT=istatus)
@@ -245,6 +249,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       CALL finish (TRIM(routine), &
                  'allocation of zpres_ifc failed')
     END IF
+    zrefpres = 0.0_wp
+    zreftemp = 0.0_wp
+    zpres_sfc = 0.0_wp
+    zpres_ifc = 0.0_wp
   END IF
 
   ! for both restart and non-restart runs. Could not be included into 
@@ -585,7 +593,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       ! like in mo_echam_phy_init.f90
       DO jk = 1,nlev
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1, i_endidx
+        DO jc = i_startidx, i_endidx
           zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
           zprat=(MIN(8._wp,80000._wp/zpres))**2
 
@@ -609,23 +617,23 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
             zrefpres(jc,jk,jb) = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
             ! here we choose to use temp to compute sfc pres instead of tempv
             zreftemp(jc,jk,jb) = p_metrics%theta_ref_mc(jc,jk,jb)*zrefpres(jc,jk,jb)
-            ! Reference Potential temperature, full level mass points
 
-            ! we also need pres at interface levels; first we need sfc press...
-            ! Height differences between surface and third-lowest main level
-            dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
-            dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
-            dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
-
-            ! Compute surface pressure starting from third-lowest level
-            zpres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(p_metrics%exner_ref_mc(jc,nlev-2,jb)) + & 
-              grav_o_rd*(dz1/zreftemp(jc,nlev,jb) + dz2/zreftemp(jc,nlev-1,jb) +     &   
-              dz3/zreftemp(jc,nlev-2,jb)) )
-
-            zpres_ifc(jc,nlevp1,jb) = zpres_sfc(jc,jb)
           END IF
         END DO !jc
       END DO   !jk
+      DO jc = i_startidx,i_endidx
+        ! we also need pres at interface levels; first we need sfc press...
+        ! Height differences between surface and third-lowest main level
+        dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
+        dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
+        dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
+        ! Compute surface pressure starting from three lowest levels
+        zpres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(p_metrics%exner_ref_mc(jc,nlev-2,jb))  + & 
+                           grav_o_rd*(dz1/zreftemp(jc,nlev,jb) + dz2/zreftemp(jc,nlev-1,jb) + &   
+                           dz3/zreftemp(jc,nlev-2,jb)) )
+
+        zpres_ifc(jc,nlevp1,jb) = zpres_sfc(jc,jb)
+      END DO !jc
       IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
         ! compute interface from nlev-1 to TOA 
         DO jk = nlev,2,-1
