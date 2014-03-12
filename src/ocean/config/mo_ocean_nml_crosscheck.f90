@@ -205,7 +205,7 @@ CONTAINS
       l_constant_mixing = .TRUE.
     ENDIF
 
-    CALL check_thicknesses()
+    CALL check_thicknesses
 
 
   END SUBROUTINE oce_crosscheck
