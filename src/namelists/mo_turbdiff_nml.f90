@@ -133,6 +133,9 @@ CONTAINS
     ! 1.b temorarily overwrite default settings of namelist variables:
     !-----------------------
 
+!DR This is a dirty hack, since it implies that the namelist nwp_phy_nml
+!DR must be read before turbdiff_nml. Any cross dependency between namelist-modules should 
+!DR be avoided!! 
     IF ( ANY( (/10,11/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
       imode_tran = 0       ! mode of surface-atmosphere transfer
       icldm_tran = 2       ! mode of cloud representation in transfer parametr.

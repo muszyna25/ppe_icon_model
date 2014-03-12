@@ -2015,11 +2015,11 @@ MODULE mo_nh_stepping
 
     map_phyproc(1:iphysproc,1:iphysproc_short) = .FALSE. ! initialization
 
-    map_phyproc(1,1)    = .TRUE.  ! simple one to one mapping
-    map_phyproc(2,2)    = .TRUE.  ! simple one to one mapping
-    map_phyproc(3,3)    = .TRUE.  ! simple one to one mapping
-    map_phyproc(4,4)    = .TRUE.  ! simple one to one mapping
-    map_phyproc(5,5)    = .TRUE.  ! simple one to one mapping
+    map_phyproc(1   ,1) = .TRUE.  ! simple one to one mapping
+    map_phyproc(2   ,2) = .TRUE.  ! simple one to one mapping
+    map_phyproc(3   ,3) = .TRUE.  ! simple one to one mapping
+    map_phyproc(4   ,4) = .TRUE.  ! simple one to one mapping
+    map_phyproc(5   ,5) = .TRUE.  ! simple one to one mapping
     map_phyproc(6:11,6) = .TRUE.  ! mapping of fast physics processes to single one
 
   END SUBROUTINE setup_time_ctrl_physics

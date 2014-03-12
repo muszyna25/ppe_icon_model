@@ -42,8 +42,9 @@
 MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish, message
+  USE mo_exception,           ONLY: finish, message, message_text
   USE mo_impl_constants,      ONLY: max_dom, icosmo
+  USE mo_math_constants,      ONLY: dbl_eps
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
@@ -151,6 +152,7 @@ CONTAINS
   !! - potentially overwrites the defaults by values used in a 
   !!   previous integration (if this is a resumed run)
   !! - reads the user's (new) specifications
+  !! - performs sanity checks
   !! - stores the Namelist for restart
   !! - fills the configuration state (partly)    
   !!
@@ -295,10 +297,7 @@ CONTAINS
 
     DO jg = 1, max_dom
 
-      IF (inwp_gscp(jg) /= 0 .AND. inwp_gscp(jg) /= 1 .AND. inwp_gscp(jg) /= 2 .AND. &
-        & inwp_gscp(jg) /= 3 .AND. inwp_gscp(jg) /= 4 .AND. inwp_gscp(jg) /= 9 .AND. &
-        & inwp_gscp(jg) /= 10 ) THEN
-   
+      IF ( ALL((/0,1,2,3,4,9,10/) /= inwp_gscp(jg)) ) THEN
         CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,9 or 10.')
       END IF
 
@@ -307,7 +306,27 @@ CONTAINS
         itype_z0 = 1
       ENDIF
 
+
+      ! Check whether the radiation time step is a multiple of the convection time step.
+      ! If not, then adapt the radiation time step. I.e. the radiation time step is rounded up to 
+      ! the next full multiple.
+      IF( MOD(dt_rad(jg),dt_conv(jg)) > 10._wp*dbl_eps ) THEN
+        ! write warning only for global domain
+        IF (jg==1) THEN
+          WRITE(message_text,'(a,2F8.1)') &
+            &'WARNING: radiation timestep is not a multiple of convection timestep: ', &
+            & dt_rad(jg), dt_conv(jg)
+          CALL message(TRIM(routine), TRIM(message_text))
+          WRITE(message_text,'(a,F8.1)') &
+            &'radiation time step is rounded up to next multiple: dt_rad !=!', &
+            & REAL((FLOOR(dt_rad(jg)/dt_conv(jg)) + 1),wp) * dt_conv(jg)
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
+        dt_rad(jg) = REAL((FLOOR(dt_rad(jg)/dt_conv(jg)) + 1),wp) * dt_conv(jg)
+      ENDIF
+
     ENDDO
+
 
 
     !----------------------------------------------------
