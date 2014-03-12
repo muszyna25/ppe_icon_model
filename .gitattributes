@@ -798,7 +798,7 @@ run/post.test_nh3_tri_tracer_solid_body -text
 run/post.test_oce_acc -text
 run/post.test_oce_default -text
 run/post.test_oce_numeric -text
-run/post.test_oce_tracer_conservation -text
+run/post.test_oce_numeric_tracerconservation -text
 run/run_ICOHAM_R2B4_APE -text
 run/run_ICONAM_ECMWF -text
 run/run_ICONAM_R2B4_APE -text
