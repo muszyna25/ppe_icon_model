@@ -44,7 +44,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=72
+dtime=72  # 72 sec for R2B6, 24 sec for R3B7
 ndays=7
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 
@@ -163,10 +163,14 @@ cat > ${atmo_namelist} << EOF
  latm_above_top  = .false.
  efdt_min_raylfric = 7200.
  itype_z0         = 2
+ ! resolution-dependent settings - please choose the appropriate one
+ ! dt_rad    = 2160. (R2B6) / 1440. (R3B7) ** should be an integer multiple of dt_conv **
+ ! dt_conv   = 720. (R2B6) / 360. (R3B7)
+ ! dt_sso    = 1440. (R2B6) / 720. (R3B7)
 /
 &turbdiff_nml
- tkhmin  = 0.2
- tkmmin  = 0.2
+ tkhmin  = 0.75  ! new default since rev. 16527
+ tkmmin  = 0.75  !           " 
  pat_len = 100.
  c_diff  = 0.2
  rat_sea = 9.0
@@ -175,7 +179,7 @@ cat > ${atmo_namelist} << EOF
  ntiles         = 3      !!! 1 for assimilation cycle and forecast
  nlev_snow      = 2      !!! 1 for assimilation cycle and forecast
  lmulti_snow    = .true. !!! .false. for assimilation cycle and forecast
- itype_heatcond = 1
+ itype_heatcond = 2
  idiag_snowfrac = 4
  lsnowtile      = .false.
  lseaice        = .true.
@@ -204,8 +208,9 @@ cat > ${atmo_namelist} << EOF
  rayleigh_coeff = 0.10
  iadv_rcf       = 5
  lhdiff_rcf     = .true.
- divdamp_order  = 24  ! may become unnecessary with incremental analysis update
- divdamp_type   = 3     !!! optional: 2 for assimilation cycle
+ divdamp_order  = 24  ! use 4 with incremental analysis update
+ divdamp_type   = 3     !!! optional: 2 for assimilation cycle if incremental analysis update is NOT used
+ divdamp_fac    = 0.004 ! for R2B6; recommendation for R3B7: 0.003
  l_open_ubc     = .false.
  igradp_method  = 3
  l_zdiffu_t     = .true.
@@ -239,8 +244,8 @@ cat > ${atmo_namelist} << EOF
  hdiff_order      = 5
  itype_vn_diffu   = 1
  itype_t_diffu    = 2
- hdiff_efdt_ratio = 36.0
- hdiff_smag_fac   = 0.015
+ hdiff_efdt_ratio = 24.0   ! for R2B6; recommendation for R3B7: 30.0
+ hdiff_smag_fac   = 0.025  ! for R2B6; recommendation for R3B7: 0.02
  lhdiff_vn        = .TRUE.
  lhdiff_temp      = .TRUE.
 /
