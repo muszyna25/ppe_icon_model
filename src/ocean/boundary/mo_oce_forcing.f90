@@ -57,11 +57,12 @@ MODULE mo_oce_forcing
 #else
     & forcing_windstress_zonalWavePhase,                       &
 #endif
-    & relax_temperature_min, relax_temperature_max
+    & relax_temperature_min, relax_temperature_max,            &
+    & forcing_temperature_poleLat
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_math_constants,      ONLY: pi, deg2rad
+  USE mo_math_constants,      ONLY: pi, deg2rad, pi_2
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
   USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec, t_cartesian_coordinates
   USE mo_sea_ice_types,       ONLY: t_sfc_flx
@@ -449,7 +450,7 @@ CONTAINS
 
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_relax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp):: temperature_difference
+    REAL(wp) :: temperature_difference, poleLat, waveNo
 
     TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
@@ -576,13 +577,18 @@ CONTAINS
       p_sfc_flx%forc_tracer_relax(:,:,1) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
 
     CASE(4)
+      ! smooth ape relaxation, as in temperature_smoothAPE in mo_cean_initial_conditions
       temperature_difference = relax_temperature_max - relax_temperature_min
+      poleLat = forcing_temperature_poleLat * deg2rad
+      waveNo = pi_2 / forcing_temperature_poleLat
+
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
         DO jc = start_cell_index, end_cell_index
           DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = relax_temperature_min + &
-              & COS(patch_2d%cells%center(jc,jb)%lat)**3 * temperature_difference
+            p_sfc_flx%forc_tracer_relax(jc,jk,jb) = relax_temperature_min    + &
+              & (COS(waveNo * patch_2d%cells%center(jc,jb)%lat)**2)  * temperature_difference
+
           END DO
         END DO
       END DO
@@ -734,8 +740,11 @@ CONTAINS
         CALL cells_zonal_and_meridional_periodic_constant_amplitude_sin(subset, mask, threshold, windstress, amplitude)
       CASE(110)
         CALL cells_zonal_and_meridional_periodic_constant_amplitude_cosin(subset, mask, threshold, windstress, amplitude)
+      CASE(111)
+        CALL Wolfe_Sessi_TestCase(subset, mask, threshold, windstress, amplitude)
       END SELECT
     END SELECT
+
   END SUBROUTINE set_windstress
 
   SUBROUTINE basin_zonal(subset, mask, threshold, field_2d, amplitude,length_opt, zonal_waveno_opt)
@@ -857,15 +866,36 @@ CONTAINS
 
 #ifdef __SX__
     field_2d(:,:) = MERGE(amplitude * COS(lat(:,:)) * &
-      & COS(zonal_waveno * lat(:,:)) * & 
       & COS(forcing_windstress_zonalWavePhas + zonal_waveno * ABS(lat(:,:))), 0.0_wp, mask(:,:) <= threshold)
 #else
     field_2d(:,:) = MERGE(amplitude * COS(lat(:,:)) * &
-      & COS(zonal_waveno * lat(:,:)) * & 
       & COS(forcing_windstress_zonalWavePhase + zonal_waveno * ABS(lat(:,:))), 0.0_wp, mask(:,:) <= threshold)
 #endif
 
   END SUBROUTINE zonal_periodic_zero_at_pols
+
+  SUBROUTINE Wolfe_Sessi_TestCase(subset, mask, threshold, field_2d, amplitude)
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    INTEGER, INTENT(IN)              :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+
+    ! REAL(wp) :: zonal_waveno
+    REAL(wp) :: reference_value
+    REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
+
+    lat(:,:) = subset%patch%cells%center(:,:)%lat
+    lon(:,:) = subset%patch%cells%center(:,:)%lon
+
+    reference_value = COS(3.5_wp * pi)
+
+    field_2d(:,:) = MERGE(amplitude *      &
+      & (- ABS(SIN(4.0_wp * lat(:,:))) -   &
+      & COS(7.0_wp * lat(:,:)) +           &
+      & reference_value), 0.0_wp, mask(:,:) <= threshold)
+
+  END SUBROUTINE Wolfe_Sessi_TestCase
 
   SUBROUTINE cells_zonal_periodic(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset

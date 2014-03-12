@@ -457,6 +457,8 @@ MODULE mo_ocean_nml
   INTEGER  :: forcing_smooth_steps                 = 100
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
+  REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
+                                                              ! for temperature forcing (degrees)
 
   NAMELIST/ocean_forcing_nml/&
     &                 i_apply_bulk                        , &  
@@ -494,6 +496,7 @@ MODULE mo_ocean_nml
     &                 temperature_relaxation              , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &
+    &                 forcing_temperature_poleLat         , &
     &                 forcing_smooth_steps                , &
     &                 use_new_forcing
   ! } END FORCING

@@ -269,7 +269,8 @@ MODULE mo_ocean_initial_conditions
     & initial_salinity_top, initial_salinity_bottom, &
     & use_tracer_x_height, topography_type, topography_height_reference, &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
-    & initial_sst_type, initial_velocity_type, initial_velocity_amplitude
+    & initial_sst_type, initial_velocity_type, initial_velocity_amplitude, &
+    & forcing_temperature_poleLat
 
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
@@ -1560,7 +1561,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp) :: temperature_difference
+    REAL(wp) :: temperature_difference, poleLat, waveNo
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
     !-------------------------------------------------------------------------
@@ -1571,14 +1572,17 @@ CONTAINS
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
+
     temperature_difference = initial_temperature_top - initial_temperature_bottom
+    poleLat = forcing_temperature_poleLat * deg2rad
+    waveNo = pi_2 / poleLat
     
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
           ocean_temperature(jc,jk,jb) = initial_temperature_bottom + &
-            & COS(patch_2d%cells%center(jc,jb)%lat)**3 * temperature_difference
+            & COS(waveNo * MAX(patch_2d%cells%center(jc,jb)%lat, poleLat))**2 * temperature_difference
         END DO
       END DO
     END DO
