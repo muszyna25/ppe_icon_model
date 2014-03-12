@@ -97,7 +97,7 @@ forcing_timescale=1    # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
-  end_date="2001-01-03T00:00:00Z"
+  end_date="2001-01-11T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -157,7 +157,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','group:ice_default','condep','mld'
+  ml_varlist       =  't','s','wet_c'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
