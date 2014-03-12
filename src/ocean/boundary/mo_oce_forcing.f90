@@ -580,7 +580,7 @@ CONTAINS
       ! smooth ape relaxation, as in temperature_smoothAPE in mo_cean_initial_conditions
       temperature_difference = relax_temperature_max - relax_temperature_min
       poleLat = forcing_temperature_poleLat * deg2rad
-      waveNo = pi_2 / forcing_temperature_poleLat
+      waveNo = pi_2 / poleLat
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)

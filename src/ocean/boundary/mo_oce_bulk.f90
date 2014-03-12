@@ -788,6 +788,7 @@ CONTAINS
       !z_tmin = -1.0_wp
       z_tmin =tf  !  -1.9 deg C
 
+      ! LL: this is not the proper check in this point, should be removed
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
