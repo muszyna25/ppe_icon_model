@@ -166,6 +166,13 @@ CONTAINS
 
   END SUBROUTINE resize_ocean_simulation_length
 
+  SUBROUTINE check_thicknesses
+
+    ! ensure, that all used thicknesses are non-zero
+    IF (MINVAL(dzlev_m(1:n_zlev)) <= 0.0_wp) THEN
+      CALL finish("check_thicknesses","Found zero or negative thicknesses")
+    END IF
+  END SUBROUTINE check_thicknesses
 
   SUBROUTINE oce_crosscheck()
 
@@ -197,6 +204,8 @@ CONTAINS
       CALL warning("oce_crosscheck", "no_tracer < 1, set l_constant_mixing=TRUE")
       l_constant_mixing = .TRUE.
     ENDIF
+
+    CALL check_thicknesses()
 
 
   END SUBROUTINE oce_crosscheck

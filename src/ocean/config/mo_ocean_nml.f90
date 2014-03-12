@@ -604,7 +604,7 @@ MODULE mo_ocean_nml
      ! default values when namelist is not present and no default on definition
 
      n_zlev            = 5
-     dzlev_m(:)        = -99.99_wp!
+     dzlev_m(:)        = -1.0_wp
 
      dzlev_m(1:n_zlev) =  (/ 50.0_wp, 150.0_wp, 500.0_wp, 1300.0_wp, 2500.0_wp  /)
      !  lower level of layers:  50       200       700       2000       4500
