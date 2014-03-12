@@ -621,6 +621,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           END IF
         END DO !jc
       END DO   !jk
+!DR Quick Fix: Levi, could you please check??
+IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
       DO jc = i_startidx,i_endidx
         ! we also need pres at interface levels; first we need sfc press...
         ! Height differences between surface and third-lowest main level
@@ -634,6 +636,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
         zpres_ifc(jc,nlevp1,jb) = zpres_sfc(jc,jb)
       END DO !jc
+END IF
+!DR End Quick hack
+
       IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
         ! compute interface from nlev-1 to TOA 
         DO jk = nlev,2,-1
