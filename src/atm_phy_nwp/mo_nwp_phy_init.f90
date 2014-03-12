@@ -296,7 +296,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                                      &     p_prog_now%tracer(jc,nlev,jb,iqv)) 
         END DO
 
-      ELSE IF (ltestcase .AND. nh_test_name == 'CBL' ) THEN !
+      ELSE IF (ltestcase .AND. nh_test_name == 'CBL' .OR. nh_test_name == 'RCE'  &
+               & .OR. nh_test_name == 'RCE_CBL' ) THEN !
  
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g (jc,jb) = th_cbl(1)
