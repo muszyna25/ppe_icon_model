@@ -4984,14 +4984,28 @@ type of diagnostics of synoptical near surface variables & inwp\_turb = 1
 \hline
 lconst\_z0 &
 L                &     .FALSE.      & &
-TRUE: horizontally homogeneous roughness lenght z0 & inwp\_turb = 1
+TRUE: horizontally homogeneous roughness length z0 & inwp\_turb = 1
 \tabularnewline
 
 \hline
 const\_z0 &
 R                &     0.001      & m &
-value for horizontally homogeneous roughness lenght z0 & inwp\_turb = 1 \\
+value for horizontally homogeneous roughness length z0 & inwp\_turb = 1 \\
 lconst\_z0=.TRUE.
+\tabularnewline
+
+\hline
+tkhmin &
+R                &     0.75      & $\mathrm{m^2/s}$ &
+Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$ inwp\_turb = 10, constant for inwp\_turb = 1)
+ for for heat and moisture & inwp\_turb = 1,10 \\
+\tabularnewline
+
+\hline
+tkmmin &
+R                &     0.75      & $\mathrm{m^2/s}$ &
+Scaling factor for minimum vertical diffusion coefficient  (proportional to $1/\sqrt{Ri}$ inwp\_turb = 10, constant for inwp\_turb = 1)
+  for momentum & inwp\_turb = 1,10 \\
 \tabularnewline
 
 \end{longtab}
@@ -6241,6 +6255,12 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{turbdiff\_nml}{2014-03-12 }{16527 }
+  \begin{itemize}
+   \item Change constant minimum vertical diffusion coefficients to variable ones proportional to $1/\sqrt{Ri}$ for inwp\_turb = 10; at the same time
+         the defaults for tkhmin and tkmmin are increased from $0.2 \, \mathrm{m^2/s}$ to $0.75 \, \mathrm{m^2/s}$.
+  \end{itemize}
+\end{changeitem}
 
 % --------------------------------------------------------------------------------------------
 

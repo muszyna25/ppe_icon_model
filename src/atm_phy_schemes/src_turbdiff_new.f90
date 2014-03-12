@@ -1786,7 +1786,8 @@ SUBROUTINE turbtran
         dz_0a_m  (ie),    &
         dz_0a_h  (ie),    &
         dz_sa_h  (ie),    &
-        dz_s0_h  (ie)
+        dz_s0_h  (ie),    &
+        velmin   (ie)
 
 #ifdef _CRAYFTN
      REAL (KIND=ireals), POINTER, CONTIGUOUS :: &
@@ -2187,6 +2188,13 @@ SUBROUTINE turbtran
 !DIR$ IVDEP
          DO i=istartpar, iendpar
             vel_2d(i)=MAX( vel_min, SQRT(vel1_2d(i)**2+vel2_2d(i)**2) )
+            !
+            ! stability-dependent minimum velocity serving as lower limit on surface TKE
+            ! (parameterizes small-scale circulations developing over a strongly heated surface; 
+            ! tuned to get 1 m/s when the land surface is about 10 K warmer than the air in the
+            ! lowest model level; nothing is set over water because this turned out to induce detrimental effects in NH winter)
+            velmin(i) = MAX( vel_min, fr_land(i)*(t_g(i)/zexner(ps(i)) - t(i,ke)/exner(i,ke))/ &
+                        LOG(2.e3_ireals*h_atm_2d(i)) )
          END DO
 
 !        Vorbelegung mit Erhaltungsvariablen auf unterster Hauptflaeche als Referenz-Niveau:
@@ -2296,7 +2304,8 @@ SUBROUTINE turbtran
 #ifdef SCLM
                                   it_s=it_durch, grd=RESHAPE(grad,(/ie,1,nred/)),   &
 #endif
-                                  tls=len_scale(:,ke1:ke1), tvt=tvt(:,ke1:ke1) )
+                                  tls=len_scale(:,ke1:ke1), tvt=tvt(:,ke1:ke1),     &
+                                  velmin=velmin(:)                                  )
 
 
 !DIR$ IVDEP
@@ -3028,7 +3037,7 @@ SUBROUTINE turbdiff
 !
 !     sonstiges:
 !
-           x1,x2,x3
+           x1,x2,x3, tkvcorr
 
       REAL (KIND=ireals) :: flukon33, flukon43, flukon53, &
                             flukon34, flukon44, flukon54, flukon55, &
@@ -4173,11 +4182,15 @@ SUBROUTINE turbdiff
          DO i=istartpar,iendpar
 !           Berechn. der Diffusionskoeffizienten:
 
-!Achtung: moeglichst ohne tk?min
-!___________________________________________________________________________
-!test:
-            tkvh(i,k)=MAX( con_h, tkhmin, tkvh(i,k)*tke(i,k,ntur) )
-            tkvm(i,k)=MAX( con_m, tkmmin, tkvm(i,k)*tke(i,k,ntur) )
+            ! Variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
+            ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1
+            x1 = z1d2*(hhl(i,k-1)-hhl(i,k+1))
+            x2 = MAX( 1.e-6_ireals, ((u(i,k-1)-u(i,k))**2+(v(i,k-1)-v(i,k))**2)/x1**2 )          ! |du/dz|**2
+            x3 = MAX( 1.e-5_ireals, grav/(z1d2*(t(i,k-1)+t(i,k)))*((t(i,k-1)-t(i,k))/x1+tet_g) ) !       N**2
+            tkvcorr = MIN( 2.5_ireals, MAX( 0.01_ireals, SQRT(x2/x3) ) )
+
+            tkvh(i,k)=MAX( con_h, tkhmin*tkvcorr, tkvh(i,k)*tke(i,k,ntur) )
+            tkvm(i,k)=MAX( con_m, tkmmin*tkvcorr, tkvm(i,k)*tke(i,k,ntur) )
 
 !test: ohne tk?min (wird aber bei Diffusion benutzt!)
 ! tkvh(i,k)=MAX( con_h, tkvh(i,k)*tke(i,k,ntur) )
@@ -5498,7 +5511,7 @@ SUBROUTINE solve_turb_budgets ( ktp, &
 #ifdef SCLM
    it_s, grd,                        &
 #endif
-   fcd, tls, tvt )
+   fcd, tls, tvt, velmin )
 
 INTEGER (KIND=iintegers), INTENT(IN) :: &  !
 !
@@ -5537,6 +5550,8 @@ REAL (KIND=ireals), DIMENSION(:,ktp:), TARGET, INTENT(IN) :: &
 !
   tvt      !total transport of turbulent velocity scale
 
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(IN) :: velmin ! stability-dependent minimum velocity
+
 INTEGER (KIND=iintegers) :: &
 !
   i,k    !running indices for location loops
@@ -5560,11 +5575,17 @@ REAL (KIND=ireals), DIMENSION(i_st:i_en)  :: &
   frc,   & !effective TKE-forcing
   tvs      !turbulent velocity scale
 
-LOGICAL :: corr
+LOGICAL :: corr, lvar_velmin
 
 !------------------------------------------------------------------------------------------------------
 
   w1=tkesmot; w2=z1-tkesmot
+
+  IF (PRESENT(velmin)) THEN
+    lvar_velmin = .TRUE.
+  ELSE
+    lvar_velmin = .FALSE.
+  ENDIF
 
 ! Stabilitaetskorrektur der turbulenten Laengenskala bei stabilier Schichtung:
 
@@ -5699,17 +5720,24 @@ LOGICAL :: corr
            END DO
         END IF
 
-        DO i=i_st, i_en
-           q2=SQRT(l_frc(i)*MAX( frc(i), z0 ))
+        IF (lvar_velmin) THEN ! use stability-dependent minimum velocity scale
+          DO i=i_st, i_en
+            q2=SQRT(l_frc(i)*MAX( frc(i), z0 ))
+            tke(i,k,ntur)=MAX( tkesecu*velmin(i), tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
+          END DO
+        ELSE
+          DO i=i_st, i_en
+            q2=SQRT(l_frc(i)*MAX( frc(i), z0 ))
 !________________________________________________________________
 !test: ohne tkesecu*vel_min als untere Schranke
-           tke(i,k,ntur)=MAX( tkesecu*vel_min, tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
-!          tke(i,k,ntur)=MAX(                  tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
+            tke(i,k,ntur)=MAX( tkesecu*vel_min, tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
+!           tke(i,k,ntur)=MAX(                  tkesecu*q2, w1*tke(i,k,nvor)+w2*tvs(i) )
 !________________________________________________________________
-        END DO
-        !'q2' ist ein Minimalwert fuer 'tke', mit dem die Abweichung vom TKE-Gleichgewicht
-        !den Wert besitzt, der mit dem gegebenen 'frc' bei neutraler Schichtung nicht
-        !ueberschritten werden kann.
+          END DO
+          !'q2' ist ein Minimalwert fuer 'tke', mit dem die Abweichung vom TKE-Gleichgewicht
+          !den Wert besitzt, der mit dem gegebenen 'frc' bei neutraler Schichtung nicht
+          !ueberschritten werden kann.
+        ENDIF
 
      END IF
 
@@ -6593,11 +6621,11 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 
   fr_var=z1/dt_var
 
-  IF (ivtype.EQ.mom) THEN
-     tkmin=MAX( con_m, tkmmin )
-  ELSE
-     tkmin=MAX( con_h, tkhmin )
-  END IF
+!  IF (ivtype.EQ.mom) THEN
+!     tkmin=MAX( con_m, tkmmin )
+!  ELSE
+!     tkmin=MAX( con_h, tkhmin )
+!  END IF
 
 ! Initial setup and adoptions for new variable type:
 
@@ -6641,7 +6669,8 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
 !DIR$ IVDEP
         DO i=i_st,i_en
 ! DYN.IMPL_WEIGHT:            impl_mom(i,k)=rhon(i,k)*diff_dep(i,k)*fr_var
-           expl_mom(i,k)=MAX( tkmin, tkv(i,k) ) &
+!           expl_mom(i,k)=MAX( tkmin, tkv(i,k) ) &
+           expl_mom(i,k)= tkv(i,k) &
                           *rhon(i,k)/diff_dep(i,k)
         END DO
      END DO

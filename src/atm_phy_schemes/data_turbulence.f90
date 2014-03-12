@@ -159,8 +159,8 @@ REAL (KIND=ireals) ::         &
   ! Minimal diffusion coefficients in [m^2/s] for vertical
 ! tkhmin     =  1.0_ireals,   & ! scalar (heat) transport
 ! tkmmin     =  1.0_ireals      ! momentum transport
-  tkhmin     =  0.2_ireals,   & ! scalar (heat) transport
-  tkmmin     =  0.2_ireals      ! momentum transport
+  tkhmin     =  0.75_ireals,   & ! scalar (heat) transport
+  tkmmin     =  0.75_ireals      ! momentum transport
 
 ! 5. Numerical parameters:
 !-------------------------
