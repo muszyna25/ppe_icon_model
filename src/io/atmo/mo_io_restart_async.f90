@@ -840,7 +840,7 @@ CONTAINS
         CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%second,  p_comm_work)
         CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%caltime, p_comm_work)
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, calday,                p_comm_work)
-        p_ra%datetime%calday = INT(calday,8)
+        p_ra%datetime%calday = INT(calday,i8)
         CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%daysec,  p_comm_work)
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew(1),               p_comm_work)
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew_rcf(1),           p_comm_work)
