@@ -133,10 +133,10 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_initialConditions_nml
   initial_salinity_type      = 200  ! 202    
-  initial_salinity_top       = 34.9
-  initial_salinity_bottom    = 35.1
+  initial_salinity_top       = 34.8
+  initial_salinity_bottom    = 35.2
   initial_temperature_type   = 212
-  initial_temperature_top    = 14.0 
+  initial_temperature_top    = 18.0 
   initial_temperature_bottom = 4.0
 /
 &io_nml
