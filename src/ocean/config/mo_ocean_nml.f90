@@ -189,7 +189,7 @@ MODULE mo_ocean_nml
 
 
   ! parameters for gmres solver
-  REAL(wp) :: solver_tolerance                   = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
+  REAL(wp) :: solver_tolerance                   = 1.e-14_wp   ! Maximum value allowed for solver absolute tolerance
   !  REAL(wp) :: solver_start_tolerance          = -1.0_wp
   INTEGER  :: solver_max_restart_iterations      = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart        = 200       ! For inner loop after restart
@@ -198,7 +198,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_gmres             = 1
   INTEGER, PARAMETER :: select_restart_gmres     = 2
   INTEGER :: select_solver                       = select_restart_gmres
-  LOGICAL :: use_continuity_correction           = .false.  
+  LOGICAL :: use_continuity_correction           = .true.  
   INTEGER :: fast_performance_level              = 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
                                                       ! 1 = no optimized calls
                                                       ! 5 = standard (use of gmres restart)
