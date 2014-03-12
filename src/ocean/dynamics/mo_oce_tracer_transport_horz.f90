@@ -339,7 +339,7 @@ CONTAINS
     CALL sync_patch_array(sync_c, patch_2d, flux_horz)
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('AdvDifHorz: adv_flux_h'     ,z_adv_flux_h ,str_module,idt_src,patch_2d%edges%owned)
     CALL dbg_print('AdvDifHorz: div adv_flux_h' ,z_div_adv_h  ,str_module,idt_src,cells_in_domain)
     CALL dbg_print('AdvDifHorz: div diff_flux_h',z_div_diff_h ,str_module,idt_src,cells_in_domain)
