@@ -586,7 +586,8 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
         DO jc = start_cell_index, end_cell_index
           DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
-            p_sfc_flx%forc_tracer_relax(jc,jk,jb) = relax_temperature_min    + &
+
+            p_sfc_flx%forc_tracer_relax(jc,jb,1) = relax_temperature_min    + &
               & (COS(waveNo * patch_2d%cells%center(jc,jb)%lat)**2)  * temperature_difference
 
           END DO
