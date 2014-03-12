@@ -588,7 +588,7 @@ CONTAINS
           DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
 
             p_sfc_flx%forc_tracer_relax(jc,jb,1) = relax_temperature_min    + &
-              & (COS(waveNo * patch_2d%cells%center(jc,jb)%lat)**2)  * temperature_difference
+              & (COS(waveNo * MIN(patch_2d%cells%center(jc,jb)%lat, poleLat))**2) * temperature_difference
 
           END DO
         END DO
