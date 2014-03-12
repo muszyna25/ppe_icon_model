@@ -52,7 +52,7 @@ MODULE mo_nwp_diagnosis
 
   USE mo_kind,               ONLY: wp
 
-  USE mo_impl_constants,     ONLY: itccov, itradheat, itturb, itfastphy, &
+  USE mo_impl_constants,     ONLY: itccov, itconv, itradheat, itturb, itfastphy, &
     &                              min_rlcell_int
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
@@ -456,7 +456,9 @@ CONTAINS
 
         ELSEIF (.NOT. lflux_avg) THEN
 
-          IF (atm_phy_nwp_config(jg)%inwp_turb > 0) THEN
+
+          IF (lcall_phy_jg(itturb)) THEN
+
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               ! ATTENTION:
@@ -613,16 +615,13 @@ CONTAINS
   !!   times and moved them into a separate routine.
   !!
   !!
-  SUBROUTINE nwp_diag_for_output(lcall_phy_jg,            & !in
-                            & kstart_moist,               & !in
+  SUBROUTINE nwp_diag_for_output(kstart_moist,            & !in
                             & ih_clch, ih_clcm,           & !in
                             & pt_patch, p_metrics,        & !in
                             & pt_prog_rcf,                & !in
                             & pt_diag,                    & !in
                             & prm_diag                    ) !inout    
               
-    LOGICAL,         INTENT(IN)   :: lcall_phy_jg(:) !< physics package time control (switches)
-                                                     !< for domain jg
     INTEGER,         INTENT(IN)   :: kstart_moist
     INTEGER,         INTENT(IN)   :: ih_clch, ih_clcm
 
@@ -635,7 +634,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
 
     ! Local
-    INTEGER :: jc,jk,jb                !< loop index
+    INTEGER :: jc,jk,jb,jg             !< loop index
     INTEGER :: nlev, nlevp1            !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
@@ -655,6 +654,7 @@ CONTAINS
 
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
+    jg        = pt_patch%id
 
     ! number of vertical levels
     nlev   = pt_patch%nlev
@@ -680,7 +680,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
 
-      IF ( lcall_phy_jg(itccov) ) THEN
+      IF (atm_phy_nwp_config(jg)%lproc_on(itconv)) THEN  ! convection parameterization switched on
 
         !
         ! height of convection base and top, hbas_con, htop_con
@@ -737,7 +737,7 @@ CONTAINS
           END IF
         ENDDO
 
-      END IF !cloud cover
+      END IF !convection parameterization switched on
 
 
       !

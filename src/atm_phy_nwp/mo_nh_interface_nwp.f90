@@ -99,7 +99,7 @@ MODULE mo_nh_interface_nwp
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
                                    SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
-  USE mo_nwp_diagnosis,      ONLY: nwp_statistics, nwp_diag_for_output, nwp_diag_output_1, nwp_diag_output_2
+  USE mo_nwp_diagnosis,      ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
 !  USE mo_communication,      ONLY: time_sync
@@ -1658,17 +1658,6 @@ CONTAINS
                         & pt_prog, pt_prog_rcf,          & !in
                         & pt_diag,                       & !inout
                         & prm_diag                       ) !inout
-
-    ! diagnostics which are actually only needed for output. Thus, this 
-    ! routine should be moved e.g. to mo_mh_stepping:diag_for_output_dyn 
-    ! or similar.
-    CALL nwp_diag_for_output(lcall_phy_jg,               & !in
-                           & kstart_moist(jg),           & !in
-                           & ih_clch(jg), ih_clcm(jg),   & !in
-                           & pt_patch, p_metrics,        & !in
-                           & pt_prog_rcf,                & !in
-                           & pt_diag,                    & !in
-                           & prm_diag                    ) !inout
 
 
     IF (ltimer) CALL timer_stop(timer_physics)

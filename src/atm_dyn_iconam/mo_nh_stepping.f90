@@ -51,7 +51,8 @@ MODULE mo_nh_stepping
   USE mo_kind,                     ONLY: wp
   USE mo_nonhydro_state,           ONLY: p_nh_state
   USE mo_nonhydrostatic_config,    ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme, &
-    &                                    nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2
+    &                                    nest_substeps, divdamp_order, divdamp_fac, divdamp_fac_o2, &
+    &                                    ih_clch, ih_clcm, kstart_moist
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
   USE mo_io_config,                ONLY: l_outputtime, l_diagtime, is_checkpoint_time
@@ -159,6 +160,7 @@ MODULE mo_nh_stepping
   USE mo_nh_prepadv_types,         ONLY: prep_adv, jstep_adv
   USE mo_action,                   ONLY: reset_action
   USE mo_output_event_handler,     ONLY: get_current_jfile
+  USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output
                                    
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -312,8 +314,20 @@ MODULE mo_nh_stepping
       CALL diag_for_output_phys
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
       CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
+
+      DO jg=1, n_dom
+        ! diagnostics which are only required for output 
+        CALL nwp_diag_for_output(kstart_moist(jg),                  & !in
+          &                      ih_clch(jg), ih_clcm(jg),          & !in
+          &                      p_patch(jg),                       & !in
+          &                      p_nh_state(jg)%metrics,            & !in
+          &                      p_nh_state(jg)%prog(nnow_rcf(jg)), & !in  !nnow or nnew?
+          &                      p_nh_state(jg)%diag,               & !in
+          &                      prm_diag(jg)                       ) !inout
+      ENDDO
+
     ENDIF
-  ENDIF
+  ENDIF  ! iforcing == inwp
 
   !------------------------------------------------------------------
   !  get and write out some of the initial values
@@ -606,7 +620,21 @@ MODULE mo_nh_stepping
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
       CALL diag_for_output_dyn ( linit=.FALSE. )
-      IF (iforcing == inwp) CALL diag_for_output_phys
+      IF (iforcing == inwp) THEN
+        CALL diag_for_output_phys
+
+        DO jg=1, n_dom
+          ! diagnostics which are only required for output 
+          CALL nwp_diag_for_output(kstart_moist(jg),                  & !in
+            &                      ih_clch(jg), ih_clcm(jg),          & !in
+            &                      p_patch(jg),                       & !in
+            &                      p_nh_state(jg)%metrics,            & !in
+            &                      p_nh_state(jg)%prog(nnow_rcf(jg)), & !in  !nnow or nnew?
+            &                      p_nh_state(jg)%diag,               & !in
+            &                      prm_diag(jg)                       ) !inout
+        ENDDO
+      ENDIF  ! iforcing == inwp
+
 
       ! Unit conversion for output from mass mixing ratios to densities
       !
