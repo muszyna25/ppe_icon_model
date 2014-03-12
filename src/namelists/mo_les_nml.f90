@@ -131,7 +131,7 @@ CONTAINS
     vert_scheme_type = 2 !implicit
 
     !output parameters
-    ldiag_les_out = .TRUE. 
+    ldiag_les_out = .FALSE. 
     expname  = 'ICOLES'
     avg_interval_sec = 900._wp
     sampl_freq_sec   = 60._wp
