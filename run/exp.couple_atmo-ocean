@@ -29,7 +29,7 @@
 #
 # Number of ocean processes
 #
-mpi_ocean_procs=1
+mpi_ocean_procs=${mpi_ocean_procs:=1}
 #
 #-----------------------------------------------------------------------------
 if [ $mpi_total_procs -lt `expr $mpi_ocean_procs + 1` ] ; then
@@ -44,80 +44,50 @@ if [ $OMP_NUM_THREADS -gt 1 ] ; then
 fi
 #
 #-----------------------------------------------------------------------------
-# global setting, common values for ocean, atmosphere and coupling
+# ATMO
 #-----------------------------------------------------------------------------
-#
-# global timing
-#
-start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-03T00:00:00Z"
-#
-# global resolution
-#
-R=2   # nroot
-B=4   # number of bisections applied
-#
-# time stepping
-#
-dtime_atmo=300
-dtime_ocean=1800
-dt_coupling=1800
-#
-# restart and checkpoint intervals
-#
-ndays_restart=3
-ndays_checkpoint=$ndays_restart  # checkpointing not yet supported for coupling fields
-#
-(( dt_checkpoint = ${ndays_checkpoint} * day ))
-(( dt_restart    = ${ndays_restart} * day ))
-#
-nyear_outpLen=1      # stop writing model output to file [years]
-#
-#=============================================================================
-#
-# ATMOSPHERE specifics and namelists
-#
-#=============================================================================
-#
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
-#
 #-----------------------------------------------------------------------------
 # the namelist filename
 #
 atmo_namelist=NAMELIST_${EXPNAME}_atmo
 #
+#-----------------------------------------------------------------------------
+# global timing
+#
+start_date="2000-01-01T00:00:00Z"
+  end_date="2000-01-03T00:00:00Z"
+# global resolution
+#
+R=2   # nroot
+B=3   # number of bisections applied
+#
+#time stepping
+#
+dtime_atmo=${dtime_atmo:=600}
+dtime_ocean=$hour
+dt_coupling=$hour
+(( dt_rad        = 2 * hour ))  # radiation time step
+#
 #---------------------------------------------------------------------------
-#
 #model timing
+# calculate model timesteps using $ndays
+restart_months=1                             # 2 days
+(( dt_checkpoint = restart_months * day )) # checkpointing not yet supported for coupling fields
+(( dt_restart    = restart_months * day )) # for long simulations, use month instead of days
 #
-# calculate model timesteps 
-#
-dtime=$dtime_atmo
-#
-# radiation time step
-(( dt_rad  = 2 * hour ))
-#
-# atm_dyn output - ACTIVATE WHEN USING NML OUTPUT
-(( dt_data_atm_dyn =  6 * hour ))  # [s] data output interval, write output every 6 hours
-#
-# atm_phy output
-(( dt_data_atm_phy =  6 * hour ))  # [s] data output interval, write output every 1 hour
-#
-dt_file=$dt_restart
-#
-(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
-(( steps_per_file_atm_dyn = simLength / dt_data_atm_dyn ))  # output intervals per file interval
-(( steps_per_file_atm_phy = simLength / dt_data_atm_phy ))  # output intervals per file interval
-(( outputLength = nyear_outpLen * day * 366 ))
-#
+atmo_output_interval="PT06H"
+atmo_steps_per_file=4    # 2 days
+ocean_output_interval="P01D"
+ocean_steps_per_file=1   # 2 days
+ 
 #-----------------------------------------------------------------------------
 # define variable names
 #
 dict_file='dict.cmor'
 #
 #-----------------------------------------------------------------------------
-#
 # model parameters
 #
 atmo_model_equations=1   # equation system
@@ -137,7 +107,7 @@ ocean_grids="iconR${R}B0${B}-ocean_aqua_planet.nc"
 # ozon file
 #
 ozon_file="ape_o3_${ocean_grids}"
-#
+nproma=${nproma:=32}
 #-----------------------------------------------------------------------------
 #
 #-----------------------------------------------------------------------------
@@ -151,7 +121,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'TAUX'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -161,7 +131,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'TAUY'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -171,7 +141,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'SFWFLX'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -179,7 +149,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'SFTEMP'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -189,7 +159,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'THFLX'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -199,7 +169,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'ICEATM'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -209,7 +179,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'SST'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -219,7 +189,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'OCEANU'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
@@ -229,7 +199,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'OCEANV'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -239,7 +209,7 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'ICEOCE'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_atmo}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -252,30 +222,30 @@ cat > $atmo_namelist << EOF
  p_test_run     = .FALSE.
  l_test_openmp  = .FALSE.
  l_log_checks   = .FALSE.
- use_icon_comm  = .TRUE.
- ! l_fast_sum   = .TRUE.
+ ! use_icon_comm  = .TRUE.
+ l_fast_sum   = .TRUE.
  max_send_recv_buffer_size = 262144
- /
+/
 &grid_nml
  cell_type = 3             ! triangular cells
  dynamics_grid_filename = "${ocean_grids}",
  grid_angular_velocity  = 7.29212e-5  !default earth angular velocity is 7.29212e-5
 /
 &run_nml
- output       = 'nml'
- num_lev      = ${nlev}      ! number of full levels of vertical grid
- dtime        = ${dtime}     ! [s] timestep in seconds
- ltestcase    = .TRUE.       ! run testcase                 --> testcase_ctl
- ldynamics    = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
- ltransport   = .TRUE.       ! switch on tracer transport   --> transport_ctl
- ntracer      = 5            ! number of tracers
- iforcing     = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
- msg_level    = 10           ! detailed report during integration 
- ltimer       = .TRUE.
- timers_level = 10
- activate_sync_timers = .FALSE.
- profiling_output = 3
- msg_timestamp        = .TRUE.
+ output               = 'nml'
+ num_lev              = ${nlev}      ! number of full levels of vertical grid
+ dtime                = ${dtime_atmo}     ! [s] timestep in seconds
+ ltestcase            = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics            = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport           = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ ntracer              = 5            ! number of tracers
+ iforcing             = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ msg_level            = 1           ! detailed report during integration 
+ ltimer               = .TRUE.
+ timers_level         = 10
+ activate_sync_timers = .TRUE.
+ profiling_output     = 3
+ ! msg_timestamp      = .TRUE.
 /
 &ha_testcase_nml
  ctest_name      = 'APEc'  ! test case identifier
@@ -290,34 +260,23 @@ cat > $atmo_namelist << EOF
   lflux_avg        = .FALSE.
 /
 &output_nml
- output_bounds    = 0, ${outputLength}, ${dt_data_atm_dyn}   ! start, end, increment
- steps_per_file   = ${steps_per_file_atm_dyn}
- include_last     = .TRUE.
+ filename_format  = "<output_filename>_<datetime2>"
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${atmo_output_interval}"                 ! interval in ISO-format
+ steps_per_file   = ${atmo_steps_per_file}
+ ! include_last     = .TRUE.
  output_grid      = .TRUE.
- output_filename  = "${EXPNAME}_atm_dyn"
- filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
- ml_varlist       = 'ps'    , 'ta'     ,
-                    'hus'   , 'clw'    , 'cli' ,
-                    'ua'    , 'va'     , 'wap' ,
-                    'pfull' , 'gpfull' ,
-                    'ha_diag_rel_vort_c' , 'ha_diag_div' , 'prm_omega' , 'prm_vo' 
-/
-&output_nml
- output_bounds    = 0, ${outputLength}, ${dt_data_atm_phy}   ! start, end, increment
- steps_per_file   = ${steps_per_file_atm_phy}
- include_last     = .TRUE.
- output_grid      = .TRUE.
- output_filename  = "${EXPNAME}_atm_phy"
- filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
- ml_varlist       = 'cosmu0' , 'rsdt' , 'prm_t' ,
-                    'rsns'   , 'rlns' , 'rsnt'  , 'rlnt'    ,
-                    'ts'     , 'sic'  , 'tro3'  , 'prm_ghm' , 'prm_ghi' ,
+ output_filename  = "${EXPNAME}_atmo"
+ ml_varlist       = 'rsdt' , 'prm_t' , 'ua'    , 'va'      , 'wap'  ,
+                    'rsns' , 'rlns'  , 'rsnt'  , 'rlnt'    ,
+                    'sic'  , 'prm_ghm' ,
                     'clt'    , 'cl'   , 
                     'prlr'   , 'prls' , 'prcr'  , 'prcs'    ,
                     'pr'     , 'prw'  , 'cllvi' , 'clivi'   ,
                     'evspsbl', 'hfls' , 'hfss'  ,
                     'tauu'   , 'tauv'
-/
+/                    
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
 /
@@ -356,12 +315,9 @@ cat > $atmo_namelist << EOF
  izenith    = 3         ! circular orbit, no seasonal cycle but with diurnal cycle 
 /
 EOF
-#
-#=============================================================================
-#
-# OCEAN specifics and namelists
-#
-#=============================================================================
+#-----------------------------------------------------------------------------
+# OCEAN
+#-----------------------------------------------------------------------------
 #
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
@@ -370,33 +326,6 @@ EOF
 # the namelist filename
 #
 ocean_namelist=NAMELIST_${EXPNAME}_ocean
-#
-#---------------------------------------------------------------------------
-#
-# model timing
-#
-dtime=$dtime_ocean   # ocean model timestep [s], used by the the coupler
-#
-# calculate model timesteps 
-#
-# this is valid for production runs using output_start, output_end, output_interval using ISO-format
-ndays_data=30        # ocean model output interval [days]  - no longer than 30 days ??
-#
-# this is valid for short runs <60 years using output_bounds for buildbot
-nhours_data=6        # ocean model output interval hours [hours]
-#
-# not used here:
-# nout_interv="PT${ndays_data}H"             # ocean model output interval in hours
-# nout_interv="P${ndays_data}D"              # ocean model output interval in days
-#
- (( dt_data       = nhours_data   * hour))   # used for output_bounds and buildbot
-#(( dt_data       = ndays_data    * day ))   # used for production runs
-#
-dt_file=$dt_restart
-#
-(( simLength = dt_restart > dt_file ? dt_file : dt_restart ))
-(( steps_per_file = simLength / dt_data ))   # output intervals per file interval
-(( outputLength  = nyear_outpLen * day * 366 ))
 #
 #-----------------------------------------------------------------------------
 #
@@ -411,7 +340,6 @@ iforc_oce=14
 #
 #-----------------------------------------------------------------------------
 # model parameters
-#
 ocean_model_equations=-1 # equation system
 #
 #-----------------------------------------------------------------------------
@@ -427,7 +355,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'TAUX'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -436,7 +364,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'TAUY'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -445,7 +373,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'SFWFLX'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -453,7 +381,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'SFTEMP'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -462,7 +390,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'THFLX'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -471,7 +399,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'ICEATM'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -480,7 +408,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'SST'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
@@ -489,7 +417,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'OCEANU'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -498,7 +426,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'OCEANV'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -507,7 +435,7 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'ICEOCE'
-  dt_model            =  ${dtime}
+  dt_model            =  ${dtime_ocean}
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
@@ -520,35 +448,39 @@ cat > ${ocean_namelist} << EOF
  p_test_run     = .FALSE.
  l_test_openmp  = .FALSE.
  l_log_checks   = .FALSE.
+ l_fast_sum   = .TRUE.
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
  grid_angular_velocity = 7.29212e-5  !default earth angular velocity is 7.29212e-5
 /
 &run_nml
- output               = 'nml'
- dtime                = ${dtime}     ! [s] timestep in seconds
- ltimer               = .TRUE. 
- activate_sync_timers = .FALSE.
+ output      = 'nml'
+ dtime       = ${dtime_ocean}     ! [s] timestep in seconds
+ ltimer      = .TRUE. 
+ activate_sync_timers = .TRUE.
  profiling_output = 3
- msg_timestamp        = .TRUE.
- msg_level            = 12
+ msg_timestamp = .TRUE.
+ msg_level     = 8
 /
 &output_nml
-  output_bounds    = 0, ${outputLength}, ${dt_data}  ! start, end, increment in seconds, required: <60 years
-  steps_per_file   = ${steps_per_file}
-  include_last     = .TRUE.
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
-  ml_varlist       = 'group:oce_default','group:ice_default'
+ filename_format  = "<output_filename>_<datetime2>"
+ output_start     = "${start_date}"                  ! start in ISO-format
+ output_end       = "${end_date}"                    ! end in ISO-format
+ output_interval  = "${ocean_output_interval}"       ! interval in ISO-format
+ steps_per_file   = ${ocean_steps_per_file}
+ ! include_last     = .TRUE.
+ output_grid      = .TRUE.
+ output_filename  = "${EXPNAME}_ocean"
+ ml_varlist       = 'group:oce_default','group:ice_default'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   dbg_lat_in=30.0 dbg_lon_in=-20. ! lat/lon-location of one cell debug output
   str_mod_tst='all', 'module'     ! define modules to print out in debug mode
-  idbg_slev=1                     ! initialize MIN/MAX  debug output
-  idbg_elev=5                     ! initialize MIN/MAX  debug output
+  idbg_slev=1                     ! initialize start level for debug output
+  idbg_elev=5                     ! initialize end level for debug output
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! 1: hydrost. atmosphere
@@ -558,14 +490,15 @@ cat > ${ocean_namelist} << EOF
   dzlev_m(1:20)      =   20.0,  20.0, 20.0 ,  30.0,  40.0,  50.0,  70.0,  90.0,
                         120.0, 150.0, 180.0, 210.0, 250.0, 300.0, 400.0, 500.0,
                         550.0, 600.0, 700.0, 700.0
- !l_edge_based                  = .TRUE.  ! edge- or cell-based mimetic discretization
- !l_partial_cells               = .FALSE. ! partial bottom cells=TRUE: local varying bottom depth
+ l_edge_based                   = .TRUE.  ! edge-(true) or cell-based (false) mimetic discretization
+ l_partial_cells                = .FALSE. ! partial bottom cells=TRUE: local varying bottom depth
   select_solver                 = 2       ! 1=gmres_oce_old; 2=ocean_restart_gmres
   solver_tolerance              = 1.0E-14 ! absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 30      ! inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50      ! outer (restart solver) loop with syncing (default: 100)
   use_continuity_correction     = .TRUE.
-  !i_bc_veloc_bot               = 1       !  0/1=bottom friction off/on
+  i_bc_veloc_bot                = 1       !  0/1=bottom friction off/on
+  i_bc_veloc_top                = 2       !  0/1/2=top
 /
 &ocean_tracer_transport_nml
   FLUX_CALCULATION_HORZ         = 1       ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura, 5=FCT with Zalesak limiter
@@ -576,10 +509,10 @@ cat > ${ocean_namelist} << EOF
   k_pot_temp_v         = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for temperature - 20m
   k_sal_h              = 1.0E+3    ! [m2/s] constant horizontal diffusion coefficient for salinity - r2b4
   k_sal_v              = 3.0E-5    ! [m/s]  vertical background diffusion coefficient for salinity - 20m
- !k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  k_veloc_h            = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v            = 5.0E-5    ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_TRAC   = 0.1       ! max vertical tracer diffusion for convection used in case of instability
-  HORZ_VELOC_DIFF_TYPE = 3         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HORZ_VELOC_DIFF_TYPE = 1         ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   MAX_VERT_DIFF_VELOC  = 1.0E-5    ! max vertical viscosity coefficient
 /
 &ocean_physics_nml
@@ -587,6 +520,7 @@ cat > ${ocean_namelist} << EOF
  !no_tracer            = 2         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   richardson_veloc     = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   richardson_tracer    = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
+  bottom_drag_coeff    = 2.5E-3  ! bottom drag coefficient default= 2.5E-3
 /
 &sea_ice_nml
   i_ice_therm   = 1
@@ -608,9 +542,10 @@ cat > ${ocean_namelist} << EOF
   relax_2d_mon_S         =    3.0       ! strength of 2-dim relaxation for salinity (months)
   irelax_3d_T            =    0         ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
                                         ! 3: use initial T read with init_oce=1
+  forcing_enable_freshwater = TRUE      ! enable freshwater flux 
 /
 &ocean_initialConditions_nml
-  ! itestcase_oce              = 50           ! 50=zonally homogen temperature for APE SST (Williamson)
+  ! itestcase_oce            = 50           ! 50=zonally homogen temperature for APE SST (Williamson)
   initial_salinity_type      = 402
   initial_temperature_type   = 207
   initial_sst_type           = 'sst1'
@@ -621,12 +556,9 @@ cat > ${ocean_namelist} << EOF
   diagnostics_level  = 0
 /
 &io_nml
-!  out_expname    = '${EXPNAME}_ocn'     ! file name base
-!  dt_data        = ${dt_data}           ! [s] write output
-!  dt_file        = ${dt_file}           ! [s] interval for generation of new output file (3600*24*365 -> 1y)
-  dt_checkpoint  = ${dt_checkpoint}
-!  lwrite_initial = .FALSE.              ! do/don't write out initial data
-  lkeep_in_sync  = .TRUE.               ! sync after each timestep
+  dt_checkpoint=${dt_checkpoint}
+  lkeep_in_sync = .TRUE.          ! sync after each timestep
+ ! use_set_event_to_simstep = .false.   
 /
 EOF
 #-----------------------------------------------------------------------------
