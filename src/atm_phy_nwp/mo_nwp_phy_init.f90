@@ -621,25 +621,24 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           END IF
         END DO !jc
       END DO   !jk
-!DR Quick Fix: Levi, could you please check??
-IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
-      DO jc = i_startidx,i_endidx
-        ! we also need pres at interface levels; first we need sfc press...
-        ! Height differences between surface and third-lowest main level
-        dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
-        dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
-        dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
-        ! Compute surface pressure starting from three lowest levels
-        zpres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(p_metrics%exner_ref_mc(jc,nlev-2,jb))  + & 
-                           grav_o_rd*(dz1/zreftemp(jc,nlev,jb) + dz2/zreftemp(jc,nlev-1,jb) + &   
-                           dz3/zreftemp(jc,nlev-2,jb)) )
-
-        zpres_ifc(jc,nlevp1,jb) = zpres_sfc(jc,jb)
-      END DO !jc
-END IF
-!DR End Quick hack
-
       IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+        ! a ref press field needs to be computed for testcases with a
+        ! constant ozone.  the reference field allows the ozone to be
+        ! interpolated at a restart without changing due to a changing p field.
+        DO jc = i_startidx,i_endidx
+          ! we also need pres at interface levels; first we need sfc press...
+          ! Height differences between surface and third-lowest main level
+          dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
+          dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
+          dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
+          ! Compute surface pressure starting from three lowest levels
+          zpres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(p_metrics%exner_ref_mc(jc,nlev-2,jb))  + & 
+                             grav_o_rd*(dz1/zreftemp(jc,nlev,jb) + dz2/zreftemp(jc,nlev-1,jb) + &   
+                             dz3/zreftemp(jc,nlev-2,jb)) )
+
+          zpres_ifc(jc,nlevp1,jb) = zpres_sfc(jc,jb)
+        END DO !jc
+
         ! compute interface from nlev-1 to TOA 
         DO jk = nlev,2,-1
           DO jc = 1, i_endidx
