@@ -30,16 +30,7 @@ if [[ ! -f ${iFile} ]]; then
 fi
 ### get the index of the last timestamp
 nTimesteps=$(cdo ntime ${iFile})
-tOutput=$((nTimesteps - 1))
 # perform the ploting
-mkdir -p plots
-for varname in ${varNames}; do 
-  oFile=${varname}_${iFile}
-  ${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
-    -varName=$varname -maskName=${maskName} -noConfig \
-    -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput} -levIndex=1
-  mv ${oFile}.${oType} plots/.
-done
 # ================================================================================
 # error check
 # (A) Cat all files together
@@ -56,17 +47,49 @@ cdo cat $files $allData
 cdo -subc,16.0 -selname,t ${allData} ${t_Data}
 cdo -subc,35.0 -selname,s ${allData} ${s_Data}
 
+cdo div -seltimestep,${nTimesteps} ${t_Data} -selname,${maskName} -seltimestep,1 ${allData} masked_${t_Data}
+cdo div -seltimestep,${nTimesteps} ${s_Data} -selname,${maskName} -seltimestep,1 ${allData} masked_${s_Data}
+
 varname=t
-oFile=${varname}_${iFile}
-${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
-  -varName=$varname -maskName=${maskName} -noConfig \
-  -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput} -levIndex=1
+iFile=masked_${t_Data}
+oFile=plot_${iFile}
+${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon -varName=$varname -noConfig -iFile=${iFile} -oFile=${oFile} -levIndex=1
 mv ${oFile}.${oType} plots/.
+
 varname=s
-oFile=${varname}_${iFile}
-${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon \
-  -varName=$varname -maskName=${maskName} -noConfig \
-  -iFile=${iFile} -oFile=${oFile} -timeStep=${tOutput} -levIndex=1
+iFile=masked_${s_Data}
+oFile=plot_${iFile}
+${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -isIcon -varName=$varname -noConfig -iFile=${iFile} -oFile=${oFile} -levIndex=1
 mv ${oFile}.${oType} plots/.
+
+
+module load python/2.7-ve2
+
+python - <<EOF
+
+import sys
+
+from cdo import *
+cdo = Cdo()
+
+
+tErr = cdo.outputkey('value',input=" -fldsum masked_${t_Data}")
+sErr = cdo.outputkey('value',input=" -fldsum masked_${s_Data}")
+
+expectedError = ['0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0']
+
+if tErr != expectedError:
+  print "Error for Temperatur"
+  print tErr
+  sys.exit(1)
+
+if sErr != expectedError:
+  print "Error for Salinity"
+  print sErr
+  sys.exit(1)
+
+sys.exit(0)
+EOF
+
 # vim:ft=sh
 
