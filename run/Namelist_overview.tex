@@ -3535,29 +3535,6 @@ the same value
 \tabularnewline
 
 \hline
- dt\_ccov &
-R&
-dt\_conv&
-seconds&
-time interval of cloud cover call
-&run\_nml/iforcing = inwp
-\tabularnewline
-&
-(max\_dom)&
-&
-&
-currently each subdomain has
-&
-\tabularnewline
-&
-&
-&
-&
-the same value
-&
-\tabularnewline
-
-\hline
  dt\_rad &
 R&
 1800.&
@@ -6259,6 +6236,12 @@ model expects {\bf height based} coordinates. For further information see <icon 
   \begin{itemize}
    \item Change constant minimum vertical diffusion coefficients to variable ones proportional to $1/\sqrt{Ri}$ for inwp\_turb = 10; at the same time
          the defaults for tkhmin and tkmmin are increased from $0.2 \, \mathrm{m^2/s}$ to $0.75 \, \mathrm{m^2/s}$.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{nwp\_phy\_nml}{2014-03-13 }{16560 }
+  \begin{itemize}
+   \item Removed namelist parameter \texttt{dt\_ccov}, since practically it had no effect. For the  quasi-operational NWP-setup, the calling frequency of the cloud cover scheme is the same as that of the convection scheme. I.e. both are synchronized.
   \end{itemize}
 \end{changeitem}
 

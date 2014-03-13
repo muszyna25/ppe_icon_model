@@ -67,7 +67,6 @@ MODULE mo_nwp_phy_nml
    ! user defined calling intervals
    !
   REAL(wp) :: dt_conv(max_dom)   !> field element for convection
-  REAL(wp) :: dt_ccov(max_dom)   !! field element for subscale cloud cover
   REAL(wp) :: dt_rad(max_dom)    !! "-"                     radiation
   REAL(wp) :: dt_sso(max_dom)    !! "-"  for subscale orographic gravity waves
   REAL(wp) :: dt_gwd(max_dom)    !! "-"  for subscale gravity waves
@@ -103,7 +102,7 @@ MODULE mo_nwp_phy_nml
     &                    inwp_radiation, inwp_sso, inwp_gwd,       &
     &                    inwp_gscp, inwp_satad,                    &
     &                    inwp_turb, inwp_surface,                  &
-    &                    dt_conv, dt_ccov, dt_rad, dt_sso, dt_gwd, &
+    &                    dt_conv, dt_rad, dt_sso, dt_gwd,          &
     &                    qi0, qc0,                                 &
     &                    ustart_raylfric, efdt_min_raylfric,       &
     &                    latm_above_top, itype_z0, mu_rain,        &
@@ -182,7 +181,6 @@ CONTAINS
     inwp_surface(:)    = -1
 
     dt_conv (:) = -999._wp
-    dt_ccov (:) = -999._wp
     dt_rad  (:) = -999._wp
     dt_sso  (:) = -999._wp
     dt_gwd  (:) = -999._wp
@@ -258,7 +256,6 @@ CONTAINS
 
       ! Time steps
       IF (dt_conv (1) < 0._wp) dt_conv (1) = 600._wp    !seconds
-      IF (dt_ccov (1) < 0._wp) dt_ccov (1) = dt_conv(1) !cloud cover is synchronized with convection by default
       IF (dt_sso  (1) < 0._wp) dt_sso  (1) = 1200._wp   !seconds
       IF (dt_gwd  (1) < 0._wp) dt_gwd  (1) = 1200._wp   !seconds
       IF (dt_rad  (1) < 0._wp) dt_rad  (1) = 1800._wp   !seconds
@@ -280,7 +277,6 @@ CONTAINS
 
         ! Time steps
         IF (dt_conv (jg) < 0._wp) dt_conv (jg) = dt_conv (jg-1) 
-        IF (dt_ccov (jg) < 0._wp) dt_ccov (jg) = dt_ccov (jg-1)
         IF (dt_sso  (jg) < 0._wp) dt_sso  (jg) = dt_sso  (jg-1)
         IF (dt_gwd  (jg) < 0._wp) dt_gwd  (jg) = dt_gwd  (jg-1)
         IF (dt_rad  (jg) < 0._wp) dt_rad  (jg) = dt_rad  (jg-1)
@@ -346,7 +342,6 @@ CONTAINS
       atm_phy_nwp_config(jg)%itype_z0        = itype_z0
 
       atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg) 
-      atm_phy_nwp_config(jg)%dt_ccov         = dt_ccov (jg)
       atm_phy_nwp_config(jg)%dt_rad          = dt_rad  (jg)
       atm_phy_nwp_config(jg)%dt_sso          = dt_sso  (jg)
       atm_phy_nwp_config(jg)%dt_gwd          = dt_gwd  (jg)

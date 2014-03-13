@@ -266,39 +266,43 @@ CONTAINS
       !! to ensure the proper output of Qx_tot
       IF ( atm_phy_nwp_config(jg)%lproc_on(itccov)   .AND.  &
         &  atm_phy_nwp_config(jg)%lproc_on(itconv) ) THEN
-        dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_conv    ! sec
+        atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_conv
       ELSE
-        dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
+        atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy ! sec
       ENDIF
 
       ! For EDMF DUALM cloud cover is called every turbulence time step
       IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
-        dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
+        atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy ! sec
       ENDIF
 
-      ! Fast physics
+      dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_ccov   ! sec
 
-      dt_phy(jg,itfastphy)   = atm_phy_nwp_config(jg)%dt_fastphy ! sec
+      ! Fast physics
+      dt_phy(jg,itfastphy) = atm_phy_nwp_config(jg)%dt_fastphy ! sec
+
+
+
+      IF (jg == 1) THEN
+        ! issue a warning, if advective and convective timesteps are not synchronized
+        !
+        ! so far, only for Domain 1
+        IF( MOD(atm_phy_nwp_config(jg)%dt_conv,dtime_adv) > 10._wp*dbl_eps )  THEN
+          WRITE(message_text,'(a,2F8.1)') &
+            &'WARNING: convective timestep is not a multiple of advective timestep: ', &
+            & dt_phy(jg,itconv), dtime_adv
+          CALL message(TRIM(routine), TRIM(message_text))
+          WRITE(message_text,'(a,F8.1)') &
+            &'implicit synchronization in time_ctrl_physics: dt_conv !=!', &
+            & REAL((FLOOR(atm_phy_nwp_config(jg)%dt_conv/dtime_adv) + 1),wp) &
+            & * dtime_adv
+          CALL message(TRIM(routine), TRIM(message_text))
+        ENDIF
+      ENDIF  ! jg=1
 
     ENDDO  ! jg loop
 
 
-    ! issue a warning, if advective and convective timesteps are not synchronized
-    !
-    ! DR: a clean implementation would require to put the following lines into 
-    ! a jg-loop.
-    IF( MOD(atm_phy_nwp_config(1)%dt_conv,dtime_adv) > 10._wp*dbl_eps )  THEN
-      WRITE(message_text,'(a,2F8.1)') &
-        &'WARNING: convective timestep is not a multiple of advective timestep: ', &
-        & dt_phy(1,itconv), dtime_adv
-      CALL message(TRIM(routine), TRIM(message_text))
-      WRITE(message_text,'(a,F8.1)') &
-        &'implicit synchronization in time_ctrl_physics: dt_conv !=!', &
-        & REAL((FLOOR(atm_phy_nwp_config(1)%dt_conv/dtime_adv) + 1),wp) &
-        & * dtime_adv
-      CALL message(TRIM(routine), TRIM(message_text))
-    ENDIF
- 
 
     !Configure LES
     DO jg = 1, n_dom
