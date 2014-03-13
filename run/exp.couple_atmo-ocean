@@ -73,14 +73,14 @@ dt_coupling=$hour
 #---------------------------------------------------------------------------
 #model timing
 # calculate model timesteps using $ndays
-restart_months=1                             # 2 days
+restart_months=2                             # 2 days
 (( dt_checkpoint = restart_months * day )) # checkpointing not yet supported for coupling fields
 (( dt_restart    = restart_months * day )) # for long simulations, use month instead of days
 #
 atmo_output_interval="PT06H"
-atmo_steps_per_file=4    # 2 days
+atmo_steps_per_file=8    # 2 days
 ocean_output_interval="P01D"
-ocean_steps_per_file=1   # 2 days
+ocean_steps_per_file=2   # 2 days
  
 #-----------------------------------------------------------------------------
 # define variable names
