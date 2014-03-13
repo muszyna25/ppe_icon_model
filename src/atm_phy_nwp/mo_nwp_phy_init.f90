@@ -583,7 +583,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk,zprat,zpres,lland,lglac,zn1,&
-!$OMP zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP zn2,zcdnc,dz1,dz2,dz3) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
