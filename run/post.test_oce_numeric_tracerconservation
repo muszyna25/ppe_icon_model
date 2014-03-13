@@ -28,8 +28,6 @@ if [[ ! -f ${iFile} ]]; then
   echo "Give up!"
   exit 1
 fi
-### get the index of the last timestamp
-nTimesteps=$(cdo ntime ${iFile})
 # perform the ploting
 # ================================================================================
 # error check
@@ -43,6 +41,8 @@ t_Data=t_${EXP}.nc
 s_Data=s_${EXP}.nc
 [[ -f ${allData} ]] && rm ${allData}
 cdo cat $files $allData
+# get the index of the last timestamp
+nTimesteps=$(cdo ntime ${allData})
 
 cdo -subc,16.0 -selname,t ${allData} ${t_Data}
 cdo -subc,35.0 -selname,s ${allData} ${s_Data}
