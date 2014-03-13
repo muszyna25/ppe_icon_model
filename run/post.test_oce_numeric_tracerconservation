@@ -50,6 +50,7 @@ cdo -subc,35.0 -selname,s ${allData} ${s_Data}
 cdo div -seltimestep,${nTimesteps} ${t_Data} -selname,${maskName} -seltimestep,1 ${allData} masked_${t_Data}
 cdo div -seltimestep,${nTimesteps} ${s_Data} -selname,${maskName} -seltimestep,1 ${allData} masked_${s_Data}
 
+[[ ! -d plots ]] && mkdir plots
 varname=t
 iFile=masked_${t_Data}
 oFile=plot_${iFile}
@@ -87,6 +88,10 @@ if sErr != expectedError:
   print "Error for Salinity"
   print sErr
   sys.exit(1)
+
+print "#==================================================================="
+print "Found ZERO DIFFERENCE to initial values for temperature and salinity"
+print "#==================================================================="
 
 sys.exit(0)
 EOF
