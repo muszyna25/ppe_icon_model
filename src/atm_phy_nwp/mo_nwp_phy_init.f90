@@ -616,7 +616,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
             !--- computation of reference pressure field from the reference exner field
             zrefpres(jc,jk,jb) = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
             ! here we choose to use temp to compute sfc pres instead of tempv
-            zreftemp(jc,jk,jb) = p_metrics%theta_ref_mc(jc,jk,jb)*zrefpres(jc,jk,jb)
+            zreftemp(jc,jk,jb) = p_metrics%theta_ref_mc(jc,jk,jb)*p_metrics%exner_ref_mc(jc,jk,jb)
 
           END IF
         END DO !jc
