@@ -398,8 +398,12 @@ CONTAINS
     INTEGER :: i, j, jj
     INTEGER :: streamID, nmiss
 
+#ifdef CPL_WRITE_RAW_BINARY_RESTART
     INTEGER :: year, month, day, hour, minute, second
-    INTEGER :: global_size, nbr_bundles
+    INTEGER :: global_size
+#endif
+
+    INTEGER :: nbr_bundles
     INTEGER :: global_field_id
     INTEGER :: count
     INTEGER :: eof
