@@ -61,7 +61,7 @@ start_date="2000-01-01T00:00:00Z"
 # global resolution
 #
 R=2   # nroot
-B=3   # number of bisections applied
+B=4   # number of bisections applied
 #
 #time stepping
 #
