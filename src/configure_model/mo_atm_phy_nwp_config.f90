@@ -47,7 +47,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_io_units,            ONLY: filename_max
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
-    &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
+    &                               itturb, itsfc, itgwd, itfastphy,           &
     &                               iphysproc, iphysproc_short, ismag, iedmf
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_exception,           ONLY: message, message_text, finish
@@ -210,8 +210,6 @@ CONTAINS
 
 
       ! Fill derived variable lproc_on
-      IF ( atm_phy_nwp_config(jg)%inwp_satad > 0 )               &
-        &  atm_phy_nwp_config(jg)%lproc_on(itupdate)  = .TRUE.
  
       IF ( atm_phy_nwp_config(jg)%inwp_satad > 0 )               &
         &  atm_phy_nwp_config(jg)%lproc_on(itsatad)   = .TRUE. 
@@ -252,7 +250,7 @@ CONTAINS
       ! time interval for advection.
 
 
-      ! Slow physics
+      ! Slow physics time steps
 
       dt_phy(jg,itconv) = atm_phy_nwp_config(jg)% dt_conv    ! sec
 
@@ -278,7 +276,7 @@ CONTAINS
 
       dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_ccov   ! sec
 
-      ! Fast physics
+      ! Fast physics time step
       dt_phy(jg,itfastphy) = atm_phy_nwp_config(jg)%dt_fastphy ! sec
 
 
@@ -299,6 +297,7 @@ CONTAINS
           CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
       ENDIF  ! jg=1
+
 
     ENDDO  ! jg loop
 

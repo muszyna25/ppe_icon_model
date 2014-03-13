@@ -104,7 +104,7 @@ MODULE mo_nh_stepping
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY:  SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                                    inwp, iecham, itupdate, itturb, itgscp, itsfc, icosmo,    &
+    &                                    inwp, iecham, itturb, itgscp, itsfc, icosmo,              &
     &                                    min_rlcell_int, min_rledge_int,                           &
     &                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS
   USE mo_math_divrot,              ONLY: div, div_avg, rot_vertex
@@ -1233,7 +1233,7 @@ MODULE mo_nh_stepping
 
           IF (msg_level >= 13) THEN
             WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
-              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
+              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:10)
             CALL message(TRIM(routine), TRIM(message_text))
           END IF
 
@@ -1961,6 +1961,7 @@ MODULE mo_nh_stepping
         t_elapsed_phy(jg,ips) = t_elapsed_phy(jg,ips) + dt_loc  ! dynamics timestep !!
 
 
+
         IF ( .NOT. lstep_adv(jg) ) THEN
           lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips))) = .FALSE.
         ELSE
@@ -1977,6 +1978,7 @@ MODULE mo_nh_stepping
         ENDIF
 
       ENDDO  ! ips
+
 
       ! In addition, it must be checked, whether the individual processes 
       ! are switched on at all (lproc_on =.TRUE.). If not, lcall_phy is 
@@ -2010,7 +2012,7 @@ MODULE mo_nh_stepping
   !-------------------------------------------------------------------------
 
   ! list of physical processes (x-axis of mapping matrix)
-    iproclist = (/ itconv,itccov,itrad,itsso,itgwd,itupdate,itsatad,itturb,&
+    iproclist = (/ itconv,itccov,itrad,itsso,itgwd,itsatad,itturb,&
       &            itgscp,itsfc,itradheat /)
 
     map_phyproc(1:iphysproc,1:iphysproc_short) = .FALSE. ! initialization
@@ -2020,7 +2022,7 @@ MODULE mo_nh_stepping
     map_phyproc(3   ,3) = .TRUE.  ! simple one to one mapping
     map_phyproc(4   ,4) = .TRUE.  ! simple one to one mapping
     map_phyproc(5   ,5) = .TRUE.  ! simple one to one mapping
-    map_phyproc(6:11,6) = .TRUE.  ! mapping of fast physics processes to single one
+    map_phyproc(6:10,6) = .TRUE.  ! mapping of fast physics processes to single one
 
   END SUBROUTINE setup_time_ctrl_physics
   !-------------------------------------------------------------------------

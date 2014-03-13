@@ -61,7 +61,7 @@ MODULE mo_nh_interface_nwp
   USE mo_timer 
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
-    &                              itsatad, itupdate, itturb, itsfc, itradheat, &
+    &                              itsatad, itturb, itsfc, itradheat, &
     &                              itsso, itgwd, itfastphy, icosmo, igme, iedmf,&
     &                              min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -264,7 +264,7 @@ CONTAINS
     !!  all other updates are done in dynamics
     !-------------------------------------------------------------------------
 
-    IF (lcall_phy_jg(itupdate)) THEN
+    IF (.NOT. linit) THEN
 
       IF (msg_level >= 15) &
            & CALL message('mo_nh_interface_nwp:', 'update_tracers')

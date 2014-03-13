@@ -45,9 +45,7 @@ MODULE mo_nml_crosscheck
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish, print_value
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom,itconv,itccov,    &
-    &                              itrad,itradheat, itsso, itgscp, itsatad,   &
-    &                              itupdate, itturb, itsfc, itgwd, iphysproc, &
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom,                  &
     &                              iecham, ildf_echam, inwp, iheldsuarez,     &
     &                              ildf_dry, inoforcing, ihs_atm_temp,        &
     &                              ihs_atm_theta, tracer_only, inh_atmosphere,&

@@ -321,20 +321,20 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: itrad    =  3
   INTEGER, PARAMETER :: itsso    =  4
   INTEGER, PARAMETER :: itgwd    =  5
-  INTEGER, PARAMETER :: itupdate =  6
-  INTEGER, PARAMETER :: itsatad  =  7
-  INTEGER, PARAMETER :: itturb   =  8
-  INTEGER, PARAMETER :: itgscp   =  9
-  INTEGER, PARAMETER :: itsfc    =  10
-  INTEGER, PARAMETER :: itradheat=  11 !calculation of radiative heating rates from radiative
+  INTEGER, PARAMETER :: itsatad  =  6
+  INTEGER, PARAMETER :: itturb   =  7
+  INTEGER, PARAMETER :: itgscp   =  8
+  INTEGER, PARAMETER :: itsfc    =  9
+  INTEGER, PARAMETER :: itradheat=  10 !calculation of radiative heating rates from radiative
                                        !fluxes with updated solar zenith angle
-  INTEGER, PARAMETER :: itfastphy=  6
 
-  INTEGER, PARAMETER :: iphysproc = 11! for NWP:
+  INTEGER, PARAMETER :: itfastphy=  6  !index for accessing fast physics
+
+  INTEGER, PARAMETER :: iphysproc = 10! for NWP:
                                       ! number of physical processes:
                                       ! convection, cloud cover, radiation, radheat, sso,
-                                      ! microphysics, saturation adjustment, tracerupdate, 
-                                      ! gwd, turbulence, surface
+                                      ! microphysics, saturation adjustment, gwd, 
+                                      ! turbulence, surface
 
   INTEGER, PARAMETER :: iphysproc_short = 6 ! for NWP:
                                             ! number of physical processes:

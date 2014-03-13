@@ -197,7 +197,7 @@ CONTAINS
     qi0      = 0.0_wp 
     qc0      = 0.0_wp 
 
-    ! shape paramter for gamma distribution for rain and snow
+    ! shape parameter for gamma distribution for rain and snow
     mu_rain = 0.0_wp
     mu_snow = 0.0_wp
 

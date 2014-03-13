@@ -91,7 +91,7 @@ MODULE mo_test_nh_communication
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, &
-    &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
+    &                               itturb, itgscp, itsfc, min_rlcell_int,  &
                                     min_rledge_int
   USE mo_math_divrot,         ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh

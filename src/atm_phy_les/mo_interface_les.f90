@@ -51,7 +51,7 @@ MODULE mo_interface_les
   USE mo_timer 
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: itccov, itrad, itgscp,         &
-    &                              itsatad, itupdate, itturb, itsfc, itradheat, &
+    &                              itsatad, itturb, itsfc, itradheat, &
     &                              itsso, itgwd, itfastphy, max_char_length,    &
     &                              min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -214,7 +214,7 @@ CONTAINS
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
-      & tracers_comm, tempv_comm, exner_old_comm, w_comm
+      & tracers_comm, tempv_comm, exner_old_comm
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'   
 
@@ -297,7 +297,7 @@ CONTAINS
     !!  all other updates are done in dynamics
     !-------------------------------------------------------------------------
 
-    IF (lcall_phy_jg(itupdate) .AND. is_ls_forcing) THEN
+    IF (.NOT. linit .AND. is_ls_forcing) THEN
 
       IF (msg_level >= 15) &
            & CALL message(TRIM(routine), 'update_tracers')
