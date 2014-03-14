@@ -96,5 +96,7 @@ print "#==================================================================="
 sys.exit(0)
 EOF
 
+check_error $? "ocean tracers have changed"
+
 # vim:ft=sh
 
