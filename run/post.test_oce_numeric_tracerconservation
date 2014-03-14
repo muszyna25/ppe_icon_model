@@ -69,6 +69,10 @@ case "${target}" in
     module load python/2.7-ve2
     ;;
   blizzard*)
+    cdo sinfo masked_${t_Data}
+    cdo sinfo masked_${s_Data}
+    check_error 0 "whew - crash could not been avoided"
+    exit
     module load PYTHON/2.7.1
     ;;
   *)
