@@ -75,7 +75,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 !modules interface-------------------------------------------
 !subroutines
@@ -811,15 +810,19 @@ END SUBROUTINE sync_idx
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
+!! "iroot"-functionality: F. Prill, DWD, 2014-03-14
 !!
-FUNCTION global_sum_array_0di (zfield) RESULT (global_sum)
+!! @param[in] opt_iroot (Optional:) root PE, otherwise we perform an
+!!            ALL-TO-ALL operation.
+!!
+FUNCTION global_sum_array_0di (zfield, opt_iroot) RESULT (global_sum)
 
   INTEGER,           INTENT(in) :: zfield
+  INTEGER, OPTIONAL, INTENT(IN) :: opt_iroot
   INTEGER                       :: global_sum
+  ! local variables
   REAL(wp)                      :: z_aux, z_auxs
-
-  INTEGER :: p_comm_glob
-!-----------------------------------------------------------------------
+  INTEGER                       :: p_comm_glob
   IF (activate_sync_timers) CALL timer_start(timer_global_sum)
 
   IF(comm_lev==0) THEN
@@ -828,32 +831,36 @@ FUNCTION global_sum_array_0di (zfield) RESULT (global_sum)
     p_comm_glob = glob_comm(comm_lev)
   ENDIF
 
-  z_aux =  REAL(zfield,wp)
-  z_auxs = p_sum(z_aux, comm=p_comm_glob)
+  z_aux  =  REAL(zfield,wp)
+  z_auxs = 0._wp
+  z_auxs = p_sum(z_aux, comm=p_comm_glob, root=opt_iroot)
 
   global_sum = NINT(z_auxs)
   
   IF (activate_sync_timers) CALL timer_stop(timer_global_sum)
-
 END FUNCTION global_sum_array_0di
 
 !-------------------------------------------------------------------------
 !>
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
-!! This routine shuold be called outside an OMP parallel Region!
+!! This routine should be called outside an OMP parallel Region!
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
+!! "iroot"-functionality: F. Prill, DWD, 2014-03-14
 !!
-FUNCTION global_sum_array_0d (zfield) RESULT (global_sum)
+!! @param[in] opt_iroot (Optional:) root PE, otherwise we perform an
+!!            ALL-TO-ALL operation (for "l_fast_sum == .TRUE.").
+!!
+FUNCTION global_sum_array_0d (zfield, opt_iroot) RESULT (global_sum)
 
-  REAL(wp),          INTENT(in) :: zfield
-  REAL(wp)                      :: global_sum
+  REAL(wp), INTENT(IN)           :: zfield
+  INTEGER,  INTENT(IN), OPTIONAL :: opt_iroot
+  REAL(wp)                       :: global_sum
+  ! local variables
   REAL(wp)                      :: sum_on_testpe(1), z_aux(1)
-
   INTEGER :: p_comm_glob
-!-----------------------------------------------------------------------
 
   IF(comm_lev==0) THEN
     p_comm_glob = p_comm_work
@@ -864,8 +871,11 @@ FUNCTION global_sum_array_0d (zfield) RESULT (global_sum)
   z_aux(1) = zfield
 
   IF(l_fast_sum) THEN
-    global_sum = simple_sum(z_aux, SIZE(z_aux), p_comm_glob)
+    global_sum = simple_sum(z_aux, SIZE(z_aux), p_comm_glob, opt_iroot)
   ELSE
+    ! Note: For (l_fast_sum == .FALSE.) there is no special
+    !       implementation, which gathers only at rank
+    !       "iroot". Instead, we always do an ALLREDUCE here.
     global_sum = order_insensit_ieee64_sum(z_aux, SIZE(z_aux), p_comm_glob)
   ENDIF
 
@@ -877,15 +887,13 @@ FUNCTION global_sum_array_0d (zfield) RESULT (global_sum)
       CALL check_result( (/ global_sum /), 'global_sum_array')
     ENDIF
   ENDIF
-
-
 END FUNCTION global_sum_array_0d
 
 !-------------------------------------------------------------------------
 !>
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
-!! This routine shuold be called outside an OMP parallel Region!
+!! This routine should be called outside an OMP parallel Region!
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -927,7 +935,7 @@ END FUNCTION global_sum_array_1d
 !>
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
-!! This routine shuold be called outside an OMP parallel Region!
+!! This routine should be called outside an OMP parallel Region!
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -969,7 +977,7 @@ END FUNCTION global_sum_array_2d
 !>
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
-!! This routine shuold be called outside an OMP parallel Region!
+!! This routine should be called outside an OMP parallel Region!
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -1012,7 +1020,7 @@ END FUNCTION global_sum_array_3d
 !>
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
-!! This routine shuold be called from within an OMP parallel Region!
+!! This routine should be called from within an OMP parallel Region!
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -1058,7 +1066,7 @@ END FUNCTION omp_global_sum_array_1d
 !>
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
-!! This routine shuold be called from within an OMP parallel Region!
+!! This routine should be called from within an OMP parallel Region!
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -1934,27 +1942,32 @@ END FUNCTION order_insensit_ieee64_sum
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
+!! "iroot"-functionality: F. Prill, DWD, 2014-03-14
 !!
-FUNCTION simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
-
-!
-   INTEGER  :: num_vals, mpi_comm
-   REAL(dp) :: vals(num_vals)
-
-   REAL(dp) :: global_sum
-
-   INTEGER :: i
-   REAL(dp), SAVE :: s, res
+!! @param[in] opt_iroot (Optional:) root PE, otherwise we perform an
+!!            ALL-TO-ALL operation.
+!!
+FUNCTION simple_sum(vals, num_vals, mpi_comm, opt_iroot) RESULT(global_sum)
+  
+  INTEGER                        :: num_vals, mpi_comm
+  REAL(dp)                       :: vals(num_vals)
+  INTEGER,  INTENT(IN), OPTIONAL :: opt_iroot
+  REAL(dp)                       :: global_sum
+  ! local variables
+  INTEGER        :: i
+  REAL(dp), SAVE :: s, res
 
 !-----------------------------------------------------------------------
    IF (activate_sync_timers) CALL timer_start(timer_global_sum)
 
-   s = 0._dp
+   s   = 0._dp
+   res = 0._dp
+
    ! Sum up all numbers
    DO i=1,num_vals
       s = s + vals(i)
    ENDDO
-   res = p_sum(s, comm=mpi_comm)
+   res = p_sum(s, comm=mpi_comm, root=opt_iroot)
 
    global_sum = res
   
@@ -2014,222 +2027,6 @@ FUNCTION omp_simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 END FUNCTION omp_simple_sum
 !-------------------------------------------------------------------------
 
-
-!-------------------------------------------------------------------------
-! exact_ieee64_sum is currently unused !!!
-! Please note: If it should ever be reactivated, it needs an
-! MPI communicator as additinal input argument.
-! It currently works only on MPI_COMM_WORLD.
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!
-!
-
-!>
-!! This routine calculates the exact sum of an array of IEEE 64 bit.
-!!
-!! This routine calculates the exact sum of an array of IEEE 64 bit
-!! floating point values rounded to the nearest representable 64 bit number.
-!! Since the sum is calculated exactly in INTEGER arithmetic, the result
-!! for any permutation of the numbers (even among several processors)
-!! is always exactly the same.
-!!
-!! @par Revision History
-!! Initial version by Rainer Johanni, Nov 2009
-!!
-!SUBROUTINE exact_ieee64_sum(vals, num_vals, res, mpi_comm)
-SUBROUTINE exact_ieee64_sum(vals, num_vals, res)
-
-!
-
-   IMPLICIT NONE
-
-   INTEGER  :: num_vals
-!   INTEGER  :: mpi_comm
-   REAL(dp) :: vals(num_vals), res
-
-   INTEGER, PARAMETER :: nacc = 66 ! Length of accumulator in 32 bit units
-
-   INTEGER(i8) :: iacc(nacc+1), iacc_send(nacc+1), ix, i1, i2, i3, ival
-   INTEGER     :: iexp, ipos
-   INTEGER     :: i, isig, ish
-!   INTEGER     :: mpi_err
-
-#if defined (__SX__) || defined (__PGI)
-   INTEGER(i8) :: ibit32
-   INTEGER(i8) :: ione
-   INTEGER(i8) :: mask32
-   INTEGER(i8) :: mask52
-   INTEGER(i8) :: signan
-
-   DATA ibit32 / z'0000000100000000' /
-   DATA ione   / z'0000000000000001' / ! 1 as an 8 byte integer
-   DATA mask32 / z'00000000ffffffff' / ! last 32 bits set
-   DATA mask52 / z'000fffffffffffff' / ! last 52 bits set
-   DATA signan / z'7ff7ffffffffffff' / ! signalling nan
-#else
-   INTEGER(i8), PARAMETER :: ibit32 = INT(z'0000000100000000',i8)
-   INTEGER(i8), PARAMETER :: ione   = INT(z'0000000000000001',i8)
-   INTEGER(i8), PARAMETER :: mask32 = INT(z'00000000ffffffff',i8)
-   INTEGER(i8), PARAMETER :: mask52 = INT(z'000fffffffffffff',i8)
-   INTEGER(i8), PARAMETER :: signan = INT(z'7ff7ffffffffffff',i8)
-#endif
-
-!-----------------------------------------------------------------------
-
-   iacc(:) = 0_i8
-
-   ! Add all input numbers to the accumulator
-
-   DO i=1,num_vals
-
-      ix = TRANSFER(vals(i),ix)
-
-      ! Get exponent
-
-      iexp = INT(IBITS(ix,52,11))
-
-      ! If iexp==0 this is +/-0 or a denormalized number (we treat that as 0)
-
-      IF (iexp == 0) CYCLE
-
-      ! If iexp is 2047, there is Inf or NaN among the input,
-      ! set iacc(nacc+1) (as a flag) and terminate summing.
-
-      IF(iexp == 2047) THEN
-         iacc(nacc+1) = 1_i8
-         EXIT
-      ENDIF
-
-      ! Get mantissa, we have to add the implicit leading 1 (by setting bit 52)
-
-      ival = IBSET(IAND(ix,mask52),52)
-
-      ! Shift mantissa to the right position and add it to the accumulator
-
-      ipos = iexp/32
-      ish  = MOD(iexp,32)
-
-      i1 = IAND(ISHFT(ival,ish   ),mask32)
-      i2 = IAND(ISHFT(ival,ish-32),mask32)
-      i3 = IAND(ISHFT(ival,ish-64),mask32)
-
-      IF(BTEST(ix,63)) THEN
-         iacc(ipos+1) = iacc(ipos+1) - i1
-         iacc(ipos+2) = iacc(ipos+2) - i2
-         iacc(ipos+3) = iacc(ipos+3) - i3
-      ELSE
-         iacc(ipos+1) = iacc(ipos+1) + i1
-         iacc(ipos+2) = iacc(ipos+2) + i2
-         iacc(ipos+3) = iacc(ipos+3) + i3
-      ENDIF
-
-   ENDDO
-
-   ! Get global sum over iacc
-
-#ifndef NOMPI
-   iacc_send(:) = iacc(:)
-!   CALL mpi_allreduce(iacc_send, iacc, nacc+1, MPI_INTEGER8, MPI_SUM, mpi_comm, mpi_err)
-   iacc = p_sum(iacc_send)
-#endif
-
-   ! If Inf or NaN is among the input, return signalling Nan
-
-   IF (iacc(nacc+1) > 0_i8) THEN
-      res = TRANSFER(signan, res)
-      RETURN
-   ENDIF
-
-   ! Normalize accumulator transferring carries to the next higher word
-
-   DO i=1,nacc-1
-      iacc(i+1) = iacc(i+1) + IAND(ISHFT(iacc(i),-32),mask32)
-      IF(BTEST(iacc(i),63)) iacc(i+1) = iacc(i+1) - ibit32
-      iacc(i) = IAND(iacc(i),mask32)
-   ENDDO
-
-   ! If the result is negative invert it and store sign
-
-   isig = 0
-   IF (iacc(nacc) < 0_i8) THEN
-      isig = 1
-      iacc(1:nacc) = IAND(NOT(iacc(1:nacc)),mask32)
-      iacc(1) = iacc(1) + 1_i8
-      DO i=1,nacc-1
-         IF(BTEST(iacc(i),32)) THEN
-            iacc(i+1) = iacc(i+1) + 1_i8
-            iacc(i) = IAND(iacc(i),mask32)
-         ELSE
-            EXIT
-         ENDIF
-      ENDDO
-   ENDIF
-
-   ! Search highest word in accumulator not equal to 0
-
-   DO i=nacc,1,-1
-      IF (iacc(i) /= 0_i8) EXIT
-   ENDDO
-
-   IF (i == 0) THEN
-      ! Result is exactly 0
-      res = 0.0_dp
-      RETURN
-   ENDIF
-
-   ! Get high order 64 bits of accumulator ...
-
-   IF(i==1) THEN
-      ival = ISHFT(iacc(i),32)
-   ELSE
-      ival = IOR(ISHFT(iacc(i),32),iacc(i-1))
-   ENDIF
-   iexp = (i-2)*32 ! This will be changed by shifting below
-
-   ! ... and shift until first bit is 1
-
-   DO WHILE(.NOT. BTEST(ival,63))
-      ival = ISHFT(ival,1)
-      IF(i>2) THEN
-         IF(BTEST(iacc(i-2),31)) ival = IOR(ival,ione)
-         iacc(i-2) = ISHFT(iacc(i-2),1)
-      ENDIF
-      iexp = iexp-1
-   ENDDO
-   iexp = iexp + 11 ! We have shifted 11 bits too far to the left
-
-   ! Round result
-
-   ival = ival + 1024_i8 ! 11 bits at the right will be discarded
-   ! If the above operation caused an overflow, all relevant 53 bits of the
-   ! result were set and are now zero. We don't need to shift again,
-   ! but we have to increase the exponent:
-   IF(.NOT.BTEST(ival,63)) iexp = iexp+1
-
-   ! Check for underflow
-
-   IF(iexp<=0) THEN
-      res = 0.0_dp
-      RETURN
-   ENDIF
-
-   ! Check for overflow
-
-   IF(iexp>=2047) THEN
-      iexp = 2047 ! This will result in +/-Inf in the result
-      ival = 0_i8
-   ENDIF
-
-   ! Assemble result
-
-   ix = IBITS(ival,11,52)
-   ix = IOR(ix,ISHFT(INT(iexp,i8),52))
-   IF(isig==1) ix = IBSET(ix,63)
-
-   res = TRANSFER(ix,res)
-
-END SUBROUTINE exact_ieee64_sum
 
 !>
 !! Computes and prints summary information on the domain decomposition
