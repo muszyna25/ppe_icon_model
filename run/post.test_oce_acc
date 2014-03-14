@@ -37,7 +37,7 @@ for file in $iFiles; do
   done
 done
 
-check_error 0 "test_oce_acc"
+check_error $? "test_oce_acc"
 
 exit
 

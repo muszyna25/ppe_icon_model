@@ -51,7 +51,7 @@ done
 
 # $nclCaller does not reveal an error code
 # check error needed for buildbot
-check_error 0 "oce_default: $nclCaller"
+check_error $? "oce_numeric: $nclCaller"
 
 exit
 
