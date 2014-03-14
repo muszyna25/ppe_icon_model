@@ -199,10 +199,10 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('on entry: h-old'                ,ocean_state%p_prog(nold(1))%h ,str_module, idt_src, in_subset=owned_cells)
-    CALL dbg_print('on entry: h-new'                ,ocean_state%p_prog(nnew(1))%h ,str_module, idt_src, in_subset=owned_cells)
     CALL dbg_print('on entry: vn-old'               ,ocean_state%p_prog(nold(1))%vn,str_module, idt_src, in_subset=owned_edges)
 
     idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('on entry: h-new'                ,ocean_state%p_prog(nnew(1))%h ,str_module, idt_src, in_subset=owned_cells)
 !    IF (MOD(timestep,12) == 0) THEN
 !       idbg_mxmn=5
 !       CALL dbg_print('on entry: vn-new'             ,ocean_state%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
@@ -213,14 +213,14 @@ CONTAINS
 !    ENDIF
     !---------------------------------------------------------------------
     
-    ! abort condition for elevation and vn:
-    IF ( (MAXVAL(ocean_state%p_prog(nnew(1))%h)  >  1.e6_wp) .OR. &
-      & (MINVAL(ocean_state%p_prog(nnew(1))%h)  < -1.e6_wp) .OR. &
-      & (MAXVAL(ocean_state%p_prog(nold(1))%vn) >  1.e6_wp) .OR. &
-      & (MINVAL(ocean_state%p_prog(nnew(1))%vn) < -1.e6_wp) ) THEN
-      CALL message('Solve free surface AB mimetic: ',' INSTABLE VN or H - stop now ')
-      CALL finish ('Solve free surface AB mimetic: ',' INSTABLE VN or H !!')
-    END IF
+    ! abort condition for elevation and vn: - better use CFL criterion
+    ! IF ( (MAXVAL(ocean_state%p_prog(nnew(1))%h)  >  1.e6_wp) .OR. &
+    !   & (MINVAL(ocean_state%p_prog(nnew(1))%h)  < -1.e6_wp) .OR. &
+    !   & (MAXVAL(ocean_state%p_prog(nold(1))%vn) >  1.e6_wp) .OR. &
+    !   & (MINVAL(ocean_state%p_prog(nnew(1))%vn) < -1.e6_wp) ) THEN
+    !   CALL message('Solve free surface AB mimetic: ',' INSTABLE VN or H - stop now ')
+    !   CALL finish ('Solve free surface AB mimetic: ',' INSTABLE VN or H !!')
+    ! END IF
     
     ! Apply windstress
     CALL top_bound_cond_horz_veloc(patch_3d, ocean_state, op_coeffs, p_sfc_flx,     &

@@ -494,7 +494,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=1  ! output print level (1-5, fix)
+  idt_src=2  ! output print level (1-5, fix)
   CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:) ,str_module,idt_src, in_subset=p_patch%cells%owned)
   !---------------------------------------------------------------------
   IF (l_skip_tracer) THEN
@@ -755,10 +755,12 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
 
     ENDIF ! lvertical_diff_implicit
   ENDIF!iswm_oce /= 1)
+
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
-  CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 2, in_subset=cells_in_domain)
+  CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 1, in_subset=cells_in_domain)
   !---------------------------------------------------------------------
+
 END SUBROUTINE advect_individual_tracer_ab
 
 FUNCTION tracer_content(patch_3D, tracer, height) RESULT(content)
