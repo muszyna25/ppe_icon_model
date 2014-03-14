@@ -3378,14 +3378,17 @@ ELSE   IF (itype_interception == 2) THEN
       END DO
     END DO    
        
+    k = MIN(2,ke_snow-1)
     DO ksn = 1,ke_snow  
       DO i = istarts, iends
         IF(zwsnew(i) .GT. zepsi) THEN
           IF(zwsnow(i) .GT. zepsi) THEN
             IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
               zhh_snow(i,ksn) = -MAX( h_snow_now(i)-max_toplaydepth, h_snow_now(i)/ke_snow*(ke_snow-ksn) )
+            ELSE IF (ksn == 2 .AND. ke_snow > 2) THEN ! Limit second layer to 8*max_toplaydepth
+              zhh_snow(i,ksn) = MIN( 8._ireals*max_toplaydepth+zhh_snow(i,1), zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn) )
             ELSE ! distribute the remaining snow equally among the layers
-              zhh_snow(i,ksn) = zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn)
+              zhh_snow(i,ksn) = zhh_snow(i,k)/(ke_snow-k)*(ke_snow-ksn)
             ENDIF
           ELSE ! a newly generated snow cover will not exceed max_toplaydepth
             zhh_snow(i,ksn) = -h_snow_now(i)/ke_snow*(ke_snow-ksn)
@@ -4833,13 +4836,16 @@ ENDIF
         END DO
     END DO    
               
+    k = MIN(2,ke_snow-1)
     DO ksn = 1,ke_snow  
       DO i = istarts, iends
         IF (w_snow_new(i) .GT. zepsi) THEN
           IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
             zhh_snow(i,ksn) = -MAX( h_snow_new(i)-max_toplaydepth, h_snow_new(i)/ke_snow*(ke_snow-ksn) )
+          ELSE IF (ksn == 2 .AND. ke_snow > 2) THEN ! Limit second layer to 8*max_toplaydepth
+            zhh_snow(i,ksn) = MIN( 8._ireals*max_toplaydepth+zhh_snow(i,1), zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn) )
           ELSE ! distribute the remaining snow equally among the layers
-            zhh_snow(i,ksn) = zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn)
+            zhh_snow(i,ksn) = zhh_snow(i,k)/(ke_snow-k)*(ke_snow-ksn)
           ENDIF
         ENDIF
       END DO  
@@ -5170,7 +5176,7 @@ SUBROUTINE terra_multlay_init (                &
 
   INTEGER (KIND=iintegers) ::  &
     kso            , & ! loop index for soil moisture layers           
-    ksn            , & ! loop index for snow layers
+    ksn,k          , & ! loop index for snow layers
     i,ic           , & ! loop index in x-direction              
     icount_soil    , & ! "true" soil
     icount_rockice , & ! rock and ice points
@@ -5437,14 +5443,20 @@ SUBROUTINE terra_multlay_init (                &
            wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
            t_snow_mult_now  (i,0  ) = t_snow_now(i)
          ENDDO
+         k = MIN(2, ke_snow-1)
          DO ksn = 2, ke_snow
            DO i = istarts, iends
              rho_snow_mult_now(i,ksn) = 250.0_ireals    ! average initial density
              t_snow_mult_now  (i,ksn) = t_snow_now(i)
              wliq_snow_now    (i,ksn) = 0.0_ireals
              ! distribute the remaining snow equally among the layers
-             dzh_snow_now     (i,ksn) = (w_snow_now(i)-wtot_snow_now(i,1))/REAL(ke_snow-1,ireals) &
+             IF (k == ksn) THEN
+               dzh_snow_now   (i,ksn) = MIN(8._ireals*max_toplaydepth, (w_snow_now(i)-wtot_snow_now(i,1)) &
+                    &                            /REAL(ke_snow-1,ireals)*rho_w/rho_snow_mult_now(i,ksn) )
+             ELSE
+               dzh_snow_now   (i,ksn) = (w_snow_now(i)-wtot_snow_now(i,k))/REAL(ke_snow-k,ireals) &
                     &                            *rho_w/rho_snow_mult_now(i,ksn)
+             ENDIF
              wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
            ENDDO
          ENDDO
@@ -5470,6 +5482,7 @@ SUBROUTINE terra_multlay_init (                &
         DO i = istarts, iends
           zrho_snow_old(i) = zw_snow_old(i) / MAX(zrho_snow_old(i),1.0E-09_ireals) *rho_w
         END DO 
+        k = MIN(2, ke_snow-1)
         DO ksn = 1, ke_snow
           DO i = istarts, iends
             IF(zicount1(i).EQ.ke_snow .AND. zicount2(i).EQ.ke_snow) THEN
@@ -5490,8 +5503,13 @@ SUBROUTINE terra_multlay_init (                &
                   &                  *rho_w/rho_snow_mult_now(i,ksn))
               ELSE ! distribute the remaining snow equally among the layers
                 rho_snow_mult_now(i,ksn) = rho_snow_now(i)
-                dzh_snow_now(i,ksn) = (w_snow_now(i)-wtot_snow_now(i,1))/REAL(ke_snow-1,ireals) &
-                    &                 *rho_w/rho_snow_mult_now(i,ksn)
+                IF (ksn == k) THEN
+                  dzh_snow_now(i,ksn) = MIN(8._ireals*max_toplaydepth, (w_snow_now(i)-wtot_snow_now(i,1)) &
+                      &                 /REAL(ke_snow-1,ireals)*rho_w/rho_snow_mult_now(i,ksn) )
+                ELSE
+                  dzh_snow_now(i,ksn) = (w_snow_now(i)-wtot_snow_now(i,k))/REAL(ke_snow-k,ireals) &
+                      &                 *rho_w/rho_snow_mult_now(i,ksn)
+                ENDIF
               ENDIF
               wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
               wliq_snow_now    (i,ksn) = 0.0_ireals
