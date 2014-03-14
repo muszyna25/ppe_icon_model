@@ -72,7 +72,7 @@
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
-   USE mo_sync,                 ONLY: global_sum_array, sync_patch_array,  sync_patch_array_mult, &
+   USE mo_sync,                 ONLY: sync_patch_array,  sync_patch_array_mult, &
                                    &  SYNC_C, SYNC_E, SYNC_V
    USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars
    USE mo_vertical_coord_table, ONLY: vct_a

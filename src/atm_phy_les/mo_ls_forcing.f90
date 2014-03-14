@@ -57,7 +57,6 @@ MODULE mo_ls_forcing
   USE mo_vert_utilities
   USE mo_ls_forcing_nml
   USE mo_physical_constants,  ONLY: rd, cpd, alv, cvd
-  USE mo_sync,                ONLY: global_sum_array, omp_global_sum_array
 
   IMPLICIT NONE
 

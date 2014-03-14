@@ -64,7 +64,7 @@ MODULE mo_nh_torus_exp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_math_utilities,      ONLY: plane_torus_distance, arc_length
   USE mo_grid_config,         ONLY: grid_sphere_radius, is_plane_torus
-  USE mo_sync,                ONLY: global_sum_array, sync_patch_array, SYNC_C, SYNC_E
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E
   USE mo_nh_init_utils,       ONLY: init_w
   USE mo_run_config,          ONLY: iqv, iqc
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
