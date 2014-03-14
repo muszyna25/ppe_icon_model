@@ -165,9 +165,10 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','group:ice_default','hi','conc'
-! ml_varlist       =  'group:oce_default','hi','conc'
-! ml_varlist       =  'group:oce_default','group:oce_diag','group:oce_prog','group:oce_physics'
+  ml_varlist       = 'group:oce_essentials','ice_default'
+! ml_varlist       = 'group:oce_default','group:ice_default','hi','conc'
+! ml_varlist       = 'group:oce_default','hi','conc'
+! ml_varlist       = 'group:oce_default','group:oce_diag','group:oce_prog','group:oce_physics','group:ice_default','ice_diag'
 !  include_last     = .true.  
 /
 &dbg_index_nml
@@ -190,17 +191,18 @@ cat > ${ocean_namelist} << EOF
 !                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
 !                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
-  l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
-  l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  ! l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
+  ! l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
+  ! solver_tolerance = 1.0E-14            !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart = 20        !  outer solver loop with syncing
-  solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
-  use_continuity_correction=.true.
+  solver_max_restart_iterations = 50      !  inner solver loop without syncing
+  ! solver_max_iter_per_restart * solver_max_restart_iterations: maximum iterations before abort
+  ! use_continuity_correction=.true.      !  height adjustment according to vertical velocity in dynamics
 /
 &ocean_tracer_transport_nml
 ! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter
-  FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm; 8=FCT with zalesak limiter
+! FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
+! FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
 ! fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
 ! fct_high_order_flux   = 2      ! horizontal high order method: 1=upwind, 2=central (def), 3=lax_friedrichs, 4=miura_order1

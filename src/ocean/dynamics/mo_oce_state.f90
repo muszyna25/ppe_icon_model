@@ -636,7 +636,7 @@ CONTAINS
       & t_cf_var('vn_pred','m/s','average vn normal velocity component', &
       & DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag", "oce_essentials"),lrestart_cont=.TRUE.)
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
     
     CALL add_var(ocean_default_list, 'w_time_weighted', p_os_diag%w_time_weighted, &
       & grid_unstructured_cell, za_depth_below_sea_half, &
@@ -723,11 +723,11 @@ CONTAINS
     CALL add_var(ocean_default_list, 'mld', p_os_diag%mld , grid_unstructured_cell,za_surface, &
       & t_cf_var('mld', 'm', 'mixed layer depth', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"))
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     CALL add_var(ocean_default_list, 'condep', p_os_diag%condep , grid_unstructured_cell, za_surface,&
     &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT8),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"))
+    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,alloc_cell_blocks), stat=ist)
@@ -1017,12 +1017,12 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('rhopot_acc','kg/m^3','potential density', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default","oce_essentials"))
     CALL add_var(ocean_default_list, 'rho_acc', p_os_acc%rho, grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('rho_acc','kg/m^3','insitu density', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
     
     CALL add_var(ocean_default_list, 'w_acc', p_os_acc%w, grid_unstructured_cell, &
       & za_depth_below_sea_half, &
@@ -1043,7 +1043,7 @@ CONTAINS
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('u_vint_acc', 'm*m/s', 'barotropic zonal velocity', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_essentials"))
     CALL add_var(ocean_default_list, 'vort_acc', p_os_acc%vort, &
       & grid_unstructured_vert, za_depth_below_sea, &
       & t_cf_var('vort_acc','1/s','vorticity', DATATYPE_FLT32),&
@@ -1275,12 +1275,14 @@ CONTAINS
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('basin_c', '', 'basin_c', DATATYPE_INT8),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default"),isteptype=tstep_constant)
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default","oce_essentials"), &
+      & isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'regio_c', patch_3d%regio_c , &
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('regio_c', '', 'regio_c', DATATYPE_INT8),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default"),isteptype=tstep_constant)
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default","oce_essentials"), &
+      & isteptype=tstep_constant)
     ! 2-dim bottom and column thickness
     CALL add_var(ocean_default_list, 'bottom_thick_c', patch_3d%bottom_thick_c , &
       & grid_unstructured_cell, za_surface, &
@@ -1308,13 +1310,15 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('wet_c', '', '3d lsm on cells', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default"),isteptype=tstep_constant)
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry","oce_default","oce_essentials"), &
+      & isteptype=tstep_constant)
     ! edges
     CALL add_var(ocean_default_list, 'wet_e', patch_3d%wet_e , grid_unstructured_edge,&
       & za_depth_below_sea, &
       & t_cf_var('wet_e', '', '3d lsm on edges', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry","oce_default"),isteptype=tstep_constant)
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry","oce_default","oce_essentials"), &
+      & isteptype=tstep_constant)
     ! 3-dim real land-sea-mask with zero on halos
     ! cells
     CALL add_var(ocean_default_list, 'wet_halo_zero_c', patch_3d%wet_halo_zero_c , grid_unstructured_cell,&
