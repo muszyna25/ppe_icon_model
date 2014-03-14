@@ -347,6 +347,7 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord                 = 2
  l_intp_c2l                   = .TRUE.
  l_mono_c2l                   = .TRUE.
+ rbf_scale_mode_ll            = 1       ! workaround for RBF lat lon interpolation problems at R2B5 
 /
 &gridref_nml
  grf_intmethod_ct             = 2
