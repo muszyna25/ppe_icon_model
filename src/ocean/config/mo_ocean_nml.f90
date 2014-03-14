@@ -761,6 +761,7 @@ MODULE mo_ocean_nml
 
      !consistency check for horizontal advection in edge_based configuration
      IF(l_edge_based)THEN
+       CALL message(TRIM(routine),'You are using the EDGE_BASED discretization')
        IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind ) THEN
          CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5')
        ENDIF
@@ -783,6 +784,7 @@ MODULE mo_ocean_nml
        ENDIF
      !consistency check for horizontal advection in cell_based configuration       
      ELSEIF(.NOT.l_edge_based)THEN
+       CALL message(TRIM(routine),'You are using the CELL_BASED discretization')
        IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
          CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
        ENDIF     
