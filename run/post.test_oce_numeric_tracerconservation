@@ -64,7 +64,17 @@ ${nclCaller} ${plotCmd} -altLibDir=${scriptPath} -oType=${oType} -cdo=${CDO} -is
 mv ${oFile}.${oType} plots/.
 
 
-module load python/2.7-ve2
+case "${target}" in
+  thunder*)
+    module load python/2.7-ve2
+    ;;
+  blizzard*)
+    module load PYTHON/2.7.1
+    ;;
+  *)
+    module load python
+    ;;
+esac
 
 python - <<EOF
 
