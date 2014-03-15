@@ -90,7 +90,8 @@ data/ECHAM6_CldOptProps.nc -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
 data/rrtmg_lw.nc -text
-data/vprof_in -text
+data/sound_landseabr -text
+data/sound_rce -text
 doc/contrib/ICON_Grafik1_Legende_Okt09.jpg -text
 doc/contrib/ICON_Grafik1_Okt09.jpg -text
 doc/contrib/ICON_Grafik2_Legende_Okt09.jpg -text

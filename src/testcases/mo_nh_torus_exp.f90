@@ -315,7 +315,8 @@ MODULE mo_nh_torus_exp
       u_gate (:),             & !Zonal wind speed      [m/s]
       v_gate (:),             & !Meridional            [m/s]
       qv_gate(:)                !specific humidity     [g/kg]
-    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_nh_torus_exp:init_nh_state_gate'
+    CHARACTER(len=max_char_length), PARAMETER :: &
+       &  routine = 'mo_nh_torus_exp:init_nh_state_gate'
   !-------------------------------------------------------------------------
     
     !Open formatted file to read ls forcing data
@@ -781,7 +782,7 @@ MODULE mo_nh_torus_exp
 
     ! when false, this switch will result in theta and qv being read from an ext file
     ! rather than computed analytically
-    analyticprof = .TRUE.
+    analyticprof = .FALSE.
 
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zpot_temp(nlev),STAT=istatus)
@@ -822,11 +823,11 @@ MODULE mo_nh_torus_exp
         !Tracers
         IF (analyticprof) THEN
           DO jk = 1, nlev
-            ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = 0.0185_wp*&
+            ptr_nh_prog%tracer(1:nlen,jk,jb,iqv)=rh_sfc*spec_humi(sat_pres_water(th_cbl(1)),zp0)*&
             & EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/2800._wp)
           END DO
         ELSE ! get iqv from external file
-          ! qsat = incomping specific humidity from Cathy's file
+          ! qsat = incomping specific humidity 
           DO jk = 1, nlev
             ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = zq_sat(jk)
           END DO
@@ -850,6 +851,10 @@ MODULE mo_nh_torus_exp
             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
         END DO
 
+        !DO jk = 1,nlev
+        !  write(*,*) 'THE INCOMING TEMP, QSAT: ',zpot_temp(jk),zq_sat(jk),ptr_metrics%z_mc(1,jk,1)
+        !END DO
+        
         !Get hydrostatic pressure and exner at lowest level
         ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
         ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
@@ -1152,7 +1157,6 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
     wind_v(:),              & !v wind [m/s]
     q_sat_mn(:)               !domain mn qsat
 
-  REAL(wp), ALLOCATABLE :: zpressure(:)
   REAL(wp)              :: z_temp(nlev)
   REAL(wp)              :: z_qsat(nlev)
 
@@ -1167,9 +1171,7 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
 
   !-------------------------------------------------------------------------
 
-  ALLOCATE(zpressure(339))
-
-  file1='vprof_in'
+  file1='sound_rce'
 
   ! Open files
   iunit = find_next_free_unit(10,100)
@@ -1190,10 +1192,10 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
     klev = klev + 1
   END DO
   IF (ist > 0) THEN ! a read error occured
-    CALL message('','An error occurred while reading soundin file')
+    CALL message(TRIM(routine), 'An error occurred while reading soundin file')
   ELSE ! the end of the data in the file was reached
     WRITE(message_text,'(A,I6,A)')'End of profile reached with ',klev,' values.'
-    CALL message('', TRIM(message_text))
+    CALL message(TRIM(routine), TRIM(message_text))
   ENDIF
 
   ALLOCATE(height(klev),temp(klev),wind_u(klev),wind_v(klev),q_sat_mn(klev))
@@ -1213,12 +1215,12 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
   q_sat_mn = 0.0_wp
   wind_v = 0.0_wp
   wind_u = 0.0_wp
-  zpressure = 0.0_wp
 
   write(*,*) 'incoming data fields from file ',file1
   write(*,*) 'height, temp, q_sat_mn, wind_u, wind_v'
   DO jk=klev,1,-1 
     READ (iunit,*,IOSTAT=ist) height(jk), temp(jk), q_sat_mn(jk), wind_u(jk), wind_v(jk)
+    !write(*,*) 'VALUES FROM PROFILE ARE: ',height(jk),temp(jk),q_sat_mn(jk)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'reading profile file failed')
     ENDIF
@@ -1241,7 +1243,6 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
   DEALLOCATE(wind_u)
   DEALLOCATE(wind_v)
   DEALLOCATE(q_sat_mn)
-  DEALLOCATE(zpressure)
 
   CLOSE(iunit)
   CLOSE(iunit2)
