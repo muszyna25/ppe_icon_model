@@ -98,7 +98,7 @@ MODULE mo_nh_interface_nwp
   USE mo_sync,                    ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E,      &
                                         SYNC_C, SYNC_C1, global_sum_array
   USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier,     &
-    &                                   process_mpi_stdio_id
+    &                                   process_mpi_stdio_id, my_process_is_stdio
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
   USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable, delete_icon_comm_variable,    &
     &                                   icon_comm_var_is_ready, icon_comm_sync,               &
@@ -1636,11 +1636,13 @@ CONTAINS
       npoints   = SUM(npoints_blk)
       dpsdt_avg = global_sum_array(dpsdt_avg, opt_iroot=process_mpi_stdio_id)
       npoints   = global_sum_array(npoints  , opt_iroot=process_mpi_stdio_id)
-      dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dtadv_loc)
-      ! Exclude initial time step where pres_sfc_old is zero
-      IF (dpsdt_avg < 10000._wp/dtadv_loc) THEN
-        WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+      IF (my_process_is_stdio()) THEN
+        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dtadv_loc)
+        ! Exclude initial time step where pres_sfc_old is zero
+        IF (dpsdt_avg < 10000._wp/dtadv_loc) THEN
+          WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
+          CALL message('nwp_nh_interface: ', TRIM(message_text))
+        ENDIF
       ENDIF
     ENDIF
 
