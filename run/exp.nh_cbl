@@ -118,6 +118,7 @@ cat > ${atmo_namelist} << EOF
  expname           = '${EXPNAME}'
  avg_interval_sec = 900.
  sampl_freq_sec   = 30.
+ ldiag_les_out    = .TRUE.
 /
 &diffusion_nml
  lhdiff_temp  = .TRUE.
