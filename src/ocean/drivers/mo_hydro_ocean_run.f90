@@ -366,34 +366,34 @@ CONTAINS
         ! perform accumulation for special variables
         IF (no_tracer>=1) THEN
           CALL calc_potential_density( patch_3d,                            &
-          & ocean_state(jg)%p_prog(nold(1))%tracer,                         &
-          & ocean_state(jg)%p_diag%rhopot )
+            &                          ocean_state(jg)%p_prog(nold(1))%tracer,                         &
+            &                          ocean_state(jg)%p_diag%rhopot )
           CALL calc_psi (patch_2d,patch_3d, ocean_state(jg)%p_diag%u(:,:,:),&
-          & ocean_state(jg)%p_prog(nold(1))%h(:,:),                         &
-          & ocean_state(jg)%p_diag%u_vint, datetime)
+            &                          ocean_state(jg)%p_prog(nold(1))%h(:,:),                         &
+            &                          ocean_state(jg)%p_diag%u_vint, datetime)
         ENDIF 
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),&
-        & p_sfc_flx,                                &
-        & patch_2D%cells%owned,       &
-        & patch_2D%edges%owned,       &
-        & patch_2D%verts%owned,       &
+          &                          p_sfc_flx,           &
+          &                          patch_2D%cells%owned,&
+          &                          patch_2D%edges%owned,&
+          &                          patch_2D%verts%owned,&
         & n_zlev)
         IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2D%cells%owned)
       
         dolic           => patch_3d%p_patch_1d(1)%dolic_c
         prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
         CALL calc_fast_oce_diagnostics( patch_2D,      &
-        & dolic, &
-        & prism_thickness, &
-        & patch_3d%p_patch_1d(1)%zlev_m, &
-        & ocean_state(jg)%p_diag)
+          &                             dolic, &
+          &                             prism_thickness, &
+          &                             patch_3d%p_patch_1d(1)%zlev_m, &
+          &                             ocean_state(jg)%p_diag)
 
         CALL output_ocean( patch_3d, ocean_state, p_ext_data,          &
-          & datetime, lwrite_restart,            &
-          & p_sfc_flx, p_phys_param,             &
-          & p_as, p_atm_f, p_ice,operators_coefficients, &
-          & jstep, jstep0)
+          &                datetime, lwrite_restart,            &
+          &                p_sfc_flx, p_phys_param,             &
+          &                p_as, p_atm_f, p_ice,operators_coefficients, &
+          &                jstep, jstep0)
       
         ! Shift time indices for the next loop
         ! this HAS to ge into the restart files, because the start with the following loop
@@ -404,12 +404,12 @@ CONTAINS
         ! write a restart or checkpoint file
         IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
           CALL create_restart_file( patch = patch_2d,       &
-            & datetime=datetime,                            &
-            & jstep=jstep,                                  &
-            & model_type="oce",                             &
-            & opt_depth=n_zlev,                             &
-            & opt_sim_time=time_config%sim_time(1),         &
-            & opt_nice_class=1)
+            &                       datetime=datetime,      &
+            &                       jstep=jstep,            &
+            &                       model_type="oce",       &
+            &                       opt_depth=n_zlev,       &
+            &                       opt_sim_time=time_config%sim_time(1),&
+            &                       opt_nice_class=1)
           ! Create the master (meta) file in ASCII format which contains
           ! info about which files should be read in for a restart run.
           CALL write_restart_info_file
