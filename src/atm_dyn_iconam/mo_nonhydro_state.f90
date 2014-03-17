@@ -874,7 +874,7 @@ MODULE mo_nonhydro_state
                     & TRIM(vname_prefix)//'qh'//suffix, p_prog%tracer_ptr(iqh)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
                     & t_cf_var(TRIM(vname_prefix)//'qh',                            &
-                    &  ' kg-1 ','specific_hail_content', DATATYPE_FLT32),   &
+                    &  'kgkg-1 ','specific_hail_content', DATATYPE_FLT32),   &
                     & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice

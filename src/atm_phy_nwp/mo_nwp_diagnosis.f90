@@ -365,6 +365,20 @@ CONTAINS
             &                                + t_wgt * prm_diag%tot_cld_vi(jc,jb,1:3)
         ENDDO
 
+        !Add more precip vars in case of two moment microphysics
+        IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+         
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            prm_diag%gsp_prec_rate_avg(jc,jb) = prm_diag%gsp_prec_rate_avg(jc,jb) + &
+              &                               ( prm_diag%ice_gsp(jc,jb)  +    &
+              &                                 prm_diag%hail_gsp(jc,jb) +    &
+              &                                 prm_diag%graupel_gsp(jc,jb) ) &
+              &                               * r_sim_time
+          END DO
+
+        END IF!IF inwp_gscp==4
+        
 
         IF (lflux_avg) THEN
 

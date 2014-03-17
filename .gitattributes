@@ -1264,8 +1264,6 @@ src/atm_phy_edmf/mo_vupdz0.f90 -text
 src/atm_phy_les/mo_interface_les.f90 -text
 src/atm_phy_les/mo_les_turb_interface.f90 -text
 src/atm_phy_les/mo_ls_forcing.f90 -text
-src/atm_phy_les/mo_mcrph_main.f90 -text
-src/atm_phy_les/mo_mcrph_sb.f90 -text
 src/atm_phy_les/mo_sgs_turbulence.f90 -text
 src/atm_phy_les/mo_surface_les.f90 -text
 src/atm_phy_les/mo_turbulent_diagnostic.f90 -text
@@ -1294,6 +1292,8 @@ src/atm_phy_schemes/data_hydci_pp_ice.f90 -text
 src/atm_phy_schemes/data_turbulence.f90 -text
 src/atm_phy_schemes/gscp_hydci_pp.f90 -text
 src/atm_phy_schemes/gscp_hydci_pp_ice.f90 -text
+src/atm_phy_schemes/mo_2mom_mcrph_driver.f90 -text
+src/atm_phy_schemes/mo_2mom_mcrph_main.f90 -text
 src/atm_phy_schemes/mo_adjust.f90 -text
 src/atm_phy_schemes/mo_aerosol_util.f90 -text
 src/atm_phy_schemes/mo_albedo.f90 -text

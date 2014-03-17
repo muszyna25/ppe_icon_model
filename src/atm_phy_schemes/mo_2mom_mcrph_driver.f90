@@ -177,7 +177,7 @@ CONTAINS
                        prec_s,            &!inout precp rate snow
                        prec_g,            &!inout precp rate graupel
                        prec_h,            &!inout precp rate hail
-                       dbg_level,         &!in debug level=msg_level
+                       msg_level,         &!in msg_level
                        l_cv          )    
                 
 
@@ -202,15 +202,13 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT (INOUT)  :: prec_r, prec_i, &
                                                prec_s, prec_g, prec_h
 
-    INTEGER,  INTENT (IN)             :: dbg_level 
+    INTEGER,  INTENT (IN)             :: msg_level 
     LOGICAL,  OPTIONAL,  INTENT (IN)  :: l_cv
 
     ! ... Local Variables
 
     INTEGER    :: its,ite,kts,kte
     INTEGER    :: i,j,k,ii,kk,n,nt_kamm2,ntsedi,igridpoints,izstat,kkk
-    REAL(wp)   :: wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,&
-                  precmax,ncmax,nimax,dzmin,tmax,tmin
     
     REAL(wp) :: q_vap_new,q_vap_old
     REAL(wp) :: q_liq_new,q_liq_old
@@ -225,10 +223,9 @@ CONTAINS
 
     ! using eps=0 increases runtime, but may remove artifacts
     REAL,    PARAMETER :: eps = 0._wp
-
+    INTEGER, PARAMETER :: dbg_level = 25 !level for debug prints
     LOGICAL, PARAMETER :: CGP_SEARCH = .true.
-    LOGICAL, PARAMETER :: debug      = .false.
-    LOGICAL            :: debug_maxval = .true.
+    LOGICAL, PARAMETER :: debug      = .false.    
     CHARACTER(len=*), PARAMETER :: routine = 'mo_mcrph_sb:two_moment_mcrph'
 
     !inverse of vertical layer thickness
@@ -265,58 +262,18 @@ CONTAINS
     ENDIF
      
 
-    IF (dbg_level>=15) CALL message(TRIM(routine),'')
-
-    IF (dbg_level>20) THEN
-       debug_maxval = .true.
-    ELSE
-       debug_maxval = .false.
-    END IF
+    IF (msg_level>dbg_level) CALL message(TRIM(routine),'')
 
     !Check
     qnc_const = 200._wp
 
     loc_ix = (kte-kts+1)*(ite-its+1)
 
-    IF (debug_maxval)THEN
+    IF (msg_level>dbg_level)THEN
        WRITE (message_text,'(1X,A,I4,A,E12.4)') "mcrph_sb: cloud_type = ",cloud_type,", CCN = ",qnc_const
        CALL message(TRIM(routine),TRIM(message_text))
     END IF
 
-
-    IF (debug_maxval) THEN
- 
-       !local max val 
-       wmax  = MAXVAL(w(its:ite,kts:kte))
-       qvmax = MAXVAL(qv(its:ite,kts:kte))
-       qcmax = MAXVAL(qc(its:ite,kts:kte))
-       qrmax = MAXVAL(qr(its:ite,kts:kte))
-       qimax = MAXVAL(qi(its:ite,kts:kte))
-       qsmax = MAXVAL(qs(its:ite,kts:kte))
-       qhmax = MAXVAL(qh(its:ite,kts:kte))
-       qgmax = MAXVAL(qg(its:ite,kts:kte))
-       nimax = MAXVAL(qni(its:ite,kts:kte))
-       tmax  = MAXVAL(tk(its:ite,kts:kte))
-
-       !now calculate global max
-       wmax  = global_max(wmax)
-       qvmax = global_max(qvmax)
-       qcmax = global_max(qcmax)
-       qrmax = global_max(qrmax)
-       qimax = global_max(qimax)
-       qsmax = global_max(qsmax)
-       qgmax = global_max(qgmax)
-       qhmax = global_max(qhmax)
-       nimax = global_max(nimax)
-       tmax  = global_max(tmax)
-
-       CALL message (TRIM(routine), "output max values before microphysics")
-
-       WRITE(message_text,'(A10,10A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh','ni','tmax'
-       CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,10E11.3)') '   ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,nimax,tmax
-       CALL message("",TRIM(message_text))
-    ENDIF
 
     ALLOCATE( ilm(0:loc_ix), klm(0:loc_ix))
     ALLOCATE( ssi(its:ite,kts:kte))
@@ -332,7 +289,7 @@ CONTAINS
 
     !..search for cloudy grid points and store locations
     i = -1
-    IF (dbg_level>=15) CALL message(TRIM(routine), "mcrph_sb: search for cloudy grid points")
+    IF (msg_level>dbg_level) CALL message(TRIM(routine), "mcrph_sb: search for cloudy grid points")
 
     IF (CGP_SEARCH) THEN
           DO ii = its, ite
@@ -364,7 +321,7 @@ CONTAINS
     !..return now, if no clouds are found
     IF (igridpoints == -1) THEN
 
-       IF(dbg_level>15)CALL message(TRIM(routine), "mcrph_sb: no clouds found!")
+       IF(msg_level>dbg_level)CALL message(TRIM(routine), "mcrph_sb: no clouds found!")
 
        DEALLOCATE(ssi)
        DEALLOCATE(ilm,klm)
@@ -392,13 +349,13 @@ CONTAINS
        !   WRITE (*,*) "      loc_iz = ",loc_iz
        !ENDIF
 
-       IF (dbg_level>15) CALL message(TRIM(routine), "mcrph_sb: calling allocation")
+       IF (msg_level>dbg_level) CALL message(TRIM(routine), "mcrph_sb: calling allocation")
 
        ! ... Allocate memory to temporary KAMM2 variables
        CALL alloc_driver()
        CALL alloc_wolken()
 
-       IF (dbg_level>15) CALL message(TRIM(routine), "start copy to one-dimensional array")
+       IF (msg_level>dbg_level) CALL message(TRIM(routine), "start copy to one-dimensional array")
 
        ! ... transpose to one-dimensional array and variables used in cloud module
        j = 1
@@ -436,12 +393,12 @@ CONTAINS
 
        enddo
 
-       IF (dbg_level>15) CALL message(TRIM(routine), "finished copy to one-dimensional array")
+       IF (msg_level>dbg_level) CALL message(TRIM(routine), "finished copy to one-dimensional array")
 
        ! ... timestep
        dt_kamm2 = dt
 
-       IF (dbg_level>15) CALL message(TRIM(routine),"mcrph_sb: calling clouds")
+       IF (msg_level>dbg_level) CALL message(TRIM(routine),"mcrph_sb: calling clouds")
 
        !======================================================================
        ! .. this subroutine calculates all the microphysical sources and sinks
@@ -506,7 +463,7 @@ CONTAINS
        ENDIF
 
        ! ... Transformation of variables back to driving model and latent heat equation
-       IF (dbg_level>15) CALL message(TRIM(routine), "mcrph_sb: trafo back")
+       IF (msg_level>dbg_level) CALL message(TRIM(routine), "mcrph_sb: trafo back")
 
        j = 1
        k = 1
@@ -556,21 +513,19 @@ CONTAINS
        DEALLOCATE(ilm,klm)
 
        ! ... deallocation
-       IF (dbg_level>15) CALL message(TRIM(routine),"calling deallocation_driver")
+       IF (msg_level>dbg_level) CALL message(TRIM(routine),"calling deallocation")
        CALL dealloc_driver()
-
-       IF (dbg_level>15) CALL message(TRIM(routine),"calling deallocation_wolken")
        CALL dealloc_wolken()
 
        DEALLOCATE(ssi)
 
-       IF (dbg_level>15) CALL message(TRIM(routine),"cloud microphysics end")
+       IF (msg_level>dbg_level) CALL message(TRIM(routine),"cloud microphysics end")
 
     END IF ! ... This ends the loooong if-block 'cloudy points present'
 
 
 !===========================================================================================
-    IF (dbg_level>15) CALL message(TRIM(routine),"sedimentation")
+    IF (msg_level>dbg_level) CALL message(TRIM(routine),"sedimentation")
 !===========================================================================================
 
     prec_r  = 0._wp
@@ -611,41 +566,7 @@ CONTAINS
 
     END IF
 
-    IF (debug_maxval) THEN
-
-       !local max val 
-       wmax  = MAXVAL(w(its:ite,kts:kte))
-       qvmax = MAXVAL(qv(its:ite,kts:kte))
-       qcmax = MAXVAL(qc(its:ite,kts:kte))
-       qrmax = MAXVAL(qr(its:ite,kts:kte))
-       qimax = MAXVAL(qi(its:ite,kts:kte))
-       qsmax = MAXVAL(qs(its:ite,kts:kte))
-       qhmax = MAXVAL(qh(its:ite,kts:kte))
-       qgmax = MAXVAL(qg(its:ite,kts:kte))
-       nimax = MAXVAL(qni(its:ite,kts:kte))
-       tmax  = MAXVAL(tk(its:ite,kts:kte))
-
-       !now calculate global max
-       wmax  = global_max(wmax)
-       qvmax = global_max(qvmax)
-       qcmax = global_max(qcmax)
-       qrmax = global_max(qrmax)
-       qimax = global_max(qimax)
-       qsmax = global_max(qsmax)
-       qgmax = global_max(qgmax)
-       qhmax = global_max(qhmax)
-       nimax = global_max(nimax)
-       tmax  = global_max(tmax)
-
-       CALL message (TRIM(routine), "output max values after microphysics")
-
-       WRITE(message_text,'(A10,10A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh','ni','tmax'
-       CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,10E11.3)') '   ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,nimax,tmax
-       CALL message("",TRIM(message_text))
-    ENDIF
-
-    IF (dbg_level>15) CALL message(TRIM(routine), "two moment mcrph ends!")
+    IF (msg_level>dbg_level) CALL message(TRIM(routine), "two moment mcrph ends!")
 
     RETURN
 
@@ -661,7 +582,7 @@ CONTAINS
     LOGICAL, PARAMETER :: lhshed_ascm = .false.
 
      
-    !CALL init_seifert( cloud_type )
+    CALL init_seifert( cloud_type )
 
     unitnr = 11
     CALL init_dmin_wetgrowth('dmin_wetgrowth_lookup.dat', unitnr)
