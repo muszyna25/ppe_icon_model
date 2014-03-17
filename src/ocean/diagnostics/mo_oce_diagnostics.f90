@@ -212,13 +212,13 @@ CONTAINS
     !-----------------------------------------------------------------------
     CHARACTER(LEN=max_char_length) :: headerline
     CHARACTER(LEN=max_char_length) :: listname
-    INTEGER :: nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
-    REAL(wp)                       :: surface_area, surface_height, prism_vol, prism_area, column_volume
+    INTEGER  :: nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
+    REAL(wp) :: surface_area, surface_height, prism_vol, prism_area, column_volume
     
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER        :: p_patch
     TYPE(t_subset_range), POINTER :: owned_cells
-    INTEGER, POINTER :: regions(:,:)
-    TYPE(t_ocean_regions)          :: ocean_regions
+    INTEGER, POINTER              :: regions(:,:)
+    TYPE(t_ocean_regions)         :: ocean_regions
     !-----------------------------------------------------------------------
     p_patch => p_patch_3d%p_patch_2d(1)
     regions => p_patch_3d%regio_c

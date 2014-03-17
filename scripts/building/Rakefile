@@ -37,6 +37,11 @@ DEFAULT_EXP = 'test_oce_default'
 #plotter
 @plotter = IconPlot.new
 
+# load user settings
+RC = "#{ENV['HOME']}/.rake.rc"
+load(RC) if File.exist?(RC)
+
+
 # basic host setup
 $hosts = {
   # local port forwarding setup for thunder4 and 5
