@@ -49,7 +49,7 @@ MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: ippm_v
-  USE mo_dynamics_config,    ONLY: idiv_method
+  USE mo_dynamics_config,    ONLY: idiv_method, nnow, nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch
@@ -68,6 +68,7 @@ MODULE mo_nh_dtp_interface
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: prepare_tracer
+  PUBLIC :: compute_airmass
 
 CONTAINS
 
@@ -93,7 +94,6 @@ CONTAINS
     &                        p_nh_diag,                                       &!inout
     &                        p_vn_traj, p_mass_flx_me,                        &!inout
     &                        p_w_traj, p_mass_flx_ic,                         &!inout
-    &                        p_rhodz_mc_now, p_rhodz_mc_new,                  &!inout
     &                        p_topflx_tra                                     )!out
 
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
@@ -115,8 +115,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT)         :: p_w_traj(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT), TARGET :: p_mass_flx_me(:,:,:)  ! (nproma,  nlev,p_patch%nblks_e)
     REAL(wp),INTENT(INOUT)         :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
-    REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_now(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
-    REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_new(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
     REAL(wp),INTENT(OUT)           :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 
     ! local variables
@@ -277,53 +275,6 @@ CONTAINS
         p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
         p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
 !$OMP END WORKSHARE
-    ENDIF
-
-    !
-    ! density multiplied by layer thickness at cell center for
-    ! timesteps n and n+1 (need to include the halo points!)
-    !
-    IF (lclean_mflx) THEN   ! first time step after call of transport
-
-      i_endblk = p_patch%cells%end_blk(min_rlcell,i_nchdom)
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-          &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
-
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            p_rhodz_mc_now(jc,jk,jb) =                                          &
-              &           p_now%rho(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
-
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-    ENDIF
-
-    IF (lstep_advphy) THEN
-
-      i_endblk = p_patch%cells%end_blk(min_rlcell,i_nchdom)
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-          &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell )
-
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            p_rhodz_mc_new(jc,jk,jb) =                                          &
-              &           p_new%rho(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
-
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-
     ENDIF
 
 
@@ -514,6 +465,62 @@ CONTAINS
     IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
 
   END SUBROUTINE prepare_tracer
+
+
+
+  !>
+  !! Compute updated air mass within grid cell
+  !!
+  !! Compute updated air mass within grid cell. Note that here, the air mass is defined 
+  !! as \rho*\Delta z [kg m-2]. Thus, in order to get the true grid cell air mass one has to 
+  !! multiply with the grid cell area.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-03-15)
+  !!
+  SUBROUTINE compute_airmass (p_patch, p_metrics, p_prog_now, p_prog_new, p_nh_diag, linit)
+
+    TYPE(t_patch)   ,  INTENT(IN)     :: p_patch
+    TYPE(t_nh_metrics),INTENT(IN)     :: p_metrics
+    TYPE(t_nh_prog) ,  INTENT(IN)     :: p_prog_now, p_prog_new
+    TYPE(t_nh_diag),   INTENT(INOUT)  :: p_nh_diag
+    LOGICAL         ,  INTENT(IN)     :: linit
+
+    INTEGER :: i_rlstart, i_rlend, i_startblk, i_endblk
+    INTEGER :: i_nchdom
+    INTEGER :: jb
+  !---------------------------------------------------------!
+
+    ! number of child domains
+    i_nchdom = MAX(1,p_patch%n_childdom)
+
+    i_rlstart  = 1
+    i_rlend    = min_rlcell
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
+    ! halo points must be included!
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+       IF (linit) THEN
+         p_nh_diag%airmass_new(:,:,jb) = p_prog_now%rho(:,:,jb) &
+           &                           * p_metrics%ddqz_z_full(:,:,jb)
+       ELSE
+         p_nh_diag%airmass_now(:,:,jb) = p_nh_diag%airmass_new(:,:,jb)
+
+         p_nh_diag%airmass_new(:,:,jb) = p_prog_new%rho(:,:,jb) &
+           &                           * p_metrics%ddqz_z_full(:,:,jb)
+       ENDIF
+
+    ENDDO ! jb
+!$OMP ENDDO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_airmass
+
 
 END MODULE mo_nh_dtp_interface
 

@@ -138,6 +138,9 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
     &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+    &  airmass_now(:,:,:),  & ! mass of air in layer at physics time step now [kg/m^2]
+    &  airmass_new(:,:,:),  & ! mass of air in layer at physics time step new [kg/m^2]
+
     !
     ! b) variables needed for grid nesting
     &  grf_tend_vn(:,:,:),  & ! vn tendency field for use in grid refinement

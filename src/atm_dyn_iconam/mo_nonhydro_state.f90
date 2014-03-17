@@ -1465,6 +1465,29 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_chalf )
       ENDDO
 
+
+
+      ! airmass_now   p_diag%airmass_now(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('airmass_now', 'kg m-2',&
+        &                   'mass of air in layer at physics time step now', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'airmass_now', p_diag%airmass_now,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_c, loutput=.FALSE., lrestart=.FALSE. )
+
+
+      ! airmass_new   p_diag%airmass_new(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('airmass_new', 'kg m-2',&
+        &                   'mass of air in layer at physics time step new', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'airmass_new', p_diag%airmass_new,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d_c, loutput=.FALSE., lrestart=.FALSE. )
+
+
+
       ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
       !
       cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',                    &

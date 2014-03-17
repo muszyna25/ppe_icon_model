@@ -139,8 +139,7 @@ CONTAINS
                             & prm_diag, prm_nwp_tend, lnd_diag,    & !inout
                             & lnd_prog_now, lnd_prog_new,          & !inout
                             & wtr_prog_now, wtr_prog_new,          & !inout
-                            & p_prog_list,                         & ! in
-                            & rhodz_now_rcf, rhodz_new_rcf         ) !in  
+                            & p_prog_list                          ) !in  
 
     !>
     ! !INPUT PARAMETERS:
@@ -176,7 +175,6 @@ CONTAINS
 
     TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
 
-    REAL(wp),INTENT(in)          :: rhodz_now_rcf(:,:,:), rhodz_new_rcf(:,:,:)
 
     ! !OUTPUT PARAMETERS:            !<variables induced by the whole physics
     ! Local array bounds:
@@ -205,7 +203,6 @@ CONTAINS
 
     !< vertical interfaces
 
-    REAL(wp) :: z_airmass (nproma,pt_patch%nlev) !< needed for radheat
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
 
@@ -656,8 +653,8 @@ CONTAINS
             ! input for the convection scheme, which is rather insensitive against this quantity
             pt_diag%ddt_temp_dyn(jc,jk,jb) = pt_diag%temp(jc,jk,jb)/dt_phy_jg(itfastphy) * &
               ( cpd_o_rd/pt_prog%exner(jc,jk,jb)*pt_diag%exner_dyn_incr(jc,jk,jb) -        &
-              ( rhodz_new_rcf(jc,jk,jb)-rhodz_now_rcf(jc,jk,jb) ) /                        &
-              ( pt_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) ) )
+              ( pt_diag%airmass_new(jc,jk,jb)-pt_diag%airmass_now(jc,jk,jb) ) /            &
+              pt_diag%airmass_new(jc,jk,jb) )
 
             ! reset dynamical exner increment to zero
             ! (it is accumulated over one advective time step in solve_nh)
@@ -951,7 +948,7 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_start(timer_radheat)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,z_airmass) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
         !
@@ -963,10 +960,6 @@ CONTAINS
         !calculate solar incoming flux at TOA
         prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zcosmu0(i_startidx:i_endidx,jb) &
           &                                         * zsct                 !zsct by pre_radiation
-
-        !DR computed twice - could be replaced by prep_adv(jg)%rhodz_mc_new
-        z_airmass(i_startidx:i_endidx,:) = p_metrics%ddqz_z_full(i_startidx:i_endidx,:,jb) * &
-                                           pt_prog%rho(i_startidx:i_endidx,:,jb)
 
         prm_diag%swflxsfc (:,jb)=0._wp
         prm_diag%lwflxsfc (:,jb)=0._wp
@@ -989,7 +982,7 @@ CONTAINS
           & klevp1=nlevp1                          ,&! in     vertical dimension size
           & ntiles=ntiles_total                    ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=ntiles_water                ,&! in     number of extra tiles for ocean and lakes
-          & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
+          & pmair=pt_diag%airmass_new(:,:,jb)      ,&! in     layer air mass             [kg/m2]
           & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]
@@ -1040,7 +1033,7 @@ CONTAINS
           & klevp1=nlevp1                          ,&! in     vertical dimension size
           & ntiles=1                               ,&! in     number of tiles of sfc flux fields
           & ntiles_wtr=0                           ,&! in     number of extra tiles for ocean and lakes
-          & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
+          & pmair=pt_diag%airmass_new(:,:,jb)      ,&! in     layer air mass             [kg/m2]
           & pqv=prm_diag%tot_cld(:,:,jb,iqv)       ,&! in     specific moisture           [kg/kg]
           & pcd=cvd                                ,&! in     specific heat of dry air  [J/kg/K]
           & pcv=cvv                                ,&! in     specific heat of vapor    [J/kg/K]

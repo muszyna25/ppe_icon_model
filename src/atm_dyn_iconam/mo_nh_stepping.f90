@@ -112,7 +112,7 @@ MODULE mo_nh_stepping
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
-  USE mo_nh_dtp_interface,         ONLY: prepare_tracer
+  USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_mpi,                      ONLY: my_process_is_mpi_parallel,                      &
     &                                    proc_split, push_glob_comm, pop_glob_comm,       &
@@ -282,6 +282,14 @@ MODULE mo_nh_stepping
   ELSE
     CALL diag_for_output_dyn (linit=.TRUE.)
   ENDIF
+  ! diagnose airmass from \rho(now) for both restart and non-restart runs
+  DO jg=1, n_dom
+    CALL compute_airmass(p_patch(jg),                         &
+      &                  p_nh_state(jg)%metrics,              &
+      &                  p_nh_state(jg)%prog(nnow(jg)),       &
+      &                  p_nh_state(jg)%prog(nnew(jg)),       &
+      &                  p_nh_state(jg)%diag, linit=.TRUE.)
+  ENDDO
 
 
   IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
@@ -619,7 +627,7 @@ MODULE mo_nh_stepping
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
-      CALL diag_for_output_dyn ( linit=.FALSE. )
+      CALL diag_for_output_dyn ( linit=.FALSE.)
       IF (iforcing == inwp) THEN
         CALL diag_for_output_phys
 
@@ -1026,18 +1034,26 @@ MODULE mo_nh_stepping
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
           &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
-          &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
           &         prep_adv(jg)%topflx_tra                               )! out
 
 
         IF (lstep_adv(jg)) THEN
+
+          ! Update air mass in layer.  Air mass is needed by both the transport and physics.
+          CALL compute_airmass(p_patch(jg),                         &
+            &                  p_nh_state(jg)%metrics,              &
+            &                  p_nh_state(jg)%prog(n_now),          &
+            &                  p_nh_state(jg)%prog(n_new),          &
+            &                  p_nh_state(jg)%diag, linit=.FALSE.)
+
           CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,    & !in
             &        jstep_adv(jg)%marchuk_order,                          & !in
             &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
             &        prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
             &        prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
             &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
-            &        prep_adv(jg)%rhodz_mc_new, prep_adv(jg)%rhodz_mc_now, & !in
+            &        p_nh_state(jg)%diag%airmass_new,                      & !in
+            &        p_nh_state(jg)%diag%airmass_now,                      & !in
             &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
             &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
             &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
@@ -1132,6 +1148,18 @@ MODULE mo_nh_stepping
         ENDIF
 
 
+        ! Update air mass in layer. Air mass is needed by both the transport and physics 
+        ! interface
+        IF (lstep_adv(jg)) THEN
+          CALL compute_airmass(p_patch(jg),                         &
+            &                  p_nh_state(jg)%metrics,              &
+            &                  p_nh_state(jg)%prog(n_now),          &
+            &                  p_nh_state(jg)%prog(n_new),          &
+            &                  p_nh_state(jg)%diag, linit=.FALSE.)
+        ENDIF
+
+
+
 
         ! 5. tracer advection
         !-----------------------
@@ -1146,7 +1174,6 @@ MODULE mo_nh_stepping
             &         p_nh_state(jg)%diag,                                  &! inout
             &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
             &         prep_adv(jg)%w_traj,  prep_adv(jg)%mass_flx_ic,       &! inout
-            &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
             &         prep_adv(jg)%topflx_tra                               )! out
 
           IF (lstep_adv(jg)) THEN
@@ -1173,7 +1200,8 @@ MODULE mo_nh_stepping
               &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
               &          prep_adv(jg)%mass_flx_ic, prep_adv(jg)%w_traj,        & !in
               &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
-              &          prep_adv(jg)%rhodz_mc_new, prep_adv(jg)%rhodz_mc_now, & !in
+              &          p_nh_state(jg)%diag%airmass_new,                      & !in
+              &          p_nh_state(jg)%diag%airmass_now,                      & !in
               &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
               &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
               &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
@@ -1192,7 +1220,7 @@ MODULE mo_nh_stepping
                  &      p_nh_state(jg)%diag,                    &!in
                  &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                  &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
-                 &      prep_adv(jg)%rhodz_mc_new,              &!in
+                 &      p_nh_state(jg)%diag%airmass_new,        &!in
                  &      .TRUE.,                                 &!print CFL number
                  &      opt_topflx_tra=prep_adv(jg)%topflx_tra)  !in
             ENDIF
@@ -1291,9 +1319,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
               &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state(jg)%prog_list(n_new_rcf),& !in
-              &                  prep_adv(jg)%rhodz_mc_now,          & !in
-              &                  prep_adv(jg)%rhodz_mc_new           ) !in
+              &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
 
           END IF
 
@@ -1655,9 +1681,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state(jg)%prog_list(n_now_rcf),& !in
-        &                  prep_adv(jg)%rhodz_mc_now,          & !in
-        &                  prep_adv(jg)%rhodz_mc_new           ) !in 
+        &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in 
 
     END IF
 
@@ -2043,12 +2067,11 @@ MODULE mo_nh_stepping
   DO jg = 1, n_dom
     DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
       &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
-      &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new,  &
       &         prep_adv(jg)%topflx_tra, STAT=ist                      )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
         &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'w_traj, rhodz_mc_now, rhodz_mc_new, topflx_tra failed' )
+        &    'w_traj, topflx_tra failed' )
     ENDIF
   ENDDO
 
@@ -2157,14 +2180,12 @@ MODULE mo_nh_stepping
       &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
       &  prep_adv(jg)%w_traj      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%rhodz_mc_now(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%rhodz_mc_new(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
       &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
       &       STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
       &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-      &      'w_traj, rhodz_mc_now, rhodz_mc_new, topflx_tra failed' )
+      &      'w_traj, topflx_tra failed' )
     ENDIF
     !
     ! initialize (as long as restart output is synchroinzed with advection, 
@@ -2175,8 +2196,6 @@ MODULE mo_nh_stepping
     prep_adv(jg)%mass_flx_ic (:,:,:) = 0._wp
     prep_adv(jg)%vn_traj     (:,:,:) = 0._wp
     prep_adv(jg)%w_traj      (:,:,:) = 0._wp
-    prep_adv(jg)%rhodz_mc_now(:,:,:) = 0._wp
-    prep_adv(jg)%rhodz_mc_new(:,:,:) = 0._wp
     prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
 !$OMP END WORKSHARE
 !$OMP END PARALLEL

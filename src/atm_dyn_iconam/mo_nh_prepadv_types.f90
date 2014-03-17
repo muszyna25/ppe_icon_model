@@ -62,12 +62,6 @@ MODULE mo_nh_prepadv_types
     ! backward trajectories (currently at N+1/2)
     REAL(wp), ALLOCATABLE :: w_traj(:,:,:)
 
-    ! density times layer thickness at cell center at time step N
-    REAL(wp), ALLOCATABLE :: rhodz_mc_now(:,:,:)
-
-    !< density times layer thickness at cell center at time step N+1
-    REAL(wp), ALLOCATABLE :: rhodz_mc_new(:,:,:)
-
     !< vertical tracer flux at domain top (time average; n+1/2)
     REAL(wp), ALLOCATABLE :: topflx_tra(:,:,:)
 
