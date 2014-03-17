@@ -162,7 +162,6 @@ MODULE mo_output_event_handler
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
     &                                  DEFAULT_EVENT_NAME
-  USE mo_output_event_control,   ONLY: compute_matching_sim_steps, generate_output_filenames
   USE mo_name_list_output_types, ONLY: t_fname_metadata
   USE mo_util_table,             ONLY: initialize_table, finalize_table, add_table_column,  &
     &                                  set_table_entry, print_table, t_table

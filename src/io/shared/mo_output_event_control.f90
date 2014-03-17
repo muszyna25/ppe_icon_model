@@ -74,7 +74,7 @@ MODULE mo_output_event_control
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output_event_control'
 
   !> Internal switch for debugging output
-  LOGICAL,          PARAMETER :: ldebug  = .FALSE.
+  LOGICAL,          PARAMETER :: ldebug  = .false.
 
 CONTAINS
 
@@ -127,18 +127,21 @@ CONTAINS
     ! a corresponding event.
     mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
     mtime_dom_end   => newDatetime(TRIM(sim_step_info%dom_end_time))
-    mtime_begin     => newDatetime(TRIM(sim_step_info%sim_start))
+    mtime_begin     => newDatetime(TRIM(sim_step_info%run_start))
     mtime_end       => newDatetime(TRIM(sim_step_info%sim_end  ))
 
     result_steps(:)     = -1
     result_exactdate(:) = ""
+
     DO ilist = 1,nstrings
       mtime_date1 => newDatetime(TRIM(date_string(ilist)))
+
       ! check if domain is inactive:
       IF (((mtime_date1 >= mtime_dom_start) .AND. (mtime_date1 >= mtime_begin)) .OR.  &
         & ((mtime_date1 <= mtime_end) .AND. (mtime_date1 <= mtime_dom_end))) THEN 
         CALL compute_step(mtime_date1, mtime_begin, mtime_end,                &
           &               sim_step_info%dtime, sim_step_info%iadv_rcf, delta, &
+          &               sim_step_info%jstep0,                               &
           &               result_steps(ilist), result_exactdate(ilist))
         IF (ldebug) THEN
           WRITE (0,*) ilist, ": ", result_steps(ilist), " -> ", TRIM(result_exactdate(ilist))
@@ -146,7 +149,6 @@ CONTAINS
       END IF
       CALL deallocateDatetime(mtime_date1)
     END DO
-
     ! clean up
     CALL deallocateDatetime(mtime_dom_start)
     CALL deallocateDatetime(mtime_dom_end)
@@ -162,12 +164,15 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   ! --------------------------------------------------------------------------------------------------
-  SUBROUTINE compute_step(mtime_date1, mtime_begin, mtime_end, dtime, &
-    &                     iadv_rcf, delta, step, exact_date)
-    TYPE(datetime),  POINTER                         :: mtime_date1, mtime_begin, mtime_end
+  SUBROUTINE compute_step(mtime_date1, mtime_begin, mtime_end, dtime,  &
+    &                     iadv_rcf, delta, step_offset, step, exact_date)
+    TYPE(datetime),  POINTER                         :: mtime_date1         !< input date to translated into step
+    TYPE(datetime),  POINTER                         :: mtime_begin         !< begin of run (note: restart cases!)
+    TYPE(datetime),  POINTER                         :: mtime_end           !< end of run
     REAL(wp),                            INTENT(IN)  :: dtime               !< [s] length of a time step
     INTEGER,                             INTENT(IN)  :: iadv_rcf            !< advection step: frequency ratio
     TYPE(timedelta), POINTER                         :: delta
+    INTEGER,                             INTENT(IN)  :: step_offset
     INTEGER,                             INTENT(OUT) :: step                !< result: corresponding simulations step
     CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(OUT) :: exact_date          !< result: corresponding simulation date
     ! local variables
@@ -205,6 +210,9 @@ CONTAINS
       CALL datetimeToString(mtime_step, exact_date)
       CALL deallocateDatetime(mtime_step)
     END IF
+
+    ! then we add the offset "jstep0" (nonzero for restart cases):
+    step        = step + step_offset
   END SUBROUTINE compute_step
 
 
