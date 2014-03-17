@@ -143,8 +143,6 @@ CONTAINS
       DO jg=1,max_dom
         atm_phy_nwp_config(jg)%dt_conv = &
           atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
-        atm_phy_nwp_config(jg)%dt_ccov = &
-          atm_phy_nwp_config(jg)%dt_ccov * grid_rescale_factor
         atm_phy_nwp_config(jg)%dt_rad  = &
           atm_phy_nwp_config(jg)%dt_rad  * grid_rescale_factor
         atm_phy_nwp_config(jg)%dt_sso  = &
