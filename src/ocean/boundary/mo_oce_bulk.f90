@@ -64,7 +64,7 @@ USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_ocean_ext_data,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, forcing_timescale, relax_analytical_type,&
+USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,&
   &                               no_tracer, n_zlev, basin_center_lat,                     &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
   &                               relaxation_param, i_apply_bulk,&
@@ -332,7 +332,7 @@ CONTAINS
       END IF
 
       !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
-      IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) THEN
+      IF (forcing_fluxes_type > 1 .AND. forcing_fluxes_type < 101 ) THEN
 
         !-------------------------------------------------------------------------
         ! provide OMIP fluxes for sea ice (interface to ocean)
@@ -569,7 +569,7 @@ CONTAINS
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
         !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
-        IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) ) THEN
+        IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 1 .AND. forcing_fluxes_type < 101 ) ) THEN
 
           p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
             &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
@@ -625,7 +625,7 @@ CONTAINS
 
         IF (i_apply_bulk == 1) THEN
 
-          IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
+          IF (forcing_fluxes_type > 1 .AND. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
           !IF (iforc_type == 2 .OR. iforc_type == 5) CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
           p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
           p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)

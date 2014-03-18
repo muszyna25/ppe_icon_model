@@ -424,7 +424,7 @@ MODULE mo_ocean_nml
                       ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
                       ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
                       ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-  INTEGER            :: iforc_type = 10
+  ! INTEGER            :: iforc_type = 10 OLD STUFF left for doc
 
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
@@ -480,7 +480,6 @@ MODULE mo_ocean_nml
     &                 forcing_windstress_zonalWavePhase   , &
 #endif
     &                 iforc_oce                           , &
-    &                 iforc_type                          , &
     &                 init_oce_relax                      , &
     &                 irelax_2d_S                         , &
     &                 irelax_3d_S                         , &
