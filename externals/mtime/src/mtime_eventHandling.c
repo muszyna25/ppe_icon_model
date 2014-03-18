@@ -396,23 +396,27 @@ deallocateEvent(struct _event* e)
 /* INTERNAL FUNCTION. */
 static 
 compare_return_val
-isTriggerTimeInRange(struct _datetime* current_dt, struct _datetime* triggerNextEventDateTime, struct _timedelta* alloweddelta)
+isTriggerTimeInRange(struct _datetime*  current_dt, 
+		     struct _datetime*  triggerNextEventDateTime, 
+		     struct _timedelta* alloweddelta_add,
+		     struct _timedelta* alloweddelta_subtract)
 {
   int cmp_val_flag = -128;
 
   /* If alloweddelta is defined, return the status of current_dt vis-a-vis trigger time +/- allowed delta.  */
-  if(alloweddelta && (alloweddelta->sign == '+'))
+  if(alloweddelta_add      && (alloweddelta_add->sign      == '+') &&
+     alloweddelta_subtract && (alloweddelta_subtract->sign == '-') )
     {
       int upper_val_flag = -128;
       int lower_val_flag = -128;
 
       struct _datetime *dt_upperbound              = newDateTime(initDummyDTString);
       struct _datetime *dt_lowerbound              = newDateTime(initDummyDTString);
-      struct _timedelta *td_alloweddelta_substract = constructAndCopyTimeDelta(alloweddelta);
-      td_alloweddelta_substract->sign = '-'; /* Change sign to obtain substraction. */
  
-      upper_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,alloweddelta,dt_upperbound));
-      lower_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,td_alloweddelta_substract,dt_lowerbound));
+      upper_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,
+									 alloweddelta_add,dt_upperbound));
+      lower_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,
+									 alloweddelta_subtract,dt_lowerbound));
 
       if ( 
            (upper_val_flag == less_than || upper_val_flag == equal_to)
@@ -434,7 +438,6 @@ isTriggerTimeInRange(struct _datetime* current_dt, struct _datetime* triggerNext
       //Cleaup.
       deallocateDateTime(dt_upperbound);
       deallocateDateTime(dt_lowerbound);
-      deallocateTimeDelta(td_alloweddelta_substract); 
     }
   else /* If alloweddelta is not defined or is malformed (negative sign is not permitted), return as normal (follow exact match for equal).  */
     {
@@ -473,7 +476,10 @@ setEvent(struct _event* e)
  */
 
 bool
-isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct _timedelta* allowed_slack)
+isCurrentEventActive(struct _event* event, 
+		     struct _datetime* current_dt, 
+		     struct _timedelta* allowed_slack_add,
+		     struct _timedelta* allowed_slack_subtract)
 {
   if ((event != NULL ) && (current_dt != NULL)){ // allowed_slack can be NULL.
 
@@ -488,18 +494,33 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct 
 
   int cmp_val_flag = -128;
 
-  struct _timedelta* slack = NULL;
-  if (allowed_slack)
-     slack = constructAndCopyTimeDelta(allowed_slack);
+  struct _timedelta* slack_add      = NULL;
+  struct _timedelta* slack_subtract = NULL;
+  if (allowed_slack_add)
+     slack_add = constructAndCopyTimeDelta(allowed_slack_add);
   else
-     slack = newTimeDelta(initDummyTDString); // Init slack to PT00.000S
+     slack_add = newTimeDelta(initDummyTDString); // Init slack to PT00.000S
+
+  if (allowed_slack_subtract)
+     slack_subtract = constructAndCopyTimeDelta(allowed_slack_subtract);
+  else {
+    /* if there's no slack_subtract, check if we should take a
+       symmetric slack based on "slack_add" */
+    if (allowed_slack_add) 
+      {
+	slack_subtract = constructAndCopyTimeDelta(allowed_slack_add);
+	slack_subtract->sign = '-'; /* Change sign to obtain substraction. */
+      }
+    else
+      slack_subtract = newTimeDelta(initDummyTDString); // Init slack to PT00.000S
+  }
 
   /* In case the current_dt starts ahead of event->triggerNextEventDateTime, we need to update the event->triggerNextEventDateTime 
      to the next possible trigger time or else the events will never trigger. */
   if (
        (event->nextEventIsFirst)
        &&
-       (isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, slack) == greater_than)
+       (isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, slack_add, slack_subtract) == greater_than)
      )
        {
              struct _timedelta* modulo_td = newTimeDelta(initDummyTDString);
@@ -512,7 +533,7 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct 
 
 
   /* Check if trigger time is now. */
-  if(isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, slack) == equal_to)
+  if(isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, slack_add, slack_subtract) == equal_to)
     {
       /* If current Datetime is equal to next trigger datetime, Event is active. */
 
@@ -543,7 +564,7 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct 
                ( 
                  ( cmp_val_flag = isTriggerTimeInRange ( addTimeDeltaToDateTime(current_dt, event->eventInterval,tmp_dt), 
                                                          event->eventLastDateTime, 
-                                                         slack
+                                                         slack_add, slack_subtract
                                                        )
                  ) == greater_than 
                )
@@ -597,7 +618,8 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct 
       /* Reset indicating this is no longer true. */
       event->nextEventIsFirst = false;
 
-      deallocateTimeDelta(slack);
+      deallocateTimeDelta(slack_add);
+      deallocateTimeDelta(slack_subtract);
       return true;
     }
   else if (event->triggerCurrentEvent == true)
@@ -614,7 +636,8 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct 
       event->eventisLastInYear 		= false;
     }
 
-  deallocateTimeDelta(slack);
+  deallocateTimeDelta(slack_add);
+  deallocateTimeDelta(slack_subtract);
   return false;
 }
   else 
