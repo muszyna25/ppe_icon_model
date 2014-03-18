@@ -912,6 +912,8 @@ MODULE mo_nh_initicon
     TYPE(t_list_element), POINTER   :: element
     CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:initicon_inverse_post_op'
 
+    !-------------------------------------------------------------------------
+
 
     ! Check consistency of optional arguments
     !
@@ -1044,9 +1046,19 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_grib2(SIZE(grp_vars_ana))
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: ana_default_txt, ana_this_txt
 
+    CHARACTER(LEN=100) :: buffer_miss_ana   ! buffer for names of missing mandatory analysis fields
+    CHARACTER(LEN=100) :: buffer_miss_fg    ! buffer for names of missing mandatory first guess fields
+    LOGICAL :: lmiss_ana                    ! True, if there are missing mandatory analysis fields
+    LOGICAL :: lmiss_fg                     ! True, if there are missing mandatory first guess fields
+
+    !-------------------------------------------------------------------------
 
     IF(p_pe == p_io) THEN
 
+
+      ! Initialization
+      lmiss_ana = .FALSE.
+      lmiss_fg  = .FALSE.
 
       !===================
       ! 1: Collect groups
@@ -1257,15 +1269,31 @@ MODULE mo_nh_initicon
               CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(ivar:ivar), 1)
 
             ELSE  ! analysis field is mandatory
-              ! abort
-              !
-              WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))// &
-                &                       ' mandatory, but not found in ANA-input file.'
-              CALL finish(routine, TRIM(message_text))
+
+              ! add missing field to buffer
+              IF (.NOT. lmiss_ana) THEN
+                buffer_miss_ana = TRIM(grp_vars_ana_default(ivar))//', '
+                lmiss_ana = .TRUE.
+              ELSE
+                IF ((LEN_TRIM(buffer_miss_ana)+LEN_TRIM(grp_vars_ana_default(ivar))+2)<= LEN(buffer_miss_ana)) THEN
+                  buffer_miss_ana = TRIM(buffer_miss_ana)//TRIM(grp_vars_ana_default(ivar))//', '
+                ELSE
+                  CYCLE
+                ENDIF
+              ENDIF
+
             ENDIF
           ENDIF
         ENDDO
       ENDIF  ! lread_ana  
+
+      ! abort
+      !
+      IF (lmiss_ana) THEN
+        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_ana)// &
+          &                       ' mandatory, but not found in ANA-file.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
 
 
 
@@ -1276,10 +1304,28 @@ MODULE mo_nh_initicon
         index = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
 
         IF ( index == -1) THEN   ! variable not found
-          WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_fg(ivar))//' missing in FG-input file.'
-          CALL finish(routine, TRIM(message_text))
+
+          ! add missing field to buffer
+          IF (.NOT. lmiss_fg) THEN
+            buffer_miss_fg = TRIM(grp_vars_fg(ivar))//', '
+            lmiss_fg = .TRUE.
+          ELSE
+            IF ((LEN_TRIM(buffer_miss_fg)+LEN_TRIM(grp_vars_fg(ivar))+2)<= LEN(buffer_miss_fg)) THEN
+              buffer_miss_fg = TRIM(buffer_miss_fg)//TRIM(grp_vars_fg(ivar))//', '
+            ELSE
+              CYCLE
+            ENDIF
+          ENDIF
         ENDIF
-      ENDDO  
+      ENDDO
+
+      ! abort
+      !
+      IF (lmiss_fg) THEN
+        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_fg)// &
+          &                       ' missing in FG-input file.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF  
 
 
 
