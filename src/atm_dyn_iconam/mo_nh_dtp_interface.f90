@@ -486,10 +486,15 @@ CONTAINS
     TYPE(t_nh_diag),   INTENT(INOUT)  :: p_nh_diag
     LOGICAL         ,  INTENT(IN)     :: linit
 
+    INTEGER :: nlev                  ! number of vertical levels
     INTEGER :: i_rlstart, i_rlend, i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
     INTEGER :: i_nchdom
-    INTEGER :: jb
+    INTEGER :: jc,jk,jb
   !---------------------------------------------------------!
+
+    ! number of vertical levels
+    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -502,17 +507,28 @@ CONTAINS
     ! halo points must be included!
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-       IF (linit) THEN
-         p_nh_diag%airmass_new(:,:,jb) = p_prog_now%rho(:,:,jb) &
-           &                           * p_metrics%ddqz_z_full(:,:,jb)
-       ELSE
-         p_nh_diag%airmass_now(:,:,jb) = p_nh_diag%airmass_new(:,:,jb)
+       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
+         &                 i_startidx, i_endidx, i_rlstart, i_rlend)
 
-         p_nh_diag%airmass_new(:,:,jb) = p_prog_new%rho(:,:,jb) &
-           &                           * p_metrics%ddqz_z_full(:,:,jb)
+       IF (linit) THEN
+         DO jk = 1, nlev
+           DO jc= i_startidx, i_endidx
+             p_nh_diag%airmass_new(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) &
+               &                           * p_metrics%ddqz_z_full(jc,jk,jb)
+           ENDDO  ! jc
+         ENDDO  ! jk
+       ELSE
+         DO jk = 1, nlev
+           DO jc= i_startidx, i_endidx
+             p_nh_diag%airmass_now(jc,jk,jb) = p_nh_diag%airmass_new(jc,jk,jb)
+
+             p_nh_diag%airmass_new(jc,jk,jb) = p_prog_new%rho(jc,jk,jb) &
+               &                           * p_metrics%ddqz_z_full(jc,jk,jb)
+           ENDDO  ! jc
+         ENDDO  ! jk
        ENDIF
 
     ENDDO ! jb
