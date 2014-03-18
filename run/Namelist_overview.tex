@@ -65,6 +65,18 @@ Parameter& Type& Default& Unit& Description & Scope
 }{\vspace*{1em}}
 
 
+% ------------------------------------------------------
+% new environment for short comments:
+% ------------------------------------------------------
+
+\newenvironment{note}{%
+\begin{list}{}%
+         {}%
+         \item[\textbf{Note:} ] ~\\%
+}{%
+\end{list}
+}
+
 
 \begin{document}
 
@@ -4053,6 +4065,15 @@ sets of common variables can be added to the output:
 \texttt{group:land\_vars}              \>                                                                           \\
 \texttt{group:multisnow\_vars}         \>     tile-averaged variables
 \end{tabbing}
+
+\begin{note}
+      There exists a special syntax which allows to remove variables from the output list, e.\,g.\ if
+      these undesired variables were contained in a previously selected group.\\
+      Typing \texttt{"-\textnormal{<varname>}"} (for example \texttt{"-temp"}) removes the
+      variable from the union set of group variables and other selected variables.
+      Note that typos are not detected but that the corresponding variable is
+      simply not removed!
+\end{note}
 
 \paragraph{Keyword substitution in output filename (\texttt{filename\_format}):}
 \begin{tabbing}
