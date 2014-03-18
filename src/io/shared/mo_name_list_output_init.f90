@@ -43,7 +43,7 @@ MODULE mo_name_list_output_init
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
     &                                             with_keywords, insert_group,                    &
-    &                                             tolower, int2string
+    &                                             tolower, int2string, difference
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
     &                                             set_zlev, set_del_zlev
   USE mo_datetime,                          ONLY: t_datetime
@@ -552,14 +552,28 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Looks for variable groups ("group:xyz") and replaces them
   !
+  !  @note This subroutine cannot be called directly from
+  !         "read_name_list_output_namelists" because the latter
+  !         routine is processed earlier, before all variable lists
+  !         have been registered through "add_vars".
+  !
+  !  @note In more detail, this subroutine looks for variable groups
+  !        ("group:xyz") and replaces them by all variables belonging
+  !        to the group. Afterwards, variables can be REMOVED from
+  !        this union set with the syntax "-varname". Note that typos
+  !        are not detected but that the corresponding variable is
+  !        simply not removed!
+  !
   SUBROUTINE parse_variable_groups()
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::parse_variable_groups"
     !
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
-    CHARACTER(LEN=VARNAME_LEN) :: vname, grp_name
-    INTEGER :: nvars, ngrp_vars, i_typ, ierrstat, ivar, ntotal_vars, jvar, i
-    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
-    TYPE (t_output_name_list), POINTER :: p_onl
+    CHARACTER(LEN=VARNAME_LEN)              :: vname, grp_name
+    INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
+      &                                        ivar, ntotal_vars, jvar, i,        &
+      &                                        nsubtract_vars
+    CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
+    TYPE (t_output_name_list), POINTER      :: p_onl
 
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
@@ -567,6 +581,7 @@ CONTAINS
       &      new_varlist(ntotal_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+    ! -- loop over all output namelists
     p_onl => first_output_name_list
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
@@ -598,6 +613,8 @@ CONTAINS
           IF (INDEX(vname, GRP_PREFIX) > 0) THEN
             ! this is a group identifier
             grp_name = vname((LEN(TRIM(GRP_PREFIX))+1) : LEN(vname))
+            ! loop over all variables and collects the variables names
+            ! corresponding to the group "grp_name"
             CALL collect_group(grp_name, grp_vars, ngrp_vars, &
               &               loutputvars_only=.TRUE.,        &
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
@@ -605,6 +622,8 @@ CONTAINS
             DO i=1,ngrp_vars
               grp_vars(i) = tolower(grp_vars(i))
             END DO
+            ! generate varlist where "grp_name" has been replaced;
+            ! duplicates are removed
             CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
               &               TRIM(GRP_PREFIX)//TRIM(grp_name),  &
               &               grp_vars(1:ngrp_vars), new_varlist)
@@ -633,6 +652,21 @@ CONTAINS
         IF (i_typ == 2)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
         IF (i_typ == 3)  p_onl%hl_varlist(1:nvars) = varlist(1:nvars)
         IF (i_typ == 4)  p_onl%il_varlist(1:nvars) = varlist(1:nvars)
+
+        ! second step: look for "subtraction" of variables groups ("-varname"):
+        nsubtract_vars = 0
+        DO ivar = 1, nvars
+          vname = TRIM(in_varlist(ivar))
+          IF (vname(1:1) == "-") THEN
+            nsubtract_vars = nsubtract_vars + 1
+            varlist(nsubtract_vars) = TRIM(ADJUSTL(vname))
+            nsubtract_vars = nsubtract_vars + 1
+            varlist(nsubtract_vars) = TRIM(ADJUSTL(vname(2:)))
+          END IF
+        END DO
+        ! remove variables
+        CALL difference(in_varlist, nvars, varlist, nsubtract_vars)
+
       END DO ! i_typ = 1,4
       p_onl => p_onl%next
 
