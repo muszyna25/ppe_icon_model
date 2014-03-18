@@ -80,6 +80,7 @@ $hosts = {
 # * remote builds start with 'remote'
 $builds = {
   :localGcc          => {:host => :thingol , :subdir => 'gcc'}     ,
+  :localGccNoAtm     => {:host => :thingol , :subdir => 'gcc-noatm'}     ,
   :localIntel        => {:host => :thingol , :subdir => 'intel',:CC => 'intel'}     ,
   :localIntelHi      => {:host => :thingol , :subdir => 'intel-hiopt',:CC => 'intel'}     ,
   :localCmake        => {:host => :thingol , :subdir => 'cmake'}     ,
@@ -416,8 +417,14 @@ def doSync(build)
   #file.write(Dir.glob("grids/*.nc").join("\n") + "\n") unless isLocal?(build)
   file.write("config/mh-override\n") if isLocal?(build)
   file.close
+  # filter atmosphere
+  if /NoAtm/.match(build.to_s) then
+    filterAtmoRegexp = '(art_interface|atm_dyn_icoham|atm_dyn_iconam|atm_phy_echam|atm_phy_edmf|atm_phy_les|atm_phy_nwp|atm_phy_schemes|io\/atmo|lnd_phy_nwp|lnd_phy_jsbach|lnd_phy_schemes)'
+    sh "ruby -i.bak -ne 'print unless /#{filterAtmoRegexp}/' #{file.path}"
+  end
+
   system("cat #{file.path}") if  ENV.has_key?('SHOWRSYNC')
-  system("cp #{file.path} tempList")
+  system("cp #{file.path} tempList") if ENV.has_key?('DEBUG')
 
   if isLocal?(build)
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
