@@ -18,10 +18,22 @@ MODULE mo_var_metadata_types
   ! maximum string length for variable names
   INTEGER, PARAMETER :: VARNAME_LEN = 32
 
-  ! list of variable groups
+  ! List of variable groups
   ! 
   ! A variable can have any combination of this which means that it is
   ! part of each of these different variable sets.
+  ! A variable is added to an existing group by setting the meta-data
+  ! information "in_group" as follows
+  !
+  !   CALL add_var( p_prog_list, ..., in_group=groups("nh_prog_vars") )
+  !
+  ! It is also possible to add a variable to more than one group:
+  !
+  !   CALL add_var( diag_list, ...,   &
+  !                 in_group=groups("multisnow_vars", "snow_vars"))
+  !
+  ! New groups can be added by extending the VAR_GROUPS list.
+  !
   CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(33) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
