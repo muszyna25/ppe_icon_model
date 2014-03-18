@@ -131,7 +131,8 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !Some run time diagnostics for two moment scheme
+    !Some run time diagnostics for two moment scheme. It would be better
+    !to have similar diagnostics for other schemes as well
     IF (msg_level>15.AND.atm_phy_nwp_config(jg)%inwp_gscp==4) THEN
 
       !local max val 
