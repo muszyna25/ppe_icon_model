@@ -454,7 +454,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
   REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
-  INTEGER  :: forcing_smooth_steps                 = 100
+  INTEGER  :: forcing_smooth_steps                 = 1
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
