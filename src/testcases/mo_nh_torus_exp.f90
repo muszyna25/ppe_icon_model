@@ -782,7 +782,7 @@ MODULE mo_nh_torus_exp
 
     ! when false, this switch will result in theta and qv being read from an ext file
     ! rather than computed analytically
-    analyticprof = .FALSE.
+    analyticprof = .TRUE.
 
     ! allocate storage var for press to be used in o3_pl2ml
     ALLOCATE (zpot_temp(nlev),STAT=istatus)
@@ -843,6 +843,11 @@ MODULE mo_nh_torus_exp
               z_help(1:nlen) = thth + (22._wp/1000._wp)*(ptr_metrics%z_mc(1:nlen,jk,jb)-topo_height)
             END IF 
           ELSE ! get init pot temp from external file
+            ! the sound_landseabr profile contains temp, not pot_temp, so in that case
+            ! we must convert to pot_temp
+            ! if sound in contains temperature: 
+            !z_help(1:nlen) = zpot_temp(jk)/ptr_metrics%exner_ref_mc(1:nlen,jk,jb)
+            ! if sound in contains theta:
             z_help(1:nlen) = zpot_temp(jk)
           END IF
 
@@ -851,10 +856,6 @@ MODULE mo_nh_torus_exp
             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
         END DO
 
-        !DO jk = 1,nlev
-        !  write(*,*) 'THE INCOMING TEMP, QSAT: ',zpot_temp(jk),zq_sat(jk),ptr_metrics%z_mc(1,jk,1)
-        !END DO
-        
         !Get hydrostatic pressure and exner at lowest level
         ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
         ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
@@ -1171,7 +1172,13 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
 
   !-------------------------------------------------------------------------
 
-  file1='sound_rce'
+  ! note that sound_rce contains theta values while sound_landseabr contains
+  ! temp values.  if sound_landseabr is used than theta needs to be computed
+  ! from temp.
+  !file1='sound_rce'
+  file1='sound_landseabr'
+
+  write(*,*) 'READING FROM SOUND_LANDSEABR!!!!'
 
   ! Open files
   iunit = find_next_free_unit(10,100)
@@ -1220,12 +1227,11 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
   write(*,*) 'height, temp, q_sat_mn, wind_u, wind_v'
   DO jk=klev,1,-1 
     READ (iunit,*,IOSTAT=ist) height(jk), temp(jk), q_sat_mn(jk), wind_u(jk), wind_v(jk)
-    !write(*,*) 'VALUES FROM PROFILE ARE: ',height(jk),temp(jk),q_sat_mn(jk)
+  !  write(*,*) 'VALUES FROM PROFILE ARE: ',height(jk),temp(jk),q_sat_mn(jk)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'reading profile file failed')
     ENDIF
   END DO
-
   !Now perform interpolation to grid levels assuming:
   !a) linear interpolation
   !b) Beyond the last Z level the values are linearly extrapolated 
