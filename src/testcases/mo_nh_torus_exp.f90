@@ -951,6 +951,42 @@ MODULE mo_nh_torus_exp
     ptr_nh_prog%w     = 0._wp
     ptr_nh_ref%w_ref  = ptr_nh_prog%w
 
+  !--------------------------------------------------------------------------------
+    !Mean wind 
+  !--------------------------------------------------------------------------------
+    i_startblk = ptr_patch%edges%start_blk(2,1)
+    DO jb = i_startblk , nblks_e
+     CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
+     DO jk = 1 , nlev 
+      DO jc = i_startidx, i_endidx
+
+        !Torus geometry is flat so zu is only function of height which is same for all cells
+        !But it is kept varyign with jc,jb to introduce topography lateron
+        !jcn  =   ptr_patch%edges%cell_idx(jc,jb,1)
+        !jbn  =   ptr_patch%edges%cell_blk(jc,jb,1)
+        zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/500._wp)
+                 ! u_cbl(1)+ u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+        zv   =   0._wp !v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+
+        zvn1 =  zu * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v2      
+ 
+        !jcn  =   ptr_patch%edges%cell_idx(jc,jb,2)
+        !jbn  =   ptr_patch%edges%cell_blk(jc,jb,2)
+        zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/500._wp)
+        zv   =   0._wp !v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
+      
+        zvn2 =  zu * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v1 + &
+                zv * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v2      
+
+        ptr_nh_prog%vn(jc,jk,jb) = ptr_int%c_lin_e(jc,1,jb)*zvn1 + &
+                                   ptr_int%c_lin_e(jc,2,jb)*zvn2
+
+        ptr_nh_ref%vn_ref(jc,jk,jb) = ptr_nh_prog%vn(jc,jk,jb)
+      END DO
+     END DO
+    END DO     
+  !--------------------------------------------------------------------------------
 
   END SUBROUTINE init_nh_state_rce
 
