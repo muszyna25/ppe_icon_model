@@ -8,20 +8,21 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-
-year=31104000
-
-# restart
-years_restart=30     # stop model for restart [days]
-dt_restart=`expr ${years_restart} \* ${year}`
-years_chkpoint=10
-dt_checkpoint=`expr ${years_chkpoint} \* ${year}`
-
-#months_restart=6     # stop model for restart [days]
-#dt_restart=`expr ${months_restart} \* ${month}`
-
+((  years_checkp  = 10  ))  # write restart file interval [days]
+((  years_restart = 30 ))   # stop model for restart [days]
+((  days_data    = 30  ))   # ocean model output interval hours [hours] - for test runs
+(( hour           = 3600    ))
+(( day            = 24*hour ))
+(( year           = 365 *  day))
 #
 #-----------------------------------------------------------------------------
+# calculate model timesteps using $ndays
+(( dt_data        = days_data   * day ))      # used for output_bounds and buildbot
+(( dt_checkpoint  = years_checkp  * year ))
+(( dt_restart     = years_restart * year ))
+(( dt_file        = days_file    * day ))
+(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
+(( steps_per_file = 120 ))       # output intervals per file interval
 #
 LOC='POOL'
 #grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
@@ -56,7 +57,7 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
- output_filename  = "AquaAtlanticBox_0079km"
+ output_filename  = "oce_AquaAtlanticBox_0079km"
  filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"                  ! start in ISO-format
  output_end       = "${end_date}"                    ! end in ISO-format
