@@ -86,6 +86,7 @@ MODULE mo_gribout_config
                                           ! 1: Initialization
                                           ! 2: Forecast
                                           ! 3: ...
+                                          ! 196: invariant data 
 
     INTEGER :: &                          ! Table: backgroundProcess
       & backgroundProcess                 ! 0: main run

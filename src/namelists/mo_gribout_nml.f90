@@ -102,10 +102,11 @@ MODULE mo_gribout_nml
                                         ! 3: ...
 
   INTEGER :: &                          ! Table 4.3
-    & typeOfGeneratingProcess           ! 0: Analysis
-                                        ! 1: Initialization
-                                        ! 2: Forecast
-                                        ! 3: ...
+    & typeOfGeneratingProcess           ! 0  : Analysis
+                                        ! 1  : Initialization
+                                        ! 2  : Forecast
+                                        ! 3  : ...
+                                        ! 196: invariant data 
 
   INTEGER :: &                          ! Table: backgroundProcess
     & backgroundProcess                 ! 0: main run

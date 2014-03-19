@@ -461,6 +461,9 @@ CONTAINS
       minute= 1
     ENDIF
 
+    ! inquire steptype (needed below)
+    steptype = vlistInqVarTsteptype(vlistID, varID)
+
     ! Load correct tables and activate section 2
     !
     ! set tablesVersion=5
@@ -481,8 +484,12 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
 
-
-    CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
+    IF ( steptype == TSTEP_CONSTANT ) THEN
+      ! invariant data 
+      CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, 196)
+    ELSE
+      CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
+    ENDIF
 
 
     ! Product Generation (local), !! DWD only !!
@@ -531,7 +538,6 @@ CONTAINS
         ! depending on variable-specific stepType
         !!! Note that this is only a workaround, since we cannot guarantee that !!!
         !!! no information (keys) set prior to that template-switch gets lost.  !!!
-        steptype = vlistInqVarTsteptype(vlistID, varID)
         IF ( ANY((/TSTEP_INSTANT,TSTEP_CONSTANT/) == steptype) ) THEN 
           CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",1)
         ELSE
