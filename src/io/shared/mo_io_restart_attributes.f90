@@ -224,11 +224,11 @@ CONTAINS
     ! local variables
     INTEGER :: i
 
+
     idx = -1
-    loop : DO i=1,nlist
+    loop : DO i=1,nlist 
       IF (TRIM(name) == TRIM(list(i))) THEN
         idx=i
-        EXIT loop
       END IF
     END DO loop
 
@@ -249,7 +249,7 @@ CONTAINS
       ALLOCATE(restart_attributes_text(nmax_atts))
     ENDIF
     CALL find_or_expand_list(attribute_name, restart_attributes_text(:)%name, natts_text, idx)
-    restart_attributes_text(idx)%name = attribute_name
+    restart_attributes_text(idx)%name = TRIM(attribute_name)
     restart_attributes_text(idx)%val  = attribute_value
   END SUBROUTINE set_restart_attribute_text
   !
@@ -261,7 +261,7 @@ CONTAINS
       ALLOCATE(restart_attributes_real(nmax_atts))
     ENDIF
     CALL find_or_expand_list(attribute_name, restart_attributes_real(:)%name, natts_real, idx)
-    restart_attributes_real(idx)%name = attribute_name
+    restart_attributes_real(idx)%name = TRIM(attribute_name)
     restart_attributes_real(idx)%val  = attribute_value
   END SUBROUTINE set_restart_attribute_real
   !
@@ -273,7 +273,7 @@ CONTAINS
       ALLOCATE(restart_attributes_int(nmax_atts))
     ENDIF
     CALL find_or_expand_list(attribute_name, restart_attributes_int(:)%name, natts_int, idx)
-    restart_attributes_int(idx)%name = attribute_name
+    restart_attributes_int(idx)%name = TRIM(attribute_name)
     restart_attributes_int(idx)%val = attribute_value
   END SUBROUTINE set_restart_attribute_int
   !
@@ -285,7 +285,7 @@ CONTAINS
       ALLOCATE(restart_attributes_int(nmax_atts))
     ENDIF
     CALL find_or_expand_list(attribute_name, restart_attributes_int(:)%name, natts_int, idx)
-    restart_attributes_int(idx)%name = attribute_name
+    restart_attributes_int(idx)%name = TRIM(attribute_name)
     restart_attributes_int(idx)%val  = INT(attribute_value)
   END SUBROUTINE set_restart_attribute_int8
   !
