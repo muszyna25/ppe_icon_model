@@ -191,14 +191,14 @@ cat > ${ocean_namelist} << EOF
 !                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
 !                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
-  ! l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
-  ! l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-  ! solver_tolerance = 1.0E-14            !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart = 20        !  outer solver loop with syncing
-  solver_max_restart_iterations = 50      !  inner solver loop without syncing
-  ! fast_performance_level        = 12    !  performance level 12: for cell-based; 5: default
-  ! solver_max_iter_per_restart * solver_max_restart_iterations: maximum iterations before abort
-  ! use_continuity_correction=.true.      !  height adjustment according to vertical velocity in dynamics
+! l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
+! l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
+! solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_max_iter_per_restart   = 20      !  inner solver loop without syncing (default: 200)
+  solver_max_restart_iterations = 50      !  outer (restart solver) loop with syncing (default: 100)
+    ! solver_max_iter_per_restart * solver_max_restart_iterations: maximum iterations before abort
+! fast_performance_level        = 12      !  performance level 12: for cell-based; 5: default
+! use_continuity_correction=.true.        !  height adjustment according to vertical velocity in dynamics
 /
 &ocean_tracer_transport_nml
 ! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
