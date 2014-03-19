@@ -301,7 +301,7 @@ CONTAINS
       ! OMIP data read in mo_ext_data into variable ext_data
       !
       ! IF (iforc_type >= 1)  THEN
-      IF (forcing_windstress_u_type > 0 .OR. forcing_windstress_u_type < 101 ) THEN
+      IF (forcing_windstress_u_type > 0 .AND. forcing_windstress_u_type < 101 ) THEN ! file based forcing
 
         ! provide OMIP fluxes for wind stress forcing
         ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [Pa]
@@ -326,13 +326,14 @@ CONTAINS
        ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
 
       END IF
-      IF (forcing_windstress_v_type > 0 .OR. forcing_windstress_v_type < 101 ) THEN
+
+      IF (forcing_windstress_v_type > 0 .AND. forcing_windstress_v_type < 101 ) THEN
         p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
       END IF
 
       !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
-      IF (forcing_fluxes_type > 1 .AND. forcing_fluxes_type < 101 ) THEN
+      IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN
 
         !-------------------------------------------------------------------------
         ! provide OMIP fluxes for sea ice (interface to ocean)
@@ -477,7 +478,7 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
 
         !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
-        IF (forcing_fluxes_type > 1 .OR. forcing_fluxes_type < 101 ) THEN
+        IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN
 
           ! bulk formula are calculated globally using specific OMIP or NCEP fluxes
           CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm, datetime)
@@ -569,7 +570,7 @@ CONTAINS
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
         !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
-        IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 1 .AND. forcing_fluxes_type < 101 ) ) THEN
+        IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) ) THEN
 
           p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
             &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
@@ -625,7 +626,7 @@ CONTAINS
 
         IF (i_apply_bulk == 1) THEN
 
-          IF (forcing_fluxes_type > 1 .AND. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
+          IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
           !IF (iforc_type == 2 .OR. iforc_type == 5) CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
           p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
           p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
