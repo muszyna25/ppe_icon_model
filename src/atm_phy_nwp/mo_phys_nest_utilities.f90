@@ -805,12 +805,14 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                      &
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
                        i_startidx, i_endidx, grf_ovlparea_start_c, min_rlcell_int)
 
-    DO jc = i_startidx, i_endidx
-      zrg_trdiffsolclr(jc,1,jb) = p_trsolclr(jc,1,jb)
-      zrg_trdiffsolall(jc,1,jb) = p_trsolall(jc,1,jb)
+    DO jk = 1, nshift+1
+      DO jc = i_startidx, i_endidx
+        zrg_trdiffsolclr(jc,jk,jb) = p_trsolclr(jc,jk,jb)
+        zrg_trdiffsolall(jc,jk,jb) = p_trsolall(jc,jk,jb)
+      ENDDO
     ENDDO
 
-    DO jk = 2, nlevp1_rg
+    DO jk = nshift+2, nlevp1_rg
       DO jc = i_startidx, i_endidx
         zrg_trdiffsolclr(jc,jk,jb) = p_trsolclr(jc,jk-1,jb) - p_trsolclr(jc,jk,jb)
         zrg_trdiffsolall(jc,jk,jb) = p_trsolall(jc,jk-1,jb) - p_trsolall(jc,jk,jb)
