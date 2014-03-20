@@ -964,7 +964,7 @@ MODULE mo_nh_torus_exp
         !But it is kept varyign with jc,jb to introduce topography lateron
         !jcn  =   ptr_patch%edges%cell_idx(jc,jb,1)
         !jbn  =   ptr_patch%edges%cell_blk(jc,jb,1)
-        zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/500._wp)
+        zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(jc,jk,jb)/500._wp)
                  ! u_cbl(1)+ u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
         zv   =   0._wp !v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
 
@@ -973,7 +973,7 @@ MODULE mo_nh_torus_exp
  
         !jcn  =   ptr_patch%edges%cell_idx(jc,jb,2)
         !jbn  =   ptr_patch%edges%cell_blk(jc,jb,2)
-        zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/500._wp)
+        zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(jc,jk,jb)/500._wp)
         zv   =   0._wp !v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
       
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v1 + &
