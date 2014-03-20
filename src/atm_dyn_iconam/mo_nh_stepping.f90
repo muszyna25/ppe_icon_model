@@ -1559,6 +1559,8 @@ MODULE mo_nh_stepping
 
             time_config%sim_time(jgc) = time_config%sim_time(jg)
 
+            CALL init_slowphysics (datetime, jgc, dt_loc, dtadv_loc, time_config%sim_time)
+
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',time_config%sim_time(jg)
             CALL message('integrate_nh', TRIM(message_text))
 
