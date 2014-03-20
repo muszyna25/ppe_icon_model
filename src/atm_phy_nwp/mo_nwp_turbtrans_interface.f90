@@ -56,6 +56,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydrostatic_config,ONLY: lvadv_tke
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,        ONLY: phy_params 
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
@@ -89,7 +90,7 @@ CONTAINS
 SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
                           & p_patch, p_metrics,                & !>in
                           & ext_data,                          & !>in
-                          & p_prog_rcf,                        & !>inout
+                          & p_prog, p_prog_rcf,                & !>inout
                           & p_diag ,                           & !>inout
                           & prm_diag,                          & !>inout
                           & wtr_prog_new,                      & !>in 
@@ -100,7 +101,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
+  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog, p_prog_rcf !< current time levels
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_new    !< prog vars for wtr
@@ -156,7 +157,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
    t_2m_t, qv_2m_t, td_2m_t, rh_2m_t, u_10m_t, v_10m_t, t_g_t, qv_s_t, sai_t, shfl_s_t,  &
    lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t
 
-  INTEGER, POINTER :: ilist(:)  ! pointer to tile index list
+  INTEGER,  POINTER :: ilist(:)       ! pointer to tile index list
+  REAL(wp), POINTER :: ptr_tke(:,:,:) ! pointer to tke field
 
 !--------------------------------------------------------------
 
@@ -167,7 +169,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
 
-   
   ! local variables related to the blocking
   i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
@@ -179,6 +180,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   i_startblk = p_patch%cells%start_blk(rl_start,1)
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+  IF (lvadv_tke) THEN
+    ptr_tke => p_prog%tke
+  ELSE
+    ptr_tke => p_prog_rcf%tke
+  ENDIF
   
   IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
@@ -290,7 +296,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! for turbdiff
       ! INPUT to turbtran is timestep new
       z_tvs(i_startidx:i_endidx,nlev-1:nlevp1,1) =  &
-        &           SQRT(2._wp * p_prog_rcf%tke(i_startidx:i_endidx,nlev-1:nlevp1,jb))
+        &           SQRT(2._wp * ptr_tke(i_startidx:i_endidx,nlev-1:nlevp1,jb))
 
 
       ! First call of turbtran for all grid points (water points with > 50% water
@@ -640,9 +646,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDIF ! tiles / no tiles
 
       ! transform updated turbulent velocity scale back to TKE
-      p_prog_rcf%tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp                        &
-        &                                  * (z_tvs(i_startidx:i_endidx,nlevp1,1))**2
-
+      ptr_tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp*(z_tvs(i_startidx:i_endidx,nlevp1,1))**2
 
     ELSE IF (  ANY( (/igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb) ) THEN
 

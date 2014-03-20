@@ -69,6 +69,8 @@ MODULE mo_nonhydrostatic_config
                                         !if 2: adv. and phys. are called only every 2nd
                                         !      time step.
                                         !if 4: called every 4th time step ...
+    LOGICAL :: lvadv_tke                ! if true. perform vertical   advection of TKE
+
     LOGICAL :: lhdiff_rcf               ! if true: compute horizontal diffusion also at the large time step
     LOGICAL :: lextra_diffu             ! if true: apply additional diffusion at grid points close 
                                         ! to the CFL stability limit for vertical advection

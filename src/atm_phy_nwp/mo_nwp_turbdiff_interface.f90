@@ -62,7 +62,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_parallel_config,        ONLY: nproma
   USE mo_run_config,             ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
-  USE mo_nonhydrostatic_config,  ONLY: kstart_moist
+  USE mo_nonhydrostatic_config,  ONLY: kstart_moist, lvadv_tke
   USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd
   USE src_turbdiff_new,          ONLY: organize_turbdiff, modvar
   USE src_turbdiff,              ONLY: turbdiff
@@ -136,6 +136,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   ! type structure to hand over additional tracers to turbdiff
   TYPE(modvar) :: ptr(max_ntracer)
 
+  ! pointers to required TKE time levels depending on the usage of TKE advection
+  REAL(wp), POINTER :: ptr_tke_now(:,:,:), ptr_tke_new(:,:,:)
+
 
 !--------------------------------------------------------------
 
@@ -164,6 +167,15 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
+
+  IF (lvadv_tke) THEN
+    ptr_tke_now => p_prog%tke
+    ptr_tke_new => p_prog%tke
+  ELSE
+    ptr_tke_now => p_prog_now_rcf%tke
+    ptr_tke_new => p_prog_rcf%tke
+  ENDIF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs)  &
@@ -205,8 +217,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
       ! INPUT to turbdiff is timestep now
-      z_tvs(i_startidx:i_endidx,:,1) =  &
-        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
+!DIR$ IVDEP
+      z_tvs(i_startidx:i_endidx,:,1) = SQRT(2._wp*ptr_tke_now(i_startidx:i_endidx,:,jb))
 
 
       IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
@@ -302,9 +314,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       ! transform updated turbulent velocity scale back to TKE
       ! Note: ddt_tke is purely diagnostic and has already been added to z_tvs
-      p_prog_rcf%tke(i_startidx:i_endidx,:,jb)= 0.5_wp                            &
-        &                                     * (z_tvs(i_startidx:i_endidx,:,1))**2
-
+!DIR$ IVDEP
+      ptr_tke_new(i_startidx:i_endidx,:,jb) = 0.5_wp*(z_tvs(i_startidx:i_endidx,:,1))**2
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == igme ) THEN
 

@@ -49,7 +49,7 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
                                      divdamp_type, rayleigh_type, iadv_rcf, rhotheta_offctr,&
-                                     lbackward_integr, veladv_offctr, divdamp_fac_o2
+                                     lbackward_integr, veladv_offctr, divdamp_fac_o2, lvadv_tke
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -204,9 +204,10 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,  &
-               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,      &
-               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,     &
+               dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,         &
+               z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2, &
+               z_w_con_up, z_w_con_down
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
 
@@ -1670,8 +1671,9 @@ MODULE mo_solve_nonhydro
       jk_start = 1
     ENDIF
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,   &
-!$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac,z_flxdiv_mass,z_flxdiv_theta) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl, &
+!$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac,z_flxdiv_mass,z_flxdiv_theta,  &
+!$OMP   z_w_con_up,z_w_con_down) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1770,6 +1772,25 @@ MODULE mo_solve_nonhydro
               + p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) )
 
           ENDDO
+        ENDDO
+      ENDIF
+
+      IF (istep == 2 .AND. lvadv_tke) THEN ! compute TKE advection
+        DO jk = 2, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            z_w_con_up   = MAX(0._wp,p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk,jb))
+            z_w_con_down = MIN(0._wp,p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk,jb))
+
+            p_nh%prog(nnew)%tke(jc,jk,jb) = p_nh%prog(nnow)%tke(jc,jk,jb) - dtime *                            &
+              (z_w_con_up*(p_nh%prog(nnow)%tke(jc,jk,jb)-p_nh%prog(nnow)%tke(jc,jk+1,jb))*                     &
+               p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) + z_w_con_down*p_nh%metrics%inv_ddqz_z_full(jc,jk-1,jb)* &
+              (p_nh%prog(nnow)%tke(jc,jk-1,jb)-p_nh%prog(nnow)%tke(jc,jk,jb)) )
+          ENDDO
+        ENDDO
+        DO jc = i_startidx, i_endidx
+          p_nh%prog(nnew)%tke(jc,1,jb)      = p_nh%prog(nnow)%tke(jc,1,jb)
+          p_nh%prog(nnew)%tke(jc,nlevp1,jb) = p_nh%prog(nnow)%tke(jc,nlevp1,jb)
         ENDDO
       ENDIF
 
@@ -2196,16 +2217,17 @@ MODULE mo_solve_nonhydro
           & p_patch%sync_cells_not_owned, name="solve_step2_w")
       ENDIF
     ELSE IF (itype_comm == 1) THEN
-      IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type == 3) THEN
-        ! Synchronize w and vertical contribution to divergence damping
-        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd)
-      ELSE IF (istep == 1) THEN 
-        ! Only w is updated in the predictor step
-        CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
-      ELSE IF (istep == 2) THEN
-        ! Synchronize all prognostic variables
-        CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho,  &
-                                  p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
+      IF (istep == 1) THEN
+        IF (lhdiff_rcf .AND. divdamp_type == 3) THEN
+          ! Synchronize w and vertical contribution to divergence damping
+          CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd)
+        ELSE 
+          ! Only w needs to be synchronized
+          CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
+        ENDIF
+      ELSE ! istep = 2: synchronize all prognostic variables
+        CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, &
+                                   p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
       ENDIF
     ENDIF
 
