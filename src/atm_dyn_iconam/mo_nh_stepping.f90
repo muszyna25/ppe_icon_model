@@ -284,11 +284,10 @@ MODULE mo_nh_stepping
   ENDIF
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
   DO jg=1, n_dom
-    CALL compute_airmass(p_patch(jg),                         &
-      &                  p_nh_state(jg)%metrics,              &
-      &                  p_nh_state(jg)%prog(nnow(jg)),       &
-      &                  p_nh_state(jg)%prog(nnew(jg)),       &
-      &                  p_nh_state(jg)%diag, linit=.TRUE.)
+    CALL compute_airmass(p_patch(jg),                  &
+      &                  p_nh_state(jg)%metrics,       &
+      &                  p_nh_state(jg)%prog(nnow(jg)),&
+      &                  p_nh_state(jg)%diag, itlev = 2)
   ENDDO
 
 
@@ -1036,15 +1035,20 @@ MODULE mo_nh_stepping
           &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
           &         prep_adv(jg)%topflx_tra                               )! out
 
+        IF (lclean_mflx) THEN
+          CALL compute_airmass(p_patch(jg),                  &
+            &                  p_nh_state(jg)%metrics,       &
+            &                  p_nh_state(jg)%prog(n_now),   &
+            &                  p_nh_state(jg)%diag, itlev = 1)
+        ENDIF
 
         IF (lstep_adv(jg)) THEN
 
           ! Update air mass in layer.  Air mass is needed by both the transport and physics.
-          CALL compute_airmass(p_patch(jg),                         &
-            &                  p_nh_state(jg)%metrics,              &
-            &                  p_nh_state(jg)%prog(n_now),          &
-            &                  p_nh_state(jg)%prog(n_new),          &
-            &                  p_nh_state(jg)%diag, linit=.FALSE.)
+          CALL compute_airmass(p_patch(jg),                  &
+            &                  p_nh_state(jg)%metrics,       &
+            &                  p_nh_state(jg)%prog(n_new),   &
+            &                  p_nh_state(jg)%diag, itlev = 2)
 
           CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,    & !in
             &        jstep_adv(jg)%marchuk_order,                          & !in
@@ -1147,18 +1151,20 @@ MODULE mo_nh_stepping
           CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
         ENDIF
 
-
         ! Update air mass in layer. Air mass is needed by both the transport and physics 
         ! interface
-        IF (lstep_adv(jg)) THEN
-          CALL compute_airmass(p_patch(jg),                         &
-            &                  p_nh_state(jg)%metrics,              &
-            &                  p_nh_state(jg)%prog(n_now),          &
-            &                  p_nh_state(jg)%prog(n_new),          &
-            &                  p_nh_state(jg)%diag, linit=.FALSE.)
+        IF (lclean_mflx) THEN
+          CALL compute_airmass(p_patch(jg),                  &
+            &                  p_nh_state(jg)%metrics,       &
+            &                  p_nh_state(jg)%prog(n_now),   &
+            &                  p_nh_state(jg)%diag, itlev = 1)
         ENDIF
-
-
+        IF (lstep_adv(jg)) THEN
+          CALL compute_airmass(p_patch(jg),                  &
+            &                  p_nh_state(jg)%metrics,       &
+            &                  p_nh_state(jg)%prog(n_new),   &
+            &                  p_nh_state(jg)%diag, itlev = 2)
+        ENDIF
 
 
         ! 5. tracer advection
@@ -1167,7 +1173,8 @@ MODULE mo_nh_stepping
 
           ! Diagnose some velocity-related quantities for the tracer
           ! transport scheme
-          CALL prepare_tracer( p_patch(jg), p_nh_state(jg)%prog(n_now),     &! in
+          IF (lstep_adv(jg) .OR. lfull_comp) &
+            CALL prepare_tracer( p_patch(jg), p_nh_state(jg)%prog(n_now),   &! in
             &         p_nh_state(jg)%prog(n_new),                           &! in
             &         p_nh_state(jg)%metrics, p_int_state(jg),              &! in
             &         iadv_rcf, lstep_adv(jg), lclean_mflx, lfull_comp,     &! in

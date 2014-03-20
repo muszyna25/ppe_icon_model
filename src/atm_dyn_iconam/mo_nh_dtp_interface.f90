@@ -412,6 +412,7 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
+!$OMP PARALLEL DO PRIVATE(jb,jt,jc,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
@@ -424,41 +425,36 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+!$OMP END PARALLEL DO
 
-    ELSE                 ! no vertical nesting
-      p_topflx_tra(:,:,:) = 0._wp
-    ENDIF
-    
-    IF (lstep_advphy) THEN
+      CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_mass_flx_ic,z_topflx_tra)
 
-      IF (lvert_nest .AND. p_patch%nshift > 0) THEN
-
-        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_mass_flx_ic,z_topflx_tra)
-
-        i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
-        i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
+      i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
+      i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
  
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-            &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell)
+!$OMP PARALLEL DO PRIVATE(jb,jt,jc,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
+          &                 i_startidx, i_endidx, i_rlstart_c, min_rlcell)
 
-          DO jt = 1, ntracer
-            DO jc = i_startidx, i_endidx
-              p_topflx_tra(jc,jb,jt) = z_topflx_tra(jc,jt,jb)
-            ENDDO
+        DO jt = 1, ntracer
+          DO jc = i_startidx, i_endidx
+            p_topflx_tra(jc,jb,jt) = z_topflx_tra(jc,jt,jb)
           ENDDO
         ENDDO
+      ENDDO
+!$OMP END PARALLEL DO
 
-      ELSE
-        CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic)
-      ENDIF
+    ELSE IF (lstep_advphy) THEN               ! no vertical nesting
+
+      p_topflx_tra(:,:,:) = 0._wp    
+      CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic)
 
     ENDIF
 
-
-    ! This synchronization is only needed, if the non-standard vertical PPM-scheme
+    ! This synchronization is only needed if the non-standard vertical PPM-scheme
     ! ippm_v is used. p_w_traj is not used by the default scheme (ippm_vcfl)
-    IF ( ANY(advection_config(jg)%ivadv_tracer(:) == ippm_v) ) THEN
+    IF (lstep_advphy .AND. ANY(advection_config(jg)%ivadv_tracer(:) == ippm_v) ) THEN
       CALL sync_patch_array(SYNC_C,p_patch,p_w_traj)
     ENDIF
 
@@ -478,13 +474,14 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-03-15)
   !!
-  SUBROUTINE compute_airmass (p_patch, p_metrics, p_prog_now, p_prog_new, p_nh_diag, linit)
+  SUBROUTINE compute_airmass (p_patch, p_metrics, p_prog, p_nh_diag, itlev)
 
     TYPE(t_patch)   ,  INTENT(IN)     :: p_patch
     TYPE(t_nh_metrics),INTENT(IN)     :: p_metrics
-    TYPE(t_nh_prog) ,  INTENT(IN)     :: p_prog_now, p_prog_new
+    TYPE(t_nh_prog) ,  INTENT(IN)     :: p_prog
     TYPE(t_nh_diag),   INTENT(INOUT)  :: p_nh_diag
-    LOGICAL         ,  INTENT(IN)     :: linit
+    INTEGER         ,  INTENT(IN)     :: itlev   ! 1: computation of time level now
+                                                 ! 2: computation of time level new
 
     INTEGER :: nlev                  ! number of vertical levels
     INTEGER :: i_rlstart, i_rlend, i_startblk, i_endblk
@@ -499,12 +496,11 @@ CONTAINS
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
 
+    ! halo points must be included !
     i_rlstart  = 1
     i_rlend    = min_rlcell
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-
-    ! halo points must be included!
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -513,20 +509,18 @@ CONTAINS
        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
          &                 i_startidx, i_endidx, i_rlstart, i_rlend)
 
-       IF (linit) THEN
+       IF (itlev == 1) THEN
          DO jk = 1, nlev
+!DIR$ IVDEP
            DO jc= i_startidx, i_endidx
-             p_nh_diag%airmass_new(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) &
-               &                           * p_metrics%ddqz_z_full(jc,jk,jb)
+             p_nh_diag%airmass_now(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
            ENDDO  ! jc
          ENDDO  ! jk
-       ELSE
+       ELSE !  itlev = 2
          DO jk = 1, nlev
+!DIR$ IVDEP
            DO jc= i_startidx, i_endidx
-             p_nh_diag%airmass_now(jc,jk,jb) = p_nh_diag%airmass_new(jc,jk,jb)
-
-             p_nh_diag%airmass_new(jc,jk,jb) = p_prog_new%rho(jc,jk,jb) &
-               &                           * p_metrics%ddqz_z_full(jc,jk,jb)
+             p_nh_diag%airmass_new(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
            ENDDO  ! jc
          ENDDO  ! jk
        ENDIF
