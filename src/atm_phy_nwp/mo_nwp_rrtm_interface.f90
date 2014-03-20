@@ -774,7 +774,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
         max_qv, max_qc, max_qi, max_cc, min_pres_ifc, min_pres, min_temp, min_acdnc, &
-        min_qv, min_qc, min_qi, min_cc
+        min_qv, min_qc, min_qi, min_cc, max_lwflx, min_lwflx, max_swtrans, min_swtrans
 
     ! Local scalars:
     INTEGER:: jc,jk,jb
@@ -1137,6 +1137,50 @@ CONTAINS
         & zrg_trsolall, zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,      &
         & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov,                       &
         & prm_diag%lwflxclr, prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
+
+
+
+      ! Debug output of radiation output fields
+      IF (msg_level >= 16) THEN
+        max_lwflx = 0._wp
+        min_lwflx = 1.e10_wp
+        max_swtrans = 0._wp
+        min_swtrans = 1.e10_wp
+
+        rl_start = grf_bdywidth_c + 1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+        DO jb = i_startblk, i_endblk
+         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+
+         DO jk = 1, nlevp1
+          max_lwflx(jk)   = MAX(max_lwflx(jk),  MAXVAL(prm_diag%lwflxall(i_startidx:i_endidx,jk,jb)))
+          max_swtrans(jk) = MAX(max_swtrans(jk),MAXVAL(prm_diag%trsolall(i_startidx:i_endidx,jk,jb)))
+          min_lwflx(jk)   = MIN(min_lwflx(jk),  MINVAL(prm_diag%lwflxall(i_startidx:i_endidx,jk,jb)))
+          min_swtrans(jk) = MIN(min_swtrans(jk),MINVAL(prm_diag%trsolall(i_startidx:i_endidx,jk,jb)))
+         ENDDO
+        ENDDO ! blocks
+
+        max_lwflx = global_max(max_lwflx)
+        min_lwflx = global_min(min_lwflx)
+        max_swtrans = global_max(max_swtrans)
+        min_swtrans = global_min(min_swtrans)
+
+
+        WRITE(message_text,'(a)') 'max/min LW flux, SW transmissivity'
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
+
+        DO jk = 1, nlevp1
+          WRITE(message_text,'(i4,2f10.3,2f10.7)') jk,max_lwflx(jk), min_lwflx(jk), &
+            max_swtrans(jk), min_swtrans(jk)
+          CALL message('nwp_nh_interface: ', TRIM(message_text))
+        ENDDO
+
+      ENDIF ! msg_level >= 16
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
         zrg_albdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,        &
