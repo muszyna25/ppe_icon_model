@@ -1030,8 +1030,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       
       IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
 
-        ltkeinp_loc = .FALSE.  ! do not re-initialize TKE field
-        lgz0inp_loc = .FALSE.  ! do re-initialize gz0 field (water points only)
+        ltkeinp_loc = .FALSE.  ! initialize TKE field
+        lgz0inp_loc = .FALSE.  ! initialize gz0 field (water points only)
 
       ELSE  ! init_mode=MODE_DWDANA, MODE_DWDANA_INC
         !
