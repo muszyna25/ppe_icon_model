@@ -67,7 +67,7 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,&
   &                               no_tracer, n_zlev, basin_center_lat,                     &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
-  &                               relaxation_param, i_apply_bulk,&
+  &                               relaxation_param, i_apply_surface_hflux,                 &
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
@@ -623,50 +623,44 @@ CONTAINS
         ! bulk formula applied to boundary forcing for ocean model:
         !  - no sea ice and no temperature relaxation
         !  - apply net surface heat flux in W/m2
+        IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
+        !IF (iforc_type == 2 .OR. iforc_type == 5) CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
+        p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
+        p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
 
-        IF (i_apply_bulk == 1) THEN
+        temperature_relaxation = 0   !  hack
 
-          IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
-          !IF (iforc_type == 2 .OR. iforc_type == 5) CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
-          p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
-          p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+          DO jc = i_startidx_c, i_endidx_c
 
-          temperature_relaxation = 0   !  hack
+            IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+              p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWnetw(jc,jb) ! net SW radiation flux over water
+              p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb) ! net LW radiation flux over water
+              p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb) ! Sensible heat flux over water
+              p_sfc_flx%forc_slflx(jc,jb) = Qatm%latw  (jc,jb) ! Latent heat flux over water
+            ELSE
+              p_sfc_flx%forc_swflx(jc,jb) = 0.0_wp
+              p_sfc_flx%forc_lwflx(jc,jb) = 0.0_wp
+              p_sfc_flx%forc_ssflx(jc,jb) = 0.0_wp
+              p_sfc_flx%forc_slflx(jc,jb) = 0.0_wp
+            END IF
+     !      p_sfc_flx%forc_hflx(jc,jb)                 &
+     !      & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
+     !      & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
+     !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW_sim) ! incoming SW radiation flux
 
-          DO jb = all_cells%start_block, all_cells%end_block
-            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-            DO jc = i_startidx_c, i_endidx_c
-
-              IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-                p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWnetw(jc,jb) ! net SW radiation flux over water
-                p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb) ! net LW radiation flux over water
-                p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb) ! Sensible heat flux over water
-                p_sfc_flx%forc_slflx(jc,jb) = Qatm%latw  (jc,jb) ! Latent heat flux over water
-              ELSE
-                p_sfc_flx%forc_swflx(jc,jb) = 0.0_wp
-                p_sfc_flx%forc_lwflx(jc,jb) = 0.0_wp
-                p_sfc_flx%forc_ssflx(jc,jb) = 0.0_wp
-                p_sfc_flx%forc_slflx(jc,jb) = 0.0_wp
-              END IF
-         
-       !      p_sfc_flx%forc_hflx(jc,jb)                 &
-       !      & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
-       !      & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-       !      & +  Qatm%SWin(jc,jb) * (1.0_wp-albedoW_sim) ! incoming SW radiation flux
-
-            ENDDO
           ENDDO
+        ENDDO
 
-          ! for the setup with bulk and without sea ice the threshold for temperature is set to tf
-          WHERE (t_top(:,:) .LT. Tf)
-            t_top(:,:) = Tf
-          ENDWHERE
+        ! for the setup with bulk and without sea ice the threshold for temperature is set to tf
+        WHERE (t_top(:,:) .LT. Tf)
+          t_top(:,:) = Tf
+        ENDWHERE
 
-          ! sum of fluxes for ocean boundary condition
-          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
-            &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
-
-        ENDIF
+        ! sum of fluxes for ocean boundary condition
+        p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
+          &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
 
       ENDIF  !  sea ice
 
@@ -873,10 +867,10 @@ CONTAINS
     !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
     !  - with OMIP-forcing and sea_ice=0 we need temperature_relaxation=1
     !    since there is no forc_hflx over open water when using OMIP-forcing
-    !  - i_apply_bulk=1 provides net surface heat flux globally
+    !  - i_apply_surface_hflux=1 provides net surface heat flux globally
     !
     IF (no_tracer > 0) THEN
-      IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. i_apply_bulk == 1) THEN
+      IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. i_apply_surface_hflux == 1) THEN
 
         ! Heat flux boundary condition for diffusion
         !   D = d/dz(K_v*dT/dz)  where

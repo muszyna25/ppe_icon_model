@@ -287,7 +287,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: CWA                   = 5.0E-4_wp  ! Tuning parameters for vertical mixing
   REAL(wp) :: CWT                   = 5.0E-4_wp  !   of tracer and velocity
 
-  LOGICAL  :: lviscous              = .TRUE.    
+  LOGICAL  :: lviscous              = .TRUE.
   LOGICAL  :: l_rigid_lid           = .FALSE.    ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.    ! true=complete discrete scalarproduct (slow)
                                                  ! false=use a shortcut (faster)
@@ -298,7 +298,8 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_staggered_timestep  = .FALSE.    ! TRUE=staggering between thermodynamic and dynamic part,
                                                  !   offset of half timestep between dynamic and thermodynamic variables;
                                                  !   thermodynamic and dynamic variables are colocated in time
-  INTEGER  :: i_apply_bulk          = 0          ! 0=no bulk formula; 1=apply bulk formula without sea ice
+  INTEGER  :: i_apply_surface_hflux = 0          ! 0: no surface heat flux when sea ice is switched off
+                                                 ! 1: set temperature forcing to given one computed from heat flux
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1=apply sea ice model using sea_ice_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
                                                  ! false = salinity is relaxed under sea ice completely
@@ -461,7 +462,7 @@ MODULE mo_ocean_nml
                                                               ! for temperature forcing (degrees)
 
   NAMELIST/ocean_forcing_nml/&
-    &                 i_apply_bulk                        , &  
+    &                 i_apply_surface_hflux               , &
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
     &                 forcing_fluxes_type                 , &
