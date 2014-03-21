@@ -8,21 +8,23 @@ start_date="2001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-((  years_checkp  = 10  ))  # write restart file interval [days]
-((  years_restart = 30 ))   # stop model for restart [days]
-((  days_data    = 30  ))   # ocean model output interval hours [hours] - for test runs
+(( years_checkp  = 10 ))    # write restart file interval [days]
+(( years_restart = 20 ))    # stop model for restart [days]
+(( days_data     = 30 ))    # ocean model output interval hours [hours] - for test runs
 (( hour           = 3600    ))
 (( day            = 24*hour ))
 (( year           = 365 *  day))
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
+nout_interv="P0${ndays_data}D"                 # ocean model output interval in days <10
+nout_interv="P${days_data}D"                   # ocean model output interval in days
 (( dt_data        = days_data   * day ))      # used for output_bounds and buildbot
 (( dt_checkpoint  = years_checkp  * year ))
 (( dt_restart     = years_restart * year ))
-(( dt_file        = days_file    * day ))
-(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
-(( steps_per_file = 120 ))       # output intervals per file interval
+(( steps_per_file = dt_restart / dt_data ))       # output intervals per file
+#(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
+# steps_per_file=240                   # P30D     # output intervals per file interval
 #
 LOC='POOL'
 #grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
@@ -57,14 +59,15 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
- output_filename  = "oce_AquaAtlanticBox_0079km"
- filename_format  = "<output_filename>_<datetime2>"
- output_start     = "${start_date}"                  ! start in ISO-format
- output_end       = "${end_date}"                    ! end in ISO-format
- output_interval  = "P30D"                          ! "PT06H"                !"P02D"          
- steps_per_file   = 120
- output_grid      = .true.
- ml_varlist       =  'group:oce_essentials','A_tracer_v_T'
+! output_filename  = "oce_AquaAtlanticBox_0079km"
+  output_filename  = "${EXPNAME}"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${nout_interv}"
+  steps_per_file   = ${steps_per_file}
+  output_grid      = .true.
+  ml_varlist       =  'group:oce_essentials','A_tracer_v_T'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
@@ -89,7 +92,7 @@ cat > ${ocean_namelist} << EOF
   i_bc_veloc_bot     = 1                 !  0/1=bottom friction off/on
   i_bc_veloc_top     = 3                 !  forced by the difference of wind-ocean velocity, smoothed
   select_solver      = 2                 !  1=gmres_oce_old; 2=ocean_restart_gmres
-  solver_tolerance   = 1.0E-14           !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_tolerance   = 1.0E-15           !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 25     !  inner solver loop without syncing (default: 200)
   solver_max_restart_iterations = 50    !  outer (restart solver) loop with syncing (default: 100)
   fast_performance_level        = 12
