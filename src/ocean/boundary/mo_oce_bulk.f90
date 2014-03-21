@@ -831,10 +831,9 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
+      idt_src=2  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
       CALL dbg_print('UpdSfc: Temp-relax'        ,z_c2, str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=2  ! output print level (1-5, fix)
       z_c2(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-t_top(:,:)
       CALL dbg_print('UpdSfc: Temp-difference'   ,z_c2, str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)

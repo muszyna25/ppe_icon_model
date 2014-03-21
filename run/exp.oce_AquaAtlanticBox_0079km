@@ -129,9 +129,9 @@ cat > ${ocean_namelist} << EOF
   forcing_windstress_v_type   = 0 ! 106
   forcing_wind_u_amplitude    = 0.1
   forcing_smooth_steps        = 1
-  temperature_relaxation      = 4
-  relax_temperature_min       = 0.0
-  relax_temperature_max       = 16.0
+  temperature_relaxation      = 3
+! relax_temperature_min       = 0.0
+! relax_temperature_max       = 16.0
   init_oce_relax              = 2
   forcing_temperature_poleLat = 45.0
   relaxation_param            = 0.3
@@ -143,6 +143,7 @@ cat > ${ocean_namelist} << EOF
   initial_temperature_type   = 212
   initial_temperature_top    = 16.0 
   initial_temperature_bottom = 0.0
+  initial_temperature_shift  = 2.0 
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
