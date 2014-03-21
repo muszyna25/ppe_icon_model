@@ -16,8 +16,8 @@ start_date="2001-01-01T00:00:00Z"
 (( year           = 365 *  day))
 #
 #-----------------------------------------------------------------------------
-# calculate model timesteps using $ndays
-nout_interv="P0${ndays_data}D"                 # ocean model output interval in days <10
+# calculate model timesteps using $days_data
+nout_interv="P0${days_data}D"                 # ocean model output interval in days <10
 nout_interv="P${days_data}D"                   # ocean model output interval in days
 (( dt_data        = days_data   * day ))      # used for output_bounds and buildbot
 (( dt_checkpoint  = years_checkp  * year ))
@@ -65,9 +65,9 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${nout_interv}"
-  steps_per_file   = ${steps_per_file}
+  steps_per_file   = ${steps_per_file}                ! error with ""
   output_grid      = .true.
-  ml_varlist       =  'group:oce_essentials','A_tracer_v_T'
+  ml_varlist       =  'group:oce_essentials','forc_wind_u','A_tracer_v_T'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
