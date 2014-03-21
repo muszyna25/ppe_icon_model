@@ -265,7 +265,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, i_sea_ice,     &
     & basin_center_lat, basin_center_lon, discretization_scheme,           &
     & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
-    & initial_temperature_bottom, initial_temperature_top, &
+    & initial_temperature_bottom, initial_temperature_top, initial_temperature_shift, &
     & initial_salinity_top, initial_salinity_bottom, &
     & use_tracer_x_height, topography_type, topography_height_reference, &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
@@ -1583,11 +1583,25 @@ CONTAINS
         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
           ocean_temperature(jc,jk,jb) = MAX(initial_temperature_bottom + &
             & (COS(waveNo * MIN(patch_2d%cells%center(jc,jb)%lat, poleLat))**2) * temperature_difference, &
-            initial_temperature_bottom)
+            & initial_temperature_bottom)
         END DO
       END DO
     END DO
 
+    ! add meridional temperature slope over all latitudes of the basin
+    
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+          ocean_temperature(jc,jk,jb) = MAX(ocean_temperature(jc,jk,jb) + &
+            & (patch_2d%cells%center(jc,jb)%lat + poleLat)/(90.0_wp*deg2rad) * initial_temperature_shift, &
+            & initial_temperature_bottom)
+        END DO
+      END DO
+    END DO
+
+    ! decrease of temperature from top to bottom
     CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
       & bottom_value=initial_temperature_bottom)
 

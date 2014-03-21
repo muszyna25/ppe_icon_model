@@ -506,6 +506,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: use_file_initialConditions  = .false.
   REAL(wp) :: initial_temperature_top     = 16.0_wp    ! reference temperature used for initialization in testcase 46
   REAL(wp) :: initial_temperature_bottom  = 16.0_wp    ! reference temperature used for initialization in testcase 46
+  REAL(wp) :: initial_temperature_shift   =  0.0_wp    ! temperature used for adding meridional temperature gradient
   REAL(wp) :: initial_salinity_top        = 35.0_wp    ! reference salinity used for initialization in testcase 46
   REAL(wp) :: initial_salinity_bottom     = 35.0_wp    ! reference salinity used for initialization in testcase 46
   !  INTEGER  :: scatter_levels(10)       = 0          ! levels for possible scattering of the constant tracer fields
@@ -527,6 +528,7 @@ MODULE mo_ocean_nml
     & use_file_initialConditions , &
     & initial_temperature_bottom , &
     & initial_temperature_top    , &
+    & initial_temperature_shift  , &
     & initial_salinity_top       , &
     & initial_salinity_bottom    , &
     & initial_salinity_type      , &
