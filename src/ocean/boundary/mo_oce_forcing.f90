@@ -742,7 +742,7 @@ CONTAINS
       CASE(110)
         CALL cells_zonal_and_meridional_periodic_constant_amplitude_cosin(subset, mask, threshold, windstress, amplitude)
       CASE(111)
-        CALL Wolfe_Sessi_TestCase(subset, mask, threshold, windstress, amplitude)
+        CALL Wolfe_Cessi_TestCase(subset, mask, threshold, windstress, amplitude)
       END SELECT
     END SELECT
 
@@ -875,7 +875,7 @@ CONTAINS
 
   END SUBROUTINE zonal_periodic_zero_at_pols
 
-  SUBROUTINE Wolfe_Sessi_TestCase(subset, mask, threshold, field_2d, amplitude)
+  SUBROUTINE Wolfe_Cessi_TestCase(subset, mask, threshold, field_2d, amplitude)
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER, INTENT(IN)              :: mask(:,:)
     INTEGER, INTENT(IN)              :: threshold
@@ -883,20 +883,25 @@ CONTAINS
     REAL(wp), INTENT(IN)             :: amplitude
 
     ! REAL(wp) :: zonal_waveno
-    REAL(wp) :: reference_value
+    ! REAL(wp) :: reference_value
     REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
 
     lat(:,:) = subset%patch%cells%center(:,:)%lat
     lon(:,:) = subset%patch%cells%center(:,:)%lon
 
-    reference_value = COS(3.5_wp * pi)
+    ! LL init:
+  ! reference_value = COS(3.5_wp * pi)
+  ! field_2d(:,:) = MERGE(amplitude *      &
+  !   & (- ABS(SIN(4.0_wp * lat(:,:))) -   &
+  !   & COS(7.0_wp * lat(:,:)) +           &
+  !   & reference_value), 0.0_wp, mask(:,:) <= threshold)
 
-    field_2d(:,:) = MERGE(amplitude *      &
-      & (- ABS(SIN(4.0_wp * lat(:,:))) -   &
-      & COS(7.0_wp * lat(:,:)) +           &
-      & reference_value), 0.0_wp, mask(:,:) <= threshold)
+  ! SLO init:
+    field_2d(:,:) = MERGE(amplitude *                                   &
+      & (0.8_wp*EXP(-1*lat(:,:)*lat(:,:)/0.01) - COS(6.0_wp*lat(:,:))), &
+      & 0.0_wp, mask(:,:) <= threshold)
 
-  END SUBROUTINE Wolfe_Sessi_TestCase
+  END SUBROUTINE Wolfe_Cessi_TestCase
 
   SUBROUTINE cells_zonal_periodic(subset, mask, threshold, field_2d, amplitude, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset

@@ -1581,8 +1581,9 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
-          ocean_temperature(jc,jk,jb) = initial_temperature_bottom + &
-            & (COS(waveNo * MIN(patch_2d%cells%center(jc,jb)%lat, poleLat))**2) * temperature_difference
+          ocean_temperature(jc,jk,jb) = MAX(initial_temperature_bottom + &
+            & (COS(waveNo * MIN(patch_2d%cells%center(jc,jb)%lat, poleLat))**2) * temperature_difference, &
+            initial_temperature_bottom)
         END DO
       END DO
     END DO
@@ -1696,11 +1697,17 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
 
-        linear_increase = (bottom_value - ocean_tracer(jc, 1,jb) ) / (REAL(n_zlev,wp)-1.0_wp)
+      ! LL: linear increase with level index
+      ! linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / (REAL(n_zlev,wp)-1.0_wp)
+      ! SLO: linear increase with depth in unit per meter
+        linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / & 
+          & (patch_3d%p_patch_1d(n_dom)%zlev_m(n_zlev) - patch_3d%p_patch_1d(n_dom)%zlev_m(1))
 
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ocean_tracer(jc,jk,jb) &
-            & = ocean_tracer(jc,jk-1,jb) + linear_increase
+      ! LL  & = ocean_tracer(jc,jk-1,jb) + linear_increase
+            & = MAX(ocean_tracer(jc,jk-1,jb) + linear_increase * &
+            &     patch_3d%p_patch_1d(n_dom)%del_zlev_i(jk),bottom_value)
         END DO
 
       END DO
