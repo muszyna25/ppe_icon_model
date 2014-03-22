@@ -1559,6 +1559,11 @@ MODULE mo_nh_stepping
 
             time_config%sim_time(jgc) = time_config%sim_time(jg)
 
+            CALL compute_airmass(p_patch(jgc),                   &
+              &                  p_nh_state(jgc)%metrics,        &
+              &                  p_nh_state(jgc)%prog(nnow(jgc)),&
+              &                  p_nh_state(jgc)%diag, itlev = 2 )
+
             CALL init_slowphysics (datetime, jgc, dt_loc, dtadv_loc, time_config%sim_time)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',time_config%sim_time(jg)
