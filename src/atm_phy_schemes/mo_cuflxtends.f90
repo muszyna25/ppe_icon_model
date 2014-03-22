@@ -455,8 +455,7 @@ CONTAINS
           zrfl=pmflxr(jl,jk)+pmflxs(jl,jk)
           IF(zrfl > 1.e-20_JPRB) THEN
             zdrfl1=rcpecons*MAX(0.0_JPRB,pqsen(jl,jk)-pqen(jl,jk))*rcucov*&
-              & (SQRT(paph(jl,jk)/paph(jl,klev+1))/5.09E-3_JPRB*&
-              & zrfl/rcucov)**0.5777_JPRB*&
+              & EXP(0.5777_JPRB*LOG(SQRT(paph(jl,jk)/paph(jl,klev+1))/5.09E-3_JPRB*zrfl/rcucov))*&
               & (paph(jl,jk+1)-paph(jl,jk))
             zrnew=zrfl-zdrfl1
             zrmin=zrfl-rcucov*MAX(0.0_JPRB,zrhebc(jl)*pqsen(jl,jk)-pqen(jl,jk))&

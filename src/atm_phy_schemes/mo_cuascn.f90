@@ -924,7 +924,7 @@ DO jk=klev-1,ktdia+2,-1
       DO jl=kidia,kfdia
         IF(llo1(jl)) THEN
           IF(zlrain(jl,jk) > 0.0_JPRB) THEN
-            zvw=21.18_JPRB*zlrain(jl,jk)**0.2_JPRB
+            zvw=21.18_JPRB*EXP(0.2_JPRB*LOG(zlrain(jl,jk)))
             zvi=z_cwifrac*zvw
             zalfaw=0.545_JPRB*(TANH(0.17_JPRB*(ptu(jl,jk)-rlptrc))+1.0_JPRB)
             zvv=zalfaw*zvw+(1.0_JPRB-zalfaw)*zvi
@@ -947,7 +947,7 @@ DO jk=klev-1,ktdia+2,-1
           IF(zlrain(jl,jk) > 0.0_JPRB) THEN
            !KF density correction
            !            ZRCORR = SQRT(ZRHOsfc/RHO_Atm(jl,jk))
-            zvw=21.18_JPRB*zlrain(jl,jk)**0.2_JPRB
+            zvw=21.18_JPRB*EXP(0.2_JPRB*LOG(zlrain(jl,jk)))
             zvi=z_cwifrac*zvw
             zalfaw=foealfcu(ptu(jl,jk))
            !KF density correction

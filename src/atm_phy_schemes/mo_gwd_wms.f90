@@ -320,7 +320,7 @@ CONTAINS
       ztx=REAL((inc-1),KIND(1._jprb))*zdx+zxmin
       zx(inc)=zx1*EXP((ztx-zxmin)/zgam)+zx2                            !Eq. 29 of Scinocca 2003
       zci(inc)=1.0_JPRB/zx(inc)                                        !Eq. 28 of Scinocca 2003
-      zdci(inc)=zci(inc)**2_JPRB*(zx1/zgam)*EXP((ztx-zxmin)/zgam)*zdx  !Eq. 30 of Scinocca 2003
+      zdci(inc)=zci(inc)**2*(zx1/zgam)*EXP((ztx-zxmin)/zgam)*zdx       !Eq. 30 of Scinocca 2003
     ENDDO
     
     
