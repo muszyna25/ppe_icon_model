@@ -133,7 +133,7 @@ MODULE mo_nh_diffusion
 
     ! Variables for provisional fix against runaway cooling in local topography depressions
     INTEGER  :: icount(p_patch%nblks_c), iclist(2*nproma,p_patch%nblks_c), iklist(2*nproma,p_patch%nblks_c)
-    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, enh_diffu, thresh_tdiff
+    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, enh_diffu, thresh_tdiff, z_theta
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
@@ -1036,7 +1036,7 @@ MODULE mo_nh_diffusion
 !$OMP END DO
       ENDIF
 
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,z_theta) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1045,11 +1045,14 @@ MODULE mo_nh_diffusion
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
+            z_theta = p_nh_prog%theta_v(jc,jk,jb)
+
             p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) + &
               p_patch%cells%area(jc,jb)*z_temp(jc,jk,jb)
              
-            p_nh_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_nh_prog%rho(jc,jk,jb)*p_nh_prog%theta_v(jc,jk,jb)))
+            p_nh_prog%exner(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb) *      &
+              (1._wp+rd_o_cvd*(p_nh_prog%theta_v(jc,jk,jb)/z_theta-1._wp))
+
           ENDDO
         ENDDO
 

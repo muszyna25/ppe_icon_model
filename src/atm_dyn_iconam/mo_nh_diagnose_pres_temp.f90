@@ -43,6 +43,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, iqm_max, &
     &                               lforcing, iforcing
@@ -95,11 +96,11 @@ MODULE mo_nh_diagnose_pres_temp
 
     INTEGER, INTENT(IN), OPTIONAL :: opt_slev, opt_rlend 
 
-    INTEGER  :: jb,jk,jc,jt
+    INTEGER  :: jb,jk,jc,jt,jg
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER  :: i_rlstart, i_rlend
-    INTEGER  :: slev
+    INTEGER  :: slev, slev_moist
 
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
 
@@ -152,6 +153,10 @@ MODULE mo_nh_diagnose_pres_temp
     ! Nest boundaries are always included
     i_rlstart = 1
 
+    jg = pt_patch%id
+    ! start index for moisture variables other than QV
+    slev_moist = MAX(kstart_moist(jg),slev)
+
     i_startblk = pt_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = pt_patch%cells%end_blk(i_rlend,i_nchdom)
 
@@ -165,7 +170,11 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp) THEN
         IF ( lforcing .AND. iforcing /= 1  ) THEN
 
-          DO jk = slev, nlev
+          DO jk = slev, slev_moist-1
+            z_qsum(:,jk) = 0._wp
+          ENDDO
+
+          DO jk = slev_moist, nlev
             DO jc = i_startidx, i_endidx
               z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
                 &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
@@ -177,7 +186,7 @@ MODULE mo_nh_diagnose_pres_temp
           ! Add further hydrometeor species to water loading term if required
           IF (iqm_max > iqs) THEN
             DO jt = iqs+1, iqm_max
-              DO jk = slev, nlev
+              DO jk = slev_moist, nlev
                 DO jc = i_startidx, i_endidx
                   z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
                 ENDDO

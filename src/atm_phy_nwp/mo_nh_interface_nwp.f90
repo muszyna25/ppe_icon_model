@@ -199,7 +199,7 @@ CONTAINS
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev)   !< Temperature tendency
  
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv
 
     !< vertical interfaces
 
@@ -343,7 +343,7 @@ CONTAINS
         z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
 !$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_tempv) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -398,12 +398,14 @@ CONTAINS
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
-            pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)                        &
+            z_tempv                 = pt_diag%tempv(jc,jk,jb)
+
+            pt_diag%tempv(jc,jk,jb) = pt_diag%temp(jc,jk,jb)                         &
               &                   * ( 1._wp +  vtmpc1                                &
               &                   * pt_prog_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk) )
 
-            pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
-              &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
+            pt_prog%exner(jc,jk,jb) = pt_prog%exner(jc,jk,jb) *        &
+              & (1._wp+rd_o_cpd*(pt_diag%tempv(jc,jk,jb)/z_tempv-1._wp))
 
           ENDDO
         ENDDO
@@ -584,7 +586,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
