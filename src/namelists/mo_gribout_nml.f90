@@ -137,6 +137,11 @@ MODULE mo_gribout_nml
     & generatingSubcenter               !
 
 
+  LOGICAL :: lspecialdate_invar         ! .TRUE.: use special date 10101 for encoding
+                                        ! invariant and climatological fields
+                                        ! .FALSE.: no special treatment of invariant
+                                        ! and climatological fields.
+
   LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                         ! .TRUE. : activated
                                         ! .FALSE.: deactivated (use dummy date/time)
@@ -163,6 +168,7 @@ MODULE mo_gribout_nml
     &                    localNumberOfExperiment,         &
     &                    generatingCenter,                &
     &                    generatingSubcenter,             &
+    &                    lspecialdate_invar,              &
     &                    ldate_grib_act,                  &
     &                    typeOfEnsembleForecast,          &
     &                    localTypeOfEnsembleForecast,     &
@@ -212,6 +218,7 @@ CONTAINS
     backgroundProcess                    = 0   ! 0: main run
     generatingProcessIdentifier(:)       = 1   ! 1: icogl
     localNumberOfExperiment              = 1
+    lspecialdate_invar                   = .FALSE.  ! no special date for invar fields
     ldate_grib_act                       = .TRUE.
     lgribout_24bit                       = .FALSE.  ! use 16bit precision for all fields
 
@@ -283,6 +290,8 @@ CONTAINS
         &                generatingCenter
       gribout_config(jg)%generatingSubcenter               = &
         &                generatingSubcenter
+      gribout_config(jg)%lspecialdate_invar                = &
+        &                lspecialdate_invar
       gribout_config(jg)%ldate_grib_act                    = &
         &                ldate_grib_act
       gribout_config(jg)%typeOfEnsembleForecast            = &

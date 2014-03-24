@@ -118,6 +118,11 @@ MODULE mo_gribout_config
       & generatingSubcenter               ! DWD  : 255
                                           ! ECMWF: 0 
 
+    LOGICAL :: lspecialdate_invar         ! .TRUE.: use special date 10101 for encoding
+                                          ! invariant and climatological fields
+                                          ! .FALSE.: no special treatment of invariant
+                                          ! and climatological fields.
+
     LOGICAL :: ldate_grib_act             ! add Creation date to GRIB file
                                           ! .TRUE. : activated
                                           ! .FALSE.: deactivated (use dummy date/time) 

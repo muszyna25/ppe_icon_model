@@ -484,10 +484,19 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "generatingProcessIdentifier",     &
       &                    grib_conf%generatingProcessIdentifier)
 
-    IF ( steptype == TSTEP_CONSTANT ) THEN
-      ! invariant data 
-      CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, 196)
+
+    IF (grib_conf%lspecialdate_invar) THEN
+      ! Use special date for invariant and climatological fields
+      !
+      IF ( steptype == TSTEP_CONSTANT ) THEN
+        ! invariant data 
+        CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, 196)
+      ELSE
+        CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
+      ENDIF
     ELSE
+      ! no special treatment of invariant and climatological fields
+      !
       CALL vlistDefVarTypeOfGeneratingProcess(vlistID, varID, grib_conf%typeOfGeneratingProcess)
     ENDIF
 
