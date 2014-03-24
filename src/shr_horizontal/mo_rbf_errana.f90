@@ -347,7 +347,8 @@ CONTAINS
     REAL(wp),              INTENT(INOUT)        :: rbf_shape_param
 
     ! constants, defining the behavior of the algorithm
-    INTEGER,  PARAMETER :: max_tests    =      50     ! max. no. of tested cell block lines (jb's)
+    INTEGER,  PARAMETER :: min_tests        =         50
+    INTEGER,  PARAMETER :: max_tests_nproma =       1000  ! max. no. of tested cell block lines (jb's)
     !
     REAL(wp), PARAMETER :: c0           =  1000.0_wp  ! initial VALUE for shape parameter search
     REAL(wp), PARAMETER :: c_fak        =     0.9_wp  ! factor for generating the sequence
@@ -361,8 +362,11 @@ CONTAINS
     REAL(wp) :: r(nproma), a1, a2, q(nproma), beta(nproma), c_tol(nproma), &
       &         sum_y, sum_z, denom
     REAL(wp) :: c_seq(nproma,n), t_seq(nproma,n), z(n), y(n), result_val(dst_nblks_c)
-    INTEGER  :: i, start_idx, end_idx, jc, jb, itest_stride, kdim(nproma)
+    INTEGER  :: i, start_idx, end_idx, jc, jb, itest_stride, kdim(nproma), max_tests, &
+      &         min_stencil(1)
     LOGICAL  :: lflag(nproma)
+
+    max_tests = MAX(min_tests,min_tests*max_tests_nproma/nproma)
 
     result_val(:) = 0._wp
     itest_stride = MAX(1, dst_nblks_c/max_tests)
@@ -370,6 +374,8 @@ CONTAINS
       start_idx = 1
       end_idx   = nproma
       if (jb == dst_nblks_c) end_idx = dst_npromz_c
+
+      min_stencil = MINLOC(intp_data_nstencil(start_idx:end_idx,jb))
 
       c_seq(start_idx:end_idx,:) = 0._wp
       t_seq(start_idx:end_idx,:) = 0._wp
@@ -387,6 +393,10 @@ CONTAINS
       DO jc=start_idx,end_idx
         lflag(jc) = (MOD(global_idx(idx_1d(jc,jb)), itest_stride) /= 0)
       END DO
+      ! add the cell with the smallest stencil in this block
+      ! (note: this is not processor-independent!)
+      lflag(min_stencil(1)) = .FALSE.
+
       kdim(:) = 0
       ! compute only for values in our control sample:
       kdim(start_idx:end_idx) = MERGE(0, intp_data_nstencil(start_idx:end_idx,jb), &
