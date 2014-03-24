@@ -410,10 +410,11 @@ isTriggerTimeInRange(struct _datetime* current_dt, struct _datetime* triggerNext
       struct _datetime *dt_upperbound              = newDateTime(initDummyDTString);
       struct _datetime *dt_lowerbound              = newDateTime(initDummyDTString);
 
-      allowedMinusdelta->sign = '-'; /* Change sign to obtain substraction. */
+      struct _timedelta*  allowedMinusdelta_local = constructAndCopyTimeDelta(allowedMinusdelta);
+      allowedMinusdelta_local->sign = '-'; /* Change sign to obtain substraction. */
  
       upper_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,allowedPlusdelta,dt_upperbound));
-      lower_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,allowedMinusdelta,dt_lowerbound));
+      lower_val_flag = compareDatetime(current_dt,addTimeDeltaToDateTime(triggerNextEventDateTime,allowedMinusdelta_local,dt_lowerbound));
 
       if ( 
            (upper_val_flag == less_than || upper_val_flag == equal_to)
@@ -435,6 +436,7 @@ isTriggerTimeInRange(struct _datetime* current_dt, struct _datetime* triggerNext
       //Cleaup.
       deallocateDateTime(dt_upperbound);
       deallocateDateTime(dt_lowerbound);
+      deallocateTimeDelta(allowedMinusdelta_local);
     }
   else /* If slack is malformed (negative sign is not permitted), return as normal (follow exact match for equal).  */
     {
