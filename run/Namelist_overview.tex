@@ -3540,8 +3540,9 @@ inwp\_radiation $>$ 0
 
 \hline
 itype\_z0&
-I & 1 &  & Type of roughness length data used for turbulence scheme: 1 = including contribution from
-sub-scale orography, 2 = land-cover-related roughness only &
+I & 2 &  & Type of roughness length data used for turbulence scheme: \\
+1 = including contribution from sub-scale orography \\
+2 = land-cover-related roughness only &
 inwp\_turb $>$ 0
 \tabularnewline
 
@@ -3557,15 +3558,7 @@ time interval of convection call
 (max\_dom)&
 &
 &
-currently each subdomain has
-&
-\tabularnewline
-&
-&
-&
-&
-the same value
-&
+currently each subdomain has the same value &
 \tabularnewline
 
 \hline
@@ -6285,6 +6278,12 @@ model expects {\bf height based} coordinates. For further information see <icon 
 \begin{changeitem}{nwp\_phy\_nml}{2014-03-13 }{16560 }
   \begin{itemize}
    \item Removed namelist parameter \texttt{dt\_ccov}, since practically it had no effect. For the  quasi-operational NWP-setup, the calling frequency of the cloud cover scheme is the same as that of the convection scheme. I.e. both are synchronized.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{nwp\_phy\_nml}{2014-03-24 }{16668 }
+  \begin{itemize}
+   \item Changed namelist default for \textbf{itype\_z0}: use land cover related roughness only (itype\_z0=2).
   \end{itemize}
 \end{changeitem}
 

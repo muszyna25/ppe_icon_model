@@ -193,7 +193,7 @@ CONTAINS
     ! 0b. Real defaults for some other variables
     !------------------------------------------------------------------
 
-    itype_z0 = 1  !  1 = include orographic contribution to roughness length
+    itype_z0 = 2  !  2 = land-cover related roughness lenght only (i.e. no orographic contrib)
     qi0      = 0.0_wp 
     qc0      = 0.0_wp 
 
