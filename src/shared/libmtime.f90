@@ -1107,6 +1107,7 @@ module mtime_events
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_char, c_null_char, c_bool, c_ptr, c_loc, c_f_pointer, &
     &                                    c_null_ptr
   use mtime_datetime
+  use mtime_timedelta
   !
   implicit none
   !
@@ -1178,9 +1179,8 @@ module mtime_events
       character(c_char), dimension(*) :: string
     end function my_eventtostring
     !
-    function my_isCurrentEventActive(my_event, my_datetime, &
-      &                              my_allowed_slack_add,  &
-      &                              my_allowed_slack_subtract) RESULT(ret) BIND(c, name='isCurrentEventActive')
+    function my_isCurrentEventActive(my_event, my_datetime, plus_slack, minus_slack) &
+             &                      result(ret) bind(c, name='isCurrentEventActive')
 #ifdef __SX__
       use, intrinsic :: iso_c_binding, only: c_bool, c_ptr
 #else
@@ -1188,8 +1188,8 @@ module mtime_events
 #endif
       type(c_ptr), value :: my_event
       type(c_ptr), value :: my_datetime
-      type(c_ptr), value :: my_allowed_slack_add
-      type(c_ptr), value :: my_allowed_slack_subtract
+      type(c_ptr), value :: plus_slack
+      type(c_ptr), value :: minus_slack
       logical(c_bool) :: ret
     end function my_isCurrentEventActive
     !
@@ -1232,33 +1232,30 @@ contains
     string(i:len(string)) = ' '
   end subroutine eventToString
   !
-  !
-  FUNCTION isCurrentEventActive(my_event, my_datetime, &
-    &                           my_allowed_slack_add,  &
-    &                           my_allowed_slack_subtract) RESULT(ret)
-    USE mtime_timedelta
+  function isCurrentEventActive(my_event, my_datetime, plus_slack, minus_slack) result(ret)
     type(event), pointer     :: my_event
     type(datetime), pointer  :: my_datetime
-    type(timedelta), pointer, OPTIONAL :: my_allowed_slack_add
-    type(timedelta), pointer, OPTIONAL :: my_allowed_slack_subtract
+    type(timedelta), pointer, OPTIONAL :: plus_slack
+    type(timedelta), pointer, OPTIONAL :: minus_slack
     logical(c_bool) :: ret
-    IF (PRESENT(my_allowed_slack_add)) THEN 
-      IF (PRESENT(my_allowed_slack_subtract)) THEN 
-        ret = my_isCurrentEventActive(C_LOC(my_event), C_LOC(my_datetime), &
-          &                           C_LOC(my_allowed_slack_add), C_LOC(my_allowed_slack_subtract))
-      ELSE
-        ret = my_isCurrentEventActive(C_LOC(my_event), C_LOC(my_datetime), &
-          &                           C_LOC(my_allowed_slack_add), c_null_ptr)
-      END IF
-    ELSE
-      IF (PRESENT(my_allowed_slack_subtract)) THEN 
-        ret = my_isCurrentEventActive(C_LOC(my_event), C_LOC(my_datetime), c_null_ptr, &
-          &                           C_LOC(my_allowed_slack_subtract))
-      ELSE
-        ret = my_isCurrentEventActive(C_LOC(my_event), C_LOC(my_datetime), c_null_ptr, c_null_ptr)
-      END IF
-    END IF
-  END FUNCTION isCurrentEventActive
+    if (present(plus_slack) .and. present(minus_slack)) then 
+      ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime), &
+            &                   c_loc(plus_slack),  c_loc(minus_slack))
+
+    else if (present(plus_slack) .and. .not.present(minus_slack)) then
+      ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime), &
+            &                           c_loc(plus_slack),  c_null_ptr)
+
+    else if (.not.present(plus_slack) .and. present(minus_slack)) then
+      ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime), &
+            &                          c_null_ptr,  c_loc(minus_slack))
+    
+    else
+      ret = my_isCurrentEventActive(c_loc(my_event), c_loc(my_datetime), &
+            &                                   c_null_ptr, c_null_ptr)
+    
+    end if
+  end function isCurrentEventActive
 end module mtime_events
 !>
 !! @brief Event-groups which contains a list of events.
