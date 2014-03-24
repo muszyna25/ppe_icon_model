@@ -2,6 +2,9 @@
 !! Updates dynamical fields with slow physics tendencies in the special case
 !! that dynamics are switched off (ldynamics=F).
 !!
+!! Anurag Dipankar, MPIM (24 March 2014): Fixed some bugs and removed unnecessary 
+!! sync for tracers as tracers are synced within the nwp_interface. 
+!!
 !! @author Daniel Reinert, DWD
 !!
 !!
@@ -48,6 +51,7 @@ MODULE mo_update_dyn
   USE mo_sync,               ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_run_config,         ONLY: ntracer
   USE mo_dynamics_config,    ONLY: lcoriolis
+  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE
 
@@ -91,7 +95,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk  ! start and end block
     INTEGER :: i_startidx, i_endidx  ! start and end indices
     INTEGER :: i_nchdom
-    REAL(wp) :: p_diag_vt
+    REAL(wp) :: p_diag_vt, ddt_corio_vn
     ! Pointers
     INTEGER, POINTER :: iqidx(:,:,:), iqblk(:,:,:) ! to quad edge indices
 
@@ -108,8 +112,8 @@ CONTAINS
     i_nchdom = MAX(1,p_patch%n_childdom)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-    rl_start = 3
-    rl_end = min_rlcell_int - 1
+    rl_start = grf_bdywidth_c+1 
+    rl_end   = min_rlcell_int 
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
@@ -152,13 +156,13 @@ CONTAINS
 !$OMP ENDDO NOWAIT
 
 
-    rl_start = 7
-    rl_end   = min_rledge_int-1
+    rl_start = grf_bdywidth_e+1
+    rl_end   = min_rledge_int
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx, p_diag_vt)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx, p_diag_vt,ddt_corio_vn)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -167,9 +171,6 @@ CONTAINS
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
 
-          ! vn (update)
-          p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)  &
-            &                + dtime * p_nh%diag%ddt_vn_phy(je,jk,jb)
 
           ! add Coriolis force
           IF ( lcoriolis ) THEN
@@ -179,9 +180,17 @@ CONTAINS
               p_int%rbf_vec_coeff_e(2,je,jb) * p_nh%prog(nnow)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) + &
               p_int%rbf_vec_coeff_e(3,je,jb) * p_nh%prog(nnow)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) + &
               p_int%rbf_vec_coeff_e(4,je,jb) * p_nh%prog(nnow)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb) &
-              &              + dtime * p_diag_vt * p_patch%edges%f_e(je,jb)
-          ENDIF
+
+            !Coriolis tendency
+            ddt_corio_vn  = - p_diag_vt * p_patch%edges%f_e(je,jb)
+          ELSE
+            ddt_corio_vn = 0._wp
+          END IF
+
+          ! vn (update)
+          p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)  &
+            &                + dtime * (ddt_corio_vn+p_nh%diag%ddt_vn_phy(je,jk,jb))
+
         ENDDO  ! je
       ENDDO  ! jk
     ENDDO  ! jb
@@ -192,9 +201,6 @@ CONTAINS
     ! Synchronize updated prognostic variables
     CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%exner)
     CALL sync_patch_array(SYNC_E,p_patch,p_nh%prog(nnew)%vn)
-    DO jt = 1, ntracer
-      CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew_rcf)%tracer(:,:,:,jt))
-    ENDDO
 
   END SUBROUTINE add_slowphys 
 
