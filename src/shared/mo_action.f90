@@ -61,9 +61,9 @@ MODULE mo_action
   USE mtime,                 ONLY: event, newEvent, datetime,newDatetime,     &
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
-    &                              MAX_EVENTNAME_STR_LEN
+    &                              MAX_EVENTNAME_STR_LEN, newTimedelta, timedelta
   USE mo_run_config,         ONLY: msg_level
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
+  USE mo_mtime_extensions,   ONLY: get_datetime_string, getPTStringFromMS
   USE mo_action_types,       ONLY: t_var_action
   USE mo_time_config,        ONLY: time_config
   USE mo_var_list,           ONLY: nvar_lists, var_lists
@@ -250,8 +250,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-01-10)
   !!
-  SUBROUTINE reset_action()
+  SUBROUTINE reset_action(slack)
 
+    REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
     ! local variables
     INTEGER :: ivar                        !< loop index for fields
     INTEGER :: var_action_idx              !< Index of this particular action in 
@@ -268,6 +269,8 @@ CONTAINS
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
 
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: str_slack       ! slack as string
+    TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:reset_action")
 
@@ -276,6 +279,15 @@ CONTAINS
     ! compute current datetime in a format appropriate for mtime
     CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
     mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+
+    ! compute allowed slack in PT-Format
+    ! Use factor 999 instead of 1000, since no open intervall is available
+    ! needed [trigger_date, trigger_date + slack[
+    ! used   [trigger_date, trigger_date + slack]
+    CALL getPTStringFromMS(INT(999._wp*slack),str_slack)
+    ! get slack in 'timedelta'-format appropriate for isCurrentEventActive
+    p_slack => newTimedelta(str_slack)
+
 
     ! Loop over all fields attached to this action
     DO ivar = 1, reset_act%nvars
@@ -296,7 +308,8 @@ CONTAINS
 
       ! Note that a second call to isCurrentEventActive will lead to 
       ! a different result! Is this a bug or a feature?
-      isactive = isCurrentEventActive(this_event,mtime_date)
+      ! triggers in interval [trigger_date + slack]
+      isactive = isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack)
 
 
       ! Check wheter the action 'reset_act' should be triggered for variable

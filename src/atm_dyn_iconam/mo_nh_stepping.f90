@@ -707,9 +707,13 @@ MODULE mo_nh_stepping
 
     ! re-initialize MAX/MIN fields with 'resetval'
     ! must be done AFTER output
+    ! Reset is only allowed at (after) advection/Physics time steps, since output is  
+    ! synchronized with advection/physics steps. Triggering the re-set action at non-advection 
+    ! timesteps may lead to zero-fields in the output. 
     !
-    CALL reset_action()
-
+    If (lstep_adv(1)) THEN
+      CALL reset_action(slack=dtime_adv)
+    ENDIF
 
     !--------------------------------------------------------------------------
     ! Write restart file

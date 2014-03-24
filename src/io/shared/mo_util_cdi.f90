@@ -443,7 +443,7 @@ CONTAINS
 
     CHARACTER(len=MAX_CHAR_LENGTH)     :: ydate, ytime
     INTEGER :: cent, year, month, day    ! date
-    INTEGER :: hour, minute              ! time
+    INTEGER :: hour, minute, second      ! time
     INTEGER :: steptype
 
     IF (grib_conf%ldate_grib_act) THEN
@@ -451,7 +451,7 @@ CONTAINS
       ! ydate : ccyymmdd, ytime : hhmmss.sss
       CALL date_and_time(ydate,ytime)
       READ(ydate,'(4i2)') cent, year, month, day
-      READ(ytime,'(2i2)') hour, minute
+      READ(ytime,'(3i2)') hour, minute, second
     ELSE ! set date to "01010101" (for better comparability of GRIB files)
       cent  = 1
       year  = 1
@@ -459,6 +459,7 @@ CONTAINS
       year  = 1
       hour  = 1
       minute= 1
+      second= 1
     ENDIF
 
     ! inquire steptype (needed below)
@@ -513,6 +514,7 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateDay"   , day)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateHour"  , hour)
       CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateMinute", minute)
+      CALL vlistDefVarIntKey(vlistID, varID, "localCreationDateSecond", second)
       ! CALL vlistDefVarIntKey(vlistID, varID, "localValidityDateYear"  , 2013)
 
       ! preliminary HACK for identifying tile based variables
