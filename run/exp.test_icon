@@ -2,6 +2,7 @@
 #################### functions ##########################################
 function copy_experiment
 {
+typeset MODEL_DIR EXP_ORI EXP_NEW
 MODEL_DIR=$1
 EXP_ORI=$2
 EXP_NEW=$3
@@ -24,6 +25,7 @@ ln -sf ${EXP_ORI}_restart_atm_${RESTART_DATE}.nc restart_atm_DOM01.nc
 #------------------------------------------------------------------------
 function print_mode
 {
+typeset MOD
 MOD=$1
 case $MOD in  
   'b') PRINT_MD='b(ase)';;
@@ -38,6 +40,7 @@ echo "test mode is $PRINT_MD"
 #------------------------------------------------------------------------
 function print_usage
 {
+typeset COMMAND MOD_ARG
 COMMAND=$1
 MOD_ARG=""
 for MOD in $MODES; do
@@ -53,24 +56,25 @@ for MOD in $MODES; do
 done 
 echo "usage: ${COMMAND} [-e] [-h] [-m $MOD_ARG] [-o yes|no] [-r <reference model path>]" 
 echo '-e : experiment:'
-echo '     r2b4_amip (hydrostatic amip experiment)'
+echo '     r2b4_amip (hydrostatic amip experiment) (default)'
 echo '     mtest_nat_rce_cbl_120km_nwp (non-hydrostatic, radiative-convective equilibrium, nwp physics, torus grid'
 echo '-f : '"'yes'"': force make_runscripts even if runscripts exist'
-echo '     '"'no'"': perform make_runscripts only if no runscripts are available'
+echo '     '"'no'"': perform make_runscripts only if no runscripts are available (default)'
 echo '-h : display help'
 echo '-m : test mode, either single tests like base, update, restart or nproma test or'
 echo '     combined tests like ur (update and restart) possible'
-echo '-o : '"'yes'"': overwrite existing experiments, that is the default'
+echo '-o : '"'yes'"': overwrite existing experiments (default)'
 echo '     '"'no'"': use existing experiments'
 echo '-r : reference model path'
 }
 #------------------------------------------------------------------------
 function diff_results
 {
+typeset MODEL_DIR1 DEXP1 MODEL_DIR2 DEXP2 TEST FILES FILE1 FILE2 STATUS
 MODEL_DIR1=$1
-EXP1=$2
+DEXP1=$2
 MODEL_DIR2=$3
-EXP2=$4
+DEXP2=$4
 TEST=$5
 #TYPES: defined in main script and used from main script 
 #DATES: defined in main script and used from main script 
@@ -79,31 +83,31 @@ DIFF_STATUS=0
 cd $MODEL_DIR1; MODEL_DIR1=`pwd`
 cd $MODEL_DIR2; MODEL_DIR2=`pwd`
 for TYPE in $TYPES; do 
-  cd ${MODEL_DIR1}/experiments/${EXP1}
+  cd ${MODEL_DIR1}/experiments/${DEXP1}
   FILES=''
   for DATE in $DATES; do
-    FILES=$FILES' '${EXP1}'_'${TYPE}'_'${DATE}'.nc'
+    FILES=$FILES' '${DEXP1}'_'${TYPE}'_'${DATE}'.nc'
   done
-  cdo -O mergetime $FILES ${EXP1}_${TYPE}.nc 1> /dev/null 2> /dev/null
-  cd ${MODEL_DIR2}/experiments/${EXP2}
+  cdo -O mergetime $FILES ${DEXP1}_${TYPE}.nc 1> /dev/null 2> /dev/null
+  cd ${MODEL_DIR2}/experiments/${DEXP2}
   FILES=''
   for DATE in $DATES; do
-    FILES=$FILES' '${EXP2}'_'${TYPE}'_'${DATE}'.nc'
+    FILES=$FILES' '${DEXP2}'_'${TYPE}'_'${DATE}'.nc'
   done
-  cdo -O mergetime $FILES ${EXP2}_${TYPE}.nc 1> /dev/null 2> /dev/null
-  cdo -O sub ${EXP2}_${TYPE}.nc ../${EXP1}/${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}_${TYPE}.nc 1> /dev/null 2> /dev/null
+  cdo -O mergetime $FILES ${DEXP2}_${TYPE}.nc 1> /dev/null 2> /dev/null
+  cdo -O sub ${DEXP2}_${TYPE}.nc ../${DEXP1}/${DEXP1}_${TYPE}.nc diff_${DEXP2}-${DEXP1}_${TYPE}.nc 1> /dev/null 2> /dev/null
   if [ -z "${REMAP_FILE}" ]; then
-    cdo remapdis,${RESOL} diff_${EXP2}-${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
+    cdo remapdis,${RESOL} diff_${DEXP2}-${DEXP1}_${TYPE}.nc diff_${DEXP2}-${DEXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
   else
     if [ -f "${REMAP_FILE}" ]; then
-      cdo remap,${RESOL},${REMAP_FILE} diff_${EXP2}-${EXP1}_${TYPE}.nc diff_${EXP2}-${EXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
+      cdo remap,${RESOL},${REMAP_FILE} diff_${DEXP2}-${DEXP1}_${TYPE}.nc diff_${DEXP2}-${DEXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
     fi
   fi
   if [ -f test$$.dat ]; then
     rm -f test$$.dat
   fi
-  FILE1=${MODEL_DIR1}/experiments/${EXP1}/${EXP1}_${TYPE}.nc
-  FILE2=${MODEL_DIR2}/experiments/${EXP2}/${EXP2}_${TYPE}.nc
+  FILE1=${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_${TYPE}.nc
+  FILE2=${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}.nc
   cdo diffn ${FILE1} ${FILE2} > test$$.dat
   STATUS=`echo $?`
   if [ "$STATUS" -ne 0 -o -s test$$.dat ]; then
@@ -113,14 +117,14 @@ for TYPE in $TYPES; do
   fi
 done # file types 
 if [ -s test$$.dat ]; then
-  mv test$$.dat diff_${EXP2}-${EXP1}.dat
-  echo -e "\033[31mThe differences are in file diff_${EXP2}-${EXP1}.dat\033[00m"
+  mv test$$.dat diff_${DEXP2}-${DEXP1}.dat
+  echo -e "\033[31mThe differences are in file diff_${DEXP2}-${DEXP1}.dat\033[00m"
 else
   rm -f test$$.dat
 fi
 if [ "$DIFF_STATUS" == 0 ]; then
   echo -e "\033[32m${TEST} o.k.:\033[00m"
-  echo -e "The variables in files ${MODEL_DIR1}/experiments/${EXP1}/${EXP1}_TYPE.nc and ${MODEL_DIR2}/experiments/${EXP2}/${EXP2}_TYPE.nc for TYPE=${TYPES} do not differ"
+  echo -e "The variables in files ${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_TYPE.nc and ${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_TYPE.nc for TYPE=${TYPES} do not differ"
 fi
 #echo $DIFF_STATUS
 #exit $DIFF_STATUS
@@ -128,6 +132,7 @@ fi
 #------------------------------------------------------------------------
 function string_in_list
 {
+typeset STR_IN_LIST STR
 STR_IN_LIST=false
 STR=$1
 N=$#
@@ -326,6 +331,7 @@ fi # MODE
 RESTART_SUCCESS='no'
 CMODES="r ur rn rp urn urp rnp urnp"
 if string_in_list $MD $CMODES; then
+echo $MD $MODES $OVERWRITE $MODEL_DIR $EXP2
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP2} ]; then
     copy_experiment ${MODEL_DIR} ${EXP1} ${EXP2}
     if [ $? -ne 0 ]; then
