@@ -47,7 +47,7 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar
+    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar, cfl_check, cfl_threshold
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -66,7 +66,7 @@ MODULE mo_hydro_ocean_run
     & t_hydro_ocean_prog
   USE mo_oce_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
-  USE mo_oce_math_operators,     ONLY: calculate_thickness
+  USE mo_oce_math_operators,     ONLY: calculate_thickness, check_cfl_horizontal, check_cfl_vertical
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
@@ -413,6 +413,20 @@ CONTAINS
           ! Create the master (meta) file in ASCII format which contains
           ! info about which files should be read in for a restart run.
           CALL write_restart_info_file
+        END IF
+
+        ! check cfl criterion
+        IF (cfl_check) THEN
+          CALL check_cfl_horizontal(ocean_state(jg)%p_prog(nnew(1))%vn, &
+            &                       patch_3d%p_patch_2D(1)%edges%inv_dual_edge_length, &
+            &                       dtime, &
+            &                       patch_3d%p_patch_2D(1)%edges%ALL, &
+            &                       cfl_threshold)
+          CALL check_cfl_vertical(ocean_state(jg)%p_diag%w, &
+            &                     patch_3d%p_patch_1D(1)%prism_center_dist_c, &
+            &                     dtime, &
+            &                     patch_3d%p_patch_2D(1)%cells%ALL,&
+            &                     cfl_threshold)
         END IF
       
       ENDDO time_loop

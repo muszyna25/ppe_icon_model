@@ -311,6 +311,9 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_with_horz_tracer_advection = .TRUE.  ! FALSE: no horizontal tracer advection
   LOGICAL  :: l_with_vert_tracer_advection = .TRUE.  ! FALSE: no vertical tracer advection
 
+  ! cfl related
+  LOGICAL  :: cfl_check     = .TRUE.
+  REAL(wp) :: cfl_threshold = 0.85_wp
 
   ! special diagnostics configuration
   !
@@ -330,6 +333,8 @@ MODULE mo_ocean_nml
     &                 basin_center_lon             , &
     &                 basin_height_deg             , &
     &                 basin_width_deg              , &
+    &                 cfl_check                    , &
+    &                 cfl_threshold                , &
     &                 coriolis_type                , &
     &                 dhdtw_abort                  , &
     &                 discretization_scheme        , &
