@@ -1071,9 +1071,9 @@ CONTAINS
 
     INTEGER :: je,jk,jb,i_startidx,i_endidx
 
-    ALLOCATE(cfl(lbound(normal_velocity,1):ubound(normal_velocity,1),&
-      &          lbound(normal_velocity,2):ubound(normal_velocity,2),&
-      &          lbound(normal_velocity,3):ubound(normal_velocity,3)))
+    ALLOCATE(cfl(LBOUND(normal_velocity,1):UBOUND(normal_velocity,1),&
+      &          LBOUND(normal_velocity,2):UBOUND(normal_velocity,2),&
+      &          LBOUND(normal_velocity,3):UBOUND(normal_velocity,3)))
     cfl = 0.0_wp
 
 
@@ -1086,7 +1086,7 @@ CONTAINS
       END DO
     END DO
     CALL dbg_print('check horiz. CFL',cfl ,str_module,3,in_subset=edges)
-    CALL check_cfl_threshold(maxval(cfl),threshold,'horz')
+    CALL check_cfl_threshold(MAXVAL(cfl),threshold,'horz')
   END SUBROUTINE check_cfl_horizontal
 
   SUBROUTINE check_cfl_vertical(vertical_velocity, thicknesses, timestep, cells, threshold)
@@ -1097,21 +1097,21 @@ CONTAINS
 
     INTEGER  :: jc, jk, jb, i_startidx_c, i_endidx_c
 
-    ALLOCATE(cfl(lbound(vertical_velocity,1):ubound(vertical_velocity,1),&
-      &          lbound(vertical_velocity,2):ubound(vertical_velocity,2),&
-      &          lbound(vertical_velocity,3):ubound(vertical_velocity,3)))
+    ALLOCATE(cfl(LBOUND(vertical_velocity,1):UBOUND(vertical_velocity,1),&
+      &          LBOUND(vertical_velocity,2):UBOUND(vertical_velocity,2),&
+      &          LBOUND(vertical_velocity,3):UBOUND(vertical_velocity,3)))
     cfl = 0.0_wp
 
     DO jb = cells%start_block, cells%end_block
       CALL get_index_range(cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         DO jk=1, cells%vertical_levels(jc,jb)
-          cfl(jc,jk,jb)=abs(dtime*vertical_velocity(jc,jk,jb)/thicknesses(jc,jk,jb))
+          cfl(jc,jk,jb)=ABS(dtime*vertical_velocity(jc,jk,jb)/thicknesses(jc,jk,jb))
         END DO
       END DO
     END DO
     CALL dbg_print('check vert.  CFL',cfl ,str_module,3,in_subset=cells)
-    CALL check_cfl_threshold(maxval(cfl),threshold,'vert')
+    CALL check_cfl_threshold(MAXVAL(cfl),threshold,'vert')
   END SUBROUTINE check_cfl_vertical
   SUBROUTINE check_cfl_threshold(maxcfl,threshold,orientation)
     REAL(wp),INTENT(IN)          :: maxcfl, threshold
