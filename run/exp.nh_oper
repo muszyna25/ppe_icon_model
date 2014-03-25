@@ -138,7 +138,8 @@ cat > ${atmo_namelist} << EOF
  l_sst_in    = .true.
 /
 &run_nml
- num_lev        = 90
+ num_lev        = 90, 54
+ lvert_nest     = .true.       ! use vertical nesting if a nest is active
  nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
  dtime          = ${dtime}     ! timestep in seconds
  ldynamics      = .TRUE.       ! dynamics
@@ -146,7 +147,7 @@ cat > ${atmo_namelist} << EOF
  iforcing       = 3            ! NWP forcing
  ltestcase      = .false.      ! false: run with real data
  msg_level      = 7            ! print maximum wind speeds every 5 time steps
- ltimer         = .false.      ! set .TRUE. for detailed timer output
+ ltimer         = .false.      ! set .TRUE. for timer output
  timers_level   = 1            ! can be increased up to 10 for detailed timer output
  output         = "nml"
 /
@@ -160,7 +161,7 @@ cat > ${atmo_namelist} << EOF
  inwp_sso        = 1
  inwp_gwd        = 1
  inwp_surface    = 1
- latm_above_top  = .false.
+ latm_above_top  = .false., .true.  ! the second entry refers to the nested domain (if present)
  efdt_min_raylfric = 7200.
  itype_z0         = 2
  ! resolution-dependent settings - please choose the appropriate one
@@ -174,6 +175,7 @@ cat > ${atmo_namelist} << EOF
  pat_len = 100.
  c_diff  = 0.2
  rat_sea = 9.0
+ ltkesso = .true.
 /
 &lnd_nml
  ntiles         = 3      !!! 1 for assimilation cycle and forecast
@@ -184,7 +186,7 @@ cat > ${atmo_namelist} << EOF
  lsnowtile      = .false.
  lseaice        = .true.
  llake          = .true.
- itype_lndtbl   = 2
+ itype_lndtbl   = 2      ! 3 further reduces the cold bias in the tropics, but the soil-moisture analysis should cure this bias as well
  itype_root     = 2
 /
 &radiation_nml
@@ -200,6 +202,7 @@ cat > ${atmo_namelist} << EOF
 /
 &nonhydrostatic_nml
  iadv_rhotheta  = 2
+ lvadv_tke      = .true.
  ivctype        = 2
  itime_scheme   = 4
  exner_expol    = 0.333
@@ -208,7 +211,7 @@ cat > ${atmo_namelist} << EOF
  rayleigh_coeff = 0.10
  iadv_rcf       = 5
  lhdiff_rcf     = .true.
- divdamp_order  = 24  ! use 4 with incremental analysis update
+ divdamp_order  = 24    ! use 4 with incremental analysis update
  divdamp_type   = 3     !!! optional: 2 for assimilation cycle if incremental analysis update is NOT used
  divdamp_fac    = 0.004 ! for R2B6; recommendation for R3B7: 0.003
  l_open_ubc     = .false.
