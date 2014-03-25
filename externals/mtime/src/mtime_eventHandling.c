@@ -536,7 +536,8 @@ isCurrentEventActive(struct _event* event, struct _datetime* current_dt, struct 
 
 
   /* Check if trigger time is now. */
-  if(isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, plus_slack_local, minus_slack_local) == equal_to)
+  if( !(event->triggerCurrentEvent) && 
+     isTriggerTimeInRange(current_dt, event->triggerNextEventDateTime, plus_slack_local, minus_slack_local) == equal_to)
     {
       /* If current Datetime is equal to next trigger datetime, Event is active. */
 
