@@ -534,8 +534,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     CALL add_var( diag_list, 'gust10', diag%gust10,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
-                & isteptype=TSTEP_MAX )
-!DR                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
+                & isteptype=TSTEP_MAX,                                         & ! )
+                & action_list=actions(new_action(ACTION_RESET,'PT06H')) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'maximum 10m dynamical gust', DATATYPE_FLT32)
@@ -543,8 +543,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     CALL add_var( diag_list, 'dyn_gust', diag%dyn_gust,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_MAX,         &
-                & loutput=.TRUE. )
-!DR                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
+                & loutput=.TRUE.,                                              & ! )
+                & action_list=actions(new_action(ACTION_RESET,'PT06H')) )
 
     ! &      diag%con_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'maximum 10m convective gust', DATATYPE_FLT32)
