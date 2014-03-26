@@ -1,6 +1,11 @@
 from cdo import *
 from pylab import *
 import os,sys
+import matplotlib
+import numpy as np
+import matplotlib.cm as cm
+import matplotlib.mlab as mlab
+import matplotlib.pyplot as plt
 
 cdo        = Cdo()
 cdo.debug  = 'DEBUG' in os.environ
@@ -9,6 +14,10 @@ cdo.debug  = 'DEBUG' in os.environ
 inputfile       = sys.argv[1]
 varnameDefault  = 'u_vint_acc'
 plotfileDefault = 'psi.png'
+colormapDefault = 'RdBu'
+
+if 'DEBUG' in os.environ:
+    print(sys.argv)
 
 if len(sys.argv) > 2:
     # varname is given on the command line
@@ -17,12 +26,19 @@ else:
     # use default
     varName = varnameDefault
 
-if len(sys.argv) == 4:
+if len(sys.argv) > 3 :
     # output file given
     plotfile = sys.argv[3]
 else:
     # use default
     plotfile = plotfileDefault
+
+if len(sys.argv) > 4 :
+    # colormap given
+    colormap = sys.argv[4]
+else:
+    # use default
+    colormap = colormapDefault
 
 # stop if file cannot be read in
 if not os.path.isfile(inputfile):
@@ -52,17 +68,23 @@ if lons.max() > 180.0:
     lons = lons - 360.0
 
 if 'DEBUG' in os.environ:
+    print("# DEBUG ===================================================================")
+    print(inputfile)
+    print(varName)
+    print(plotfile)
+    print(colormap)
+    print("#==========================================================================")
     print(varData)
     print(varData.shape)
     print(varDims)
     print(times)
     print(lons)
     print(lats)
+    print("# DEBUG ===================================================================")
 # =======================================================================================
 # CALC PSI ==============================================================================
 psi = array(varData)
 # parial sum from south to north
-psi = sin(varData)
 for lon in range(0,lons.size):
     for lat in range(0,lats.size):
         psi[lat,lon] = varData[0:lat,lon].sum()
@@ -73,17 +95,29 @@ dist = pi/lats.size*erad
 psi  = -psi * dist * 1.0e-6
 # =======================================================================================
 # PLOTTING ==============================================================================
+# labeling
 xlabel('lon [deg]')
 ylabel('lat [deg]')
 title('Bar. stream function')
-grid(True)
+tick_params(axis='x', labelsize=8)
+tick_params(axis='y', labelsize=8)
+
+# draw
 im = imshow(varData,
         origin='lower',
         interpolation='nearest',
+        cmap=colormap,
+        aspect='equal', # auto for fill
         extent=[lons.min(),lons.max(),lats.min(),lats.max()])
 cb = colorbar(im)
-tick_params(axis='x', labelsize=8)
-tick_params(axis='y', labelsize=8)
 cb.set_label('Transport [Sv]')
+# ------
+matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
+plt.figure()
+X, Y = np.meshgrid(lons, lats)
+CS = plt.contour(X, Y, psi, 20, cmap=colormap)
+plt.clabel(CS, fontsize=6, inline=1)
+plt.title("Bar. streamfunction form:\n"+inputfile)
+
 savefig(plotfile)
 # =======================================================================================
