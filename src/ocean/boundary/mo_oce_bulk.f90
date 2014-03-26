@@ -142,13 +142,10 @@ CONTAINS
     !
     ! local variables
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_surface_flux'
-    INTEGER  :: jmon, jdmon, jmon1, jmon2, ylen, yday
-    INTEGER  :: iniyear, curyear, offset
-    INTEGER  :: jc, jb, no_set
+    INTEGER  :: jc, jb
     INTEGER  :: i_startidx_c, i_endidx_c
-    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
+    REAL(wp) :: z_tmin, z_relax, dsec, z_forc_tracer_old
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), POINTER     :: t_top(:,:), s_top(:,:)
 
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp     ! TODO: use real month length
@@ -165,13 +162,8 @@ CONTAINS
     t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
     s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
-    !  calculate day and month
-    jmon  = datetime%month         ! integer current month
-    jdmon = datetime%day           ! integer day in month
-    yday  = datetime%yeaday        ! integer current day in year
-    ylen  = datetime%yealen        ! integer days in year (365 or 366)
+    !  calculate time
     dsec  = datetime%daysec        ! real seconds since begin of day
-   !ytim  = datetime%yeatim        ! real time since begin of year
 
     SELECT CASE (iforc_oce)
 
@@ -566,12 +558,11 @@ CONTAINS
     INTEGER  :: iniyear, curyear, offset
     INTEGER  :: jc, jb, no_set
     INTEGER  :: i_startidx_c, i_endidx_c
-    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
+    REAL(wp) :: rday1, rday2, dtm1, dsec, z_smax
     REAL(wp) ::  z_c2(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) ::   Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), POINTER     :: t_top(:,:), s_top(:,:)
 
-    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp     ! TODO: use real month length
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
 
