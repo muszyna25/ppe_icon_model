@@ -1,0 +1,72 @@
+\documentclass[a4paper,11pt]{article}
+%\documentclass[a4paper,11pt,twocolumn]{article}
+
+\usepackage{natbib}
+\setlength{\bibsep}{1pt}
+%\newcommand{\bibfont}{\footnotesize}
+
+\usepackage{enumitem}
+
+\usepackage[dvips,colorlinks,bookmarksopen,bookmarksnumbered,citecolor=red,urlcolor=red]{hyperref}
+
+\usepackage{moreverb}
+\addtolength{\hoffset}{-2cm}
+\addtolength{\textwidth}{4cm}
+\addtolength{\voffset}{-3cm}
+\addtolength{\textheight}{5cm}
+\usepackage{array,amsmath,graphicx}
+\author{Daniel Reinert}
+\title{ICON Documentation: Parameterization of wind gusts}
+%\date{ 2007} % optional  
+\begin{document}  \maketitle
+
+%-------------------------------------------------------------------------
+
+%\chapter{Physical processes}
+
+\section{Wind gusts}
+
+The gust parameterization of ICON consists of two components: turbulent gusts and convective gusts. The diagnosis of turbulent gusts has been taken over from the COSMO 
+model \citep{Schulz:2003,Schulz:2008}. Turbulent gusts at $10\,\mathrm{m}$ above ground are derived from the turbulence state in the atmospheric boundary layer, using the absolute speed 
+of the mean wind at $10\,\mathrm{m}$ above ground $U_{10}$ and its standard deviation $\sigma$.
+\begin{align}
+ U_{10\,\mathrm{gust, turb}} = U_{10} + \alpha\, \sigma
+\end{align}
+Following \cite{Panofsky:1984}, the standard deviation $\sigma$ can be approximated as
+\begin{align*}
+ \sigma \approx 2.4\,u_{\star}
+\end{align*}
+with $u_{\star}$ denoting the friction velocity. Using the relationship $u_{\star}=\sqrt{C_{D}}\,U_{10}$, where $C_{D}$ denotes the drag coefficient for momentum, we 
+arrive at
+\begin{align}
+ U_{10\,\mathrm{gust, turb}} = U_{10} + \alpha\ 2.4 \sqrt{C_{D}}\,U_{10} \label{eq_turb_gust}
+\end{align}
+The tuning parameter $\alpha$ has been estimated to $\alpha=3$. Note that for computing $u_{\star}$, the wind speed at the lowest model level is used rather 
+than $U_{10}$.
+
+Equation \eqref{eq_turb_gust} asesses the gustiness in the boundary layer, however it does not take into account gusts due to strong convective events. Therefore, a 
+convective contribution is added to the turbulent wind gusts in the presence of deep convection. The parameterization follows \cite{Bechthold:2009} where the convective gusts 
+are simply estimated as proportional to the low level wind shear:
+\begin{align}
+U_{10\,\mathrm{gust, conv}} = C_{conv} \max{(0,U_{850} - U_{950})} 
+\end{align}
+with the convective mixing parameter $C_{conv}$ and $U_{850} - U_{950}$ the difference between $850\,\mathrm{hPa}$ and $950\,\mathrm{hPa}$ wind speeds. This contribution 
+is computed only in regions where deep convection is active, as identified by the convection scheme (\emph{ktype=1}). Thus, the total gustiness 
+$U_{10\,\mathrm{gust}}$ becomes:
+\begin{align}
+  U_{10\,\mathrm{gust}} = U_{10\,\mathrm{gust, turb}} + U_{10\,\mathrm{gust, conv}}
+\end{align}
+
+The parameter $U_{10\,\mathrm{gust}}$ is computed every fast-physics time step and its 6-hourly maximum (preliminary) is written to disk.
+
+\subsection{Computation of $U_{850}$ and $U_{950}$}
+
+
+
+%-------------------------------------------------------------------------
+
+\bibliography {../references-icon-science}
+\bibliographystyle {../wileyqj} %QJ
+
+
+\end{document}
