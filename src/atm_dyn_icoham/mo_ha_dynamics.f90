@@ -270,7 +270,7 @@ CONTAINS
 !   REAL(wp), POINTER :: p_3d(:,:,:)  
 
   INTEGER  :: nblks_e, nblks_c
-  INTEGER  :: jb, jbs, is,ie, jk,jkp
+  INTEGER  :: jb, jbs, is,ie, jk,jkp, jc
 
 ! Dimension parameters
 
@@ -334,17 +334,30 @@ CONTAINS
 ! Vertical velocity at the interfaces (half-levels)
 
    IF ((.NOT.lshallow_water).AND.ldiag_weta) THEN
-!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
 
-        p_weta(is:ie,1,jb)      = 0._wp   ! upper boundary
-        p_weta(is:ie,nlevp1,jb) = 0._wp   ! lower boundary
+!DR Workaround for gcc 4.5.0 internal compiler error
+        DO jc=is,ie
+          p_weta(jc,1,jb)      = 0._wp   ! upper boundary
+          p_weta(jc,nlevp1,jb) = 0._wp   ! lower boundary
+        ENDDO
 
         DO jk = 2,nlev
-           p_weta(is:ie,jk,jb)  = -p_mdiv_int(is:ie,jk,jb) + &
-                                   p_mdiv_int(is:ie,nlevp1,jb)*vct_b(jk)
+          DO jc=is,ie
+            p_weta(jc,jk,jb)  = -p_mdiv_int(jc,jk,jb) + &
+                                    p_mdiv_int(jc,nlevp1,jb)*vct_b(jk)
+          ENDDO
         ENDDO
+
+!DR        p_weta(is:ie,1,jb)      = 0._wp   ! upper boundary
+!DR        p_weta(is:ie,nlevp1,jb) = 0._wp   ! lower boundary
+
+!DR        DO jk = 2,nlev
+!DR           p_weta(is:ie,jk,jb)  = -p_mdiv_int(is:ie,jk,jb) + &
+!DR                                   p_mdiv_int(is:ie,nlevp1,jb)*vct_b(jk)
+!DR        ENDDO
       ENDDO
 !$OMP END DO
    ENDIF
