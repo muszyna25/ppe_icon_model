@@ -307,13 +307,16 @@ def diffThese(fileA,fileB,diffThese='diffThese')
   out = <<-EOS
       #{diffThese}=$(tempfile -s _diffThese)
       cdo diffv #{fileA} #{fileB} > $#{diffThese}
+      echo "# ==========================================================="
       if test -s $#{diffThese}
       then
         echo "DIFF found in OUTPUT!!"
-      [[ $debug = 'true' ]] && cat $#{diffThese}
+        [[ $debug = 'true' ]] && cat $#{diffThese}
       else
         echo "no DIFF found in OUTPUT"
+        cat $#{diffThese}
       fi
+      echo "# ==========================================================="
       [[ -f ${#{diffThese}} ]] && rm ${#{diffThese}}
   EOS
 end
@@ -807,4 +810,4 @@ task :check ,[:p] do |t,args|
   }
 end
 
-# vim:ft=ruby
+# vim:ft=ruby,foldmethod=syntax

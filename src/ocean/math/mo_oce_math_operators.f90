@@ -1125,4 +1125,3 @@ CONTAINS
     END IF
   END SUBROUTINE check_cfl_threshold
 END MODULE mo_oce_math_operators
-
