@@ -98,8 +98,7 @@ MODULE mo_ocean_initial_conditions
   REAL(wp) :: sphere_radius, u0
   REAL(wp), PARAMETER :: aleph = 0.0_wp
   
-  ! CHARACTER(LEN=*), PARAMETER :: module_name = 'ocean_initial_conditions'
-  CHARACTER(LEN=12), PARAMETER :: module_name = 'ocean_initial_conditions'
+  CHARACTER(LEN=12), PARAMETER :: module_name = 'oceInitCond'
 
   ! Should be replaced by reading a file
   REAL(wp), PARAMETER :: tprof(20)=&
@@ -124,11 +123,12 @@ CONTAINS
   SUBROUTINE apply_initial_conditions(patch_3d, ocean_state, external_data, &
     & operators_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_external_data)             :: external_data
-    TYPE(t_operator_coeff)            :: operators_coeff
+    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
+    TYPE(t_external_data)                   :: external_data
+    TYPE(t_operator_coeff)                  :: operators_coeff
 
-    TYPE(t_patch),POINTER            :: patch_2d
+    TYPE(t_patch),POINTER                   :: patch_2d
+    REAL(wp)                                :: z_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 
     patch_2d => patch_3d%p_patch_2d(1)
     sphere_radius = grid_sphere_radius
@@ -150,6 +150,16 @@ CONTAINS
         & CALL init_ocean_salinity(patch_3d=patch_3d, ocean_salinity=ocean_state%p_prog(nold(1))%tracer(:,:,:,2))
 
     END IF
+    
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=0  ! output print level - 0: print in any case
+    z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    CALL dbg_print  ('applyInitCond: progn - T'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
+    IF (no_tracer > 1) THEN
+      z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+      CALL dbg_print('applyInitCond: progn - S'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
+    END IF
+    !---------------------------------------------------------------------
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
     CALL fill_tracer_x_height(patch_3d, ocean_state)
@@ -181,7 +191,6 @@ CONTAINS
     !INTEGER :: i_startblk_c, i_endblk_c, start_cell_index, end_cell_index, rl_start, rl_end_c
     INTEGER :: start_cell_index, end_cell_index
     
-    REAL(wp):: z_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp):: z_prog(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_subset_range), POINTER :: all_cells
 
@@ -307,18 +316,6 @@ CONTAINS
         END DO
       END DO
     END DO
-    
-    !---------Debug Diagnostics-------------------------------------------
-    idt_src=0  ! output print level - 0: print in any case
-    z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-    CALL dbg_print('init prognostic - T'       ,z_c                     ,module_name,idt_src, &
-        & in_subset=patch_2d%cells%owned)
-    IF (no_tracer > 1) THEN
-      z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-      CALL dbg_print('init prognostic - S'       ,z_c                   ,module_name,idt_src, &
-        & in_subset=patch_2d%cells%owned)
-    END IF
-    !---------------------------------------------------------------------
     
     CALL message( TRIM(method_name),'Ocean prognostic initialization data read' )
     
