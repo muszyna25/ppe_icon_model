@@ -415,22 +415,14 @@ MODULE mo_ocean_nml
 
   ! ------------------------------------------------------------------------
   ! FORCING {
-  ! parameterized forcing for ocean model:
-  INTEGER, PARAMETER :: NO_FORCING                = 10
-  INTEGER, PARAMETER :: ANALYT_FORC               = 11
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12  ! OMIP or NCEP type forcing
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13  ! not yet
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
+  ! iforc_oce: parameterized forcing for ocean model:
+  INTEGER, PARAMETER :: No_Forcing                = 10
+  INTEGER, PARAMETER :: Analytical_Forcing        = 11
+  INTEGER, PARAMETER :: OMIP_FluxFromFile         = 12  ! OMIP or NCEP type forcing
+  INTEGER, PARAMETER :: Atmo_FluxFromFile         = 13  ! not yet
+  INTEGER, PARAMETER :: Coupled_FluxFromAtmo      = 14  ! parameter for a coupled atmosphere-ocean run
+  INTEGER, PARAMETER :: Coupled_FluxFromFile      = 15  ! not yet
   INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
-
-  ! read time varying OMIP or NCEP flux forcing from file:
-                      ! 1: read wind stress (records 1, 2) and temperature (record 3)
-                      ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
-                      ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
-                      ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
-                      ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-  ! INTEGER            :: iforc_type = 10 OLD STUFF left for doc
 
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
@@ -859,7 +851,7 @@ MODULE mo_ocean_nml
 
 #ifndef __NO_ICON_ATMO__
      IF ( is_coupled_run() ) THEN
-       iforc_oce = FORCING_FROM_COUPLED_FLUX
+       iforc_oce = Coupled_FluxFromAtmo
        CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
        limit_elevation = .FALSE.
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')

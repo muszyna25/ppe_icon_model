@@ -65,14 +65,14 @@ USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_ocean_ext_data,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,&
-  &                               no_tracer, n_zlev, basin_center_lat,                     &
-  &                               basin_center_lon, basin_width_deg, basin_height_deg,     &
-  &                               relaxation_param, i_apply_surface_hflux,                 &
-  &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
-  &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
-  &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
-  &                               FORCING_FROM_COUPLED_FIELD, i_sea_ice, forcing_enable_freshwater, &
+USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
+  &                               no_tracer, n_zlev, basin_center_lat,                  &
+  &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
+  &                               relaxation_param, i_apply_surface_hflux,              &
+  &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,  &
+  &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
+  &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
+  &                               i_sea_ice, forcing_enable_freshwater, &
   &                               forcing_set_runoff_to_zero, &
   &                               forcing_windstress_u_type, &
   &                               forcing_windstress_v_type, &
@@ -167,25 +167,25 @@ CONTAINS
 
     SELECT CASE (iforc_oce)
 
-    CASE (NO_FORCING)                !  10
+    CASE (No_Forcing)                !  10
 
       ! CALL message(TRIM(routine), 'No  forcing applied' )
       CONTINUE
 
-    CASE (ANALYT_FORC)               !  11
+    CASE (Analytical_Forcing)        !  11
 
       CALL update_flux_analytical(p_patch_3D, p_os, p_sfc_flx)
 
-    CASE (FORCING_FROM_FILE_FLUX)    !  12
+    CASE (OMIP_FluxFromFile)         !  12
 
       CALL update_flux_fromFile(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime, p_op_coeff)
 
-    CASE (FORCING_FROM_FILE_FIELD)                                    !  13
+    CASE (Atmo_FluxFromFile)                                          !  13
       ! 1) Read field data from file
       ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
       ! 3) CALL update_flux_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
 
-    CASE (FORCING_FROM_COUPLED_FLUX)                                  !  14
+    CASE (Coupled_FluxFromAtmo)                                       !  14
       !  Driving the ocean in a coupled mode:
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
@@ -221,16 +221,16 @@ CONTAINS
       ENDIF
 
 
-    CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
+    CASE (Coupled_FluxFromFile)                                       !  15
       !1) bulk formula to atmospheric state and proceed as above, the only distinction
       !   to OMIP is that atmospheric info is coming from model rather than file
 
-      CALL message(TRIM(routine), 'STOP: Forcing option 15 not implemented yet' )
+      CALL message(TRIM(routine), 'STOP: Ocean Forcing option 15 not implemented yet' )
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
 
     CASE DEFAULT
 
-      CALL message(TRIM(routine), 'STOP: Forcing option not implemented' )
+      CALL message(TRIM(routine), 'STOP: Ocean Forcing option not implemented' )
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
     END SELECT
@@ -600,6 +600,13 @@ CONTAINS
     !END IF
 
     !njday = int(86400._wp/dtime)  ! no of timesteps per day
+
+    ! iforc_type: read time varying OMIP or NCEP flux forcing from file:
+         ! 1: read wind stress (records 1, 2) and temperature (record 3)
+         ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
+         ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
+         ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
+         ! 5: read full NCEP datasets; read monthly mean data of consecutive years
 
     ! Read forcing file in chunks of one year length fixed
     !  - #slo# 2012-02-17: first quick solution for reading NCEP data
