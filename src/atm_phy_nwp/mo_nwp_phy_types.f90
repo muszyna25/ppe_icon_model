@@ -322,7 +322,12 @@ MODULE mo_nwp_phy_types
       & ::                  &
       &  mbas_con(:,:),     & !< cloud base level index
       &  mtop_con(:,:),     & !< cloud top  level index
-      &  ktype   (:,:)        !< Type of convection
+      &  ktype   (:,:),     & !< Type of convection
+      &  k850    (:,:),     & !< level index that corrsponds to the height 
+                              !< of the standard atmosphere 850hPa level above ground
+      &  k950    (:,:)        !< level index that corresponds to the height 
+                              !< of the standard atmosphere 950hPa level above ground
+
 
     LOGICAL, POINTER        &
 #ifdef _CRAYFTN

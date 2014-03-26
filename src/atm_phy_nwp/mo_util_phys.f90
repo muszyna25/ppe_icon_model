@@ -57,6 +57,7 @@ MODULE mo_util_phys
   PRIVATE
 
   PUBLIC :: nwp_dyn_gust
+  PUBLIC :: nwp_con_gust
   PUBLIC :: virtual_temp
   PUBLIC :: vap_pres
   PUBLIC :: rel_hum
@@ -96,6 +97,37 @@ CONTAINS
     vgust_dyn = ff10m + gust_factor*ustar
 
   END FUNCTION nwp_dyn_gust
+
+
+
+  !-------------------------------------------------------------------------
+  !!
+  !! Calculate convective contribution to the wind gusts
+  !!     gust_conv = \alpha MAX(0,U_850 - U_950)
+  !! where \alpha=0.6 is a tunable constant and U_850-U_950 is the difference between
+  !! the 850 hPa and 950 hPa wind speeds, which represents the low-level wind shear.
+  !!
+  !! @par Literature
+  !! Bechthold, P. and J. Bidlot (2009): Parameterization of convective gusts. 
+  !! ECMWF Newsletter No. 119
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-03-25)
+  !!
+  ELEMENTAL FUNCTION nwp_con_gust( u_850, u_950, v_850, v_950) RESULT(vgust_con)
+
+    REAL(wp), INTENT(IN) :: u_850, &    ! zonal wind component at 850 hPa [m/s]
+      &                     u_950, &    ! zonal wind component at 950 hPa [m/s]
+      &                     v_850, &    ! meridional wind component at 850 hPa [m/s]
+      &                     v_950       ! meridional wind component at 950 hPa [m/s]
+
+    REAL(wp) :: vgust_con               ! convective contribution to the wind gusts [m/s]
+
+    REAL(wp), PARAMETER :: alpha = 0.6_wp ! convective mixing parameter
+
+    vgust_con = alpha * MAX(0._wp, SQRT((u_850**2 + v_850**2)) - SQRT((u_950**2 + v_950**2)))
+
+  END FUNCTION nwp_con_gust
 
 
 

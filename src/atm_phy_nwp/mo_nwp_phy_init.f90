@@ -202,10 +202,14 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   CHARACTER (LEN=25) :: eroutine=''
   CHARACTER (LEN=80) :: errormsg=''
 
-  INTEGER :: num_blks_c
+  INTEGER :: nblks_c
 
   INTEGER :: k1500m                  ! index of first half level above 1500m
   INTEGER :: istatus=0
+
+  REAL(wp) :: hag                    ! height above ground
+  REAL(wp) :: h850_standard, h950_standard  ! height of 850hPa and 950hPa level in m
+
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
      routine = 'mo_nwp_phy_init:init_nwp_phy'
@@ -221,7 +225,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   i_lc_si= ext_data%atm%i_lc_snow_ice
 
-  num_blks_c = p_patch%nblks_c
+  nblks_c = p_patch%nblks_c
 
   dz1 = 0.0_wp
   dz2 = 0.0_wp
@@ -229,22 +233,22 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
     ! allocate storage var for press to be used in o3_pl2ml
-    ALLOCATE (zrefpres(nproma,nlev,num_blks_c),STAT=istatus)
+    ALLOCATE (zrefpres(nproma,nlev,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
       CALL finish (TRIM(routine), &
                  'allocation of zrefpres failed')
     END IF
-    ALLOCATE (zreftemp(nproma,nlev,num_blks_c),STAT=istatus)
+    ALLOCATE (zreftemp(nproma,nlev,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
       CALL finish (TRIM(routine), &
                  'allocation of zreftemp failed')
     END IF
-    ALLOCATE (zpres_sfc(nproma,num_blks_c),STAT=istatus)
+    ALLOCATE (zpres_sfc(nproma,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
       CALL finish (TRIM(routine), &
                  'allocation of zpres_sfc failed')
     END IF
-    ALLOCATE (zpres_ifc(nproma,nlevp1,num_blks_c),STAT=istatus)
+    ALLOCATE (zpres_ifc(nproma,nlevp1,nblks_c),STAT=istatus)
     IF(istatus/=SUCCESS)THEN
       CALL finish (TRIM(routine), &
                  'allocation of zpres_ifc failed')
@@ -875,6 +879,51 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL suvdf
     CALL suvdfs
     CALL sucldp
+
+
+    ! Initialize fields k850 and k950, which are required for computing the 
+    ! convective contribution to wind gusts
+    rl_start = 1  ! Initialization should be done for all points
+    rl_end   = min_rlcell
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+    ! height of 850 and 950hPa surface for US standard atmosphere in m
+    ! For derivation, see documentation of US standard atmosphere
+    h850_standard = 1457.235199_wp
+    h950_standard = 540.3130233_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,hag) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &  i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jc=i_startidx, i_endidx
+        ! initialization
+        prm_diag%k850(jc,jb) = nlev
+        prm_diag%k950(jc,jb) = nlev
+        DO jk=nlev, 1, -1
+          ! height above ground
+          hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
+
+          IF (hag < h850_standard) THEN
+            prm_diag%k850(jc,jb) = jk
+          ENDIF
+          IF (hag < h950_standard) THEN
+            prm_diag%k950(jc,jb) = jk
+          ENDIF
+        ENDDO
+        ! security measure
+        prm_diag%k950(jc,jb) = MAX(prm_diag%k950(jc,jb),2)
+        prm_diag%k850(jc,jb) = MAX(prm_diag%k850(jc,jb),2)
+      ENDDO  ! jc
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
     CALL message('mo_nwp_phy_init:', 'convection initialized')
   ENDIF
 

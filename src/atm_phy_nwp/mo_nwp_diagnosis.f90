@@ -303,6 +303,10 @@ CONTAINS
     !
     ! Compute
     !
+    ! wind
+    !-----------
+    ! - maximum gust (including convective contribution)
+    !
     ! cloud/rain
     !-----------
     ! - time averaged precipitation rates (total, grid-scale, convective)
@@ -336,6 +340,11 @@ CONTAINS
 
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
+
+          ! maximum 10m gust, including convective contribution
+          ! (reset is done on a regular basis in reset_action)
+          prm_diag%gust10(jc,jb) = MAX(prm_diag%gust10(jc,jb),                       &
+            &                    prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb) )
 
           ! time averaged total precipitation rate
           prm_diag%tot_prec_rate_avg(jc,jb) = prm_diag%tot_prec(jc,jb) &

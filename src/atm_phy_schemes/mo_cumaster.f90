@@ -150,7 +150,8 @@ CONTAINS
     & pmfude_rate,        pmfdde_rate,              &
     & ptu,      pqu,      plu,                      &
     & pmflxr,   pmflxs,   prain,                    &
-    & pcape ,pvddraf,                               &
+    & pcape,                                        &
+!DR    & pcape ,pvddraf,                               &
     & ktrac, pcen, ptenc) 
 
     !
@@ -242,7 +243,7 @@ CONTAINS
     !    *PMFDDE_RATE*  DOWNDRAFT DETRAINMENT RATE                    KG/(M3*S)
     !    *PCAPE*        CONVECTVE AVAILABLE POTENTIAL ENERGY           J/KG
     !    *PWMEAN*       VERTICALLY AVERAGED UPDRAUGHT VELOCITY         M/S
-    !    *pvddraf*      convective gust at surface                     M/S
+!DR    !    *pvddraf*      convective gust at surface                     M/S
 
     !     EXTERNALS.
     !     ----------
@@ -397,7 +398,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
     REAL(KIND=jprb)   ,INTENT(out)   :: pcape(klon)
 
-    REAL(KIND=jprb)   ,INTENT(out)   :: pvddraf(klon)
+!DR    REAL(KIND=jprb)   ,INTENT(out)   :: pvddraf(klon)
 
     !REAL(KIND=JPRB)   ,INTENT(OUT)   :: PWMEAN(KLON)
     !*UPG change to operations
@@ -483,7 +484,7 @@ CONTAINS
     
     !     0.           Compute Saturation specific humidity
     !                  ------------------------------------
-    pvddraf(:) = 0.0_jprb ! in case that it is not actually calculated !
+!DR    pvddraf(:) = 0.0_jprb ! in case that it is not actually calculated !
     ldcum(:)=.FALSE.
     pqsen(:,:)=pqen(:,:)
 
@@ -1447,8 +1448,8 @@ CONTAINS
               zud(jl,jk)=puen(jl,ik)+zud(jl,ikb)-puen(jl,ikb-1)
               zvd(jl,jk)=pven(jl,ik)+zvd(jl,ikb)-pven(jl,ikb-1)
 
-              ! calculate downdraft wind speed
-              pvddraf(jl) = zud(jl,jk)**2 + zvd(jl,jk)**2
+!DR              ! calculate downdraft wind speed
+!DR              pvddraf(jl) = zud(jl,jk)**2 + zvd(jl,jk)**2
             ENDIF
             ! add UV perturb to correct wind bias
             IF ( ldcum(jl).AND.jk>=kctop(jl) ) THEN
@@ -1460,12 +1461,14 @@ CONTAINS
 
       ENDIF
 
-!     Maximum possible convective gust
-      DO jl = kidia, kfdia
-        pvddraf(jl) = SQRT( conv_gust_buoy*MAX( zvbuo(jl),0._jprb)   &
-          &                + conv_gust_v*pvddraf(jl) )
-        pvddraf(jl) = MIN( pvddraf(jl), conv_gust_max)
-      ENDDO
+!DR We currently make use of an alternative parameterization of 
+!DR convective gusts. Thus, the computation of pvddraf is deactivated
+!DR!     Maximum possible convective gust
+!DR      DO jl = kidia, kfdia
+!DR        pvddraf(jl) = SQRT( conv_gust_buoy*MAX( zvbuo(jl),0._jprb)   &
+!DR          &                + conv_gust_v*pvddraf(jl) )
+!DR        pvddraf(jl) = MIN( pvddraf(jl), conv_gust_max)
+!DR      ENDDO
 
       !-------------------------------------------------------------------
       ! End

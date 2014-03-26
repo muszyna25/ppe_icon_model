@@ -534,20 +534,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     CALL add_var( diag_list, 'gust10', diag%gust10,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
-                & isteptype=TSTEP_MAX,                                         & ! )
+                & isteptype=TSTEP_MAX,                                         &
+                & initval_r=0._wp, resetval_r=0._wp,                           &
                 & action_list=actions(new_action(ACTION_RESET,'PT06H')) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
-    cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'maximum 10m dynamical gust', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'dyn_gust', diag%dyn_gust,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
-                & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_MAX,         &
-                & loutput=.TRUE.,                                              & ! )
-                & action_list=actions(new_action(ACTION_RESET,'PT06H')) )
+                & ldims=shape2d, lrestart=.TRUE., isteptype=TSTEP_INSTANT,     &
+                & loutput=.TRUE.                                               )
 
     ! &      diag%con_gust(nproma,nblks_c)
-    cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'maximum 10m convective gust', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'convective contribution to wind gust', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'con_gust', diag%con_gust,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,  &
@@ -603,6 +603,28 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     CALL add_var( diag_list, 'ktype', diag%ktype,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
+    ! &      diag%k850(nproma,nblks_c)
+    cf_desc    = t_cf_var('k850', '', 'level index corresponding to the HAG of the 850hPa level', &
+      &                   DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'k850', diag%k850,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
+                & isteptype=TSTEP_CONSTANT,                                    &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
+    ! &      diag%k950(nproma,nblks_c)
+    cf_desc    = t_cf_var('k950', '', 'level index corresponding to the HAG of the 950hPa level', &
+      &                   DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'k950', diag%k950,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
+                & isteptype=TSTEP_CONSTANT,                                    &
                 & hor_interp=create_hor_interp_metadata(                       &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 

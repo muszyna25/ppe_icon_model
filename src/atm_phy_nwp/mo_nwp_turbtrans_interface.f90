@@ -383,13 +383,12 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
 
         ! dynamic gusts
-        prm_diag%dyn_gust(i_startidx:i_endidx,jb) = MAX(                               &
-          &               nwp_dyn_gust( prm_diag%u_10m(i_startidx:i_endidx,jb),        &
+        prm_diag%dyn_gust(i_startidx:i_endidx,jb) = nwp_dyn_gust(                      &
+          &                             prm_diag%u_10m(i_startidx:i_endidx,jb),        &
           &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
           &                             prm_diag%tcm  (i_startidx:i_endidx,jb),        &
           &                             p_diag%u      (i_startidx:i_endidx,nlev,jb),   &
-          &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)),  &
-          &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
+          &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)    )
 
         prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
           &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
@@ -402,6 +401,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         fr_land_t(:)  = 1._wp
         depth_lk_t(:) = 0._wp
         h_ice_t(:)    = 0._wp
+
 
         ! Loop over land tile points, sea, lake points and seaice points
         ! Each tile has a separate index list
@@ -564,6 +564,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%tkvh(i_startidx:i_endidx,nlevp1,jb) = 0._wp
         prm_diag%rcld(i_startidx:i_endidx,nlevp1,jb) = 0._wp
 
+        ! re-initialize dyn_gust for proper maximum computation over tiles
+        ! note that dyn_gust is an instantaneous field
+        prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
+
 
          ! ii) loop over index lists
         DO  jt = 1, ntiles_total + ntiles_water
@@ -631,7 +635,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%tkvm_s_t(jc,jb,jt) = tkvm_t(ic,2,jt) ! needed as input for turbtran
             prm_diag%tkvh_s_t(jc,jb,jt) = tkvh_t(ic,2,jt) ! needed as input for turbtran
 
-            ! maximum gust
+            ! dynamic gusts (maximum over tiles)
             prm_diag%dyn_gust(jc,jb) = MAX( nwp_dyn_gust (prm_diag%u_10m_t(jc,jb,jt),   &
               &                                           prm_diag%v_10m_t(jc,jb,jt),   &
               &                                           prm_diag%tcm_t  (jc,jb,jt),   &
@@ -691,13 +695,13 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
       ! dynamic gusts
-      prm_diag%dyn_gust(i_startidx:i_endidx,jb) = MAX(                               &
-        &               nwp_dyn_gust( prm_diag%u_10m(i_startidx:i_endidx,jb),        &
+      prm_diag%dyn_gust(i_startidx:i_endidx,jb) = nwp_dyn_gust(                      &
+        &                             prm_diag%u_10m(i_startidx:i_endidx,jb),        &
         &                             prm_diag%v_10m(i_startidx:i_endidx,jb),        &
         &                             prm_diag%tcm  (i_startidx:i_endidx,jb),        &
         &                             p_diag%u      (i_startidx:i_endidx,nlev,jb),   &
-        &                             p_diag%v      (i_startidx:i_endidx,nlev,jb) ), &
-        &               prm_diag%dyn_gust(i_startidx:i_endidx,jb) )
+        &                             p_diag%v      (i_startidx:i_endidx,nlev,jb)    )
+
 
       prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
         &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
@@ -728,9 +732,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
     ENDIF !inwp_turb
 
-    prm_diag%gust10(i_startidx:i_endidx,jb) = MAX(                        &
-          &                   prm_diag%gust10  (i_startidx:i_endidx,jb),  &
-          &                   prm_diag%dyn_gust(i_startidx:i_endidx,jb))
 
     ! wind speed in 10m
     prm_diag%sp_10m(i_startidx:i_endidx,jb) = SQRT(prm_diag%u_10m(i_startidx:i_endidx,jb)**2 &

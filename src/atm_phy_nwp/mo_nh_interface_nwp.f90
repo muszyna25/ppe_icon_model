@@ -683,33 +683,6 @@ CONTAINS
 
 
     IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
-!
-!     Reset max. gust every 6 hours
-!
-!!$      IF ( MOD(p_sim_time,21600._wp) > 1.e-6_wp .AND. MOD(p_sim_time,21600._wp) <= dt_phy_jg(itfastphy) ) THEN
-!!$
-!!$ CALL message('mo_nh_interface', 'reset max gust')
-!!$        ! exclude boundary interpolation zone of nested domains
-!!$        rl_start = grf_bdywidth_c+1
-!!$        rl_end   = min_rlcell_int
-!!$
-!!$        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-!!$        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-!!$
-!!$!$OMP PARALLEL
-!!$!$OMP DO PRIVATE(jb,i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-!!$        DO jb = i_startblk, i_endblk
-!!$          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-!!$            &             i_startidx, i_endidx, rl_start, rl_end)
-!!$
-!!$            prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
-!!$            prm_diag%gust10  (i_startidx:i_endidx,jb) = 0._wp
-!!$!            prm_diag%tmax_2m (i_startidx:i_endidx,jb) = -999._wp
-!!$!            prm_diag%tmin_2m (i_startidx:i_endidx,jb) = 999._wp
-!!$        END DO
-!!$!$OMP END DO NOWAIT
-!!$!$OMP END PARALLEL
-!!$      END IF
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
