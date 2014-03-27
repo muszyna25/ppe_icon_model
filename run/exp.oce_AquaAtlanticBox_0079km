@@ -87,14 +87,14 @@ cat > ${ocean_namelist} << EOF
  n_zlev             =   20
  dzlev_m(1:20)      =   14.0,   12.0,   15.0,   18.0,   21.0,   25.0,   30.0,   40.0,   60.0,   80.0,
                        100.0,  120.0,  150.0,  180.0,  210.0,  240.0,  270.0,  300.0,  350.0,  400.0
-  l_edge_based    = .TRUE.              ! edge- or cell-based mimetic discretization
-  l_partial_cells = .FALSE.              ! partial bottom cells=true: local varying bottom depth
-  i_bc_veloc_bot     = 1                 !  0/1=bottom friction off/on
-  i_bc_veloc_top     = 3                 !  forced by the difference of wind-ocean velocity, smoothed
-  select_solver      = 2                 !  1=gmres_oce_old; 2=ocean_restart_gmres
-  solver_tolerance   = 1.0E-15           !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart   = 25     !  inner solver loop without syncing (default: 200)
-  solver_max_restart_iterations = 50    !  outer (restart solver) loop with syncing (default: 100)
+  l_edge_based    = .TRUE.            ! edge- or cell-based mimetic discretization
+  l_partial_cells = .FALSE.           ! partial bottom cells=true: local varying bottom depth
+  i_bc_veloc_bot     = 1              !  0/1=bottom friction off/on
+  i_bc_veloc_top     = 1              ! 2 and 3 must be checked
+  select_solver      = 2              !  1=gmres_oce_old; 2=ocean_restart_gmres
+  solver_tolerance   = 1.0E-15        !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_max_iter_per_restart   = 25  !  inner solver loop without syncing (default: 200)
+  solver_max_restart_iterations = 50  !  outer (restart solver) loop with syncing (default: 100)
   fast_performance_level        = 12
 ! use_continuity_correction     = .true.
 /

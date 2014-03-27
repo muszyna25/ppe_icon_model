@@ -167,6 +167,8 @@ CONTAINS
       END DO
 
     CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
+      ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
+      !       to subtract a velocity is unphysical - to be checked
 
       ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
       DO jb = all_cells%start_block, all_cells%end_block
@@ -185,6 +187,8 @@ CONTAINS
 
     CASE (3) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer as in 2
              ! but gradually increase the for forcing_smooth_steps
+      ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
+      !       to subtract a velocity is unphysical - to be checked
 
       IF (is_restart_run()) THEN
         smooth_coeff = 1.0_wp
