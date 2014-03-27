@@ -149,8 +149,7 @@ CONTAINS
     LOGICAL  :: l1st_phy_call = .TRUE.
     LOGICAL  :: any_uv_tend, ltrig_rad
     REAL(wp) :: dsec
-    REAL(wp) :: ztime_radtran, ztime_radheat  !< time instance (in radians) at which
-                                              !< radiative transfer/heating is computed
+    REAL(wp) :: ztime_radtran  !< time instance (in radian) at which radiative transfer is computed
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
@@ -315,7 +314,6 @@ CONTAINS
 
       l1st_phy_call = .FALSE.
 
-      ztime_radheat = 2._wp*pi * datetime%daytim 
       ztime_radtran = 2._wp*pi * datetime_radtran%daytim
 
       !TODO: Luis Kornblueh
@@ -326,7 +324,6 @@ CONTAINS
 
     ELSE
       ltrig_rad = .FALSE.
-      ztime_radheat = 0._wp
       ztime_radtran = 0._wp
     END IF
 
