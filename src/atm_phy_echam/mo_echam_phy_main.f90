@@ -65,7 +65,6 @@ MODULE mo_echam_phy_main
     &                               timer_radheat,                    &
     &                               timer_cucall, timer_vdiff
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_time_config,         ONLY: time_config
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -95,23 +94,24 @@ CONTAINS
   !>
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
-    &                        pdtime,psteplen,          &
+    &                        datetime,pdtime,psteplen, &
     &                        ltrig_rad,ptime_radtran )
 
-    INTEGER, INTENT(IN) :: jg             !< grid level/domain index
-    INTEGER, INTENT(IN) :: jb             !< block index
-    INTEGER, INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER, INTENT(IN) :: nbdim          !< size of this block
-    REAL(wp),INTENT(IN) :: pdtime         !< time step
-    REAL(wp),INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
+    INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
+    INTEGER         ,INTENT(IN) :: jb             !< block index
+    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
+    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
 
-    LOGICAL, INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
-    REAL(wp),INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
-                                          !< computation, scaled into radians
+    TYPE(t_datetime),INTENT(IN) :: datetime       !< time step
+    REAL(wp)        ,INTENT(IN) :: pdtime         !< time step
+    REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
+
+    LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
+    REAL(wp)        ,INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
+                                                  !< computation, scaled into radians
 
     ! Local variables
 
-    TYPE(t_datetime)                   :: datetime
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
@@ -230,9 +230,6 @@ CONTAINS
     ! 2. local switches and parameters
 
     ntrac = ntracer-iqt+1  !# of tracers excluding water vapour and hydrometeors
-
-    ! set current date
-    datetime = time_config%cur_datetime
 
     IF ( phy_config%lamip ) THEN
       IF (ilnd.LE.nsfc_type) field%tsurfl(:,jb) = field%tsfc_tile(:,jb,ilnd)

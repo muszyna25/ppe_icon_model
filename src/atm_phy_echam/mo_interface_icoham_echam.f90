@@ -404,7 +404,7 @@ CONTAINS
       ! - a few other (global) constants (nproma, pdtime, psteplen, etc).
 
       CALL echam_phy_main( jg,jb,jcs,jce,nproma,     &
-        &                  pdtime,psteplen,          &
+        &                  datetime,pdtime,psteplen, &
         &                  ltrig_rad,ztime_radtran )
 
     END DO
