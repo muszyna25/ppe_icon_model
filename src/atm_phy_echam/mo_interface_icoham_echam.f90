@@ -252,7 +252,7 @@ CONTAINS
 
       CALL full_level_pressure( prm_field(jg)%presi_new(:,:,jb), nproma, jce, &! in
                               & prm_field(jg)%presm_new(:,:,jb)               )! out
-    ENDDO
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
@@ -276,14 +276,14 @@ CONTAINS
       CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       prm_tend(jg)% temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
       prm_tend(jg)%    q(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
-    ENDDO
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     IF (ltimer)  THEN
       CALL timer_stop (timer_dyn2phy)
       CALL timer_start(timer_echam_phy)
-    ENDIF
+    END IF
 
     !-------------------------------------------------------------------------
     ! Prepare some global parameters or parameter arrays
@@ -311,7 +311,7 @@ CONTAINS
       !   CALL print_datetime(datetime)
       !   CALL message('mo_interface_icoham_echam:echam_phy_main','Radiative transfer computed for:')
       !   CALL print_datetime(datetime_radtran)
-      ! ENDIF
+      ! END IF
 
       l1st_phy_call = .FALSE.
 
@@ -322,13 +322,13 @@ CONTAINS
       ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
       IF (ltrig_rad .AND. (ighg > 0)) THEN
         CALL ghg_time_interpolation(datetime_radtran)
-      ENDIF
+      END IF
 
     ELSE
       ltrig_rad = .FALSE.
       ztime_radheat = 0._wp
       ztime_radtran = 0._wp
-    ENDIF
+    END IF
 
     ! Read and interpolate SST for AMIP simulations; solar irradiation, prescribed ozone, and
     ! aerosol concentrations.
@@ -338,7 +338,7 @@ CONTAINS
     IF (phy_config%lamip) THEN
       IF (datetime%year /= get_current_amip_bc_year()) THEN
         CALL read_amip_bc(datetime%year, p_patch)
-      ENDIF
+      END IF
       CALL amip_time_weights(datetime)
       CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
 !           &                       prm_field(jg)%tsfc_tile(:,:,:), &
@@ -349,7 +349,7 @@ CONTAINS
 ! The ice model should be able to handle different thickness classes, but for AMIP we only use one
       prm_field(jg)%conc(:,1,:) = prm_field(jg)%seaice(:,:)
       prm_field(jg)%hi(:,1,:)   = prm_field(jg)%siced(:,:)
-    ENDIF
+    END IF
 ! Calculate interpolation weights for linear interpolation
 ! of monthly means onto the actual integration time step
     CALL time_weights_limm(datetime, wi_limm)
@@ -422,7 +422,7 @@ CONTAINS
     IF (ltimer)  THEN
       CALL timer_stop (timer_echam_phy)
       CALL timer_start(timer_phy2dyn)
-    ENDIF
+    END IF
 
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
@@ -600,7 +600,7 @@ CONTAINS
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
-       ENDIF
+       END IF
        !
        ! OCEANU
        !
@@ -613,7 +613,7 @@ CONTAINS
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma,  p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocu(:,:))
-       ENDIF
+       END IF
        !
        ! OCEANV
        !
@@ -626,7 +626,7 @@ CONTAINS
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
-       ENDIF
+       END IF
        !
        ! ICEOCE
        !
@@ -649,13 +649,13 @@ CONTAINS
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
          CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
          prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
-       ENDIF
+       END IF
 
        DEALLOCATE(buffer)
        DEALLOCATE(field_id)
        IF (ltimer) CALL timer_stop(timer_coupling)
 
-    ENDIF
+    END IF
     
     !-------------------------------------------------------------------------
     ! Physics to dynamics: remap tendencies to the dynamics grid
@@ -672,7 +672,7 @@ CONTAINS
       CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       dyn_tend%   temp(jcs:jce,:,jb)   = prm_tend(jg)% temp(jcs:jce,:,jb)
       dyn_tend% tracer(jcs:jce,:,jb,:) = prm_tend(jg)%    q(jcs:jce,:,jb,:)
-    ENDDO
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
@@ -688,7 +688,7 @@ CONTAINS
 !      IF (timers_level > 5) CALL timer_start(timer_echam_sync_tracers)
        CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer)
 !      IF (timers_level > 5) CALL timer_stop(timer_echam_sync_tracers)
-     ENDIF
+     END IF
          
     any_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
                  & phy_config%lgw_hines .OR.phy_config%lssodrag
@@ -696,31 +696,25 @@ CONTAINS
     IF (any_uv_tend) THEN
 
        ALLOCATE(zdudt(nproma,nlev,p_patch%nblks_c), &
-         & zdvdt (nproma,nlev,p_patch%nblks_c) ,stat=return_status)
-       IF (return_status > 0) &
+         &      zdvdt(nproma,nlev,p_patch%nblks_c), &
+         &      stat=return_status)
+       IF (return_status > 0) THEN
          CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
+       END IF
        IF (p_test_run) THEN
          zdudt(:,:,:) = 0.0_wp
          zdvdt(:,:,:) = 0.0_wp
-       ENDIF
-      ! Accumulate wind tendencies contributed by various parameterized processes.
+       END IF
 
-!       jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!       nblks = p_patch%nblks_c
-!$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-        zdudt(jcs:jce,:,jb) =   prm_tend(jg)% u_cnv(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% u_vdf(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% u_gwh(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% u_sso(jcs:jce,:,jb)
-        zdvdt(jcs:jce,:,jb) =   prm_tend(jg)% v_cnv(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% v_vdf(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% v_gwh(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% v_sso(jcs:jce,:,jb)
-      ENDDO
-!$OMP END PARALLEL DO
+        zdudt(jcs:jce,:,jb) =   prm_tend(jg)% u_phy(jcs:jce,:,jb)
+        zdvdt(jcs:jce,:,jb) =   prm_tend(jg)% v_phy(jcs:jce,:,jb)
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
       ! Now derive the physics-induced normal wind tendency, and add it to the
       ! total tendency.
@@ -728,10 +722,9 @@ CONTAINS
         CALL icon_comm_sync(zdudt, zdvdt, p_patch%sync_cells_not_in_domain)
       ELSE
         CALL sync_patch_array_mult(SYNC_C, p_patch, 2, zdudt, zdvdt)
-      ENDIF
+      END IF
       
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!       nblks = p_patch%nblks_e
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,p_patch%nblks_e
@@ -753,18 +746,19 @@ CONTAINS
             dyn_tend%vn(jc,jk,jb) =   dyn_tend%vn(jc,jk,jb)             &
                                   & + p_int_state%c_lin_e(jc,1,jb)*zvn1 &
                                   & + p_int_state%c_lin_e(jc,2,jb)*zvn2
-          ENDDO !column loop
-        ENDDO !vertical level loop
-      ENDDO !block loop
+          END DO ! jc
+        END DO ! jk
+      END DO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
       DEALLOCATE(zdudt, zdvdt)
  
   END IF !any_uv_tend
 
    IF (use_icon_comm) THEN
      CALL icon_comm_sync_all()
-   ENDIF
+   END IF
 
   IF (ltimer) CALL timer_stop(timer_phy2dyn)
   !--------------------------
