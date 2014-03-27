@@ -1,5 +1,5 @@
 !>
-!! @brief Subroutine physc calls all the parameterization schemes
+!! @brief Subroutine echam_phy_main calls all the parameterization schemes
 !!
 !! @author Hui Wan, MPI-M
 !! @author Marco Giorgetta, MPI-M
@@ -87,17 +87,16 @@ MODULE mo_echam_phy_main
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: physc
+  PUBLIC :: echam_phy_main
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
   !>
   !!
-  SUBROUTINE physc( jg,jb,jcs,jce,nbdim,pdtime,psteplen  &
-                  &,ltrig_rad,ptime_radtran              &
-!!$                  &,ptime_radheat                        &
-                  & )
+  SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
+    &                        pdtime,psteplen,          &
+    &                        ltrig_rad,ptime_radtran )
 
     INTEGER, INTENT(IN) :: jg             !< grid level/domain index
     INTEGER, INTENT(IN) :: jb             !< block index
@@ -109,8 +108,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
     REAL(wp),INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
                                           !< computation, scaled into radians
-!!$    REAL(wp),INTENT(IN) :: ptime_radheat  !< time instance of the radiative heating
-!!$                                          !< computation, scaled into radians
+
     ! Local variables
 
     TYPE(t_datetime)                   :: datetime
@@ -138,8 +136,8 @@ CONTAINS
     REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
 
     INTEGER  :: ilab   (nbdim,nlev)
-    REAL(wp) :: zcvcbot(nbdim)
-    REAL(wp) :: zwcape (nbdim)
+!    REAL(wp) :: zcvcbot(nbdim)
+!    REAL(wp) :: zwcape (nbdim)
 
     REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
@@ -1368,7 +1366,7 @@ CONTAINS
       ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
 !0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
       ELSE
-        IF (my_process_is_stdio()) CALL finish('physc', ' check setting of ncdnc and nicnc.')
+        IF (my_process_is_stdio()) CALL finish('echam_phy_main', ' check setting of ncdnc and nicnc.')
       END IF
 
       IF (ltimer) CALL timer_stop(timer_cloud)
@@ -1409,7 +1407,7 @@ CONTAINS
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
 
-  END SUBROUTINE physc
+  END SUBROUTINE echam_phy_main
   !-------------
 
 END MODULE mo_echam_phy_main

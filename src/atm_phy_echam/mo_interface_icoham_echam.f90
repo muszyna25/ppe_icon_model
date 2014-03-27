@@ -1,5 +1,5 @@
 !>
-!! @brief Interface between ICOHAM dynamics and ECHAM physics
+!! @brief Interface between ICOHAM dynamics+transport and ECHAM physics
 !!
 !! @author Kristina Froehlich (DWD)
 !! @author Marco Giorgetta (MPI-M)
@@ -66,7 +66,7 @@ MODULE mo_interface_icoham_echam
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
-  USE mo_echam_phy_main,    ONLY: physc
+  USE mo_echam_phy_main,    ONLY: echam_phy_main
   USE mo_sync,              ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
   USE mo_timer,             ONLY: timer_start, timer_stop, timers_level,  &
     & timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
@@ -307,9 +307,9 @@ CONTAINS
       ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
                     ( MOD(NINT(datetime%daysec),NINT(phy_config%dt_rad)) == 0 )
       ! IF (ltrig_rad) THEN
-      !   CALL message('mo_interface_icoham_echam:physc','Radiative transfer called at:')
+      !   CALL message('mo_interface_icoham_echam:echam_phy_main','Radiative transfer called at:')
       !   CALL print_datetime(datetime)
-      !   CALL message('mo_interface_icoham_echam:physc','Radiative transfer computed for:')
+      !   CALL message('mo_interface_icoham_echam:echam_phy_main','Radiative transfer computed for:')
       !   CALL print_datetime(datetime_radtran)
       ! ENDIF
 
@@ -382,7 +382,7 @@ CONTAINS
 !    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
 
     !-------------------------------------------------------------------------
-    ! For each block, call "physc" to compute various parameterised processes
+    ! For each block, call "echam_phy_main" to compute various parameterised processes
     !-------------------------------------------------------------------------
 !     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !     nblks = p_patch%nblks_c
@@ -397,7 +397,7 @@ CONTAINS
       ! CALL xyz(...)
 
       ! Call parameterisations.
-      ! Like in ECHAM, the subroutine *physc* has direct access to the memory
+      ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
       ! buffers prm_field and prm_tend. In addition it can also directly access
       ! the grid/patch information on which the computations are performed.
       ! Thus the argument list contains only
@@ -406,10 +406,9 @@ CONTAINS
       !   indices jcs and jce;
       ! - a few other (global) constants (nproma, pdtime, psteplen, etc).
 
-      CALL physc( jg,jb,jcs,jce,nproma,pdtime,psteplen &
-                &,ltrig_rad,ztime_radtran              &
-!!$                &,ztime_radheat                        &
-                & )
+      CALL echam_phy_main( jg,jb,jcs,jce,nproma,     &
+        &                  pdtime,psteplen,          &
+        &                  ltrig_rad,ztime_radtran )
 
     END DO
 !$OMP END DO NOWAIT
