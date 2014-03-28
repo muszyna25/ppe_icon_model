@@ -287,7 +287,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
-    TYPE(t_list_element), POINTER    :: var_diag_rh
  
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
@@ -2173,7 +2172,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,             &
                     &             lower_limit=0._wp ),                               &
-                    & new_element=var_diag_rh,                                       &
                     & l_pp_scheduler_task=TASK_COMPUTE_RH, lrestart=.FALSE.          )
     END IF
 

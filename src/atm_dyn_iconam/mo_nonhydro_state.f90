@@ -57,7 +57,8 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_LIN,                   &
     &                                VINTP_METHOD_LIN_NLEVP1,            &
     &                                TASK_INTP_MSL, HINTP_TYPE_NONE,     &
-    &                                iedmf, MODE_DWDANA_INC
+    &                                iedmf, MODE_DWDANA_INC,             &
+    &                                TASK_COMPUTE_OMEGA
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
@@ -131,7 +132,7 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state(p_patch, p_nh_state, n_timelevels, l_pres_msl)
+  SUBROUTINE construct_nh_state(p_patch, p_nh_state, n_timelevels, l_pres_msl, l_omega)
 !
     TYPE(t_patch),     INTENT(IN)   ::  & ! patch
       &  p_patch(n_dom)
@@ -139,7 +140,8 @@ MODULE mo_nonhydro_state
       &  p_nh_state(n_dom)
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
-    LOGICAL :: l_pres_msl(:) !< Flag. TRUE if computation of mean sea level pressure desired
+    LOGICAL, INTENT(IN) :: l_pres_msl(:) !< Flag. TRUE if computation of mean sea level pressure desired
+    LOGICAL, INTENT(IN) :: l_omega(:)    !< Flag. TRUE if computation of vertical velocity desired
 
     INTEGER  :: ntl,      &! local number of timelevels
                 ntl_pure, &! local number of timelevels (without any extra timelevs)
@@ -251,7 +253,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
-        &  p_nh_state(jg)%diag_list, listname, l_pres_msl(jg) )
+        &  p_nh_state(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
 
       !
       ! Build metrics state list
@@ -1055,7 +1057,7 @@ MODULE mo_nonhydro_state
   !! - added pressure on interfaces
   !!
   SUBROUTINE new_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &
-    &                                 listname, l_pres_msl )
+    &                                 listname, l_pres_msl, l_omega )
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
       &  p_patch
@@ -1069,6 +1071,7 @@ MODULE mo_nonhydro_state
       &  listname
     LOGICAL, INTENT(IN)               :: &  !< Flag. If .TRUE., compute mean sea level pressure
       &  l_pres_msl
+    LOGICAL, INTENT(IN) :: l_omega !< Flag. TRUE if computation of vertical velocity desired
 
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
@@ -1331,6 +1334,29 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'dpres_mc', p_diag%dpres_mc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE. )
+
+    ! vertical velocity ( omega=dp/dt ) 
+    !
+    ! Note: This task is registered for the post-processing scheduler
+    !       which takes care of the regular update:
+    ! 
+    IF (l_omega) THEN
+      cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(0, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "omega", p_diag%omega,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,             &
+                    &             lower_limit=0._wp ),                               &
+                    & in_group=groups("atmo_derived_vars"),                          &
+                    & l_pp_scheduler_task=TASK_COMPUTE_OMEGA, lrestart=.FALSE. )
+    END IF
 
 
     ! div          p_diag%div(nproma,nlev,nblks_c)

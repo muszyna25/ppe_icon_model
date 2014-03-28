@@ -63,6 +63,7 @@ MODULE mo_util_phys
   PUBLIC :: rel_hum
   PUBLIC :: compute_field_rel_hum_wmo
   PUBLIC :: compute_field_rel_hum_ifs
+  PUBLIC :: compute_field_omega
 
 
   CHARACTER(len=*), PARAMETER :: version = &
@@ -451,5 +452,28 @@ CONTAINS
     vap_pres = (qv * pres) / (rdv + O_m_rdv*qv)
 
   END FUNCTION vap_pres
+
+
+  !> computation of vertical velocity (dp/dt)
+  !!
+  SUBROUTINE compute_field_omega(ptr_patch, p_prog, p_diag, out_var, &
+    &                            opt_slev, opt_elev, opt_rlstart, opt_rlend)
+
+    TYPE(t_patch), TARGET, INTENT(in)    :: ptr_patch              !< patch on which computation is performed
+    TYPE(t_nh_prog),       INTENT(IN)    :: p_prog                 !< nonhydrostatic state
+    TYPE(t_nh_diag),       INTENT(IN)    :: p_diag                 !< nonhydrostatic state
+    REAL(wp),              INTENT(INOUT) :: out_var(:,:,:)         !< output variable, dim: (nproma,nlev,nblks_c)
+    INTEGER, INTENT(in), OPTIONAL        :: opt_slev, opt_elev     !< optional vertical start/end level
+    INTEGER, INTENT(in), OPTIONAL        :: opt_rlstart, opt_rlend !< start and end values of refin_ctrl flag
+
+
+    ! ----------------------------------------------
+    !
+    ! NOT YET IMPLEMENTED
+    !
+    ! ----------------------------------------------
+
+  END SUBROUTINE compute_field_omega
+
 
 END MODULE mo_util_phys

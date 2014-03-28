@@ -51,7 +51,7 @@ MODULE mo_pp_tasks
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & HINTP_TYPE_LONLAT_NNB, ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,     &
     & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
-    & RH_METHOD_IFS_CLIP, vname_len
+    & RH_METHOD_IFS_CLIP, vname_len, TASK_COMPUTE_OMEGA
   USE mo_model_domain,            ONLY: t_patch, p_patch
   USE mo_var_list_element,        ONLY: t_var_list_element, level_type_ml,  &
     &                                   level_type_pl, level_type_hl
@@ -96,7 +96,8 @@ MODULE mo_pp_tasks
     &                                   cumulative_sync_patch_array,             &
     &                                   complete_cumulative_sync
   USE mo_util_phys,               ONLY: compute_field_rel_hum_wmo,               &
-    &                                   compute_field_rel_hum_ifs
+    &                                   compute_field_rel_hum_ifs,               &
+    &                                   compute_field_omega
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
 
   IMPLICIT NONE
@@ -113,6 +114,7 @@ MODULE mo_pp_tasks
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY1 =    9   
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY2 =   10  
   INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY3 =   11  
+  INTEGER, PARAMETER, PUBLIC  :: DEFAULT_PRIORITY4 =   12  
   INTEGER, PARAMETER, PUBLIC  :: LOW_PRIORITY      =  100  
 
   ! level of output verbosity
@@ -958,9 +960,17 @@ CONTAINS
         CALL compute_field_rel_hum_ifs(p_patch, p_prog, p_diag,        &
           &                        out_var%r_ptr(:,:,:,out_var_idx,1), &
           &                        opt_lclip=lclip)
+
       CASE DEFAULT
         CALL finish(routine, 'Internal error!')
       END SELECT
+
+    CASE (TASK_COMPUTE_OMEGA)
+      CALL compute_field_omega(p_patch, p_prog, p_diag, &
+        &                      out_var%r_ptr(:,:,:,out_var_idx,1))
+
+    CASE DEFAULT
+      CALL finish(routine, 'Internal error!')
     END SELECT
 
   END SUBROUTINE pp_task_compute_field
