@@ -966,7 +966,7 @@ CONTAINS
       END SELECT
 
     CASE (TASK_COMPUTE_OMEGA)
-      CALL compute_field_omega(p_patch, p_prog, p_diag, &
+      CALL compute_field_omega(p_patch, p_prog, &
         &                      out_var%r_ptr(:,:,:,out_var_idx,1))
 
     CASE DEFAULT

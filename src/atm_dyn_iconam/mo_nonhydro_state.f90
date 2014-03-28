@@ -1351,9 +1351,7 @@ MODULE mo_nonhydro_state
                     & vert_interp=create_vert_interp_metadata(                       &
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
-                    &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,             &
-                    &             lower_limit=0._wp ),                               &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
                     & in_group=groups("atmo_derived_vars"),                          &
                     & l_pp_scheduler_task=TASK_COMPUTE_OMEGA, lrestart=.FALSE. )
     END IF
