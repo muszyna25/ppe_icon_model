@@ -619,8 +619,8 @@ MODULE mo_ocean_nml
 
      ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
      !   if stability criterion is met
-     MAX_VERT_DIFF_TRAC  = 100.0_wp * k_veloc_v
-     MAX_VERT_DIFF_VELOC = 100.0_wp * k_pot_temp_v
+     MAX_VERT_DIFF_TRAC  = 100.0_wp * k_pot_temp_v
+     MAX_VERT_DIFF_VELOC = 100.0_wp * k_veloc_v
 
      !------------------------------------------------------------
      ! 5.0 Read ocean_nml namelist
