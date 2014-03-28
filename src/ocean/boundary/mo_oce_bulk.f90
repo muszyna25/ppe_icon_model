@@ -109,9 +109,10 @@ PUBLIC  :: update_surface_flux
 ! private routines
 PRIVATE :: update_flux_analytical
 PRIVATE :: update_flux_fromFile
+PRIVATE :: update_flux_from_atm_flx
+PRIVATE :: update_relaxation_flux
 PRIVATE :: read_forc_data_oce
 PRIVATE :: balance_elevation
-PRIVATE :: update_flux_from_atm_flx
 
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 CHARACTER(len=12)           :: str_module    = 'oceBulk     '  ! Output of module for 1 line debug
@@ -185,6 +186,9 @@ CONTAINS
       ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
       ! 3) CALL update_flux_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
 
+      CALL message(TRIM(routine), 'STOP: Ocean Forcing option 13 not implemented yet' )
+      CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
+
     CASE (Coupled_FluxFromAtmo)                                       !  14
       !  Driving the ocean in a coupled mode:
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
@@ -208,8 +212,6 @@ CONTAINS
         idt_src=1  ! output print level (1-5, fix)
         CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
         idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: T1 after slow'     ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: T2 after slow'     ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
@@ -234,6 +236,27 @@ CONTAINS
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
     END SELECT
+
+    !
+    ! After final updating of flux forcing for ocean (from file, bulk formula, or coupling) sea ice module is called
+    !   - not yet possible, trying to disentangle update fluxes before and after sea ice (surface flux module)
+    !
+  ! IF (i_sea_ice >= 1) THEN
+
+  !   Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
+  !   Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+
+  !   CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
+
+  !   ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+  !   !  done in mo_sea_ice:upper_ocean_TS
+
+  !   !---------DEBUG DIAGNOSTICS-------------------------------------------
+  !   idt_src=1  ! output print level (1-5, fix)
+  !   CALL dbg_print('UpdSfc: hi after slow'     ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+  !   idt_src=3  ! output print level (1-5, fix)
+  !   CALL dbg_print('UpdSfc: Conc. after slow'  ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+  !   !---------------------------------------------------------------------
 
     !
     ! After final updating of zonal and merdional components (from file, bulk formula, or coupling)
@@ -271,12 +294,10 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------------
-    ! Set surface coundary conditions to zero
+    ! Set surface boundary conditions to zero
     !  - sum of forcings applied to forc_tracer within tracer equation
-    If (no_tracer>1) then
     !p_sfc_flx%forc_tracer(:,:,1) = 0.0_wp  ! heat flux BC not yet checked
-    p_sfc_flx%forc_tracer(:,:,2) = 0.0_wp
-    END IF
+    If (no_tracer>1) p_sfc_flx%forc_tracer(:,:,2) = 0.0_wp
 
     !-------------------------------------------------------------------------
     ! Apply temperature relaxation to surface boundary condition
@@ -284,58 +305,7 @@ CONTAINS
 
     IF (temperature_relaxation >= 1) THEN
 
-      !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
-      !  - set to zero on land points
-
-      !z_tmin = -1.0_wp
-      z_tmin =tf  !  -1.9 deg C
-
-      ! LL: this is not the proper check in this point, should be removed
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) &
-              & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
-          ELSE
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
-          END IF
-        END DO
-      END DO
-
-      ! Temperature relaxation activated as boundary condition in vertical Diffusion D:
-      !   D = d/dz(K_v*dT/dz)  where
-      ! Boundary condition at surface (upper bound of D at center of first layer)
-      !   is relaxation to temperature (tau = relaxation constant [1/s] ):
-      !   K_v*dT/dz(surf) = Q_T = -dz/tau*(T-T*) [ K*m/s ]
-      ! discretized (T* = T_data = relaxation-temperature, forc_tracer_relax):
-      !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
-      !
-      ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
-      ! the vertical diffusion, following MITGCM:
-      !    F_T  = Q_T/dz = -1/tau * (T-T*) [ K/s ]
-      ! when using the sign convention
-      !   dT/dt = Operators + F_T
-      ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
-      ! 
-      ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
-
-      ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(relaxation_param*seconds_per_month)
-
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-
-          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-            z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
-              &       (relaxation_param*seconds_per_month)
-            p_sfc_flx%forc_tracer(jc,jb, 1) = -z_relax*(t_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,1))
-          ELSE
-            p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
-          ENDIF
-
-        END DO
-      END DO
+      CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
@@ -1071,6 +1041,95 @@ CONTAINS
     !---------------------------------------------------------------------
 
   END SUBROUTINE update_flux_fromFile
+
+  !-------------------------------------------------------------------------
+  !
+  !> Calculates the temperature (and salinity) relaxation term for vertical diffusion boundary condition
+  !!  
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2014)
+  !
+  SUBROUTINE update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
+    TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
+    TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
+    TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
+    TYPE(t_sfc_flx)                             :: p_sfc_flx
+
+    !Local variables 
+    INTEGER :: jc, jb, i
+    INTEGER :: i_startidx_c, i_endidx_c
+    REAL(wp) :: z_tmin, z_relax
+    REAL(wp) :: z_c        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp     ! TODO: use real month length
+    TYPE(t_patch), POINTER :: p_patch
+    REAL(wp),      POINTER :: t_top(:,:), s_top(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------  
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    !-------------------------------------------------------------------------
+
+    all_cells => p_patch%cells%all
+
+    t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
+
+    !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
+    !  - set to zero on land points
+
+   !z_tmin = -1.0_wp
+    z_tmin = tf  !  -1.9 deg C
+
+    ! LL: this is not the proper check in this point, should be removed - #SLO#: after restructuring
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
+          p_sfc_flx%forc_tracer_relax(jc,jb,1) &
+            & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
+        ELSE
+          p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+        END IF
+      END DO
+    END DO
+
+    ! Temperature relaxation activated as boundary condition in vertical Diffusion D:
+    !   D = d/dz(K_v*dT/dz)  where
+    ! Boundary condition at surface (upper bound of D at center of first layer)
+    !   is relaxation to temperature (tau = relaxation constant [1/s] ):
+    !   K_v*dT/dz(surf) = Q_T = -dz/tau*(T-T*) [ K*m/s ]
+    ! discretized (T* = T_data = relaxation-temperature, forc_tracer_relax):
+    !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
+    !
+    ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
+    ! the vertical diffusion, following MITGCM:
+    !    F_T  = Q_T/dz = -1/tau * (T-T*) [ K/s ]
+    ! when using the sign convention
+    !   dT/dt = Operators + F_T
+    ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
+    ! 
+    ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
+
+    ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(relaxation_param*seconds_per_month)
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+
+        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
+            &       (relaxation_param*seconds_per_month)
+          p_sfc_flx%forc_tracer(jc,jb, 1) = -z_relax*(t_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,1))
+        ELSE
+          p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
+        ENDIF
+
+      END DO
+    END DO
+
+  END SUBROUTINE update_relaxation_flux
 
   !-------------------------------------------------------------------------
   !
