@@ -69,7 +69,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
- 
+USE mpi
 
 IMPLICIT NONE
 
@@ -822,21 +822,28 @@ FUNCTION global_sum_array_0di (zfield, opt_iroot) RESULT (global_sum)
   INTEGER                       :: global_sum
   ! local variables
   REAL(wp)                      :: z_aux, z_auxs
-  INTEGER                       :: p_comm_glob
+  INTEGER                       :: p_comm_glob, my_rank, ierror
   IF (activate_sync_timers) CALL timer_start(timer_global_sum)
 
   IF(comm_lev==0) THEN
+    my_rank = p_pe_work
     p_comm_glob = p_comm_work
   ELSE
     p_comm_glob = glob_comm(comm_lev)
+    CALL mpi_comm_rank(p_comm_glob, my_rank, ierror)
   ENDIF
 
   z_aux  =  REAL(zfield,wp)
   z_auxs = 0._wp
   z_auxs = p_sum(z_aux, comm=p_comm_glob, root=opt_iroot)
 
-  global_sum = NINT(z_auxs)
-  
+  IF (.NOT. PRESENT(opt_iroot)) THEN
+    global_sum = NINT(z_auxs)
+  ELSE IF (opt_iroot == my_rank) THEN
+    global_sum = NINT(z_auxs)
+  ELSE
+    global_sum = -HUGE(global_sum)
+  END IF
   IF (activate_sync_timers) CALL timer_stop(timer_global_sum)
 END FUNCTION global_sum_array_0di
 
@@ -927,7 +934,7 @@ FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
       CALL check_result( (/ global_sum /), 'global_sum_array')
     ENDIF
   ENDIF
-  
+
 
 END FUNCTION global_sum_array_1d
 
@@ -969,7 +976,7 @@ FUNCTION global_sum_array_2d (zfield) RESULT (global_sum)
       CALL check_result( (/ global_sum /), 'global_sum_array')
     ENDIF
   ENDIF
-  
+
 
 END FUNCTION global_sum_array_2d
 
@@ -1794,7 +1801,7 @@ FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_s
        ival2 = IAND (ABS(isum(2)),mask30)
        global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_30
     ENDIF
-   
+
 !    IF (activate_sync_timers) CALL timer_stop(timer_omp_ordglb_sum)
 
 END FUNCTION omp_order_insensit_ieee64_sum
@@ -1903,7 +1910,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
    ENDDO
    itmp = isum
    isum = p_sum(itmp, comm=mpi_comm)
-   
+
    ! Scale integer numbers back to real numbers and add them.
    ! For safety, we use only positive INTEGERS < 2**30 when converting to REAL
 
@@ -1927,7 +1934,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
        ival2 = IAND (ABS(isum(2)),mask30)
        global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_30
     ENDIF
-   
+
     IF (activate_sync_timers) CALL timer_stop(timer_ordglb_sum)
 
 END FUNCTION order_insensit_ieee64_sum
@@ -1948,7 +1955,7 @@ END FUNCTION order_insensit_ieee64_sum
 !!            ALL-TO-ALL operation.
 !!
 FUNCTION simple_sum(vals, num_vals, mpi_comm, opt_iroot) RESULT(global_sum)
-  
+
   INTEGER                        :: num_vals, mpi_comm
   REAL(dp)                       :: vals(num_vals)
   INTEGER,  INTENT(IN), OPTIONAL :: opt_iroot
@@ -1970,7 +1977,7 @@ FUNCTION simple_sum(vals, num_vals, mpi_comm, opt_iroot) RESULT(global_sum)
    res = p_sum(s, comm=mpi_comm, root=opt_iroot)
 
    global_sum = res
-  
+
    IF (activate_sync_timers) CALL timer_stop(timer_global_sum)
 
 END FUNCTION simple_sum
@@ -2021,7 +2028,7 @@ FUNCTION omp_simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 !$OMP BARRIER
 
    global_sum = res
-   
+
    IF (activate_sync_timers) CALL timer_stop(timer_omp_global_sum)
 
 END FUNCTION omp_simple_sum
@@ -2119,7 +2126,7 @@ SUBROUTINE decomposition_statistics(p_patch)
    IF (p_patch%id > 1) THEN
      WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(0)),NINT(csmin(0)),csavg(0)
       CALL message('#   lateral boundary cells', TRIM(message_text))
-   ENDIF  
+   ENDIF
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(1)),NINT(csmin(1)),csavg(1)
      CALL message('#         prognostic cells', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(2)),NINT(csmin(2)),csavg(2)
@@ -2236,7 +2243,7 @@ END SUBROUTINE decomposition_statistics
 !
 !  @par Revision History
 !  Initial revision : F. Prill, DWD (2013-02-08)
-! 
+!
 SUBROUTINE cumulative_sync_patch_array(typ, p_patch, f3d)
   INTEGER,       INTENT(IN)            :: typ
   TYPE(t_patch), INTENT(IN),    TARGET :: p_patch
@@ -2263,7 +2270,7 @@ END SUBROUTINE cumulative_sync_patch_array
 !
 !  @par Revision History
 !  Initial revision : F. Prill, DWD (2013-02-08)
-! 
+!
 RECURSIVE SUBROUTINE complete_cumulative_sync(opt_typ, opt_patch_id)
   INTEGER, OPTIONAL, INTENT(IN) :: opt_typ
   INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id

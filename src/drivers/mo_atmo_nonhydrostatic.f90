@@ -145,6 +145,7 @@ CONTAINS
     INTEGER :: jg, ist
     LOGICAL :: l_realcase
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
+    LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
@@ -206,11 +207,11 @@ CONTAINS
 
     ! Now allocate memory for the states
     DO jg=1,n_dom
-      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, &
-        &                                    var_name="pres_msl")
+      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl")
+      l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")
     END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
-      &                     l_pres_msl=l_pres_msl)
+      &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)

@@ -25,12 +25,13 @@
 !! -------------------------------------------------------------------
 !!
 !! z/p/i interpolation setup           HIGH_PRIORITY
+!! compute vertical velocity           DEFAULT_PRIORITY0
 !! compute rel. humidity               DEFAULT_PRIORITY0
 !! compute mean sea level pressure     DEFAULT_PRIORITY0
-!! vertical interpolation              DEFAULT_PRIORITY0
-!! horizontal interpolation edge->cell DEFAULT_PRIORITY1
-!! horizontal synchronization          DEFAULT_PRIORITY2
-!! horizontal interpolation            DEFAULT_PRIORITY3
+!! vertical interpolation              DEFAULT_PRIORITY1
+!! horizontal interpolation edge->cell DEFAULT_PRIORITY2
+!! horizontal synchronization          DEFAULT_PRIORITY3
+!! horizontal interpolation            DEFAULT_PRIORITY4
 !! z/p/i interpolation clean-up        LOW_PRIORITY
 !!
 !!
@@ -89,7 +90,7 @@ MODULE mo_pp_scheduler
     &                                   TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,                &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
-    &                                   vname_len
+    &                                   vname_len, TASK_COMPUTE_OMEGA
   USE mo_model_domain,            ONLY: t_patch, p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_all_var_names,                         &
     &                                   nvar_lists, var_lists, get_var_name,                &
@@ -131,7 +132,7 @@ MODULE mo_pp_scheduler
     &                                   MAX_NAME_LENGTH, HIGH_PRIORITY,                     &
     &                                   DEFAULT_PRIORITY0, DEFAULT_PRIORITY1,               &
     &                                   DEFAULT_PRIORITY2, DEFAULT_PRIORITY3,               &
-    &                                   LOW_PRIORITY, dbg_level
+    &                                   DEFAULT_PRIORITY4, LOW_PRIORITY, dbg_level
   USE mo_fortran_tools,           ONLY: assign_if_present
 
 
@@ -197,10 +198,19 @@ CONTAINS
             & CALL message(routine, "Inserting pp task: "//TRIM(element%field%info%name))
 
           SELECT CASE(element%field%info%l_pp_scheduler_task)
-          CASE (TASK_COMPUTE_RH) ! relative humidity
+          CASE (TASK_COMPUTE_RH) 
+            ! relative humidity
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
               &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_RH )
-          CASE (TASK_INTP_MSL)   ! mean sea level pressure
+            !
+          CASE (TASK_COMPUTE_OMEGA)
+            ! vertical velocity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_OMEGA )
+            !
+          CASE (TASK_INTP_MSL)   
+            ! mean sea level pressure
+            !
             ! find the standard pressure field:
             element_pres => find_list_element (p_nh_state(jg)%diag_list, 'pres')
             IF (ASSOCIATED (element)) THEN
@@ -356,7 +366,7 @@ CONTAINS
         new_element_2%field%info%hor_interp%lonlat_id = ll_grid_id
 
         !-- create and add post-processing task
-        task => pp_task_insert(DEFAULT_PRIORITY3)
+        task => pp_task_insert(DEFAULT_PRIORITY4)
         WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", ",prefix//"-levels", ", DOM ",jg
         IF (dbg_level > 8) CALL message(routine, task%job_name)
         task%data_input%p_nh_state          => NULL()
@@ -615,7 +625,7 @@ CONTAINS
           new_element%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
             
           !-- create and add post-processing task
-          task => pp_task_insert(DEFAULT_PRIORITY3)
+          task => pp_task_insert(DEFAULT_PRIORITY4)
           WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
           task%data_input%p_nh_state      => NULL()
           task%data_input%prm_diag        => NULL()
@@ -648,7 +658,7 @@ CONTAINS
     IF (l_horintp) THEN
       IF (dbg_level >= 10) &
         CALL message(routine, "Creating synchronization task for horizontal interpolation.")
-      task => pp_task_insert(DEFAULT_PRIORITY2)
+      task => pp_task_insert(DEFAULT_PRIORITY3)
       WRITE (task%job_name, *) "horizontal interp. SYNC"
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
@@ -843,7 +853,7 @@ CONTAINS
           &           post_op=info%post_op, lrestart=.FALSE. )
          
         !-- create a post-processing task for vertical interpolation of "vn"
-        task => pp_task_insert(DEFAULT_PRIORITY0)
+        task => pp_task_insert(DEFAULT_PRIORITY1)
         task%job_name        =  &
           &  TRIM(prefix)//" interp. "//TRIM(info%name)//", DOM "//TRIM(int2string(jg))
         IF (dbg_level > 8) CALL message(routine, task%job_name)
@@ -887,7 +897,7 @@ CONTAINS
           & new_element=new_element_2, post_op=post_op )
 
         !-- create a post-processing task for edge2cell interpolation "vn" -> "u","v"
-        task => pp_task_insert(DEFAULT_PRIORITY1)
+        task => pp_task_insert(DEFAULT_PRIORITY2)
         WRITE (task%job_name, *) "edge2cell interp. ",TRIM(info%name),", DOM ",jg
         task%data_input%p_nh_state      => NULL()
         task%data_input%prm_diag        => NULL()
@@ -1232,7 +1242,7 @@ CONTAINS
 
               !-- add post-processing task for interpolation
 
-              task => pp_task_insert(DEFAULT_PRIORITY0)
+              task => pp_task_insert(DEFAULT_PRIORITY1)
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
                 &  //", DOM "//TRIM(int2string(jg))
@@ -1384,8 +1394,8 @@ CONTAINS
       CASE ( TASK_INTP_MSL )
         CALL pp_task_intp_msl(ptr_task)
 
-        ! compute relative humidty
-      CASE ( TASK_COMPUTE_RH )
+        ! compute relative humidty, vertical velocity
+      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA )
         CALL pp_task_compute_field(ptr_task)
 
         ! vector reconstruction on cell centers:

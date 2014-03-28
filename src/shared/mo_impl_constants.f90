@@ -546,6 +546,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_INTP_EDGE2CELL    = 12 !< task: intp. from edge midpoints to cell centers
   !------ computation of optional diagnostic fields
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_OMEGA     = 14 !< task: compute vertical velocity
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !

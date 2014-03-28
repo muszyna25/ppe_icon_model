@@ -43,7 +43,8 @@ MODULE mo_util_phys
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
-    &                                 vtmpc1, t3
+    &                                 vtmpc1, t3,      &
+    &                                 grav
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int
@@ -63,6 +64,7 @@ MODULE mo_util_phys
   PUBLIC :: rel_hum
   PUBLIC :: compute_field_rel_hum_wmo
   PUBLIC :: compute_field_rel_hum_ifs
+  PUBLIC :: compute_field_omega
 
 
   CHARACTER(len=*), PARAMETER :: version = &
@@ -451,5 +453,74 @@ CONTAINS
     vap_pres = (qv * pres) / (rdv + O_m_rdv*qv)
 
   END FUNCTION vap_pres
+
+
+  !> computation of vertical velocity (dp/dt)
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-03-28) 
+  SUBROUTINE compute_field_omega(ptr_patch, p_prog, out_var, &
+    &                            opt_slev, opt_elev, opt_rlstart, opt_rlend)
+
+    TYPE(t_patch)        , INTENT(IN)    :: ptr_patch              !< patch on which computation is performed
+    TYPE(t_nh_prog)      , INTENT(IN)    :: p_prog                 !< nonhydrostatic state
+    REAL(wp)             , INTENT(INOUT) :: out_var(:,:,:)         !< output variable, dim: (nproma,nlev,nblks_c)
+    INTEGER, INTENT(IN), OPTIONAL        :: opt_slev, opt_elev     !< optional vertical start/end level
+    INTEGER, INTENT(IN), OPTIONAL        :: opt_rlstart, opt_rlend !< start and end values of refin_ctrl flag
+
+
+    ! local
+    REAL(wp):: w_avg(nproma)       ! vertical velocity averaged to full level
+    INTEGER :: slev, elev          ! vertical start and end index
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk, i_nchdom
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jc, jk, jb  
+
+    ! default values
+    slev     = 1
+    elev     = UBOUND(out_var,2)
+    rl_start = 2
+    rl_end   = min_rlcell_int-1
+    ! check optional arguments
+    CALL assign_if_present(slev,     opt_slev)
+    CALL assign_if_present(elev,     opt_elev)
+    CALL assign_if_present(rl_start, opt_rlstart)
+    CALL assign_if_present(rl_end,   opt_rlend)
+
+    ! values for the blocking
+    i_nchdom   = MAX(1,ptr_patch%n_childdom)
+    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,w_avg), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, rl_start, rl_end)
+      
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+          ! half level to full level interpolation
+          w_avg(jc) = 0.5_wp * (p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb))
+
+          out_var(jc,jk,jb) = -p_prog%rho(jc,jk,jb)*grav*w_avg(jc)
+
+        ENDDO
+      ENDDO
+
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE compute_field_omega
+
 
 END MODULE mo_util_phys

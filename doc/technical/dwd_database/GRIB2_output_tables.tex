@@ -18,8 +18,6 @@ In the following, \emph{typeOfFirstFixedSurface} and \emph{typeOfSecondFixedSurf
 With the launch of ICON, the following former GME output fields will no longer be available:
 
 \begin{itemize}
- \item \textbf{OMEGA} [Pa/s]: Vertical velocity in pressure coordinates $\omega=\frac{\mathrm{d}p}{\mathrm{d}t}$. Since ICON is a nonhydrostatic model, the vertical velocity 
-                              \textbf{W} [$\mathrm{m/s}$] is provided, instead (see Section \ref{sec_newout}).
  \item \textbf{BAS\_CON} [\textendash]: Level index of convective cloud base. Instead, \textbf{HBAS\_CON} [m] should be used.
  \item \textbf{TOP\_CON} [\textendash]: Level index of convective cloud top. Instead, \textbf{HTOP\_CON} [m] should be used.
  \item \textbf{T\_S} [K]: Temperature at the soil-atmosphere-, or soil-snow-interface. Note that $\mathrm{T\_S} = \mathrm{T\_SO(0)}$, thus $\mathrm{T\_S}$ is redundant.
@@ -145,6 +143,7 @@ pressure levels (as compared to GME) are highlighted in red. Note that now all $
 \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
 \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
 \groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+\groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0                                   &                     2                       &                    8                       &                 100/--                          &                      inst                   &        $\mathrm{Pa\,s^{-1}}$  \\
 \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
 \groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$ \\
   \bottomrule
@@ -290,3 +289,23 @@ Soil moisture $\mathrm{W\_SO}$ is prognosed for layers $1$ to $6$. In the two lo
   \bottomrule
  \end{tabular}
 \end{table}
+
+
+%\section{Extended description of available output fields}
+%
+%In order to facilitate the selection and interpretation of fields and to guard against possible mis-interpretation or mis-usage, the following section provides a more thorough 
+%description of the available output fields.
+%
+%\subsection{External parameter}
+%
+%% uses package enumitem
+%%\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
+%\begin{description}[leftmargin=3.0cm,style=sameline]
+% \item [AER\_SS] description of Hello
+% \item [AER\_DUST12] another description
+%\end{description}
+
+
+%\subsection{Soil and surface products}
+
+%\subsection{Atmospheric products}
