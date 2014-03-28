@@ -1335,6 +1335,13 @@ MODULE mo_nwp_lnd_state
            &                 "mode_combined_in","mode_cosmode_in") )    
 
 
+    ! & p_diag_lnd%h_snow_incr(nproma,nblks_c)
+    cf_desc    = t_cf_var('h_snow_incr', 'm', 'snow depth increment', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 11, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'h_snow_incr', p_diag_lnd%h_snow_incr, &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.                   )    
+
 
     ! & p_diag_lnd%h_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('h_snow_t', 'm', 'snow height', DATATYPE_FLT32)

@@ -5068,7 +5068,7 @@ END SUBROUTINE terra_multlay
 
 
 SUBROUTINE terra_multlay_init (                & 
-                  is_coldstart, & ! coldstart initialization (TRUE/FALSE)  
+                  init_mode,    & ! 1 = coldstart, 2 = warmstart, 3 = warmstart with snow increments (IAU)
                   ie,           & ! array dimensions
                   istartpar,    & ! start index for computations in the parallel program
                   iendpar,      & ! end index for computations in the parallel program
@@ -5084,7 +5084,8 @@ SUBROUTINE terra_multlay_init (                &
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
                   w_snow_now       , & ! water content of snow                         (m H2O)
-                  h_snow           , & ! snow height                                   (m H2O)
+                  h_snow           , & ! snow depth                                   (m H2O)
+                  h_snow_incr      , & ! snow depth increment                         (m H2O)
                   rho_snow_now     , & ! snow density                                  (kg/m**3)
                   rho_snow_mult_now, & ! snow density                                  (kg/m**3)
                   t_so_now         , & ! soil temperature (main level)                 (  K  )
@@ -5107,8 +5108,8 @@ SUBROUTINE terra_multlay_init (                &
   IMPLICIT NONE
 
 
-  LOGICAL                 , INTENT(IN)  ::  &
-                  is_coldstart    ! coldstart initialization (TRUE/FALSE)
+  INTEGER                 , INTENT(IN)  ::  &
+                  init_mode    ! 1 = coldstart, 2 = warmstart, 3 = warmstart with snow increments (IAU)
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
                   ie,           & ! array dimensions
                   istartpar,    & ! start index for computations in the parallel program
@@ -5135,8 +5136,10 @@ SUBROUTINE terra_multlay_init (                &
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   rho_snow_now         ! snow density                                  (kg/m**3)
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
-                  h_snow               ! snow height                                   (m H2O)
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
+                  h_snow               ! snow depth                                   (m H2O)
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
+                  h_snow_incr          ! snow depth increment                          (m H2O)
   REAL    (KIND = ireals), DIMENSION(ie,ke_snow), INTENT(INOUT) :: &
                   rho_snow_mult_now    ! snow density                                  (kg/m**3)
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_soil+1), INTENT(INOUT) :: &
@@ -5240,7 +5243,19 @@ SUBROUTINE terra_multlay_init (                &
     zrocg    (ie)        ,& ! volumetric heat capacity of bare soil
     zalam    (ie,ke_soil),& ! heat conductivity
     zw_snow_old(ie)      ,& !
-    zrho_snow_old(ie)
+    zrho_snow_old(ie)    ,&
+    h_snow_fg(ie)        ,&
+    zhh_snow (ie,ke_snow),& ! depth of the half level snow layers
+    zhm_snow (ie,ke_snow),& ! depth of snow main levels
+    sum_weight(ie)      , &
+    t_new  (ie,ke_snow) , &
+    rho_new(ie,ke_snow) , &
+    wl_new (ie,ke_snow) , &
+    z_old  (ie,ke_snow) , & 
+    dz_old (ie,ke_snow) , &
+    weight 
+
+  LOGICAL :: l_redist(ie)
 
 !- End of header
 !==============================================================================
@@ -5426,7 +5441,7 @@ SUBROUTINE terra_multlay_init (                &
   ! Note that a few parts need to be shifted to the .NOT. is_coldstart branch.
   ! I.e. those which are dealing with the contributions from the analysis.
   ! Currently, the multi layer soil model starts from the FG.
-  IF ( is_coldstart ) THEN
+  IF ( init_mode == 1 ) THEN
 
 !   Initialization of snow density, if necessary
 !   --------------------------------------------
@@ -5583,12 +5598,154 @@ SUBROUTINE terra_multlay_init (                &
       END DO
     END IF
 
-  ELSE  ! .NOT. is_coldstart (i.e. assimilation cycle and forecast)
+  ELSE  ! init_mode > 1, i.e. warmstart (i.e. assimilation cycle and forecast)
+        ! in this case, w_snow and rho_snow are read from the first guess, and h_snow is updated by the snow analysis;
+        ! in the IAU mode, the snow depth increment (h_snow_incr) is directly provided by the snow analysis
 
-    ! To be filled. Here, information provided by analysis should be added 
-    ! to the multi-layer snow fields.
+    IF ( init_mode == 2 ) THEN  ! snow depth increment needs to be computed
+      DO i = istarts, iends
+        h_snow_fg(i)   = w_snow_now(i)/rho_snow_now(i)*rho_w
+        h_snow_incr(i) = h_snow(i) - h_snow_fg(i)
+      ENDDO
+    ELSE IF ( init_mode == 3 ) THEN  ! snow depth increment is provided from snow analysis
+      DO i = istarts, iends
+        h_snow_fg(i) = h_snow(i)
+        h_snow(i)    = h_snow_fg(i) + h_snow_incr(i) ! h_snow now carries the updated snow depth
+      ENDDO
+    ENDIF
 
-  ENDIF  ! is_coldstart
+    ! For the single-layer snow case, the prognostic variables now need to be updated. This requires appropriate
+    ! assumptions about the new snow density
+
+    IF(lmulti_snow) THEN ! update of prognostic variables of multi-layer snow model
+      l_redist(:) = .FALSE.
+      DO i = istarts, iends
+        IF (h_snow(i) <= zepsi) THEN  ! snow has disappeared or was already absent
+          rho_snow_now(i) = 250._ireals
+          w_snow_now(i)   = 0._ireals
+
+          dzh_snow_now (i,1:ke_snow) = 0._ireals
+          wtot_snow_now(i,1:ke_snow) = 0._ireals
+          rho_snow_mult_now(i,1:ke_snow) = 0._ireals
+          wliq_snow_now(i,1:ke_snow) = 0._ireals
+          t_snow_mult_now(i,1:ke_snow) = t_snow_now(i)
+        ELSE IF (h_snow_fg(i) <= zepsi .AND. h_snow(i) > zepsi) THEN 
+          ! snow analysis has either reestablished a snow cover that had been erroneously melted away by the model
+          ! or generated a new snow cover that was missed by the model due to a lack of precipitation (or wrong phase of precip)
+          ! ** snow density should be distinguished between new snow and reestablished old snow **
+          rho_snow_now(i) = 250._ireals ! needs to be improved
+          w_snow_now(i)   = h_snow(i)*rho_snow_now(i)/rho_w
+          t_snow_now(i)   = MIN(t_snow_now(i),t0_melt)
+
+          rho_snow_mult_now(i,1:ke_snow) = rho_snow_now(i)
+          dzh_snow_now (i,1:ke_snow) = h_snow(i)/REAL(ke_snow,ireals)
+          wtot_snow_now(i,1:ke_snow) = w_snow_now(i)/REAL(ke_snow,ireals)
+          wliq_snow_now(i,1:ke_snow) = 0._ireals
+          t_snow_mult_now(i,1:ke_snow) = t_snow_now(i)
+          IF (h_snow(i) > REAL(ke_snow,ireals)*max_toplaydepth) l_redist(i) = .TRUE.
+        ELSE IF (h_snow_fg(i) > zepsi .AND. h_snow_incr(i) < 0._ireals) THEN
+          ! a snow cover is present but reduced by the snow analysis increment
+          ! in this case, we retain the snow densities but adjust the water equivalents
+          l_redist(i) = .TRUE.
+          dz_old(i,1) = MAX(dzh_snow_now (i,1),zepsi/REAL(ke_snow,ireals))
+          dzh_snow_now (i,1) = dzh_snow_now (i,1) + h_snow_incr(i)
+          wtot_snow_now(i,1) = wtot_snow_now(i,1)*dzh_snow_now (i,1)/dz_old(i,1)
+        ELSE
+          ! a snow cover is present and increased by the snow analysis
+          ! ** snow density should be distinguished between new snow and reestablished old snow **
+          ! IF (w_snow_incr(i) > 0._ireals) THEN ! assume temperature-dependent fresh snow density - maybe air temp should be used here?!
+          !   rho_new(i,1) = MAX(50._ireals,125._ireals-10._ireals*(t0_melt-t_snow_mult_now(i,1)))
+          ! ELSE
+          !   rho_new(i,1) = rho_snow_mult_now(i,1)
+          ! ENDIF
+          l_redist(i) = .TRUE.
+          rho_new(i,1) = rho_snow_mult_now(i,1)
+          wtot_snow_now(i,1) = wtot_snow_now(i,1) + h_snow_incr(i)*rho_new(i,1)/rho_w
+          dzh_snow_now (i,1) = dzh_snow_now (i,1) + h_snow_incr(i)
+          rho_snow_mult_now(i,1) = rho_w*wtot_snow_now(i,1)/dzh_snow_now (i,1)
+        ENDIF
+      ENDDO
+
+      ! Redistribute snow cover among layers where necessary
+      sum_weight(:) = 0._ireals
+      DO ksn = ke_snow,1,-1
+        DO i = istarts, iends
+          IF (l_redist(i)) THEN
+            dz_old(i,ksn) = dzh_snow_now(i,ksn)
+            z_old(i,ksn) = -sum_weight(i) - dzh_snow_now(i,ksn)/2._ireals
+            sum_weight(i) = sum_weight(i) + dzh_snow_now(i,ksn)
+          ENDIF
+        END DO
+      END DO
+
+      k = MIN(2, ke_snow-1)
+      DO ksn = 1,ke_snow
+        DO i = istarts, iends
+          IF (l_redist(i)) THEN
+
+            IF (ksn == 1) THEN ! Limit top layer to max_toplaydepth
+              zhh_snow(i,ksn) = -MAX( h_snow(i)-max_toplaydepth, h_snow(i)/ke_snow*(ke_snow-ksn) )
+              zhm_snow(i,ksn) = (-h_snow(i) + zhh_snow(i,ksn))/2._ireals   
+              dzh_snow_now(i,ksn) = zhh_snow(i,ksn) + h_snow(i)    !layer thickness betw. half levels of uppermost snow layer
+            ELSE IF (ksn == 2 .AND. ke_snow > 2) THEN ! Limit second layer to 8*max_toplaydepth
+              zhh_snow(i,ksn) = MIN( 8._ireals*max_toplaydepth+zhh_snow(i,1), zhh_snow(i,1)/(ke_snow-1)*(ke_snow-ksn) )
+            ELSE ! distribute the remaining snow equally among the layers
+              zhh_snow(i,ksn) = zhh_snow(i,k)/(ke_snow-k)*(ke_snow-ksn)
+            ENDIF
+
+            t_new  (i,ksn) = 0.0_ireals
+            rho_new(i,ksn) = 0.0_ireals
+            wl_new (i,ksn) = 0.0_ireals
+
+            IF(dz_old(i,ksn) > 0._ireals .AND. rho_snow_mult_now(i,ksn) > 0._ireals) THEN
+              wliq_snow_now(i,ksn) = wliq_snow_now(i,ksn)/dz_old(i,ksn)
+            END IF
+
+          ENDIF
+        END DO
+      END DO
+
+      DO ksn = 2, ke_snow
+        DO i = istarts, iends
+          IF(l_redist(i)) THEN
+            zhm_snow(i,ksn) = (zhh_snow(i,ksn) + zhh_snow(i,ksn-1))/2._ireals
+            dzh_snow_now(i,ksn) = zhh_snow(i,ksn) - zhh_snow(i,ksn-1) ! layer thickness betw. half levels
+          END IF
+        END DO
+      END DO
+
+      ! mass-weighted recomputation of temperatures and densities
+      DO ksn = ke_snow,1,-1 
+        DO k = ke_snow,1,-1
+          DO i = istarts, iends
+            IF(l_redist(i)) THEN
+         
+              weight = MAX(MIN(z_old(i,k)+dz_old(i,k)/2._ireals,zhm_snow(i,ksn) + dzh_snow_now(i,ksn)/2._ireals)-   &
+                       MAX(z_old(i,k)-dz_old(i,k)/2._ireals, zhm_snow(i,ksn)-dzh_snow_now(i,ksn)/2._ireals),0._ireals) &
+                       &/dzh_snow_now(i,ksn)
+      
+              t_new  (i,ksn) = t_new  (i,ksn) + t_snow_mult_now  (i,k)*weight
+              rho_new(i,ksn) = rho_new(i,ksn) + rho_snow_mult_now(i,k)*weight
+              wl_new (i,ksn) = wl_new (i,ksn) + wliq_snow_now    (i,k)*weight
+            END IF
+          END DO
+        END DO
+      END DO
+
+      DO ksn = ke_snow,1,-1
+        DO i = istarts, iends
+          IF(l_redist(i)) THEN
+            t_snow_mult_now  (i,ksn) = t_new  (i,ksn)
+            rho_snow_mult_now(i,ksn) = rho_new(i,ksn)
+            wtot_snow_now    (i,ksn) = rho_new(i,ksn)*dzh_snow_now(i,ksn)/rho_w
+            wliq_snow_now    (i,ksn) = wl_new (i,ksn)*dzh_snow_now(i,ksn)
+          END IF
+        END DO   
+      END DO
+
+    ENDIF ! multi snow
+
+  ENDIF  ! init_mode
 
 
 

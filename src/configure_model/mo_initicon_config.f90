@@ -39,7 +39,7 @@ MODULE mo_initicon_config
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
-    &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE
+    &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE, MODE_DWDANA_INC
 
   IMPLICIT NONE
 
@@ -60,7 +60,7 @@ MODULE mo_initicon_config
   PUBLIC :: ana_varlist
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
-  PUBLIC :: is_coldstart_soil
+  PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
 
@@ -119,7 +119,7 @@ MODULE mo_initicon_config
 
   INTEGER :: nlev_in   = 0  !< number of model levels of input data
 
-  LOGICAL :: is_coldstart_soil        !< if .TRUE. perform cold-start of soil model
+  INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
 
   LOGICAL :: is_iau_active = .FALSE.  !< determines whether IAU is active at current time
 
@@ -145,13 +145,12 @@ CONTAINS
 
 
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
-      is_coldstart_soil = .TRUE.   ! full coldstart is necessary
-                                   ! i.e. w_so_ice and h_snow are re-diagnosed
+      init_mode_soil = 1   ! full coldstart is executed
+                           ! i.e. w_so_ice and h_snow are re-diagnosed
+    ELSE IF (init_mode == MODE_DWDANA_INC) THEN
+      init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
     ELSE
-      is_coldstart_soil = .FALSE.  ! warmstart is sufficient (typical for standard
-                                   ! assimilation cycle 
-                                   ! i.e. w_so_ice and h_snow are taken from 
-                                   ! the input file
+      init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
     ENDIF
 
   END SUBROUTINE configure_initicon
