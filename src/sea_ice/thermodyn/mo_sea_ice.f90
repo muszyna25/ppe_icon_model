@@ -1687,18 +1687,19 @@ CONTAINS
     !p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
 
     ! Volmue flux
+    ! Fixed 27. March
     p_sfc_flx%forc_fw_ice_vol (:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)   & ! Ice melt
       &                               -Delhsnow(:,:)*rhos/(rho_ref*dtime)   & ! Snow melt
       &                              + precw(:,:)*ice%concSum(:,:)          & ! Rain goes through
-      &       - (1._wp-ice%concSum(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime) ! New-ice formation
+      &                              - ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation
 
     ! Tracer flux
+    ! Fixed 27. March
     WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
       p_sfc_flx%forc_fw_bc_ice (:,:) = precw(:,:)*ice%concSum(:,:)           & ! Rain goes through
         &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
         &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                         & ! Snow melt
-        &       - (1._wp-sice/sss(:,:))*(1._wp-ice%concSum(:,:))             & ! New-ice formation
-        &         *ice%newice(:,:)*rhoi/(rho_ref*dtime)                       
+        &       - (1._wp-sice/sss(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation                       
     ENDWHERE
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
@@ -1760,8 +1761,8 @@ CONTAINS
     ! Concentration change due to new ice formation
     WHERE ( ice%newice(:,:) > 0._wp .AND. v_base%lsm_c(:,1,:) <= sea_boundary )
       ! New volume - we just preserve volume:
-      ice%vol  (:,1,:) = ice%vol(:,1,:)         &
-        &       + ( 1._wp-ice%conc(:,1,:) )*ice%newice(:,:)*p_patch%cells%area(:,:)
+      ! Fixed 27. March
+      ice%vol  (:,1,:) = ice%vol(:,1,:) + ice%newice(:,:)*p_patch%cells%area(:,:)
 
       ! Hibler's way to change the concentration 
       !  - the formulation here uses the default values of leadclose parameters 2 and 3 in MPIOM:
@@ -1797,8 +1798,9 @@ CONTAINS
     CALL dbg_print('IceConcCh: hs   latMlt' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Ice cannot grow thinner than hmin
-    WHERE ( ice%hi(:,1,:) > 0._wp )
-      ice%hi  (:,1,:) = MAX( hmin, ice%hi(:,1,:) )
+    ! Changed 27. March
+    WHERE ( ice%hi(:,1,:) < hmin .AND. ice%hi(:,1,:) > 0._wp )
+      ice%hi  (:,1,:) = hmin
       ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
 

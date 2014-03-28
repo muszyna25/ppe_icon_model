@@ -328,6 +328,9 @@ CONTAINS
             ! bottom melt/freeze
             ice % hi(jc,k,jb) = ice%hi(jc,k,jb) - ice%Qbot(jc,k,jb) * dtime / (alf * rhoi )
             
+            ! Fixed 27. March
+            ! heat to remove from water
+            ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - zHeatOceI(jc,k,jb)
             
             IF (ice%hi (jc,k,jb) <= 0.0_wp) THEN
               ! #achim: check units -- heatocei in J as opposed to W/m2?
@@ -343,9 +346,6 @@ CONTAINS
               ice%conc (jc,k,jb) = 0.0_wp
               ice%hi   (jc,k,jb) = 0.0_wp
               ice%hs   (jc,k,jb) = 0.0_wp
-            ELSE
-              ! heat to remove from water
-              ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - zHeatOceI(jc,k,jb)
             ENDIF
             
             ! check energy conservation
