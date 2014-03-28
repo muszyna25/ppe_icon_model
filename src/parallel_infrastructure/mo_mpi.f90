@@ -7117,12 +7117,11 @@ CONTAINS
      INTEGER :: newtype
      INTEGER, INTENT(IN) :: oldtypes(2), blockcounts(2)
 #if !defined(NOMPI)
-     INTEGER :: ierr
-     INTEGER(wp) :: extent, offsets(2)
+     INTEGER :: ierr, offsets(2), extent
      ! define structured type and commit it
      CALL MPI_TYPE_EXTENT(oldtypes(1), extent, ierr)
-     offsets(:) = (/ 0_wp, extent /)
-     CALL MPI_TYPE_STRUCT(2, blockcounts, INT(offsets), oldtypes, newtype, ierr)
+     offsets(:) = (/ 0, extent /)
+     CALL MPI_TYPE_STRUCT(2, blockcounts, offsets, oldtypes, newtype, ierr)
      CALL MPI_TYPE_COMMIT(newtype, ierr)
 #else
      newtype = 0
