@@ -1272,6 +1272,8 @@ CONTAINS
         include_last                  = .FALSE.
         ! - The "steps_per_file" counter is set to 1
         fname_metadata%steps_per_file = 1        
+        ! - The "steps_per_file_inclfirst" flag is set to .FALSE.
+        fname_metadata%steps_per_file_inclfirst = .FALSE.
         !
         CALL deallocateTimedelta(mtime_interval)
         CALL deallocateDatetime(mtime_datetime)

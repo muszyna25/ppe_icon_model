@@ -3952,7 +3952,9 @@ Splits model level output of this namelist into several concurrent alternating f
 The output is split into $N$ files, where the start date of part $i$ gets an offset
 of $(i-1)*\texttt{output\_interval}$. 
 The output interval is then replaced by $N*\texttt{output\_interval}$,
-the \texttt{include\_last} flag is set to \texttt{.FALSE.}, and
+the \texttt{include\_last} flag is set to \texttt{.FALSE.}, 
+the \texttt{steps\_per\_file\_inclfirst} flag is set to \texttt{.FALSE.}, 
+and
 the \texttt{steps\_per\_file} counter is set to \texttt{1}.
 &
 \tabularnewline
