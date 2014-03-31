@@ -389,8 +389,8 @@ CONTAINS
         total_index = result_fnames(i)%jfile
         this_jfile  = result_fnames(i)%jfile
       END IF
-      CALL associate_keyword("<total_index>", TRIM(int2string(total_index)), keywords)
-      CALL associate_keyword("<jfile>",       TRIM(int2string(this_jfile, "(i4.4)")),       keywords)
+      CALL associate_keyword("<total_index>", TRIM(int2string(total_index,"(i4.4)")),  keywords)
+      CALL associate_keyword("<jfile>",       TRIM(int2string(this_jfile, "(i4.4)")), keywords)
 
       cfilename = TRIM(with_keywords(keywords, fname_metadata%filename_format))
       IF(my_process_is_mpi_test()) THEN
