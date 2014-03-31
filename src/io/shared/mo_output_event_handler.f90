@@ -1161,8 +1161,9 @@ CONTAINS
     TYPE(t_output_event), INTENT(IN) :: event1, event2
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::event_union"
-    INTEGER              :: i1, i2, ierrstat, i, i_sim_step1, i_sim_step2, &
-      &                     max_sim_step
+    INTEGER                             :: i1, i2, ierrstat, i, i_sim_step1, i_sim_step2, &
+      &                                    max_sim_step, j1, j2
+    CHARACTER(LEN=MAX_FILENAME_STR_LEN) :: filename_string1
 
     ! allocate event data structure
     ALLOCATE(p_event, STAT=ierrstat)
@@ -1194,6 +1195,24 @@ CONTAINS
         END IF
         i2 = i2 + 1
       END DO STEP_LOOP1
+    END DO
+
+    ! consistency check: test, if any of the filenames in event1
+    ! occurs in event2 (avoid duplicate names)
+    DO i1=1,event1%n_event_steps
+      DO j1=1,event1%event_step(i1)%n_pes
+        IF (.NOT. event1%event_step(i1)%event_step_data(j1)%l_open_file) CYCLE
+        filename_string1 = event1%event_step(i1)%event_step_data(j1)%filename_string
+        DO i2=1,event2%n_event_steps
+          DO j2=1,event2%event_step(i2)%n_pes
+            IF (.NOT. event2%event_step(i2)%event_step_data(j2)%l_open_file) CYCLE
+            IF (TRIM(event2%event_step(i2)%event_step_data(j2)%filename_string) == TRIM(filename_string1)) THEN
+              ! found a duplicate filename:
+              CALL finish(routine, "Error! Ambiguous output file name: '"//TRIM(filename_string1)//"'")
+            END IF
+          END DO
+        END DO
+      END DO
     END DO
 
     ! choose a maximum simulation step number as abort criterion:

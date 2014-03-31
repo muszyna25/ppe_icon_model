@@ -409,9 +409,9 @@ CONTAINS
           ! found a duplicate filename:
           CALL finish(routine, "Ambiguous output file name: '"//TRIM(fname(j))//"'")
         END IF
-        ifname = ifname + 1
-        fname(ifname) = result_fnames(i)%filename_string
       END DO
+      ifname = ifname + 1
+      fname(ifname) = result_fnames(i)%filename_string
     END DO
     CALL deallocateTimedelta(forecast_delta)
 
