@@ -691,9 +691,23 @@ CONTAINS
 
         Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
         Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
-
+        Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
+        Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
+     
+      ! Precipitation on ice is snow when we're below the freezing point
+            WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
+                Qatm%rpreci(:,:) = p_sfc_flx%forc_snow(:,:)
+                Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:)
+            ELSEWHERE
+                Qatm%rpreci(:,:) = 0._wp
+                Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_snow(:,:)
+            ENDWHERE
+   
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
-
+        
+        p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) )*(p_sfc_flx%forc_precip(:,:) + &
+                        &    p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_snow(:,:))
+        p_sfc_flx%forc_fw_bc(:,:)     =  p_sfc_flx%forc_fw_bc_oce(:,:) + p_sfc_flx%forc_fw_bc_ice(:,:)
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
         !  done in mo_sea_ice:upper_ocean_TS
 
@@ -710,6 +724,10 @@ CONTAINS
 
         p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
         p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
+
+        p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) )*(p_sfc_flx%forc_precip(:,:) + &
+                        &    p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_snow(:,:))
+        p_sfc_flx%forc_fw_bc(:,:)     =  p_sfc_flx%forc_fw_bc_oce(:,:)
 
       ENDIF
 

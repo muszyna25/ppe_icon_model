@@ -106,6 +106,7 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: forc_ssflx
     REAL(wp) :: forc_slflx
     REAL(wp) :: forc_precip
+    REAL(wp) :: forc_snow
     REAL(wp) :: forc_evap
     REAL(wp) :: forc_runoff
     REAL(wp) :: forc_fw_bc
@@ -135,7 +136,7 @@ MODULE mo_oce_diagnostics
   TYPE t_oce_timeseries
     
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(36)  :: names = (/ &
+    CHARACTER(LEN=40), DIMENSION(37)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -149,6 +150,7 @@ MODULE mo_oce_diagnostics
       & "forc_ssflx                              ", &
       & "forc_slflx                              ", &
       & "forc_precip                             ", &
+      & "forc_snow                               ", &
       & "forc_evap                               ", &
       & "forc_runoff                             ", &
       & "forc_fw_bc                              ", &
@@ -245,6 +247,7 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%forc_ssflx                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_slflx                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_precip                = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%forc_snow                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_evap                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc                 = 0.0_wp
@@ -554,6 +557,7 @@ CONTAINS
           monitor%forc_ssflx   = monitor%forc_ssflx   + p_sfc_flx%forc_ssflx(jc,jb)*prism_area
           monitor%forc_slflx   = monitor%forc_slflx   + p_sfc_flx%forc_slflx(jc,jb)*prism_area
           monitor%forc_precip  = monitor%forc_precip  + p_sfc_flx%forc_precip(jc,jb)*prism_area
+          monitor%forc_snow    = monitor%forc_snow    + p_sfc_flx%forc_snow(jc,jb)*prism_area
           monitor%forc_evap    = monitor%forc_evap    + p_sfc_flx%forc_evap(jc,jb)*prism_area
           monitor%forc_runoff  = monitor%forc_runoff  + p_sfc_flx%forc_runoff(jc,jb)*prism_area
           monitor%forc_fw_bc   = monitor%forc_fw_bc   + p_sfc_flx%forc_fw_bc(jc,jb)*prism_area
@@ -626,6 +630,7 @@ CONTAINS
     monitor%forc_ssflx                 = global_sum_array(monitor%forc_ssflx)/surface_area
     monitor%forc_slflx                 = global_sum_array(monitor%forc_slflx)/surface_area
     monitor%forc_precip                = global_sum_array(monitor%forc_precip)/surface_area
+    monitor%forc_snow                  = global_sum_array(monitor%forc_snow)/surface_area
     monitor%forc_evap                  = global_sum_array(monitor%forc_evap)/surface_area
     monitor%forc_runoff                = global_sum_array(monitor%forc_runoff)/surface_area
     monitor%forc_fw_bc                 = global_sum_array(monitor%forc_fw_bc)/surface_area
@@ -700,6 +705,7 @@ CONTAINS
         & monitor%forc_ssflx, &
         & monitor%forc_slflx, &
         & monitor%forc_precip, &
+        & monitor%forc_snow, &
         & monitor%forc_evap, &
         & monitor%forc_runoff, &
         & monitor%forc_fw_bc, &

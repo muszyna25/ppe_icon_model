@@ -527,15 +527,16 @@ CONTAINS
 !       write(0,*)  prm_field(jg)%evap_tile(:,:,iwtr)
 
         buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
-             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
-             &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
-             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) )
-        buffer(:,2) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
+             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) ! total rain
+        buffer(:,2) = RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
+             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) ) ! total snow
+        buffer(:,3) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
  
 #ifdef YAC_coupling
-       CALL yac_fput ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, ierror )
+       CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, ierror )
 #else
-       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+       field_shape(3) = 3
+       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
 #endif
        IF ( info == 2 ) write_coupler_restart = .TRUE.
        !

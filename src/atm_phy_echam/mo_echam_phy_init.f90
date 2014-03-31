@@ -632,13 +632,13 @@ CONTAINS
              ! SFWFLX Note: the evap_tile should be properly updated and added
              !
              buffer(:,1) = RESHAPE ( field%rsfl(:,:), (/ nbr_points /) ) + &
-                  &        RESHAPE ( field%rsfc(:,:), (/ nbr_points /) ) + &
-                  &        RESHAPE ( field%ssfl(:,:), (/ nbr_points /) ) + &
+                  &        RESHAPE ( field%rsfc(:,:), (/ nbr_points /) ) 
+             buffer(:,2) = RESHAPE ( field%ssfl(:,:), (/ nbr_points /) ) + &
                   &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
-             buffer(:,2) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
-
+             buffer(:,3) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
+             field_shape(3) = 3
              CALL ICON_cpl_put_init ( field_id(3), field_shape, &
-                                      buffer(1:nbr_hor_points,1:2), ierror )
+                                      buffer(1:nbr_hor_points,1:3), ierror )
              !
              ! SFTEMP
              !

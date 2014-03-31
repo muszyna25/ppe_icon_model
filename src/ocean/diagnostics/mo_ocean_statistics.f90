@@ -150,6 +150,7 @@ CONTAINS
     CALL add_fields(p_sfc_flx%forc_ssflx_acc      , p_sfc_flx%forc_ssflx      , cells)
     CALL add_fields(p_sfc_flx%forc_slflx_acc      , p_sfc_flx%forc_slflx      , cells)
     CALL add_fields(p_sfc_flx%forc_precip_acc     , p_sfc_flx%forc_precip     , cells)
+    CALL add_fields(p_sfc_flx%forc_snow_acc       , p_sfc_flx%forc_snow       , cells)
     CALL add_fields(p_sfc_flx%forc_evap_acc       , p_sfc_flx%forc_evap       , cells)
     CALL add_fields(p_sfc_flx%forc_runoff_acc     , p_sfc_flx%forc_runoff     , cells)
     CALL add_fields(p_sfc_flx%forc_fw_bc_acc      , p_sfc_flx%forc_fw_bc      , cells)
@@ -215,6 +216,7 @@ CONTAINS
     p_sfc_flx%forc_ssflx_acc        = p_sfc_flx%forc_ssflx_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_slflx_acc        = p_sfc_flx%forc_slflx_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_precip_acc       = p_sfc_flx%forc_precip_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_snow_acc         = p_sfc_flx%forc_snow_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_evap_acc         = p_sfc_flx%forc_evap_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_runoff_acc       = p_sfc_flx%forc_runoff_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_bc_acc        = p_sfc_flx%forc_fw_bc_acc       /REAL(nsteps_since_last_output,wp)
@@ -259,6 +261,7 @@ CONTAINS
     p_sfc_flx%forc_ssflx_acc        = 0.0_wp
     p_sfc_flx%forc_slflx_acc        = 0.0_wp
     p_sfc_flx%forc_precip_acc       = 0.0_wp
+    p_sfc_flx%forc_snow_acc         = 0.0_wp
     p_sfc_flx%forc_evap_acc         = 0.0_wp
     p_sfc_flx%forc_runoff_acc       = 0.0_wp
     p_sfc_flx%forc_fw_bc_acc        = 0.0_wp

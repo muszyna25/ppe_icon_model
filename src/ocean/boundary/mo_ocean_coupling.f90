@@ -34,7 +34,7 @@ MODULE mo_ocean_coupling
   USE mo_parallel_config,     ONLY: nproma
   USE mo_exception,           ONLY: message, finish
   USE mo_impl_constants,      ONLY: success, max_char_length
-  USE mo_physical_constants,  ONLY: tmelt
+  USE mo_physical_constants,  ONLY: tmelt, rho_ref
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: my_process_is_io,set_mpi_work_communicators,p_pe_work, process_mpi_io_size
@@ -329,9 +329,9 @@ CONTAINS
     
     field_name(1) = "TAUX"   ! bundled field containing two components
     field_name(2) = "TAUY"   ! bundled field containing two components
-    field_name(3) = "SFWFLX" ! bundled field containing two components
+    field_name(3) = "SFWFLX" ! bundled field containing three components
     field_name(4) = "SFTEMP"
-    field_name(5) = "THFLX"  ! bundled field containing two components
+    field_name(5) = "THFLX"  ! bundled field containing four components
     field_name(6) = "ICEATM" ! bundled field containing four components
     field_name(7) = "SST"
     field_name(8) = "OCEANU"
@@ -355,9 +355,11 @@ CONTAINS
     field_shape(1:2) = grid_shape(1:2)
     
     DO i = 1, no_of_fields
-      IF ( i == 1 .OR. i == 2 .OR. i == 3 .OR. i == 5 ) THEN
+      IF ( i == 1 .OR. i == 2 ) THEN
         field_shape(3) = 2
-      ELSE IF ( i == 6 ) THEN
+      ELSE IF ( i == 3 ) THEN
+        field_shape(3) = 3
+      ELSE IF ( i == 6 .OR. i == 5 ) THEN
         field_shape(3) = 4
       ELSE IF ( i == 10 ) THEN
         field_shape(3) = 5
@@ -557,20 +559,25 @@ CONTAINS
     ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
     !  - here freshwater can be bracketed by forcing_enable_freshwater, i.e. it must not be passed through coupler if not used
     ! IF (forcing_enable_freshwater) THEN
-    field_shape(3) = 2
+    field_shape(3) = 3
 #ifdef YAC_coupling
-    CALL yac_fget ( field_id(3), nbr_hor_points, 2, 1, 1, buffer, info, ierror )
+    CALL yac_fget ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, info, ierror )
 #else
-    CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
+    CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
 #endif
     IF (info > 0 ) THEN
-      buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
+      buffer(nbr_hor_points+1:nbr_points,1:3) = 0.0_wp
       surface_fluxes%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_evap  (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%forc_snow  (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%forc_evap  (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
+      
+      surface_fluxes%forc_precip(:,:) = surface_fluxes%forc_precip(:,:)/rho_ref
+      surface_fluxes%forc_snow  (:,:) = surface_fluxes%forc_snow(:,:)/rho_ref
+      surface_fluxes%forc_evap  (:,:) = surface_fluxes%forc_evap(:,:)/rho_ref
+      
       CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_precip(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_snow(:,:))
       CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_evap(:,:))
-      ! sum of fluxes for ocean boundary condition
-      surface_fluxes%forc_fw_bc(:,:) = surface_fluxes%forc_precip(:,:) + surface_fluxes%forc_evap(:,:)
     END IF
     ! ENDIF ! forcing_enable_freshwater
     !
@@ -647,9 +654,9 @@ CONTAINS
       & in_subset=patch_2d%cells%owned)
     CALL dbg_print(' CPL: Total  HF'     ,surface_fluxes%forc_hflx      ,module_name,idt_src, &
       & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Melt-pot. top' ,ice%qtop               ,module_name,idt_src, &
+    CALL dbg_print(' CPL: Melt-pot. top' ,ice%qtop                      ,module_name,idt_src, &
       & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot               ,module_name,idt_src, &
+    CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot                      ,module_name,idt_src, &
       & in_subset=patch_2d%cells%owned)
     CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%forc_precip    ,module_name,idt_src, &
       & in_subset=patch_2d%cells%owned)
