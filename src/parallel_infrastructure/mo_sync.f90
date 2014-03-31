@@ -69,7 +69,6 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
-USE mpi
 
 IMPLICIT NONE
 
@@ -822,28 +821,21 @@ FUNCTION global_sum_array_0di (zfield, opt_iroot) RESULT (global_sum)
   INTEGER                       :: global_sum
   ! local variables
   REAL(wp)                      :: z_aux, z_auxs
-  INTEGER                       :: p_comm_glob, my_rank, ierror
+  INTEGER                       :: p_comm_glob
   IF (activate_sync_timers) CALL timer_start(timer_global_sum)
 
   IF(comm_lev==0) THEN
-    my_rank = p_pe_work
     p_comm_glob = p_comm_work
   ELSE
     p_comm_glob = glob_comm(comm_lev)
-    CALL mpi_comm_rank(p_comm_glob, my_rank, ierror)
   ENDIF
 
   z_aux  =  REAL(zfield,wp)
   z_auxs = 0._wp
   z_auxs = p_sum(z_aux, comm=p_comm_glob, root=opt_iroot)
 
-  IF (.NOT. PRESENT(opt_iroot)) THEN
-    global_sum = NINT(z_auxs)
-  ELSE IF (opt_iroot == my_rank) THEN
-    global_sum = NINT(z_auxs)
-  ELSE
-    global_sum = -HUGE(global_sum)
-  END IF
+  global_sum = NINT(z_auxs)
+
   IF (activate_sync_timers) CALL timer_stop(timer_global_sum)
 END FUNCTION global_sum_array_0di
 
