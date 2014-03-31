@@ -790,6 +790,8 @@ run/grid.decompose_metis -text
 run/grid.remove_land_points -text
 run/grid.rescale_grid -text
 run/ico_grd_spr_sw_ref -text
+run/icon_nml_tables.tex -text
+run/incompatible_changes.tex -text
 run/mapfile_vlist.txt -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text

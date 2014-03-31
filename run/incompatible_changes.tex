@@ -1,0 +1,235 @@
+% -------------------------------------------------------------------
+\section{Changes incompatible with former versions of the model code}
+% -------------------------------------------------------------------
+\noindent
+% In this section we propose to document all namelist changes that are incompatible with former versions of the model code.
+% Such changes are
+%
+%    renaming namelist parameters or changing the data type
+%    removing existing namelist parameters
+%    changing default settings
+%    changing the scope of the namelist parameter
+%    introducing new cross-check rules.
+
+% --------------------------------------------------------------------------------------------
+%                   <namelist parameter>                               <date>        <revision>
+\begin{changeitem}{ var\_names\_map\_file, out\_varnames\_map\_file }{ 2013-04-25 }{ 12016 }
+  \begin{itemize}
+   \item Renamed \textbf{var\_names\_map\_file} $\rightarrow$ \textbf{output\_nml\_dict}.
+   \item Renamed \textbf{out\_varnames\_map\_file} $\rightarrow$ \textbf{netcdf\_dict}.
+   \item The dictionary in \emph{netcdf\_dict} is now reversed, s.t.\ the same map file
+         as in output\_nml\_dict can be used to translate variable names to the ICON internal
+         names and back.
+  \end{itemize}
+\end{changeitem}
+
+
+\begin{changeitem}{output\_nml: namespace}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Removed obsolete namelist variable \textbf{namespace} from \textbf{output\_nml}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{gribout\_nml: generatingCenter, generatingSubcenter}{ 2013-04-26 }{ 12051 }
+  \begin{itemize}
+   \item Introduced new namelist variables \textbf{generatingCenter} and \textbf{generatingSubcenter}.
+   \item If not set explicitly, center and subcenter information is copied from the input grid file
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{radiation\_nml: albedo\_type}{ 2013-05-03 }{ 12118 }
+  \begin{itemize}
+   \item Introduced new namelist variable \textbf{albedo\_type}
+   \item If set to $2$, the surface albedo will be based on the MODIS data set.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml: dwdinc\_filename}{ 2013-05-24 }{ 12266 }
+  \begin{itemize}
+   \item Renamed dwdinc\_filename to dwdana\_filename
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml: l\_ana\_sfc}{ 2013-06-25 }{ 12582 }
+  \begin{itemize}
+   \item Introduced new namelist flag \textbf{l\_ana\_sfc}
+   \item If true, soil/surface analysis fields are read from the analysis fiel dwdfg\_filename.
+         If false, surface analyis fields are not read. Soil and surface are initialized with the first guess instead.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{new\_nwp\_phy\_tend\_list: output names consistent with variable names}{ 2013-06-25 }{ 12590 }
+  \begin{itemize}
+   \item temp\_tend\_radlw $\rightarrow$ ddt\_temp\_radlw
+   \item temp\_tend\_turb $\rightarrow$ ddt\_temp\_turb
+   \item temp\_tend\_drag $\rightarrow$ ddt\_temp\_drag
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{prepicon\_nml, remap\_nml, input\_field\_nml}{ 2013-06-25 }{ 12597 }
+  \begin{itemize}
+   \item Removed the sources for the "prepicon" binary!
+   \item The "prepicon" functionality (and most of its code) has become part of the ICON tools.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml}{ 2013-08-19 }{ 13311 }
+  \begin{itemize}
+   \item The number of vertical input levels is now read from file.
+         The namelist parameter \textbf{nlev\_in} has become obsolete in r12700 and has been removed.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{parallel\_nml}{ 2013-10-14 }{ 14160 }
+  \begin{itemize}
+   \item The namelist parameter exch\_msgsize has been removed together with the option iorder\_sendrecv=4.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{parallel\_nml}{ 2013-08-14 }{ 14164 }
+  \begin{itemize}
+   \item The namelist parameter \textbf{use\_sp\_output} has been replaced by an equivalent switch \textbf{use\_dp\_mpi2io}
+         (with an inverse meaning, i.e. we have \textbf{use\_dp\_mpi2io = .NOT. use\_sp\_output}).
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{parallel\_nml}{ 2013-08-15 }{ 14175 }
+  \begin{itemize}
+   \item The above-mentioned namelist parameter \textbf{use\_dp\_mpi2io} got the default
+         .FALSE. By this, the output data are sent now in single precision to the output processes.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml: l\_ana\_sfc}{ 2013-10-21 }{ 14280 }
+  \begin{itemize}
+   \item The above-mentioned namelist parameter \textbf{l\_ana\_sfc} has been replaced by \textbf{lread\_ana}. The default 
+         is set to .TRUE., meaning that analysis fields are required and read on default. With lread\_ana=.FALSE. ICON is able to start from 
+         first guess fields only.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: lwrite\_ready, ready\_directory}{ 2013-10-25 }{ 14391 }
+  \begin{itemize}
+   \item The namelist parameters \textbf{lwrite\_ready} and \textbf{ready\_directory} have been replaced
+         by a single namelist parameter \textbf{ready\_file}, where \texttt{ready\_file /= 'default'} enables
+         writing ready files. 
+   \item Different \texttt{output\_nml}'s may be joined together to form a single ready file event -- they
+         share the same \texttt{ready\_file}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: output\_bounds }{ 2013-10-25 }{ 14391 }
+  \begin{itemize}
+   \item The namelist parameter \textbf{output\_bounds} specifies a start, end, and increment of 
+         output invervals.
+         It does no longer allow multiple triples.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: steps\_per\_file }{ 2013-10-30 }{ 14422 }
+  \begin{itemize}
+   \item The default value of the namelist parameter \textbf{steps\_per\_file} has been changed to \texttt{-1}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{run\_nml}{ 2013-11-13 }{ 14759 }
+  \begin{itemize}
+   \item The dump/restore functionality for domain decompositions and interpolation coefficients has
+         been removed from the model code.
+         This means, that the parameters
+         \begin{itemize}
+           \item \texttt{ldump\_states},
+           \item \texttt{lrestore\_states},
+           \item \texttt{ldump\_dd}, 
+           \item \texttt{lread\_dd},  
+           \item \texttt{nproc\_dd},  
+           \item \texttt{dd\_filename},
+           \item \texttt{dump\_filename},
+           \item \texttt{l\_one\_file\_per\_patch}
+         \end{itemize}
+         have been removed together with the corresponding functionality from the ICON model code.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: filename\_format }{ 2013-12-02 }{ 15068 }
+  \begin{itemize}
+   \item The string token \texttt{<ddhhmmss>} is now substituted by the \emph{relative} day-hour-minute-second
+         string, whereas the absolute date-time stamp can be inserted using \texttt{<datetime>}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{output\_nml: ready\_file }{ 2013-12-03 }{ 15081 }
+  \begin{itemize}
+   \item The ready file name has been changed and may now contain
+     string tokens \texttt{<path>}, \texttt{<datetime>},
+     \texttt{<ddhhmmss>} which are substituted as described for the
+     namelist parameter \texttt{filename\_format}.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{interpl\_nml: rbf\_vec\_scale\_ll }{ 2013-12-06 }{ 15156 }
+  \begin{itemize}
+   \item The real-valued namelist parameter \texttt{rbf\_vec\_scale\_ll} has been removed.
+   \item Now, there exists a new integer-valued namelist parameter, \texttt{rbf\_scale\_mode\_ll}
+         which specifies the mode, how the RBF shape parameter is
+         determined for lon-lat interpolation.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{io\_nml }{ 2013-12-06 }{ 15161 }
+  \begin{itemize}
+   \item Removed remaining vlist-related namelist parameter. This means that the parameters
+         \begin{itemize}
+            \item out\_filetype
+            \item out\_expname
+            \item dt\_data
+            \item dt\_file
+            \item lwrite\_dblprec, lwrite\_decomposition, lwrite\_vorticity, lwrite\_divergence, lwrite\_pres, 
+                  lwrite\_z3, lwrite\_tracer, lwrite\_tend\_phy, lwrite\_radiation, lwrite\_precip, lwrite\_cloud, 
+                  lwrite\_tke, lwrite\_surface, lwrite\_omega, lwrite\_initial, lwrite\_oce\_timestepping
+         \end{itemize}
+         are no longer available.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{gridref\_nml}{ 2014-01-07 }{ 15436 }
+  \begin{itemize}
+   \item Changed namelist defaults for nesting: \texttt{grf\_intmethod\_e}, \texttt{l\_mass\_consvcorr}, \texttt{l\_density\_nudging}.
+  \end{itemize}
+\end{changeitem}
+
+
+\begin{changeitem}{interpol\_nml}{ 2014-02-10 }{ 16047 }
+  \begin{itemize}
+   \item Changed namelist default for \texttt{rbf\_scale\_mode\_ll}: The RBF scale factor for lat-lon interpolation is now
+      determined automatically by default.
+  \end{itemize}
+\end{changeitem}
+
+
+\begin{changeitem}{echam\_phy\_nml}{ 2014-02-27 }{ 16313 }
+  \begin{itemize}
+   \item Replace the logical switch \texttt{ lcover } by the integer switch \texttt{ icover } that is used in ECHAM-6.2. Values are transferred as follows: .FALSE. = 1 (=default), .TRUE. = 2.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{turbdiff\_nml}{2014-03-12 }{16527 }
+  \begin{itemize}
+   \item Change constant minimum vertical diffusion coefficients to variable ones proportional to $1/\sqrt{Ri}$ for inwp\_turb = 10; at the same time
+         the defaults for tkhmin and tkmmin are increased from $0.2 \, \mathrm{m^2/s}$ to $0.75 \, \mathrm{m^2/s}$.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{nwp\_phy\_nml}{2014-03-13 }{16560 }
+  \begin{itemize}
+   \item Removed namelist parameter \texttt{dt\_ccov}, since practically it had no effect. For the  quasi-operational NWP-setup, the calling frequency of the cloud cover scheme is the same as that of the convection scheme. I.e. both are synchronized.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{nwp\_phy\_nml}{2014-03-24 }{16668 }
+  \begin{itemize}
+   \item Changed namelist default for \textbf{itype\_z0}: use land cover related roughness only (itype\_z0=2).
+  \end{itemize}
+\end{changeitem}
+
+% --------------------------------------------------------------------------------------------
