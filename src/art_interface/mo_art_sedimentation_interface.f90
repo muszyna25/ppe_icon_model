@@ -62,7 +62,6 @@ MODULE mo_art_sedi_interface
 ! sedimentation and deposition routines
     USE mo_art_sedi_volc,          ONLY: art_sedi_volc
 !    USE mo_art_aerosol,            ONLY: p_mflx_contra_vsed, vdep_ash
-!    USE mo_art_aerosol,            ONLY: p_art_mode,nmodes,imode_seasa,imode_seasb,imode_seasc
 !    USE mo_art_sedi_depo,          ONLY: art_calc_v_sed_dep
 !    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_properties
 #endif
@@ -211,23 +210,23 @@ CONTAINS
         class is (t_fields_radio)
          
         class default
-          call finish('mo_art_washout_interface:art_washout_interface', &
+          call finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
             &         'ART: Unknown mode field type')
       end select
     
       
       do i=1, this_mode%fields%info%njsp ! loop through the tracer mass mixing ratios contained in the mode
         jsp = this_mode%fields%info%jsp(i)
-        print *,'jsp: ',jsp
+
         ! ----------------------------------
         ! --- calculate vertical flux term due to sedimentation
         ! ----------------------------------
         
-        CALL upwind_vflux_ppm_cfl(p_patch, p_tracer_new(:,:,:,jsp),           & !< in
-          &                       iubc, mflx_contra_vsed, p_dtime,            & !< in
-          &                       lcompute_gt, lcleanup_gt, itype_vlimit,     & !< in
-          &                       p_cellhgt_mc_now, p_rhodz_new, lprint_cfl,  & !< in
-          &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )        !< out
+!        CALL upwind_vflux_ppm_cfl(p_patch, p_tracer_new(:,:,:,jsp),           & !< in
+!          &                       iubc, mflx_contra_vsed, p_dtime,            & !< in
+!          &                       lcompute_gt, lcleanup_gt, itype_vlimit,     & !< in
+!          &                       p_cellhgt_mc_now, p_rhodz_new, lprint_cfl,  & !< in
+!          &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )        !< out
 
         ! ----------------------------------
         ! --- update mixing ratio after sedimentation
@@ -241,10 +240,10 @@ CONTAINS
             ikp1 = jk + 1
             DO jc = i_startidx, i_endidx
 
-              p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp)               &
-                &                          - p_dtime * (  p_upflux_sed(jc,jk,  jb)    &
-                &                                       - p_upflux_sed(jc,ikp1,jb) )  &
-                &                          / p_rhodz_new(jc,jk,jb)
+!              p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp)               &
+!                &                          - p_dtime * (  p_upflux_sed(jc,jk,  jb)    &
+!                &                                       - p_upflux_sed(jc,ikp1,jb) )  &
+!                &                          / p_rhodz_new(jc,jk,jb)
 
             END DO!jc
           END DO !jk

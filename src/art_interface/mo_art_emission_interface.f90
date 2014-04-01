@@ -130,17 +130,17 @@ CONTAINS
           ! Now the according emission routine has to be found
           select case(TRIM(fields%info%name))
             ! drieg: this is not yet nice, but a working state and first approach to new structures
-            case ('mode_seasa')
+            case ('seasa')
               call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('mode_seasb')
+            case ('seasb')
               call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('mode_seasc')
+            case ('seasc')
               call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('mode_dusta')
+            case ('dusta')
               call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('mode_dustb')
+            case ('dustb')
               call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('mode_dustc')
+            case ('dustc')
               call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
             case default
               call finish('mo_art_emission_interface:art_emission_interface', &
