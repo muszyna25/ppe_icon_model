@@ -810,4 +810,4 @@ task :check ,[:p] do |t,args|
   }
 end
 
-# vim:ft=ruby,foldmethod=syntax
+# vim:ft=ruby fdm=syntax
