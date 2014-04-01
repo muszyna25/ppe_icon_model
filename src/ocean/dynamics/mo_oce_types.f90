@@ -217,10 +217,11 @@ MODULE mo_oce_types
     ! dimension: (nproma, n_zlev, alloc_cell_blocks)
       & press_grad(:,:,:)     ,& ! hydrostatic pressure gradient term. Unit [m/s]
     ! dimension: (nproma, n_zlev, nblks_e)
-      & temp_insitu(:,:,:)
+      & temp_insitu(:,:,:)    ,&
+      & cfl_vert(:,:,:), cfl_horz(:,:,:) ! vertical and horizontal cfl values
     
     INTEGER, POINTER :: &
-      & condep(:,:)               ! convection depth index
+      & condep(:,:)     ! convection depth index
     ! (nproma,  alloc_cell_blocks)
     
     TYPE(t_cartesian_coordinates), POINTER :: &

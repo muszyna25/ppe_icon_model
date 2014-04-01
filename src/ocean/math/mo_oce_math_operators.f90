@@ -1063,10 +1063,13 @@ CONTAINS
   END SUBROUTINE calculate_thickness
   !-------------------------------------------------------------------------
 
-  SUBROUTINE check_cfl_horizontal(normal_velocity,inv_dual_edge_length,timestep,edges,threshold)
+  SUBROUTINE check_cfl_horizontal(normal_velocity,inv_dual_edge_length,timestep,edges,threshold, &
+      &                          cfl_diag, stop_on_violation, output)
     REAL(wp),POINTER     :: normal_velocity(:,:,:)
     TYPE(t_subset_range) :: edges
     REAL(wp), INTENT(IN) :: inv_dual_edge_length(:,:), threshold, timestep
+    REAL(wp), POINTER    :: cfl_diag(:,:,:)
+    LOGICAL, INTENT(IN)  :: stop_on_violation, output
     REAL(wp), POINTER    :: cfl(:,:,:)
 
     INTEGER :: je,jk,jb,i_startidx,i_endidx
@@ -1085,16 +1088,22 @@ CONTAINS
         END DO
       END DO
     END DO
+    IF (output) cfl_diag(:,:,:) = cfl(:,:,:)
+
     CALL dbg_print('check horiz. CFL',cfl ,str_module,3,in_subset=edges)
-    CALL check_cfl_threshold(MAXVAL(cfl),threshold,'horz')
+
+    CALL check_cfl_threshold(MAXVAL(cfl),threshold,'horz',stop_on_violation)
 
     DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_horizontal
 
-  SUBROUTINE check_cfl_vertical(vertical_velocity, thicknesses, timestep, cells, threshold)
+  SUBROUTINE check_cfl_vertical(vertical_velocity, thicknesses, timestep, cells, threshold, &
+      &                        cfl_diag, stop_on_violation, output)
     REAL(wp),POINTER     :: vertical_velocity(:,:,:), thicknesses(:,:,:)
     REAL(wp), INTENT(IN) :: timestep, threshold
     TYPE(t_subset_range) :: cells
+    REAL(wp), POINTER    :: cfl_diag(:,:,:)
+    LOGICAL, INTENT(IN)  :: stop_on_violation,output
     REAL(wp), POINTER    :: cfl(:,:,:)
 
     INTEGER  :: jc, jk, jb, i_startidx_c, i_endidx_c
@@ -1112,19 +1121,28 @@ CONTAINS
         END DO
       END DO
     END DO
+
+    IF (output) cfl_diag(:,:,:) = cfl(:,:,:)
+
     CALL dbg_print('check vert.  CFL',cfl ,str_module,3,in_subset=cells)
-    CALL check_cfl_threshold(MAXVAL(cfl),threshold,'vert')
+
+    CALL check_cfl_threshold(MAXVAL(cfl),threshold,'vert',stop_on_violation)
+
     DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_vertical
-  SUBROUTINE check_cfl_threshold(maxcfl,threshold,orientation)
+
+  SUBROUTINE check_cfl_threshold(maxcfl,threshold,orientation, stop_on_violation)
     REAL(wp),INTENT(IN)          :: maxcfl, threshold
     CHARACTER(LEN=4), INTENT(IN) :: orientation
+    LOGICAL, INTENT(IN)          :: stop_on_violation
 
-    IF (threshold < maxcfl) THEN
-      ! location lookup
-      ! location print
-      ! throw error
-      CALL finish('check_cfl','Found violation of CFL ('//TRIM(orientation)//') criterion')
+    IF (stop_on_violation) THEN
+      IF (threshold < maxcfl) THEN
+        ! location lookup
+        ! location print
+        ! throw error
+        CALL finish('check_cfl','Found violation of CFL ('//TRIM(orientation)//') criterion')
+      END IF
     END IF
   END SUBROUTINE check_cfl_threshold
 END MODULE mo_oce_math_operators

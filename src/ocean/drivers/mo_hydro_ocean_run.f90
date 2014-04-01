@@ -47,7 +47,8 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar, cfl_check, cfl_threshold
+    &                                  eos_type, i_sea_ice, l_staggered_timestep, gibraltar, &
+    &                                  cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -421,12 +422,18 @@ CONTAINS
             &                       patch_3d%p_patch_2D(1)%edges%inv_dual_edge_length, &
             &                       dtime, &
             &                       patch_3d%p_patch_2D(1)%edges%ALL, &
-            &                       cfl_threshold)
+            &                       cfl_threshold, &
+            &                       ocean_state(jg)%p_diag%cfl_horz,
+            &                       cdf_stop_on_violation,&
+            &                       cfl_write)
           CALL check_cfl_vertical(ocean_state(jg)%p_diag%w, &
             &                     patch_3d%p_patch_1D(1)%prism_center_dist_c, &
             &                     dtime, &
             &                     patch_3d%p_patch_2D(1)%cells%ALL,&
-            &                     cfl_threshold)
+            &                     cfl_threshold, &
+            &                     ocean_state(jg)%p_diag%cfl_vert,
+            &                     cdf_stop_on_violation,&
+            &                     cfl_write)
         END IF
       
       ENDDO time_loop
