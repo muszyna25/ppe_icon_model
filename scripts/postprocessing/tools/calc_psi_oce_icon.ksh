@@ -26,7 +26,7 @@ set -e
 ### input parameter
 avgfile=${1}             #  file including wet_c and average of u_vint
 resol=${2:-r180x90}      #  default resolution: 2x2 degrees, 180x90 gridpoints
-filestr=${3:-$1}         #  pattern index for filenames
+filestr=${3:-$(basename $1)}         #  pattern index for filenames
 weightfile=${4}          #  optional weights for interpolation
 
 # Default name of input file is avg.$filestr
