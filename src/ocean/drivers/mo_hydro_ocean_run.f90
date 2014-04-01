@@ -423,16 +423,16 @@ CONTAINS
             &                       dtime, &
             &                       patch_3d%p_patch_2D(1)%edges%ALL, &
             &                       cfl_threshold, &
-            &                       ocean_state(jg)%p_diag%cfl_horz,
-            &                       cdf_stop_on_violation,&
+            &                       ocean_state(jg)%p_diag%cfl_horz, &
+            &                       cfl_stop_on_violation,&
             &                       cfl_write)
           CALL check_cfl_vertical(ocean_state(jg)%p_diag%w, &
             &                     patch_3d%p_patch_1D(1)%prism_center_dist_c, &
             &                     dtime, &
             &                     patch_3d%p_patch_2D(1)%cells%ALL,&
             &                     cfl_threshold, &
-            &                     ocean_state(jg)%p_diag%cfl_vert,
-            &                     cdf_stop_on_violation,&
+            &                     ocean_state(jg)%p_diag%cfl_vert, &
+            &                     cfl_stop_on_violation,&
             &                     cfl_write)
         END IF
       

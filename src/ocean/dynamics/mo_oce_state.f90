@@ -729,17 +729,17 @@ CONTAINS
       &         t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     IF (cfl_write) THEN
-    CALL add_var(ocean_default_list, 'cdf_vert', p_os_diag%cfl_vert , &
+    CALL add_var(ocean_default_list, 'cfl_vert', p_os_diag%cfl_vert , &
       &          grid_unstructured_cell, za_depth_below_sea_half,&
       &          t_cf_var('cdf_vert', '', 'vertical cfl relation', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       &          ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
       &          in_group=groups("oce_diag"))
-    CALL add_var(ocean_default_list, 'cdf_horz', p_os_diag%cfl_horz, &
-      &          grid_unstructured_edge, za_surface,&
+    CALL add_var(ocean_default_list, 'cfl_horz', p_os_diag%cfl_horz, &
+      &          grid_unstructured_edge, za_depth_below_sea,&
       &          t_cf_var('cfl_horz', '', 'horizontal cfl relation', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      &          ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+      &          ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"))
     ENDIF
     
     !reconstrcuted velocity in cartesian coordinates

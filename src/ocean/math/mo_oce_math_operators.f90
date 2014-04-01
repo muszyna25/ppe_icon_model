@@ -43,7 +43,7 @@ MODULE mo_oce_math_operators
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish,message
   USE mo_run_config,         ONLY: ltimer, dtime
   USE mo_math_constants
   USE mo_physical_constants
@@ -1065,12 +1065,12 @@ CONTAINS
 
   SUBROUTINE check_cfl_horizontal(normal_velocity,inv_dual_edge_length,timestep,edges,threshold, &
       &                          cfl_diag, stop_on_violation, output)
-    REAL(wp),POINTER     :: normal_velocity(:,:,:)
-    TYPE(t_subset_range) :: edges
-    REAL(wp), INTENT(IN) :: inv_dual_edge_length(:,:), threshold, timestep
-    REAL(wp), POINTER    :: cfl_diag(:,:,:)
-    LOGICAL, INTENT(IN)  :: stop_on_violation, output
-    REAL(wp), POINTER    :: cfl(:,:,:)
+    REAL(wp),POINTER      :: normal_velocity(:,:,:)
+    TYPE(t_subset_range)  :: edges
+    REAL(wp), INTENT(IN)  :: inv_dual_edge_length(:,:), threshold, timestep
+    REAL(wp), POINTER :: cfl_diag(:,:,:)
+    LOGICAL, INTENT(IN)   :: stop_on_violation, output
+    REAL(wp), POINTER     :: cfl(:,:,:)
 
     INTEGER :: je,jk,jb,i_startidx,i_endidx
 
@@ -1079,16 +1079,21 @@ CONTAINS
       &          LBOUND(normal_velocity,3):UBOUND(normal_velocity,3)))
     cfl = 0.0_wp
 
-
     DO jb = edges%start_block, edges%end_block
       CALL get_index_range(edges,jb,i_startidx,i_endidx)
       DO je = i_startidx,i_endidx
-        DO jk = 1, edges%vertical_levels(je,jb)
+        DO jk = 1, n_zlev
           cfl(je,jk,jb) = ABS(dtime*normal_velocity(je,jk,jb)*inv_dual_edge_length(je,jb))
         END DO
       END DO
     END DO
-    IF (output) cfl_diag(:,:,:) = cfl(:,:,:)
+    IF (output) THEN
+      IF (ASSOCIATED(cfl_diag)) THEN
+        cfl_diag(:,:,:) = cfl(:,:,:)
+      ELSE
+        CALL finish('check_cfl_vertical','cfl_diag pointer for output NOT ASSOCIATED')
+      ENDIF
+    ENDIF
 
     CALL dbg_print('check horiz. CFL',cfl ,str_module,3,in_subset=edges)
 
@@ -1122,7 +1127,13 @@ CONTAINS
       END DO
     END DO
 
-    IF (output) cfl_diag(:,:,:) = cfl(:,:,:)
+    IF (output) THEN
+      IF (ASSOCIATED(cfl_diag)) THEN
+        cfl_diag(:,:,:) = cfl(:,:,:)
+      ELSE
+        CALL finish('check_cfl_vertical','cfl_diag pointer for output NOT ASSOCIATED')
+      ENDIF
+    ENDIF
 
     CALL dbg_print('check vert.  CFL',cfl ,str_module,3,in_subset=cells)
 
