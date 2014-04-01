@@ -1087,6 +1087,8 @@ CONTAINS
     END DO
     CALL dbg_print('check horiz. CFL',cfl ,str_module,3,in_subset=edges)
     CALL check_cfl_threshold(MAXVAL(cfl),threshold,'horz')
+
+    DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_horizontal
 
   SUBROUTINE check_cfl_vertical(vertical_velocity, thicknesses, timestep, cells, threshold)
@@ -1112,6 +1114,7 @@ CONTAINS
     END DO
     CALL dbg_print('check vert.  CFL',cfl ,str_module,3,in_subset=cells)
     CALL check_cfl_threshold(MAXVAL(cfl),threshold,'vert')
+    DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_vertical
   SUBROUTINE check_cfl_threshold(maxcfl,threshold,orientation)
     REAL(wp),INTENT(IN)          :: maxcfl, threshold
