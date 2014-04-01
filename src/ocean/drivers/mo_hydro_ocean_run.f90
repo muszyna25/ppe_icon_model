@@ -275,7 +275,7 @@ CONTAINS
           !  CALL set_lateral_boundary_values( patch_3d, ocean_state(jg)%p_prog(nold(1))%vn)
           !  CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(jg), ocean_state(jg)%p_prog(nold(1))%vn)
           
-            CALL calc_scalar_product_veloc_3d( patch_3d,  &
+            CALL calc_scalar_product_veloc_3D( patch_3d,  &
             & ocean_state(jg)%p_prog(nold(1))%vn,         &
             & ocean_state(jg)%p_prog(nold(1))%vn,         &
             & ocean_state(jg)%p_diag,                     &
