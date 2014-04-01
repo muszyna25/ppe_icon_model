@@ -6144,7 +6144,7 @@ CONTAINS
         ! get local PE identification
         CALL MPI_COMM_RANK (p_comm, my_rank, p_error)
         ! do not use the result on all the other ranks:
-        IF (root /= my_rank)  p_sum = -HUGE(p_sum)
+        IF (root /= my_rank)  p_sum = zfield
       ELSE
         CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
           MPI_SUM, p_comm, p_error)
