@@ -134,27 +134,6 @@ REAL               :: wet_c(nlon,nlat)          ! slm
 psi_reg(:,:)    = 0.0
 z_uint_reg(:,:) = 0.0
 
-! test calculation - Pacific; note that first row is at Antarctica
-! latitude  ~  50S = 40 north of SP
-! longitude ~ 270E = 90W
-jy = 1 + 40*nlat/180
-jx = 1 + 270*nlat/360
-
-
-! (1) barotropic system - done in ICON ocean model:
-!     vertical integration of zonal velocity times vertical layer thickness [m/s*m]
-! u_vint(:,:)     = 0.0_wp
-! DO jb = all_cells%start_block, all_cells%end_block
-!   CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-!   DO jk = 1, n_zlev
-!     DO jc = i_startidx, i_endidx
-!       delta_z = v_base%del_zlev_m(jk)
-!       IF (jk == 1) delta_z = v_base%del_zlev_m(jk) + h(jc,jb)
-!       u_vint(jc,jb) = u_vint(jc,jb) - u(jc,jk,jb)*delta_z*v_base%wet_c(jc,jk,jb)
-!     END DO
-!   END DO
-! END DO
-
 ! (2) read barotropic system: after cdo merge above, now read first uint then wet_c
 
   open (11,file="$inpfile.srv", form='unformatted')
@@ -163,7 +142,6 @@ jx = 1 + 270*nlat/360
   read (11) isrvu
   write (*,*) isrvu
   read (11) z_uint_reg(:,:)
-! write(*,*) 'jx=',jx,' jy=',jy,' read uvint=',z_uint_reg(jx,jy)
 
   read (11) isrv
   read (11) wet_c(:,:)
@@ -173,24 +151,15 @@ jx = 1 + 270*nlat/360
 
 
   ! (3) calculate meridional integral on regular grid starting from north pole:
-
   DO jlat = nlat-1, 1, -1
     z_uint_reg(:,jlat) = z_uint_reg(:,jlat) + z_uint_reg(:,jlat+1)
   END DO
-  ! DO jlat = 2, nlat
-  !   z_uint_reg(:,jlat) = z_uint_reg(:,jlat) + z_uint_reg(:,jlat-1)
-  ! END DO
-  write(*,*) 'jx=',jx,' jy=',jy,' int. uvint=',z_uint_reg(jx,jy)
 
   ! (4) calculate stream function: scale with length of meridional resolution:
-
   erad = 6.371229e6                 !  earth's radius [m]
   pi   = 3.141592653
   z_lat_dist = pi/real(nlat)*erad   !  z_lat_dist = dlat* pi*R/180 ; dlat=180/nlat
 
-  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * rho_ref * wet_c(:,1,:) * 1.0e-9 ! e+9 [kg/s]
-  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,1,:) * 1.0e-6           ! e+6 [m3/s]
-  !psi_reg(:,:) = z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
   ! multiply with -1: Gulf/Kuroshio and ACC positive
   psi_reg(:,:) = -z_uint_reg(:,:) * z_lat_dist * wet_c(:,:) * 1.0e-6
 
