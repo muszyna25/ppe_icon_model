@@ -61,18 +61,17 @@ MODULE mo_interface_icoham_echam
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   
   USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_radiation_config,  ONLY: ighg, izenith, irad_o3, irad_aero, isolrad, &
-                                  tsi, tsi_radt, ssi_radt
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
+  USE mo_icoham_sfc_indices,ONLY: iwtr, iice
+
+  USE mo_echam_phy_bcs,     ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main,    ONLY: echam_phy_main
   USE mo_sync,              ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
-  USE mo_timer,             ONLY: timer_start, timer_stop, timers_level,  &
-    & timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
-    & timer_echam_sync_temp , timer_echam_sync_tracers
-  USE mo_time_interpolation,ONLY: time_weights_limm
-  USE mo_time_interpolation_weights, ONLY: wi_limm, wi_limm_radt      
+  USE mo_timer,             ONLY: timer_start, timer_stop, timers_level,                         &
+    &                             timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
+    &                             timer_echam_sync_temp , timer_echam_sync_tracers
   USE mo_coupling_config,    ONLY: is_coupled_run
 #ifdef YAC_coupling
   USE finterface_description ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
@@ -81,14 +80,6 @@ MODULE mo_interface_icoham_echam
   USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
 #endif
-  USE mo_icoham_sfc_indices, ONLY: iwtr, iice
-  USE mo_o3,                 ONLY: read_amip_o3
-  USE mo_aero_kinne,         ONLY: read_aero_kinne
-  USE mo_aero_stenchikov,    ONLY: read_aero_stenchikov
-  USE mo_amip_bc,            ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation, &
-    &                              get_current_amip_bc_year
-  USE mo_greenhouse_gases,   ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
-  USE mo_solar_irradiance,     ONLY: read_ssi_bc, ssi_time_interpolation
 
   IMPLICIT NONE
   PRIVATE
@@ -136,8 +127,6 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
     TYPE(t_int_state),TARGET,INTENT(IN)  :: p_int_state
 
-    TYPE(t_datetime)                     :: datetime_radtran
-
     TYPE(t_hydro_atm_prog),INTENT(INOUT) :: dyn_prog_old
     TYPE(t_hydro_atm_diag),INTENT(IN)    :: dyn_diag_old
     TYPE(t_hydro_atm_prog),INTENT(IN)    :: dyn_prog_new
@@ -146,9 +135,7 @@ CONTAINS
 
     ! Local variables
 
-    LOGICAL  :: l1st_phy_call = .TRUE.
     LOGICAL  :: any_uv_tend, ltrig_rad
-    REAL(wp) :: dsec
     REAL(wp) :: ztime_radtran  !< time instance (in radian) at which radiative transfer is computed
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
@@ -237,8 +224,6 @@ CONTAINS
     !---------------------------------
     ! Additional diagnostic variables
 
-!     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!     nblks = p_patch%nblks_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -287,92 +272,13 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Prepare some global parameters or parameter arrays
     !-------------------------------------------------------------------------
-    ! Check whether it is time to do radiative transfer calculation;
-    ! Set the time instance at which radiative transfer and radiative
-    ! heating will be computed. The current implementation can not handle
-    ! seasonal cycle!
-
-    IF (phy_config%lrad) THEN
-
-      ! different to echam the time for which the radiation has to be calculated has
-      ! not to be adjusted by pdtime because the middle of the time interval is hit
-      ! perfectly. Only the first one is slightly of centered! Do not correct.
-
-      datetime_radtran = datetime                ! copy current date and time
-      dsec = 0.5_wp*phy_config%dt_rad            ! [s] time increment for zenith angle computation
-      CALL add_time(dsec,0,0,0,datetime_radtran) ! add time increment to get date and
-      !                                          ! time information for the zenith angle comp.
-
-      ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
-                    ( MOD(NINT(datetime%daysec),NINT(phy_config%dt_rad)) == 0 )
-      ! IF (ltrig_rad) THEN
-      !   CALL message('mo_interface_icoham_echam:echam_phy_main','Radiative transfer called at:')
-      !   CALL print_datetime(datetime)
-      !   CALL message('mo_interface_icoham_echam:echam_phy_main','Radiative transfer computed for:')
-      !   CALL print_datetime(datetime_radtran)
-      ! END IF
-
-      l1st_phy_call = .FALSE.
-
-      ztime_radtran = 2._wp*pi * datetime_radtran%daytim
-
-      !TODO: Luis Kornblueh
-      ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
-      IF (ltrig_rad .AND. (ighg > 0)) THEN
-        CALL ghg_time_interpolation(datetime_radtran)
-      END IF
-
-    ELSE
-      ltrig_rad = .FALSE.
-      ztime_radtran = 0._wp
-    END IF
-
-    ! Read and interpolate SST for AMIP simulations; solar irradiation, prescribed ozone, and
-    ! aerosol concentrations.
-    !LK:
-    !TODO: pass timestep as argument
-    !COMMENT: lsmask == slm and is not slf!
-    IF (phy_config%lamip) THEN
-      IF (datetime%year /= get_current_amip_bc_year()) THEN
-        CALL read_amip_bc(datetime%year, p_patch)
-      END IF
-      CALL amip_time_weights(datetime)
-      CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
-!           &                       prm_field(jg)%tsfc_tile(:,:,:), &
-           &                       prm_field(jg)%tsurfw(:,:), &
-           &                       prm_field(jg)%siced(:,:), &
-           &                       prm_field(jg)%lsmask(:,:))
-      prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
-! The ice model should be able to handle different thickness classes, but for AMIP we only use one
-      prm_field(jg)%conc(:,1,:) = prm_field(jg)%seaice(:,:)
-      prm_field(jg)%hi(:,1,:)   = prm_field(jg)%siced(:,:)
-    END IF
-! Calculate interpolation weights for linear interpolation
-! of monthly means onto the actual integration time step
-    CALL time_weights_limm(datetime, wi_limm)
-    IF (ltrig_rad) THEN
-! Calculate interpolation weights for linear interpolation
-! of monthly means onto the radiation time steps
-      CALL time_weights_limm(datetime_radtran,wi_limm_radt)   
-    END IF
-    IF (isolrad==1) THEN
-      CALL read_ssi_bc(datetime%year,.FALSE.)
-      CALL ssi_time_interpolation(wi_limm,.FALSE.,tsi)
-      IF (ltrig_rad) THEN
-         CALL read_ssi_bc(datetime_radtran%year,.TRUE.)
-         CALL ssi_time_interpolation(wi_limm_radt,.TRUE.,tsi_radt,ssi_radt)
-      END IF
-    END IF !isolrad
-    IF (ltrig_rad .AND. irad_o3 == io3_amip) THEN
-      CALL read_amip_o3(datetime%year, p_patch)
-    END IF
-    IF (ltrig_rad .AND. irad_aero == 13) THEN
-      CALL read_aero_kinne(datetime%year, p_patch)
-    END IF
-    IF (ltrig_rad .AND. irad_aero == 15) THEN
-      CALL read_aero_kinne(datetime%year, p_patch)
-      CALL read_aero_stenchikov(datetime%year, p_patch)
-    END IF
+    !
+    CALL echam_phy_bcs_global( datetime     ,&! in
+      &                        jg           ,&! in
+      &                        p_patch      ,&! in
+      &                        pdtime       ,&! in
+      &                        ltrig_rad    ,&! out
+      &                        ztime_radtran) ! out
 
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
 !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
@@ -381,31 +287,32 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! For each block, call "echam_phy_main" to compute various parameterised processes
     !-------------------------------------------------------------------------
-!     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!     nblks = p_patch%nblks_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk,i_endblk
 
       CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-      ! Prepare some block (slice) specific parameters
-
-      ! CALL xyz(...)
-
-      ! Call parameterisations.
       ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
       ! buffers prm_field and prm_tend. In addition it can also directly access
       ! the grid/patch information on which the computations are performed.
       ! Thus the argument list contains only
-      ! - the domain index jg;
-      ! - the block index jb, and the corresponding staring and ending column
-      !   indices jcs and jce;
-      ! - a few other (global) constants (nproma, pdtime, psteplen, etc).
+      ! - jg: the grid index in the grid hierarchy
+      ! - jb: the row index in the block
+      ! - jcs and jce: start and end indices of columns in a row
+      ! - nproma: the block length
+      ! - a few other globally valid arguments
 
-      CALL echam_phy_main( jg,jb,jcs,jce,nproma,     &
-        &                  datetime,pdtime,psteplen, &
-        &                  ltrig_rad,ztime_radtran )
+      CALL echam_phy_main( jg           ,&! in
+        &                  jb           ,&! in
+        &                  jcs          ,&! in
+        &                  jce          ,&! in
+        &                  nproma       ,&! in
+        &                  datetime     ,&! in
+        &                  pdtime       ,&! in
+        &                  psteplen     ,&! in
+        &                  ltrig_rad    ,&! in
+        &                  ztime_radtran) ! in
 
     END DO
 !$OMP END DO NOWAIT
