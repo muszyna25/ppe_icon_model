@@ -1634,7 +1634,9 @@ CONTAINS
     ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature, form new ice
     WHERE ( sst < Tfw(:,:) .AND. v_base%lsm_c(:,1,:) <= sea_boundary )
       ! New ice forming over open water due to super cooling
-      ice%newice(:,:) = ( Tfw(:,:) - sst(:,:) )*ice%zUnderIce(:,:)*clw*rho_ref/( alf*rhoi )
+      ! Fixed 2. April - newice is now the volume of ice formed over open water
+      ice%newice(:,:) = (1._wp-ice%concSum(:,:))*( Tfw(:,:) - sst(:,:) )*       &
+          &                                             ice%zUnderIce(:,:)*clw*rho_ref/( alf*rhoi )
       ! Flux required to cool the ocean to the freezing point
       heatOceW(:,:)   = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) )     &
         &     *ice%zUnderIce(:,:)*(1.0_wp-ice%concSum(:,:))*clw*rho_ref/dtime
@@ -1767,8 +1769,9 @@ CONTAINS
       ! Hibler's way to change the concentration 
       !  - the formulation here uses the default values of leadclose parameters 2 and 3 in MPIOM:
       !    1 and 0 respectively
-      ice%conc (:,1,:) = min( 1._wp,    &
-        &               ice%conc(:,1,:) + ice%newice(:,:)*( 1._wp-ice%conc(:,1,:) )/hnull )
+      ! Fixed 2. April - we don't need to multiply with 1-A here, like Hibler does, because it's
+      ! already included in newice (we use volume, but Hibler growth rate)
+      ice%conc (:,1,:) = min( 1._wp, ice%conc(:,1,:) + ice%newice(:,:)/hnull )
 
       ! New ice and snow thickness
       ice%hi   (:,1,:) = ice%vol (:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
