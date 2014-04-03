@@ -41,42 +41,43 @@
 
 MODULE mo_interface_icoham_echam
 
-  USE mo_kind                ,ONLY: wp
-  USE mo_exception           ,ONLY: finish !, message
-  USE mo_impl_constants      ,ONLY: min_rlcell_int
-  USE mo_impl_constants_grf  ,ONLY: grf_bdywidth_e, grf_bdywidth_c
+  USE mo_kind                  ,ONLY: wp
+  USE mo_exception             ,ONLY: finish !, message
+  USE mo_impl_constants        ,ONLY: min_rlcell_int
+  USE mo_impl_constants_grf    ,ONLY: grf_bdywidth_e, grf_bdywidth_c
 
-  USE mo_datetime            ,ONLY: t_datetime
-  USE mo_model_domain        ,ONLY: t_patch
-  USE mo_loopindices         ,ONLY: get_indices_c, get_indices_e
-  USE mo_intp_data_strc      ,ONLY: t_int_state
-  USE mo_intp_rbf            ,ONLY: rbf_vec_interpol_cell
-  USE mo_sync                ,ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
+  USE mo_datetime              ,ONLY: t_datetime
+  USE mo_model_domain          ,ONLY: t_patch
+  USE mo_loopindices           ,ONLY: get_indices_c, get_indices_e
+  USE mo_intp_data_strc        ,ONLY: t_int_state
+  USE mo_intp_rbf              ,ONLY: rbf_vec_interpol_cell
+  USE mo_sync                  ,ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
 
-  USE mo_timer               ,ONLY: timer_start    , timer_stop   , &
-    &                               timer_dyn2phy  , timer_phy2dyn, &
-    &                               timer_echam_phy, timer_coupling
+  USE mo_timer                 ,ONLY: timer_start, timer_stop,        &
+    &                                 timer_dyn2phy, timer_phy2dyn,   &
+    &                                 timer_echam_phy, timer_coupling
 
-  USE mo_parallel_config     ,ONLY: nproma, p_test_run
-  USE mo_run_config          ,ONLY: nlev, ltimer, ntracer
-  USE mo_echam_phy_config    ,ONLY: phy_config => echam_phy_config
-  USE mo_coupling_config     ,ONLY: is_coupled_run
+  USE mo_parallel_config       ,ONLY: nproma, p_test_run
+  USE mo_run_config            ,ONLY: nlev, ltimer, ntracer
+  USE mo_echam_phy_config      ,ONLY: echam_phy_config
+  USE mo_coupling_config       ,ONLY: is_coupled_run
 
-  USE mo_icoham_dyn_types    ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_echam_phy_memory    ,ONLY: prm_field, prm_tend
+  USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
+  USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
 
-  USE mo_eta_coord_diag      ,ONLY: half_level_pressure, full_level_pressure
-  USE mo_icoham_sfc_indices  ,ONLY: iwtr, iice
+  USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
+  USE mo_icoham_sfc_indices    ,ONLY: iwtr, iice
 
-  USE mo_echam_phy_bcs       ,ONLY: echam_phy_bcs_global
-  USE mo_echam_phy_main      ,ONLY: echam_phy_main
+  USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
+  USE mo_echam_phy_main        ,ONLY: echam_phy_main
+  USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
 
 #ifdef YAC_coupling
-  USE finterface_description ,ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+  USE finterface_description   ,ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
 #else
-  USE mo_icon_cpl_exchg      ,ONLY: ICON_cpl_put, ICON_cpl_get
-  USE mo_icon_cpl_def_field  ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-  USE mo_icon_cpl_restart    ,ONLY: icon_cpl_write_restart
+  USE mo_icon_cpl_exchg        ,ONLY: ICON_cpl_put, ICON_cpl_get
+  USE mo_icon_cpl_def_field    ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_restart      ,ONLY: icon_cpl_write_restart
 #endif
 
   IMPLICIT NONE
@@ -117,7 +118,7 @@ CONTAINS
     &                                dyn_tend             ) ! inout
 
     ! Arguments
- 
+
     TYPE(t_datetime),      INTENT(IN)    :: datetime
     REAL(wp),              INTENT(IN)    :: pdtime        !< time step
     REAL(wp),              INTENT(IN)    :: psteplen      !< 2*time step in case of leapfrog
@@ -140,45 +141,25 @@ CONTAINS
 
     INTEGER :: jb,jbs   !< block index and its staring value
     INTEGER :: jcs,jce  !< start/end column index within each block
-!     INTEGER :: nblks    !< number of blocks for which parameterisations are computed
     INTEGER :: jc, jk   !< column index, vertical level index
     INTEGER :: jcn,jbn  !< column and block indices of a neighbour cell
 
-    LOGICAL               :: write_coupler_restart
-    INTEGER               :: nbr_fields
-    INTEGER               :: nbr_hor_points ! = inner and halo points
-    INTEGER               :: nbr_points     ! = nproma * nblks
-    INTEGER               :: field_shape(3)
-    INTEGER, ALLOCATABLE  :: field_id(:)
-    REAL(wp), ALLOCATABLE :: buffer(:,:)
-
-    INTEGER               :: info, ierror !< return values form cpl_put/get calls
-
-    !--------------
-    INTEGER:: i_nchdom       !< number of child patches
+    INTEGER:: i_nchdom  !< number of child patches
     INTEGER:: rl_start, rl_end, i_startblk, i_endblk
-    !--------------
+
     INTEGER:: return_status
     CHARACTER(*), PARAMETER :: method_name = "interface_icoham_echam"
-
-!++jsr
-!temporary local variables
-!    INTEGER:: inm1, inm2
-!    REAL(wp):: wgt1, wgt2
-!--jsr
 
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
     ! Inquire current grid level and the total number of grid cells
-    i_nchdom  = MAX(1,p_patch%n_childdom)
+    i_nchdom = MAX(1,p_patch%n_childdom)
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-    
-!     nblks = p_patch%nblks_c
 
     !-------------------------------------------------------------------------
     ! Dynamics to physics: remap dynamics variables to physics grid
@@ -229,10 +210,10 @@ CONTAINS
       ! Pressure at time step "new" (i.e., n+1)
 
       CALL half_level_pressure( dyn_prog_new%pres_sfc(:,jb),     nproma, jce, &! in
-                              & prm_field(jg)%presi_new(:,:,jb)               )! out
+        &                       prm_field(jg)%presi_new(:,:,jb)               )! out
 
       CALL full_level_pressure( prm_field(jg)%presi_new(:,:,jb), nproma, jce, &! in
-                              & prm_field(jg)%presm_new(:,:,jb)               )! out
+        &                       prm_field(jg)%presm_new(:,:,jb)               )! out
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -277,9 +258,9 @@ CONTAINS
       &                        ltrig_rad    ,&! out
       &                        ztime_radtran) ! out
 
-!    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
-!    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
-!    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
+    !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
+    !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
+    !    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
 
     !-------------------------------------------------------------------------
     ! For each block, call "echam_phy_main" to compute various parameterised processes
@@ -315,10 +296,8 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-!    WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MAXVAL( prm_field(jg)% swflxsfc_avg(:,:))
-!    WRITE(0,*)' nach PYHSC rad fluxes lw sfc', MINVAL( prm_field(jg)% lwflxsfc_avg(:,:))
-
+    !    WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MAXVAL( prm_field(jg)% swflxsfc_avg(:,:))
+    !    WRITE(0,*)' nach PYHSC rad fluxes lw sfc', MINVAL( prm_field(jg)% lwflxsfc_avg(:,:))
 
     IF (ltimer)  THEN
       CALL timer_stop (timer_echam_phy)
@@ -352,213 +331,13 @@ CONTAINS
     ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
     ! 
     IF ( is_coupled_run() ) THEN
-       IF (ltimer) CALL timer_start(timer_coupling)
-    
-       nbr_hor_points = p_patch%n_patch_cells
-       nbr_points     = nproma * p_patch%nblks_c
-       
-       ALLOCATE(buffer(nproma*p_patch%nblks_c,5))
-       buffer(:,:) = 0.0_wp
+      IF (ltimer) CALL timer_start(timer_coupling)
 
-       !
-       !  see drivers/mo_atmo_model.f90:
-       !
-       !   field_id(1) represents "TAUX"   wind stress component
-       !   field_id(2) represents "TAUY"   wind stress component
-       !   field_id(3) represents "SFWFLX" surface fresh water flux
-       !   field_id(4) represents "SFTEMP" surface temperature
-       !   field_id(5) represents "THFLX"  total heat flux
-       !   field_id(6) represents "ICEATM" ice temperatures and melt potential
-       !
-       !   field_id(7) represents "SST"    sea surface temperature
-       !   field_id(9) represents "OCEANU" u component of ocean surface current
-       !   field_id(9) represents "OCEANV" v component of ocean surface current
-       !   field_id(10)represents "ICEOCE" ice thickness, concentration and temperatures
-       !
-       !
-#ifdef YAC_Coupling
-       CALL yac_fget_nbr_fields ( nbr_fields )
-       ALLOCATE(field_id(nbr_fields))
-       CALL yac_fget_field_ids ( nbr_fields, field_id )
-#else
-       CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-       ALLOCATE(field_id(nbr_fields))
-       CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-#endif
-       !
-       !
-       field_shape(1) = 1
-       field_shape(2) = nbr_hor_points
-       field_shape(3) = 1
+      CALL interface_echam_ocean( jg, p_patch )
 
-       !
-       ! Send fields away
-       ! ----------------
-       !
-       write_coupler_restart = .FALSE.
-       !
-       ! TAUX
-       !
-       buffer(:,:) = 0.0_wp
-       buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       buffer(:,2) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iice), (/ nbr_points /) )
-
-#ifdef YAC_coupling
-       CALL yac_fput ( field_id(1), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-       field_shape(3) = 2
-       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-       IF ( info == 2 ) write_coupler_restart = .TRUE.
-       !
-       ! TAUY
-       !
-       buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       buffer(:,2) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iice), (/ nbr_points /) )
-#ifdef YAC_coupling
-       CALL yac_fput ( field_id(2), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
-#endif
-       IF ( info == 2 ) write_coupler_restart = .TRUE.
-       !
-       ! SFWFLX Note: the evap_tile should be properly updated and added
-       !
-!       write(0,*)  prm_field(jg)%rsfl(:,:)
-!       write(0,*)  prm_field(jg)%rsfc(:,:)
-!       write(0,*)  prm_field(jg)%ssfl(:,:)
-!       write(0,*)  prm_field(jg)%ssfc(:,:)
-!       write(0,*)  prm_field(jg)%evap_tile(:,:,iwtr)
-
-        buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
-             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) ! total rain
-        buffer(:,2) = RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
-             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) ) ! total snow
-        buffer(:,3) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
- 
-#ifdef YAC_coupling
-       CALL yac_fput ( field_id(3), nbr_hor_points, 3, 1, 1, buffer, ierror )
-#else
-       field_shape(3) = 3
-       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:3), info, ierror )
-#endif
-       IF ( info == 2 ) write_coupler_restart = .TRUE.
-       !
-       ! SFTEMP
-       !
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
-#ifdef YAC_coupling
-       CALL yac_fput ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, ierror )
-#else
-       field_shape(3) = 1
-       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-       IF ( info == 2 ) write_coupler_restart = .TRUE.
-       !
-       ! THFLX, total heat flux
-       !
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net shortwave flux for ocean
-       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc_tile(:,:,iwtr), (/ nbr_points /) ) !net longwave flux
-       buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr),    (/ nbr_points /) ) !sensible heat flux
-       buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr),    (/ nbr_points /) ) !latent heat flux for ocean
-#ifdef YAC_coupling
-       CALL yac_fput ( field_id(5), nbr_hor_points, 4, 1, 1, buffer, ierror )
-#else
-       field_shape(3) = 4
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
-#endif
-       !
-       ! ICEATM, Ice state determined by atmosphere
-       !
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%Qtop(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - top
-       buffer(:,2) =  RESHAPE ( prm_field(jg)%Qbot(:,1,:), (/ nbr_points /) ) !Melt-potential for ice - bottom
-       buffer(:,3) =  RESHAPE ( prm_field(jg)%T1  (:,1,:), (/ nbr_points /) ) !Temperature of upper ice layer
-       buffer(:,4) =  RESHAPE ( prm_field(jg)%T2  (:,1,:), (/ nbr_points /) ) !Temperature of lower ice layer
-#ifdef YAC_coupling
-       CALL yac_fput ( field_id(6), nbr_hor_points, 4, 1, 1, buffer, ierror )
-#else
-       field_shape(3) = 4
-       CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
-#endif
-       IF ( info == 2 ) write_coupler_restart = .TRUE.
-#ifdef YAC_coupling
-  TODO
-#else
-       IF ( write_coupler_restart ) CALL icon_cpl_write_restart ( 6, field_id(1:6), ierror )
-#endif
-       !
-       ! Receive fields, only assign values if something was received ( info > 0 )
-       ! -------------------------------------------------------------------------
-       !
-       ! SST
-       !
-#ifdef YAC_coupling
-       CALL yac_fget ( field_id(7), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-       field_shape(3) = 1
-       CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-       IF ( info > 0 ) THEN
-         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-         prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
-       END IF
-       !
-       ! OCEANU
-       !
-#ifdef YAC_coupling
-       CALL yac_fget ( field_id(8), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-       CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-       IF ( info > 0 ) THEN
-         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-         prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma,  p_patch%nblks_c /) )
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocu(:,:))
-       END IF
-       !
-       ! OCEANV
-       !
-#ifdef YAC_coupling
-       CALL yac_fget ( field_id(9), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
-#else
-       CALL ICON_cpl_get ( field_id(9), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
-#endif
-       IF ( info > 0 ) THEN
-         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-         prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
-       END IF
-       !
-       ! ICEOCE
-       !
-#ifdef YAC_coupling
-       CALL yac_fget ( field_id(7), nbr_hor_points, 4, 1, 1, buffer, info, ierror )
-#else
-       field_shape(3) = 5
-       CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
-#endif
-       IF ( info > 0 ) THEN
-         buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
-         prm_field(jg)%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, p_patch%nblks_c /) )
-         prm_field(jg)%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, p_patch%nblks_c /) )
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hs  (:,1,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%seaice(:,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
-         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
-         prm_field(jg)%seaice(:,:) = prm_field(jg)%conc(:,1,:)
-       END IF
-
-       DEALLOCATE(buffer)
-       DEALLOCATE(field_id)
-       IF (ltimer) CALL timer_stop(timer_coupling)
-
+      IF (ltimer) CALL timer_stop(timer_coupling)
     END IF
-    
+
     !-------------------------------------------------------------------------
     ! Physics to dynamics: remap tendencies to the dynamics grid
     !-------------------------------------------------------------------------
@@ -580,22 +359,24 @@ CONTAINS
 
     CALL sync_patch_array( SYNC_C, p_patch, dyn_tend%temp )
     CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer)
-         
-    any_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
-                 & phy_config%lgw_hines .OR.phy_config%lssodrag
+
+    any_uv_tend = echam_phy_config%lconv     .OR. &
+      &           echam_phy_config%lvdiff    .OR. &
+      &           echam_phy_config%lgw_hines .OR. &
+      &           echam_phy_config%lssodrag
 
     IF (any_uv_tend) THEN
 
-       ALLOCATE(zdudt(nproma,nlev,p_patch%nblks_c), &
-         &      zdvdt(nproma,nlev,p_patch%nblks_c), &
-         &      stat=return_status)
-       IF (return_status > 0) THEN
-         CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
-       END IF
-       IF (p_test_run) THEN
-         zdudt(:,:,:) = 0.0_wp
-         zdvdt(:,:,:) = 0.0_wp
-       END IF
+      ALLOCATE(zdudt(nproma,nlev,p_patch%nblks_c), &
+        &      zdvdt(nproma,nlev,p_patch%nblks_c), &
+        &      stat=return_status)
+      IF (return_status > 0) THEN
+        CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
+      END IF
+      IF (p_test_run) THEN
+        zdudt(:,:,:) = 0.0_wp
+        zdvdt(:,:,:) = 0.0_wp
+      END IF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -610,29 +391,28 @@ CONTAINS
       ! Now derive the physics-induced normal wind tendency, and add it to the
       ! total tendency.
       CALL sync_patch_array_mult(SYNC_C, p_patch, 2, zdudt, zdvdt)
-      
+
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,p_patch%nblks_e
-        CALL get_indices_e( p_patch, jb,jbs,p_patch%nblks_e, &
-          & jcs,jce, grf_bdywidth_e+1)
+        CALL get_indices_e(p_patch, jb,jbs,p_patch%nblks_e, jcs,jce, grf_bdywidth_e+1)
         DO jk = 1,nlev
           DO jc = jcs,jce
 
             jcn  =   p_patch%edges%cell_idx(jc,jb,1)
             jbn  =   p_patch%edges%cell_blk(jc,jb,1)
             zvn1 =   zdudt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,1)%v1 &
-                 & + zdvdt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,1)%v2
+              &    + zdvdt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,1)%v2
 
             jcn  =   p_patch%edges%cell_idx(jc,jb,2)
             jbn  =   p_patch%edges%cell_blk(jc,jb,2)
             zvn2 =   zdudt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,2)%v1 &
-                 & + zdvdt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,2)%v2
+              &    + zdvdt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,2)%v2
 
             dyn_tend%vn(jc,jk,jb) =   dyn_tend%vn(jc,jk,jb)             &
-                                  & + p_int_state%c_lin_e(jc,1,jb)*zvn1 &
-                                  & + p_int_state%c_lin_e(jc,2,jb)*zvn2
+              &                     + p_int_state%c_lin_e(jc,1,jb)*zvn1 &
+              &                     + p_int_state%c_lin_e(jc,2,jb)*zvn2
           END DO ! jc
         END DO ! jk
       END DO ! jb
@@ -640,12 +420,12 @@ CONTAINS
 !$OMP END PARALLEL
 
       DEALLOCATE(zdudt, zdvdt)
- 
-  END IF !any_uv_tend
 
-  IF (ltimer) CALL timer_stop(timer_phy2dyn)
+    END IF !any_uv_tend
 
-  !--------------------------
+    IF (ltimer) CALL timer_stop(timer_phy2dyn)
+
+    !--------------------------
   END SUBROUTINE interface_icoham_echam
 
 END MODULE mo_interface_icoham_echam
