@@ -117,7 +117,7 @@ CONTAINS
 
     ! LOCAL VARIABLES
     REAL(wp) :: temp_v(nproma,p_patch%nlev) ! virtual temperature
-    REAL(wp), DIMENSION(nproma) :: z_fac1, z_fac2, z_fac3, za, zb, zc  
+    REAL(wp), DIMENSION(nproma) :: z_fac1, z_fac2, z_fac3, za, zb, zc
 
     INTEGER :: jb, jk, jc
     INTEGER :: nlen, nlev
@@ -306,7 +306,7 @@ CONTAINS
         nlen = p_patch%npromz_c
       ENDIF
 
-      DO jk = 1, nlev      
+      DO jk = 1, nlev
         DO jc = 1, nlen
           exner(jc,jk,jb)   = (pres(jc,jk,jb)/p0ref)**(rd/cpd)
           theta_v(jc,jk,jb) = temp_v(jc,jk,jb)/exner(jc,jk,jb)
@@ -323,7 +323,7 @@ CONTAINS
   !-------------
   !>
   !! SUBROUTINE convert_omega2w
-  !! Converts the hydrostatic vertical velocity (omega, Pa/s) 
+  !! Converts the hydrostatic vertical velocity (omega, Pa/s)
   !! into physical vertical velocity (m/s)
   !! Note: this routine has to be called on the input grid,
   !! where omega, pressure and temperature are not vertically staggered
@@ -367,7 +367,7 @@ CONTAINS
         nlen = npromz
       ENDIF
 
-      DO jk = 1, nlev      
+      DO jk = 1, nlev
         DO jc = 1, nlen
           w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
         ENDDO
@@ -990,7 +990,7 @@ CONTAINS
     REAL(wp),  INTENT(IN) :: topo    (nproma,nblks), &
                              topo_smt(nproma,nblks)
 
- 
+
     ! Output fields: 3D coordinate fields at interface and main levels
     REAL(wp),  INTENT(OUT) :: z3d_i(nproma,nlev+1,nblks)
 
@@ -1104,9 +1104,9 @@ CONTAINS
   !!
   !! Compute weights for incremental analysis update.
   !! 2 weights are provided:
-  !! - iau_wgt_dyn can be used for all fields that need to be updated 
+  !! - iau_wgt_dyn can be used for all fields that need to be updated
   !!   every (fast) dynamics time step
-  !! - iau_wgt_adv can be used for all fields that need to be updated 
+  !! - iau_wgt_adv can be used for all fields that need to be updated
   !!   every (slow) advection time step.
   !!
   !! @par Revision History
@@ -1116,16 +1116,16 @@ CONTAINS
 
     TYPE(t_datetime), INTENT(IN)  :: datetime
 
-    REAL(wp)        , INTENT(IN)  :: sim_time          !< Simulation time since model 
+    REAL(wp)        , INTENT(IN)  :: sim_time          !< Simulation time since model
                                                        !< start
-    REAL(wp)        , INTENT(IN)  :: dt                !< time step          
+    REAL(wp)        , INTENT(IN)  :: dt                !< time step
     LOGICAL         , INTENT(IN)  :: lreset_wgt_adv    !< If true, reset the accumulated weight for the advective time step
 
     ! local variables
     REAL(wp)  :: time_iau_elapsed                      !< elapsed time since IAU start [s]
     REAL(wp)  :: fct_eval                              !< result of top-hat or sin2 function
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_init_utils:compute_iau_wgt'
     !-------------------------------------------------------------------------
 
@@ -1134,7 +1134,7 @@ CONTAINS
 
     ! compute elapsed time (in s) since IAU start
     !
-    ! trivial so far, however will be changed to mtime when the functionality of 
+    ! trivial so far, however will be changed to mtime when the functionality of
     ! computing the timedelta between two dates becomes available.
     time_iau_elapsed = sim_time
 
@@ -1147,10 +1147,14 @@ CONTAINS
           fct_eval = iau_top_hat(dt_iau,time_iau_elapsed)
 
         CASE(2)  ! sin2 function
-          fct_eval = iau_sin2(dt_iau,time_iau_elapsed)
+          fct_eval = iau_sin2   (dt_iau,time_iau_elapsed)
+
+        CASE(3)  ! sin function
+          fct_eval = iau_sin    (dt_iau,time_iau_elapsed)
 
         CASE default
-          CALL finish(TRIM(routine),'Invalid IAU weighting function. Must be 1 or 2.')
+          CALL finish(routine,&
+                      'Invalid IAU weighting function. Must be 1, 2 or 3.')
       END SELECT
 
       ! compute weights by multiplying with the time step
@@ -1173,7 +1177,7 @@ CONTAINS
   !! Evaluates top-hat function at a particular point in time
   !!
   !! Evaluates top-hat function at a particular point in time
-  !! Top-hat function is non-zero for 0<=t<=dt and is normalized such that 
+  !! Top-hat function is non-zero for 0<=t<=dt and is normalized such that
   !! \int_{t=0}^{t=dt} f(t)\,dt=1
   !!
   !! @par Revision History
@@ -1200,7 +1204,7 @@ CONTAINS
   !! Evaluates SIN2 function at a particular point in time
   !!
   !! Evaluates SIN2 function at a particular point in time
-  !! SIN2 function is non-zero for 0<=t<=dt and is normalized such that 
+  !! SIN2 function is non-zero for 0<=t<=dt and is normalized such that
   !! \int_{t=0}^{t=dt} f(t)\,dt=1
   !!
   !! @par Revision History
@@ -1222,11 +1226,37 @@ CONTAINS
 
   END FUNCTION iau_sin2
 
+  !>
+  !! Evaluates SIN function at a particular point in time
+  !!
+  !! Evaluates SIN function at a particular point in time
+  !! SIN function is non-zero for 0<=t<=dt and is normalized such that
+  !! \int_{t=0}^{t=dt} f(t)\,dt=1
+  !!
+  !! @par Revision History
+  !! Initial revision by Harald Anlauf, DWD (2014-04-03)
+  !!
+  FUNCTION iau_sin (dt, cur_time)  RESULT (fct_eval)
+
+    REAL(wp), INTENT(IN) :: dt                 ! time interval [s]
+    REAL(wp), INTENT(in) :: cur_time           ! current time  [s]
+
+    REAL(wp) :: fct_eval
+    !-------------------------------------------------------------------------
+
+    IF (cur_time <= dt) THEN
+      fct_eval = ((PI/2._wp)/dt) * SIN(PI*cur_time/dt)
+    ELSE
+      fct_eval = 0._wp
+    ENDIF
+
+  END FUNCTION iau_sin
+
   !----------------------------------------------------------------------------
-  ! Notes: 
+  ! Notes:
   ! - i refers to the interface between layes and m to the mid of a layer
   ! - two sets are available: for cell centres and vertices.
-  ! - what to do on edge points? 
+  ! - what to do on edge points?
   ! - need to be able two write/read grib and netcdf
 
 !!$  SUBROUTINE write_vert_coord (nlev,                                 &
