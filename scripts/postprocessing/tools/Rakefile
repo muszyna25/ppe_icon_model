@@ -43,6 +43,8 @@ BOX_GRID              = ENV['HOME']+'/data/icon/AquaBox/AtlanticAquaBox_0079km.n
 NOCOORDS_DATA_GRID    = BOX_GRID
 AQUABOX_SYM           = ENV['HOME']+'/data/icon/AquaBox/sym_t_mean_20y.nc'
 AQUABOX_ASYM          = ENV['HOME']+'/data/icon/AquaBox/asym_t_mean_20y.nc'
+GLOBAL_4CALC_PSI      = ENV['HOME']+'/data/icon/avg.r11009.b4.2.2321.10ym.nc'
+AQUABOX_4CALC_PSI     = ENV['HOME']+'/data/icon/AquaBox/sym_u_vint_r360x180.nc'
 # add files for being transferes to remote host for remote testing
 [
   OCE_PLOT_TEST_FILE    ,
@@ -63,6 +65,8 @@ AQUABOX_ASYM          = ENV['HOME']+'/data/icon/AquaBox/asym_t_mean_20y.nc'
   BOX_GRID              ,
   AQUABOX_SYM           ,
   AQUABOX_ASYM          ,
+  GLOBAL_4CALC_PSI      ,
+  AQUABOX_4CALC_PSI     ,
 ].each {|f| @_FILES[f] = (`hostname`.chomp == 'thingol') ? f : [REMOTE_DATA_DIR,File.basename(f)].join(File::SEPARATOR) }
 
 COMPARISON            = {:oce => @_FILES[OCE_PLOT_TEST_FILE], :atm => @_FILES[ATM_PLOT_TEST_FILE]}
@@ -231,6 +235,7 @@ task :test_mask_internal do
   q.push { show(scalarPlot(ifile,ofile+"_maskPlusGrid",varname,:maskName => 'wet_c',:showGrid => true))  }
   q.push { show(scalarPlot(ifile,ofile+"_ortho",varname,:maskName => 'wet_c',:showGrid => true,:mapType => 'ortho',:centerLon => 0.0, :centerLat => 90.0))  }
   q.push { show(scalarPlot(ifile,ofile+"_NHps", varname,:maskName => 'wet_c',:showGrid => true,:mapType => 'NHps'))  }
+  q.push { show(scalarPlot('/home/ram/data/icon/r16777_output.nc',ofile+'error_on_thunder','s_acc',:maskName =>'wet_c')) }
   q.run
 end
 desc "masking with real missing values /_FillValue"
@@ -812,6 +817,44 @@ task :test_sections_from_limitArea do |t,args|
                   :DEBUG => true,:rStrg => '-', :bStrg => @_FILES[AQUABOX_ASYM],:tStrg => title,
                   :secLC => '-40,-40', :secRC => '-40,40',:secPoints => 100,:resolution => 'r360x180',
                   :withLineLabels => true,:showSecMap => false,:maxVar => 20,:minVar => 0, :numLevs => 20))
+end
+@_FILES.values_at(AQUABOX_4CALC_PSI,GLOBAL_4CALC_PSI).each_with_index {|ifile,index|
+  tag = %w[box global][index]
+  desc "check calc_psi with #{tag} grid"
+  task "test_psi_#{tag}".to_sym  => [ifile,'nclpsi.plotOld.png'] do |t|
+    ofile  = [t.name,OFMT].join('.')
+    ifile  = t.prerequisites[0]
+    vname  = %w[u_vint_acc u_vint][index]
+    area   = (0 == index) ? 'AREA=box'    : ''
+    levels = (0 == index) ? 'LEVELS=16'   : ''
+    remap  = (0 == index) ? 'REMAP=false' : ''
+
+    sh "./calc_psi.py #{ifile} VAR=#{vname} PLOT=#{ofile} CMAP=seismic #{area} #{levels} #{remap}"
+    show(t.prerequisites[1]) if 1 == index
+    show(ofile)
+  end
+}
+desc "show old psi calculation"
+file 'nclpsi.plotOld.png' => [GLOBAL_4CALC_PSI] do |t|
+  sh "./calc_psi_oce_icon.ksh #{t.prerequisites[0]} r360x180 plotOld"
+end
+task :test_calc_psi_levels =>[AQUABOX_4CALC_PSI] do |t|
+  sh "./calc_psi.py #{t.prerequisites[0]} PLOT=#{t.name}L50.png LEVELS=50 AREA=box"
+  show("#{t.name}L50.png")
+  sh "./calc_psi.py #{t.prerequisites[0]} PLOT=#{t.name}Lhlog.png LEVELS=-20,-10,-5,-2,-1,-0.5,-0.2,-0.1,0,0.1,0.2,0.5,1,2,5,10,20 AREA=box"
+  show("#{t.name}Lhlog.png")
+end
+desc "check python based PSI (bar. stream function) computation + plotting"
+task :test_psi => [:test_psi_box,:test_psi_global] 
+task :calc_psi do
+  sh "./calc_psi.py #{@_FILES[AQUABOX_4CALC_PSI]} PLOT=psi.svg"
+end
+task :cmp_psi do
+  ifiles = %w[u_vint_acc_10ym_r16362.nc u_vint_acc_10ym_r16781.nc u_vint_acc_r14716_10ym.nc u_vint_acc_r15830_10ym.nc].map {|f| ENV['HOME']+'/data/icon/'+f}
+  ifiles.each {|ifile|
+    ofile = "psi_from_#{File.basename(ifile,'.nc')}.png"
+    sh "export DEBUG=1;./calc_psi.py #{ifile} PLOT=#{ofile}" and show(ofile)
+  }
 end
 #==============================================================================
 # Test collections

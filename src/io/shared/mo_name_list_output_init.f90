@@ -107,7 +107,7 @@ MODULE mo_name_list_output_init
     &                                             timedelta, newTimedelta, deallocateTimedelta,   &
     &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
-    &                                             OPERATOR(+), datetimeToString
+    &                                             OPERATOR(+), datetimeToString, OPERATOR(>)
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
@@ -720,9 +720,10 @@ CONTAINS
     TYPE(t_cf_var),            POINTER   :: this_cf
     TYPE(timedelta),           POINTER   :: mtime_output_interval, mtime_lower_bound,          &
       &                                     mtime_interval
-    TYPE(datetime),            POINTER   :: mtime_datetime
+    TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
+      &                                     mtime_datetime_end
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
-    CHARACTER(len=MAX_CHAR_LENGTH)     :: attname   ! attribute name
+    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start,     &
       &                                     output_interval
@@ -993,18 +994,26 @@ CONTAINS
       END IF
 
       !--- consistency check: do not allow output intervals < dtime*iadv_rcf:
-      if (p_onl%additional_days == 0) then
-         mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval))
-         CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
-              &                      lower_bound_str, idummy)
-         IF (idummy > 0)  CALL finish(routine, "Internal error!")
-         mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
-         IF (mtime_output_interval < mtime_lower_bound) THEN
+      IF (p_onl%additional_days == 0) THEN
+        ! compare start date and end date: if these are equal, then
+        ! the interval does not matter and must not be checked.
+        mtime_datetime_start => newDatetime(p_onl%output_start)
+        mtime_datetime_end   => newDatetime(p_onl%output_end)
+        IF (mtime_datetime_end > mtime_datetime_start) THEN
+          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval))
+          CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
+            &                      lower_bound_str, idummy)
+          IF (idummy > 0)  CALL finish(routine, "Internal error!")
+          mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
+          IF (mtime_output_interval < mtime_lower_bound) THEN
             CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval)//" < dtime*iadv_rcf !")
-         END IF
-         CALL deallocateTimedelta(mtime_output_interval)
-         CALL deallocateTimedelta(mtime_lower_bound)
-      end if
+          END IF
+          CALL deallocateTimedelta(mtime_output_interval)
+          CALL deallocateTimedelta(mtime_lower_bound)
+        END IF
+        CALL deallocateDatetime(mtime_datetime_start)
+        CALL deallocateDatetime(mtime_datetime_end)
+      END IF
 
       p_onl => p_onl%next
     ENDDO
@@ -1272,6 +1281,8 @@ CONTAINS
         include_last                  = .FALSE.
         ! - The "steps_per_file" counter is set to 1
         fname_metadata%steps_per_file = 1        
+        ! - The "steps_per_file_inclfirst" flag is set to .FALSE.
+        fname_metadata%steps_per_file_inclfirst = .FALSE.
         !
         CALL deallocateTimedelta(mtime_interval)
         CALL deallocateDatetime(mtime_datetime)

@@ -175,6 +175,7 @@ MODULE mo_nwp_lnd_types
     &  rho_snow     (:,:)   , & ! snow density                                  (kg/m**3)
     &  w_snow       (:,:)   , & ! snow water equivalent                         (m H2O)
     &  h_snow       (:,:)   , & ! snow height                                   (  m  ) 
+    &  h_snow_incr  (:,:)   , & ! snow height increment from snow analysis      (  m  ) 
     &  h_snow_t     (:,:,:) , & ! snow height                                   (  m  ) 
     &  freshsnow    (:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
     &  freshsnow_t  (:,:,:) , & ! indicator for age of snow in top of snow layer(  -  )

@@ -167,6 +167,11 @@ CONTAINS
     &          t_cf_var('forc_precip', 'm/s', 'forc_precip', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'forc_snow', p_sfc_flx%forc_snow , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_snow', 'm/s', 'forc_snow', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_evap', p_sfc_flx%forc_evap , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_evap', 'm/s', 'forc_evap', DATATYPE_FLT32),&
@@ -333,6 +338,11 @@ CONTAINS
     CALL add_var(var_list, 'forc_precip_acc', p_sfc_flx%forc_precip_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('forc_precip_acc', 'm/s', 'forc_precip_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
+    CALL add_var(var_list, 'forc_snow_acc', p_sfc_flx%forc_snow_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('forc_snow_acc', 'm/s', 'forc_snow_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
     CALL add_var(var_list, 'forc_evap_acc', p_sfc_flx%forc_evap_acc , &

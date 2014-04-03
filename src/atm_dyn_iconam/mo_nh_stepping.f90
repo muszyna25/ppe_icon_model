@@ -165,6 +165,7 @@ MODULE mo_nh_stepping
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
+  USE messy_main_tracer_bi,   ONLY: main_tracer_beforeadv, main_tracer_afteradv 
 #ifdef MESSYTIMER                  
   USE messy_main_timer_bi,         ONLY: messy_timer_reset_time 
 
@@ -963,7 +964,9 @@ MODULE mo_nh_stepping
       n_new_rcf = nnew_rcf(jg)
 
 #ifdef MESSY
-      CALL messy_global_start
+      CALL messy_global_start(jg)
+      CALL messy_local_start(jg)
+      CALL messy_vdiff
 #endif      
       !
       ! counter for simulation time in seconds
@@ -973,6 +976,10 @@ MODULE mo_nh_stepping
         !------------------
         ! Pure advection
         !------------------
+
+#ifdef MESSY
+        CALL main_tracer_beforeadv
+#endif
 
         lfull_comp = .TRUE.  ! full set of computations in prepare_tracer required
 
@@ -1071,6 +1078,9 @@ MODULE mo_nh_stepping
             &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
         ENDIF
 
+#ifdef MESSY
+        CALL main_tracer_afteradv
+#endif
 
       ELSE  ! itime_scheme /= 1
 
@@ -1170,6 +1180,9 @@ MODULE mo_nh_stepping
             &                  p_nh_state(jg)%diag, itlev = 2)
         ENDIF
 
+#ifdef MESSY
+        CALL main_tracer_beforeadv
+#endif
 
         ! 5. tracer advection
         !-----------------------
@@ -1245,6 +1258,10 @@ MODULE mo_nh_stepping
           ENDIF  !lstep_adv
 
         ENDIF !ltransport
+
+#ifdef MESSY
+        CALL main_tracer_afteradv
+#endif
 
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 .AND. lstep_adv(jg)) THEN
@@ -1358,6 +1375,10 @@ MODULE mo_nh_stepping
           IF (ltimer)            CALL timer_stop(timer_nesting)
 
         ENDIF !iforcing
+
+#ifdef MESSY
+        call messy_physc
+#endif
 
       ENDIF  ! itime_scheme
 
@@ -1577,13 +1598,14 @@ MODULE mo_nh_stepping
         ENDDO
       ENDIF
 
+#ifdef MESSY
+      CALL messy_local_end
+      CALL messy_global_end
+#endif
+
     ENDDO
     
     IF (jg == 1 .AND. ltimer) CALL timer_stop(timer_integrate_nh)
-
-#ifdef MESSY
-    CALL messy_global_end
-#endif
 
   END SUBROUTINE integrate_nh
 

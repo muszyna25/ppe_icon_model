@@ -1322,6 +1322,7 @@ MODULE mo_nh_initicon
       ! abort
       !
       IF (lmiss_fg) THEN
+write(0,*) "missing: ", TRIM(buffer_miss_fg)
         WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_fg)// &
           &                       ' missing in FG-input file.'
         CALL finish(routine, TRIM(message_text))

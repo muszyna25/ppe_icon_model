@@ -227,7 +227,9 @@ CONTAINS
     CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
 #ifdef MESSY
-    CALL messy_init_memory
+    DO jg=1,n_dom
+       CALL messy_init_memory(jg)
+    END DO
 #endif
 
     ! Due to the required ability to overwrite advection-Namelist settings 
@@ -245,6 +247,7 @@ CONTAINS
 
 #ifdef MESSY
     CALL messy_init_coupling
+    CALL messy_init_tracer
 #endif
 
     !---------------------------------------------------------------------

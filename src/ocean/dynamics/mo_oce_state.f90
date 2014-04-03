@@ -49,7 +49,7 @@ MODULE mo_oce_state
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants,      ONLY: success, max_char_length
-  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, use_tracer_x_height
+  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, use_tracer_x_height, cfl_write
   USE mo_oce_types,           ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc ,t_ptr3d ,t_oce_config ,t_ocean_tracer ,    &
     &                               t_ocean_regions ,t_ocean_region_volumes ,t_ocean_region_areas ,t_ocean_basins 
@@ -721,13 +721,26 @@ CONTAINS
       & ldims=(/nproma,n_zlev,nblks_e/),lrestart_cont=.TRUE.)
     ! mixed layer depths
     CALL add_var(ocean_default_list, 'mld', p_os_diag%mld , grid_unstructured_cell,za_surface, &
-      & t_cf_var('mld', 'm', 'mixed layer depth', DATATYPE_FLT32),&
-      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+      &          t_cf_var('mld', 'm', 'mixed layer depth', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
     CALL add_var(ocean_default_list, 'condep', p_os_diag%condep , grid_unstructured_cell, za_surface,&
-    &            t_cf_var('condep', '', 'convection depth index', DATATYPE_INT8),&
-      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-    &            ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+      &         t_cf_var('condep', '', 'convection depth index', DATATYPE_INT8),&
+      &         t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+    IF (cfl_write) THEN
+    CALL add_var(ocean_default_list, 'cfl_vert', p_os_diag%cfl_vert , &
+      &          grid_unstructured_cell, za_depth_below_sea_half,&
+      &          t_cf_var('cdf_vert', '', 'vertical cfl relation', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      &          ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+      &          in_group=groups("oce_diag"))
+    CALL add_var(ocean_default_list, 'cfl_horz', p_os_diag%cfl_horz, &
+      &          grid_unstructured_edge, za_depth_below_sea,&
+      &          t_cf_var('cfl_horz', '', 'horizontal cfl relation', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      &          ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"))
+    ENDIF
     
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,alloc_cell_blocks), stat=ist)

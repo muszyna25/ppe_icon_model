@@ -59,10 +59,10 @@ MODULE mo_run_config
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0 !Running index for sea salt in ICON-ART
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0 !Running index for mineral dust in ICON-ART
-  PUBLIC :: iCHBR3_TR,iCH2BR2_TR,iBRy_TR          !Running index for chemical tracer in ICON-ART - VSLS
-  PUBLIC :: iCH4_TR,iCO2_TR,iCO_TR,iH2O_TR,iO3_TR !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H20-O3
-  PUBLIC :: iSF6_l_TR,iSF6_r_TR,iSF6_d_TR         !Running index for chemical tracer in ICON-ART - SF6
-  PUBLIC :: iN2O_TR,iTR1                          !Running index for chemical tracer in ICON-ART - other
+  PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy             !Running index for chemical tracer in ICON-ART - VSLS
+  PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3      !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H20-O3
+  PUBLIC :: iTRSF6l,iTRSF6r,iTRSF6d               !Running index for chemical tracer in ICON-ART - SF6
+  PUBLIC :: iTRN2O,iTR1                           !Running index for chemical tracer in ICON-ART - other
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -174,18 +174,18 @@ MODULE mo_run_config
     INTEGER :: idusta0      !< Sea Salt Aerosol Mode A Number Density
     INTEGER :: idustb0      !< Sea Salt Aerosol Mode B Number Density
     INTEGER :: idustc0      !< Sea Salt Aerosol Mode C Number Density
-    INTEGER :: iCHBR3_TR       !< chemical tracer in ICON-ART
-    INTEGER :: iCH2BR2_TR      !< chemical tracer in ICON-ART
-    INTEGER :: iBRy_TR         !< chemical tracer in ICON-ART
-    INTEGER :: iCH4_TR         !< chemical tracer in ICON-ART
-    INTEGER :: iCO2_TR         !< chemical tracer in ICON-ART
-    INTEGER :: iCO_TR          !< chemical tracer in ICON-ART
-    INTEGER :: iH2O_TR         !< chemical tracer in ICON-ART
-    INTEGER :: iO3_TR          !< chemical tracer in ICON-ART
-    INTEGER :: iSF6_l_TR       !< chemical tracer in ICON-ART
-    INTEGER :: iSF6_r_TR       !< chemical tracer in ICON-ART
-    INTEGER :: iSF6_d_TR       !< chemical tracer in ICON-ART
-    INTEGER :: iN2O_TR         !< chemical tracer in ICON-ART
+    INTEGER :: iTRCHBR3        !< chemical tracer in ICON-ART
+    INTEGER :: iTRCH2BR2       !< chemical tracer in ICON-ART
+    INTEGER :: iTRBRy          !< chemical tracer in ICON-ART
+    INTEGER :: iTRCH4          !< chemical tracer in ICON-ART
+    INTEGER :: iTRCO2          !< chemical tracer in ICON-ART
+    INTEGER :: iTRCO           !< chemical tracer in ICON-ART
+    INTEGER :: iTRH2O          !< chemical tracer in ICON-ART
+    INTEGER :: iTRO3           !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6l         !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6r         !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6d         !< chemical tracer in ICON-ART
+    INTEGER :: iTRN2O          !< chemical tracer in ICON-ART
     INTEGER :: iTR1            !< chemical tracer in ICON-ART
 
     REAL(wp) :: dtime_adv = 0.0_wp!< advective timestep on global patch (iadv_rcf*dtime) [s]

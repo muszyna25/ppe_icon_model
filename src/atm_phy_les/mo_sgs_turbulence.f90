@@ -848,7 +848,7 @@ MODULE mo_sgs_turbulence
     ! 1) First get the horizontal tendencies
 
 !ICON_OMP_DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_vert1,vn_vert2,vn_vert3,vn_vert4,&
-!ICON_OMP   jcn,jbn,flux_up_c,flux_dn_c,jvn,flux_up_v,flux_dn_v)
+!ICON_OMP   dvt,jcn,jbn,flux_up_c,flux_dn_c,jvn,flux_up_v,flux_dn_v)
     DO jb = i_startblk,i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)

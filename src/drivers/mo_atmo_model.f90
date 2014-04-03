@@ -504,7 +504,8 @@ CONTAINS
     CALL init_rrtm_model_repart()
 
 #ifdef MESSY
-    CALL messy_initialize
+    CALL messy_initialize(n_dom)
+    CALL messy_new_tracer
 #endif
 
     !------------------------------------------------------------------

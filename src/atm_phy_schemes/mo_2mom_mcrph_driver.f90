@@ -264,8 +264,8 @@ CONTAINS
 
     IF (msg_level>dbg_level) CALL message(TRIM(routine),'')
 
-    !Check
-    qnc_const = 200._wp
+    !..constant cloud droplet number
+    qnc_const = 200.0e6_wp
 
     loc_ix = (kte-kts+1)*(ite-its+1)
 

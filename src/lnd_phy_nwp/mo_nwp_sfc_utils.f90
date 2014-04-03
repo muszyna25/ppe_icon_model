@@ -53,8 +53,9 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               frlake_thrhld, itype_interception
-  USE mo_initicon_config,     ONLY: is_coldstart_soil
-  USE mo_soil_ml,             ONLY: terra_multlay_init
+  USE mo_initicon_config,     ONLY: init_mode_soil
+!DR  USE mo_soil_ml,             ONLY: terra_multlay_init
+  USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
   USE mo_phyparam_soil,       ONLY: cf_snow     ! soil and vegetation parameters for TILES
@@ -137,6 +138,7 @@ CONTAINS
     REAL(wp) :: t_s_new_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: h_snow_t(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: h_snow_incr(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rho_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rho_snow_mult_now_t(nproma, 1:nlev_snow, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_so_now_t(nproma, 1:nlev_soil+1, p_patch%nblks_c, ntiles_total)
@@ -301,6 +303,7 @@ CONTAINS
           lc_class_t(ic,jb,isubs)            = ext_data%atm%lc_class_t(jc,jb,isubs)
           freshsnow_t(ic,jb,isubs)           = p_lnd_diag%freshsnow_t(jc,jb,isubs)
           h_snow_t(ic,jb,isubs)              = p_lnd_diag%h_snow_t(jc,jb,isubs)
+          h_snow_incr(ic,jb,isubs)           = p_lnd_diag%h_snow_incr(jc,jb)
 
           soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
           rootdp_t(ic,jb,isubs)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
@@ -411,7 +414,7 @@ CONTAINS
 
         i_count = ext_data%atm%lp_count_t(jb,isubs)
         CALL terra_multlay_init(                                  &
-        &  is_coldstart      = is_coldstart_soil                , & ! coldstart initialization (TRUE/FALSE)
+        &  init_mode         = init_mode_soil                   , & ! coldstart/warmstart/warmstart with snow increments
         &  ie                = nproma                           , & ! array dimensions
         &  istartpar=1, iendpar= i_count                        , & ! optional start/end indicies
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow               , & ! without lowermost (climat.) soil layer
@@ -423,7 +426,8 @@ CONTAINS
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  w_snow_now        = w_snow_now_t(:,jb,isubs)         , & ! water content of snow             (m H2O)
-        &  h_snow            = h_snow_t(:,jb,isubs)             , & ! snow height                       (m H2O)
+        &  h_snow            = h_snow_t(:,jb,isubs)             , & ! snow depth                        (m H2O)
+        &  h_snow_incr       = h_snow_incr(:,jb,isubs)          , & ! snow depth increment              (m H2O)
         &  rho_snow_now      = rho_snow_now_t(:,jb,isubs)       , & ! snow density                      (kg/m**3)
         &  rho_snow_mult_now = rho_snow_mult_now_t(:,:,jb,isubs), & ! snow density                      (kg/m**3)
         &  t_so_now          = t_so_now_t(:,:,jb,isubs)         , & ! soil temperature (main level)     (  K  )

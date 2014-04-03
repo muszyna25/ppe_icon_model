@@ -312,8 +312,10 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_with_vert_tracer_advection = .TRUE.  ! FALSE: no vertical tracer advection
 
   ! cfl related
-  LOGICAL  :: cfl_check     = .TRUE.
-  REAL(wp) :: cfl_threshold = 0.85_wp
+  LOGICAL  :: cfl_check             = .TRUE.
+  LOGICAL  :: cfl_write             = .FALSE.
+  LOGICAL  :: cfl_stop_on_violation = .FALSE.
+  REAL(wp) :: cfl_threshold         = 1.0_wp
 
   ! special diagnostics configuration
   !
@@ -334,6 +336,8 @@ MODULE mo_ocean_nml
     &                 basin_height_deg             , &
     &                 basin_width_deg              , &
     &                 cfl_check                    , &
+    &                 cfl_write                    , &
+    &                 cfl_stop_on_violation        , &
     &                 cfl_threshold                , &
     &                 coriolis_type                , &
     &                 dhdtw_abort                  , &
@@ -611,8 +615,8 @@ MODULE mo_ocean_nml
 
      ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
      !   if stability criterion is met
-     MAX_VERT_DIFF_TRAC  = 100.0_wp * k_veloc_v
-     MAX_VERT_DIFF_VELOC = 100.0_wp * k_pot_temp_v
+     MAX_VERT_DIFF_TRAC  = 100.0_wp * k_pot_temp_v
+     MAX_VERT_DIFF_VELOC = 100.0_wp * k_veloc_v
 
      !------------------------------------------------------------
      ! 5.0 Read ocean_nml namelist

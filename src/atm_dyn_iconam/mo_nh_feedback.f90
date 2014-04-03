@@ -1035,7 +1035,10 @@ CONTAINS
 
     ! Note: as w(nlevp1) is diagnostic, it is excluded from feedback
     REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c), TARGET :: &
-      parent_rho, diff_rho, parent_thv, diff_thv, parent_w, diff_w
+      parent_rho, parent_thv, parent_w
+
+    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev) :: diff_rho, diff_thv, diff_w
+
     REAL(wp),DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
       parent_rhoqx
     REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
@@ -1043,13 +1046,11 @@ CONTAINS
 
     REAL(wp) :: rot_diff_vn(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_v)
 
-    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c) ::    &
-      div_diff_vn, diff_mass, parent_trmass, fbk_trmass, aux_null
+    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c) :: div_diff_vn
 
     REAL(wp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c)
 
-    REAL(wp) :: rho_corr(p_patch(jg)%nlev), tracer_corr(p_patch(jg)%nlev),      &
-      aux_diff(2*p_patch(jg)%nlev), z_fbk_rho(nproma,4,p_patch(jg)%nlev)
+    REAL(wp) :: z_fbk_rho(nproma,4,p_patch(jg)%nlev)
 
     REAL(wp) :: rd_o_cvd, rd_o_p0ref, relfac, dcoef_vec
 
@@ -1151,9 +1152,6 @@ CONTAINS
     p_fbkwgt_e  => p_grf%fbk_wgt_e
 
     IF (p_test_run) THEN
-      diff_rho = 0._wp
-      diff_thv = 0._wp
-      diff_w   = 0._wp
       diff_vn  = 0._wp
     ENDIF
 
@@ -1317,130 +1315,9 @@ CONTAINS
     IF (ltransport) p_fbk_rhoqx => parent_rhoqx
 
 
-    ! 2. Compute differences between feedback fields and corresponding parent fields
+    ! 2. Compute differences between feedback velocity and corresponding parent field,
+    !    smooth velocity increment and execute velocity relaxation
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-    i_startblk = p_patch(jgp)%cells%start_blk(1,1)
-    i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
-
-    ! these fields need to be initialized on the halo points as well because they enter
-    ! into global_sum_array for conservation correction
-    IF (l_mass_consvcorr) THEN
-!$OMP WORKSHARE
-      diff_mass    (:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp 
-      aux_null     (:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp 
-      parent_trmass(:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp
-      fbk_trmass   (:,:,i_endblk+1:p_patch(jgp)%nblks_c) = 0._wp
-!$OMP END WORKSHARE
-    ENDIF
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      IF (l_mass_consvcorr) THEN
-        diff_mass    (:,:,jb) = 0._wp
-        parent_trmass(:,:,jb) = 0._wp
-        fbk_trmass   (:,:,jb) = 0._wp
-        aux_null     (:,:,jb) = 0._wp
-      ENDIF
-
-      CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
-
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx,i_endidx
-        IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-!DIR$ IVDEP
-          DO jk = 1, nlev_c
-#else
-      DO jk = 1, nlev_c
-        DO jc = i_startidx,i_endidx
-          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-#endif
-
-            ! density
-            diff_rho(jc,jk,jb) = p_fbk_rho(jc,jk,jb) - p_parent_prog%rho(jc,jk+js,jb)
-
-            ! theta_v
-            diff_thv(jc,jk,jb) = p_fbk_thv(jc,jk,jb) - p_parent_prog%theta_v(jc,jk+js,jb) + &
-              p_nh_state(jgp)%metrics%theta_ref_mc(jc,jk+js,jb)
-
-            ! w
-            diff_w(jc,jk,jb) = p_fbk_w(jc,jk,jb) - p_parent_prog%w(jc,jk+js,jb)
-
-#ifdef __LOOP_EXCHANGE
-          ENDDO
-        ENDIF
-#else
-          ENDIF
-        ENDDO
-#endif
-      ENDDO
-
-
-      IF (l_mass_consvcorr) THEN
-#ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx,i_endidx
-          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-!DIR$ IVDEP
-            DO jk = 1, nlev_c
-#else
-        DO jk = 1, nlev_c
-          DO jc = i_startidx,i_endidx
-            IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-#endif
-
-              ! mass
-              diff_mass(jc,jk,jb) = diff_rho(jc,jk,jb)*p_patch(jgp)%cells%area(jc,jb)*   &
-                p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk+js,jb)
-
-#ifdef __LOOP_EXCHANGE
-            ENDDO
-          ENDIF
-#else
-            ENDIF
-          ENDDO
-#endif
-        ENDDO
-      ENDIF
-
-
-      IF (ltransport .AND. l_trac_fbk .AND. l_mass_consvcorr) THEN
-
-#ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx,i_endidx
-          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-            DO jt = 1, ntracer
-!DIR$ IVDEP
-              DO jk = 1, nlev_c
-#else
-        DO jt = 1, ntracer
-          DO jk = 1, nlev_c
-            DO jc = i_startidx,i_endidx
-              IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-#endif
-
-                parent_trmass(jc,jk,jb) = parent_trmass(jc,jk,jb) +                             &
-                  p_parent_prog%rho(jc,jk+js,jb)*p_parent_prog_rcf%tracer(jc,jk+js,jb,jt)*      &
-                  p_patch(jgp)%cells%area(jc,jb)*p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk+js,jb)
-
-                fbk_trmass(jc,jk,jb) = fbk_trmass(jc,jk,jb) +              &
-                  p_fbk_rhoqx(jc,jk,jb,jt)*p_patch(jgp)%cells%area(jc,jb)* &
-                  p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk+js,jb)
-
-#ifdef __LOOP_EXCHANGE
-              ENDDO
-            ENDDO
-          ENDIF
-#else
-              ENDIF
-            ENDDO
-          ENDDO
-#endif
-        ENDDO
-      ENDIF
-
-    ENDDO
-!$OMP END DO
 
     i_startblk = p_patch(jgp)%edges%start_blk(1,1)
     i_endblk   = p_patch(jgp)%edges%end_blk(i_rlend_e,i_nchdom_p)
@@ -1455,6 +1332,7 @@ CONTAINS
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
+!DIR$ IVDEP
           DO jk = 1, nlev_c
 #else
       DO jk = 1, nlev_c
@@ -1478,7 +1356,7 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_E,p_patch(jgp),diff_vn)
 
-    ! 3. Smoothing of velocity feedback-parent differences 
+    ! 2a. Smoothing of velocity feedback-parent differences 
 
     iceidx => p_patch(jgp)%cells%edge_idx
     iceblk => p_patch(jgp)%cells%edge_blk
@@ -1606,125 +1484,7 @@ CONTAINS
 #endif
       ENDDO
 
-    ENDDO
-!$OMP END DO
-
-!$OMP END PARALLEL
-
-
-    IF (l_mass_consvcorr) THEN
-      IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
-        ! compute conservation correction for global mass only
-        aux_diff(1:nlev_c) = global_sum_array3(1,.FALSE.,diff_mass)
-        DO jk = 1, nlev_c
-          rho_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk+js)
-        ENDDO
-      ELSE
-        ! compute conservation correction for global mass and total tracer mass
-        ! the correction is additive for density and multiplicative for tracer mass
-        aux_diff(1:2*nlev_c) = global_sum_array3(2,.TRUE.,diff_mass,aux_null,     &
-          f3din2=parent_trmass,f3dd2=fbk_trmass,&
-          diffmask=(/1,2/))
-        DO jk = 1, nlev_c
-          rho_corr(jk)    = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk+js)
-          tracer_corr(jk) = aux_diff(nlev_c+jk)
-        ENDDO
-      ENDIF
-    ELSE ! conservation correction turned off
-      rho_corr(:)    = 0.0_wp
-      tracer_corr(:) = 1.0_wp
-    ENDIF
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-    ! Execute relaxation
-
-    i_startblk = p_patch(jgp)%cells%start_blk(1,1)
-    i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
-
-      IF (ltransport .AND. l_trac_fbk) THEN
-#ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx,i_endidx
-          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-            DO jt = 1, ntracer
-!DIR$ IVDEP
-              DO jk = nshift+1, nlev_p
-#else
-        DO jt = 1, ntracer
-          DO jk = nshift+1, nlev_p
-            DO jc = i_startidx,i_endidx
-              IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-#endif
-                p_parent_prog_rcf%tracer(jc,jk,jb,jt) = p_parent_prog_rcf%tracer(jc,jk,jb,jt) + &
-                  relfac * ( p_fbk_rhoqx(jc,jk-js,jb,jt) * tracer_corr(jk-js) /                 &
-                  ( p_parent_prog%rho(jc,jk,jb) + diff_rho(jc,jk-js,jb) - rho_corr(jk-js) ) -   &
-                  p_parent_prog_rcf%tracer(jc,jk,jb,jt) )
-
-#ifdef __LOOP_EXCHANGE
-              ENDDO
-            ENDDO
-          ENDIF
-#else
-              ENDIF
-            ENDDO
-          ENDDO
-#endif
-        ENDDO
-      ENDIF
-
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx,i_endidx
-        IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-!DIR$ IVDEP
-          DO jk = nshift+1,nlev_p
-#else
-!CDIR UNROLL=4
-      DO jk = nshift+1,nlev_p
-        DO jc = i_startidx,i_endidx
-          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-#endif
-
-            ! density
-            p_parent_prog%rho(jc,jk,jb) = p_parent_prog%rho(jc,jk,jb) + &
-              relfac*(diff_rho(jc,jk-js,jb) - rho_corr(jk-js))
-
-            ! theta_v
-            p_parent_prog%theta_v(jc,jk,jb) = p_parent_prog%theta_v(jc,jk,jb) + &
-              relfac*diff_thv(jc,jk-js,jb)
-
-            ! w
-            p_parent_prog%w(jc,jk,jb) = p_parent_prog%w(jc,jk,jb) + &
-              relfac*diff_w(jc,jk-js,jb)
-
-            ! exner is diagnosed from rho*theta_v
-            p_parent_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
-              p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
-
-#ifdef __LOOP_EXCHANGE
-          ENDDO
-        ENDIF
-#else
-          ENDIF
-        ENDDO
-#endif
-      ENDDO
-
-    ENDDO
-!$OMP END DO
-
-    i_startblk = p_patch(jgp)%edges%start_blk(1,1)
-    i_endblk   = p_patch(jgp)%edges%end_blk(i_rlend_e,i_nchdom_p)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
-
+      ! 2b. Execute relaxation
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
@@ -1746,9 +1506,118 @@ CONTAINS
         ENDDO
 #endif
       ENDDO
+    ENDDO
+!$OMP END DO
+
+
+    ! 3. The same for mass-point variables
+
+    i_startblk = p_patch(jgp)%cells%start_blk(1,1)
+    i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,diff_rho,diff_thv,diff_w) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
+
+      ! Compute differences between feedback fields and corresponding parent fields
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx,i_endidx
+        IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+!DIR$ IVDEP
+          DO jk = 1, nlev_c
+#else
+      DO jk = 1, nlev_c
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
+
+            ! density
+            diff_rho(jc,jk) = p_fbk_rho(jc,jk,jb) - p_parent_prog%rho(jc,jk+js,jb)
+
+            ! theta_v
+            diff_thv(jc,jk) = p_fbk_thv(jc,jk,jb) - p_parent_prog%theta_v(jc,jk+js,jb) + &
+              p_nh_state(jgp)%metrics%theta_ref_mc(jc,jk+js,jb)
+
+            ! w
+            diff_w(jc,jk) = p_fbk_w(jc,jk,jb) - p_parent_prog%w(jc,jk+js,jb)
+
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
+          ENDIF
+        ENDDO
+#endif
+      ENDDO
+
+      ! Relaxation of tracer variables
+      IF (ltransport .AND. l_trac_fbk) THEN
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+            DO jt = 1, ntracer
+!DIR$ IVDEP
+              DO jk = nshift+1, nlev_p
+#else
+        DO jt = 1, ntracer
+          DO jk = nshift+1, nlev_p
+            DO jc = i_startidx,i_endidx
+              IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
+                p_parent_prog_rcf%tracer(jc,jk,jb,jt) = p_parent_prog_rcf%tracer(jc,jk,jb,jt) + &
+                  relfac * ( p_fbk_rhoqx(jc,jk-js,jb,jt) / ( p_parent_prog%rho(jc,jk,jb) +      &
+                  diff_rho(jc,jk-js) ) -  p_parent_prog_rcf%tracer(jc,jk,jb,jt) )
+
+#ifdef __LOOP_EXCHANGE
+              ENDDO
+            ENDDO
+          ENDIF
+#else
+              ENDIF
+            ENDDO
+          ENDDO
+#endif
+        ENDDO
+      ENDIF
+
+      ! Relaxation of dynamical variables
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx,i_endidx
+        IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+!DIR$ IVDEP
+          DO jk = nshift+1,nlev_p
+#else
+!CDIR UNROLL=4
+      DO jk = nshift+1,nlev_p
+        DO jc = i_startidx,i_endidx
+          IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+#endif
+
+            ! density
+            p_parent_prog%rho(jc,jk,jb) = p_parent_prog%rho(jc,jk,jb) + relfac*diff_rho(jc,jk-js)
+
+            ! theta_v
+            p_parent_prog%theta_v(jc,jk,jb) = p_parent_prog%theta_v(jc,jk,jb) + relfac*diff_thv(jc,jk-js)
+
+            ! w
+            p_parent_prog%w(jc,jk,jb) = p_parent_prog%w(jc,jk,jb) + relfac*diff_w(jc,jk-js)
+
+            ! exner is diagnosed from rho*theta_v
+            p_parent_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
+              p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
+
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
+          ENDIF
+        ENDDO
+#endif
+      ENDDO
 
     ENDDO
-!$OMP END DO  NOWAIT
+!$OMP END DO
 !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
@@ -1761,7 +1630,7 @@ CONTAINS
         p_parent_prog%w)
     ENDIF
 
-
+    ! Recomputation of exner on halo points (saves communication of one field)
 #ifdef __LOOP_EXCHANGE
     DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
       jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
@@ -1776,7 +1645,6 @@ CONTAINS
         jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
 #endif
 
-        ! exner is diagnosed from rho*theta_v
         p_parent_prog%exner(jc,jk,jb) =   &
           EXP(rd_o_cvd*LOG(rd_o_p0ref*p_parent_prog%theta_v(jc,jk,jb)*p_parent_prog%rho(jc,jk,jb)))
 

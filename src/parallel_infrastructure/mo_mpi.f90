@@ -6133,7 +6133,7 @@ CONTAINS
     INTEGER,   INTENT(in)           :: comm
     INTEGER,   INTENT(in), OPTIONAL :: root
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, my_rank
 
     p_comm = comm
 
@@ -6141,6 +6141,10 @@ CONTAINS
       IF (PRESENT(root)) THEN
         CALL MPI_REDUCE (zfield, p_sum, 1, p_real_dp, &
           MPI_SUM, root, p_comm, p_error)
+        ! get local PE identification
+        CALL MPI_COMM_RANK (p_comm, my_rank, p_error)
+        ! do not use the result on all the other ranks:
+        IF (root /= my_rank)  p_sum = zfield
       ELSE
         CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
           MPI_SUM, p_comm, p_error)
