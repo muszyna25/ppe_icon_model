@@ -41,10 +41,12 @@ MODULE mo_echam_phy_bcs
 
   USE mo_kind                       ,ONLY: wp
   USE mo_math_constants             ,ONLY: pi
-  USE mo_datetime                   ,ONLY: t_datetime, add_time, OPERATOR(==) ! for t_datetime typed variables
+!!$  USE mo_datetime                   ,ONLY: t_datetime, add_time , OPERATOR(==) ! for t_datetime typed variables
+  USE mo_datetime                   ,ONLY: t_datetime, add_time
   USE mo_model_domain               ,ONLY: t_patch
 
-  USE mo_time_config                ,ONLY: time_config
+  USE mo_master_nml                 ,ONLY: lrestart
+!!$  USE mo_time_config                ,ONLY: time_config
   USE mo_echam_phy_config           ,ONLY: echam_phy_config
   USE mo_radiation_config           ,ONLY: ighg, isolrad, tsi, tsi_radt, ssi_radt, irad_o3, irad_aero
 
@@ -109,7 +111,9 @@ CONTAINS
     TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
     REAL(wp)         :: dsec              !< [s] time increment of datetime_radtran wrt. datetime
 
-    LOGICAL          :: is_initial_datetime, is_radtran_datetime
+!!$    LOGICAL          :: is_initial_datetime
+!!$    LOGICAL          :: is_radtran_datetime
+    LOGICAL          :: is_1st_call = .TRUE.
 
     ! Local parameters
 
@@ -124,10 +128,12 @@ CONTAINS
     !
     IF (echam_phy_config%lrad) THEN
 
-      is_initial_datetime = (datetime == time_config%ini_datetime) ! here the overloaded == from mo_datetime is used
-      is_radtran_datetime = (MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0)
+!!$      is_initial_datetime = (datetime == time_config%ini_datetime) ! here the overloaded == from mo_datetime is used
+!!$      is_radtran_datetime = (MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0)
+!!$      ltrig_rad = ( is_initial_datetime .OR. is_radtran_datetime )
+      ltrig_rad   = ( is_1st_call .AND. (.NOT.lrestart)                             ) .OR. &
+        &           ( MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0 )
 
-      ltrig_rad = ( is_initial_datetime .OR. is_radtran_datetime )
     ELSE
       ltrig_rad = .FALSE.
     END IF
@@ -207,6 +213,8 @@ CONTAINS
       END IF
       !
     END IF ! ltrig_rad
+
+    is_1st_call = .FALSE.
 
   END SUBROUTINE echam_phy_bcs_global
 
