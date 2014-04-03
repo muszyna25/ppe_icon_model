@@ -56,7 +56,7 @@ MODULE mo_echam_phy_bcs
   USE mo_icoham_sfc_indices         ,ONLY: iwtr
 
   USE mo_time_interpolation         ,ONLY: time_weights_limm
-  USE mo_time_interpolation_weights ,ONLY: wi_limm
+  USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
 
   USE mo_solar_irradiance           ,ONLY: read_ssi_bc, ssi_time_interpolation
 
@@ -185,10 +185,14 @@ CONTAINS
     !
     IF (ltrig_rad) THEN
       !
+      ! interpolation weights for linear interpolation
+      ! of monthly means onto the radiation time step
+      CALL time_weights_limm(datetime, wi_limm_radt)
+      !
       ! total and spectral solar irradiation at the mean sun earth distance
       IF (isolrad==1) THEN
         CALL read_ssi_bc(datetime%year,.TRUE.)
-        CALL ssi_time_interpolation(wi_limm,.TRUE.,tsi_radt,ssi_radt)
+        CALL ssi_time_interpolation(wi_limm_radt,.TRUE.,tsi_radt,ssi_radt)
       END IF
       !
       ! greenhouse gas concentrations, assumed constant in horizontal dimensions
