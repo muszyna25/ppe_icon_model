@@ -41,44 +41,42 @@
 
 MODULE mo_interface_icoham_echam
 
-  USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: message, finish
-  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlcell, io3_amip
-  USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
-  USE mo_math_constants,    ONLY: pi
-  USE mo_model_domain,      ONLY: t_patch
-  USE mo_master_nml,        ONLY: lrestart
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
-  USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend
-  USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_intp_data_strc,    ONLY: t_int_state
-  USE mo_intp_rbf,          ONLY: rbf_vec_interpol_cell
-  USE mo_intp,              ONLY: edges2cells_scalar
-                                
-  USE mo_parallel_config,   ONLY: nproma, use_icon_comm, p_test_run
-  
-  USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
-     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
-  
-  USE mo_run_config,        ONLY: nlev, ltimer, ntracer
-  USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
-  USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
-  USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
-  USE mo_icoham_sfc_indices,ONLY: iwtr, iice
+  USE mo_kind                ,ONLY: wp
+  USE mo_exception           ,ONLY: finish !, message
+  USE mo_impl_constants      ,ONLY: min_rlcell_int
+  USE mo_impl_constants_grf  ,ONLY: grf_bdywidth_e, grf_bdywidth_c
 
-  USE mo_echam_phy_bcs,     ONLY: echam_phy_bcs_global
-  USE mo_echam_phy_main,    ONLY: echam_phy_main
-  USE mo_sync,              ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
-  USE mo_timer,             ONLY: timer_start, timer_stop, timers_level,                         &
-    &                             timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
-    &                             timer_echam_sync_temp , timer_echam_sync_tracers
-  USE mo_coupling_config,    ONLY: is_coupled_run
+  USE mo_datetime            ,ONLY: t_datetime
+  USE mo_model_domain        ,ONLY: t_patch
+  USE mo_loopindices         ,ONLY: get_indices_c, get_indices_e
+  USE mo_intp_data_strc      ,ONLY: t_int_state
+  USE mo_intp_rbf            ,ONLY: rbf_vec_interpol_cell
+  USE mo_sync                ,ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
+
+  USE mo_timer               ,ONLY: timer_start    , timer_stop   , &
+    &                               timer_dyn2phy  , timer_phy2dyn, &
+    &                               timer_echam_phy, timer_coupling
+
+  USE mo_parallel_config     ,ONLY: nproma, p_test_run
+  USE mo_run_config          ,ONLY: nlev, ltimer, ntracer
+  USE mo_echam_phy_config    ,ONLY: phy_config => echam_phy_config
+  USE mo_coupling_config     ,ONLY: is_coupled_run
+
+  USE mo_icoham_dyn_types    ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
+  USE mo_echam_phy_memory    ,ONLY: prm_field, prm_tend
+
+  USE mo_eta_coord_diag      ,ONLY: half_level_pressure, full_level_pressure
+  USE mo_icoham_sfc_indices  ,ONLY: iwtr, iice
+
+  USE mo_echam_phy_bcs       ,ONLY: echam_phy_bcs_global
+  USE mo_echam_phy_main      ,ONLY: echam_phy_main
+
 #ifdef YAC_coupling
-  USE finterface_description ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
+  USE finterface_description ,ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
 #else
-  USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
-  USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-  USE mo_icon_cpl_restart,   ONLY: icon_cpl_write_restart
+  USE mo_icon_cpl_exchg      ,ONLY: ICON_cpl_put, ICON_cpl_get
+  USE mo_icon_cpl_def_field  ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_icon_cpl_restart    ,ONLY: icon_cpl_write_restart
 #endif
 
   IMPLICIT NONE
@@ -160,7 +158,6 @@ CONTAINS
     INTEGER:: i_nchdom       !< number of child patches
     INTEGER:: rl_start, rl_end, i_startblk, i_endblk
     !--------------
-    INTEGER:: temp_comm, tracers_comm  ! communicators
     INTEGER:: return_status
     CHARACTER(*), PARAMETER :: method_name = "interface_icoham_echam"
 
@@ -581,19 +578,8 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-     IF (use_icon_comm) THEN
-       temp_comm = new_icon_comm_variable(dyn_tend%temp, p_patch%sync_cells_not_in_domain,  &
-         & status=is_ready, scope=until_sync, name="echam dyn_tend temp")
-       tracers_comm = new_icon_comm_variable(dyn_tend%tracer, p_patch%sync_cells_not_in_domain, &
-         & status=is_ready, scope=until_sync, name="echam dyn_tend tracer")
-     ELSE
-!     IF (timers_level > 5) CALL timer_start(timer_echam_sync_temp)
-       CALL sync_patch_array( SYNC_C, p_patch, dyn_tend%temp )
-!      IF (timers_level > 5) CALL timer_stop(timer_echam_sync_temp)
-!      IF (timers_level > 5) CALL timer_start(timer_echam_sync_tracers)
-       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer)
-!      IF (timers_level > 5) CALL timer_stop(timer_echam_sync_tracers)
-     END IF
+    CALL sync_patch_array( SYNC_C, p_patch, dyn_tend%temp )
+    CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer)
          
     any_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
                  & phy_config%lgw_hines .OR.phy_config%lssodrag
@@ -623,11 +609,7 @@ CONTAINS
 
       ! Now derive the physics-induced normal wind tendency, and add it to the
       ! total tendency.
-      IF (use_icon_comm) THEN
-        CALL icon_comm_sync(zdudt, zdvdt, p_patch%sync_cells_not_in_domain)
-      ELSE
-        CALL sync_patch_array_mult(SYNC_C, p_patch, 2, zdudt, zdvdt)
-      END IF
+      CALL sync_patch_array_mult(SYNC_C, p_patch, 2, zdudt, zdvdt)
       
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP PARALLEL
@@ -661,11 +643,8 @@ CONTAINS
  
   END IF !any_uv_tend
 
-   IF (use_icon_comm) THEN
-     CALL icon_comm_sync_all()
-   END IF
-
   IF (ltimer) CALL timer_stop(timer_phy2dyn)
+
   !--------------------------
   END SUBROUTINE interface_icoham_echam
 
