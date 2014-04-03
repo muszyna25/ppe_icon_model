@@ -54,7 +54,7 @@ MODULE mo_echam_phy_bcs
   USE mo_icoham_sfc_indices         ,ONLY: iwtr
 
   USE mo_time_interpolation         ,ONLY: time_weights_limm
-  USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
+  USE mo_time_interpolation_weights ,ONLY: wi_limm
 
   USE mo_solar_irradiance           ,ONLY: read_ssi_bc, ssi_time_interpolation
 
