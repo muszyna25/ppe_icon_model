@@ -314,8 +314,8 @@ MODULE mo_ocean_nml
   ! cfl related
   LOGICAL  :: cfl_check             = .TRUE.
   LOGICAL  :: cfl_write             = .FALSE.
-  LOGICAL  :: cfl_stop_on_violation = .TRUE.
-  REAL(wp) :: cfl_threshold         = 0.85_wp
+  LOGICAL  :: cfl_stop_on_violation = .FALSE.
+  REAL(wp) :: cfl_threshold         = 1.0_wp
 
   ! special diagnostics configuration
   !

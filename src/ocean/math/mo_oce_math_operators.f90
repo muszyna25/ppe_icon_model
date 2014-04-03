@@ -1147,12 +1147,14 @@ CONTAINS
     CHARACTER(LEN=4), INTENT(IN) :: orientation
     LOGICAL, INTENT(IN)          :: stop_on_violation
 
-    IF (stop_on_violation) THEN
-      IF (threshold < maxcfl) THEN
+    IF (threshold < maxcfl) THEN
+      IF (stop_on_violation) THEN
         ! location lookup
         ! location print
         ! throw error
         CALL finish('check_cfl','Found violation of CFL ('//TRIM(orientation)//') criterion')
+      ELSE
+        CALL message('check_cfl','Found violation of CFL ('//TRIM(orientation)//') criterion')
       END IF
     END IF
   END SUBROUTINE check_cfl_threshold
