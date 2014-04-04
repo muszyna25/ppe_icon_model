@@ -61,10 +61,10 @@ T\_SO(0)            &    Ana\_SST         &   \tred{AN}  &     FG      &     FG 
 T\_SO(1:nlevsoil)   &     --              &   FG         &     FG      &     FG      &     FG      &     FG      &     FG      &     FG      &    FG         \\
 W\_SO\_ICE          &     --              &   FG         &     FG      &     FG      &     FG      &     FG      &     FG      &     FG      &    FG         \\
 W\_SO               &      SMA            &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
-W\_I                &    Ana\_SNOW        &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
-W\_SNOW             &    Ana\_SNOW        &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
+W\_I                &    --               &   FG         &     FG      &     FG      &     FG      &     FG      &     FG      &     FG      &    FG         \\
+W\_SNOW\footnotemark[1] &    Ana\_SNOW    &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
 T\_SNOW             &    Ana\_SNOW        &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
-RHO\_SNOW           &    Ana\_SNOW        &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
+RHO\_SNOW\footnotemark[1] &    Ana\_SNOW  &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
 H\_SNOW             &    Ana\_SNOW        &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
 FRESHSNW            &    Ana\_SNOW        &   \tred{AN}  &  \tred{AN}  &  \tred{AN}  &   \tred{AN} &   \tred{AN} &  \tred{AN}  &  \tred{AN}  &  \tred{AN}    \\
 \hline \multicolumn{10}{l}{\textbf{Sea ice/Lake}} \\
@@ -80,3 +80,6 @@ T\_B1\_LK           &      --             &   FG         &     FG      &     FG 
 H\_B1\_LK           &      --             &   FG         &     FG      &     FG      &     FG      &     FG      &     FG      &     FG      &    FG         \\
   \bottomrule
 \end{longtable}
+\footnotetext[1]{Note that $w\_snow$ and $\rho\_snow$ are actually not read from the analysis but from the first guess. $w\_snow$ and $\rho\_snow$ do not contain any 
+new/independent information, they are simply re-diagnosed from the analysed field $h\_snow$. This diagnosis is performed within the ICON-code based 
+on the first guess fields of $w\_snow$ and $\rho\_snow$ and the analyzed field $h\_snow$.}
