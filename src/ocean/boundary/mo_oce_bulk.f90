@@ -174,13 +174,19 @@ CONTAINS
 
     CASE (Analytical_Forcing)        !  11
 
+      !  Driving the ocean with analytically calculated fluxes
       CALL update_flux_analytical(p_patch_3D, p_os, p_sfc_flx)
 
     CASE (OMIP_FluxFromFile)         !  12
 
+      !  Driving the ocean with OMIP (no NCEP activated anymore):
+      !   1) read OMIP data (read relaxation data, temperature_relaxation=2)
+      !   2) call bulk formula (with or without sea ice)
+      !   3) call ice model (todo: move below after case construct to unify call of sea ice)
       CALL update_flux_fromFile(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime, p_op_coeff)
 
     CASE (Atmo_FluxFromFile)                                          !  13
+
       ! 1) Read field data from file
       ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
       ! 3) CALL update_flux_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
@@ -189,10 +195,12 @@ CONTAINS
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
 
     CASE (Coupled_FluxFromAtmo)                                       !  14
+
       !  Driving the ocean in a coupled mode:
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
       !  and do a direct assignment of atmospheric state to surface fluxes.
+      !  3) call ice model (todo: move below after case construct to unify call of sea ice)
       !
       CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
@@ -331,7 +339,7 @@ CONTAINS
     ! Apply net surface heat flux to boundary condition
     !  - heat flux is applied alternatively to temperature relaxation for coupling
     !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
-    !  - with OMIP-forcing and sea_ice=0 we need temperature_relaxation=1
+    !  - with OMIP-forcing and sea_ice=0 we need temperature_relaxation=-1
     !    since there is no forc_hflx over open water when using OMIP-forcing
     !  - i_apply_surface_hflux=1 provides net surface heat flux globally
     !
