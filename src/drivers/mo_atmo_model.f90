@@ -35,25 +35,19 @@
 MODULE mo_atmo_model
 
   ! basic modules
-  USE mo_kind,                    ONLY: wp, dp
-  USE mo_exception,               ONLY: message, finish, message_text
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,                           &
-    &                                   my_process_is_mpi_test, my_process_is_mpi_parallel,   &
-    &                                   set_mpi_work_communicators, set_comm_input_bcast,     &
-    &                                   null_comm_type, p_pe_work, get_my_mpi_all_id, p_min,  &
-    &                                   p_max, p_comm_work, process_mpi_io_size,              &
+  USE mo_exception,               ONLY: message, finish !, message_text
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
+    &                                   set_mpi_work_communicators,                           &
+    &                                   p_pe_work, get_my_mpi_all_id, process_mpi_io_size,    &
     &                                   my_process_is_restart, process_mpi_restart_size
-  USE mo_sync,                    ONLY: enable_sync_checks, disable_sync_checks,              &
-    &                                   decomposition_statistics
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs, timer_ext_data
-  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs, nproma,      &
-    &                                   use_icon_comm, division_method, num_restart_procs,    &
-    &                                   use_async_restart_output
+  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
+    &                                   num_restart_procs,                                    &
+    &                                   use_async_restart_output !,use_icon_comm
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
-  USE mo_util_string,             ONLY: int2string
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_io_restart,              ONLY: read_restart_header
   USE mo_io_restart_attributes,   ONLY: get_restart_attribute
@@ -61,29 +55,26 @@ MODULE mo_atmo_model
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
   USE mo_nml_crosscheck,          ONLY: atm_crosscheck
-  USE mo_nonhydrostatic_config,   ONLY: ivctype, kstart_moist, iadv_rcf,                      &
-    &                                   configure_nonhydrostatic
+  USE mo_nonhydrostatic_config,   ONLY: iadv_rcf, configure_nonhydrostatic
   USE mo_initicon_config,         ONLY: configure_initicon
   USE mo_lnd_nwp_config,          ONLY: configure_lnd_nwp
   USE mo_dynamics_config,         ONLY: configure_dynamics, iequations
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer, ltestcase,                                    &
-    &                                   iforcing,                                             & !    namelist parameter
     &                                   nshift,                                               &
     &                                   num_lev,num_levp1,                                    &
-    &                                   ntracer, msg_level,                                   &
+    &                                   msg_level,                                            &
     &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
     &                                   grid_generatingSubcenter                                ! grid generating subcenter
   USE mo_gribout_config,          ONLY: configure_gribout
   USE mo_impl_constants,          ONLY: ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                   ishallow_water, max_dom
+    &                                   ishallow_water
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
   USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
 
-  USE mo_nonhydro_state,          ONLY: p_nh_state
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
   ! coupling
@@ -99,7 +90,7 @@ MODULE mo_atmo_model
   ! horizontal grid, domain decomposition, memory
   USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
     &                                   dynamics_parent_grid_id, n_phys_dom
-  USE mo_model_domain,            ONLY: t_patch, p_patch, p_patch_local_parent
+  USE mo_model_domain,            ONLY: p_patch, p_patch_local_parent
   USE mo_build_decomposition,     ONLY: build_decomposition
   USE mo_complete_subdivision,    ONLY: setup_phys_patches
   USE mo_icon_comm_interface,     ONLY: construct_icon_communication,                         &

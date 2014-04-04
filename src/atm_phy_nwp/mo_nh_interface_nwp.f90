@@ -69,7 +69,7 @@ MODULE mo_nh_interface_nwp
   USE mo_model_domain,            ONLY: t_patch
   USE mo_intp_data_strc,          ONLY: t_int_state
   USE mo_nonhydro_types,          ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config,   ONLY: kstart_moist, l_open_ubc, lhdiff_rcf, ih_clch, ih_clcm
+  USE mo_nonhydrostatic_config,   ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
   USE mo_nwp_lnd_types,           ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,          ONLY: t_external_data
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -77,7 +77,7 @@ MODULE mo_nh_interface_nwp
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqm_max,    &
     &                                   msg_level, ltimer, timers_level, nqtendphy
-  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
+  USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp
 
@@ -100,8 +100,7 @@ MODULE mo_nh_interface_nwp
   USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier,     &
     &                                   process_mpi_stdio_id, my_process_is_stdio
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
-  USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable, delete_icon_comm_variable,    &
-    &                                   icon_comm_var_is_ready, icon_comm_sync,               &
+  USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
     &                                   icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,   ONLY: art_washout_interface
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface

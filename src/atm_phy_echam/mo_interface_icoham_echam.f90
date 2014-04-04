@@ -64,21 +64,10 @@ MODULE mo_interface_icoham_echam
 
   USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
-
   USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
-  USE mo_icoham_sfc_indices    ,ONLY: iwtr, iice
-
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
-
-#ifdef YAC_coupling
-  USE finterface_description   ,ONLY: yac_fput, yac_fget, yac_fget_nbr_fields, yac_fget_field_ids
-#else
-  USE mo_icon_cpl_exchg        ,ONLY: ICON_cpl_put, ICON_cpl_get
-  USE mo_icon_cpl_def_field    ,ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-  USE mo_icon_cpl_restart      ,ONLY: icon_cpl_write_restart
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -262,9 +251,10 @@ CONTAINS
     !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
     !    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
 
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------------
     ! For each block, call "echam_phy_main" to compute various parameterised processes
-    !-------------------------------------------------------------------------
+    !---------------------------------------------------------------------------------
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -301,34 +291,11 @@ CONTAINS
 
     IF (ltimer)  THEN
       CALL timer_stop (timer_echam_phy)
-      CALL timer_start(timer_phy2dyn)
     END IF
 
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
-
-    ! Possible fields that contain information to be sent to the ocean include
-    !
-    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr)  and 
-    !    prm_field(jg)% v_stress_tile(:,:,iwtr)  which are the wind stress components;
-    !
-    ! 2. prm_field(jg)% evap_tile(:,:,iwtr) evaporation rate
-    !
-    ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
-    !    which gives the precipitation rate;
-    !
-    ! 4. prm_field(jg)% temp(:,nlev,:)  temperature at the lowest model level, or
-    !    prm_field(jg)% temp_2m(:,:)    2-m temperature, not available yet, or
-    !    prm_field(jg)% shflx_tile(:,:,iwtr) sensible heat flux
-    !
-    ! 5  prm_field(jg)% lhflx_tile(:,:,iwtr) latent heat flux
-    ! 6. shortwave radiation flux at the surface
-    !
-    ! Possible fields to receive from the ocean include
-    !
-    ! 1. prm_field(jg)% tsfc_tile(:,:,iwtr)   SST
-    ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
     ! 
     IF ( is_coupled_run() ) THEN
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -346,6 +313,10 @@ CONTAINS
     ! tendencies to the normal wind tendency.
     ! Once a physics grid of different resolution is intruduced,
     ! conservative re-mapping will be called here.
+
+    IF (ltimer)  THEN
+      CALL timer_start(timer_phy2dyn)
+    END IF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE

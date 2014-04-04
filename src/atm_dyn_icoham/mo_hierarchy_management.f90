@@ -80,10 +80,8 @@ MODULE mo_hierarchy_management
   USE mo_run_config,          ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer, iforcing, lforcing
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
-  USE mo_ha_prog_util,        ONLY: copy_prog_state, update_prog_state,  &
-    &                               diag_tend
-  USE mo_ha_diag_util,        ONLY: update_diag_state, update_dyn_output, &
-    &                               update_pres
+  USE mo_ha_prog_util,        ONLY: update_prog_state, diag_tend !, copy_prog_state
+  USE mo_ha_diag_util,        ONLY: update_pres !, update_diag_state, update_dyn_output
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_ha_leapfrog,         ONLY: step_leapfrog_expl, asselin, &
     &                               leapfrog_update_prog
