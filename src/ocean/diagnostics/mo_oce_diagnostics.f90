@@ -587,6 +587,12 @@ CONTAINS
             monitor%ice_volume_sh  = monitor%ice_volume_sh + prism_area*SUM(p_ice%vol(jc,:,jb)*p_ice%conc(jc,:,jb))
             monitor%ice_extent_sh  = monitor%ice_extent_sh + p_ice%concsum(jc,jb)*prism_area
           END IF
+
+          ! ice budgets
+          ! heat
+          ! 
+          ! salinity
+          ! volume
           
           DO jk = 1,p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
             
