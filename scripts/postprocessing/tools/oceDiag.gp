@@ -36,7 +36,7 @@ set grid y2tics
 plot file using 2:"indonesian_throughflow" w l axes x1y2
 set ytics in
 unset y2tics
-plot file using 2:"absolute_vertical_velocity" w l
+plot file using 2:"ice_ocean_volume_budget" w l
 set y2tics in
 unset ytics
 set grid y2tics
@@ -51,14 +51,14 @@ set grid y2tics
 plot file using 2:"denmark_strait" w l axes x1y2
 set ytics in
 unset y2tics
-plot file using 2:"total_energy" w l
+plot file using 2:"ice_ocean_heat_budget" w l
 set y2tics in
 unset ytics
 set grid y2tics
 plot file using 2:"gibraltar" w l axes x1y2
 set ytics in
 unset y2tics
-plot file using 2:"ice_volume_nh" w l
+plot file using 2:"ice_ocean_salinity_budget" w l
 set y2tics in
 unset ytics
 set grid y2tics

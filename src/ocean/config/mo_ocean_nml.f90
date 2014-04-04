@@ -127,8 +127,8 @@ MODULE mo_ocean_nml
   INTEGER            :: i_bc_veloc_lateral = 0   
 
   INTEGER            :: i_bc_veloc_top = 1  !Top boundary condition for velocity: 
-                                            ! i_bc_veloc_top =0 : zero value at top boundary,no wind
-                                            ! i_bc_veloc_top =1 : forced by wind field that is
+                                            ! i_bc_veloc_top =0 : zero value at top boundary,no wind stress
+                                            ! i_bc_veloc_top =1 : forced by wind stress 
                                             !                     stored in p_os%p_aux%bc_top_veloc
                                             ! i_bc_veloc_top =2 : forced by difference between wind
                                             !                     field in p_os%p_aux%bc_top_veloc 
@@ -820,9 +820,11 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'free-slip boundary condition for velocity currently not supported')
      ENDIF
-     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 3) THEN
+     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 1) THEN
+     !  option >1 disabled due to unphysical difference of stress minus velocity
+     !  see routine top_bound_cond_horz_veloc (#slo#, 2014-04)
        CALL finish(TRIM(routine), &
-         &  'top boundary condition for velocity currently not supported: choose = 0,1,2,3')
+         &  'top boundary condition for velocity currently not supported: choose = 0,1')
      ENDIF
      IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
        CALL finish(TRIM(routine), &

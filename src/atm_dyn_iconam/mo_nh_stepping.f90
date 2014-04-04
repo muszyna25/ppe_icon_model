@@ -67,9 +67,8 @@ MODULE mo_nh_stepping
     &                                    timer_integrate_nh, timer_nh_diagnostics
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy
-  USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params, prm_nwp_diag_list, &
-    &                                    prm_nwp_tend_list
-  USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode, lseaice
+  USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
+  USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE mo_ext_data_state,           ONLY: ext_data, interpol_monthly_mean
   USE mo_lnd_jsbach_config,        ONLY: lnd_jsbach_config
@@ -85,10 +84,9 @@ MODULE mo_nh_stepping
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
   USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds
-  USE mo_intp_data_strc,           ONLY: t_int_state, t_lon_lat_intp, p_int_state
+  USE mo_intp_data_strc,           ONLY: p_int_state
   USE mo_intp_rbf,                 ONLY: rbf_vec_interpol_cell
-  USE mo_intp,                     ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
-    &                                    verts2cells_scalar
+  USE mo_intp,                     ONLY: verts2cells_scalar
   USE mo_grf_intp_data_strc,       ONLY: p_grf_state
   USE mo_gridref_config,           ONLY: l_density_nudging, grf_intmethod_e
   USE mo_grf_bdyintp,              ONLY: interpol_scal_grf
@@ -98,32 +96,27 @@ MODULE mo_nh_stepping
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
                                          prep_outer_bdy_nudging
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
-  USE mo_datetime,                 ONLY: t_datetime, print_datetime, add_time, check_newday, &
-                                         rdaylen, date_to_time
+  USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday
   USE mo_io_restart,               ONLY: write_restart_info_file, create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY:  SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                                    inwp, iecham, itturb, itgscp, itsfc, icosmo,              &
-    &                                    min_rlcell_int, min_rledge_int,                           &
-    &                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS
-  USE mo_math_divrot,              ONLY: div, div_avg, rot_vertex
+    &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
+    &                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS !, icosmo
+  USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: my_process_is_mpi_parallel,                      &
-    &                                    proc_split, push_glob_comm, pop_glob_comm,       &
-    &                                    get_my_mpi_all_id
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
   
-  USE mo_sync,                     ONLY: sync_patch_array_mult, &
-                                         SYNC_C, SYNC_E, sync_patch_array
+  USE mo_sync,                     ONLY: sync_patch_array_mult, sync_patch_array, SYNC_C
   USE mo_nh_interface_nwp,         ONLY: nwp_nh_interface
   USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
   USE mo_vertical_grid,            ONLY: set_nh_metrics
@@ -143,10 +136,9 @@ MODULE mo_nh_stepping
   USE mo_art_config,               ONLY: art_config
                                    
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sstice, update_ndvi
-  USE mo_nh_init_nest_utils,       ONLY: initialize_nest, topo_blending_and_fbk
+  USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
-  USE mo_td_ext_data,              ONLY: set_actual_td_ext_data,  &
-                                       & read_td_ext_data_file
+  USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
   USE mo_initicon_config,          ONLY: init_mode
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing

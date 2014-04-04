@@ -32,14 +32,13 @@
 !!
 MODULE mo_atmo_hydrostatic
 
-  USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
   USE mo_timer,             ONLY: print_timer
 
   USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
-  USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer, iforcing, nlev, &
+  USE mo_run_config,        ONLY: dtime, ltestcase, ltimer, iforcing, nlev, &
     &                             msg_level, output_mode, ntracer, iqc, iqt
   USE mo_dynamics_config,   ONLY: iequations
   USE mo_advection_config,  ONLY: configure_advection
@@ -56,8 +55,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, &
                                     perform_ha_stepping
 
-  USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy, &
-                                    additional_restart_init
+  USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy !, additional_restart_init
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
   USE mo_io_restart,           ONLY: read_restart_files
@@ -65,7 +63,6 @@ MODULE mo_atmo_hydrostatic
   USE mo_name_list_output_init, ONLY: init_name_list_output
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
-  USE mo_parallel_config,      ONLY: use_icon_comm
   USE mo_mtime_extensions,     ONLY: get_datetime_string
   USE mo_output_event_types,   ONLY: t_sim_step_info
   USE mtime,                   ONLY: setCalendar, PROLEPTIC_GREGORIAN

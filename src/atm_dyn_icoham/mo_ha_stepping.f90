@@ -46,7 +46,7 @@ MODULE mo_ha_stepping
   USE mo_kind,                ONLY: wp
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
   USE mo_icoham_dyn_memory,   ONLY: construct_icoham_dyn_state
-  USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
+  USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch

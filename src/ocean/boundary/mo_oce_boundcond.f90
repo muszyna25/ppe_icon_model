@@ -166,54 +166,56 @@ CONTAINS
         END DO
       END DO
 
-    CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
-      ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
-      !       to subtract a velocity is unphysical - to be checked
+ !  CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
+ !    ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
+ !    !       to subtract velocity from wind stress is unphysical - to be checked
+ !    !  option disabled (#slo#, 2014-04)
 
-      ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
-            & - p_os%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
-          top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_v(jc,jb)   &
-            & - p_os%p_diag%v(jc,1,jb) ) / z_scale(jc,jb)
-          top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
-            & - p_os%p_diag%p_vn(jc,1,jb)%x)/z_scale(jc,jb)
-          ENDIF
-        END DO
-      END DO
+ !    ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
+ !    DO jb = all_cells%start_block, all_cells%end_block
+ !      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+ !      DO jc = i_startidx_c, i_endidx_c
+ !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+ !        top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
+ !          & - p_os%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
+ !        top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_v(jc,jb)   &
+ !          & - p_os%p_diag%v(jc,1,jb) ) / z_scale(jc,jb)
+ !        top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
+ !          & - p_os%p_diag%p_vn(jc,1,jb)%x)/z_scale(jc,jb)
+ !        ENDIF
+ !      END DO
+ !    END DO
 
-    CASE (3) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer as in 2
-             ! but gradually increase the for forcing_smooth_steps
-      ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
-      !       to subtract a velocity is unphysical - to be checked
+ !  CASE (3) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer as in 2
+ !           ! but gradually increase the for forcing_smooth_steps
+ !    ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
+ !    !       to subtract velocity from wind stress is unphysical - to be checked
+ !    !  option disabled (#slo#, 2014-04)
 
-      IF (is_restart_run()) THEN
-        smooth_coeff = 1.0_wp
-      ELSE
-        smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
-        current_step = current_step + 1
-      ENDIF
+ !    IF (is_restart_run()) THEN
+ !      smooth_coeff = 1.0_wp
+ !    ELSE
+ !      smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
+ !      current_step = current_step + 1
+ !    ENDIF
 
-      ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-            u_diff = p_sfc_flx%forc_wind_u(jc,jb) - p_os%p_diag%u(jc,1,jb)
-            v_diff = p_sfc_flx%forc_wind_v(jc,jb) - p_os%p_diag%v(jc,1,jb)
+ !    ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
+ !    DO jb = all_cells%start_block, all_cells%end_block
+ !      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+ !      DO jc = i_startidx_c, i_endidx_c
+ !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+ !          u_diff = p_sfc_flx%forc_wind_u(jc,jb) - p_os%p_diag%u(jc,1,jb)
+ !          v_diff = p_sfc_flx%forc_wind_v(jc,jb) - p_os%p_diag%v(jc,1,jb)
 
-            stress_coeff = smooth_coeff / z_scale(jc,jb)
+ !          stress_coeff = smooth_coeff / z_scale(jc,jb)
 
-            top_bc_u_c(jc,jb)    = u_diff * stress_coeff
-            top_bc_v_c(jc,jb)    = v_diff * stress_coeff
-            top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
-              & - p_os%p_diag%p_vn(jc,1,jb)%x) * stress_coeff
-          ENDIF
-        END DO
-      END DO
+ !          top_bc_u_c(jc,jb)    = u_diff * stress_coeff
+ !          top_bc_v_c(jc,jb)    = v_diff * stress_coeff
+ !          top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
+ !            & - p_os%p_diag%p_vn(jc,1,jb)%x) * stress_coeff
+ !        ENDIF
+ !      END DO
+ !    END DO
     END SELECT
 
     CALL map_cell2edges_3D( patch_3D, top_bc_u_cc,p_os%p_aux%bc_top_vn,p_op_coeff,  level=1)

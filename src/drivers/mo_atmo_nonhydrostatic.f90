@@ -50,7 +50,6 @@ USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
 USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist parameter
   &                                ltestcase,            &
-  &                                nsteps,               & !    :
   &                                ltimer,               & !    :
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
@@ -95,7 +94,6 @@ USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: action_init
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
-USE mo_vertical_coord_table,ONLY: vct_a
 
 !-------------------------------------------------------------------------
 

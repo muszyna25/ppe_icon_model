@@ -87,7 +87,7 @@ cat > ${ocean_namelist} << EOF
   l_edge_based    = .FALSE.              ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.              ! partial bottom cells=true: local varying bottom depth
   i_bc_veloc_bot     = 1                 !  0/1=bottom friction off/on
-  i_bc_veloc_top     = 3                 !  forced by the difference of wind-ocean velocity, smoothed
+  ! i_bc_veloc_top     = 3 !                !  forced by the difference of wind-ocean velocity, smoothed
   select_solver      = 2                 !  1=gmres_oce_old; 2=ocean_restart_gmres
   solver_tolerance   = 1.0E-15           !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 28     !  inner solver loop without syncing (default: 200)
