@@ -129,6 +129,9 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: scotland_iceland !                                                        [Sv]
     REAL(wp) :: t_mean_na_200m !                                                        [degC]
     REAL(wp) :: t_mean_na_800m !                                                        [degC]
+    REAL(wp) :: ice_ocean_heat_budget
+    REAL(wp) :: ice_ocean_salinity_budget
+    REAL(wp) :: ice_ocean_volume_budget
     REAL(wp), ALLOCATABLE :: tracer_content(:)
     
   END TYPE t_oce_monitor
@@ -136,7 +139,7 @@ MODULE mo_oce_diagnostics
   TYPE t_oce_timeseries
     
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(37)  :: names = (/ &
+    CHARACTER(LEN=40), DIMENSION(40)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -172,6 +175,9 @@ MODULE mo_oce_diagnostics
       & "scotland_iceland                        ", &
       & "t_mean_NA_200m                          ", &
       & "t_mean_NA_800m                          ", &
+      & "ice_ocean_heat_budget                   ", &
+      & "ice_ocean_salinity_budget               ", &
+      & "ice_ocean_volume_budget                 ", &
       & "total_temperature                       ", &
       & "total_salinity                          "/)
     
@@ -272,6 +278,9 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%scotland_iceland           = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%t_mean_na_200m             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%t_mean_na_800m             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_heat_budget      = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_salinity_budget  = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_volume_budget    = 0.0_wp
     
     DO i=0,nsteps
       ALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content(1:no_tracer))
@@ -494,8 +503,8 @@ CONTAINS
     
     TYPE(t_subset_range), POINTER :: owned_cells
     TYPE(t_oce_monitor),  POINTER :: monitor
-    CHARACTER(LEN=1024)           :: line, nvars
-    CHARACTER(LEN=1024)           :: fmt_string, real_fmt
+    CHARACTER(LEN=2048)           :: line, nvars
+    CHARACTER(LEN=2048)           :: fmt_string, real_fmt
     CHARACTER(LEN=date_len)       :: datestring
     REAL(wp), PARAMETER :: equator = 0.00001_wp
     TYPE(t_ocean_regions)         :: ocean_regions
@@ -726,7 +735,11 @@ CONTAINS
         & monitor%indonesian_throughflow, &
         & monitor%scotland_iceland, &
         & monitor%t_mean_na_200m, &
-        & monitor%t_mean_na_800m
+        & monitor%t_mean_na_800m, &
+        & monitor%ice_ocean_heat_budget, &
+        & monitor%ice_ocean_salinity_budget, &
+        & monitor%ice_ocean_volume_budget
+
       ! * tracers
       DO i_no_t=1,no_tracer
         WRITE(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
@@ -866,7 +879,7 @@ CONTAINS
     
     TYPE(t_subset_range), POINTER :: dom_cells
     
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_oce_diagnostics:calc_moc')
     
     !-----------------------------------------------------------------------
     
