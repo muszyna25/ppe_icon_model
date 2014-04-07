@@ -227,7 +227,6 @@ CONTAINS
 ! External parameters
 !
     zbwt     (ie)      , & ! root depth (with artificial minimum value)
-    zrock    (ie)      , & ! ice/rock-indicator: 0 for ice and rock
     zsandf   (ie)      , & ! mean fraction of sand (weight percent)
     zclayf   (ie)      , & ! mean fraction of clay (weight percent)
     zb_por   (ie)      , & ! pore size distribution index
@@ -243,20 +242,11 @@ CONTAINS
     rockice_list(ie)       ! list of rock and ice points
   REAL    (KIND=ireals   ) ::  & ! Soil and plant parameters
 !
-    zfcap    (ie)      , & ! field capacity of soil
     zadp     (ie)      , & ! air dryness point
     zporv    (ie)      , & ! pore volume (fraction of volume)
-    zdlam    (ie)      , & ! heat conductivity parameter
-    zdw      (ie)      , & ! hydrological diff.parameter
-    zdw1     (ie)      , & ! hydrological diff.parameter
-    zkw      (ie)      , & ! hydrological cond.parameter
-    zkw1     (ie)      , & ! hydrological cond.parameter
-    zik2     (ie)      , & ! minimum infiltration rate
-    zpwp     (ie)      , & ! plant wilting point  (fraction of volume)
     zedb     (ie)          ! utility variable
 
   REAL    (KIND=ireals   ) ::  &
-    zrocg    (ie)        ,& ! volumetric heat capacity of bare soil
     zalam    (ie,ke_soil),& ! heat conductivity
     zw_snow_old(ie)      ,& !
     zrho_snow_old(ie)    ,&
@@ -329,18 +319,8 @@ CONTAINS
       icount_rockice=icount_rockice+1
       rockice_list(icount_rockice)=i
     END IF
-    zdw   (i)  = cdw0  (mstyp)
-    zdw1  (i)  = cdw1  (mstyp)
-    zkw   (i)  = ckw0  (mstyp)
-    zkw1  (i)  = ckw1  (mstyp)
-    zik2  (i)  = cik2  (mstyp)
     zporv(i)  = cporv(mstyp)              ! pore volume
-    zpwp (i)  = cpwp (mstyp)              ! plant wilting point
     zadp (i)  = cadp (mstyp)              ! air dryness point
-    zfcap(i)  = cfcap(mstyp)              ! field capacity
-    zrock(i)  = crock(mstyp)              ! rock or ice indicator
-    zrocg(i)  = crhoc(mstyp)              ! heat capacity
-    zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
     zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
                                            ! for root depth
     zroota(i) = 3._ireals/zbwt(i)       ! root density profile parameter (1/m)
@@ -359,15 +339,6 @@ CONTAINS
 
   ENDDO
  
-
-  ! Set three-dimensional variables
-  DO kso = 1, ke_soil
-    DO i = istarts, iends
-      mstyp         = soiltyp_subs(i)         ! soil type
-      zalam(i,kso)  = cala0(mstyp)            ! heat conductivity parameter
-    ENDDO
-  ENDDO
-
 
 
 
@@ -458,6 +429,13 @@ CONTAINS
   ! I.e. those which are dealing with the contributions from the analysis.
   ! Currently, the multi layer soil model starts from the FG.
   IF ( init_mode == 1 ) THEN
+
+    ! Initialization of 
+    ! - snow density (if necessary)
+    ! - multi layer snow variables (if necessary)
+    !   * wtot_snow, dzh_snow, wliq_snow
+    ! - soil ice water content w_so_ice
+    ! - snow height h_snow
 
 !   Initialization of snow density, if necessary
 !   --------------------------------------------
@@ -770,13 +748,15 @@ CONTAINS
         &            soiltyp_subs,   &  ! in
         &            w_snow_now      )  ! out
 
-      IF (w_snow_now(i) <= zepsi) THEN
-        ! spurious snow is removed
-        t_snow_now(i)= t_so_now(i,0)
-        w_snow_now(i)= 0.0_ireals
-      ELSE
-        t_snow_now(i) = MIN( t0_melt, t_snow_now(i))
-      ENDIF
+      DO i = istarts, iends
+        IF (w_snow_now(i) <= zepsi) THEN
+          ! spurious snow is removed
+          t_snow_now(i)= t_so_now(i,0)
+          w_snow_now(i)= 0.0_ireals
+        ELSE
+          t_snow_now(i) = MIN( t0_melt, t_snow_now(i))
+        ENDIF
+      ENDDO
 
     ENDIF ! multi snow
 
