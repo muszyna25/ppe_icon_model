@@ -80,6 +80,7 @@ MODULE mo_oce_diagnostics
   INTEGER :: diag_unit = -1 ! file handle for the global timeseries output
   INTEGER :: moc_unit  = -1 ! file handle for the global timeseries output
   CHARACTER(LEN=max_char_length) :: diag_fname, moc_fname
+  INTEGER, PARAMETER :: linecharacters  = 2048
   
   !
   ! PUBLIC INTERFACE
@@ -218,8 +219,7 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
     !-----------------------------------------------------------------------
-    CHARACTER(LEN=max_char_length) :: headerline
-    CHARACTER(LEN=max_char_length) :: listname
+    CHARACTER(LEN=linecharacters) :: headerline
     INTEGER  :: nblks_e,nblks_v,jb,jc,jk, region_index,start_index,end_index
     REAL(wp) :: surface_area, surface_height, prism_vol, prism_area, column_volume
     
@@ -289,8 +289,8 @@ CONTAINS
     
     ! open textfile for global timeseries
     diag_fname = 'oce_diagnostics-'//TRIM(datestring)//'.txt'
-    diag_unit = find_next_free_unit(10,99)
-    OPEN (UNIT=diag_unit,FILE=diag_fname,IOSTAT=ist)
+    diag_unit = find_next_free_unit(10,999)
+    OPEN (UNIT=diag_unit,FILE=diag_fname,IOSTAT=ist,Recl=linecharacters)
     ! header of the text file
     headerline = ''
     ! * add timestep columns
@@ -503,8 +503,8 @@ CONTAINS
     
     TYPE(t_subset_range), POINTER :: owned_cells
     TYPE(t_oce_monitor),  POINTER :: monitor
-    CHARACTER(LEN=2048)           :: line, nvars
-    CHARACTER(LEN=2048)           :: fmt_string, real_fmt
+    CHARACTER(LEN=linecharacters) :: line, nvars
+    CHARACTER(LEN=linecharacters) :: fmt_string, real_fmt
     CHARACTER(LEN=date_len)       :: datestring
     REAL(wp), PARAMETER :: equator = 0.00001_wp
     TYPE(t_ocean_regions)         :: ocean_regions
@@ -750,7 +750,7 @@ CONTAINS
       DO i_no_t=1,no_tracer
         WRITE(line,'(a,'//TRIM(real_fmt)//')') TRIM(line),monitor%tracer_content(i_no_t)
       END DO
-      
+
       WRITE(diag_unit,'(a)') TRIM(line)
     END IF
     
