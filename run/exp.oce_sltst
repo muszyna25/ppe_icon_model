@@ -95,7 +95,7 @@ forcing_timescale=1  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly dat
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-04T00:00:00Z"
+  end_date="2001-01-01T10:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -166,8 +166,8 @@ cat > ${ocean_namelist} << EOF
 !  include_last     = .true.  
 /
 &dbg_index_nml
-  idbg_mxmn=2                     ! initialize MIN/MAX  debug output
-  idbg_val =0                     ! initialize one cell debug output
+  idbg_mxmn=5                     ! initialize MIN/MAX  debug output
+  idbg_val =5                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
   dbg_lat_in=   30.0              ! latitude location of one cell debug output
