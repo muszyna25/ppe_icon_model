@@ -210,17 +210,17 @@ CONTAINS
     ! physics_parameters%a_veloc_v(:,:,:) = 1.0_wp
     CALL dbg_print('vn diffu', physics_parameters%a_veloc_v,  debug_string, 1, in_subset=edges_owned)
 
+    timer_vdiff_old     = new_timer("vdiff old")
+    timer_vdiff         = new_timer("vdiff")
+
+    vn_inout(:,:,:) = 0.0
+    vn_inout(:,1,:) = 1.0
     CALL dbg_print('vn', vn_inout,  debug_string, 1, in_subset=edges_owned)
     sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
     WRITE(message_text,'(f18.10)') sum_vn
     CALL message("sum=", message_text)
 
-    timer_vdiff_old     = new_timer("vdiff old")
-    timer_vdiff         = new_timer("vdiff")
-
     ! test old diffusion
-    vn_inout(:,:,:) = 0.0
-    vn_inout(:,1,:) = 1.0
     CALL timer_start(timer_vdiff_old)
     DO outer_iter=1,1000
       DO inner_iter=1,1000
@@ -249,7 +249,7 @@ CONTAINS
     ! test current diffusion
     vn_inout(:,:,:) = 0.0
     vn_inout(:,1,:) = 1.0
-    physics_parameters%a_veloc_v(:,:,:) = physics_parameters%a_veloc_v(:,:,:) * 1.01_wp
+    ! physics_parameters%a_veloc_v(:,:,:) = physics_parameters%a_veloc_v(:,:,:) * 1.01_wp
     CALL timer_start(timer_vdiff)
     DO outer_iter=1,1000
       DO inner_iter=1,1000
