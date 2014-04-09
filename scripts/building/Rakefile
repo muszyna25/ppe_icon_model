@@ -199,6 +199,9 @@ $buildCall = lambda {|build|
   end
   buildCall
 }
+# create/submit runscripts
+$runscriptCreateCall = lambda {|build,exp=''| "./make_runscripts #{exp}" }
+$runscriptSubmitCall = lambda {|build,exp=''| "cd run; sbatch exp.#{exp}.run" }
 
 # ============================================================================
 # global tempfile array: little hack because the call generator does not really
@@ -457,6 +460,12 @@ end
 def doBuild(build,rev=nil)
   call(connect(build,$buildCall[build],$targetDir[build,false,rev]))
 end
+def doCreateRunscripts(build,exp='',rev=nil)
+  call(connect(build,$runscriptCreateCall[build,exp],$targetDir[build,false,rev]))
+end
+def doSubmitRunscripts(build,exp='',rev=nil)
+  call(connect(build,$runscriptSubmitCall[build,exp],$targetDir[build,false,rev]))
+end
 def doClean(build)
   call(connect(build,"make clean"))
 end
@@ -471,7 +480,7 @@ def doRunExp(build,exp,post=false)
   # clean up old experiment folder
   call(connect(build,"cd experiments; rm -rf ./#{exp}"))
   call(connect(build,<<-EOS
-      ./make_runscripts #{exp};
+      ./1ake_runscripts #{exp};
       cd run;
       perl -pi.bak -e 's/submit=.*/submit=""/' #{runScript} ;
       perl -pi.bak -e 's/mpi_total_procs=.*/mpi_total_procs=#{nprocs}/' #{runScript} ;
@@ -724,6 +733,15 @@ $builds.each_key {|build|
     doCheckoutRev(build,args.rev,args.url)
     doConfig(build,args.rev)
     doBuild(build,args.rev)
+  end
+
+  desc "build one/mutiple runscript(s)"
+  task "#{build.to_s}_buildRun".to_sym, [:exp,:rev] do |t,args|
+    doCreateRunscripts(build,args.exp,args.rev)
+  end
+  desc "submit one/mutiple runscript(s)"
+  task "#{build.to_s}_submitRun".to_sym, [:exp,:rev] do |t,args|
+    doSubmitRunscripts(build,args.exp,args.rev)
   end
 }
 desc "Sync source codes for all builds"
