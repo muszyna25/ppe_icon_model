@@ -864,7 +864,7 @@ task :cmp_psi do
 end
 desc "test psi when the input date is an icon limited area field"
 task :test_psi_box_on_icongrid => @_FILES[AQUABOX_ICONGRID] do |t|
-  sh "./calc_psi.py #{t.prerequisites[0]} PLOT=#{t.name}.png AREA=box LEVELS=15 CMAP=BrBG ASPECT='equal'"
+  sh "./calc_psi.py #{t.prerequisites[0]} PLOT=#{t.name}.png AREA=box LEVELS=15 CMAP=BrBG ASPECT='auto'"
   show("#{t.name}.png")
 end
 desc "test psi plot with AREA setup"
