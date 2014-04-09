@@ -2238,7 +2238,7 @@ CONTAINS
  
   !-------------------------------------------------------------------------
   !>
-  !! TDMA tridiagonal matrix solver
+  !! TDMA tridiagonal matrix solver for a_i*x_(i-1) + b_i*x_i + c_i*x_(i+1) = d_i
   !!
   !! @par Revision History
   !! Initial revision by Anurag Dipankar(2013, Jan)

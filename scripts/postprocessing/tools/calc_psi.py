@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 from cdo import *
-from pylab import *
 import os,sys,math
 import matplotlib
-import netCDF4 as Cdf
-import mpl_toolkits.basemap as bm
 import numpy as np
-import matplotlib.cm as cm
-import matplotlib.mlab as mlab
+import mpl_toolkits.basemap as bm
 import matplotlib.pyplot as plt
 
 cdo        = Cdo()
@@ -127,27 +123,30 @@ psi  = -psi * dist * 1.0e-6
 #psi  = psi * 1.0e-6 / 1025.0 # MPIOM psi input
 # =======================================================================================
 # PLOTTING ==============================================================================
-plt.figure()
+fig = plt.figure()
 
 matplotlib.rcParams['contour.negative_linestyle'] = 'solid'
 lon2d, lat2d = np.meshgrid(lons, lats)
 mapproj = bm.Basemap(projection='cyl', 
                      llcrnrlat=math.floor(lats.min()), 
                      llcrnrlon=math.floor(lons.min()),
-                     urcrnrlat=math.floor(lats.max()),
-                     urcrnrlon=math.floor(lons.max()))
+                     urcrnrlat=math.ceil(lats.max()),
+                     urcrnrlon=math.ceil(lons.max()))
 mapproj.drawcoastlines(linewidth=.2)
+
 if 'global' == area:
     mapproj.fillcontinents(color='grey',lake_color='k')
+
 mapproj.drawmapboundary(fill_color='0.99')
-#   mapproj.drawparallels(np.array([-80,-60,-40,-20, 0, 20,40,60,80]), labels=[1,0,0,0],fontsize=2)
-#   mapproj.drawmeridians(range(0,360,30), labels=[0,0,0,1],fontsize=8)
+mapproj.drawparallels(np.array([-80,-60,-40,-20, 0, 20,40,60,80]), labels=[1,1,0,0],fontsize=6,linewidth=0.1)
+mapproj.drawmeridians(range(0,360,30), labels=[0,0,0,1],fontsize=6,linewidth=0.1)
 lonsPlot, latsPlot = mapproj(lon2d, lat2d)
 
 # contour plot
-CS   = plt.contourf(lonsPlot, latsPlot, psi, 
+CS = plt.contourf(lonsPlot, latsPlot, psi,
                     levels,
                     extend='both',
+                    #colors=colormap.mpl_colors)
                     cmap=colormap)
 # contour lines
 CSBar = plt.contour(lonsPlot,
@@ -162,9 +161,16 @@ CSBar = plt.contour(lonsPlot,
 plt.clabel(CSBar, fmt = '%2.1f', colors = 'k', fontsize=6)
 
 # colorbar
-plt.colorbar(CS,orientation='horizontal')
+if 'global' == area:
+    orientation = 'horizontal'
+else:
+    orientation = 'vertical'
 
-plt.title("Bar. streamfunction form:\n"+inputfile,fontsize=10)
+cbar = plt.colorbar(CS,orientation=orientation)
+cbar.set_label("Sv")
 
-savefig(plotfile)
+plt.suptitle("Bar. Streamfunction for\n"+inputfile,fontsize=9)
+plt.title("psi",fontsize=8,loc='left')
+
+fig.savefig(plotfile)
 # =======================================================================================

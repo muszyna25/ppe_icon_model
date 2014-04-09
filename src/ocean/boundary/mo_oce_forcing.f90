@@ -609,8 +609,6 @@ CONTAINS
     IF (irelax_2d_s == 3) THEN
       IF (no_tracer > 1) THEN
         p_sfc_flx%forc_tracer_relax(:,:,2) = ocean_state%p_prog(nold(1))%tracer(:,1,:,2)
-      ELSE
-        CALL finish(TRIM(routine),' irelax_2d_S=3 and no_tracer<2 - ABORT')
       END IF
     END IF
 
@@ -630,9 +628,13 @@ CONTAINS
       idt_src=0  ! output print level - 0: print in any case
       z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
       CALL dbg_print('init relaxation - T'       ,z_c      ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-      IF (irelax_2d_s > 0) THEN
+    END IF
+    IF (irelax_2d_s > 0) THEN
+      IF (no_tracer > 1) THEN
         z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
         CALL dbg_print('init relaxation - S'       ,z_c   ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+      ELSE
+        CALL finish(TRIM(routine),' irelax_2d_S>0 and no_tracer<2 - ABORT')
       END IF
     END IF
 
