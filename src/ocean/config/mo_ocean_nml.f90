@@ -453,8 +453,8 @@ MODULE mo_ocean_nml
 #endif
 !DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
   REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
-  REAL(wp) :: forcing_wind_u_amplitude             = 0.0_wp
-  REAL(wp) :: forcing_wind_v_amplitude             = 0.0_wp
+  REAL(wp) :: forcing_windStress_u_amplitude       = 0.0_wp
+  REAL(wp) :: forcing_windStress_v_amplitude       = 0.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
   INTEGER  :: forcing_smooth_steps                 = 1
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
@@ -469,8 +469,8 @@ MODULE mo_ocean_nml
     &                 forcing_fluxes_type                 , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
-    &                 forcing_wind_u_amplitude            , &
-    &                 forcing_wind_v_amplitude            , &
+    &                 forcing_windStress_u_amplitude      , &
+    &                 forcing_windStress_v_amplitude      , &
 !DR    &                 forcing_windstress_meridional_waveno, &
     &                 forcing_windstress_merid_waveno     , &
     &                 forcing_windstress_u_type           , &

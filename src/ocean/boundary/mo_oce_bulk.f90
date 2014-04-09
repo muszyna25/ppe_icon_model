@@ -238,8 +238,8 @@ CONTAINS
 
       ELSE
 
-        p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
-        p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
+        p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%stress_xw(:,:)
+        p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%stress_yw(:,:)
 
         p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) )*(p_sfc_flx%forc_precip(:,:) + &
                         &    p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_snow(:,:))
@@ -292,28 +292,32 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-                           & p_sfc_flx%forc_wind_v(jc,jb),&
+            CALL gvec2cvec(  p_sfc_flx%topBoundCond_windStress_u(jc,jb),&
+                           & p_sfc_flx%topBoundCond_windStress_v(jc,jb),&
                            & p_patch%cells%center(jc,jb)%lon,&
                            & p_patch%cells%center(jc,jb)%lat,&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+                           & p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x(1),&
+                           & p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x(2),&
+                           & p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x(3))
           ELSE
-            p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
-            p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
-            p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
+            p_sfc_flx%topBoundCond_windStress_u(jc,jb)         = 0.0_wp
+            p_sfc_flx%topBoundCond_windStress_v(jc,jb)         = 0.0_wp
+            p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x      = 0.0_wp
           ENDIF
         END DO
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: forcing u'       ,p_sfc_flx%forc_wind_u      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: windStr u'       ,p_sfc_flx%topBoundCond_windStress_u      ,str_module,idt_src, &
+        &  in_subset=p_patch%cells%owned)
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc: forcing v'       ,p_sfc_flx%forc_wind_v      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: forcing cc%x(1)' ,p_sfc_flx%forc_wind_cc%x(1),str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: forcing cc%x(2)' ,p_sfc_flx%forc_wind_cc%x(2),str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: windStr v'       ,p_sfc_flx%topBoundCond_windStress_v      ,str_module,idt_src, &
+        &  in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: windStr cc%x(1)' ,p_sfc_flx%topBoundCond_windStress_cc%x(1),str_module,idt_src, &
+        &  in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: windStr cc%x(2)' ,p_sfc_flx%topBoundCond_windStress_cc%x(2),str_module,idt_src, &
+        &  in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF
@@ -622,8 +626,8 @@ CONTAINS
       ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [Pa]
 
       ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
-      p_sfc_flx%forc_wind_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
-        &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
+      p_sfc_flx%topBoundCond_windStress_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
+        &                                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
 
      ! Wind stress boundary condition for vertical diffusion D:
      !   D = d/dz(K_v*du/dz)  where
@@ -631,7 +635,7 @@ CONTAINS
      !   derived from wind-stress boundary condition Tau (in Pascal Pa=N/m2) read from OMIP data (or elsewhere)
      !   K_v*du/dz(surf) = F_D = Tau/Rho [ m2/s2 ]
      ! discretized:
-     !   top_bc_u_c = forc_wind_u / rho_ref
+     !   top_bc_u_c = topBoundCond_windStress_u / rho_ref
      !
      ! This is equivalent to an additonal forcing term F_u in the velocity equation, i.e. outside
      ! the vertical diffusion, following MITGCM:
@@ -642,8 +646,8 @@ CONTAINS
     END IF
 
     IF (forcing_windstress_v_type > 0 .AND. forcing_windstress_v_type < 101 ) THEN
-      p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
-        &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
+      p_sfc_flx%topBoundCond_windStress_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
+        &                                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
     END IF
 
     !IF (iforc_type == 2 .OR. iforc_type == 5) THEN
@@ -939,8 +943,8 @@ CONTAINS
       !  - apply net surface heat flux in W/m2
       IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) CALL calc_bulk_flux_oce(p_patch,p_as,p_os,Qatm,datetime)
       !IF (iforc_type == 2 .OR. iforc_type == 5) CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
-      p_sfc_flx%forc_wind_u(:,:) = Qatm%stress_xw(:,:)
-      p_sfc_flx%forc_wind_v(:,:) = Qatm%stress_yw(:,:)
+      p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%stress_xw(:,:)
+      p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%stress_yw(:,:)
 
       temperature_relaxation = 0   !  hack
 
@@ -1278,11 +1282,11 @@ CONTAINS
         z_C_d  = z_C_d0 + z_C_d1*(p_as%tafo(jc,jb)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1))
 
         !write(*,*)'final wind stress coeff',z_C_d
-        p_sfc_flx%forc_wind_u(jc,jb) = z_rho_w*z_C_d*z_norm &
-          &                            *(p_as%u(jc,jb)- p_os%p_diag%u(jc,1,jb))
+        p_sfc_flx%topBoundCond_windStress_u(jc,jb) = z_rho_w*z_C_d*z_norm &
+          &  *(p_as%u(jc,jb)- p_os%p_diag%u(jc,1,jb))
 
-        p_sfc_flx%forc_wind_v(jc,jb) = z_rho_w*z_C_d*z_norm &
-          &                            *(p_as%v(jc,jb) - p_os%p_diag%v(jc,1,jb))
+        p_sfc_flx%topBoundCond_windStress_v(jc,jb) = z_rho_w*z_C_d*z_norm &
+          &  *(p_as%v(jc,jb) - p_os%p_diag%v(jc,1,jb))
    
       END DO
     END DO
@@ -1381,9 +1385,9 @@ CONTAINS
 
              END IF
            ELSE
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
-             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
+             p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x(:) = 0.0_wp
+             p_sfc_flx%topBoundCond_windStress_u(jc,jb)       = 0.0_wp
+             p_sfc_flx%topBoundCond_windStress_v(jc,jb)       = 0.0_wp
            ENDIF 
         END DO
       END DO

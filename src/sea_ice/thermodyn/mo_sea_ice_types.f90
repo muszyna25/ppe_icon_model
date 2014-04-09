@@ -63,8 +63,8 @@ MODULE mo_sea_ice_types
     ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
     ! dimension: (nproma, nblks_c)
     REAL(wp), POINTER ::   &
-      &  forc_wind_u      (:,:),     & ! forcing of zonal component of velocity equation           [Pa]
-      &  forc_wind_v      (:,:),     & ! forcing of meridional component of velocity equation      [Pa]
+      &  topBoundCond_windStress_u      (:,:),     & ! forcing of zonal component of velocity equation           [Pa]
+      &  topBoundCond_windStress_v      (:,:),     & ! forcing of meridional component of velocity equation      [Pa]
       &  forc_swflx       (:,:),     & ! surface short wave heat flux                              [W/m2]
       &  forc_lwflx       (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
@@ -86,8 +86,8 @@ MODULE mo_sea_ice_types
       !                                  is relaxated, 3rd index refers to tracer id               [K; psu]
       !
       !  accumulations variables - comments see above
-      &  forc_wind_u_acc      (:,:),     &
-      &  forc_wind_v_acc      (:,:),     &
+      &  topBoundCond_windStress_u_acc      (:,:),     &
+      &  topBoundCond_windStress_v_acc      (:,:),     &
       &  forc_swflx_acc       (:,:),     &
       &  forc_lwflx_acc       (:,:),     &
       &  forc_ssflx_acc       (:,:),     &
@@ -108,7 +108,7 @@ MODULE mo_sea_ice_types
       &  forc_tracer_relax_acc(:,:,:)     
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
-      & ALLOCATABLE :: forc_wind_cc(:,:)
+      & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
 
     TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_sfc_flx
@@ -184,8 +184,8 @@ MODULE mo_sea_ice_types
     INTEGER ::     counter
 
     REAL(wp), ALLOCATABLE ::   &
-      &  forc_wind_u      (:,:),     & ! forcing of zonal component of velocity equation,
-      &  forc_wind_v      (:,:),     & ! forcing of meridional component of velocity equation,
+      &  topBoundCond_windStress_u(:,:),     & ! forcing of zonal component of velocity equation,
+      &  topBoundCond_windStress_v(:,:),     & ! forcing of meridional component of velocity equation,
       &  forc_swflx       (:,:),     & ! surface short wave heat flux                              [W/m2]
       &  forc_lwflx       (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
@@ -197,7 +197,7 @@ MODULE mo_sea_ice_types
   !   &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
   !   &  forc_fw_tot      (:,:)      & ! forcing of salinity tracer with surface freshwater flux   [m/s]
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
-      & ALLOCATABLE :: forc_wind_cc(:,:)
+      & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
 
   END TYPE t_atmos_fluxes
 

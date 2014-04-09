@@ -142,8 +142,8 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
     
     ! update forcing accumulated values
-    CALL add_fields(p_sfc_flx%forc_wind_u_acc     , p_sfc_flx%forc_wind_u     , cells)
-    CALL add_fields(p_sfc_flx%forc_wind_v_acc     , p_sfc_flx%forc_wind_v     , cells)
+    CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc, p_sfc_flx%topBoundCond_windStress_u, cells)
+    CALL add_fields(p_sfc_flx%topBoundCond_windStress_v_acc, p_sfc_flx%topBoundCond_windStress_v, cells)
     CALL add_fields(p_sfc_flx%forc_swflx_acc      , p_sfc_flx%forc_swflx      , cells)
     CALL add_fields(p_sfc_flx%forc_lwflx_acc      , p_sfc_flx%forc_lwflx      , cells)
     CALL add_fields(p_sfc_flx%forc_ssflx_acc      , p_sfc_flx%forc_ssflx      , cells)
@@ -208,8 +208,8 @@ CONTAINS
     p_acc%mass_flx_e                = p_acc%mass_flx_e               /REAL(nsteps_since_last_output,wp)
     p_acc%vort                      = p_acc%vort                     /REAL(nsteps_since_last_output,wp)
     p_acc%kin                       = p_acc%kin                      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_wind_u_acc       = p_sfc_flx%forc_wind_u_acc      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_wind_v_acc       = p_sfc_flx%forc_wind_v_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%topBoundCond_windStress_u_acc = p_sfc_flx%topBoundCond_windStress_u_acc/REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%topBoundCond_windStress_v_acc = p_sfc_flx%topBoundCond_windStress_v_acc/REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_swflx_acc        = p_sfc_flx%forc_swflx_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_lwflx_acc        = p_sfc_flx%forc_lwflx_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_ssflx_acc        = p_sfc_flx%forc_ssflx_acc       /REAL(nsteps_since_last_output,wp)
@@ -253,8 +253,8 @@ CONTAINS
     p_acc%mass_flx_e                = 0.0_wp
     p_acc%vort                      = 0.0_wp
     p_acc%kin                       = 0.0_wp
-    p_sfc_flx%forc_wind_u_acc       = 0.0_wp
-    p_sfc_flx%forc_wind_v_acc       = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_u_acc = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_v_acc = 0.0_wp
     p_sfc_flx%forc_swflx_acc        = 0.0_wp
     p_sfc_flx%forc_lwflx_acc        = 0.0_wp
     p_sfc_flx%forc_ssflx_acc        = 0.0_wp

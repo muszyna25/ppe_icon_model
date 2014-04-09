@@ -50,7 +50,7 @@ MODULE mo_oce_forcing
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
     & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
-    & forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
+    & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,      &
     & forcing_windstress_u_type, forcing_windstress_v_type,    &
 #ifdef __SX__
     & forcing_windstress_zonalWavePhas,                        &
@@ -122,14 +122,14 @@ CONTAINS
 
     alloc_cell_blocks = p_patch%alloc_cell_blocks
 
-    CALL add_var(var_list, 'forc_wind_u', p_sfc_flx%forc_wind_u , &
+    CALL add_var(var_list, 'topBoundCond_windStress_u', p_sfc_flx%topBoundCond_windStress_u , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_u', 'Pa', 'forc_wind_u', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_u', 'Pa', 'topBoundCond_windStress_u', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_wind_v', p_sfc_flx%forc_wind_v , &
+    CALL add_var(var_list, 'topBoundCond_windStress_v', p_sfc_flx%topBoundCond_windStress_v , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_v', 'Pa', 'forc_wind_v', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_v', 'Pa', 'topBoundCond_windStress_v', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_hflx', p_sfc_flx%forc_hflx , &
@@ -295,14 +295,14 @@ CONTAINS
           &           ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
       END DO
     ENDIF
-    CALL add_var(var_list, 'forc_wind_u_acc', p_sfc_flx%forc_wind_u_acc , &
+    CALL add_var(var_list, 'topBoundCond_windStress_u_acc', p_sfc_flx%topBoundCond_windStress_u_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_u_acc', 'Pa', 'forc_wind_u_acc', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_u_acc', 'Pa', 'topBoundCond_windStress_u_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_wind_v_acc', p_sfc_flx%forc_wind_v_acc , &
+    CALL add_var(var_list, 'topBoundCond_windStress_v_acc', p_sfc_flx%topBoundCond_windStress_v_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_v_acc', 'Pa', 'forc_wind_v_acc', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_v_acc', 'Pa', 'topBoundCond_windStress_v_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
     CALL add_var(var_list, 'forc_hflx_acc', p_sfc_flx%forc_hflx_acc , &
@@ -387,15 +387,15 @@ CONTAINS
     &          ldims=(/nproma,alloc_cell_blocks/))
 
     ! cartesians
-    ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,alloc_cell_blocks), STAT=ist)
+    ALLOCATE(p_sfc_flx%topBoundCond_windStress_cc(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing wind_cc  failed')
+      CALL finish(TRIM(routine),'allocation for forcing wind stress cc  failed')
     END IF
 
     ! init of cartesian coordinates:
-    p_sfc_flx%forc_wind_cc(:,:)%x(1) = 0.0_wp
-    p_sfc_flx%forc_wind_cc(:,:)%x(2) = 0.0_wp
-    p_sfc_flx%forc_wind_cc(:,:)%x(3) = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_cc(:,:)%x(1) = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_cc(:,:)%x(2) = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_cc(:,:)%x(3) = 0.0_wp
 
     CALL message(TRIM(routine), 'end' )
 
@@ -422,9 +422,9 @@ CONTAINS
 
     ! forcing fields are handled by the ocean_default_list
 
-    DEALLOCATE(p_sfc_flx%forc_wind_cc, STAT=ist)
+    DEALLOCATE(p_sfc_flx%topBoundCond_windStress_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing wind cc failed')
+      CALL finish(TRIM(routine),'deallocation for forcing wind stress cc failed')
     END IF
     CALL message(TRIM(routine), 'end' )
 
@@ -653,11 +653,11 @@ CONTAINS
 
     all_cells => patch_3d%p_patch_2d(1)%cells%All
 
-    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_u,&
-      & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
+    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%topBoundCond_windStress_u,&
+      & forcing_windStress_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
-    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_v,&
-      & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
+    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%topBoundCond_windStress_v,&
+      & forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     IF (init_oce_relax > 0) THEN
       CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)

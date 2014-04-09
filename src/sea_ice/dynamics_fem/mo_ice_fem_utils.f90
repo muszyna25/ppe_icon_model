@@ -1172,14 +1172,14 @@ CONTAINS
       delv = p_ice%v(jc,jb) - p_os%p_diag%v(jc,1,jb)
 
       tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
-      p_sfc_flx%forc_wind_u(jc,jb) = Qatm%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+      p_sfc_flx%topBoundCond_windStress_u(jc,jb) = Qatm%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
-      p_sfc_flx%forc_wind_v(jc,jb) = Qatm%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+      p_sfc_flx%topBoundCond_windStress_v(jc,jb) = Qatm%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delv
     ENDDO
   ENDDO
-  CALL sync_patch_array(SYNC_C, p_patch, p_sfc_flx%forc_wind_u(:,:))
-  CALL sync_patch_array(SYNC_C, p_patch, p_sfc_flx%forc_wind_v(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, p_sfc_flx%topBoundCond_windStress_u(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, p_sfc_flx%topBoundCond_windStress_v(:,:))
 
   END SUBROUTINE ice_ocean_stress
 
