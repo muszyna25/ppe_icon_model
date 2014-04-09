@@ -284,13 +284,11 @@ CONTAINS
           
             ! activate for calc_scalar_product_veloc_3D
             !---------DEBUG DIAGNOSTICS-------------------------------------------
-            idt_src=2  ! output print level (1-5, fix)
+            idt_src=3  ! output print level (1-5, fix)
             CALL dbg_print('on entry: h-old'           ,ocean_state(jg)%p_prog(nold(1))%h ,str_module,idt_src, &
             & patch_2d%cells%owned )
-            idt_src=1  ! output print level (1-5, fix)
             CALL dbg_print('on entry: h-new'           ,ocean_state(jg)%p_prog(nnew(1))%h ,str_module,idt_src, &
             & patch_2d%cells%owned )
-            idt_src=3  ! output print level (1-5, fix)
             CALL dbg_print('HydOce: ScaProdVel kin'    ,ocean_state(jg)%p_diag%kin        ,str_module,idt_src, &
             & patch_2d%cells%owned )
             CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,ocean_state(jg)%p_diag%ptp_vn     ,str_module,idt_src, &
