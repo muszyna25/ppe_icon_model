@@ -446,7 +446,7 @@ def doCheckoutRev(build,rev,url)
       [[ ! -d r#{rev} ]] && mkdir -p r#{rev};
       cd r#{rev}; 
       if [[ -d .svn ]];then
-        svn revert -R .;
+        #svn revert -R .;
         svn update #{revTag};
       else
         svn checkout #{url} #{revTag} .;
