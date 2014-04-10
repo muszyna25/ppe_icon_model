@@ -257,8 +257,8 @@ MODULE mo_ocean_nml
   INTEGER  :: type_surfRelax_Temp  = 0           ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file
                                                  ! 3=use initialized values for temperature relaxation
   REAL(wp) :: para_surfRelax_Temp   = 1.0_wp     ! strength of 2-dim temperatuere relaxation in months
-  INTEGER  :: irelax_2d_S           = 0          ! 0=no relax.; 3=use initialized values for relaxation
-  REAL(wp) :: relax_2d_mon_S        = 1.0_wp     ! strength of 2-dim salinity relaxation in months
+  INTEGER  :: type_surfRelax_Salt   = 0          ! 0=no relax.; 3=use initialized values for relaxation
+  REAL(wp) :: para_surfRelax_Salt   = 1.0_wp     ! strength of 2-dim salinity relaxation in months
                                                  ! 3-dimensional relaxation of temperature and salinity
   INTEGER  :: irelax_3d_T           = 0          ! 0: no 3-dim relax.,  3: use initial T read with use_file_initialConditions=1
   REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
@@ -476,12 +476,12 @@ MODULE mo_ocean_nml
 #endif
     &                 iforc_oce                           , &
     &                 init_oce_relax                      , &
-    &                 irelax_2d_S                         , &
+    &                 type_surfRelax_Salt                 , &
     &                 irelax_3d_S                         , &
     &                 irelax_3d_T                         , &
     &                 l_relaxsal_ice                      , &
     &                 limit_elevation                     , &
-    &                 relax_2d_mon_S                      , &
+    &                 para_surfRelax_Salt                 , &
     &                 relax_3d_mon_S                      , &
     &                 relax_3d_mon_T                      , &
     &                 relax_analytical_type               , &

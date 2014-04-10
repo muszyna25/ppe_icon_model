@@ -69,7 +69,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical
   &                               no_tracer, n_zlev, basin_center_lat,                  &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
   &                               para_surfRelax_Temp, i_apply_surface_hflux,           &
-  &                               relax_2d_mon_s,  type_surfRelax_Temp,   irelax_2d_S,  &
+  &                               para_surfRelax_Salt,  type_surfRelax_Temp, type_surfRelax_Salt,  &
   &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
   &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
   &                               i_sea_ice, forcing_enable_freshwater, &
@@ -376,12 +376,12 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Apply salinity relaxation to surface boundary condition
 
-    IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
+    IF (type_surfRelax_Salt >= 1 .AND. no_tracer >1) THEN
 
       trac_no = 2   !  tracer no 2: salinity
       CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
 
-    ENDIF  !  irelax_2d_S >=1  salinity relaxation
+    ENDIF  !  type_surfRelax_Salt >=1  salinity relaxation
 
     !-------------------------------------------------------------------------
     ! Apply freshwater forcing to surface boundary condition, independent of salinity relaxation
@@ -760,7 +760,7 @@ CONTAINS
 
     END IF
 
-    IF (irelax_2d_S == 2 .AND. no_tracer >1) THEN
+    IF (type_surfRelax_Salt == 2 .AND. no_tracer >1) THEN
 
       !-------------------------------------------------------------------------
       ! Apply salinity relaxation data (record ??) from stationary forcing
@@ -768,7 +768,7 @@ CONTAINS
     !  p_sfc_flx%forc_tracer_relax(:,:,2) = &
     !    &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,x)-tmelt) + &
     !    &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,x)-tmelt)
-      CALL finish(TRIM(ROUTINE),' irelax_2d_S=2 (reading from flux file) not yet implemented')
+      CALL finish(TRIM(ROUTINE),' type_surfRelax_Salt=2 (reading from flux file) not yet implemented')
 
     END IF
 
@@ -1132,7 +1132,7 @@ CONTAINS
             !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
             !          &/(para_surfRelax_Temp*seconds_per_month)
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-              &       (relax_2d_mon_S*seconds_per_month)
+              &       (para_surfRelax_Salt*seconds_per_month)
             ! 
             ! If sea ice is present (and l_relaxsal_ice), salinity relaxation is proportional to open water,
             !   under sea ice, no relaxation is applied, according to the procedure in MPIOM

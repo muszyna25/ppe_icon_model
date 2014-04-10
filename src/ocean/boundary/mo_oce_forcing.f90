@@ -49,7 +49,7 @@ MODULE mo_oce_forcing
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
-    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, type_surfRelax_Temp,   &
+    & init_oce_relax, irelax_3d_s, irelax_3d_t, type_surfRelax_Salt, type_surfRelax_Temp,   &
     & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,               &
     & forcing_windstress_u_type, forcing_windstress_v_type,    &
 #ifdef __SX__
@@ -606,7 +606,7 @@ CONTAINS
 
     END SELECT
 
-    IF (irelax_2d_s == 3) THEN
+    IF (type_surfRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
         p_sfc_flx%forc_tracer_relax(:,:,2) = ocean_state%p_prog(nold(1))%tracer(:,1,:,2)
       END IF
@@ -629,12 +629,12 @@ CONTAINS
       z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
       CALL dbg_print('init relaxation - T'       ,z_c      ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     END IF
-    IF (irelax_2d_s > 0) THEN
+    IF (type_surfRelax_Salt > 0) THEN
       IF (no_tracer > 1) THEN
         z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
         CALL dbg_print('init relaxation - S'       ,z_c   ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
       ELSE
-        CALL finish(TRIM(routine),' irelax_2d_S>0 and no_tracer<2 - ABORT')
+        CALL finish(TRIM(routine),' type_surfRelax_Salt>0 and no_tracer<2 - ABORT')
       END IF
     END IF
 
