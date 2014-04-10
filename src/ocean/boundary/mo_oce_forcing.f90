@@ -49,7 +49,7 @@ MODULE mo_oce_forcing
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
-    & init_oce_relax, irelax_3d_s, irelax_3d_t, type_surfRelax_Salt, type_surfRelax_Temp,   &
+    & init_oce_relax, type_3dimRelax_Salt, type_3dimRelax_Temp, type_surfRelax_Salt, type_surfRelax_Temp,   &
     & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,               &
     & forcing_windstress_u_type, forcing_windstress_v_type,    &
 #ifdef __SX__
@@ -612,14 +612,14 @@ CONTAINS
       END IF
     END IF
 
-    IF (irelax_3d_t == 3) THEN
-      ocean_state%p_aux%relax_3d_data_t(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    IF (type_3dimRelax_Temp == 3) THEN
+      ocean_state%p_aux%data_3dimRelax_Temp(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
     END IF
-    IF (irelax_3d_s == 3) THEN
+    IF (type_3dimRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
-        ocean_state%p_aux%relax_3d_data_s(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+        ocean_state%p_aux%data_3dimRelax_Salt(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
       ELSE
-        CALL finish(TRIM(routine),' irelax_3d_S=3 and no_tracer<2 - ABORT')
+        CALL finish(TRIM(routine),' type_3dimRelax_Salt=3 and no_tracer<2 - ABORT')
       END IF
     END IF
 

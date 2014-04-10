@@ -48,7 +48,8 @@ MODULE mo_testbed_ocean_performance
   USE mo_math_constants,            ONLY: pi
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                                                  &
     &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
-    &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
+    &                                     type_3dimRelax_Temp, para_3dimRelax_Temp,                           &
+    &                                     type_3dimRelax_Salt, para_3dimRelax_Salt,                           &
     &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
     &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT,                       &
     &                                     forcing_enable_freshwater, l_skip_tracer

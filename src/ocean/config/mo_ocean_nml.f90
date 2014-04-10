@@ -260,10 +260,10 @@ MODULE mo_ocean_nml
   INTEGER  :: type_surfRelax_Salt   = 0          ! 0=no relax.; 3=use initialized values for relaxation
   REAL(wp) :: para_surfRelax_Salt   = 1.0_wp     ! strength of 2-dim salinity relaxation in months
                                                  ! 3-dimensional relaxation of temperature and salinity
-  INTEGER  :: irelax_3d_T           = 0          ! 0: no 3-dim relax.,  3: use initial T read with use_file_initialConditions=1
-  REAL(wp) :: relax_3d_mon_T        = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
-  INTEGER  :: irelax_3d_S           = 0          ! 0: no 3-dim relax.,  3: use initial S read with use_file_initialConditions=1
-  REAL(wp) :: relax_3d_mon_S        = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
+  INTEGER  :: type_3dimRelax_Temp   = 0          ! 0: no 3-dim relax.,  3: use initial T read with use_file_initialConditions=1
+  REAL(wp) :: para_3dimRelax_Temp   = 1.0_wp     ! strength of 3-dim relaxation for temperature in months
+  INTEGER  :: type_3dimRelax_Salt   = 0          ! 0: no 3-dim relax.,  3: use initial S read with use_file_initialConditions=1
+  REAL(wp) :: para_3dimRelax_Salt   = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
 
@@ -477,15 +477,15 @@ MODULE mo_ocean_nml
     &                 iforc_oce                           , &
     &                 init_oce_relax                      , &
     &                 type_surfRelax_Salt                 , &
-    &                 irelax_3d_S                         , &
-    &                 irelax_3d_T                         , &
+    &                 type_3dimRelax_Temp                 , &
+    &                 type_3dimRelax_Salt                 , &
     &                 l_relaxsal_ice                      , &
     &                 limit_elevation                     , &
-    &                 para_surfRelax_Salt                 , &
-    &                 relax_3d_mon_S                      , &
-    &                 relax_3d_mon_T                      , &
-    &                 relax_analytical_type               , &
     &                 para_surfRelax_Temp                 , &
+    &                 para_surfRelax_Salt                 , &
+    &                 para_3dimRelax_Temp                 , &
+    &                 para_3dimRelax_Salt                 , &
+    &                 relax_analytical_type               , &
     &                 seaice_limit                        , &
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &

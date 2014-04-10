@@ -49,7 +49,8 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea
 USE mo_math_constants,            ONLY: pi
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                                                  &
   &                                     threshold_min_T, threshold_max_T, threshold_min_S, threshold_max_S, &
-  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,           &
+  &                                     type_3dimRelax_Temp, para_3dimRelax_Temp,                           &
+  &                                     type_3dimRelax_Salt, para_3dimRelax_Salt,                           &
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
   &                                     flux_calculation_horz, flux_calculation_vert, miura_order1,         &
   &                                     l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
@@ -159,22 +160,22 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   !      dT/dt = Operators + F_T
   !    i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data)
   !  - discretized:
-  !    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
-  IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
+  !    tracer = tracer - 1/(para_3dimRelax_Temp[months]) * (tracer(1)-data_3dimRelax_Temp)
+  IF (no_tracer>=1 .AND. type_3dimRelax_Temp >0) THEN
 
     ! calculate relaxation term
-    z_relax = 1.0_wp/(relax_3d_mon_T*2.592e6_wp)
-    p_os%p_aux%relax_3d_forc_T(:,:,:) = -z_relax* &
-      &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%relax_3d_data_T(:,:,:))
+    z_relax = 1.0_wp/(para_3dimRelax_Temp*2.592e6_wp)
+    p_os%p_aux%forc_3dimRelax_Temp(:,:,:) = -z_relax* &
+      &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%data_3dimRelax_Temp(:,:,:))
 
     ! add relaxation term to new temperature
     p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) - &
-      &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
+      &                                    p_os%p_aux%forc_3dimRelax_Temp(:,:,:) * dtime
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('3d_rel: AdvTracT forc', p_os%p_aux%relax_3d_forc_T, str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('3d_rel: AdvTracT data', p_os%p_aux%relax_3d_data_T, str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_rel: AdvTracT forc', p_os%p_aux%forc_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_rel: AdvTracT data', p_os%p_aux%data_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
     idt_src=2  ! output print level (1-5, fix)
     z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
     CALL dbg_print('3d_relax: AdvTracT trac', z_c, str_module,idt_src, in_subset=cells_in_domain)
@@ -189,22 +190,24 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   !    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data)
   !    note that freshwater flux is positive to decrease salinity, i.e. freshening water
   !  - discretized:
-  !    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
-  IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
+  !    tracer = tracer - 1/(para_3dimRelax_Temp[months]) * (tracer(1)-data_3dimRelax_Temp)
+  IF (no_tracer==2 .AND. type_3dimRelax_Salt >0) THEN
 
     ! calculate relaxation term
-    z_relax = 1.0_wp/(relax_3d_mon_S*2.592e6_wp)
-    p_os%p_aux%relax_3d_forc_S(1:nproma,jk,1:p_patch%nblks_c) = -z_relax* &
-    &  ( p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) - p_os%p_aux%relax_3d_data_S(1:nproma,jk,1:p_patch%nblks_c))
+    z_relax = 1.0_wp/(para_3dimRelax_Salt*2.592e6_wp)
+    p_os%p_aux%forc_3dimRelax_Salt(1:nproma,jk,1:p_patch%nblks_c) = -z_relax* &
+    &  ( p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) -       &
+    &    p_os%p_aux%forc_3dimRelax_Salt(1:nproma,jk,1:p_patch%nblks_c))
 
     ! add relaxation term to new salinity
-    p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) = p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) + &
-      &                                    p_os%p_aux%relax_3d_forc_S(1:nproma,jk,1:p_patch%nblks_c) * dtime
+    p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) = &
+      &  p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) + &
+      &  p_os%p_aux%forc_3dimRelax_Salt(1:nproma,jk,1:p_patch%nblks_c) * dtime
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('3d_rel: AdvTracS forc'  ,p_os%p_aux%relax_3d_forc_S   ,str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('3d_rel: AdvTracS data'  ,p_os%p_aux%relax_3d_data_S   ,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_rel: AdvTracS forc'  ,p_os%p_aux%forc_3dimRelax_Salt,str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_rel: AdvTracS data'  ,p_os%p_aux%data_3dimRelax_Salt,str_module,idt_src, in_subset=cells_in_domain)
     idt_src=2  ! output print level (1-5, fix)
     z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
     CALL dbg_print('3d_relax: AdvTracS trac'  ,z_c                        ,str_module,idt_src, in_subset=cells_in_domain)
