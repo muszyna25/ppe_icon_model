@@ -1,4 +1,4 @@
-The folloing settings are available for forcing_windstress_u_type and forcing_windstress_v_type
+The following settings are available for forcing_windstress_u_type and forcing_windstress_v_type
 
 |============================================================================
 | VALUE ! ACTION
@@ -15,36 +15,36 @@ The folloing settings are available for forcing_windstress_u_type and forcing_wi
 |----------------------------------------------------------------------------
 |   102 ! basin setup, zonally changed
 |         CALL basin_zonalsubset,mask,threshold,windstress,amplitude,length
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_zonal_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno
 |----------------------------------------------------------------------------
 |   103 ! basin setup, meridionally changed
 |     CALL basin_meridionalsubset,mask,threshold,windstress,amplitude,length
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_merid_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_merid_waveno
 |----------------------------------------------------------------------------
 |   104 ! zonally periodic, nonzero at pols, meridionally constant
 |     CALL zonal_periodic_nonzero_around_center_zero_at_polssubset, mask, threshold, windstress, amplitude
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_zonal_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno
 |----------------------------------------------------------------------------
 |   105
 |     CALL meridional_periodic_around_center_zero_at_polssubset,mask,threshold,windstress, amplitude
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_merid_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_merid_waveno
 |----------------------------------------------------------------------------
 |   106 ! zonally periodic around a given center, zero at pols, meridionally constant
 |     CALL zonal_periodic_zero_at_polssubset,mask,threshold,windstress,amplitude,zonal_waveno
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_zonal_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno
 |----------------------------------------------------------------------------
 |   107 | latteral cells, zonal period only
 |     CALL cells_zonal_periodicsubset,mask,threshold,windstress,amplitude,zonal_waveno
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_zonal_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno
 |----------------------------------------------------------------------------
 |   108 | latteral cells, zonally and meridionally periodic
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno
 |----------------------------------------------------------------------------
 |   109 | CALL cells_zonal_and_meridional_periodic_constant_amplitude_sin(subset, mask, threshold, windstress, amplitude)
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno
 |----------------------------------------------------------------------------
 |   110 | CALL cells_zonal_and_meridional_periodic_constant_amplitude_cosin(subset, mask, threshold, windstress, amplitude)
-|         params: forcing_wind_u_amplitude, forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno
+|         params: forcing_windStress_u_amplitude, forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno
 |----------------------------------------------------------------------------
 
 
