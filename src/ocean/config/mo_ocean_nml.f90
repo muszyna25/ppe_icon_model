@@ -91,16 +91,9 @@ MODULE mo_ocean_nml
 
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
-
-  INTEGER            :: relax_temp_type           = 0 ! will cover parts of init_oce_relax
-  INTEGER            :: relax_temp_param          = 0 ! replacement for relaxation_param
-  INTEGER            :: relax_sal_type            = 0 ! will cover parts of init_oce_relax
-  INTEGER            :: relax_sal_param           = 0 ! replacement for relax_2d_mon_S
-  INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
-                                                      ! bulk module; This will be replaced during the planned relaxation rewrite
-
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
+  INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
 
 !  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
 !                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can
@@ -260,10 +253,10 @@ MODULE mo_ocean_nml
                                                  ! are set to the background values in case of stable stratification
   LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
-                                                 ! 2-dimensional surface relaxation of temperature and salinity
-  INTEGER  :: temperature_relaxation= 0          ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file
+                                                 ! 2-dimensional surface relaxation of temperature and salinity:
+  INTEGER  :: type_surfRelax_Temp  = 0           ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file
                                                  ! 3=use initialized values for temperature relaxation
-  REAL(wp) :: relaxation_param      = 1.0_wp     ! strength of 2-dim temperatuere relaxation in months
+  REAL(wp) :: para_surfRelax_Temp   = 1.0_wp     ! strength of 2-dim temperatuere relaxation in months
   INTEGER  :: irelax_2d_S           = 0          ! 0=no relax.; 3=use initialized values for relaxation
   REAL(wp) :: relax_2d_mon_S        = 1.0_wp     ! strength of 2-dim salinity relaxation in months
                                                  ! 3-dimensional relaxation of temperature and salinity
@@ -492,9 +485,9 @@ MODULE mo_ocean_nml
     &                 relax_3d_mon_S                      , &
     &                 relax_3d_mon_T                      , &
     &                 relax_analytical_type               , &
-    &                 relaxation_param                    , &
+    &                 para_surfRelax_Temp                 , &
     &                 seaice_limit                        , &
-    &                 temperature_relaxation              , &
+    &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &
     &                 forcing_temperature_poleLat         , &

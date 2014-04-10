@@ -49,8 +49,8 @@ MODULE mo_oce_forcing
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
-    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
-    & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,      &
+    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, type_surfRelax_Temp,   &
+    & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,               &
     & forcing_windstress_u_type, forcing_windstress_v_type,    &
 #ifdef __SX__
     & forcing_windstress_zonalWavePhas,                        &
@@ -582,7 +582,7 @@ CONTAINS
     !
     !-------------------------------------------------------
 
-    SELECT CASE(temperature_relaxation)
+    SELECT CASE(type_surfRelax_Temp)
     CASE(3)
       p_sfc_flx%forc_tracer_relax(:,:,1) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
 
@@ -624,7 +624,7 @@ CONTAINS
     END IF
 
     !---------Debug Diagnostics-------------------------------------------
-    IF (temperature_relaxation > 0) THEN
+    IF (type_surfRelax_Temp > 0) THEN
       idt_src=0  ! output print level - 0: print in any case
       z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
       CALL dbg_print('init relaxation - T'       ,z_c      ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)

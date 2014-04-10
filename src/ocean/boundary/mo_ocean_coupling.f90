@@ -582,9 +582,9 @@ CONTAINS
     ! ENDIF ! forcing_enable_freshwater
     !
     ! Apply surface air temperature
-    !  - it can be used for relaxing SST to T_a with temperature_relaxation=1
+    !  - it can be used for relaxing SST to T_a with type_surfRelax_Temp=1
     !  - set to 0 to omit relaxation to T_a=forc_tracer_relax(:,:,1)
-    ! IF (temperature_relaxation >=1) THEN
+    ! IF (type_surfRelax_Temp >=1) THEN
     field_shape(3) = 1
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
@@ -597,7 +597,7 @@ CONTAINS
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
       surface_fluxes%forc_tracer_relax(:,:,1) = surface_fluxes%forc_tracer_relax(:,:,1) - tmelt
     END IF
-    ! ENDIF  ! temperature_relaxation >=1
+    ! ENDIF  ! type_surfRelax_Temp >=1
     !
     ! Apply total heat flux - 4 parts - record 5
     ! surface_fluxes%swflx(:,:)  ocean short wave heat flux                              [W/m2]

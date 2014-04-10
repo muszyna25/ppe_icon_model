@@ -68,8 +68,8 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
   &                               no_tracer, n_zlev, basin_center_lat,                  &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
-  &                               relaxation_param, i_apply_surface_hflux,              &
-  &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,  &
+  &                               para_surfRelax_Temp, i_apply_surface_hflux,           &
+  &                               relax_2d_mon_s,  type_surfRelax_Temp,   irelax_2d_S,  &
   &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
   &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
   &                               i_sea_ice, forcing_enable_freshwater, &
@@ -180,7 +180,7 @@ CONTAINS
     CASE (OMIP_FluxFromFile)         !  12
 
       !  Driving the ocean with OMIP (no NCEP activated anymore):
-      !   1) read OMIP data (read relaxation data, temperature_relaxation=2)
+      !   1) read OMIP data (read relaxation data, type_surfRelax_Temp=2)
       !   2) call bulk formula (with or without sea ice)
       !   3) call ice model (todo: move below after case construct to unify call of sea ice)
       CALL update_flux_fromFile(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime, p_op_coeff)
@@ -332,7 +332,7 @@ CONTAINS
     ! Apply temperature relaxation to surface boundary condition
     !  - 2011-12: this is alternative to forcing by fluxes, not in addition
 
-    IF (temperature_relaxation >= 1) THEN
+    IF (type_surfRelax_Temp >= 1) THEN
 
       trac_no = 1   !  tracer no 1: temperature
       CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
@@ -343,12 +343,12 @@ CONTAINS
     ! Apply net surface heat flux to boundary condition
     !  - heat flux is applied alternatively to temperature relaxation for coupling
     !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
-    !  - with OMIP-forcing and sea_ice=0 we need temperature_relaxation=-1
+    !  - with OMIP-forcing and sea_ice=0 we need type_surfRelax_Temp=-1
     !    since there is no forc_hflx over open water when using OMIP-forcing
     !  - i_apply_surface_hflux=1 provides net surface heat flux globally
     !
     IF (no_tracer > 0) THEN
-      IF (temperature_relaxation == -1 .OR. i_sea_ice >= 1 .OR. i_apply_surface_hflux == 1) THEN
+      IF (type_surfRelax_Temp == -1 .OR. i_sea_ice >= 1 .OR. i_apply_surface_hflux == 1) THEN
 
         ! Heat flux boundary condition for diffusion
         !   D = d/dz(K_v*dT/dz)  where
@@ -747,12 +747,12 @@ CONTAINS
 
     !ENDIF  ! i_forc_type == 4
 
-    IF (temperature_relaxation == 2)  THEN
+    IF (type_surfRelax_Temp == 2)  THEN
 
       !-------------------------------------------------------------------------
       ! Apply temperature relaxation data (record 3) from stationary forcing
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-      !  - this is not done for temperature_relaxation=3, since init-data is in Celsius
+      !  - this is not done for type_surfRelax_Temp=3, since init-data is in Celsius
 
        p_sfc_flx%forc_tracer_relax(:,:,1) = &
          &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)-tmelt) + &
@@ -946,7 +946,7 @@ CONTAINS
       p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%stress_xw(:,:)
       p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%stress_yw(:,:)
 
-      temperature_relaxation = 0   !  hack
+      type_surfRelax_Temp = 0   !  hack
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1063,7 +1063,7 @@ CONTAINS
       ! 
       ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
     
-      ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(relaxation_param*seconds_per_month)
+      ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(para_surfRelax_Temp*seconds_per_month)
     
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1071,7 +1071,7 @@ CONTAINS
     
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
-              &       (relaxation_param*seconds_per_month)
+              &       (para_surfRelax_Temp*seconds_per_month)
             p_sfc_flx%forc_tracer(jc,jb, 1) = -z_relax*(t_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,1))
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
@@ -1130,7 +1130,7 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
             !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-            !          &/(relaxation_param*seconds_per_month)
+            !          &/(para_surfRelax_Temp*seconds_per_month)
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (relax_2d_mon_S*seconds_per_month)
             ! 
@@ -1207,7 +1207,7 @@ CONTAINS
     all_cells => p_patch%cells%all
 
     !Relaxation parameter from namelist for salinity.
-    z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+    z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
 
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1291,7 +1291,7 @@ CONTAINS
       END DO
     END DO
 
-    IF(temperature_relaxation==1)THEN
+    IF (type_surfRelax_Temp==1) THEN
 
        p_sfc_flx%forc_tracer(:,:, 1)=  z_relax                                    &
        & *( p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1) )
@@ -1339,7 +1339,7 @@ CONTAINS
 
     CASE(30,32,27)
 
-     IF(no_tracer>=1.AND.temperature_relaxation/=0)THEN
+     IF(no_tracer>=1.AND.type_surfRelax_Temp/=0)THEN
 
         y_length = basin_height_deg * deg2rad
         DO jb = all_cells%start_block, all_cells%end_block
@@ -1359,7 +1359,7 @@ CONTAINS
               z_permax  = 0.1_wp
               z_perwid  =  10.0_wp
 
-              z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+              z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
 
              z_dolic = p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
              IF (z_dolic > MIN_DOLIC) THEN
@@ -1395,8 +1395,8 @@ CONTAINS
     ENDIF
 
     CASE (33)
-      IF(temperature_relaxation>=1)THEN
-        z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+      IF(type_surfRelax_Temp>=1)THEN
+        z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
 
         p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%forc_tracer_relax(:,:,1) &
           &                                      -p_os%p_prog(nold(1))%tracer(:,1,:,1) )
@@ -1405,9 +1405,9 @@ CONTAINS
 
     CASE(51)
 
-      IF(temperature_relaxation>=1)THEN
+      IF(type_surfRelax_Temp>=1)THEN
 
-        z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+        z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
 
         z_temp_max  = 30.5_wp
         z_temp_min  = 0.5_wp
