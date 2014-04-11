@@ -54,7 +54,6 @@ MODULE mo_nwp_sfc_utils
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               frlake_thrhld, itype_interception
   USE mo_initicon_config,     ONLY: init_mode_soil
-!DR  USE mo_soil_ml,             ONLY: terra_multlay_init
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini
