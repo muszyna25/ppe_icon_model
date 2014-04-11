@@ -359,6 +359,7 @@ MODULE mo_ocean_nml
     &                 lviscous                     , &
     &                 n_zlev                       , &
     &                 select_solver                , &
+    &                 use_absolute_solver_tolerance, &
     &                 solver_max_iter_per_restart  , &
     &                 solver_max_restart_iterations, &
     &                 solver_tolerance             , &

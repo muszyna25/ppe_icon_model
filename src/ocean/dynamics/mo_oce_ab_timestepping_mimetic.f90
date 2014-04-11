@@ -150,7 +150,7 @@ CONTAINS
     !
     !Local variables
     !
-    INTEGER,PARAMETER :: nmax_iter   = 200      ! maximum number of iterations
+    INTEGER,PARAMETER :: nmax_iter   = 800      ! maximum number of iterations
     REAL(wp) :: tolerance =0.0_wp               ! (relative or absolute) tolerance
     INTEGER :: n_iter                          ! actual number of iterations
     INTEGER :: iter_sum                        ! sum of iterations
@@ -283,7 +283,7 @@ CONTAINS
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
-              & .FALSE.,                   &  ! NOT absolute tolerance
+              & use_absolute_solver_tolerance,     &  ! NOT absolute tolerance
               & nmax_iter,                 &  ! max. # of iterations to do
               & l_maxiter,                 &  ! out: .true. = not converged
               & n_iter,                    &  ! out: # of iterations done
@@ -303,7 +303,8 @@ CONTAINS
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
-              & .FALSE.,                   &  ! NOT absolute tolerance
+              & use_absolute_solver_tolerance,                 &  ! NOT absolute tolerance
+!              & .FALSE.,                   &  ! NOT absolute tolerance
               & nmax_iter,                 &  ! max. # of iterations to do
               & l_maxiter,                 &  ! out: .true. = not converged
               & n_iter,                    &  ! out: # of iterations done
