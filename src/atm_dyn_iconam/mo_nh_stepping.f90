@@ -317,13 +317,15 @@ MODULE mo_nh_stepping
 
       DO jg=1, n_dom
         ! diagnostics which are only required for output 
-        CALL nwp_diag_for_output(kstart_moist(jg),                  & !in
-          &                      ih_clch(jg), ih_clcm(jg),          & !in
-          &                      p_patch(jg),                       & !in
-          &                      p_nh_state(jg)%metrics,            & !in
-          &                      p_nh_state(jg)%prog(nnow_rcf(jg)), & !in  !nnow or nnew?
-          &                      p_nh_state(jg)%diag,               & !in
-          &                      prm_diag(jg)                       ) !inout
+        CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
+          &                      ih_clch(jg), ih_clcm(jg),               & !in
+          &                      p_patch(jg),                            & !in
+          &                      p_nh_state(jg)%metrics,                 & !in
+          &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
+          &                      p_nh_state(jg)%diag,                    & !in
+          &                      p_lnd_state(jg)%diag_lnd,               & !in
+          &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+          &                      prm_diag(jg)                            ) !inout
       ENDDO
 
     ENDIF
@@ -625,13 +627,15 @@ MODULE mo_nh_stepping
 
         DO jg=1, n_dom
           ! diagnostics which are only required for output 
-          CALL nwp_diag_for_output(kstart_moist(jg),                  & !in
-            &                      ih_clch(jg), ih_clcm(jg),          & !in
-            &                      p_patch(jg),                       & !in
-            &                      p_nh_state(jg)%metrics,            & !in
-            &                      p_nh_state(jg)%prog(nnow_rcf(jg)), & !in  !nnow or nnew?
-            &                      p_nh_state(jg)%diag,               & !in
-            &                      prm_diag(jg)                       ) !inout
+          CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
+            &                      ih_clch(jg), ih_clcm(jg),               & !in
+            &                      p_patch(jg),                            & !in
+            &                      p_nh_state(jg)%metrics,                 & !in
+            &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
+            &                      p_nh_state(jg)%diag,                    & !in
+            &                      p_lnd_state(jg)%diag_lnd,               & !in
+            &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+            &                      prm_diag(jg)                            ) !inout
         ENDDO
       ENDIF  ! iforcing == inwp
 

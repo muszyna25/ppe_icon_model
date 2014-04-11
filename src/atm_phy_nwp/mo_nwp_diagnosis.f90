@@ -62,7 +62,8 @@ MODULE mo_nwp_diagnosis
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_lnd_nwp_config,     ONLY: nlev_soil
+  USE mo_lnd_nwp_config,     ONLY: nlev_soil, ntiles_total
+  USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_io_config,          ONLY: lflux_avg
@@ -628,6 +629,7 @@ CONTAINS
   !! - height of convection base and top: hbas_con, htop_con
   !! - height of the top of dry convection: htop_dc
   !! - height of 0 deg C level: hzerocl
+  !! - t_ice is filled with t_so(0) for non-ice points (h_ice=0)
   !!
   !! @par Revision History
   !! Add calculation of high-, mid-, and low-level cloud cover, height
@@ -643,6 +645,8 @@ CONTAINS
                             & pt_patch, p_metrics,        & !in
                             & pt_prog_rcf,                & !in
                             & pt_diag,                    & !in
+                            & lnd_diag,                   & !in
+                            & p_prog_wtr_now,             & !in
                             & prm_diag                    ) !inout    
               
     INTEGER,         INTENT(IN)   :: kstart_moist
@@ -653,7 +657,9 @@ CONTAINS
                                                  !< red. calling frequency for tracers!
     TYPE(t_nh_metrics)  ,INTENT(IN) :: p_metrics
 
-    TYPE(t_nh_diag),     INTENT(IN)   :: pt_diag     !<the diagnostic variables
+    TYPE(t_nh_diag),     INTENT(IN)   :: pt_diag     ! the diagnostic variables
+    TYPE(t_lnd_diag),    INTENT(IN)   :: lnd_diag    ! land diag state
+    TYPE(t_wtr_prog),    INTENT(INOUT):: p_prog_wtr_now ! water prognostic state (now)
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
 
     ! Local
@@ -787,6 +793,26 @@ CONTAINS
           END IF
         ENDDO
       ENDDO
+
+
+      ! Fill t_ice with t_so(1) for ice-free points (h_ice<=0)
+      ! This was demanded by FE14 (surface analysis)
+      !
+      ! Note, that t_ice contains ice temperature information from 
+      ! the sea ice model as well as the lake model.
+      !
+      ! Furthermore, note that filling t_ice with t_so(1) only makes 
+      ! sense when running without tiles. When using tiles, contains 
+      ! the temperatures of sea-ice tiles and frozen lake tiles. Mixing this field 
+      ! with aggeregated t_so values makes no sense from my point of view.
+      IF (ntiles_total == 1) THEN
+        DO jc = i_startidx, i_endidx 
+          p_prog_wtr_now%t_ice(jc,jb) = MERGE(                               &
+            &                           lnd_diag%t_so(jc,1,jb),              &
+            &                           p_prog_wtr_now%t_ice(jc,jb),         &
+            &                           p_prog_wtr_now%h_ice(jc,jb) <= 0._wp )
+        ENDDO  !jc
+      ENDIF
 
     ENDDO  ! jb
 !$OMP END DO
