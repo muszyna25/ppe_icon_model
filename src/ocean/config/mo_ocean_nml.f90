@@ -54,7 +54,7 @@ MODULE mo_ocean_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
+  ! USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
 
@@ -597,9 +597,9 @@ MODULE mo_ocean_nml
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
 
-    LOGICAL  :: ignore_land_points = .false.
+    ! LOGICAL  :: ignore_land_points = .false.
 
-    NAMELIST/ocean_run_nml/ ignore_land_points
+    ! NAMELIST/ocean_run_nml/ ignore_land_points
 
     INTEGER :: i_status, istat
     INTEGER :: iunit
@@ -638,21 +638,21 @@ MODULE mo_ocean_nml
      ! This will result undetected unread namelists                    !
      !==================================================================
      ! setup for the ocean_run_nml
-     ignore_land_points = config_ignore_land_points
-     CALL position_nml ('ocean_run_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_run_nml)   ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_run_nml)                           ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_run_nml)   ! write settings to temporary text file
-       END IF
-     END SELECT
-     config_ignore_land_points = ignore_land_points
+!     ignore_land_points = config_ignore_land_points
+!     CALL position_nml ('ocean_run_nml', status=i_status)
+!     IF (my_process_is_stdio()) THEN
+!       iunit = temp_defaults()
+!       WRITE(iunit, ocean_run_nml)   ! write defaults to temporary text file
+!     END IF
+!     SELECT CASE (i_status)
+!     CASE (positioned)
+!       READ (nnml, ocean_run_nml)                           ! overwrite default settings
+!       IF (my_process_is_stdio()) THEN
+!         iunit = temp_settings()
+!         WRITE(iunit, ocean_run_nml)   ! write settings to temporary text file
+!       END IF
+!     END SELECT
+!     config_ignore_land_points = ignore_land_points
 
      CALL position_nml ('ocean_dynamics_nml', status=i_status)
      IF (my_process_is_stdio()) THEN
