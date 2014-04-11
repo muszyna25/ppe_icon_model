@@ -208,7 +208,7 @@ cat > ${ocean_namelist} << EOF
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
 ! fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
 ! fct_high_order_flux   = 2      ! horizontal high order method: 1=upwind, 2=central (def), 3=lax_friedrichs, 4=miura_order1
-  threshold_min_T       = -5.0   ! to avoid abort
+  threshold_min_T       = -6.0   ! to avoid abort
 /
 &ocean_diffusion_nml
 ! k_veloc_h                   = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
