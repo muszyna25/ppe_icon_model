@@ -583,7 +583,7 @@ CONTAINS
     !
     ! Apply surface air temperature
     !  - it can be used for relaxing SST to T_a with type_surfRelax_Temp=1
-    !  - set to 0 to omit relaxation to T_a=forc_tracer_relax(:,:,1)
+    !  - set to 0 to omit relaxation to T_a=data_surfRelax_Temp(:,:)
     ! IF (type_surfRelax_Temp >=1) THEN
     field_shape(3) = 1
 #ifdef YAC_coupling
@@ -593,9 +593,9 @@ CONTAINS
 #endif
     IF (info > 0 ) THEN
       buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-      surface_fluxes%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%data_surfRelax_Temp(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-      surface_fluxes%forc_tracer_relax(:,:,1) = surface_fluxes%forc_tracer_relax(:,:,1) - tmelt
+      surface_fluxes%data_surfRelax_Temp(:,:) = surface_fluxes%data_surfRelax_Temp(:,:) - tmelt
     END IF
     ! ENDIF  ! type_surfRelax_Temp >=1
     !

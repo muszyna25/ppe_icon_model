@@ -160,9 +160,10 @@ CONTAINS
     CALL add_fields(p_sfc_flx%forc_fw_tot_acc     , p_sfc_flx%forc_fw_tot     , cells)
     CALL add_fields(p_sfc_flx%forc_hfrelax_acc    , p_sfc_flx%forc_hfrelax    , cells)
     CALL add_fields(p_sfc_flx%forc_hflx_acc       , p_sfc_flx%forc_hflx       , cells)
+    CALL add_fields(p_sfc_flx%data_surfRelax_Temp_acc(:,:), p_sfc_flx%data_surfRelax_Temp(:,:), cells)
+    CALL add_fields(p_sfc_flx%data_surfRelax_Salt_acc(:,:), p_sfc_flx%data_surfRelax_Salt(:,:), cells)
     DO jtrc=1,no_tracer
       CALL add_fields(p_sfc_flx%forc_tracer_acc(:,:,jtrc), p_sfc_flx%forc_tracer(:,:,jtrc), cells)
-      CALL add_fields(p_sfc_flx%forc_tracer_relax_acc(:,:,jtrc), p_sfc_flx%forc_tracer_relax(:,:,jtrc), cells)
     END DO
     
   END SUBROUTINE update_ocean_statistics
@@ -227,8 +228,8 @@ CONTAINS
     p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc     /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_hflx_acc         = p_sfc_flx%forc_hflx_acc        /REAL(nsteps_since_last_output,wp)
     IF(no_tracer>0)THEN
-      p_sfc_flx%forc_tracer_acc       = p_sfc_flx%forc_tracer_acc      /REAL(nsteps_since_last_output,wp)
-      p_sfc_flx%forc_tracer_relax_acc = p_sfc_flx%forc_tracer_relax_acc/REAL(nsteps_since_last_output,wp)
+      p_sfc_flx%data_surfRelax_Temp_acc = p_sfc_flx%data_surfRelax_Temp_acc/REAL(nsteps_since_last_output,wp)
+      p_sfc_flx%forc_tracer_acc         = p_sfc_flx%forc_tracer_acc        /REAL(nsteps_since_last_output,wp)
     ENDIF  
   END SUBROUTINE compute_mean_ocean_statistics
   !---------------------------------------------------------------------
@@ -255,25 +256,28 @@ CONTAINS
     p_acc%kin                       = 0.0_wp
     p_sfc_flx%topBoundCond_windStress_u_acc = 0.0_wp
     p_sfc_flx%topBoundCond_windStress_v_acc = 0.0_wp
-    p_sfc_flx%forc_swflx_acc        = 0.0_wp
-    p_sfc_flx%forc_lwflx_acc        = 0.0_wp
-    p_sfc_flx%forc_ssflx_acc        = 0.0_wp
-    p_sfc_flx%forc_slflx_acc        = 0.0_wp
-    p_sfc_flx%forc_precip_acc       = 0.0_wp
-    p_sfc_flx%forc_snow_acc         = 0.0_wp
-    p_sfc_flx%forc_evap_acc         = 0.0_wp
-    p_sfc_flx%forc_runoff_acc       = 0.0_wp
-    p_sfc_flx%forc_fw_bc_acc        = 0.0_wp
-    p_sfc_flx%forc_fw_bc_oce_acc    = 0.0_wp
-    p_sfc_flx%forc_fw_bc_ice_acc    = 0.0_wp
-    p_sfc_flx%forc_fwrelax_acc      = 0.0_wp
-    p_sfc_flx%forc_fw_ice_vol_acc   = 0.0_wp
-    p_sfc_flx%forc_fw_tot_acc       = 0.0_wp
-    p_sfc_flx%forc_hfrelax_acc      = 0.0_wp
-    p_sfc_flx%forc_hflx_acc         = 0.0_wp
-    IF(no_tracer>0)THEN
-      p_sfc_flx%forc_tracer_acc       = 0.0_wp
-      p_sfc_flx%forc_tracer_relax_acc = 0.0_wp
+    IF (no_tracer>0) THEN
+      p_sfc_flx%forc_swflx_acc          = 0.0_wp
+      p_sfc_flx%forc_lwflx_acc          = 0.0_wp
+      p_sfc_flx%forc_ssflx_acc          = 0.0_wp
+      p_sfc_flx%forc_slflx_acc          = 0.0_wp
+      p_sfc_flx%forc_hfrelax_acc        = 0.0_wp
+      p_sfc_flx%forc_hflx_acc           = 0.0_wp
+      IF (no_tracer>1) THEN
+        p_sfc_flx%forc_precip_acc         = 0.0_wp
+        p_sfc_flx%forc_snow_acc           = 0.0_wp
+        p_sfc_flx%forc_evap_acc           = 0.0_wp
+        p_sfc_flx%forc_runoff_acc         = 0.0_wp
+        p_sfc_flx%forc_fw_bc_acc          = 0.0_wp
+        p_sfc_flx%forc_fw_bc_oce_acc      = 0.0_wp
+        p_sfc_flx%forc_fw_bc_ice_acc      = 0.0_wp
+        p_sfc_flx%forc_fwrelax_acc        = 0.0_wp
+        p_sfc_flx%forc_fw_ice_vol_acc     = 0.0_wp
+        p_sfc_flx%forc_fw_tot_acc         = 0.0_wp
+        p_sfc_flx%forc_tracer_acc         = 0.0_wp
+        p_sfc_flx%data_surfRelax_Temp_acc = 0.0_wp
+        p_sfc_flx%data_surfRelax_Salt_acc = 0.0_wp
+      ENDIF
     ENDIF
   END SUBROUTINE reset_ocean_statistics
   !---------------------------------------------------------------------

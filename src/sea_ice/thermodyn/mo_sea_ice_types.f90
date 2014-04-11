@@ -82,8 +82,8 @@ MODULE mo_sea_ice_types
       &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
       &  forc_hflx        (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
       &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical diffusion equation          [K*m/s; psu*m/s]
-      &  forc_tracer_relax(:,:,:),   & ! tracer relaxation: contains data to which a tracer
-      !                                  is relaxated, 3rd index refers to tracer id               [K; psu]
+      &  data_surfRelax_Temp(:,:),   & ! contains data to which temperature is relaxed             [K]
+      &  data_surfRelax_Salt(:,:),   & ! contains data to which salinity is relaxed                [psu]
       !
       !  accumulations variables - comments see above
       &  topBoundCond_windStress_u_acc      (:,:),     &
@@ -105,7 +105,8 @@ MODULE mo_sea_ice_types
       &  forc_hfrelax_acc     (:,:),     &
       &  forc_hflx_acc        (:,:),     &
       &  forc_tracer_acc      (:,:,:),   &
-      &  forc_tracer_relax_acc(:,:,:)     
+      &  data_surfRelax_Temp_acc(:,:),   &
+      &  data_surfRelax_Salt_acc(:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)

@@ -754,7 +754,7 @@ CONTAINS
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
       !  - this is not done for type_surfRelax_Temp=3, since init-data is in Celsius
 
-       p_sfc_flx%forc_tracer_relax(:,:,1) = &
+       p_sfc_flx%data_surfRelax_Temp(:,:) = &
          &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)-tmelt) + &
          &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)-tmelt)
 
@@ -765,7 +765,7 @@ CONTAINS
       !-------------------------------------------------------------------------
       ! Apply salinity relaxation data (record ??) from stationary forcing
 
-    !  p_sfc_flx%forc_tracer_relax(:,:,2) = &
+    !  p_sfc_flx%data_surfRelax_Salt(:,:) = &
     !    &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,x)-tmelt) + &
     !    &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,x)-tmelt)
       CALL finish(TRIM(ROUTINE),' type_surfRelax_Salt=2 (reading from flux file) not yet implemented')
@@ -1038,10 +1038,10 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) &
-              & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
+            p_sfc_flx%data_surfRelax_Temp(jc,jb) &
+              & = max(p_sfc_flx%data_surfRelax_Temp(jc,jb), z_tmin)
           ELSE
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+            p_sfc_flx%data_surfRelax_Temp(jc,jb) = 0.0_wp
           END IF
         END DO
       END DO
@@ -1051,8 +1051,8 @@ CONTAINS
       ! Boundary condition at surface (upper bound of D at center of first layer)
       !   is relaxation to temperature (tau = relaxation constant [1/s] ):
       !   K_v*dT/dz(surf) = Q_T = -dz/tau*(T-T*) [ K*m/s ]
-      ! discretized (T* = T_data = relaxation-temperature, forc_tracer_relax):
-      !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
+      ! discretized (T* = T_data = relaxation-temperature, data_surfRelax_Temp):
+      !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - data_surfRelax_Temp)
       !
       ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
       ! the vertical diffusion, following MITGCM:
@@ -1072,7 +1072,7 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
             z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (para_surfRelax_Temp*seconds_per_month)
-            p_sfc_flx%forc_tracer(jc,jb, 1) = -z_relax*(t_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,1))
+            p_sfc_flx%forc_tracer(jc,jb, 1) = -z_relax*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
           ELSE
             p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
           ENDIF
@@ -1082,12 +1082,12 @@ CONTAINS
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
-      z_c(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL dbg_print('UpdRlx: Temp-relax'        ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-t_top(:,:)
-      CALL dbg_print('UpdRlx: Temp-difference'   ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
+      z_c(:,:) = p_sfc_flx%data_surfRelax_Temp(:,:)
+      CALL dbg_print('UpdRlx: T-relax: T*'       ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
+      z_c(:,:) = p_sfc_flx%data_surfRelax_Temp(:,:)-t_top(:,:)
+      CALL dbg_print('UpdRlx: T-relax: T*-T'     ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:) = p_sfc_flx%forc_tracer(:,:,1)
-      CALL dbg_print('UpdRlx: T-forc-trac [Km/s]',z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdRlx: T-relax: T [K*m/s]',z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
       ! Heat flux diagnosed for all ocean only relaxation cases
@@ -1112,8 +1112,8 @@ CONTAINS
       ! Boundary condition at surface (upper bound of D at center of first layer)
       !   is relaxation to salinity (tau = relaxation constant [1/s] ):
       !   K_v*dS/dz(surf) = Q_S = -dz/tau*(S-S*) [ psu*m/s ]
-      ! discretized (S* = S_data = relaxation-salinity, forc_tracer_relax):
-      !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
+      ! discretized (S* = S_data = relaxation-salinity, data_surfRelax_Salt):
+      !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - data_surfRelax_Salt)
       !
       ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
       ! the vertical diffusion, following MITGCM:
@@ -1140,7 +1140,7 @@ CONTAINS
 
             z_forc_tracer_old              = p_sfc_flx%forc_tracer(jc,jb,2)
             p_sfc_flx%forc_tracer(jc,jb,2) = p_sfc_flx%forc_tracer(jc,jb,2) &
-              &                              -z_relax*(s_top(jc,jb)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
+              &                              -z_relax*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
             ! Diagnosed freshwater flux due to relaxation [m/s]
             ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
@@ -1157,12 +1157,12 @@ CONTAINS
       idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('UpdRlx:forc-fwrelax[m/s]'  ,p_sfc_flx%forc_fwrelax  ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=3  ! output print level (1-5, fix)
-      z_c(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-      CALL dbg_print('UpdRlx:S-relax: S*'        ,z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-s_top(:,:)
-      CALL dbg_print('UpdRlx:S-relax: S*-S'      ,z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      z_c(:,:) = p_sfc_flx%data_surfRelax_Salt(:,:)
+      CALL dbg_print('UpdRlx: S-relax: S*'       ,z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      z_c(:,:) = p_sfc_flx%data_surfRelax_Salt(:,:)-s_top(:,:)
+      CALL dbg_print('UpdRlx: S-relax: S*-S'     ,z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       z_c(:,:) = p_sfc_flx%forc_tracer(:,:,2)
-      CALL dbg_print('UpdRlx:S-relax: trc [Km/s]',z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdRlx: S-relax:S[psu*m/s]',z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF  ! tracer_no
@@ -1265,7 +1265,7 @@ CONTAINS
         p_sfc_flx%forc_tracer(jc,jb,2) =                 &
           & (p_patch_3D%p_patch_1D(1)%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
           & /p_patch_3D%p_patch_1D(1)%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
-          & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%forc_tracer_relax(jc,jb,2))
+          & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
 
         !calculate wind stress    
@@ -1294,7 +1294,7 @@ CONTAINS
     IF (type_surfRelax_Temp==1) THEN
 
        p_sfc_flx%forc_tracer(:,:, 1)=  z_relax                                    &
-       & *( p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1) )
+       & *( p_sfc_flx%data_surfRelax_Temp(:,:)-p_os%p_prog(nold(1))%tracer(:,1,:,1) )
 
     ENDIF
 
@@ -1378,10 +1378,10 @@ CONTAINS
                  z_T_init(jc,jb)= z_T_init(jc,jb) - exp(-(z_dst/(z_perwid*deg2rad))**2)
                ENDIF
 
-               p_sfc_flx%forc_tracer_relax(jc,jb,1)=z_T_init(jc,jb)
+               p_sfc_flx%data_surfRelax_Temp(jc,jb)=z_T_init(jc,jb)
 
                p_sfc_flx%forc_tracer(jc,jb, 1)=  z_relax   &          
-               & *( p_sfc_flx%forc_tracer_relax(jc,jb,1)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1) )
+               & *( p_sfc_flx%data_surfRelax_Temp(jc,jb)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1) )
 
              END IF
            ELSE
@@ -1398,7 +1398,7 @@ CONTAINS
       IF(type_surfRelax_Temp>=1)THEN
         z_relax = para_surfRelax_Temp/(30.0_wp*24.0_wp*3600.0_wp)
 
-        p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%forc_tracer_relax(:,:,1) &
+        p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%data_surfRelax_Temp(:,:) &
           &                                      -p_os%p_prog(nold(1))%tracer(:,1,:,1) )
 
       END IF
@@ -1432,9 +1432,9 @@ CONTAINS
             ENDIF
         END DO
       END DO
-      p_sfc_flx%forc_tracer_relax(:,:,1)=z_T_init(:,:)
+      p_sfc_flx%data_surfRelax_Temp(:,:)=z_T_init(:,:)
 
-      p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%forc_tracer_relax(:,:,1) &
+      p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%data_surfRelax_Temp(:,:) &
           &                                      -p_os%p_prog(nold(1))%tracer(:,1,:,1) )
 
       END IF
