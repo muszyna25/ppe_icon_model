@@ -118,7 +118,7 @@ nout_interv="P${days_data}D"                   # ocean model output interval in 
 (( dt_restart    =  days_restart * day ))
 #(( dt_file       =  days_file    * day ))
 #(( dt_checkpoint =  days_checkp  * day ))
-dt_checkpoint    = dt_restart
+dt_checkpoint=$dt_restart
 #(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
 #(( outputLength   = year_output * year ))
 #(( steps_per_file = outputLength / dt_data ))     # output intervals per file - output_bounds
@@ -202,7 +202,7 @@ cat > ${ocean_namelist} << EOF
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
 ! fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
 ! fct_high_order_flux   = 2      ! horizontal high order method: 1=upwind, 2=central (def), 3=lax_friedrichs, 4=miura_order1
-  threshold_min_T       = -5.0   ! to avoid abort
+  threshold_min_T       = -6.0   ! to avoid abort
 /
 &ocean_diffusion_nml
 ! k_veloc_h                   = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
@@ -223,8 +223,8 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer           = 2.0e-3   ! factor for vertical diffusion coefficient in PP scheme
 /    
 &sea_ice_nml
-  i_ice_therm   = 1              !  1=zero-layer, 2=Winton
-  i_ice_dyn     = 1              !  1=switch on AWI ice dynamics
+  i_ice_therm   = 1              !  0: not allowed, 1=zero-layer, 2=Winton
+  i_ice_dyn     = 0              !  1/0=switch on/off AWI ice dynamics
 /
 &ocean_forcing_nml
   iforc_oce                   = ${iforc}       ! ocean forcing

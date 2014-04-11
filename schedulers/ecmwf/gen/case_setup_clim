@@ -262,8 +262,8 @@ cat > ${atmo_namelist} << EOF
  efdt_min_raylfric            = 7200.
 /
 &turbdiff_nml
- tkhmin                       = 0.2
- tkmmin                       = 0.2
+ tkhmin                       = 0.75
+ tkmmin                       = 0.75
  pat_len                      = 100.
  c_diff                       = 0.2
  rat_sea                      = 9.0
