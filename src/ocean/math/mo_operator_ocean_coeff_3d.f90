@@ -341,30 +341,30 @@ CONTAINS
 !     CALL finish ('mo_operator_ocean_coeff_3d',                 &
 !       & 'allocation for matrix_vert_diff_e failed')
 !   ENDIF
-    CALL add_var(var_list, 'matrix_vert_diff_c', operators_coefficients%matrix_vert_diff_c, &
-      &          GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
-      &          t_cf_var('matrix_vert_diff_c','','for each edge',DATATYPE_FLT64),&
-      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,n_zlev,nblks_c,no_primal_edges/), &
-      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-    ALLOCATE(operators_coefficients%matrix_vert_diff_c_ptr(no_primal_edges))
-    DO i=1,no_primal_edges
-      WRITE(var_suffix,'(a,i1.1)') '_',i
-      CALL add_ref( var_list, 'matrix_vert_diff_c', &
-        &           'matrix_vert_diff_c'//TRIM(var_suffix), &
-        &           operators_coefficients%matrix_vert_diff_c_ptr(i)%p,    &
-        &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
-        &           t_cf_var('matrix_vert_diff_c'//TRIM(var_suffix),'','', DATATYPE_FLT64), &
-        &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &           ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_coeffs"))
-    ENDDO
-
-    CALL add_var(var_list, 'matrix_vert_diff_e', operators_coefficients%matrix_vert_diff_e, &
-      &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
-      &          t_cf_var('matrix_vert_diff_e','','for each cell',DATATYPE_FLT64),&
-      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
-      &          ldims=(/nproma,n_zlev,nblks_e,no_primal_edges/), &
-      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+!    CALL add_var(var_list, 'matrix_vert_diff_c', operators_coefficients%matrix_vert_diff_c, &
+!      &          GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA, &
+!      &          t_cf_var('matrix_vert_diff_c','','for each edge',DATATYPE_FLT64),&
+!      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+!      &          ldims=(/nproma,n_zlev,nblks_c,no_primal_edges/), &
+!      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+!    ALLOCATE(operators_coefficients%matrix_vert_diff_c_ptr(no_primal_edges))
+!    DO i=1,no_primal_edges
+!      WRITE(var_suffix,'(a,i1.1)') '_',i
+!      CALL add_ref( var_list, 'matrix_vert_diff_c', &
+!        &           'matrix_vert_diff_c'//TRIM(var_suffix), &
+!        &           operators_coefficients%matrix_vert_diff_c_ptr(i)%p,    &
+!        &           GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA,&
+!        &           t_cf_var('matrix_vert_diff_c'//TRIM(var_suffix),'','', DATATYPE_FLT64), &
+!        &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+!        &           ldims=(/nproma,n_zlev,nblks_c/),in_group=groups("oce_coeffs"))
+!    ENDDO
+!
+!    CALL add_var(var_list, 'matrix_vert_diff_e', operators_coefficients%matrix_vert_diff_e, &
+!      &          GRID_UNSTRUCTURED_EDGE, ZA_DEPTH_BELOW_SEA, &
+!      &          t_cf_var('matrix_vert_diff_e','','for each cell',DATATYPE_FLT64),&
+!      &          t_grib2_var(255,255,255,DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+!      &          ldims=(/nproma,n_zlev,nblks_e,no_primal_edges/), &
+!      &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     !
     ! initialize all components
@@ -431,8 +431,8 @@ CONTAINS
     operators_coefficients%upwind_cell_idx = 1
     operators_coefficients%upwind_cell_blk = 1
 
-    operators_coefficients%matrix_vert_diff_c= 0.0_wp
-    operators_coefficients%matrix_vert_diff_e= 0.0_wp
+!    operators_coefficients%matrix_vert_diff_c= 0.0_wp
+!    operators_coefficients%matrix_vert_diff_e= 0.0_wp
 
     CALL message ('mo_operator_ocean_coeff_3d:allocate_operators_coefficients',&
       & 'memory allocation finished')

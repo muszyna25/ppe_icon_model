@@ -487,10 +487,10 @@ MODULE mo_oce_types
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:)
 
-    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
-    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
-    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
+!    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
+!    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
+!    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
+!    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
 
   END TYPE t_operator_coeff
   
