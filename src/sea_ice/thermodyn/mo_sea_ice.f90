@@ -1216,10 +1216,12 @@ CONTAINS
     CALL dbg_print('IceSlow: hi endOf slow'      ,ice%hi,                 str_module,3, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: Conc.  EndOf slow'  ,ice%conc,               str_module,3, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: ConcSumEndOf slow',  ice%concSum,            str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_os%prog(nold)%vn' ,p_os%p_prog(nold(1))%vn,str_module,5, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn' ,p_os%p_prog(nnew(1))%vn,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nold)%vn' ,p_os%p_prog(nold(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_os%prog(nnew)%vn' ,p_os%p_prog(nnew(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%u'        ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%v'        ,p_os%p_diag%v,          str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_sfc_flx%forc-u'   ,p_sfc_flx%forc_wind_u,  str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_sfc_flx%forc-v'   ,p_sfc_flx%forc_wind_v,  str_module,4, in_subset=p_patch%cells%owned)
 
     IF (ltimer) CALL timer_stop(timer_ice_slow)
 
