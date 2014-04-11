@@ -160,7 +160,7 @@ CONTAINS
     REAL(wp) :: z_h_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_h_e(nproma,patch_3d%p_patch_2d(1)%nblks_e)
     LOGICAL :: lprecon         = .FALSE.
-    REAL(wp) :: z_implcoeff
+    ! REAL(wp) :: z_implcoeff
     REAL(wp) :: zresidual(nmax_iter)    ! norms of the residual (convergence history);an argument of dimension at least m is required
     REAL(wp) :: residual_norm
     LOGICAL :: l_maxiter     ! true if reached m iterations
@@ -279,7 +279,7 @@ CONTAINS
             ! ocean_state%p_diag%cons_thick_c(:,1,:),&
               & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
               & patch_3d,                &  ! arg 3 of lhs
-              & z_implcoeff,               &  ! arg 4 of lhs
+              ! & z_implcoeff,               &  ! arg 4 of lhs
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
@@ -299,7 +299,7 @@ CONTAINS
             ! ocean_state%p_diag%cons_thick_c(:,1,:),&
               & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
               & patch_3d,                &  ! arg 3 of lhs
-              & z_implcoeff,               &  ! arg 4 of lhs
+              ! & z_implcoeff,               &  ! arg 4 of lhs
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
@@ -348,7 +348,7 @@ CONTAINS
             & ocean_state%p_diag%thick_c,           &  ! ocean_state%p_diag%thick_c, &
             & ocean_state%p_prog(nold(1))%h,        &  ! arg 2 of lhs !not used
             & patch_3d,                    &  ! arg 3 of lhs
-            & z_implcoeff,                   &  ! arg 4 of lhs
+            ! & z_implcoeff,                   &  ! arg 4 of lhs
             & op_coeffs,                    &
             & ocean_state%p_aux%p_rhs_sfc_eq,       &  ! right hand side as input
             & solver_tolerance,              &  ! tolerance
@@ -1255,13 +1255,13 @@ CONTAINS
   !!
   !!  The result is NOT synced. Should be done in the calling method if required
   !-------------------------------------------------------------------------
-  FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d,coeff, thickness_e,&
+  FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d, thickness_e,&
     & thickness_c,op_coeffs) result(lhs)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
     REAL(wp),    INTENT(in)              :: h_old(:,:)
-    REAL(wp),    INTENT(in)              :: coeff
+    ! REAL(wp),    INTENT(in)              :: coeff
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
     REAL(wp),    INTENT(in)              :: thickness_e(:,:)
     REAL(wp),    INTENT(in)              :: thickness_c(:,:) !thickness of fluid column

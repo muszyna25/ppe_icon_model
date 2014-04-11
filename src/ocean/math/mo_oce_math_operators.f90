@@ -392,7 +392,6 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
   !!
-  !!  mpi parallelized LL (no sync required)
   SUBROUTINE div_oce_3d_1level( vec_e, patch_2D, div_coeff, div_vec_c,  &
     & level, subset_range)
     !
