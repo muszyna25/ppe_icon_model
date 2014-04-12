@@ -534,7 +534,7 @@ MODULE mo_oce_types
     ! the same as in t_operator_coeff in single precision for using in the solver
     REAL(sp), ALLOCATABLE :: grad_coeff(:,:)                     ! as in t_operator_coeff for the 1st level
     REAL(sp), ALLOCATABLE :: div_coeff(:,:,:)                    ! as in t_operator_coeff for the 1st level
-                                                                 ! NOTE: the connecetivity index is first: (no_primal_edges, nproma,nblks_c,)
+
     REAL(sp), ALLOCATABLE :: edge2edge_viacell_coeff_all(:,:,:)  ! as in t_operator_coeff
 
     REAL(sp), ALLOCATABLE :: edge_thickeness(:,:)                ! as t_hydro_ocean_diag thick_e

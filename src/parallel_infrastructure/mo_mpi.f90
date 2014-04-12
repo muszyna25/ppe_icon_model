@@ -571,6 +571,7 @@ MODULE mo_mpi
   END INTERFACE
 
   INTERFACE p_sum
+     MODULE PROCEDURE p_sum_dp_0s
      MODULE PROCEDURE p_sum_dp_0d
      MODULE PROCEDURE p_sum_dp_1d
      MODULE PROCEDURE p_sum_i8_1d
@@ -6122,6 +6123,33 @@ CONTAINS
   END SUBROUTINE work_mpi_barrier
   !------------------------------------------------------
 
+  !------------------------------------------------------
+  !> computes a global sum of real single precision numbers
+  !
+  !  perform an ALLREDUCE operation
+  FUNCTION p_sum_dp_0s (zfield, comm) RESULT (p_sum)
+
+    REAL(sp)                        :: p_sum
+    REAL(sp),  INTENT(in)           :: zfield
+    INTEGER,   INTENT(in)           :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, my_rank
+
+    p_comm = comm
+
+    IF (my_process_is_mpi_parallel()) THEN
+        CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_sp, &
+          MPI_SUM, p_comm, p_error)
+    ELSE
+       p_sum = zfield
+    END IF
+#else
+    p_sum = zfield
+#endif
+  END FUNCTION p_sum_dp_0s
+  !------------------------------------------------------
+
+  !------------------------------------------------------
   !> computes a global sum of real numbers
   !
   ! @param[in]    root     (Optional:) root PE, otherwise we perform an
@@ -6155,9 +6183,10 @@ CONTAINS
 #else
     p_sum = zfield
 #endif
-
   END FUNCTION p_sum_dp_0d
+  !------------------------------------------------------
 
+  !------------------------------------------------------
   FUNCTION p_sum_dp_1d (zfield, comm) RESULT (p_sum)
 
     REAL(dp),          INTENT(in) :: zfield(:)

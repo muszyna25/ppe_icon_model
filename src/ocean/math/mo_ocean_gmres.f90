@@ -694,7 +694,7 @@ CONTAINS
       ! 4.2) Gram-Schmidt orthogonalization
 
 !ICON_OMP_PARALLEL PRIVATE(rh, myThreadNo, k)
-      !$   myThreadNo = OMP_GET_THREAD_NUM()
+!$   myThreadNo = OMP_GET_THREAD_NUM()
 
       ! IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
 
