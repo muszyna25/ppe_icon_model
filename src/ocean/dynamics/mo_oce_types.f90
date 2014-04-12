@@ -535,10 +535,10 @@ MODULE mo_oce_types
     REAL(sp), ALLOCATABLE :: grad_coeff(:,:)                     ! as in t_operator_coeff for the 1st level
     REAL(sp), ALLOCATABLE :: div_coeff(:,:,:)                    ! as in t_operator_coeff for the 1st level
 
-    REAL(sp), ALLOCATABLE :: edge2edge_viacell_coeff_all(:,:,:)  ! as in t_operator_coeff
+    REAL(sp), POINTER :: edge2edge_viacell_coeff_all(:,:,:)  ! as in t_operator_coeff
 
-    REAL(sp), ALLOCATABLE :: edge_thickeness(:,:)                ! as t_hydro_ocean_diag thick_e
-    REAL(sp), ALLOCATABLE :: cell_thickeness(:,:)                ! as t_hydro_ocean_diag thick_c
+    REAL(sp), ALLOCATABLE :: edge_thickness(:,:)                ! as t_hydro_ocean_diag thick_e
+    REAL(sp), ALLOCATABLE :: cell_thickness(:,:)                ! as t_hydro_ocean_diag thick_c
 
   END TYPE t_solverCoeff_singlePrecision
   

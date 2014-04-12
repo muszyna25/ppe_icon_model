@@ -44,7 +44,7 @@
 MODULE mo_operator_ocean_coeff_3d
   !-------------------------------------------------------------------------
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, sp
   USE mo_impl_constants,      ONLY: success,&
     &                               max_char_length, beta_plane_coriolis,full_coriolis, &
     &                               SEA_BOUNDARY, BOUNDARY, SEA, min_dolic
@@ -54,13 +54,14 @@ MODULE mo_operator_ocean_coeff_3d
     &                               t_geographical_coordinates, vector_product, &
     &                               arc_length
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
-    &                               coriolis_type, basin_center_lat, basin_height_deg
+    & coriolis_type, basin_center_lat, basin_height_deg, &
+    & select_solver, select_restart_mixedPrecision_gmres
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
   !USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_ptr3d, t_operator_coeff
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_ptr3d, t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_oce_physics,         ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
@@ -96,23 +97,25 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE construct_operators_coefficients( patch_3D, operators_coefficients, var_list)
+  SUBROUTINE construct_operators_coefficients( patch_3D, operators_coefficients, solverCoeff_sp, var_list)
     TYPE(t_patch_3D),TARGET,INTENT(inout) :: patch_3D
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
     TYPE(t_var_list)                      :: var_list
 
-    CALL allocate_operators_coefficients( patch_3d%p_patch_2d(1), operators_coefficients, var_list)
-    CALL par_init_operator_coeff( patch_3d, operators_coefficients)
+    CALL allocate_operators_coefficients( patch_3d%p_patch_2d(1), operators_coefficients, solverCoeff_sp, var_list)
+    CALL par_init_operator_coeff( patch_3d, operators_coefficients, solverCoeff_sp)
 
   END SUBROUTINE construct_operators_coefficients
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE destruct_operators_coefficients( operators_coefficients )
+  SUBROUTINE destruct_operators_coefficients( operators_coefficients, solverCoeff_sp )
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
-    CALL deallocate_operators_coefficients( operators_coefficients )
+    CALL deallocate_operators_coefficients( operators_coefficients, solverCoeff_sp )
 
   END SUBROUTINE destruct_operators_coefficients
   !-------------------------------------------------------------------------
@@ -124,10 +127,11 @@ CONTAINS
   ! @par Revision History
   ! Peter Korn (2012-2)
   !
-  SUBROUTINE allocate_operators_coefficients( patch_2D, operators_coefficients, var_list)
+  SUBROUTINE allocate_operators_coefficients( patch_2D, operators_coefficients, solverCoeff_sp, var_list)
     !
     TYPE(t_patch),TARGET,INTENT(in)       :: patch_2D
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
     TYPE(t_var_list)                      :: var_list
 
     INTEGER :: nblks_c, nblks_e, nblks_v, nz_lev
@@ -327,6 +331,27 @@ CONTAINS
       CALL finish ('mo_operator_ocean_coeff_3d:allocating variable_dual_vol_norm failed')
     ENDIF
 
+    !---------------------------------------------------------------
+    ! allocate single precision operators
+    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+
+      ALLOCATE(solverCoeff_sp%div_coeff(nproma,nblks_c,no_primal_edges),&
+        & solverCoeff_sp%grad_coeff(nproma,nblks_e),                    &
+        & solverCoeff_sp%edge2edge_viacell_coeff_all(1:2*no_primal_edges, nproma, nblks_e), &
+        & solverCoeff_sp%edge_thickness(nproma, nblks_e),                      &
+        & solverCoeff_sp%cell_thickness(nproma, nblks_c),                      &
+        & stat=ist)
+
+      IF (ist /= success) THEN
+        CALL finish ('mo_operator_ocean_coeff_3d',                 &
+          & 'allocation for solverCoeff_sp failed')
+      ENDIF
+
+
+    ENDIF
+
+    !---------------------------------------------------------------
+
     !The last index "3" comes from the fact that we use a tridiagonal matrix
 !   ALLOCATE(operators_coefficients%matrix_vert_diff_c(nproma,n_zlev,nblks_c, 3),&
 !     & stat=ist)
@@ -442,9 +467,10 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Deallocation of operators coefficients.
-  SUBROUTINE deallocate_operators_coefficients( operators_coefficients )
+  SUBROUTINE deallocate_operators_coefficients( operators_coefficients, solverCoeff_sp )
     ! !
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     !-----------------------------------------------------------------------
     DEALLOCATE(operators_coefficients%div_coeff)
@@ -491,6 +517,16 @@ CONTAINS
     DEALLOCATE(operators_coefficients%variable_vol_norm)
     DEALLOCATE(operators_coefficients%variable_dual_vol_norm)
 
+    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+
+      DEALLOCATE(solverCoeff_sp%div_coeff,              &
+        & solverCoeff_sp%grad_coeff,                    &
+        & solverCoeff_sp%edge2edge_viacell_coeff_all,   &
+        & solverCoeff_sp%edge_thickness,                &
+        & solverCoeff_sp%cell_thickness)
+
+    ENDIF
+
   END SUBROUTINE deallocate_operators_coefficients
   !-------------------------------------------------------------------------
 
@@ -501,10 +537,11 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn (2012-2)
   !!
-  SUBROUTINE par_init_operator_coeff( patch_3D, operators_coefficients)
+  SUBROUTINE par_init_operator_coeff( patch_3D, operators_coefficients, solverCoeff_sp)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
     TYPE(t_operator_coeff),   INTENT(inout) :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
    !
    !Local variables:
    TYPE(t_patch),POINTER :: patch_2D
@@ -520,6 +557,12 @@ CONTAINS
     CALL init_diff_operator_coeff_3D ( patch_2D, operators_coefficients )
 
     CALL apply_boundary2coeffs(patch_3D, operators_coefficients)
+
+    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+      solverCoeff_sp%grad_coeff(:,:)   = REAL(operators_coefficients%grad_coeff(:,1,:), sp)
+      solverCoeff_sp%div_coeff(:,:,:)  = REAL(operators_coefficients%div_coeff(:,1,:,:), sp)
+      solverCoeff_sp%edge2edge_viacell_coeff_all(:,:,:)  = REAL(operators_coefficients%edge2edge_viacell_coeff_all(:,:,:), sp)
+    ENDIF
 
   END SUBROUTINE par_init_operator_coeff
   !-------------------------------------------------------------------------

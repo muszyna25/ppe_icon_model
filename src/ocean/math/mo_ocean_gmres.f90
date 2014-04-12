@@ -584,12 +584,9 @@ CONTAINS
 
     maxiterex = .FALSE.
 
-    v(:,:,:)  = 0.0_wp
-    r(:,:)    = 0.0_wp
-    b(pad_nproma:nproma, no_of_blocks) = 0.0_wp
- !   w(:, :) = 0.0_wp
- !   b(:, :) = 0.0_wp
- !   x(:, :) = 0.0_wp
+    v(:,:,:)  = 0.0_sp
+    r(:,:)    = 0.0_sp
+    b(pad_nproma:nproma, no_of_blocks) = 0.0_sp
 
     ! 1) compute the preconditioned residual
     ! IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),p_patch_3d,p_op_coeff,h_e)
@@ -598,8 +595,7 @@ CONTAINS
 
     w(:, :) = lhs(x(:,:),old_h, p_patch_3d, solverCoefficients)
 
-    ! w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
-    x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
+    x(pad_nproma:nproma, no_of_blocks) = 0.0_sp
 
     !    write(0,*) "-----------------------------------"
     !    sum_x(1) = SUM(x(:,:))
@@ -640,8 +636,8 @@ CONTAINS
 
 
     ! 2) compute the first vector of the Krylov space
-    IF (rn2(1) /= 0.0_wp) THEN
-      rrn2 = 1.0_wp/rn2(1)
+    IF (rn2(1) /= 0.0_sp) THEN
+      rrn2 = REAL(1.0_wp/rn2(1),sp)
 !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         v(1:nproma,jb,1) = r(1:nproma,jb) * rrn2
@@ -658,7 +654,7 @@ CONTAINS
     !      write(*,*)  get_my_global_mpi_id(), ':', pad_nproma, nproma, 'v=', v(pad_nproma+1:nproma, no_of_blocks, 1)
     !      CALL p_barrier
 
-    IF (rn2(1) == 0.0_wp) THEN ! already done
+    IF (rn2(1) == 0.0_sp) THEN ! already done
       !    print*,' gmres: rn2(1)=0.0 '
       ! #slo# 2010-06-15 trying to exit with niter=1 and residual=0.0
       niter = 0
@@ -684,8 +680,8 @@ CONTAINS
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
       ! write(*,*)  get_my_global_mpi_id(), 'before lhs v(pad):', pad_nproma, nproma, k, 'v=', v(pad_nproma:nproma, no_of_blocks, k)
       w(:,:) = lhs( v(:,:,i), old_h, p_patch_3d, solverCoefficients )
-      ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
-      v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
+      ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_sp
+      v(pad_nproma:nproma, no_of_blocks,i) = 0.0_sp
 
       !      sum_v = SUM(v(:,:,i))
       !      sum_w = SUM(w(:,:))
@@ -762,7 +758,7 @@ CONTAINS
 
       ! 4.4) if w is independent from v, add v(:,:,:,i+1)
       IF (.NOT. done) THEN
-        rh = 1.0_wp/h_aux
+        rh = REAL(1.0_wp/h_aux,sp)
 !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           v(1:nproma, jb, i+1) = w(1:nproma,jb) * rh

@@ -152,13 +152,13 @@ CONTAINS
     END IF
     
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=0  ! output print level - 0: print in any case
-    z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-    CALL dbg_print  ('applyInitCond: progn - T'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
-    IF (no_tracer > 1) THEN
-      z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-      CALL dbg_print('applyInitCond: progn - S'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
-    END IF
+!    idt_src=0  ! output print level - 0: print in any case
+!    z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+!    CALL dbg_print  ('applyInitCond: progn - T'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
+!    IF (no_tracer > 1) THEN
+!      z_c(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+!      CALL dbg_print('applyInitCond: progn - S'       ,z_c ,module_name,idt_src, in_subset=patch_2d%cells%owned)
+!    END IF
     !---------------------------------------------------------------------
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)

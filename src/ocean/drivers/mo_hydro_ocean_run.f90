@@ -64,11 +64,10 @@ MODULE mo_hydro_ocean_run
     & calc_vert_velocity,       &
     & update_time_indices
   USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog
+    & t_hydro_ocean_prog, t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_oce_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_oce_math_operators,     ONLY: calculate_thickness, check_cfl_horizontal, check_cfl_vertical
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
@@ -84,7 +83,6 @@ MODULE mo_hydro_ocean_run
   USE mo_oce_diagnostics,        ONLY: calc_fast_oce_diagnostics, &
     & t_oce_timeseries, calc_moc, calc_psi
   USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
-  USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
@@ -141,7 +139,7 @@ CONTAINS
 !      & operators_coefficients%matrix_vert_diff_e,&
 !      & operators_coefficients%matrix_vert_diff_c)
 
-     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
+    CALL init_ho_lhs_fields_mimetic   ( patch_3d )
 
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
@@ -157,7 +155,8 @@ CONTAINS
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
     & datetime, lwrite_restart,            &
     & p_sfc_flx, p_phys_param,             &
-    & p_as, p_atm_f, p_ice,operators_coefficients)
+    & p_as, p_atm_f, p_ice,operators_coefficients, &
+    & solverCoeff_sp)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
@@ -170,6 +169,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
     
     ! local variables
     INTEGER :: jstep, jg, jtrc
@@ -271,7 +271,7 @@ CONTAINS
         
           IF(.NOT.l_staggered_timestep)THEN
           
-            CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients)
+            CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solverCoeff_sp)
           
           !  CALL set_lateral_boundary_values( patch_3d, ocean_state(jg)%p_prog(nold(1))%vn)
           !  CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(jg), ocean_state(jg)%p_prog(nold(1))%vn)
@@ -321,7 +321,7 @@ CONTAINS
           ! solve for new free surface
           IF (ltimer) CALL timer_start(timer_solve_ab)
           CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
-          & p_sfc_flx, p_phys_param, jstep, operators_coefficients)!, p_int(jg))
+          & p_sfc_flx, p_phys_param, jstep, operators_coefficients, solverCoeff_sp)!, p_int(jg))
           IF (ltimer) CALL timer_stop(timer_solve_ab)
         
           !------------------------------------------------------------------------
@@ -329,7 +329,7 @@ CONTAINS
           ! velocity vn_pred and updated surface height
           IF (ltimer) CALL timer_start(timer_normal_veloc)
           CALL calc_normal_velocity_ab(patch_3d, ocean_state(jg),&
-          & operators_coefficients, p_ext_data(jg), p_phys_param)
+          & operators_coefficients, solverCoeff_sp,  p_ext_data(jg), p_phys_param)
           IF (ltimer) CALL timer_stop(timer_normal_veloc)
         
           !------------------------------------------------------------------------

@@ -39,22 +39,12 @@
 !!
 MODULE mo_ocean_nml
 !-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-!
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
-  ! USE mo_ocean_config,       ONLY: config_ignore_land_points => ignore_land_points
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
 
@@ -193,10 +183,12 @@ MODULE mo_ocean_nml
   !  REAL(wp) :: solver_start_tolerance          = -1.0_wp
   INTEGER  :: solver_max_restart_iterations      = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart        = 200       ! For inner loop after restart
-  !  REAL(wp) :: solver_tolerance_decrease_ratio = 0.1_wp    ! For restarting gmres, must be < 1
+  INTEGER  :: solver_max_iter_per_restart_sp     = 200       ! For inner loop after restart
+  REAL(sp) :: solver_tolerance_sp                = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
   LOGICAL  :: use_absolute_solver_tolerance      = .true.   ! Maximum value allowed for solver tolerance
   INTEGER, PARAMETER :: select_gmres             = 1
   INTEGER, PARAMETER :: select_restart_gmres     = 2
+  INTEGER, PARAMETER :: select_restart_mixedPrecision_gmres     = 3
   INTEGER :: select_solver                       = select_restart_gmres
   LOGICAL :: use_continuity_correction           = .true.  
   INTEGER :: fast_performance_level              = 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
@@ -363,6 +355,8 @@ MODULE mo_ocean_nml
     &                 solver_max_iter_per_restart  , &
     &                 solver_max_restart_iterations, &
     &                 solver_tolerance             , &
+    &                 solver_max_iter_per_restart_sp, &
+    &                 solver_tolerance_sp          , &
     &                 threshold_vn                 , &
     &                 use_continuity_correction    , &
     &                 use_edges2edges_viacell_fast , &
@@ -829,7 +823,7 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'free-slip boundary condition for velocity currently not supported')
      ENDIF
-     IF(i_bc_veloc_top < 0.OR.i_bc_veloc_top > 1) THEN
+     IF(i_bc_veloc_top < 0 .OR. (i_bc_veloc_top > 1 .and. i_bc_veloc_top /= 4)) THEN
      !  option >1 disabled due to unphysical difference of stress minus velocity
      !  see routine top_bound_cond_horz_veloc (#slo#, 2014-04)
        CALL finish(TRIM(routine), &
@@ -837,7 +831,7 @@ MODULE mo_ocean_nml
      ENDIF
      IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>1) THEN
        CALL finish(TRIM(routine), &
-         &  'bottom boundary condition for velocity currently not supported: choose = 0 or =1')
+         &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 4')
      ENDIF
 
      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN

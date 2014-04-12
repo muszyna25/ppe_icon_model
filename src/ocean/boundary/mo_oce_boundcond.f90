@@ -216,6 +216,35 @@ CONTAINS
  !        ENDIF
  !      END DO
  !    END DO
+
+    CASE (4) ! gradually increase the for forcing_smooth_steps
+
+      IF (is_restart_run()) THEN
+        smooth_coeff = 1.0_wp
+      ELSE
+        smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
+        current_step = current_step + 1
+      ENDIF
+
+    ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+
+            stress_coeff = smooth_coeff / z_scale(jc,jb)
+
+            top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)     * stress_coeff
+            top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)     * stress_coeff
+            top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x  * stress_coeff
+
+         ENDIF
+       END DO
+     END DO
+
+    CASE default
+      CALL finish("top_bound_cond_horz_veloc", "unknown i_bc_veloc_top")
+
     END SELECT
 
     CALL map_cell2edges_3D( patch_3D, top_bc_u_cc,p_os%p_aux%bc_top_vn,p_op_coeff,  level=1)
