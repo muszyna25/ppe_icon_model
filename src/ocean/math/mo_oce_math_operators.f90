@@ -55,9 +55,7 @@ MODULE mo_oce_math_operators
 
   USE mo_dynamics_config,    ONLY: nold
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-#ifndef __SX__
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
-#endif
   USE mo_oce_types,          ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
