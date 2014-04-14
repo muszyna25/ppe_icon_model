@@ -612,17 +612,17 @@ CONTAINS
 #endif
     IF (info > 0 ) THEN
       buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
-      surface_fluxes%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_slflx(:,:) = RESHAPE(buffer(:,4),(/ nproma, patch_2d%nblks_c /) )
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_swflx(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_lwflx(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_ssflx(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_slflx(:,:))
+      surface_fluxes%HeatFlux_ShortWave(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%HeatFlux_LongWave (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%HeatFlux_Sensible (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%HeatFlux_Latent   (:,:) = RESHAPE(buffer(:,4),(/ nproma, patch_2d%nblks_c /) )
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_ShortWave(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_LongWave (:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_Sensible (:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_Latent   (:,:))
       ! sum of fluxes for ocean boundary condition
-      surface_fluxes%forc_hflx(:,:) = surface_fluxes%forc_swflx(:,:) + surface_fluxes%forc_lwflx(:,:) &
-          & + surface_fluxes%forc_ssflx(:,:) + surface_fluxes%forc_slflx(:,:)
+      surface_fluxes%HeatFlux_Total(:,:) = surface_fluxes%HeatFlux_ShortWave(:,:) + surface_fluxes%HeatFlux_LongWave(:,:) &
+          & + surface_fluxes%HeatFlux_Sensible(:,:) + surface_fluxes%HeatFlux_Latent(:,:)
     ENDIF
     ! ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
     ! ice%Qbot(:,:)         Bottom melt potential of ice                            [W/m2]
@@ -647,23 +647,14 @@ CONTAINS
     END IF
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print(' CPL: SW-flux'       ,surface_fluxes%forc_swflx     ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: non-solar flux',surface_fluxes%forc_lwflx     ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Total  HF'     ,surface_fluxes%forc_hflx      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Melt-pot. top' ,ice%qtop                      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot                      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%forc_precip    ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Evaporation'   ,surface_fluxes%forc_evap      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Freshw. Flux'  ,surface_fluxes%forc_fw_bc     ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Total  HF'     ,surface_fluxes%HeatFlux_Total    ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: SW-flux'       ,surface_fluxes%HeatFlux_ShortWave,module_name,2,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: non-solar flux',surface_fluxes%HeatFlux_LongWave ,module_name,2,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Melt-pot. top' ,ice%qtop                         ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot                         ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%forc_precip       ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Evaporation'   ,surface_fluxes%forc_evap         ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Freshw. Flux'  ,surface_fluxes%forc_fw_bc        ,module_name,1,in_subset=patch_2d%cells%owned)
     !---------------------------------------------------------------------
     
     DEALLOCATE(buffer)

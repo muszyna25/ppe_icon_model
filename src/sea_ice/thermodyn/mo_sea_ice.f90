@@ -1288,7 +1288,7 @@ CONTAINS
               & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime) & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
             ! Heat flux due to removal
-            p_sfc_flx%forc_hflx      (jc,jb) = p_sfc_flx%forc_hflx(jc,jb)       &
+            p_sfc_flx%HeatFlux_Total(jc,jb) = p_sfc_flx%HeatFlux_Total(jc,jb)   &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
             p_ice%conc(jc,k,jb) = 0._wp
@@ -1656,21 +1656,21 @@ CONTAINS
     CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Diagnosis: collect the 4 parts of heat fluxes into the p_sfc_flx variables - no flux under ice:
-    p_sfc_flx%forc_swflx(:,:) = QatmAve%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%forc_lwflx(:,:) = QatmAve%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%forc_ssflx(:,:) = QatmAve%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%forc_slflx(:,:) = QatmAve%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_ShortWave(:,:) = QatmAve%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_LongWave (:,:) = QatmAve%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_Sensible (:,:) = QatmAve%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_Latent   (:,:) = QatmAve%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! #slo# 2013-06
     ! Change of upper ocean temperature according to heat fluxes is done in vertical diffusion equation
-    !  - forc_hflx is calculated here, provided to tracer eq. via forc_tracer(1), calculated in update_sfcflx
+    !  - HeatFlux_Total is calculated here, provided to tracer eq. via forc_tracer(1), calculated in update_sfcflx
     !  - forc_tracer(1) is 
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
     !  &                                    + dtime*(heatOceI + heatOceW) /               &
     !  &                                    (clw*rho_ref * ice%zUnderIce)
     ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
     !p_sfc_flx%forc_tracer(:,:,1) = (heatOceI + heatOceW) / (clw*rho_ref)
-    p_sfc_flx%forc_hflx(:,:) = heatOceI(:,:) + heatOceW(:,:)
+    p_sfc_flx%HeatFlux_Total(:,:) = heatOceI(:,:) + heatOceW(:,:)
 
     ! TODO:
     ! Temperature change of upper ocean grid cell due  to melt-water inflow and
@@ -1713,11 +1713,11 @@ CONTAINS
 
     ! set to zero on land points
     WHERE (v_base%lsm_c(:,1,:) > sea_boundary )
-      p_sfc_flx%forc_hflx (:,:) = 0.0_wp
-      p_sfc_flx%forc_swflx(:,:) = 0.0_wp
-      p_sfc_flx%forc_lwflx(:,:) = 0.0_wp
-      p_sfc_flx%forc_ssflx(:,:) = 0.0_wp
-      p_sfc_flx%forc_slflx(:,:) = 0.0_wp
+      p_sfc_flx%HeatFlux_Total    (:,:) = 0.0_wp
+      p_sfc_flx%HeatFlux_ShortWave(:,:) = 0.0_wp
+      p_sfc_flx%HeatFlux_LongWave (:,:) = 0.0_wp
+      p_sfc_flx%HeatFlux_Sensible (:,:) = 0.0_wp
+      p_sfc_flx%HeatFlux_Latent   (:,:) = 0.0_wp
     END WHERE
 
     CALL dbg_print('UpperOceTS: FwBcIce  ', p_sfc_flx%forc_fw_bc_ice, str_module, 4, in_subset=p_patch%cells%owned)

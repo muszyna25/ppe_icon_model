@@ -102,10 +102,11 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
     REAL(wp) :: absolute_vertical_velocity
-    REAL(wp) :: forc_swflx
-    REAL(wp) :: forc_lwflx
-    REAL(wp) :: forc_ssflx
-    REAL(wp) :: forc_slflx
+    REAL(wp) :: HeatFlux_ShortWave
+    REAL(wp) :: HeatFlux_LongWave
+    REAL(wp) :: HeatFlux_Sensible
+    REAL(wp) :: HeatFlux_Latent
+    REAL(wp) :: HeatFlux_Total
     REAL(wp) :: forc_precip
     REAL(wp) :: forc_snow
     REAL(wp) :: forc_evap
@@ -117,7 +118,6 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: forc_fw_ice_vol
     REAL(wp) :: forc_fw_tot
     REAL(wp) :: forc_hfrelax
-    REAL(wp) :: forc_hflx
     
     REAL(wp) :: ice_volume_nh !                                                           [km3]
     REAL(wp) :: ice_volume_sh !                                                           [km3]
@@ -149,10 +149,11 @@ MODULE mo_oce_diagnostics
       & "enstrophy                               ", &
       & "potential_enstrophy                     ", &
       & "absolute_vertical_velocity              ", &
-      & "forc_swflx                              ", &
-      & "forc_lwflx                              ", &
-      & "forc_ssflx                              ", &
-      & "forc_slflx                              ", &
+      & "HeatFlux_ShortWave                      ", &
+      & "HeatFlux_LongWave                       ", &
+      & "HeatFlux_Sensible                       ", &
+      & "HeatFlux_Latent                         ", &
+      & "HeatFlux_Total                          ", &
       & "forc_precip                             ", &
       & "forc_snow                               ", &
       & "forc_evap                               ", &
@@ -164,7 +165,6 @@ MODULE mo_oce_diagnostics
       & "forc_fw_ice_vol                         ", &
       & "forc_fw_tot                             ", &
       & "forc_hfrelax                            ", &
-      & "forc_hflx                               ", &
       & "ice_volume_nh                           ", &
       & "ice_volume_sh                           ", &
       & "ice_extent_nh                           ", &
@@ -248,10 +248,11 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
     
-    oce_ts%oce_diagnostics(0:nsteps)%forc_swflx                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_lwflx                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_ssflx                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_slflx                 = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_ShortWave          = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_LongWave           = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Sensible           = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Latent             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Total              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_precip                = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_snow                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_evap                  = 0.0_wp
@@ -263,7 +264,6 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%forc_fw_ice_vol            = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_fw_tot                = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_hflx                  = 0.0_wp
     
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
@@ -561,10 +561,11 @@ CONTAINS
           monitor%absolute_vertical_velocity = &
             & monitor%absolute_vertical_velocity + ABS(p_os%p_diag%w(jc,1,jb))*prism_area
           
-          monitor%forc_swflx   = monitor%forc_swflx   + p_sfc_flx%forc_swflx(jc,jb)*prism_area
-          monitor%forc_lwflx   = monitor%forc_lwflx   + p_sfc_flx%forc_lwflx(jc,jb)*prism_area
-          monitor%forc_ssflx   = monitor%forc_ssflx   + p_sfc_flx%forc_ssflx(jc,jb)*prism_area
-          monitor%forc_slflx   = monitor%forc_slflx   + p_sfc_flx%forc_slflx(jc,jb)*prism_area
+          monitor%HeatFlux_ShortWave   = monitor%HeatFlux_ShortWave   + p_sfc_flx%HeatFlux_ShortWave(jc,jb)*prism_area
+          monitor%HeatFlux_LongWave    = monitor%HeatFlux_LongWave    + p_sfc_flx%HeatFlux_LongWave (jc,jb)*prism_area
+          monitor%HeatFlux_Sensible    = monitor%HeatFlux_Sensible    + p_sfc_flx%HeatFlux_Sensible (jc,jb)*prism_area
+          monitor%HeatFlux_Latent      = monitor%HeatFlux_Latent      + p_sfc_flx%HeatFlux_Latent   (jc,jb)*prism_area
+          monitor%HeatFlux_Total       = monitor%HeatFlux_Total       + p_sfc_flx%HeatFlux_Total    (jc,jb)*prism_area
           monitor%forc_precip  = monitor%forc_precip  + p_sfc_flx%forc_precip(jc,jb)*prism_area
           monitor%forc_snow    = monitor%forc_snow    + p_sfc_flx%forc_snow(jc,jb)*prism_area
           monitor%forc_evap    = monitor%forc_evap    + p_sfc_flx%forc_evap(jc,jb)*prism_area
@@ -576,7 +577,6 @@ CONTAINS
           monitor%forc_fw_ice_vol   = monitor%forc_fw_ice_vol   + p_sfc_flx%forc_fw_ice_vol (jc,jb)*prism_area
           monitor%forc_fw_tot  = monitor%forc_fw_tot  + p_sfc_flx%forc_fw_tot(jc,jb)*prism_area
           monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
-          monitor%forc_hflx    = monitor%forc_hflx    + p_sfc_flx%forc_hflx(jc,jb)*prism_area
           
           ! northern hemisphere
           IF (p_patch%cells%center(jc,jb)%lat > equator) THEN
@@ -640,10 +640,11 @@ CONTAINS
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
-    monitor%forc_swflx                 = global_sum_array(monitor%forc_swflx)/surface_area
-    monitor%forc_lwflx                 = global_sum_array(monitor%forc_lwflx)/surface_area
-    monitor%forc_ssflx                 = global_sum_array(monitor%forc_ssflx)/surface_area
-    monitor%forc_slflx                 = global_sum_array(monitor%forc_slflx)/surface_area
+    monitor%HeatFlux_ShortWave             = global_sum_array(monitor%HeatFlux_ShortWave)/surface_area
+    monitor%HeatFlux_LongWave              = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
+    monitor%HeatFlux_Sensible              = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
+    monitor%HeatFlux_Latent                = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
+    monitor%HeatFlux_Total                 = global_sum_array(monitor%HeatFlux_Total    )/surface_area
     monitor%forc_precip                = global_sum_array(monitor%forc_precip)/surface_area
     monitor%forc_snow                  = global_sum_array(monitor%forc_snow)/surface_area
     monitor%forc_evap                  = global_sum_array(monitor%forc_evap)/surface_area
@@ -655,7 +656,6 @@ CONTAINS
     monitor%forc_fw_ice_vol            = global_sum_array(monitor%forc_fw_ice_vol)/surface_area
     monitor%forc_fw_tot                = global_sum_array(monitor%forc_fw_tot)/surface_area
     monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
-    monitor%forc_hflx                  = global_sum_array(monitor%forc_hflx)/surface_area
     monitor%ice_volume_nh              = global_sum_array(monitor%ice_volume_nh)/1.0e9_wp
     monitor%ice_volume_sh              = global_sum_array(monitor%ice_volume_sh)/1.0e9_wp
     monitor%ice_extent_nh              = global_sum_array(monitor%ice_extent_nh)/1.0e6_wp
@@ -715,10 +715,11 @@ CONTAINS
         & monitor%enstrophy, &
         & monitor%potential_enstrophy, &
         & monitor%absolute_vertical_velocity, &
-        & monitor%forc_swflx, &
-        & monitor%forc_lwflx, &
-        & monitor%forc_ssflx, &
-        & monitor%forc_slflx, &
+        & monitor%HeatFlux_ShortWave, &
+        & monitor%HeatFlux_LongWave , &
+        & monitor%HeatFlux_Sensible , &
+        & monitor%HeatFlux_Latent   , &
+        & monitor%HeatFlux_Total,     &
         & monitor%forc_precip, &
         & monitor%forc_snow, &
         & monitor%forc_evap, &
@@ -730,7 +731,6 @@ CONTAINS
         & monitor%forc_fw_ice_vol, &
         & monitor%forc_fw_tot, &
         & monitor%forc_hfrelax, &
-        & monitor%forc_hflx, &
         & monitor%ice_volume_nh, &
         & monitor%ice_volume_sh, &
         & monitor%ice_extent_nh, &

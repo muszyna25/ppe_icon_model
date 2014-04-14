@@ -132,9 +132,9 @@ CONTAINS
     &          t_cf_var('topBoundCond_windStress_v', 'Pa', 'topBoundCond_windStress_v', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_hflx', p_sfc_flx%forc_hflx , &
+    CALL add_var(var_list, 'HeatFlux_Total', p_sfc_flx%HeatFlux_Total , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_hflx', 'W/m2', 'forc_hflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Total', 'W/m2', 'HeatFlux_Total', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_fw_tot', p_sfc_flx%forc_fw_tot , &
@@ -142,24 +142,24 @@ CONTAINS
     &          t_cf_var('forc_fw_tot', 'm/s', 'forc_fw_tot', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_swflx', p_sfc_flx%forc_swflx , &
+    CALL add_var(var_list, 'HeatFlux_ShortWave', p_sfc_flx%HeatFlux_ShortWave , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_swflx', 'W/m2', 'forc_swflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_ShortWave', 'W/m2', 'HeatFlux_ShortWave', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_lwflx', p_sfc_flx%forc_lwflx , &
+    CALL add_var(var_list, 'HeatFlux_LongWave', p_sfc_flx%HeatFlux_LongWave , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_lwflx', 'W/m2', 'forc_lwflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_LongWave', 'W/m2', 'HeatFlux_LongWave', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_ssflx', p_sfc_flx%forc_ssflx , &
+    CALL add_var(var_list, 'HeatFlux_Sensible', p_sfc_flx%HeatFlux_Sensible , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_ssflx', 'W/m2', 'forc_ssflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Sensible', 'W/m2', 'HeatFlux_Sensible', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_slflx', p_sfc_flx%forc_slflx , &
+    CALL add_var(var_list, 'HeatFlux_Latent', p_sfc_flx%HeatFlux_Latent , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_slflx', 'W/m2', 'forc_slflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Latent', 'W/m2', 'HeatFlux_Latent', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_precip', p_sfc_flx%forc_precip , &
@@ -317,9 +317,9 @@ CONTAINS
     &          t_cf_var('topBoundCond_windStress_v_acc', 'Pa', 'topBoundCond_windStress_v_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_hflx_acc', p_sfc_flx%forc_hflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_Total_acc', p_sfc_flx%HeatFlux_Total_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_hflx_acc', 'W/m2', 'forc_hflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Total_acc', 'W/m2', 'HeatFlux_Total_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
     CALL add_var(var_list, 'forc_fw_tot_acc', p_sfc_flx%forc_fw_tot_acc , &
@@ -327,24 +327,24 @@ CONTAINS
     &          t_cf_var('forc_fw_tot_acc', 'm/s', 'forc_fw_tot_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_swflx_acc', p_sfc_flx%forc_swflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_ShortWave_acc', p_sfc_flx%HeatFlux_ShortWave_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_swflx_acc', 'W/m2', 'forc_swflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_ShortWave_acc', 'W/m2', 'HeatFlux_ShortWave_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_lwflx_acc', p_sfc_flx%forc_lwflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_LongWave_acc', p_sfc_flx%HeatFlux_LongWave_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_lwflx_acc', 'W/m2', 'forc_lwflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_LongWave_acc', 'W/m2', 'HeatFlux_LongWave_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_ssflx_acc', p_sfc_flx%forc_ssflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_Sensible_acc', p_sfc_flx%HeatFlux_Sensible_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_ssflx_acc', 'W/m2', 'forc_ssflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Sensible_acc', 'W/m2', 'HeatFlux_Sensible_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_slflx_acc', p_sfc_flx%forc_slflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_Latent_acc', p_sfc_flx%HeatFlux_Latent_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_slflx_acc', 'W/m2', 'forc_slflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Latent_acc', 'W/m2', 'HeatFlux_Latent_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
     CALL add_var(var_list, 'forc_precip_acc', p_sfc_flx%forc_precip_acc , &

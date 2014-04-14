@@ -144,10 +144,11 @@ CONTAINS
     ! update forcing accumulated values
     CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc, p_sfc_flx%topBoundCond_windStress_u, cells)
     CALL add_fields(p_sfc_flx%topBoundCond_windStress_v_acc, p_sfc_flx%topBoundCond_windStress_v, cells)
-    CALL add_fields(p_sfc_flx%forc_swflx_acc      , p_sfc_flx%forc_swflx      , cells)
-    CALL add_fields(p_sfc_flx%forc_lwflx_acc      , p_sfc_flx%forc_lwflx      , cells)
-    CALL add_fields(p_sfc_flx%forc_ssflx_acc      , p_sfc_flx%forc_ssflx      , cells)
-    CALL add_fields(p_sfc_flx%forc_slflx_acc      , p_sfc_flx%forc_slflx      , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_ShortWave_acc      , p_sfc_flx%HeatFlux_ShortWave      , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_LongWave_acc       , p_sfc_flx%HeatFlux_LongWave       , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_Sensible_acc       , p_sfc_flx%HeatFlux_Sensible       , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_Latent_acc         , p_sfc_flx%HeatFlux_Latent         , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_Total_acc          , p_sfc_flx%HeatFlux_Total          , cells)
     CALL add_fields(p_sfc_flx%forc_precip_acc     , p_sfc_flx%forc_precip     , cells)
     CALL add_fields(p_sfc_flx%forc_snow_acc       , p_sfc_flx%forc_snow       , cells)
     CALL add_fields(p_sfc_flx%forc_evap_acc       , p_sfc_flx%forc_evap       , cells)
@@ -159,7 +160,6 @@ CONTAINS
     CALL add_fields(p_sfc_flx%forc_fw_ice_vol_acc,  p_sfc_flx%forc_fw_ice_vol , cells)
     CALL add_fields(p_sfc_flx%forc_fw_tot_acc     , p_sfc_flx%forc_fw_tot     , cells)
     CALL add_fields(p_sfc_flx%forc_hfrelax_acc    , p_sfc_flx%forc_hfrelax    , cells)
-    CALL add_fields(p_sfc_flx%forc_hflx_acc       , p_sfc_flx%forc_hflx       , cells)
     CALL add_fields(p_sfc_flx%data_surfRelax_Temp_acc(:,:), p_sfc_flx%data_surfRelax_Temp(:,:), cells)
     CALL add_fields(p_sfc_flx%data_surfRelax_Salt_acc(:,:), p_sfc_flx%data_surfRelax_Salt(:,:), cells)
     DO jtrc=1,no_tracer
@@ -211,10 +211,11 @@ CONTAINS
     p_acc%kin                       = p_acc%kin                      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%topBoundCond_windStress_u_acc = p_sfc_flx%topBoundCond_windStress_u_acc/REAL(nsteps_since_last_output,wp)
     p_sfc_flx%topBoundCond_windStress_v_acc = p_sfc_flx%topBoundCond_windStress_v_acc/REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_swflx_acc        = p_sfc_flx%forc_swflx_acc       /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_lwflx_acc        = p_sfc_flx%forc_lwflx_acc       /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_ssflx_acc        = p_sfc_flx%forc_ssflx_acc       /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_slflx_acc        = p_sfc_flx%forc_slflx_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_ShortWave_acc        = p_sfc_flx%HeatFlux_ShortWave      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_LongWave_acc         = p_sfc_flx%HeatFlux_LongWave       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_Sensible_acc         = p_sfc_flx%HeatFlux_Sensible       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_Latent_acc           = p_sfc_flx%HeatFlux_Latent         /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_Total_acc            = p_sfc_flx%HeatFlux_Total          /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_precip_acc       = p_sfc_flx%forc_precip_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_snow_acc         = p_sfc_flx%forc_snow_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_evap_acc         = p_sfc_flx%forc_evap_acc        /REAL(nsteps_since_last_output,wp)
@@ -226,7 +227,6 @@ CONTAINS
     p_sfc_flx%forc_fw_ice_vol_acc   = p_sfc_flx%forc_fw_ice_vol_acc  /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_tot_acc       = p_sfc_flx%forc_fw_tot_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc     /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_hflx_acc         = p_sfc_flx%forc_hflx_acc        /REAL(nsteps_since_last_output,wp)
     IF(no_tracer>0)THEN
       p_sfc_flx%data_surfRelax_Temp_acc = p_sfc_flx%data_surfRelax_Temp_acc/REAL(nsteps_since_last_output,wp)
       p_sfc_flx%forc_tracer_acc         = p_sfc_flx%forc_tracer_acc        /REAL(nsteps_since_last_output,wp)
@@ -257,12 +257,12 @@ CONTAINS
     p_sfc_flx%topBoundCond_windStress_u_acc = 0.0_wp
     p_sfc_flx%topBoundCond_windStress_v_acc = 0.0_wp
     IF (no_tracer>0) THEN
-      p_sfc_flx%forc_swflx_acc          = 0.0_wp
-      p_sfc_flx%forc_lwflx_acc          = 0.0_wp
-      p_sfc_flx%forc_ssflx_acc          = 0.0_wp
-      p_sfc_flx%forc_slflx_acc          = 0.0_wp
+      p_sfc_flx%HeatFlux_ShortWave_acc          = 0.0_wp
+      p_sfc_flx%HeatFlux_LongWave_acc           = 0.0_wp
+      p_sfc_flx%HeatFlux_Sensible_acc           = 0.0_wp
+      p_sfc_flx%HeatFlux_Latent_acc             = 0.0_wp
+      p_sfc_flx%HeatFlux_Total_acc              = 0.0_wp
       p_sfc_flx%forc_hfrelax_acc        = 0.0_wp
-      p_sfc_flx%forc_hflx_acc           = 0.0_wp
       IF (no_tracer>1) THEN
         p_sfc_flx%forc_precip_acc         = 0.0_wp
         p_sfc_flx%forc_snow_acc           = 0.0_wp

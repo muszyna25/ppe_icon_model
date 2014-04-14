@@ -207,10 +207,10 @@ CONTAINS
       ! call of sea ice model
       IF (i_sea_ice >= 1) THEN
 
-        Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
-        Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
-        Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
-        Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
+        Qatm%SWnetw (:,:)   = p_sfc_flx%HeatFlux_ShortWave(:,:)
+        Qatm%LWnetw (:,:)   = p_sfc_flx%HeatFlux_LongWave (:,:)
+        Qatm%sensw  (:,:)   = p_sfc_flx%HeatFlux_Sensible (:,:)
+        Qatm%latw   (:,:)   = p_sfc_flx%HeatFlux_Latent   (:,:)
      
       ! Precipitation on ice is snow when we're below the freezing point
             WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
@@ -226,7 +226,7 @@ CONTAINS
         p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) )*(p_sfc_flx%forc_precip(:,:) + &
                         &    p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_snow(:,:))
         p_sfc_flx%forc_fw_bc(:,:)     =  p_sfc_flx%forc_fw_bc_oce(:,:) + p_sfc_flx%forc_fw_bc_ice(:,:)
-        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
         !  done in mo_sea_ice:upper_ocean_TS
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -268,12 +268,12 @@ CONTAINS
     !
   ! IF (i_sea_ice >= 1) THEN
 
-  !   Qatm%SWnetw (:,:)   = p_sfc_flx%forc_swflx(:,:)
-  !   Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+  !   Qatm%SWnetw (:,:)   = p_sfc_flx%HeatFlux_ShortWave(:,:)
+  !   Qatm%LWnetw (:,:)   = p_sfc_flx%HeatFlux_LongWave(:,:)
 
   !   CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
 
-  !   ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+  !   ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
   !   !  done in mo_sea_ice:upper_ocean_TS
 
   !   !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -342,9 +342,9 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Apply net surface heat flux to boundary condition
     !  - heat flux is applied alternatively to temperature relaxation for coupling
-    !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
+    !  - also done if sea ice model is used since HeatFlux_Total is set in mo_sea_ice
     !  - with OMIP-forcing and sea_ice=0 we need type_surfRelax_Temp=-1
-    !    since there is no forc_hflx over open water when using OMIP-forcing
+    !    since there is no HeatFlux_Total over open water when using OMIP-forcing
     !  - i_apply_surface_hflux=1 provides net surface heat flux globally
     !
     IF (no_tracer > 0) THEN
@@ -358,13 +358,13 @@ CONTAINS
         !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
         !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
         ! discretized:
-        !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*clw)
+        !   top_bc_tracer = forc_tracer = HeatFlux_Total / (rho_ref*clw)
 
-        p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*clw)
+        p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%HeatFlux_Total(:,:) / (rho_ref*clw)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=1  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: T-forc-hflx[W/m2]' ,p_sfc_flx%forc_hflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: T-forc-hflx[W/m2]' ,p_sfc_flx%HeatFlux_Total,str_module,idt_src, in_subset=p_patch%cells%owned)
         idt_src=3  ! output print level (1-5, fix)
         z_c2(:,:) = p_sfc_flx%forc_tracer(:,:,1)
         CALL dbg_print('UpdSfc:T-forc-trac[K*m/s]' ,z_c2                    ,str_module,idt_src, in_subset=p_patch%cells%owned)
@@ -861,12 +861,12 @@ CONTAINS
       Qatm%albnirdifw = albedoW_sim
 
       ! #slo# 2012-12:
-      ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
-      ! diagnosis of 4 parts is stored in p_sfc_flx%forc_swflx/lwflx/ssflx/slflx
+      ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
+      ! diagnosis of 4 parts is stored in p_sfc_flx%HeatFlux_ShortWave/LongWave/Sensible/Latent
       ! this diagnosis is done in mo_sea_ice:upper_ocean_TS
       ! 
       ! under ice the conductive heat flux is not yet stored specifically
-      ! the sum forc_hflx is aggregated and stored accordingly which cannot be done here
+      ! the sum HeatFlux_Total is aggregated and stored accordingly which cannot be done here
 
       ! ATTENTION
       !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
@@ -953,15 +953,15 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-            p_sfc_flx%forc_swflx(jc,jb) = Qatm%SWnetw(jc,jb) ! net SW radiation flux over water
-            p_sfc_flx%forc_lwflx(jc,jb) = Qatm%LWnetw(jc,jb) ! net LW radiation flux over water
-            p_sfc_flx%forc_ssflx(jc,jb) = Qatm%sensw (jc,jb) ! Sensible heat flux over water
-            p_sfc_flx%forc_slflx(jc,jb) = Qatm%latw  (jc,jb) ! Latent heat flux over water
+            p_sfc_flx%HeatFlux_ShortWave(jc,jb) = Qatm%SWnetw(jc,jb) ! net SW radiation flux over water
+            p_sfc_flx%HeatFlux_LongWave (jc,jb) = Qatm%LWnetw(jc,jb) ! net LW radiation flux over water
+            p_sfc_flx%HeatFlux_Sensible (jc,jb) = Qatm%sensw (jc,jb) ! Sensible heat flux over water
+            p_sfc_flx%HeatFlux_Latent   (jc,jb) = Qatm%latw  (jc,jb) ! Latent heat flux over water
           ELSE
-            p_sfc_flx%forc_swflx(jc,jb) = 0.0_wp
-            p_sfc_flx%forc_lwflx(jc,jb) = 0.0_wp
-            p_sfc_flx%forc_ssflx(jc,jb) = 0.0_wp
-            p_sfc_flx%forc_slflx(jc,jb) = 0.0_wp
+            p_sfc_flx%HeatFlux_ShortWave(jc,jb) = 0.0_wp
+            p_sfc_flx%HeatFlux_LongWave (jc,jb) = 0.0_wp
+            p_sfc_flx%HeatFlux_Sensible (jc,jb) = 0.0_wp
+            p_sfc_flx%HeatFlux_Latent   (jc,jb) = 0.0_wp
           END IF
 
         ENDDO
@@ -973,18 +973,18 @@ CONTAINS
       ENDWHERE
 
       ! sum of fluxes for ocean boundary condition
-      p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
-        &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
+      p_sfc_flx%HeatFlux_Total(:,:) = p_sfc_flx%HeatFlux_ShortWave(:,:) + p_sfc_flx%HeatFlux_LongWave(:,:) &
+        &                      + p_sfc_flx%HeatFlux_Sensible(:,:) + p_sfc_flx%HeatFlux_Latent(:,:)
 
     ENDIF  !  sea ice
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('FlxFil: Bulk SW-flux'      ,p_sfc_flx%forc_swflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: Bulk LW-flux'      ,p_sfc_flx%forc_lwflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: Bulk Sens.  HF'    ,p_sfc_flx%forc_ssflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: Bulk Latent HF'    ,p_sfc_flx%forc_slflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('FlxFil: Bulk Total  HF'    ,p_sfc_flx%forc_hflx      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Bulk SW-flux'      ,p_sfc_flx%HeatFlux_ShortWave,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Bulk LW-flux'      ,p_sfc_flx%HeatFlux_LongWave ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Bulk Sens.  HF'    ,p_sfc_flx%HeatFlux_Sensible ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Bulk Latent HF'    ,p_sfc_flx%HeatFlux_Latent   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('FlxFil: Bulk Total  HF'    ,p_sfc_flx%HeatFlux_Total    ,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE update_flux_fromFile
@@ -1098,11 +1098,11 @@ CONTAINS
       ! where
       !   Q_T = K_v*dT/dz(surf) = Q_s/Rho/Cp  [K*m/s]
 
-      p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * clw
+      p_sfc_flx%HeatFlux_Total(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * clw
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc:T-relax-hflx [W/m2]',p_sfc_flx%forc_hflx     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc:T-relax-hflx [W/m2]',p_sfc_flx%HeatFlux_Total,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ELSE IF (tracer_no == 2) THEN  ! salinity relaxation
@@ -1218,9 +1218,9 @@ CONTAINS
 
     !  ATTENTION - forc_tracer is INCORRECT here
     !   - forc_tracer is boundary condition in vertical diffusion equation [K*m/s]
-    !   - forc_hflx is net surface heat flux [W/m2]
+    !   - HeatFlux_Total is net surface heat flux [W/m2]
     !       p_sfc_flx%forc_tracer(jc,jb,1)               &
-            p_sfc_flx%forc_hflx(jc,jb)                   &
+            p_sfc_flx%HeatFlux_Total(jc,jb)                   &
               & =  Qatm%sens(jc,jb,i) + Qatm%lat(jc,jb,i)& ! Sensible + latent heat
               !                                              flux at ice surface
               & +  Qatm%LWnet(jc,jb,i)                   & ! net LW radiation flux over ice surface
@@ -1234,7 +1234,7 @@ CONTAINS
           ELSE
 
     !       p_sfc_flx%forc_tracer(jc,jb,1)             &
-            p_sfc_flx%forc_hflx(jc,jb)                 &
+            p_sfc_flx%HeatFlux_Total(jc,jb)                 &
             & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
             & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
             & +  Qatm%SWnetw(jc,jb)                      ! net SW radiation flux ove water
