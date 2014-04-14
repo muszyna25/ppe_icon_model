@@ -805,7 +805,7 @@ CONTAINS
       ! sense when running without tiles. When using tiles, contains 
       ! the temperatures of sea-ice tiles and frozen lake tiles. Mixing this field 
       ! with aggeregated t_so values makes no sense from my point of view.
-      IF (ntiles_total == 1) THEN
+      IF ( (ntiles_total == 1) .AND. (atm_phy_nwp_config(jg)%inwp_surface > 0)) THEN
         DO jc = i_startidx, i_endidx 
           p_prog_wtr_now%t_ice(jc,jb) = MERGE(                               &
             &                           lnd_diag%t_so(jc,1,jb),              &
