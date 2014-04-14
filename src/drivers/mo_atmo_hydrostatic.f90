@@ -102,12 +102,12 @@ CONTAINS
                             & p_hydro_state, time_config%cur_datetime,       &
                             & n_chkpt, n_diag )
 
-    IF (ltimer) CALL print_timer
-
     !---------------------------------------------------------------------
     ! Integration finished. Start to clean up.
     !---------------------------------------------------------------------
     CALL destruct_atmo_hydrostatic()
+
+    IF (ltimer) CALL print_timer
 
   END SUBROUTINE atmo_hydrostatic
   !-------------------------------------------------------------------------------

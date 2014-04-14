@@ -124,13 +124,12 @@ CONTAINS
     CALL perform_nh_stepping( time_config%cur_datetime,       &
       &                       n_chkpt, n_diag  )
  
-    IF (ltimer) CALL print_timer
-
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
     CALL destruct_atmo_nonhydrostatic()
 
+    IF (ltimer) CALL print_timer
     
   END SUBROUTINE atmo_nonhydrostatic
   !---------------------------------------------------------------------
