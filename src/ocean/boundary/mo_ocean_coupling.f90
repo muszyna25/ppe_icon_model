@@ -567,17 +567,17 @@ CONTAINS
 #endif
     IF (info > 0 ) THEN
       buffer(nbr_hor_points+1:nbr_points,1:3) = 0.0_wp
-      surface_fluxes%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_snow  (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_evap  (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%FrshFlux_Precipitation(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%FrshFlux_SnowFall  (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%FrshFlux_Evaporation  (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
       
-      surface_fluxes%forc_precip(:,:) = surface_fluxes%forc_precip(:,:)/rho_ref
-      surface_fluxes%forc_snow  (:,:) = surface_fluxes%forc_snow(:,:)/rho_ref
-      surface_fluxes%forc_evap  (:,:) = surface_fluxes%forc_evap(:,:)/rho_ref
+      surface_fluxes%FrshFlux_Precipitation(:,:) = surface_fluxes%FrshFlux_Precipitation(:,:)/rho_ref
+      surface_fluxes%FrshFlux_SnowFall  (:,:) = surface_fluxes%FrshFlux_SnowFall(:,:)/rho_ref
+      surface_fluxes%FrshFlux_Evaporation  (:,:) = surface_fluxes%FrshFlux_Evaporation(:,:)/rho_ref
       
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_precip(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_snow(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_evap(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%FrshFlux_Precipitation(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%FrshFlux_SnowFall(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%FrshFlux_Evaporation(:,:))
     END IF
     ! ENDIF ! forcing_enable_freshwater
     !
@@ -652,8 +652,8 @@ CONTAINS
     CALL dbg_print(' CPL: non-solar flux',surface_fluxes%HeatFlux_LongWave ,module_name,2,in_subset=patch_2d%cells%owned)
     CALL dbg_print(' CPL: Melt-pot. top' ,ice%qtop                         ,module_name,1,in_subset=patch_2d%cells%owned)
     CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot                         ,module_name,1,in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%forc_precip       ,module_name,1,in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Evaporation'   ,surface_fluxes%forc_evap         ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%FrshFlux_Precipitation       ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Evaporation'   ,surface_fluxes%FrshFlux_Evaporation         ,module_name,1,in_subset=patch_2d%cells%owned)
     CALL dbg_print(' CPL: Freshw. Flux'  ,surface_fluxes%forc_fw_bc        ,module_name,1,in_subset=patch_2d%cells%owned)
     !---------------------------------------------------------------------
     

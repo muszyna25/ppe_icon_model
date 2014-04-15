@@ -162,24 +162,24 @@ CONTAINS
     &          t_cf_var('HeatFlux_Latent', 'W/m2', 'HeatFlux_Latent', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_precip', p_sfc_flx%forc_precip , &
+    CALL add_var(var_list, 'FrshFlux_Precipitation', p_sfc_flx%FrshFlux_Precipitation , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_precip', 'm/s', 'forc_precip', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Precipitation', 'm/s', 'FrshFlux_Precipitation', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_snow', p_sfc_flx%forc_snow , &
+    CALL add_var(var_list, 'FrshFlux_SnowFall', p_sfc_flx%FrshFlux_SnowFall , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_snow', 'm/s', 'forc_snow', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_evap', p_sfc_flx%forc_evap , &
+    CALL add_var(var_list, 'FrshFlux_Evaporation', p_sfc_flx%FrshFlux_Evaporation , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_evap', 'm/s', 'forc_evap', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Evaporation', 'm/s', 'FrshFlux_Evaporation', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_runoff', p_sfc_flx%forc_runoff , &
+    CALL add_var(var_list, 'FrshFlux_Runoff', p_sfc_flx%FrshFlux_Runoff , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_runoff', 'm/s', 'forc_runoff', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_fw_bc', p_sfc_flx%forc_fw_bc , &
@@ -347,24 +347,24 @@ CONTAINS
     &          t_cf_var('HeatFlux_Latent_acc', 'W/m2', 'HeatFlux_Latent_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_precip_acc', p_sfc_flx%forc_precip_acc , &
+    CALL add_var(var_list, 'FrshFlux_Precipitation_acc', p_sfc_flx%FrshFlux_Precipitation_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_precip_acc', 'm/s', 'forc_precip_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Precipitation_acc', 'm/s', 'FrshFlux_Precipitation_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_snow_acc', p_sfc_flx%forc_snow_acc , &
+    CALL add_var(var_list, 'FrshFlux_SnowFall_acc', p_sfc_flx%FrshFlux_SnowFall_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_snow_acc', 'm/s', 'forc_snow_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_SnowFall_acc', 'm/s', 'FrshFlux_SnowFall_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_evap_acc', p_sfc_flx%forc_evap_acc , &
+    CALL add_var(var_list, 'FrshFlux_Evaporation_acc', p_sfc_flx%FrshFlux_Evaporation_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_evap_acc', 'm/s', 'forc_evap_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Evaporation_acc', 'm/s', 'FrshFlux_Evaporation_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_runoff_acc', p_sfc_flx%forc_runoff_acc , &
+    CALL add_var(var_list, 'FrshFlux_Runoff_acc', p_sfc_flx%FrshFlux_Runoff_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_runoff_acc', 'm/s', 'forc_runoff_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Runoff_acc', 'm/s', 'FrshFlux_Runoff_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_fw_bc_acc', p_sfc_flx%forc_fw_bc_acc , &

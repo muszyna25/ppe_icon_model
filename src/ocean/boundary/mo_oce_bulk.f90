@@ -214,17 +214,19 @@ CONTAINS
      
       ! Precipitation on ice is snow when we're below the freezing point
             WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
-                Qatm%rpreci(:,:) = p_sfc_flx%forc_snow(:,:)
-                Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:)
+                Qatm%rpreci(:,:) = p_sfc_flx%FrshFlux_SnowFall(:,:)
+                Qatm%rprecw(:,:) = p_sfc_flx%FrshFlux_Precipitation(:,:)
             ELSEWHERE
                 Qatm%rpreci(:,:) = 0._wp
-                Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_snow(:,:)
+                Qatm%rprecw(:,:) = p_sfc_flx%FrshFlux_Precipitation(:,:) + p_sfc_flx%FrshFlux_SnowFall(:,:)
             ENDWHERE
    
         CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
         
-        p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) )*(p_sfc_flx%forc_precip(:,:) + &
-                        &    p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_snow(:,:))
+        p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
+          &                             (p_sfc_flx%FrshFlux_Precipitation(:,:) +                &
+          &                              p_sfc_flx%FrshFlux_Evaporation(:,:) +                  &
+          &                              p_sfc_flx%FrshFlux_SnowFall(:,:))
         p_sfc_flx%forc_fw_bc(:,:)     =  p_sfc_flx%forc_fw_bc_oce(:,:) + p_sfc_flx%forc_fw_bc_ice(:,:)
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
         !  done in mo_sea_ice:upper_ocean_TS
@@ -241,8 +243,10 @@ CONTAINS
         p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%stress_xw(:,:)
         p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%stress_yw(:,:)
 
-        p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) )*(p_sfc_flx%forc_precip(:,:) + &
-                        &    p_sfc_flx%forc_evap(:,:) + p_sfc_flx%forc_snow(:,:))
+        p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
+          &                             (p_sfc_flx%FrshFlux_Precipitation(:,:) + &
+          &                              p_sfc_flx%FrshFlux_Evaporation(:,:) + &
+          &                              p_sfc_flx%FrshFlux_SnowFall(:,:))
         p_sfc_flx%forc_fw_bc(:,:)     =  p_sfc_flx%forc_fw_bc_oce(:,:)
 
       ENDIF
@@ -408,7 +412,7 @@ CONTAINS
     IF (no_tracer >1) THEN
       !old formulation <r14213:
       !p_sfc_flx%forc_fw_tot(:,:) = (p_sfc_flx%forc_fw_bc(:,:) + p_sfc_flx%forc_fwrelax(:,:))
-      p_sfc_flx%forc_fw_tot(:,:) = p_sfc_flx%forc_runoff(:,:)     + &
+      p_sfc_flx%forc_fw_tot(:,:) = p_sfc_flx%FrshFlux_Runoff(:,:)     + &
         &                          p_sfc_flx%forc_fw_ice_vol(:,:) + &
         &                          p_sfc_flx%forc_fw_bc_oce(:,:)  + &
         &                          p_sfc_flx%forc_fwrelax(:,:)
@@ -692,14 +696,14 @@ CONTAINS
       !  - not changed via bulk formula, stored in surface flux data
       !  - Attention: as in MPIOM evaporation is calculated from latent heat flux (which is depentent on current SST)
       !               therefore not applied here
-      p_sfc_flx%forc_precip(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
+      p_sfc_flx%FrshFlux_Precipitation(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,10) + &
         &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,10)
-      !p_sfc_flx%forc_evap  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
+      !p_sfc_flx%FrshFlux_Evaporation  (:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,11) + &
       !  &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,11)
       IF (forcing_set_runoff_to_zero) THEN
-        p_sfc_flx%forc_runoff(:,:) = 0.0_wp
+        p_sfc_flx%FrshFlux_Runoff(:,:) = 0.0_wp
       ELSE
-        p_sfc_flx%forc_runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
+        p_sfc_flx%FrshFlux_Runoff(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,12) + &
           &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,12)
       ENDIF
 
@@ -713,9 +717,9 @@ CONTAINS
 
       IF (forcing_enable_freshwater) THEN
         idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('UpdSfc: p_sfc_flx%forc_precip'   ,p_sfc_flx%forc_precip   ,str_module,idt_src, &
+        CALL dbg_print('UpdSfc: p_sfc_flx%FrshFlux_Precipitation'   ,p_sfc_flx%FrshFlux_Precipitation   ,str_module,idt_src, &
           & in_subset=p_patch%cells%owned)
-        CALL dbg_print('UpdSfc: p_sfc_flx%forc_runoff'   ,p_sfc_flx%forc_runoff   ,str_module,idt_src, &
+        CALL dbg_print('UpdSfc: p_sfc_flx%FrshFlux_Runoff'   ,p_sfc_flx%FrshFlux_Runoff   ,str_module,idt_src, &
           & in_subset=p_patch%cells%owned)
       ENDIF
       !---------------------------------------------------------------------
@@ -806,18 +810,18 @@ CONTAINS
         IF (forcing_enable_freshwater) THEN
           ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
           ! TODO: evaporation of ice and snow must be implemented
-          p_sfc_flx%forc_evap(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
+          p_sfc_flx%FrshFlux_Evaporation(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
           p_sfc_flx%forc_fw_bc_oce(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) & 
-            &                        *( p_sfc_flx%forc_precip(:,:) + p_sfc_flx%forc_evap(:,:) )
+            &                        *( p_sfc_flx%FrshFlux_Precipitation(:,:) + p_sfc_flx%FrshFlux_Evaporation(:,:) )
           ! Precipitation on ice is snow when we're below the freezing point
           ! TODO: Use 10 m temperature, not Tsurf - Also, do this in calc_bulk_flux_oce and
           ! calc_bulk_flux_ice
           WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
-            Qatm%rpreci(:,:) = p_sfc_flx%forc_precip(:,:)
+            Qatm%rpreci(:,:) = p_sfc_flx%FrshFlux_Precipitation(:,:)
             Qatm%rprecw(:,:) = 0._wp
           ELSEWHERE
             Qatm%rpreci(:,:) = 0._wp
-            Qatm%rprecw(:,:) = p_sfc_flx%forc_precip(:,:)
+            Qatm%rprecw(:,:) = p_sfc_flx%FrshFlux_Precipitation(:,:)
           ENDWHERE
         ENDIF
 
@@ -890,14 +894,14 @@ CONTAINS
       !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
       IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) ) THEN
 
-        p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%forc_runoff(:,:)                        &
+        p_sfc_flx%forc_fw_bc(:,:) = p_sfc_flx%FrshFlux_Runoff(:,:)                        &
           &           + p_sfc_flx%forc_fw_bc_ice(:,:) + p_sfc_flx%forc_fw_bc_oce(:,:)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=2  ! output print level (1-5, fix)
         CALL dbg_print('FlxFil:OMIP/NCEP:forc_fw_bc',p_sfc_flx%forc_fw_bc,str_module,idt_src, in_subset=p_patch%cells%owned)
         idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('FlxFil:OMIP/NCEP:forc_evap',p_sfc_flx%forc_evap  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+        CALL dbg_print('FlxFil:OMIP/NCEP:Evap  ',p_sfc_flx%FrshFlux_Evaporation,str_module,idt_src,in_subset=p_patch%cells%owned)
         CALL dbg_print('FlxFil:OMIP/NCEP:fw_bc_ice',p_sfc_flx%forc_fw_bc_ice,str_module,idt_src, in_subset=p_patch%cells%owned)
         CALL dbg_print('FlxFil:OMIP/NCEP:fw_bc_oce',p_sfc_flx%forc_fw_bc_oce,str_module,idt_src, in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------

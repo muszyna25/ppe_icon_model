@@ -107,10 +107,10 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: HeatFlux_Sensible
     REAL(wp) :: HeatFlux_Latent
     REAL(wp) :: HeatFlux_Total
-    REAL(wp) :: forc_precip
-    REAL(wp) :: forc_snow
-    REAL(wp) :: forc_evap
-    REAL(wp) :: forc_runoff
+    REAL(wp) :: FrshFlux_Precipitation
+    REAL(wp) :: FrshFlux_SnowFall
+    REAL(wp) :: FrshFlux_Evaporation
+    REAL(wp) :: FrshFlux_Runoff
     REAL(wp) :: forc_fw_bc
     REAL(wp) :: forc_fwrelax
     REAL(wp) :: forc_fw_bc_oce
@@ -154,10 +154,10 @@ MODULE mo_oce_diagnostics
       & "HeatFlux_Sensible                       ", &
       & "HeatFlux_Latent                         ", &
       & "HeatFlux_Total                          ", &
-      & "forc_precip                             ", &
-      & "forc_snow                               ", &
-      & "forc_evap                               ", &
-      & "forc_runoff                             ", &
+      & "FrshFlux_Precipitation                  ", &
+      & "FrshFlux_SnowFall                       ", &
+      & "FrshFlux_Evaporation                    ", &
+      & "FrshFlux_Runoff                         ", &
       & "forc_fw_bc                              ", &
       & "forc_fw_bc_oce                          ", &
       & "forc_fw_bc_ice                          ", &
@@ -253,10 +253,10 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Sensible           = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Latent             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Total              = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_precip                = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_snow                  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_evap                  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_runoff                = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Precipitation                = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_SnowFall                  = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Evaporation                  = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Runoff                = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc_oce             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc_ice             = 0.0_wp
@@ -566,10 +566,10 @@ CONTAINS
           monitor%HeatFlux_Sensible    = monitor%HeatFlux_Sensible    + p_sfc_flx%HeatFlux_Sensible (jc,jb)*prism_area
           monitor%HeatFlux_Latent      = monitor%HeatFlux_Latent      + p_sfc_flx%HeatFlux_Latent   (jc,jb)*prism_area
           monitor%HeatFlux_Total       = monitor%HeatFlux_Total       + p_sfc_flx%HeatFlux_Total    (jc,jb)*prism_area
-          monitor%forc_precip  = monitor%forc_precip  + p_sfc_flx%forc_precip(jc,jb)*prism_area
-          monitor%forc_snow    = monitor%forc_snow    + p_sfc_flx%forc_snow(jc,jb)*prism_area
-          monitor%forc_evap    = monitor%forc_evap    + p_sfc_flx%forc_evap(jc,jb)*prism_area
-          monitor%forc_runoff  = monitor%forc_runoff  + p_sfc_flx%forc_runoff(jc,jb)*prism_area
+          monitor%FrshFlux_Precipitation  = monitor%FrshFlux_Precipitation  + p_sfc_flx%FrshFlux_Precipitation(jc,jb)*prism_area
+          monitor%FrshFlux_SnowFall    = monitor%FrshFlux_SnowFall    + p_sfc_flx%FrshFlux_SnowFall(jc,jb)*prism_area
+          monitor%FrshFlux_Evaporation    = monitor%FrshFlux_Evaporation    + p_sfc_flx%FrshFlux_Evaporation(jc,jb)*prism_area
+          monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + p_sfc_flx%FrshFlux_Runoff(jc,jb)*prism_area
           monitor%forc_fw_bc   = monitor%forc_fw_bc   + p_sfc_flx%forc_fw_bc(jc,jb)*prism_area
           monitor%forc_fwrelax = monitor%forc_fwrelax + p_sfc_flx%forc_fwrelax(jc,jb)*prism_area
           monitor%forc_fw_bc_oce    = monitor%forc_fw_bc_oce    + p_sfc_flx%forc_fw_bc_oce(jc,jb)*prism_area
@@ -645,10 +645,10 @@ CONTAINS
     monitor%HeatFlux_Sensible              = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
     monitor%HeatFlux_Latent                = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
     monitor%HeatFlux_Total                 = global_sum_array(monitor%HeatFlux_Total    )/surface_area
-    monitor%forc_precip                = global_sum_array(monitor%forc_precip)/surface_area
-    monitor%forc_snow                  = global_sum_array(monitor%forc_snow)/surface_area
-    monitor%forc_evap                  = global_sum_array(monitor%forc_evap)/surface_area
-    monitor%forc_runoff                = global_sum_array(monitor%forc_runoff)/surface_area
+    monitor%FrshFlux_Precipitation                = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
+    monitor%FrshFlux_SnowFall                  = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
+    monitor%FrshFlux_Evaporation                  = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
+    monitor%FrshFlux_Runoff                = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
     monitor%forc_fw_bc                 = global_sum_array(monitor%forc_fw_bc)/surface_area
     monitor%forc_fw_bc_oce             = global_sum_array(monitor%forc_fw_bc_oce)/surface_area
     monitor%forc_fw_bc_ice             = global_sum_array(monitor%forc_fw_bc_ice)/surface_area
@@ -720,10 +720,10 @@ CONTAINS
         & monitor%HeatFlux_Sensible , &
         & monitor%HeatFlux_Latent   , &
         & monitor%HeatFlux_Total,     &
-        & monitor%forc_precip, &
-        & monitor%forc_snow, &
-        & monitor%forc_evap, &
-        & monitor%forc_runoff, &
+        & monitor%FrshFlux_Precipitation, &
+        & monitor%FrshFlux_SnowFall, &
+        & monitor%FrshFlux_Evaporation, &
+        & monitor%FrshFlux_Runoff, &
         & monitor%forc_fw_bc, &
         & monitor%forc_fw_bc_oce, &
         & monitor%forc_fw_bc_ice, &

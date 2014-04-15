@@ -70,10 +70,10 @@ MODULE mo_sea_ice_types
       &  HeatFlux_Sensible         (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  HeatFlux_Latent           (:,:),     & ! surface latent heat flux                                  [W/m2]
       &  HeatFlux_Total            (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
-      &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_snow        (:,:),     & ! total snow flux                                           [m/s]
-      &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
-      &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
+      &  FrshFlux_Precipitation      (:,:),     & ! total precipitation flux                                  [m/s]
+      &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
+      &  FrshFlux_Evaporation        (:,:),     & ! evaporation flux                                          [m/s]
+      &  FrshFlux_Runoff      (:,:),     & ! river runoff flux                                         [m/s]
       &  forc_fw_bc       (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
       &  forc_fw_bc_oce   (:,:),     & ! forcing surface freshwater flux at open ocean             [m/s]
       &  forc_fw_bc_ice   (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
@@ -93,10 +93,10 @@ MODULE mo_sea_ice_types
       &  HeatFlux_Sensible_acc          (:,:),     &
       &  HeatFlux_Latent_acc            (:,:),     &
       &  HeatFlux_Total_acc             (:,:),     &
-      &  forc_precip_acc      (:,:),     &
-      &  forc_snow_acc        (:,:),     &
-      &  forc_evap_acc        (:,:),     &
-      &  forc_runoff_acc      (:,:),     &
+      &  FrshFlux_Precipitation_acc      (:,:),     &
+      &  FrshFlux_SnowFall_acc        (:,:),     &
+      &  FrshFlux_Evaporation_acc        (:,:),     &
+      &  FrshFlux_Runoff_acc      (:,:),     &
       &  forc_fw_bc_acc       (:,:),     &
       &  forc_fw_bc_oce_acc   (:,:),     &
       &  forc_fw_bc_ice_acc   (:,:),     &
@@ -191,10 +191,10 @@ MODULE mo_sea_ice_types
       &  HeatFlux_LongWave        (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  HeatFlux_Sensible        (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  HeatFlux_Latent          (:,:),     & ! surface latent heat flux                                  [W/m2]
-      &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_snow        (:,:),     & ! total snow flux                                           [m/s]
-      &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
-      &  forc_runoff      (:,:)!     & ! river runoff flux                                         [m/s]
+      &  FrshFlux_Precipitation      (:,:),     & ! total precipitation flux                                  [m/s]
+      &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
+      &  FrshFlux_Evaporation        (:,:),     & ! evaporation flux                                          [m/s]
+      &  FrshFlux_Runoff      (:,:)!     & ! river runoff flux                                         [m/s]
   !   &  HeatFlux_Total_          (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
   !   &  forc_fw_tot      (:,:)      & ! forcing of salinity tracer with surface freshwater flux   [m/s]
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers

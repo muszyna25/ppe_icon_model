@@ -149,10 +149,10 @@ CONTAINS
     CALL add_fields(p_sfc_flx%HeatFlux_Sensible_acc       , p_sfc_flx%HeatFlux_Sensible       , cells)
     CALL add_fields(p_sfc_flx%HeatFlux_Latent_acc         , p_sfc_flx%HeatFlux_Latent         , cells)
     CALL add_fields(p_sfc_flx%HeatFlux_Total_acc          , p_sfc_flx%HeatFlux_Total          , cells)
-    CALL add_fields(p_sfc_flx%forc_precip_acc     , p_sfc_flx%forc_precip     , cells)
-    CALL add_fields(p_sfc_flx%forc_snow_acc       , p_sfc_flx%forc_snow       , cells)
-    CALL add_fields(p_sfc_flx%forc_evap_acc       , p_sfc_flx%forc_evap       , cells)
-    CALL add_fields(p_sfc_flx%forc_runoff_acc     , p_sfc_flx%forc_runoff     , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_Precipitation_acc     , p_sfc_flx%FrshFlux_Precipitation     , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_SnowFall_acc       , p_sfc_flx%FrshFlux_SnowFall       , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_Evaporation_acc       , p_sfc_flx%FrshFlux_Evaporation       , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_Runoff_acc     , p_sfc_flx%FrshFlux_Runoff     , cells)
     CALL add_fields(p_sfc_flx%forc_fw_bc_acc      , p_sfc_flx%forc_fw_bc      , cells)
     CALL add_fields(p_sfc_flx%forc_fwrelax_acc    , p_sfc_flx%forc_fwrelax    , cells)
     CALL add_fields(p_sfc_flx%forc_fw_bc_oce_acc  , p_sfc_flx%forc_fw_bc_oce  , cells)
@@ -216,10 +216,10 @@ CONTAINS
     p_sfc_flx%HeatFlux_Sensible_acc         = p_sfc_flx%HeatFlux_Sensible       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%HeatFlux_Latent_acc           = p_sfc_flx%HeatFlux_Latent         /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%HeatFlux_Total_acc            = p_sfc_flx%HeatFlux_Total          /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_precip_acc       = p_sfc_flx%forc_precip_acc      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_snow_acc         = p_sfc_flx%forc_snow_acc        /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_evap_acc         = p_sfc_flx%forc_evap_acc        /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_runoff_acc       = p_sfc_flx%forc_runoff_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_Precipitation_acc       = p_sfc_flx%FrshFlux_Precipitation_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_SnowFall_acc         = p_sfc_flx%FrshFlux_SnowFall_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_Evaporation_acc         = p_sfc_flx%FrshFlux_Evaporation_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_Runoff_acc       = p_sfc_flx%FrshFlux_Runoff_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_bc_acc        = p_sfc_flx%forc_fw_bc_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_bc_oce_acc    = p_sfc_flx%forc_fw_bc_oce_acc   /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fw_bc_ice_acc    = p_sfc_flx%forc_fw_bc_ice_acc   /REAL(nsteps_since_last_output,wp)
@@ -264,10 +264,10 @@ CONTAINS
       p_sfc_flx%HeatFlux_Total_acc              = 0.0_wp
       p_sfc_flx%forc_hfrelax_acc        = 0.0_wp
       IF (no_tracer>1) THEN
-        p_sfc_flx%forc_precip_acc         = 0.0_wp
-        p_sfc_flx%forc_snow_acc           = 0.0_wp
-        p_sfc_flx%forc_evap_acc           = 0.0_wp
-        p_sfc_flx%forc_runoff_acc         = 0.0_wp
+        p_sfc_flx%FrshFlux_Precipitation_acc         = 0.0_wp
+        p_sfc_flx%FrshFlux_SnowFall_acc           = 0.0_wp
+        p_sfc_flx%FrshFlux_Evaporation_acc           = 0.0_wp
+        p_sfc_flx%FrshFlux_Runoff_acc         = 0.0_wp
         p_sfc_flx%forc_fw_bc_acc          = 0.0_wp
         p_sfc_flx%forc_fw_bc_oce_acc      = 0.0_wp
         p_sfc_flx%forc_fw_bc_ice_acc      = 0.0_wp
