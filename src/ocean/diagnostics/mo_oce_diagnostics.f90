@@ -111,12 +111,12 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: FrshFlux_SnowFall
     REAL(wp) :: FrshFlux_Evaporation
     REAL(wp) :: FrshFlux_Runoff
-    REAL(wp) :: forc_fw_bc
+    REAL(wp) :: FrshFlux_TotalSalt
     REAL(wp) :: forc_fwrelax
-    REAL(wp) :: forc_fw_bc_oce
-    REAL(wp) :: forc_fw_bc_ice
-    REAL(wp) :: forc_fw_ice_vol
-    REAL(wp) :: forc_fw_tot
+    REAL(wp) :: FrshFlux_TotalOcean
+    REAL(wp) :: FrshFlux_TotalIce
+    REAL(wp) :: FrshFlux_VolumeIce
+    REAL(wp) :: FrshFlux_VolumeTotal
     REAL(wp) :: forc_hfrelax
     
     REAL(wp) :: ice_volume_nh !                                                           [km3]
@@ -158,12 +158,12 @@ MODULE mo_oce_diagnostics
       & "FrshFlux_SnowFall                       ", &
       & "FrshFlux_Evaporation                    ", &
       & "FrshFlux_Runoff                         ", &
-      & "forc_fw_bc                              ", &
-      & "forc_fw_bc_oce                          ", &
-      & "forc_fw_bc_ice                          ", &
+      & "FrshFlux_TotalSalt                      ", &
+      & "FrshFlux_TotalOcean                     ", &
+      & "FrshFlux_TotalIce                       ", &
       & "forc_fwrelax                            ", &
-      & "forc_fw_ice_vol                         ", &
-      & "forc_fw_tot                             ", &
+      & "FrshFlux_VolumeIce                      ", &
+      & "FrshFlux_VolumeTotal                    ", &
       & "forc_hfrelax                            ", &
       & "ice_volume_nh                           ", &
       & "ice_volume_sh                           ", &
@@ -257,12 +257,12 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_SnowFall                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Evaporation                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Runoff                = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc_oce             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_fw_bc_ice             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalSalt                 = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalOcean             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalIce             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_fw_ice_vol            = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_fw_tot                = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeIce            = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeTotal                = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
     
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
@@ -570,12 +570,12 @@ CONTAINS
           monitor%FrshFlux_SnowFall    = monitor%FrshFlux_SnowFall    + p_sfc_flx%FrshFlux_SnowFall(jc,jb)*prism_area
           monitor%FrshFlux_Evaporation    = monitor%FrshFlux_Evaporation    + p_sfc_flx%FrshFlux_Evaporation(jc,jb)*prism_area
           monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + p_sfc_flx%FrshFlux_Runoff(jc,jb)*prism_area
-          monitor%forc_fw_bc   = monitor%forc_fw_bc   + p_sfc_flx%forc_fw_bc(jc,jb)*prism_area
+          monitor%FrshFlux_TotalSalt   = monitor%FrshFlux_TotalSalt   + p_sfc_flx%FrshFlux_TotalSalt(jc,jb)*prism_area
           monitor%forc_fwrelax = monitor%forc_fwrelax + p_sfc_flx%forc_fwrelax(jc,jb)*prism_area
-          monitor%forc_fw_bc_oce    = monitor%forc_fw_bc_oce    + p_sfc_flx%forc_fw_bc_oce(jc,jb)*prism_area
-          monitor%forc_fw_bc_ice    = monitor%forc_fw_bc_ice    + p_sfc_flx%forc_fw_bc_ice(jc,jb)*prism_area
-          monitor%forc_fw_ice_vol   = monitor%forc_fw_ice_vol   + p_sfc_flx%forc_fw_ice_vol (jc,jb)*prism_area
-          monitor%forc_fw_tot  = monitor%forc_fw_tot  + p_sfc_flx%forc_fw_tot(jc,jb)*prism_area
+          monitor%FrshFlux_TotalOcean    = monitor%FrshFlux_TotalOcean    + p_sfc_flx%FrshFlux_TotalOcean(jc,jb)*prism_area
+          monitor%FrshFlux_TotalIce    = monitor%FrshFlux_TotalIce    + p_sfc_flx%FrshFlux_TotalIce(jc,jb)*prism_area
+          monitor%FrshFlux_VolumeIce   = monitor%FrshFlux_VolumeIce   + p_sfc_flx%FrshFlux_VolumeIce (jc,jb)*prism_area
+          monitor%FrshFlux_VolumeTotal  = monitor%FrshFlux_VolumeTotal  + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb)*prism_area
           monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
           
           ! northern hemisphere
@@ -649,12 +649,12 @@ CONTAINS
     monitor%FrshFlux_SnowFall                  = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
     monitor%FrshFlux_Evaporation                  = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
     monitor%FrshFlux_Runoff                = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
-    monitor%forc_fw_bc                 = global_sum_array(monitor%forc_fw_bc)/surface_area
-    monitor%forc_fw_bc_oce             = global_sum_array(monitor%forc_fw_bc_oce)/surface_area
-    monitor%forc_fw_bc_ice             = global_sum_array(monitor%forc_fw_bc_ice)/surface_area
+    monitor%FrshFlux_TotalSalt                 = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
+    monitor%FrshFlux_TotalOcean             = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
+    monitor%FrshFlux_TotalIce             = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
     monitor%forc_fwrelax               = global_sum_array(monitor%forc_fwrelax)/surface_area
-    monitor%forc_fw_ice_vol            = global_sum_array(monitor%forc_fw_ice_vol)/surface_area
-    monitor%forc_fw_tot                = global_sum_array(monitor%forc_fw_tot)/surface_area
+    monitor%FrshFlux_VolumeIce            = global_sum_array(monitor%FrshFlux_VolumeIce)/surface_area
+    monitor%FrshFlux_VolumeTotal                = global_sum_array(monitor%FrshFlux_VolumeTotal)/surface_area
     monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
     monitor%ice_volume_nh              = global_sum_array(monitor%ice_volume_nh)/1.0e9_wp
     monitor%ice_volume_sh              = global_sum_array(monitor%ice_volume_sh)/1.0e9_wp
@@ -724,12 +724,12 @@ CONTAINS
         & monitor%FrshFlux_SnowFall, &
         & monitor%FrshFlux_Evaporation, &
         & monitor%FrshFlux_Runoff, &
-        & monitor%forc_fw_bc, &
-        & monitor%forc_fw_bc_oce, &
-        & monitor%forc_fw_bc_ice, &
+        & monitor%FrshFlux_TotalSalt, &
+        & monitor%FrshFlux_TotalOcean, &
+        & monitor%FrshFlux_TotalIce, &
         & monitor%forc_fwrelax, &
-        & monitor%forc_fw_ice_vol, &
-        & monitor%forc_fw_tot, &
+        & monitor%FrshFlux_VolumeIce, &
+        & monitor%FrshFlux_VolumeTotal, &
         & monitor%forc_hfrelax, &
         & monitor%ice_volume_nh, &
         & monitor%ice_volume_sh, &

@@ -654,7 +654,7 @@ CONTAINS
     CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot                         ,module_name,1,in_subset=patch_2d%cells%owned)
     CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%FrshFlux_Precipitation       ,module_name,1,in_subset=patch_2d%cells%owned)
     CALL dbg_print(' CPL: Evaporation'   ,surface_fluxes%FrshFlux_Evaporation         ,module_name,1,in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Freshw. Flux'  ,surface_fluxes%forc_fw_bc        ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Freshw. Flux'  ,surface_fluxes%FrshFlux_TotalSalt        ,module_name,1,in_subset=patch_2d%cells%owned)
     !---------------------------------------------------------------------
     
     DEALLOCATE(buffer)

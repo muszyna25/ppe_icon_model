@@ -153,12 +153,12 @@ CONTAINS
     CALL add_fields(p_sfc_flx%FrshFlux_SnowFall_acc       , p_sfc_flx%FrshFlux_SnowFall       , cells)
     CALL add_fields(p_sfc_flx%FrshFlux_Evaporation_acc       , p_sfc_flx%FrshFlux_Evaporation       , cells)
     CALL add_fields(p_sfc_flx%FrshFlux_Runoff_acc     , p_sfc_flx%FrshFlux_Runoff     , cells)
-    CALL add_fields(p_sfc_flx%forc_fw_bc_acc      , p_sfc_flx%forc_fw_bc      , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_TotalSalt_acc      , p_sfc_flx%FrshFlux_TotalSalt      , cells)
     CALL add_fields(p_sfc_flx%forc_fwrelax_acc    , p_sfc_flx%forc_fwrelax    , cells)
-    CALL add_fields(p_sfc_flx%forc_fw_bc_oce_acc  , p_sfc_flx%forc_fw_bc_oce  , cells)
-    CALL add_fields(p_sfc_flx%forc_fw_bc_ice_acc  , p_sfc_flx%forc_fw_bc_ice  , cells)
-    CALL add_fields(p_sfc_flx%forc_fw_ice_vol_acc,  p_sfc_flx%forc_fw_ice_vol , cells)
-    CALL add_fields(p_sfc_flx%forc_fw_tot_acc     , p_sfc_flx%forc_fw_tot     , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_TotalOcean_acc  , p_sfc_flx%FrshFlux_TotalOcean  , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_TotalIce_acc  , p_sfc_flx%FrshFlux_TotalIce  , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_VolumeIce_acc,  p_sfc_flx%FrshFlux_VolumeIce , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_VolumeTotal_acc     , p_sfc_flx%FrshFlux_VolumeTotal     , cells)
     CALL add_fields(p_sfc_flx%forc_hfrelax_acc    , p_sfc_flx%forc_hfrelax    , cells)
     CALL add_fields(p_sfc_flx%data_surfRelax_Temp_acc(:,:), p_sfc_flx%data_surfRelax_Temp(:,:), cells)
     CALL add_fields(p_sfc_flx%data_surfRelax_Salt_acc(:,:), p_sfc_flx%data_surfRelax_Salt(:,:), cells)
@@ -220,12 +220,12 @@ CONTAINS
     p_sfc_flx%FrshFlux_SnowFall_acc         = p_sfc_flx%FrshFlux_SnowFall_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_Evaporation_acc         = p_sfc_flx%FrshFlux_Evaporation_acc        /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_Runoff_acc       = p_sfc_flx%FrshFlux_Runoff_acc      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fw_bc_acc        = p_sfc_flx%forc_fw_bc_acc       /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fw_bc_oce_acc    = p_sfc_flx%forc_fw_bc_oce_acc   /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fw_bc_ice_acc    = p_sfc_flx%forc_fw_bc_ice_acc   /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_TotalSalt_acc        = p_sfc_flx%FrshFlux_TotalSalt_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_TotalOcean_acc    = p_sfc_flx%FrshFlux_TotalOcean_acc   /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_TotalIce_acc    = p_sfc_flx%FrshFlux_TotalIce_acc   /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_fwrelax_acc      = p_sfc_flx%forc_fwrelax_acc     /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fw_ice_vol_acc   = p_sfc_flx%forc_fw_ice_vol_acc  /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fw_tot_acc       = p_sfc_flx%forc_fw_tot_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_VolumeIce_acc   = p_sfc_flx%FrshFlux_VolumeIce_acc  /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_VolumeTotal_acc       = p_sfc_flx%FrshFlux_VolumeTotal_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc     /REAL(nsteps_since_last_output,wp)
     IF(no_tracer>0)THEN
       p_sfc_flx%data_surfRelax_Temp_acc = p_sfc_flx%data_surfRelax_Temp_acc/REAL(nsteps_since_last_output,wp)
@@ -268,12 +268,12 @@ CONTAINS
         p_sfc_flx%FrshFlux_SnowFall_acc           = 0.0_wp
         p_sfc_flx%FrshFlux_Evaporation_acc           = 0.0_wp
         p_sfc_flx%FrshFlux_Runoff_acc         = 0.0_wp
-        p_sfc_flx%forc_fw_bc_acc          = 0.0_wp
-        p_sfc_flx%forc_fw_bc_oce_acc      = 0.0_wp
-        p_sfc_flx%forc_fw_bc_ice_acc      = 0.0_wp
+        p_sfc_flx%FrshFlux_TotalSalt_acc          = 0.0_wp
+        p_sfc_flx%FrshFlux_TotalOcean_acc      = 0.0_wp
+        p_sfc_flx%FrshFlux_TotalIce_acc      = 0.0_wp
         p_sfc_flx%forc_fwrelax_acc        = 0.0_wp
-        p_sfc_flx%forc_fw_ice_vol_acc     = 0.0_wp
-        p_sfc_flx%forc_fw_tot_acc         = 0.0_wp
+        p_sfc_flx%FrshFlux_VolumeIce_acc     = 0.0_wp
+        p_sfc_flx%FrshFlux_VolumeTotal_acc         = 0.0_wp
         p_sfc_flx%forc_tracer_acc         = 0.0_wp
         p_sfc_flx%data_surfRelax_Temp_acc = 0.0_wp
         p_sfc_flx%data_surfRelax_Salt_acc = 0.0_wp

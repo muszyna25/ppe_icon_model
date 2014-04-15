@@ -1280,11 +1280,11 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
             &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
             ! Volmue flux due to removal
-            p_sfc_flx%forc_fw_ice_vol(jc,jb) = p_sfc_flx%forc_fw_ice_vol(jc,jb) &
+            p_sfc_flx%FrshFlux_VolumeIce(jc,jb) = p_sfc_flx%FrshFlux_VolumeIce(jc,jb) &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)    & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)      ! Snow
             ! Tracer flux due to removal
-            p_sfc_flx%forc_fw_bc_ice (jc,jb) = p_sfc_flx%forc_fw_bc_ice (jc,jb)                      &
+            p_sfc_flx%FrshFlux_TotalIce (jc,jb) = p_sfc_flx%FrshFlux_TotalIce (jc,jb)                      &
               & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime) & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
             ! Heat flux due to removal
@@ -1695,7 +1695,7 @@ CONTAINS
 
     ! Volmue flux
     ! Fixed 27. March
-    p_sfc_flx%forc_fw_ice_vol (:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)   & ! Ice melt
+    p_sfc_flx%FrshFlux_VolumeIce (:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)   & ! Ice melt
       &                               -Delhsnow(:,:)*rhos/(rho_ref*dtime)   & ! Snow melt
       &                              + precw(:,:)*ice%concSum(:,:)          & ! Rain goes through
       &                              - ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation
@@ -1703,7 +1703,7 @@ CONTAINS
     ! Tracer flux
     ! Fixed 27. March
     WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
-      p_sfc_flx%forc_fw_bc_ice (:,:) = precw(:,:)*ice%concSum(:,:)           & ! Rain goes through
+      p_sfc_flx%FrshFlux_TotalIce (:,:) = precw(:,:)*ice%concSum(:,:)           & ! Rain goes through
         &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
         &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                         & ! Snow melt
         &       - (1._wp-sice/sss(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation                       
@@ -1720,7 +1720,7 @@ CONTAINS
       p_sfc_flx%HeatFlux_Latent   (:,:) = 0.0_wp
     END WHERE
 
-    CALL dbg_print('UpperOceTS: FwBcIce  ', p_sfc_flx%forc_fw_bc_ice, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: FwBcIce  ', p_sfc_flx%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------

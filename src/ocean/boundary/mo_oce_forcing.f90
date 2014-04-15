@@ -137,9 +137,9 @@ CONTAINS
     &          t_cf_var('HeatFlux_Total', 'W/m2', 'HeatFlux_Total', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_tot', p_sfc_flx%forc_fw_tot , &
+    CALL add_var(var_list, 'FrshFlux_VolumeTotal', p_sfc_flx%FrshFlux_VolumeTotal , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_tot', 'm/s', 'forc_fw_tot', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'FrshFlux_VolumeTotal', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'HeatFlux_ShortWave', p_sfc_flx%HeatFlux_ShortWave , &
@@ -182,19 +182,19 @@ CONTAINS
     &          t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_bc', p_sfc_flx%forc_fw_bc , &
+    CALL add_var(var_list, 'FrshFlux_TotalSalt', p_sfc_flx%FrshFlux_TotalSalt , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc', 'm/s', 'forc_fw_bc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalSalt', 'm/s', 'FrshFlux_TotalSalt', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_bc_oce', p_sfc_flx%forc_fw_bc_oce , &
+    CALL add_var(var_list, 'FrshFlux_TotalOcean', p_sfc_flx%FrshFlux_TotalOcean , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_oce', 'm/s', 'forc_fw_bc_oce', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalOcean', 'm/s', 'FrshFlux_TotalOcean', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_bc_ice', p_sfc_flx%forc_fw_bc_ice , &
+    CALL add_var(var_list, 'FrshFlux_TotalIce', p_sfc_flx%FrshFlux_TotalIce , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_ice', 'm/s', 'forc_fw_bc_ice', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_hfrelax', p_sfc_flx%forc_hfrelax , &
@@ -207,9 +207,9 @@ CONTAINS
     &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_ice_vol', p_sfc_flx%forc_fw_ice_vol, &
+    CALL add_var(var_list, 'FrshFlux_VolumeIce', p_sfc_flx%FrshFlux_VolumeIce, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_ice_vol', 'm/s', 'forc_fw_ice_vol', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     IF(no_tracer>=1) THEN
@@ -322,9 +322,9 @@ CONTAINS
     &          t_cf_var('HeatFlux_Total_acc', 'W/m2', 'HeatFlux_Total_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_fw_tot_acc', p_sfc_flx%forc_fw_tot_acc , &
+    CALL add_var(var_list, 'FrshFlux_VolumeTotal_acc', p_sfc_flx%FrshFlux_VolumeTotal_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_tot_acc', 'm/s', 'forc_fw_tot_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeTotal_acc', 'm/s', 'FrshFlux_VolumeTotal_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
     CALL add_var(var_list, 'HeatFlux_ShortWave_acc', p_sfc_flx%HeatFlux_ShortWave_acc , &
@@ -367,19 +367,19 @@ CONTAINS
     &          t_cf_var('FrshFlux_Runoff_acc', 'm/s', 'FrshFlux_Runoff_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_bc_acc', p_sfc_flx%forc_fw_bc_acc , &
+    CALL add_var(var_list, 'FrshFlux_TotalSalt_acc', p_sfc_flx%FrshFlux_TotalSalt_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_acc', 'm/s', 'forc_fw_bc_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalSalt_acc', 'm/s', 'FrshFlux_TotalSalt_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_bc_oce_acc', p_sfc_flx%forc_fw_bc_oce_acc , &
+    CALL add_var(var_list, 'FrshFlux_TotalOcean_acc', p_sfc_flx%FrshFlux_TotalOcean_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_oce_acc', 'm/s', 'forc_fw_bc_oce_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalOcean_acc', 'm/s', 'FrshFlux_TotalOcean_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_bc_ice_acc', p_sfc_flx%forc_fw_bc_ice_acc , &
+    CALL add_var(var_list, 'FrshFlux_TotalIce_acc', p_sfc_flx%FrshFlux_TotalIce_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_ice_acc', 'm/s', 'forc_fw_bc_ice_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalIce_acc', 'm/s', 'FrshFlux_TotalIce_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_hfrelax_acc', p_sfc_flx%forc_hfrelax_acc , &
@@ -392,9 +392,9 @@ CONTAINS
     &          t_cf_var('forc_fwrelax_acc', 'm/s', 'forc_fwrelax_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_ice_vol_acc', p_sfc_flx%forc_fw_ice_vol_acc, &
+    CALL add_var(var_list, 'FrshFlux_VolumeIce_acc', p_sfc_flx%FrshFlux_VolumeIce_acc, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_ice_vol_acc', 'm/s', 'forc_fw_ice_vol_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeIce_acc', 'm/s', 'FrshFlux_VolumeIce_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
 

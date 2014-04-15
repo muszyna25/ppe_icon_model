@@ -70,20 +70,20 @@ MODULE mo_sea_ice_types
       &  HeatFlux_Sensible         (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  HeatFlux_Latent           (:,:),     & ! surface latent heat flux                                  [W/m2]
       &  HeatFlux_Total            (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
-      &  FrshFlux_Precipitation      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
-      &  FrshFlux_Evaporation        (:,:),     & ! evaporation flux                                          [m/s]
-      &  FrshFlux_Runoff      (:,:),     & ! river runoff flux                                         [m/s]
-      &  forc_fw_bc       (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
-      &  forc_fw_bc_oce   (:,:),     & ! forcing surface freshwater flux at open ocean             [m/s]
-      &  forc_fw_bc_ice   (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
-      &  forc_fw_ice_vol  (:,:),     & ! forcing volume flux for height equation under sea ice     [m/s]
-      &  forc_fwrelax     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
-      &  forc_fw_tot      (:,:),     & ! sum of forcing surface freshwater including relaxation    [m/s]
+      &  FrshFlux_Precipitation    (:,:),     & ! total precipitation flux                                  [m/s]
+      &  FrshFlux_SnowFall         (:,:),     & ! total snow flux                                           [m/s]
+      &  FrshFlux_Evaporation      (:,:),     & ! evaporation flux                                          [m/s]
+      &  FrshFlux_Runoff           (:,:),     & ! river runoff flux                                         [m/s]
+      &  FrshFlux_TotalSalt        (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
+      &  FrshFlux_TotalOcean       (:,:),     & ! forcing surface freshwater flux at open ocean             [m/s]
+      &  FrshFlux_TotalIce         (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
+      &  FrshFlux_VolumeIce        (:,:),     & ! forcing volume flux for height equation under sea ice     [m/s]
+      &  forc_fwrelax              (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
+      &  FrshFlux_VolumeTotal      (:,:),     & ! sum of forcing volume flux including relaxation           [m/s]
       &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation (EMPTY)     [m/s]
       &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical diffusion equation          [K*m/s; psu*m/s]
-      &  data_surfRelax_Temp(:,:),   & ! contains data to which temperature is relaxed             [K]
-      &  data_surfRelax_Salt(:,:),   & ! contains data to which salinity is relaxed                [psu]
+      &  data_surfRelax_Temp(:,:),            & ! contains data to which temperature is relaxed             [K]
+      &  data_surfRelax_Salt(:,:),            & ! contains data to which salinity is relaxed                [psu]
       !
       !  accumulations variables - comments see above
       &  topBoundCond_windStress_u_acc  (:,:),     &
@@ -93,19 +93,19 @@ MODULE mo_sea_ice_types
       &  HeatFlux_Sensible_acc          (:,:),     &
       &  HeatFlux_Latent_acc            (:,:),     &
       &  HeatFlux_Total_acc             (:,:),     &
-      &  FrshFlux_Precipitation_acc      (:,:),     &
-      &  FrshFlux_SnowFall_acc        (:,:),     &
-      &  FrshFlux_Evaporation_acc        (:,:),     &
-      &  FrshFlux_Runoff_acc      (:,:),     &
-      &  forc_fw_bc_acc       (:,:),     &
-      &  forc_fw_bc_oce_acc   (:,:),     &
-      &  forc_fw_bc_ice_acc   (:,:),     &
-      &  forc_fwrelax_acc     (:,:),     &
-      &  forc_fw_ice_vol_acc  (:,:),     &
-      &  forc_fw_tot_acc      (:,:),     &
+      &  FrshFlux_Precipitation_acc     (:,:),     &
+      &  FrshFlux_SnowFall_acc          (:,:),     &
+      &  FrshFlux_Evaporation_acc       (:,:),     &
+      &  FrshFlux_Runoff_acc            (:,:),     &
+      &  FrshFlux_TotalSalt_acc         (:,:),     &
+      &  FrshFlux_TotalOcean_acc        (:,:),     &
+      &  FrshFlux_TotalIce_acc          (:,:),     &
+      &  forc_fwrelax_acc               (:,:),     &
+      &  FrshFlux_VolumeIce_acc         (:,:),     &
+      &  FrshFlux_VolumeTotal_acc       (:,:),     &
       &  forc_hfrelax_acc     (:,:),     &
       &  forc_tracer_acc      (:,:,:),   &
-      &  data_surfRelax_Temp_acc(:,:),   &
+      &  data_surfRelax_Temp_acc          (:,:),   &
       &  data_surfRelax_Salt_acc(:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
@@ -195,8 +195,7 @@ MODULE mo_sea_ice_types
       &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
       &  FrshFlux_Evaporation        (:,:),     & ! evaporation flux                                          [m/s]
       &  FrshFlux_Runoff      (:,:)!     & ! river runoff flux                                         [m/s]
-  !   &  HeatFlux_Total_          (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
-  !   &  forc_fw_tot      (:,:)      & ! forcing of salinity tracer with surface freshwater flux   [m/s]
+
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
 
