@@ -480,7 +480,7 @@ def doRunExp(build,exp,post=false)
   # clean up old experiment folder
   call(connect(build,"cd experiments; rm -rf ./#{exp}"))
   call(connect(build,<<-EOS
-      ./1ake_runscripts #{exp};
+      ./make_runscripts #{exp};
       cd run;
       perl -pi.bak -e 's/submit=.*/submit=""/' #{runScript} ;
       perl -pi.bak -e 's/mpi_total_procs=.*/mpi_total_procs=#{nprocs}/' #{runScript} ;
