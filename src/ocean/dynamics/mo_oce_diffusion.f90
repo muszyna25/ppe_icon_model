@@ -53,7 +53,6 @@ USE mo_run_config,          ONLY: dtime
 USE mo_util_dbg_prnt,       ONLY: dbg_print
 USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-!USE mo_exception,           ONLY: message, finish!, message_text
 USE mo_oce_physics,         ONLY: t_ho_params
 USE mo_scalar_product,      ONLY: map_cell2edges_3D
 USE mo_oce_math_operators,  ONLY: div_oce_3D, rot_vertex_ocean_3d,&

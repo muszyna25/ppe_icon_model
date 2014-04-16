@@ -397,7 +397,8 @@ MODULE mo_ocean_nml
     &                 MAX_VERT_DIFF_VELOC         , &      
     &                 l_smooth_veloc_diffusion    
 
-
+  ! ocean_physics_nml
+  LOGICAL :: use_ThermoExpansion_Correction = .FALSE.
   NAMELIST/ocean_physics_nml/&
     &                 CWA                         , &
     &                 CWT                         , &
@@ -409,7 +410,8 @@ MODULE mo_ocean_nml
     &                 l_constant_mixing           , &
     &                 l_wind_mixing               , &
     &                 richardson_tracer           , &
-    &                 richardson_veloc            
+    &                 richardson_veloc            , &
+    &                 use_ThermoExpansion_Correction
 
 
   ! ------------------------------------------------------------------------

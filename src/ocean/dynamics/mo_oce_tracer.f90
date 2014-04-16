@@ -53,7 +53,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                      
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
   &                                     flux_calculation_horz, flux_calculation_vert, miura_order1,         &
   &                                     l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
-  &                                     use_tracer_x_height, l_skip_tracer
+  &                                     use_tracer_x_height, l_skip_tracer, use_ThermoExpansion_Correction
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -141,7 +141,19 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
                                 & p_os%p_aux%bc_top_tracer)
     ENDIF
 
-    CALL advect_individual_tracer_ab( p_patch_3D,                             &
+    IF (use_ThermoExpansion_Correction .and. i_no_t == 1) THEN
+       CALL advect_individual_tracer_ab( p_patch_3D,                             &
+                                 & p_os%p_prog(nold(1))%ocean_tracers(i_no_t), &
+                                 & p_os, p_op_coeff,                          &
+                                 & p_os%p_aux%bc_top_tracer(:,:,i_no_t),      &
+                                 & p_os%p_aux%bc_bot_tracer(:,:,i_no_t),      &
+                                 & p_param%K_tracer_h(:,:,:,i_no_t ),         &
+                                 & p_param%A_tracer_v(:,:,:, i_no_t),         &
+                                 & p_os%p_prog(nnew(1))%ocean_tracers(i_no_t), &
+                                 & i_no_t,                                     &
+                                 & p_os%p_diag%temp_horizontally_diffused )
+    ELSE
+      CALL advect_individual_tracer_ab( p_patch_3D,                             &
                                  & p_os%p_prog(nold(1))%ocean_tracers(i_no_t), &
                                  & p_os, p_op_coeff,                          &
                                  & p_os%p_aux%bc_top_tracer(:,:,i_no_t),      &
@@ -150,6 +162,8 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
                                  & p_param%A_tracer_v(:,:,:, i_no_t),         &
                                  & p_os%p_prog(nnew(1))%ocean_tracers(i_no_t), &
                                  & i_no_t )
+    ENDIF
+
   END DO
 
   ! Final step: 3-dim temperature relaxation
@@ -450,7 +464,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
                                      & p_os, p_op_coeff,                   &
                                      & bc_top_tracer, bc_bot_tracer,       &
                                      & K_h, A_v,                           &
-                                     & new_ocean_tracer, tracer_id)
+                                     & new_ocean_tracer, tracer_id,        &
+                                     & horizontally_diffused_tracer        )
 
   TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
   TYPE(t_ocean_tracer), TARGET   :: old_ocean_tracer
@@ -463,6 +478,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
   REAL(wp), INTENT(in)                 :: K_h(:,:,:)       !horizontal mixing coeff
   REAL(wp), INTENT(inout)              :: A_v(:,:,:)       !vertical mixing coeff, in
   INTEGER,  INTENT(IN)                 :: tracer_id
+  REAL(wp), INTENT(inout), OPTIONAL    :: horizontally_diffused_tracer(:,:,:)
+
   !Local variables
   REAL(wp) :: delta_t, delta_z,delta_z_new, delta_z1,delta_z_new1
   REAL(wp) :: flux_horz(nproma,n_zlev, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -518,7 +535,8 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
                           & K_h,                            &
                           & p_os%p_prog(nold(1))%h,         &
                           & p_os%p_prog(nnew(1))%h,         &
-                          & flux_horz)
+                          & flux_horz,                      &
+                          & horizontally_diffused_tracer )
 
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=3  ! output print level (1-5, fix)
@@ -707,8 +725,9 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           DO jk = 1, MIN(p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb),1)  ! this at most should be 1
-            delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-            delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk)+p_os%p_prog(nnew(1))%h(jc,jb)
+            ! NOTE: this will not wotk with partial cells on the top level
+            delta_z     = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk) + p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = p_patch_3D%p_patch_1D(1)%del_zlev_m(jk) + p_os%p_prog(nnew(1))%h(jc,jb)
 
             IF (use_tracer_x_height) THEN
               new_ocean_tracer%concentration_x_height(jc,jk,jb) =              &
