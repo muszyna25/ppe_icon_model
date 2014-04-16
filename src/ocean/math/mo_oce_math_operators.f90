@@ -41,7 +41,7 @@
 !!
 MODULE mo_oce_math_operators
   !-------------------------------------------------------------------------
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, sp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish,message
   USE mo_run_config,         ONLY: ltimer, dtime
@@ -50,13 +50,13 @@ MODULE mo_oce_math_operators
   USE mo_impl_constants,     ONLY: boundary, sea_boundary !,sea,land, land_boundary, sea, max_char_length, &
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ext_data_types,     ONLY: t_external_data
-  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce
+  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, &
+    & select_solver, select_restart_mixedPrecision_gmres
+
   USE mo_dynamics_config,    ONLY: nold
   USE mo_util_dbg_prnt,      ONLY: dbg_print
-#ifndef __SX__
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
-#endif
-  USE mo_oce_types,          ONLY: t_hydro_ocean_state
+  USE mo_oce_types,          ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, vector_product !, gc2cc
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -73,9 +73,9 @@ MODULE mo_oce_math_operators
 
 
   PUBLIC :: grad_fd_norm_oce_3d
-  PUBLIC :: div_oce_3d
+  PUBLIC :: div_oce_3d, div_oce_2d_sp
   PUBLIC :: rot_vertex_ocean_3d
-  PUBLIC :: grad_fd_norm_oce_2d_3d
+  PUBLIC :: grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp
   !PUBLIC :: rot_vertex_ocean
   !PUBLIC :: rot_vertex_ocean_rbf
   PUBLIC :: calculate_thickness
@@ -392,13 +392,9 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
   !!
-  !!  mpi parallelized LL (no sync required)
   SUBROUTINE div_oce_3d_1level( vec_e, patch_2D, div_coeff, div_vec_c,  &
     & level, subset_range)
-    !
-    !
-    !  patch_2D on which computation is performed
-    !
+
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
     !
     ! edge based variable of which divergence
@@ -421,9 +417,7 @@ CONTAINS
       all_cells => patch_2D%cells%all
     ENDIF
 
-#ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
-#endif
 ! !$OMP PARALLEL
 
     iidx => patch_2D%cells%edge_idx
@@ -464,12 +458,62 @@ CONTAINS
 ! !$OMP END DO
 
 ! !$OMP END PARALLEL
-#ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_div)
-#endif
   END SUBROUTINE div_oce_3d_1level
-!   !-------------------------------------------------------------------------
-  !
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  ! as div_oce_3d_1level in single precisison and 2d
+  SUBROUTINE div_oce_2d_sp( vec_e, patch_2D, div_coeff, div_vec_c,  &
+    & subset_range)
+
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
+    !
+    ! edge based variable of which divergence is computed
+    REAL(sp), INTENT(inout)       :: vec_e(:,:) ! dim: (nproma,n_zlev,nblks_e)
+    REAL(sp), INTENT(in)          :: div_coeff(:,:,:)
+    REAL(sp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
+    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
+
+    INTEGER :: jc, jb
+    INTEGER :: i_startidx, i_endidx
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------
+    IF (PRESENT(subset_range)) THEN
+      all_cells => subset_range
+    ELSE
+      all_cells => patch_2D%cells%all
+    ENDIF
+
+    IF (ltimer) CALL timer_start(timer_div)
+! !$OMP PARALLEL
+
+    iidx => patch_2D%cells%edge_idx
+    iblk => patch_2D%cells%edge_blk
+
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+        DO jc = i_startidx, i_endidx
+
+          div_vec_c(jc,jb) =  &
+            & vec_e(iidx(jc,jb,1),iblk(jc,jb,1)) * div_coeff(jc,jb,1) + &
+            & vec_e(iidx(jc,jb,2),iblk(jc,jb,2)) * div_coeff(jc,jb,2) + &
+            & vec_e(iidx(jc,jb,3),iblk(jc,jb,3)) * div_coeff(jc,jb,3)
+        END DO
+    END DO
+! !$OMP END DO
+
+! !$OMP END PARALLEL
+    IF (ltimer) CALL timer_stop(timer_div)
+  END SUBROUTINE div_oce_2d_sp
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !>
   !!  Computes directional derivative of a cell centered variable in presence of lateral boundaries
   !!  as in the ocean model setting.
@@ -514,17 +558,12 @@ CONTAINS
         !
     !  loop through all patch_2D edges (and blocks)
     !
-#ifndef __SX__
     IF (ltimer) CALL timer_start(timer_grad)
-#endif
 ! !$OMP PARALLEL
     ! The special treatment of 2D fields is essential for efficiency on the NEC
 ! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-#ifdef _URD
-!CDIR UNROLL=_URD
-#endif
 
       DO je = i_startidx, i_endidx
         ! compute the normal derivative
@@ -546,12 +585,71 @@ CONTAINS
     END DO
 ! !$OMP END DO
 ! !$OMP END PARALLEL
-#ifndef __SX__
+
     IF (ltimer) CALL timer_stop(timer_grad)
-#endif
+
   END SUBROUTINE grad_fd_norm_oce_2d_3d
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  ! the same as grad_fd_norm_oce_2d_3d_sp in single precisison
+  SUBROUTINE grad_fd_norm_oce_2d_3d_sp( psi_c, patch_2D, grad_coeff, grad_norm_psi_e)
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
+    REAL(sp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,alloc_cell_blocks)
+    REAL(sp), INTENT(in)    :: grad_coeff(:,:)
+    REAL(sp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
+
+    !!
+    !!local variables
+    INTEGER :: slev, elev     ! vertical start and end level
+    INTEGER :: je, jb
+    INTEGER :: i_startidx, i_endidx
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    !-----------------------------------------------------------------------
+    edges_in_domain => patch_2D%edges%in_domain
+    slev = 1
+    elev = 1
+
+    iidx => patch_2D%edges%cell_idx
+    iblk => patch_2D%edges%cell_blk
+        !
+    !  loop through all patch_2D edges (and blocks)
     !
-!   !-------------------------------------------------------------------------
+    IF (ltimer) CALL timer_start(timer_grad)
+! !$OMP PARALLEL
+    ! The special treatment of 2D fields is essential for efficiency on the NEC
+! !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+
+      DO je = i_startidx, i_endidx
+        ! compute the normal derivative
+        ! by the finite difference approximation
+        ! (see Bonaventura and Ringler MWR 2005)
+        IF (iidx(je,jb,1) < 1 .or. iidx(je,jb,2) < 1) THEN
+!          IF (grad_coeff(je,jb) /= 0.0_wp) THEN
+!            CALL finish("grad_fd_norm_oce_2d_3d","grad_coeff(je,jb) /= 0.0_wp")
+!          ELSE
+            grad_norm_psi_e(je,jb) = 0.0_wp
+!          ENDIF
+        ELSE
+          grad_norm_psi_e(je,jb) =  &
+            & (psi_c(iidx(je,jb,2),iblk(je,jb,2))-psi_c(iidx(je,jb,1),iblk(je,jb,1)))&
+            & * grad_coeff(je,jb)
+        ENDIF
+
+      END DO
+    END DO
+! !$OMP END DO
+! !$OMP END PARALLEL
+    IF (ltimer) CALL timer_stop(timer_grad)
+
+  END SUBROUTINE grad_fd_norm_oce_2d_3d_sp
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
   !! Computes in presence of boundaries the discrete rotation at vertices
   !! of triangle cells (centers of dual grid cells) from a vector field
@@ -802,7 +900,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients)
+  SUBROUTINE calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solverCoeff_sp)
   !SUBROUTINE calculate_thickness( p_patch_3D, ocean_state, p_ext_data, ice_hi)
     !
     ! patch_2D on which computation is performed
@@ -815,6 +913,7 @@ CONTAINS
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
     !REAL(wp), INTENT(IN)                      :: ice_hi(nproma,1,p_patch_3D%p_patch_2D(1)%nblks_c)
     TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     !  local variables
     INTEGER            :: i_startidx_c, i_endidx_c
@@ -1048,6 +1147,11 @@ CONTAINS
       END DO
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
     
+    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+      solverCoeff_sp%edge_thickness(:,:)  = REAL(ocean_state%p_diag%thick_e(:,:), sp)
+      solverCoeff_sp%cell_thickness(:,:)  = REAL(ocean_state%p_diag%thick_c(:,:), sp)
+    ENDIF
+
     !---------Debug Diagnostics-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('heightRelQuant: h_e'    ,ocean_state%p_diag%h_e        ,str_module,idt_src, &

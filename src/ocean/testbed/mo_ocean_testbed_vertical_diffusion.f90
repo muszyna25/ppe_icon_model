@@ -220,30 +220,30 @@ CONTAINS
     CALL message("sum=", message_text)
 
     ! test old diffusion
-    CALL timer_start(timer_vdiff_old)
-    DO outer_iter=1,1000
-      DO inner_iter=1,1000
-
-        CALL update_diffusion_matrices( patch_3d,     &
-          & physics_parameters,                       &
-          & operators_coefficients%matrix_vert_diff_e,&
-          & operators_coefficients%matrix_vert_diff_c)
-
-        CALL velocity_diffusion_vertical_implicit_old( patch_3d,  &
-          & vn_inout,                                  &
-          & physics_parameters%a_veloc_v,              &
-          & operators_coefficients)
-
-      ENDDO
-
-      WRITE(message_text,'(a, i6,a)') 'old ', outer_iter, 'x1000 iter, vn'
-      CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_owned)
-      sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
-      WRITE(message_text,'(f18.10)') sum_vn
-      CALL message("sum=", message_text)
-
-    ENDDO
-    CALL timer_stop(timer_vdiff_old)
+!    CALL timer_start(timer_vdiff_old)
+!    DO outer_iter=1,1000
+!      DO inner_iter=1,1000
+!
+!        CALL update_diffusion_matrices( patch_3d,     &
+!          & physics_parameters,                       &
+!          & operators_coefficients%matrix_vert_diff_e,&
+!          & operators_coefficients%matrix_vert_diff_c)
+!
+!        CALL velocity_diffusion_vertical_implicit_old( patch_3d,  &
+!          & vn_inout,                                  &
+!          & physics_parameters%a_veloc_v,              &
+!          & operators_coefficients)
+!
+!      ENDDO
+!
+!      WRITE(message_text,'(a, i6,a)') 'old ', outer_iter, 'x1000 iter, vn'
+!      CALL dbg_print(message_text, vn_inout,  debug_string, 1, in_subset=edges_owned)
+!      sum_vn = SUM(vn_inout(1, :, 1) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(1, :, 1))
+!      WRITE(message_text,'(f18.10)') sum_vn
+!      CALL message("sum=", message_text)
+!
+!    ENDDO
+!    CALL timer_stop(timer_vdiff_old)
 
     ! test current diffusion
     vn_inout(:,:,:) = 0.0
@@ -870,115 +870,115 @@ CONTAINS
 
   !------------------------------------------------------------------------
   ! OLD routine
-  SUBROUTINE velocity_diffusion_vertical_implicit_old( p_patch_3D,    &
-                                          & field_column,  &
-                                          & A_v,           &
-                                          & p_op_coeff) !,    &
-    !                                      & diff_column)
-    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
-    REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
-    !surface height at edges, relevant for thickness of first cell
-    REAL(wp), INTENT(inout)           :: A_v(:,:,:)
-    TYPE(t_operator_coeff), TARGET    :: p_op_coeff
-    ! REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
-    !
-    !Local variables
-    INTEGER :: slev
-    INTEGER :: je, jk, jb
-    INTEGER :: i_startidx, i_endidx
-    ! REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
-    !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
-    REAL(wp),POINTER :: a(:), b(:), c(:)
-    REAL(wp) :: z_tmp
-    REAL(wp) :: dt_inv
-    INTEGER  :: z_dolic
-    REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
-    REAL(wp) :: inv_prism_thickness(1:n_zlev)
-    TYPE(t_subset_range), POINTER :: all_edges
-    TYPE(t_patch), POINTER        :: p_patch
-    ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
-    !-----------------------------------------------------------------------
-    p_patch   => p_patch_3D%p_patch_2D(1)
-    all_edges => p_patch%edges%all
-    !-----------------------------------------------------------------------
-
-    slev = 1
-    dt_inv=1.0_wp/dtime
-
-    ! diff_column(1:nproma,1:n_zlev,1:p_patch%nblks_e)= 0.0_wp
-
-    field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)&
-    &=field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)*dt_inv
-
-
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    !idt_src=5  ! output print level (1-5, fix)
-    !CALL dbg_print('VelDifImplHomIn:field_col' ,field_column, str_module,idt_src, in_subset=p_patch%edges%owned)
-    !---------------------------------------------------------------------
-
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx, i_endidx)
-      DO je = i_startidx, i_endidx
-        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!!v_base%dolic_e(je,jb)
-
-        ! IF (p_patch_3D%lsm_e(je,1,jb) <= sea_boundary) THEN
-          IF ( z_dolic >= 2 ) THEN
-
-
-             a => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,1)
-             b => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,2)
-             c => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,3)
-
-
-            !Apply the matrix
-            DO jk=slev, z_dolic-1
-              IF(b(jk)/=0.0_wp)THEN
-                a(jk) = a(jk)/b(jk)
-                c(jk) = c(jk)/b(jk)
-                field_column(je,jk,jb)=field_column(je,jk,jb)/b(jk)
-                b(jk)=1.0_wp
-              ENDIF
-            END DO
-
-            DO jk=slev+1, z_dolic-1
-              b(jk)                  = b(jk)-a(jk)*c(jk-1)
-              field_column(je,jk,jb) = field_column(je,jk,jb)&
-                            &-a(jk)*field_column(je,jk-1,jb)
-              c(jk)                  = c(jk)/b(jk)
-              field_column(je,jk,jb) = field_column(je,jk,jb)/b(jk)
-              b(jk)                  = 1.0_wp
-            END DO
-
-            z_tmp = b(z_dolic)-a(z_dolic)*c(z_dolic-1)
-            z_tmp = (field_column(je,z_dolic,jb)-a(z_dolic)*field_column(je,z_dolic-1,jb))/z_tmp
-
-            field_column(je,z_dolic,jb) = z_tmp
-            DO jk = z_dolic-1,1,-1
-              field_column(je,jk,jb) = field_column(je,jk,jb)-c(jk)*field_column(je,jk+1,jb)
-            END DO
-          !  DO jk = 1,z_dolic!-1
-          !    diff_column(je,jk,jb) = field_column(je,jk,jb)
-          !  END DO
-          !ELSEIF ( z_dolic < MIN_DOLIC ) THEN
-          !  diff_column(je,1:z_dolic,jb) = 0.0_wp
-          !  field_column(je,1:z_dolic,jb)= 0.0_wp
-          ENDIF
-        !ELSEIF( v_base%lsm_e(je,1,jb) > sea_boundary ) THEN
-        !  diff_column(je,1:z_dolic,jb) = field_column(je,1:z_dolic,jb)
-         !diff_column(je,:,jb) = 0.0_wp
-         !field_column(je,:,jb)= 0.0_wp
-        ! ENDIF
-      END DO
-    END DO
-  !
-  !  !---------DEBUG DIAGNOSTICS-------------------------------------------
-  !  idt_src=5  ! output print level (1-5, fix)
-  !  CALL dbg_print('VelDifImplHom: field_col'  ,field_column             ,str_module,idt_src, in_subset=p_patch%edges%owned)
-  !  CALL dbg_print('VelDifImplHom: diff_col'   ,diff_column              ,str_module,idt_src, in_subset=p_patch%edges%owned)
-  !  !---------------------------------------------------------------------
-  !
-  END SUBROUTINE velocity_diffusion_vertical_implicit_old
+!  SUBROUTINE velocity_diffusion_vertical_implicit_old( p_patch_3D,    &
+!                                          & field_column,  &
+!                                          & A_v,           &
+!                                          & p_op_coeff) !,    &
+!    !                                      & diff_column)
+!    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
+!    REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+!    !surface height at edges, relevant for thickness of first cell
+!    REAL(wp), INTENT(inout)           :: A_v(:,:,:)
+!    TYPE(t_operator_coeff), TARGET    :: p_op_coeff
+!    ! REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
+!    !
+!    !Local variables
+!    INTEGER :: slev
+!    INTEGER :: je, jk, jb
+!    INTEGER :: i_startidx, i_endidx
+!    ! REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
+!    !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
+!    REAL(wp),POINTER :: a(:), b(:), c(:)
+!    REAL(wp) :: z_tmp
+!    REAL(wp) :: dt_inv
+!    INTEGER  :: z_dolic
+!    REAL(wp) :: inv_prisms_center_distance(1:n_zlev)
+!    REAL(wp) :: inv_prism_thickness(1:n_zlev)
+!    TYPE(t_subset_range), POINTER :: all_edges
+!    TYPE(t_patch), POINTER        :: p_patch
+!    ! CHARACTER(len=max_char_length), PARAMETER :: &
+!    !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
+!    !-----------------------------------------------------------------------
+!    p_patch   => p_patch_3D%p_patch_2D(1)
+!    all_edges => p_patch%edges%all
+!    !-----------------------------------------------------------------------
+!
+!    slev = 1
+!    dt_inv=1.0_wp/dtime
+!
+!    ! diff_column(1:nproma,1:n_zlev,1:p_patch%nblks_e)= 0.0_wp
+!
+!    field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)&
+!    &=field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)*dt_inv
+!
+!
+!    !---------DEBUG DIAGNOSTICS-------------------------------------------
+!    !idt_src=5  ! output print level (1-5, fix)
+!    !CALL dbg_print('VelDifImplHomIn:field_col' ,field_column, str_module,idt_src, in_subset=p_patch%edges%owned)
+!    !---------------------------------------------------------------------
+!
+!    DO jb = all_edges%start_block, all_edges%end_block
+!      CALL get_index_range(all_edges, jb, i_startidx, i_endidx)
+!      DO je = i_startidx, i_endidx
+!        z_dolic = p_patch_3D%p_patch_1D(1)%dolic_e(je,jb)!!v_base%dolic_e(je,jb)
+!
+!        ! IF (p_patch_3D%lsm_e(je,1,jb) <= sea_boundary) THEN
+!          IF ( z_dolic >= 2 ) THEN
+!
+!
+!             a => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,1)
+!             b => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,2)
+!             c => p_op_coeff%matrix_vert_diff_e(je,1:z_dolic,jb,3)
+!
+!
+!            !Apply the matrix
+!            DO jk=slev, z_dolic-1
+!              IF(b(jk)/=0.0_wp)THEN
+!                a(jk) = a(jk)/b(jk)
+!                c(jk) = c(jk)/b(jk)
+!                field_column(je,jk,jb)=field_column(je,jk,jb)/b(jk)
+!                b(jk)=1.0_wp
+!              ENDIF
+!            END DO
+!
+!            DO jk=slev+1, z_dolic-1
+!              b(jk)                  = b(jk)-a(jk)*c(jk-1)
+!              field_column(je,jk,jb) = field_column(je,jk,jb)&
+!                            &-a(jk)*field_column(je,jk-1,jb)
+!              c(jk)                  = c(jk)/b(jk)
+!              field_column(je,jk,jb) = field_column(je,jk,jb)/b(jk)
+!              b(jk)                  = 1.0_wp
+!            END DO
+!
+!            z_tmp = b(z_dolic)-a(z_dolic)*c(z_dolic-1)
+!            z_tmp = (field_column(je,z_dolic,jb)-a(z_dolic)*field_column(je,z_dolic-1,jb))/z_tmp
+!
+!            field_column(je,z_dolic,jb) = z_tmp
+!            DO jk = z_dolic-1,1,-1
+!              field_column(je,jk,jb) = field_column(je,jk,jb)-c(jk)*field_column(je,jk+1,jb)
+!            END DO
+!          !  DO jk = 1,z_dolic!-1
+!          !    diff_column(je,jk,jb) = field_column(je,jk,jb)
+!          !  END DO
+!          !ELSEIF ( z_dolic < MIN_DOLIC ) THEN
+!          !  diff_column(je,1:z_dolic,jb) = 0.0_wp
+!          !  field_column(je,1:z_dolic,jb)= 0.0_wp
+!          ENDIF
+!        !ELSEIF( v_base%lsm_e(je,1,jb) > sea_boundary ) THEN
+!        !  diff_column(je,1:z_dolic,jb) = field_column(je,1:z_dolic,jb)
+!         !diff_column(je,:,jb) = 0.0_wp
+!         !field_column(je,:,jb)= 0.0_wp
+!        ! ENDIF
+!      END DO
+!    END DO
+!  !
+!  !  !---------DEBUG DIAGNOSTICS-------------------------------------------
+!  !  idt_src=5  ! output print level (1-5, fix)
+!  !  CALL dbg_print('VelDifImplHom: field_col'  ,field_column             ,str_module,idt_src, in_subset=p_patch%edges%owned)
+!  !  CALL dbg_print('VelDifImplHom: diff_col'   ,diff_column              ,str_module,idt_src, in_subset=p_patch%edges%owned)
+!  !  !---------------------------------------------------------------------
+!  !
+!  END SUBROUTINE velocity_diffusion_vertical_implicit_old
   !-------------------------------------------------------------------------
 
 
@@ -989,140 +989,140 @@ CONTAINS
   !!
   !! @par Revision History
   !! Peter Korn (2012-2)
-  SUBROUTINE update_diffusion_matrices(   patch_3D,          &
-                                         & p_phys_param,       &
-                                         & matrix_vert_diff_e, &
-                                         & matrix_vert_diff_c)
-
-     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
-     TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
-     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e,1:3)
-     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks,1:3)
-    !
-    !
-    ! matrix_vert_diff_c(:,:,:,1) : lower diagonal term
-    ! matrix_vert_diff_c(:,:,:,2) : diagonal term
-    ! matrix_vert_diff_c(:,:,:,3) : upper diagonal term
-    !
-    !Local variables
-    !
-    TYPE(t_subset_range), POINTER :: all_edges
-    TYPE(t_subset_range), POINTER :: all_cells
-    REAL(wp), POINTER :: A_v(:,:,:)
-    REAL(wp) :: inv_zinv_i(1:n_zlev)
-    REAL(wp) :: inv_zinv_m(1:n_zlev)
-    REAL(wp) :: dt_inv,dz_m(1:n_zlev),dz_i(1:n_zlev)
-    INTEGER  :: je,jc,jb,jk,i_no_t
-    INTEGER  :: slev,z_dolic
-    INTEGER  :: i_startidx_e, i_endidx_e,  i_startidx_c, i_endidx_c
-    TYPE(t_patch), POINTER :: patch_2D
-    !---------------------------------------------------------
-    patch_2D     => patch_3D%p_patch_2D(1)
-    all_cells => patch_2D%cells%all
-    all_edges => patch_2D%edges%all
-    !---------------------------------------------------------
-    slev   = 1
-    dt_inv = 1.0_wp/dtime
-
-    !The vertical diffusion matrices for the tracers
-    DO i_no_t = 1,no_tracer
-
-      A_v => p_phys_param%A_tracer_v(:,:,:, i_no_t)
-
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
-
-          IF ( patch_3D%lsm_c(jc,1,jb) <= SEA_BOUNDARY ) THEN
-            IF ( z_dolic >= 2 ) THEN
-
-              inv_zinv_i(:) = patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,:,jb)
-              inv_zinv_m(:) = patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
-                    dz_i(:) = patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,:,jb)
-                    dz_m(:) = patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb)
-
-              !first level
-              matrix_vert_diff_c(jc,slev,jb,1) = 0.0_wp
-              matrix_vert_diff_c(jc,slev,jb,3) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
-              matrix_vert_diff_c(jc,slev,jb,2) = dt_inv- matrix_vert_diff_c(jc,slev,jb,3)
-
-              !Fill triangular matrix
-              !b is diagonal a and c are upper and lower band
-              !This corresponds to the 4th indices: "2", "1" and "3"
-              DO jk = slev+1, z_dolic-1
-                matrix_vert_diff_c(jc,jk,jb,1) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
-                matrix_vert_diff_c(jc,jk,jb,3) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
-                matrix_vert_diff_c(jc,jk,jb,2)  = dt_inv&
-                                               & -matrix_vert_diff_c(jc,jk,jb,1)&
-                                               & -matrix_vert_diff_c(jc,jk,jb,3)
-              END DO
-
-              !bottom
-              matrix_vert_diff_c(jc,z_dolic,jb,1) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
-              matrix_vert_diff_c(jc,z_dolic,jb,3) = 0.0_wp
-              matrix_vert_diff_c(jc,z_dolic,jb,2) = dt_inv - matrix_vert_diff_c(jc,z_dolic,jb,1)
-            ENDIF
-          ENDIF
-        END DO
-      END DO
-    END DO
-   !---------------------------------------------------------
-
-
-  !Now the velocity matrix
-  A_v => p_phys_param%A_veloc_v
-
-  DO jb = all_edges%start_block, all_edges%end_block
-    CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-    DO je = i_startidx_e, i_endidx_e
-      z_dolic = patch_3D%p_patch_1D(1)%dolic_e(je,jb)
-
-      IF (  patch_3D%lsm_e(je,1,jb) <= SEA_BOUNDARY ) THEN
-        IF ( z_dolic >= 2 ) THEN
-
-          !inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
-          !inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
-          !inv_zinv_i(:) = p_os%p_diag%inv_prism_center_dist_e(je,:,jb)
-          !inv_zinv_m(:) = p_os%p_diag%inv_prism_thick_e(je,:,jb)
-          inv_zinv_i(:) = patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,:,jb)
-          inv_zinv_m(:) = patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,:,jb)
-
-
-          !Fill triangular matrix
-          !b is diagonal a and c are upper and lower band
-          DO jk = slev+1, z_dolic-1
-            !a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
-            !c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
-            !b(jk) = dt_inv-a(jk)-c(jk)
-            matrix_vert_diff_e(je,jk,jb,1) = -A_v(je,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
-            matrix_vert_diff_e(je,jk,jb,3) = -A_v(je,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
-            matrix_vert_diff_e(je,jk,jb,2)  = dt_inv&
-                                            & -matrix_vert_diff_e(je,jk,jb,1)&
-                                            & -matrix_vert_diff_e(je,jk,jb,3)
-
-          END DO
-
-          ! The first row
-          !c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)!*dtime
-          !a(slev) = 0.0_wp
-          !b(slev) = dt_inv- c(slev) !- a(slev)
-          matrix_vert_diff_e(je,slev,jb,3) = -A_v(je,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
-          matrix_vert_diff_e(je,slev,jb,1) = 0.0_wp
-          matrix_vert_diff_e(je,slev,jb,2) = dt_inv- matrix_vert_diff_e(je,slev,jb,3)
-
-          ! The last row
-          !a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)!*dtime
-          !c(z_dolic) = 0.0_wp
-          !b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
-          matrix_vert_diff_e(je,z_dolic,jb,1) = -A_v(je,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
-          matrix_vert_diff_e(je,z_dolic,jb,3) = 0.0_wp
-          matrix_vert_diff_e(je,z_dolic,jb,2) = dt_inv - matrix_vert_diff_e(je,z_dolic,jb,1)
-        ENDIF
-      ENDIF
-    END DO
-  END DO
-   END SUBROUTINE update_diffusion_matrices
+!  SUBROUTINE update_diffusion_matrices(   patch_3D,          &
+!                                         & p_phys_param,       &
+!                                         & matrix_vert_diff_e, &
+!                                         & matrix_vert_diff_c)
+!
+!     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
+!     TYPE (t_ho_params),       INTENT(IN)    :: p_phys_param
+!     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e,1:3)
+!     REAL(wp), INTENT(INOUT) :: matrix_vert_diff_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks,1:3)
+!    !
+!    !
+!    ! matrix_vert_diff_c(:,:,:,1) : lower diagonal term
+!    ! matrix_vert_diff_c(:,:,:,2) : diagonal term
+!    ! matrix_vert_diff_c(:,:,:,3) : upper diagonal term
+!    !
+!    !Local variables
+!    !
+!    TYPE(t_subset_range), POINTER :: all_edges
+!    TYPE(t_subset_range), POINTER :: all_cells
+!    REAL(wp), POINTER :: A_v(:,:,:)
+!    REAL(wp) :: inv_zinv_i(1:n_zlev)
+!    REAL(wp) :: inv_zinv_m(1:n_zlev)
+!    REAL(wp) :: dt_inv,dz_m(1:n_zlev),dz_i(1:n_zlev)
+!    INTEGER  :: je,jc,jb,jk,i_no_t
+!    INTEGER  :: slev,z_dolic
+!    INTEGER  :: i_startidx_e, i_endidx_e,  i_startidx_c, i_endidx_c
+!    TYPE(t_patch), POINTER :: patch_2D
+!    !---------------------------------------------------------
+!    patch_2D     => patch_3D%p_patch_2D(1)
+!    all_cells => patch_2D%cells%all
+!    all_edges => patch_2D%edges%all
+!    !---------------------------------------------------------
+!    slev   = 1
+!    dt_inv = 1.0_wp/dtime
+!
+!    !The vertical diffusion matrices for the tracers
+!    DO i_no_t = 1,no_tracer
+!
+!      A_v => p_phys_param%A_tracer_v(:,:,:, i_no_t)
+!
+!      DO jb = all_cells%start_block, all_cells%end_block
+!        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+!        DO jc = i_startidx_c, i_endidx_c
+!          z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)!v_base%dolic_c(jc,jb)
+!
+!          IF ( patch_3D%lsm_c(jc,1,jb) <= SEA_BOUNDARY ) THEN
+!            IF ( z_dolic >= 2 ) THEN
+!
+!              inv_zinv_i(:) = patch_3D%p_patch_1D(1)%inv_prism_center_dist_c(jc,:,jb)
+!              inv_zinv_m(:) = patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,:,jb)
+!                    dz_i(:) = patch_3D%p_patch_1D(1)%prism_center_dist_c(jc,:,jb)
+!                    dz_m(:) = patch_3D%p_patch_1D(1)%prism_thick_c(jc,:,jb)
+!
+!              !first level
+!              matrix_vert_diff_c(jc,slev,jb,1) = 0.0_wp
+!              matrix_vert_diff_c(jc,slev,jb,3) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
+!              matrix_vert_diff_c(jc,slev,jb,2) = dt_inv- matrix_vert_diff_c(jc,slev,jb,3)
+!
+!              !Fill triangular matrix
+!              !b is diagonal a and c are upper and lower band
+!              !This corresponds to the 4th indices: "2", "1" and "3"
+!              DO jk = slev+1, z_dolic-1
+!                matrix_vert_diff_c(jc,jk,jb,1) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
+!                matrix_vert_diff_c(jc,jk,jb,3) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
+!                matrix_vert_diff_c(jc,jk,jb,2)  = dt_inv&
+!                                               & -matrix_vert_diff_c(jc,jk,jb,1)&
+!                                               & -matrix_vert_diff_c(jc,jk,jb,3)
+!              END DO
+!
+!              !bottom
+!              matrix_vert_diff_c(jc,z_dolic,jb,1) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
+!              matrix_vert_diff_c(jc,z_dolic,jb,3) = 0.0_wp
+!              matrix_vert_diff_c(jc,z_dolic,jb,2) = dt_inv - matrix_vert_diff_c(jc,z_dolic,jb,1)
+!            ENDIF
+!          ENDIF
+!        END DO
+!      END DO
+!    END DO
+!   !---------------------------------------------------------
+!
+!
+!  !Now the velocity matrix
+!  A_v => p_phys_param%A_veloc_v
+!
+!  DO jb = all_edges%start_block, all_edges%end_block
+!    CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+!    DO je = i_startidx_e, i_endidx_e
+!      z_dolic = patch_3D%p_patch_1D(1)%dolic_e(je,jb)
+!
+!      IF (  patch_3D%lsm_e(je,1,jb) <= SEA_BOUNDARY ) THEN
+!        IF ( z_dolic >= 2 ) THEN
+!
+!          !inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
+!          !inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
+!          !inv_zinv_i(:) = p_os%p_diag%inv_prism_center_dist_e(je,:,jb)
+!          !inv_zinv_m(:) = p_os%p_diag%inv_prism_thick_e(je,:,jb)
+!          inv_zinv_i(:) = patch_3D%p_patch_1D(1)%inv_prism_center_dist_e(je,:,jb)
+!          inv_zinv_m(:) = patch_3D%p_patch_1D(1)%inv_prism_thick_e(je,:,jb)
+!
+!
+!          !Fill triangular matrix
+!          !b is diagonal a and c are upper and lower band
+!          DO jk = slev+1, z_dolic-1
+!            !a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
+!            !c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
+!            !b(jk) = dt_inv-a(jk)-c(jk)
+!            matrix_vert_diff_e(je,jk,jb,1) = -A_v(je,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
+!            matrix_vert_diff_e(je,jk,jb,3) = -A_v(je,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
+!            matrix_vert_diff_e(je,jk,jb,2)  = dt_inv&
+!                                            & -matrix_vert_diff_e(je,jk,jb,1)&
+!                                            & -matrix_vert_diff_e(je,jk,jb,3)
+!
+!          END DO
+!
+!          ! The first row
+!          !c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)!*dtime
+!          !a(slev) = 0.0_wp
+!          !b(slev) = dt_inv- c(slev) !- a(slev)
+!          matrix_vert_diff_e(je,slev,jb,3) = -A_v(je,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
+!          matrix_vert_diff_e(je,slev,jb,1) = 0.0_wp
+!          matrix_vert_diff_e(je,slev,jb,2) = dt_inv- matrix_vert_diff_e(je,slev,jb,3)
+!
+!          ! The last row
+!          !a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)!*dtime
+!          !c(z_dolic) = 0.0_wp
+!          !b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
+!          matrix_vert_diff_e(je,z_dolic,jb,1) = -A_v(je,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
+!          matrix_vert_diff_e(je,z_dolic,jb,3) = 0.0_wp
+!          matrix_vert_diff_e(je,z_dolic,jb,2) = dt_inv - matrix_vert_diff_e(je,z_dolic,jb,1)
+!        ENDIF
+!      ENDIF
+!    END DO
+!  END DO
+!   END SUBROUTINE update_diffusion_matrices
   !-------------------------------------------------------------------------
 
 END MODULE mo_ocean_testbed_vertical_diffusion

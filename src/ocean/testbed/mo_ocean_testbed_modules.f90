@@ -65,7 +65,6 @@ MODULE mo_ocean_testbed_modules
     & update_time_indices
   USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog, t_ocean_tracer
-  USE mo_oce_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
@@ -136,8 +135,6 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_test_modules"
-
-    CALL calculate_thickness( patch_3D, ocean_state(1), external_data(1), operators_coefficients)
 
     SELECT CASE (test_mode)  !  1 - 99 test ocean modules
       CASE (1)

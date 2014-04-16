@@ -130,9 +130,7 @@ MODULE mo_nh_initicon
   CHARACTER(LEN=filename_max) :: dwdana_file(max_dom)
     
 
-  CHARACTER(LEN=10) :: psvar 
   CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
-  CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
   CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
 
 
@@ -758,15 +756,14 @@ MODULE mo_nh_initicon
     INTEGER,           INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
     INTEGER,           INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,           INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-!DR uncomment INTENT attribute which is a F2003 feature and not supported by our SUNf90 compiler
-!    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:)   !< output field
-    REAL(wp), POINTER                :: var_out(:,:)   !< output field
+    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:)   !< output field
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
                                                                           !< contained in opt_checkgroup
     ! local variables
     CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_2d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
 
     IF (PRESENT(opt_checkgroup)) THEN
@@ -784,29 +781,30 @@ MODULE mo_nh_initicon
         ! Trivial name mapping for NetCDF file
         mapped_name = TRIM(varname)
 
-        IF(p_pe == p_io .AND. msg_level>10) THEN
-          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(mapped_name)
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
+        WRITE(filetyp_read,'(a)') 'NC-Read:'
 
       CASE (FILETYPE_GRB2)
         ! Search name mapping for name in GRIB2 file
         mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
-        IF(p_pe == p_io .AND. msg_level>10) THEN
-          WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
+        WRITE(filetyp_read,'(a)') 'GRB2-Read:'
 
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
       END SELECT
 
 
+
       ! Perform CDI read operation
       !
+      IF(p_pe == p_io .AND. msg_level>10) THEN
+        WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
       CALL read_cdi_2d(fileid, mapped_name, glb_arr_len, loc_arr_len, &
         &              glb_index, var_out, opt_tileidx)
+
 
       ! Perform inverse post_op on input field, if necessary
       !
@@ -831,15 +829,14 @@ MODULE mo_nh_initicon
     INTEGER,           INTENT(IN)    :: glb_arr_len    !< length of 1D field (global)
     INTEGER,           INTENT(IN)    :: loc_arr_len    !< length of 1D field (local)
     INTEGER,           INTENT(IN)    :: glb_index(:)   !< Index mapping local to global
-! uncomment INTENT attribute which is a F2003 feature and not supported by our SUNf90 compiler
-!DR    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:,:) !< output field
-    REAL(wp), POINTER                :: var_out(:,:,:) !< output field
+    REAL(wp), POINTER, INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER,           INTENT(IN), OPTIONAL :: opt_tileidx  !< tile index, encoded as "localInformationNumber"
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is 
                                                                           !< contained in opt_checkgroup
     ! local variables
     CHARACTER(len=*), PARAMETER     :: routine = 'mo_nh_initicon:read_data_3d'
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
     LOGICAL                         :: lread          !< .FALSE.: skip reading
 
 
@@ -854,22 +851,18 @@ MODULE mo_nh_initicon
 
       SELECT CASE(filetype)
       CASE (FILETYPE_NC2)
+        !
         ! Trivial name mapping for NetCDF file
         mapped_name = TRIM(varname)
 
-        IF(p_pe == p_io .AND. msg_level>10 ) THEN
-          WRITE(message_text,'(a)') 'NC-Read: '//TRIM(mapped_name)
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
+        WRITE(filetyp_read,'(a)') 'NC-Read:'
 
       CASE (FILETYPE_GRB2)
+        !
         ! Search name mapping for name in GRIB2 file
         mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
 
-        IF(p_pe == p_io .AND. msg_level>10 ) THEN
-          WRITE(message_text,'(a)') 'GRB2-Read: '//TRIM(mapped_name)
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
+        WRITE(filetyp_read,'(a)') 'GRB2-Read:'
 
       CASE DEFAULT
         CALL finish(routine, "Unknown file type")
@@ -878,12 +871,18 @@ MODULE mo_nh_initicon
 
       ! Perform CDI read operation
       !
+      IF(p_pe == p_io .AND. msg_level>10) THEN
+        WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
       CALL read_cdi_3d (fileid, mapped_name, glb_arr_len, loc_arr_len, &
         &               glb_index, nlevs, var_out, opt_tileidx)
 
       ! Perform inverse post_op on input field, if necessary
       !    
       CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+
     ENDIF  ! lread
 
   END SUBROUTINE read_data_3d
@@ -1322,7 +1321,7 @@ MODULE mo_nh_initicon
       ! abort
       !
       IF (lmiss_fg) THEN
-write(0,*) "missing: ", TRIM(buffer_miss_fg)
+
         WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_fg)// &
           &                       ' missing in FG-input file.'
         CALL finish(routine, TRIM(message_text))
@@ -1414,6 +1413,8 @@ write(0,*) "missing: ", TRIM(buffer_miss_fg)
     INTEGER :: no_cells, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
     INTEGER :: ist
+
+    CHARACTER(LEN=10) :: psvar 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_ifs_atm'
@@ -1744,6 +1745,8 @@ write(0,*) "missing: ", TRIM(buffer_miss_fg)
 
     INTEGER :: no_cells, no_levels
     INTEGER :: ncid, dimid, varid, mpi_comm
+
+    CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_ifs_sfc'
@@ -2356,20 +2359,9 @@ write(0,*) "missing: ", TRIM(buffer_miss_fg)
           &                p_lnd_state(jg)%diag_lnd%fr_seaice,                                       &
           &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
       ELSE
-!$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
-        ! include boundary interpolation zone of nested domains and halo points
-        DO jb = 1, p_patch(jg)%nblks_c
-          IF (jb == p_patch(jg)%nblks_c) THEN
-            i_endidx = p_patch(jg)%npromz_c
-          ELSE
-            i_endidx = nproma
-          ENDIF
-
-          DO jc = 1, i_endidx
-            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 0._wp
-          ENDDO  ! jc
-        ENDDO  ! jb
-!$OMP END PARALLEL DO
+!$OMP PARALLEL WORKSHARE
+        p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
       ENDIF ! init_mode /= MODE_COSMODE
 
 
@@ -3916,10 +3908,9 @@ write(0,*) "missing: ", TRIM(buffer_miss_fg)
           ! The procedure is the same as in "int2lm".
           ! Note that no lake ice is assumed at the cold start.
 
-!DR       ! To be implemented ... CALL flake_coldstart()
           ! Make use of sfc%ls_mask in order to identify potentially problematic points, 
           ! where depth_lk>0 (lake point in ICON) but ls_mask >0.5 (land point in IFS).
-!DR       ! At these points, tskin should not be used to initialize the water temperature.
+          ! At these points, tskin should not be used to initialize the water temperature.
 
           IF (llake) THEN
             CALL flake_coldinit(                                        &
@@ -3969,7 +3960,7 @@ write(0,*) "missing: ", TRIM(buffer_miss_fg)
 
     ! Local variables: loop control and dimensions
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_initicon::allocate_initicon"
-    INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_v, nblks_e
+    INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_e
 
 !-------------------------------------------------------------------------
 
@@ -3979,7 +3970,6 @@ write(0,*) "missing: ", TRIM(buffer_miss_fg)
       nlev = p_patch(jg)%nlev
       nlevp1 = nlev + 1
       nblks_c = p_patch(jg)%nblks_c
-      nblks_v = p_patch(jg)%nblks_v
       nblks_e = p_patch(jg)%nblks_e
 
 

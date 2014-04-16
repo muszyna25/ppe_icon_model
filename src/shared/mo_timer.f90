@@ -81,7 +81,7 @@ MODULE mo_timer
 
   PUBLIC :: timer_lrtm_1, timer_lrtm_2
 
-  PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs
+  PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs, timer_lhs_sp
   PUBLIC :: timer_corio, timer_intp
   PUBLIC :: timer_transport
   PUBLIC :: timer_back_traj
@@ -231,7 +231,7 @@ MODULE mo_timer
   INTEGER :: timer_div
   INTEGER :: timer_grad
   INTEGER :: timer_gmres
-  INTEGER :: timer_lhs
+  INTEGER :: timer_lhs, timer_lhs_sp
   INTEGER :: timer_corio
   INTEGER :: timer_intp
 
@@ -374,6 +374,7 @@ CONTAINS
     ! dynamics timers
     timer_gmres     = new_timer("gmres")
     timer_lhs       = new_timer("lhs")
+    timer_lhs_sp    = new_timer("lhs_sp")
     timer_RK_tend = new_timer("RK_tend")
     timer_RK_update = new_timer("RK_update")
     timer_si_correction = new_timer("si_correction")

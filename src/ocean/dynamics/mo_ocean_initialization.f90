@@ -83,7 +83,7 @@ MODULE mo_ocean_initialization
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range, fill_subset
-  USE mo_ocean_config,        ONLY: ignore_land_points
+  ! USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_oce_types, ONLY: t_hydro_ocean_state, &
     & t_hydro_ocean_base, &
     & t_hydro_ocean_prog, &
@@ -1804,7 +1804,7 @@ CONTAINS
     
     !--------------------------------------------------------------------------------
     ! exclude land from subsets, if requested
-    IF (ignore_land_points .AND. .FALSE.) THEN
+    IF ( .FALSE.) THEN
       
       ! cells
       DO BLOCK = all_cells%start_block, all_cells%end_block

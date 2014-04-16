@@ -48,7 +48,6 @@ MODULE mo_oce_ab_timestepping
 !
 USE mo_ocean_nml,                      ONLY: discretization_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
-USE mo_oce_types,                      ONLY: t_hydro_ocean_state
 USE mo_sea_ice_types,                  ONLY: t_sfc_flx
 USE mo_model_domain,                   ONLY: t_patch_3D !, t_patch
 USE mo_ext_data_types,                 ONLY: t_external_data
@@ -56,7 +55,7 @@ USE mo_oce_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
   &                                          calc_normal_velocity_ab_mimetic, &
   &                                          calc_vert_velocity_mim_bottomup
 USE mo_oce_physics,                    ONLY: t_ho_params
-USE mo_operator_ocean_coeff_3d,        ONLY: t_operator_coeff
+USE mo_oce_types,                      ONLY: t_hydro_ocean_state, t_operator_coeff, t_solverCoeff_singlePrecision
 USE mo_exception,                      ONLY: finish!, message_text
 IMPLICIT NONE
 
@@ -85,7 +84,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE solve_free_surface_eq_ab(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
-    &                                 p_phys_param, timestep, p_op_coeff)
+    &                                 p_phys_param, timestep, p_op_coeff, solverCoeff_sp)
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
     TYPE(t_external_data), TARGET                 :: p_ext_data
@@ -93,11 +92,12 @@ CONTAINS
     TYPE (t_ho_params)                            :: p_phys_param
     INTEGER                                       :: timestep
     TYPE(t_operator_coeff)                        :: p_op_coeff
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
       CALL solve_free_sfc_ab_mimetic( p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
-        &                            p_phys_param, timestep, p_op_coeff)
+        &                            p_phys_param, timestep, p_op_coeff, solverCoeff_sp)
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discretization type not supported !!')
@@ -113,16 +113,17 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE calc_normal_velocity_ab(p_patch_3D, p_os, p_op_coeff, p_ext_data, p_phys_param)
+  SUBROUTINE calc_normal_velocity_ab(p_patch_3D, p_os, p_op_coeff, solverCoeff_sp, p_ext_data, p_phys_param)
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET    :: p_os
     TYPE(t_operator_coeff)               :: p_op_coeff
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
     TYPE(t_external_data), TARGET        :: p_ext_data
     TYPE (t_ho_params)                   :: p_phys_param
     !-----------------------------------------------------------------------
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
-      CALL calc_normal_velocity_ab_mimetic(p_patch_3D, p_os, p_op_coeff, p_ext_data)
+      CALL calc_normal_velocity_ab_mimetic(p_patch_3D, p_os, p_op_coeff, solverCoeff_sp, p_ext_data)
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discreization type not supported !!')

@@ -334,13 +334,13 @@ CONTAINS
                 & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID,         &
                 & cf_desc, grib2_desc, ldims=shape3d_e )
 
-    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'pres_sfc', field%pres_sfc, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                   &
                 & cf_desc, grib2_desc, ldims=shape2d_c )
 
-    cf_desc    = t_cf_var('temperature', 'K', 'absolute temperature', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('air_temperature', 'K', 'absolute temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'temp', field%temp, &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,            &

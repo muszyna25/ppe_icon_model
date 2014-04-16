@@ -185,7 +185,7 @@ CONTAINS
     SELECT CASE (select_solver)
       CASE (select_gmres)
 
-      CASE (select_restart_gmres)
+      CASE (select_restart_gmres, select_restart_mixedPrecision_gmres)
 
         IF (p_test_run .OR. .NOT. l_fast_sum ) THEN
            CALL message(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")

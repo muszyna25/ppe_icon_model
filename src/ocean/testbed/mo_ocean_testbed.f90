@@ -48,10 +48,9 @@ MODULE mo_ocean_testbed
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
   USE mo_oce_physics,         ONLY: t_ho_params
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 
   USE mo_run_config,          ONLY: test_mode
   USE mo_grid_config,         ONLY: n_dom
@@ -60,6 +59,7 @@ MODULE mo_ocean_testbed
   USE mo_testbed_ocean_performance, ONLY: ocean_test_performance
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
+  USE mo_oce_math_operators,     ONLY: calculate_thickness
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -75,7 +75,8 @@ CONTAINS
   SUBROUTINE ocean_testbed( namelist_filename, shr_namelist_filename, &
     & patch_3d, ocean_state, external_data,          &
     & datetime, surface_fluxes, physics_parameters,             &
-    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
+    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
+    & solverCoeff_sp)
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
@@ -90,8 +91,11 @@ CONTAINS
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
+
+    CALL calculate_thickness( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
 
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules

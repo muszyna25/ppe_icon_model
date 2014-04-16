@@ -98,7 +98,8 @@ MODULE mo_name_list_output
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info
-  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer
+  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
+    &                                     print_timer
   USE mo_dictionary,                ONLY: dict_finalize
   ! post-ops
   USE mo_post_op,                   ONLY: perform_post_op
@@ -1035,6 +1036,9 @@ CONTAINS
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
+
+    IF (ltimer) CALL print_timer
+
     ! Shut down MPI
     !
     CALL stop_mpi

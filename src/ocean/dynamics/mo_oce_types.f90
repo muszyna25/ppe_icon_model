@@ -1,5 +1,40 @@
+!>
+!!        Contains the variables to set up the ocean model.
+!=============================================================================================
+!!
+!! @par Revision History
+!!
+!! @par Copyright
+!! 2002-2006 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+!!
 MODULE mo_oce_types
-  USE mo_kind,                ONLY: wp
+
+  USE mo_kind,                ONLY: wp, sp
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
@@ -24,6 +59,7 @@ MODULE mo_oce_types
   PUBLIC :: t_ocean_basins
 
   PUBLIC :: t_operator_coeff
+  PUBLIC :: t_solverCoeff_singlePrecision
 
   !
   !! basis types for constructing 3-dim ocean state
@@ -487,12 +523,24 @@ MODULE mo_oce_types
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:)
 
-    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
-    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
-    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
+!    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
+!    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
+!    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
+!    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
 
   END TYPE t_operator_coeff
+
+  TYPE t_solverCoeff_singlePrecision
+    ! the same as in t_operator_coeff in single precision for using in the solver
+    REAL(sp), ALLOCATABLE :: grad_coeff(:,:)                     ! as in t_operator_coeff for the 1st level
+    REAL(sp), ALLOCATABLE :: div_coeff(:,:,:)                    ! as in t_operator_coeff for the 1st level
+
+    REAL(sp), POINTER :: edge2edge_viacell_coeff_all(:,:,:)  ! as in t_operator_coeff
+
+    REAL(sp), ALLOCATABLE :: edge_thickness(:,:)                ! as t_hydro_ocean_diag thick_e
+    REAL(sp), ALLOCATABLE :: cell_thickness(:,:)                ! as t_hydro_ocean_diag thick_c
+
+  END TYPE t_solverCoeff_singlePrecision
   
 END MODULE mo_oce_types
 

@@ -79,7 +79,7 @@ MODULE mo_ocean_model
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
   USE mo_oce_types,           ONLY: t_hydro_ocean_state, &
     & t_hydro_ocean_acc, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog
+    & t_hydro_ocean_prog, t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_oce_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
@@ -94,7 +94,7 @@ MODULE mo_ocean_model
   USE mo_oce_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
     & destruct_ho_params
 
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, construct_operators_coefficients, &
+  USE mo_operator_ocean_coeff_3d,ONLY: construct_operators_coefficients, &
     & destruct_operators_coefficients
 
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
@@ -140,6 +140,7 @@ MODULE mo_ocean_model
   TYPE(t_atmos_for_ocean)                         :: p_as
   TYPE(t_atmos_fluxes)                            :: p_atm_f
   TYPE(t_operator_coeff)                          :: operators_coefficients
+  TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
   TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
   TYPE(t_datetime)                                :: start_datetime
 
@@ -219,20 +220,29 @@ CONTAINS
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
 
-    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients,ocean_state(1),v_params, is_restart_run())
+    CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
+      & ocean_state(1),v_params, is_restart_run())
 
     !------------------------------------------------------------------
     IF (test_mode == 0) THEN
+
       CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
         & ext_data, start_datetime,                     &
         & (nsteps == INT(time_config%dt_restart/dtime)),&
         & v_sfc_flx,                                    &
-        & v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+        & v_params, p_as, p_atm_f,v_sea_ice,            &
+        & operators_coefficients,                       &
+        & solverCoefficients_sp)
+
     ELSE
+
       CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
         & ocean_patch_3d, ocean_state,                    &
         & ext_data, start_datetime,                       &
-        & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,operators_coefficients)
+        & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,  &
+        & operators_coefficients,                         &
+        & solverCoefficients_sp)
+
     ENDIF
     !------------------------------------------------------------------
 
@@ -304,7 +314,7 @@ CONTAINS
 
     CALL destruct_ocean_coupling ()
 
-    CALL destruct_operators_coefficients(operators_coefficients)
+    CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
 
     CALL message(TRIM(routine),'clean-up finished')
 
@@ -417,7 +427,7 @@ CONTAINS
 
     ! Prepare time integration
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, v_sfc_flx, &
-      & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients)!,p_int_state(1:))
+      & v_params, p_as, p_atm_f, v_sea_ice,operators_coefficients, solverCoefficients_sp)!,p_int_state(1:))
 
     CALL datetime_to_string(datestring, start_datetime)
     IF (diagnostics_level == 1) &
@@ -434,7 +444,7 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   SUBROUTINE construct_ocean_states(patch_3d, p_os, external_data, p_sfc_flx, &
     & p_phys_param, p_as,&
-    & p_atm_f, p_ice, p_op_coeff)
+    & p_atm_f, p_ice, p_op_coeff, solverCoeff_sp)
 
     TYPE(t_patch_3d ),TARGET,   INTENT(inout)  :: patch_3d
     TYPE(t_hydro_ocean_state),  INTENT(inout)  :: p_os(n_dom)
@@ -445,6 +455,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ),      INTENT(inout)  :: p_atm_f
     TYPE(t_sea_ice),            INTENT(inout)  :: p_ice
     TYPE(t_operator_coeff),     INTENT(inout)  :: p_op_coeff
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
 
     ! local variables
     INTEGER, PARAMETER :: kice = 1
@@ -481,7 +492,7 @@ CONTAINS
     CALL init_patch_3d    (patch_3d,                external_data(jg), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
 
-    CALL construct_operators_coefficients     ( patch_3d, p_op_coeff, ocean_default_list)
+    CALL construct_operators_coefficients     ( patch_3d, p_op_coeff, solverCoeff_sp, ocean_default_list)
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------

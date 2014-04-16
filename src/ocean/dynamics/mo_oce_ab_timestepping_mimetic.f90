@@ -38,7 +38,7 @@
 !!
 MODULE mo_oce_ab_timestepping_mimetic
 
-  USE mo_kind,                      ONLY: wp
+  USE mo_kind,                      ONLY: wp, sp
   USE mo_parallel_config,           ONLY: nproma, l_fast_sum
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
   USE mo_sync,                      ONLY: sync_e, sync_c, sync_patch_array
@@ -52,19 +52,24 @@ MODULE mo_oce_ab_timestepping_mimetic
     & use_absolute_solver_tolerance,                      &
     & solver_max_restart_iterations,                      &
     & solver_max_iter_per_restart, dhdtw_abort,           &
-    & forcing_enable_freshwater, select_solver,select_restart_gmres,  &
-    & select_gmres, use_continuity_correction
+    & forcing_enable_freshwater, select_solver,           &
+    & select_restart_gmres, select_gmres,                 &
+    & use_continuity_correction,                          &
+    & select_restart_mixedPrecision_gmres,                &
+    & solver_max_iter_per_restart_sp,                     &
+    & solver_tolerance_sp
   
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
-    & timer_ab_rhs4sfc, timer_lhs
+    & timer_ab_rhs4sfc, timer_lhs, timer_lhs_sp
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_physical_constants,        ONLY: grav,rho_inv
   USE mo_ocean_initialization,      ONLY: is_initial_timestep
   USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,            ONLY: t_external_data
-  USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e
+  USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e, &
+    & ocean_restart_gmres_singlePrecesicion
   USE mo_exception,                 ONLY: message, finish, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
@@ -73,16 +78,17 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d, & ! map_cell2edges_3D,&
     & calc_scalar_product_veloc_3d,&
-    & map_edges2edges_viacell_3d_const_z
+    & map_edges2edges_viacell_3d_const_z, map_edges2edges_viacell_2d_constZ_sp
   !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
-    & grad_fd_norm_oce_2d_3d, calculate_thickness
+    & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, calculate_thickness, &
+    & div_oce_2d_sp
   USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_oce_diffusion,             ONLY: velocity_diffusion,&
     & velocity_diffusion_vert_explicit,  &
     & velocity_diffusion_vertical_implicit
-  USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
+  USE mo_oce_types,                 ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
 !  USE mo_parallel_config,           ONLY: p_test_run
@@ -123,8 +129,14 @@ MODULE mo_oce_ab_timestepping_mimetic
   REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
   REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
   REAL(wp), ALLOCATABLE :: lhs_z_e     (:,:)
-  REAL(wp), ALLOCATABLE :: lhs_z_e_top (:,:)
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: lhs_z_grad_h_cc(:,:)
+  ! REAL(wp), ALLOCATABLE :: lhs_z_e_top (:,:)
+  ! the same as above in single precision
+  REAL(sp), ALLOCATABLE, TARGET :: lhs_result_sp(:,:)  ! (nproma,patch%alloc_cell_blocks)
+  REAL(sp), ALLOCATABLE :: lhs_z_grad_h_sp(:,:)
+  REAL(sp), ALLOCATABLE :: lhs_z_e_sp     (:,:)
+
+
+  ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: lhs_z_grad_h_cc(:,:)
   REAL(wp), PARAMETER ::  min_top_height = 0.05_wp ! we have to have at least 5cm water on top of sea cells
   
 CONTAINS
@@ -138,7 +150,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
-    & p_phys_param, timestep, op_coeffs)
+    & p_phys_param, timestep, op_coeffs, solverCoeff_sp)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)       :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET             :: ocean_state
@@ -147,10 +159,11 @@ CONTAINS
     TYPE (t_ho_params)                            :: p_phys_param
     INTEGER, INTENT(in)                           :: timestep
     TYPE(t_operator_coeff)                        :: op_coeffs
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
     !
     !Local variables
     !
-    INTEGER,PARAMETER :: nmax_iter   = 200      ! maximum number of iterations
+    INTEGER,PARAMETER :: nmax_iter   = 800      ! maximum number of iterations
     REAL(wp) :: tolerance =0.0_wp               ! (relative or absolute) tolerance
     INTEGER :: n_iter                          ! actual number of iterations
     INTEGER :: iter_sum                        ! sum of iterations
@@ -160,7 +173,7 @@ CONTAINS
     REAL(wp) :: z_h_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: z_h_e(nproma,patch_3d%p_patch_2d(1)%nblks_e)
     LOGICAL :: lprecon         = .FALSE.
-    REAL(wp) :: z_implcoeff
+    ! REAL(wp) :: z_implcoeff
     REAL(wp) :: zresidual(nmax_iter)    ! norms of the residual (convergence history);an argument of dimension at least m is required
     REAL(wp) :: residual_norm
     LOGICAL :: l_maxiter     ! true if reached m iterations
@@ -170,6 +183,12 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: vol_h(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) ::  minmaxmean(3)
+
+    REAL(sp) :: zresidual_sp(nmax_iter)    ! norms of the residual (convergence history);an argument of dimension at least m is required
+    REAL(sp) :: residual_norm_sp
+    REAL(sp) :: z_h_c_sp(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(sp) :: h_old_sp(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(sp) :: rhs_sfc_eq_sp(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
     !-------------------------------------------------------------------------------
@@ -279,11 +298,11 @@ CONTAINS
             ! ocean_state%p_diag%cons_thick_c(:,1,:),&
               & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
               & patch_3d,                &  ! arg 3 of lhs
-              & z_implcoeff,               &  ! arg 4 of lhs
+              ! & z_implcoeff,               &  ! arg 4 of lhs
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
-              & .FALSE.,                   &  ! NOT absolute tolerance
+              & use_absolute_solver_tolerance,     &  ! NOT absolute tolerance
               & nmax_iter,                 &  ! max. # of iterations to do
               & l_maxiter,                 &  ! out: .true. = not converged
               & n_iter,                    &  ! out: # of iterations done
@@ -299,11 +318,12 @@ CONTAINS
             ! ocean_state%p_diag%cons_thick_c(:,1,:),&
               & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
               & patch_3d,                &  ! arg 3 of lhs
-              & z_implcoeff,               &  ! arg 4 of lhs
+              ! & z_implcoeff,               &  ! arg 4 of lhs
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
               & tolerance,                 &  ! relative tolerance
-              & .FALSE.,                   &  ! NOT absolute tolerance
+              & use_absolute_solver_tolerance,                 &  ! NOT absolute tolerance
+!              & .FALSE.,                   &  ! NOT absolute tolerance
               & nmax_iter,                 &  ! max. # of iterations to do
               & l_maxiter,                 &  ! out: .true. = not converged
               & n_iter,                    &  ! out: # of iterations done
@@ -347,7 +367,7 @@ CONTAINS
             & ocean_state%p_diag%thick_c,           &  ! ocean_state%p_diag%thick_c, &
             & ocean_state%p_prog(nold(1))%h,        &  ! arg 2 of lhs !not used
             & patch_3d,                    &  ! arg 3 of lhs
-            & z_implcoeff,                   &  ! arg 4 of lhs
+            ! & z_implcoeff,                   &  ! arg 4 of lhs
             & op_coeffs,                    &
             & ocean_state%p_aux%p_rhs_sfc_eq,       &  ! right hand side as input
             & solver_tolerance,              &  ! tolerance
@@ -389,6 +409,116 @@ CONTAINS
         
         ocean_state%p_prog(nnew(1))%h = z_h_c
         
+      !-----------------------------------------------------------------------------------------
+      CASE (select_restart_mixedPrecision_gmres)
+        ! call the new gmre_oce, uses out of order global sum
+        residual_norm_sp = solver_tolerance_sp + 1.0_sp
+        gmres_restart_iterations = 0
+        iter_sum                 = 0
+        z_h_c_sp(:,:)            = 0.0_sp
+        h_old_sp(:,:)            = REAL(ocean_state%p_prog(nold(1))%h(:,:), sp)
+        rhs_sfc_eq_sp(:,:)       = REAL(ocean_state%p_aux%p_rhs_sfc_eq(:,:), sp)
+        ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
+        DO WHILE(residual_norm_sp >= solver_tolerance_sp .AND. gmres_restart_iterations < solver_max_restart_iterations)
+
+          CALL ocean_restart_gmres_singlePrecesicion( &
+            & z_h_c_sp(:,:),                        &  ! arg 1 of lhs. x input is the first guess.
+            & lhs_surface_height_ab_mim_sp,         &  ! function calculating l.h.s.
+            & h_old_sp,                             &  ! arg 2 of lhs !not used
+            & patch_3d,                             &
+            & solverCoeff_sp,                       &
+            & rhs_sfc_eq_sp,                        &  ! right hand side as input
+            & solver_tolerance_sp,                  &  ! tolerance
+            & use_absolute_solver_tolerance,        &  ! use absolute tolerance = true
+            & solver_max_iter_per_restart_sp,       &  ! max. # of iterations to do
+            & l_maxiter,                            &  ! out: .true. = not converged
+            & n_iter,                               &  ! out: # of iterations done
+            & zresidual_sp )
+
+          IF(n_iter==0) THEN
+            residual_norm_sp = 0.0_sp
+          ELSE
+            residual_norm_sp =  ABS(zresidual_sp(n_iter))
+          ENDIF
+
+          iter_sum = iter_sum + n_iter
+          ! output print level idt_src used for ocean_restart_gmres output with call message:
+          idt_src=2
+          IF (idbg_mxmn >= idt_src) THEN
+            WRITE(string,'(a,i4,a,e28.20)') &
+              & 'ocean_restart_gmres_sp iteration =', n_iter,', residual =', residual_norm_sp
+            CALL message('GMRES_oce_new: surface height',TRIM(string))
+          ENDIF
+
+          gmres_restart_iterations = gmres_restart_iterations + 1
+
+        END DO ! WHILE(tolerance >= solver_tolerance)
+
+        ! output of sum of iterations every timestep
+        idt_src=0
+        IF (idbg_mxmn >= idt_src) THEN
+          WRITE(string,'(a,i4,a,e28.20)') &
+            & 'SUM of ocean_restart_gmres_sp iteration =', iter_sum,', residual =', residual_norm_sp
+          CALL message('ocean_restart_gmres: surface height',TRIM(string))
+        ENDIF
+
+
+        ! call the double precision new gmre_oce, uses out of order global sum
+        residual_norm = solver_tolerance + 1.0_wp
+        gmres_restart_iterations = 0
+        iter_sum                 = 0
+        z_h_c(:,:)               = REAL(z_h_c_sp(:,:), wp)
+        ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
+        DO WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
+
+          CALL ocean_restart_gmres( z_h_c(:,:),                   &  ! arg 1 of lhs. x input is the first guess.
+            & lhs_surface_height_ab_mim,     &  ! function calculating l.h.s.
+            & ocean_state%p_diag%thick_e,           &  ! edge thickness for LHS
+            & ocean_state%p_diag%thick_c,           &  ! ocean_state%p_diag%thick_c, &
+            & ocean_state%p_prog(nold(1))%h,        &  ! arg 2 of lhs !not used
+            & patch_3d,                    &  ! arg 3 of lhs
+            ! & z_implcoeff,                   &  ! arg 4 of lhs
+            & op_coeffs,                    &
+            & ocean_state%p_aux%p_rhs_sfc_eq,       &  ! right hand side as input
+            & solver_tolerance,              &  ! tolerance
+            & use_absolute_solver_tolerance, &  ! use absolute tolerance = true
+            & solver_max_iter_per_restart,   &  ! max. # of iterations to do
+            & l_maxiter,                     &  ! out: .true. = not converged
+            & n_iter,                        &  ! out: # of iterations done
+            & zresidual )
+
+          IF(n_iter==0) THEN
+            residual_norm = 0.0_wp
+          ELSE
+            residual_norm =  ABS(zresidual(n_iter))
+          ENDIF
+
+          iter_sum = iter_sum + n_iter
+          ! output print level idt_src used for ocean_restart_gmres output with call message:
+          idt_src=2
+          IF (idbg_mxmn >= idt_src) THEN
+            WRITE(string,'(a,i4,a,e28.20)') &
+              & 'ocean_restart_gmres iteration =', n_iter,', residual =', residual_norm
+            CALL message('GMRES_oce_new: surface height',TRIM(string))
+          ENDIF
+
+          gmres_restart_iterations = gmres_restart_iterations + 1
+
+        END DO ! WHILE(tolerance >= solver_tolerance)
+
+        ! output of sum of iterations every timestep
+        idt_src=0
+        IF (idbg_mxmn >= idt_src) THEN
+          WRITE(string,'(a,i4,a,e28.20)') &
+            & 'SUM of ocean_restart_gmres iteration =', iter_sum,', residual =', residual_norm
+          CALL message('mixed ocean_restart_gmres: surface height',TRIM(string))
+        ENDIF
+
+        IF (residual_norm > solver_tolerance) &
+          & CALL finish(method_name,'NOT YET CONVERGED !!')
+
+        ocean_state%p_prog(nnew(1))%h = z_h_c
+
       !-----------------------------------------------------------------------------------------
       CASE default
         CALL finish(method_name, "Unknown solver")
@@ -1221,22 +1351,34 @@ CONTAINS
     ALLOCATE(lhs_result(nproma,patch%alloc_cell_blocks), &
       & lhs_z_grad_h(nproma,patch%nblks_e),     &
       & lhs_z_e     (nproma,patch%nblks_e),     &
-      & lhs_z_e_top (nproma,patch%nblks_e),     &
-      & lhs_z_grad_h_cc(nproma,patch%alloc_cell_blocks),  &
+!      & lhs_z_e_top (nproma,patch%nblks_e),     &
+!      & lhs_z_grad_h_cc(nproma,patch%alloc_cell_blocks),  &
       & stat = return_status)
-    
     IF (return_status > 0) &
       & CALL finish("mo_oce_ab_timestepping_mimetic:init_ho_lhs_fields", "Allocation failed")
+
+    ALLOCATE(lhs_result_sp(nproma,patch%alloc_cell_blocks), &
+      & lhs_z_grad_h_sp(nproma,patch%nblks_e),     &
+      & lhs_z_e_sp     (nproma,patch%nblks_e),     &
+      & stat = return_status)
+    IF (return_status > 0) &
+      & CALL finish("mo_oce_ab_timestepping_mimetic:init_ho_lhs_fields", "sp Allocation failed")
     
     ! these are arrays used by the lhs routine
     lhs_result(:,:)   = 0.0_wp
     lhs_z_grad_h(:,:) = 0.0_wp
     lhs_z_e     (:,:) = 0.0_wp
-    lhs_z_e_top (:,:) = 0.0_wp
-    lhs_z_grad_h_cc(:,:)%x(1) = 0.0_wp
-    lhs_z_grad_h_cc(:,:)%x(2) = 0.0_wp
-    lhs_z_grad_h_cc(:,:)%x(3) = 0.0_wp
+!    lhs_z_e_top (:,:) = 0.0_wp
+
+    lhs_result_sp(:,:)   = 0.0_wp
+    lhs_z_grad_h_sp(:,:) = 0.0_wp
+    lhs_z_e_sp     (:,:) = 0.0_wp
     
+
+!    lhs_z_grad_h_cc(:,:)%x(1) = 0.0_wp
+!    lhs_z_grad_h_cc(:,:)%x(2) = 0.0_wp
+!    lhs_z_grad_h_cc(:,:)%x(3) = 0.0_wp
+
   END SUBROUTINE init_ho_lhs_fields_mimetic
   !-------------------------------------------------------------------------------------
   
@@ -1244,7 +1386,6 @@ CONTAINS
   !-------------------------------------------------------------------------------------
   !>
   !! Computation of left-hand side of the surface height equation
-  
   !! This function calculates the left-hand side of the surface height equation in
   !! the Adams-Bashforth 2 timestepping. Function is called from iterative solver.
   !! Iteration of height as input
@@ -1254,13 +1395,13 @@ CONTAINS
   !!
   !!  The result is NOT synced. Should be done in the calling method if required
   !-------------------------------------------------------------------------
-  FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d,coeff, thickness_e,&
+  FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d, thickness_e,&
     & thickness_c,op_coeffs) result(lhs)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
     REAL(wp),    INTENT(in)              :: h_old(:,:)
-    REAL(wp),    INTENT(in)              :: coeff
+    ! REAL(wp),    INTENT(in)              :: coeff
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
     REAL(wp),    INTENT(in)              :: thickness_e(:,:)
     REAL(wp),    INTENT(in)              :: thickness_c(:,:) !thickness of fluid column
@@ -1355,7 +1496,7 @@ CONTAINS
     END DO
     !---------------------------------------
 
-    IF (debug_check_level > 5) THEN
+    IF (debug_check_level > 20) THEN
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
@@ -1372,7 +1513,92 @@ CONTAINS
     
   END FUNCTION lhs_surface_height_ab_mim
   !-------------------------------------------------------------------------
-  
+
+  !-------------------------------------------------------------------------------------
+  ! as in lhs_surface_height_ab_mim in single precision
+  FUNCTION lhs_surface_height_ab_mim_sp( x, h_old, patch_3d, solverCoeffs) result(lhs)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(sp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
+    REAL(sp),    INTENT(in)              :: h_old(:,:)
+    TYPE(t_solverCoeff_singlePrecision),INTENT(in)    :: solverCoeffs
+    ! Left-hand side calculated from iterated height
+    !
+    REAL(sp) :: lhs(SIZE(x,1), SIZE(x,2))  ! (nproma,patch_2D%alloc_cell_blocks)
+
+    ! local variables,
+    REAL(sp) :: gdt2_inv, gam_times_beta
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jc, jb, je
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D     ! patch_2D on which computation is performed
+    REAL(wp) :: x_sync(SIZE(x,1), SIZE(x,2))    ! used to syn x, since we cannot synd single precision at the moment
+    !-----------------------------------------------------------------------
+    IF (ltimer) CALL timer_start(timer_lhs_sp)
+    !-----------------------------------------------------------------------
+    patch_2D           => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    edges_in_domain => patch_2D%edges%in_domain
+
+    gdt2_inv       = REAL(1.0_wp / (grav*(dtime)**2),sp)
+    gam_times_beta = REAL(ab_gam * ab_beta, sp)
+
+    lhs  (1:nproma,cells_in_domain%end_block:patch_2D%alloc_cell_blocks)  = 0.0_sp
+
+    x_sync(:,:) = REAL(x(:,:), wp)
+    CALL sync_patch_array(sync_c, patch_2D, x_sync(1:nproma,1:patch_2D%cells%all%end_block) )
+    x(:,:) = REAL(x_sync(:,:), sp)
+
+    !Step 1) Calculate gradient of iterated height.
+    CALL grad_fd_norm_oce_2d_3d_sp( x,   &
+      & patch_2D,                     &
+      & solverCoeffs%grad_coeff(:,:), &
+      & lhs_z_grad_h_sp(:,:))
+
+    !---------------------------------------
+    IF(l_edge_based)THEN
+
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+        DO je = i_startidx, i_endidx
+          lhs_z_e_sp(je,jb) = lhs_z_grad_h_sp(je,jb) * solverCoeffs%edge_thickness(je,jb)
+        END DO
+      END DO
+
+    ELSE  !IF(.NOT.l_edge_based)THEN
+
+      ! the map_edges2edges_viacell_3d_const_z should be changes to calculate only
+      ! on in_domain_edges. Still, edge valkues need to be synced
+      lhs_z_grad_h = REAL(lhs_z_grad_h_sp, wp)
+      CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h(:,:) )
+      lhs_z_grad_h_sp = REAL(lhs_z_grad_h, sp)
+
+      CALL map_edges2edges_viacell_2d_constZ_sp( patch_3d, lhs_z_grad_h_sp(:,:), solverCoeffs, lhs_z_e_sp(:,:))
+
+    ENDIF ! l_edge_based
+    !---------------------------------------
+
+    !Step 3) Calculate divergence
+    ! store the div in lhs for reducing memory and improving performance
+    CALL div_oce_2d_sp( lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs, &
+      & subset_range=cells_in_domain  )
+
+    !Step 4) Finalize LHS calculations
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+      DO jc = i_startidx, i_endidx
+
+        lhs(jc,jb) = x(jc,jb) * gdt2_inv - gam_times_beta * lhs(jc,jb)
+
+      END DO
+    END DO
+    !---------------------------------------
+
+    IF (ltimer) CALL timer_stop(timer_lhs_sp)
+
+  END FUNCTION lhs_surface_height_ab_mim_sp
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   !! Computation of new velocity in Adams-Bashforth timestepping.
@@ -1380,11 +1606,12 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE calc_normal_velocity_ab_mimetic(patch_3d,ocean_state, op_coeffs, p_ext_data)
+  SUBROUTINE calc_normal_velocity_ab_mimetic(patch_3d,ocean_state, op_coeffs, solverCoeff_sp, p_ext_data)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
     TYPE(t_external_data), TARGET        :: p_ext_data
     !
     !  local variables
@@ -1489,7 +1716,7 @@ CONTAINS
     ! Update of scalar product quantities
     IF(l_staggered_timestep)THEN
       !CALL height_related_quantities(patch_3d, ocean_state, p_ext_data)
-      CALL calculate_thickness(patch_3d, ocean_state, p_ext_data, op_coeffs)
+      CALL calculate_thickness(patch_3d, ocean_state, p_ext_data, op_coeffs, solverCoeff_sp)
       !   CALL calc_scalar_product_veloc_3D( patch,                &
       !                                    & ocean_state%p_prog(nnew(1))%vn,&
       !                                    & ocean_state%p_prog(nnew(1))%vn,&
