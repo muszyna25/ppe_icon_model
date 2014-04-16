@@ -11,7 +11,6 @@ options = {
             'DEBUG'       : False,
             'FORCE'       : False,
             'CALCPSI'     : '/scratch/mpi/CC/mh0287/users/m300064/src/icon-HEAD/scripts/postprocessing/tools/calc_psi.py',
-            'DRAKEFLOW'   : '/scratch/mpi/CC/mh0287/users/m300064/src/icon/scripts/postprocessing/tools/drake_flow.gp',
             'TAG'         : 'r1xxxx',
             'ICONPLOT'    : 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools',
            }
@@ -81,14 +80,19 @@ def usage():
   return """
   # USAGE =====================================================================
   #
-  #   ./archive.py EXP=<expname> FILEPATTER=<pattern> ARCHDIR=<dir> PLOTDIR=<dir>
+  #   ./archive.py EXP=<expname> FILEPATTERN=<pattern> ARCHDIR=<dir> TAG=<rxxxxx>
   #
   # ===========================================================================
   #
-  # expname     : strong for naming things
+  # expname     : string for naming things
+  # tag         : additional placeholder, e.g. for revisions, if not used, set it to ''
   # filepattern : quoted wildcard for model result relative to the 'experiments' dir
   # archdir     : directory, where the archived data is placed (default: ./archive)
-  # plotdir     : where the plots are saved
+  #
+  # more options are (keys area llways uppercase)
+  # DEBUG       : False/True
+  # CALCPSI     : path, where to find the psi calculation and plotting scipt
+  # ICONPLOT    : call for icon_plot.ncl, default is 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools'
   #
   # #
   # !!!! THIS SCRIPT IS MEANT TO BE STARTED IN THE MODEL RESULTS DIRECTORY !!!!
@@ -101,6 +105,7 @@ dbg(options)
 ifiles = glob.glob(options['FILEPATTERN'])
 dbg(ifiles); LOG['ifiles'] = ifiles
 if 0 == len(ifiles):
+    print usage()
     print("Could not find any result files!")
     exit(1)
 else:
