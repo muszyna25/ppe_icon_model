@@ -705,14 +705,20 @@ CONTAINS
     !
     DO jk = 1, klev
       DO jl = 1, jce
+
+        ! no cloud water -> no cloud fraction
         IF (xq_liq(jl,jk) > 0.0_wp .OR. xq_ice(jl,jk) > 0.0_wp) THEN
           cld_frc_sec(jl,jk) = cld_frc(jl,jk)
         ELSE
           cld_frc_sec(jl,jk) = 0.0_wp
         END IF
+
+        ! cloud fraction <= 100% !
+        cld_frc_sec(jl,jk) = MIN( cld_frc_sec(jl,jk), 1.0_wp )
+
       END DO
     END DO
-    !
+
     cld_cvr(1:jce) = 1.0_wp - cld_frc_sec(1:jce,1)
     DO jk = 2, klev
       cld_cvr(1:jce) = cld_cvr(1:jce)                                                &
