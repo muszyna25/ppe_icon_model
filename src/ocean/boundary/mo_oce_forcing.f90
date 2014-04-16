@@ -471,7 +471,7 @@ CONTAINS
     INTEGER :: ncid, dimid
 
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp):: z_relax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp):: z_surfRelax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: temperature_difference, poleLat, waveNo
 
     TYPE(t_subset_range), POINTER :: all_cells
@@ -554,10 +554,10 @@ CONTAINS
       !  - read one data set, annual mean only
       !  - "T": annual mean temperature
       CALL read_netcdf_data (ncid, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-        & patch_2d%cells%decomp_info%glb_index, z_relax)
+        & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
 
       IF (no_tracer>=1) THEN
-        p_sfc_flx%data_surfRelax_Temp(:,:) = z_relax(:,:)
+        p_sfc_flx%data_surfRelax_Temp(:,:) = z_surfRelax(:,:)
       ELSE
         CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
       END IF
@@ -566,8 +566,8 @@ CONTAINS
       !  - "S": annual mean salinity
       IF (no_tracer > 1) THEN
         CALL read_netcdf_data (ncid, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-          & patch_2d%cells%decomp_info%glb_index, z_relax)
-        p_sfc_flx%data_surfRelax_Salt(:,:) = z_relax(:,:)
+          & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
+        p_sfc_flx%data_surfRelax_Salt(:,:) = z_surfRelax(:,:)
       END IF
 
       ! close file
