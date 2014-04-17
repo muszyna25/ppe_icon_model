@@ -69,10 +69,33 @@
   hfls               prm_lhflx
   hfss               prm_shflx
   evspsbl            prm_evap
-
+#
   tauu               prm_u_stress
   tauv               prm_v_stress
 #
+  hfss_wtr           prm_shflx_tile_1
+  hfss_ice           prm_shflx_tile_2
+  hfss_lnd           prm_shflx_tile_3
+#
+  hfls_wtr           prm_lhflx_tile_1
+  hfls_ice           prm_lhflx_tile_2
+  hfls_lnd           prm_lhflx_tile_3
+#
+  rsns_wtr           prm_swflxsfc_tile_1
+  rsns_ice           prm_swflxsfc_tile_2
+  rsns_lnd           prm_swflxsfc_tile_3
+#
+  rlns_wtr           prm_lwflxsfc_tile_1
+  rlns_ice           prm_lwflxsfc_tile_2
+  rlns_lnd           prm_lwflxsfc_tile_3
+#
+  tauu_wtr           prm_u_stress_tile_1
+  tauu_ice           prm_u_stress_tile_2
+  tauu_lnd           prm_u_stress_tile_3
+#
+  tauv_wtr           prm_v_stress_tile_1
+  tauv_ice           prm_v_stress_tile_2
+  tauv_lnd           prm_v_stress_tile_3
 #
 # other names        "add_var" name
 # ---------------------------------

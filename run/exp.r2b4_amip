@@ -170,13 +170,19 @@ dt_checkpoint     = ${dt_checkpoint} ! [s] trigger new restart file
  output_filename  = "${EXPNAME}_atm_phy"
  ml_varlist       = 'cosmu0'  , 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
                     'sic'     , 'sit'     , 'alb'     ,
                     'clt'     , 'ts'      ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'tauu'    , 'tauv'    ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'tauu_sso', 'tauv_sso', 'diss_sso'
 /
 &output_nml
