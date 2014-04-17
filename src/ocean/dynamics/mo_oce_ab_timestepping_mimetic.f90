@@ -242,9 +242,9 @@ CONTAINS
     ! END IF
     
     ! Apply windstress
-    CALL top_bound_cond_horz_veloc(patch_3d, ocean_state, op_coeffs, p_sfc_flx,     &
-      & ocean_state%p_aux%bc_top_u, ocean_state%p_aux%bc_top_v, &
-      & ocean_state%p_aux%bc_top_veloc_cc)
+    CALL top_bound_cond_horz_veloc(patch_3d, ocean_state, op_coeffs, p_sfc_flx) ! ,     &
+ !    & ocean_state%p_aux%bc_top_u, ocean_state%p_aux%bc_top_v, &
+ !    & ocean_state%p_aux%bc_top_veloc_cc)
     
     ! Apply bot boundary condition for horizontal velocity
     CALL bot_bound_cond_horz_veloc(patch_3d, ocean_state, p_phys_param, op_coeffs)

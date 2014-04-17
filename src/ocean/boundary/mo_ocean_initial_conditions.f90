@@ -363,12 +363,6 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    ! Local Variables
-    INTEGER :: jb, jc, je, jk
-    INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
-    REAL(wp):: lat_deg, lon_deg, z_tmp
-
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_bathymetry'
     !-------------------------------------------------------------------------
 
@@ -1693,7 +1687,7 @@ CONTAINS
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: z_dolic
-    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
+    REAL(wp):: distan, lat_deg, lon_deg
     REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width
     REAL(wp):: temperature
 
@@ -1746,8 +1740,8 @@ CONTAINS
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: z_dolic
-    REAL(wp):: distan, lat_deg, lon_deg, z_tmp
-    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width, z_ldiff, z_ltrop, z_lpol
+    REAL(wp):: distan
+    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width
     ! REAL(wp):: z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_DanilovsMunkGyre'
@@ -1852,11 +1846,11 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: z_dolic
     REAL(wp):: lat_deg, lon_deg, z_tmp
-    REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width, z_ldiff, z_ltrop, z_lpol
+    ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_CollapsingDensityFront_StuhnePeltier'
@@ -1941,7 +1935,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
 
     !-------------------------------------------------------------------------
@@ -2079,7 +2073,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
 
     ! Local Variables
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':depth_mountain_orography_Williamson_test5'
@@ -2143,7 +2137,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc
     INTEGER :: start_cell_index, end_cell_index
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':depth_uniform'

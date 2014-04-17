@@ -49,8 +49,9 @@ MODULE mo_oce_forcing
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
-    & init_oce_relax, irelax_3d_s, irelax_3d_t, irelax_2d_s, temperature_relaxation,&
-    & forcing_wind_u_amplitude, forcing_wind_v_amplitude,      &
+    & init_oce_relax, type_3dimRelax_Salt, type_3dimRelax_Temp,                     &
+    & type_surfRelax_Salt, type_surfRelax_Temp,                                     &
+    & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,               &
     & forcing_windstress_u_type, forcing_windstress_v_type,    &
 #ifdef __SX__
     & forcing_windstress_zonalWavePhas,                        &
@@ -122,79 +123,79 @@ CONTAINS
 
     alloc_cell_blocks = p_patch%alloc_cell_blocks
 
-    CALL add_var(var_list, 'forc_wind_u', p_sfc_flx%forc_wind_u , &
+    CALL add_var(var_list, 'topBoundCond_windStress_u', p_sfc_flx%topBoundCond_windStress_u , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_u', 'Pa', 'forc_wind_u', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_u', 'Pa', 'topBoundCond_windStress_u', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_wind_v', p_sfc_flx%forc_wind_v , &
+    CALL add_var(var_list, 'topBoundCond_windStress_v', p_sfc_flx%topBoundCond_windStress_v , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_v', 'Pa', 'forc_wind_v', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_v', 'Pa', 'topBoundCond_windStress_v', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_hflx', p_sfc_flx%forc_hflx , &
+    CALL add_var(var_list, 'HeatFlux_Total', p_sfc_flx%HeatFlux_Total , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_hflx', 'W/m2', 'forc_hflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Total', 'W/m2', 'HeatFlux_Total', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_tot', p_sfc_flx%forc_fw_tot , &
+    CALL add_var(var_list, 'FrshFlux_VolumeTotal', p_sfc_flx%FrshFlux_VolumeTotal , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_tot', 'm/s', 'forc_fw_tot', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'FrshFlux_VolumeTotal', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_swflx', p_sfc_flx%forc_swflx , &
+    CALL add_var(var_list, 'HeatFlux_ShortWave', p_sfc_flx%HeatFlux_ShortWave , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_swflx', 'W/m2', 'forc_swflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_ShortWave', 'W/m2', 'HeatFlux_ShortWave', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_lwflx', p_sfc_flx%forc_lwflx , &
+    CALL add_var(var_list, 'HeatFlux_LongWave', p_sfc_flx%HeatFlux_LongWave , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_lwflx', 'W/m2', 'forc_lwflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_LongWave', 'W/m2', 'HeatFlux_LongWave', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_ssflx', p_sfc_flx%forc_ssflx , &
+    CALL add_var(var_list, 'HeatFlux_Sensible', p_sfc_flx%HeatFlux_Sensible , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_ssflx', 'W/m2', 'forc_ssflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Sensible', 'W/m2', 'HeatFlux_Sensible', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_slflx', p_sfc_flx%forc_slflx , &
+    CALL add_var(var_list, 'HeatFlux_Latent', p_sfc_flx%HeatFlux_Latent , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_slflx', 'W/m2', 'forc_slflx', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Latent', 'W/m2', 'HeatFlux_Latent', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_precip', p_sfc_flx%forc_precip , &
+    CALL add_var(var_list, 'FrshFlux_Precipitation', p_sfc_flx%FrshFlux_Precipitation , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_precip', 'm/s', 'forc_precip', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Precipitation', 'm/s', 'FrshFlux_Precipitation', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_snow', p_sfc_flx%forc_snow , &
+    CALL add_var(var_list, 'FrshFlux_SnowFall', p_sfc_flx%FrshFlux_SnowFall , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_snow', 'm/s', 'forc_snow', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_SnowFall', 'm/s', 'FrshFlux_SnowFall', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_evap', p_sfc_flx%forc_evap , &
+    CALL add_var(var_list, 'FrshFlux_Evaporation', p_sfc_flx%FrshFlux_Evaporation , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_evap', 'm/s', 'forc_evap', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Evaporation', 'm/s', 'FrshFlux_Evaporation', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_runoff', p_sfc_flx%forc_runoff , &
+    CALL add_var(var_list, 'FrshFlux_Runoff', p_sfc_flx%FrshFlux_Runoff , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_runoff', 'm/s', 'forc_runoff', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_bc', p_sfc_flx%forc_fw_bc , &
+    CALL add_var(var_list, 'FrshFlux_TotalSalt', p_sfc_flx%FrshFlux_TotalSalt , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc', 'm/s', 'forc_fw_bc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalSalt', 'm/s', 'FrshFlux_TotalSalt', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_bc_oce', p_sfc_flx%forc_fw_bc_oce , &
+    CALL add_var(var_list, 'FrshFlux_TotalOcean', p_sfc_flx%FrshFlux_TotalOcean , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_oce', 'm/s', 'forc_fw_bc_oce', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalOcean', 'm/s', 'FrshFlux_TotalOcean', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_bc_ice', p_sfc_flx%forc_fw_bc_ice , &
+    CALL add_var(var_list, 'FrshFlux_TotalIce', p_sfc_flx%FrshFlux_TotalIce , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_ice', 'm/s', 'forc_fw_bc_ice', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'forc_hfrelax', p_sfc_flx%forc_hfrelax , &
@@ -207,167 +208,191 @@ CONTAINS
     &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fw_ice_vol', p_sfc_flx%forc_fw_ice_vol, &
+    CALL add_var(var_list, 'FrshFlux_VolumeIce', p_sfc_flx%FrshFlux_VolumeIce, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_ice_vol', 'm/s', 'forc_fw_ice_vol', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     IF(no_tracer>=1) THEN
       ! there are four tracer related fields: tracer focing, tracer relaxation
       ! and both accumulated
-      CALL add_var(var_list, 'forc_tracer', p_sfc_flx%forc_tracer , &
+      CALL add_var(var_list, 'topBoundCond_Temp_vdiff', p_sfc_flx%topBoundCond_Temp_vdiff, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-        &          t_cf_var('forc_tracer', 'm/s', 'forc_tracer', DATATYPE_FLT32),&
+        &          t_cf_var('topBoundCond_Temp_vdiff', 'K*m/s', 'topBoundCond_Temp_vdiff', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-      CALL add_var(var_list, 'forc_tracer_relax', p_sfc_flx%forc_tracer_relax , &
+      CALL add_var(var_list, 'topBoundCond_Salt_vdiff', p_sfc_flx%topBoundCond_Salt_vdiff, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-        &          t_cf_var('forc_tracer_relax', 'm/s', 'forc_tracer_relax', DATATYPE_FLT32),&
+        &          t_cf_var('topBoundCond_Salt_vdiff', 'psu*m/s', 'topBoundCond_Salt_vdiff', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-      CALL add_var(var_list, 'forc_tracer_acc', p_sfc_flx%forc_tracer_acc , &
+      CALL add_var(var_list, 'data_surfRelax_Temp', p_sfc_flx%data_surfRelax_Temp, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-        &          t_cf_var('forc_tracer_acc', 'm/s', 'forc_tracer_acc', DATATYPE_FLT32),&
+        &          t_cf_var('data_surfRelax_Temp', 'C', 'data_surfRelax_Temp', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-      CALL add_var(var_list, 'forc_tracer_relax_acc', p_sfc_flx%forc_tracer_relax_acc , &
+      CALL add_var(var_list, 'data_surfRelax_Salt', p_sfc_flx%data_surfRelax_Salt, &
         &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-        &          t_cf_var('forc_tracer_relax_acc', 'm/s', 'forc_tracer_relax_acc', DATATYPE_FLT32),&
+        &          t_cf_var('data_surfRelax_Salt', 'psu', 'data_surfRelax_Salt', DATATYPE_FLT32),&
         &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-        &          ldims=(/nproma,alloc_cell_blocks,no_tracer/), &
+        &          ldims=(/nproma,alloc_cell_blocks/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'topBoundCond_Temp_vdiff_acc', p_sfc_flx%topBoundCond_Temp_vdiff_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('topBoundCond_Temp_vdiff_acc', 'K*m/s', 'topBoundCond_Temp_vdiff_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'topBoundCond_Salt_vdiff_acc', p_sfc_flx%topBoundCond_Salt_vdiff_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('topBoundCond_Salt_vdiff_acc', 'psu*m/s', 'topBoundCond_Salt_vdiff_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'data_surfRelax_Temp_acc', p_sfc_flx%data_surfRelax_Temp_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('data_surfRelax_Temp_acc', 'C', 'data_surfRelax_Temp_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), &
+        &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(var_list, 'data_surfRelax_Salt_acc', p_sfc_flx%data_surfRelax_Salt_acc , &
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('data_surfRelax_Salt_acc', 'psu', 'data_surfRelax_Salt_acc', DATATYPE_FLT32),&
+        &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), &
         &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-      ALLOCATE(p_sfc_flx%tracer_ptr(no_tracer*4))
+   !  ALLOCATE(p_sfc_flx%tracer_ptr(no_tracer*4))
 
-      CALL set_oce_tracer_info(no_tracer           , &
-        &                      oce_tracer_names    , &
-        &                      oce_tracer_longnames, &
-        &                      oce_tracer_codes    , &
-        &                      oce_tracer_units)
-      DO jtrc = 1,no_tracer
-        CALL add_ref( var_list, 'forc_tracer', &
-          &           'forc_tracer_'//TRIM(oce_tracer_names(jtrc)),          &
-          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
-          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
-          &           t_cf_var('forc_tracer'//TRIM(oce_tracer_names(jtrc)), &
-          &                    oce_tracer_units(jtrc), &
-          &                    'forcing: '//TRIM(oce_tracer_longnames(jtrc)), DATATYPE_FLT32), &
-          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,alloc_cell_blocks/))
-      END DO
-      DO jtrc = no_tracer+1,2*no_tracer
-        i = jtrc - no_tracer
-        CALL add_ref( var_list, 'forc_tracer_relax', &
-          &           'forc_tracer_relax_'//TRIM(oce_tracer_names(i)),          &
-          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
-          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
-          &           t_cf_var('forc_tracer_relax'//TRIM(oce_tracer_names(i)), &
-          &                    oce_tracer_units(i), &
-          &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
-          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,alloc_cell_blocks/))
-      END DO
-      DO jtrc = (2*no_tracer)+1,3*no_tracer
-        i = jtrc - 2*no_tracer
-        CALL add_ref( var_list, 'forc_tracer_acc', &
-          &           'forc_tracer_acc_'//TRIM(oce_tracer_names(i)),          &
-          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
-          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
-          &           t_cf_var('forc_tracer_acc'//TRIM(oce_tracer_names(i)), &
-          &                    oce_tracer_units(i), &
-          &                    'forcing accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
-          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-      END DO
-      DO jtrc = (3*no_tracer)+1,4*no_tracer
-        i = jtrc - 3*no_tracer
-        CALL add_ref( var_list, 'forc_tracer_relax_acc', &
-          &           'forc_tracer_relax_acc_'//TRIM(oce_tracer_names(i)),          &
-          &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
-          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
-          &           t_cf_var('forc_tracer_relax_acc'//TRIM(oce_tracer_names(i)), &
-          &                    oce_tracer_units(i), &
-          &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
-          &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-          &           ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-      END DO
+   !  CALL set_oce_tracer_info(no_tracer           , &
+   !    &                      oce_tracer_names    , &
+   !    &                      oce_tracer_longnames, &
+   !    &                      oce_tracer_codes    , &
+   !    &                      oce_tracer_units)
+   !  DO jtrc = 1,no_tracer
+   !    CALL add_ref( var_list, 'forc_tracer', &
+   !      &           'forc_tracer_'//TRIM(oce_tracer_names(jtrc)),          &
+   !      &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+   !      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+   !      &           t_cf_var('forc_tracer'//TRIM(oce_tracer_names(jtrc)), &
+   !      &                    oce_tracer_units(jtrc), &
+   !      &                    'forcing: '//TRIM(oce_tracer_longnames(jtrc)), DATATYPE_FLT32), &
+   !      &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+   !      &           ldims=(/nproma,alloc_cell_blocks/))
+   !  END DO
+   !  DO jtrc = no_tracer+1,2*no_tracer
+   !    i = jtrc - no_tracer
+   !    CALL add_ref( var_list, 'forc_tracer_relax', &
+   !      &           'forc_tracer_relax_'//TRIM(oce_tracer_names(i)),          &
+   !      &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+   !      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+   !      &           t_cf_var('forc_tracer_relax'//TRIM(oce_tracer_names(i)), &
+   !      &                    oce_tracer_units(i), &
+   !      &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+   !      &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+   !      &           ldims=(/nproma,alloc_cell_blocks/))
+   !  END DO
+   !  DO jtrc = (2*no_tracer)+1,3*no_tracer
+   !    i = jtrc - 2*no_tracer
+   !    CALL add_ref( var_list, 'forc_tracer_acc', &
+   !      &           'forc_tracer_acc_'//TRIM(oce_tracer_names(i)),          &
+   !      &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+   !      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+   !      &           t_cf_var('forc_tracer_acc'//TRIM(oce_tracer_names(i)), &
+   !      &                    oce_tracer_units(i), &
+   !      &                    'forcing accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+   !      &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+   !      &           ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+   !  END DO
+   !  DO jtrc = (3*no_tracer)+1,4*no_tracer
+   !    i = jtrc - 3*no_tracer
+   !    CALL add_ref( var_list, 'forc_tracer_relax_acc', &
+   !      &           'forc_tracer_relax_acc_'//TRIM(oce_tracer_names(i)),          &
+   !      &           p_sfc_flx%tracer_ptr(jtrc)%p,    &
+   !      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,&
+   !      &           t_cf_var('forc_tracer_relax_acc'//TRIM(oce_tracer_names(i)), &
+   !      &                    oce_tracer_units(i), &
+   !      &                    'forcing relaxation accumulated: '//TRIM(oce_tracer_longnames(i)), DATATYPE_FLT32), &
+   !      &           t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+   !      &           ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+   !  END DO
     ENDIF
-    CALL add_var(var_list, 'forc_wind_u_acc', p_sfc_flx%forc_wind_u_acc , &
+    CALL add_var(var_list, 'topBoundCond_windStress_u_acc', p_sfc_flx%topBoundCond_windStress_u_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_u_acc', 'Pa', 'forc_wind_u_acc', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_u_acc', 'Pa', 'topBoundCond_windStress_u_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_wind_v_acc', p_sfc_flx%forc_wind_v_acc , &
+    CALL add_var(var_list, 'topBoundCond_windStress_v_acc', p_sfc_flx%topBoundCond_windStress_v_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_wind_v_acc', 'Pa', 'forc_wind_v_acc', DATATYPE_FLT32),&
+    &          t_cf_var('topBoundCond_windStress_v_acc', 'Pa', 'topBoundCond_windStress_v_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_hflx_acc', p_sfc_flx%forc_hflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_Total_acc', p_sfc_flx%HeatFlux_Total_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_hflx_acc', 'W/m2', 'forc_hflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Total_acc', 'W/m2', 'HeatFlux_Total_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_fw_tot_acc', p_sfc_flx%forc_fw_tot_acc , &
+    CALL add_var(var_list, 'FrshFlux_VolumeTotal_acc', p_sfc_flx%FrshFlux_VolumeTotal_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_tot_acc', 'm/s', 'forc_fw_tot_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeTotal_acc', 'm/s', 'FrshFlux_VolumeTotal_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_swflx_acc', p_sfc_flx%forc_swflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_ShortWave_acc', p_sfc_flx%HeatFlux_ShortWave_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_swflx_acc', 'W/m2', 'forc_swflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_ShortWave_acc', 'W/m2', 'HeatFlux_ShortWave_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_lwflx_acc', p_sfc_flx%forc_lwflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_LongWave_acc', p_sfc_flx%HeatFlux_LongWave_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_lwflx_acc', 'W/m2', 'forc_lwflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_LongWave_acc', 'W/m2', 'HeatFlux_LongWave_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_ssflx_acc', p_sfc_flx%forc_ssflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_Sensible_acc', p_sfc_flx%HeatFlux_Sensible_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_ssflx_acc', 'W/m2', 'forc_ssflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Sensible_acc', 'W/m2', 'HeatFlux_Sensible_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_slflx_acc', p_sfc_flx%forc_slflx_acc , &
+    CALL add_var(var_list, 'HeatFlux_Latent_acc', p_sfc_flx%HeatFlux_Latent_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_slflx_acc', 'W/m2', 'forc_slflx_acc', DATATYPE_FLT32),&
+    &          t_cf_var('HeatFlux_Latent_acc', 'W/m2', 'HeatFlux_Latent_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_precip_acc', p_sfc_flx%forc_precip_acc , &
+    CALL add_var(var_list, 'FrshFlux_Precipitation_acc', p_sfc_flx%FrshFlux_Precipitation_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_precip_acc', 'm/s', 'forc_precip_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Precipitation_acc', 'm/s', 'FrshFlux_Precipitation_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_snow_acc', p_sfc_flx%forc_snow_acc , &
+    CALL add_var(var_list, 'FrshFlux_SnowFall_acc', p_sfc_flx%FrshFlux_SnowFall_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_snow_acc', 'm/s', 'forc_snow_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_SnowFall_acc', 'm/s', 'FrshFlux_SnowFall_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_evap_acc', p_sfc_flx%forc_evap_acc , &
+    CALL add_var(var_list, 'FrshFlux_Evaporation_acc', p_sfc_flx%FrshFlux_Evaporation_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_evap_acc', 'm/s', 'forc_evap_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Evaporation_acc', 'm/s', 'FrshFlux_Evaporation_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default", "oce_force_essentials"))
-    CALL add_var(var_list, 'forc_runoff_acc', p_sfc_flx%forc_runoff_acc , &
+    CALL add_var(var_list, 'FrshFlux_Runoff_acc', p_sfc_flx%FrshFlux_Runoff_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_runoff_acc', 'm/s', 'forc_runoff_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_Runoff_acc', 'm/s', 'FrshFlux_Runoff_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_bc_acc', p_sfc_flx%forc_fw_bc_acc , &
+    CALL add_var(var_list, 'FrshFlux_TotalSalt_acc', p_sfc_flx%FrshFlux_TotalSalt_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_acc', 'm/s', 'forc_fw_bc_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalSalt_acc', 'm/s', 'FrshFlux_TotalSalt_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_bc_oce_acc', p_sfc_flx%forc_fw_bc_oce_acc , &
+    CALL add_var(var_list, 'FrshFlux_TotalOcean_acc', p_sfc_flx%FrshFlux_TotalOcean_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_oce_acc', 'm/s', 'forc_fw_bc_oce_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalOcean_acc', 'm/s', 'FrshFlux_TotalOcean_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_bc_ice_acc', p_sfc_flx%forc_fw_bc_ice_acc , &
+    CALL add_var(var_list, 'FrshFlux_TotalIce_acc', p_sfc_flx%FrshFlux_TotalIce_acc , &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_bc_ice_acc', 'm/s', 'forc_fw_bc_ice_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_TotalIce_acc', 'm/s', 'FrshFlux_TotalIce_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'forc_hfrelax_acc', p_sfc_flx%forc_hfrelax_acc , &
@@ -380,22 +405,22 @@ CONTAINS
     &          t_cf_var('forc_fwrelax_acc', 'm/s', 'forc_fwrelax_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fw_ice_vol_acc', p_sfc_flx%forc_fw_ice_vol_acc, &
+    CALL add_var(var_list, 'FrshFlux_VolumeIce_acc', p_sfc_flx%FrshFlux_VolumeIce_acc, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fw_ice_vol_acc', 'm/s', 'forc_fw_ice_vol_acc', DATATYPE_FLT32),&
+    &          t_cf_var('FrshFlux_VolumeIce_acc', 'm/s', 'FrshFlux_VolumeIce_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
 
     ! cartesians
-    ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,alloc_cell_blocks), STAT=ist)
+    ALLOCATE(p_sfc_flx%topBoundCond_windStress_cc(nproma,alloc_cell_blocks), STAT=ist)
     IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for forcing wind_cc  failed')
+      CALL finish(TRIM(routine),'allocation for forcing wind stress cc  failed')
     END IF
 
     ! init of cartesian coordinates:
-    p_sfc_flx%forc_wind_cc(:,:)%x(1) = 0.0_wp
-    p_sfc_flx%forc_wind_cc(:,:)%x(2) = 0.0_wp
-    p_sfc_flx%forc_wind_cc(:,:)%x(3) = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_cc(:,:)%x(1) = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_cc(:,:)%x(2) = 0.0_wp
+    p_sfc_flx%topBoundCond_windStress_cc(:,:)%x(3) = 0.0_wp
 
     CALL message(TRIM(routine), 'end' )
 
@@ -422,9 +447,9 @@ CONTAINS
 
     ! forcing fields are handled by the ocean_default_list
 
-    DEALLOCATE(p_sfc_flx%forc_wind_cc, STAT=ist)
+    DEALLOCATE(p_sfc_flx%topBoundCond_windStress_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for forcing wind cc failed')
+      CALL finish(TRIM(routine),'deallocation for forcing wind stress cc failed')
     END IF
     CALL message(TRIM(routine), 'end' )
 
@@ -459,7 +484,7 @@ CONTAINS
     INTEGER :: ncid, dimid
 
     REAL(wp):: z_c(nproma,1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp):: z_relax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp):: z_surfRelax(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: temperature_difference, poleLat, waveNo
 
     TYPE(t_subset_range), POINTER :: all_cells
@@ -542,10 +567,10 @@ CONTAINS
       !  - read one data set, annual mean only
       !  - "T": annual mean temperature
       CALL read_netcdf_data (ncid, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-        & patch_2d%cells%decomp_info%glb_index, z_relax)
+        & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
 
       IF (no_tracer>=1) THEN
-        p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
+        p_sfc_flx%data_surfRelax_Temp(:,:) = z_surfRelax(:,:)
       ELSE
         CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
       END IF
@@ -554,8 +579,8 @@ CONTAINS
       !  - "S": annual mean salinity
       IF (no_tracer > 1) THEN
         CALL read_netcdf_data (ncid, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
-          & patch_2d%cells%decomp_info%glb_index, z_relax)
-        p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
+          & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
+        p_sfc_flx%data_surfRelax_Salt(:,:) = z_surfRelax(:,:)
       END IF
 
       ! close file
@@ -565,8 +590,8 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
         DO jc = start_cell_index, end_cell_index
           IF ( patch_3d%lsm_c(jc,1,jb) > sea_boundary ) THEN
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
-            IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
+            p_sfc_flx%data_surfRelax_Temp(jc,jb) = 0.0_wp
+            IF (no_tracer>1) p_sfc_flx%data_surfRelax_Salt(jc,jb) = 0.0_wp
           ENDIF
         END DO
       END DO
@@ -582,9 +607,9 @@ CONTAINS
     !
     !-------------------------------------------------------
 
-    SELECT CASE(temperature_relaxation)
+    SELECT CASE(type_surfRelax_Temp)
     CASE(3)
-      p_sfc_flx%forc_tracer_relax(:,:,1) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
+      p_sfc_flx%data_surfRelax_Temp(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
 
     CASE(4)
       ! smooth ape relaxation, as in temperature_smoothAPE in mo_cean_initial_conditions
@@ -597,7 +622,7 @@ CONTAINS
         DO jc = start_cell_index, end_cell_index
           DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
 
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = relax_temperature_min    + &
+            p_sfc_flx%data_surfRelax_Temp(jc,jb) = relax_temperature_min    + &
               & (COS(waveNo * MIN(patch_2d%cells%center(jc,jb)%lat, poleLat))**2) * temperature_difference
 
           END DO
@@ -606,35 +631,35 @@ CONTAINS
 
     END SELECT
 
-    IF (irelax_2d_s == 3) THEN
+    IF (type_surfRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
-        p_sfc_flx%forc_tracer_relax(:,:,2) = ocean_state%p_prog(nold(1))%tracer(:,1,:,2)
+        p_sfc_flx%data_surfRelax_Salt(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,2)
       END IF
     END IF
 
-    IF (irelax_3d_t == 3) THEN
-      ocean_state%p_aux%relax_3d_data_t(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    IF (type_3dimRelax_Temp == 3) THEN
+      ocean_state%p_aux%data_3dimRelax_Temp(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
     END IF
-    IF (irelax_3d_s == 3) THEN
+    IF (type_3dimRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
-        ocean_state%p_aux%relax_3d_data_s(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+        ocean_state%p_aux%data_3dimRelax_Salt(:,:,:) = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
       ELSE
-        CALL finish(TRIM(routine),' irelax_3d_S=3 and no_tracer<2 - ABORT')
+        CALL finish(TRIM(routine),' type_3dimRelax_Salt=3 and no_tracer<2 - ABORT')
       END IF
     END IF
 
     !---------Debug Diagnostics-------------------------------------------
-    IF (temperature_relaxation > 0) THEN
+    IF (type_surfRelax_Temp > 0) THEN
       idt_src=0  ! output print level - 0: print in any case
-      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
+      z_c(:,1,:) = p_sfc_flx%data_surfRelax_Temp(:,:)
       CALL dbg_print('init relaxation - T'       ,z_c      ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     END IF
-    IF (irelax_2d_s > 0) THEN
+    IF (type_surfRelax_Salt > 0) THEN
       IF (no_tracer > 1) THEN
-        z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
+        z_c(:,1,:) = p_sfc_flx%data_surfRelax_Salt(:,:)
         CALL dbg_print('init relaxation - S'       ,z_c   ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
       ELSE
-        CALL finish(TRIM(routine),' irelax_2d_S>0 and no_tracer<2 - ABORT')
+        CALL finish(TRIM(routine),' type_surfRelax_Salt>0 and no_tracer<2 - ABORT')
       END IF
     END IF
 
@@ -653,11 +678,11 @@ CONTAINS
 
     all_cells => patch_3d%p_patch_2d(1)%cells%All
 
-    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_u,&
-      & forcing_wind_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
+    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%topBoundCond_windStress_u,&
+      & forcing_windStress_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
-    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%forc_wind_v,&
-      & forcing_wind_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
+    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%topBoundCond_windStress_v,&
+      & forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     IF (init_oce_relax > 0) THEN
       CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)

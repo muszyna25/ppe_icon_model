@@ -967,26 +967,26 @@ CONTAINS
     
     ! allocation of 3-dim tracer relaxation:
     IF (no_tracer >= 1) THEN
-      CALL add_var(ocean_default_list,'relax_3d_data_T',p_os_aux%relax_3d_data_t,&
+      CALL add_var(ocean_default_list,'data_3dimRelax_Temp',p_os_aux%data_3dimRelax_Temp,&
         & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('relax_3d_data_T','','', DATATYPE_FLT32),&
+        & za_depth_below_sea, t_cf_var('data_3dimRelax_Temp','','', DATATYPE_FLT32),&
         & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-      CALL add_var(ocean_default_list,'relax_3d_forc_T',p_os_aux%relax_3d_forc_t,&
+      CALL add_var(ocean_default_list,'forc_3dimRelax_Temp',p_os_aux%forc_3dimRelax_Temp,&
         & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('relax_3d_forc_T','','', DATATYPE_FLT32),&
+        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Temp','','', DATATYPE_FLT32),&
         & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
     END IF
     IF (no_tracer == 2) THEN
-      CALL add_var(ocean_default_list,'relax_3d_data_S',p_os_aux%relax_3d_data_s,&
+      CALL add_var(ocean_default_list,'data_3dimRelax_Salt',p_os_aux%data_3dimRelax_Salt,&
         & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('relax_3d_data_S','','', DATATYPE_FLT32),&
+        & za_depth_below_sea, t_cf_var('data_3dimRelax_Salt','','', DATATYPE_FLT32),&
         & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
-      CALL add_var(ocean_default_list,'relax_3d_forc_S',p_os_aux%relax_3d_forc_s,&
+      CALL add_var(ocean_default_list,'forc_3dimRelax_Salt',p_os_aux%forc_3dimRelax_Salt,&
         & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('relax_3d_forc_S','','', DATATYPE_FLT32),&
+        & za_depth_below_sea, t_cf_var('forc_3dimRelax_Salt','','', DATATYPE_FLT32),&
         & t_grib2_var(255,255,255,DATATYPE_PACK16,grid_reference, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
     END IF

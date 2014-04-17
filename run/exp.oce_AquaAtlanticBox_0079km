@@ -67,7 +67,7 @@ cat > ${ocean_namelist} << EOF
   output_interval  = "${nout_interv}"
   steps_per_file   = ${steps_per_file}                ! error with ""
   output_grid      = .true.
-  ml_varlist       =  'group:oce_essentials','forc_wind_u','A_tracer_v_T'
+  ml_varlist       =  'group:oce_essentials','topBoundCond_windStress_u','A_tracer_v_T'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
@@ -127,14 +127,14 @@ cat > ${ocean_namelist} << EOF
   iforc_oce = 11
   forcing_windstress_u_type   = 111
   forcing_windstress_v_type   = 0 ! 106
-  forcing_wind_u_amplitude    = 0.1
+  forcing_windStress_u_amplitude    = 0.1
   forcing_smooth_steps        = 1
-  temperature_relaxation      = 3
+  type_surfRelax_Temp      = 3
 ! relax_temperature_min       = 0.0
 ! relax_temperature_max       = 16.0
   init_oce_relax              = 2
   forcing_temperature_poleLat = 45.0
-  relaxation_param            = 0.3
+  para_surfRelax_Temp            = 0.3
 /
 &ocean_initialConditions_nml
   initial_salinity_type      = 200  ! 202    

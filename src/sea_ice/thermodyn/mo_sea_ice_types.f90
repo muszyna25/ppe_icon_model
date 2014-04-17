@@ -63,52 +63,55 @@ MODULE mo_sea_ice_types
     ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
     ! dimension: (nproma, nblks_c)
     REAL(wp), POINTER ::   &
-      &  forc_wind_u      (:,:),     & ! forcing of zonal component of velocity equation           [Pa]
-      &  forc_wind_v      (:,:),     & ! forcing of meridional component of velocity equation      [Pa]
-      &  forc_swflx       (:,:),     & ! surface short wave heat flux                              [W/m2]
-      &  forc_lwflx       (:,:),     & ! surface long wave heat flux                               [W/m2]
-      &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
-      &  forc_slflx       (:,:),     & ! surface latent heat flux                                  [W/m2]
-      &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_snow        (:,:),     & ! total snow flux                                           [m/s]
-      &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
-      &  forc_runoff      (:,:),     & ! river runoff flux                                         [m/s]
-      &  forc_fw_bc       (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
-      &  forc_fw_bc_oce   (:,:),     & ! forcing surface freshwater flux at open ocean             [m/s]
-      &  forc_fw_bc_ice   (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
-      &  forc_fw_ice_vol  (:,:),     & ! forcing volume flux for height equation under sea ice     [m/s]
-      &  forc_fwrelax     (:,:),     & ! diagnosed surface freshwater flux due to relaxation       [m/s]
-      &  forc_fw_tot      (:,:),     & ! sum of forcing surface freshwater including relaxation    [m/s]
-      &  forc_hfrelax     (:,:),     & ! diagnosed surface heat flux due to relaxation             [m/s]
-      &  forc_hflx        (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
-      &  forc_tracer      (:,:,:),   & ! forcing of tracer in vertical diffusion equation          [K*m/s; psu*m/s]
-      &  forc_tracer_relax(:,:,:),   & ! tracer relaxation: contains data to which a tracer
-      !                                  is relaxated, 3rd index refers to tracer id               [K; psu]
+      &  topBoundCond_windStress_u (:,:), & ! forcing of zonal component of velocity equation           [Pa]
+      &  topBoundCond_windStress_v (:,:), & ! forcing of meridional component of velocity equation      [Pa]
+      &  HeatFlux_ShortWave        (:,:), & ! surface short wave heat flux                              [W/m2]
+      &  HeatFlux_LongWave         (:,:), & ! surface long wave heat flux                               [W/m2]
+      &  HeatFlux_Sensible         (:,:), & ! surface sensible heat flux                                [W/m2]
+      &  HeatFlux_Latent           (:,:), & ! surface latent heat flux                                  [W/m2]
+      &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
+      &  FrshFlux_Precipitation    (:,:), & ! total precipitation flux                                  [m/s]
+      &  FrshFlux_SnowFall         (:,:), & ! total snow flux                                           [m/s]
+      &  FrshFlux_Evaporation      (:,:), & ! evaporation flux                                          [m/s]
+      &  FrshFlux_Runoff           (:,:), & ! river runoff flux                                         [m/s]
+      &  FrshFlux_TotalSalt        (:,:), & ! sum of forcing surface freshwater flux from BC            [m/s]
+      &  FrshFlux_TotalOcean       (:,:), & ! forcing surface freshwater flux at open ocean             [m/s]
+      &  FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux under sea ice             [m/s]
+      &  FrshFlux_VolumeIce        (:,:), & ! forcing volume flux for height equation under sea ice     [m/s]
+      &  FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
+      &  topBoundCond_Temp_vdiff   (:,:), & ! forcing of temperature in vertical diffusion equation     [K*m/s]
+      &  topBoundCond_Salt_vdiff   (:,:), & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
+      &  data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [K]
+      &  data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
+      &  forc_hfrelax              (:,:), & ! diagnosed surface heat flux due to relaxation (EMPTY)     [m/s]
+      &  forc_fwrelax              (:,:), & ! diagnosed surface freshwater flux due to relaxation       [m/s]
       !
       !  accumulations variables - comments see above
-      &  forc_wind_u_acc      (:,:),     &
-      &  forc_wind_v_acc      (:,:),     &
-      &  forc_swflx_acc       (:,:),     &
-      &  forc_lwflx_acc       (:,:),     &
-      &  forc_ssflx_acc       (:,:),     &
-      &  forc_slflx_acc       (:,:),     &
-      &  forc_precip_acc      (:,:),     &
-      &  forc_snow_acc        (:,:),     &
-      &  forc_evap_acc        (:,:),     &
-      &  forc_runoff_acc      (:,:),     &
-      &  forc_fw_bc_acc       (:,:),     &
-      &  forc_fw_bc_oce_acc   (:,:),     &
-      &  forc_fw_bc_ice_acc   (:,:),     &
-      &  forc_fwrelax_acc     (:,:),     &
-      &  forc_fw_ice_vol_acc  (:,:),     &
-      &  forc_fw_tot_acc      (:,:),     &
+      &  topBoundCond_windStress_u_acc  (:,:),  &
+      &  topBoundCond_windStress_v_acc  (:,:),  &
+      &  HeatFlux_ShortWave_acc         (:,:),  &
+      &  HeatFlux_LongWave_acc          (:,:),  &
+      &  HeatFlux_Sensible_acc          (:,:),  &
+      &  HeatFlux_Latent_acc            (:,:),  &
+      &  HeatFlux_Total_acc             (:,:),  &
+      &  FrshFlux_Precipitation_acc     (:,:),  &
+      &  FrshFlux_SnowFall_acc          (:,:),  &
+      &  FrshFlux_Evaporation_acc       (:,:),  &
+      &  FrshFlux_Runoff_acc            (:,:),  &
+      &  FrshFlux_TotalSalt_acc         (:,:),  &
+      &  FrshFlux_TotalOcean_acc        (:,:),  &
+      &  FrshFlux_TotalIce_acc          (:,:),  &
+      &  FrshFlux_VolumeIce_acc         (:,:),  &
+      &  FrshFlux_VolumeTotal_acc       (:,:),  &
+      &  topBoundCond_Temp_vdiff_acc    (:,:),  &
+      &  topBoundCond_Salt_vdiff_acc    (:,:),  &
       &  forc_hfrelax_acc     (:,:),     &
-      &  forc_hflx_acc        (:,:),     &
-      &  forc_tracer_acc      (:,:,:),   &
-      &  forc_tracer_relax_acc(:,:,:)     
+      &  forc_fwrelax_acc               (:,:),  &
+      &  data_surfRelax_Temp_acc          (:,:),   &
+      &  data_surfRelax_Salt_acc(:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
-      & ALLOCATABLE :: forc_wind_cc(:,:)
+      & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
 
     TYPE(t_ptr2d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_sfc_flx
@@ -184,20 +187,19 @@ MODULE mo_sea_ice_types
     INTEGER ::     counter
 
     REAL(wp), ALLOCATABLE ::   &
-      &  forc_wind_u      (:,:),     & ! forcing of zonal component of velocity equation,
-      &  forc_wind_v      (:,:),     & ! forcing of meridional component of velocity equation,
-      &  forc_swflx       (:,:),     & ! surface short wave heat flux                              [W/m2]
-      &  forc_lwflx       (:,:),     & ! surface long wave heat flux                               [W/m2]
-      &  forc_ssflx       (:,:),     & ! surface sensible heat flux                                [W/m2]
-      &  forc_slflx       (:,:),     & ! surface latent heat flux                                  [W/m2]
-      &  forc_precip      (:,:),     & ! total precipitation flux                                  [m/s]
-      &  forc_snow        (:,:),     & ! total snow flux                                           [m/s]
-      &  forc_evap        (:,:),     & ! evaporation flux                                          [m/s]
-      &  forc_runoff      (:,:)!     & ! river runoff flux                                         [m/s]
-  !   &  forc_hflx        (:,:),     & ! forcing of temperature tracer with surface heat flux      [W/m2]
-  !   &  forc_fw_tot      (:,:)      & ! forcing of salinity tracer with surface freshwater flux   [m/s]
+      &  topBoundCond_windStress_u(:,:),     & ! forcing of zonal component of velocity equation,
+      &  topBoundCond_windStress_v(:,:),     & ! forcing of meridional component of velocity equation,
+      &  HeatFlux_ShortWave       (:,:),     & ! surface short wave heat flux                              [W/m2]
+      &  HeatFlux_LongWave        (:,:),     & ! surface long wave heat flux                               [W/m2]
+      &  HeatFlux_Sensible        (:,:),     & ! surface sensible heat flux                                [W/m2]
+      &  HeatFlux_Latent          (:,:),     & ! surface latent heat flux                                  [W/m2]
+      &  FrshFlux_Precipitation      (:,:),     & ! total precipitation flux                                  [m/s]
+      &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
+      &  FrshFlux_Evaporation        (:,:),     & ! evaporation flux                                          [m/s]
+      &  FrshFlux_Runoff      (:,:)!     & ! river runoff flux                                         [m/s]
+
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
-      & ALLOCATABLE :: forc_wind_cc(:,:)
+      & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
 
   END TYPE t_atmos_fluxes
 

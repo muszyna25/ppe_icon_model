@@ -1246,7 +1246,6 @@ CONTAINS
     slev = 1
     elev = n_zlev
 
-
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, start_edge_index, end_edge_index)
 

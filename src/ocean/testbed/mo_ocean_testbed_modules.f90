@@ -69,7 +69,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
-  USE mo_oce_bulk,               ONLY: update_sfcflx
+  USE mo_oce_bulk,               ONLY: update_surface_flux
   USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
   USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
     & destruct_atmos_fluxes,&
@@ -334,7 +334,7 @@ CONTAINS
 
       ! Set model time.
       CALL add_time(dtime,0,0,0,datetime)
-      CALL update_sfcflx(patch_3D, p_os(n_dom), p_as, p_ice, Qatm, surface_fluxes, jstep, datetime, &
+      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, Qatm, surface_fluxes, jstep, datetime, &
         &  operators_coefficients)
 
     END DO

@@ -97,16 +97,16 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!  mpi parallelized LL
   !!
-  SUBROUTINE top_bound_cond_horz_veloc( patch_3D, p_os, p_op_coeff, p_sfc_flx, &
-    & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
+  SUBROUTINE top_bound_cond_horz_veloc( patch_3D, p_os, p_op_coeff, p_sfc_flx)  !  , &
+ !  & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D
     TYPE(t_hydro_ocean_state), INTENT(inout)   :: p_os            ! ocean state variable
     TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
     TYPE(t_sfc_flx)                            :: p_sfc_flx       ! external data
-    REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
-    REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates), INTENT(inout) :: top_bc_u_cc(:,:)
+ !  REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
+ !  REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,alloc_cell_blocks)
+ !  TYPE(t_cartesian_coordinates), INTENT(inout) :: top_bc_u_cc(:,:)
     
     !Local variables
     INTEGER :: jc, jb
@@ -146,9 +146,9 @@ CONTAINS
      DO jb = all_cells%start_block, all_cells%end_block
        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
        DO jc = i_startidx_c, i_endidx_c
-         top_bc_u_c(jc,jb)    =0.0_wp
-         top_bc_v_c(jc,jb)    =0.0_wp
-         top_bc_u_cc(jc,jb)%x =0.0_wp
+         p_os%p_aux%bc_top_u(jc,jb)          =0.0_wp
+         p_os%p_aux%bc_top_v(jc,jb)          =0.0_wp
+         p_os%p_aux%bc_top_veloc_cc(jc,jb)%x =0.0_wp
        END DO
      END DO
 
@@ -159,15 +159,15 @@ CONTAINS
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-            top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)/z_scale(jc,jb)
-            top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)/z_scale(jc,jb)
-            top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x/z_scale(jc,jb)
+            p_os%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)/z_scale(jc,jb)
+            p_os%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)/z_scale(jc,jb)
+            p_os%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x/z_scale(jc,jb)
           ENDIF
         END DO
       END DO
 
  !  CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
- !    ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
+ !    ! TODO: topBoundCond_windStress_u is not a velocity, but boundary condition for diffusion
  !    !       to subtract velocity from wind stress is unphysical - to be checked
  !    !  option disabled (#slo#, 2014-04)
 
@@ -176,11 +176,11 @@ CONTAINS
  !      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
  !      DO jc = i_startidx_c, i_endidx_c
  !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
- !        top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
+ !        top_bc_u_c(jc,jb)    = ( p_sfc_flx%topBoundCond_windStress_u(jc,jb)   &
  !          & - p_os%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
- !        top_bc_v_c(jc,jb)    = ( p_sfc_flx%forc_wind_v(jc,jb)   &
+ !        top_bc_v_c(jc,jb)    = ( p_sfc_flx%topBoundCond_windStress_v(jc,jb)   &
  !          & - p_os%p_diag%v(jc,1,jb) ) / z_scale(jc,jb)
- !        top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
+ !        top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x &
  !          & - p_os%p_diag%p_vn(jc,1,jb)%x)/z_scale(jc,jb)
  !        ENDIF
  !      END DO
@@ -188,7 +188,7 @@ CONTAINS
 
  !  CASE (3) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer as in 2
  !           ! but gradually increase the for forcing_smooth_steps
- !    ! TODO: forc_wind_u is not a velocity, but boundary condition for diffusion
+ !    ! TODO: topBoundCond_windStress_u is not a velocity, but boundary condition for diffusion
  !    !       to subtract velocity from wind stress is unphysical - to be checked
  !    !  option disabled (#slo#, 2014-04)
 
@@ -204,14 +204,14 @@ CONTAINS
  !      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
  !      DO jc = i_startidx_c, i_endidx_c
  !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
- !          u_diff = p_sfc_flx%forc_wind_u(jc,jb) - p_os%p_diag%u(jc,1,jb)
- !          v_diff = p_sfc_flx%forc_wind_v(jc,jb) - p_os%p_diag%v(jc,1,jb)
+ !          u_diff = p_sfc_flx%topBoundCond_windStress_u(jc,jb) - p_os%p_diag%u(jc,1,jb)
+ !          v_diff = p_sfc_flx%topBoundCond_windStress_v(jc,jb) - p_os%p_diag%v(jc,1,jb)
 
  !          stress_coeff = smooth_coeff / z_scale(jc,jb)
 
  !          top_bc_u_c(jc,jb)    = u_diff * stress_coeff
  !          top_bc_v_c(jc,jb)    = v_diff * stress_coeff
- !          top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
+ !          top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x &
  !            & - p_os%p_diag%p_vn(jc,1,jb)%x) * stress_coeff
  !        ENDIF
  !      END DO
@@ -234,9 +234,9 @@ CONTAINS
 
             stress_coeff = smooth_coeff / z_scale(jc,jb)
 
-            top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)     * stress_coeff
-            top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)     * stress_coeff
-            top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x  * stress_coeff
+            p_os%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)*stress_coeff
+            p_os%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)*stress_coeff
+            p_os%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x*stress_coeff
 
          ENDIF
        END DO
@@ -247,18 +247,15 @@ CONTAINS
 
     END SELECT
 
-    CALL map_cell2edges_3D( patch_3D, top_bc_u_cc,p_os%p_aux%bc_top_vn,p_op_coeff,  level=1)
+    CALL map_cell2edges_3D( patch_3D, p_os%p_aux%bc_top_veloc_cc,p_os%p_aux%bc_top_vn,p_op_coeff,level=1)
     CALL sync_patch_array(SYNC_E, patch_3D%p_patch_2D(1), p_os%p_aux%bc_top_vn)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('top bound.cond. u_c'         ,top_bc_u_c               ,str_module,idt_src, &
-      in_subset=patch_2D%cells%owned)
-    CALL dbg_print('top bound.cond. v_c'         ,top_bc_v_c               ,str_module,idt_src, &
-      in_subset=patch_2D%cells%owned)
+    CALL dbg_print('top bound.cond. u' ,p_os%p_aux%bc_top_u ,str_module,idt_src, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('top bound.cond. v' ,p_os%p_aux%bc_top_v ,str_module,idt_src, in_subset=patch_2D%cells%owned)
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('top bound.cond. vn'          ,p_os%p_aux%bc_top_vn     ,str_module,idt_src, &
-      in_subset=patch_2D%edges%owned)
+    CALL dbg_print('top bound.cond. vn',p_os%p_aux%bc_top_vn,str_module,idt_src, in_subset=patch_2D%edges%owned)
     !---------------------------------------------------------------------
     
   END SUBROUTINE top_bound_cond_horz_veloc
@@ -679,15 +676,26 @@ CONTAINS
     !-----------------------------------------------------------------------
     all_cells => patch_2D%cells%all
     
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%forc_tracer(jc,jb, tracer_id)
+    IF (tracer_id == 1) THEN
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb)
+        END DO
       END DO
-    END DO
+    ELSE IF (tracer_id == 2) THEN
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
+        END DO
+      END DO
+    ELSE
+      CALL finish("top_bound_cond_tracer", "unknown boundary condition for tracer_id>2")
+    END IF
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
+    idt_src=4  ! output print level (1-5, fix)
     z_c(:,:)=top_bc_tracer(:,:,tracer_id)
     CALL dbg_print('top bound.cond.tracer' ,z_c, str_module, idt_src, in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------

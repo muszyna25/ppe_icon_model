@@ -405,7 +405,7 @@ CONTAINS
     INTEGER :: iniyear, curyear, offset
     INTEGER :: jc, jb, no_set
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
+    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax
     REAL(wp) ::  z_c2(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) ::   tfw(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), POINTER :: t_top(:,:), s_top(:,:)
@@ -567,24 +567,24 @@ CONTAINS
 #endif
     IF (info > 0 ) THEN
       buffer(nbr_hor_points+1:nbr_points,1:3) = 0.0_wp
-      surface_fluxes%forc_precip(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_snow  (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_evap  (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%FrshFlux_Precipitation(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%FrshFlux_SnowFall  (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%FrshFlux_Evaporation  (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
       
-      surface_fluxes%forc_precip(:,:) = surface_fluxes%forc_precip(:,:)/rho_ref
-      surface_fluxes%forc_snow  (:,:) = surface_fluxes%forc_snow(:,:)/rho_ref
-      surface_fluxes%forc_evap  (:,:) = surface_fluxes%forc_evap(:,:)/rho_ref
+      surface_fluxes%FrshFlux_Precipitation(:,:) = surface_fluxes%FrshFlux_Precipitation(:,:)/rho_ref
+      surface_fluxes%FrshFlux_SnowFall  (:,:) = surface_fluxes%FrshFlux_SnowFall(:,:)/rho_ref
+      surface_fluxes%FrshFlux_Evaporation  (:,:) = surface_fluxes%FrshFlux_Evaporation(:,:)/rho_ref
       
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_precip(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_snow(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_evap(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%FrshFlux_Precipitation(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%FrshFlux_SnowFall(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%FrshFlux_Evaporation(:,:))
     END IF
     ! ENDIF ! forcing_enable_freshwater
     !
     ! Apply surface air temperature
-    !  - it can be used for relaxing SST to T_a with temperature_relaxation=1
-    !  - set to 0 to omit relaxation to T_a=forc_tracer_relax(:,:,1)
-    ! IF (temperature_relaxation >=1) THEN
+    !  - it can be used for relaxing SST to T_a with type_surfRelax_Temp=1
+    !  - set to 0 to omit relaxation to T_a=data_surfRelax_Temp(:,:)
+    ! IF (type_surfRelax_Temp >=1) THEN
     field_shape(3) = 1
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(4), nbr_hor_points, 1, 1, 1, buffer, info, ierror )
@@ -593,11 +593,11 @@ CONTAINS
 #endif
     IF (info > 0 ) THEN
       buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-      surface_fluxes%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%data_surfRelax_Temp(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-      surface_fluxes%forc_tracer_relax(:,:,1) = surface_fluxes%forc_tracer_relax(:,:,1) - tmelt
+      surface_fluxes%data_surfRelax_Temp(:,:) = surface_fluxes%data_surfRelax_Temp(:,:) - tmelt
     END IF
-    ! ENDIF  ! temperature_relaxation >=1
+    ! ENDIF  ! type_surfRelax_Temp >=1
     !
     ! Apply total heat flux - 4 parts - record 5
     ! surface_fluxes%swflx(:,:)  ocean short wave heat flux                              [W/m2]
@@ -612,17 +612,17 @@ CONTAINS
 #endif
     IF (info > 0 ) THEN
       buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
-      surface_fluxes%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
-      surface_fluxes%forc_slflx(:,:) = RESHAPE(buffer(:,4),(/ nproma, patch_2d%nblks_c /) )
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_swflx(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_lwflx(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_ssflx(:,:))
-      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%forc_slflx(:,:))
+      surface_fluxes%HeatFlux_ShortWave(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%HeatFlux_LongWave (:,:) = RESHAPE(buffer(:,2),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%HeatFlux_Sensible (:,:) = RESHAPE(buffer(:,3),(/ nproma, patch_2d%nblks_c /) )
+      surface_fluxes%HeatFlux_Latent   (:,:) = RESHAPE(buffer(:,4),(/ nproma, patch_2d%nblks_c /) )
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_ShortWave(:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_LongWave (:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_Sensible (:,:))
+      CALL sync_patch_array(sync_c, patch_2d, surface_fluxes%HeatFlux_Latent   (:,:))
       ! sum of fluxes for ocean boundary condition
-      surface_fluxes%forc_hflx(:,:) = surface_fluxes%forc_swflx(:,:) + surface_fluxes%forc_lwflx(:,:) &
-          & + surface_fluxes%forc_ssflx(:,:) + surface_fluxes%forc_slflx(:,:)
+      surface_fluxes%HeatFlux_Total(:,:) = surface_fluxes%HeatFlux_ShortWave(:,:) + surface_fluxes%HeatFlux_LongWave(:,:) &
+          & + surface_fluxes%HeatFlux_Sensible(:,:) + surface_fluxes%HeatFlux_Latent(:,:)
     ENDIF
     ! ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
     ! ice%Qbot(:,:)         Bottom melt potential of ice                            [W/m2]
@@ -647,23 +647,14 @@ CONTAINS
     END IF
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print(' CPL: SW-flux'       ,surface_fluxes%forc_swflx     ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: non-solar flux',surface_fluxes%forc_lwflx     ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Total  HF'     ,surface_fluxes%forc_hflx      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Melt-pot. top' ,ice%qtop                      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot                      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%forc_precip    ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Evaporation'   ,surface_fluxes%forc_evap      ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
-    CALL dbg_print(' CPL: Freshw. Flux'  ,surface_fluxes%forc_fw_bc     ,module_name,idt_src, &
-      & in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Total  HF'     ,surface_fluxes%HeatFlux_Total    ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: SW-flux'       ,surface_fluxes%HeatFlux_ShortWave,module_name,2,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: non-solar flux',surface_fluxes%HeatFlux_LongWave ,module_name,2,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Melt-pot. top' ,ice%qtop                         ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Melt-pot. bot' ,ice%qbot                         ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Precip.'       ,surface_fluxes%FrshFlux_Precipitation       ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Evaporation'   ,surface_fluxes%FrshFlux_Evaporation         ,module_name,1,in_subset=patch_2d%cells%owned)
+    CALL dbg_print(' CPL: Freshw. Flux'  ,surface_fluxes%FrshFlux_TotalSalt        ,module_name,1,in_subset=patch_2d%cells%owned)
     !---------------------------------------------------------------------
     
     DEALLOCATE(buffer)

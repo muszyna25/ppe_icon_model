@@ -321,13 +321,13 @@ MODULE mo_oce_types
     
     ! Variables for 3-dim tracer relaxation:
     REAL(wp), POINTER ::         &
-      & relax_3d_data_t(:,:,:), & ! 3-dim temperature relaxation data (T*)
+      & data_3dimRelax_Temp(:,:,:), & ! 3-dim temperature relaxation data (T*)
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
-      & relax_3d_forc_t(:,:,:), & ! 3-dim temperature relaxation forcing (1/tau*(T-T*))
+      & forc_3dimRelax_Temp(:,:,:), & ! 3-dim temperature relaxation forcing (1/tau*(T-T*))
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
-      & relax_3d_data_s(:,:,:), & ! 3-dim salinity relaxation data (T*)
+      & data_3dimRelax_Salt(:,:,:), & ! 3-dim salinity relaxation data (T*)
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
-      & relax_3d_forc_s(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
+      & forc_3dimRelax_Salt(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
     
   END TYPE t_hydro_ocean_aux

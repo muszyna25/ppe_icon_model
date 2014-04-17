@@ -72,7 +72,7 @@ MODULE mo_hydro_ocean_run
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
-  USE mo_oce_bulk,               ONLY: update_sfcflx
+  USE mo_oce_bulk,               ONLY: update_surface_flux
   USE mo_sea_ice,                ONLY: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
@@ -264,8 +264,8 @@ CONTAINS
       
           !In case of a time-varying forcing:
           IF (ltimer) CALL timer_start(timer_upd_flx)
-          CALL update_sfcflx( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
-          & jstep, datetime, operators_coefficients)
+          CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+            & jstep, datetime, operators_coefficients)
 
           ! update_sfcflx has changed p_prog(nold(1))%h
           CALL sync_patch_array(sync_c, patch_2D, ocean_state(jg)%p_prog(nold(1))%h)
