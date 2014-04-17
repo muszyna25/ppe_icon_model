@@ -72,7 +72,7 @@ init_relax=0   # 1: use relaxation initialization file
 iforc=11
 #
 # type of OMIP or NCEP forcing to read (iforc=12 only)
-#  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
+#  1 = u/v-stress [and temperature relaxation, depending on "type_surfRelax_Temp" below]
 #  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
@@ -207,7 +207,7 @@ cat > ${ocean_namelist} << EOF
  /
 &ocean_forcing_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-  temperature_relaxation= 0      !  0: no relaxation used
+  type_surfRelax_Temp= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
                                  !     use atmospheric temperature in case of coupling (iforc=14)

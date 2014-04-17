@@ -538,7 +538,7 @@ cat > ${ocean_namelist} << EOF
   iforc_oce          = ${iforc_oce}   ! ocean forcing:
                                  ! NO_FORCING                 = 10
                                  ! FORCING_FROM_COUPLED_FLUX  = 14
-  temperature_relaxation= -1     !  0: no relaxation used
+  type_surfRelax_Temp= -1     !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from OMIP/bulk forcing (iforc=12);
                                  !     use atmospheric temperature in case of coupling (iforc=14)
@@ -546,8 +546,8 @@ cat > ${ocean_namelist} << EOF
                                  ! -1: use net surface heat flux from atmosphere as boundary condition
   relaxation_param   =    3.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
-  irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
-  relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
+  type_surfRelax_Salt        =    0      ! 2-dim relaxation of salinity - see "type_surfRelax_Temp" for parameter values
+  para_surfRelax_Salt     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   irelax_3d_T        =    0      ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
                                  ! 3: use initial T read with init_oce=1
 &ocean_initialConditions_nml
