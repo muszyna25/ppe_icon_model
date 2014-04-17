@@ -487,7 +487,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                  &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
-    cf_desc    = t_cf_var('geopotential_full', 'm2 s-2', 'geopotential at full level', &
+    cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential at full level', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'geo_mc', field%geo_mc,   &
@@ -593,7 +593,7 @@ CONTAINS
     klevp1     = klev + 1
     shape3d_c  = (/kproma, klevp1, kblks_c/)
 
-    cf_desc    = t_cf_var('geopotential_half', 'm s-1', 'geopotential at half level', &
+    cf_desc    = t_cf_var('geopotential', 'm s-1', 'geopotential at half level', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, vname_prefix//'geo_ic', field%geo_ic,&

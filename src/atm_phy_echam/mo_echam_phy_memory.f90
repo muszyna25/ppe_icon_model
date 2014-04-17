@@ -337,6 +337,8 @@ MODULE mo_echam_phy_memory
       & swflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA 
       & lwflxtoa    (:,:)    !< [ W/m2] shortwave net flux at TOA
 
+    TYPE(t_ptr2d),ALLOCATABLE :: swflxsfc_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
 
     TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
 
@@ -1695,6 +1697,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
 
+    ALLOCATE(field%swflxsfc_tile_ptr(ksfc_type))
+    ALLOCATE(field%lwflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%evap_tile_ptr(ksfc_type))
     ALLOCATE(field%lhflx_tile_ptr(ksfc_type))
     ALLOCATE(field%shflx_tile_ptr(ksfc_type))
@@ -1702,6 +1706,20 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
       WRITE(csfc,'(i1)') jsfc 
+
+      CALL add_ref( field_list, prefix//'swflxsfc_tile',                            &
+                  & prefix//'swflxsfc_tile_'//csfc, field%swflxsfc_tile_ptr(jsfc)%p,&
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                  & t_cf_var('swflxsfc_tile_'//csfc, '', '', DATATYPE_FLT32),       &
+                  & t_grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),           &
+                  & ldims=shape2d )
+
+      CALL add_ref( field_list, prefix//'lwflxsfc_tile',                            &
+                  & prefix//'lwflxsfc_tile_'//csfc, field%lwflxsfc_tile_ptr(jsfc)%p,&
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                  & t_cf_var('lwflxsfc_tile_'//csfc, '', '', DATATYPE_FLT32),       &
+                  & t_grib2_var(2,0,6, ibits, GRID_REFERENCE, GRID_CELL),           &
+                  & ldims=shape2d )
 
       CALL add_ref( field_list, prefix//'evap_tile',                             &
                   & prefix//'evap_tile_'//csfc, field%evap_tile_ptr(jsfc)%p,     &

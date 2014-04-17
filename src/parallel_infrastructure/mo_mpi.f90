@@ -1329,8 +1329,8 @@ CONTAINS
     IF ( .NOT. process_is_mpi_parallel) THEN
       WRITE (nerr,'(a)')  'Single processor run.'
     ELSEIF (process_is_stdio) THEN
-      WRITE (nerr,'(a,a,i6,a)') TRIM(process_mpi_name), &
-        '  runs on ', process_mpi_all_size, ' mpi processes.'
+      WRITE (nerr,'(a,a,a,i0,a)') " ", TRIM(process_mpi_name), &
+        ' runs on ', process_mpi_all_size, ' mpi processes.'
     END IF
 
   END SUBROUTINE set_default_mpi_work_variables
@@ -1665,12 +1665,12 @@ CONTAINS
     END IF
 
     IF (my_global_mpi_id == 0) THEN
-      WRITE (nerr,'(a,a,i0,a1,i0)') method_name, &
-           '  Used MPI version: ', version, '.', subversion
+      WRITE (nerr,'(a,a,a,i0,a1,i0)') " ", method_name, &
+           ' Used MPI version: ', version, '.', subversion
     END IF
 
     IF (my_global_mpi_id == 0) THEN
-      WRITE (nerr,'(a,a,a,i0,a)') method_name, &
+      WRITE (nerr,'(a,a,a,a,a,i0,a)') " ", method_name, " ", &
         & TRIM(yname), ': Globally run on ',&
         & global_mpi_size, ' mpi processes.'
     END IF
@@ -1740,12 +1740,12 @@ CONTAINS
     IF (my_global_mpi_id == 0) THEN
 
       IF (is_global_mpi_parallel) THEN
-        WRITE (nerr,'(/,a,a)') method_name, &
+        WRITE (nerr,'(a,a,a)') " ", method_name, &
           & ': Running globally hybrid OpenMP-MPI mode.'
       ELSE
-        WRITE (nerr,'(/,a,a)') method_name,': Running globally OpenMP mode.'
+        WRITE (nerr,'(a,a,a)') " ", method_name,': Running globally OpenMP mode.'
       ENDIF
-      WRITE (nerr,'(a, a, i5, a, i0)') method_name, &
+      WRITE (nerr,'(a,a, a, i0)') " ", method_name, &
         & ' global_no_of_threads is ', global_no_of_threads
     ENDIF
 
