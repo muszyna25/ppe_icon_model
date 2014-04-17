@@ -233,12 +233,12 @@ cat > ${ocean_namelist} << EOF
   forcing_fluxes_type         = 1
   forcing_timescale   = ${forcing_timescale}   ! length of ocean forcing data set, see above
   init_oce_relax              = ${init_relax}  ! read ocean surface relaxation file, see above
-  temperature_relaxation      = 0        ! 0: no relaxation used
+  type_surfRelax_Temp         = 0        ! 0: no relaxation used
                                          ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
-  relaxation_param            = 1.0      ! strength of 2-dim relaxation for temperature (months)
+  para_surfRelax_Temp         = 1.0      ! strength of 2-dim relaxation for temperature (months)
                                          ! this value is divided by number of seconds per month (=30*24*3600)
-  irelax_2d_S                 = 1        ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
-  relax_2d_mon_S              = 3.0      ! strength of 2-dim relaxation for salinity (months)
+  type_surfRelax_Salt         = 1        ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
+  para_surfRelax_Salt         = 3.0      ! strength of 2-dim relaxation for salinity (months)
   forcing_enable_freshwater   = .TRUE.   ! apply freshwater forcing boundary condition (OMIP only)
   forcing_set_runoff_to_zero  = .TRUE.   ! set runoff to zero for comparison to MPIOM
 /
