@@ -58,7 +58,7 @@ MODULE mo_interface_icoham_echam
     &                                 timer_echam_phy, timer_coupling
 
   USE mo_parallel_config       ,ONLY: nproma, p_test_run
-  USE mo_run_config            ,ONLY: nlev, ltimer, ntracer
+  USE mo_run_config            ,ONLY: nlev, ntracer, ltimer
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
   USE mo_coupling_config       ,ONLY: is_coupled_run
 
