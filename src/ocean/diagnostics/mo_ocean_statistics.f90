@@ -141,29 +141,28 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
     
     ! update forcing accumulated values
-    CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc, p_sfc_flx%topBoundCond_windStress_u, cells)
-    CALL add_fields(p_sfc_flx%topBoundCond_windStress_v_acc, p_sfc_flx%topBoundCond_windStress_v, cells)
-    CALL add_fields(p_sfc_flx%HeatFlux_ShortWave_acc      , p_sfc_flx%HeatFlux_ShortWave      , cells)
-    CALL add_fields(p_sfc_flx%HeatFlux_LongWave_acc       , p_sfc_flx%HeatFlux_LongWave       , cells)
-    CALL add_fields(p_sfc_flx%HeatFlux_Sensible_acc       , p_sfc_flx%HeatFlux_Sensible       , cells)
-    CALL add_fields(p_sfc_flx%HeatFlux_Latent_acc         , p_sfc_flx%HeatFlux_Latent         , cells)
-    CALL add_fields(p_sfc_flx%HeatFlux_Total_acc          , p_sfc_flx%HeatFlux_Total          , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_Precipitation_acc     , p_sfc_flx%FrshFlux_Precipitation     , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_SnowFall_acc       , p_sfc_flx%FrshFlux_SnowFall       , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_Evaporation_acc       , p_sfc_flx%FrshFlux_Evaporation       , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_Runoff_acc     , p_sfc_flx%FrshFlux_Runoff     , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_TotalSalt_acc      , p_sfc_flx%FrshFlux_TotalSalt      , cells)
-    CALL add_fields(p_sfc_flx%forc_fwrelax_acc    , p_sfc_flx%forc_fwrelax    , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_TotalOcean_acc  , p_sfc_flx%FrshFlux_TotalOcean  , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_TotalIce_acc  , p_sfc_flx%FrshFlux_TotalIce  , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_VolumeIce_acc,  p_sfc_flx%FrshFlux_VolumeIce , cells)
-    CALL add_fields(p_sfc_flx%FrshFlux_VolumeTotal_acc     , p_sfc_flx%FrshFlux_VolumeTotal     , cells)
-    CALL add_fields(p_sfc_flx%forc_hfrelax_acc    , p_sfc_flx%forc_hfrelax    , cells)
-    CALL add_fields(p_sfc_flx%data_surfRelax_Temp_acc(:,:), p_sfc_flx%data_surfRelax_Temp(:,:), cells)
-    CALL add_fields(p_sfc_flx%data_surfRelax_Salt_acc(:,:), p_sfc_flx%data_surfRelax_Salt(:,:), cells)
-    DO jtrc=1,no_tracer
-      CALL add_fields(p_sfc_flx%forc_tracer_acc(:,:,jtrc), p_sfc_flx%forc_tracer(:,:,jtrc), cells)
-    END DO
+    CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc   , p_sfc_flx%topBoundCond_windStress_u   , cells)
+    CALL add_fields(p_sfc_flx%topBoundCond_windStress_v_acc   , p_sfc_flx%topBoundCond_windStress_v   , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_ShortWave_acc          , p_sfc_flx%HeatFlux_ShortWave          , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_LongWave_acc           , p_sfc_flx%HeatFlux_LongWave           , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_Sensible_acc           , p_sfc_flx%HeatFlux_Sensible           , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_Latent_acc             , p_sfc_flx%HeatFlux_Latent             , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_Total_acc              , p_sfc_flx%HeatFlux_Total              , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_Precipitation_acc      , p_sfc_flx%FrshFlux_Precipitation      , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_SnowFall_acc           , p_sfc_flx%FrshFlux_SnowFall           , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_Evaporation_acc        , p_sfc_flx%FrshFlux_Evaporation        , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_Runoff_acc             , p_sfc_flx%FrshFlux_Runoff             , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_TotalSalt_acc          , p_sfc_flx%FrshFlux_TotalSalt          , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_TotalOcean_acc         , p_sfc_flx%FrshFlux_TotalOcean         , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_TotalIce_acc           , p_sfc_flx%FrshFlux_TotalIce           , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_VolumeIce_acc          , p_sfc_flx%FrshFlux_VolumeIce          , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_VolumeTotal_acc        , p_sfc_flx%FrshFlux_VolumeTotal        , cells)
+    CALL add_fields(p_sfc_flx%forc_hfrelax_acc                , p_sfc_flx%forc_hfrelax                , cells)
+    CALL add_fields(p_sfc_flx%forc_fwrelax_acc                , p_sfc_flx%forc_fwrelax                , cells)
+    CALL add_fields(p_sfc_flx%data_surfRelax_Temp_acc(:,:)    , p_sfc_flx%data_surfRelax_Temp(:,:)    , cells)
+    CALL add_fields(p_sfc_flx%data_surfRelax_Salt_acc(:,:)    , p_sfc_flx%data_surfRelax_Salt(:,:)    , cells)
+    CALL add_fields(p_sfc_flx%topBoundCond_Salt_vdiff_acc(:,:), p_sfc_flx%topBoundCond_Temp_vdiff(:,:), cells)
+    CALL add_fields(p_sfc_flx%topBoundCond_Salt_vdiff_acc(:,:), p_sfc_flx%topBoundCond_Temp_vdiff(:,:), cells)
     
   END SUBROUTINE update_ocean_statistics
   !---------------------------------------------------------------------
@@ -210,25 +209,26 @@ CONTAINS
     p_acc%kin                       = p_acc%kin                      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%topBoundCond_windStress_u_acc = p_sfc_flx%topBoundCond_windStress_u_acc/REAL(nsteps_since_last_output,wp)
     p_sfc_flx%topBoundCond_windStress_v_acc = p_sfc_flx%topBoundCond_windStress_v_acc/REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%HeatFlux_ShortWave_acc        = p_sfc_flx%HeatFlux_ShortWave      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%HeatFlux_LongWave_acc         = p_sfc_flx%HeatFlux_LongWave       /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%HeatFlux_Sensible_acc         = p_sfc_flx%HeatFlux_Sensible       /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%HeatFlux_Latent_acc           = p_sfc_flx%HeatFlux_Latent         /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%HeatFlux_Total_acc            = p_sfc_flx%HeatFlux_Total          /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%FrshFlux_Precipitation_acc       = p_sfc_flx%FrshFlux_Precipitation_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_ShortWave_acc        = p_sfc_flx%HeatFlux_ShortWave           /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_LongWave_acc         = p_sfc_flx%HeatFlux_LongWave            /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_Sensible_acc         = p_sfc_flx%HeatFlux_Sensible            /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_Latent_acc           = p_sfc_flx%HeatFlux_Latent              /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_Total_acc            = p_sfc_flx%HeatFlux_Total               /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_Precipitation_acc    = p_sfc_flx%FrshFlux_Precipitation_acc   /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_SnowFall_acc         = p_sfc_flx%FrshFlux_SnowFall_acc        /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%FrshFlux_Evaporation_acc         = p_sfc_flx%FrshFlux_Evaporation_acc        /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%FrshFlux_Runoff_acc       = p_sfc_flx%FrshFlux_Runoff_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_Evaporation_acc      = p_sfc_flx%FrshFlux_Evaporation_acc     /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_Runoff_acc           = p_sfc_flx%FrshFlux_Runoff_acc          /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_TotalSalt_acc        = p_sfc_flx%FrshFlux_TotalSalt_acc       /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%FrshFlux_TotalOcean_acc    = p_sfc_flx%FrshFlux_TotalOcean_acc   /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%FrshFlux_TotalIce_acc    = p_sfc_flx%FrshFlux_TotalIce_acc   /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fwrelax_acc      = p_sfc_flx%forc_fwrelax_acc     /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%FrshFlux_VolumeIce_acc   = p_sfc_flx%FrshFlux_VolumeIce_acc  /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%FrshFlux_VolumeTotal_acc       = p_sfc_flx%FrshFlux_VolumeTotal_acc      /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_hfrelax_acc      = p_sfc_flx%forc_hfrelax_acc     /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_TotalOcean_acc       = p_sfc_flx%FrshFlux_TotalOcean_acc      /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_TotalIce_acc         = p_sfc_flx%FrshFlux_TotalIce_acc        /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_fwrelax_acc              = p_sfc_flx%forc_fwrelax_acc             /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_VolumeIce_acc        = p_sfc_flx%FrshFlux_VolumeIce_acc       /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_VolumeTotal_acc      = p_sfc_flx%FrshFlux_VolumeTotal_acc     /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%forc_hfrelax_acc              = p_sfc_flx%forc_hfrelax_acc             /REAL(nsteps_since_last_output,wp)
     IF(no_tracer>0)THEN
-      p_sfc_flx%data_surfRelax_Temp_acc = p_sfc_flx%data_surfRelax_Temp_acc/REAL(nsteps_since_last_output,wp)
-      p_sfc_flx%forc_tracer_acc         = p_sfc_flx%forc_tracer_acc        /REAL(nsteps_since_last_output,wp)
+      p_sfc_flx%data_surfRelax_Temp_acc     = p_sfc_flx%data_surfRelax_Temp_acc        /REAL(nsteps_since_last_output,wp)
+      p_sfc_flx%topBoundCond_Temp_vdiff_acc = p_sfc_flx%topBoundCond_Temp_vdiff_acc    /REAL(nsteps_since_last_output,wp)
+      p_sfc_flx%topBoundCond_Salt_vdiff_acc = p_sfc_flx%topBoundCond_Salt_vdiff_acc    /REAL(nsteps_since_last_output,wp)
     ENDIF  
   END SUBROUTINE compute_mean_ocean_statistics
   !---------------------------------------------------------------------
@@ -261,19 +261,20 @@ CONTAINS
       p_sfc_flx%HeatFlux_Sensible_acc           = 0.0_wp
       p_sfc_flx%HeatFlux_Latent_acc             = 0.0_wp
       p_sfc_flx%HeatFlux_Total_acc              = 0.0_wp
-      p_sfc_flx%forc_hfrelax_acc        = 0.0_wp
+      p_sfc_flx%topBoundCond_Temp_vdiff_acc     = 0.0_wp
+      p_sfc_flx%forc_hfrelax_acc                = 0.0_wp
       IF (no_tracer>1) THEN
-        p_sfc_flx%FrshFlux_Precipitation_acc         = 0.0_wp
-        p_sfc_flx%FrshFlux_SnowFall_acc           = 0.0_wp
-        p_sfc_flx%FrshFlux_Evaporation_acc           = 0.0_wp
-        p_sfc_flx%FrshFlux_Runoff_acc         = 0.0_wp
-        p_sfc_flx%FrshFlux_TotalSalt_acc          = 0.0_wp
-        p_sfc_flx%FrshFlux_TotalOcean_acc      = 0.0_wp
-        p_sfc_flx%FrshFlux_TotalIce_acc      = 0.0_wp
-        p_sfc_flx%forc_fwrelax_acc        = 0.0_wp
-        p_sfc_flx%FrshFlux_VolumeIce_acc     = 0.0_wp
-        p_sfc_flx%FrshFlux_VolumeTotal_acc         = 0.0_wp
-        p_sfc_flx%forc_tracer_acc         = 0.0_wp
+        p_sfc_flx%FrshFlux_Precipitation_acc    = 0.0_wp
+        p_sfc_flx%FrshFlux_SnowFall_acc         = 0.0_wp
+        p_sfc_flx%FrshFlux_Evaporation_acc      = 0.0_wp
+        p_sfc_flx%FrshFlux_Runoff_acc           = 0.0_wp
+        p_sfc_flx%FrshFlux_TotalSalt_acc        = 0.0_wp
+        p_sfc_flx%FrshFlux_TotalOcean_acc       = 0.0_wp
+        p_sfc_flx%FrshFlux_TotalIce_acc         = 0.0_wp
+        p_sfc_flx%forc_fwrelax_acc              = 0.0_wp
+        p_sfc_flx%FrshFlux_VolumeIce_acc        = 0.0_wp
+        p_sfc_flx%FrshFlux_VolumeTotal_acc      = 0.0_wp
+        p_sfc_flx%topBoundCond_Salt_vdiff_acc   = 0.0_wp
         p_sfc_flx%data_surfRelax_Temp_acc = 0.0_wp
         p_sfc_flx%data_surfRelax_Salt_acc = 0.0_wp
       ENDIF

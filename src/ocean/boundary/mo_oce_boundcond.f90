@@ -676,15 +676,26 @@ CONTAINS
     !-----------------------------------------------------------------------
     all_cells => patch_2D%cells%all
     
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%forc_tracer(jc,jb, tracer_id)
+    IF (tracer_id == 1) THEN
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb)
+        END DO
       END DO
-    END DO
+    ELSE IF (tracer_id == 2) THEN
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
+        END DO
+      END DO
+    ELSE
+      CALL finish("top_bound_cond_tracer", "unknown boundary condition for tracer_id>2")
+    END IF
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
+    idt_src=4  ! output print level (1-5, fix)
     z_c(:,:)=top_bc_tracer(:,:,tracer_id)
     CALL dbg_print('top bound.cond.tracer' ,z_c, str_module, idt_src, in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------

@@ -405,7 +405,7 @@ CONTAINS
     INTEGER :: iniyear, curyear, offset
     INTEGER :: jc, jb, no_set
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax, z_forc_tracer_old
+    REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec, z_smax
     REAL(wp) ::  z_c2(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) ::   tfw(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), POINTER :: t_top(:,:), s_top(:,:)

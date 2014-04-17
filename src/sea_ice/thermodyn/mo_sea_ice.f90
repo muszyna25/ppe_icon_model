@@ -1663,13 +1663,13 @@ CONTAINS
 
     ! #slo# 2013-06
     ! Change of upper ocean temperature according to heat fluxes is done in vertical diffusion equation
-    !  - HeatFlux_Total is calculated here, provided to tracer eq. via forc_tracer(1), calculated in update_sfcflx
-    !  - forc_tracer(1) is 
+    !  - HeatFlux_Total is calculated here, provided to tracer eq. using topBoundCond_Temp_vdiff, calculated in update_sfcflx
+    !  - topBoundCond_Temp_vdiff is 
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
     !  &                                    + dtime*(heatOceI + heatOceW) /               &
     !  &                                    (clw*rho_ref * ice%zUnderIce)
     ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
-    !p_sfc_flx%forc_tracer(:,:,1) = (heatOceI + heatOceW) / (clw*rho_ref)
+    !p_sfc_flx%topBoundCond_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
     p_sfc_flx%HeatFlux_Total(:,:) = heatOceI(:,:) + heatOceW(:,:)
 
     ! TODO:
