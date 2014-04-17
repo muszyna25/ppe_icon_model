@@ -791,6 +791,12 @@ CONTAINS
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
     
+    CALL add_var(ocean_restart_list,'temp_horDiffused',p_os_diag%temp_horizontally_diffused, grid_unstructured_cell,&
+      & za_depth_below_sea, &
+      & t_cf_var('temp_insitu', 'K', 'horizonatlly diffused temperature', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+
     !--------------------------------------------------------------------------
     !Add output pf prognostic variables with readable names
     CALL add_var(ocean_default_list,'h',p_os_diag%h , &

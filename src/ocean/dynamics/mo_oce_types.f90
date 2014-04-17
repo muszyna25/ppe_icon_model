@@ -254,6 +254,7 @@ MODULE mo_oce_types
       & press_grad(:,:,:)     ,& ! hydrostatic pressure gradient term. Unit [m/s]
     ! dimension: (nproma, n_zlev, nblks_e)
       & temp_insitu(:,:,:)    ,&
+      & temp_horizontally_diffused(:,:,:)    ,&
       & cfl_vert(:,:,:), cfl_horz(:,:,:) ! vertical and horizontal cfl values
     
     INTEGER, POINTER :: &
@@ -495,9 +496,9 @@ MODULE mo_oce_types
     ! other choice index2=1,nblks_e, index3=1,2
     ! Eventually switch to other second indexing if this is more appropriate
     ! new constructs for mimetic core:
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_t(:,:,:,:)
-    REAL(wp), ALLOCATABLE                      :: edge2edge_viacell_coeff(:,:,:,:)
+    TYPE(t_cartesian_coordinates), POINTER     :: edge2cell_coeff_cc(:,:,:,:)
+    TYPE(t_cartesian_coordinates), POINTER     :: edge2cell_coeff_cc_t(:,:,:,:)
+    REAL(wp), POINTER                          :: edge2edge_viacell_coeff(:,:,:,:)
     REAL(wp), POINTER                          :: edge2edge_viacell_coeff_top(:,:,:)       ! the same as the top edge2edge_viacell_coeff
     REAL(wp), POINTER                          :: edge2edge_viacell_coeff_integrated(:,:,:)! the other levels integrated
     REAL(wp), POINTER                          :: edge2edge_viacell_coeff_all(:,:,:)       ! all the levels integrated

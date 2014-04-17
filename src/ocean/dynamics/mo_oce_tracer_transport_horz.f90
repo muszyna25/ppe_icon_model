@@ -120,7 +120,8 @@ CONTAINS
     & k_h,                 &
     & h_old,               &
     & h_new,               &
-    & flux_horz)
+    & flux_horz,           &
+    & horizontally_diffused_tracer)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -130,6 +131,7 @@ CONTAINS
     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)                :: flux_horz(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout), OPTIONAL      :: horizontally_diffused_tracer(:,:,:)
     !
     !
     !Local variables
@@ -157,7 +159,8 @@ CONTAINS
       & k_h,                 &
       & h_old,               &
       & h_new,               &
-      & flux_horz)
+      & flux_horz,           &
+      & horizontally_diffused_tracer)
     
     ENDIF
      
@@ -173,7 +176,8 @@ CONTAINS
     & k_h,                 &
     & h_old,               &
     & h_new,               &
-    & flux_horz)
+    & flux_horz,           &
+    & horizontally_diffused_tracer)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp)                             :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -183,6 +187,7 @@ CONTAINS
     REAL(wp), INTENT(in)                 :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)              :: flux_horz(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout), OPTIONAL    :: horizontally_diffused_tracer(:,:,:)
     !
     !
     !Local variables
@@ -218,6 +223,7 @@ CONTAINS
       
       CASE(upwind)
       
+        ! Note: this should be done only once, not for each tracer
         CALL map_edges2cell_3d(patch_3D, &
         & p_os%p_diag%vn_time_weighted,  &
         & p_op_coeff,                    &
@@ -338,6 +344,15 @@ CONTAINS
     
     CALL sync_patch_array(sync_c, patch_2d, flux_horz)
     
+    IF (PRESENT(horizontally_diffused_tracer)) THEN
+      horizontally_diffused_tracer(:,:,:) = z_div_diff_h(:,:,:)
+      CALL sync_patch_array(sync_c, patch_2d, horizontally_diffused_tracer)
+
+      CALL dbg_print('diffusion: t_diff', horizontally_diffused_tracer, "" , 3, &
+        & patch_2D%cells%owned )
+
+    ENDIF
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('AdvDifHorz: adv_flux_h'     ,z_adv_flux_h ,str_module,idt_src,patch_2d%edges%owned)

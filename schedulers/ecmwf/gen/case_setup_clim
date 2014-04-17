@@ -267,6 +267,7 @@ cat > ${atmo_namelist} << EOF
  pat_len                      = 100.
  c_diff                       = 0.2
  rat_sea                      = 9.0
+ ltkesso                      = .true.  ! SSO dissipation energy used in TKE equation
 /
 &lnd_nml
  ntiles                       = 3

@@ -1158,7 +1158,7 @@ MODULE mo_nh_stepping
               n_now, n_new, dt_loc, lstep_adv(jg), n_now_rcf, n_new_rcf)
           ENDIF   
         ELSE
-          CALL finish ( 'mo_nh_stepping', 'itype_comm /= 1 currently not implemented')
+          CALL finish (routine, 'itype_comm /= 1 currently not implemented')
         ENDIF
 
         ! Update air mass in layer. Air mass is needed by both the transport and physics 
@@ -1289,9 +1289,9 @@ MODULE mo_nh_stepping
             CALL message(TRIM(routine), TRIM(message_text))
           END IF
 
-          !Call interface for LES physics
-          IF(atm_phy_nwp_config(jg)%is_les_phy)THEN     
+          IF (atm_phy_nwp_config(jg)%is_les_phy) THEN     
 
+            ! les physics
             CALL les_phy_interface(lcall_phy(jg,:), .FALSE.,         & !in
               &                  lredgrid_phys(jg),                  & !in
               &                  dt_loc,                             & !in
@@ -1318,9 +1318,9 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
               &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
 
-          ELSE !operational nwp physics
-        
-            !> moist tracer update is now synchronized with advection and satad
+          ELSE ! is_les_phy
+
+            ! nwp physics
             CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
               &                  lredgrid_phys(jg),                  & !in
               &                  dtadv_loc,                          & !in
@@ -1345,7 +1345,7 @@ MODULE mo_nh_stepping
               &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
               &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
 
-          END IF
+          END IF ! is_les_phy
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
@@ -1664,7 +1664,7 @@ MODULE mo_nh_stepping
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 
-    IF(atm_phy_nwp_config(jg)%is_les_phy)THEN!LES physics
+    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
 
       nstep = 0
       CALL les_phy_interface(lcall_phy(jg,:), .TRUE.,          & !in
@@ -1693,8 +1693,9 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
         &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in
   
-    ELSE !operational nwp physics
+    ELSE ! is_les_phy
   
+      ! nwp physics, slow physics forcing
       CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
         &                  lredgrid_phys(jg),                  & !in
         &                  dtadv_loc,                          & !in
@@ -1719,7 +1720,7 @@ MODULE mo_nh_stepping
         &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
         &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in 
 
-    END IF
+    END IF ! is_les_phy
 
     ! Boundary interpolation of land state variables entering into radiation computation
     ! if a reduced grid is used in the child domain(s)

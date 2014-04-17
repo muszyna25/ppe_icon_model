@@ -47,8 +47,9 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    &                                  eos_type, i_sea_ice, l_staggered_timestep, gibraltar, &
-    &                                  cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write
+    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar,         &
+    & cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write,   &
+    & use_ThermoExpansion_Correction
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -78,7 +79,7 @@ MODULE mo_hydro_ocean_run
   USE mo_oce_physics,            ONLY: t_ho_params, update_ho_params
   USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
     & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density
+    & calc_density, ocean_correct_ThermoExpansion
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_fast_oce_diagnostics, &
     & t_oce_timeseries, calc_moc, calc_psi
@@ -351,6 +352,17 @@ CONTAINS
             & operators_coefficients,&
             & jstep)
             IF (ltimer) CALL timer_stop(timer_tracer_ab)
+
+            IF (use_ThermoExpansion_Correction) THEN
+              CALL ocean_correct_ThermoExpansion(                                      &
+                & patch_3d         = patch_3d,                                        &
+!                & old_temeperature = ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,1), &
+!                & new_temeperature = ocean_state(jg)%p_prog(nnew(1))%tracer(:,:,:,1), &
+                & temperature_difference = ocean_state(jg)%p_diag%temp_horizontally_diffused, &
+                & old_height       = ocean_state(jg)%p_prog(nold(1))%h,               &
+                & new_height       = ocean_state(jg)%p_prog(nnew(1))%h)
+            ENDIF
+
           ENDIF
         
         ENDIF

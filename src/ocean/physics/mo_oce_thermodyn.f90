@@ -56,7 +56,7 @@ MODULE mo_oce_thermodyn
     & sitodbar, sfc_press_bar
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_util_dbg_prnt,             ONLY: dbg_print
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   IMPLICIT NONE
   
   PRIVATE
@@ -65,6 +65,7 @@ MODULE mo_oce_thermodyn
   
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
   
+  PUBLIC :: ocean_correct_ThermoExpansion
   PUBLIC :: calc_internal_press
   ! PUBLIC :: calc_internal_press_new
   PUBLIC :: calc_density,calc_potential_density
@@ -322,6 +323,77 @@ CONTAINS
   END SUBROUTINE calc_internal_press
   !-------------------------------------------------------------------------
   
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE ocean_correct_ThermoExpansion(                &
+    & patch_3d, & ! old_temeperature, new_temeperature,
+    & temperature_difference, old_height, new_height)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    ! REAL(wp),    INTENT(in), TARGET :: old_temeperature(:,:,:),  new_temeperature(:,:,:)
+    REAL(wp),    INTENT(in), TARGET :: temperature_difference(:,:,:)
+    REAL(wp), INTENT(in),    TARGET :: old_height(:,:)
+    REAL(wp), INTENT(inout), TARGET :: new_height(:,:)
+
+    INTEGER :: jc, jk, jb
+    INTEGER :: start_index, end_index
+    REAL(wp) :: weighted_temperature_diff
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3d%p_patch_2d(1)
+    !-------------------------------------------------------------------------
+    all_cells => patch_2D%cells%ALL
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('termoExpansion: t_diff', temperature_difference, "" , 5, &
+      & patch_2D%cells%owned )
+    CALL dbg_print('termoExpansion: h-in',  new_height, "" , 5, &
+      & patch_2D%cells%owned )
+    !---------------------------------------------------------------------
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, weighted_temperature_diff) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+
+        weighted_temperature_diff = 0.0_wp
+        DO jk=2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+           weighted_temperature_diff = weighted_temperature_diff + &
+             & temperature_difference(jc,jk,jb) * &
+             & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,jk,jb)
+
+        END DO
+
+        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,jb) > 0) THEN
+
+!           weighted_temperature_diff = weighted_temperature_diff + &
+!             & (  new_temeperature(jc, jk, jb) * (patch_3D%p_patch_1D(1)%del_zlev_m(1) + new_height(jc,jb)) &
+!             &  - old_temeperature(jc, jk, jb) * (patch_3D%p_patch_1D(1)%del_zlev_m(1) + old_height(jc,jb)) )
+
+           weighted_temperature_diff = weighted_temperature_diff + &
+             & temperature_difference(jc,jk,jb) * (patch_3D%p_patch_1D(1)%del_zlev_m(1) + old_height(jc,jb))
+
+           new_height(jc,jb) = new_height(jc,jb) + (a_t * weighted_temperature_diff) / rho_ref
+
+        ENDIF
+
+      END DO
+    END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('termoExpansion: h-out', new_height, "" , 5, &
+      & patch_2D%cells%owned )
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE ocean_correct_ThermoExpansion
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   !! Calculates the density via a call to the equation-of-state.
@@ -409,7 +481,6 @@ CONTAINS
     REAL(wp),    INTENT(in)       :: tracer(:,:,:,:)     !< input of S and T
     REAL(wp), INTENT(inout)       :: rho   (:,:,:)       !< density
     
-    ! local variables:
     INTEGER :: jc, jk, jb
     INTEGER :: start_index, end_index
     TYPE(t_subset_range), POINTER :: all_cells

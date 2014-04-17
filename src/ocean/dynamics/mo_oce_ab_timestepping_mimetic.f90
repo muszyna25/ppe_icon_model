@@ -740,10 +740,10 @@ CONTAINS
       
       ! calculate hydrostatic pressure from density at timelevel nc
       CALL calc_internal_press( patch_3d,                  &  ! in
-        & ocean_state%p_diag%rho,                                 &  ! in
+        & ocean_state%p_diag%rho,                          &  ! in
         & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c,   &  ! in
-        & ocean_state%p_prog(nold(1))%h,                          &  ! in
-        & ocean_state%p_diag%press_hyd)                              ! inout
+        & ocean_state%p_prog(nold(1))%h,                   &  ! in
+        & ocean_state%p_diag%press_hyd)                       ! inout
       
       ! calculate gradient of hydrostatic pressure in 3D
       CALL grad_fd_norm_oce_3d( ocean_state%p_diag%press_hyd,  &
@@ -926,7 +926,7 @@ CONTAINS
                 IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
                   ocean_state%p_diag%vn_pred(je,jk,jb) = ocean_state%p_prog(nold(1))%vn(je,jk,jb)    &
                     & + dtime*(ocean_state%p_aux%g_nimd(je,jk,jb)     &
-                    & -ocean_state%p_diag%press_grad(je,jk,jb)  &
+                    & -ocean_state%p_diag%press_grad(je,jk,jb)        &
                     & - z_gradh_e(je ,jb))
                 ENDIF
 
@@ -1017,7 +1017,7 @@ CONTAINS
             IF(patch_3d%p_patch_1d(1)%dolic_e(je,jb)>=min_dolic)THEN
               ocean_state%p_diag%vn_pred(je,1,jb) =  ocean_state%p_diag%vn_pred(je,1,jb)      &
                 & + dtime*ocean_state%p_aux%bc_top_vn(je,jb)&
-                & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,jb)
+                & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,jb) ! Change to prism_thick_e ?
               
               dolic_e=patch_3d%p_patch_1d(1)%dolic_e(je,jb)
               ocean_state%p_diag%vn_pred(je,dolic_e,jb)    &

@@ -104,7 +104,7 @@ CONTAINS
       &  p_dtime
 
     TYPE(t_var_list), INTENT(IN)      :: &   !< current prognostic state list
-     &  p_prog_list
+     &  p_prog_list                          ! drieg: I think we do not need this
 
     TYPE(t_nh_prog), INTENT(IN)       :: &   !< current prognostic state
      &  p_prog
@@ -207,7 +207,7 @@ CONTAINS
           ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
           call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
           
-          call art_calc_v_sed_dep(p_patch,p_metrics,p_diag,fields,p_rho,p_tracer_new)
+          call art_calc_v_sed_dep(p_patch,p_metrics,p_prog,p_diag,fields,p_rho,p_tracer_new)
           mflx_contra_vsed => fields%flx_contra_vsed3
           nflx_contra_vsed => fields%flx_contra_vsed0
           

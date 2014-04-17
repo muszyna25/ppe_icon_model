@@ -1867,14 +1867,15 @@ CONTAINS
     ENDDO
 
     ! zeros edge2edge_viacell_coeff_all
-    DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
-        DO k=1, 2 * no_primal_edges
-          operators_coefficients%edge2edge_viacell_coeff_all(k, je, jb) = 0.0_wp
-        ENDDO
-      ENDDO
-    ENDDO
+!    DO jb = all_edges%start_block, all_edges%end_block
+!      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+!      DO je = i_startidx_e, i_endidx_e
+!        DO k=1, 2 * no_primal_edges
+!          operators_coefficients%edge2edge_viacell_coeff_all(k, je, jb) = 0.0_wp
+!        ENDDO
+!      ENDDO
+!    ENDDO
+    operators_coefficients%edge2edge_viacell_coeff_all(:,:,:) = 0.0_wp
     !-------------------------------------------------------------
     !1) Set coefficients for div and grad to zero at boundary edges
     ! Also for operators_coefficients%edge2cell_coeff_cc

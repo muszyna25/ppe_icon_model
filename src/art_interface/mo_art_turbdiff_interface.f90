@@ -126,8 +126,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     CASE('setup_ptr')
       sv => p_art_data(jg)%turb_fields%sv
       vdep => p_art_data(jg)%turb_fields%vdep
-      ! drieg:debug
-      vdep = 0.01_wp
+
       IF ( .NOT. PRESENT(opt_sv) ) THEN
         CALL art_surface_value( p_patch, p_prog_rcf, p_metrics, p_diag, prm_diag, &
           &                     jb, vdep, sv )
