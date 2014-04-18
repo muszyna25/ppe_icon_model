@@ -123,6 +123,7 @@ MODULE mo_ocean_model
   USE mo_oce_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics, &
     & t_oce_timeseries
   USE mo_ocean_testbed,       ONLY: ocean_testbed
+  USE mo_ocean_postprocessing, ONLY: ocean_postprocess
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -156,7 +157,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
-    CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
+    CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
 
     INTEGER :: jg
     TYPE(t_sim_step_info) :: sim_step_info
@@ -182,7 +183,7 @@ CONTAINS
       CALL read_restart_files( ocean_patch_3d%p_patch_2d(jg) )
       !END DO
 #endif
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
+      CALL message(TRIM(method_name),'normal exit from read_restart_files')
       !ELSE
       !  Prepare the initial conditions:
       !  forcing is part of the restart file
@@ -224,27 +225,58 @@ CONTAINS
       & ocean_state(1),v_params, is_restart_run())
 
     !------------------------------------------------------------------
-    IF (test_mode == 0) THEN
+    SELECT CASE (test_mode)
+      CASE (0)  !  ocean model
+        CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
+          & ext_data, start_datetime,                     &
+          & (nsteps == INT(time_config%dt_restart/dtime)),&
+          & v_sfc_flx,                                    &
+          & v_params, p_as, p_atm_f,v_sea_ice,            &
+          & operators_coefficients,                       &
+          & solverCoefficients_sp)
 
-      CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
-        & ext_data, start_datetime,                     &
-        & (nsteps == INT(time_config%dt_restart/dtime)),&
-        & v_sfc_flx,                                    &
-        & v_params, p_as, p_atm_f,v_sea_ice,            &
-        & operators_coefficients,                       &
-        & solverCoefficients_sp)
+      CASE (1 : 1999) !
+        CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
+          & ocean_patch_3d, ocean_state,                    &
+          & ext_data, start_datetime,                       &
+          & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,  &
+          & operators_coefficients,                         &
+          & solverCoefficients_sp)
 
-    ELSE
+      CASE (2000 : 3999) !
+        CALL ocean_postprocess( oce_namelist_filename,shr_namelist_filename, &
+          & ocean_patch_3d, ocean_state,                    &
+          & ext_data, start_datetime,                       &
+          & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,  &
+          & operators_coefficients,                         &
+          & solverCoefficients_sp)
 
-      CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
-        & ocean_patch_3d, ocean_state,                    &
-        & ext_data, start_datetime,                       &
-        & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,  &
-        & operators_coefficients,                         &
-        & solverCoefficients_sp)
+      CASE DEFAULT
+        CALL finish(method_name, "Unknown test_mode")
 
-    ENDIF
-    !------------------------------------------------------------------
+    END SELECT
+
+!    IF (test_mode == 0) THEN
+!
+!      CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
+!        & ext_data, start_datetime,                     &
+!        & (nsteps == INT(time_config%dt_restart/dtime)),&
+!        & v_sfc_flx,                                    &
+!        & v_params, p_as, p_atm_f,v_sea_ice,            &
+!        & operators_coefficients,                       &
+!        & solverCoefficients_sp)
+!
+!    ELSEIF
+!
+!      CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
+!        & ocean_patch_3d, ocean_state,                    &
+!        & ext_data, start_datetime,                       &
+!        & v_sfc_flx,  v_params, p_as, p_atm_f,v_sea_ice,  &
+!        & operators_coefficients,                         &
+!        & solverCoefficients_sp)
+!
+!    ENDIF
+!    !------------------------------------------------------------------
 
     CALL print_timer()
 
@@ -260,14 +292,14 @@ CONTAINS
   !!
   SUBROUTINE destruct_ocean_model()
 
-    CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:destruct_ocean_model"
+    CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:destruct_ocean_model"
 
     INTEGER :: error_status
 
     !------------------------------------------------------------------
     !  cleaning up process
     !------------------------------------------------------------------
-    CALL message(TRIM(routine),'start to clean up')
+    CALL message(TRIM(method_name),'start to clean up')
 
     IF (diagnostics_level==1) CALL destruct_oce_diagnostics()
     !------------------------------------------------------------------
@@ -294,7 +326,7 @@ CONTAINS
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
     IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation of ext_data')
+      CALL finish(TRIM(method_name), 'deallocation of ext_data')
     ENDIF
 
     !The 3D-ocean version of previous calls
@@ -316,7 +348,7 @@ CONTAINS
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
 
-    CALL message(TRIM(routine),'clean-up finished')
+    CALL message(TRIM(method_name),'clean-up finished')
 
   END SUBROUTINE destruct_ocean_model
   !--------------------------------------------------------------------------
@@ -324,14 +356,14 @@ CONTAINS
   !--------------------------------------------------------------------------
   !>
   !!
-  !! It does not include the restart processes, these are called from the calling routine ocean_model
+  !! It does not include the restart processes, these are called from the calling method_name ocean_model
   !!
   SUBROUTINE construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
     CHARACTER(LEN=32)               :: datestring
-    CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:construct_ocean_model"
+    CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:construct_ocean_model"
     INTEGER :: ist
     INTEGER :: error_status
     !-------------------------------------------------------------------
@@ -391,7 +423,7 @@ CONTAINS
     !------------------------------------------------------------------
     ALLOCATE (ocean_state(n_dom), stat=ist)
     IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for ocean_state failed')
+      CALL finish(TRIM(method_name),'allocation for ocean_state failed')
     ENDIF
 
     !---------------------------------------------------------------------
@@ -415,7 +447,7 @@ CONTAINS
     !------------------------------------------------------------------
     ALLOCATE (ext_data(n_dom), stat=error_status)
     IF (error_status /= success) THEN
-      CALL finish(TRIM(routine),'allocation for ext_data failed')
+      CALL finish(TRIM(method_name),'allocation for ext_data failed')
     ENDIF
 
     ! allocate memory for oceanic external data and
@@ -438,7 +470,7 @@ CONTAINS
 
   !--------------------------------------------------------------------------
   !>
-  !! Simple routine for preparing hydrostatic ocean model.
+  !! Simple method_name for preparing hydrostatic ocean model.
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
@@ -461,15 +493,15 @@ CONTAINS
     INTEGER, PARAMETER :: kice = 1
     INTEGER :: jg
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_test_hydro_ocean:construct_ocean_states'
+      & method_name = 'mo_test_hydro_ocean:construct_ocean_states'
 
-    CALL message (TRIM(routine),'start')
+    CALL message (TRIM(method_name),'start')
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
 
     IF (n_dom > 1 ) THEN
-      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+      CALL finish(TRIM(method_name), ' N_DOM > 1 is not allowed')
     END IF
     jg = n_dom
 
@@ -532,7 +564,7 @@ CONTAINS
 
     IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
 
-    CALL message (TRIM(routine),'end')
+    CALL message (TRIM(method_name),'end')
 
   END SUBROUTINE construct_ocean_states
   !-------------------------------------------------------------------------
