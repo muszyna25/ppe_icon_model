@@ -177,7 +177,7 @@ MODULE mo_ocean_nml
   INTEGER  :: solver_max_restart_iterations      = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart        = 200       ! For inner loop after restart
   INTEGER  :: solver_max_iter_per_restart_sp     = 200       ! For inner loop after restart
-  REAL(sp) :: solver_tolerance_sp                = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
+  REAL(sp) :: solver_tolerance_sp                = 1.e-11_sp   ! Maximum value allowed for solver absolute tolerance
   LOGICAL  :: use_absolute_solver_tolerance      = .true.   ! Maximum value allowed for solver tolerance
   INTEGER, PARAMETER :: select_gmres             = 1
   INTEGER, PARAMETER :: select_restart_gmres     = 2
