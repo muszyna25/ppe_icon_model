@@ -67,6 +67,7 @@ MODULE mo_util_dbg_prnt
   PUBLIC :: init_dbg_index
   PUBLIC :: dbg_print
   PUBLIC :: debug_verts_on_edges
+  PUBLIC :: debug_print_MaxMinMean, debug_print_mean
 
   ! Public variables: should be removed!
   PUBLIC :: c_i, c_b, nc_i, nc_b
@@ -366,19 +367,19 @@ CONTAINS
   !!
   !! Reduce writing effort for a simple print.
   !! The amount of prints is controlled by comparison of a fixed level of detail
-  !! for output (idetail_src) with variables idbg_mxmn/idbg_val  that are
+  !! for output (inDetail_level) with variables idbg_mxmn/idbg_val  that are
   !! given via namelist dbg_index_nml
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-06)
   !!
   !
-  SUBROUTINE dbg_print_3d( str_prntdes, p_array, str_mod_src, idetail_src, in_subset )
+  SUBROUTINE dbg_print_3d( description, p_array, place, inDetail_level, in_subset )
     
-    CHARACTER(LEN=*),      INTENT(in) :: str_prntdes    ! description of array
+    CHARACTER(LEN=*),      INTENT(in) :: description    ! description of array
     REAL(wp),              INTENT(in) :: p_array(:,:,:) ! 3-dim array for debugging
-    CHARACTER(LEN=*),      INTENT(in) :: str_mod_src    ! defined string for source of current array
-    INTEGER,               INTENT(in) :: idetail_src    ! source level from module for print output
+    CHARACTER(LEN=*),      INTENT(in) :: place    ! defined string for source of current array
+    INTEGER,               INTENT(in) :: inDetail_level    ! source level from module for print output
     TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
     
     ! local variables
@@ -412,14 +413,14 @@ CONTAINS
     992 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18, 1pg26.18)
 #endif
     
-    ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
+    ! check print output level inDetail_level (1-5) with namelist given value (idbg_val)
     ! for output at given index
     
     !
     ! All calculations are done inside this IF only
     !
     
-    IF (idbg_val >= idetail_src) THEN
+    IF (idbg_val >= inDetail_level) THEN
       !
       ! dimensions
       !                           !  index 1:nproma
@@ -432,16 +433,16 @@ CONTAINS
       ! compare defined source string with namelist-given output string
       icheck_str_mod = 0
       DO jstr = 1, dim_mod_tst
-        IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
+        IF (place == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
           & icheck_str_mod = 1
       END DO
       
-      ! if str_mod_src not found in str_mod_tst - no output
+      ! if place not found in str_mod_tst - no output
       IF (icheck_str_mod == 0 .AND. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
       IF (icheck_str_mod == 0 ) RETURN
       
-      strout=TRIM(str_prntdes)
-      strmod=TRIM(str_mod_src)
+      strout=TRIM(description)
+      strmod=TRIM(place)
       
       ! check start and end index for output of vertical levels via namelist
       slev = 1
@@ -452,7 +453,7 @@ CONTAINS
       
       ! idbg_val<4: one level output only (slev), apart from permanent output (init)
       elev_val = elev
-      IF (idbg_val < 4 .AND. idetail_src > 0) elev_val = slev
+      IF (idbg_val < 4 .AND. inDetail_level > 0) elev_val = slev
       
       DO jk = slev, elev_val
         
@@ -477,13 +478,13 @@ CONTAINS
       
     END IF
     
-    ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
+    ! check print output level inDetail_level (1-5) with namelist given value (idbg_mxmn)
     ! for MIN/MAX output:
     
     !
     ! All calculations are done inside this IF only
     !
-    IF (idbg_mxmn >= idetail_src ) THEN
+    IF (idbg_mxmn >= inDetail_level ) THEN
       !
       ! dimensions
       !                           !  index 1:nproma
@@ -496,16 +497,16 @@ CONTAINS
       ! compare defined source string with namelist-given output string
       icheck_str_mod = 0
       DO jstr = 1, dim_mod_tst
-        IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
+        IF (place == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
           & icheck_str_mod = 1
       END DO
       
-      ! if str_mod_src not found in str_mod_tst - no output
+      ! if place not found in str_mod_tst - no output
       IF (icheck_str_mod == 0 .AND. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
       IF (icheck_str_mod == 0 ) RETURN
       
-      strout=TRIM(str_prntdes)
-      strmod=TRIM(str_mod_src)
+      strout=TRIM(description)
+      strmod=TRIM(place)
       
       ! check start and end index for output of vertical levels via namelist
       slev = 1
@@ -516,7 +517,7 @@ CONTAINS
       
       ! idbg_mxmn<4: one level output only (slev), independent of elev_val
       elev_mxmn = elev
-      IF (idbg_mxmn < 4 .AND. idetail_src > 0) elev_mxmn = slev
+      IF (idbg_mxmn < 4 .AND. inDetail_level > 0) elev_mxmn = slev
       
       ! print out maximum and minimum value
       ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
@@ -551,12 +552,12 @@ CONTAINS
   !>
   !! Print out min and max or a specific cell value and neighbors of a 2-dim array.
   !!
-  SUBROUTINE dbg_print_2d( str_prntdes, p_array, str_mod_src, idetail_src, in_subset )
+  SUBROUTINE dbg_print_2d( description, p_array, place, inDetail_level, in_subset )
     
-    CHARACTER(LEN=*),      INTENT(in) :: str_prntdes    ! description of array
+    CHARACTER(LEN=*),      INTENT(in) :: description    ! description of array
     REAL(wp),              INTENT(in) :: p_array(:,:)   ! 2-dim array for debugging
-    CHARACTER(LEN=*),      INTENT(in) :: str_mod_src    ! defined string for source of current array
-    INTEGER,               INTENT(in) :: idetail_src    ! source level from module for print output
+    CHARACTER(LEN=*),      INTENT(in) :: place    ! defined string for source of current array
+    INTEGER,               INTENT(in) :: inDetail_level    ! source level from module for print output
     TYPE(t_subset_range),  TARGET, OPTIONAL :: in_subset
     
     ! local variables
@@ -576,11 +577,11 @@ CONTAINS
     ! compare defined source string with namelist-given output string
     icheck_str_mod = 0
     DO jstr = 1, dim_mod_tst
-      IF (str_mod_src == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
+      IF (place == str_mod_tst(jstr) .OR. str_mod_tst(jstr) == 'all') &
         & icheck_str_mod = 1
     END DO
     
-    ! if str_mod_src not found in str_mod_tst - no output
+    ! if place not found in str_mod_tst - no output
     IF (icheck_str_mod == 0 .AND. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     IF (icheck_str_mod == 0 ) RETURN
     
@@ -602,17 +603,17 @@ CONTAINS
     992 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18, 1pg26.18)
 #endif
     
-    strout=TRIM(str_prntdes)
-    strmod=TRIM(str_mod_src)
+    strout=TRIM(description)
+    strmod=TRIM(place)
     
     ! surface level output only
     jk = 0
     
     
-    ! check print output level idetail_src (1-5) with namelist given value (idbg_val)
+    ! check print output level inDetail_level (1-5) with namelist given value (idbg_val)
     ! for output at given index
     
-    IF (idbg_val >= idetail_src) THEN
+    IF (idbg_val >= inDetail_level) THEN
       
       !write(iout,*) ' ndimblk and loc_nblks = ',ndimblk, loc_nblks_c, loc_nblks_e, loc_nblks_v
       
@@ -633,10 +634,10 @@ CONTAINS
       
     END IF
     
-    ! check print output level idetail_src (1-5) with namelist given value (idbg_mxmn)
+    ! check print output level inDetail_level (1-5) with namelist given value (idbg_mxmn)
     ! for MIN/MAX output:
     
-    IF (idbg_mxmn >= idetail_src ) THEN
+    IF (idbg_mxmn >= inDetail_level ) THEN
 
       IF (PRESENT(in_subset)) THEN
         minmaxmean(:) = global_minmaxmean(values=p_array(:,:), in_subset=in_subset)
@@ -654,6 +655,49 @@ CONTAINS
     IF (timers_level > 10) CALL timer_stop(timer_dbg_prnt)
     
   END SUBROUTINE dbg_print_2d
-  
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Print out given  min, mean and max
+  SUBROUTINE debug_print_MaxMinMean( description, minmaxmean, place, inDetail_level )
+
+    CHARACTER(LEN=*),      INTENT(in) :: description    ! description of array
+    REAL(wp),              INTENT(in) :: minmaxmean(3)   ! 2-dim array for debugging
+    CHARACTER(LEN=*),      INTENT(in) :: place    ! defined string for source of current array
+    INTEGER,               INTENT(in) :: inDetail_level    ! source level from module for print output
+
+    ! g-format with first digit > zero, not valid for SX-compiler
+    992 FORMAT(a,a12,':',a27,'  :', 1pg26.18, 1pg26.18, 1pg26.18)
+
+    IF (idbg_mxmn >= inDetail_level) THEN
+      IF (my_process_is_stdio()) &
+        & WRITE(nerr,992) ' MAX/MIN/MEAN ',TRIM(place), TRIM(description), minmaxmean(2), minmaxmean(1), minmaxmean(3)
+    ENDIF
+
+  END SUBROUTINE debug_print_MaxMinMean
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Print out given  min, mean and max
+  SUBROUTINE debug_print_Mean( description, mean, inDetail_level )
+
+    CHARACTER(LEN=*),      INTENT(in) :: description    ! description of array
+    REAL(wp),              INTENT(in) :: mean           ! 2-dim array for debugging
+    INTEGER,               INTENT(in) :: inDetail_level    ! source level from module for print output
+
+
+    ! g-format with first digit > zero, not valid for SX-compiler
+    992 FORMAT(a,a27,'  :', 1pg26.18)
+
+    IF (idbg_mxmn >= inDetail_level) THEN
+      IF (my_process_is_stdio()) &
+        & WRITE(nerr,992) ' MEAN ', TRIM(description), mean
+    ENDIF
+
+  END SUBROUTINE debug_print_Mean
+
+
 END MODULE mo_util_dbg_prnt
 

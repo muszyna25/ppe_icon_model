@@ -55,6 +55,7 @@ MODULE mo_scalar_product
   USE mo_oce_math_operators,  ONLY: rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array!,sync_c,  & sync_idx, global_max
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   
   IMPLICIT NONE
   
@@ -199,7 +200,185 @@ CONTAINS
  
   !-------------------------------------------------------------------------
   !>
-  !!
+  !! Optimized version of the nonlinear_coriolis_3d
+  !! Note: intel -o# will produce very different results when using this version,
+  !!  not clear if the model exhibits great sensitivity or there's another problem
+  SUBROUTINE nonlinear_coriolis_3d_fast(patch_3D, vn, p_vn_dual, vort_v, &
+    & operators_coefficients, vort_flux)
+    TYPE(t_patch_3D ),TARGET,INTENT(IN) :: patch_3D
+    REAL(wp), INTENT(INOUT)                    :: vn(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_cartesian_coordinates), INTENT(INout)  :: p_vn_dual(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
+    REAL(wp), INTENT(INOUT)                    :: vort_v   (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
+    TYPE(t_operator_coeff),INTENT(IN)          :: operators_coefficients
+    REAL(wp), INTENT(INOUT)                    :: vort_flux(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+
+    !Local variables
+    !TYPE(t_patch), POINTER         :: patch_2D
+    INTEGER :: slev! , elev     ! vertical start and end level
+    INTEGER :: je, jk, jb
+    INTEGER :: il_e, ib_e
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: ictr, neighbor, vertex_edge
+    INTEGER :: il_v, ib_v
+    INTEGER :: vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk
+    REAL(wp) :: this_vort_flux(n_zlev, 2) ! for each of the two vertices
+
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER        :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    !-----------------------------------------------------------------------
+    slev    = 1
+    ! elev    = n_zlev
+
+    CALL rot_vertex_ocean_3d( patch_3D, vn, p_vn_dual, operators_coefficients, vort_v)
+    ! this is probably not needed, since vort_v is on vertices in domain
+    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,je,start_edge_index,end_edge_index)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_edge_index, end_edge_index)
+
+      vort_flux(:,:,jb) = 0.0_wp
+
+      edge_idx_loop: DO je =  start_edge_index, end_edge_index
+
+        this_vort_flux(:,:) = 0.0_wp
+
+        vertex1_idx = patch_2D%edges%vertex_idx(je,jb,1)
+        vertex1_blk = patch_2D%edges%vertex_blk(je,jb,1)
+        vertex2_idx = patch_2D%edges%vertex_idx(je,jb,2)
+        vertex2_blk = patch_2D%edges%vertex_blk(je,jb,2)
+
+        DO neighbor=1,2
+          IF(neighbor==1) ictr = 0
+          IF(neighbor==2) ictr = no_dual_edges
+
+          il_v = patch_2D%edges%vertex_idx(je,jb,neighbor)
+          ib_v = patch_2D%edges%vertex_blk(je,jb,neighbor)
+
+          DO vertex_edge=1, patch_2D%verts%num_edges(il_v,ib_v)!no_dual_cell_edges
+
+            ictr =ictr+1
+
+            il_e = patch_2D%verts%edge_idx(il_v,ib_v,vertex_edge)
+            ib_e = patch_2D%verts%edge_blk(il_v,ib_v,vertex_edge)
+
+            DO jk = slev, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+
+              this_vort_flux(jk, neighbor) =  this_vort_flux(jk, neighbor) + &
+                & vn(il_e, jk, ib_e) * operators_coefficients%edge2edge_viavert_coeff(je,jk,jb,ictr)
+
+            ENDDO
+
+          END DO ! edges of this vertex
+
+        END DO ! neighbor=1,2
+
+        DO jk = slev, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+
+          vort_flux(je,jk,jb) =  &
+            &   this_vort_flux(jk,1) * &
+            &     (vort_v(vertex1_idx, jk, vertex1_blk) + patch_2D%verts%f_v(vertex1_idx, vertex1_blk))  &
+            & + this_vort_flux(jk,2) * &
+            &     (vort_v(vertex2_idx, jk, vertex2_blk) + patch_2D%verts%f_v(vertex2_idx, vertex2_blk))
+
+        ENDDO
+
+      END DO edge_idx_loop
+
+    END DO ! jb = all_edges%start_block, all_edges%end_block
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
+
+  END SUBROUTINE nonlinear_coriolis_3d_fast
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Note: vn must habve been synced before this routine
+  !! the resulting vort_v is synced,
+  !! vort_flux id calculated on edges in_domain
+  SUBROUTINE nonlinear_coriolis_3d_fast0(patch_3D, vn, p_vn_dual, vort_v, &
+    & operators_coefficients, vort_flux)
+    TYPE(t_patch_3D ),TARGET,INTENT(IN) :: patch_3D
+    REAL(wp), INTENT(INOUT)                    :: vn(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_cartesian_coordinates), INTENT(INout)  :: p_vn_dual(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
+    REAL(wp), INTENT(INOUT)                    :: vort_v   (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
+    TYPE(t_operator_coeff),INTENT(IN)          :: operators_coefficients
+    REAL(wp), INTENT(INOUT)                    :: vort_flux(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+
+    !Local variables
+    !TYPE(t_patch), POINTER         :: patch_2D
+    INTEGER :: slev, elev     ! vertical start and end level
+    INTEGER :: je, jk, jb
+    INTEGER :: il_e, ib_e
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: ictr, neighbor, vertex_edge
+    INTEGER :: il_v, ib_v
+    REAL(wp) :: vort_global(n_zlev)
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER        :: patch_2D
+
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3D%p_patch_2D(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    !-----------------------------------------------------------------------
+    slev    = 1
+    elev    = n_zlev
+
+    CALL rot_vertex_ocean_3d( patch_3D, vn, p_vn_dual, operators_coefficients, vort_v)
+    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+
+
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jk,je,start_edge_index,end_edge_index)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_edge_index, end_edge_index)
+
+
+       vort_flux(:,:,jb) = 0.0_wp
+
+       edge_idx_loop: DO je =  start_edge_index, end_edge_index
+
+          DO neighbor=1,2
+            IF(neighbor==1) ictr = 0
+            IF(neighbor==2) ictr = no_dual_edges
+
+            il_v = patch_2D%edges%vertex_idx(je,jb,neighbor)
+            ib_v = patch_2D%edges%vertex_blk(je,jb,neighbor)
+
+            DO jk = slev, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+              vort_global(jk) = (vort_v(il_v,jk,ib_v) + patch_2D%verts%f_v(il_v,ib_v))
+            ENDDO
+
+            DO vertex_edge=1, patch_2D%verts%num_edges(il_v,ib_v)!no_dual_cell_edges
+
+              ictr =ictr+1
+
+              il_e = patch_2D%verts%edge_idx(il_v,ib_v,vertex_edge)
+              ib_e = patch_2D%verts%edge_blk(il_v,ib_v,vertex_edge)
+
+              DO jk = slev, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+                    vort_flux(je,jk,jb) =  vort_flux(je,jk,jb)+vn(il_e,jk,ib_e)*vort_global(jk) &
+                         & * operators_coefficients%edge2edge_viavert_coeff(je,jk,jb,ictr)
+              END DO
+
+            END DO ! vertex_edge=1,
+          END DO ! neighbor
+
+        END DO edge_idx_loop
+    END DO ! jb = all_edges%start_blockold, all_edges%end_block
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
+
+  END SUBROUTINE nonlinear_coriolis_3d_fast0
+  !-------------------------------------------------------------------------
+
+   !-------------------------------------------------------------------------
+  !>
   !! Note: vn must habve been synced before this routine
   !! the resulting vort_v is synced,
   !! vort_flux id calculated on edges in_domain
@@ -223,6 +402,18 @@ CONTAINS
     REAL(wp) :: vort_global
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER        :: patch_2D
+
+    !-----------------------------------------------------------------------
+    IF (fast_performance_level > 20) THEN
+      CALL nonlinear_coriolis_3d_fast(patch_3D, vn, p_vn_dual, vort_v, &
+        & operators_coefficients, vort_flux)
+      RETURN
+    ELSEIF  (fast_performance_level > 12) THEN
+      CALL nonlinear_coriolis_3d_fast0(patch_3D, vn, p_vn_dual, vort_v, &
+        & operators_coefficients, vort_flux)
+      RETURN
+    ENDIF
+
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2D(1)
     edges_in_domain => patch_2D%edges%in_domain
@@ -272,10 +463,9 @@ CONTAINS
           ENDIF ! (v_base%lsm_e(je,jk,jb) <= sea_boundary)
         END DO edge_idx_loop
       END DO level_loop
-    END DO ! jb = all_edges%start_block, all_edges%end_block
+    END DO ! jb = all_edges%start_blockold, all_edges%end_block
 ! !$OMP END DO NOWAIT
 ! !$OMP END PARALLEL
-
 
   END SUBROUTINE nonlinear_coriolis_3d
   !-------------------------------------------------------------------------

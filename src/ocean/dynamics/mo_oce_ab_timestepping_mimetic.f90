@@ -71,7 +71,7 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e, &
     & ocean_restart_gmres_singlePrecesicion
   USE mo_exception,                 ONLY: message, finish, message_text
-  USE mo_util_dbg_prnt,             ONLY: dbg_print
+  USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
   USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
   USE mo_oce_physics,               ONLY: t_ho_params
@@ -79,7 +79,6 @@ MODULE mo_oce_ab_timestepping_mimetic
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d, & ! map_cell2edges_3D,&
     & calc_scalar_product_veloc_3d,&
     & map_edges2edges_viacell_3d_const_z, map_edges2edges_viacell_2d_constZ_sp
-  !  &                                     nonlinear_coriolis_3d, nonlinear_coriolis_3d_old,&
   USE mo_oce_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
     & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, calculate_thickness, &
     & div_oce_2d_sp
@@ -216,11 +215,11 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('on entry: h-old'                ,ocean_state%p_prog(nold(1))%h ,str_module, idt_src, in_subset=owned_cells)
     CALL dbg_print('on entry: vn-old'               ,ocean_state%p_prog(nold(1))%vn,str_module, idt_src, in_subset=owned_edges)
 
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('on entry: h-new'                ,ocean_state%p_prog(nnew(1))%h ,str_module, idt_src, in_subset=owned_cells)
 !    IF (MOD(timestep,12) == 0) THEN
 !       idbg_mxmn=5
@@ -228,6 +227,7 @@ CONTAINS
 !       CALL dbg_print('on entry: w'                  ,ocean_state%p_diag%w,str_module, idt_src,  in_subset=owned_cells)
 !       idbg_mxmn=1
 !    ELSE
+    idt_src=1
        CALL dbg_print('on entry: vn-new'               ,ocean_state%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
 !    ENDIF
     !---------------------------------------------------------------------
@@ -539,12 +539,12 @@ CONTAINS
       !         & op_coeffs)             &
       !         & -ocean_state%p_aux%p_rhs_sfc_eq
       !     CALL dbg_print('SolvSfc: residual h-res'    ,z_h_c                  ,str_module,idt_src)
-      idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('after ocean_gmres: h-new',ocean_state%p_prog(nnew(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
-      vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:)
-      CALL dbg_print('after ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
+!      vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:)
+!      CALL dbg_print('after ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
       !---------------------------------------------------------------------
       minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
+      idt_src=1  ! output print level (1-5, fix)
+      CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
       IF (my_process_is_stdio()) THEN
         IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &
           CALL finish(method_name, "height below min_top_height")
@@ -1874,7 +1874,7 @@ CONTAINS
       END DO
 
       !---------------------------------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
+      idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('after cont-correct: h-new',ocean_state%p_prog(nnew(1))%h(:,:) ,str_module,idt_src, &
         & in_subset=cells_in_domain)
       CALL dbg_print('after cont-correct: vol_h', &

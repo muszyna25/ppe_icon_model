@@ -1354,7 +1354,7 @@ CONTAINS
     all_cells => patch_2d%cells%ALL
 
     temperature_difference = initial_temperature_top - initial_temperature_bottom
-    poleLat = forcing_temperature_poleLat * deg2rad
+    poleLat = ABS(forcing_temperature_poleLat * deg2rad)
     waveNo = pi_2 / poleLat
     
     DO jb = all_cells%start_block, all_cells%end_block
@@ -1362,7 +1362,7 @@ CONTAINS
       DO jc = start_cell_index, end_cell_index
         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
           ocean_temperature(jc,jk,jb) = MAX(initial_temperature_bottom + &
-            & (COS(waveNo * MIN(patch_2d%cells%center(jc,jb)%lat, poleLat))**2) * temperature_difference, &
+            & (COS(waveNo * MIN(ABS(patch_2d%cells%center(jc,jb)%lat), poleLat))**2) * temperature_difference, &
             & initial_temperature_bottom)
         END DO
       END DO

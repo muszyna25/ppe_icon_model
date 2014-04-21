@@ -91,7 +91,8 @@ MODULE mo_hydro_ocean_run
   USE mo_master_control,         ONLY: is_restart_run
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
-  USE mo_util_dbg_prnt,          ONLY: dbg_print
+  USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_print_mean
+  USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_ocean_statistics
   USE mo_ocean_output
   
@@ -181,6 +182,7 @@ CONTAINS
     INTEGER, POINTER :: dolic(:,:)
     REAL(wp), POINTER :: prism_thickness(:,:,:)
     INTEGER :: jstep0 ! start counter for time loop
+    REAL(wp) :: mean_height
     
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
@@ -342,7 +344,13 @@ CONTAINS
             IF (ltimer) CALL timer_stop(timer_vert_veloc)
           ENDIF
           !------------------------------------------------------------------------
-        
+
+          IF (idbg_mxmn > 1) THEN
+            CALL levels_horizontal_mean(values=ocean_state(jg)%p_prog(1)%h(:,:), weights=patch_2D%cells%area(:,:), &
+                & in_subset=patch_3d%p_patch_2d(1)%cells%owned, mean=mean_height)
+            CALL debug_print_mean("Mean Height", mean_height, 2)
+          ENDIF
+
           !------------------------------------------------------------------------
           ! Step 6: transport tracers and diffuse them
           IF (no_tracer>=1) THEN

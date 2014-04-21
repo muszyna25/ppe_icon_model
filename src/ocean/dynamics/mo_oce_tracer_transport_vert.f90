@@ -834,6 +834,7 @@ DO jk = 2, n_zlev
     !---------------------------------------------------------------------
 
   END SUBROUTINE adpo_vtrac_oce
+  !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
   !! The third order PPM scheme
@@ -901,7 +902,6 @@ DO jk = 2, n_zlev
     !-----------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-----------------------------------------------------------------------
-#ifndef __SX__
     p_patch         => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
 
@@ -918,13 +918,10 @@ DO jk = 2, n_zlev
     z_lext_1  (1:nproma,1:n_zlev+1)=0.0_wp 
     z_lext_2  (1:nproma,1:n_zlev+1)=0.0_wp
 
-
-    CALL sync_patch_array(SYNC_C, p_patch, p_cc)
-    CALL sync_patch_array(SYNC_C, p_patch, p_cellhgt_mc_now)
-
-    ! this is noit needed
+    ! this is not needed
+    ! CALL sync_patch_array(SYNC_C, p_patch, p_cc)
+    ! CALL sync_patch_array(SYNC_C, p_patch, p_cellhgt_mc_now)
     ! CALL sync_patch_array(SYNC_C, p_patch, p_w)
-
 
     ! advection is done with an upwind scheme and a piecwise parabolic
     ! approx. of the subgrid distribution is used.
@@ -1223,9 +1220,11 @@ DO jk = 2, n_zlev
       !   ENDIF
 
     CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
-#endif
+
   END SUBROUTINE upwind_vflux_ppm
- !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !>
   !! Limiter for PPM (3rd order) vertical advection (monotone version)
   !!
