@@ -82,22 +82,6 @@ reg_lon_def_tri=0.,1.125,358.875        # 320 longitudes, dlon = 1.125 deg
 reg_lat_def_tri=-89.0625.,1.875,89.0625 #  96 latitudes , dlat = 1.875 deg
 #
 #__________________________________________________________________________________________________
-# atm_dyn output
-(( dt_file_atm_dyn =  5 * minute      )) # [s] data file interval
-(( dt_data_atm_dyn =  5 * minute      )) # [s] data output interval
-(( steps_per_file_atm_dyn = dt_file_atm_dyn / dt_data_atm_dyn ))
-#
-# atm_phy output
-(( dt_file_atm_phy =  5 * minute     )) # [s] data file interval
-(( dt_data_atm_phy =  5 * minute     )) # [s] data output interval
-(( steps_per_file_atm_phy = dt_file_atm_phy / dt_data_atm_phy ))
-#
-# lnd_phy output
-(( dt_file_lnd_phy =  5 * minute     )) # [s] data file interval
-(( dt_data_lnd_phy =  5 * minute     )) # [s] data output interval
-(( steps_per_file_lnd_phy = dt_file_lnd_phy / dt_data_lnd_phy ))
-#
-#__________________________________________________________________________________________________
 # define the experiment: write ICON namelist parameters
 
 atmo_namelist=NAMELIST_${EXPNAME}_atm
@@ -186,7 +170,7 @@ if [[ "$output_atm_dyn" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT05M"                          ! ISO-format interval
- steps_per_file   = ${steps_per_file_atm_dyn}
+ file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'ta'      , 'cl'      , 'hur'     ,
                     'hus'     , 'clw'     , 'cli'     ,
@@ -204,7 +188,7 @@ if [[ "$output_atm_phy" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT05M"                          ! ISO-format interval
- steps_per_file   = ${steps_per_file_atm_phy}
+ file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'cosmu0'  , 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
@@ -234,7 +218,7 @@ if [[ "$output_lnd_phy" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT05M"                          ! ISO-format interval
- steps_per_file   = ${steps_per_file_lnd_phy}
+ file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
@@ -259,7 +243,7 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT05M"                          ! ISO-format interval
- steps_per_file   = ${steps_per_file_atm_phy}
+ file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld'
                     'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso'
@@ -275,7 +259,7 @@ if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT05M"                          ! ISO-format interval
- steps_per_file   = ${steps_per_file_atm_phy}
+ file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso'
                     'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso'
@@ -291,7 +275,7 @@ if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT05M"                          ! ISO-format interval
- steps_per_file   = ${steps_per_file_atm_phy}
+ file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf', 'tend_x_dtr'
 /
