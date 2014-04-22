@@ -215,7 +215,8 @@ CONTAINS
           call art_sedi_volc( p_patch,p_metrics,p_rho,            &
             &              p_diag,                                & 
             &              fields%diam,fields%rho,                &
-            &              fields%flx_contra_vsed3) 
+            &              fields%flx_contra_vsed3,               &
+            &              fields%itracer) 
           mflx_contra_vsed => fields%flx_contra_vsed3
         class is (t_fields_radio)
          
