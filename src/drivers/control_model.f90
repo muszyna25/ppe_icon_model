@@ -63,9 +63,11 @@ PROGRAM control_model
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process!, radiation_process
-  USE mo_time_config,        ONLY: restart_experiment
+  USE mo_time_config,         ONLY: restart_experiment
   USE mo_util_signal
-  USE mo_util_svn,           ONLY: printSVNVersion
+  USE mo_util_vcs,            ONLY: util_repository_url, &
+       &                            util_branch_name,    &
+       &                            util_revision_key
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
@@ -96,6 +98,12 @@ PROGRAM control_model
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
 
+  CHARACTER(len=256) :: repository = ''
+  CHARACTER(len=256) :: branch = ''
+  CHARACTER(len=256) :: revision = ''
+  
+  INTEGER :: nlen
+
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
   TYPE(ieee_status_type) :: saved_fpscr
@@ -109,7 +117,6 @@ PROGRAM control_model
   INTEGER :: signals(1)
   INTEGER :: iret
 #endif
-
 
   !declaration of OpenMP Runtime Library Routines:
 ! !$  INTEGER omp_get_max_threads
@@ -191,9 +198,24 @@ PROGRAM control_model
 #endif
 
   !-------------------------------------------------------------------
-  ! Print SVN version
+  ! Print VCS version
   IF (my_process_is_global_root()) THEN
-    CALL printSVNVersion() ! (... if defined)
+
+    nlen = 256
+    call util_repository_url(repository, nlen)
+    nlen = 256
+    call util_branch_name(branch, nlen)
+    nlen = 256
+    call util_revision_key(revision, nlen)
+
+    WRITE(message_text,'(a,a)') 'Repository: ', TRIM(repository)
+    CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'Branch    : ', TRIM(branch)
+    CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'Revision  : ', TRIM(revision)
+    CALL message('',message_text)
+    CALL message('','')
+
   END IF
 
   !-------------------------------------------------------------------
@@ -251,6 +273,7 @@ PROGRAM control_model
   CALL ieee_set_status(saved_fpscr)
 #endif
 #endif
+
 END PROGRAM control_model
 
 !  "Alles was du besitzt, besitzt irgendwann dich!"

@@ -1652,11 +1652,11 @@ src/shared/mo_util_postgresql.f90_off -text
 src/shared/mo_util_signal.f90 -text
 src/shared/mo_util_sort.f90 -text
 src/shared/mo_util_string.f90 -text
-src/shared/mo_util_svn.f90 -text
 src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_util_table.f90 -text
 src/shared/mo_util_uuid.f90 -text
+src/shared/mo_util_vcs.f90 -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
 src/shared/mo_var_metadata.f90 -text
@@ -1753,7 +1753,6 @@ support/util_pbio.c -text
 support/util_postgresql.c -text
 support/util_reshape.c -text
 support/util_signal.c -text
-support/util_svn.c -text
 support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_system.c_luis -text
