@@ -221,7 +221,7 @@ done
 #-----------------------------------------------------------------------------
 # Add JSBACH part to master_namelist
 
-if [ x$jsbach_namelist != x ]; then
+if [ x$lnd_namelist != x ]; then
   cat >> $master_namelist <<EOF
 &jsb_control_nml
  is_standalone      = .false.
@@ -231,7 +231,7 @@ if [ x$jsbach_namelist != x ]; then
  model_name = 'JSBACHlite'
  model_shortname = 'lite'
  model_description = 'JSBACH-lite model'
- model_namelist_filename = "${jsbach_namelist}"
+ model_namelist_filename = "${lnd_namelist}"
 /
 EOF
 fi
