@@ -233,8 +233,8 @@ CONTAINS
     ! elev    = n_zlev
 
     CALL rot_vertex_ocean_3d( patch_3D, vn, p_vn_dual, operators_coefficients, vort_v)
-    ! this is probably not needed, since vort_v is on vertices in domain
-    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+    ! this is not needed, since vort_v is on vertices in domain
+    ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
 
 ! !$OMP PARALLEL
 ! !$OMP DO PRIVATE(jb,jk,je,start_edge_index,end_edge_index)
@@ -330,7 +330,8 @@ CONTAINS
     elev    = n_zlev
 
     CALL rot_vertex_ocean_3d( patch_3D, vn, p_vn_dual, operators_coefficients, vort_v)
-    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+    ! this is not needed
+    ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
 
 
 ! !$OMP PARALLEL
@@ -422,7 +423,8 @@ CONTAINS
     elev    = n_zlev
 
     CALL rot_vertex_ocean_3d( patch_3D, vn, p_vn_dual, operators_coefficients, vort_v)
-    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+    ! this is not needed
+    ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
 
 
 ! !$OMP PARALLEL
