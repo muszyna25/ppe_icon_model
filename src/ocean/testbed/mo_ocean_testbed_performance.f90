@@ -79,7 +79,6 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!
-!<OptimizeEssential>
   SUBROUTINE ocean_test_performance( namelist_filename, shr_namelist_filename, &
     & patch_3d, ocean_state, external_data,                     &
     & surface_fluxes, physics_parameters,             &

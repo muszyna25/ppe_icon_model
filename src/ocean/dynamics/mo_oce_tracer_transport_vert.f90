@@ -1628,7 +1628,6 @@ DO jk = 2, n_zlev
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
   !! mpi parallelized, only cells_in_domain are computed, no sync
-!<OptimizeEssential>
   SUBROUTINE v_ppm_slimiter_mo( patch_3D, p_cc, p_face, p_slope, p_face_up, p_face_low )
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D

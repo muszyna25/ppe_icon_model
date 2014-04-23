@@ -574,7 +574,6 @@ MODULE mo_ocean_nml
  !!    - separated subroutine ocean_nml_setup from the original
  !!      setup_run subroutine (which is moved to mo_run_nml)
  !!
-!<OptimizeEssential>
  SUBROUTINE setup_ocean_nml( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename

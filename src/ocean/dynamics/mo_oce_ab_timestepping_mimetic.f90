@@ -148,7 +148,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-!<OptimizeEssential>
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
     & p_phys_param, timestep, op_coeffs, solverCoeff_sp)
     
@@ -678,7 +677,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-!<OptimizeEssential>
   SUBROUTINE calculate_explicit_term_ab( patch_3d, ocean_state, p_phys_param,&
     & l_initial_timestep, op_coeffs)
     
@@ -1134,7 +1132,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-!<OptimizeEssential>
   SUBROUTINE fill_rhs4surface_eq_ab( patch_3d, ocean_state, p_sfc_flx, op_coeffs)
     !
     ! Patch on which computation is performed
@@ -1342,7 +1339,6 @@ CONTAINS
   !-------------------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------------------
-!<OptimizeEssential>
   SUBROUTINE init_ho_lhs_fields_mimetic(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -1399,7 +1395,6 @@ CONTAINS
   !!
   !!  The result is NOT synced. Should be done in the calling method if required
   !-------------------------------------------------------------------------
-!<OptimizeEssential>
   FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d, thickness_e,&
     & thickness_c,op_coeffs) result(lhs)
     
@@ -1611,7 +1606,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-!<OptimizeEssential>
   SUBROUTINE calc_normal_velocity_ab_mimetic(patch_3d,ocean_state, op_coeffs, solverCoeff_sp, p_ext_data)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
@@ -1755,7 +1749,6 @@ CONTAINS
   !! Developed  by  Peter Korn,   MPI-M (2006).
   !!  Modified by Stephan Lorenz, MPI-M (2010-06)
   !TODO review
-!<OptimizeEssential>
   SUBROUTINE calc_vert_velocity_mim_bottomup( patch_3d, ocean_state, op_coeffs )
     
     TYPE(t_patch_3d), TARGET, INTENT(in) :: patch_3d       ! patch on which computation is performed

@@ -73,7 +73,6 @@ CONTAINS
   !>
   !! Read namelists for ocean models
   !!
-!<OptimizeEssential>
   SUBROUTINE read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename

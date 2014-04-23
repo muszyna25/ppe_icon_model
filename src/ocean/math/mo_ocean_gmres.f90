@@ -852,7 +852,6 @@ CONTAINS
   !! inital guess, overwritten with the solution
   !!
   !-----------------------------------------------------------------
-!<OptimizeEssential>
   SUBROUTINE gmres_oce_old( x,lhs,h_e, thickness_c, old_h, p_patch_3d, &
     & p_op_coeff, b,                      &
     & tolerance,abstol,m,maxiterex,niter,res,    &

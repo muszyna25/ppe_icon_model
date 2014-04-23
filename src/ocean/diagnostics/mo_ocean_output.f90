@@ -198,7 +198,6 @@ CONTAINS
   !-------------------------------------------------------------------------
     
   !-------------------------------------------------------------------------
-!<OptimizeEssential>
   SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
     INTEGER, INTENT(in) :: timelevel
     TYPE(t_hydro_ocean_diag) :: p_diag

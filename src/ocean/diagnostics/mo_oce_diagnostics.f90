@@ -756,7 +756,6 @@ CONTAINS
     
   END SUBROUTINE calc_slow_oce_diagnostics
   
-!<OptimizeEssential>
   SUBROUTINE calc_fast_oce_diagnostics(p_patch, dolic, prism_thickness,depths, p_diag)
     TYPE(t_patch ),TARGET :: p_patch
     INTEGER,  POINTER :: dolic(:,:)
@@ -1043,7 +1042,6 @@ CONTAINS
   !
   ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
   !!
-!<OptimizeEssential>
   SUBROUTINE calc_psi (p_patch,p_patch_3d, u, h, u_vint, datetime)
     
     TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
@@ -1200,7 +1198,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !!taken from MPIOM
-!<OptimizeEssential>
   FUNCTION calc_condep(vertical_density_gradient,max_lev) result(condep)
     REAL(wp),INTENT(in)  :: vertical_density_gradient(n_zlev)
     INTEGER, INTENT(in)  :: max_lev
@@ -1230,7 +1227,6 @@ CONTAINS
     
     condep = max0(maxcondep,condep)
   END FUNCTION calc_condep
-!<OptimizeEssential>
   FUNCTION calc_mixed_layer_depth(vertical_density_gradient,critical_value,max_lev,thickness, depth_of_first_layer) &
     & result(mixed_layer_depth)
     REAL(wp), TARGET :: vertical_density_gradient(n_zlev)

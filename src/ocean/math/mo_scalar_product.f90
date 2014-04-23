@@ -112,7 +112,6 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
     !!  mpi parallelized by LL
-!<OptimizeEssential>
   SUBROUTINE calc_scalar_product_veloc_3D( patch_3D, vn_e_old, vn_e_new,&
     & p_diag, operators_coefficients)
     
@@ -206,7 +205,6 @@ CONTAINS
   !! Optimized version of the nonlinear_coriolis_3d
   !! Note: intel -o# will produce very different results when using this version,
   !!  not clear if the model exhibits great sensitivity or there's another problem
-!<OptimizeEssential>
   SUBROUTINE nonlinear_coriolis_3d_fast(patch_3D, vn, p_vn_dual, vort_v, &
     & operators_coefficients, vort_flux)
     TYPE(t_patch_3D ),TARGET,INTENT(IN) :: patch_3D
@@ -389,7 +387,6 @@ CONTAINS
   !! Note: vn must habve been synced before this routine
   !! the resulting vort_v is synced,
   !! vort_flux id calculated on edges in_domain
-!<OptimizeEssential>
   SUBROUTINE nonlinear_coriolis_3d(patch_3D, vn, p_vn_dual, vort_v, &
     & operators_coefficients, vort_flux)
     TYPE(t_patch_3D ),TARGET,INTENT(IN) :: patch_3D
@@ -626,7 +623,6 @@ CONTAINS
   !!
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
-!<OptimizeEssential>
   SUBROUTINE map_edges2cell_no_height_3d( patch_3D, vn_e, operators_coefficients, p_vn_c, opt_slev, opt_elev, &
     &                                     subset_range)
     
@@ -1753,7 +1749,6 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-!<OptimizeEssential>
   SUBROUTINE map_cell2edges_3D_mlevels( patch_3D, p_vn_c, ptp_vn, operators_coefficients,&
                                    & opt_slev, opt_elev, subset_range )
     
@@ -1837,7 +1832,6 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-!<OptimizeEssential>
   SUBROUTINE map_cell2edges_3D_1level( patch_3D, p_vn_c, ptp_vn,operators_coefficients, level, subset_range )
     
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D

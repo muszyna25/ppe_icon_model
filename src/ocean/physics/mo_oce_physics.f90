@@ -324,7 +324,6 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2011-08)
   !
   !! mpi parallelized, no sync required
-!<OptimizeEssential>
   SUBROUTINE smooth_lapl_diff( p_patch,p_patch_3D, K_h )
    TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D
@@ -416,7 +415,6 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !
-!<OptimizeEssential>
   SUBROUTINE construct_ho_params(p_patch, params_oce)
 
     TYPE(t_patch), INTENT(IN)         :: p_patch
@@ -537,7 +535,6 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !
-!<OptimizeEssential>
   SUBROUTINE destruct_ho_params(params_oce)
 
     TYPE (t_ho_params), INTENT(INOUT) :: params_oce
@@ -584,7 +581,6 @@ CONTAINS
   !
   !! mpi parallelized, sync required:
   !!                   params_oce%A_tracer_v, params_oce%A_veloc_v
-!<OptimizeEssential>
   SUBROUTINE update_ho_params(p_patch_3D, p_os, p_sfc_flx, params_oce, calc_density_func)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D

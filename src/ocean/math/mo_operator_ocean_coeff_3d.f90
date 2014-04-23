@@ -97,7 +97,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-!<OptimizeEssential>
   SUBROUTINE construct_operators_coefficients( patch_3D, operators_coefficients, solverCoeff_sp, var_list)
     TYPE(t_patch_3D),TARGET,INTENT(inout) :: patch_3D
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
@@ -112,7 +111,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-!<OptimizeEssential>
   SUBROUTINE destruct_operators_coefficients( operators_coefficients, solverCoeff_sp )
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
@@ -129,7 +127,6 @@ CONTAINS
   ! @par Revision History
   ! Peter Korn (2012-2)
   !
-!<OptimizeEssential>
   SUBROUTINE allocate_operators_coefficients( patch_2D, operators_coefficients, solverCoeff_sp, var_list)
     !
     TYPE(t_patch),TARGET,INTENT(in)       :: patch_2D
@@ -470,7 +467,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Deallocation of operators coefficients.
-!<OptimizeEssential>
   SUBROUTINE deallocate_operators_coefficients( operators_coefficients, solverCoeff_sp )
     ! !
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
@@ -541,7 +537,6 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn (2012-2)
   !!
-!<OptimizeEssential>
   SUBROUTINE par_init_operator_coeff( patch_3D, operators_coefficients, solverCoeff_sp)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
@@ -733,7 +728,6 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M  2010-09
   !!  Modification by Stephan Lorenz, 2010-11
   !!
-!<OptimizeEssential>
   SUBROUTINE init_operator_coeffs( patch_2D, operators_coefficients)
     TYPE(t_patch)    , TARGET, INTENT(INOUT)     :: patch_2D
     TYPE(t_operator_coeff),    INTENT(inout)     :: operators_coefficients
@@ -1047,7 +1041,6 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M  2010-09
   !!  Modification by Stephan Lorenz, 2010-11
-!<OptimizeEssential>
   SUBROUTINE init_operator_coeffs_cell( patch_2D, operators_coefficients,prime_edge_length, dual_edge_length )
     TYPE(t_patch), TARGET,  INTENT(INOUT)  :: patch_2D
     TYPE(t_operator_coeff), INTENT(inout)  :: operators_coefficients
@@ -1384,7 +1377,6 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M  2010-09
   !!  Modification by Stephan Lorenz, 2010-11
   !!
-!<OptimizeEssential>
   SUBROUTINE init_operator_coeffs_vertex( patch_2D, operators_coefficients, prime_edge_length, dual_edge_length)
     TYPE(t_patch), TARGET, INTENT(INOUT) :: patch_2D
     TYPE(t_operator_coeff),INTENT(INOUT) :: operators_coefficients
@@ -1655,7 +1647,6 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn (2012-2)
   !!
-!<OptimizeEssential>
   SUBROUTINE apply_boundary2coeffs( patch_3D, operators_coefficients)
     ! !
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT) :: patch_3D
@@ -2228,7 +2219,6 @@ CONTAINS
   !!  Modification by Stephan Lorenz, 2011-07
   !!   - 3-dim structures moved from patch_oce to hydro_ocean_base for parallelization
   !!
-!<OptimizeEssential>
   SUBROUTINE init_diff_operator_coeff_3D( patch_2D, operators_coefficients )
     !
     TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D

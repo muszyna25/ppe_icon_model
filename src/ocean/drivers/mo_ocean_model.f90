@@ -153,7 +153,6 @@ CONTAINS
   !--------------------------------------------------------------------------
   !>
   !!
-!<OptimizeEssential>
   SUBROUTINE ocean_model(oce_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
@@ -291,7 +290,6 @@ CONTAINS
   !--------------------------------------------------------------------------
   !>
   !!
-!<OptimizeEssential>
   SUBROUTINE destruct_ocean_model()
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:destruct_ocean_model"
@@ -360,7 +358,6 @@ CONTAINS
   !!
   !! It does not include the restart processes, these are called from the calling method_name ocean_model
   !!
-!<OptimizeEssential>
   SUBROUTINE construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
@@ -477,7 +474,6 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-!<OptimizeEssential>
   SUBROUTINE construct_ocean_states(patch_3d, p_os, external_data, p_sfc_flx, &
     & p_phys_param, p_as,&
     & p_atm_f, p_ice, p_op_coeff, solverCoeff_sp)
