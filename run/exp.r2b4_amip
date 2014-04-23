@@ -169,6 +169,7 @@ if [[ "$output_atm_dyn" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_dyn"
  filename_format  = "<output_filename>_<datetime2>"
+ output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
@@ -187,6 +188,7 @@ if [[ "$output_atm_phy" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy"
  filename_format  = "<output_filename>_<datetime2>"
+ output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
@@ -217,6 +219,7 @@ if [[ "$output_lnd_phy" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_lnd_phy"
  filename_format  = "<output_filename>_<datetime2>"
+ output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
@@ -242,6 +245,7 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_temp"
  filename_format  = "<output_filename>_<datetime2>"
+ output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
@@ -258,6 +262,7 @@ if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_wind"
  filename_format  = "<output_filename>_<datetime2>"
+ output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
@@ -274,6 +279,7 @@ if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_trac"
  filename_format  = "<output_filename>_<datetime2>"
+ output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
