@@ -154,4 +154,4 @@ index:
 	scripts/f2html_scripts/f2html.pl -f scripts/f2html_scripts/fgenrc -d html $(SRCDIRS)
 
 checkstyle:
-	scripts/codestyle_scripts/process_src -v
+	scripts/code_processing/process_src -v
