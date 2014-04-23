@@ -40,6 +40,8 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+!----------------------------
+#include "omp_definitions.inc"
 MODULE mo_scalar_product
   !-------------------------------------------------------------------------
   !
@@ -236,8 +238,10 @@ CONTAINS
     ! this is not needed, since vort_v is on vertices in domain
     ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
 
-! !$OMP PARALLEL
-! !$OMP DO PRIVATE(jb,jk,je,start_edge_index,end_edge_index)
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(jb,jk,je,start_edge_index,end_edge_index, this_vort_flux, &
+!ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, neighbor, il_v, ib_v, &
+!ICON_OMP vertex_edge, ictr, il_e, ib_e) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_edge_index, end_edge_index)
 
@@ -290,8 +294,8 @@ CONTAINS
       END DO edge_idx_loop
 
     END DO ! jb = all_edges%start_block, all_edges%end_block
-! !$OMP END DO NOWAIT
-! !$OMP END PARALLEL
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
 
   END SUBROUTINE nonlinear_coriolis_3d_fast
   !-------------------------------------------------------------------------
