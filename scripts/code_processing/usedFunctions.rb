@@ -12,7 +12,7 @@ end
 # scan relevant source code
 fileList       = Dir.glob("#{iconSourceDir}/**/*.f90")
 scanSource     = IO.popen("ctags -x  --fortran-kinds=fs ../../src/ocean/*/*f90").readlines.map {|l| l.chomp.gsub(/\s +/,' ').split(' ')}
-filesOfFunx    = {} ; scanSource.each {|l| filesOfFunx[l[0]] = l[3]}
+filesOfFunx    = {}; scanSource.each {|l| filesOfFunx[l[0]]    = l[3]}
 patternsOfFunx = {}; scanSource.each {|l| patternsOfFunx[l[0]] = l[4..-1].join(' ')}
 allFunx        = filesOfFunx.keys.sort.uniq
 
