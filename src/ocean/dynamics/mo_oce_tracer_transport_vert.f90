@@ -1356,16 +1356,19 @@ DO jk = 2, n_zlev
 
           IF ((z_slope_u * z_slope_l) > 0._wp) THEN
 
-            z_slope(jc,level,jb) = ( cell_height(jc,level,jb)                             &
+            z_slope(jc,level,jb) = &
+              & ( cell_height(jc,level,jb)                             &
               &  / (cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb)            &
               &  + cell_height(jc,levelBelow,jb)) )                                       &
               &  * ( &
               & (2._wp * cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb)) &
               &  / (cell_height(jc,levelBelow,jb) + cell_height(jc,level,jb))           &
+              & &
               &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb))                         &
               & &
               &  + (cell_height(jc,level,jb) + 2._wp * cell_height(jc,levelBelow,jb))   &
               &  / (cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb))           &
+              & &
               &  * (p_cc(jc,level,jb) - p_cc(jc,levelAbove,jb)) )
 
             z_slope(jc,level,jb) = SIGN(                                            &
@@ -1459,9 +1462,9 @@ DO jk = 2, n_zlev
 ! !$OMP END DO
 ! !$OMP END PARALLEL
 
-    CALL sync_patch_array(SYNC_C, p_patch, z_face)
-    CALL sync_patch_array(SYNC_C, p_patch, z_face_up)
-    CALL sync_patch_array(SYNC_C, p_patch, z_face_low)
+    ! CALL sync_patch_array(SYNC_C, p_patch, z_face)
+    ! CALL sync_patch_array(SYNC_C, p_patch, z_face_up)
+    ! CALL sync_patch_array(SYNC_C, p_patch, z_face_low)
     !CALL sync_patch_array(SYNC_C, p_patch, z_slope)
 
     !
