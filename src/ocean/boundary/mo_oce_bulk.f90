@@ -129,6 +129,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
+!<OptimizeEssential>
   SUBROUTINE update_surface_flux(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
@@ -999,6 +1000,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2014)
   !
+!<OptimizeEssential>
   SUBROUTINE update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, tracer_no)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
@@ -1304,6 +1306,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
+!<OptimizeEssential>
   SUBROUTINE update_flux_analytical(p_patch_3D, p_os, p_sfc_flx)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
@@ -1782,6 +1785,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+!<OptimizeEssential>
   SUBROUTINE nf(status)
 
     INTEGER, INTENT(in) :: status

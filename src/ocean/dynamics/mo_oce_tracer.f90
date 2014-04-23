@@ -366,6 +366,7 @@ END SUBROUTINE advect_tracer_ab
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2012).
+!<OptimizeEssential>
   SUBROUTINE prepare_tracer_transport(patch_3D, p_os, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D

@@ -113,6 +113,7 @@ CONTAINS
 
     
   !---------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE update_ocean_statistics(ocean_state,p_sfc_flx,cells,edges,verts,max_zlev)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     TYPE(t_sfc_flx),           INTENT(inout) :: p_sfc_flx
@@ -168,6 +169,7 @@ CONTAINS
   !---------------------------------------------------------------------
   
   !---------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE compute_mean_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(inout) :: p_acc
     TYPE(t_sfc_flx),         INTENT(inout) :: p_sfc_flx
@@ -234,6 +236,7 @@ CONTAINS
   !---------------------------------------------------------------------
   
   !---------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(inout) :: p_acc
     TYPE(t_sfc_flx),         INTENT(inout) :: p_sfc_flx

@@ -71,6 +71,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Hui Wan, MPI (2011-07)
   !!
+!<OptimizeEssential>
   SUBROUTINE resize_ocean_simulation_length()
 
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
@@ -166,6 +167,7 @@ CONTAINS
 
   END SUBROUTINE resize_ocean_simulation_length
 
+!<OptimizeEssential>
   SUBROUTINE check_thicknesses
 
     ! ensure, that all used thicknesses are non-zero
@@ -174,6 +176,7 @@ CONTAINS
     END IF
   END SUBROUTINE check_thicknesses
 
+!<OptimizeEssential>
   SUBROUTINE oce_crosscheck()
 
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_ocean_nml_crosscheck:oce_crosscheck'

@@ -93,11 +93,13 @@ CONTAINS
 #ifdef __NO_ICON_ATMO__
   ! ---------------------------------------------------
   ! Dummy routines for compiling without atmo
+!<OptimizeEssential>
   SUBROUTINE construct_ocean_coupling(patch_3d)
     TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
     RETURN
   END SUBROUTINE construct_ocean_coupling
   
+!<OptimizeEssential>
   SUBROUTINE destruct_ocean_coupling()
     RETURN
   END SUBROUTINE destruct_ocean_coupling
@@ -129,6 +131,7 @@ CONTAINS
   ! common to atmo and ocean. Does this make sense if the setup deviates
   ! too much in future.
   !------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE construct_ocean_coupling(patch_3d)
     TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
     
@@ -377,6 +380,7 @@ CONTAINS
   
   
   !--------------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE destruct_ocean_coupling()
 # ifdef YAC_coupling
     IF ( is_coupled_run() ) CALL yac_ffinalize

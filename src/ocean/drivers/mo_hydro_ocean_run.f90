@@ -118,6 +118,7 @@ MODULE mo_hydro_ocean_run
 CONTAINS
 
   !-------------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, p_phys_param, is_restart)
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_operator_coeff)            :: operators_coefficients
@@ -463,6 +464,7 @@ CONTAINS
   
 
   !-------------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE update_intermediate_tracer_vars(ocean_state)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     

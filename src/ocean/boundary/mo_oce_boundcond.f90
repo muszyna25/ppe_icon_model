@@ -274,6 +274,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !! Modified by Stephan Lorenz,     MPI-M (2010-07)
+!<OptimizeEssential>
   SUBROUTINE bot_bound_cond_horz_veloc( patch_3D, p_os, p_phys_param, p_op_coeff)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D
@@ -656,6 +657,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL (no sync required)
+!<OptimizeEssential>
   SUBROUTINE top_bound_cond_tracer( patch_2D, pstate_oce, tracer_id, p_sfc_flx, top_bc_tracer)
     
     TYPE(t_patch)    , TARGET, INTENT(in) :: patch_2D             ! patch on which computation is performed

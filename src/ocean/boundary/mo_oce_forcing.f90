@@ -103,6 +103,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
+!<OptimizeEssential>
   SUBROUTINE construct_ocean_forcing(p_patch, p_sfc_flx, var_list)
     !
     TYPE(t_patch),   INTENT(IN)    :: p_patch
@@ -435,6 +436,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
+!<OptimizeEssential>
   SUBROUTINE destruct_ocean_forcing(p_sfc_flx)
     TYPE(t_sfc_flx), INTENT(INOUT) :: p_sfc_flx
     !
@@ -466,6 +468,7 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
+!<OptimizeEssential>
   SUBROUTINE init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
 
     TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
@@ -667,6 +670,7 @@ CONTAINS
 
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, p_sfc_flx)
     !
     TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
@@ -689,6 +693,7 @@ CONTAINS
     END IF
   END SUBROUTINE init_ocean_forcing
 
+!<OptimizeEssential>
   SUBROUTINE set_windstress_u(subset, mask, threshold, windstress, &
       &                       amplitude, zonal_waveno, meridional_waveno, center, length)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -702,6 +707,7 @@ CONTAINS
       & forcing_windstress_u_type, amplitude, zonal_waveno, meridional_waveno, center, length)
   END SUBROUTINE set_windstress_u
 
+!<OptimizeEssential>
   SUBROUTINE set_windstress_v(subset, mask, threshold, windstress, &
       &                       amplitude, zonal_waveno, meridional_waveno, center, length)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -741,6 +747,7 @@ CONTAINS
 !     &            field_y(:,:))
 ! END SUBROUTINE update_from_cartesian_coords_for_cells
 
+!<OptimizeEssential>
   SUBROUTINE set_windstress(subset, mask, threshold, windstress, &
       &                     control, amplitude, zonal_waveno, meridional_waveno,center,length)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -912,6 +919,7 @@ CONTAINS
 
   END SUBROUTINE zonal_periodic_zero_at_pols
 
+!<OptimizeEssential>
   SUBROUTINE Wolfe_Cessi_TestCase(subset, mask, threshold, field_2d, amplitude)
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER, INTENT(IN)              :: mask(:,:)

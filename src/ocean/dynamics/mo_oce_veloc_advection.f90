@@ -136,6 +136,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
   !!   mpi parallelized LL
+!<OptimizeEssential>
   SUBROUTINE veloc_adv_vert_mimetic( p_patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: p_patch_3D

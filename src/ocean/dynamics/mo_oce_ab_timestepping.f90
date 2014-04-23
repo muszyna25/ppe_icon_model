@@ -83,6 +83,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<OptimizeEssential>
   SUBROUTINE solve_free_surface_eq_ab(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
     &                                 p_phys_param, timestep, p_op_coeff, solverCoeff_sp)
     TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
@@ -113,6 +114,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<OptimizeEssential>
   SUBROUTINE calc_normal_velocity_ab(p_patch_3D, p_os, p_op_coeff, solverCoeff_sp, p_ext_data, p_phys_param)
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_hydro_ocean_state), TARGET    :: p_os
@@ -144,6 +146,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn,   MPI-M (2006).
   !!
+!<OptimizeEssential>
   SUBROUTINE calc_vert_velocity(p_patch_3D, p_os, p_op_coeff)
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
     TYPE(t_hydro_ocean_state)            :: p_os
@@ -164,6 +167,7 @@ CONTAINS
     ENDIF
   END SUBROUTINE calc_vert_velocity
   !-------------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE update_time_indices(jg)
     INTEGER, INTENT(IN) :: jg
     INTEGER             :: n_temp

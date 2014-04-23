@@ -135,6 +135,7 @@ CONTAINS
   !!  Modification by Stephan Lorenz, MPI-M, (2010-06-01) - no temporary memory array
   !
   !
+!<OptimizeEssential>
   SUBROUTINE construct_hydro_ocean_state( patch_2d, p_os )
     
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d(n_dom)
@@ -181,6 +182,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
+!<OptimizeEssential>
   SUBROUTINE destruct_hydro_ocean_state(p_os)
     TYPE(t_hydro_ocean_state), TARGET,INTENT(inout)   :: p_os(n_dom)
     
@@ -229,6 +231,7 @@ CONTAINS
   !! Developed  by  Stephan Lorenz, MPI-M (2011/06).
   !!
   
+!<OptimizeEssential>
   SUBROUTINE construct_hydro_ocean_base(patch_2d, v_base)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
@@ -366,6 +369,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
+!<OptimizeEssential>
   SUBROUTINE construct_hydro_ocean_prog(patch_2d, p_os_prog, timelevel)
     
     TYPE(t_patch), INTENT(in), TARGET :: patch_2d
@@ -477,6 +481,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
   
+!<OptimizeEssential>
   SUBROUTINE construct_hydro_ocean_diag(patch_2d,p_os_diag)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
@@ -833,6 +838,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2005).
   !!
+!<OptimizeEssential>
   SUBROUTINE destruct_hydro_ocean_diag(p_os_diag)
     
     TYPE(t_hydro_ocean_diag), INTENT(inout) :: p_os_diag
@@ -866,6 +872,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
+!<OptimizeEssential>
   SUBROUTINE construct_hydro_ocean_aux(patch_2d, p_os_aux)
     
     TYPE(t_patch),TARGET, INTENT(in)                :: patch_2d
@@ -993,6 +1000,7 @@ CONTAINS
     
   END SUBROUTINE construct_hydro_ocean_aux
   
+!<OptimizeEssential>
   SUBROUTINE construct_hydro_ocean_acc(patch_2d, p_os_acc)
     
     TYPE(t_patch),TARGET, INTENT(in)                :: patch_2d
@@ -1132,6 +1140,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2005).
   !!
+!<OptimizeEssential>
   SUBROUTINE destruct_hydro_ocean_aux(p_os_aux)
     
     TYPE(t_hydro_ocean_aux), INTENT(inout)      :: p_os_aux
@@ -1160,6 +1169,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
+!<OptimizeEssential>
   SUBROUTINE destruct_patch_3d(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)    :: patch_3d
@@ -1184,6 +1194,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter korn, MPI-M (2012/08).
   !!
+!<OptimizeEssential>
   SUBROUTINE construct_patch_3d(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)    :: patch_3d
@@ -1432,6 +1443,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Stephan Lorenz, MPI-M (2011).
   !!
+!<OptimizeEssential>
   SUBROUTINE set_oce_tracer_info(max_oce_tracer,&
     & oce_tracer_names,&
     & oce_tracer_longnames,&

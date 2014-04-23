@@ -255,6 +255,7 @@ CONTAINS
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
   !!  - division by rho_ref included
   !!
+!<OptimizeEssential>
   SUBROUTINE calc_internal_press(patch_3d, rho, prism_thick_c, h, press_hyd)
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -403,6 +404,7 @@ CONTAINS
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
+!<OptimizeEssential>
   SUBROUTINE calc_density(patch_3d,tracer, rho)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(in), TARGET :: tracer(:,:,:,:)     !< input of S and T
@@ -436,6 +438,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
+!<OptimizeEssential>
   SUBROUTINE calc_potential_density(patch_3d,tracer, rhopot)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(in), TARGET :: tracer(:,:,:,:)     !< input of S and T
@@ -924,6 +927,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
+!<OptimizeEssential>
   FUNCTION calc_density_mpiom_func(tpot, sal, p) result(rho)
     REAL(wp), INTENT(in) :: tpot, sal, p
     REAL(wp)             :: rho
@@ -971,6 +975,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
+!<OptimizeEssential>
   SUBROUTINE calc_potential_density_mpiom(patch_3d, tracer, rhopot)
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
@@ -1064,6 +1069,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   ! potential density wrt to surface
+!<OptimizeEssential>
   ELEMENTAL FUNCTION calc_potential_density_mpiom_elemental(tpot, sal) result(rho)
     REAL(wp), INTENT(in) :: tpot, sal
     REAL(wp)             :: rho

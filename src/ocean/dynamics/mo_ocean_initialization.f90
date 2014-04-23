@@ -130,6 +130,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !
+!<OptimizeEssential>
   SUBROUTINE construct_ocean_var_lists(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
@@ -210,6 +211,7 @@ CONTAINS
   !! - all 3-dim structures moved from patch_oce to type  t_hydro_ocean_base
   !!
   !!  mpi parallelized
+!<OptimizeEssential>
   SUBROUTINE init_ho_base( patch_2d, p_ext_data, v_base )
     
     TYPE(t_patch),  TARGET,   INTENT(inout)    :: patch_2d
@@ -937,6 +939,7 @@ CONTAINS
   !! Modified by Stephan Lorenz,        MPI-M (2012-02)
   !!
   !!  no-mpi parallelized
+!<OptimizeEssential>
   SUBROUTINE init_ho_basins( patch_2d, v_base )
     
     TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
@@ -1303,6 +1306,7 @@ CONTAINS
   !!  developed by Peter Korn, 2011
   !!  mpi parallelized LL (no sync required)
   !!
+!<OptimizeEssential>
   SUBROUTINE init_coriolis_oce( ptr_patch )
     !
     IMPLICIT NONE
@@ -1404,6 +1408,7 @@ CONTAINS
   !! Developed  by  Peter korn, MPI-M (2012/08).
   !!
   
+!<OptimizeEssential>
   SUBROUTINE init_patch_3d(patch_3d, p_ext_data, v_base)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)    :: patch_3d
@@ -1727,6 +1732,7 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   !------------------------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE complete_ocean_subsets(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1740,6 +1746,7 @@ CONTAINS
   
   
   
+!<OptimizeEssential>
   SUBROUTINE set_subset_ocean_vertical_layers(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1788,6 +1795,7 @@ CONTAINS
   !------------------------------------------------------------------------------------
   ! ignore land points in range subsets
   ! this only works if the land points are re-ordered
+!<OptimizeEssential>
   SUBROUTINE ocean_subsets_ignore_land(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1859,6 +1867,7 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   !------------------------------------------------------------------------------------
+!<OptimizeEssential>
   SUBROUTINE check_ocean_subsets(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1913,6 +1922,7 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   
+!<OptimizeEssential>
   SUBROUTINE init_oce_config()
     oce_config%tracer_names(1)     = 'T'
     oce_config%tracer_longnames(1) = 'potential temperature'
@@ -1926,6 +1936,7 @@ CONTAINS
     oce_config%tracer_codes(2)     = 201
     oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
   END SUBROUTINE
+!<OptimizeEssential>
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep
     LOGICAL is_initial_timestep
