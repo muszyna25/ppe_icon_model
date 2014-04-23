@@ -173,10 +173,6 @@ scripts/cdo_scripts/*.settings
 scripts/cdo_scripts/.cproject
 scripts/cdo_scripts/.project
 scripts/cdo_scripts/icon-dev
-scripts/codestyle_scripts/*.settings
-scripts/codestyle_scripts/.cproject
-scripts/codestyle_scripts/.project
-scripts/codestyle_scripts/icon-dev
 scripts/doxygen_scripts/*.settings
 scripts/doxygen_scripts/.cproject
 scripts/doxygen_scripts/.project
