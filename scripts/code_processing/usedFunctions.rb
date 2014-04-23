@@ -11,9 +11,9 @@ end
 # SCAN {{{
 # scan relevant source code
 fileList       = Dir.glob("#{iconSourceDir}/**/*.f90")
-scanSource     = IO.popen("ctags -x  --fortran-kinds=fs ../../src/ocean/*/*f90").readlines.map {|l| l.chomp.gsub(/\s +/,' ').split(' ')}
-filesOfFunx    = {}; scanSource.each {|l| filesOfFunx[l[0]]    = l[3]}
-patternsOfFunx = {}; scanSource.each {|l| patternsOfFunx[l[0]] = l[4..-1].join(' ')}
+scanSource     = IO.popen("ctags -x  --fortran-kinds=fs #{fileList.join(' ')}").readlines.map {|l| l.chomp.gsub(/\s +/,' ').split(' ')}
+filesOfFunx    = {}; scanSource.each {|l| filesOfFunx[l[0].downcase]    = l[3]}
+patternsOfFunx = {}; scanSource.each {|l| patternsOfFunx[l[0].downcase] = l[4..-1].join(' ')}
 allFunx        = filesOfFunx.keys.sort.uniq
 
 # scan the binary
@@ -27,17 +27,21 @@ puts usedFunx.join("\n")
 # }}}
 # =============================================================================
 # EDIT FILES {{{
-options = {}
-rest.each {|opt| k,v = opt.split('='); options[k] = v}
+options = {};
+unless rest.nil? then
+  k,v = rest.split('='); 
+  options[k] = v
+end
 if options.has_key?('ACTION') and options['ACTION'] == 'edit' then
   usedFunx.each {|func|
+    puts func
     # find out the source code file where the routine is defined
     file    = filesOfFunx[func]
     pattern = patternsOfFunx[func]
     # Add <OptimizeEssential> in the line before
-    cmd = "sed -i '/^ \\+#{pattern}/i   !<OptimizeEssential>' #{file}"
-    puts cmd
-    system(cmd)
+    cmd = "sed -i '/^ \\+#{pattern}/Ii   !<OptimizeEssential>' #{file}"
+    puts "\t" + cmd
+    system(cmd) #if false
   }
 end
 # }}}
