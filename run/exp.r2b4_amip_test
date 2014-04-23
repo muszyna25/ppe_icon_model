@@ -113,7 +113,7 @@ cat > ${atmo_namelist} << EOF
  rh_at_1000hpa    = 0.30         ! [] initial rel. humidity at 1000 hPa 
 /
 &dynamics_nml
- iequations       = 1            ! 1: hydrost. atmosphere
+ iequations       = 1            ! 1: ICOHAM dynamics
 /
 &ha_dyn_nml
  ldry_dycore      = .FALSE.      ! moist dynamical core
@@ -124,6 +124,9 @@ cat > ${atmo_namelist} << EOF
 /
 &transport_nml
  ctracer_list     = 'vwi45'      ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ ivadv_tracer     = 3,3,3,3,3
+ itype_hlimit     = 3,4,4,4,4
+ ihadv_tracer     = 52,2,2,2,2
 /
 &echam_phy_nml
  lamip            = .TRUE.
