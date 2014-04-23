@@ -57,7 +57,7 @@ MODULE mo_art_washout_interface
         &                                t_fields_volc
     USE mo_art_data,               ONLY: p_art_data
     USE mo_art_aerosol_utilities,  ONLY: art_air_properties
-    USE mo_art_clipping,           ONLY: art_clip_tracers_zero
+    USE mo_art_clipping,           ONLY: art_clip_lt
 ! Washout Routines
     USE mo_art_washout_volc,       ONLY:art_washout_volc
     USE mo_art_radioactive,        ONLY:art_washout_radioact
@@ -154,7 +154,7 @@ CONTAINS
   ! --- Clip the tracers
   ! ----------------------------------
   
-    CALL art_clip_tracers_zero(p_tracer_new)
+    CALL art_clip_lt(p_tracer_new,0.0_wp)
   ENDIF
 #endif
 

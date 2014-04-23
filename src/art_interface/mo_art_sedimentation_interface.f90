@@ -58,7 +58,7 @@ MODULE mo_art_sedi_interface
     USE mo_art_modes,              ONLY: t_fields_2mom,t_fields_radio, &
         &                                t_fields_volc
     USE mo_art_data,               ONLY: p_art_data, UNDEF_INT_ART
-    USE mo_art_clipping,           ONLY: art_clip_tracers_zero
+    USE mo_art_clipping,           ONLY: art_clip_lt
 ! sedimentation and deposition routines
     USE mo_art_sedi_volc,          ONLY: art_sedi_volc
 !    USE mo_art_aerosol,            ONLY: p_mflx_contra_vsed, vdep_ash
@@ -278,7 +278,7 @@ CONTAINS
   ! --- Clip the tracers
   ! ----------------------------------
 
-    CALL art_clip_tracers_zero(p_tracer_new)
+    CALL art_clip_lt(p_tracer_new,0.0_wp)
     
     DEALLOCATE(p_upflux_sed)
   ENDIF
