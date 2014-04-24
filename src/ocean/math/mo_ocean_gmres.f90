@@ -104,6 +104,7 @@ CONTAINS
   !! Based on gmres_oce_old
   !! restart functionality and optimization L.Linardakis, MPIM, 2013
   !-------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE ocean_restart_gmres( x,lhs,h_e, thickness_c, old_h, p_patch_3d, &
     & p_op_coeff, b,                      &
     & tolerance,abstol,m,maxiterex,niter,res,    &

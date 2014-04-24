@@ -654,6 +654,7 @@ CONTAINS
   END SUBROUTINE flux_corr_transport_edge
   !-------------------------------------------------------------------------------
 
+!<Optimize_Used>
    SUBROUTINE flux_corr_transport_cell( patch_3d, &
     & trac_old,                                   & 
     & p_os,                                       &
@@ -1221,6 +1222,7 @@ CONTAINS
   !! - adapted to hydrostatic ocean core
   !!
   !!  mpi note: the result is not synced. Should be done in the calling method if required
+!<Optimize_Used>
   SUBROUTINE upwind_hflux_oce( patch_3d, pvar_c, pvn_e, edge_upwind_flux, opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d

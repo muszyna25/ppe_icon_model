@@ -93,6 +93,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+!<Optimize_Used>
   SUBROUTINE map_edges2vert_3d(patch_2D, vn, edge2vert_coeff_cc, vn_dual)
     
     TYPE(t_patch), TARGET, INTENT(in)       :: patch_2D
@@ -164,6 +165,7 @@ CONTAINS
   !!Boundary handling for triangles by P. Korn (2009)
   !!
   !!  mpi note: the result is on edges_in_domain.
+!<Optimize_Used>
   SUBROUTINE grad_fd_norm_oce_3d( psi_c, patch_3D, grad_coeff, grad_norm_psi_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
@@ -276,6 +278,7 @@ CONTAINS
   !! - New boundary definition with inner and boundary points on land/sea
   !!
   !!  mpi parallelized LL (no sync required)
+!<Optimize_Used>
   SUBROUTINE div_oce_3d_mlevels( vec_e, patch_2D,div_coeff, div_vec_c, opt_slev, opt_elev, &
     & subset_range)
     !
@@ -534,6 +537,7 @@ CONTAINS
   !! Boundary handling for triangles by P. Korn (2009)
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
+!<Optimize_Used>
   SUBROUTINE grad_fd_norm_oce_2d_3d( psi_c, patch_2D, grad_coeff, grad_norm_psi_e)
     !
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
@@ -664,6 +668,7 @@ CONTAINS
   !!
   !! mpi note: the results is not synced. should be done by the calling method if necessary
   !!     vn, vn_dual must have been synced on level 2 (in_domain + 1)
+!<Optimize_Used>
   SUBROUTINE rot_vertex_ocean_3d( patch_3D, vn, vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
@@ -900,6 +905,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
+!<Optimize_Used>
   SUBROUTINE calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solverCoeff_sp)
   !SUBROUTINE calculate_thickness( p_patch_3D, ocean_state, p_ext_data, ice_hi)
     !
@@ -1167,6 +1173,7 @@ CONTAINS
   END SUBROUTINE calculate_thickness
   !-------------------------------------------------------------------------
 
+!<Optimize_Used>
   SUBROUTINE check_cfl_horizontal(normal_velocity,inv_dual_edge_length,timestep,edges,threshold, &
       &                          cfl_diag, stop_on_violation, output)
     REAL(wp),POINTER      :: normal_velocity(:,:,:)
@@ -1206,6 +1213,7 @@ CONTAINS
     DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_horizontal
 
+!<Optimize_Used>
   SUBROUTINE check_cfl_vertical(vertical_velocity, thicknesses, timestep, cells, threshold, &
       &                        cfl_diag, stop_on_violation, output)
     REAL(wp),POINTER     :: vertical_velocity(:,:,:), thicknesses(:,:,:)
@@ -1246,6 +1254,7 @@ CONTAINS
     DEALLOCATE(cfl)
   END SUBROUTINE check_cfl_vertical
 
+!<Optimize_Used>
   SUBROUTINE check_cfl_threshold(maxcfl,threshold,orientation, stop_on_violation)
     REAL(wp),INTENT(IN)          :: maxcfl, threshold
     CHARACTER(LEN=4), INTENT(IN) :: orientation

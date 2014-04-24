@@ -120,6 +120,7 @@ CONTAINS
   
 
   !-------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE apply_initial_conditions(patch_3d, ocean_state, external_data, &
     & operators_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
@@ -323,6 +324,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE initialize_diagnostic_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
@@ -355,6 +357,7 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE init_ocean_bathymetry(patch_3d, cells_bathymetry)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET  :: cells_bathymetry(:,:)
@@ -389,6 +392,7 @@ CONTAINS
 
   
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE init_ocean_salinity(patch_3d, ocean_salinity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_salinity(:,:,:)
@@ -476,6 +480,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE init_ocean_temperature(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
@@ -596,6 +601,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE init_ocean_velocity(patch_3d, normal_velocity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: normal_velocity(:,:,:)
@@ -640,6 +646,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE init_ocean_surface_height(patch_3d, ocean_height)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_height(:,:)
@@ -1437,6 +1444,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE tracer_VerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1471,6 +1479,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
   ! decrease tvertically linerarly the given tracer based on the top level value
   ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
+!<Optimize_Used>
   SUBROUTINE increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1899,6 +1908,7 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_salinity(:,:,:)
@@ -1927,6 +1937,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE fill_FromVerticalArrayProfile(patch_3d, ocean_tracer, VerticalProfileValue)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -2355,6 +2366,7 @@ CONTAINS
   !-----------------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE fill_tracer_x_height(patch_3d, ocean_state)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state

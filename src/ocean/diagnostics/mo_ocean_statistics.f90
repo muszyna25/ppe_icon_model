@@ -113,6 +113,7 @@ CONTAINS
 
     
   !---------------------------------------------------------------------
+!<Optimize_Used>
   SUBROUTINE update_ocean_statistics(ocean_state,p_sfc_flx,cells,edges,verts,max_zlev)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     TYPE(t_sfc_flx),           INTENT(inout) :: p_sfc_flx

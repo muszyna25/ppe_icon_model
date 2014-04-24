@@ -141,6 +141,7 @@ CONTAINS
     
   !----------------------------------------------------------------------------
   !>
+!<Optimize_Used>
   SUBROUTINE complete_ocean_patch( patch_2D)
     TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
 
@@ -166,6 +167,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Guenther Zaengl, 2009-03-31
   !!
+!<Optimize_Used>
   SUBROUTINE complete_ocean_patch_geometry( patch_2D)
     TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
 

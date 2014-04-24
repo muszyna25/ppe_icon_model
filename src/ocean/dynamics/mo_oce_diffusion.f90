@@ -507,6 +507,7 @@ END SUBROUTINE veloc_diff_biharmonic_div_grad
   !! @par Revision History
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
+!<Optimize_Used>
   SUBROUTINE veloc_diff_harmonic_curl_curl( u_vec_e, vort, p_patch_3D, p_op_coeff,&
     & p_vn_dual, nabla2_vec_e,k_h )
     !
