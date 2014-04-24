@@ -372,7 +372,9 @@ if string_in_list $MD $CMODES; then
     if [ "$RESTART_SUCCESS" == 'yes' ]; then
       sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
     fi
-    sed -i.sedbak s/nproma=64/nproma=17/g ${RUN_SCRIPT}
+    N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
+    N_NPROMA_NEW="nproma=17"
+    sed -i.sedbak s/$N_NPROMA/$N_NPROMA_NEW/g ${RUN_SCRIPT}
     sed -i.sedbak s/${SCRIPT}/${EXP3}/g ${RUN_SCRIPT}
     rm ${RUN_SCRIPT}.sedbak
     echo 'Performing nproma test (running with nproma=17)'
