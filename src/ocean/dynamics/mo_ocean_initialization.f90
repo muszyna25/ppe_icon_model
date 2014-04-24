@@ -956,7 +956,7 @@ CONTAINS
     REAL(wp) :: z_lon_pta, z_lon_ati, z_lon_itp, z_lon_ind, z_lon_nam, z_lon_med
     
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
-    LOGICAL :: is_area_5, is_area_8, p_test_run_bac
+    LOGICAL :: is_area_5, is_area_8
     
     TYPE(t_ocean_regions) :: ocean_regions
     TYPE(t_ocean_basins)  :: ocean_basins
@@ -1087,8 +1087,7 @@ CONTAINS
     !  - iterative procedure (time consuming in higher resolution)
     
     ! disable p_test_run since iterations will be different
-    p_test_run_bac = p_test_run
-    p_test_run = .FALSE.
+    CALL disable_sync_checks()
     
     g_cor=0
     !   Do jiter=1,1000 ! should be adjusted to higher resolution
@@ -1148,11 +1147,11 @@ CONTAINS
       & iter,' no of cor:',g_cor
     CALL message(TRIM(routine), TRIM(message_text))
     
-    p_test_run = p_test_run_bac
-    !chekc if iarea is the same
-    z_sync_c(:,:) =  REAL(iarea(:,:),wp)
-    CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
-    iarea(:,:) = INT(z_sync_c(:,:))
+!    p_test_run = p_test_run_bac
+!    !chekc if iarea is the same
+!    z_sync_c(:,:) =  REAL(iarea(:,:),wp)
+!    CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
+!    iarea(:,:) = INT(z_sync_c(:,:))
     !-----------------------------
     
     DO jiter=1,100
@@ -1212,8 +1211,8 @@ CONTAINS
       & iter,' no of cor:',g_cor
     CALL message(TRIM(routine), TRIM(message_text))
     
-    p_test_run = p_test_run_bac
     !chekc if iarea is the same
+    CALL enable_sync_checks()
     z_sync_c(:,:) =  REAL(iarea(:,:),wp)
     CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
     iarea(:,:) = INT(z_sync_c(:,:))
