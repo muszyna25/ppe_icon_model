@@ -275,6 +275,7 @@ CONTAINS
 
   END SUBROUTINE advect_flux_vertical
   !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !! SUBROUTINE advects vertically the tracers present in the ocean model.
   !!
@@ -346,7 +347,7 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startidx_c, endidx_c)
 
-DO jk = 2, n_zlev
+      DO jk = 2, n_zlev
         DO jc = startidx_c, endidx_c
         
           z_diff_flux_v(jc,jk,jb)=trac_old(jc,jk-1,jb)-trac_old(jc,jk,jb)
@@ -1435,23 +1436,34 @@ DO jk = 2, n_zlev
           IF ( patch_3D%lsm_c(jc,ikp2,jb) <= sea_boundary ) THEN
           z_face(jc,levelBelow,jb) = p_cc(jc,level,jb) &
             &  + (cell_height(jc,level,jb)                                          &
+            &  / (cell_height(jc,level,jb) + cell_height(jc,levelBelow,jb)))        &
+            & &
+            &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb))                       &
+            & &
+            &  + (1._wp/(cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb)   &
+            &  + cell_height(jc,levelBelow,jb) + cell_height(jc,ikp2,jb)))          &
+            & &
+            & *( &
+            &   (2._wp * cell_height(jc,levelBelow,jb) * cell_height(jc,level,jb)    &
             &  / (cell_height(jc,level,jb) + cell_height(jc,levelBelow,jb)))         &
-            &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb))                                  &
-            &  + (1._wp/(cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb)    &
-            &  + cell_height(jc,levelBelow,jb) + cell_height(jc,ikp2,jb)))        &
-            &  * ( (2._wp * cell_height(jc,levelBelow,jb) * cell_height(jc,level,jb) &
-            &  / (cell_height(jc,level,jb) + cell_height(jc,levelBelow,jb)))         &
+            & &
             &  * ( (cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb))        &
             &  / (2._wp*cell_height(jc,level,jb) + cell_height(jc,levelBelow,jb))    &
             &  - (cell_height(jc,ikp2,jb) + cell_height(jc,levelBelow,jb))        &
             &  / (2._wp*cell_height(jc,levelBelow,jb) + cell_height(jc,level,jb)) )  &
-            &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb)) - cell_height(jc,level,jb)     &
-            &  * z_slope(jc,levelBelow,jb) * (cell_height(jc,levelAbove,jb)                  &
-            &  + cell_height(jc,level,jb)) / (2._wp*cell_height(jc,level,jb)      &
-            &  + cell_height(jc,levelBelow,jb)) + cell_height(jc,levelBelow,jb)         &
-            &  * z_slope(jc,level,jb) * (cell_height(jc,levelBelow,jb)                    &
-            &  + cell_height(jc,ikp2,jb)) / (cell_height(jc,level,jb)          &
-            &  + 2._wp*cell_height(jc,levelBelow,jb)) )
+            & &
+            &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb)) -                      &
+            &  z_slope(jc,levelBelow,jb) *                                           &
+            & &
+            &  cell_height(jc,level,jb) *                                            &
+            &  (cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb)) /          &
+            &  (2._wp*cell_height(jc,level,jb) + cell_height(jc,levelBelow,jb))      &
+            & &
+            & +  z_slope(jc,level,jb) *                                              &
+            & &
+            &  cell_height(jc,levelBelow,jb) * &
+            & (cell_height(jc,levelBelow,jb)  + cell_height(jc,ikp2,jb)) &
+            & / (cell_height(jc,level,jb) + 2._wp*cell_height(jc,levelBelow,jb)) )
            ELSE
            z_face(jc,levelBelow,jb) = 0.0_wp
            ENDIF
@@ -1521,10 +1533,10 @@ DO jk = 2, n_zlev
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 
-      z_lext_1(i_startidx:i_endidx,slev)   = p_cc(i_startidx:i_endidx,slev,jb)
-      z_lext_2(i_startidx:i_endidx,slev)   = p_cc(i_startidx:i_endidx,slev,jb)
-      z_lext_1(i_startidx:i_endidx,nlevp1) = p_cc(i_startidx:i_endidx,n_zlev,jb)
-      z_lext_2(i_startidx:i_endidx,nlevp1) = p_cc(i_startidx:i_endidx,n_zlev,jb)
+!      z_lext_1(i_startidx:i_endidx,slev)   = p_cc(i_startidx:i_endidx,slev,jb)
+!      z_lext_2(i_startidx:i_endidx,slev)   = p_cc(i_startidx:i_endidx,slev,jb)
+!      z_lext_1(i_startidx:i_endidx,nlevp1) = p_cc(i_startidx:i_endidx,n_zlev,jb)
+!      z_lext_2(i_startidx:i_endidx,nlevp1) = p_cc(i_startidx:i_endidx,n_zlev,jb)
 
       DO level = slevp1, n_zlev
         ! index of top half level
