@@ -772,7 +772,6 @@ run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_oce_acc -text
 run/exp.test_oce_default -text
 run/exp.test_oce_numeric -text
-run/exp.test_oce_numeric_noland -text
 run/exp.test_oce_numeric_noland_ptest -text
 run/exp.test_oce_numeric_tracerconservation -text
 run/exp.test_oce_parallel -text
