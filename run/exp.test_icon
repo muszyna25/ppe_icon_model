@@ -282,7 +282,7 @@ if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP1} ]; then
   fi
   RUN_SCRIPT=exp.${EXP1}.run
   cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-  sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
+  sed -i'' s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
   echo 'Performing base run'
   ${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
   STATUS=$?
@@ -314,7 +314,7 @@ if string_in_list $MD $CMODES; then
     fi
     RUN_SCRIPT=exp.${EXP1}.run
     cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-    sed -i s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
+    sed -i'' s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
     echo 'Performing update test (run reference model)'
     ${REFERENCE}/run/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
   else
@@ -342,8 +342,8 @@ echo $MD $MODES $OVERWRITE $MODEL_DIR $EXP2
     cd ${MODEL_DIR}/run/
     RUN_SCRIPT=exp.${EXP2}.run
     cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-    sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
-    sed -i s/${SCRIPT}/${EXP2}/g ${RUN_SCRIPT}
+    sed -i'' s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
+    sed -i'' s/${SCRIPT}/${EXP2}/g ${RUN_SCRIPT}
     echo 'Performing restart test (running restart)'
     ${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
   else
@@ -367,10 +367,10 @@ if string_in_list $MD $CMODES; then
     RUN_SCRIPT=exp.${EXP3}.run
     cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
     if [ "$RESTART_SUCCESS" == 'yes' ]; then
-      sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
+      sed -i'' s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
     fi
-    sed -i s/nproma=64/nproma=17/g ${RUN_SCRIPT}
-    sed -i s/${SCRIPT}/${EXP3}/g ${RUN_SCRIPT}
+    sed -i'' s/nproma=64/nproma=17/g ${RUN_SCRIPT}
+    sed -i'' s/${SCRIPT}/${EXP3}/g ${RUN_SCRIPT}
     echo 'Performing nproma test (running with nproma=17)'
     ${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
   else
@@ -393,7 +393,7 @@ if string_in_list $MD $CMODES; then
     RUN_SCRIPT=exp.${EXP4}.run
     cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
     if [ "$RESTART_SUCCESS" == 'yes' ]; then
-      sed -i s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
+      sed -i'' s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
     fi
     PTEST_POSSIBLE='no'
     MPI=`grep with_mpi ${RUN_SCRIPT}`
@@ -410,22 +410,22 @@ if string_in_list $MD $CMODES; then
           N_PPNODE_NEW=$(( N_PPNODE - 1 ))
           N_PROCS_NEW=$(( N_NODES * N_PPNODE_NEW ))
 	  N_NODES_NEW=$N_NODES
-          sed -i s/"mpi_procs_pernode=$N_PPNODE"/"mpi_procs_pernode=$N_PPNODE_NEW"/g ${RUN_SCRIPT}
+          sed -i'' s/"mpi_procs_pernode=$N_PPNODE"/"mpi_procs_pernode=$N_PPNODE_NEW"/g ${RUN_SCRIPT}
 	else
 	  N_NODES_NEW=$(( N_NODES - 1 ))
 	  N_PROCS_NEW=$N_NODES
 	  N_PPNODE_NEW=$N_PPNODE
-	  sed -i s/"no_of_nodes=$N_NODES"/"no_of_nodes=$N_NODES_NEW"/g ${RUN_SCRIPT}
+	  sed -i'' s/"no_of_nodes=$N_NODES"/"no_of_nodes=$N_NODES_NEW"/g ${RUN_SCRIPT}
 	fi # N_PPNODE>1
-        sed -i s/"mpi_total_procs=$NN"/"mpi_total_procs=$N_PROCS_NEW"/g ${RUN_SCRIPT}
+        sed -i'' s/"mpi_total_procs=$NN"/"mpi_total_procs=$N_PROCS_NEW"/g ${RUN_SCRIPT}
         TASKS_PER_NODE=`grep tasks_per_node ${RUN_SCRIPT}`
         if [ ! -z "$TASKS_PER_NODE" ]; then
-          sed -i s/"$TASKS_PER_NODE"/"#@ tasks_per_node=$N_PROCS_NEW"/g ${RUN_SCRIPT}
+          sed -i'' s/"$TASKS_PER_NODE"/"#@ tasks_per_node=$N_PROCS_NEW"/g ${RUN_SCRIPT}
         fi
       fi # total number of procs > 1
     fi # MPI = yes
     if [ "${PTEST_POSSIBLE}" == 'yes' ]; then
-      sed -i s/${SCRIPT}/${EXP4}/g ${RUN_SCRIPT}
+      sed -i'' s/${SCRIPT}/${EXP4}/g ${RUN_SCRIPT}
       echo "Performing parallel test (test of MPI) on $N_NODES_NEW nodes, $N_PPNODE_NEW threads per node in total $N_PROCS_NEW processes"
       ${SCRIPT_DIR}/${RUN_SCRIPT} 1>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2>> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
     fi  
