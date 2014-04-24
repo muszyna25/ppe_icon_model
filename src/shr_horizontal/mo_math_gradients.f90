@@ -891,7 +891,7 @@ END SUBROUTINE grad_green_gauss_cell_adv
   
   !  cell centered I/O variables
   !
-  REAL(wp), INTENT(in) :: p_ccpr(:,:,:,:) ! perturbation fields passed from dycore (nproma,2,nlev,nblks_c)
+  REAL(wp), INTENT(in) :: p_ccpr(:,:,:,:) ! perturbation fields passed from dycore (2,nproma,nlev,nblks_c)
 
   INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
 
@@ -902,7 +902,7 @@ END SUBROUTINE grad_green_gauss_cell_adv
   !
   ! cell based Green-Gauss reconstructed geographical gradient vector
   !
-  REAL(vp), INTENT(inout) :: p_grad(:,:,:,:)      ! dim:(nproma,4,nlev,nblks_c)
+  REAL(vp), INTENT(inout) :: p_grad(:,:,:,:)      ! dim:(4,nproma,nlev,nblks_c)
 
   INTEGER :: slev, elev     ! vertical start and end level
   INTEGER :: jc, jk, jb
@@ -967,28 +967,28 @@ END SUBROUTINE grad_green_gauss_cell_adv
 #endif
 
           ! zonal(u)-component of Green-Gauss gradient, field 1
-          p_grad(jc,1,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_ccpr(jc,1,jk,jb)+     &
-            ptr_int%geofac_grg(jc,2,jb,1)*p_ccpr(iidx(jc,jb,1),1,jk,iblk(jc,jb,1)) + &
-            ptr_int%geofac_grg(jc,3,jb,1)*p_ccpr(iidx(jc,jb,2),1,jk,iblk(jc,jb,2)) + &
-            ptr_int%geofac_grg(jc,4,jb,1)*p_ccpr(iidx(jc,jb,3),1,jk,iblk(jc,jb,3))
+          p_grad(1,jc,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_ccpr(1,jc,jk,jb)+     &
+            ptr_int%geofac_grg(jc,2,jb,1)*p_ccpr(1,iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,1)*p_ccpr(1,iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,1)*p_ccpr(1,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
           ! meridional(v)-component of Green-Gauss gradient, field 1
-          p_grad(jc,2,jk,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_ccpr(jc,1,jk,jb)    + &
-            ptr_int%geofac_grg(jc,2,jb,2)*p_ccpr(iidx(jc,jb,1),1,jk,iblk(jc,jb,1)) + &
-            ptr_int%geofac_grg(jc,3,jb,2)*p_ccpr(iidx(jc,jb,2),1,jk,iblk(jc,jb,2)) + &
-            ptr_int%geofac_grg(jc,4,jb,2)*p_ccpr(iidx(jc,jb,3),1,jk,iblk(jc,jb,3))
+          p_grad(2,jc,jk,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_ccpr(1,jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,2)*p_ccpr(1,iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,2)*p_ccpr(1,iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,2)*p_ccpr(1,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
           ! zonal(u)-component of Green-Gauss gradient, field 2
-          p_grad(jc,3,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_ccpr(jc,2,jk,jb)    + &
-            ptr_int%geofac_grg(jc,2,jb,1)*p_ccpr(iidx(jc,jb,1),2,jk,iblk(jc,jb,1)) + &
-            ptr_int%geofac_grg(jc,3,jb,1)*p_ccpr(iidx(jc,jb,2),2,jk,iblk(jc,jb,2)) + &
-            ptr_int%geofac_grg(jc,4,jb,1)*p_ccpr(iidx(jc,jb,3),2,jk,iblk(jc,jb,3))
+          p_grad(3,jc,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_ccpr(2,jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,1)*p_ccpr(2,iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,1)*p_ccpr(2,iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,1)*p_ccpr(2,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
           ! meridional(v)-component of Green-Gauss gradient, field 2
-          p_grad(jc,4,jk,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_ccpr(jc,2,jk,jb)    + &
-            ptr_int%geofac_grg(jc,2,jb,2)*p_ccpr(iidx(jc,jb,1),2,jk,iblk(jc,jb,1)) + &
-            ptr_int%geofac_grg(jc,3,jb,2)*p_ccpr(iidx(jc,jb,2),2,jk,iblk(jc,jb,2)) + &
-            ptr_int%geofac_grg(jc,4,jb,2)*p_ccpr(iidx(jc,jb,3),2,jk,iblk(jc,jb,3))
+          p_grad(4,jc,jk,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_ccpr(2,jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,2)*p_ccpr(2,iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,2)*p_ccpr(2,iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,2)*p_ccpr(2,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
         END DO ! end loop over cells
       END DO ! end loop over vertical levels

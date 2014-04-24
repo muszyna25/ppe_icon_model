@@ -118,7 +118,6 @@ MODULE mo_velocity_advection
     REAL(vp):: z_w_concorr_mc(nproma,p_patch%nlev)
     REAL(vp):: z_w_con_c(nproma,p_patch%nlevp1)
     REAL(vp):: z_w_con_c_full(nproma,p_patch%nlev,p_patch%nblks_c)
-    REAL(vp):: z_ddxn_ekin_e(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(vp):: z_v_grad_w(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(vp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
 
@@ -294,13 +293,58 @@ MODULE mo_velocity_advection
 !$OMP END DO
     ENDIF ! istep = 1
 
-    rl_start = 3
+
+    rl_start = 7
+    rl_end = min_rledge_int - 1
+
+    i_startblk = p_patch%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+    IF (.NOT. lvn_only) THEN
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            ! Compute v*grad w on edges (level nlevp1 is not needed because w(nlevp1) is diagnostic)
+            ! Note: this implicitly includes a minus sign for the gradients, which is needed later on
+            z_v_grad_w(je,jk,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
+             (p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) - p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2))) &
+             + z_vt_ie(je,jk,jb) * p_patch%edges%inv_primal_edge_length(je,jb) *                       &
+             p_patch%edges%system_orientation(je,jb) *                                                 &
+             (z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) - z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))) 
+
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+    ENDIF
+
+    rl_start = 4
     rl_end = min_rlcell_int - 1
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, z_w_concorr_mc) ICON_OMP_DEFAULT_SCHEDULE
+    rl_start_2 = grf_bdywidth_c+1
+    rl_end_2   = min_rlcell_int
+
+    i_startblk_2 = p_patch%cells%start_blk(rl_start_2,1)
+    i_endblk_2   = p_patch%cells%end_blk(rl_end_2,i_nchdom)
+
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
+!$OMP            z_w_concorr_mc, ic, icount, iclist, iklist, difcoef) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -359,86 +403,6 @@ MODULE mo_velocity_advection
         ENDDO
 
       ENDIF
-    ENDDO
-!$OMP END DO
-
-    rl_start = 7
-    rl_end = min_rledge_int - 1
-
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-
-      IF (.NOT. lvn_only) THEN
-#ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-!DIR$ IVDEP
-          DO jk = 1, nlev
-#else
-!CDIR UNROLL=3
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-#endif
-            ! Compute v*grad w on edges (level nlevp1 is not needed because w(nlevp1) is diagnostic)
-            ! Note: this implicitly includes a minus sign for the gradients, which is needed later on
-            z_v_grad_w(je,jk,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
-             (p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) - p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2))) &
-             + z_vt_ie(je,jk,jb) * p_patch%edges%inv_primal_edge_length(je,jb) *                       &
-             p_patch%edges%system_orientation(je,jb) *                                                 &
-             (z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) - z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))) 
-
-            ! Compute horizontal gradient of horizontal kinetic energy
-            z_ddxn_ekin_e(je,jk,jb) = z_kin_hor_e(je,jk,jb) *                                     &
-             (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
-              p_metrics%coeff_gradekin(je,2,jb)*p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) - &
-              p_metrics%coeff_gradekin(je,1,jb)*p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) 
-          ENDDO
-        ENDDO
-      ELSE ! do not compute w tendency
-#ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-!DIR$ IVDEP
-          DO jk = 1, nlev
-#else
-!CDIR UNROLL=6
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-#endif
-            ! Compute horizontal gradient of horizontal kinetic energy
-            z_ddxn_ekin_e(je,jk,jb) = z_kin_hor_e(je,jk,jb) *                                     &
-             (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
-              p_metrics%coeff_gradekin(je,2,jb)*p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) - &
-              p_metrics%coeff_gradekin(je,1,jb)*p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) 
-          ENDDO
-        ENDDO
-      ENDIF
-
-    ENDDO
-!$OMP END DO
-
-    rl_start = 4
-    rl_end = min_rlcell_int - 1
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-    rl_start_2 = grf_bdywidth_c+1
-    rl_end_2   = min_rlcell_int
-
-    i_startblk_2 = p_patch%cells%start_blk(rl_start_2,1)
-    i_endblk_2   = p_patch%cells%end_blk(rl_end_2,i_nchdom)
-
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            ic, icount, iclist, iklist, difcoef) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
 
       z_w_con_c(:,1:nlev) = p_prog%w(:,1:nlev,jb)
       z_w_con_c(:,nlevp1) = 0._wp
@@ -573,21 +537,25 @@ MODULE mo_velocity_advection
       ! Sum up terms of horizontal wind advection: grad(Ekin_h) + vt*(f+relvort_e) + wcon_e*dv/dz
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
-!DIR$ IVDEP
+!DIR$ IVDEP, PREFERVECTOR
         DO jk = 1, nlev
 #else
 !CDIR UNROLL=2
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
 #endif
-          p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - ( z_ddxn_ekin_e(je,jk,jb) +           &
-            p_diag%vt(je,jk,jb) * ( p_patch%edges%f_e(je,jb) + 0.5_wp*               &
-           (p_diag%omega_z(ividx(je,jb,1),jk,ivblk(je,jb,1))   +                      &
-            p_diag%omega_z(ividx(je,jb,2),jk,ivblk(je,jb,2))) ) +                     &
-           (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
-            p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2)))* &
-           (p_diag%vn_ie(je,jk,jb) - p_diag%vn_ie(je,jk+1,jb))/   &
-            p_metrics%ddqz_z_full_e(je,jk,jb) ) 
+
+          p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - ( z_kin_hor_e(je,jk,jb) *                        &
+           (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
+            p_metrics%coeff_gradekin(je,2,jb)*p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) - &
+            p_metrics%coeff_gradekin(je,1,jb)*p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
+            p_diag%vt(je,jk,jb) * ( p_patch%edges%f_e(je,jb) + 0.5_wp*                          &
+           (p_diag%omega_z(ividx(je,jb,1),jk,ivblk(je,jb,1))   +                                &
+            p_diag%omega_z(ividx(je,jb,2),jk,ivblk(je,jb,2))) ) +                               &
+           (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) +           &
+            p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2)))*           &
+           (p_diag%vn_ie(je,jk,jb) - p_diag%vn_ie(je,jk+1,jb))/p_metrics%ddqz_z_full_e(je,jk,jb))
+
         ENDDO
       ENDDO
 

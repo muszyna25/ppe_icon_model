@@ -150,7 +150,7 @@ MODULE mo_solve_nonhydro
                 z_mass_fl_div   (nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
                 z_theta_v_fl_div(nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
                 z_dwdz_dd       (nproma,p_patch%nlev,  p_patch%nblks_c), &
-                z_rth_pr        (nproma,2,p_patch%nlev,p_patch%nblks_c), &
+                z_rth_pr      (2,nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_exner_ex_pr   (nproma,p_patch%nlevp1,p_patch%nblks_c), & ! nlevp1 is intended here
                 z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_theta_v_v     (nproma,p_patch%nlev  ,p_patch%nblks_v), & ! used for iadv_rhotheta=1 only
@@ -164,14 +164,14 @@ MODULE mo_solve_nonhydro
 
     ! The data type vp (variable precision) is by default the same as wp but reduces
     ! to single precision when the __MIXED_PRECISION cpp flag is set at compile time
-    REAL(vp) :: z_th_ddz_exner_c(nproma,p_patch%nlev  ,p_patch%nblks_c), &
-                z_dexner_dz_c (2,nproma,p_patch%nlev  ,p_patch%nblks_c), &
-                z_vt_ie         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_kin_hor_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_grad_rth      (nproma,4,p_patch%nlev,p_patch%nblks_c), &
-                z_graddiv_vn    (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_w_concorr_me  (nproma,p_patch%nlev  ,p_patch%nblks_e)
+    REAL(vp) :: z_th_ddz_exner_c(nproma,p_patch%nlev,p_patch%nblks_c), &
+                z_dexner_dz_c (2,nproma,p_patch%nlev,p_patch%nblks_c), &
+                z_vt_ie         (nproma,p_patch%nlev,p_patch%nblks_e), &
+                z_kin_hor_e     (nproma,p_patch%nlev,p_patch%nblks_e), &
+                z_gradh_exner   (nproma,p_patch%nlev,p_patch%nblks_e), &
+                z_grad_rth    (4,nproma,p_patch%nlev,p_patch%nblks_c), &
+                z_graddiv_vn    (nproma,p_patch%nlev,p_patch%nblks_e), &
+                z_w_concorr_me  (nproma,p_patch%nlev,p_patch%nblks_e)
 
     REAL(wp) :: z_w_expl        (nproma,p_patch%nlevp1),          &
                 z_thermal_exp   (nproma,p_patch%nblks_c),         &
@@ -498,13 +498,13 @@ MODULE mo_solve_nonhydro
 
         ENDIF
 
-        z_rth_pr(i_startidx:i_endidx,1,1,jb) =  p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) - &
+        z_rth_pr(1,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) - &
           p_nh%metrics%rho_ref_mc(i_startidx:i_endidx,1,jb)
 
-        z_rth_pr(i_startidx:i_endidx,2,1,jb) =  p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) - &
+        z_rth_pr(2,i_startidx:i_endidx,1,jb) =  p_nh%prog(nnow)%theta_v(i_startidx:i_endidx,1,jb) - &
           p_nh%metrics%theta_ref_mc(i_startidx:i_endidx,1,jb)
 
-        z_theta_v_pr_mc(i_startidx:i_endidx,1) = z_rth_pr(i_startidx:i_endidx,2,1,jb)
+        z_theta_v_pr_mc(i_startidx:i_endidx,1) = z_rth_pr(2,i_startidx:i_endidx,1,jb)
 
 !CDIR UNROLL=8
         DO jk = 2, nlev
@@ -516,11 +516,11 @@ MODULE mo_solve_nonhydro
 
             ! perturbation density and virtual potential temperature at main levels for horizontal flux divergence term
             ! (needed in the predictor step only)
-            z_rth_pr(jc,1,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
-            z_rth_pr(jc,2,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+            z_rth_pr(1,jc,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
+            z_rth_pr(2,jc,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
 
             ! perturbation virtual potential temperature at main levels (needed in both substeps - see branch below)
-            z_theta_v_pr_mc(jc,jk) = z_rth_pr(jc,2,jk,jb)
+            z_theta_v_pr_mc(jc,jk) = z_rth_pr(2,jc,jk,jb)
 
             ! perturbation virtual potential temperature at interface levels
             z_theta_v_pr_ic(jc,jk) = &
@@ -663,8 +663,8 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
-            z_rth_pr(jc,1,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
-            z_rth_pr(jc,2,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+            z_rth_pr(1,jc,jk,jb) =  p_nh%prog(nnow)%rho(jc,jk,jb)     - p_nh%metrics%rho_ref_mc(jc,jk,jb)
+            z_rth_pr(2,jc,jk,jb) =  p_nh%prog(nnow)%theta_v(jc,jk,jb) - p_nh%metrics%theta_ref_mc(jc,jk,jb)
 
           ENDDO
         ENDDO
@@ -761,7 +761,7 @@ MODULE mo_solve_nonhydro
 #ifdef __LOOP_EXCHANGE
             ! For cache-based machines, also the back-trajectory computation is inlined to improve efficiency
             DO je = i_startidx, i_endidx
-!DIR$ IVDEP
+!DIR$ IVDEP, PREFERVECTOR
               DO jk = 1, nlev
 
                 lvn_pos = p_nh%prog(nnow)%vn(je,jk,jb) * dthalf >= 0._wp
@@ -799,14 +799,14 @@ MODULE mo_solve_nonhydro
                 ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
                 ! and the corresponding gradients are stored in z_grad_rth.
                 z_rho_e(je,jk,jb) = p_nh%metrics%rho_ref_me(je,jk,jb)     &
-                  +                            z_rth_pr(ilc0,1,jk,ibc0)   &
-                  + distv_bary(1) * z_grad_rth(ilc0,1,jk,ibc0) &
-                  + distv_bary(2) * z_grad_rth(ilc0,2,jk,ibc0)
+                  +                            z_rth_pr(1,ilc0,jk,ibc0)   &
+                  + distv_bary(1) * z_grad_rth(1,ilc0,jk,ibc0) &
+                  + distv_bary(2) * z_grad_rth(2,ilc0,jk,ibc0)
 
                 z_theta_v_e(je,jk,jb) = p_nh%metrics%theta_ref_me(je,jk,jb) &
-                  +                            z_rth_pr(ilc0,2,jk,ibc0)     &
-                  + distv_bary(1) * z_grad_rth(ilc0,3,jk,ibc0)   &
-                  + distv_bary(2) * z_grad_rth(ilc0,4,jk,ibc0)
+                  +                            z_rth_pr(2,ilc0,jk,ibc0)     &
+                  + distv_bary(1) * z_grad_rth(3,ilc0,jk,ibc0)   &
+                  + distv_bary(2) * z_grad_rth(4,ilc0,jk,ibc0)
 
 #else
 !CDIR UNROLL=4
@@ -820,14 +820,14 @@ MODULE mo_solve_nonhydro
                 ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
                 ! and the corresponding gradients are stored in z_grad_rth.
                 z_rho_e(je,jk,jb) = p_nh%metrics%rho_ref_me(je,jk,jb)     &
-                  +                            z_rth_pr(ilc0,1,jk,ibc0)   &
-                  + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,1,jk,ibc0) &
-                  + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,2,jk,ibc0)
+                  +                            z_rth_pr(1,ilc0,jk,ibc0)   &
+                  + z_distv_bary(je,jk,jb,1) * z_grad_rth(1,ilc0,jk,ibc0) &
+                  + z_distv_bary(je,jk,jb,2) * z_grad_rth(2,ilc0,jk,ibc0)
 
                 z_theta_v_e(je,jk,jb) = p_nh%metrics%theta_ref_me(je,jk,jb) &
-                  +                            z_rth_pr(ilc0,2,jk,ibc0)     &
-                  + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,3,jk,ibc0)   &
-                  + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,4,jk,ibc0)
+                  +                            z_rth_pr(2,ilc0,jk,ibc0)     &
+                  + z_distv_bary(je,jk,jb,1) * z_grad_rth(3,ilc0,jk,ibc0)   &
+                  + z_distv_bary(je,jk,jb,2) * z_grad_rth(4,ilc0,jk,ibc0)
 #endif
 
               ENDDO ! loop over edges
@@ -971,6 +971,7 @@ MODULE mo_solve_nonhydro
 
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
+!DIR$ IVDEP, PREFERVECTOR
             DO jk = nflat_gradp(p_patch%id)+1, nlev
 #else
 !CDIR UNROLL=5
@@ -2063,7 +2064,7 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%diag%exner_dyn_incr(jc,jk,jb) + &
-              p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%diag%exner_old(jc,jk,jb) -   &
+              p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%prog(nnow)%exner(jc,jk,jb) -     &
               dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb)
           ENDDO
         ENDDO
