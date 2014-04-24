@@ -672,7 +672,6 @@ lapack/spotf2.f -text
 lapack/spotrf.f -text
 lapack/spotrs.f -text
 /make_my_runscript -text
-/make_nat-ape-dec_runs -text
 /make_runscripts -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
@@ -931,6 +930,7 @@ scripts/building/compile_for_developers.ksh -text
 scripts/building/get_atmo -text
 scripts/building/get_icon -text
 scripts/building/get_ocean -text
+scripts/building/make_nat-ape-dec_runs -text
 scripts/cdo_scripts/cdo_ntl -text
 scripts/cdo_scripts/cdo_pa -text
 scripts/code_processing/check_style.py -text

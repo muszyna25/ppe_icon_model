@@ -1,6 +1,7 @@
 /*.settings
 /.cproject
 /.project
+/Rakefile
 blas/*.settings
 blas/.cproject
 blas/.project
@@ -408,6 +409,7 @@ support/*.settings
 support/.cproject
 support/.project
 support/icon-dev
+/tempList
 vertical_coord_tables/*.settings
 vertical_coord_tables/.cproject
 vertical_coord_tables/.project

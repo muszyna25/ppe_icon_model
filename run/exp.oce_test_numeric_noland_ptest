@@ -122,8 +122,8 @@ cat > ${ocean_namelist} << EOF
  nproma       = ${nproma}
  l_fast_sum   = .false.
  p_test_run   = .true.
- l_test_openmp=".true."
- l_log_checks=".false."
+ l_test_openmp= .true.
+ l_log_checks=  .false.
  division_method = 102
 /
 &grid_nml
