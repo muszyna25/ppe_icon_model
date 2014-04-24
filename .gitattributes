@@ -747,9 +747,8 @@ run/exp.oce_mpiom -text
 run/exp.oce_r2b5 -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
-run/exp.oce_test_numeric_noland_cellbased -text
-run/exp.oce_test_numeric_noland_cellbased_fast -text
 run/exp.oce_test_numeric_noland_edgebased -text
+run/exp.oce_test_numeric_noland_ptest -text
 run/exp.oce_test_numeric_r2b5 -text
 run/exp.oce_test_numeric_tracerconservation -text
 run/exp.oce_test_parallel -text
@@ -775,6 +774,7 @@ run/exp.test_oce_acc -text
 run/exp.test_oce_default -text
 run/exp.test_oce_numeric -text
 run/exp.test_oce_numeric_noland -text
+run/exp.test_oce_numeric_noland_ptest -text
 run/exp.test_oce_numeric_tracerconservation -text
 run/exp.test_oce_parallel -text
 run/exp.tracer_solid_body -text
@@ -1128,6 +1128,7 @@ scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
+scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
 scripts/run_scripts/test/test_experiments.rb -text

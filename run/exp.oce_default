@@ -179,7 +179,7 @@ cat > ${ocean_namelist} << EOF
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
   l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
-   solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
+  solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart = 20        !  outer solver loop with syncing
   solver_max_restart_iterations = 50      !  inner solver loop without syncing (30*50 iterations maximum)
   use_continuity_correction=.true.
