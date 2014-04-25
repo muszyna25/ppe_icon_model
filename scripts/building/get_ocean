@@ -57,7 +57,7 @@ mo_master_nml.f90 mo_parallel_nml.f90 mo_run_nml.f90 mo_sea_ice_nml.f90 mo_time_
 #mo_namelist.f90 mo_orbit.f90 mo_physical_constants.f90 mo_profile.f90 mo_real_timer.f90 mo_statistics.f90 
 #mo_time_base.f90 mo_timer.f90 mo_util_backtrace.f90 mo_util_dbg_prnt.f90 mo_util_debug.f90 mo_util_hash.f90  
 #mo_util_signal.f90 mo_util_sort.f90 mo_util_string.f90 mo_util_sysinfo.f90 mo_util_uuid.f90 libmtime.f90 
-#mo_var_list_element.f90 mo_var_list.f90 mo_vertical_coord_table.f90 mo_util_svn.f90 mo_var_metadata.f90 
+#mo_var_list_element.f90 mo_var_list.f90 mo_vertical_coord_table.f90 mo_var_metadata.f90 
 #mo_mtime_extensions.f90 mo_util_table.f90 mo_var_metadata_types.f90"
 
 link_source_list "src/shr_horizontal/" "mo_alloc_patches.f90 mo_ext_data_types.f90 mo_grid_geometry_info.f90 mo_grid_tools.f90 
