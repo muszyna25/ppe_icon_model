@@ -332,6 +332,7 @@ if string_in_list $MD $CMODES; then
     echo 'found run of reference model (update test)'
   fi # OVERWRITE
   diff_results $MODEL_DIR $EXP1 $REFERENCE $EXP1 "update"
+  # compare update with base run
   if [ "$DIFF_STATUS" == 0 ]; then
     EXIT_STATUS=$(($EXIT_STATUS + 0))
   else
@@ -361,7 +362,7 @@ echo $MD $MODES $OVERWRITE $MODEL_DIR $EXP2
   else
     echo 'found restart run (restart test)'
   fi # OVERWRITE
-# compare restart with base run
+  # compare restart with base run
   diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP2 "restart"
   if [ "$DIFF_STATUS" == 0 ]; then
     EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -391,7 +392,7 @@ if string_in_list $MD $CMODES; then
   else
     echo 'found run with nproma=17 (nproma test)'
   fi # OVERWRITE
-# compare nproma run with base run 
+  # compare nproma run with base run 
   diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP3 "nproma"
   if [ "$DIFF_STATUS" == 0 ]; then
     EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -403,29 +404,31 @@ fi # MODE
 CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP4} ]; then
-    copy_experiment ${MODEL_DIR} ${EXP1} ${EXP4}
     cd ${MODEL_DIR}/run/
-    RUN_SCRIPT=exp.${EXP4}.run
-    cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-    if [ "$RESTART_SUCCESS" == 'yes' ]; then
-      sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
-    fi
     PTEST_POSSIBLE='no'
-    MPI=`grep with_mpi ${RUN_SCRIPT}`
+    MPI=`grep with_mpi exp.${SCRIPT}.run`
     MPIYES='with_mpi="yes"'
     if [ "$MPI" == "$MPIYES" ]; then
       #
       # find out how many nodes and processes per node are in use
       #
-      N_NODES=`grep "no_of_nodes=" ${RUN_SCRIPT}`
+      N_NODES=`grep "no_of_nodes=" exp.${SCRIPT}.run`
       N_NODES=${N_NODES#'no_of_nodes='}
-      N_PPNODE=`grep "mpi_procs_pernode=" ${RUN_SCRIPT}`
+      N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
       N_PPNODE=${N_PPNODE#'mpi_procs_pernode='}
       N_PROCS=$(( N_NODES * N_PPNODE ))
       #
       if [ $N_PROCS -gt 1 ]; then
         #
 	PTEST_POSSIBLE='yes'
+        #
+        copy_experiment ${MODEL_DIR} ${EXP1} ${EXP4}
+        RUN_SCRIPT=exp.${EXP4}.run
+        cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
+        #
+        if [ "$RESTART_SUCCESS" == 'yes' ]; then
+          sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
+        fi
         #
         if [ $N_PPNODE -gt 1 ]; then
           #
@@ -499,44 +502,43 @@ if string_in_list $MD $CMODES; then
   fi # OVERWRITE
   #
   if [ "${PTEST_POSSIBLE}" == 'yes' ]; then
-    # compare the new MPI parallelized run with the old run
+    # compare mpi run with base run
     diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP4 "mpi"
-  else
-    echo '\033[31mno mpi test possible\033[00m'
-    DIFF_STATUS == 0
-  fi
-  if [ "$DIFF_STATUS" == 0 ]; then
-    EXIT_STATUS=$(($EXIT_STATUS + 0))
-  else
-    EXIT_STATUS=$(($EXIT_STATUS + 1))
-  fi
+    if [ "$DIFF_STATUS" == 0 ]; then
+      EXIT_STATUS=$(($EXIT_STATUS + 0))
+    else
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+    fi
+  fi # PTEST_POSSIBLE
 fi # MODE
 #################### perform omp test                ####################
 CMODES="o uo ro no mo uro uno umo rno rmo nmo urno urmo unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP5} ]; then
-    copy_experiment ${MODEL_DIR} ${EXP1} ${EXP5}
     cd ${MODEL_DIR}/run/
-    RUN_SCRIPT=exp.${EXP5}.run
-    cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-    if [ "$RESTART_SUCCESS" == 'yes' ]; then
-      sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
-    fi
     OTEST_POSSIBLE='no'
-    OMP=`grep with_openmp ${RUN_SCRIPT}`
+    OMP=`grep with_openmp exp.${SCRIPT}.run`
     OMPYES='with_openmp="yes"'
     if [ "$OMP" == "$OMPYES" ]; then
       #
       # find out how many omp threads are in use
       #
-      N_OMP_NUM_THREADS=`grep "export OMP_NUM_THREADS=" ${RUN_SCRIPT}`
+      N_OMP_NUM_THREADS=`grep "export OMP_NUM_THREADS=" exp.${SCRIPT}.run`
       N_OMP_NUM_THREADS=${N_OMP_NUM_THREADS#'export OMP_NUM_THREADS='}
-      N_ICON_THREADS=`grep "export ICON_THREADS=" ${RUN_SCRIPT}`
+      N_ICON_THREADS=`grep "export ICON_THREADS=" exp.${SCRIPT}.run`
       N_ICON_THREADS=${N_ICON_THREADS#'export ICON_THREADS='}
       #
       if [ $N_OMP_NUM_THREADS -gt 1 ]; then
         #
 	OTEST_POSSIBLE='yes'
+        #
+        copy_experiment ${MODEL_DIR} ${EXP1} ${EXP5}
+        RUN_SCRIPT=exp.${EXP5}.run
+        cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
+        #
+        if [ "$RESTART_SUCCESS" == 'yes' ]; then
+          sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
+        fi
         #
         N_OMP_NUM_THREADS_NEW=$(( N_OMP_NUM_THREADS - 1 ))
 	N_ICON_THREADS_NEW=$(( N_ICON_THREADS - 1 ))
@@ -580,17 +582,14 @@ if string_in_list $MD $CMODES; then
   fi # OVERWRITE
   #
   if [ "${OTEST_POSSIBLE}" == 'yes' ]; then
-    # compare the new OMP parallelized run with the old run
-    diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP5 "mpi"
-  else
-    echo '\033[31mno omp test possible\033[00m'
-    DIFF_STATUS == 0
-  fi
-  if [ "$DIFF_STATUS" == 0 ]; then
-    EXIT_STATUS=$(($EXIT_STATUS + 0))
-  else
-    EXIT_STATUS=$(($EXIT_STATUS + 1))
-  fi
+    # compare omp run with base run
+    diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP5 "omp"
+    if [ "$DIFF_STATUS" == 0 ]; then
+      EXIT_STATUS=$(($EXIT_STATUS + 0))
+    else
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+    fi
+  fi # OTEST_POSSIBLE
 fi # MODE
 ########################################################################
 case $MD in  
