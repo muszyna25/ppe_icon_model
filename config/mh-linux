@@ -61,7 +61,7 @@ load_modules=""
 CC     = gcc
 CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
 
-SVNVERSION=`touch support/util_svn.c ; svnversion | sed 's/ //g'`
+SVNVERSION=`svnversion | sed 's/ //g'`
 
 
 case "$fortran_compiler" in
