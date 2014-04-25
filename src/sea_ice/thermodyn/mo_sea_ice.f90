@@ -985,6 +985,8 @@ CONTAINS
 !          &     .and. v_base%lsm_c(:,:,:) <= sea_boundary )   &
 !          &             p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
 !      ENDIF
+   !ELSE
+   !  ! analytic init via nml parameter
     ENDIF
 
     WHERE(ice% hi(:,:,:) > 0.0_wp)

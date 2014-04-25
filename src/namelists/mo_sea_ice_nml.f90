@@ -82,6 +82,14 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: hci_layer          !< Thickness of stabilizing constant heat capacity layer
   REAL(wp),PUBLIC :: leadclose_1        !< Hibler's leadclose parameter for lateral melting
 
+  ! some analytic initialization parameters
+  REAL(wp),PUBLIC :: init_analytic_conc_param
+  INTEGER ,PUBLIC :: init_analytic_conc_type
+  REAL(wp),PUBLIC :: init_analytic_hi_param
+  INTEGER ,PUBLIC :: init_analytic_hi_type
+  REAL(wp),PUBLIC :: init_analytic_hs_param
+  INTEGER ,PUBLIC :: init_analytic_hs_type
+
   INTEGER         :: iunit
 
   NAMELIST /sea_ice_nml/ kice, i_ice_therm, i_ice_albedo, i_ice_dyn, hnull, hmin, ramp_wind, &
