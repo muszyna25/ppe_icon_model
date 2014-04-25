@@ -204,7 +204,7 @@ case $OPT in
       fi
       ;;
  r  ) REFERENCE=$OPTARG
-      CMODES="u ur un up urn urp unp urnp"
+      CMODES="u ur un um urn urm unm urnm"
       if string_in_list $MD $CMODES; then
         if [ ! -d ${REFERENCE}/run ]; then
 	   echo -e '\033[31myou asked for an update test, but no reference model found\033[00m'
