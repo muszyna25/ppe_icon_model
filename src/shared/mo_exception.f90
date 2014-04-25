@@ -287,16 +287,16 @@ CONTAINS
       message_text = TRIM(ADJUSTL(text))
     ENDIF
     IF (name /= '')  THEN
-      message_text = TRIM(name) // ': ' // TRIM(text)
+      message_text = TRIM(name) // ': ' // TRIM(message_text)
     ENDIF
     IF (ilevel > em_none) THEN
-      message_text = TRIM(prefix) // ' ' // TRIM(text)
+      message_text = TRIM(prefix) // ' ' // TRIM(message_text)
     ENDIF
 
     IF (run_is_global_mpi_parallel() .AND. &
       & (l_debug .OR. ilevel == em_warn .OR. ilevel == em_error)) THEN
       WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', get_my_global_mpi_id(), ' ', &
-        & TRIM(text)
+        & TRIM(message_text)
       lprint = .TRUE.
     ELSE
 
@@ -304,12 +304,12 @@ CONTAINS
         IF ( (comm_lev>0)  .AND.   &
         & (get_my_mpi_work_id() == get_glob_proc0()) ) THEN
         WRITE(write_text,*) 'PROC_SPLIT: PE ', get_glob_proc0(), ' ', &
-          & TRIM(text)
+          & TRIM(message_text)
         ELSE
-          write_text = text
+          write_text = message_text
         ENDIF
       ELSE
-        write_text = text
+        write_text = message_text
       END IF
 
     END IF
