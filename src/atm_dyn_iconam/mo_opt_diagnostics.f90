@@ -403,8 +403,8 @@ CONTAINS
   SUBROUTINE vcoeff_deallocate(vcoeff)
     TYPE(t_vcoeff), INTENT(INOUT) :: vcoeff
 
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_opt_diagnostics:vcoeff_deallocate")
+!!$    CHARACTER(*), PARAMETER :: routine = &
+!!$      &  TRIM("mo_opt_diagnostics:vcoeff_deallocate")
 
     ! deallocate coefficient tables:
     IF (vcoeff%l_allocated) THEN

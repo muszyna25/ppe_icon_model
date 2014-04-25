@@ -1171,8 +1171,8 @@ CONTAINS
   !! Developed  by Guenther Zaengl, DWD, 2011-12-08
   SUBROUTINE prep_rho_bdy_nudging(jgp, jg)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_nest_utilities:prep_rho_bdy_nudging'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$      &  routine = 'mo_nh_nest_utilities:prep_rho_bdy_nudging'
 
 
     INTEGER, INTENT(IN) :: jg   ! child grid level

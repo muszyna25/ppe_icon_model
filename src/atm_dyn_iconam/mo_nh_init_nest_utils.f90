@@ -142,7 +142,7 @@ MODULE mo_nh_init_nest_utils
     ! local variables
 
     ! Indices
-    INTEGER :: jb, jc, jk, jk1, jt, je, i_nchdom, i_chidx, i_startblk, i_endblk, &
+    INTEGER :: jb, jc, jk, jk1, jt, i_nchdom, i_chidx, i_startblk, i_endblk, &
                i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: nlev_c, nlev_p
@@ -785,8 +785,7 @@ MODULE mo_nh_init_nest_utils
 
       jgc = p_patch(jg)%child_id(jn)
 
-      CALL topography_blending(p_patch(jg), p_patch(jgc), p_int_state(jg),    &
-               p_int_state(jgc), p_grf_state(jg)%p_dom(jn), jn,               &
+      CALL topography_blending(p_patch(jg), p_patch(jgc), p_grf_state(jg)%p_dom(jn), jn, &
                ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c  )
 
       IF (p_patch(jgc)%n_childdom > 0) &
@@ -799,8 +798,7 @@ MODULE mo_nh_init_nest_utils
       jgc = p_patch(jg)%child_id(jn)
 
       IF (lfeedback(jgc) .AND. ifeedback_type == 1) THEN
-        CALL topography_feedback(p_patch(jg), p_int_state(jg), p_grf_state(jg), jn, &
-          ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c             )
+        CALL topography_feedback(p_patch(jg), jn, ext_data(jg)%atm%topography_c, ext_data(jgc)%atm%topography_c )
       ENDIF
 
     ENDDO
@@ -815,13 +813,11 @@ MODULE mo_nh_init_nest_utils
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2011-07-05)
   !!
-  SUBROUTINE topography_blending(p_pp, p_pc, p_intp, p_intc, p_grf, i_chidx, &
+  SUBROUTINE topography_blending(p_pp, p_pc, p_grf, i_chidx, &
                topo_cp, topo_cc)
 
     ! patch at parent and child level
     TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp, p_pc
-    ! interpolation state at parent and child level
-    TYPE(t_int_state),            TARGET, INTENT(IN) :: p_intp, p_intc
     ! grf state is needed at parent level only
     TYPE(t_gridref_single_state), TARGET, INTENT(IN) :: p_grf
 
@@ -963,15 +959,10 @@ MODULE mo_nh_init_nest_utils
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2011-07-05)
   !!
-  SUBROUTINE topography_feedback(p_pp, p_int, p_grf, i_chidx, &
-               topo_cp, topo_cc)
+  SUBROUTINE topography_feedback(p_pp, i_chidx, topo_cp, topo_cc)
 
     ! patch at parent level
     TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp
-    ! interpolation state at parent level
-    TYPE(t_int_state),            TARGET, INTENT(IN) :: p_int
-    ! grf state is needed at parent level only
-    TYPE(t_gridref_state), TARGET, INTENT(IN) :: p_grf
 
     ! child domain index
     INTEGER, INTENT(IN) :: i_chidx
@@ -990,7 +981,7 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_gridref_state), POINTER :: ptr_grf
     TYPE(t_patch),         POINTER :: ptr_pp
 
-    INTEGER  :: jgc, jb, jc, ic, ib
+    INTEGER  :: jgc, jb, jc
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, i_rlstart, i_rlend
 
     INTEGER, POINTER, DIMENSION(:,:,:) :: iidx, iblk

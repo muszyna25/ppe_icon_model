@@ -46,33 +46,31 @@ MODULE mo_nh_diffusion
   USE mo_kind,                ONLY: wp, vp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: l_limited_area, lfeedback, grid_sphere_radius
+  USE mo_grid_config,         ONLY: l_limited_area, lfeedback
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_cell
   USE mo_interpol_config,     ONLY: nudge_max_coeff
-  USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
-                                    cells2verts_scalar, cells2edges_scalar, &
-                                    edges2cells_scalar, verts2cells_scalar, &
-                                    edges2cells_vector
-  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, damp_height, iadv_rcf, lhdiff_rcf
+  USE mo_intp,                ONLY: edges2cells_vector
+  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, iadv_rcf, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer, iforcing, lvert_nest
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
-                                    min_rledge_int, min_rlcell_int, min_rlvert_int, inwp
+  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
+  USE mo_impl_constants    ,  ONLY: min_rledge_int, min_rlcell_int, min_rlvert_int, inwp
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_math_laplace,        ONLY: nabla4_vec
-  USE mo_math_constants,      ONLY: dbl_eps, pi
+  USE mo_math_constants,      ONLY: dbl_eps
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_gridref_config,      ONLY: denom_diffu_v
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, rd, p0ref
+  USE mo_physical_constants,  ONLY: cvd_o_rd, rd
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
+#ifdef __MIXED_PRECISION
   USE mo_exception,           ONLY: finish
+#endif
 
   IMPLICIT NONE
 
@@ -120,7 +118,6 @@ MODULE mo_nh_diffusion
     REAL(wp):: fac_bdydiff_v
 
     ! For Smagorinsky diffusion - vp means variable precision depending on the __MIXED_PRECISION cpp flag
-    REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert

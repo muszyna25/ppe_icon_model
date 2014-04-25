@@ -585,7 +585,7 @@ CONTAINS
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_z
 
     ! LOCAL VARIABLES
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_z")
+!!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_z")
 
     INTEGER :: nlev, nlevp1, jg, i_endblk, nblks_c,nblks_e, npromz_c,npromz_e !< blocking parameters
     ! Auxiliary field for output data
@@ -734,7 +734,7 @@ CONTAINS
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_p          !< out
 
     ! LOCAL VARIABLES
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_p")
+!!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_p")
 
     INTEGER :: nlev, nlevp1, jg, i_endblk, nblks_c,nblks_e, npromz_c,npromz_e !< blocking parameters
     ! Auxiliary field for smoothing temperature and geopotential on pressure levels
@@ -880,7 +880,7 @@ CONTAINS
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff_i          !< out
 
     ! LOCAL VARIABLES
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_i")
+!!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:prepare_vert_interp_i")
     INTEGER :: nlev, nlevp1, nblks_c, nblks_e, npromz_c,npromz_e !< blocking parameters
     REAL(wp), DIMENSION(nproma,nilev,p_patch%nblks_e)        :: gh_i_edge
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_me
@@ -3578,7 +3578,7 @@ CONTAINS
     INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
     
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:diagnose_pmsl_gme")
+!!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_nh_vert_interp:diagnose_pmsl_gme")
     REAL(wp), PARAMETER :: zthird = 1._wp/3._wp, &
       &                    zlapse = 6.5E-3_wp
     INTEGER             :: nlev, nlevp1, nlen, jb, jc

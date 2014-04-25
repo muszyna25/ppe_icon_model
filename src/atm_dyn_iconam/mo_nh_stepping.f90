@@ -1089,7 +1089,7 @@ MODULE mo_nh_stepping
         ENDIF
 
         IF (init_mode == MODE_DWDANA_INC) THEN ! incremental analysis mode
-          CALL compute_iau_wgt(datetime, time_config%sim_time(jg)-0.5_wp*dt_loc, dt_loc, lclean_mflx)
+          CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc, dt_loc, lclean_mflx)
         ENDIF
 
         IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN

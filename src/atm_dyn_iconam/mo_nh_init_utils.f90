@@ -66,7 +66,6 @@ MODULE mo_nh_init_utils
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
-  USE mo_datetime,              ONLY: t_datetime
   USE mo_initicon_config,       ONLY: dt_iau, type_iau_wgt, is_iau_active, &
     &                                 iau_wgt_dyn, iau_wgt_adv
 !!$  USE mo_util_uuid,             ONLY: t_uuid,  uuid_generate, uuid_parse, &
@@ -709,8 +708,8 @@ CONTAINS
   !!
   SUBROUTINE init_hybrid_coord(nlev, vct_a, vct_b)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_init_utils:init_hybrid_coord'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$      &  routine = 'mo_nh_init_utils:init_hybrid_coord'
 
     INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
     REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
@@ -854,7 +853,6 @@ CONTAINS
     REAL(wp), INTENT(OUT) :: vct(:)
     INTEGER,  INTENT(OUT) :: nflatlev(:)
 
-    REAL(wp) :: z_exp
     INTEGER  :: jk, nflat
     INTEGER  :: nlevp1        !< number of full and half levels
 
@@ -1112,9 +1110,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by daniel Reinert, DWD (2014-01-29)
   !!
-  SUBROUTINE compute_iau_wgt(datetime, sim_time, dt, lreset_wgt_adv)
-
-    TYPE(t_datetime), INTENT(IN)  :: datetime
+  SUBROUTINE compute_iau_wgt(sim_time, dt, lreset_wgt_adv)
 
     REAL(wp)        , INTENT(IN)  :: sim_time          !< Simulation time since model
                                                        !< start

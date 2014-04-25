@@ -119,7 +119,7 @@ MODULE mo_vertical_grid
     TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
 
-    INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jv, jn, jgc, nlen, &
+    INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jn, jgc, nlen, &
                nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic
     INTEGER :: nlev, nlevp1              !< number of full levels
 
