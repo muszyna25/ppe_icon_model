@@ -558,7 +558,7 @@ if string_in_list $MD $CMODES; then
 ##          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`
 ##          THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
 ##          sed -i.sedbak s/"$THREADS"/"$THREADS_NEW"/g ${RUN_SCRIPT}
-        fi
+##        fi
         #
         sed -i.sedbak s/${SCRIPT}/${EXP5}/g ${RUN_SCRIPT}
         rm ${RUN_SCRIPT}.sedbak
