@@ -32,7 +32,7 @@ case $MOD in
   'u') PRINT_MD='u(pdate)';;
   'r') PRINT_MD='r(estart)';;
   'n') PRINT_MD='n(proma)';;
-  'p') PRINT_MD='p(arallel)';;
+  'm') PRINT_MD='m(pi)';;
     *) PRINT_MD=$MOD;;
 esac
 echo "test mode is $PRINT_MD"
@@ -49,7 +49,7 @@ for MOD in $MODES; do
     'u') MD='u(pdate)';;
     'r') MD='r(estart)';;
     'n') MD='n(proma)';;
-    'p') MD='p(arallel)';;
+    'm') MD='m(pi)';;
       *) MD=$MOD;;
   esac
   MOD_ARG=$MOD_ARG'|'$MD
@@ -61,7 +61,7 @@ echo '     mtest_nat_rce_cbl_120km_nwp (non-hydrostatic, radiative-convective eq
 echo '-f : '"'yes'"': force make_runscripts even if runscripts exist'
 echo '     '"'no'"': perform make_runscripts only if no runscripts are available (default)'
 echo '-h : display help'
-echo '-m : test mode, either single tests like base, update, restart or nproma test or'
+echo '-m : test mode, either single tests like base, update, restart, nproma or mpi test or'
 echo '     combined tests like ur (update and restart) possible'
 echo '-o : '"'yes'"': overwrite existing experiments (default)'
 echo '     '"'no'"': use existing experiments'
@@ -159,14 +159,14 @@ SCRIPT_DIR=`pwd`
 MODEL_DIR=${SCRIPT_DIR}/../
 EXPERIMENT='r2b4_amip'
 FORCE_MRS='no'
-MD='rnp'  #MD is equal to MODE but abbreviated test-mode names
+MD='rnm'  #MD is equal to MODE but abbreviated test-mode names
 REFERENCE=''
 OVERWRITE='yes'
 if [[ "$LOADLBATCH" ]]; then
 # change for blizzard
   PATH=/client/bin:$PATH
 fi 
-MODES="b u r n p ur un up rn rp np urn urp unp rnp urnp"
+MODES="b u r n m ur un um rn rm nm urn urm unm rnm urnm"
 while getopts ":e:f:hm:o:r:" OPT; do
 case $OPT in
  e  ) EXPERIMENT=$OPTARG
@@ -189,7 +189,7 @@ case $OPT in
         'update')   MD='u';;
         'restart')  MD='r';;
         'nproma')   MD='n';;
-        'parallel') MD='p';;
+        'mpi')      MD='m';;
             *)      MD=$MODE;;
       esac
       if ! string_in_list $MD $MODES; then
@@ -231,7 +231,7 @@ if [ "${EXPERIMENT}" == 'mtest_nat_rce_cbl_120km_nwp' ]; then
 fi
 echo $MD
 print_mode $MD
-CMODES="u ur un up urn urp unp urnp"
+CMODES="u ur un um urn urm unm urnm"
 if string_in_list $MD $CMODES; then
   if [ -z "${REFERENCE}" ]; then
     echo -e '\033[31mno reference model was specified, use -r option to specify one\033[00m'
@@ -252,7 +252,7 @@ SCRIPT=${EXPERIMENT}_test
 EXP1=${EXPERIMENT}_base
 EXP2=${EXPERIMENT}_restart
 EXP3=${EXPERIMENT}_nproma
-EXP4=${EXPERIMENT}_parallel
+EXP4=${EXPERIMENT}_mpi
 EXIT_STATUS=0
 cd ${MODEL_DIR}/
 STATUS=$?
@@ -294,11 +294,10 @@ else
     echo 'Found base run'
 fi # OVERWRITE
 #################### perform update test              ####################
-CMODES="u ur un up urn urp unp urnp"
+CMODES="u ur un um urn urm unm urnm"
 if string_in_list $MD $CMODES; then
   cd ${REFERENCE} 
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${REFERENCE}/experiments/${EXP1} ] ;then 
-#${REFERENCE}/config/make_target_runscript in_script=exp.${SCRIPT} in_script=exec.iconrun EXPNAME=${SCRIPT} 1> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
     if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
       ${MODEL_DIR}/make_runscripts ${SCRIPT} 1> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output 2> ${SCRIPT_DIR}/exp.${EXPERIMENT}_$$.output
     fi
@@ -331,7 +330,7 @@ if string_in_list $MD $CMODES; then
 fi # MODE
 #################### perform restart test             ####################
 RESTART_SUCCESS='no'
-CMODES="r ur rn rp urn urp rnp urnp"
+CMODES="r ur rn rm urn urm rnm urnm"
 if string_in_list $MD $CMODES; then
 echo $MD $MODES $OVERWRITE $MODEL_DIR $EXP2
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP2} ]; then
@@ -362,7 +361,7 @@ echo $MD $MODES $OVERWRITE $MODEL_DIR $EXP2
   fi
 fi # MODE
 #################### perform nproma test             ####################
-CMODES="n un rn np urn unp rnp urnp"
+CMODES="n un rn nm urn unm rnm urnm"
 if string_in_list $MD $CMODES; then
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP3} ]; then
     copy_experiment ${MODEL_DIR} ${EXP1} ${EXP3}
@@ -390,8 +389,8 @@ if string_in_list $MD $CMODES; then
     EXIT_STATUS=$(($EXIT_STATUS + 1))
   fi
 fi # MODE
-#################### perform parallel test           ####################
-CMODES="p up rp np urp unp rnp urnp"
+#################### perform mpi test           ####################
+CMODES="m um rm nm urm unm rnm urnm"
 if string_in_list $MD $CMODES; then
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP4} ]; then
     copy_experiment ${MODEL_DIR} ${EXP1} ${EXP4}
@@ -490,15 +489,15 @@ if string_in_list $MD $CMODES; then
     fi # MPI = yes
     #
   else
-    echo 'found run with unknown number of processes (parallel test)'
+    echo 'found run with unknown number of processes (mpi test)'
     PTEST_POSSIBLE='yes'
   fi # OVERWRITE
   #
   if [ "${PTEST_POSSIBLE}" == 'yes' ]; then
     # compare the new MPI parallelized run with the old run
-    diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP4 "parallel"
+    diff_results $MODEL_DIR $EXP1 $MODEL_DIR $EXP4 "mpi"
   else
-    echo '\033[31mno parallel test possible\033[00m'
+    echo '\033[31mno mpi test possible\033[00m'
     DIFF_STATUS == 0
   fi
   if [ "$DIFF_STATUS" == 0 ]; then
@@ -513,7 +512,7 @@ case $MD in
   'u') MODE='u(pdate)';;
   'r') MODE='r(estart)';;
   'n') MODE='n(proma)';;
-  'p') MODE='p(arallel)';;
+  'm') MODE='m(pi)';;
     *) MODE=$MD;;
 esac
 
