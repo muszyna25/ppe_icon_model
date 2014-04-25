@@ -337,9 +337,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & ldims=shape2d,                                             &
                 & isteptype=TSTEP_INSTANT )
 
+    ! For graupel scheme 
+    IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 2 ) THEN
+      
+      ! &      diag%graupel_gsp_rate(nproma,nblks_c)
+      cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
+        &                   DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'graupel_gsp_rate', diag%graupel_gsp_rate,            &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d,                                             &
+                  & isteptype=TSTEP_INSTANT )
 
     !For two moment microphysics
-    IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4 ) THEN
+    ELSE IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4 ) THEN
 
        ! &      diag%ice_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &

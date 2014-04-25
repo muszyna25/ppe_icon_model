@@ -63,7 +63,7 @@ MODULE mo_nwp_gscp_interface
                                      iqng, iqnh    
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_gscp_cosmo,           ONLY: hydci_pp_old, kessler_pp
-  USE gscp_hydci_pp,           ONLY: hydci_pp
+  USE gscp_hydci_pp,           ONLY: hydci_pp, hydci_pp_gr
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph
@@ -212,9 +212,31 @@ CONTAINS
 
         CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
 
-          CALL finish('mo_nwp_gscp_interface', 'Graupel scheme not implemented.')
-
-
+          CALL hydci_pp_gr (                                 &
+            & nvec   =nproma                            ,    & !> in:  actual array size
+            & ke     =nlev                              ,    & !< in:  actual array size
+            & ivstart=i_startidx                        ,    & !< in:  start index of calculation
+            & ivend  =i_endidx                          ,    & !< in:  end index of calculation
+            & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
+            & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
+            & qi0    =atm_phy_nwp_config(jg)%qi0        ,    & 
+            & qc0    =atm_phy_nwp_config(jg)%qc0        ,    & 
+            & dz     =p_metrics%ddqz_z_full(:,:,jb)     ,    & !< in:  vertical layer thickness
+            & t      =p_diag%temp   (:,:,jb)            ,    & !< in:  temp,tracer,...
+            & p      =p_diag%pres   (:,:,jb)            ,    & !< in:  full level pres
+            & rho    =p_prog%rho    (:,:,jb  )          ,    & !< in:  density
+            & qv     =p_prog_rcf%tracer (:,:,jb,iqv)    ,    & !< in:  spec. humidity
+            & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & !< in:  cloud water
+            & qi     =p_prog_rcf%tracer (:,:,jb,iqi)    ,    & !< in:  cloud ice
+            & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & !< in:  rain water
+            & qs     =p_prog_rcf%tracer (:,:,jb,iqs)    ,    & !< in:  snow
+            & qg     =p_prog_rcf%tracer (:,:,jb,iqg)    ,    & !< in:  graupel
+            & prr_gsp=prm_diag%rain_gsp_rate (:,jb)     ,    & !< out: precipitation rate of rain
+            & prs_gsp=prm_diag%snow_gsp_rate (:,jb)     ,    & !< out: precipitation rate of snow
+            & prg_gsp=prm_diag%graupel_gsp_rate (:,jb)  ,    & !< out: precipitation rate of snow
+            & idbg=msg_level/2                          ,    &
+            & l_cv=.TRUE. )
+          
         CASE(3)  ! improved ice nucleation scheme by C. Koehler based on hydci_pp
 
           CALL hydci_pp_ice (                                &

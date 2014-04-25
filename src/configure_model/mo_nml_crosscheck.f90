@@ -66,7 +66,7 @@ MODULE mo_nml_crosscheck
     &                              nqtendphy, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              iqni, iqni_nuc, iqg, iqm_max,              &
-    &                              iqg, iqh, iqnr, iqns, iqng, iqnh,          &                     
+    &                              iqh, iqnr, iqns, iqng, iqnh,               &                     
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -617,7 +617,7 @@ CONTAINS
 
       CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
 
-        CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
+       ! CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
         
         iqg     = 6       !! graupel
         iqm_max = iqg

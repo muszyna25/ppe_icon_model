@@ -98,6 +98,17 @@ PUBLIC
     mu_rain,                         & ! 
     mu_snow
   
+!CK>
+! constants needed for cloud ice sedimentation
+! Small hex plates from Mitchell (1996)
+REAL(KIND=ireals), PARAMETER :: &  
+  kc_alpha =  0.5870086, & !..alf, CGS is 0.00739
+  kc_beta  =  2.45,      & !..exponent  in mass-size relation
+  kc_gamma =  0.120285,  & !..gam, CGS is 0.24
+  kc_sigma =  1.85    ,  & !..exponent  in area-size relation
+  do_i     =  5.83    ,  & ! coefficients for drag correction
+  co_i     =  0.6          ! coefficients for turbulence correction
+!CK<
 
 #ifdef __COSMO__
   REAL (KIND=ireals) ::              &

@@ -282,7 +282,7 @@ PRIVATE
 !! Public subroutines
 !------------------------------------------------------------------------------
 
-PUBLIC :: hydci_pp_ice, hydci_pp_ice_init
+PUBLIC :: hydci_pp_ice
 
 
 !------------------------------------------------------------------------------
@@ -369,17 +369,6 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   zlheat = 2.40E-2_ireals, & ! thermal conductivity of dry air
   zeta   = 1.75e-5_ireals    ! kinematic viscosity of air 
 
-!CK>
-! constants needed for cloud ice sedimentation
-! Small hex plates from Mitchell (1996)
-REAL(KIND=ireals), PARAMETER :: &  
-  kc_alpha =  0.5870086, & !..alf, CGS is 0.00739
-  kc_beta  =  2.45,      & !..exponent  in mass-size relation
-  kc_gamma =  0.120285,  & !..gam, CGS is 0.24
-  kc_sigma =  1.85    ,  & !..exponent  in area-size relation
-  do_i     =  5.83    ,  & ! coefficients for drag correction
-  co_i     =  0.6          ! coefficients for turbulence correction
-!CK<
 
 REAL    (KIND=ireals   ), PARAMETER ::  &
   !! Additional parameters
@@ -517,103 +506,6 @@ IF (lprint .OR. my_cart_id==0) &
 END SUBROUTINE message
 
 #endif
-
-!==============================================================================
-!>  Module procedure "hydci_pp_ice_init" in "gscp" to initialize some
-!!  coefficients which are used in "hydci_pp_ice"
-!------------------------------------------------------------------------------
-
-SUBROUTINE hydci_pp_ice_init(idbg)
-
-!------------------------------------------------------------------------------
-!> Description:
-!!   Calculates some coefficients for hydci_pp_ice. Usually called only once at
-!!   model startup.
-!------------------------------------------------------------------------------
-
-  INTEGER, INTENT(IN), OPTIONAL::  &
-    idbg              !! debug level
-
-!------------------------------------------------------------------------------
-!>  Initial setting of local and global variables
-!------------------------------------------------------------------------------
-
-!!  mu_rain = 0.5  ! is a namelist parameter
-! FR new:
-#ifdef __ICON__
-  mu_rain = atm_phy_nwp_config(1)%mu_rain
-!  mu_snow = atm_phy_nwp_config(1)%mu_snow
-#endif
-
-  zconst = zkcau / (20.0_ireals*zxstar*cloud_num*cloud_num) &
-    * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
-  ccsrim = 0.25_ireals*pi*zecs*v0snow*gamma_fct(zv1s+3.0_ireals)
-  ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
-!FR old:  ccsdep = 0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(0.5/zeta)
-  ccsdep =         0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2.d0)*SQRT(1.0_ireals/zeta)
-  ccsvxp = -(zv1s/(zbms+1.0_ireals)+1.0_ireals)
-  ccsvel = zams*v0snow*gamma_fct(zbms+zv1s+1.0_ireals)&
-    & *(zams*gamma_fct(zbms+1.0_ireals))**ccsvxp 
-  ccsvxp = ccsvxp + 1.0_ireals
-  ccslam = zams*gamma_fct(zbms+1.0_ireals)
-  ccslxp = 1.0_ireals / (zbms+1.0_ireals)
-  ccswxp = zv1s*ccslxp
-  ccsaxp = -(zv1s+3.0_ireals)
-!FR old:  ccsdxp = -(zbms+1.0_ireals)/2.0_ireals
-  ccsdxp = -(zv1s+1.0_ireals)/2.0_ireals
-  ccshi1 = lh_s*lh_s/(zlheat*r_v)
-!FR old:  ccdvtp = 2.11E-5 * t0**(-1.94) * 101325.0
-  ccdvtp = 2.22E-5 * t0**(-1.94) * 101325.0
-  ccidep = 4.0_ireals * zami**(-x1o3)
-  zn0r   = 8e6 * EXP(3.2*mu_rain) * (0.01)**(-mu_rain)  ! empirical relation adapted from Ulbrich (1983)
-! to tune the zn0r variable
-  zn0r   = zn0r * rain_n0_factor
-
-  zar    = pi*zrhow/6.0 * zn0r * gamma_fct(mu_rain+4.0) ! pre-factor in lambda
-  zcevxp = (mu_rain+2.)/(mu_rain+4.)
-  zcev   = 2.0*pi*zdv/zhw*zn0r*zar**(-zcevxp) * gamma_fct(mu_rain+2.0)
-  zbevxp = (2.*mu_rain+5.5_ireals)/(2.*mu_rain+8.)-zcevxp
-! FR old:  zbev   = 0.26 * SQRT(0.5*zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
-!    &    * gamma_fct((2.0*mu_rain+5.5)/2.0) / gamma_fct(mu_rain+2.0)
-  zbev   =          0.26 * SQRT(    zrho0*130.0_ireals/zeta)*zar**(-zbevxp) &
-    &    * gamma_fct((2.0*mu_rain+5.5)/2.0) / gamma_fct(mu_rain+2.0)
-  zvzxp  = 0.5/(mu_rain+4.0)
-  zvz0r  = 130.0_ireals*gamma_fct(mu_rain+4.5)/gamma_fct(mu_rain+4.0)*zar**(-zvzxp)
-  !CK>
-  vtxexp = kc_beta + 2.0_ireals - kc_sigma !for KC05 ice sedi
-  kc_c1  = 4.0_ireals / ( do_i**2 * SQRT(co_i) )
-  kc_c2  = do_i**2 / 4.0_ireals
-  !CK<
-  
-
-  IF (PRESENT(idbg)) THEN
-    IF (idbg > 10) THEN
-      CALL message('gscp_hydci_pp_ice', &
-         'hydci_pp_ice_init: Initialized coefficients for hydci_pp_ice')
-      WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      ccsrim = ',ccsrim ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      ccsagg = ',ccsagg ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      ccsdep = ',ccsdep ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      ccslxp = ',ccslxp ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      ccidep = ',ccidep ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      mu_r   = ',mu_rain; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      zn0r   = ',zn0r   ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      zbev   = ',zbev   ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      zbevxp = ',zbevxp ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      zcev   = ',zcev   ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      zcevxp = ',zcevxp ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      zvzxp  = ',zvzxp  ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      zvz0r  = ',zvz0r  ; CALL message('',message_text)
-      WRITE (message_text,'(A,E10.3)') '      vtxexp = ',vtxexp ; CALL message('',message_text) !CK<
-      WRITE (message_text,'(A,E10.3)') '       kc_c1 = ',kc_c1  ; CALL message('',message_text) !CK<
-      WRITE (message_text,'(A,E10.3)') '       kc_c2 = ',kc_c2  ; CALL message('',message_text) !CK<      
-    ENDIF
-  END IF
-
-  CALL message('hydci_pp_ice_init','microphysical values initialized')
-
-END SUBROUTINE hydci_pp_ice_init
 
 
 !==============================================================================
