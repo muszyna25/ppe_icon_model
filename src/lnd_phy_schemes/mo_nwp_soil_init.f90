@@ -596,6 +596,7 @@ CONTAINS
         ! in this case, w_snow and rho_snow are read from the first guess, and h_snow is updated by the snow analysis;
         ! in the IAU mode, the snow depth increment (h_snow_incr) is directly provided by the snow analysis
 
+
     IF ( init_mode == 2 ) THEN  ! snow depth increment needs to be computed
       DO i = istarts, iends
         h_snow_fg(i)   = w_snow_now(i)/rho_snow_now(i)*rho_w
@@ -624,6 +625,7 @@ CONTAINS
           wliq_snow_now(i,1:ke_snow) = 0._ireals
           t_snow_mult_now(i,1:ke_snow) = t_snow_now(i)
         ELSE IF (h_snow_fg(i) <= zepsi .AND. h_snow(i) > zepsi) THEN 
+
           ! snow analysis has either reestablished a snow cover that had been erroneously melted away by the model
           ! or generated a new snow cover that was missed by the model due to a lack of precipitation (or wrong phase of precip)
           ! ** snow density should be distinguished between new snow and reestablished old snow **
@@ -638,6 +640,7 @@ CONTAINS
           t_snow_mult_now(i,1:ke_snow) = t_snow_now(i)
           IF (h_snow(i) > REAL(ke_snow,ireals)*max_toplaydepth) l_redist(i) = .TRUE.
         ELSE IF (h_snow_fg(i) > zepsi .AND. h_snow_incr(i) < 0._ireals) THEN
+
           ! a snow cover is present but reduced by the snow analysis increment
           ! in this case, we retain the snow densities but adjust the water equivalents
           l_redist(i) = .TRUE.
@@ -736,6 +739,37 @@ CONTAINS
           END IF
         END DO   
       END DO
+
+
+      ! Re-diagnose integrated/averaged snow-fields, in order to 
+      ! have a consistent state.
+      !
+      h_snow      (istarts:iends) = 0.0_ireals
+      w_snow_now  (istarts:iends) = 0.0_ireals
+      rho_snow_now(istarts:iends) = 0.0_ireals
+      t_snow_now  (istarts:iends) = 0.0_ireals
+      ! Re-diagnose h_snow, w_snow, rho_snow, t_snow
+      DO ksn = ke_snow,1,-1
+        DO i = istarts, iends
+          h_snow(i)    = h_snow(i)     + dzh_snow_now(i,ksn)
+          w_snow_now(i)= w_snow_now(i) + wtot_snow_now(i,ksn)
+        END DO
+      ENDDO
+
+      DO ksn = ke_snow,1,-1
+        DO i = istarts, iends
+          IF (h_snow(i) > zepsi) THEN
+            rho_snow_now(i) = rho_snow_now(i) + rho_snow_mult_now(i,ksn) * dzh_snow_now(i,ksn)/h_snow(i)
+          ELSE
+            rho_snow_now(i) = 250._ireals
+          ENDIF
+        END DO
+      ENDDO
+
+      DO i = istarts, iends
+        t_snow_now(i) = t_snow_mult_now(i,1)
+      ENDDO
+
 
     ELSE  ! single snow layer
 

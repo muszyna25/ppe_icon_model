@@ -917,11 +917,11 @@ CONTAINS
 
 
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! Final step: aggregate t_g and qv_s            !!
-    !                                               !!
-    ! Loop over all points (land AND water points)  !!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Final step: aggregate t_g, qv_s and surface fluxes !!
+    !                                                    !!
+    ! Loop over all points (land AND water points)       !!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,isubs,i_startidx,i_endidx,t_g_s,area_frac)
