@@ -165,11 +165,6 @@ MD='rnmo'  #MD is equal to MODE but abbreviated test-mode names
 REFERENCE=''
 OVERWRITE='yes'
 #
-# find out on which system we are
-#
-TARGET_MACHINE=`grep "# target machine is " ${RUN_SCRIPT}`
-TARGET_MACHINE=${TARGET_MACHINE#'# target machine is '}
-#
 if [[ "$LOADLBATCH" ]]; then
 # change for blizzard
   PATH=/client/bin:$PATH
@@ -281,15 +276,23 @@ fi
 if [ ! -d experiments ]; then
   mkdir experiments
 fi
+#
+# check if the test runscript exists
+#
+if [ ! -f run/exp.${SCRIPT}.run ]; then
+  echo "did not find base runscript run/exp.${SCRIPT}.run"
+  exit 1
+else
+  echo "found runscript run/exp.${SCRIPT}.run"
+fi
+# find out on which system we are
+#
+TARGET_MACHINE=`grep "# target machine is " run/exp.${SCRIPT}.run`
+TARGET_MACHINE=${TARGET_MACHINE#'# target machine is '}
+#
 #################### perform base run without restart ####################
 if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP1} ]; then
   cd run
-  if [ ! -f exp.${SCRIPT}.run ]; then
-    echo "did not find base runscript exp.${SCRIPT}.run"
-    exit 1
-  else
-    echo "found base runscript exp.${SCRIPT}.run"
-  fi
   RUN_SCRIPT=exp.${EXP1}.run
   cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
   sed -i.sedbak s/${SCRIPT}/${EXP1}/g ${RUN_SCRIPT}
@@ -343,7 +346,6 @@ fi # MODE
 RESTART_SUCCESS='no'
 CMODES="r ur rn rm ro urn urm uro rnm rno rmo urnm urno urmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
-echo $MD $MODES $OVERWRITE $MODEL_DIR $EXP2
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP2} ]; then
     copy_experiment ${MODEL_DIR} ${EXP1} ${EXP2}
     if [ $? -ne 0 ]; then
