@@ -968,7 +968,7 @@ CONTAINS
 !!$              & /(pcd+(pcv-pcd)*zqnew)                    ! <-- not consistent in r14442
         !
         ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk)) &      !
-              & /(cpd+(cpv-cpd)*zqnew)                       !
+              & /(cpd+(cpv-cpd)*pqm1(jl,jk))                 !
         !
         ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
         ! When coupled with JSBACH: Correction of tte for snow melt
