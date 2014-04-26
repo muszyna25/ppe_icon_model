@@ -353,8 +353,8 @@ if string_in_list $MD $CMODES; then
       exit 1
     fi
     echo 'model_dir= ' ${MODEL_DIR}
-    cd ${MODEL_DIR}/run/
     RUN_SCRIPT=exp.${EXP2}.run
+    cd ${MODEL_DIR}/run/
     cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
     sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
     sed -i.sedbak s/${SCRIPT}/${EXP2}/g ${RUN_SCRIPT}
@@ -378,8 +378,8 @@ CMODES="n un rn nm no urn unm uno rnm rno nmo urnm urno unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP3} ]; then
     copy_experiment ${MODEL_DIR} ${EXP1} ${EXP3}
-    cd ${MODEL_DIR}/run/
     RUN_SCRIPT=exp.${EXP3}.run
+    cd ${MODEL_DIR}/run/
     cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
     if [ "$RESTART_SUCCESS" == 'yes' ]; then
       sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
@@ -426,6 +426,7 @@ if string_in_list $MD $CMODES; then
         #
         copy_experiment ${MODEL_DIR} ${EXP1} ${EXP4}
         RUN_SCRIPT=exp.${EXP4}.run
+        cd ${MODEL_DIR}/run/
         cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
         #
         if [ "$RESTART_SUCCESS" == 'yes' ]; then
@@ -536,6 +537,7 @@ if string_in_list $MD $CMODES; then
         #
         copy_experiment ${MODEL_DIR} ${EXP1} ${EXP5}
         RUN_SCRIPT=exp.${EXP5}.run
+        cd ${MODEL_DIR}/run/
         cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
         #
         if [ "$RESTART_SUCCESS" == 'yes' ]; then
