@@ -264,7 +264,6 @@ MODULE mo_nonhydro_types
      !
      ! f) Other stuff
      !
-     pg_exdist (:)       , & ! extrapolation distance needed for igradp_method = 3
      ! Correction term needed to use perturbation density for lateral boundary nudging
      ! (note: this field is defined on the local parent grid in case of MPI parallelization)
      rho_ref_corr(:,:,:) , & 
@@ -305,7 +304,11 @@ MODULE mo_nonhydro_types
      !
      d_exner_dz_ref_ic(:,:,:), & 
      d2dexdz2_fac1_mc(:,:,:) , & 
-     d2dexdz2_fac2_mc(:,:,:)
+     d2dexdz2_fac2_mc(:,:,:) , &
+     !
+     ! d) other stuff
+     !
+     pg_exdist (:)           ! extrapolation distance needed for igradp_method = 3
 
 
     INTEGER, POINTER          &

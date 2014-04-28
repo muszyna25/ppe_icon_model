@@ -48,7 +48,7 @@ MODULE mo_velocity_advection
   USE mo_nonhydrostatic_config,ONLY: lextra_diffu, &
                                      lbackward_integr, veladv_offctr
   USE mo_parallel_config,   ONLY: nproma
-  USE mo_run_config,        ONLY: lvert_nest, ltestcase
+  USE mo_run_config,        ONLY: lvert_nest, ltestcase, timers_level
   USE mo_model_domain,      ONLY: t_patch
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_intp,              ONLY: cells2verts_scalar
@@ -64,6 +64,7 @@ MODULE mo_velocity_advection
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_nh_testcases_nml,  ONLY: nh_test_name
   USE mo_nh_dcmip_gw,       ONLY: fcfugal
+  USE mo_timer,             ONLY: timer_solve_nh_veltend, timer_start, timer_stop
 
 
   IMPLICIT NONE
@@ -144,6 +145,8 @@ MODULE mo_velocity_advection
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
 
     !--------------------------------------------------------------------------
+
+    IF (timers_level > 5) CALL timer_start(timer_solve_nh_veltend)
 
     IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN  
       l_vert_nested = .TRUE.
@@ -619,6 +622,8 @@ MODULE mo_velocity_advection
 !$OMP END DO 
      
 !$OMP END PARALLEL
+
+    IF (timers_level > 5) CALL timer_stop(timer_solve_nh_veltend)
 
   END SUBROUTINE velocity_tendencies
 

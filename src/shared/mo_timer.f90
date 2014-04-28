@@ -72,7 +72,8 @@ MODULE mo_timer
   PUBLIC :: timer_gmres_p_sum
 
   PUBLIC :: timer_integrate_nh
-  PUBLIC :: timer_solve_nh, timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
+  PUBLIC :: timer_solve_nh, timer_solve_nh_veltend, timer_solve_nh_cellcomp, timer_solve_nh_edgecomp, &
+    & timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   PUBLIC :: timer_physics
                         !< IDs of timers
   PUBLIC :: timer_radiation
@@ -195,7 +196,8 @@ MODULE mo_timer
   INTEGER :: timer_nh_hdiffusion
 
   INTEGER :: timer_integrate_nh
-  INTEGER :: timer_solve_nh, timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
+  INTEGER :: timer_solve_nh, timer_solve_nh_veltend, timer_solve_nh_cellcomp, timer_solve_nh_edgecomp, &
+    & timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   INTEGER :: timer_physics
   INTEGER :: timer_update_prog_phy
 
@@ -349,11 +351,14 @@ CONTAINS
     timer_write_output  = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")
 
-    timer_integrate_nh  = new_timer  ("integrate_nh")
-    timer_solve_nh      = new_timer  ("nh_solve")
-    timer_solve_nh_p1   = new_timer  ("nh_solve.p1")
-    timer_solve_nh_p2   = new_timer  ("nh_solve.p2")
-    timer_solve_nh_exch = new_timer  ("nh_solve.exch")
+    timer_integrate_nh      = new_timer  ("integrate_nh")
+    timer_solve_nh          = new_timer  ("nh_solve")
+    timer_solve_nh_veltend  = new_timer  ("nh_solve.veltend")
+    timer_solve_nh_cellcomp = new_timer  ("nh_solve.cellcomp")
+    timer_solve_nh_edgecomp = new_timer  ("nh_solve.edgecomp")
+    timer_solve_nh_vnupd    = new_timer  ("nh_solve.vnupd")
+    timer_solve_nh_vimpl    = new_timer  ("nh_solve.vimpl")
+    timer_solve_nh_exch     = new_timer  ("nh_solve.exch")
 
     timer_step_2tl_si = new_timer("2tl_si_solve")
     timer_step_RK     = new_timer("RK_solve")

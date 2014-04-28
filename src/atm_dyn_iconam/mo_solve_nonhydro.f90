@@ -76,8 +76,9 @@ MODULE mo_solve_nonhydro
   USE mo_advection_traj,    ONLY: btraj
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
-  USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop, &
-                                  timer_solve_nh_p1, timer_solve_nh_p2, timer_solve_nh_exch
+  USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop,       &
+                                  timer_solve_nh_cellcomp, timer_solve_nh_edgecomp,             &
+                                  timer_solve_nh_vnupd, timer_solve_nh_vimpl, timer_solve_nh_exch
   USE mo_icon_comm_lib,     ONLY: icon_comm_sync
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_prepadv_types,  ONLY: t_prepare_adv
@@ -246,7 +247,6 @@ MODULE mo_solve_nonhydro
     !-------------------------------------------------------------------
     
     IF (ltimer) CALL timer_start(timer_solve_nh)
-    IF (timers_level > 5) CALL timer_start(timer_solve_nh_p1)
 
     IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN  
       l_vert_nested = .TRUE.
@@ -386,6 +386,8 @@ MODULE mo_solve_nonhydro
       ENDIF
 
     ENDIF
+
+    IF (timers_level > 5) CALL timer_start(timer_solve_nh_cellcomp)
 
     ! Computations on mass points
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
@@ -673,6 +675,10 @@ MODULE mo_solve_nonhydro
     ENDIF
 !$OMP END PARALLEL
 
+    IF (timers_level > 5) THEN
+      CALL timer_stop(timer_solve_nh_cellcomp)
+      CALL timer_start(timer_solve_nh_vnupd)
+    ENDIF
 
     ! Compute rho and theta at edges for horizontal flux divergence term
     IF (istep == 1) THEN
@@ -1283,7 +1289,7 @@ MODULE mo_solve_nonhydro
     !-------------------------
     ! communication phase
     IF (timers_level > 5) THEN
-      CALL timer_stop(timer_solve_nh_p1)
+      CALL timer_stop(timer_solve_nh_vnupd)
       CALL timer_start(timer_solve_nh_exch)
     ENDIF
 
@@ -1307,7 +1313,7 @@ MODULE mo_solve_nonhydro
 
     IF (timers_level > 5) THEN
       CALL timer_stop(timer_solve_nh_exch)
-      CALL timer_start(timer_solve_nh_p2)
+      CALL timer_start(timer_solve_nh_edgecomp)
     ENDIF
     ! end communication phase
     !-------------------------
@@ -1649,6 +1655,11 @@ MODULE mo_solve_nonhydro
     ENDIF  ! idiv_method = 2
 
 !$OMP END PARALLEL
+
+    IF (timers_level > 5) THEN
+      CALL timer_stop(timer_solve_nh_edgecomp)
+      CALL timer_start(timer_solve_nh_vimpl)
+    ENDIF
 
     IF (idiv_method == 2) THEN ! use averaged divergence - idiv_method=1 is inlined for better cache efficiency
 
@@ -2201,7 +2212,7 @@ MODULE mo_solve_nonhydro
     ! communication phase
 
     IF (timers_level > 5) THEN
-      CALL timer_stop(timer_solve_nh_p2)
+      CALL timer_stop(timer_solve_nh_vimpl)
       CALL timer_start(timer_solve_nh_exch)
     ENDIF
 
@@ -2232,10 +2243,7 @@ MODULE mo_solve_nonhydro
       ENDIF
     ENDIF
 
-    IF (timers_level > 5) THEN
-      CALL timer_stop(timer_solve_nh_exch)
-      IF (istep == 1) CALL timer_start(timer_solve_nh_p1)
-    ENDIF
+    IF (timers_level > 5) CALL timer_stop(timer_solve_nh_exch)
 
     ! end communication phase
     !-------------------------

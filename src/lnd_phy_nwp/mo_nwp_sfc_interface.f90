@@ -1298,7 +1298,8 @@ CONTAINS
         t_scf_lk_now (ic) = lnd_prog_now%t_g_t      (jc,jb,isub_lake)
       ENDDO
 
-
+!GZ: this directive is needed to suppress inlining for cce8.2.0 and higher, which induces an OpenMP error
+!DIR$ NOINLINE
     CALL flake_interface (                                    & !in
                      &  dtime       = dtime           ,       & !in
                      &  nflkgb      = icount_flk      ,       & !in
@@ -1338,6 +1339,7 @@ CONTAINS
                      &  h_b1_lk_n   = h_b1_lk_new  (:),       & !out
                      &  t_scf_lk_n  = t_scf_lk_new (:)        ) !out
 ! optional arguments (tendencies) are omitted
+!DIR$ RESETINLINE
 
 
       !  Recover fields from index list
