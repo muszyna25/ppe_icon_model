@@ -340,8 +340,9 @@ for filename in $post_list
 do
   check_accept_script $filename
   if [[ $accepted_script = "true" ]] ; then
+    name=${filename#*.}
     $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" EXPNAME=$name
   fi
 done
 
