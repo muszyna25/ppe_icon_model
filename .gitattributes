@@ -792,6 +792,7 @@ run/incompatible_changes.tex -text
 run/mapfile_vlist.txt -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
+run/post.oce_longrun -text
 run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text

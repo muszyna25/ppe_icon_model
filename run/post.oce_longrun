@@ -1,0 +1,36 @@
+# technical stuff
+basePath=${ICON_BASE_PATH}
+dataPath="${baseBath}../experiments/${EXPNAME}/"
+scriptPath="/pool/data/ICON/tools"
+postProcPath="${basePath}/scripts/postprocessing/tools"
+nclCaller="nclsh"
+plotCmd="${scriptPath}/icon_plot.ncl"
+archiver="${postProcPath}/archive_oce.py"
+# set the CDO path for the dwd to a local installation
+case "$(hostname -d)" in
+  dwd.de)
+    CDO="/e/uhome/extrmuel/local/bin/cdo"
+    ;;
+  *)
+    CDO="cdo"
+esac
+# ================================================================================
+# plotting
+## find the last input file
+cd ${dataPath}
+iFile=$(ls ${EXPNAME}*.nc* | tail -n 1)
+if [[ ! -f ${iFile} ]]; then
+  echo "Could not find the input file '${iFile}'"
+  echo "Give up!"
+  exit 1
+fi
+
+module load python 
+
+$archiver FILEPATTERN="${EXPNAME}*.nc*" DEBUG=1 TAG='rev' EXP=${EXPNAME} FORCE=1
+
+
+check_error $? "${EXPNAME}"
+
+exit
+
