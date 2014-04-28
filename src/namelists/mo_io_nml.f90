@@ -64,7 +64,7 @@ MODULE mo_io_nml
                                  & config_lzaxis_reference        => lzaxis_reference       , &
                                  & config_itype_rh                => itype_rh
 
-  USE mo_exception,        ONLY: message, message_text, finish
+  USE mo_exception,        ONLY: finish
   USE mo_parallel_config,  ONLY: nproma
 
   IMPLICIT NONE

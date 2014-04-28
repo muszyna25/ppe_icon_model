@@ -37,7 +37,7 @@
 MODULE mo_dbg_nml
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_exception,          ONLY: message, finish
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml

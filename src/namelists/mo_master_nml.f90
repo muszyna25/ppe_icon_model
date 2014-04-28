@@ -34,7 +34,7 @@
 MODULE mo_master_nml
 
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH, SUCCESS
-  USE mo_exception,      ONLY: warning, message_text, finish
+  USE mo_exception,      ONLY: warning, finish
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
   USE mo_util_string,    ONLY: t_keyword_list, associate_keyword, with_keywords
