@@ -210,7 +210,7 @@ profileData = cdo.merge(input='%s %s'%(varData,velocityData),output="%s/data_4pr
 plotFile = options['ARCHDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
 dbg(plotFile)
 if not os.path.exists(plotFile):
-  if os.system('%s %s %s'%(options['CALCPSI'], uvintFile, "LEVELS=20 PLOT="+plotFile)):
+  if subpl('%s %s %s'%(options['CALCPSI'], uvintFile, "LEVELS=20 PLOT="+plotFile),shell=True,env=os.environ):
     print("ERROR: CALCPSI failed")
 # }}}
 # DRAKE FLOW {{{
@@ -279,16 +279,6 @@ for varname in ['t_acc','s_acc','u_acc','v_acc','velocity']:
          '-tStrg="%s"'%(title),
          '-oFile=%s'%(oFile)]
   dbg(' '.join(cmd))
-  proc = subprocess.Popen(' '.join(cmd),
-                              shell  = True,
-                          stderr = subprocess.PIPE,
-                          stdout = subprocess.PIPE,
-                          env    = os.environ)
-  retvals = proc.communicate()
-  ret =  {"stdout"     : retvals[0]
-          ,"stderr"     : retvals[1]
-          ,"returncode" : proc.returncode}
-  print(ret['stdout'])
-  print(ret['stderr'])
+  subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
 # }}}
 # vim:fdm=marker
