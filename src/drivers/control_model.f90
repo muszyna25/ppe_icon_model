@@ -275,6 +275,3 @@ PROGRAM control_model
 #endif
 
 END PROGRAM control_model
-
-!  "Alles was du besitzt, besitzt irgendwann dich!"
-!  - Frodo Beutlin 
