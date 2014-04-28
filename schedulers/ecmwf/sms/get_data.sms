@@ -34,7 +34,7 @@ IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 # ifs2icon file
 IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
 IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
-# locat
+# local
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
 TMPDIR="${TEMP}"
 
@@ -64,7 +64,11 @@ else
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_ERAinterim %YMD%%INIHOUR% 0  255 1/to/60 %SCPERMIII%/icon_input/slt-data
   else
     if [[ %NENS% -gt 0 ]] ; then
+      if [ %YMD% -ge 20100126  -a  %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R03B07" ] ; then
+        ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  639 1/to/${nlev} %NMEM%
+      else
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+_eda  %YMD%%INIHOUR% 0  399 1/to/${nlev} %NMEM%
+      fi
     else 
       if [ %YMD% -ge 20100126  -a  %RES% = "R02B07"  -o  %RES% = "R02B08"  -o  %RES% = "R03B07" ] ; then
         ${SCRIPTDIR}/preprocessing/mars4icon_smi_32r3+      %YMD%%INIHOUR% 0 1279 1/to/${nlev}
