@@ -568,7 +568,6 @@ IF ( .true. ) THEN
         CALL terra_multlay(                                    &
         &  ie=nproma                                         , & ! array dimensions
         &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
-        &  nsubs0=jb,         nsubs1=isubs                   , & ! unused except for optional debug output
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & ! without lowermost (climat.) soil layer
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
         &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , &

@@ -480,8 +480,6 @@ END SUBROUTINE message
                   ie               , & ! array dimensions
                   istartpar        , & ! start index for computations in the parallel program
                   iendpar          , & ! end index for computations in the parallel program
-                  nsubs0           , & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
-                  nsubs1           , & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
                   ldiag_tg         , & ! if true: diagnose t_g and snow-cover fraction with tgcom
                   ke_soil, ke_snow , &
                   czmls            , & ! processing soil level structure 
@@ -604,7 +602,6 @@ END SUBROUTINE message
                   ie,                & ! array dimensions
                   istartpar,         & ! start index for computations in the parallel program
                   iendpar,           & ! end index for computations in the parallel program
-                  nsubs0,nsubs1    , &
                   ke_soil, ke_snow      
   REAL    (KIND = ireals), DIMENSION(ke_soil+1), INTENT(IN) :: &
                   czmls                ! processing soil level structure 
@@ -794,8 +791,7 @@ END SUBROUTINE message
     iends          , & ! end   index for x-direction     
     i250           , & ! number of layers above a soil depth of 2.50 m
     k10cm          , & ! index of half level closest to 0.1 m
-    k100cm         , & ! index of half level closest to 1.0 m
-    ns
+    k100cm             ! index of half level closest to 1.0 m
 
   REAL    (KIND=ireals   ) ::  &
 !
@@ -814,7 +810,7 @@ END SUBROUTINE message
     ztvs           , & ! virtual temperature at the surface
     zplow          , & ! pressure of lowest atmospheric layer 
     zqvlow         , & ! specific humidity of lowest atmospheric layer
-    zrss           , & ! ice covered part of grid element
+!em    zrss           , & ! ice covered part of grid element
     zrww           , & ! water covered part of grid element
 !
 !   Snow parameters
@@ -847,11 +843,6 @@ END SUBROUTINE message
     zcounter(ie), &
     ze_rad(ie)  , &
     zswitch(ie) , &
-    fact1          , &
-    fact2          , &
-    tmp1           , &
-    tmp2           , &
-    tmp3           , &
     tmp_num        , &
     sum_weight(ie)      , &
     t_new  (ie,ke_snow) , &
@@ -911,19 +902,6 @@ END SUBROUTINE message
     zrootfc        , & ! distributes transpiration to soil layers
 !   zr_root        , & ! zroot/zbwt (Bucket scheme)
     ze_sum             ! sum of all contributions to evapotranspiration
-!>JH
-  REAL    (KIND=ireals   ) ::  &
-    S(ke_soil),C(ke_soil),OM(ke_soil),D(ke_soil)      , &             
-    avG(ie,ke_soil+1),&
-    mvG(ie,ke_soil+1),&
-    nvG(ie,ke_soil),&
-    topsoil,& 
-    lnalpha(ie,ke_soil),&
-    lnnm1(ie,ke_soil),&
-    lnKs(ie,ke_soil),&
-    thetaw_ksop05,thetaw_ksom05, thetaw_ksop1,thetaw_ksom1,thetaw_kso, thetaw_new, &
-    psi_pwp,psi_fcap,h_pwp,h_fcap
-!<JH
 
   REAL    (KIND=ireals   ) ::  &
 !
@@ -1105,10 +1083,7 @@ END SUBROUTINE message
     zklw_fr_kso_new, & ! hydraulic conductivity coefficient at main level
                        !    for actual runoff_g
     zdlw_fr_kso    , & ! hydraulic diff coefficient at main level 
-    zdlw_fr_ksop1  , & ! hydraulic diff coefficient at main level below 
-    zdlw_fr_ksom1  , & ! hydraulic diff coefficient at main level above 
     zklw_fr_kso    , & ! hydraulic conductivity coefficient at main level 
-    zklw_fr_ksop1  , & ! hydraulic conductivity coefficient at main level below 
     zklw_fr_ksom1  , & ! hydraulic conductivity coefficient at main level above 
     zlw_fr_ksop05  , & ! fractional liquid water content of actual layer + 1/2
     zdlw_fr_ksop05 , & ! hydraulic diffusivity coefficient at half level below
@@ -1267,7 +1242,6 @@ END SUBROUTINE message
     zalamtmp (ie,ke_soil),& ! heat conductivity
     zalam    (ie,ke_soil),&! heat conductivity
     zrocg    (ie,ke_soil+1),& ! volumetric heat capacity of bare soil
-    zrog     (ie,ke_soil+1),& ! bulk density bare soil
     zrocs    (ie)      , & ! heat capacity of snow
     ztsn     (ie)      , & ! new value of zts
     ztsnown  (ie)      , & ! new value of ztsnow

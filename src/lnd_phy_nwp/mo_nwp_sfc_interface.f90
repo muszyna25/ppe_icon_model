@@ -130,6 +130,7 @@ CONTAINS
     REAL(wp) :: prs_con_t   (nproma)
     REAL(wp) :: prr_gsp_t   (nproma)
     REAL(wp) :: prs_gsp_t   (nproma)
+    REAL(wp) :: prg_gsp_t   (nproma)
 
     REAL(wp) :: u_t (nproma)
     REAL(wp) :: v_t (nproma)
@@ -191,7 +192,9 @@ CONTAINS
     REAL(wp) :: rsmin2d_t (nproma)
 
     ! local dummy variable for precipitation rate of graupel, grid-scale
-    REAL(wp) :: dummy_prg_gsp(nproma)
+    REAL(wp), TARGET  :: dummy_graupel_gsp_rate(nproma,p_patch%nblks_c)
+    ! pointer to actual or dummy precipitation rate of graupel
+    REAL(wp), POINTER :: p_graupel_gsp_rate(:,:)
 
     REAL(wp) :: t_snow_mult_now_t(nproma, nlev_snow+1)
     REAL(wp) :: t_snow_mult_new_t(nproma, nlev_snow+1)
@@ -224,6 +227,7 @@ CONTAINS
     REAL(wp) :: snow_gsp_rate(nproma, ntiles_total)
     REAL(wp) :: rain_con_rate(nproma, ntiles_total)
     REAL(wp) :: snow_con_rate(nproma, ntiles_total)
+    REAL(wp) :: graupel_gsp_rate(nproma, ntiles_total)
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
     REAL(wp) :: t_g_s(nproma)
@@ -237,16 +241,26 @@ CONTAINS
     REAL(wp) :: lhfl_bs_t   (nproma)
     REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil)
     REAL(wp) :: rstom_t     (nproma)
+
 !--------------------------------------------------------------
 
+    ! get patch ID
+    jg = p_patch%id
 
-    ! initialize dummy variable (precipitation rate of graupel, grid-scale)
-    dummy_prg_gsp(1:nproma) = 0._wp
+
+    IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
+      ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
+      p_graupel_gsp_rate => prm_diag%graupel_gsp_rate(:,:)
+    ELSE
+      ! initialize dummy variable (precipitation rate of graupel, grid-scale)
+      dummy_graupel_gsp_rate(:,:) = 0._wp
+      p_graupel_gsp_rate => dummy_graupel_gsp_rate(:,:)
+    ENDIF
+
 
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
-    jg        = p_patch%id
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -280,7 +294,8 @@ CONTAINS
 !$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t, &
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
-!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t ) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t  &
+!$OMP   ) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -327,10 +342,11 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-           rain_gsp_rate(jc,isubs) = prm_diag%rain_gsp_rate(jc,jb)
-           snow_gsp_rate(jc,isubs) = prm_diag%snow_gsp_rate(jc,jb)
-           rain_con_rate(jc,isubs) = prm_diag%rain_con_rate(jc,jb)
-           snow_con_rate(jc,isubs) = prm_diag%snow_con_rate(jc,jb)
+           rain_gsp_rate(jc,isubs)    = prm_diag%rain_gsp_rate(jc,jb)
+           snow_gsp_rate(jc,isubs)    = prm_diag%snow_gsp_rate(jc,jb)
+           rain_con_rate(jc,isubs)    = prm_diag%rain_con_rate(jc,jb)
+           snow_con_rate(jc,isubs)    = prm_diag%snow_con_rate(jc,jb)
+           graupel_gsp_rate(jc,isubs) = p_graupel_gsp_rate    (jc,jb)
          END DO
        END DO
 
@@ -354,10 +370,11 @@ CONTAINS
              ! If there is no snow tile so far at all, precipitation falls on the snow-free tile,
              ! and the snow tile will be created after TERRA.
              IF(lnd_prog_now%t_snow_t(jc,jb,isubs) > tmelt) THEN
-               rain_gsp_rate(jc,isubs) = 0._wp
-               snow_gsp_rate(jc,isubs) = 0._wp
-               rain_con_rate(jc,isubs) = 0._wp
-               snow_con_rate(jc,isubs) = 0._wp
+               rain_gsp_rate(jc,isubs)    = 0._wp
+               snow_gsp_rate(jc,isubs)    = 0._wp
+               rain_con_rate(jc,isubs)    = 0._wp
+               snow_con_rate(jc,isubs)    = 0._wp
+               graupel_gsp_rate(jc,isubs) = 0._wp
              END IF
            END DO
          END DO
@@ -381,6 +398,7 @@ CONTAINS
           prs_con_t(ic) =  snow_con_rate(jc,isubs)
           prr_gsp_t(ic) =  rain_gsp_rate(jc,isubs)
           prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
+          prg_gsp_t(ic) =  graupel_gsp_rate(jc,isubs)
 
           u_t(ic)       =  p_diag%u         (jc,nlev,jb)     
           v_t(ic)       =  p_diag%v         (jc,nlev,jb)     
@@ -477,7 +495,6 @@ CONTAINS
         CALL terra_multlay(                                    &
         &  ie=nproma                                         , & !IN array dimensions
         &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
-        &  nsubs0=jb,          nsubs1=isubs                  , & !UNUSED except for optional debug output
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
         &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & !IN processing soil level structure 
         &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , & !IN !!! Dangerous HACK !!!
@@ -557,7 +574,7 @@ CONTAINS
         &  prs_con       = prs_con_t             , & !IN precipitation rate of snow, convective       (kg/m2*s)
         &  prr_gsp       = prr_gsp_t             , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
         &  prs_gsp       = prs_gsp_t             , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
-        &  prg_gsp       = dummy_prg_gsp         , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
+        &  prg_gsp       = prg_gsp_t             , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
 !
         &  tch           = tch_t                 , & !INOUT turbulent transfer coefficient for heat     ( -- )
         &  tcm           = tcm_t                 , & !INOUT turbulent transfer coefficient for momentum ( -- )

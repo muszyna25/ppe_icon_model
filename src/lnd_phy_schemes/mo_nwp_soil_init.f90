@@ -247,7 +247,6 @@ CONTAINS
     zedb     (ie)          ! utility variable
 
   REAL    (KIND=ireals   ) ::  &
-    zalam    (ie,ke_soil),& ! heat conductivity
     zw_snow_old(ie)      ,& !
     zrho_snow_old(ie)    ,&
     h_snow_fg(ie)        ,&
