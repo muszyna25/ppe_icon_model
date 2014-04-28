@@ -36,7 +36,7 @@ USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp
 USE mo_mpi,                  ONLY: my_process_is_stdio
-USE mo_timer,                ONLY: print_timer, timers_level, timer_start, timer_stop, &
+USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_var_list,             ONLY: print_var_list
@@ -50,7 +50,6 @@ USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
 USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist parameter
   &                                ltestcase,            &
-  &                                ltimer,               & !    :
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
   &                                msg_level,            & !    namelist parameter
@@ -128,9 +127,7 @@ CONTAINS
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
     CALL destruct_atmo_nonhydrostatic()
-
-    IF (ltimer) CALL print_timer
-    
+   
   END SUBROUTINE atmo_nonhydrostatic
   !---------------------------------------------------------------------
   

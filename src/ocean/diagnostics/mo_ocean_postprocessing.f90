@@ -57,7 +57,7 @@ MODULE mo_ocean_postprocessing
 
   USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
-    & print_timer, activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
+    & activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
   USE mo_parallel_config,     ONLY: nproma
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
 

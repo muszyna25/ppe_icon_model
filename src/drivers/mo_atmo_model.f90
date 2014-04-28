@@ -42,7 +42,8 @@ MODULE mo_atmo_model
     &                                   my_process_is_restart, process_mpi_restart_size
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
-    &                                   timer_domain_decomp, timer_compute_coeffs, timer_ext_data
+    &                                   timer_domain_decomp, timer_compute_coeffs,            &
+    &                                   timer_ext_data, print_timer
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
     &                                   num_restart_procs,                                    &
     &                                   use_async_restart_output !,use_icon_comm
@@ -178,8 +179,11 @@ CONTAINS
       CALL atmo_nonhydrostatic
 
     CASE DEFAULT
-      CALL finish( TRIM(routine),'unknown choice for iequaions.')
+      CALL finish( TRIM(routine),'unknown choice for iequations.')
     END SELECT
+
+    ! print performance timers:
+    IF (ltimer) CALL print_timer
 
 
     !---------------------------------------------------------------------

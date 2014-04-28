@@ -34,11 +34,10 @@ MODULE mo_atmo_hydrostatic
 
   USE mo_exception,         ONLY: message
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
-  USE mo_timer,             ONLY: print_timer
 
   USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
-  USE mo_run_config,        ONLY: dtime, ltestcase, ltimer, iforcing, nlev, &
+  USE mo_run_config,        ONLY: dtime, ltestcase, iforcing, nlev, &
     &                             msg_level, output_mode, ntracer, iqc, iqt
   USE mo_dynamics_config,   ONLY: iequations
   USE mo_advection_config,  ONLY: configure_advection
@@ -106,8 +105,6 @@ CONTAINS
     ! Integration finished. Start to clean up.
     !---------------------------------------------------------------------
     CALL destruct_atmo_hydrostatic()
-
-    IF (ltimer) CALL print_timer
 
   END SUBROUTINE atmo_hydrostatic
   !-------------------------------------------------------------------------------
