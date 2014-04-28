@@ -154,7 +154,7 @@ $targetDir = lambda {|build,withHost=true,revision=nil|
   dir      = ''
   host     = $hostOf[build]
   hostname = $hostnameOf[build]
-  dir << "m300064@#{hostname}:" if isRemote?(build) and withHost
+  dir << "#{REMOTE_USER}@#{hostname}:" if isRemote?(build) and withHost
   dir << $hosts[host][:dir] + '/' + $builds[build][:subdir]
   dir << "/r#{revision.to_s}" unless revision.nil?
 
@@ -220,7 +220,7 @@ end
 def connect(build,command,targetDir=$targetDir[build,false])
   cmd      = ''
   hostname = $hostnameOf[build]
-  cmd << $remoteConnection[build] + " m300064@#{hostname} " if isRemote?(build)
+  cmd << $remoteConnection[build] + " #{REMOTE_USER}@#{hostname} " if isRemote?(build)
   cmd << "'" if isRemote?(build)
   cmd << "source /etc/profile; [[ -f .profile ]] && source .profile; " if isRemote?(build)
   cmd << "cd #{targetDir};"
@@ -412,8 +412,20 @@ def doSync(build)
   myFile = file.path
   if File.exists?('.svn') then
     file.write(`svn list -R | grep -E -v '\/$'`)
+    # add svn revision info
+    revInfoFile = '.rev.info'
+    File.open(revInfoFile,'w') {|f| f << `svn info` }
+    file.wrote(revInfoFile << "\n")
   else
     file.write(`git ls-files | grep -v -E '^(data|doc)'`)
+    # add svn revision info
+    revInfoFile = '.rev.info'
+    File.open(revInfoFile,'w') {|f|
+      f << `git log -4`
+      f << "# locally modified files:\n"
+      f << `git status -s | grep '^ M'| cut -d ' ' -f 3`
+    }
+    file.write(revInfoFile << "\n")
   end
   file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
   # add non-added runscripts
