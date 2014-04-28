@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os,sys,glob,shutil,json,subprocess
+import os,sys,glob,shutil,json,subprocess,multiprocessing
 from cdo import *
 
 # ==============================================================================
@@ -13,6 +13,7 @@ options = {
             'CALCPSI'     : '/scratch/mpi/CC/mh0287/users/m300064/src/icon-HEAD/scripts/postprocessing/tools/calc_psi.py',
             'TAG'         : 'r1xxxx',
             'ICONPLOT'    : 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools',
+            'PROCS'       : 8,
            }
 
 optsGiven = sys.argv[1:]
@@ -152,11 +153,18 @@ dbg(LOG)
 # COMPUTE YEARMEAN FILES {{{ ============================================================
 ymFile = '/'.join([options['ARCHDIR'],'_'.join([options['EXP'],'yearmean.nc'])])
 if not os.path.exists(ymFile):
+  def _createYearMeanOf(ifile,ofile):
+    cdo.yearmean(input=ifile,output=ofile)
+
   ymFiles = []
+  pool  = multiprocessing.Pool(options['PROCS'])
   for f in LOG['splitfiles']:
     ofile = '/'.join([options['ARCHDIR'],"ym_"+os.path.basename(f)])
-    cdo.yearmean(input=f,output=ofile)
+    pool.apply_async(_createYearMeanOf,[f,ofile])
     ymFiles.append(ofile)
+
+  pool.close()
+  pool.join()
 
   cdo.cat(input=" ".join(ymFiles),output=ymFile)
   # rm ymFiles
@@ -261,11 +269,14 @@ pylab.savefig("%s/drake_first20Years_%s_%s.png"%(options['ARCHDIR'],options['EXP
 for varname in ['t_acc','s_acc','u_acc','v_acc','velocity']:
   # run icon_plot.ncl
   oFile = '/'.join([options['ARCHDIR'],varname+'_profile_30w-65s_'+'_'.join([options['EXP'],options['TAG']])])
+  title = '%s: 10y profile at 30W,65S'%(options['EXP'])
   cmd = [options['ICONPLOT'],
          '-iFile=%s'%(profileData),
-         '-hov','-tStrg="%s - %s"'%(options['EXP'],options['TAG']),
+         '-hov',
          '-varName=%s'%(varname),
          '-oType=png',
+         '-rStrg="-"',
+         '-tStrg="%s"'%(title),
          '-oFile=%s'%(oFile)]
   dbg(' '.join(cmd))
   proc = subprocess.Popen(' '.join(cmd),
