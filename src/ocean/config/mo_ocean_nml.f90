@@ -597,10 +597,10 @@ MODULE mo_ocean_nml
 
      ! default values when namelist is not present and no default on definition
 
-     n_zlev            = 5
+     n_zlev            = -1 ! 5
      dzlev_m(:)        = -1.0_wp
 
-     dzlev_m(1:n_zlev) =  (/ 50.0_wp, 150.0_wp, 500.0_wp, 1300.0_wp, 2500.0_wp  /)
+     !dzlev_m(1:n_zlev) =  (/ 50.0_wp, 150.0_wp, 500.0_wp, 1300.0_wp, 2500.0_wp  /)
      !  lower level of layers:  50       200       700       2000       4500
      !  surface coord. levels:  25       125       450       1350       3250
 
@@ -740,6 +740,8 @@ MODULE mo_ocean_nml
      ! 6.0 check the consistency of the parameters
      !------------------------------------------------------------
 
+     IF( n_zlev < 1 ) &
+       & CALL finish(TRIM(routine),  'n_zlev < 1')
      IF( iswm_oce == 1 .AND. n_zlev > 1 ) THEN
        CALL message(TRIM(routine),'WARNING, shallow water model (ocean): n_zlev set to 1')
        n_zlev = 1
