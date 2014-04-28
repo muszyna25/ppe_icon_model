@@ -1352,10 +1352,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
     !-------------------------------------------------------------------------
-    ! Important:
-    !   use initial_temperature_top=27.0 initial_temperature_bottom=0.0
-    !   to be consistent with the old setup
-    CALL message(TRIM(method_name), ' using sst1')
+    CALL message(TRIM(method_name), ' using smoothAPE')
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -1375,14 +1372,14 @@ CONTAINS
       END DO
     END DO
 
-    ! add meridional temperature slope over all latitudes of the basin
+    ! add meridional temperature slope over all latitudes
     
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
           ocean_temperature(jc,jk,jb) = MAX(ocean_temperature(jc,jk,jb) + &
-            & (patch_2d%cells%center(jc,jb)%lat + poleLat)/(90.0_wp*deg2rad) * initial_temperature_shift, &
+            & (patch_2d%cells%center(jc,jb)%lat + poleLat) / pi_2 * initial_temperature_shift, &
             & initial_temperature_bottom)
         END DO
       END DO

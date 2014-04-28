@@ -245,7 +245,9 @@ CONTAINS
      CASE DEFAULT
        CALL finish(TRIM(routine), ' This option for vertical tracer transport is not supported')
      END SELECT
-     CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)     
+
+     !----------------------------------------------------------
+     ! CALL sync_patch_array(SYNC_C, p_patch, z_adv_flux_v)
      
      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -405,6 +407,8 @@ CONTAINS
     !---------------------------------------------------------------------
   END SUBROUTINE advect_flux_vertical_high_res
   !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
   !>
   !! !  SUBROUTINE calculates ratio of consecutive gradients following Casulli-Zanolli.
   !!
@@ -502,7 +506,8 @@ CONTAINS
     CALL sync_patch_array(sync_c, patch_2D, consec_grad)
    END SUBROUTINE ratio_consecutive_gradients
   !-------------------------------------------------------------------------------
-   !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
   !>
   !! !  SUBROUTINE calculates ratio of consecutive gradients following Casulli-Zanolli.
   !!
@@ -574,7 +579,7 @@ CONTAINS
      CALL sync_patch_array(sync_c, patch_2D, limit_phi)
 !write(0,*)'limiter-function: max-min',maxval(limit_phi(5,:,5)),minval(limit_phi(5,:,5))   
   END SUBROUTINE calculate_limiter_function
-
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !! First order upwind scheme for vertical tracer advection
@@ -629,6 +634,7 @@ CONTAINS
 #endif
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   !!
@@ -637,7 +643,6 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn, MPI-M
   !!
-  !! mpi parallelized, no sync
   SUBROUTINE central_vflux_oce( patch_3D, pvar_c, pw_c, c_flux_i )
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
@@ -1235,8 +1240,8 @@ CONTAINS
   END SUBROUTINE upwind_vflux_ppm
   !-------------------------------------------------------------------------
 
-   !------------------------------------------------------------------------
-  !! The third order PPM scheme
+  !------------------------------------------------------------------------
+  !! Otpimized version of the third order PPM scheme
   !!
   !! Calculation of time averaged vertical tracer fluxes using the third
   !! order PPM scheme.
@@ -1258,20 +1263,20 @@ CONTAINS
   ! - Carpenter et al. (1989), MWR, 118, 586-612
   ! - Lin and Rood (1996), MWR, 124, 2046-2070
   !
-  ! Optimized version of  upwind_vflux_ppm
-  SUBROUTINE upwind_vflux_ppm_fast( patch_3D, p_cc,        &
-    &                      p_w, p_dtime, p_itype_vlimit  ,&
+  ! Optimized version of upwind_vflux_ppm
+  SUBROUTINE upwind_vflux_ppm_fast( patch_3D, tracer,        &
+    &                      w, dtime, vertical_limiter_type  ,&
     &                      cell_height, cell_invHeight, &
-    &                      p_upflux)
+    &                      upward_tracer_flux)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
-    REAL(wp), INTENT(INOUT)           :: p_cc(nproma,n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)           :: p_w(nproma,n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks) !<  in : vertical velocity
-    REAL(wp), INTENT(IN)              :: p_dtime  !< time step
+    REAL(wp), INTENT(INOUT)           :: tracer(nproma,n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< advected cell centered variable
+    REAL(wp), INTENT(INOUT)           :: w(nproma,n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks) !<  in : vertical velocity
+    REAL(wp), INTENT(IN)              :: dtime  !< time step
     REAL(wp), INTENT(INOUT)           :: cell_height(nproma,n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     REAL(wp), INTENT(INOUT)           :: cell_invHeight(nproma,n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
-    REAL(wp), INTENT(INOUT)           :: p_upflux(nproma,n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks)      !< output field, tracer flux
-    INTEGER, INTENT(IN)               :: p_itype_vlimit                                  !< parameter to select limiter
+    REAL(wp), INTENT(INOUT)           :: upward_tracer_flux(nproma,n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks)      !< output field, tracer flux
+    INTEGER, INTENT(IN)               :: vertical_limiter_type                                  !< parameter to select limiter
 !
     REAL(wp) :: z_face(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)   !< face values of transported field
     REAL(wp) :: z_face_up(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< face value (upper face)
@@ -1284,10 +1289,10 @@ CONTAINS
     REAL(wp) :: z_delta_m, z_delta_p                            !< difference between lower and upper face value
                                                                 !< for weta >0 and weta <0
     REAL(wp) :: z_a11, z_a12                                    !< 1/6 * a6,i (see Colella and Woodward (1984))
-    REAL(wp) :: z_weta_dt                                       !< weta times p_dtime
+    REAL(wp) :: z_weta_dt                                       !< weta times dtime
     INTEGER  :: slev, slevp1                                    !< vertical start level and start level +1
     INTEGER  :: nlevp1                                          !< number of full and half levels
-    INTEGER  :: levelAbove, levelBelow, ikp1_ic,ikp2                        !< vertical level minus and plus one, plus two
+    INTEGER  :: levelAbove, levelBelow,ikp2                        !< vertical level minus and plus one, plus two
     INTEGER  :: i_startidx, i_endidx
     INTEGER  :: jc, level, jb                                      !< index of cell, vertical level and block
     !LOGICAL  :: opt_lout_edge !< optional: output edge value (.TRUE.),
@@ -1313,9 +1318,9 @@ CONTAINS
     z_lext_2  (1:nproma,1:n_zlev+1)=0.0_wp
 
     ! this is not needed
-    ! CALL sync_patch_array(SYNC_C, p_patch, p_cc)
+    ! CALL sync_patch_array(SYNC_C, p_patch, tracer)
     ! CALL sync_patch_array(SYNC_C, p_patch, cell_height)
-    ! CALL sync_patch_array(SYNC_C, p_patch, p_w)
+    ! CALL sync_patch_array(SYNC_C, p_patch, w)
 
     ! advection is done with an upwind scheme and a piecwise parabolic
     ! approx. of the subgrid distribution is used.
@@ -1326,7 +1331,7 @@ CONTAINS
     ! 1. Calculate Courant number for weta>0 (w<0) and weta<0 (w>0)
     !
 ! !$OMP PARALLEL
-! !$OMP DO PRIVATE(jb,level,jc,i_startidx,i_endidx,levelAbove,z_weta_dt,ikp1_ic,levelBelow, &
+! !$OMP DO PRIVATE(jb,level,jc,i_startidx,i_endidx,levelAbove,z_weta_dt,levelBelow, &
 ! !$OMP            z_slope_u,z_slope_l,ikp2)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
@@ -1337,20 +1342,18 @@ CONTAINS
       z_slope(i_startidx:i_endidx,slev,jb) = 0._wp
 
       DO level = slevp1, n_zlev
-        ! index of top half level
-        levelAbove    = level - 1
-        ! index of bottom half level
-        ikp1_ic = level + 1
-        levelBelow    = MIN( ikp1_ic, n_zlev )
+
+        levelAbove    = level - 1                 ! index of top half level
+        levelBelow    = MIN( level + 1, n_zlev )  ! index of bottom half level
 
         DO jc = i_startidx, i_endidx
           IF ( patch_3D%lsm_c(jc,level,jb) <= sea_boundary ) THEN
-            z_slope_u = 2._wp * (p_cc(jc,level,jb) - p_cc(jc,levelAbove,jb))
+            z_slope_u = 2._wp * (tracer(jc,level,jb) - tracer(jc,levelAbove,jb))
           ELSE
             z_slope_u = 0.0_wp
           ENDIF
           IF ( patch_3D%lsm_c(jc,levelBelow,jb) <= sea_boundary ) THEN
-            z_slope_l = 2._wp * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb))
+            z_slope_l = 2._wp * (tracer(jc,levelBelow,jb) - tracer(jc,level,jb))
           ELSE
             z_slope_l = 0.0_wp
           ENDIF
@@ -1365,12 +1368,12 @@ CONTAINS
               & (2._wp * cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb)) &
               &  / (cell_height(jc,levelBelow,jb) + cell_height(jc,level,jb))           &
               & &
-              &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb))                         &
+              &  * (tracer(jc,levelBelow,jb) - tracer(jc,level,jb))                         &
               & &
               &  + (cell_height(jc,level,jb) + 2._wp * cell_height(jc,levelBelow,jb))   &
               &  / (cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb))           &
               & &
-              &  * (p_cc(jc,level,jb) - p_cc(jc,levelAbove,jb)) )
+              &  * (tracer(jc,level,jb) - tracer(jc,levelAbove,jb)) )
 
             z_slope(jc,level,jb) = SIGN(                                            &
               &  MIN( ABS(z_slope(jc,level,jb)), ABS(z_slope_u), ABS(z_slope_l) ),  &
@@ -1395,31 +1398,40 @@ CONTAINS
       !
       DO jc = i_startidx, i_endidx
         IF ( patch_3D%lsm_c(jc,slevp1,jb) <= sea_boundary ) THEN
-        z_face(jc,slevp1,jb) = p_cc(jc,slev,jb)*(1._wp - (cell_height(jc,slev,jb)&
-          &       / cell_height(jc,slevp1,jb))) + (cell_height(jc,slev,jb)  &
+        z_face(jc,slevp1,jb) = &
+          & tracer(jc,slev,jb) *                           &
+          &    (1._wp - (cell_height(jc,slev,jb) / cell_height(jc,slevp1,jb)))          &
+          & &
+          & + (cell_height(jc,slev,jb)  &
           &       /(cell_height(jc,slev,jb) + cell_height(jc,slevp1,jb)))   &
-          &       * ((cell_height(jc,slev,jb) / cell_height(jc,slevp1,jb))  &
-          &       * p_cc(jc,slev,jb) + p_cc(jc,slevp1,jb))
+          & * &
+          &  ((cell_height(jc,slev,jb) / cell_height(jc,slevp1,jb))  &
+          &     * tracer(jc,slev,jb) &
+          &     + tracer(jc,slevp1,jb))
         ELSE
         z_face(jc,slevp1,jb) = 0.0_wp
         ENDIF
         IF ( patch_3D%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
-        z_face(jc,n_zlev,jb) = p_cc(jc,n_zlev-1,jb)*( 1._wp                               &
-          &       - (cell_height(jc,n_zlev-1,jb) / cell_height(jc,n_zlev,jb)))  &
-          &       + (cell_height(jc,n_zlev-1,jb)/(cell_height(jc,n_zlev-1,jb)   &
-          &       + cell_height(jc,n_zlev,jb))) * ((cell_height(jc,n_zlev-1,jb) &
-          &       / cell_height(jc,n_zlev,jb)) * p_cc(jc,n_zlev-1,jb)                &
-          &       + p_cc(jc,n_zlev,jb))
+        z_face(jc,n_zlev,jb) = &
+          & tracer(jc,n_zlev-1,jb) * &
+          &   ( 1._wp - (cell_height(jc,n_zlev-1,jb) / cell_height(jc,n_zlev,jb)))  &
+          & &
+          &  + (cell_height(jc,n_zlev-1,jb)/(cell_height(jc,n_zlev-1,jb)   &
+          &       + cell_height(jc,n_zlev,jb))) &
+          & * &
+          & ((cell_height(jc,n_zlev-1,jb) / cell_height(jc,n_zlev,jb)) &
+          &   * tracer(jc,n_zlev-1,jb)                &
+          &   + tracer(jc,n_zlev,jb))
         ELSE
           z_face(jc,n_zlev,jb) = 0.0_wp
         ENDIF
         IF ( patch_3D%lsm_c(jc,slev,jb) <= sea_boundary ) THEN
-          z_face(jc,slev,jb) = p_cc(jc,slev,jb)
+          z_face(jc,slev,jb) = tracer(jc,slev,jb)
         ELSE
           z_face(jc,slev,jb) = 0.0_wp
         ENDIF
         IF ( patch_3D%lsm_c(jc,n_zlev,jb) <= sea_boundary ) THEN
-          z_face(jc,nlevp1,jb) = p_cc(jc,n_zlev,jb)
+          z_face(jc,nlevp1,jb) = tracer(jc,n_zlev,jb)
         ELSE
           z_face(jc,nlevp1,jb) = 0.0_wp
         ENDIF
@@ -1434,11 +1446,11 @@ CONTAINS
         ikp2 = level + 2
         DO jc = i_startidx, i_endidx
           IF ( patch_3D%lsm_c(jc,ikp2,jb) <= sea_boundary ) THEN
-          z_face(jc,levelBelow,jb) = p_cc(jc,level,jb) &
+          z_face(jc,levelBelow,jb) = tracer(jc,level,jb) &
             &  + (cell_height(jc,level,jb)                                          &
             &  / (cell_height(jc,level,jb) + cell_height(jc,levelBelow,jb)))        &
             & &
-            &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb))                       &
+            &  * (tracer(jc,levelBelow,jb) - tracer(jc,level,jb))                       &
             & &
             &  + (1._wp/(cell_height(jc,levelAbove,jb) + cell_height(jc,level,jb)   &
             &  + cell_height(jc,levelBelow,jb) + cell_height(jc,ikp2,jb)))          &
@@ -1452,7 +1464,7 @@ CONTAINS
             &  - (cell_height(jc,ikp2,jb) + cell_height(jc,levelBelow,jb))        &
             &  / (2._wp*cell_height(jc,levelBelow,jb) + cell_height(jc,level,jb)) )  &
             & &
-            &  * (p_cc(jc,levelBelow,jb) - p_cc(jc,level,jb)) -                      &
+            &  * (tracer(jc,levelBelow,jb) - tracer(jc,level,jb)) -                      &
             &  z_slope(jc,levelBelow,jb) *                                           &
             & &
             &  cell_height(jc,level,jb) *                                            &
@@ -1486,12 +1498,12 @@ CONTAINS
     ! Therefore 2 additional fields z_face_up and z_face_low are
     ! introduced.
     !
-    IF (p_itype_vlimit == islopel_vsm) THEN
+    IF (vertical_limiter_type == islopel_vsm) THEN
 !     ! monotonic (mo) limiter
       IF (ltimer) CALL timer_start(timer_ppm_slim)
 
         CALL v_ppm_slimiter_mo( patch_3D, &
-                              & p_cc,       &
+                              & tracer,       &
                               & z_face,     &
                               & z_slope,    &
                               & z_face_up,  &
@@ -1533,10 +1545,10 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 
-!      z_lext_1(i_startidx:i_endidx,slev)   = p_cc(i_startidx:i_endidx,slev,jb)
-!      z_lext_2(i_startidx:i_endidx,slev)   = p_cc(i_startidx:i_endidx,slev,jb)
-!      z_lext_1(i_startidx:i_endidx,nlevp1) = p_cc(i_startidx:i_endidx,n_zlev,jb)
-!      z_lext_2(i_startidx:i_endidx,nlevp1) = p_cc(i_startidx:i_endidx,n_zlev,jb)
+!      z_lext_1(i_startidx:i_endidx,slev)   = tracer(i_startidx:i_endidx,slev,jb)
+!      z_lext_2(i_startidx:i_endidx,slev)   = tracer(i_startidx:i_endidx,slev,jb)
+!      z_lext_1(i_startidx:i_endidx,nlevp1) = tracer(i_startidx:i_endidx,n_zlev,jb)
+!      z_lext_2(i_startidx:i_endidx,nlevp1) = tracer(i_startidx:i_endidx,n_zlev,jb)
 
       DO level = slevp1, n_zlev
         ! index of top half level
@@ -1548,50 +1560,56 @@ CONTAINS
           ! is not necessary due to compensating (-) signs.
           ! first (of cell above) (case of w < 0; weta > 0)
           z_delta_m = z_face_low(jc,levelAbove,jb) - z_face_up(jc,levelAbove,jb)
-          z_a11     = p_cc(jc,levelAbove,jb)                                  &
+          z_a11     = tracer(jc,levelAbove,jb)                                  &
             &       - 0.5_wp * (z_face_low(jc,levelAbove,jb) + z_face_up(jc,levelAbove,jb))
 
           ! Calculate local Courant number at half levels
           ! z_cfl_m for weta >0 (w <0)
           ! z_cfl_p for weta <0 (w >0)
           ! z_weta_dt = 0.0_wp
-          z_weta_dt = ABS(p_w(jc,level,jb)) * p_dtime
+          z_weta_dt = ABS(w(jc,level,jb)) * dtime
           z_cfl_p = z_weta_dt * cell_invHeight(jc, level,     jb)
           z_cfl_m = z_weta_dt * cell_invHeight(jc, levelAbove,jb)
 
-!          z_lext_1(jc,jk) = p_cc(jc,ikm1,jb)                            &
+!          z_lext_1(jc,jk) = tracer(jc,ikm1,jb)                            &
 !            &  + (0.5_wp * z_delta_m * (1._wp - z_cfl_m(jc,jk,jb)))     &
 !            &  - z_a11*(1._wp - 3._wp*z_cfl_m(jc,jk,jb)                 &
 !            &  + 2._wp*z_cfl_m(jc,jk,jb)*z_cfl_m(jc,jk,jb))
-          z_lext_1(jc,level) = p_cc(jc,levelAbove,jb)                         &
+          z_lext_1(jc,level) = tracer(jc,levelAbove,jb)                         &
             &  + 0.5_wp * (z_delta_m - z_delta_m * z_cfl_m)     &
             &  - z_a11 - z_a11 * z_cfl_m * ( -3._wp  + 2._wp * z_cfl_m)
 
           ! second (of cell below) (case of w > 0; weta < 0)
           z_delta_p = z_face_low(jc,level,jb) - z_face_up(jc,level,jb)
-          z_a12     = p_cc(jc,level,jb)                                    &
+          z_a12     = tracer(jc,level,jb)                                    &
             &       - 0.5_wp * (z_face_low(jc,level,jb) + z_face_up(jc,level,jb))
 
-          z_lext_2(jc,level) = p_cc(jc,level,jb)                              &
+          z_lext_2(jc,level) = tracer(jc,level,jb)                              &
             &  - 0.5_wp * (z_delta_p - z_delta_p * z_cfl_p)     &
             &  - z_a12 + z_a12 * z_cfl_p * (- 3._wp + 2._wp * z_cfl_p)
           !
           ! calculate vertical tracer flux
           !
-          p_upflux(jc,level,jb) =                                  &
-            &  laxfr_upflux_v( p_w(jc,level,jb),       &
+          upward_tracer_flux(jc,level,jb) =                                  &
+            &  laxfr_upflux_v( w(jc,level,jb),       &
             &                z_lext_1(jc,level), z_lext_2(jc,level))
+
+          ! copy of   FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  RESULT(upward_tracer_flux)
+          upward_tracer_flux(jc,level,jb) = 0.5_wp *  &
+            & ( w(jc,level,jb)  * ( z_lext_1(jc,level) + z_lext_2(jc,level) )           &
+            &  +  ABS( w(jc,level,jb) ) * ( z_lext_2(jc,level) - z_lext_1(jc,level) )   &
+            & )
 
 
         ELSE
-          p_upflux(jc,level,jb) = 0.0_wp
+          upward_tracer_flux(jc,level,jb) = 0.0_wp
         ENDIF
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
       !
       ! set lower boundary condition
       !
-      p_upflux(i_startidx:i_endidx,nlevp1,jb) = 0.0_wp
+      upward_tracer_flux(i_startidx:i_endidx,nlevp1,jb) = 0.0_wp
       !
     ENDDO ! end loop over blocks
 ! !$OMP END DO
@@ -1600,21 +1618,20 @@ CONTAINS
 ! jc=5
 ! jb=5
 ! Do level=1,patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-! write(0,*)'INSIDE PPM:',jc,level,jb,p_upflux(jc,level,jb)
+! write(0,*)'INSIDE PPM:',jc,level,jb,upward_tracer_flux(jc,level,jb)
 ! END DO
-
-      CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
 
 
       ! 6. If desired, apply a flux limiter to limit computed fluxes.
       !    These flux limiters are based on work by Zalesak (1979)
       !    positive-definite (pd) limiter      !
-      !    IF (p_itype_vlimit == ifluxl_vpd) THEN
+      !    IF (vertical_limiter_type == ifluxl_vpd) THEN
       !     IF (l_vert_limiter_advection) &
-      !CALL vflx_limiter_pd_oce( patch_3D, p_dtime, p_cc, cell_height, p_upflux)
+      ! CALL sync_patch_array(SYNC_C, p_patch, upward_tracer_flux)
+      ! CALL vflx_limiter_pd_oce( patch_3D, dtime, tracer, cell_height, upward_tracer_flux)
       !   ENDIF
 
-    CALL sync_patch_array(SYNC_C, p_patch, p_upflux)
+    ! CALL sync_patch_array(SYNC_C, p_patch, upward_tracer_flux)
 
   END SUBROUTINE upwind_vflux_ppm_fast
   !-------------------------------------------------------------------------
