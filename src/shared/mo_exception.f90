@@ -285,6 +285,8 @@ CONTAINS
 
     IF (.NOT. ladjust) THEN
       message_text = TRIM(ADJUSTL(text))
+    ELSE
+      message_text = TRIM(text)
     ENDIF
     IF (name /= '')  THEN
       message_text = TRIM(name) // ': ' // TRIM(message_text)
