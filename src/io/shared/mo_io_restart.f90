@@ -104,9 +104,9 @@ MODULE mo_io_restart
   USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
-  USE mo_run_config,            ONLY: ltimer, output_mode, restart_filename
+  USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
-    &                                 timer_write_restart_file, timer_write_output
+    &                                 timer_write_restart_file
   USE mo_math_utilities,        ONLY: set_zlev
 
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
@@ -186,7 +186,6 @@ MODULE mo_io_restart
   REAL(wp), ALLOCATABLE :: private_vct(:)
   REAL(wp), ALLOCATABLE :: private_depth_full(:),  private_depth_half(:)
   REAL(wp), ALLOCATABLE :: private_depth_lnd_full(:),  private_depth_lnd_half(:)
-  REAL(wp), ALLOCATABLE :: private_generic_level(:)
   REAL(wp), ALLOCATABLE :: private_height_snow_half(:), private_height_snow_full(:)
   !
   LOGICAL, SAVE :: lvct_initialised         = .FALSE.
@@ -197,11 +196,8 @@ MODULE mo_io_restart
   LOGICAL, SAVE :: lrestart_initialised     = .FALSE.
   !
   INTEGER :: private_nc  = -1
-  INTEGER :: private_ncv = -1
   INTEGER :: private_nv  = -1
-  INTEGER :: private_nvv = -1
   INTEGER :: private_ne  = -1
-  INTEGER :: private_nev = -1
   !
   !
   CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
@@ -565,11 +561,8 @@ CONTAINS
     CALL set_time_axis(TAXIS_RELATIVE)
     !
     private_nc  = nc
-    private_ncv = ncv
     private_nv  = nv
-    private_nvv = nvv
     private_ne  = ne
-    private_nev = nev
     !
 
 !AD(9July-2013): The following condition seemed unnecessary. So after
@@ -1880,7 +1873,7 @@ CONTAINS
     INTEGER                        :: fileID, vlistID, gridID, zaxisID, taxisID,    &
       &                                varID, idate, itime, ic, il, n, nfiles, i,   &
       &                                iret, istat, key, vgrid, gdims(5), nindex,   &
-      &                                nmiss, string_length, nvars, root_pe
+      &                                nmiss, nvars, root_pe
     CHARACTER(len=8)               :: model_type
     REAL(wp), POINTER              :: r5d(:,:,:,:,:), rptr2d(:,:), rptr3d(:,:,:)
 
@@ -1927,7 +1920,6 @@ CONTAINS
         WRITE(0,*) "util_symlink:", iret
       ENDIF
       !
-      string_length = LEN_TRIM(restart_filename)
       name          = TRIM(restart_filename)//CHAR(0)
 
       IF (my_process_is_mpi_workroot()) THEN
