@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 import os,sys,glob,shutil,json,subprocess,multiprocessing
 from cdo import *
+import matplotlib
+matplotlib.use('Agg')
+import pylab,numpy,dateutil.parser
+
 
 # ==============================================================================
 # OPTION HANDLING {{{ =========================================================
@@ -21,6 +25,8 @@ for optVal in optsGiven:
     key,value    = optVal.split('=')
     if key in ['FORCE','DEBUG']:
         value = value.lower() in ['true','1']
+    if 'PROCS' == key:
+      value = int(value)
 
     options[key] = value
 # }}}
@@ -55,6 +61,30 @@ def loadLog():
 """ get year from yearly output file """
 def yearFrom(yfilename):
   return os.path.basename(yfilename).split('.')[0].split('_')[-1]
+
+""" append list of image together """
+def collectImageToMapByRows(images,columns,ofile):
+  imageMap     = {}
+  imageColumns = {}
+  allTempFiles = []
+  for i in range(0,columns):
+    imageColumns[i] = []
+
+  for i,image in enumerate(images):
+    imageColumns[i%columns].append(image)
+  for column in imageColumns:
+    _tfile  = tempfile.NamedTemporaryFile(delete=True,prefix='IconArchive')
+    allTempFiles.append(_tfile)
+    rowFile = _tfile.name+'.png'
+    cmd     = 'convert +append %s %s'%(' '.join(imageColumns[column]),rowFile)
+    dbg(cmd)
+    subprocess.check_call(cmd,shell=True,env=os.environ)
+    imageMap[column] = rowFile
+
+  cmd = "convert -append %s %s"%(' '.join(imageMap.values()),ofile)
+  dbg(cmd)
+  subprocess.check_call(cmd,shell=True,env=os.environ)
+  map(lambda x: os.remove(x),imageMap.values())
 # }}}
 # INTERNALS {{{ ================================================================
 LOGFILE         = 'archive.log'
@@ -106,14 +136,14 @@ dbg(options)
 ifiles = glob.glob(options['FILEPATTERN'])
 dbg(ifiles); LOG['ifiles'] = ifiles
 if 0 == len(ifiles):
-    print usage()
-    print("Could not find any result files!")
-    exit(1)
+  print usage()
+  print("Could not find any result files!")
+  exit(1)
 else:
-    print("will use \n" + "\n".join(ifiles))
+  print("will use \n" + "\n".join(ifiles))
 # is the archive dir accessable
 if not os.path.isdir(options['ARCHDIR']):
-    os.makedirs(options['ARCHDIR'])
+  os.makedirs(options['ARCHDIR'])
 # =======================================================================================
 # DATA SPLITTING {{{ ====================================================================
 if (options['FORCE'] or ('splityear?' in LOG.keys() and (False == LOG['splityear?']))):
@@ -205,12 +235,58 @@ velocityData = cdo.expr("'velocity=sqrt(u_acc*u_acc+v_acc*v_acc);'",input=varDat
                                                                                                    'vel4profile.nc']))
 profileData = cdo.merge(input='%s %s'%(varData,velocityData),output="%s/data_4profile_%s.nc"%(options['ARCHDIR'],options['EXP']))
 # }}}
+# PREPARE INPUT FOR REGIONAL MEANS from yearMean output {{{
+# helper for parallelization
+def _computeRegioMean(depth,varname,ifile,vertMask,regioMask,ofile):
+  # mask out region
+  # vertical interpolation to target depth
+  # mean value computaion
+  cdo.fldmean(input = '-mul -div -sellevel,%s -selname,%s %s %s %s'%(depth,varname,ifile,vertMask,regioMask), output = ofile)
+
+# setup
+regioCodes    = {'NorthAtlantic' : 4,'TropicalAtlantic' : 5, 'SouthernOcean' : 6}
+regioDepths   = [110,215,895,2200]
+regioVars     = ['t_acc','s_acc']
+regioMaskVar  = 'regio_c'
+regioMeanData = {}
+regioPool     = multiprocessing.Pool(options['PROCS'])
+regioLock     = multiprocessing.Lock()
+
+# create the regio mask first
+regioMasks    = {}
+for location, regioCode in regioCodes.iteritems():
+  ofile     = '/'.join([options['ARCHDIR'],'_'.join(['regioMask',location])+'.nc'])
+  ofileTemp = '/'.join([options['ARCHDIR'],'_'.join(['_regioMask',location])+'.nc'])
+  cdo.eqc(regioCode,input = '-selname,%s -seltimestep,1 %s'%(regioMaskVar,LOG['ifiles'][0]),output = ofileTemp)
+  regioMasks[location] = cdo.div(input = '%s %s'%(ofileTemp,ofileTemp),output = ofile)
+# create the mask from 3d mask wet_c
+regioVertMasks    = {}
+for depth in regioDepths:
+  depth = str(depth)
+  ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioVertMask',depth+'m'])+'.nc'])
+  regioVertMasks[depth] = cdo.sellevel(depth,input = '-div -selname,wet_c -seltimestep,1 %s -selname,wet_c -seltimestep,1 %s'%(LOG['ifiles'][0],LOG['ifiles'][0]),output = ofile)
+# compute the regional mean values
+for location, regioCode in regioCodes.iteritems():
+  regioMeanData[location] = {}
+  for depth in regioDepths:
+    regioMeanData[location][str(depth)] = {}
+    for varname in regioVars:
+      regioMeanData[location][str(depth)][varname] = {}
+      ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioMean',location,varname,str(depth)+'m'])+'.nc'])
+      regioPool.apply_async(_computeRegioMean,[depth,varname,ymFile,regioVertMasks[str(depth)],regioMasks[location],ofile])
+      regioLock.acquire()
+      regioMeanData[location][str(depth)][varname] = ofile 
+      regioLock.release()
+regioPool.close()
+regioPool.join()
+# }}}
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
 plotFile = options['ARCHDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
-dbg(plotFile)
 if not os.path.exists(plotFile):
-  if subpl('%s %s %s'%(options['CALCPSI'], uvintFile, "LEVELS=20 PLOT="+plotFile),shell=True,env=os.environ):
+  cmd = '%s %s %s'%(options['CALCPSI'], uvintFile, "LEVELS=20 PLOT="+plotFile)
+  dbg(cmd)
+  if subprocess.check_call(cmd,shell=True,env=os.environ):
     print("ERROR: CALCPSI failed")
 # }}}
 # DRAKE FLOW {{{
@@ -240,45 +316,78 @@ all_diag = zip(*all_diag)
 dates = all_diag[dateIndex]
 drake = all_diag[drakeIndex]
 
-import pylab,numpy,dateutil.parser
-
 values = map(float,numpy.array(drake)[1:-1])
 dates  = map(dateutil.parser.parse,dates[1:-1])
-
-pylab.title("%s , %s :Drake TF - all %s years"%(options['EXP'],options['TAG'],len(LOG['years'])))
-pylab.grid()
-pylab.plot_date(dates, values, linestyle='-',marker='.')  
-pylab.savefig("%s/drake_complete_%s_%s.png"%(options['ARCHDIR'],options['EXP'],options['TAG']))
-
-
-pylab.clf() 
-pylab.title("%s , %s :Drake TF - first 10y"%(options['EXP'],options['TAG']))
-pylab.grid()
-pylab.plot_date(dates[0:120], values[0:120], linestyle='-',marker='.')  
-pylab.savefig("%s/drake_first10Years_%s_%s.png"%(options['ARCHDIR'],options['EXP'],options['TAG']))
-
-pylab.clf() 
-pylab.title("%s , %s :Drake TF - first 20y"%(options['EXP'],options['TAG']))
-pylab.grid()
-pylab.plot_date(dates[0:240], values[0:240], linestyle='-',marker='.')  
-pylab.savefig("%s/drake_first20Years_%s_%s.png"%(options['ARCHDIR'],options['EXP'],options['TAG']))
-
+# complete timeseries
+ofile = "%s/drake_complete_%s_%s.png"%(options['ARCHDIR'],options['EXP'],options['TAG'])
+if ( not os.path.exists(ofile) or options['FORCE']):
+  pylab.title("%s , %s :Drake TF - all %s years"%(options['EXP'],options['TAG'],len(LOG['years'])),fontsize=8)
+  pylab.grid()
+  pylab.plot_date(dates, values, linestyle='-',marker='.')  
+  pylab.savefig(ofile)
+  pylab.clf() 
+# first 10 years
+ofile = "%s/drake_first10Years_%s_%s.png"%(options['ARCHDIR'],options['EXP'],options['TAG'])
+if ( not os.path.exists(ofile) or options['FORCE']):
+  pylab.title("%s , %s :Drake TF - first 10y"%(options['EXP'],options['TAG']),fontsize=8)
+  pylab.grid()
+  pylab.plot_date(dates[0:120], values[0:120], linestyle='-',marker='.')  
+  pylab.savefig(ofile)
+  pylab.clf() 
+# first 20 years
+ofile = "%s/drake_first20Years_%s_%s.png"%(options['ARCHDIR'],options['EXP'],options['TAG'])
+if ( not os.path.exists(ofile) or options['FORCE']):
+  pylab.title("%s , %s :Drake TF - first 20y"%(options['EXP'],options['TAG']),fontsize=8)
+  pylab.grid()
+  pylab.plot_date(dates[0:240], values[0:240], linestyle='-',marker='.')  
+  pylab.savefig(ofile)
 # }}}
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
 for varname in ['t_acc','s_acc','u_acc','v_acc','velocity']:
   # run icon_plot.ncl
   oFile = '/'.join([options['ARCHDIR'],varname+'_profile_30w-65s_'+'_'.join([options['EXP'],options['TAG']])])
-  title = '%s: 10y profile at 30W,65S'%(options['EXP'])
-  cmd = [options['ICONPLOT'],
-         '-iFile=%s'%(profileData),
-         '-hov',
-         '-varName=%s'%(varname),
-         '-oType=png',
-         '-rStrg="-"',
-         '-tStrg="%s"'%(title),
-         '-oFile=%s'%(oFile)]
-  dbg(' '.join(cmd))
-  subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+  if ( not os.path.exists(oFile+'.png') or options['FORCE']):
+    title = '%s: 10y profile at 30W,65S'%(options['EXP'])
+    cmd = [options['ICONPLOT'],
+           '-iFile=%s'%(profileData),
+           '-hov',
+           '-varName=%s'%(varname),
+           '-oType=png',
+           '-rStrg="-"',
+           '-tStrg="%s"'%(title),
+           '-oFile=%s'%(oFile)]
+    dbg(' '.join(cmd))
+    subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+# }}}
+# REGIO MEAN PROFILES {{{ ================================
+regioPlotNames = {'t_acc' : 'Temperature','s_acc' : 'Salinity'}
+for location, regioCode in regioCodes.iteritems():
+  for varname in regioVars:
+    imageCollection = []
+    for depth in regioDepths:
+      ifile = regioMeanData[location][str(depth)][varname]
+
+      data  = cdo.readArray(ifile,varname).flatten()
+
+      dates = re.sub('(\s)+', r'\1', cdo.showdate(input = ifile)[0]).split(' ')
+      dates = map(dateutil.parser.parse,dates)
+
+      title = '%s at %s: %s [%s,%s]'%(location,str(depth)+'m',varname,options['EXP'],options['TAG'])
+      ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioMean',location,varname,str(depth)+'m',options['EXP'],options['TAG']])+'.png'])
+
+      unit  = cdo.showunit(input = ifile)[0]
+
+      pylab.title(title,fontsize=9)
+      pylab.grid()
+      pylab.xlabel("Years")
+      pylab.ylabel('%s [%s]'%(regioPlotNames[varname],unit))
+      pylab.plot_date(dates, data, linestyle='-',marker='.')  
+      pylab.savefig(ofile)
+      imageCollection.append(ofile)
+      pylab.clf()
+    collectImageToMapByRows(imageCollection,
+                            2,
+                            '/'.join([options['ARCHDIR'],'_'.join(['regioMean',location,varname,options['EXP'],options['TAG']+'.png'])])) 
 # }}}
 # vim:fdm=marker
