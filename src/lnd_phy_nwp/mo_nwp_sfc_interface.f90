@@ -363,13 +363,16 @@ CONTAINS
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
   
              ! Snow and rain fall onto snow-covered tile surface only, 
-             ! if 1) the corresponding snow tile already exists and 
+             ! if 
+             ! 1) the corresponding snow tile already exists and 
              ! 2) the temperature of snow-free tile is below freezing point.
              ! If the temperature of snow-free tile is above freezing point,
              ! precipitation over it will be processed by this tile itself (no snow is created).
              ! If there is no snow tile so far at all, precipitation falls on the snow-free tile,
              ! and the snow tile will be created after TERRA.
-             IF(lnd_prog_now%t_snow_t(jc,jb,isubs) > tmelt) THEN
+             !
+             ! DR after discussion with Ekaterina, changed from '>' to '<='
+             IF(lnd_prog_now%t_snow_t(jc,jb,isubs) <= tmelt) THEN
                rain_gsp_rate(jc,isubs)    = 0._wp
                snow_gsp_rate(jc,isubs)    = 0._wp
                rain_con_rate(jc,isubs)    = 0._wp
