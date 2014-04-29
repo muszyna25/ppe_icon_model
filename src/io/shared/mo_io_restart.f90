@@ -208,30 +208,11 @@ MODULE mo_io_restart
   !
   !
   !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_restart'
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
   !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE set_restart_filenames(functionality, filename)
-    CHARACTER(len=*), INTENT(in) :: functionality
-    CHARACTER(len=*), INTENT(in) :: filename
-    IF (.NOT. ALLOCATED(restart_files)) THEN
-      ALLOCATE(restart_files(max_restart_files))
-    ENDIF
-    nrestart_files = nrestart_files+1
-    IF (nrestart_files > max_restart_files) THEN
-      CALL finish('set_restart_filenames','too many restart filenames')
-    ELSE
-      restart_files(nrestart_files)%functionality = functionality
-      restart_files(nrestart_files)%filename      = filename
-      ! need to get the links target name
-    ENDIF
-  END SUBROUTINE set_restart_filenames
-  !
-  SUBROUTINE get_restart_filenames()
-  END SUBROUTINE get_restart_filenames
   !
   SUBROUTINE write_restart_info_file
     INTEGER :: nrf
@@ -328,7 +309,7 @@ CONTAINS
     INQUIRE(file=TRIM(rst_filename), exist=lexists)
     ! otherwise, give a warning and resort to the old naming scheme:
     IF (.NOT. lexists) THEN
-      CALL finish(routine, "Restart file not found! Old (domain-independent) name for restart symlinks?")
+      CALL finish(routine, "Restart file not found! Expected name: restart_<model_type>_DOM<2 digit domain number>.nc")
     END IF
 
     ! Read all namelists used in the previous run
@@ -2083,16 +2064,5 @@ CONTAINS
     CALL message('','')
     !
   END SUBROUTINE read_restart_files
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE nf(STATUS)
-    INTEGER, INTENT(in) :: STATUS
-
-    IF (STATUS /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(STATUS))
-    ENDIF
-
-  END SUBROUTINE nf
   !-------------------------------------------------------------------------
 END MODULE mo_io_restart
