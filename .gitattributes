@@ -143,6 +143,7 @@ doc/science/dynamics/terrain_following_ICONAM.tex -text
 doc/science/dynamics/vertical_solver.pdf -text
 doc/science/dynamics/vertical_solver.tex -text
 doc/science/dynamics/vortex_bracket_ICONAM.tex -text
+doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
 doc/science/physics/albnirdif_20120104_00UTC.png -text
