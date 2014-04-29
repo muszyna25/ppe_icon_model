@@ -1077,6 +1077,7 @@ scripts/postprocessing/tools/oceDiag.gp -text
 scripts/postprocessing/tools/plotIconSphereGrid.ncl -text
 scripts/postprocessing/tools/plotNestedGrids.ncl -text
 scripts/postprocessing/tools/plotOceanGrid.ncl -text
+scripts/postprocessing/tools/plotSeaIce_nclsh.bash -text
 scripts/postprocessing/tools/plotTimers.py -text
 scripts/postprocessing/tools/plot_field_nc.ncl -text
 scripts/postprocessing/tools/plot_field_nc_driver -text
