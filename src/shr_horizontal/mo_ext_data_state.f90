@@ -1,8 +1,7 @@
 !>
 !! Allocation/deallocation and reading of external datasets
 !!
-!! This module contains routines for setting up the external data state for 
-!! atmosphere and ocean.
+!! This module contains routines for setting up the external data state.
 !!
 !! @author Daniel Reinert, DWD
 !! @author Hermann Asensio, DWD
@@ -58,14 +57,13 @@ MODULE mo_ext_data_state
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
-    &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
+    &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int,                                 &
     &                              HINTP_TYPE_LONLAT_NNB, MODIS,                                    &
     &                              SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_physical_constants, ONLY: o3mr2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
-  ! USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, forcing_timescale
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
@@ -403,39 +401,22 @@ CONTAINS
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data started')
 
-   ! IF (iequations/=ihs_ocean) THEN  ! atmosphere model ---------------------
+    ! Build external data list for constant-in-time fields for the atm model
+    !write(*,*) 'create new external data list for atmosphere'
+    DO jg = 1, n_dom
+      WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
+      CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
+        &                        ext_data(jg)%atm_list, TRIM(listname))
+    END DO
 
-      ! Build external data list for constant-in-time fields for the atm model
-      !write(*,*) 'create new external data list for atmosphere'
+    ! Build external data list for time-dependent fields
+    IF (iforcing > 1 ) THEN ! further distinction is made inside
       DO jg = 1, n_dom
-        WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
-        CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
-          &                        ext_data(jg)%atm_list, TRIM(listname))
+        WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
+        CALL new_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
+          &                           ext_data(jg)%atm_td_list, TRIM(listname))
       END DO
-
-      ! Build external data list for time-dependent fields
-      IF (iforcing > 1 ) THEN ! further distinction is made inside
-      DO jg = 1, n_dom
-          WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
-          CALL new_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
-            &                           ext_data(jg)%atm_td_list, TRIM(listname))
-      END DO
-      END IF
-
-!    ELSE ! iequations==ihs_ocean ------------------------------------------
-!
-!      write(0,*) 'create new external data list for ocean'
-!      ! Build external data list for constant-in-time fields for the ocean model
-!      DO jg = 1, n_dom
-!        WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
-!        CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
-!          &                        ext_data(jg)%oce_list, TRIM(listname))
-!      END DO ! jg = 1,n_dom
-!
-!      ! Build external data list for time-dependent fields
-!      ! ### to be done ###
-!
-!    ENDIF ! atmosphere or ocean ------
+    END IF
 
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data finished')
@@ -1742,7 +1723,7 @@ CONTAINS
       ! 1. Check validity of external parameter file   !
       !------------------------------------------------!
 
-      IF ( (itopo == 1 .AND. iequations /=ihs_ocean )) THEN
+      IF ( (itopo == 1 )) THEN
         CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
           &                      nclass_lu(jg), nmonths_ext(jg), is_frglac_in(jg))
       END IF
