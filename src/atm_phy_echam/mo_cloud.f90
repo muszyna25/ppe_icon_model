@@ -96,6 +96,8 @@ USE mo_profile,            ONLY : trace_start, trace_stop
   PRIVATE
   PUBLIC :: cloud
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
 !>
 !!

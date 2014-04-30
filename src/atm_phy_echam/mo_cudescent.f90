@@ -11,6 +11,8 @@ PRIVATE
 
 PUBLIC :: cudlfs, cuddraf
 
+CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
 
 SUBROUTINE cudlfs(   kproma, kbdim, klev, klevp1,                      &

@@ -59,6 +59,8 @@ MODULE mo_greenhouse_gases
 
   LOGICAL, SAVE :: ghg_file_read = .FALSE.
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
 
   SUBROUTINE read_ghg_bc(ighg)

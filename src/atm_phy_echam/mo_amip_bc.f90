@@ -52,6 +52,8 @@ MODULE mo_amip_bc
 
   INTEGER, SAVE :: current_year = -1
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
   
   SUBROUTINE read_amip_bc(year, p_patch)

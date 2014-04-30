@@ -13,6 +13,8 @@ MODULE mo_canopy
 
   PUBLIC :: unstressed_canopy_cond_par
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
   
   SUBROUTINE unstressed_canopy_cond_par(lai, par, conductance)

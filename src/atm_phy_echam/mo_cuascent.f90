@@ -22,6 +22,8 @@ PRIVATE
 
 PUBLIC :: cuasc,cuasct
 
+CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
 
 !this routine contains aerosol mode specific calculation and has to be cleaned later

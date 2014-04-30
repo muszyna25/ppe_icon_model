@@ -14,6 +14,8 @@ PRIVATE
 
 PUBLIC :: cuini, cubase
 
+CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS 
 
 SUBROUTINE cuini(kproma, kbdim, klev, klevp1, klevm1,                  &

@@ -67,6 +67,8 @@ MODULE mo_aero_kinne
   REAL(wp)                         :: rdz_clim
   LOGICAL                          :: laero_set=.false.
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
   !>
   !! SUBROUTINE su_aero_kinne -- sets up the memory for fields in which

@@ -43,6 +43,8 @@ MODULE mo_surface_diag
   PRIVATE
   PUBLIC :: wind_stress, surface_fluxes
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
   !>
   !!

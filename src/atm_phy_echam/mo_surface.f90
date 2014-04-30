@@ -54,6 +54,8 @@ MODULE mo_surface
   PRIVATE
   PUBLIC :: update_surface
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
   !>
   !!

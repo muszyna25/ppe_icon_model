@@ -21,6 +21,8 @@ PRIVATE
 
 PUBLIC :: cuflx, cudtdq, cududv
 
+CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
 CONTAINS
 
 !++mgs: zcucov and zdpevap now 1d vectors
