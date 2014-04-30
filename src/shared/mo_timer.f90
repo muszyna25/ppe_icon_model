@@ -132,7 +132,7 @@ MODULE mo_timer
   PUBLIC :: timer_write_output
   PUBLIC :: timer_model_init
   PUBLIC :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
-  PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
+  PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   PUBLIC :: timer_upd_phys, timer_upd_flx
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
   PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
@@ -266,10 +266,9 @@ MODULE mo_timer
   INTEGER :: timer_write_output
   INTEGER :: timer_model_init
   INTEGER :: timer_domain_decomp, timer_compute_coeffs, timer_ext_data, timer_init_icon, timer_read_restart
-  INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
+  INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   INTEGER :: timer_upd_phys, timer_upd_flx
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
-  INTEGER :: timer_oce_phy
   INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
   INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   INTEGER :: timer_dbg_prnt
@@ -460,13 +459,11 @@ CONTAINS
     timer_ext_data      = new_timer("init_ext_data")
     timer_init_icon     = new_timer("init_icon") 
     timer_read_restart  = new_timer("read_restart_files")
-    timer_oce_init      = new_timer("oce_init")
     timer_solve_ab      = new_timer("solve_ab")
     timer_upd_phys      = new_timer("upd_phys_param")
     timer_upd_flx       = new_timer("upd_flx")
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
-    timer_oce_phy       = new_timer("oce_phy")
     timer_tracer_ab     = new_timer("tracer_ab")
     timer_adv_horz      = new_timer("adv_horiz")
     timer_dif_horz      = new_timer("dif_horiz")
