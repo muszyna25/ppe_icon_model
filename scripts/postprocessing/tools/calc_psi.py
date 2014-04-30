@@ -2,10 +2,10 @@
 from cdo import *
 import os,sys,math
 import matplotlib
+matplotlib.use('AGG')
 import numpy as np
 import mpl_toolkits.basemap as bm
 import matplotlib.pyplot as plt
-
 cdo        = Cdo()
 cdo.debug  = 'DEBUG' in os.environ
 
