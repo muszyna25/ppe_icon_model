@@ -66,7 +66,7 @@ MODULE mo_initicon_config
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
-    &  version = '$Id: mo_initicon_config.f90 10934 2013-01-14 08:50:18Z dreinert $'
+    &  version = '$Id$'
 
   ! ----------------------------------------------------------------------------
   ! 1.0 Namelist variables for the init_icon preprocessing program
