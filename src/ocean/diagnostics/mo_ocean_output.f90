@@ -56,13 +56,9 @@ MODULE mo_ocean_output
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
-  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
-    & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
-    & timer_upd_phys, timer_upd_flx
   USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
   USE mo_oce_state,              ONLY: ocean_restart_list
- ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
@@ -70,7 +66,7 @@ MODULE mo_ocean_output
   USE mo_sea_ice,                ONLY: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_oce_physics,            ONLY: t_ho_params, update_ho_params
+  USE mo_oce_physics,            ONLY: t_ho_params
   USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
     & calc_density_jmdwfg06_eos_func, calc_potential_density, &
     & calc_density

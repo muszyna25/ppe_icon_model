@@ -462,7 +462,7 @@ CONTAINS
     timer_read_restart  = new_timer("read_restart_files")
     timer_oce_init      = new_timer("oce_init")
     timer_solve_ab      = new_timer("solve_ab")
-    timer_upd_phys      = new_timer("upd_phys")
+    timer_upd_phys      = new_timer("upd_phys_param")
     timer_upd_flx       = new_timer("upd_flx")
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")

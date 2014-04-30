@@ -1386,7 +1386,7 @@ CONTAINS
     END DO
 
     ! decrease of temperature from top to bottom
-    CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
+    CALL increaseTracerLevelsLinearly(patch_3d, ocean_tracer=ocean_temperature, &
       & bottom_value=initial_temperature_bottom)
 
   END SUBROUTINE temperature_smoothAPE
@@ -1514,6 +1514,46 @@ CONTAINS
     END DO
 
   END SUBROUTINE increaseTracerVerticallyLinearly
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+  ! decrease tvertically linerarly the given tracer based on the top level value
+  ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
+!<Optimize_Used>
+  SUBROUTINE increaseTracerLevelsLinearly(patch_3d, ocean_tracer, bottom_value)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: bottom_value
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: linear_increase
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / (REAL(n_zlev,wp)-1.0_wp)
+
+        DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          ocean_tracer(jc,jk,jb) &
+      ! LL  & = ocean_tracer(jc,jk-1,jb) + linear_increase
+            & = MAX(ocean_tracer(jc,jk-1,jb) + linear_increase * &
+            &     patch_3d%p_patch_1d(n_dom)%del_zlev_i(jk),bottom_value)
+        END DO
+
+      END DO
+    END DO
+
+  END SUBROUTINE increaseTracerLevelsLinearly
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
