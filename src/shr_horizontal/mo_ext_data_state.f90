@@ -59,11 +59,11 @@ MODULE mo_ext_data_state
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                              max_char_length, min_rlcell_int, VINTP_METHOD_LIN,               &
-    &                              HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_NNB, MODIS,                   &
+    &                              max_char_length, min_rlcell_int,                                 &
+    &                              HINTP_TYPE_LONLAT_NNB, MODIS,                                    &
     &                              SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps
-  USE mo_physical_constants, ONLY: ppmv2gg, o3mr2gg, zemiss_def
+  USE mo_physical_constants, ONLY: o3mr2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
   ! USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, forcing_timescale
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
@@ -80,7 +80,7 @@ MODULE mo_ext_data_state
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
+  USE mo_grid_config,        ONLY: n_dom
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
@@ -89,26 +89,22 @@ MODULE mo_ext_data_state
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
-    &                              t_external_atmos_td, t_external_ocean
+    &                              t_external_atmos_td
   USE mo_var_list,           ONLY: default_var_list_settings,   &
     &                              add_var, add_ref,            &
     &                              new_var_list,                &
     &                              delete_var_list
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE
-  USE mo_var_metadata,       ONLY: create_vert_interp_metadata, &
-    &                              create_hor_interp_metadata,  &
+  USE mo_var_metadata,       ONLY: create_hor_interp_metadata,  &
     &                              post_op, groups
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_netcdf_read,        ONLY: read_netcdf_data, nf
-  USE mo_util_string,        ONLY: t_keyword_list,  &
-    &                              associate_keyword, with_keywords
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-    &                              GRID_UNSTRUCTURED_VERT,                         &
-    &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,                         &
+    &                              GRID_CELL, ZA_SURFACE,                          &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
     &                              ZA_LAKE_BOTTOM
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
@@ -132,7 +128,6 @@ MODULE mo_ext_data_state
   INTEGER::  nlev_o3, nmonths
 
   CHARACTER(len=6)  :: levelname
-  CHARACTER(len=4)  :: zlevelname
   CHARACTER(len=6)  :: cellname
   CHARACTER(len=5)  :: o3name
   CHARACTER(len=20) :: o3unit
@@ -488,7 +483,7 @@ CONTAINS
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
-    INTEGER :: shape3d_c(3), shape3d_mon_c(3)
+    INTEGER :: shape3d_c(3)
     INTEGER :: shape3d_sfc(3), shape3d_nt(3), shape3d_ntw(3)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
@@ -516,7 +511,6 @@ CONTAINS
     shape2d_e  = (/ nproma, nblks_e /)
     shape2d_v  = (/ nproma, nblks_v /)
     shape3d_c  = (/ nproma, nlev, nblks_c       /)
-    shape3d_mon_c = (/ nproma, 12, nblks_c       /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
     shape3d_nt = (/ nproma, nblks_c, ntiles_total     /) 
     shape3d_ntw = (/ nproma, nblks_c, ntiles_total + ntiles_water /) 
@@ -1321,7 +1315,6 @@ CONTAINS
     INTEGER :: jg           !< patch ID
 
     INTEGER :: shape3d_c(3)
-    INTEGER :: shape3d_ape(3)
     INTEGER :: shape4d_c(4)
     INTEGER :: shape3d_sstice(3)
 
@@ -1342,7 +1335,6 @@ CONTAINS
     ! predefined array shapes
     shape3d_c   = (/ nproma, nblks_c, nmonths_ext(jg)  /)
     shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /) 
-    shape3d_ape = (/ nproma, nlev_o3, nblks_c          /) 
 
     IF ( sstice_mode > 1 ) THEN
      SELECT CASE (sstice_mode)
@@ -1570,125 +1562,6 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-!  !-------------------------------------------------------------------------
-!  !>
-!  !! Allocation of oceanic external data structure
-!  !!
-!  !! Allocation of oceanic external data structure used for elements that are
-!  !! stationary in time.
-!  !!
-!  !! Initialization of elements with zero.
-!  !!
-!  !! @par Revision History
-!  !! Initial release by Daniel Reinert (2011-06-24)
-!  !!
-!  SUBROUTINE new_ext_data_oce_list ( p_patch, p_ext_oce, p_ext_oce_list, &
-!    &                                listname)
-!
-!    TYPE(t_patch), TARGET, INTENT(IN)   :: & !< current patch
-!      &  p_patch
-!
-!    TYPE(t_external_ocean), INTENT(INOUT) :: & !< current external data structure
-!      &  p_ext_oce
-!
-!    TYPE(t_var_list) :: p_ext_oce_list !< current external data list
-!
-!    CHARACTER(len=*), INTENT(IN)  :: & !< list name
-!      &  listname
-!
-!    TYPE(t_cf_var)    :: cf_desc
-!    TYPE(t_grib2_var) :: grib2_desc
-!
-!    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
-!      &        nblks_e       !< number of edge blocks to allocate
-!
-!    INTEGER :: shape2d_c(2), shape2d_e(2), shape4d_c(4)
-!    INTEGER :: idim_omip
-!
-!    INTEGER :: ibits         !< "entropy" of horizontal slice
-!
-!    !--------------------------------------------------------------
-!
-!    !determine size of arrays
-!    nblks_c = p_patch%nblks_c
-!    nblks_e = p_patch%nblks_e
-!
-!
-!    ibits = 16   ! "entropy" of horizontal slice
-!
-!    ! predefined array shapes
-!    shape2d_c = (/ nproma, nblks_c /)
-!    shape2d_e = (/ nproma, nblks_e /)
-!
-!    ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, forcing_timescale data sets
-!    ! for type of forcing see mo_oce_bulk
-!    idim_omip = 0
-!    IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
-!    IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
-!    IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
-!    IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
-!    IF (iforc_type == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
-!    shape4d_c = (/ nproma, forcing_timescale, nblks_c, idim_omip /)
-!
-!    !
-!    ! Register a field list and apply default settings
-!    !
-!    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
-!    CALL default_var_list_settings( p_ext_oce_list,            &
-!                                  & lrestart=.FALSE.,          &
-!                                  & restart_type=FILETYPE_NC2, &
-!                                  & model_type='oce'  )
-!
-!    ! bathymetric height at cell center
-!    !
-!    ! bathymetry_c  p_ext_oce%bathymetry_c(nproma,nblks_c)
-!    cf_desc    = t_cf_var('Model bathymetry at cell center', 'm', &
-!      &                   'Model bathymetry', DATATYPE_FLT32)
-!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-!    CALL add_var( p_ext_oce_list, 'bathymetry_c', p_ext_oce%bathymetry_c,      &
-!      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
-!
-!
-!    ! bathymetric height at cell edge
-!    !
-!    ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
-!    cf_desc    = t_cf_var('Model bathymetry at edge', 'm', &
-!      &                   'Model bathymetry', DATATYPE_FLT32)
-!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
-!    CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
-!      &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
-!
-!    ! ocean land-sea-mask at surface on cell centers
-!    !
-!    ! lsm_ctr_c  p_ext_oce%lsm_ctr_c(nproma,nblks_c)
-!    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell center', '-2/-1/1/2', &
-!      &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-!    !#slo-2011-08-08# does not compile yet?
-!    CALL add_var( p_ext_oce_list, 'lsm_ctr_c', p_ext_oce%lsm_ctr_c, &
-!      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
-!
-!    ! ocean land-sea-mask at surface on cell edge
-!    !
-!    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell edge', '-2/0/2', &
-!      &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-!    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
-!    CALL add_var( p_ext_oce_list, 'lsm_ctr_e', p_ext_oce%lsm_ctr_e,      &
-!      &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
-!
-!    ! omip forcing data on cell edge
-!    !
-!    IF (iforc_oce == 12) THEN
-!      cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
-!        &                   'OMIP forcing data', DATATYPE_FLT32)
-!      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-!      CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
-!        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
-!    END IF
-!
-!  END SUBROUTINE new_ext_data_oce_list
-
-
 
   !-------------------------------------------------------------------------
   !>
@@ -1756,8 +1629,6 @@ CONTAINS
     INTEGER                 :: mpi_comm, vlist_id, lu_class_fraction_id, zaxis_id, var_id
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
-
-    IF (.NOT. (itopo == 1 .AND. iequations /=ihs_ocean )) RETURN
 
     !---------------------------------------------!
     ! Check validity of external parameter file   !
@@ -1870,8 +1741,11 @@ CONTAINS
       !------------------------------------------------!
       ! 1. Check validity of external parameter file   !
       !------------------------------------------------!
-      CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
-        &                      nclass_lu(jg), nmonths_ext(jg), is_frglac_in(jg))
+
+      IF ( (itopo == 1 .AND. iequations /=ihs_ocean )) THEN
+        CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
+          &                      nclass_lu(jg), nmonths_ext(jg), is_frglac_in(jg))
+      END IF
 
       !------------------------------------------------!
       ! 2. Check validity of ozone file                !
@@ -1891,7 +1765,6 @@ CONTAINS
 
         IF(irad_o3 == io3_ape ) THEN
           levelname = 'level'
-          zlevelname = 'zlev'
           cellname  = 'ncells'
           o3name    = 'O3'
           o3unit    = 'g/g'
@@ -1968,23 +1841,12 @@ CONTAINS
 
           ! check the vertical structure
 
-!          SELECT CASE (iequations)
-!          CASE(ihs_atm_temp,ihs_atm_theta)
+          CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid), routine)
+          CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3), routine)
 
-            CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid), routine)
-            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3), routine)
-
-            WRITE(message_text,'(A,I4)')  &
-              & 'Number of pressure levels in ozone file = ', nlev_o3
-            CALL message(TRIM(ROUTINE),message_text)
-
-!          CASE(inh_atmosphere)
-!            CALL nf(nf_inq_dimid (ncid,TRIM(zlevelname), dimid), routine)
-!            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3), routine)
-!            WRITE(message_text,'(A,I4)')  &
-!              & 'Number of height levels in ozone file = ', nlev_o3
-!            CALL message(TRIM(ROUTINE),message_text)
-!          END SELECT
+          WRITE(message_text,'(A,I4)')  &
+            & 'Number of pressure levels in ozone file = ', nlev_o3
+          CALL message(TRIM(ROUTINE),message_text)
   
           !
           ! close file
@@ -2035,7 +1897,7 @@ CONTAINS
     CHARACTER(filename_max) :: ci_td_file !< file name for reading in
 
     INTEGER :: jg, jc, jb, i, mpi_comm, ilu,im
-    INTEGER :: i_lev,jk
+    INTEGER :: jk
     INTEGER :: ncid, varid, vlist_id, ret
 
     INTEGER :: rl_start, rl_end
@@ -2173,8 +2035,6 @@ CONTAINS
       ! initialized and uses a real topography.
       DO jg = 1,n_dom
 
-        i_lev = p_patch(jg)%level
-
         IF(my_process_is_stdio()) CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
 
         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
@@ -2206,8 +2066,6 @@ CONTAINS
 
     IF (itopo == 1) THEN
       DO jg = 1,n_dom
-
-        i_lev = p_patch(jg)%level
 
         IF(my_process_is_stdio()) THEN
 
@@ -2269,7 +2127,8 @@ CONTAINS
             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_glc2000(i+3)  ! Maximum root depth for each land-cover class
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_glc2000(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_glc2000(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_glc2000(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = &
+              &          MERGE(.TRUE.,.FALSE.,lu_glc2000(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 1) THEN
           ext_data(jg)%atm%i_lc_snow_ice = 22
@@ -2283,7 +2142,8 @@ CONTAINS
             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009(i+3)  ! Maximum root depth for each land-cover class
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = &
+              &          MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 2) THEN ! 
           ext_data(jg)%atm%i_lc_snow_ice = 22
@@ -2297,7 +2157,8 @@ CONTAINS
             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v2(i+3)  ! Maximum root depth for each land-cover class
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v2(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v2(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v2(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = &
+              &          MERGE(.TRUE.,.FALSE.,lu_gcv2009_v2(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ELSE IF (i_lctype(jg) == 2 .AND. itype_lndtbl == 3) THEN ! 
           ext_data(jg)%atm%i_lc_snow_ice = 22
@@ -2311,7 +2172,8 @@ CONTAINS
             ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v3(i+3)  ! Maximum root depth for each land-cover class
             ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v3(i+4)  ! Minimum stomata resistance for each land-cover class
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v3(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = MERGE(.TRUE.,.FALSE.,lu_gcv2009_v3(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+            ext_data(jg)%atm%snowtile_lcc(ilu)    = &
+              &          MERGE(.TRUE.,.FALSE.,lu_gcv2009_v3(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
         
@@ -2600,18 +2462,8 @@ CONTAINS
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid), routine)
           WRITE(0,*)'read ozone levels'
-
-          !          SELECT CASE (iequations)
-          !          CASE(ihs_atm_temp,ihs_atm_theta)
-
           CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid), routine)
           CALL nf(nf_get_var_double(ncid, varid, zdummy_o3lev(:)), routine)
-
-          !          CASE(inh_atmosphere)
-          !            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid), routine)
-          !            CALL nf(nf_get_var_double(ncid, varid, zdummy_o3lev(:)), routine)
-          !          END SELECT
-
           !
         ENDIF ! pe
 
@@ -2675,7 +2527,6 @@ CONTAINS
         ! the incoming ozone file.  Often, the incoming units are not ppmv.
         IF(irad_o3 == io3_ape) &
           &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
-          !&         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 
         WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
@@ -2764,7 +2615,7 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_flk, ic, jt, jt_in
+    INTEGER :: i_lu, jb,jc, jg, i_count, i_count_flk, ic, jt, jt_in
     INTEGER :: i_count_sea             ! number of sea points
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
@@ -2783,8 +2634,8 @@ CONTAINS
                               ! to fr_land (or fr_land + fr_lake)
     REAL(wp) :: zfr_land      ! fr_land derived from land tile fractions
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':init_index_lists'
+!!$    CHARACTER(len=max_char_length), PARAMETER :: &
+!!$      routine = modname//':init_index_lists'
 
     !-------------------------------------------------------------------------
 
@@ -2796,8 +2647,6 @@ CONTAINS
 
 
     DO jg = 1, n_dom 
-
-       n_lu = nclass_lu(jg)
 
        ptr_ndviratio => ext_data(jg)%atm%ndviratio(:,:)
 
@@ -3261,8 +3110,9 @@ CONTAINS
     INTEGER  :: i_count
     REAL(wp) :: area_frac
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//':diagnose_ext_aggr'
+!!$    CHARACTER(len=max_char_length), PARAMETER :: &
+!!$      routine = modname//':diagnose_ext_aggr'
+
     !-------------------------------------------------------------------------
 
     DO jg = 1, n_dom 
@@ -3382,7 +3232,6 @@ CONTAINS
     REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
 
 
-    INTEGER :: jg                   !< patch ID
     INTEGER :: jc, jb               !< loop index
     INTEGER :: i_startblk, i_endblk, i_nchdom
     INTEGER :: rl_start, rl_end
@@ -3390,8 +3239,8 @@ CONTAINS
     INTEGER :: mo1, mo2             !< nearest months 
     REAL(wp):: zw1, zw2
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = modname//': interpol_monthly_mean'
+!!$    CHARACTER(len=max_char_length), PARAMETER :: &
+!!$      routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
 
@@ -3400,11 +3249,6 @@ CONTAINS
     CALL month2hour( datetime, mo1, mo2, zw2 )
 
     zw1 = 1._wp - zw2
-
-
-    ! get patch ID
-    jg = p_patch%id
-
 
     ! Get interpolated field
     i_nchdom  = MAX(1,p_patch%n_childdom)
