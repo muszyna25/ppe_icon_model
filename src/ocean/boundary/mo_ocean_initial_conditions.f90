@@ -47,7 +47,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_grid_config,        ONLY: nroot, n_dom, grid_sphere_radius, grid_angular_velocity
+  USE mo_grid_config,        ONLY: nroot,  grid_sphere_radius, grid_angular_velocity
   USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf! , SItodBar, rho_ref
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
@@ -1497,17 +1497,13 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
 
-      ! LL: linear increase with level index
-      ! linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / (REAL(n_zlev,wp)-1.0_wp)
-      ! SLO: linear increase with depth in unit per meter
         linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / & 
-          & (patch_3d%p_patch_1d(n_dom)%zlev_m(n_zlev) - patch_3d%p_patch_1d(n_dom)%zlev_m(1))
+          & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
 
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ocean_tracer(jc,jk,jb) &
-      ! LL  & = ocean_tracer(jc,jk-1,jb) + linear_increase
             & = MAX(ocean_tracer(jc,jk-1,jb) + linear_increase * &
-            &     patch_3d%p_patch_1d(n_dom)%del_zlev_i(jk),bottom_value)
+            &     patch_3d%p_patch_1d(1)%del_zlev_i(jk),bottom_value)
         END DO
 
       END DO
@@ -1544,10 +1540,7 @@ CONTAINS
         linear_increase = (bottom_value - ocean_tracer(jc,1,jb) ) / (REAL(n_zlev,wp)-1.0_wp)
 
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          ocean_tracer(jc,jk,jb) &
-      ! LL  & = ocean_tracer(jc,jk-1,jb) + linear_increase
-            & = MAX(ocean_tracer(jc,jk-1,jb) + linear_increase * &
-            &     patch_3d%p_patch_1d(n_dom)%del_zlev_i(jk),bottom_value)
+          ocean_tracer(jc,jk,jb) = ocean_tracer(jc,jk-1,jb) + linear_increase
         END DO
 
       END DO
