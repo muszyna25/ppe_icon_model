@@ -650,14 +650,8 @@ CONTAINS
       var_lists(i)%p%first = .TRUE.
       !
       IF (my_process_is_mpi_workroot()) THEN
-        SELECT CASE (var_lists(i)%p%restart_type)
-        CASE (FILETYPE_NC2)
-          var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, FILETYPE_NC2)
-        CASE (FILETYPE_NC4)
-          var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, FILETYPE_NC4)
-        END SELECT
-        !
-        var_lists(i)%p%filename = TRIM(restart_filename)
+        var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, var_lists(i)%p%restart_type)
+        var_lists(i)%p%filename          = TRIM(restart_filename)
         !
         IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
           WRITE(message_text,'(a)') cdiStringError(var_lists(i)%p%cdiFileID_restart)
