@@ -1723,7 +1723,7 @@ CONTAINS
       ! 1. Check validity of external parameter file   !
       !------------------------------------------------!
 
-      IF ( (itopo == 1 )) THEN
+      IF ( itopo == 1 ) THEN
         CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
           &                      nclass_lu(jg), nmonths_ext(jg), is_frglac_in(jg))
       END IF
