@@ -85,6 +85,31 @@ def collectImageToMapByRows(images,columns,ofile):
   dbg(cmd)
   subprocess.check_call(cmd,shell=True,env=os.environ)
   map(lambda x: os.remove(x),imageMap.values())
+
+""" warpper around cdo showyear for multiprocessing """
+def showyear(file):
+  return cdo.showyear(input = file)[0].split(' ')
+
+""" collect the years, which aree stored in to files """
+def scanFilesForTheirYears(fileList,procs,log):
+
+  log['yearsOfFiles'] = {}
+  pool = multiprocessing.Pool(14)
+  lock = multiprocessing.Lock()
+  results = []
+
+
+  for ifile in fileList:
+    years = pool.apply_async(showyear,[ifile])
+    results.append([ifile,years])
+
+  for result in results:
+      f = result[0]
+      r = result[1]
+      log['yearsOfFiles'][f] = r.get()
+
+  pool.close()
+  pool.join()
 # }}}
 # INTERNALS {{{ ================================================================
 LOGFILE         = 'archive.log'
@@ -146,6 +171,11 @@ if not os.path.isdir(options['ARCHDIR']):
   os.makedirs(options['ARCHDIR'])
 # =======================================================================================
 # DATA SPLITTING {{{ ====================================================================
+#TODO:
+# scanFilesForTheirYears(ifiles,options['PROCS'],LOG)
+# dbg(LOG)
+# doExit()
+
 if (options['FORCE'] or ('splityear?' in LOG.keys() and (False == LOG['splityear?']))):
   try:
        
