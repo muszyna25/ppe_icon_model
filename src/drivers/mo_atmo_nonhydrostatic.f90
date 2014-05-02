@@ -34,7 +34,7 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_mpi,                  ONLY: my_process_is_stdio
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
@@ -163,7 +163,7 @@ CONTAINS
 
     ENDIF
 
-    IF (.NOT. ltestcase .AND. iforcing == inwp) THEN
+    IF (.NOT. ltestcase .AND. (iforcing == inwp .OR. iforcing == iecham)) THEN
       l_realcase = .TRUE.
     ELSE
       l_realcase = .FALSE.
