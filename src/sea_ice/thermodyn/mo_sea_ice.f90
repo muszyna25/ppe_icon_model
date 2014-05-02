@@ -1839,13 +1839,21 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
-  !! Sets the atmospheric fluxes for the update of the ice
+  !! Sets the atmospheric fluxes over *SEA ICE ONLY* for the update of the ice
   !! temperature and ice growth rates for OMIP forcing
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-07). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !! Einar Olason, split calc_atm_fluxes_from_bulk into calc_bulk_flux_ice and calc_bulk_flux_oce
   !! so that the ocean model can be run without the ice model, but with OMIP fluxes.
+  !
+  !  INPUT variables:
+  !   p_as%pao
+  !   p_as%ftdew
+  !   tracer(:,1,:,1)  :  SST
+  !
+  !  OUTPUT variables:
+  !   Qatm             :  heat fluxes, derivatives, wind stress
   !
   SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
@@ -1965,6 +1973,8 @@ CONTAINS
     ! Fractions of SWin in each band (from cice)
     fvisdir=0.28_wp; fvisdif=0.24_wp; fnirdir=0.31_wp; fnirdif=0.17_wp
     Tsurf(:,:) = 0._wp ! For debug output
+
+    ! Over sea ice area only
     DO i = 1, p_ice%kice
       WHERE (p_ice%hi(:,i,:)>0._wp)
         Qatm%SWnet(:,i,:) = ( 1._wp-Qatm%albvisdir(:,i,:) )*fvisdir*p_as%fswr(:,:) +   &
@@ -2052,11 +2062,18 @@ CONTAINS
   !
   !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
   !! Sets the atmospheric fluxes for the update of
-  !! temperature of open water for OMIP forcing.
+  !! temperature of *OPEN WATER* for OMIP forcing.
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-08). Originally code written by
   !! Dirk Notz, following MPIOM. Code transfered to ICON.
   !
+  !  INPUT variables:
+  !   p_as%pao
+  !   p_as%ftdew
+  !   tracer(:,1,:,1)  :  SST
+  !  OUTPUT variables:
+  !   Qatm             :  heat fluxes, derivatives, wind stress
+   
   SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
@@ -2101,7 +2118,7 @@ CONTAINS
 
     Tsurf(:,:)  = p_os%p_prog(nold(1))%tracer(:,1,:,1)  ! set surface temp = mixed layer temp
     tafoK(:,:)  = p_as%tafo(:,:)  + tmelt               ! Change units of tafo  to Kelvin
-    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt                    ! Change units of ftdew to C
+    ftdewC(:,:) = p_as%ftdew(:,:) - tmelt               ! Change units of ftdew to Celsius
 
     ! subset range pointer
     all_cells => p_patch%cells%all
