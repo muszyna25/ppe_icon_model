@@ -128,7 +128,8 @@ MODULE mo_data_flake
   ! All constants, parameters and variables defined in this module are public
   PUBLIC           
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
 !===================================================================================================
 !
