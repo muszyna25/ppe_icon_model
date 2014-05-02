@@ -24,6 +24,9 @@ module mo_lrtm_taumol
 
   private
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   PUBLIC  :: chi_mls, lrtm_taumol
 
   real(wp), parameter :: oneminus = 1.0_wp - 1.0e-06_wp

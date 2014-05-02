@@ -65,7 +65,8 @@ MODULE mo_radiation_rg
 
   PUBLIC  :: fesft
 
-!!$  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
 CONTAINS
 

@@ -103,7 +103,8 @@ MODULE mo_cufunctions
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
 
   !! -  Thermodynamical functions (fcttre)
   !KF commented functions refer to obviously not used ones

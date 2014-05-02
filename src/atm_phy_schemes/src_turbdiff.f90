@@ -383,6 +383,9 @@ IMPLICIT NONE
 PRIVATE
 PUBLIC  :: init_canopy, turbtran, turbdiff, turb_cloud
 
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
+
 REAL (KIND=ireals), PARAMETER :: &
     z0=0.0_ireals,&
     z1=1.0_ireals,&

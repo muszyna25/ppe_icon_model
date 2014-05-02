@@ -44,7 +44,8 @@ MODULE mo_o3_gems_data
 
   PUBLIC  :: rghg7
 
-  !  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   REAL(wp) :: rghg7(64,91,12) !dimensions: latitudes, vertical levels, months
 !  REAL(wp) :: zrefp(91)       !dimension:  vertical levels

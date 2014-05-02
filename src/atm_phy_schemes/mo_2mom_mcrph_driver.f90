@@ -142,6 +142,8 @@ USE wolken_konstanten, ONLY: init_seifert,                     &
 IMPLICIT NONE
 PUBLIC 
 
+CHARACTER(len=*), PARAMETER, PRIVATE :: &
+  &  version = '$Id$'
 
 CONTAINS
 

@@ -278,6 +278,9 @@ USE data_hydci_pp_ice,     ONLY:    afrac_dust, &  !! look-up table of activated
 IMPLICIT NONE
 PRIVATE
 
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
+
 !------------------------------------------------------------------------------
 !! Public subroutines
 !------------------------------------------------------------------------------

@@ -22,6 +22,10 @@ USE mo_kind, ONLY :  &
 !==============================================================================
 
 IMPLICIT NONE
+
+CHARACTER(len=*), PARAMETER, PRIVATE :: &
+  &  version = '$Id$'
+
 PUBLIC           ! All constants and variables in this module are public
 
 !==============================================================================

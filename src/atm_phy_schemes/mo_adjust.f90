@@ -88,13 +88,16 @@ MODULE mo_adjust
 
    PRIVATE
 
+   CHARACTER(LEN=*), PARAMETER :: &
+     &  version = '$Id$'
+
+
    !     ------------------------------------------------------------
 
    INTEGER(KIND=jpim), PARAMETER :: n_vmass=0
 
    !    -----------------------------------------------------------------
 
-   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
    PUBLIC :: satur, cuadjtq, cuadjtqs
 
 

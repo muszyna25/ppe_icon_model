@@ -69,7 +69,8 @@ MODULE mo_o3_util
 
   PUBLIC  :: calc_o3_clim, o3_timeint, o3_pl2ml, o3_zl2ml, calc_o3_gems
 
-!  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
 CONTAINS
 

@@ -71,10 +71,12 @@ MODULE mo_albedo
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
+
   PUBLIC  :: sfc_albedo
   PUBLIC  :: sfc_albedo_modis
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
 CONTAINS

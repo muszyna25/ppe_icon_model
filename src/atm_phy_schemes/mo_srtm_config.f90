@@ -14,6 +14,9 @@
       &       wavenum1, wavenum2, delwave, ssi_default, ssi_amip, ssi_rce, &
       &       ssi_preind
 
+    CHARACTER(len=*), PARAMETER :: &
+      &  version = '$Id$'
+
     SAVE
 
     !     ------------------------------------------------------------------

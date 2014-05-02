@@ -64,6 +64,9 @@ IMPLICIT NONE
 
 PRIVATE
 
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
+
 PUBLIC :: cover_cosmo
 
 !--------------------------------------------------------------------------------

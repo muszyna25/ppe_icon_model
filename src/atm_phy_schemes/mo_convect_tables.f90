@@ -54,7 +54,9 @@ MODULE mo_convect_tables
   IMPLICIT NONE
 
   PRIVATE
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   ! variables public
 

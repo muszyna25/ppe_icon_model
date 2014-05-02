@@ -75,7 +75,8 @@ MODULE mo_cuascn
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
 
   PUBLIC :: cuascn
 

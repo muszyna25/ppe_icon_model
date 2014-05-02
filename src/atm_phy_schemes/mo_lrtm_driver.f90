@@ -64,6 +64,10 @@ MODULE mo_lrtm
   IMPLICIT NONE
 
   PRIVATE
+
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   PUBLIC :: lrtm
 
 CONTAINS

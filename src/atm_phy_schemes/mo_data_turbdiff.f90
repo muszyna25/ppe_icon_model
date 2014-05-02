@@ -145,6 +145,10 @@ USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
 USE mo_turbdiff_config,      ONLY: turbdiff_config
 
 IMPLICIT NONE
+
+CHARACTER(len=*), PARAMETER, PRIVATE :: &
+  &  version = '$Id$'
+
 PUBLIC
 
 REAL(KIND=ireals), POINTER :: &

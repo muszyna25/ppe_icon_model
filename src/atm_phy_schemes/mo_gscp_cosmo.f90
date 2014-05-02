@@ -208,6 +208,9 @@ USE mo_exception         , ONLY: message, message_text
 IMPLICIT NONE
 PRIVATE
 
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
+
 !------------------------------------------------------------------------------
 !! Public subroutines
 !------------------------------------------------------------------------------

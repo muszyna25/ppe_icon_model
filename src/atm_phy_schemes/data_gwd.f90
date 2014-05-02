@@ -48,7 +48,12 @@ MODULE data_gwd
   !==============================================================================
   
   IMPLICIT NONE
+
+  PRIVATE
   
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
+
   !==============================================================================
   
   !SAVE
@@ -77,10 +82,8 @@ MODULE data_gwd
   PUBLIC :: gfluxlaun, gcstar, gptwo, nslope, &
     & lozpr, ggaussa, ggaussb, ngauss, gcoeff !, GTPHYGWWMS
   
-  PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
 CONTAINS
   
   

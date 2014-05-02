@@ -294,6 +294,9 @@ USE data_gscp                 !xxx: common module COSMO/ICON, all variables are 
 IMPLICIT NONE
 PRIVATE
 
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
+
 !------------------------------------------------------------------------------
 !! Public subroutines
 !------------------------------------------------------------------------------

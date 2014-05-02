@@ -55,6 +55,9 @@ MODULE mo_newcld_optics
   PRIVATE
   PUBLIC :: setup_newcld_optics, newcld_optics
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   INTEGER, PARAMETER :: &
     &  nbnds_lw   = 16,                &!< n of longwave bands
     &  nbnds_sw   = 14,                &!< n of shortwave bands

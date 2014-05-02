@@ -141,6 +141,9 @@ MODULE wolken_konstanten
 
   PUBLIC
 
+  CHARACTER(len=*), PARAMETER, PRIVATE :: &
+    &  version = '$Id$'
+
   TYPE PARTICLE
     CHARACTER(20)    :: name  !..Bezeichnung der Partikelklasse
     DOUBLE PRECISION :: nu    !..Breiteparameter der Verteil.

@@ -75,7 +75,8 @@ MODULE mo_cuinit
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
 
   PUBLIC :: cuinin, cubasen
 

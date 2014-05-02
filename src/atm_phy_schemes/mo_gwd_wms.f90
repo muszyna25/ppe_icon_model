@@ -68,10 +68,13 @@ MODULE mo_gwd_wms
   
   PRIVATE
   
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
+
+
   PUBLIC :: gwdrag_wms
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
 CONTAINS
   
   SUBROUTINE gwdrag_wms(kidia,  kfdia,   klon,  klev, klaunch, ptstep,&

@@ -3,8 +3,13 @@ MODULE mo_lrtm_par
   USE mo_kind, ONLY : wp
 
   IMPLICIT NONE
+
+  CHARACTER(len=*), PARAMETER, PRIVATE :: &
+    &  version = '$Id$'
+
   PUBLIC
   SAVE
+
 
   !------------------------------------------------------------------
   ! rrtmg_lw main parameters

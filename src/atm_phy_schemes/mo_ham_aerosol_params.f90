@@ -40,10 +40,10 @@ MODULE mo_ham_aerosol_params
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC  :: ncdnc, nicnc
-  PUBLIC  :: iaiti, iacci, icoai
-  PUBLIC  :: t_vmem3d
-  PUBLIC  :: rwet
+
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
 
   INTEGER :: ncdnc = 0  !< CDNC activation is off
   INTEGER :: nicnc = 0  !< ICNC activation is off
@@ -65,8 +65,13 @@ MODULE mo_ham_aerosol_params
 
   !------------------
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_ham_aerosol_params'
+
+
+  PUBLIC  :: ncdnc, nicnc
+  PUBLIC  :: iaiti, iacci, icoai
+  PUBLIC  :: t_vmem3d
+  PUBLIC  :: rwet
 
 END MODULE mo_ham_aerosol_params
 

@@ -35,6 +35,9 @@ MODULE mo_srtm_taumol
        &    srtm_taumol24, srtm_taumol25, srtm_taumol26, srtm_taumol27, &
        &    srtm_taumol28, srtm_taumol29
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
 CONTAINS
 
   !-----------------------------------------------------------------------------

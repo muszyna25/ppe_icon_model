@@ -22,6 +22,9 @@ MODULE mo_srtm
 
   PUBLIC  :: srtm_srtm_224gp
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   REAL(wp), PARAMETER :: nir_vis_boundary   = 14500._wp
   REAL(wp), PARAMETER :: par_lower_boundary = 14285.7143_wp ! equivalent to
   !                                                         ! 700nm wavelength

@@ -64,6 +64,10 @@ MODULE mo_cuparameters
   IMPLICIT NONE
 
   PRIVATE
+
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
+
   
   !*    Common of physical constants of IFS
   ! A1.0 Fundamental constants
@@ -436,7 +440,6 @@ MODULE mo_cuparameters
   ! yomhook
   LOGICAL:: LHOOK=.FALSE.  
   !
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
   !yoecld
   PUBLIC :: rlmin
