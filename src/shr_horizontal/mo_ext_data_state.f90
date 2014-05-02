@@ -236,21 +236,6 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ! Check, whether external data should be read from file
-    ! 
-
-    !-------------------------------------------------------------------------
-    ! Now for atmosphere only:
-    !-------------------------------------------------------------------------
-
-!!$    !-------------------------------------------------------------------------
-!!$    !Ozone and aerosols
-!!$    !-------------------------------------------------------------------------
-!!$
-!!$      IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape) ) THEN
-!!$        CALL message( TRIM(routine),'external ozone data required' )
-!!$        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)   ! read ozone
-!!$      ENDIF
-
 
     SELECT CASE(itopo)
 
@@ -402,7 +387,6 @@ CONTAINS
       &                          'external data started')
 
     ! Build external data list for constant-in-time fields for the atm model
-    !write(*,*) 'create new external data list for atmosphere'
     DO jg = 1, n_dom
       WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
       CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
@@ -1193,7 +1177,7 @@ CONTAINS
       !--------------------------------
       IF ( albedo_type == MODIS) THEN
 
-        ! Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 ï¿½m), snow-free
+        ! Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 micron), snow-free
         !
         ! alb_dif    p_ext_atm%alb_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
@@ -1203,7 +1187,7 @@ CONTAINS
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
           &           ldims=shape2d_c, loutput=.TRUE.                            )
 
-        ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 ï¿½m)
+        ! UV visible broadband albedo for diffuse radiation (0.3 - 0.7 micron)
         !
         ! albuv_dif    p_ext_atm%albuv_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
@@ -1213,7 +1197,7 @@ CONTAINS
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
           &           ldims=shape2d_c, loutput=.TRUE.                             )
 
-        ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 ï¿½m)
+        ! Near IR broadband albedo for diffuse radiation (0.7 - 5.0 micron)
         !
         ! albni_dif    p_ext_atm%albni_dif(nproma,nblks_c,ntimes)
         cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
@@ -1256,10 +1240,7 @@ CONTAINS
         
   END SELECT ! iequations
 
-
   END SUBROUTINE new_ext_data_atm_list
-
-
 
   !-------------------------------------------------------------------------
   !
@@ -1377,13 +1358,13 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc,  &
         &           grib2_desc, ldims=(/nlev_o3+1/), loutput=.FALSE.  )
 
-        ! o3       p_ext_atm_td%o3(nproma,nlev_o3,nblks_c,nmonths)
-        cf_desc    = t_cf_var('O3', TRIM(o3unit),   &
-          &                   'mole_fraction_of_ozone_in_air', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
-          &           GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, &
-          &           grib2_desc, ldims=shape4d_c, loutput=.FALSE.  )
+      ! o3       p_ext_atm_td%o3(nproma,nlev_o3,nblks_c,nmonths)
+      cf_desc    = t_cf_var('O3', TRIM(o3unit),   &
+        &                   'mole_fraction_of_ozone_in_air', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, &
+        &           grib2_desc, ldims=shape4d_c, loutput=.FALSE.  )
 
     END IF ! irad_o3
 
@@ -1477,7 +1458,7 @@ CONTAINS
     !--------------------------------
     IF ( albedo_type == MODIS) THEN
 
-      ! (monthly)  Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 ï¿½m), snow-free
+      ! (monthly)  Shortwave broadband albedo for diffuse radiation (0.3 - 5.0 micron), snow-free
       !
       ! alb_dif    p_ext_atm_td%alb_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('Shortwave_albedo_diffuse', '-', &
@@ -1488,7 +1469,7 @@ CONTAINS
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
 
-      ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 ï¿½m)
+      ! (monthly)  UV visible broadband albedo for diffuse radiation (0.3 - 0.7 micron)
       !
       ! albuv_dif    p_ext_atm_td%albuv_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('UV_visible_albedo_diffuse', '-', &
@@ -1499,7 +1480,7 @@ CONTAINS
         &           ldims=shape3d_c, loutput=.FALSE.,                           &
         &           isteptype=TSTEP_AVG )
 
-      ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 ï¿½m)
+      ! (monthly)  Near IR broadband albedo for diffuse radiation (0.7 - 5.0 micron)
       !
       ! albni_dif    p_ext_atm_td%albni_dif(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('Near_IR_albedo_diffuse', '-', &
@@ -1750,11 +1731,10 @@ CONTAINS
           o3name    = 'O3'
           o3unit    = 'g/g'
         ELSE ! o3_clim
-          levelname= 'plev'
-          cellname = 'ncells'
-          o3name   = 'O3'
-          o3unit   = 'g/g' !this unit ozon will have after being read out
-                           ! and converted from ppmv
+          levelname = 'plev'
+          cellname  = 'ncells'
+          o3name    = 'O3'
+          o3unit    = 'g/g' !this unit ozon will have after being read out and converted from ppmv
         ENDIF
 
         IF_IO : IF(my_process_is_stdio()) THEN
@@ -1773,55 +1753,35 @@ CONTAINS
           ! open file
           !
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid), routine)
-
           WRITE(0,*)'open ozone file'
-          ! get number of cells in triangles and hexagons
-          !
 
-          !triangles
-          IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid), routine)
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-  
-            WRITE(0,*)'number of cells are', no_cells
+          !
+          ! get number of cells
+          !
+          CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid), routine)
+          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+          WRITE(0,*)'number of cells are', no_cells
+
           !
           ! check the number of cells and verts
           !
-            IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+          IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
             CALL finish(TRIM(ROUTINE),&
               & 'Number of patch cells and cells in ozone file do not match.')
           ENDIF
-        ENDIF
-       
-          !hexagons
-          IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid), routine)
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
-            WRITE(0,*)'number of hexcells_o3 are', no_cells
-            WRITE(0,*)'number of hexverts are', p_patch(jg)%n_patch_verts_g
-            WRITE(0,*)'number of hexcellsmo are', p_patch(jg)%n_patch_cells_g 
           !
-          ! check the number of cells and verts
-          !
-            IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-!          IF(p_patch(jg)%n_patch_verts_g /= no_cells) THEN
-            CALL finish(TRIM(ROUTINE),&
-            & 'Number of patch cells and cells in ozone file do not match.')
-          ENDIF
-          ENDIF
-
           ! check the time structure
+          !
           CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
           CALL nf(nf_inq_dimlen(ncid, dimid, nmonths), routine)
-
           WRITE(message_text,'(A,I4)')  &
-            & 'Number of months in ozone file = ', &
-            & nmonths
+            & 'Number of months in ozone file = ', nmonths
           CALL message(TRIM(ROUTINE),message_text)
 
+          !
           ! check the vertical structure
-
+          !
           CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid), routine)
           CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3), routine)
 
@@ -2018,22 +1978,18 @@ CONTAINS
 
         IF(my_process_is_stdio()) CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
 
-        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-
-          ! get elevation [m]
-          CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
-            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-            &                    ext_data(jg)%atm%elevation_c)
-          ! get land-sea-mask on cells, integer marks are:
-          ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-          ! boundary land (1, cells and vertices), inner land (2)
-          CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-            &                     ext_data(jg)%atm%lsm_ctr_c)
-          ! Mask out ocean
-          ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp,  ext_data(jg)%atm%lsm_ctr_c(:,:) > 0)
-
-        ENDIF
+        ! get elevation [m]
+        CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+          &                    ext_data(jg)%atm%elevation_c)
+        ! get land-sea-mask on cells, integer marks are:
+        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+        ! boundary land (1, cells and vertices), inner land (2)
+        CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+          &                     ext_data(jg)%atm%lsm_ctr_c)
+        ! Mask out ocean
+        ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp,  ext_data(jg)%atm%lsm_ctr_c(:,:) > 0)
 
         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
 
@@ -2470,17 +2426,6 @@ CONTAINS
             &                                           ext_data(jg)%atm_td%phoz(i+1)
         ENDDO
 
-        !         CASE(inh_atmosphere)
-        !           DO jk=1,nlev_o3
-        !             ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
-        !           ENDDO
-        !       END SELECT
-
-        ! we have 2 different ozone files for hexagons and triangels at the moment
-        ! therefore ozone data are both stored at the cell centers
-
-        !         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-
         CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
           &                    p_patch(jg)%n_patch_cells_g,  &
           &                    p_patch(jg)%n_patch_cells,    &
@@ -2488,20 +2433,8 @@ CONTAINS
           &                    nlev_o3,  nmonths,          &
           &                    ext_data(jg)%atm_td%O3)
 
-        !        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-        !
-        !          CALL read_netcdf_data (ncid, TRIM(o3name), & 
-        !            &                    p_patch(jg)%n_patch_verts_g,  &
-        !            &                    p_patch(jg)%n_patch_verts,    & 
-        !            &                    p_patch(jg)%verts%decomp_info%glb_index,  &
-        !            &                    nlev_o3, nmonths,           &
-        !            &                    ext_data(jg)%atm_td%O3)
-        !
-        !         ENDIF ! patches
-
-
-        WRITE(0,*)'MAX/min o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-          &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        WRITE(0,*)'MAX/MIN o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
+          &                         MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
 
         ! convert from ppmv to g/g only in case of APE ozone
         ! whether o3mr2gg or ppmv2gg is used to convert O3 to gg depends on the units of 
@@ -2580,7 +2513,6 @@ CONTAINS
 
         END DO 
  
-       ! CALL finish(routine,'sstice_mode == 2 not yet implemented .')
       END DO ! ndom
 
    END IF ! sstice_mode
@@ -2745,7 +2677,7 @@ CONTAINS
                  !
                  ! The additional check tile_frac(lu_subs) >= 1.e-03_wp is only added for backward compatibility and is 
                  ! required by all extpar-files generated prior to 2014-01-30. In these files it is not assured that 
-                 ! SUM(tile_frac(:))=1. I.e. glacier below 60°S are missing, such that SUM(tile_frac(:))=0 in these cases.
+                 ! SUM(tile_frac(:))=1. I.e. glacier below 60degS are missing, such that SUM(tile_frac(:))=0 in these cases.
                  !
                  IF ( (i_lu==1 .AND. tile_frac(lu_subs) >= 1.e-03_wp) .OR. (tile_frac(lu_subs) >= frlndtile_thrhld) ) THEN
                    it_count(i_lu)    = it_count(i_lu) + 1
