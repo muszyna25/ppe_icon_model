@@ -76,12 +76,14 @@ MODULE mo_advection_traj
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
+
   PUBLIC :: btraj
   PUBLIC :: btraj_dreg
   PUBLIC :: btraj_o2
 
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
 

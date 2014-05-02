@@ -76,6 +76,10 @@ MODULE mo_advection_quadrature
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
+
   PUBLIC :: prep_gauss_quadrature_l
   PUBLIC :: prep_gauss_quadrature_l_list
   PUBLIC :: prep_gauss_quadrature_q
@@ -85,10 +89,6 @@ MODULE mo_advection_quadrature
   PUBLIC :: prep_gauss_quadrature_cpoor
 
   
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-
-
 CONTAINS
 
 

@@ -61,10 +61,11 @@ MODULE mo_advection_geometry
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   PUBLIC :: divide_flux_area
   PUBLIC :: divide_flux_area_list
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
 

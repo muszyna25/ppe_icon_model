@@ -70,6 +70,10 @@ MODULE mo_advection_utils
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
+
   PUBLIC :: laxfr_upflux
   PUBLIC :: laxfr_upflux_v
   PUBLIC :: ptr_delp_mc_now
@@ -78,9 +82,6 @@ MODULE mo_advection_utils
   PUBLIC :: t_list2D
 
   
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-
   TYPE t_list2D
     INTEGER, POINTER :: eidx(:,:)
     INTEGER, POINTER :: elev(:,:)

@@ -64,7 +64,8 @@ MODULE mo_integrate_density_pa
   PRIVATE
 
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
 
   PUBLIC :: integrate_density_pa
