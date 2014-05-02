@@ -1731,8 +1731,8 @@ CONTAINS
           pole_index=0
           DO j = 1, max_cell_vertices
             IF (cells%get_vertex_index(i,j) == 0) THEN
-              zv2dx(j,i) = fildoub
-              zv2dy(j,i) = fildoub
+              zv2dx(j,i) = nf_fill_double
+              zv2dy(j,i) = nf_fill_double
             ELSE               
               zv2dy(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lat
               zv2dx(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lon
@@ -1773,8 +1773,8 @@ CONTAINS
               zv2dx(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lon
               zv2dy(j,i) = verts%vertex(cells%get_vertex_index(i,j))%lat
             ELSE
-              zv2dx(j,i) = fildoub
-              zv2dy(j,i) = fildoub
+              zv2dx(j,i) = nf_fill_double
+              zv2dy(j,i) = nf_fill_double
             ENDIF
           ENDDO
         ENDDO
