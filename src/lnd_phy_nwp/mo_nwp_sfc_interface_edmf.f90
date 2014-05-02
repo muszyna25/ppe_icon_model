@@ -66,6 +66,10 @@ MODULE mo_nwp_sfc_interface_edmf
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
+
   PUBLIC  ::  nwp_surface_edmf
 
 
@@ -75,7 +79,6 @@ INTEGER, PARAMETER :: nlsoil= 8
 INTEGER, PARAMETER :: nlsnow= 2
 #endif
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
   !!

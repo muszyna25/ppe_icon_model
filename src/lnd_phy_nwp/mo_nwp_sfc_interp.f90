@@ -56,7 +56,8 @@ MODULE mo_nwp_sfc_interp
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   PUBLIC :: process_sfcfields
   PUBLIC :: smi_to_sm_mass

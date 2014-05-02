@@ -74,9 +74,12 @@ MODULE mo_td_ext_data
 
   PRIVATE
 
-  PUBLIC  :: set_actual_td_ext_data,  read_td_ext_data_file
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  PUBLIC  :: set_actual_td_ext_data
+  PUBLIC  :: read_td_ext_data_file
 
 
 CONTAINS

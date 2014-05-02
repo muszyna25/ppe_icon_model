@@ -55,7 +55,8 @@ MODULE mo_nwp_lnd_types
   PRIVATE
 
   ! !VERSION CONTROL:
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   !
   !variables
