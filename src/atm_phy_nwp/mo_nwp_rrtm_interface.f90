@@ -75,13 +75,15 @@ MODULE mo_nwp_rrtm_interface
   PRIVATE
 
 
+  CHARACTER(len=*), PARAMETER:: &
+    &  version = '$Id$'
+
+
   PUBLIC :: nwp_rrtm_ozon_aerosol
   PUBLIC :: nwp_rrtm_radiation
   PUBLIC :: nwp_rrtm_radiation_reduced
   PUBLIC :: nwp_rrtm_radiation_repartition
 
-
-  CHARACTER(len=*), PARAMETER:: version = '$Id$'
 
   REAL(wp), PARAMETER::  &
     & zaeops = 0.05_wp,   &

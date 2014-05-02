@@ -75,7 +75,8 @@ MODULE mo_nwp_diagnosis
   PRIVATE
 
   ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
 
   PUBLIC  :: nwp_statistics
   PUBLIC  :: nwp_diag_for_output

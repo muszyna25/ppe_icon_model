@@ -74,9 +74,11 @@ MODULE mo_nwp_gscp_interface
 
   PRIVATE
 
-  PUBLIC  ::  nwp_microphysics
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  PUBLIC  ::  nwp_microphysics
 
 CONTAINS
   !!

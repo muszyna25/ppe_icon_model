@@ -57,6 +57,10 @@ MODULE mo_util_phys
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: version = &
+    &  '$Id$'
+
+
   PUBLIC :: nwp_dyn_gust
   PUBLIC :: nwp_con_gust
   PUBLIC :: virtual_temp
@@ -66,9 +70,6 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: compute_field_omega
 
-
-  CHARACTER(len=*), PARAMETER :: version = &
-    &  '$Id$'
 
 CONTAINS
 

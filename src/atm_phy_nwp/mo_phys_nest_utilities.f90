@@ -73,7 +73,8 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
 
 PUBLIC :: upscale_rad_input        ! for RRTM
 PUBLIC :: upscale_rad_input_rg     ! for Ritter-Geleyn

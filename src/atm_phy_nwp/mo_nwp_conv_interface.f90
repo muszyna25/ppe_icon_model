@@ -65,9 +65,11 @@ MODULE mo_nwp_conv_interface
 
   PRIVATE
 
-  PUBLIC  ::  nwp_convection
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  PUBLIC  ::  nwp_convection
 
 CONTAINS
   !!

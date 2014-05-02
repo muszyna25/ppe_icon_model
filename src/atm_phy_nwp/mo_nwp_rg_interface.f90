@@ -64,7 +64,8 @@ MODULE mo_nwp_rg_interface
   PRIVATE
 
 
-  CHARACTER(len=*), PARAMETER:: version = '$Id$'
+  CHARACTER(len=*), PARAMETER:: &
+    &  version = '$Id$'
 
   PUBLIC :: nwp_rg_radiation
   PUBLIC :: nwp_rg_radiation_reduced

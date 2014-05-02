@@ -42,7 +42,8 @@ MODULE mo_nwp_parameters
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   TYPE t_phy_params
     ! Level parameters for convection scheme

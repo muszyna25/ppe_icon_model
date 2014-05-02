@@ -69,13 +69,16 @@ MODULE mo_rrtm_data_interface
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER:: &
+    &  version = '$Id$'
+
+
   PUBLIC :: t_rrtm_data
   PUBLIC :: init_rrtm_model_repart
   PUBLIC :: destruct_rrtm_model_repart
   PUBLIC :: recv_rrtm_input, send_rrtm_output
     
-  CHARACTER(len=*), PARAMETER:: version = '$Id$'
-    
+   
     
   !--------------------------------------------------------------------------
   TYPE t_rrtm_data

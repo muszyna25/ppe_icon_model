@@ -61,12 +61,12 @@ MODULE mo_nwp_rad_interface
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER:: &
+    &  version = '$Id$'
 
 
   PUBLIC :: nwp_radiation
   
-
-  CHARACTER(len=*), PARAMETER:: version = '$Id$'
 
  CONTAINS
   

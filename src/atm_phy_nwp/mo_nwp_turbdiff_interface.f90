@@ -75,9 +75,11 @@ MODULE mo_nwp_turbdiff_interface
 
   PRIVATE
 
-  PUBLIC  ::  nwp_turbdiff
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  PUBLIC  ::  nwp_turbdiff
 
 CONTAINS
   !!

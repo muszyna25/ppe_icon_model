@@ -115,7 +115,8 @@ MODULE mo_nh_interface_nwp
   PRIVATE
 
   ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: &
+    &  version = '$Id$'
 
   REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd

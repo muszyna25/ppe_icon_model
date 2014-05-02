@@ -67,9 +67,11 @@ MODULE mo_nwp_gw_interface
 
   PRIVATE
 
-  PUBLIC  ::  nwp_gwdrag
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  PUBLIC  ::  nwp_gwdrag
 
 CONTAINS
   !!

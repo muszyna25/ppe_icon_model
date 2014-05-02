@@ -116,7 +116,8 @@ PRIVATE
 INCLUDE 'netcdf.inc'
 
 ! !VERSION CONTROL:
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
 
 !public interface
 !
