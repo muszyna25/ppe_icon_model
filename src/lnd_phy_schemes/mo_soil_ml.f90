@@ -414,9 +414,12 @@ USE mo_data_turbdiff,      ONLY: itype_tran
 ! Declarations
 !------------------------------------------------------------------------------
 
-!IMPLICIT NONE
-!PRIVATE:: normalize, tgcom
-PRIVATE:: tgcom
+IMPLICIT NONE
+
+PRIVATE
+
+CHARACTER(len=*), PARAMETER :: &
+  &  version = '$Id$'
 
 !------------------------------------------------------------------------------
 ! Public subroutines
@@ -593,9 +596,6 @@ END SUBROUTINE message
 !-------------------------------------------------------------------------------
 ! Declarations for ICON (USE statements for COSMO)
 !-------------------------------------------------------------------------------
-
-  IMPLICIT NONE
-
 
 
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
