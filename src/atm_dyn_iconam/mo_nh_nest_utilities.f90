@@ -79,7 +79,8 @@ MODULE mo_nh_nest_utilities
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   PUBLIC :: compute_tendencies, boundary_interpolation, complete_nesting_setup, &
     prep_bdy_nudging, outer_boundary_nudging, nest_boundary_nudging,    &

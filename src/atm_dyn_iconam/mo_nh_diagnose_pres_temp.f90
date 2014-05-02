@@ -62,6 +62,9 @@ MODULE mo_nh_diagnose_pres_temp
 
   PUBLIC :: diagnose_pres_temp
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   CONTAINS
 
   ! moved here from mo_nh_stepping to avoid circular dependencies

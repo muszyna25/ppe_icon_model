@@ -81,7 +81,8 @@ MODULE mo_vertical_grid
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   ! Constants used for the computation of the background reference atmosphere of the nh-model
   !
@@ -90,7 +91,6 @@ MODULE mo_vertical_grid
   REAL(wp), PARAMETER :: del_t_bg  = 75._wp       ! [K]      difference between sea level
   !                                                          temperature and asymptotic
   !                                                          stratospheric temperature
-  REAL(wp), PARAMETER :: grav_o_cpd      = grav/cpd
 
   INTEGER:: nrdmax(max_dom), nflat_gradp(max_dom)
 

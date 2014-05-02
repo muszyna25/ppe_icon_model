@@ -75,6 +75,9 @@ MODULE mo_nh_init_utils
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   INTEGER:: nflat, nflatlev(max_dom)
 
   REAL(wp) :: layer_thickness        ! (m)

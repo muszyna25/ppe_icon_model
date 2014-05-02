@@ -71,7 +71,8 @@ MODULE mo_nh_feedback
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   PUBLIC :: feedback, relax_feedback
 

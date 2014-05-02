@@ -52,7 +52,8 @@ MODULE mo_nh_initicon_types
   PRIVATE
 
   ! !VERSION CONTROL:
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   !
   !variables

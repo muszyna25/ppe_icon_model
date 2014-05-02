@@ -78,7 +78,8 @@ MODULE mo_nh_vert_interp
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   ! Threshold for switching between analytical formulas for constant temperature and
   ! constant vertical gradient of temperature, respectively

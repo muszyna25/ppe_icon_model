@@ -57,9 +57,10 @@ MODULE mo_update_dyn
 
   PRIVATE
 
-  PUBLIC  :: add_slowphys
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  PUBLIC  :: add_slowphys
 
 
 CONTAINS

@@ -87,7 +87,8 @@ MODULE mo_solve_nonhydro
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   REAL(wp), PARAMETER :: rd_o_cvd = 1._wp / cvd_o_rd
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd

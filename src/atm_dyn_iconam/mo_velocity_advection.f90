@@ -71,7 +71,8 @@ MODULE mo_velocity_advection
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
 
   PUBLIC :: velocity_tendencies

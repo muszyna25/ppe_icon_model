@@ -62,13 +62,17 @@ MODULE mo_nh_supervise
 
   PRIVATE
 
-  PUBLIC :: supervise_total_integrals_nh, print_maxwinds
-  
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
   ! Needed by supervise_total_integrals_nh to keep data between steps
   REAL(wp), ALLOCATABLE, SAVE :: z_total_tracer_old(:)
   REAL(wp), ALLOCATABLE, SAVE :: z_total_tracer_0(:)
 
   INTEGER :: n_file_ti = -1, n_file_tti = -1,  check_total_quant_fileid = -1       ! file identifiers
+
+
+  PUBLIC :: supervise_total_integrals_nh, print_maxwinds
 
 CONTAINS
 

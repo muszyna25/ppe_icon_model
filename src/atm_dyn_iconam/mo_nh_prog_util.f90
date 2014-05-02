@@ -49,7 +49,8 @@ MODULE mo_nh_prog_util
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   PUBLIC :: nh_prog_add_random,init_nh_state_prog_isoRest
 
