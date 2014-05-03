@@ -104,10 +104,12 @@ CONTAINS
   !! Based on gmres_oce_old
   !! restart functionality and optimization L.Linardakis, MPIM, 2013
   !-------------------------------------------------------------------------
-!<Optimize_Used>
-  SUBROUTINE ocean_restart_gmres( x,lhs,h_e, thickness_c, old_h, p_patch_3d, &
-    & p_op_coeff, b,                      &
-    & tolerance,abstol,m,maxiterex,niter,res,    &
+!<Optimize_Used> 
+  SUBROUTINE ocean_restart_gmres( x,lhs,        &
+    & h_e, thickness_c, old_h, p_patch_3d,      &
+    & p_op_coeff, b,                            &
+    & absolute_tolerance,  relative_tolerance,  &
+    & m,maxiterex,niter,res,                    &
     & preconditioner)
     !
     ! !DESCRIPTION
@@ -128,9 +130,9 @@ CONTAINS
     TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
     ! right-hand side: same shape as x
     REAL(wp), INTENT(inout) :: b(:,:) ! same size as x
-    REAL(wp), INTENT(in) :: tolerance ! (relative or absolute) tolerance
-    LOGICAL,  INTENT(in) :: abstol    ! .true. for absolute tolerance,
-    ! .false. for relative tolerance
+    REAL(wp), INTENT(inout) :: absolute_tolerance
+    REAL(wp), INTENT(in) :: relative_tolerance ! (relative or absolute) relative_tolerance
+    ! .false. for relative relative_tolerance
     INTEGER,  INTENT(in) :: m         ! maximum number of iterations
     LOGICAL,  INTENT(out) :: maxiterex ! true if reached m iterations
     INTEGER,  INTENT(out) :: niter    ! number of iterations (defined
@@ -184,7 +186,7 @@ CONTAINS
       & k,           & ! index for the Gram Schmidt orthogonalization
       & nkry           ! dimension of the Krylov space
     REAL(wp) ::    &
-      & tol,         & ! effective tolerance (absolute o relative)
+      & tol,         & ! effective relative_tolerance (absolute o relative)
       & tol2,        &
       & r(SIZE(x,1),SIZE(x,2)),  & ! residual
       & rn2(m),      &             ! two-norm of the residual
@@ -311,11 +313,12 @@ CONTAINS
       RETURN
     ENDIF
     
-    ! 3) define the tolerance: can be absolute or relative
-    IF (abstol) THEN
-      tol = tolerance
+    ! 3) define the relative_tolerance: can be absolute or relative
+    IF (absolute_tolerance > 0.0_wp) THEN
+      tol = absolute_tolerance
     ELSE
-      tol = tolerance*rn2(1)
+      tol = relative_tolerance*rn2(1)
+      absolute_tolerance = tol
     ENDIF
     tol2 = tol**2
     
@@ -435,7 +438,7 @@ CONTAINS
       rn2(i  ) =  c(i)*rn2(i)
       
       ! 4.9) check whether we are done
-      ! write(0,*) i, " gmres  tolerance bound, residual: ", tol, ABS(rn2(i+1))
+      ! write(0,*) i, " gmres  relative_tolerance bound, residual: ", tol, ABS(rn2(i+1))
       IF ( done .OR. (ABS(rn2(i+1)) < tol) ) EXIT arnoldi
     ENDDO arnoldi
     

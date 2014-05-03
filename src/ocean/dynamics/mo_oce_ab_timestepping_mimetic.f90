@@ -164,7 +164,6 @@ CONTAINS
     !Local variables
     !
     INTEGER,PARAMETER :: nmax_iter   = 800      ! maximum number of iterations
-    REAL(wp) :: tolerance =0.0_wp               ! (relative or absolute) tolerance
     INTEGER :: n_iter                          ! actual number of iterations
     INTEGER :: iter_sum                        ! sum of iterations
     INTEGER :: jc,jb,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
@@ -176,7 +175,8 @@ CONTAINS
     ! REAL(wp) :: z_implcoeff
     REAL(wp) :: zresidual(nmax_iter)    ! norms of the residual (convergence history);an argument of dimension at least m is required
     REAL(wp) :: residual_norm
-    LOGICAL :: l_maxiter     ! true if reached m iterations
+    REAL(wp) :: relative_tolerance, absolute_tolerance               ! (relative or absolute) tolerance
+    LOGICAL :: maxIterations_isReached     ! true if reached m iterations
     INTEGER :: gmres_restart_iterations
     CHARACTER(LEN=max_char_length) :: string
     TYPE(t_subset_range), POINTER :: all_cells, all_edges, owned_cells, owned_edges
@@ -199,7 +199,6 @@ CONTAINS
     owned_edges  => patch_2D%edges%owned
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-    tolerance                            = solver_tolerance
     z_h_c(1:nproma,1:patch_2D%alloc_cell_blocks) = 0.0_wp
     z_h_e(1:nproma,1:patch_2D%nblks_e)           = 0.0_wp
     
@@ -278,9 +277,9 @@ CONTAINS
       !  z_h_e = ocean_state%p_diag%h_e         ! #slo# 2011-02-21 bugfix (for mimetic only)
       !ENDIF
       
-      CALL sync_patch_array(sync_e, patch_2D, z_h_e)
-      CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_diag%thick_c)
-      CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
+      ! CALL sync_patch_array(sync_e, patch_2D, z_h_e)
+      ! CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_diag%thick_c)
+      ! CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
       
       CALL dbg_print('bef ocean_gmres: h-old',ocean_state%p_prog(nold(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
 
@@ -302,10 +301,10 @@ CONTAINS
               ! & z_implcoeff,               &  ! arg 4 of lhs
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-              & tolerance,                 &  ! relative tolerance
+              & solver_tolerance,                 &  ! relative tolerance
               & use_absolute_solver_tolerance,     &  ! NOT absolute tolerance
               & nmax_iter,                 &  ! max. # of iterations to do
-              & l_maxiter,                 &  ! out: .true. = not converged
+              & maxIterations_isReached,                 &  ! out: .true. = not converged
               & n_iter,                    &  ! out: # of iterations done
               & zresidual,                 &  ! inout: the residual (array)
               & jacobi_precon )
@@ -322,16 +321,16 @@ CONTAINS
               ! & z_implcoeff,               &  ! arg 4 of lhs
               & op_coeffs,                &
               & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-              & tolerance,                 &  ! relative tolerance
+              & solver_tolerance,                 &  ! relative tolerance
               & use_absolute_solver_tolerance,                 &  ! NOT absolute tolerance
 !              & .FALSE.,                   &  ! NOT absolute tolerance
               & nmax_iter,                 &  ! max. # of iterations to do
-              & l_maxiter,                 &  ! out: .true. = not converged
+              & maxIterations_isReached,                 &  ! out: .true. = not converged
               & n_iter,                    &  ! out: # of iterations done
               & zresidual )
           ENDIF
           
-          IF (l_maxiter) THEN
+          IF (maxIterations_isReached) THEN
             CALL finish('GMRES_oce_old: solver surface equation: ','NOT YET CONVERGED !!')
           ELSE
             ! output print level idt_src used for ocean gmres output with call message:
@@ -356,11 +355,18 @@ CONTAINS
       CASE (select_restart_gmres)
 
         ! call the new gmre_oce, uses out of order global sum
-        residual_norm = solver_tolerance + 1.0_wp
+        ! residual_norm = solver_tolerance + 1.0_wp
         gmres_restart_iterations = 0
         iter_sum                 = 0
+        maxIterations_isReached  = .true.
+        IF (use_absolute_solver_tolerance) THEN          
+          absolute_tolerance      = solver_tolerance
+        ELSE
+          relative_tolerance      = solver_tolerance
+          absolute_tolerance      = 0.0_wp
+        ENDIF
         ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
-        DO WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
+        DO WHILE(maxIterations_isReached .AND. gmres_restart_iterations < solver_max_restart_iterations)
           
           CALL ocean_restart_gmres( z_h_c(:,:),                   &  ! arg 1 of lhs. x input is the first guess.
             & lhs_surface_height_ab_mim,     &  ! function calculating l.h.s.
@@ -371,13 +377,14 @@ CONTAINS
             ! & z_implcoeff,                   &  ! arg 4 of lhs
             & op_coeffs,                    &
             & ocean_state%p_aux%p_rhs_sfc_eq,       &  ! right hand side as input
-            & solver_tolerance,              &  ! tolerance
-            & use_absolute_solver_tolerance, &  ! use absolute tolerance = true
-            & solver_max_iter_per_restart,   &  ! max. # of iterations to do
-            & l_maxiter,                     &  ! out: .true. = not converged
+            & absolute_tolerance,                &     ! inout, if > 0 then is used as absolute_tolerance, out otherwise
+            & relative_tolerance,                &
+            & solver_max_iter_per_restart,       &  ! max. # of iterations to do
+            & maxIterations_isReached,                     &  ! out: .true. = not converged
             & n_iter,                        &  ! out: # of iterations done
-            & zresidual )
+            & zresidual)
 
+            
           IF(n_iter==0) THEN
             residual_norm = 0.0_wp
           ELSE
@@ -432,7 +439,7 @@ CONTAINS
             & solver_tolerance_sp,                  &  ! tolerance
             & use_absolute_solver_tolerance,        &  ! use absolute tolerance = true
             & solver_max_iter_per_restart_sp,       &  ! max. # of iterations to do
-            & l_maxiter,                            &  ! out: .true. = not converged
+            & maxIterations_isReached,                            &  ! out: .true. = not converged
             & n_iter,                               &  ! out: # of iterations done
             & zresidual_sp )
 
@@ -469,6 +476,7 @@ CONTAINS
         gmres_restart_iterations = 0
         iter_sum                 = 0
         z_h_c(:,:)               = REAL(z_h_c_sp(:,:), wp)
+        absolute_tolerance      = solver_tolerance
         ! write(0,*) tolerance, solver_tolerance, residual_norm, gmres_restart_iterations, solver_max_restart_iterations
         DO WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
 
@@ -481,10 +489,10 @@ CONTAINS
             ! & z_implcoeff,                   &  ! arg 4 of lhs
             & op_coeffs,                    &
             & ocean_state%p_aux%p_rhs_sfc_eq,       &  ! right hand side as input
-            & solver_tolerance,              &  ! tolerance
-            & use_absolute_solver_tolerance, &  ! use absolute tolerance = true
+            & absolute_tolerance,                &     ! inout, if > 0 then is used as absolute_tolerance, out otherwise
+            & relative_tolerance,                &
             & solver_max_iter_per_restart,   &  ! max. # of iterations to do
-            & l_maxiter,                     &  ! out: .true. = not converged
+            & maxIterations_isReached,                     &  ! out: .true. = not converged
             & n_iter,                        &  ! out: # of iterations done
             & zresidual )
 

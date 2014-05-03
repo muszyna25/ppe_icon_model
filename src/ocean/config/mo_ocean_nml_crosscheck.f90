@@ -194,8 +194,8 @@ CONTAINS
            CALL message(method_name, "p_test_run .OR. .NOT. l_fast_sum cannot be used by the restart gmres solver")
            CALL message(method_name, "Using the standard gmres solver")
            select_solver = select_gmres
-        ELSE
-           use_absolute_solver_tolerance = .true.
+!        ELSE
+!           use_absolute_solver_tolerance = .true.
         ENDIF
 
       CASE default
