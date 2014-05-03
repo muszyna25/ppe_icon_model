@@ -229,6 +229,17 @@ check_accept_script()
        esac
      ;; 
 
+     thunder)
+       if [[ $use_openmp == "yes" ]] ; then
+         case $check_accepted_filename in
+         # nat_jww_nwp_mpiomp gives out of sync with openmp
+         *nat_jww_nwp_mpiomp*)
+            [[ $param == "test" ]] && accepted_script="false"
+         ;;
+         esac
+       fi
+     ;;
+     
    esac
    
    #--------------------------

@@ -65,7 +65,8 @@ case ${target} in
         configureoption="--with-fortran=nag"
         ;;
     thunder_intel)
-        configureoption="--with-fortran=intel"
+        # configureoption="--with-fortran=intel --with-mpi --with-openmp --with-flags=hiopt"
+        configureoption="--with-fortran=intel --with-mpi --with-openmp"
         ;;
     thunder_pgi)
         configureoption="--with-fortran=pgi"

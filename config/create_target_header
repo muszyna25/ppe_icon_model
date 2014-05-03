@@ -16,6 +16,15 @@
 #
 #==============================================================================
 
+add_free_var()
+{
+  varName=$1
+  varValue=$2
+  
+  let "no_of_free_variables=$no_of_free_variables+1"
+  free_variable[$no_of_free_variables]=$varName
+  free_variable_value[$no_of_free_variables]=$varValue
+}
 
 set_default()
 {
@@ -28,9 +37,9 @@ set_default()
 start_header()
 {
 if [[ "$use_mpi" == "no" ]]; then
-  start=""
+  start=${start:=""}
 else
-  start="$use_mpi_startrun"
+  start=${start:="$use_mpi_startrun"}
 fi
 
 set_default use_nodes 1
@@ -63,14 +72,6 @@ with_openmp="$use_openmp"
 job_name="$job_name"
 submit="$use_submit"
 #-----------------------------------------------------------------------------
-# MPI variables
-# ----------------------------
-mpi_root=$use_mpi_root
-no_of_nodes=$use_nodes
-mpi_procs_pernode=$use_mpi_procs_pernode
-mpi_total_procs=$mpi_total_procs
-START="$start"
-# ----------------------------
 # openmp environment variables
 # ----------------------------
 export OMP_NUM_THREADS=${use_openmp_threads}
@@ -78,6 +79,14 @@ export ICON_THREADS=${use_openmp_threads}
 export OMP_SCHEDULE=${use_OMP_SCHEDULE}
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=${use_omp_stacksize}
+#-----------------------------------------------------------------------------
+# MPI variables
+# ----------------------------
+mpi_root=$use_mpi_root
+no_of_nodes=$use_nodes
+mpi_procs_pernode=$use_mpi_procs_pernode
+mpi_total_procs=$mpi_total_procs
+START="$start"
 #-----------------------------------------------------------------------------
 # load ../setting if exists  
 if [ -a ../setting ]
@@ -129,7 +138,7 @@ EOF
 #for i in {1..$no_of_free_variables}
 i=1;while [ $i -le ${no_of_free_variables} ]
 do
-  echo "${free_variable[$i]}=${free_variable_value[$i]}" >> $output_script
+  echo "export ${free_variable[$i]}=${free_variable_value[$i]}" >> $output_script
   i=$((i+1));
 done
 
@@ -423,7 +432,7 @@ EOF
 set_run_target_thunder()
 {
 
-  set_default use_nproma 32
+  set_default use_nproma 16
   set_default use_nodes 1
   use_OMP_SCHEDULE="dynamic,1"
 
@@ -441,43 +450,42 @@ set_run_target_thunder()
 #      set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
-   fi
-    
+   fi    
   fi
-
+  
   case x$use_queue in
-    "xdefault" )
-      use_queue="mpi-compute"
-      ;;
-    "xexpress" )
-      use_queue="mpi-compute"
+    "xdevelop" )
+      queue="mpi-develop"
       ;;
   esac
 
+  case _$use_compiler in
+    "_intel" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+        add_free_var KMP_AFFINITY "verbose,granularity=fine,compact,0,1"
+      ;;
+  esac
   # create header
   start_header
+  
   if [[ "$is_serial_run" == "yes"  ]] ; then
-    use_queue=${use_queue:="mpi-serial"}
-  #  queue="mpi-develop"
+    queue=${queue:="mpi-serial"}
     use_nodes=1
     tasks_per_node=1
+    SBATCH_ntasks_per_node=""
  else
+    queue=${queue:="mpi-compute"}
     job_type=parallel
-    use_queue=${use_queue:="mpi-compute"}
-  #  queue="mpi-develop"
     tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=16"
   fi
+  
   if [[ "x$BB_SYSTEM" != "x" ]]; then
     # this buildbot, do not use job id
     job_log_name="LOG.$job_name"
   else
     job_log_name="LOG.$job_name.%j"
   fi
-  if [ "x$use_queue" == "xdefault" ] ; then
-    use_queue="mpi-compute"
-  fi
-  queue="$use_queue"
-  #queue="mpi-develop"
 
   # ------------------------------------
   s_cpu_time=""
@@ -494,9 +502,9 @@ set_run_target_thunder()
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
 #SBATCH --partition=$queue
-#SBATCH --workdir=$output_folder
+# #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
-#SBATCH --ntasks-per-node=$tasks_per_node
+#$SBATCH_ntasks_per_node
 # #$s_cpu_time
 # #SBATCH --time=30
 #========================================

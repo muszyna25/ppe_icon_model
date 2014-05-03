@@ -1568,8 +1568,8 @@ CONTAINS
          & ' MPI_INIT_THREAD did not return desired level of thread support'
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_FUNNELED
-       CALL MPI_Finalize(p_error)
-       STOP
+       ! CALL MPI_Finalize(p_error)
+       ! STOP
     END IF
 #endif
 #endif
