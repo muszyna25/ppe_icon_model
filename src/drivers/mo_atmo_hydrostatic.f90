@@ -37,7 +37,7 @@ MODULE mo_atmo_hydrostatic
 
   USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
-  USE mo_run_config,        ONLY: dtime, ltestcase, iforcing, nlev, &
+  USE mo_run_config,        ONLY: dtime, iforcing, nlev, &
     &                             msg_level, output_mode, ntracer, iqc, iqt
   USE mo_dynamics_config,   ONLY: iequations
   USE mo_advection_config,  ONLY: configure_advection
@@ -143,7 +143,7 @@ CONTAINS
 
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      CALL init_echam_phy( p_patch(1:), ltestcase, ctest_name, &
+      CALL init_echam_phy( p_patch(1:), ctest_name, &
                             & nlev, vct_a, vct_b, ceta, time_config%cur_datetime )
     END IF
 
@@ -157,7 +157,7 @@ CONTAINS
                         & p_grf_state(1:), p_hydro_state )
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
-      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
+      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ctest_name )
 
 
     !------------------------------------------------------------------
@@ -229,7 +229,7 @@ CONTAINS
 
       ! LL: initialization has already been done
       ! IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      !  CALL additional_restart_init( p_patch(1:), ltestcase, ctest_name )
+      !  CALL additional_restart_init( p_patch(1:), ctest_name )
       ! END IF
 
     END IF ! is_restart_run()

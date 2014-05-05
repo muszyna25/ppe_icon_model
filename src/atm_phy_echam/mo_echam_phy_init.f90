@@ -134,11 +134,10 @@ CONTAINS
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !! name change to init_echam_phy by Levi Silvers
   !!
-  SUBROUTINE init_echam_phy( p_patch, ltestcase, ctest_name, &
+  SUBROUTINE init_echam_phy( p_patch, ctest_name, &
                                 nlev, vct_a, vct_b, ceta, current_date)
 
     TYPE(t_patch),   INTENT(in) :: p_patch(:)
-    LOGICAL,         INTENT(in) :: ltestcase
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:), ceta(:)
@@ -384,7 +383,7 @@ CONTAINS
 
 #ifndef __NO_JSBACH__
     IF (phy_config%ljsbach) THEN
-      CALL configure_lnd_jsbach(ltestcase, ctest_name)
+      CALL configure_lnd_jsbach
       ! Do basic initialization of JSBACH
       CALL jsbach_init_base(master_namelist_filename)
       ! Now continue initialization of JSBACH for the different grids
@@ -409,11 +408,10 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE initcond_echam_phy( p_patch, p_hydro_state, ltestcase, ctest_name )
+  SUBROUTINE initcond_echam_phy( p_patch, p_hydro_state, ctest_name )
 
     TYPE(t_patch)    ,INTENT(IN) :: p_patch(:)
     TYPE(t_hydro_atm),INTENT(IN) :: p_hydro_state(:)
-    LOGICAL,          INTENT(IN) :: ltestcase
     CHARACTER(LEN=*), INTENT(IN) :: ctest_name
 
     ! local variables and pointers
@@ -459,7 +457,6 @@ CONTAINS
 
         ! For idealized test cases
 
-      IF (ltestcase) THEN
         SELECT CASE (ctest_name)
         CASE('APE','RCEhydro') !Note that there is only one surface type in this case
 
@@ -759,7 +756,6 @@ CONTAINS
 !$OMP END PARALLEL
 
         END SELECT
-      ENDIF ! ltestcase
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
@@ -982,10 +978,9 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE additional_restart_init( p_patch, ltestcase, ctest_name )
+  SUBROUTINE additional_restart_init( p_patch, ctest_name )
 
     TYPE(t_patch),   INTENT(IN) :: p_patch(:)
-    LOGICAL,         INTENT(IN) :: ltestcase
     CHARACTER(LEN=*),INTENT(IN) :: ctest_name
 
     INTEGER :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce
@@ -993,7 +988,7 @@ CONTAINS
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
 
-    CHARACTER(LEN=*),PARAMETER :: routine = 'additional_restart_init'
+!!$    CHARACTER(LEN=*),PARAMETER :: routine = 'additional_restart_init'
 
     !----
     ! total number of domains/ grid levels
@@ -1019,8 +1014,6 @@ CONTAINS
         !---------------------------------------------------------------------
         ! Re-initialize SST, sea ice and glacier if necessary
         !---------------------------------------------------------------------
-        IF (ltestcase) THEN
-
           SELECT CASE (ctest_name)
           CASE('APE')
           ! For an aqua-planet experiment, re-initialization is necessary if
@@ -1041,17 +1034,12 @@ CONTAINS
 
           END SELECT
 
-        ELSE
-          CALL finish(TRIM(routine),'ltestcase = .FALSE. '//                     &
-                     & 'Implement re-initialization of SST, sea ice and glacier.')
-        END IF
-
         !--------------------------------------------------------------------
         ! Initialize the flag lfland (.TRUE. if the fraction of land in
         ! a grid box is larger than zero). In ECHAM a local array
         ! is initialized in each call of the subroutine "physc".
         ! Note that this initialization is needed for all resumed integrations
-        ! regardless of the choice of "ltestcase" and "ctest_name", because
+        ! regardless of the choice of "ctest_name", because
         ! logical variables can not yet be stored in restart files.
         !--------------------------------------------------------------------
 

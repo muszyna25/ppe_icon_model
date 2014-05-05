@@ -74,12 +74,10 @@ MODULE mo_lnd_jsbach_config
 CONTAINS
   !>
   !!
-  SUBROUTINE configure_lnd_jsbach(ltestcase, ctest_name)
+  SUBROUTINE configure_lnd_jsbach
 
-    LOGICAL,         INTENT(IN) :: ltestcase
-    CHARACTER(LEN=*),INTENT(IN) :: ctest_name
-    CHARACTER(LEN=*),PARAMETER  :: &
-             & routine ='mo_lnd_jsbach_config:configure_lnd_jsbach'
+!!$    CHARACTER(LEN=*),PARAMETER  :: &
+!!$             & routine ='mo_lnd_jsbach_config:configure_lnd_jsbach'
 
     ALLOCATE(lnd_jsbach_config(n_dom))
 
