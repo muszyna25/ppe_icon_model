@@ -137,7 +137,6 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
     INTEGER :: jg, ist
-    LOGICAL :: l_realcase
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
@@ -163,12 +162,6 @@ CONTAINS
 
     ENDIF
 
-    IF (.NOT. ltestcase .AND. (iforcing == inwp .OR. iforcing == iecham)) THEN
-      l_realcase = .TRUE.
-    ELSE
-      l_realcase = .FALSE.
-    ENDIF
- 
     ! initialize ldom_active flag
     DO jg=1, n_dom
       IF (jg > 1 .AND. start_time(jg) > 0._wp) THEN
@@ -309,7 +302,9 @@ CONTAINS
     !
     ! Initialize model with real atmospheric data if appropriate switches are set
     !
-    IF (l_realcase .AND. .NOT. is_restart_run()) THEN
+    IF (      .NOT. ltestcase                             &
+      & .AND. (iforcing == inwp .OR. iforcing == iecham)  &
+      & .AND. .NOT. is_restart_run()                     ) THEN
 
       IF (timers_level > 5) CALL timer_start(timer_init_icon)
       CALL init_icon (p_patch(1:), p_nh_state(1:), prm_diag(1:), p_lnd_state(1:), &
