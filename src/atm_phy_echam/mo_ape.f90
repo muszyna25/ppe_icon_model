@@ -35,14 +35,10 @@
 !!
 MODULE mo_ape
 
-  USE mo_kind,               ONLY: wp
-  USE mo_convect_tables,     ONLY: tlucua, jptlucu1, jptlucu2, &
-                                   lookuperror, lookupoverflow
-#ifdef __ICON__
-  USE mo_physical_constants, ONLY: vtmpc1
-#else
-  USE mo_constants,          ONLY: vtmpc1
-#endif
+  USE mo_kind,                 ONLY: wp
+  USE mo_echam_convect_tables, ONLY: tlucua, jptlucu1, jptlucu2, &
+    &                                lookuperror, lookupoverflow
+  USE mo_physical_constants,   ONLY: vtmpc1
 
   IMPLICIT NONE
   PRIVATE
