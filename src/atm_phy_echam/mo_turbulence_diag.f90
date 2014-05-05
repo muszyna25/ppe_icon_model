@@ -39,35 +39,28 @@ MODULE mo_turbulence_diag
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: finish
-  USE mo_convect_tables,    ONLY: tlucua, jptlucu1, jptlucu2,  &
-                                & lookuperror, lookupoverflow, &
-                                & compute_qsat, compute_qsat_amip
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
+  USE mo_convect_tables,    ONLY: tlucua, jptlucu1, jptlucu2,               &
+    &                             lookuperror, lookupoverflow,              &
+    &                             compute_qsat, compute_qsat_amip
+  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
+  USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
+    &                             vtmpc1, tmelt, alv, als, p0ref
 #ifdef __ICON__
-!  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,           &
-                                & vtmpc1, tmelt, alv, als, p0ref
+!  USE mo_exception,         ONLY: message, message_text, finish
   USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
-                                & da1, custf, cwstf, cfreec,                &
-                                & epshr=>eps_shear, epcor=>eps_corio,       &
-                                & tkemin=>tke_min, cons2, cons25, cons5
+    &                             da1, custf, cwstf, cfreec,                &
+    &                             epshr=>eps_shear, epcor=>eps_corio,       &
+    &                             tkemin=>tke_min, cons2, cons25, cons5
 #else
-  USE mo_constants,ONLY: g, rd, cpd, cpv, rd_o_cpd, rv,                 &
-                       & vtmpc1,tmelt,alv,als
-  USE mo_physc2,   ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
-                       & da1, custf, cwstf, cfreec,                &
-                       & epshr, epcor, tkemin, cons2, cons25, cons5
-  USE mo_time_control, ONLY: lstart
+  USE mo_physc2,            ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
+    &                             da1, custf, cwstf, cfreec,                &
+    &                             epshr, epcor, tkemin, cons2, cons25, cons5
+  USE mo_time_control,      ONLY: lstart
 #endif
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: atm_exchange_coeff, sfc_exchange_coeff, sfc_exchange_coeff_amip
-
-#ifndef __ICON__
-  ! For echam, please move into mo_constants
-  REAL(wp), PARAMETER :: p0ref = 100000._wp   ! Reference pressure for Exner funtion [Pa]
-#endif
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 

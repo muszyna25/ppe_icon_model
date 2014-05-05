@@ -227,7 +227,10 @@ CONTAINS
     REAL(wp) :: Tfw(kbdim), LWin(kbdim)
     REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice)
 
+#ifdef __NO_JSBACH__
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
+#endif
+
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
     !===================================================================

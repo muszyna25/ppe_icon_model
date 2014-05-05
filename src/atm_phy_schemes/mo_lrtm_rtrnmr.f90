@@ -24,11 +24,7 @@ MODULE mo_lrtm_rtrnmr
 
   USE mo_kind,             ONLY : wp
 
-#ifdef __ICON__
-  USE mo_math_constants,   ONLY : api => pi
-#else
-  USE mo_constants,        ONLY : api
-#endif
+  USE mo_math_constants,   ONLY : pi
 
   USE mo_lrtm_par,         ONLY : nbndlw, delwave, ngs
   USE mo_lrtm_setup,       ONLY : ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl
@@ -47,7 +43,7 @@ MODULE mo_lrtm_rtrnmr
 
   PUBLIC :: lrtm_rtrnmr
 
-  REAL(wp), PARAMETER :: fluxfac = 2.0e+04_wp * api
+  REAL(wp), PARAMETER :: fluxfac = 2.0e+04_wp * pi
 
   REAL(wp), PARAMETER :: tblint = 10000.0_wp
 

@@ -45,12 +45,11 @@ MODULE mo_vdiff_downward_sweep
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
   USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
-#ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
+#ifdef __ICON__
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
 #else
-  USE mo_constants, ONLY: grav=>g, rd
-  USE mo_physc2,    ONLY: tpfac1, tpfac2, itop
+  USE mo_physc2,             ONLY: tpfac1, tpfac2, itop
 #endif
 
   IMPLICIT NONE
@@ -301,8 +300,7 @@ CONTAINS
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & pzthvvar(:,klevm1),                    &! in
-#ifdef __ICON__
-#else
+#ifndef __ICON__
                            & ptkem1(:,klev),  ptkem0(:,klev),       &! inout
 #endif
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
@@ -334,8 +332,7 @@ CONTAINS
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & pzthvvar(:,klevm1),                    &! in
-#ifdef __ICON__
-#else
+#ifndef __ICON__
                            & ptkem1(:,klev),  ptkem0(:,klev),       &! inout
 #endif
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out

@@ -50,11 +50,7 @@ MODULE mo_lrtm
 
   USE mo_kind,         ONLY: wp
 
-#ifdef __ICON__
   USE mo_physical_constants, ONLY: amd, amw, grav
-#else
-  USE mo_constants,          ONLY: amd, amw, grav=>g
-#endif
 
   USE mo_lrtm_par,     ONLY: nbndlw, nmol, ngptlw, ngb
   USE mo_lrtm_rtrnmr,  ONLY: lrtm_rtrnmr

@@ -39,12 +39,8 @@ MODULE mo_ape_params
 
   USE mo_kind,               ONLY: wp
 
-#ifdef __ICON__
   USE mo_math_constants,     ONLY: pi
   USE mo_physical_constants, ONLY: tmelt
-#else
-  USE mo_constants,          ONLY: pi=>api, tmelt
-#endif
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_testcases_nml,   ONLY: ape_sst_val
 #endif

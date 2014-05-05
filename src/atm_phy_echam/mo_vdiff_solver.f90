@@ -37,17 +37,16 @@ MODULE mo_vdiff_solver
   USE mo_kind,              ONLY: wp
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
+  USE mo_physical_constants,ONLY: grav, cpd, cpv
 #ifdef __ICON__
-  USE mo_physical_constants,ONLY: grav, als, alv, cpd, cpv
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
+  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
-                                & tpfac1, tpfac2, tpfac3, cchar, z0m_min
+    &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
-  USE mo_constants,ONLY: grav=>g, cpd, cpv
-  USE mo_physc2,   ONLY: clam, da1, tkemin, cons2, cons25, &
-                       & tpfac1, tpfac2, tpfac3, cchar, z0m_min
-  USE mo_time_control,ONLY: lstart
-  USE mo_semi_impl,   ONLY: eps
+  USE mo_physc2,            ONLY: clam, da1, tkemin, cons2, cons25, &
+    &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
+  USE mo_time_control,      ONLY: lstart
+  USE mo_semi_impl,         ONLY: eps
 #endif
 
   IMPLICIT NONE
@@ -847,8 +846,7 @@ CONTAINS
     REAL(wp) :: zdqtdt(kbdim,klev)
     INTEGER  :: jk, jl, jt, irhs, jsfc
 
-#ifdef __ICON__
-#else
+#ifndef __ICON__
    REAL(wp) ::  zeps
 #endif
 
@@ -886,8 +884,7 @@ CONTAINS
 
     
 
-#ifdef __ICON__
-#else
+#ifndef __ICON__
     !
     ! TIME FILTER FOR TURBULENT KINETIC ENERGY
     !
