@@ -161,7 +161,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Main switches (phy_config%lrad, phy_config%lcond, etc.)
 
-    CALL configure_echam_phy (ltestcase, ctest_name)
+    CALL configure_echam_phy (ctest_name)
 
     ! For radiation:
 

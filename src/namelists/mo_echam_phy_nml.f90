@@ -61,29 +61,30 @@ MODULE mo_echam_phy_nml
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  LOGICAL :: lrad       !< .true. for radiation.
-  LOGICAL :: lvdiff     !< .true. for vertical diffusion.
-  LOGICAL :: lconv      !< .true. for moist convection
-  LOGICAL :: lcond      !< .true. for large scale condensation
-  INTEGER :: icover     !< default 1 for Sundqvist scheme, 2 for Tompkins
-  LOGICAL :: llandsurf  !< .true. for surface exchanges. (lsurf in ECHAM6)
-  LOGICAL :: lssodrag   !< .true. for subgrid scale orographic drag,
-                        !< by blocking and gravity waves (lgwdrag in ECHAM6)
-  LOGICAL :: lgw_hines  !< .true. for atmospheric gravity wave drag
-  LOGICAL :: lice       !< .true. for sea-ice temperature calculation
-  LOGICAL :: lmeltpond  !< .true. for calculation of meltponds
-  LOGICAL :: lamip      !< .true. for AMIP simulations
-  LOGICAL :: lmlo       !< .true. for mixed layer ocean
-  LOGICAL :: ljsbach    !< .true. for calculating the JSBACH land surface
-  LOGICAL :: lhd        !< .true. for hydrologic discharge model
-!!$  LOGICAL :: lmidatm    !< .true. for middle atmosphere model version
+  LOGICAL  :: lrad       !< .true. for radiation.
   REAL(wp) :: dt_rad   !! "-"                     radiation
+  LOGICAL  :: lvdiff     !< .true. for vertical diffusion.
+  LOGICAL  :: lconv      !< .true. for moist convection
+  LOGICAL  :: lcond      !< .true. for large scale condensation
+  INTEGER  :: icover     !< default 1 for Sundqvist scheme, 2 for Tompkins
+  LOGICAL  :: lssodrag   !< .true. for subgrid scale orographic drag,
+                         !< by blocking and gravity waves (lgwdrag in ECHAM6)
+  LOGICAL  :: lgw_hines  !< .true. for atmospheric gravity wave drag
+  LOGICAL  :: lmlo       !< .true. for mixed layer ocean
+  LOGICAL  :: lice       !< .true. for sea-ice temperature calculation
+  LOGICAL  :: lmeltpond  !< .true. for calculation of meltponds
+  LOGICAL  :: llandsurf  !< .true. for surface exchanges. (lsurf in ECHAM6)
+  LOGICAL  :: ljsbach    !< .true. for calculating the JSBACH land surface
+  LOGICAL  :: lhd        !< .true. for hydrologic discharge model
+  LOGICAL  :: lamip      !< .true. for AMIP simulations
 
 
-  NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond,  &
-                         & icover, lssodrag, lgw_hines, &
-                         & llandsurf, lice, lmeltpond,  &
-                         & lamip, lmlo, ljsbach, lhd, dt_rad!!$, lmidatm
+  NAMELIST /echam_phy_nml/ lrad, dt_rad, lvdiff,    &
+    &                      lconv, lcond, icover,    &
+    &                      lssodrag, lgw_hines,     &
+    &                      lmlo, lice, lmeltpond,   &
+    &                      llandsurf, ljsbach, lhd, &
+    &                      lamip
 
 CONTAINS
   !>
@@ -91,28 +92,29 @@ CONTAINS
   SUBROUTINE read_echam_phy_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER :: istat, funit
+
+    INTEGER :: istat
+    INTEGER :: funit
     INTEGER :: iunit
 
     !------------------------------------------------------------------
     ! 1. Set default values
     !------------------------------------------------------------------
     lrad      = .TRUE.
+    dt_rad    = 3600.0_wp ! [s]
     lvdiff    = .TRUE.
     lconv     = .TRUE.
     lcond     = .TRUE.
-    icover    = 1
-    llandsurf = .FALSE.
-    lssodrag  = .FALSE.
-    lgw_hines = .FALSE.
+    icover    = 1         ! 1=Sundquist, 2=Tompkins
+    lssodrag  = .TRUE.
+    lgw_hines = .TRUE.
+    lmlo      = .FALSE.
     lice      = .FALSE.
     lmeltpond = .FALSE.
-    lamip     = .FALSE.
-    lmlo      = .FALSE.
+    llandsurf = .FALSE.
     ljsbach   = .FALSE.
     lhd       = .FALSE.
-    dt_rad    = 3600.0_wp
-!!$    lmidatm   = .FALSE.
+    lamip     = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -135,10 +137,10 @@ CONTAINS
     END IF
     SELECT CASE (istat)
     CASE (positioned)
-      READ (nnml, echam_phy_nml)                                          ! overwrite default settings
+      READ (nnml, echam_phy_nml)       ! overwrite default settings
       IF (my_process_is_stdio()) THEN
         iunit = temp_settings()
-        WRITE(iunit, echam_phy_nml)      ! write settings to temporary text file
+        WRITE(iunit, echam_phy_nml)    ! write settings to temporary text file
       END IF
     END SELECT
     CALL close_nml
@@ -166,21 +168,20 @@ CONTAINS
     ! 7. Fill the configuration state
     !------------------------------------------------------------------
     echam_phy_config% lrad      = lrad                                                
+    echam_phy_config% dt_rad    = dt_rad
     echam_phy_config% lvdiff    = lvdiff                                              
     echam_phy_config% lconv     = lconv                                               
     echam_phy_config% lcond     = lcond                                               
     echam_phy_config% icover    = icover                                              
-    echam_phy_config% llandsurf = llandsurf                                           
     echam_phy_config% lssodrag  = lssodrag                                            
     echam_phy_config% lgw_hines = lgw_hines                                           
+    echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% lice      = lice                                                
     echam_phy_config% lmeltpond = lmeltpond                                           
-    echam_phy_config% lamip     = lamip                                                
-    echam_phy_config% lmlo      = lmlo                                                
+    echam_phy_config% llandsurf = llandsurf                                           
     echam_phy_config% ljsbach   = ljsbach
     echam_phy_config% lhd       = lhd                                                 
-    echam_phy_config% dt_rad    = dt_rad
-!!$    echam_phy_config% lmidatm   = lmidatm  
+    echam_phy_config% lamip     = lamip                                                
 
   END SUBROUTINE read_echam_phy_namelist
 
