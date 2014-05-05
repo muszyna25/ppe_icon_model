@@ -62,7 +62,8 @@ MODULE mo_io_nml
                                  & config_output_nml_dict         => output_nml_dict        , &
                                  & config_netcdf_dict             => netcdf_dict            , &
                                  & config_lzaxis_reference        => lzaxis_reference       , &
-                                 & config_itype_rh                => itype_rh
+                                 & config_itype_rh                => itype_rh               ,&
+                                 & config_restart_file_type       => restart_file_type 
 
   USE mo_exception,        ONLY: finish
   USE mo_parallel_config,  ONLY: nproma
@@ -127,12 +128,15 @@ CONTAINS
       &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
 
     LOGICAL ::  use_set_event_to_simstep
+
+    INTEGER :: restart_file_type
     
     NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
       &              inextra_2d, inextra_3d,                 &
       &              lflux_avg, itype_pres_msl, itype_rh,    &
       &              output_nml_dict, netcdf_dict,           &
-      &              lzaxis_reference, use_set_event_to_simstep
+      &              lzaxis_reference, use_set_event_to_simstep, &
+      &              restart_file_type
 
     !-----------------------
     ! 1. default settings
@@ -151,7 +155,7 @@ CONTAINS
     netcdf_dict             = ' '
 
     lzaxis_reference        = .TRUE. ! use ZAXIS_REFERENCE (generalVertical)
-
+    restart_file_type       = config_restart_file_type
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
@@ -196,6 +200,7 @@ CONTAINS
     config_output_nml_dict         = output_nml_dict
     config_netcdf_dict             = netcdf_dict
     config_lzaxis_reference        = lzaxis_reference
+    config_restart_file_type       = restart_file_type
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------

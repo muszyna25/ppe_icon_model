@@ -21,7 +21,7 @@ link_source_list()
   source_folder=$1
   source_files_list="$2"
 
-  if [ ${source_folder} != "" ] ; then
+  if [ x${source_folder} != "x" ] ; then
     if [ ! -d ${icon_dev_to}/${source_folder} ] ; then
       mkdir -p ${icon_dev_to}/${source_folder}
     fi

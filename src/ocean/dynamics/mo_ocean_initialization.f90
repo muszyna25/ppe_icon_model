@@ -140,7 +140,6 @@ CONTAINS
     CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( ocean_restart_list,             &
       & lrestart=.TRUE.,loutput=.TRUE.,&
-      & restart_type=filetype_nc2, &
       & model_type='oce' )
     WRITE(listname,'(a)')  'ocean_default_list'
     CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)

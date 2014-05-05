@@ -365,8 +365,7 @@ MODULE mo_nwp_lnd_state
     !
     CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
     CALL default_var_list_settings( prog_list,                 &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
     !------------------------------
 
@@ -859,8 +858,7 @@ MODULE mo_nwp_lnd_state
     !
     CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
     CALL default_var_list_settings( prog_list,                 &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
     !------------------------------
 
@@ -1054,8 +1052,7 @@ MODULE mo_nwp_lnd_state
     !
     CALL new_var_list( diag_list, TRIM(listname), patch_id=p_jg )
     CALL default_var_list_settings( diag_list,                 &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
     !------------------------------
 

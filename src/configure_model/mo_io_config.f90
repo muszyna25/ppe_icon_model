@@ -46,6 +46,7 @@ MODULE mo_io_config
   USE mo_kind,           ONLY: wp
   USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
+  USE mo_cdi_constants,  ONLY: FILETYPE_NC2
 
   IMPLICIT NONE
   PUBLIC
@@ -88,7 +89,8 @@ MODULE mo_io_config
   INTEGER, PARAMETER :: read_netcdf_distribute_method = 2
   INTEGER :: default_read_method = read_netcdf_broadcast_method
 
-
+  INTEGER :: restart_file_type = FILETYPE_NC2
+  
 CONTAINS
   !----------------------------------------------------------------------------------
    FUNCTION n_checkpoints()

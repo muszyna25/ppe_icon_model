@@ -42,6 +42,7 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action 
+  USE mo_io_config,        ONLY: restart_file_type
 
   IMPLICIT NONE
 
@@ -203,6 +204,8 @@ CONTAINS
     !
     ! set non-default list characteristics
     !
+    this_list%p%restart_type = restart_file_type
+    
     CALL assign_if_present(this_list%p%output_type,  output_type)
     CALL assign_if_present(this_list%p%restart_type, restart_type)
     CALL assign_if_present(this_list%p%post_suf,     post_suf) 
@@ -442,6 +445,8 @@ CONTAINS
     INTEGER,          INTENT(in), OPTIONAL :: patch_id       ! patch ID
     INTEGER,          INTENT(in), OPTIONAL :: vlevel_type    ! 1/2/3 for model/pres./height levels
     !
+    this_list%p%restart_type = restart_file_type
+
     CALL assign_if_present(this_list%p%output_type,  output_type)
     CALL assign_if_present(this_list%p%restart_type, restart_type)
     CALL assign_if_present(this_list%p%post_suf,     post_suf) 
@@ -526,6 +531,8 @@ CONTAINS
     INTEGER,            INTENT(in), OPTIONAL :: compression_type ! compression type
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: model_type       ! output file associated
     !
+    this_list%p%restart_type = restart_file_type
+
     CALL assign_if_present (this_list%p%loutput,          loutput)
     CALL assign_if_present (this_list%p%lrestart,         lrestart)
     CALL assign_if_present (this_list%p%linitial,         linitial)

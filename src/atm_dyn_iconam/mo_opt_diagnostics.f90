@@ -204,26 +204,26 @@ CONTAINS
       CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, TRIM(listname), &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list,    &
-        & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
+        & lrestart=.FALSE. )
       IF (.NOT. l_init_pz) CYCLE
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_z_of_domain_',jg
       CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, TRIM(listname), &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_z,    &
-        & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
+        & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_p_of_domain_',jg
       CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, TRIM(listname), &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_p,    &
-        & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
+        & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_i_of_domain_',jg
       CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, TRIM(listname), &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_il )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_i,    &
-        & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
+        & lrestart=.FALSE. )
     ENDDO ! jg
 
   END SUBROUTINE construct_opt_diag

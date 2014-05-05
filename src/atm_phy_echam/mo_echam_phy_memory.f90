@@ -632,8 +632,7 @@ CONTAINS
 
     CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( field_list,                &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
     !------------------------------
     ! Meteorological quantities

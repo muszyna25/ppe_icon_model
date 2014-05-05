@@ -264,8 +264,7 @@ CONTAINS
     CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_oce_list,            &
                                   & lrestart=.FALSE.,          &
-                                  & restart_type=FILETYPE_NC2, &
-                                  & model_type='oce'  )
+                                 & model_type='oce'  )
 
     ! bathymetric height at cell center
     !

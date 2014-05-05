@@ -495,8 +495,7 @@ MODULE mo_nonhydro_state
     !
     CALL new_var_list( p_prog_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_prog_list,               &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
 
     !------------------------------
@@ -1157,8 +1156,7 @@ MODULE mo_nonhydro_state
     !
     CALL new_var_list( p_diag_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_diag_list,               &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
     ! u           p_diag%u(nproma,nlev,nblks_c)
     !
@@ -2019,8 +2017,7 @@ MODULE mo_nonhydro_state
     !
     CALL new_var_list( p_ref_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ref_list,                &
-                                  & lrestart=.FALSE.,          &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.FALSE. )
 
     ! vn_ref     p_ref%vn_ref(nproma,nlev,nblks_c)
     !
@@ -2124,8 +2121,7 @@ MODULE mo_nonhydro_state
     !
     CALL new_var_list( p_metrics_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_metrics_list,            &
-                                  & lrestart=.FALSE.,          &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.FALSE. )
 
     ! geometric height at the vertical interface of cells
     ! z_ifc        p_metrics%z_ifc(nproma,nlevp1,nblks_c)

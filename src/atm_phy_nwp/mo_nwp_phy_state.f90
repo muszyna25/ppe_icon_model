@@ -304,8 +304,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
 
     CALL new_var_list( diag_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( diag_list,                 &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
     !------------------------------
     ! Meteorological quantities
@@ -2238,8 +2237,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     CALL new_var_list( phy_tend_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( phy_tend_list,             &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+                                  & lrestart=.TRUE.  )
 
     
     !------------------------------

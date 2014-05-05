@@ -82,11 +82,20 @@ case $ac_sitename in
   dkrz.de)
     #  pwr6
     config_target=blizzard
-  #   load_modules="IBM/xlf13.1.0.0" "IBM/xlC12.1.0.0" "${load_modules}"
-  #   load_modules="IBM/xlf13.1.0.2" "IBM/xlc10.1.0.2" "${load_modules}"
   #   load_modules="IBM/xlf13.1.0.8" "IBM/xlc11.1.0.8" "${load_modules}"
     load_modules="IBM/xlf14.1.0.2" "IBM/xlC12.1.0.2" "IBM/xlc12.1.0.2" "${load_modules}"
-    NETCDFROOT  = /sw/aix53/netcdf-3.6.3
+    
+    NETCDFROOT  = /sw/aix61/netcdf-4.2.1.1-64bit-threadsafe
+    # NETCDF_LIB  = -lnetcdff -lnetcdf 
+    HDF5ROOT    = /sw/aix61/hdf5-1.8.9-64bit-threadsafe
+    # HDF5_LIB   = -lhdf5 -lhdf5_hl  
+    ZLIBROOT   = /sw/aix61/zlib-1.2.8
+    # ZLIB_LIB   = -lz 
+    SZIPROOT   = /sw/aix61/szip-2.1-64bit-threadsafe
+    # SZIP_LIB   = -lsz
+    OTHER_LIBS =  -L/sw/aix61/curl-7.21.3/lib -lcurl
+    CFLAGS   = $CFLAGS -DHAVE_NETCDF4
+    
     LAPACKROOT  = /sw/aix53/lapack-3.2.0
    # LAPACK_LIB  = -llapack -lessl -lblas
     LAPACK_LIB  = -lmass -lmassvp6  -L/sw/aix53/lapack-3.2.0/lib -llapack -lessl -lblas

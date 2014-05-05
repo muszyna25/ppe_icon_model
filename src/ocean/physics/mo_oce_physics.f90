@@ -427,7 +427,6 @@ CONTAINS
     CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=p_patch%id)
     CALL default_var_list_settings( ocean_params_list,         &
       & lrestart=.FALSE.,           &
-      & restart_type=filetype_nc2, &
       & model_type='oce' )
     
     ! determine size of arrays
