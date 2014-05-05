@@ -209,6 +209,7 @@ REAL(wp)    :: ax, ay
 
     rdt=dt/(1.0_wp*REAL(evp_rheol_steps,wp))
     steps=evp_rheol_steps
+    ! theta_io should be zero - set in ice_main.f90
     ax=cos(theta_io)
     ay=sin(theta_io)
 do shortstep=1, steps 

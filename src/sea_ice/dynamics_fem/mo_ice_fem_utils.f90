@@ -181,6 +181,7 @@ CONTAINS
 
     ! Interpolate tracers to vertices
     buffy_array = 0._wp
+    ! TODO: Replace hi/conc to himean
     CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
@@ -252,6 +253,7 @@ CONTAINS
           tmp2 = MATMUL( rot_mat(jv,jb,:,:), (/ tmp_x, tmp_y /) )
           stress_atmice_x(jk) = tmp2(1)
           stress_atmice_y(jk) = tmp2(2)
+          ! TODO: Is p_vn_dual updated?
           CALL cvec2gvec(p_os%p_diag%p_vn_dual(jv,1,jb)%x(1),    &
                        & p_os%p_diag%p_vn_dual(jv,1,jb)%x(2),    &
                        & p_os%p_diag%p_vn_dual(jv,1,jb)%x(3),    &
@@ -265,6 +267,7 @@ CONTAINS
           ! Set the ice speed to free drift speed where concentration is less than 0.01
           IF ( a_ice(jk) <= 0.01_wp ) THEN
             u_ice(jk) = 0._wp; v_ice(jk) = 0._wp; u_change = 0._wp
+            ! TODO: Change u_change to speed_change
             DO WHILE ( u_change > 1e-6_wp )
               u_change = SQRT(u_ice(jk)**2+v_ice(jk)**2)
               delu = SQRT( (u_w(jk)-u_ice(jk))**2 + (v_w(jk)-v_ice(jk))**2 )
@@ -1171,6 +1174,7 @@ CONTAINS
       delu = p_ice%u(jc,jb) - p_os%p_diag%u(jc,1,jb)
       delv = p_ice%v(jc,jb) - p_os%p_diag%v(jc,1,jb)
 
+      ! Should we multiply with concSum here?
       tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
       p_sfc_flx%topBoundCond_windStress_u(jc,jb) = Qatm%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
