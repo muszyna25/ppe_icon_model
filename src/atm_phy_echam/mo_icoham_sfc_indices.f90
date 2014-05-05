@@ -69,50 +69,39 @@ CONTAINS
   !! (e.g., dynamical core test, aqua-planet, or real
   !! climate simulation).
   !!
-  SUBROUTINE init_sfc_indices( ltestcase, ctest_name )
+  SUBROUTINE init_sfc_indices( ctest_name )
 
-    LOGICAL,         INTENT(IN) :: ltestcase
     CHARACTER(len=*),INTENT(IN) :: ctest_name
 
-    IF (ltestcase) THEN
-      SELECT CASE(TRIM(ctest_name))
-      CASE('AMIP')
-      ! Amip simulation
-
-        iwtr      = 1
-        iice      = 2
-        ilnd      = 3
-        nsfc_type = 3
-        igbm      = 0
-
-      CASE('APE','APE_nh','RCE','RCE_glb','RCEhydro','RCE_CBL')
+    SELECT CASE(TRIM(ctest_name))
+    CASE('APE','APE_nh','RCE','RCE_glb','RCEhydro','RCE_CBL')
       ! Aqua-planet simulation, no land, no ice;
       ! No needed to distinguish the aggregated grid-box mean
       ! and the value on different types of surface
 
-        iwtr      = 1
-        nsfc_type = 1
-        igbm      = 0
-        iice      = 999
-        ilnd      = 999
+      iwtr      = 1
+      nsfc_type = 1
+      igbm      = 0
+      iice      = 999
+      ilnd      = 999
 
-      CASE('APEi','APEc','APEc_nh')
+    CASE('APEi','APEc','APEc_nh')
       ! Aqua-planet simulation with ice, but no land;
 
-        iwtr      = 1
-        iice      = 2
-        nsfc_type = 2
-        igbm      = 0
-        ilnd      = 999
+      iwtr      = 1
+      iice      = 2
+      nsfc_type = 2
+      igbm      = 0
+      ilnd      = 999
 
-      CASE('JWw-Moist','LDF-Moist','jabw_m')
+    CASE('JWw-Moist','LDF-Moist','jabw_m')
       ! Baroclinic wave test, no land, no ice.
 
-        iwtr      = 1
-        nsfc_type = 1
-        igbm      = 0
-        iice      = 999
-        ilnd      = 999
+      iwtr      = 1
+      nsfc_type = 1
+      igbm      = 0
+      iice      = 999
+      ilnd      = 999
 
       ! maybe worth trying later:
       ! iwtr      = 1
@@ -128,17 +117,18 @@ CONTAINS
       ! igbm      = 0
       ! iwtr      = 999
 
-      END SELECT
-    ELSE
-    ! Standard setup for real-world climate simulation.
-    ! Three surface types are considered.
+    CASE DEFAULT
+      ! Standard setup for real-world climate simulation.
+      ! Three surface types are considered.
 
       iwtr      = 1
       iice      = 2
       ilnd      = 3
       nsfc_type = 3
       igbm      = 0
-    ENDIF
+
+    END SELECT
+
 
     WRITE(message_text,*) " "
     CALL message("mo_icoham_sfc_indices/init_sfc_indices",TRIM(message_text))

@@ -212,7 +212,7 @@ CONTAINS
     ! nsfc_type, iwtr, etc. are set in this subroutine.
     ! See mo_icoham_sfc_indicies.f90 for further details.
 
-    CALL init_sfc_indices( ltestcase, ctest_name )
+    CALL init_sfc_indices( ctest_name )
 
     ! For turbulent mixing:
     ! Allocate memory for the tri-diagonal solver needed by the implicit
