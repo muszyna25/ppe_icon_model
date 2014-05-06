@@ -209,9 +209,9 @@ MODULE mo_solve_nonhydro
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,     &
                dt_shift, wgt_nnow_rth, wgt_nnew_rth, dtime_r, dthalf,         &
                z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2, &
-               z_w_con_up, z_w_con_down
+               z_w_con_up, z_w_con_down, z1_div3d, z2_div3d, zf
 
-    REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac
+    REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac, scal_div3d
 
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp, jk_start
     LOGICAL :: lcompute, lcleanup, lvn_only, lvn_pos
@@ -311,6 +311,24 @@ MODULE mo_solve_nonhydro
         MAX(divdamp_fac,0.004_wp*(0.5_wp*(vct_a(1:nlev)+vct_a(2:nlev+1))-20000._wp)/20000._wp))
     ENDIF
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
+
+    ! Settings for using vertical component of divergence for divdamp_type=3/32
+    IF (divdamp_type == 3) THEN ! Use 3D divergence everywhere
+      scal_div3d(:) = 1._wp
+    ELSE IF (divdamp_type == 32) THEN ! Apply blending between 3D divergence damping in the troposphere
+      z1_div3d = 12500._wp            ! and 2D divergence damping in the stratosphere
+      z2_div3d = 17500._wp
+      DO jk = 1, nlev
+        zf = 0.5_wp*(vct_a(jk)+vct_a(jk+1))
+        IF (zf >= z2_div3d) THEN
+          scal_div3d(jk) = 0._wp
+        ELSE IF (zf >= z1_div3d) THEN
+          scal_div3d(jk) = (z2_div3d-zf)/(z2_div3d-z1_div3d)
+        ELSE
+          scal_div3d(jk) = 1._wp
+        ENDIF
+      ENDDO
+    ENDIF
 
     ! Time increment for backward-shifting of lateral boundary mass flux 
     dt_shift = dtime*REAL(2*iadv_rcf-1,wp)/2._wp
@@ -882,7 +900,7 @@ MODULE mo_solve_nonhydro
 
       ENDIF
 
-    ELSE IF (istep == 2 .AND. lhdiff_rcf .AND. divdamp_type == 3) THEN ! apply div damping on 3D divergence
+    ELSE IF (istep == 2 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN ! apply div damping on 3D divergence
 
       ! add dw/dz contribution to divergence damping term
 
@@ -907,7 +925,7 @@ MODULE mo_solve_nonhydro
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
-            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) + p_patch%edges%inv_dual_edge_length(je,jb)* &
+            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) + scal_div3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)* &
              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
           ENDDO
         ENDDO
@@ -2047,7 +2065,7 @@ MODULE mo_solve_nonhydro
       ENDIF
 
       ! compute dw/dz for divergence damping term
-      IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
+      IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -2178,7 +2196,7 @@ MODULE mo_solve_nonhydro
         ENDIF
 
         ! compute dw/dz for divergence damping term
-        IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type == 3) THEN
+        IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -2218,7 +2236,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     IF (use_icon_comm) THEN 
-      IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type == 3) THEN
+      IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN
         CALL icon_comm_sync(p_nh%prog(nnew)%w, z_dwdz_dd, p_patch%sync_cells_not_owned, &
             & name="solve_step1_w")
       ELSE IF (istep == 1) THEN ! Only w is updated in the predictor step
@@ -2231,7 +2249,7 @@ MODULE mo_solve_nonhydro
       ENDIF
     ELSE IF (itype_comm == 1) THEN
       IF (istep == 1) THEN
-        IF (lhdiff_rcf .AND. divdamp_type == 3) THEN
+        IF (lhdiff_rcf .AND. divdamp_type >= 3) THEN
           ! Synchronize w and vertical contribution to divergence damping
           CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd)
         ELSE 
