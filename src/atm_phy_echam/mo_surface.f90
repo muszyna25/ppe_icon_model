@@ -230,6 +230,9 @@ CONTAINS
 #ifdef __NO_JSBACH__
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 #endif
+#ifdef __ICON_OCEAN__
+   CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
+#endif
 
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
