@@ -28,6 +28,7 @@ include Test::Unit::Assertions
 # ============================================================================
 # user account on all remote machines
 REMOTE_USER = 'm300064'
+@fileList   = FileList.new("src/**/*.{F,F90,f,h,c,inc,f90}","support/*.{c,h}","externals/**/*.{c,h}")
 
 # local master source code directory
 SRCDIR      = ENV.has_key?('SRCDIR')? ENV['SRCDIR'] : '.'
@@ -56,13 +57,13 @@ $hosts = {
     :hostname => 'localhost',
     :port     => 40022,
    #:hostname => 'thunder4.zmaw.de', # use from internal net if login node is down
-    :dir      => '/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon' },
+    :dir      => "/scratch/mpi/CC/mh0287/users/#{REMOTE_USER}/builds/remote/icon" },
   :thunder5 => {
     :user     => REMOTE_USER,
     :hostname => 'localhost',
     :port     => 50022,
    #:hostname => 'thunder5.zmaw.de',# use from internal net if login node is down 
-    :dir      => '/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon' },
+    :dir      => "/scratch/mpi/CC/mh0287/users/#{REMOTE_USER}/builds/remote/icon" },
   :passat => {
     :user     => REMOTE_USER,
     :hostname => 'passat.dkrz.de',
@@ -838,6 +839,11 @@ task :check ,[:p] do |t,args|
   }.each {|k,v|
     puts [k.rjust(16,' '),v.ljust(20,' ')].join(': ')
   }
+end
+
+desc "(Re)Build ctags db"
+task :tags do
+  sh "ctags  --fortran-kinds=efikmpstv #{@fileList.join(' ')}"
 end
 
 # vim:ft=ruby fdm=syntax
