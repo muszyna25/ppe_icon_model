@@ -315,8 +315,7 @@ CONTAINS
                 ice%hs (jc,k,jb) =  ice%hs(jc,k,jb) - ice%Qtop(jc,k,jb) * dtime / (alf*rhos) 
                 ! put remaining heat, if any, into melting ice below
                 IF (ice%hs(jc,k,jb) < 0.0_wp) THEN
-                  ice % hi(jc,k,jb) = ice%hi(jc,k,jb) + ice%hs(jc,k,jb) * (rhos/rhoi) ! snow thickness loss
-                  !                                                               in ice equivalents
+                  ice % hi(jc,k,jb) = ice%hi(jc,k,jb) + ice%hs(jc,k,jb) * (rhos/rhoi) ! snow thickness loss in ice equivalents
                   ice % hs(jc,k,jb) = 0.0_wp
                 ENDIF
                 
