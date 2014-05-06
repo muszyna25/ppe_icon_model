@@ -107,7 +107,6 @@ MODULE mo_io_restart
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file
-  USE mo_math_utilities,        ONLY: set_zlev
 
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
 
@@ -116,9 +115,6 @@ MODULE mo_io_restart
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                 LEAPFROG_EXPL, LEAPFROG_SI
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
-#endif
-#ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m
 #endif
 
   USE mo_model_domain,          ONLY: t_patch
@@ -134,7 +130,7 @@ MODULE mo_io_restart
   INCLUDE 'netcdf.inc'
   !
   PUBLIC :: set_restart_time
-  PUBLIC :: set_restart_vct, set_restart_depth
+  PUBLIC :: set_restart_vct
   PUBLIC :: set_restart_depth_lnd
   PUBLIC :: set_restart_height_snow
   PUBLIC :: init_restart
@@ -378,23 +374,9 @@ CONTAINS
     lvct_initialised = .TRUE.
   END SUBROUTINE set_restart_vct
   !------------------------------------------------------------------------------------------------
-  !
-  !  depth based vertical coordinates
-  !
-  SUBROUTINE set_restart_depth(zh, zf)
-    REAL(wp), INTENT(in) :: zh(:), zf(:)
-    IF (ldepth_initialised) RETURN
-    IF (ALLOCATED(private_depth_half))  &
-      &  DEALLOCATE(private_depth_half, private_depth_full)
-    ALLOCATE(private_depth_half(SIZE(zh)), private_depth_full(SIZE(zf)))
-    private_depth_half(:) = zh(:)
-    private_depth_full(:) = zf(:)
-    ldepth_initialised = .TRUE.
-  END SUBROUTINE set_restart_depth
+
   !------------------------------------------------------------------------------------------------
-  !
   !  depth based vertical coordinates
-  !
   SUBROUTINE set_restart_depth_lnd(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (ldepth_lnd_initialised) RETURN
@@ -1218,11 +1200,14 @@ CONTAINS
                                 & opt_lcall_phy, opt_sim_time, &
                                 & opt_jstep_adv_ntsteps,       &
                                 & opt_jstep_adv_marchuk_order, &
-                                & opt_depth, opt_depth_lnd,    &
+                                & opt_depth_lnd,               &
                                 & opt_nlev_snow,               &
                                 & opt_nice_class,              &
                                 & opt_ndom,                    &
-                                & opt_output_jfile )
+                                & opt_output_jfile,            &
+                                & ocean_Zlevels,               &
+                                & ocean_Zheight_CellMiddle,    &
+                                & ocean_Zheight_CellInterfaces)
 
     TYPE(t_patch),       INTENT(IN) :: patch
     TYPE(t_datetime),    INTENT(IN) :: datetime
@@ -1230,7 +1215,6 @@ CONTAINS
     CHARACTER(len=*),    INTENT(IN) :: model_type           ! store model type
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd               ! vertical levels soil model
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
@@ -1241,9 +1225,13 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
     INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+    INTEGER,  INTENT(IN), OPTIONAL :: ocean_Zlevels
+    REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellMiddle(:)
+    REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellInterfaces(:)
+    
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
-    INTEGER :: izlev, inlev_soil, inlev_snow, i, nice_class
+    INTEGER :: inlev_soil, inlev_snow, i, nice_class
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
     CHARACTER(len=MAX_CHAR_LENGTH)  :: string
 
@@ -1366,25 +1354,17 @@ CONTAINS
       inlev_snow = 0
     ENDIF
 !DR end preliminary fix
-    izlev = 0
-#ifndef __NO_ICON_OCEAN__
-    IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
-      !This part is only called if opt_depth > 0
-      IF(opt_depth>0)THEN
-        izlev = opt_depth
-        ALLOCATE(zlevels_full(izlev))
-        ALLOCATE(zlevels_half(izlev+1))
-        CALL set_zlev(zlevels_half, zlevels_full, n_zlev, dzlev_m)
-        CALL set_restart_depth(zlevels_half, zlevels_full)
-        DEALLOCATE(zlevels_full)
-        DEALLOCATE(zlevels_half)
-!      ELSE
-!        izlev = 0
-      END IF
-!    ELSE
-!      izlev = 0
+
+    IF (PRESENT(ocean_Zheight_CellMiddle) .and. .not. ldepth_initialised) THEN
+      
+      IF (ALLOCATED(private_depth_half))  &
+        &  DEALLOCATE(private_depth_half, private_depth_full)
+      ALLOCATE(private_depth_half(ocean_Zlevels+1), private_depth_full(ocean_Zlevels))
+      private_depth_half(:) = ocean_Zheight_CellInterfaces(:)
+      private_depth_full(:) = ocean_Zheight_CellMiddle(:)
+      ldepth_initialised = .TRUE.
+
     END IF
-#endif
 
     IF (PRESENT(opt_output_jfile)) THEN 
       DO i=1,SIZE(opt_output_jfile)
@@ -1405,7 +1385,7 @@ CONTAINS
                      & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge
                      & klev,              &! total # of vertical layers
-                     & izlev,             &! total # of depths below sea
+                     & ocean_Zlevels,     &! total # of depths below sea
                      & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class         )! total # of ice classes (sea ice)

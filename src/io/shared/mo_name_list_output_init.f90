@@ -45,7 +45,7 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
-    &                                             set_zlev, set_del_zlev
+    &                                             set_zlev
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_cf_convention,                     ONLY: t_cf_var

@@ -67,7 +67,7 @@ MODULE mo_ocean_initialization
   USE mo_dynamics_config,     ONLY: nnew,nold
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
     & t_geographical_coordinates, &!vector_product, &
-    & arc_length,set_del_zlev
+    & arc_length, set_zlev
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v,sync_patch_array, global_sum_array, sync_idx, &
     & enable_sync_checks, disable_sync_checks
@@ -1918,8 +1918,34 @@ CONTAINS
     
   END SUBROUTINE check_ocean_subsets
   !------------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !! Developed  by  Stephan Lorenz, MPI-M (2011).
+  SUBROUTINE set_del_zlev(n_zlev, dzlev_m, del_zlev_i, del_zlev_m, zlev_i, zlev_m)
+    INTEGER,  INTENT(IN) :: n_zlev
+    REAL(wp), INTENT(IN) :: dzlev_m(100)
+    REAL(wp)             :: del_zlev_i(n_zlev), del_zlev_m(n_zlev)
+    REAL(wp)             :: zlev_i(n_zlev+1)  , zlev_m(n_zlev)
+
+    INTEGER :: jk
+  !!-------------------------------------
+    CALL set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
+    ! del_zlev_i: distance between two z-coordinate surfaces.
+    !             The first is the distance from the ocean surface = zlev_m(1)
+    del_zlev_i(1) = zlev_m(1)
+    DO jk = 2, n_zlev
+      del_zlev_i(jk) = zlev_m(jk) -  zlev_m(jk-1)
+    END DO
+
+    del_zlev_m(:) = dzlev_m(1:n_zlev)
+
+  END SUBROUTINE set_del_zlev
+  !------------------------------------------------------------------------------------
   
   
+  !------------------------------------------------------------------------------------
 !<Optimize_Used>
   SUBROUTINE init_oce_config()
     oce_config%tracer_names(1)     = 'T'

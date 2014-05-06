@@ -39,9 +39,8 @@ MODULE mo_oce_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
-    & t_geographical_coordinates, &!vector_product, &
-    & arc_length,set_del_zlev
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,cvec2gvec,      &
+    & t_geographical_coordinates
   
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state

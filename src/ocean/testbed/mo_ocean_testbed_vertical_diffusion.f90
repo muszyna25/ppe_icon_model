@@ -67,7 +67,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
-  USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
   USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
   USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
     & destruct_atmos_fluxes,&
