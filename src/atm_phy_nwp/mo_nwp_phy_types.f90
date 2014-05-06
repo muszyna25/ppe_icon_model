@@ -197,14 +197,14 @@ MODULE mo_nwp_phy_types
                                  !! vertically integrated tot_cld (qv,qc,qi)
       &  clct_avg(:,:),        & !! average since model start of the total cloud cover  
       &  cosmu0(:,:),          & !! cosine of solar zenith angle
-      &  albdif(:,:),          & !! Shortwave albedo for diffuse radiation  (0.3-5.0µm)
-      &  albvisdif(:,:),       & !! UV visible albedo for diffuse radiation (0.3-0.7µm)
-      &  albvisdir(:,:),       & !! UV visible albedo for direct radiation  (0.3-0.7µm)
-      &  albnirdif(:,:),       & !! near IR albedo for diffuse radiation    (0.7-5.0µm)
-      &  albnirdir(:,:),       & !! near IR albedo for direct radiation     (0.7-5.0µm)
-      &  albdif_t(:,:,:),      & !! tile-based shortwave albedo for diffuse radiation  (0.3-5.0µm)
-      &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7µm)
-      &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7µm)
+      &  albdif(:,:),          & !! Shortwave albedo for diffuse radiation  (0.3-5.0um)
+      &  albvisdif(:,:),       & !! UV visible albedo for diffuse radiation (0.3-0.7um)
+      &  albvisdir(:,:),       & !! UV visible albedo for direct radiation  (0.3-0.7um)
+      &  albnirdif(:,:),       & !! near IR albedo for diffuse radiation    (0.7-5.0um)
+      &  albnirdir(:,:),       & !! near IR albedo for direct radiation     (0.7-5.0um)
+      &  albdif_t(:,:,:),      & !! tile-based shortwave albedo for diffuse radiation  (0.3-5.0um)
+      &  albvisdif_t(:,:,:),   & !! tile-based UV visible albedo for diffuse radiation (0.3-0.7um)
+      &  albnirdif_t(:,:,:),   & !! tile-based near IR albedo for diffuse radiation (0.3-0.7um)
       &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]

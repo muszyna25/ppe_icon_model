@@ -227,15 +227,15 @@ MODULE mo_ext_data_types
       &  emis_rad(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER ::   &   !< shortwave broadband albedo for diffuse radiation  [1]
-      &  alb_dif(:,:)          !< (0.3 - 5.0 µm)
+      &  alb_dif(:,:)          !< (0.3 - 5.0 um)
                                ! index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER ::   &   !< UV visible broadband albedo for diffuse radiation [1]
-      &  albuv_dif(:,:)        !< (0.3 - 0.7 µm)
+      &  albuv_dif(:,:)        !< (0.3 - 0.7 um)
                                ! index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER ::   &   !< Near IR broadband albedo for diffuse radiation    [1]
-      &  albni_dif(:,:)        !< (0.7 - 5.0 µm)
+      &  albni_dif(:,:)        !< (0.7 - 5.0 um)
                                ! index1=1,nproma, index2=1,nblks_c
 
 
@@ -372,15 +372,15 @@ MODULE mo_ext_data_types
       &  aer_ss(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
     REAL(wp), POINTER ::   &   !< shortwave broadband albedo for diffuse radiation  [1]
-      &  alb_dif(:,:,:)        !< (0.3 - 5.0 µm)
+      &  alb_dif(:,:,:)        !< (0.3 - 5.0 um)
                                ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
     REAL(wp), POINTER ::   &   !< UV visible broadband albedo for diffuse radiation [1]
-      &  albuv_dif(:,:,:)      !< (0.3 - 0.7 µm)
+      &  albuv_dif(:,:,:)      !< (0.3 - 0.7 um)
                                ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
     REAL(wp), POINTER ::   &   !< Near IR broadband albedo for diffuse radiation    [1]
-      &  albni_dif(:,:,:)      !< (0.7 - 5.0 µm)
+      &  albni_dif(:,:,:)      !< (0.7 - 5.0 um)
                                ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
 
