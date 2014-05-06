@@ -58,8 +58,8 @@ MODULE mo_art_emission_interface
     
 #ifdef __ICON_ART
 ! Infrastructure Routines
-    USE mo_art_modes_linked_list, ONLY: p_mode_state,t_mode, &
-        &                               t_fields_2mom,t_fields_radio, &
+    USE mo_art_modes_linked_list, ONLY: p_mode_state,t_mode
+    USE mo_art_modes,             ONLY: t_fields_2mom,t_fields_radio, &
         &                               t_fields_volc
     USE mo_art_data,              ONLY: p_art_data
     USE mo_art_aerosol_utilities, ONLY: art_air_properties

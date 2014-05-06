@@ -50,8 +50,8 @@ MODULE mo_art_reaction_interface
 #ifdef __ICON_ART
     USE mo_art_radioactive,        ONLY: art_decay_radioact
 !    USE mo_art_chemtracer,      ONLY: art_loss_chemtracer
-    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode, &
-        &                                t_fields_radio
+    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode
+    USE mo_art_modes,              ONLY: t_fields_radio
 #endif
 
   IMPLICIT NONE
