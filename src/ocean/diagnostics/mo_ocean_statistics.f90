@@ -63,7 +63,7 @@ MODULE mo_ocean_statistics
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
-  USE mo_sea_ice,                ONLY: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
+  USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
@@ -77,7 +77,6 @@ MODULE mo_ocean_statistics
   USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
-  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_time_config,            ONLY: time_config
   USE mo_master_control,         ONLY: is_restart_run
