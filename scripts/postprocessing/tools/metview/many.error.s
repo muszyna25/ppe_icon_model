@@ -45,15 +45,17 @@ while [[ $nt < ${#inidate[*]} ]]; do
 
   # -------------------------------------------------------
 
-  set -A vars TQV             TQC            TQI              TCC                \
+  set -A vars TQV             TQC            TQI                                 \
+              TCC             HCC            MCC              LCC                \
               TQ1             TQ2            TQ3              TQ4       TQ5      \
               PS              PMSL                                               \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S                                          \
               TOT_PREC        RAIN_GSP       SNOW_GSP         RAIN_CON  SNOW_CON \
               T_G             T_2M           U_10M            V_10M              \
-              DZH_SNOW                                                    \
+              DZH_SNOW                                                           \
               FR_SEAICE       H_SEAICE       T_SEAICE         SST
+
 #             QV_2M           QV_S           T_GT_tile_1      T_S_tile_1         \
 #             W_I_tile_1      T_SNOW_tile_1  WTOT_SNOW_tile_1 WLIQ_SNOW_tile_1   \
 #             RHO_SNOW_tile_1 H_SNOW         W_SNOW    
@@ -62,7 +64,8 @@ while [[ $nt < ${#inidate[*]} ]]; do
   do
     echo ${metview} -b ${scriptdir}map.error $expnum $var sfc snap  ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
-  set -A vars TQV             TQC            TQI              TCC                \
+  set -A vars TQV             TQC            TQI                                 \
+              TCC             HCC            MCC              LCC                \
               TQ1             TQ2            TQ3                                 \
               ACCSOB_S        ACCTHB_S       ACCSOB_T         ACCTHB_T           \
               ACCLHFL_S       ACCSHFL_S      TOT_PREC         PS                 \

@@ -158,6 +158,9 @@ case varname of
  'SNOW_CON':  varfile = 'csrwe'       end    # 0.1.55
  'SNOW_GSP':  varfile = 'lssrwe'      end    # 0.1.56
  'TCC'     :  varfile = '0.6.1'       end
+ 'HCC'     :  varfile = 'cc.0'        end  # levtype =sfc
+ 'MCC'     :  varfile = 'cc.400'      end  # levtype =sfc
+ 'LCC'     :  varfile = 'cc.800'      end  # levtype =sfc
  'TQV'     :  varfile = '0.1.214'     end    # diag
  'TQC'     :  varfile = '0.1.215'     end    # diag
  'TQI'     :  varfile = '0.1.216'     end    # diag
@@ -284,6 +287,9 @@ for nd=1 to ndays do
       'ACCLHFL_S':       scale= 1.0/86400.0 end
       'ACCSHFL_S':       scale= 1.0/86400.0 end
       'TCC':             scale= 0.01        end
+      'HCC':             scale= 0.01        end
+      'MCC':             scale= 0.01        end
+      'LCC':             scale= 0.01        end
     end case
     temp = temp * scale
     if nd=1 then
@@ -324,6 +330,9 @@ for nd=1 to ndays do
         param = varname
         case varname of
           'TCC':             param = 'TCC'  end
+          'HCC':             param = 'HCC'  end
+          'MCC':             param = 'MCC'  end
+          'LCC':             param = 'LCC'  end
           'TQV':             param = 'TCWV' end
           'TQC':             param = 'TCLW' end
           'TQI':             param = 'TCIW' end
