@@ -230,7 +230,7 @@ CONTAINS
 #ifdef __NO_JSBACH__
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 #endif
-#ifdef __ICON_OCEAN__
+#ifdef __NO_ICON_OCEAN__
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 #endif
 
@@ -600,7 +600,7 @@ CONTAINS
       ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
     ENDIF
 #else
-    ! not __ICON_OCEAN__
+    ! __NO_ICON_OCEAN__
       CALL finish(method_name, "The ice process requires the ICON_OCEAN component")
 #endif
     ENDIF ! lice
