@@ -155,13 +155,13 @@ CONTAINS
     !------------------------------------------------------------------
         IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
           IF (diagnostics_level == 1 ) THEN
-            CALL calc_slow_oce_diagnostics( patch_3d,      &
-            & ocean_state(jg),      &
-            & p_sfc_flx,     &
-            & p_ice,         &
-            & jstep-jstep0,  &
-            & datetime) !,      &
-            ! & oce_ts)
+            CALL calc_slow_oce_diagnostics( patch_3d       , &
+              &                             ocean_state(jg), &
+              &                             p_sfc_flx      , &
+              &                             p_ice          , &
+              &                             jstep-jstep0   , &
+              &                             datetime) !    , &
+            ! &                             oce_ts)
             IF (no_tracer>=2) THEN
               CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
             ENDIF
