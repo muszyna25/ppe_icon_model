@@ -484,6 +484,15 @@ CONTAINS
   CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%HeatFlux_Total    ,str_module, 2, in_subset=p_patch%cells%owned)
   !---------------------------------------------------------------------
 
+  !-----------------------------------------------------------------------
+  !  (4) set resulting forcing fluxes for ocean using interface variables from sea ice/coupling/analytical:
+  !    p_sfc_flx%HeatFlux_Total(:,:)       = p_ice_interface%heatOceI(:,:) + p_ice_interface%heatOceW(:,:) 
+  !    p_sfc_flx%topBoundCond_windStress_u = p_ice_interface%windStress_u  !  modified in ice_slow
+  !-----------------------------------------------------------------------
+  !   ...
+
+
+
   ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
   !   - no energy balance correction
   !   - number of ice classes currently kice=1 - sum of classes must be limited
