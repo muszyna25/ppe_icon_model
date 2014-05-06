@@ -129,7 +129,7 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
     TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
     TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
-    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
+    TYPE (t_atmos_fluxes),    INTENT(IN)     :: Qatm
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
     ! Local variables

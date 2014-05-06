@@ -1153,7 +1153,7 @@ CONTAINS
     TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
     !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
-    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
+    TYPE (t_atmos_fluxes),    INTENT (IN)    :: QatmAve
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
@@ -1566,7 +1566,7 @@ CONTAINS
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
-    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: QatmAve
+    TYPE(t_atmos_fluxes),      INTENT(IN)    :: QatmAve
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
     !Local Variables
@@ -2133,9 +2133,9 @@ CONTAINS
     ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981"
     !-----------------------------------------------------------------------
 
-    aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
-    AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
-    alpha=0.62197_wp; beta=0.37803_wp
+    aw    = 611.21_wp; bw    = 18.729_wp; cw   = 257.87_wp; dw = 227.3_wp
+    AAw   = 7.2e-4_wp; BBw   = 3.20e-6_wp; CCw = 5.9e-10_wp
+    alpha = 0.62197_wp; beta = 0.37803_wp
 
     fa(:,:)   = 1.0_wp+AAw+p_as%pao(:,:)*(BBw+CCw*ftdewC(:,:)**2)
     esta(:,:) = fa(:,:) * aw*EXP((bw-ftdewC(:,:)/dw)*ftdewC(:,:)/(ftdewC(:,:)+cw))
