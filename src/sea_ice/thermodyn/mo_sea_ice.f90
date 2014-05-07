@@ -499,19 +499,45 @@ CONTAINS
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for runoff failed')
     END IF
+    ALLOCATE(p_as%topBoundCond_windStress_u(nproma,alloc_cell_blocks), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of topBoundCond_windStress_u failed.')
+
+    ALLOCATE(p_as%topBoundCond_windStress_v(nproma,alloc_cell_blocks), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of topBoundCond_windStress_v failed.')
+
+    ALLOCATE(p_as%FrshFlux_Precipitation(nproma,alloc_cell_blocks), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_Precipitation failed.')
+
+    ALLOCATE(p_as%FrshFlux_Evaporation(nproma,alloc_cell_blocks), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_Evaporation failed.')
+
+    ALLOCATE(p_as%FrshFlux_TotalOcean(nproma,alloc_cell_blocks), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_TotalOcean failed.')
+
+    ALLOCATE(p_as%FrshFlux_Runoff(nproma,alloc_cell_blocks), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_Runoff failed.')
+
+    ALLOCATE(p_as%data_surfRelax_Temp(nproma,alloc_cell_blocks), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of data_surfRelax_Temp failed.')
 
 
-    p_as%tafo  (:,:) = 0.0_wp
-    p_as%ftdew (:,:) = 0.0_wp
-    p_as%fclou (:,:) = 0.0_wp
-    p_as%fu10  (:,:) = 0.0_wp
-    p_as%fswr  (:,:) = 0.0_wp
-    p_as%pao   (:,:) = 0.0_wp
-    p_as%u     (:,:) = 0.0_wp
-    p_as%v     (:,:) = 0.0_wp
-    p_as%precip(:,:) = 0.0_wp
-    p_as%evap  (:,:) = 0.0_wp
-    p_as%runoff(:,:) = 0.0_wp
+    p_as%tafo  (:,:)                    = 0.0_wp
+    p_as%ftdew (:,:)                    = 0.0_wp
+    p_as%fclou (:,:)                    = 0.0_wp
+    p_as%fu10  (:,:)                    = 0.0_wp
+    p_as%fswr  (:,:)                    = 0.0_wp
+    p_as%pao   (:,:)                    = 0.0_wp
+    p_as%u     (:,:)                    = 0.0_wp
+    p_as%v     (:,:)                    = 0.0_wp
+    p_as%precip(:,:)                    = 0.0_wp
+    p_as%evap  (:,:)                    = 0.0_wp
+    p_as%runoff(:,:)                    = 0.0_wp
+    p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
+    p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
+    p_as%FrshFlux_Precipitation(:,:)    = 0.0_wp
+    p_as%FrshFlux_TotalOcean(:,:)       = 0.0_wp
+    p_as%FrshFlux_Runoff(:,:)           = 0.0_wp
+    p_as%data_surfRelax_Temp(:,:)       = 0.0_wp
 
     CALL message(TRIM(routine), 'end')
 

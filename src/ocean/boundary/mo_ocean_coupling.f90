@@ -104,11 +104,10 @@ CONTAINS
     RETURN
   END SUBROUTINE destruct_ocean_coupling
   
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, atmos_for_ocean, ice, atmos_fluxes, &
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, &
     & surface_fluxes, jstep, datetime)
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
-    TYPE(t_atmos_for_ocean)                     :: atmos_for_ocean
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_sfc_flx)                             :: surface_fluxes
@@ -391,12 +390,11 @@ CONTAINS
   !--------------------------------------------------------------------------
   
   !--------------------------------------------------------------------------
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, atmos_for_ocean, ice, atmos_fluxes, &
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, &
     & surface_fluxes, jstep, datetime)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
-    TYPE(t_atmos_for_ocean)                     :: atmos_for_ocean
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_sfc_flx)                             :: surface_fluxes

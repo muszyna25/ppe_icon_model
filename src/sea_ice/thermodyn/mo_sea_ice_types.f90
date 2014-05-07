@@ -139,7 +139,14 @@ MODULE mo_sea_ice_types
       & v(:,:),                &
       & precip(:,:),           &  ! precipitation rate                               [m/s]
       & evap  (:,:),           &  ! evaporation   rate                               [m/s]
-      & runoff(:,:)               ! river runoff  rate                               [m/s]
+      & runoff(:,:),           &  ! river runoff  rate                               [m/s]
+      & topBoundCond_windStress_u(:,:), &
+      & topBoundCond_windStress_v(:,:), &
+      & FrshFlux_Precipitation(:,:),    &
+      & FrshFlux_Evaporation(:,:),    &
+      & FrshFlux_TotalOcean(:,:),    &
+      & FrshFlux_Runoff(:,:),           &
+      & data_surfRelax_Temp(:,:)
 
   END TYPE t_atmos_for_ocean
 
