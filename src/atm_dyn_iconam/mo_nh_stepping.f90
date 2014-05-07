@@ -60,6 +60,7 @@ MODULE mo_nh_stepping
   USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                    ldynamics, ltransport, ntracer, lforcing, iforcing, &
     &                                    msg_level, test_mode, output_mode
+  USE mo_advection_config,         ONLY: advection_config
   USE mo_radiation_config,         ONLY: albedo_type
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
     &                                    timer_total, timer_model_init, timer_nudging,    &
@@ -101,7 +102,7 @@ MODULE mo_nh_stepping
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY:  SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
+    &                                    inwp, iecham, itturb, itgscp, itsfc, ippm_v,              &
     &                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS !, icosmo
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
@@ -829,7 +830,10 @@ MODULE mo_nh_stepping
 
     LOGICAL :: l_bdy_nudge
     INTEGER :: idyn_timestep
-    LOGICAL :: l_recompute, lsave_mflx, lprep_adv, lfull_comp
+    LOGICAL :: l_recompute, lsave_mflx, lprep_adv
+
+    LOGICAL :: lfull_comp    ! full set of computations in prepare_tracer
+
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
@@ -1130,11 +1134,21 @@ MODULE mo_nh_stepping
           lprep_adv = .FALSE.
         ENDIF
 
-        IF (idiv_method == 1) THEN
-          lfull_comp = .FALSE.  ! do not perform full set of computations in prepare_tracer
-        ELSE
+
+        ! The full set of computations is NOT executed in prepare_tracer 
+        ! when the tracer advection is running together with the dynmical core 
+        ! (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
+        ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
+        IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
+          &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
+          &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
+          &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
           lfull_comp = .TRUE.
+        ELSE
+          lfull_comp = .FALSE. ! do not perform full set of computations in prepare_tracer
         ENDIF
+
+
 
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done

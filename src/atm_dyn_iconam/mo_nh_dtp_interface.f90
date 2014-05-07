@@ -110,13 +110,14 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lclean_mflx  !< switch for re-initializing time integrated
                                         !< mass fluxes and trajectory-velocities
     LOGICAL, INTENT(IN) :: lfull_comp   !< perform full amount of computations (comes in as .FALSE. if
-                                        !< part of the precomputations has already been done in solve_nh)
+                                        !< part of the precomputations has already been done in 
+                                        !< solve_nh and only standard settings are used)
 
-    REAL(wp),INTENT(INOUT)         :: p_vn_traj(:,:,:)      ! (nproma,  nlev,p_patch%nblks_e)
-    REAL(wp),INTENT(INOUT)         :: p_w_traj(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
-    REAL(wp),INTENT(INOUT), TARGET :: p_mass_flx_me(:,:,:)  ! (nproma,  nlev,p_patch%nblks_e)
-    REAL(wp),INTENT(INOUT)         :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
-    REAL(wp),INTENT(OUT)           :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
+    REAL(wp),INTENT(INOUT) :: p_vn_traj(:,:,:)      ! (nproma,  nlev,p_patch%nblks_e)
+    REAL(wp),INTENT(INOUT) :: p_w_traj(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
+    REAL(wp),INTENT(INOUT) :: p_mass_flx_me(:,:,:)  ! (nproma,  nlev,p_patch%nblks_e)
+    REAL(wp),INTENT(INOUT) :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
+    REAL(wp),INTENT(OUT)   :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 
     ! local variables
     REAL(wp) :: r_iadv_rcf           !< reciprocal of iadv_rcf
@@ -132,7 +133,6 @@ CONTAINS
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: nlev, nlevp1       !< number of full and half levels
 
-    LOGICAL  :: lfull_computations
   !--------------------------------------------------------------------------
     IF (timers_level > 2) CALL timer_start(timer_prep_tracer)
 
@@ -154,16 +154,16 @@ CONTAINS
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
  
-    ! The full set of computations is NOT exectuted when the tracer advection is running together
-    ! with the dynmical core (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
-    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
-    lfull_computations = lfull_comp
-    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
-      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
-      &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
-      &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
-      lfull_computations = .TRUE.
-    ENDIF
+!!$    ! The full set of computations is NOT exectuted when the tracer advection is running together
+!!$    ! with the dynmical core (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
+!!$    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
+!!$    lfull_computations = lfull_comp
+!!$    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 )     .OR. &
+!!$      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 )     .OR. &
+!!$      &  ANY( advection_config(jg)%ivadv_tracer(1:ntracer) == ippm_v) .OR. &
+!!$      &  advection_config(jg)%iord_backtraj == 2 .OR. idiv_method == 2) THEN
+!!$      lfull_computations = .TRUE.
+!!$    ENDIF
 
 !$OMP PARALLEL PRIVATE(i_rlstart_e,i_rlend_e,i_startblk,i_endblk)
 
@@ -185,7 +185,7 @@ CONTAINS
     ! horizontal (contravariant) mass flux at full level edges
     ! Taken from dynamical core (corrector-step)
     !
-    IF (lfull_computations) THEN
+    IF (lfull_comp) THEN
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
@@ -222,7 +222,7 @@ CONTAINS
 !$OMP END DO NOWAIT
     ENDIF
 
-    IF (lfull_computations .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
+    IF (lfull_comp .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
 !$OMP WORKSHARE
         p_vn_traj    (:,:,i_endblk+1:p_patch%nblks_e) = 0._wp
         p_mass_flx_me(:,:,i_endblk+1:p_patch%nblks_e) = 0._wp
@@ -237,7 +237,7 @@ CONTAINS
     ! Time averaged contravariant vertical velocity
     ! and vertical mass flux at half level centers
     !
-    IF (lfull_computations) THEN
+    IF (lfull_comp) THEN
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,w_tavg) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
@@ -271,7 +271,7 @@ CONTAINS
 !$OMP END DO
     ENDIF
 
-    IF (lfull_computations .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
+    IF (lfull_comp .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
 !$OMP WORKSHARE
         p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
         p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
@@ -283,7 +283,7 @@ CONTAINS
     !
     ! compute time averaged mass fluxes and trajectory-velocities
     !
-    IF (lfull_computations .AND. lstep_advphy .AND. iadv_rcf > 1 ) THEN
+    IF (lfull_comp .AND. lstep_advphy .AND. iadv_rcf > 1 ) THEN
 
 
       r_iadv_rcf = 1._wp/REAL(iadv_rcf,wp)
