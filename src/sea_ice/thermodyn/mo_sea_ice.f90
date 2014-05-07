@@ -1176,8 +1176,8 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
     TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
-    TYPE (t_sea_ice),         INTENT (INOUT) :: ice
-    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
+    TYPE(t_sea_ice),          INTENT (INOUT) :: ice
+    TYPE(t_atmos_fluxes),     INTENT (INOUT) :: Qatm
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
@@ -1584,12 +1584,12 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, QatmAve, p_sfc_flx)
+  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, Qatm, p_sfc_flx)
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
-    TYPE(t_atmos_fluxes),      INTENT(IN)    :: QatmAve
+    TYPE(t_atmos_fluxes),      INTENT(IN)    :: Qatm
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
     !Local Variables
@@ -1624,9 +1624,9 @@ CONTAINS
     ! Calculate change in water level 'zo' from liquid and solid precipitation and
     ! evaporation
     sss             (:,:)   = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    precw           (:,:)   = QatmAve% rprecw (:,:)
-    preci           (:,:)   = QatmAve% rpreci (:,:)
-    !evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
+    precw           (:,:)   = Qatm% rprecw (:,:)
+    preci           (:,:)   = Qatm% rpreci (:,:)
+    !evap            (:,:)   = (Qatm% latw(:,:)/ alv * dtime * &
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
     
@@ -1653,9 +1653,9 @@ CONTAINS
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
-    heatOceW(:,:) = ( QatmAve%SWnetw(:,:)                       &
-      &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+     &
-      &                 QatmAve%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
+    heatOceW(:,:) = ( Qatm%SWnetw(:,:)                       &
+      &         + Qatm%LWnetw(:,:) + Qatm%sensw(:,:)+     &
+      &                 Qatm%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) +        &
@@ -1681,10 +1681,10 @@ CONTAINS
     CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
 
     ! Diagnosis: collect the 4 parts of heat fluxes into the p_sfc_flx variables - no flux under ice:
-    p_sfc_flx%HeatFlux_ShortWave(:,:) = QatmAve%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%HeatFlux_LongWave (:,:) = QatmAve%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%HeatFlux_Sensible (:,:) = QatmAve%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%HeatFlux_Latent   (:,:) = QatmAve%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_ShortWave(:,:) = Qatm%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_LongWave (:,:) = Qatm%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_Sensible (:,:) = Qatm%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    p_sfc_flx%HeatFlux_Latent   (:,:) = Qatm%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! #slo# 2013-06
     ! Change of upper ocean temperature according to heat fluxes is done in vertical diffusion equation
@@ -1734,7 +1734,7 @@ CONTAINS
         &       - (1._wp-sice/sss(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation                       
     ENDWHERE
 
-    !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
+    !heatabs         (:,:)   = swsum * Qatm% SWin(:,:) * (1 - ice%concsum)
 
     ! set to zero on land points
     WHERE (v_base%lsm_c(:,1,:) > sea_boundary )
@@ -1760,13 +1760,11 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !! Einar Olason, renamed and added support for changing concentration
   !!
-  SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+  SUBROUTINE ice_conc_change(p_patch,ice, p_os)
 
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice
-    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
-    !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
-    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
 
     INTEGER  :: k
  !  REAL(wp) :: sst(nproma,p_patch%alloc_cell_blocks)
