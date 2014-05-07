@@ -154,10 +154,10 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    p_patch => p_patch_3D%p_patch_2D(1)
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_v = p_patch%nblks_v
-    nblks_e = p_patch%nblks_e
+    p_patch           => p_patch_3D%p_patch_2D(1)
+    alloc_cell_blocks =  p_patch%alloc_cell_blocks
+    nblks_v           =  p_patch%nblks_v
+    nblks_e           =  p_patch%nblks_e
 
     p_ice%kice = i_no_ice_thick_class
 
@@ -1215,7 +1215,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL upper_ocean_TS (p_patch,p_os,ice, Qatm, p_sfc_flx)
-    CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+    CALL ice_conc_change(p_patch,ice, p_os)
 
     CALL ice_ocean_stress( p_patch, Qatm, p_sfc_flx, ice, p_os )
 
