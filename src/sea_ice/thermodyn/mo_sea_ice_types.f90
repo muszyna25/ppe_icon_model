@@ -200,10 +200,10 @@ MODULE mo_sea_ice_types
       &  HeatFlux_LongWave        (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  HeatFlux_Sensible        (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  HeatFlux_Latent          (:,:),     & ! surface latent heat flux                                  [W/m2]
-      &  FrshFlux_Precipitation      (:,:),     & ! total precipitation flux                                  [m/s]
+      &  FrshFlux_Precipitation   (:,:),     & ! total precipitation flux                                  [m/s]
       &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
-      &  FrshFlux_Evaporation        (:,:),     & ! evaporation flux                                          [m/s]
-      &  FrshFlux_Runoff      (:,:)!     & ! river runoff flux                                         [m/s]
+      &  FrshFlux_Evaporation     (:,:),     & ! evaporation flux                                          [m/s]
+      &  FrshFlux_Runoff          (:,:)!     & ! river runoff flux                                         [m/s]
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
