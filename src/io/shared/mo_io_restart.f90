@@ -185,7 +185,7 @@ MODULE mo_io_restart
   REAL(wp), ALLOCATABLE :: private_height_snow_half(:), private_height_snow_full(:)
   !
   LOGICAL, SAVE :: lvct_initialised         = .FALSE.
-  LOGICAL, SAVE :: ldepth_initialised       = .FALSE.
+  LOGICAL, SAVE :: use_ocean_levels       = .FALSE.
   LOGICAL, SAVE :: ldepth_lnd_initialised   = .FALSE.
   LOGICAL, SAVE :: lheight_snow_initialised = .FALSE.
   !
@@ -550,7 +550,7 @@ CONTAINS
 !AD(9July-2013): The following condition seemed unnecessary. So after
 !  discussing with DR we decided to get rid of it for time being
 
-!    IF (.NOT. (lvct_initialised .OR. ldepth_initialised            &
+!    IF (.NOT. (lvct_initialised .OR. use_ocean_levels            &
 !      & .OR. ldepth_lnd_initialised )) THEN
 !      CALL finish('init_restart','none of the vertical grids is initialised')
 !      ! more consistency checks need to follow
@@ -901,14 +901,14 @@ CONTAINS
           ! Ocean
           !
           CASE (ZA_DEPTH_BELOW_SEA)
-            IF (.NOT. ldepth_initialised) CYCLE
+            IF (.NOT. use_ocean_levels) CYCLE
             var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
               &                                           vgrid_def(ivg)%nlevels)
             CALL zaxisDefLevels(var_lists(i)%p%cdiDepthFullZaxisID, &
               &              private_depth_full)
 
           CASE (ZA_DEPTH_BELOW_SEA_HALF)
-            IF (.NOT. ldepth_initialised) CYCLE
+            IF (.NOT. use_ocean_levels) CYCLE
             var_lists(i)%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
               &                                           vgrid_def(ivg)%nlevels)
             CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
@@ -1356,18 +1356,21 @@ CONTAINS
     ENDIF
 !DR end preliminary fix
 
-    IF (.not. ldepth_initialised) THEN
-      ndepth = 0   
-      IF (PRESENT(ocean_Zheight_CellMiddle) ) THEN	
+    ndepth = 0   
+    IF (PRESENT(ocean_Zheight_CellMiddle) ) THEN
+      IF (.not. PRESENT(ocean_Zheight_CellInterfaces) .or. .not. PRESENT(ocean_Zlevels) ) & 
+        CALL finish('create_restart_file','Ocean level parameteres not complete')
+      IF (.not. use_ocean_levels) THEN
+        ! initialize the ocean levels
 	IF (ALLOCATED(private_depth_half))  &
 	  &  DEALLOCATE(private_depth_half, private_depth_full)
 	ALLOCATE(private_depth_half(ocean_Zlevels+1), private_depth_full(ocean_Zlevels))
 	private_depth_half(:) = ocean_Zheight_CellInterfaces(:)
 	private_depth_full(:) = ocean_Zheight_CellMiddle(:)
-	ndepth = ocean_Zlevels
       END IF
-      ldepth_initialised = .TRUE.
-    END IF
+      ndepth = ocean_Zlevels
+      use_ocean_levels = .TRUE.
+     END IF
     
 
     IF (PRESENT(opt_output_jfile)) THEN 
@@ -1814,7 +1817,7 @@ CONTAINS
     lvct_initialised = .FALSE.
     IF (ALLOCATED(private_depth_full)) DEALLOCATE(private_depth_full)
     IF (ALLOCATED(private_depth_half)) DEALLOCATE(private_depth_half)
-    ldepth_initialised = .FALSE.
+    use_ocean_levels = .FALSE.
     IF (ALLOCATED(private_depth_lnd_full)) DEALLOCATE(private_depth_lnd_full)
     IF (ALLOCATED(private_depth_lnd_half)) DEALLOCATE(private_depth_lnd_half)
     ldepth_lnd_initialised = .FALSE.
