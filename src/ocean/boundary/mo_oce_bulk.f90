@@ -589,8 +589,8 @@ CONTAINS
     IF (type_surfRelax_Temp >= 1) THEN
 
       trac_no = 1   !  tracer no 1: temperature
-    ! CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
-      CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
+      CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
+    ! CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
 
     END IF
 
@@ -633,8 +633,8 @@ CONTAINS
     IF (type_surfRelax_Salt >= 1 .AND. no_tracer >1) THEN
 
       trac_no = 2   !  tracer no 2: salinity
-    ! CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
-      CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
+      CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
+    ! CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
 
     ENDIF  !  type_surfRelax_Salt >=1  salinity relaxation
 
@@ -1220,8 +1220,9 @@ CONTAINS
     !Local variables 
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
-    REAL(wp) :: z_relax, z_topBCSalt_old
+    REAL(wp) :: relax_strength, thick, z_topBCSalt_old
     REAL(wp) :: z_c        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: saltflux   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp     ! TODO: use real month length
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: t_top(:,:), s_top(:,:)
@@ -1238,6 +1239,8 @@ CONTAINS
 
     IF (tracer_no == 1) THEN  ! temperature relaxation
     
+      ! TODO: cleanup as for salinity below
+
       ! Temperature relaxation activated as boundary condition in vertical Diffusion D:
       !   D = d/dz(K_v*dT/dz)  where
       ! Boundary condition at surface (upper bound of D at center of first layer)
@@ -1262,9 +1265,9 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
     
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-            z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
+            relax_strength = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
               &       (para_surfRelax_Temp*seconds_per_month)
-            p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = -z_relax*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
+            p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
           ELSE
             p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = 0.0_wp
           ENDIF
@@ -1300,7 +1303,8 @@ CONTAINS
     ELSE IF (tracer_no == 2) THEN  ! salinity relaxation
       !
       ! Salinity relaxation activated as additonal forcing term in the tracer equation
-      !    F_S  = Q_S/dz = -1/tau * (S-S*) [ psu/s ]
+      ! implemented as simple time-dependent relaxation (time needed to restore tracer completely back to S*)
+      !    F_S  = -1/tau * (S-S*) [ psu/s ]
       ! when using the sign convention
       !   dS/dt = Operators + F_S
       ! i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is saltier than relaxation data) 
@@ -1312,40 +1316,37 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
 
-            !z_relax = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-            !          &/(para_surfRelax_Temp*seconds_per_month)
-            z_relax = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-              &       (para_surfRelax_Salt*seconds_per_month)
+            relax_strength = 1.0_wp / (para_surfRelax_Salt*seconds_per_month)
             ! 
             ! If sea ice is present (and l_relaxsal_ice), salinity relaxation is proportional to open water,
             !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
-            IF (l_relaxsal_ice .AND. i_sea_ice >=1) z_relax = (1.0_wp-p_ice%concsum(jc,jb))*z_relax
+            IF (l_relaxsal_ice .AND. i_sea_ice >=1) relax_strength = (1.0_wp-p_ice%concsum(jc,jb))*relax_strength
 
-            z_topBCSalt_old              = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
             p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) &
-              &                              -z_relax*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
+              &                              -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
+            ! calculate additional salt rate F_S due to relaxation [psu/s]
+            saltflux(jc,jb) = -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
-            ! Diagnosed freshwater flux due to relaxation [m/s]
+            ! Diagnosed freshwater flux due to relaxation
+            !  Fw_S = F_S*dz/S = dz/tau * (S-S*)/S  [m/s]
             ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
-            p_sfc_flx%forc_fwrelax(jc,jb) = (z_topBCSalt_old-p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)) / s_top(jc,jb)
+            thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+            p_sfc_flx%forc_fwrelax(jc,jb) = -saltflux(jc,jb) * thick / s_top(jc,jb)
+           
+            ! add relaxation term to salinity
+            s_top(jc,jb) = s_top(jc,jb) + saltflux(jc,jb)*dtime
 
           ELSE
-            p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) = 0.0_wp
             p_sfc_flx%forc_fwrelax(jc,jb)  = 0.0_wp
           ENDIF
         END DO
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdRlx:forc-fwrelax[m/s]'  ,p_sfc_flx%forc_fwrelax  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      idt_src=3  ! output print level (1-5, fix)
-      z_c(:,:) = p_sfc_flx%data_surfRelax_Salt(:,:)
-      CALL dbg_print('UpdRlx: S-relax: S*'       ,z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:) = p_sfc_flx%data_surfRelax_Salt(:,:)-s_top(:,:)
-      CALL dbg_print('UpdRlx: S-relax: S*-S'     ,z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:) = p_sfc_flx%topBoundCond_Salt_vdiff(:,:)
-      CALL dbg_print('UpdRlx: S-relax:S[psu*m/s]',z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx:forc_fwrelax[m/s]',p_sfc_flx%forc_fwrelax       ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: S* to relax to'  ,p_sfc_flx%data_surfRelax_Salt,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: 1/tau*(S*-S)'    ,saltflux                     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: New Salt'        ,s_top                        ,str_module,2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF  ! tracer_no
