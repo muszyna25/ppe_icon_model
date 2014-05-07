@@ -1232,6 +1232,7 @@ CONTAINS
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
     INTEGER :: inlev_soil, inlev_snow, i, nice_class
+    INTEGER :: ndepth    ! depth of n
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
     CHARACTER(len=MAX_CHAR_LENGTH)  :: string
 
@@ -1355,16 +1356,19 @@ CONTAINS
     ENDIF
 !DR end preliminary fix
 
-    IF (PRESENT(ocean_Zheight_CellMiddle) .and. .not. ldepth_initialised) THEN
-      
-      IF (ALLOCATED(private_depth_half))  &
-        &  DEALLOCATE(private_depth_half, private_depth_full)
-      ALLOCATE(private_depth_half(ocean_Zlevels+1), private_depth_full(ocean_Zlevels))
-      private_depth_half(:) = ocean_Zheight_CellInterfaces(:)
-      private_depth_full(:) = ocean_Zheight_CellMiddle(:)
+    IF (.not. ldepth_initialised) THEN
+      ndepth = 0   
+      IF (PRESENT(ocean_Zheight_CellMiddle) ) THEN	
+	IF (ALLOCATED(private_depth_half))  &
+	  &  DEALLOCATE(private_depth_half, private_depth_full)
+	ALLOCATE(private_depth_half(ocean_Zlevels+1), private_depth_full(ocean_Zlevels))
+	private_depth_half(:) = ocean_Zheight_CellInterfaces(:)
+	private_depth_full(:) = ocean_Zheight_CellMiddle(:)
+	ndepth = ocean_Zlevels
+      END IF
       ldepth_initialised = .TRUE.
-
     END IF
+    
 
     IF (PRESENT(opt_output_jfile)) THEN 
       DO i=1,SIZE(opt_output_jfile)
@@ -1385,7 +1389,7 @@ CONTAINS
                      & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge
                      & klev,              &! total # of vertical layers
-                     & ocean_Zlevels,     &! total # of depths below sea
+                     & ndepth,            &! total # of depths below sea
                      & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class         )! total # of ice classes (sea ice)
