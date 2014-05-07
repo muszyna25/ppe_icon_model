@@ -209,14 +209,14 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
     ! calculate relaxation term
     z_relax = 1.0_wp/(para_3dimRelax_Salt*2.592e6_wp)
-    p_os%p_aux%forc_3dimRelax_Salt(1:nproma,jk,1:p_patch%nblks_c) = -z_relax* &
-    &  ( p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) -       &
-    &    p_os%p_aux%forc_3dimRelax_Salt(1:nproma,jk,1:p_patch%nblks_c))
+    p_os%p_aux%forc_3dimRelax_Salt(1:nproma,:,1:p_patch%nblks_c) = -z_relax* &
+    &  ( p_os%p_prog(nnew(1))%tracer(1:nproma,:,1:p_patch%nblks_c,2) -       &
+    &    p_os%p_aux%forc_3dimRelax_Salt(1:nproma,:,1:p_patch%nblks_c))
 
     ! add relaxation term to new salinity
-    p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) = &
-      &  p_os%p_prog(nnew(1))%tracer(1:nproma,jk,1:p_patch%nblks_c,2) + &
-      &  p_os%p_aux%forc_3dimRelax_Salt(1:nproma,jk,1:p_patch%nblks_c) * dtime
+    p_os%p_prog(nnew(1))%tracer(1:nproma,:,1:p_patch%nblks_c,2) = &
+      &  p_os%p_prog(nnew(1))%tracer(1:nproma,:,1:p_patch%nblks_c,2) + &
+      &  p_os%p_aux%forc_3dimRelax_Salt(1:nproma,:,1:p_patch%nblks_c) * dtime
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
