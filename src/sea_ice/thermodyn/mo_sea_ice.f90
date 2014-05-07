@@ -1172,14 +1172,12 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, QatmAve, p_sfc_flx, p_op_coeff)
+  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, Qatm, p_sfc_flx, p_op_coeff)
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
-    !TYPE(t_patch),            INTENT(IN)     :: p_patch 
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
     TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
-    !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
-    TYPE (t_atmos_fluxes),    INTENT (IN)    :: QatmAve
+    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
     TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
@@ -1195,7 +1193,6 @@ CONTAINS
     ! subset range pointer
     all_cells => p_patch%cells%all 
 
-    !CALL ave_fluxes     (ice, QatmAve)
     CALL ice_zero       (ice)
 
     ice%hiold(:,:,:) = ice%hi(:,:,:)
@@ -1203,9 +1200,9 @@ CONTAINS
     CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
     ! #achim
     IF      ( i_ice_therm == 2 ) THEN
-      CALL ice_growth_winton    (p_patch, p_os, ice, QatmAve%rpreci)!, QatmAve%lat)
+      CALL ice_growth_winton    (p_patch, p_os, ice, Qatm%rpreci)!, Qatm%lat)
     ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
-      CALL ice_growth_zerolayer (p_patch, p_os, ice, QatmAve%rpreci)
+      CALL ice_growth_zerolayer (p_patch, p_os, ice, Qatm%rpreci)
     END IF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1217,14 +1214,14 @@ CONTAINS
     CALL dbg_print('IceSlow: p_ice%v bef. dyn'    ,ice%v_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
     !---------------------------------------------------------------------
 
-    CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
+    CALL upper_ocean_TS (p_patch,p_os,ice, Qatm, p_sfc_flx)
     CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
 
-    CALL ice_ocean_stress( p_patch, QatmAve, p_sfc_flx, ice, p_os )
+    CALL ice_ocean_stress( p_patch, Qatm, p_sfc_flx, ice, p_os )
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, QatmAve, p_op_coeff )
+      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, Qatm, p_op_coeff )
       CALL ice_advection( p_patch_3D, p_op_coeff, ice )
     ELSE
       ice%u = 0._wp
@@ -1234,8 +1231,8 @@ CONTAINS
     CALL ice_clean_up( p_patch_3D, ice, p_sfc_flx, p_os )
 
     !CALL ice_advection  (ice)
-    !CALL write_ice      (ice,QatmAve,1,ie,je)
-    !CALL ice_zero       (ice, QatmAve)
+    !CALL write_ice      (ice,Qatm,1,ie,je)
+    !CALL ice_zero       (ice, Qatm)
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
