@@ -1511,13 +1511,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
           & in_group=groups("pbl_vars"))
 
 
-        cf_desc    = t_cf_var('aqhfl_s', 'Kg m-2 s-1', 'surface moisture flux ' &
-          &//'average since model start', DATATYPE_FLT32)
+        WRITE(name,'(A,A6)') TRIM(prefix),"qhfl_s"
+        WRITE(long_name,'(A23,A4,A18)') "surface moisture flux ", meaning, &
+                                      & " since model start"
+        IF (lflux_avg ) THEN
+          cf_desc = t_cf_var(TRIM(name), 'Kg m-2 s-1', TRIM(long_name), DATATYPE_FLT32)
+        ELSE
+          cf_desc = t_cf_var(TRIM(name), 'Kg m-2', TRIM(long_name), DATATYPE_FLT32)
+        ENDIF
         grib2_desc = t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'aqhfl_s', diag%aqhfl_s  ,                   &
+        CALL add_var( diag_list, TRIM(name), diag%aqhfl_s  ,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & isteptype=TSTEP_AVG, in_group=groups("pbl_vars") )
+          & isteptype=a_steptype, in_group=groups("pbl_vars") )
 
 
         ! &      diag%tcm(nproma,nblks_c)
