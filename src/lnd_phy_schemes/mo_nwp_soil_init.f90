@@ -216,7 +216,7 @@ CONTAINS
 
 
   REAL    (KIND=ireals   ) ::  &
-    zaa                ! utility variable
+    zaa, zh_snow                ! utility variable
 
   REAL    (KIND = ireals) :: &
 !
@@ -601,11 +601,27 @@ CONTAINS
     IF ( init_mode == 2 ) THEN  ! snow depth increment needs to be computed
       DO i = istarts, iends
         h_snow_fg(i)   = w_snow_now(i)/rho_snow_now(i)*rho_w
+        ! Self-consistency fix needed because of possible GRIB truncation errors
+        IF (lmulti_snow .AND. h_snow_fg(i) > zepsi) THEN
+          dzh_snow_now(i,2:ke_snow) = MAX(dzh_snow_now(i,1),dzh_snow_now(i,2:ke_snow))
+          zh_snow       = SUM(dzh_snow_now(i,1:ke_snow))
+          w_snow_now(i) = w_snow_now(i) * zh_snow/h_snow_fg(i)
+          h_snow_fg(i)  = zh_snow
+        ELSE IF (lmulti_snow) THEN
+          dzh_snow_now(i,:) = 0._ireals
+        ENDIF
         h_snow_incr(i) = h_snow(i) - h_snow_fg(i)
       ENDDO
     ELSE IF ( init_mode == 3 ) THEN  ! snow depth increment is provided from snow analysis
       DO i = istarts, iends
         h_snow_fg(i) = h_snow(i)
+        ! Self-consistency fix needed because of possible GRIB truncation errors
+        IF (lmulti_snow .AND. h_snow_fg(i) > zepsi) THEN
+          dzh_snow_now(i,2:ke_snow) = MAX(dzh_snow_now(i,1),dzh_snow_now(i,2:ke_snow))
+          h_snow_fg(i) = SUM(dzh_snow_now(i,1:ke_snow))
+        ELSE IF (lmulti_snow) THEN
+          dzh_snow_now(i,:) = 0._ireals
+        ENDIF
         h_snow(i)    = h_snow_fg(i) + h_snow_incr(i) ! h_snow now carries the updated snow depth
       ENDDO
     ENDIF
