@@ -1223,6 +1223,7 @@ CONTAINS
     REAL(wp) :: relax_strength, thick, z_topBCSalt_old
     REAL(wp) :: z_c        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: saltflux   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: s_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp     ! TODO: use real month length
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: t_top(:,:), s_top(:,:)
@@ -1235,6 +1236,9 @@ CONTAINS
 
     t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
     s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
+
+    z_c(:,:)       = t_top(:,:)
+    s_top_old(:,:) = s_top(:,:)
 
 
     IF (tracer_no == 1) THEN  ! temperature relaxation
@@ -1334,7 +1338,8 @@ CONTAINS
             p_sfc_flx%forc_fwrelax(jc,jb) = -saltflux(jc,jb) * thick / s_top(jc,jb)
            
             ! add relaxation term to salinity
-            s_top(jc,jb) = s_top(jc,jb) + saltflux(jc,jb)*dtime
+            s_top_old(jc,jb) = s_top(jc,jb)
+            s_top(jc,jb)     = s_top(jc,jb) + saltflux(jc,jb)*dtime
 
           ELSE
             p_sfc_flx%forc_fwrelax(jc,jb)  = 0.0_wp
@@ -1346,6 +1351,7 @@ CONTAINS
       CALL dbg_print('UpdTrcRlx:forc_fwrelax[m/s]',p_sfc_flx%forc_fwrelax       ,str_module,2, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: S* to relax to'  ,p_sfc_flx%data_surfRelax_Salt,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: 1/tau*(S*-S)'    ,saltflux                     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: Old Salt'        ,s_top_old                    ,str_module,3, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: New Salt'        ,s_top                        ,str_module,2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
