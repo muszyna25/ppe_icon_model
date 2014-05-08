@@ -167,6 +167,12 @@ CONTAINS
     !  calculate time
     dsec  = datetime%daysec        ! real seconds since begin of day
 
+    !-------------------------------------------------------------------------
+    ! Set surface boundary conditions to zero
+    !  #slo# 2014-05-08 to set heat flux to zero is not compatible with old update_relaxation_flux(1)
+    p_sfc_flx%topBoundCond_Temp_vdiff(:,:) = 0.0_wp
+    If (no_tracer>1) p_sfc_flx%topBoundCond_Salt_vdiff(:,:) = 0.0_wp
+
     !-----------------------------------------------------------------------
     !  (1) provide surface fluxes from the atmosphere
     !-----------------------------------------------------------------------
@@ -594,11 +600,6 @@ CONTAINS
       !---------------------------------------------------------------------
 
     END IF
-
-    !-------------------------------------------------------------------------
-    ! Set surface boundary conditions to zero
-    !p_sfc_flx%topBoundCond_Temp_vdiff(:,:) = 0.0_wp  ! heat flux BC not yet checked
-    If (no_tracer>1) p_sfc_flx%topBoundCond_Salt_vdiff(:,:) = 0.0_wp
 
     !-------------------------------------------------------------------------
     ! Apply net surface heat flux to boundary condition
@@ -1088,7 +1089,7 @@ CONTAINS
       !   dT/dt = Operators + F_T
       ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
       ! 
-      ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
+      ! Extended boundary condition (relaxation term plus heat flux) IS NOT YET IMPLEMENTED HERE
     
       ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(para_surfRelax_Temp*seconds_per_month)
     
@@ -1202,6 +1203,7 @@ CONTAINS
   !!   relaxation term is calculated and directly restores tracer values
   !!   in order to handle relaxation completely independent from surface tracer forcing
   !!   in routine update_surface_flux
+  !!   fluxes are diagnosed and must be treated accordingly
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2014)
@@ -1239,25 +1241,13 @@ CONTAINS
 
 
     IF (tracer_no == 1) THEN  ! temperature relaxation
-    
-      ! TODO: cleanup as for salinity below
-
-      ! Temperature relaxation activated as boundary condition in vertical Diffusion D:
-      !   D = d/dz(K_v*dT/dz)  where
-      ! Boundary condition at surface (upper bound of D at center of first layer)
-      !   is relaxation to temperature (tau = relaxation constant [1/s] ):
-      !   K_v*dT/dz(surf) = Q_T = -dz/tau*(T-T*) [ K*m/s ]
-      ! discretized: temperature-relaxation-data T* = T_data = data_surfRelax_Temp
-      !   top_bc_tracer = topBoundCond_Temp_vdiff = -(del_zlev_m+h) / relax_param[s] * (tracer - data_surfRelax_Temp)
       !
-      ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
-      ! the vertical diffusion, following MITGCM:
+      ! Temperature relaxation activated as additonal forcing term in the tracer equation
+      ! implemented as simple time-dependent relaxation (time needed to restore tracer completely back to T*)
       !    F_T  = Q_T/dz = -1/tau * (T-T*) [ K/s ]
       ! when using the sign convention
       !   dT/dt = Operators + F_T
-      ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
-      ! 
-      ! Extended boundary condition (relaxation term plus heat flux) is not yet implemented
+      ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature T if T is warmer than relaxation data T*) 
     
       ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(para_surfRelax_Temp*seconds_per_month)
     
@@ -1308,7 +1298,7 @@ CONTAINS
       !    F_S  = -1/tau * (S-S*) [ psu/s ]
       ! when using the sign convention
       !   dS/dt = Operators + F_S
-      ! i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is saltier than relaxation data) 
+      ! i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity S if S is saltier than relaxation data S*)
       ! note that the freshwater flux is opposite in sign to F_S, see below,
       ! i.e. fwf >0 for  S-S* >0 (i.e. increasing freshwater flux to decrease the salinity)
 
@@ -1323,8 +1313,6 @@ CONTAINS
             !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
             IF (l_relaxsal_ice .AND. i_sea_ice >=1) relax_strength = (1.0_wp-p_ice%concsum(jc,jb))*relax_strength
 
-            p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) &
-              &                              -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
             ! calculate additional salt rate F_S due to relaxation [psu/s]
             saltflux(jc,jb) = -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
