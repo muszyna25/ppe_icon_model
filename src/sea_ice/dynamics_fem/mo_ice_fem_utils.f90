@@ -1137,12 +1137,11 @@ CONTAINS
   !! @par Revision History
   !! Developed by Einar Olason, MPI-M (2013-06-05)
   !
-  SUBROUTINE ice_ocean_stress( p_patch, Qatm, p_sfc_flx, p_ice, p_os )
+  SUBROUTINE ice_ocean_stress( p_patch, Qatm, p_ice, p_os )
     USE mo_ice_param,    ONLY: density_0
     USE mo_ice_iceparam, ONLY: C_d_io
     TYPE(t_patch), TARGET,    INTENT(IN)    :: p_patch
-    TYPE (t_atmos_fluxes),    INTENT(IN)    :: Qatm
-    TYPE(t_sfc_flx),          INTENT(INOUT) :: p_sfc_flx
+    TYPE (t_atmos_fluxes),    INTENT(INOUT) :: Qatm
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
 
@@ -1176,14 +1175,14 @@ CONTAINS
 
       ! Should we multiply with concSum here?
       tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
-      p_sfc_flx%topBoundCond_windStress_u(jc,jb) = Qatm%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+      Qatm%topBoundCond_windStress_u(jc,jb) = Qatm%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
-      p_sfc_flx%topBoundCond_windStress_v(jc,jb) = Qatm%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+      Qatm%topBoundCond_windStress_v(jc,jb) = Qatm%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delv
     ENDDO
   ENDDO
-  CALL sync_patch_array(SYNC_C, p_patch, p_sfc_flx%topBoundCond_windStress_u(:,:))
-  CALL sync_patch_array(SYNC_C, p_patch, p_sfc_flx%topBoundCond_windStress_v(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, Qatm%topBoundCond_windStress_u(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, Qatm%topBoundCond_windStress_v(:,:))
 
   END SUBROUTINE ice_ocean_stress
 

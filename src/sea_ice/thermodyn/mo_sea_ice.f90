@@ -1273,13 +1273,12 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, Qatm, p_sfc_flx, p_op_coeff)
+  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, Qatm, p_op_coeff)
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
     TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE(t_sea_ice),          INTENT (INOUT) :: ice
     TYPE(t_atmos_fluxes),     INTENT (INOUT) :: Qatm
-    TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
     TYPE(t_patch), POINTER :: p_patch
@@ -1318,7 +1317,7 @@ CONTAINS
     CALL upper_ocean_TS (p_patch,p_os,ice, Qatm)
     CALL ice_conc_change(p_patch,ice, p_os)
 
-    CALL ice_ocean_stress( p_patch, Qatm, p_sfc_flx, ice, p_os )
+    CALL ice_ocean_stress( p_patch, Qatm, ice, p_os )
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
@@ -1329,7 +1328,7 @@ CONTAINS
       ice%v = 0._wp
     ENDIF
 
-    CALL ice_clean_up( p_patch_3D, ice, p_sfc_flx, p_os )
+    CALL ice_clean_up( p_patch_3D, ice, Qatm, p_os )
 
     !CALL ice_advection  (ice)
     !CALL write_ice      (ice,Qatm,1,ie,je)
@@ -1348,8 +1347,8 @@ CONTAINS
     CALL dbg_print('IceSlow: p_os%prog(nnew)%vn',p_os%p_prog(nnew(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%u'       ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%v'       ,p_os%p_diag%v,          str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,p_sfc_flx%topBoundCond_windStress_u, str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,p_sfc_flx%topBoundCond_windStress_v, str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,Qatm%topBoundCond_windStress_u, str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,Qatm%topBoundCond_windStress_v, str_module,4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_ice_slow)
@@ -1364,10 +1363,10 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Einar Olason, MPI-M (2013-10).
   !!
-  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, p_sfc_flx, p_os )
+  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, Qatm, p_os )
     TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
     TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
-    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: Qatm
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
 
     ! Local variables
@@ -1406,15 +1405,15 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
             &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
             ! Volmue flux due to removal
-            p_sfc_flx%FrshFlux_VolumeIce(jc,jb) = p_sfc_flx%FrshFlux_VolumeIce(jc,jb) &
+            Qatm%FrshFlux_VolumeIce(jc,jb) = Qatm%FrshFlux_VolumeIce(jc,jb) &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)    & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)      ! Snow
             ! Tracer flux due to removal
-            p_sfc_flx%FrshFlux_TotalIce (jc,jb) = p_sfc_flx%FrshFlux_TotalIce (jc,jb)                      &
+            Qatm%FrshFlux_TotalIce (jc,jb) = Qatm%FrshFlux_TotalIce (jc,jb)                      &
               & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime) & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
             ! Heat flux due to removal
-            p_sfc_flx%HeatFlux_Total(jc,jb) = p_sfc_flx%HeatFlux_Total(jc,jb)   &
+            Qatm%HeatFlux_Total(jc,jb) = Qatm%HeatFlux_Total(jc,jb)   &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
             p_ice%conc(jc,k,jb) = 0._wp
@@ -1688,9 +1687,8 @@ CONTAINS
   SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, Qatm)
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
-    !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
-    TYPE(t_atmos_fluxes),      INTENT(IN)    :: Qatm
+    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: Qatm
 
     !Local Variables
     ! position of ice-ocean interface below sea level                       [m]

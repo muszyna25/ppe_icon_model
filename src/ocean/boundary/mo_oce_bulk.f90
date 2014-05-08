@@ -368,7 +368,7 @@ CONTAINS
       CALL dbg_print('FlxFil: i-alb before slow' ,Qatm%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
-      CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
+      CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_op_coeff)
 
       ! provide total salinity forcing flux
       !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
@@ -438,7 +438,7 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
    
         ! ice_fast ic called from the atmosphere
-        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
+        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_op_coeff)
         
         ! Sum of freshwater flux (for salt) F = P - E + Sn (no runoff yet included??)
         p_sfc_flx%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
@@ -487,15 +487,17 @@ CONTAINS
   !    p_sfc_flx%topBoundCond_windStress_u = p_ice_interface%windStress_u  !  modified in ice_slow
   !-----------------------------------------------------------------------
   !   ..Qatm
-  p_sfc_flx%FrshFlux_Runoff(:,:)     = Qatm%FrshFlux_Runoff(:,:)
-  p_sfc_flx%FrshFlux_TotalSalt(:,:)  = Qatm%FrshFlux_TotalSalt(:,:)
-  p_sfc_flx%FrshFlux_TotalIce(:,:)   = Qatm%FrshFlux_TotalIce(:,:)
-  p_sfc_flx%FrshFlux_TotalOcean(:,:) = Qatm%FrshFlux_TotalOcean(:,:)
-  p_sfc_flx%HeatFlux_ShortWave(:,:)  = Qatm%HeatFlux_ShortWave(:,:)
-  p_sfc_flx%HeatFlux_LongWave (:,:)  = Qatm%HeatFlux_LongWave (:,:)
-  p_sfc_flx%HeatFlux_Sensible (:,:)  = Qatm%HeatFlux_Sensible (:,:)
-  p_sfc_flx%HeatFlux_Latent   (:,:)  = Qatm%HeatFlux_Latent   (:,:)
-  p_sfc_flx%HeatFlux_Total    (:,:)  = Qatm%HeatFlux_Total    (:,:)
+  p_sfc_flx%FrshFlux_Runoff(:,:)           = Qatm%FrshFlux_Runoff(:,:)
+  p_sfc_flx%FrshFlux_TotalSalt(:,:)        = Qatm%FrshFlux_TotalSalt(:,:)
+  p_sfc_flx%FrshFlux_TotalIce(:,:)         = Qatm%FrshFlux_TotalIce(:,:)
+  p_sfc_flx%FrshFlux_TotalOcean(:,:)       = Qatm%FrshFlux_TotalOcean(:,:)
+  p_sfc_flx%HeatFlux_ShortWave(:,:)        = Qatm%HeatFlux_ShortWave(:,:)
+  p_sfc_flx%HeatFlux_LongWave (:,:)        = Qatm%HeatFlux_LongWave (:,:)
+  p_sfc_flx%HeatFlux_Sensible (:,:)        = Qatm%HeatFlux_Sensible (:,:)
+  p_sfc_flx%HeatFlux_Latent   (:,:)        = Qatm%HeatFlux_Latent   (:,:)
+  p_sfc_flx%HeatFlux_Total    (:,:)        = Qatm%HeatFlux_Total    (:,:)
+  p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%topBoundCond_windStress_u(:,:)
+  p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%topBoundCond_windStress_v(:,:)
 
 
 
