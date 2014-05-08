@@ -1174,7 +1174,7 @@ CONTAINS
 
     ice%hiold(:,:,:) = ice%hi(:,:,:)
     ice%hsold(:,:,:) = ice%hs(:,:,:)
-    CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,5, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,4, in_subset=p_patch%cells%owned)
     ! #achim
     IF      ( i_ice_therm == 2 ) THEN
       CALL ice_growth_winton    (p_patch, p_os, ice, QatmAve%rpreci)!, QatmAve%lat)
@@ -1183,10 +1183,9 @@ CONTAINS
     END IF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('IceSlow: hi after growth'       ,ice%hi   ,str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: Conc. after growth'    ,ice%conc ,str_module, idt_src, in_subset=p_patch%cells%owned)
-    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('IceSlow: p_ice%u bef. dyn'    ,ice%u_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
     CALL dbg_print('IceSlow: p_ice%v bef. dyn'    ,ice%v_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
     !---------------------------------------------------------------------
@@ -1215,11 +1214,11 @@ CONTAINS
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module,3, in_subset=p_patch%verts%owned)
-    CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module,3, in_subset=p_patch%verts%owned)
-    CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: Conc.  EndOf slow', ice%conc,               str_module,3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: ConcSumEndOf slow', ice%concSum,            str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module,1, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSumEndOf slow', ice%concSum,            str_module,1, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: Conc.  EndOf slow', ice%conc,               str_module,2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module,2, in_subset=p_patch%verts%owned)
+    CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module,2, in_subset=p_patch%verts%owned)
     CALL dbg_print('IceSlow: p_os%prog(nold)%vn',p_os%p_prog(nold(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%prog(nnew)%vn',p_os%p_prog(nnew(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%u'       ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
