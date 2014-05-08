@@ -257,7 +257,8 @@ MODULE mo_ocean_nml
   INTEGER  :: type_3dimRelax_Salt   = 0          ! 0: no 3-dim relax.,  3: use initial S read with use_file_initialConditions=1
   REAL(wp) :: para_3dimRelax_Salt   = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
-  REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice to fraction of surface layer thickness (1.0: no limit)
+  LOGICAL  :: limit_seaice          = .TRUE.     ! .TRUE.: set a cutoff limit to sea ice thickness
+  REAL(wp) :: seaice_limit          = 0.5_wp     ! limit sea ice thickness to fraction of surface layer thickness
 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
                                                  ! 1=full varying Coriolis
@@ -483,6 +484,7 @@ MODULE mo_ocean_nml
     &                 para_3dimRelax_Temp                 , &
     &                 para_3dimRelax_Salt                 , &
     &                 relax_analytical_type               , &
+    &                 limit_seaice                        , &
     &                 seaice_limit                        , &
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
@@ -854,8 +856,8 @@ MODULE mo_ocean_nml
        CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
        limit_elevation = .FALSE.
        CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
-       seaice_limit = 1.0_wp
-       CALL message(TRIM(routine),'WARNING, seaice_limit set to 1.0 - no limit for coupled experiment')
+       limit_seaice = .FALSE.
+       CALL message(TRIM(routine),'WARNING, limit_seaice set to .FALSE. - no limit for coupled experiment')
      END IF
 #endif
 

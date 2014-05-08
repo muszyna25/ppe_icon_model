@@ -77,7 +77,7 @@ USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical
   &                               forcing_windstress_u_type,            &
   &                               forcing_windstress_v_type,            &
   &                               forcing_fluxes_type,                  &
-  &                               limit_elevation, seaice_limit, l_relaxsal_ice
+  &                               limit_elevation, limit_seaice, seaice_limit, l_relaxsal_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch, t_patch_3D
 USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -524,7 +524,7 @@ CONTAINS
   !   - number of ice classes currently kice=1 - sum of classes must be limited
   !   - only sea ice, no snow is considered
   !   - now possible for all cases - hi=0 if no sea ice calculation
-  IF (seaice_limit < 0.999999_wp) THEN
+  IF (limit_seaice) THEN
     z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
