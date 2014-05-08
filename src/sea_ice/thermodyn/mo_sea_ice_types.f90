@@ -193,17 +193,23 @@ MODULE mo_sea_ice_types
 
     INTEGER ::     counter
 
-    REAL(wp), ALLOCATABLE ::   &
+    REAL(wp), POINTER ::   &
       &  topBoundCond_windStress_u(:,:),     & ! forcing of zonal component of velocity equation,
       &  topBoundCond_windStress_v(:,:),     & ! forcing of meridional component of velocity equation,
       &  HeatFlux_ShortWave       (:,:),     & ! surface short wave heat flux                              [W/m2]
       &  HeatFlux_LongWave        (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  HeatFlux_Sensible        (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  HeatFlux_Latent          (:,:),     & ! surface latent heat flux                                  [W/m2]
+      &  HeatFlux_Total           (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
       &  FrshFlux_Precipitation   (:,:),     & ! total precipitation flux                                  [m/s]
       &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
       &  FrshFlux_Evaporation     (:,:),     & ! evaporation flux                                          [m/s]
-      &  FrshFlux_Runoff          (:,:)!     & ! river runoff flux                                         [m/s]
+      &  FrshFlux_Runoff          (:,:),     & ! river runoff flux                                         [m/s]
+      &  FrshFlux_TotalSalt       (:,:),     & ! sum of forcing surface freshwater flux from BC            [m/s]
+      &  FrshFlux_TotalOcean      (:,:),     & ! forcing surface freshwater flux at open ocean             [m/s]
+      &  FrshFlux_TotalIce        (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
+      &  FrshFlux_VolumeIce       (:,:),     & ! forcing volume flux for height equation under sea ice     [m/s]
+      &  FrshFlux_VolumeTotal     (:,:)!,     & ! sum of forcing volume flux including relaxation           [m/s]
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)

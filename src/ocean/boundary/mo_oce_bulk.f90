@@ -357,16 +357,15 @@ CONTAINS
       !   this should be done by the coupler if ice_fast is moved to the atmosphere
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=4  ! output print level (1-5, fix)
-      CALL dbg_print('FlxFil: hi before slow'    ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: Conc. before slow' ,p_ice%conc     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: ConcSum. bef slow' ,p_ice%concSum  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: T1 before slow'    ,p_ice%t1       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: T2 before slow'    ,p_ice%t2       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: TSurf before slow' ,p_ice%tsurf    ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: Qtop  before slow' ,p_ice%Qtop     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: Qbot  before slow' ,p_ice%Qbot     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: i-alb before slow' ,Qatm%albvisdir ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: hi before slow'    ,p_ice%hi       ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Conc. before slow' ,p_ice%conc     ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: ConcSum. bef slow' ,p_ice%concSum  ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: T1 before slow'    ,p_ice%t1       ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: T2 before slow'    ,p_ice%t2       ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: TSurf before slow' ,p_ice%tsurf    ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Qtop  before slow' ,p_ice%Qtop     ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: Qbot  before slow' ,p_ice%Qbot     ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: i-alb before slow' ,Qatm%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
       CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
@@ -376,22 +375,13 @@ CONTAINS
       !IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) ) THEN
       IF ( forcing_enable_freshwater) THEN
 
-        p_sfc_flx%FrshFlux_TotalSalt(:,:) = p_sfc_flx%FrshFlux_Runoff(:,:)                        &
-          &           + p_sfc_flx%FrshFlux_TotalIce(:,:) + p_sfc_flx%FrshFlux_TotalOcean(:,:)
-
-        !---------DEBUG DIAGNOSTICS-------------------------------------------
-        idt_src=2  ! output print level (1-5, fix)
-        CALL dbg_print('FlxFil:OMIP:TotalSalt',p_sfc_flx%FrshFlux_TotalSalt,  str_module,idt_src,in_subset=p_patch%cells%owned)
-        idt_src=3  ! output print level (1-5, fix)
-        CALL dbg_print('FlxFil:OMIP:Evaporatiion',p_sfc_flx%FrshFlux_Evaporation,str_module,idt_src,in_subset=p_patch%cells%owned)
-        CALL dbg_print('FlxFil:OMIP:FlxTotIce   ',p_sfc_flx%FrshFlux_TotalIce,   str_module,idt_src,in_subset=p_patch%cells%owned)
-        CALL dbg_print('FlxFil:OMIP:FlxTotOce   ',p_sfc_flx%FrshFlux_TotalOcean, str_module,idt_src,in_subset=p_patch%cells%owned)
-        !---------------------------------------------------------------------
+        Qatm%FrshFlux_TotalSalt(:,:) = Qatm%FrshFlux_Runoff(:,:) &
+          &                          + Qatm%FrshFlux_TotalIce(:,:) &
+          &                          + Qatm%FrshFlux_TotalOcean(:,:)
 
       ENDIF
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=4  ! output print level (1-5, fix)
       CALL dbg_print('FlxFil: hi after slow'     ,p_ice%hi       ,str_module, 4, in_subset=p_patch%cells%owned)
       CALL dbg_print('FlxFil: Conc. after slow'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
       CALL dbg_print('FlxFil: ConcSum after slow',p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
@@ -477,11 +467,18 @@ CONTAINS
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   CALL dbg_print('UpdSfc: hi aft.Bulk/Ice'   ,p_ice%hi       ,str_module, 2, in_subset=p_patch%cells%owned)
   CALL dbg_print('UpdSfc: Conc.aft.Bulk/Ice' ,p_ice%conc     ,str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk SW-flux'      ,p_sfc_flx%HeatFlux_ShortWave,str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk LW-flux'      ,p_sfc_flx%HeatFlux_LongWave ,str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,p_sfc_flx%HeatFlux_Sensible ,str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk Latent HF'    ,p_sfc_flx%HeatFlux_Latent   ,str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk Total  HF'    ,p_sfc_flx%HeatFlux_Total    ,str_module, 2, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk SW-flux'      ,Qatm%HeatFlux_ShortWave,str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk LW-flux'      ,Qatm%HeatFlux_LongWave ,str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk Sens.  HF'    ,Qatm%HeatFlux_Sensible ,str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk Latent HF'    ,Qatm%HeatFlux_Latent   ,str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk Total  HF'    ,Qatm%HeatFlux_Total    ,str_module, 2, in_subset=p_patch%cells%owned)
+  !---------DEBUG DIAGNOSTICS-------------------------------------------
+  CALL dbg_print('FlxFil: TotalSalt',   Qatm%FrshFlux_TotalSalt,  str_module,2,in_subset=p_patch%cells%owned)
+  CALL dbg_print('FlxFil: Evaporatiion',Qatm%FrshFlux_Evaporation,str_module,3,in_subset=p_patch%cells%owned)
+  CALL dbg_print('FlxFil: FlxTotIce   ',Qatm%FrshFlux_TotalIce,   str_module,3,in_subset=p_patch%cells%owned)
+  CALL dbg_print('FlxFil: FlxTotOce   ',Qatm%FrshFlux_TotalOcean, str_module,3,in_subset=p_patch%cells%owned)
+  !---------------------------------------------------------------------
+
   !---------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
@@ -489,7 +486,16 @@ CONTAINS
   !    p_sfc_flx%HeatFlux_Total(:,:)       = p_ice_interface%heatOceI(:,:) + p_ice_interface%heatOceW(:,:) 
   !    p_sfc_flx%topBoundCond_windStress_u = p_ice_interface%windStress_u  !  modified in ice_slow
   !-----------------------------------------------------------------------
-  !   ...
+  !   ..Qatm
+  p_sfc_flx%FrshFlux_Runoff(:,:)     = Qatm%FrshFlux_Runoff(:,:)
+  p_sfc_flx%FrshFlux_TotalSalt(:,:)  = Qatm%FrshFlux_TotalSalt(:,:)
+  p_sfc_flx%FrshFlux_TotalIce(:,:)   = Qatm%FrshFlux_TotalIce(:,:)
+  p_sfc_flx%FrshFlux_TotalOcean(:,:) = Qatm%FrshFlux_TotalOcean(:,:)
+  p_sfc_flx%HeatFlux_ShortWave(:,:)  = Qatm%HeatFlux_ShortWave(:,:)
+  p_sfc_flx%HeatFlux_LongWave (:,:)  = Qatm%HeatFlux_LongWave (:,:)
+  p_sfc_flx%HeatFlux_Sensible (:,:)  = Qatm%HeatFlux_Sensible (:,:)
+  p_sfc_flx%HeatFlux_Latent   (:,:)  = Qatm%HeatFlux_Latent   (:,:)
+  p_sfc_flx%HeatFlux_Total    (:,:)  = Qatm%HeatFlux_Total    (:,:)
 
 
 
@@ -1817,3 +1823,4 @@ CONTAINS
 
 
 END MODULE mo_oce_bulk
+
