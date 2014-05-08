@@ -118,6 +118,7 @@ PRIVATE :: balance_elevation
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 CHARACTER(len=12)           :: str_module    = 'oceBulk     '  ! Output of module for 1 line debug
 INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
+REAL(wp), PARAMETER         :: seconds_per_month = 2.592e6_wp  ! TODO: use real month length
 
 CONTAINS
 
@@ -615,10 +616,10 @@ CONTAINS
         ! Heat flux boundary condition for diffusion
         !   D = d/dz(K_v*dT/dz)  where
         ! Boundary condition at surface (upper bound of D at center of first layer)
-        !   is calculated from net surface heat flux Q_s [W/m2]
+        !   is calculated from net surface heat flux Q_surf [W/m2]
         !   which is calculated by the atmosphere (coupled) or read from flux file (see above)
-        !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
-        !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
+        !   Q_surf = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
+        !   K_v*dT/dz(surf) = Q_T = Q_surf/Rho/Cp  [K*m/s]
         ! discretized:
         !   top_bc_tracer = topBoundCond_Temp_vdiff = HeatFlux_Total / (rho_ref*clw)
 
@@ -1039,7 +1040,6 @@ CONTAINS
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp) :: z_tmin, z_relax, z_topBCSalt_old
     REAL(wp) :: z_c        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp     ! TODO: use real month length
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: t_top(:,:), s_top(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1122,9 +1122,9 @@ CONTAINS
       ! TODO: discriminate hflx and hfrelax
 
       ! Heat flux diagnosed for relaxation cases, see above
-      !   Q_s = Rho*Cp*Q_T  [W/m2]  with density Rho and Cp specific heat capacity
+      !   Q_surf = Rho*Cp*Q_T  [W/m2]  with density Rho and Cp specific heat capacity
       ! where
-      !   Q_T = K_v*dT/dz(surf) = Q_s/Rho/Cp  [K*m/s]
+      !   Q_T = K_v*dT/dz(surf) = Q_surf/Rho/Cp  [K*m/s]
 
       p_sfc_flx%HeatFlux_Total(:,:) = p_sfc_flx%topBoundCond_Temp_vdiff(:,:) * rho_ref * clw
 
@@ -1220,10 +1220,11 @@ CONTAINS
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp) :: relax_strength, thick, z_topBCSalt_old
-    REAL(wp) :: z_c        (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: Heat_surfRelax(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: tempflux   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: t_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: saltflux   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: s_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), PARAMETER   :: seconds_per_month = 2.592e6_wp     ! TODO: use real month length
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: t_top(:,:), s_top(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1236,7 +1237,7 @@ CONTAINS
     t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
     s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
-    z_c(:,:)       = t_top(:,:)
+    t_top_old(:,:) = t_top(:,:)
     s_top_old(:,:) = s_top(:,:)
 
 
@@ -1244,7 +1245,7 @@ CONTAINS
       !
       ! Temperature relaxation activated as additonal forcing term in the tracer equation
       ! implemented as simple time-dependent relaxation (time needed to restore tracer completely back to T*)
-      !    F_T  = Q_T/dz = -1/tau * (T-T*) [ K/s ]
+      !    F_T  = Q_T/dz = -1/tau * (T-T*) [ K/s ]  (where Q_T is boundary condition for vertical diffusion in [K*m/s])
       ! when using the sign convention
       !   dT/dt = Operators + F_T
       ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature T if T is warmer than relaxation data T*) 
@@ -1256,39 +1257,41 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
     
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-            relax_strength = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
-              &       (para_surfRelax_Temp*seconds_per_month)
-            p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
+            !relax_strength = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb)) / &
+            !  &       (para_surfRelax_Temp*seconds_per_month)
+!           p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
+            relax_strength = 1.0_wp / (para_surfRelax_Temp*seconds_per_month)
+
+            ! calculate additional temperature rate F_T due to relaxation [K/s]
+            tempflux(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
+
+            ! Diagnosed heat flux Q_surf due to relaxation
+            !  Q_surf = F_T*dz/(rho*Cp) = -dz/tau*(T-T*)/(rho*Cp)  [W/m2]
+            !  Heat_surfRelax = thick * tempflux / (rho_ref*clw)
+            ! this flux is for diagnosis only and not added to tracer forcing
+
+            thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+            Heat_surfRelax(jc,jb) = -tempflux(jc,jb) * thick / (rho_ref*clw)
+           
+            ! add relaxation term to temperature tracer
+            t_top_old(jc,jb) = t_top(jc,jb)
+            t_top(jc,jb)     = t_top_old(jc,jb) + tempflux(jc,jb)*dtime
           ELSE
-            p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = 0.0_wp
+!           p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = 0.0_wp
           ENDIF
     
         END DO
       END DO
 
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=2  ! output print level (1-5, fix)
-      z_c(:,:) = p_sfc_flx%data_surfRelax_Temp(:,:)
-      CALL dbg_print('UpdRlx: T-relax: T*'       ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:) = p_sfc_flx%data_surfRelax_Temp(:,:)-t_top(:,:)
-      CALL dbg_print('UpdRlx: T-relax: T*-T'     ,z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
-      z_c(:,:) = p_sfc_flx%topBoundCond_Temp_vdiff(:,:)
-      CALL dbg_print('UpdRlx: T-relax: T [K*m/s]',z_c, str_module,idt_src, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-
-      ! Heat flux diagnosed for all ocean only relaxation cases
-      ! TODO: discriminate hflx and hfrelax
-
-      ! Heat flux diagnosed for relaxation cases, see above
-      !   Q_s = Rho*Cp*Q_T  [W/m2]  with density Rho and Cp specific heat capacity
-      ! where
-      !   Q_T = K_v*dT/dz(surf) = Q_s/Rho/Cp  [K*m/s]
-
-      p_sfc_flx%HeatFlux_Total(:,:) = p_sfc_flx%topBoundCond_Temp_vdiff(:,:) * rho_ref * clw
+      !  alternatively add relaxation heat flux to total heat flux if no direct relaxation is implemented here
+      !p_sfc_flx%HeatFlux_Total(:,:) = p_sfc_flx%topBoundCond_Temp_vdiff(:,:) + p_sfc_flx%Heat_surfRelax * rho_ref * clw
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
-      CALL dbg_print('UpdSfc:T-relax-hflx [W/m2]',p_sfc_flx%HeatFlux_Total,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx:HeatSurfRel[W/m2]',Heat_surfRelax               ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: T* to relax to'  ,p_sfc_flx%data_surfRelax_Temp,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: 1/tau*(T*-T)'    ,tempflux                     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: Old Temperature' ,t_top_old                    ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: New Temperature' ,t_top                        ,str_module,2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     ELSE IF (tracer_no == 2) THEN  ! salinity relaxation
@@ -1316,15 +1319,15 @@ CONTAINS
             ! calculate additional salt rate F_S due to relaxation [psu/s]
             saltflux(jc,jb) = -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
-            ! Diagnosed freshwater flux due to relaxation
+            ! Diagnosed freshwater flux due to relaxation (equivalent to heat flux Q)
             !  Fw_S = F_S*dz/S = dz/tau * (S-S*)/S  [m/s]
             ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
             thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
             p_sfc_flx%forc_fwrelax(jc,jb) = -saltflux(jc,jb) * thick / s_top(jc,jb)
            
-            ! add relaxation term to salinity
+            ! add relaxation term to salinity tracer
             s_top_old(jc,jb) = s_top(jc,jb)
-            s_top(jc,jb)     = s_top(jc,jb) + saltflux(jc,jb)*dtime
+            s_top(jc,jb)     = s_top_old(jc,jb) + saltflux(jc,jb)*dtime
 
           ELSE
             p_sfc_flx%forc_fwrelax(jc,jb)  = 0.0_wp
