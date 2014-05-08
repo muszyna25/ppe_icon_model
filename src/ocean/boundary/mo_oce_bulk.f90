@@ -171,6 +171,24 @@ CONTAINS
     !  (1) provide surface fluxes from the atmosphere
     !-----------------------------------------------------------------------
 
+    !-----------------------------------------------------------------------
+    ! Apply relaxation to surface boundary condition
+    !  - diagnosed heat and freshwater fluxes are added to total fluxes
+    !  - relaxation is independent of other fluxes
+
+    IF (type_surfRelax_Temp >= 1) THEN
+      trac_no = 1   !  tracer no 1: temperature
+      CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
+
+      ! #slo# 2014-05-08: old formulation, was not active in OMIP or coupled
+      !CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
+    END IF
+
+    IF (type_surfRelax_Salt >= 1 .AND. no_tracer >1) THEN
+      trac_no = 2   !  tracer no 2: salinity
+      CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
+    ENDIF
+
     SELECT CASE (iforc_oce)
 
     CASE (No_Forcing)                !  10
@@ -583,18 +601,6 @@ CONTAINS
     If (no_tracer>1) p_sfc_flx%topBoundCond_Salt_vdiff(:,:) = 0.0_wp
 
     !-------------------------------------------------------------------------
-    ! Apply temperature relaxation to surface boundary condition
-    !  - 2011-12: this is alternative to forcing by fluxes, not in addition
-
-    IF (type_surfRelax_Temp >= 1) THEN
-
-      trac_no = 1   !  tracer no 1: temperature
-      CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
-    ! CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
-
-    END IF
-
-    !-------------------------------------------------------------------------
     ! Apply net surface heat flux to boundary condition
     !  - heat flux is applied alternatively to temperature relaxation for coupling
     !  - also done if sea ice model is used since HeatFlux_Total is set in mo_sea_ice
@@ -627,16 +633,9 @@ CONTAINS
       END IF
     END IF
 
-    !-------------------------------------------------------------------------
-    ! Apply salinity relaxation to surface boundary condition
-
-    IF (type_surfRelax_Salt >= 1 .AND. no_tracer >1) THEN
-
-      trac_no = 2   !  tracer no 2: salinity
-      CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
-    ! CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
-
-    ENDIF  !  type_surfRelax_Salt >=1  salinity relaxation
+    ! old relaxation formulation
+    !IF (type_surfRelax_Salt >= 1 .AND. no_tracer >1) &
+    !  & CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, 2)
 
     !-------------------------------------------------------------------------
     ! Apply freshwater forcing to surface boundary condition, independent of salinity relaxation
@@ -660,8 +659,6 @@ CONTAINS
     ! Sum of freshwater volume flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
     !  - add implicit freshwater flux due to relaxation to volume forcing term
     IF (no_tracer >1) THEN
-      !old formulation <r14213:
-      !p_sfc_flx%FrshFlux_VolumeTotal(:,:) = (p_sfc_flx%FrshFlux_TotalSalt(:,:) + p_sfc_flx%forc_fwrelax(:,:))
       p_sfc_flx%FrshFlux_VolumeTotal(:,:) = p_sfc_flx%FrshFlux_Runoff(:,:) + &
         &                          p_sfc_flx%FrshFlux_VolumeIce(:,:) + &
         &                          p_sfc_flx%FrshFlux_TotalOcean(:,:)  + &
