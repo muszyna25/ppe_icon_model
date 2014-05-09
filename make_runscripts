@@ -299,17 +299,17 @@ do
     esac
 
     # special cases for queuing on blizzard
-    if [ $use_target = "blizzard" ] ; then
-      if [ $name = test_nh3_tri_tracer_solid_body ] ; then
-        $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-        EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-      fi
-      if [ $use_openmp = "yes" ] ; then
-        if [ $name = test_nh35_tri_jws ] ; then
-          $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-          EXPNAME="$name"  memory_model="small" queue="express"
-        fi
-      fi
+#     if [ $use_target = "blizzard" ] ; then
+#       if [ $name = test_nh3_tri_tracer_solid_body ] ; then
+#         $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#         EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+#       fi
+#       if [ $use_openmp = "yes" ] ; then
+#         if [ $name = test_nh35_tri_jws ] ; then
+#           $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#           EXPNAME="$name"  memory_model="small" queue="express"
+#         fi
+#       fi
     fi
 
   fi
