@@ -651,9 +651,11 @@ CONTAINS
       field_shape(1:2) = grid_shape(1:2)
 
       DO i = 1, no_of_fields
-        IF ( i == 1 .OR. i == 2 .OR. i == 3 .OR. i == 5 ) THEN
+        IF ( i == 1 .OR. i == 2 ) THEN
          field_shape(3) = 2
-        ELSE IF ( i == 6 ) THEN
+        ELSE IF ( i == 3 ) THEN
+           field_shape(3) = 3
+        ELSE IF ( i == 5 .OR. i == 6 ) THEN
            field_shape(3) = 4
         ELSE IF ( i == 10 ) THEN
            field_shape(3) = 5
