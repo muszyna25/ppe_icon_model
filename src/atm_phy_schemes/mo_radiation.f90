@@ -524,23 +524,23 @@ CONTAINS
   !
   SUBROUTINE radiation(                                                    &
     ! input
-    &  jg, jb,                                                             &
-    &  jce               ,kbdim           ,klev             ,klevp1        &
+    &  jg, jb                                                              &
+    & ,jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
     & ,emis_rad                                                            &
-    & ,tk_sfc            ,pp_hl           ,pp_fl            ,tk_fl         &
-    & ,qm_vap            ,qm_liq          ,qm_ice                          &
+    & ,tk_sfc            ,z_mc            ,pp_hl            ,pp_fl         &
+    & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
-!!$    & ,pgeom1                                                              &
+!!$ & ,pgeom1                                                              &
     & ,cdnc              ,cld_frc                                          &
-    & , zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad,                        &
+    & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
     ! output
-    & cld_cvr                                                             &
-!!$    & ,nir_sfc           ,nir_dff_sfc     ,vis_sfc          ,vis_dff_sfc   &
-!!$    & ,dpar_sfc          ,par_dff_sfc                                      &
-    & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all,    &
-    & opt_halo_cosmu0  )
+    & ,cld_cvr                                                             &
+!!$ & ,nir_sfc           ,nir_dff_sfc     ,vis_sfc          ,vis_dff_sfc   &
+!!$ & ,dpar_sfc          ,par_dff_sfc                                      &
+    & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all     &
+    & ,opt_halo_cosmu0  )
 
     ! input
     ! -----
@@ -565,6 +565,7 @@ CONTAINS
       &  alb_nir_dif(kbdim), & !< surface albedo for NIR range and diffuse light
       &  emis_rad(kbdim),    & !< longwave surface emissivity
       &  tk_sfc(kbdim),      & !< Surface temperature
+      &  z_mc(kbdim,klev),   & !< height at full levels [m]
       &  pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
       &  pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
       &  tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
@@ -772,14 +773,14 @@ CONTAINS
     !
     CALL rrtm_interface(                                                    &
       ! input
-!!$      & irad_aero                                                          ,&
+!!$   & irad_aero                                                          ,&
       & jg              ,jb                                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0_mod                                                        ,&
-!!$      & pgeom1                                                             ,&
+!!$   & pgeom1                                                             ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-      & emis_rad                                                           ,&
+      & emis_rad        ,z_mc                                              ,&
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
@@ -939,14 +940,14 @@ CONTAINS
 
   SUBROUTINE rrtm_interface(                                              &
     ! input
-!!$    & irad_aero                                                          ,&
+!!$ & irad_aero                                                          ,&
     & jg              ,jb                                                ,&
     & jce             ,kbdim           ,klev                             ,&
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
-!!$    & pgeom1                                                             ,&
     & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-    & emis_rad                                                           ,&
+    & emis_rad        ,z_mc                                              ,&
+!!$ & pgeom1                                                             ,&
     & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
     & tk_hl           ,tk_sfc          ,xm_vap                           ,&
     & xm_liq          ,xm_ice                                            ,&
@@ -978,12 +979,13 @@ CONTAINS
       &  zland(kbdim),                    & !< land-sea mask. (1. = land, 0. = sea/lakes)
       &  zglac(kbdim),                    & !< fraction of land covered by glaciers
       &  pmu0(kbdim),                     & !< mu0 for solar zenith angle
-!!$      &  pgeom1(kbdim,klev),              & !< geopotential above ground
       &  alb_vis_dir(kbdim),              & !< surface albedo for vis range and dir light
       &  alb_nir_dir(kbdim),              & !< surface albedo for NIR range and dir light
       &  alb_vis_dif(kbdim),              & !< surface albedo for vis range and dif light
       &  alb_nir_dif(kbdim),              & !< surface albedo for NIR range and dif light
       &  emis_rad(kbdim),                 & !< longwave surface emissivity
+!!$   &  pgeom1(kbdim,klev),              & !< geopotential above ground
+      &  z_mc(kbdim,klev),                & !< height at full levels [m]
       &  pp_fl(kbdim,klev),               & !< full level pressure in Pa
       &  pp_hl(kbdim,klev+1),             & !< half level pressure in Pa
       &  pp_sfc(kbdim),                   & !< surface pressure in Pa
@@ -1330,7 +1332,7 @@ CONTAINS
       &    col_dry_vr      ,wkl_vr                                           ,&
       &    cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    ,cld_piz_sw_vr  ,&
       &    aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr                   ,&
-      &    ssi_radt                                                          ,&
+      &    ssi_radt        ,z_mc                                             ,&
       !    output
       &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr)
 !!$      &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr   ,&
