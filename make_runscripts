@@ -379,7 +379,7 @@ create_restart()
 
     $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
       in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" test_restart="true" \
-      queue="$queue" cpu_time="$cpu_time"
+      queue="$queue" cpu_time="$cpu_time"  ${define_grids_folder}
 
   fi
 
