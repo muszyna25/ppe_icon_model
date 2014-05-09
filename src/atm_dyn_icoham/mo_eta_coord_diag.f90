@@ -48,7 +48,7 @@ MODULE mo_eta_coord_diag
 
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: rd
-  USE mo_run_config,         ONLY: nvclev, nlev, nlevm1, nlevp1
+  USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1
   USE mo_vertical_coord_table, ONLY: nlmsgl, nlmslp, nplvp1, nplvp2, vct, &
     &                                delpr,  nlmsla, nplev,  ralpha,      &
     &                                rdelpr, rlnpr
@@ -124,7 +124,7 @@ CONTAINS
 
     DO jk = nplvp2, nlmsgl
       zp = vct(jk)
-      zb = vct(jk+nvclev)
+      zb = vct(jk+nlevp1)
       DO jl = 1, klen
         ph(jl,jk) = zp + zb*ps(jl)
       END DO
@@ -133,7 +133,7 @@ CONTAINS
     ! Compute sigma-level values
 
     DO jk = nlmslp, nlevp1
-      zb = vct(jk+nvclev)
+      zb = vct(jk+nlevp1)
       DO jl = 1, klen
         ph(jl,jk) = zb*ps(jl)
       END DO
