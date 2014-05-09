@@ -68,8 +68,8 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
   &                               no_tracer, n_zlev, basin_center_lat,                  &
   &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
-  &                               para_surfRelax_Temp, i_apply_surface_hflux,           &
-  &                               para_surfRelax_Salt,  type_surfRelax_Temp, type_surfRelax_Salt,  &
+  &                               para_surfRelax_Temp, type_surfRelax_Temp,             &
+  &                               para_surfRelax_Salt, type_surfRelax_Salt,             &
   &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
   &                               Atmo_FluxFromFile, Coupled_FluxFromAtmo, Coupled_FluxFromFile, &
   &                               i_sea_ice, forcing_enable_freshwater, &
@@ -378,10 +378,6 @@ CONTAINS
       ! under ice the conductive heat flux is not yet stored specifically
       ! the sum HeatFlux_Total is aggregated and stored accordingly which cannot be done here
 
-      ! ATTENTION
-      !   ice_slow sets the fluxes in Qatm to zero for a new accumulation in ice_fast
-      !   this should be done by the coupler if ice_fast is moved to the atmosphere
-
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=4  ! output print level (1-5, fix)
       CALL dbg_print('FlxFil: hi before slow'    ,p_ice%hi       ,str_module,idt_src, in_subset=p_patch%cells%owned)
@@ -604,14 +600,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! Apply net surface heat flux to boundary condition
-    !  - heat flux is applied alternatively to temperature relaxation for coupling
-    !  - also done if sea ice model is used since HeatFlux_Total is set in mo_sea_ice
-    !  - with OMIP-forcing and sea_ice=0 we need type_surfRelax_Temp=-1
-    !    since there is no HeatFlux_Total over open water when using OMIP-forcing
-    !  - i_apply_surface_hflux=1 provides net surface heat flux globally
-    !
     IF (no_tracer > 0) THEN
-      IF (type_surfRelax_Temp == -1 .OR. i_sea_ice >= 1 .OR. i_apply_surface_hflux == 1) THEN
+      ! not necessary anymore!
+      !IF (type_surfRelax_Temp == -1 .OR. i_sea_ice >= 1 .OR. i_apply_surface_hflux == 1) THEN
 
         ! Heat flux boundary condition for diffusion
         !   D = d/dz(K_v*dT/dz)  where
@@ -632,7 +623,7 @@ CONTAINS
           &  in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
-      END IF
+      !END IF
     END IF
 
     ! old relaxation formulation
@@ -1241,7 +1232,7 @@ CONTAINS
     s_top_old(:,:) = s_top(:,:)
 
 
-    IF (tracer_no == 1) THEN  ! temperature relaxation
+    IF (tracer_no == 1) THEN  ! surface temperature relaxation
       !
       ! Temperature relaxation activated as additonal forcing term in the tracer equation
       ! implemented as simple time-dependent relaxation (time needed to restore tracer completely back to T*)
@@ -1262,7 +1253,7 @@ CONTAINS
 !           p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
             relax_strength = 1.0_wp / (para_surfRelax_Temp*seconds_per_month)
 
-            ! calculate additional temperature rate F_T due to relaxation [K/s]
+            ! calculate additional temperature restoring rate F_T due to relaxation [K/s]
             tempflux(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
 
             ! Diagnosed heat flux Q_surf due to relaxation
@@ -1294,7 +1285,7 @@ CONTAINS
       CALL dbg_print('UpdTrcRlx: New Temperature' ,t_top                        ,str_module,2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
-    ELSE IF (tracer_no == 2) THEN  ! salinity relaxation
+    ELSE IF (tracer_no == 2) THEN  ! surface salinity relaxation
       !
       ! Salinity relaxation activated as additonal forcing term in the tracer equation
       ! implemented as simple time-dependent relaxation (time needed to restore tracer completely back to S*)
@@ -1316,7 +1307,7 @@ CONTAINS
             !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
             IF (l_relaxsal_ice .AND. i_sea_ice >=1) relax_strength = (1.0_wp-p_ice%concsum(jc,jb))*relax_strength
 
-            ! calculate additional salt rate F_S due to relaxation [psu/s]
+            ! calculate additional salt restoring rate F_S due to relaxation [psu/s]
             saltflux(jc,jb) = -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
             ! Diagnosed freshwater flux due to relaxation (equivalent to heat flux Q)
