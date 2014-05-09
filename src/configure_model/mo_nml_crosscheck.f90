@@ -660,6 +660,9 @@ CONTAINS
 
         IF (.NOT. art_config(1)%lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
 
+        ntiles_lnd = 5     !! EDMF currently only works with 5 land tiles - consistent with TESSEL
+                           !! even if the land model is inactive ntiles_lnd should be 5
+
       ENDIF
 
       ! Note: Indices for additional tracers are assigned automatically
