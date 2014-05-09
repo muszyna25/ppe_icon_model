@@ -1644,6 +1644,9 @@ MODULE mo_nh_initicon
 
       ! Allocate and read in vertical coordinate tables
       !
+      ! Note that here the IFS input vertical grid is set up. This has to be distinguished 
+      ! from vct_a, vct_b, vct for the ICON vertical grid.
+      !
       IF (init_mode /= MODE_COSMODE) THEN 
 
         IF (jg == 1) THEN
