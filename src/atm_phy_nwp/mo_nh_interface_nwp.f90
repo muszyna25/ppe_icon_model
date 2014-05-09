@@ -766,6 +766,32 @@ CONTAINS
 
     ENDIF! convection
 
+    ! combine convective and EDMF rain and snow
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end )
+
+      IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN 
+        prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
+          &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
+          & + prm_diag%rain_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
+        prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
+          &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
+          & + prm_diag%snow_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
+      ELSE
+        prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
+          &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
+        prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
+          &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
+      ENDIF
+
+    ENDDO
+
 
     !-------------------------------------------------------------------------
     !> Cloud cover
