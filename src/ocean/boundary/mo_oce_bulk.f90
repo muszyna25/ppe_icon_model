@@ -105,7 +105,7 @@ PRIVATE
 
 ! Public interface
 PUBLIC  :: update_surface_flux
-PUBLIC  :: update_tracer_relaxation
+PUBLIC  :: update_surface_relaxation
 
 ! private routines
 PRIVATE :: update_flux_analytical
@@ -179,13 +179,13 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     !-----------------------------------------------------------------------
-    ! Apply relaxation to surface boundary condition
+    ! Calculate relaxation fluxes to surface boundary condition
     !  - diagnosed heat and freshwater fluxes are added to total fluxes
     !  - relaxation is independent of other fluxes
 
     IF (type_surfRelax_Temp >= 1) THEN
       trac_no = 1   !  tracer no 1: temperature
-      CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
+      CALL update_surface_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
 
       ! #slo# 2014-05-08: old formulation, was not active in OMIP or coupled
       !CALL update_relaxation_flux(p_patch_3D, p_as, p_os, p_ice, p_sfc_flx, trac_no)
@@ -193,7 +193,7 @@ CONTAINS
 
     IF (type_surfRelax_Salt >= 1 .AND. no_tracer >1) THEN
       trac_no = 2   !  tracer no 2: salinity
-      CALL update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
+      CALL update_surface_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, trac_no)
     ENDIF
 
     SELECT CASE (iforc_oce)
@@ -655,7 +655,7 @@ CONTAINS
       p_sfc_flx%FrshFlux_VolumeTotal(:,:) = p_sfc_flx%FrshFlux_Runoff(:,:) + &
         &                          p_sfc_flx%FrshFlux_VolumeIce(:,:) + &
         &                          p_sfc_flx%FrshFlux_TotalOcean(:,:)  + &
-        &                          p_sfc_flx%forc_fwrelax(:,:)
+        &                          p_sfc_flx%FrshFlux_Relax(:,:)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       CALL dbg_print('UpdSfc:VolumeTotal[m/s]',p_sfc_flx%FrshFlux_VolumeTotal,str_module,1, in_subset=p_patch%cells%owned)
@@ -1163,18 +1163,18 @@ CONTAINS
 
             ! Diagnosed freshwater flux due to relaxation [m/s]
             ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
-            p_sfc_flx%forc_fwrelax(jc,jb) = (z_topBCSalt_old-p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)) / s_top(jc,jb)
+            p_sfc_flx%FrshFlux_Relax(jc,jb) = (z_topBCSalt_old-p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)) / s_top(jc,jb)
 
           ELSE
             p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) = 0.0_wp
-            p_sfc_flx%forc_fwrelax(jc,jb)  = 0.0_wp
+            p_sfc_flx%FrshFlux_Relax(jc,jb)  = 0.0_wp
           ENDIF
         END DO
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=2  ! output print level (1-5, fix)
-      CALL dbg_print('UpdRlx:forc-fwrelax[m/s]'  ,p_sfc_flx%forc_fwrelax  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdRlx: FrshFluxRelax[m/s]',p_sfc_flx%FrshFlux_Relax  ,str_module,idt_src, in_subset=p_patch%cells%owned)
       idt_src=3  ! output print level (1-5, fix)
       z_c(:,:) = p_sfc_flx%data_surfRelax_Salt(:,:)
       CALL dbg_print('UpdRlx: S-relax: S*'       ,z_c                     ,str_module,idt_src, in_subset=p_patch%cells%owned)
@@ -1190,31 +1190,27 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
-  !> Generates surface temperature and salinity tracer relaxation
-  !!   relaxation term is calculated and directly restores tracer values
-  !!   in order to handle relaxation completely independent from surface tracer forcing
-  !!   in routine update_surface_flux
-  !!   fluxes are diagnosed and must be treated accordingly
+  !> Calculates surface temperature and salinity tracer relaxation
+  !!   relaxation term for tracer equation and surface fluxes are calculated
+  !!   in addition to other surface tracer fluxes 
+  !!   surface tracer restoring is applied in apply_surface_relaxation
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2014)
   !
-  SUBROUTINE update_tracer_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, tracer_no)
+  SUBROUTINE update_surface_relaxation(p_patch_3D, p_os, p_ice, p_sfc_flx, tracer_no)
 
-    TYPE(t_patch_3D ),    TARGET, INTENT(IN)  :: p_patch_3D
-    TYPE(t_hydro_ocean_state),    INTENT(IN)  :: p_os
+    TYPE (t_patch_3D ),    TARGET, INTENT(IN) :: p_patch_3D
+    TYPE (t_hydro_ocean_state),    INTENT(IN) :: p_os
     TYPE (t_sea_ice),            INTENT (IN)  :: p_ice
-    TYPE(t_sfc_flx)                           :: p_sfc_flx
+    TYPE (t_sfc_flx)                          :: p_sfc_flx
     INTEGER,                      INTENT(IN)  :: tracer_no       !  no of tracer: 1=temperature, 2=salinity
 
     !Local variables 
     INTEGER :: jc, jb
     INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp) :: relax_strength, thick, z_topBCSalt_old
-    REAL(wp) :: Heat_surfRelax(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: tempflux   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: t_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: saltflux   (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: s_top_old  (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_patch), POINTER :: p_patch
     REAL(wp),      POINTER :: t_top(:,:), s_top(:,:)
@@ -1254,19 +1250,19 @@ CONTAINS
             relax_strength = 1.0_wp / (para_surfRelax_Temp*seconds_per_month)
 
             ! calculate additional temperature restoring rate F_T due to relaxation [K/s]
-            tempflux(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
+            p_sfc_flx%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-p_sfc_flx%data_surfRelax_Temp(jc,jb))
 
             ! Diagnosed heat flux Q_surf due to relaxation
             !  Q_surf = F_T*dz/(rho*Cp) = -dz/tau*(T-T*)/(rho*Cp)  [W/m2]
-            !  Heat_surfRelax = thick * tempflux / (rho_ref*clw)
+            !  HeatFlux_Relax = thick * TempFlux_Relax / (rho_ref*clw)
             ! this flux is for diagnosis only and not added to tracer forcing
 
             thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-            Heat_surfRelax(jc,jb) = -tempflux(jc,jb) * thick / (rho_ref*clw)
+            p_sfc_flx%HeatFlux_Relax(jc,jb) = -p_sfc_flx%TempFlux_Relax(jc,jb) * thick / (rho_ref*clw)
            
             ! add relaxation term to temperature tracer
             t_top_old(jc,jb) = t_top(jc,jb)
-            t_top(jc,jb)     = t_top_old(jc,jb) + tempflux(jc,jb)*dtime
+            t_top(jc,jb)     = t_top_old(jc,jb) + p_sfc_flx%TempFlux_Relax(jc,jb)*dtime
           ELSE
 !           p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb) = 0.0_wp
           ENDIF
@@ -1275,12 +1271,12 @@ CONTAINS
       END DO
 
       !  alternatively add relaxation heat flux to total heat flux if no direct relaxation is implemented here
-      !p_sfc_flx%HeatFlux_Total(:,:) = p_sfc_flx%topBoundCond_Temp_vdiff(:,:) + p_sfc_flx%Heat_surfRelax * rho_ref * clw
+      !p_sfc_flx%HeatFlux_Total(:,:) = p_sfc_flx%topBoundCond_Temp_vdiff(:,:) + p_sfc_flx%HeatFlux_Relax * rho_ref * clw
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdTrcRlx:HeatSurfRel[W/m2]',Heat_surfRelax               ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx:HeatFlx_Rlx[W/m2]',p_sfc_flx%HeatFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: T* to relax to'  ,p_sfc_flx%data_surfRelax_Temp,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdTrcRlx: 1/tau*(T*-T)'    ,tempflux                     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: 1/tau*(T*-T)'    ,p_sfc_flx%TempFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: Old Temperature' ,t_top_old                    ,str_module,3, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: New Temperature' ,t_top                        ,str_module,2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
@@ -1308,35 +1304,35 @@ CONTAINS
             IF (l_relaxsal_ice .AND. i_sea_ice >=1) relax_strength = (1.0_wp-p_ice%concsum(jc,jb))*relax_strength
 
             ! calculate additional salt restoring rate F_S due to relaxation [psu/s]
-            saltflux(jc,jb) = -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
+            p_sfc_flx%SaltFlux_Relax(jc,jb) = -relax_strength*(s_top(jc,jb)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
             ! Diagnosed freshwater flux due to relaxation (equivalent to heat flux Q)
             !  Fw_S = F_S*dz/S = dz/tau * (S-S*)/S  [m/s]
             ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
             thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-            p_sfc_flx%forc_fwrelax(jc,jb) = -saltflux(jc,jb) * thick / s_top(jc,jb)
+            p_sfc_flx%FrshFlux_Relax(jc,jb) = -p_sfc_flx%SaltFlux_Relax(jc,jb) * thick / s_top(jc,jb)
            
             ! add relaxation term to salinity tracer
             s_top_old(jc,jb) = s_top(jc,jb)
-            s_top(jc,jb)     = s_top_old(jc,jb) + saltflux(jc,jb)*dtime
+            s_top(jc,jb)     = s_top_old(jc,jb) + p_sfc_flx%SaltFlux_Relax(jc,jb)*dtime
 
           ELSE
-            p_sfc_flx%forc_fwrelax(jc,jb)  = 0.0_wp
+            p_sfc_flx%FrshFlux_Relax(jc,jb)  = 0.0_wp
           ENDIF
         END DO
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdTrcRlx:forc_fwrelax[m/s]',p_sfc_flx%forc_fwrelax       ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx:FrshFlxRelax[m/s]',p_sfc_flx%FrshFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: S* to relax to'  ,p_sfc_flx%data_surfRelax_Salt,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdTrcRlx: 1/tau*(S*-S)'    ,saltflux                     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdTrcRlx: 1/tau*(S*-S)'    ,p_sfc_flx%SaltFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: Old Salt'        ,s_top_old                    ,str_module,3, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdTrcRlx: New Salt'        ,s_top                        ,str_module,2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF  ! tracer_no
 
-  END SUBROUTINE update_tracer_relaxation
+  END SUBROUTINE update_surface_relaxation
 
   !-------------------------------------------------------------------------
   !

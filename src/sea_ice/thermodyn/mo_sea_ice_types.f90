@@ -83,8 +83,10 @@ MODULE mo_sea_ice_types
       &  topBoundCond_Salt_vdiff   (:,:), & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
       &  data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [K]
       &  data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
-      &  forc_hfrelax              (:,:), & ! diagnosed surface heat flux due to relaxation (EMPTY)     [m/s]
-      &  forc_fwrelax              (:,:), & ! diagnosed surface freshwater flux due to relaxation       [m/s]
+      &  HeatFlux_Relax            (:,:), & ! surface heat flux due to relaxation                       [W/m2]
+      &  FrshFlux_Relax            (:,:), & ! surface freshwater flux due to relaxation                 [m/s]
+      &  TempFlux_Relax            (:,:), & ! temperature tracer flux due to relaxation                 [K/s]
+      &  SaltFlux_Relax            (:,:), & ! salinity tracer flux due to relaxation                    [psu/s]
       !
       !  accumulations variables - comments see above
       &  topBoundCond_windStress_u_acc  (:,:),  &
@@ -105,10 +107,12 @@ MODULE mo_sea_ice_types
       &  FrshFlux_VolumeTotal_acc       (:,:),  &
       &  topBoundCond_Temp_vdiff_acc    (:,:),  &
       &  topBoundCond_Salt_vdiff_acc    (:,:),  &
-      &  forc_hfrelax_acc     (:,:),     &
-      &  forc_fwrelax_acc               (:,:),  &
-      &  data_surfRelax_Temp_acc          (:,:),   &
-      &  data_surfRelax_Salt_acc(:,:)
+      &  HeatFlux_Relax_acc             (:,:),  &
+      &  FrshFlux_Relax_acc             (:,:),  &
+      &  TempFlux_Relax_acc             (:,:),  &
+      &  SaltFlux_Relax_acc             (:,:),  &
+      &  data_surfRelax_Temp_acc        (:,:),  &
+      &  data_surfRelax_Salt_acc        (:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)

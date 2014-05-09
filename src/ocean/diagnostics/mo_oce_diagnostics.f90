@@ -112,12 +112,14 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: FrshFlux_Evaporation
     REAL(wp) :: FrshFlux_Runoff
     REAL(wp) :: FrshFlux_TotalSalt
-    REAL(wp) :: forc_fwrelax
     REAL(wp) :: FrshFlux_TotalOcean
     REAL(wp) :: FrshFlux_TotalIce
     REAL(wp) :: FrshFlux_VolumeIce
     REAL(wp) :: FrshFlux_VolumeTotal
-    REAL(wp) :: forc_hfrelax
+    REAL(wp) :: HeatFlux_Relax
+    REAL(wp) :: FrshFlux_Relax
+    REAL(wp) :: TempFlux_Relax
+    REAL(wp) :: SaltFlux_Relax
     
     REAL(wp) :: ice_volume_nh !                                                           [km3]
     REAL(wp) :: ice_volume_sh !                                                           [km3]
@@ -140,7 +142,7 @@ MODULE mo_oce_diagnostics
   TYPE t_oce_timeseries
     
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(40)  :: names = (/ &
+    CHARACTER(LEN=40), DIMENSION(42)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -161,10 +163,12 @@ MODULE mo_oce_diagnostics
       & "FrshFlux_TotalSalt                      ", &
       & "FrshFlux_TotalOcean                     ", &
       & "FrshFlux_TotalIce                       ", &
-      & "forc_fwrelax                            ", &
       & "FrshFlux_VolumeIce                      ", &
       & "FrshFlux_VolumeTotal                    ", &
-      & "forc_hfrelax                            ", &
+      & "HeatFlux_Relax                          ", &
+      & "FrshFlux_Relax                          ", &
+      & "TempFlux_Relax                          ", &
+      & "SaltFlux_Relax                          ", &
       & "ice_volume_nh                           ", &
       & "ice_volume_sh                           ", &
       & "ice_extent_nh                           ", &
@@ -260,10 +264,12 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalSalt                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalOcean             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalIce             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_fwrelax               = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeIce            = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeTotal                = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%forc_hfrelax               = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeTotal       = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Relax             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Relax             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%TempFlux_Relax             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%SaltFlux_Relax             = 0.0_wp
     
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
@@ -571,12 +577,14 @@ CONTAINS
           monitor%FrshFlux_Evaporation    = monitor%FrshFlux_Evaporation    + p_sfc_flx%FrshFlux_Evaporation(jc,jb)*prism_area
           monitor%FrshFlux_Runoff  = monitor%FrshFlux_Runoff  + p_sfc_flx%FrshFlux_Runoff(jc,jb)*prism_area
           monitor%FrshFlux_TotalSalt   = monitor%FrshFlux_TotalSalt   + p_sfc_flx%FrshFlux_TotalSalt(jc,jb)*prism_area
-          monitor%forc_fwrelax = monitor%forc_fwrelax + p_sfc_flx%forc_fwrelax(jc,jb)*prism_area
           monitor%FrshFlux_TotalOcean    = monitor%FrshFlux_TotalOcean    + p_sfc_flx%FrshFlux_TotalOcean(jc,jb)*prism_area
           monitor%FrshFlux_TotalIce    = monitor%FrshFlux_TotalIce    + p_sfc_flx%FrshFlux_TotalIce(jc,jb)*prism_area
           monitor%FrshFlux_VolumeIce   = monitor%FrshFlux_VolumeIce   + p_sfc_flx%FrshFlux_VolumeIce (jc,jb)*prism_area
           monitor%FrshFlux_VolumeTotal  = monitor%FrshFlux_VolumeTotal  + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb)*prism_area
-          monitor%forc_hfrelax = monitor%forc_hfrelax + p_sfc_flx%forc_hfrelax(jc,jb)*prism_area
+          monitor%HeatFlux_Relax = monitor%HeatFlux_Relax + p_sfc_flx%HeatFlux_Relax(jc,jb)*prism_area
+          monitor%FrshFlux_Relax = monitor%FrshFlux_Relax + p_sfc_flx%FrshFlux_Relax(jc,jb)*prism_area
+          monitor%TempFlux_Relax = monitor%TempFlux_Relax + p_sfc_flx%TempFlux_Relax(jc,jb)*prism_area
+          monitor%SaltFlux_Relax = monitor%SaltFlux_Relax + p_sfc_flx%SaltFlux_Relax(jc,jb)*prism_area
           
           ! northern hemisphere
           IF (p_patch%cells%center(jc,jb)%lat > equator) THEN
@@ -652,10 +660,12 @@ CONTAINS
     monitor%FrshFlux_TotalSalt                 = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
     monitor%FrshFlux_TotalOcean             = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
     monitor%FrshFlux_TotalIce             = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
-    monitor%forc_fwrelax               = global_sum_array(monitor%forc_fwrelax)/surface_area
     monitor%FrshFlux_VolumeIce            = global_sum_array(monitor%FrshFlux_VolumeIce)/surface_area
     monitor%FrshFlux_VolumeTotal                = global_sum_array(monitor%FrshFlux_VolumeTotal)/surface_area
-    monitor%forc_hfrelax               = global_sum_array(monitor%forc_hfrelax)/surface_area
+    monitor%HeatFlux_Relax             = global_sum_array(monitor%HeatFlux_Relax)/surface_area
+    monitor%FrshFlux_Relax             = global_sum_array(monitor%FrshFlux_Relax)/surface_area
+    monitor%SaltFlux_Relax             = global_sum_array(monitor%SaltFlux_Relax)/surface_area
+    monitor%TempFlux_Relax             = global_sum_array(monitor%TempFlux_Relax)/surface_area
     monitor%ice_volume_nh              = global_sum_array(monitor%ice_volume_nh)/1.0e9_wp
     monitor%ice_volume_sh              = global_sum_array(monitor%ice_volume_sh)/1.0e9_wp
     monitor%ice_extent_nh              = global_sum_array(monitor%ice_extent_nh)/1.0e6_wp
@@ -727,10 +737,12 @@ CONTAINS
         & monitor%FrshFlux_TotalSalt, &
         & monitor%FrshFlux_TotalOcean, &
         & monitor%FrshFlux_TotalIce, &
-        & monitor%forc_fwrelax, &
         & monitor%FrshFlux_VolumeIce, &
         & monitor%FrshFlux_VolumeTotal, &
-        & monitor%forc_hfrelax, &
+        & monitor%HeatFlux_Relax, &
+        & monitor%FrshFlux_Relax, &
+        & monitor%TempFlux_Relax, &
+        & monitor%SaltFlux_Relax, &
         & monitor%ice_volume_nh, &
         & monitor%ice_volume_sh, &
         & monitor%ice_extent_nh, &

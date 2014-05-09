@@ -199,19 +199,29 @@ CONTAINS
     &          t_cf_var('FrshFlux_TotalIce', 'm/s', 'FrshFlux_TotalIce', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_hfrelax', p_sfc_flx%forc_hfrelax , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_hfrelax', 'm/s', 'forc_hfrelax', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(var_list, 'forc_fwrelax', p_sfc_flx%forc_fwrelax , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwrelax', 'm/s', 'forc_fwrelax', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(var_list, 'FrshFlux_VolumeIce', p_sfc_flx%FrshFlux_VolumeIce, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('FrshFlux_VolumeIce', 'm/s', 'FrshFlux_VolumeIce', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'HeatFlux_Relax', p_sfc_flx%HeatFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('HeatFlux_Relax', 'W/m2', 'HeatFlux_Relax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'FrshFlux_Relax', p_sfc_flx%FrshFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('FrshFlux_Relax', 'm/s', 'FrshFlux_Relax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'TempFlux_Relax', p_sfc_flx%TempFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('TempFlux_Relax', 'K/s', 'TempFlux_Relax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'SaltFlux_Relax', p_sfc_flx%SaltFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('SaltFlux_Relax', 'psu/s', 'SaltFlux_Relax', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
     IF(no_tracer>=1) THEN
@@ -341,21 +351,31 @@ CONTAINS
     &          t_cf_var('FrshFlux_TotalIce_acc', 'm/s', 'FrshFlux_TotalIce_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_hfrelax_acc', p_sfc_flx%forc_hfrelax_acc , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_hfrelax_acc', 'm/s', 'forc_hfrelax_acc', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(var_list, 'forc_fwrelax_acc', p_sfc_flx%forc_fwrelax_acc , &
-    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-    &          t_cf_var('forc_fwrelax_acc', 'm/s', 'forc_fwrelax_acc', DATATYPE_FLT32),&
-    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
-    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(var_list, 'FrshFlux_VolumeIce_acc', p_sfc_flx%FrshFlux_VolumeIce_acc, &
     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
     &          t_cf_var('FrshFlux_VolumeIce_acc', 'm/s', 'FrshFlux_VolumeIce_acc', DATATYPE_FLT32),&
     &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
     &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(var_list, 'HeatFlux_Relax_acc', p_sfc_flx%HeatFlux_Relax_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('HeatFlux_Relax_acc', 'W/m2', 'HeatFlux_Relax_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'FrshFlux_Relax_acc', p_sfc_flx%FrshFlux_Relax_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('FrshFlux_Relax_acc', 'm/s', 'FrshFlux_Relax_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'TempFlux_Relax_acc', p_sfc_flx%TempFlux_Relax_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('TempFlux_Relax_acc', 'K/s', 'TempFlux_Relax_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+    CALL add_var(var_list, 'SaltFlux_Relax_acc', p_sfc_flx%SaltFlux_Relax_acc , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('SaltFlux_Relax_acc', 'psu/s', 'SaltFlux_Relax_acc', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
     ! cartesians
     ALLOCATE(p_sfc_flx%topBoundCond_windStress_cc(nproma,alloc_cell_blocks), STAT=ist)

@@ -148,8 +148,8 @@ CONTAINS
     CALL add_fields(p_sfc_flx%FrshFlux_TotalIce_acc           , p_sfc_flx%FrshFlux_TotalIce           , cells)
     CALL add_fields(p_sfc_flx%FrshFlux_VolumeIce_acc          , p_sfc_flx%FrshFlux_VolumeIce          , cells)
     CALL add_fields(p_sfc_flx%FrshFlux_VolumeTotal_acc        , p_sfc_flx%FrshFlux_VolumeTotal        , cells)
-    CALL add_fields(p_sfc_flx%forc_hfrelax_acc                , p_sfc_flx%forc_hfrelax                , cells)
-    CALL add_fields(p_sfc_flx%forc_fwrelax_acc                , p_sfc_flx%forc_fwrelax                , cells)
+    CALL add_fields(p_sfc_flx%HeatFlux_Relax_acc              , p_sfc_flx%HeatFlux_Relax              , cells)
+    CALL add_fields(p_sfc_flx%FrshFlux_Relax_acc              , p_sfc_flx%FrshFlux_Relax              , cells)
     CALL add_fields(p_sfc_flx%data_surfRelax_Temp_acc(:,:)    , p_sfc_flx%data_surfRelax_Temp(:,:)    , cells)
     CALL add_fields(p_sfc_flx%data_surfRelax_Salt_acc(:,:)    , p_sfc_flx%data_surfRelax_Salt(:,:)    , cells)
     CALL add_fields(p_sfc_flx%topBoundCond_Salt_vdiff_acc(:,:), p_sfc_flx%topBoundCond_Temp_vdiff(:,:), cells)
@@ -212,10 +212,10 @@ CONTAINS
     p_sfc_flx%FrshFlux_TotalSalt_acc        = p_sfc_flx%FrshFlux_TotalSalt_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_TotalOcean_acc       = p_sfc_flx%FrshFlux_TotalOcean_acc      /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_TotalIce_acc         = p_sfc_flx%FrshFlux_TotalIce_acc        /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_fwrelax_acc              = p_sfc_flx%forc_fwrelax_acc             /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%FrshFlux_Relax_acc            = p_sfc_flx%FrshFlux_Relax_acc           /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_VolumeIce_acc        = p_sfc_flx%FrshFlux_VolumeIce_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_VolumeTotal_acc      = p_sfc_flx%FrshFlux_VolumeTotal_acc     /REAL(nsteps_since_last_output,wp)
-    p_sfc_flx%forc_hfrelax_acc              = p_sfc_flx%forc_hfrelax_acc             /REAL(nsteps_since_last_output,wp)
+    p_sfc_flx%HeatFlux_Relax_acc            = p_sfc_flx%HeatFlux_Relax_acc           /REAL(nsteps_since_last_output,wp)
     IF(no_tracer>0)THEN
       p_sfc_flx%data_surfRelax_Temp_acc     = p_sfc_flx%data_surfRelax_Temp_acc        /REAL(nsteps_since_last_output,wp)
       p_sfc_flx%topBoundCond_Temp_vdiff_acc = p_sfc_flx%topBoundCond_Temp_vdiff_acc    /REAL(nsteps_since_last_output,wp)
@@ -253,7 +253,7 @@ CONTAINS
       p_sfc_flx%HeatFlux_Latent_acc             = 0.0_wp
       p_sfc_flx%HeatFlux_Total_acc              = 0.0_wp
       p_sfc_flx%topBoundCond_Temp_vdiff_acc     = 0.0_wp
-      p_sfc_flx%forc_hfrelax_acc                = 0.0_wp
+      p_sfc_flx%HeatFlux_Relax_acc              = 0.0_wp
       IF (no_tracer>1) THEN
         p_sfc_flx%FrshFlux_Precipitation_acc    = 0.0_wp
         p_sfc_flx%FrshFlux_SnowFall_acc         = 0.0_wp
@@ -262,7 +262,7 @@ CONTAINS
         p_sfc_flx%FrshFlux_TotalSalt_acc        = 0.0_wp
         p_sfc_flx%FrshFlux_TotalOcean_acc       = 0.0_wp
         p_sfc_flx%FrshFlux_TotalIce_acc         = 0.0_wp
-        p_sfc_flx%forc_fwrelax_acc              = 0.0_wp
+        p_sfc_flx%FrshFlux_Relax_acc            = 0.0_wp
         p_sfc_flx%FrshFlux_VolumeIce_acc        = 0.0_wp
         p_sfc_flx%FrshFlux_VolumeTotal_acc      = 0.0_wp
         p_sfc_flx%topBoundCond_Salt_vdiff_acc   = 0.0_wp
