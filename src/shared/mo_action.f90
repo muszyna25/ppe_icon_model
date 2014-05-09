@@ -58,17 +58,20 @@ MODULE mo_action
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text
-  USE mtime,                 ONLY: event, newEvent, datetime,newDatetime,     &
+  USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,    &
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
-    &                              MAX_EVENTNAME_STR_LEN, newTimedelta, timedelta
+    &                              MAX_EVENTNAME_STR_LEN, newTimedelta,       &
+    &                              timedelta, newTimedelta, deallocateTimedelta
   USE mo_run_config,         ONLY: msg_level
-  USE mo_mtime_extensions,   ONLY: get_datetime_string, getPTStringFromMS
+  USE mo_mtime_extensions,   ONLY: get_datetime_string, getTimeDeltaFromDateTime, &
+    &                              getPTStringFromMS
   USE mo_action_types,       ONLY: t_var_action
   USE mo_time_config,        ONLY: time_config
   USE mo_var_list,           ONLY: nvar_lists, var_lists
   USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
+
 
   IMPLICIT NONE
 
@@ -100,6 +103,7 @@ MODULE mo_action
   !
   TYPE t_var_element_ptr
     TYPE(t_var_list_element), POINTER :: p
+    TYPE(event)             , POINTER :: event     ! event from mtime library
   END TYPE t_var_element_ptr
 
 
@@ -205,18 +209,24 @@ CONTAINS
           ! to the corresponding action.
           IF (action_list%action(iact)%actionID == actionID) THEN
 
-            ! Create event for this specific field
-            intvl = action_list%action(iact)%intvl
-            write(str_actionID,'(i2)') actionID 
-            event_name = 'act_ID'//TRIM(str_actionID)//'_'//TRIM(intvl)
-            action_list%action(iact)%event =>newEvent(TRIM(event_name),TRIM(sim_start), &
-              &                                       TRIM(sim_start), TRIM(sim_end), &
-              &                                       TRIM(intvl))
-
             ! Add field to action object
             nvars = nvars + 1
             act_obj%var_element_ptr(nvars)%p => element%field
             act_obj%var_action_index(nvars) = iact
+
+
+            ! Create event for this specific field
+            intvl = action_list%action(iact)%intvl
+            write(str_actionID,'(i2)') actionID 
+            event_name = 'act_ID'//TRIM(str_actionID)//'_'//TRIM(intvl)
+            act_obj%var_element_ptr(nvars)%event =>newEvent(TRIM(event_name),TRIM(sim_start), &
+              &                                       TRIM(sim_start), TRIM(sim_end), &
+              &                                       TRIM(intvl))
+
+!DR            action_list%action(iact)%event =>newEvent(TRIM(event_name),TRIM(sim_start), &
+!DR              &                                       TRIM(sim_start), TRIM(sim_end), &
+!DR              &                                       TRIM(intvl))
+
           END IF
         ENDDO  LOOPACTION ! loop over variable-specific actions
 
@@ -262,12 +272,17 @@ CONTAINS
       &  field
     TYPE(event)             , POINTER :: & !< Pointer to variable specific event info
       &  this_event 
-    TYPE(datetime),           POINTER :: & !< 
+    TYPE(datetime),           POINTER :: & !< Current date in mtime format
       &  mtime_date 
+    TYPE(datetime),           POINTER :: & !< Model start date in mtime format
+      &  mtime_inidate 
+    TYPE(timedelta),          POINTER :: & !< for forecast time computation
+      &  time_range
 
     LOGICAL :: isactive
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_ini_datetime
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: str_slack       ! slack as string
     TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format
@@ -294,7 +309,8 @@ CONTAINS
       var_action_idx = reset_act%var_action_index(ivar)
 
       field      => reset_act%var_element_ptr(ivar)%p
-      this_event => field%info%action_list%action(var_action_idx)%event
+      this_event => reset_act%var_element_ptr(ivar)%event
+!DR      this_event => field%info%action_list%action(var_action_idx)%event
 
 
       ! Check whether event-pointer is associated.
@@ -319,7 +335,20 @@ CONTAINS
         ! store latest triggering date
         field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
 
-        IF (msg_level >= 11) THEN
+
+        ! compute ini datetime in a format appropriate for mtime
+        CALL get_datetime_string(mtime_ini_datetime, time_config%ini_datetime)
+        mtime_inidate  => newDatetime(TRIM(mtime_ini_datetime))
+        time_range     => newTimedelta("P01D")
+        CALL getTimeDeltaFromDateTime(mtime_date, mtime_inidate, time_range)
+
+! preparations
+!!$        ! store forecast time (necessary for proper GRIB2 encoding)
+!!$        field%info%volatile%fcast_time = 86400*time_range%day + 3600*time_range%hour &
+!!$          &                            + 60*time_range%minute + time_range%second
+
+
+        IF (msg_level >= 12) THEN
           WRITE(message_text,'(a,i2,a,a,a,a)') 'action ',reset_act%actionID, &
             &  ' triggered for ', TRIM(field%info%name), ' at ', TRIM(mtime_cur_datetime)
           CALL message(TRIM(routine),message_text)
@@ -329,6 +358,10 @@ CONTAINS
         ! so far, works only for fields of type REAL
         field%r_ptr = field%info%resetval%rval
 
+        ! cleanup
+        !
+        CALL deallocateTimedelta(time_range)
+        CALL deallocateDatetime(mtime_inidate)
       ENDIF
 
     ENDDO

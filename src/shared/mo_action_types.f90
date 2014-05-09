@@ -38,7 +38,7 @@
 !!
 MODULE mo_action_types
 
-  USE mtime,                 ONLY: event, MAX_DATETIME_STR_LEN
+  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN
 
   IMPLICIT NONE
 
@@ -49,7 +49,8 @@ MODULE mo_action_types
   PUBLIC  :: t_var_action
 
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
 
   INTEGER, PARAMETER :: NMAX_ACTION=5
 
@@ -58,7 +59,6 @@ MODULE mo_action_types
   TYPE t_var_action_element
     INTEGER                         :: actionID              ! action ID  
     CHARACTER(LEN=128)              :: intvl                 ! action interval [PTnH]
-    TYPE(event), POINTER            :: event                 ! event from mtime library
     CHARACTER(MAX_DATETIME_STR_LEN) :: lastActive            ! date of last triggering
   END TYPE t_var_action_element
 
