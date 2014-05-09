@@ -230,7 +230,7 @@ check_accept_script()
       #    ;;
        esac
        if [[ _${define_grids_folder} != "_" ]] ; then
-         define_grids_folder='grids_folder="/../../../../buildbot.grids"'
+         define_grids_folder='grids_folder="/e/uscratch/extwsauf/buildbot.grids"'
        fi
      ;; 
 
