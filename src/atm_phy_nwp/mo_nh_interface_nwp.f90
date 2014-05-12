@@ -1279,8 +1279,10 @@ CONTAINS
             &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
             & + prm_diag%snow_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
         ELSE IF (lcall_phy_jg(itconv)) THEN
+!DIR$ IVDEP
           prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
             &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
+!DIR$ IVDEP
           prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
             &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
         ENDIF
