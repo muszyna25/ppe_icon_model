@@ -176,10 +176,10 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
     
 
-!! !$OMP PARALLEL
+!$OMP PARALLEL
     IF ( lcall_phy_jg(itccov) ) THEN
 
-!! !$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -351,7 +351,7 @@ CONTAINS
         END SELECT
 
       ENDDO ! nblks
-!! !$OMP END DO
+!$OMP END DO
 
     END IF !cloud cover
 
@@ -359,7 +359,7 @@ CONTAINS
 
  !! Calculate vertically integrated values of the grid-scale tracers q1, q2, q3, q4 and q5
  
-!! !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_help) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_help) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -377,7 +377,7 @@ CONTAINS
       ENDDO
 
     ENDDO ! nblks   
-!! !$OMP END DO
+!$OMP END DO
 
 
 
@@ -414,7 +414,7 @@ CONTAINS
 
     IF ( p_sim_time > 1.e-6_wp) THEN
 
-!! !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -645,7 +645,7 @@ CONTAINS
         ENDIF  ! lflux_avg
 
       ENDDO ! nblks     
-!! !$OMP END DO NOWAIT
+!$OMP END DO NOWAIT
 
     END IF  ! p_sim_time
 
@@ -664,7 +664,7 @@ CONTAINS
 !     Switch to a more general formulation applicable for stable case as well (AD,2013-11-16)
        
 
-!! !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,d_theta_dz,jk_max,d_theta_dz_max) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,d_theta_dz,jk_max,d_theta_dz_max) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
               & i_startidx, i_endidx, rl_start, rl_end)
@@ -686,11 +686,11 @@ CONTAINS
 
             ENDDO
           ENDDO ! jb
-!! !$OMP END DO
+!$OMP END DO
 
     END IF !is_les_phy
 
-!! !$OMP END PARALLEL  
+!$OMP END PARALLEL  
 
 
   END SUBROUTINE nwp_statistics
