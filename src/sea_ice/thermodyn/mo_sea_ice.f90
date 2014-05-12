@@ -449,77 +449,55 @@ CONTAINS
     alloc_cell_blocks = p_patch%alloc_cell_blocks
 
     ALLOCATE(p_as%tafo(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for tafo failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'tafo')
+
     ALLOCATE(p_as%ftdew(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ftdew failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'ftdew')
+
     ALLOCATE(p_as%fclou(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for fclou failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'fclou')
 
     ALLOCATE(p_as%fu10(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for fu10 failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'fu10')
 
     ALLOCATE(p_as%fswr(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for fswr failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'fswr')
 
     ALLOCATE(p_as%pao(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for pao failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'pao')
 
     ALLOCATE(p_as%u(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for u failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'u')
+
     ALLOCATE(p_as%v(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for v failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'v')
 
     ALLOCATE(p_as%precip(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for precip failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'precip')
 
     ALLOCATE(p_as%evap(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for evap failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'evap')
 
     ALLOCATE(p_as%runoff(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for runoff failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'runoff')
+
     ALLOCATE(p_as%topBoundCond_windStress_u(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of topBoundCond_windStress_u failed.')
+    CALL finish_unless_allocate(ist,routine,'topBoundCond_windStress_u')
 
     ALLOCATE(p_as%topBoundCond_windStress_v(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of topBoundCond_windStress_v failed.')
+    CALL finish_unless_allocate(ist,routine,'topBoundCond_windStress_v')
 
     ALLOCATE(p_as%FrshFlux_Precipitation(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_Precipitation failed.')
-
-    ALLOCATE(p_as%FrshFlux_Evaporation(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_Evaporation failed.')
-
-    ALLOCATE(p_as%FrshFlux_TotalOcean(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_TotalOcean failed.')
+    CALL finish_unless_allocate(ist,routine,'FrshFlux_Precipitation')
 
     ALLOCATE(p_as%FrshFlux_Runoff(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of FrshFlux_Runoff failed.')
+    CALL finish_unless_allocate(ist,routine,'FrshFlux_Runoff')
 
     ALLOCATE(p_as%data_surfRelax_Temp(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of data_surfRelax_Temp failed.')
+    CALL finish_unless_allocate(ist,routine,'data_surfRelax_Temp')
 
+    ALLOCATE(p_as%data_surfRelax_Salt(nproma,alloc_cell_blocks), STAT=ist)
+    CALL finish_unless_allocate(ist,routine,'data_surfRelax_Salt')
 
     p_as%tafo  (:,:)                    = 0.0_wp
     p_as%ftdew (:,:)                    = 0.0_wp
@@ -535,9 +513,9 @@ CONTAINS
     p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
     p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
     p_as%FrshFlux_Precipitation(:,:)    = 0.0_wp
-    p_as%FrshFlux_TotalOcean(:,:)       = 0.0_wp
     p_as%FrshFlux_Runoff(:,:)           = 0.0_wp
     p_as%data_surfRelax_Temp(:,:)       = 0.0_wp
+    p_as%data_surfRelax_Salt(:,:)       = 0.0_wp
 
     CALL message(TRIM(routine), 'end')
 
@@ -845,6 +823,13 @@ CONTAINS
       &          t_cf_var('topBoundCond_windStress_v', '', 'topBoundCond_windStress_v', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! 
+    CALL add_var(ocean_default_list,'data_surfRelax_Temp', p_atm_f%data_surfRelax_Temp,     &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('data_surfRelax_Temp', '', 'data_surfRelax_Temp', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
     ! surface short wave heat flux                              [W/m2]
     CALL add_var(ocean_default_list,'HeatFlux_ShortWave', p_atm_f%HeatFlux_ShortWave,         &
@@ -1273,10 +1258,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, Qatm, p_op_coeff)
+  SUBROUTINE ice_slow(p_patch_3D, p_os, ice, Qatm, p_op_coeff)
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
-    TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
     TYPE(t_sea_ice),          INTENT (INOUT) :: ice
     TYPE(t_atmos_fluxes),     INTENT (INOUT) :: Qatm
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
@@ -2403,4 +2387,9 @@ CONTAINS
     p_acc%v                         = 0.0_wp
     p_acc%conc                      = 0.0_wp
   END SUBROUTINE reset_ice_statistics
+  SUBROUTINE finish_unless_allocate(ist, routine, tag)
+    INTEGER :: ist
+    CHARACTER(len=*) :: tag,routine
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of '//TRIM(tag)//' failed.')
+  END SUBROUTINE finish_unless_allocate
 END MODULE mo_sea_ice

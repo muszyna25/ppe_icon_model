@@ -163,13 +163,9 @@ CONTAINS
     t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
     s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
-    !  calculate time
-    dsec  = datetime%daysec        ! real seconds since begin of day
-
     !-----------------------------------------------------------------------
-    !  (1) provide surface fluxes from the atmosphere
+    !  (1) get surface fluxes from outside: analytic, file, coupling
     !-----------------------------------------------------------------------
-
     SELECT CASE (iforc_oce)
 
     CASE (No_Forcing)                !  10
@@ -204,7 +200,7 @@ CONTAINS
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
       !  and do a direct assignment of atmospheric state to surface fluxes.
       !
-      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, Qatm, p_sfc_flx, jstep, datetime)
+      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, Qatm, jstep, datetime)
 
     CASE (Coupled_FluxFromFile)                                       !  15
       !1) bulk formula to atmospheric state and proceed as above, the only distinction
@@ -221,7 +217,8 @@ CONTAINS
     END SELECT
 
     !-----------------------------------------------------------------------
-    !  (2) provide surface fluxes for ocean and ice forcing via bulk formula
+    !  (2) provide atmosphereic feedback suitable for the surface model (incl. sea ice):
+    !    analytic, apply bulk formula (OMIP), coupling rel. adjustments
     !-----------------------------------------------------------------------
     ! #slo# 2014-05-02:  Comments on status
     !   - a clearly defined interface to the call of ice_fast and ice_slow is missing
@@ -231,7 +228,6 @@ CONTAINS
     !     for calls  to bulk formula and/or to sea ice
     !   - for Coupled_FluxFromAtmo the fluxes are still included in sbrt couple_ocean_toatmo_fluxes
     !     and should be moved to here
-
     SELECT CASE (iforc_oce)
 
     CASE (Analytical_Forcing)        !  11
@@ -253,9 +249,9 @@ CONTAINS
 
         ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
         ! TODO: evaporation of ice and snow must be implemented
-        p_as%FrshFlux_Evaporation(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
-        p_as%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * & 
-          &                                  ( p_as%FrshFlux_Precipitation(:,:) + p_as%FrshFlux_Evaporation(:,:) )
+        Qatm%FrshFlux_Evaporation(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
+        Qatm%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * & 
+          &                                  ( p_as%FrshFlux_Precipitation(:,:) + Qatm%FrshFlux_Evaporation(:,:) )
 
         ! Precipitation on ice is snow when we're below the freezing point
         ! TODO: use 10 m temperature, not Tsurf - Also, do this in calc_bulk_flux_oce and calc_bulk_flux_ice
@@ -280,30 +276,30 @@ CONTAINS
 
     CASE (Coupled_FluxFromAtmo)      !  14
 
-      ! #slo# 2014-05: unclear whether necessary here:
-      ! IF (i_sea_ice >= 1) THEN
+      ! Qatm is dircetly used in the coupling
+        Qatm%SWnetw (:,:)   = Qatm%HeatFlux_ShortWave(:,:)
+        Qatm%LWnetw (:,:)   = Qatm%HeatFlux_LongWave (:,:)
+        Qatm%sensw  (:,:)   = Qatm%HeatFlux_Sensible (:,:)
+        Qatm%latw   (:,:)   = Qatm%HeatFlux_Latent   (:,:)
 
-        Qatm%SWnetw (:,:)   = p_sfc_flx%HeatFlux_ShortWave(:,:)
-        Qatm%LWnetw (:,:)   = p_sfc_flx%HeatFlux_LongWave (:,:)
-        Qatm%sensw  (:,:)   = p_sfc_flx%HeatFlux_Sensible (:,:)
-        Qatm%latw   (:,:)   = p_sfc_flx%HeatFlux_Latent   (:,:)
+
+!     atmos_fluxes%stress_xw(:,:) = RESHAPE(buffer(:,1),(/ nproma, patch_2d%nblks_c /) )
      
       ! Precipitation on ice is snow when we're below the freezing point
-            WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
-                Qatm%rpreci(:,:) = p_sfc_flx%FrshFlux_SnowFall(:,:)
-                Qatm%rprecw(:,:) = p_sfc_flx%FrshFlux_Precipitation(:,:)
-            ELSEWHERE
-                Qatm%rpreci(:,:) = 0._wp
-                Qatm%rprecw(:,:) = p_sfc_flx%FrshFlux_Precipitation(:,:) + p_sfc_flx%FrshFlux_SnowFall(:,:)
-            ENDWHERE
+        WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
+          Qatm%rpreci(:,:) = Qatm%FrshFlux_SnowFall(:,:)
+          Qatm%rprecw(:,:) = Qatm%FrshFlux_Precipitation(:,:)
+        ELSEWHERE
+          Qatm%rpreci(:,:) = 0._wp
+          Qatm%rprecw(:,:) = Qatm%FrshFlux_Precipitation(:,:) + Qatm%FrshFlux_SnowFall(:,:)
+        ENDWHERE
       ! END IF  !  sea ice
 
     END SELECT
 
     !-----------------------------------------------------------------------
-    !  (3) call sea ice model
+    !  (3) call surface model: sea ice
     !-----------------------------------------------------------------------
-
     SELECT CASE (iforc_oce)
 
     CASE (Analytical_Forcing)        !  11
@@ -368,7 +364,7 @@ CONTAINS
       CALL dbg_print('FlxFil: i-alb before slow' ,Qatm%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
-      CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_op_coeff)
+      CALL ice_slow(p_patch_3D, p_os, p_ice, Qatm, p_op_coeff)
 
       ! provide total salinity forcing flux
       !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
@@ -438,14 +434,14 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
    
         ! ice_fast ic called from the atmosphere
-        CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_op_coeff)
+        CALL ice_slow(p_patch_3D, p_os, p_ice, Qatm, p_op_coeff)
         
         ! Sum of freshwater flux (for salt) F = P - E + Sn (no runoff yet included??)
         p_sfc_flx%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
           &                                  (p_sfc_flx%FrshFlux_Precipitation(:,:) +                &
           &                                   p_sfc_flx%FrshFlux_Evaporation(:,:) +                  &
           &                                   p_sfc_flx%FrshFlux_SnowFall(:,:))
-        p_sfc_flx%FrshFlux_TotalSalt(:,:)     =  p_sfc_flx%FrshFlux_TotalOcean(:,:) + p_sfc_flx%FrshFlux_TotalIce(:,:)
+        p_sfc_flx%FrshFlux_TotalSalt(:,:)  =  p_sfc_flx%FrshFlux_TotalOcean(:,:) + p_sfc_flx%FrshFlux_TotalIce(:,:)
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
         !  done in mo_sea_ice:upper_ocean_TS
 
@@ -482,6 +478,7 @@ CONTAINS
   !---------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
+  !  define the ocean top boundary conditions
   !  (4) set resulting forcing fluxes for ocean using interface variables from sea ice/coupling/analytical:
   !    p_sfc_flx%HeatFlux_Total(:,:)       = p_ice_interface%heatOceI(:,:) + p_ice_interface%heatOceW(:,:) 
   !    p_sfc_flx%topBoundCond_windStress_u = p_ice_interface%windStress_u  !  modified in ice_slow
@@ -498,6 +495,7 @@ CONTAINS
   p_sfc_flx%HeatFlux_Total    (:,:)        = Qatm%HeatFlux_Total    (:,:)
   p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%topBoundCond_windStress_u(:,:)
   p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%topBoundCond_windStress_v(:,:)
+  p_sfc_flx%data_surfRelax_Temp(:,:)       = Qatm%data_surfRelax_Temp(:,:)
 
 
 
@@ -697,6 +695,8 @@ CONTAINS
     ! apply volume flux correction: 
     !  - sea level is balanced to zero over ocean surface
     !  - correction applied daily
+    !  calculate time
+    dsec  = datetime%daysec        ! real seconds since begin of day
     IF (limit_elevation .AND. dsec < dtime) THEN
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
