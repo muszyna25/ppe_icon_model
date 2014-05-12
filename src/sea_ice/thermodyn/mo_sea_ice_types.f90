@@ -140,12 +140,11 @@ MODULE mo_sea_ice_types
       & precip(:,:),           &  ! precipitation rate                               [m/s]
       & evap  (:,:),           &  ! evaporation   rate                               [m/s]
       & runoff(:,:),           &  ! river runoff  rate                               [m/s]
-      & topBoundCond_windStress_u(:,:), &
-      & topBoundCond_windStress_v(:,:), &
-      & FrshFlux_Precipitation(:,:),    &
-      & FrshFlux_Evaporation(:,:),    &
-      & FrshFlux_TotalOcean(:,:),    &
-      & FrshFlux_Runoff(:,:),           &
+      & topBoundCond_windStress_u (:,:), &
+      & topBoundCond_windStress_v (:,:), &
+      & FrshFlux_Precipitation (:,:),    &
+      & FrshFlux_Runoff (:,:),    &
+      & data_surfRelax_Salt(:,:) , &
       & data_surfRelax_Temp(:,:)
 
   END TYPE t_atmos_for_ocean
@@ -196,6 +195,7 @@ MODULE mo_sea_ice_types
     REAL(wp), POINTER ::   &
       &  topBoundCond_windStress_u(:,:),     & ! forcing of zonal component of velocity equation,
       &  topBoundCond_windStress_v(:,:),     & ! forcing of meridional component of velocity equation,
+      &  data_surfRelax_Temp      (:,:),     & !  
       &  HeatFlux_ShortWave       (:,:),     & ! surface short wave heat flux                              [W/m2]
       &  HeatFlux_LongWave        (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  HeatFlux_Sensible        (:,:),     & ! surface sensible heat flux                                [W/m2]
