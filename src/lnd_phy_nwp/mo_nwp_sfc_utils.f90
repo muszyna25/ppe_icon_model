@@ -1585,18 +1585,18 @@ CONTAINS
         ELSE
           h_snow = 1000._wp*w_snow(ic)/rho_snow(ic)  ! snow depth in m
           sso_fac = SQRT(0.025_wp*MAX(25._wp,sso_sigma(ic)*(1._wp-freshsnow(ic))))
-          snowdepth_fac = h_snow*(17.5_wp*freshsnow(ic)+5._wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
-          lc_fac   = MAX(1._wp,SQRT(5.0_wp*MIN(1.5_wp,tai(ic))))
+          snowdepth_fac = h_snow*(15._wp*freshsnow(ic)+7.5_wp+5._wp/sso_fac*(1._wp-freshsnow(ic)))
+          lc_fac   = MAX(1._wp,SQRT(2.5_wp*tai(ic)))
           IF (lc_class(ic) == i_lc_urban) THEN
-            lc_limit = 0.85_wp ! this accounts for the effect of human activities on snow cover
+            lc_limit = 0.875_wp ! this accounts for the effect of human activities on snow cover
           ELSE
-            lc_limit = 1.0_wp ! no limitation for natural land cover
+            lc_limit = 1._wp
           ENDIF
           snowfrac(ic) = MIN(lc_limit,snowdepth_fac/lc_fac)
         ENDIF
         t_g(ic) = t_snow(ic) + (1.0_wp - snowfrac(ic))*(t_soiltop(ic) - t_snow(ic))
       ENDDO
-    ELSE IF (idiag_snowfrac == 3) THEN   ! similar to option 2, but hard snow cover limit over high vegetation
+    ELSE IF (idiag_snowfrac == 3) THEN   ! similar to option 2, but somewhat less snow cover and limit over high vegetation
       DO ic = istart, iend
         IF (w_snow(ic) <= 1.e-6_wp) THEN
           snowfrac(ic) = 0._wp
