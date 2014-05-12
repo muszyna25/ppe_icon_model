@@ -1228,6 +1228,7 @@ src/atm_phy_echam/mo_echam_phy_memory.f90 -text
 src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
 src/atm_phy_echam/mo_greenhouse_gases.f90 -text
 src/atm_phy_echam/mo_gw_hines.f90 -text
+src/atm_phy_echam/mo_ham_aerosol_params.f90 -text
 src/atm_phy_echam/mo_icoham_sfc_indices.f90 -text
 src/atm_phy_echam/mo_interface_echam_ocean.f90 -text
 src/atm_phy_echam/mo_interface_icoham_echam.f90 -text
@@ -1329,7 +1330,6 @@ src/atm_phy_schemes/mo_data_turbdiff.f90 -text
 src/atm_phy_schemes/mo_gme_turbdiff.f90 -text
 src/atm_phy_schemes/mo_gscp_cosmo.f90 -text
 src/atm_phy_schemes/mo_gwd_wms.f90 -text
-src/atm_phy_schemes/mo_ham_aerosol_params.f90 -text
 src/atm_phy_schemes/mo_lrtm_coeffs.f90 -text
 src/atm_phy_schemes/mo_lrtm_driver.f90 -text
 src/atm_phy_schemes/mo_lrtm_kgs.f90 -text
