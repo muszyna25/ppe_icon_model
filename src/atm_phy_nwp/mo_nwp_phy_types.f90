@@ -375,7 +375,7 @@ MODULE mo_nwp_phy_types
       ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
-      ddt_tke         (:,:,:)     !! tendency for turbulent kinetic energy [m^2/s^3]
+      ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
     !Anurag Dipankar, MPIM (2013-May-31)
     !Large-scale tendencies for idealized testcases (nlev)

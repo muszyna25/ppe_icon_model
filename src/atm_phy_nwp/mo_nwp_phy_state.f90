@@ -2510,8 +2510,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     !------------------------------
 
     !      phy_tend%ddt_tke(nproma,nlevp1,nblks)
-    cf_desc    = t_cf_var('ddt_tke', 'm 2 s-3'          , &
-         &                'tendency of turbulent kinetic energy', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('ddt_tke', 'm s-2'          , &
+         &                'tendency of turbulent velocity scale', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 19, 192, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_tke', phy_tend%ddt_tke,             &
                 GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
