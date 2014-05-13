@@ -800,8 +800,8 @@ CONTAINS
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
             prm_diag%htop_con(jc,jb) = p_metrics%z_mc ( jc, prm_diag%mtop_con(jc,jb), jb)
           ELSE
-            prm_diag%hbas_con(jc,jb) = 0._wp
-            prm_diag%htop_con(jc,jb) = 0._wp
+            prm_diag%hbas_con(jc,jb) = -500._wp
+            prm_diag%htop_con(jc,jb) = -500._wp
           END IF
         ENDDO  ! jc
 
