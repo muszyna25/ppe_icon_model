@@ -66,7 +66,7 @@ MODULE mo_nml_crosscheck
     &                              nqtendphy, iqv, iqc, iqi,                  &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              iqni, iqni_nuc, iqg, iqm_max,              &
-    &                              iqh, iqnr, iqns, iqng, iqnh,               &                     
+    &                              iqh, iqnr, iqns, iqng, iqnh, iqtke,        &                     
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -665,20 +665,39 @@ CONTAINS
 
       ENDIF
 
+      IF ( (advection_config(jg)%iadv_tke) > 0 ) THEN
+        IF ( ANY( (/1,10/) == atm_phy_nwp_config(jg)%inwp_turb) ) THEN
+          iqtke = iqt        !! TKE
+ 
+          ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
+
+          IF (.NOT. art_config(1)%lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
+
+          WRITE(message_text,'(a,i3)') 'Attention: TKE is advected, '//&
+                                       'ntracer is increased by 1 to ',ntracer
+          CALL message(TRIM(method_name),message_text)
+        ELSE
+          WRITE(message_text,'(a,i2)') 'TKE advection not supported for inwp_turb= ', &
+            &                          atm_phy_nwp_config(jg)%inwp_turb
+          CALL finish(TRIM(method_name), TRIM(message_text) )
+        ENDIF
+      ENDIF
+
+
       ! Note: Indices for additional tracers are assigned automatically
       ! via add_tracer_ref in mo_nonhydro_state.
 
 
-       IF (.NOT. art_config(jg)%lart) THEN
-         WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
-                                      'ntracer is automatically reset to ',ntracer
-         CALL message(TRIM(method_name),message_text)
-       ENDIF
+      IF (.NOT. art_config(jg)%lart) THEN
+        WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
+                                     'ntracer is automatically reset to ',ntracer
+        CALL message(TRIM(method_name),message_text)
+      ENDIF
 
-       ! set the nclass_gscp variable for land-surface scheme to number of hydrometeor mixing ratios
-       DO jg = 1, n_dom
-         atm_phy_nwp_config(jg)%nclass_gscp = iqm_max
-       ENDDO
+      ! set the nclass_gscp variable for land-surface scheme to number of hydrometeor mixing ratios
+      DO jg = 1, n_dom
+        atm_phy_nwp_config(jg)%nclass_gscp = iqm_max
+      ENDDO
 
     CASE default !
 
@@ -704,6 +723,32 @@ CONTAINS
       ! in NWP physics
       !...........................................................
 
+
+        ! Force settings for tracer iqtke, if TKE advection is performed
+        !
+        IF ( advection_config(jg)%iadv_tke > 0 ) THEN
+
+          ! force monotonous slope limiter for vertical advection
+          advection_config(jg)%itype_vlimit(iqtke) = 2
+
+          ! force monotonous flux limiter for horizontal advection
+          advection_config(jg)%itype_hlimit(iqtke) = 3
+
+          SELECT CASE (advection_config(jg)%iadv_tke)
+          CASE (1)
+            ! switch off horizontal advection
+            advection_config(jg)%ihadv_tracer(iqtke) = 0
+          CASE (2)
+            ! check whether horizontal substepping is switched on 
+            IF (ALL( (/22,32,42,52/) /= advection_config(jg)%ihadv_tracer(iqtke)) ) THEN
+              ! choose Miura with substepping
+              advection_config(jg)%ihadv_tracer(iqtke) = 52
+            ENDIF
+          END SELECT
+
+        ENDIF
+
+
         IF ( i_listlen /= ntracer ) THEN
           DO jt=1,ntracer
             WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
@@ -728,7 +773,7 @@ CONTAINS
 
         IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
           IF ( izenith > 5)  &
-            CALL finish(TRIM(method_name), 'Coose a valid case for rad_nml: izenith.')
+            CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
         ENDIF
       END SELECT ! iforcing
 
@@ -778,7 +823,7 @@ CONTAINS
 
 
       !----------------------------------------------
-      ! Flux compuation methods - consistency check
+      ! Flux computation methods - consistency check
 
         z_go_tri(1:11)=(/NO_HADV,UP,MIURA,MIURA3,FFSL,FFSL_HYB,MCYCL,       &
           &              MIURA_MCYCL,MIURA3_MCYCL,FFSL_MCYCL,FFSL_HYB_MCYCL/)

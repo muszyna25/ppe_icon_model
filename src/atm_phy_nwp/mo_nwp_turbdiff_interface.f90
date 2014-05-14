@@ -60,15 +60,16 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_nwp_phy_state,          ONLY: phy_params 
   USE mo_nwp_lnd_types,          ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,        ONLY: nproma
-  USE mo_run_config,             ONLY: msg_level, iqv, iqc
+  USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqtke
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
-  USE mo_nonhydrostatic_config,  ONLY: kstart_moist, lvadv_tke
-  USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd
+  USE mo_nonhydrostatic_config,  ONLY: kstart_moist
+  USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd, vel_min
   USE src_turbdiff_new,          ONLY: organize_turbdiff, modvar
   USE src_turbdiff,              ONLY: turbdiff
   USE mo_gme_turbdiff,           ONLY: partura, progimp_turb
 
   USE mo_art_config,             ONLY: art_config
+  USE mo_advection_config,       ONLY: advection_config
   USE mo_art_turbdiff_interface, ONLY: art_turbdiff_interface
 
   IMPLICIT NONE
@@ -133,13 +134,12 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
 
+  REAL(wp) :: tke_inc_ic(nproma)                    !< TKE increment at half levels
+
   REAL(wp) :: z_tvs(nproma,p_patch%nlevp1,1)        !< aux turbulence velocity scale [m/s]
 
   ! type structure to hand over additional tracers to turbdiff
   TYPE(modvar) :: ptr(max_ntracer)
-
-  ! pointers to required TKE time levels depending on the usage of TKE advection
-  REAL(wp), POINTER :: ptr_tke_now(:,:,:), ptr_tke_new(:,:,:)
 
 
 !--------------------------------------------------------------
@@ -170,17 +170,10 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
      CALL get_turbdiff_param(jg)
   ENDIF
 
-  IF (lvadv_tke) THEN
-    ptr_tke_now => p_prog%tke
-    ptr_tke_new => p_prog%tke
-  ELSE
-    ptr_tke_now => p_prog_now_rcf%tke
-    ptr_tke_new => p_prog_rcf%tke
-  ENDIF
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,z_tvs)  &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine,tke_inc_ic,z_tvs)  &
 !$OMP ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -205,6 +198,50 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 !< COSMO turbulence scheme by M. Raschendorfer  
 !-------------------------------------------------------------------------
 
+
+        !
+        ! convert TKE to the turbulence velocity scale SQRT(2*TKE) as required by turbdiff
+        ! INPUT to turbdiff is timestep now
+        DO jk=1, nlevp1
+          DO jc=i_startidx, i_endidx
+            z_tvs(jc,jk,1) = SQRT(2._wp* (p_prog_now_rcf%tke(jc,jk,jb))) 
+          ENDDO
+        ENDDO
+
+
+
+      IF (advection_config(jg)%iadv_tke > 0) THEN
+        ! Interpolate advective TKE tendency from full levels to half levels
+        ! Convert TKE tendency to tendency of turbulent velocity scale (tvs) and add 
+        ! this tendency to ddt_tke. The latter is passed to turbdiff.
+        ! Note that d(tvs)/dt = (1/tvs)* d(tke)/dt
+        !
+        DO jk=2, nlev
+          DO jc=i_startidx, i_endidx
+
+            tke_inc_ic(jc) = p_metrics%wgtfac_c(jc,jk,jb) * p_diag%ddt_tracer_adv(jc,jk,jb,iqtke) &
+              &             + (1._wp - p_metrics%wgtfac_c(jc,jk,jb)) &
+              &             * p_diag%ddt_tracer_adv(jc,jk-1,jb,iqtke)
+
+            ! add advective TKE tendency to ddt_tke, which is provided to turbdiff as input
+            prm_nwp_tend%ddt_tke(jc,jk,jb) = prm_nwp_tend%ddt_tke(jc,jk,jb) + tke_inc_ic(jc)/z_tvs(jc,jk,1)
+
+          ENDDO  ! jc
+        ENDDO  ! jk
+        !
+        ! model top
+        DO jc=i_startidx, i_endidx
+
+          ! zero gradient assumption for TKE increment at model bottom
+          ! bottom (top not necessary)
+          prm_nwp_tend%ddt_tke(jc,nlevp1,jb) = prm_nwp_tend%ddt_tke(jc,nlevp1,jb) &
+            &                                + p_diag%ddt_tracer_adv(jc,nlev,jb,iqtke)/z_tvs(jc,nlevp1,1)
+
+        ENDDO  ! jc
+      ENDIF
+
+
+
       ierrstat = 0
 
       !KF tendencies  have to be set to zero
@@ -215,12 +252,6 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
       
-
-      ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
-      ! for turbdiff
-      ! INPUT to turbdiff is timestep now
-!DIR$ IVDEP
-      z_tvs(i_startidx:i_endidx,:,1) = SQRT(2._wp*ptr_tke_now(i_startidx:i_endidx,:,jb))
 
 
       IF ( ANY( (/10,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
@@ -316,8 +347,25 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
       ! transform updated turbulent velocity scale back to TKE
       ! Note: ddt_tke is purely diagnostic and has already been added to z_tvs
-!DIR$ IVDEP
-      ptr_tke_new(i_startidx:i_endidx,:,jb) = 0.5_wp*(z_tvs(i_startidx:i_endidx,:,1))**2
+      DO jk=1, nlevp1
+        DO jc=i_startidx, i_endidx
+          p_prog_rcf%tke(jc,jk,jb) = 0.5_wp*(z_tvs(jc,jk,1))**2
+        ENDDO
+      ENDDO
+
+
+      ! Interpolate updated TKE back to main levels
+      ! Note that TKE at lowest main level is re-computed in nwp_turbtrans, after surface TKE
+      ! has been updated.
+      IF (advection_config(jg)%iadv_tke > 0) THEN
+        DO jk=1, nlev
+          DO jc=i_startidx, i_endidx
+            p_prog_rcf%tracer(jc,jk,jb,iqtke) = 0.5_wp* ( p_prog_rcf%tke(jc,jk,jb)   &
+              &                                         + p_prog_rcf%tke(jc,jk+1,jb) )
+          ENDDO
+        ENDDO
+      ENDIF
+
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == igme ) THEN
 
@@ -372,9 +420,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
 
     ! Update wind speed, QV and temperature with turbulence tendencies
-    ! Note: the update of wind speed is done here in order to pass u and v at the correct time level
-    ! to turbtran and the convection scheme. However, the update of the prognostic variable vn
-    ! is done at the end of the NWP interface by first interpolating the u/v tendencies to the 
+    ! Note: wind speed is updated here, in order to pass u and v at the correct time level
+    ! to turbtran and the convection scheme. However, the prognostic variable vn is updated
+    ! at the end of the NWP interface by first interpolating the u/v tendencies to the 
     ! velocity points (in order to minimize interpolation errors) and then adding the tendencies
     ! to vn
     DO jk = 1, nlev

@@ -70,7 +70,7 @@ MODULE mo_nonhydro_state
   USE mo_run_config,           ONLY: iforcing, ntracer,                    &
     &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns, & 
-    &                                iqng, iqnh, nqtendphy, ltestcase 
+    &                                iqng, iqnh, iqtke, nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_initicon_config,      ONLY: init_mode
@@ -915,6 +915,31 @@ MODULE mo_nonhydro_state
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  )  )
+        ENDIF
+
+
+        ! Note that explicit referencing is used here (ref_idx=iqtke), instead of 
+        ! default implicit referencing via the internal counter ncontained. Thus, 
+        ! from this point on, implicit referencing should be avoided. I.e. the next 
+        ! internal reference will not point to iqtke+1 !!    
+        IF ( advection_config(p_patch%id)%iadv_tke > 0 ) THEN
+          cf_desc    = t_cf_var('tke_mc', 'm2 s-2',         &
+            &          'turbulent kinetic energy (at full levels)', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(0, 19, 11, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_ref( p_prog_list, 'tracer',                                       &
+                    & TRIM(vname_prefix)//'tke_mc'//suffix, p_prog%tracer_ptr(iqtke)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & cf_desc, grib2_desc,                                           &
+                    & ref_idx = iqtke,                                               &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(),                          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_pd_limit=.FALSE.,                                &
                     &             lower_limit=0._wp  )  )
         ENDIF
 

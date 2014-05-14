@@ -64,7 +64,9 @@ MODULE mo_advection_nml
   PUBLIC :: read_transport_namelist
 
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id$'
+
 
   !----------------------------------!
   ! transport_nml namelist variables !
@@ -92,6 +94,11 @@ MODULE mo_advection_nml
                                    !< 1 : 1st order upwind
                                    !< 3 : 3rd order PPM for CFL>
                                    !< 30: 3rd order PPM
+
+  INTEGER :: &                     !< advection of TKE
+    &  iadv_tke                    !< 0 : none
+                                   !< 1 : vertical advection only
+                                   !< 2 : vertical and horizontal advection
 
 
   LOGICAL :: lvadv_tracer          !< if .TRUE., calculate vertical tracer advection
@@ -132,7 +139,7 @@ MODULE mo_advection_nml
 
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
-    &                     niter_fct, beta_fct, iord_backtraj,             &
+    &                     iadv_tke, niter_fct, beta_fct, iord_backtraj,   &
     &                     lclip_tracer, ctracer_list, igrad_c_miura,      &
     &                     lstrang, llsq_svd
 
@@ -156,7 +163,7 @@ CONTAINS
   !! - fills the configuration state (partly)   
   !!
   !! @par Revision History
-  !!  by Daniel Reinert, DWD (2011-05-07)
+  !! Initial Revision by Daniel Reinert, DWD (2011-05-07)
   !!
   SUBROUTINE read_transport_namelist( filename )
 
@@ -176,6 +183,7 @@ CONTAINS
     itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
     ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
+    iadv_tke        = 0         ! no TKE advection
     niter_fct       = 1         ! number of FCT-iterations
     beta_fct        = 1.005_wp  ! factor of allowed over-/undershooting in monotonous limiter
     ivcfl_max       = 5         ! CFL-stability range for vertical advection
@@ -254,17 +262,29 @@ CONTAINS
         &  'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
     ENDIF
 
+
     ! FCT-iterations - sanity check
+    !
     IF ( niter_fct < 1 ) THEN
       CALL finish( TRIM(routine), 'niter_fct must be greater than 0 ')
     ENDIF
 
+
     ! FCT multiplicative spreading - sanity check
+    ! 
     IF ( (beta_fct < 1.0_wp) .OR. (beta_fct >= 2.0_wp) ) THEN
       CALL finish( TRIM(routine),                                     & 
         & 'permissible range of values for beta_fct:  [1,2[ ')
     ENDIF
 
+
+    ! TKE advection - sanity check
+    !
+!    IF ( ALL((/0,1,2/) /= iadv_tke) ) THEN
+    IF ( ALL((/0,1/) /= iadv_tke) ) THEN
+      CALL finish( TRIM(routine),                                     &
+        &  'incorrect settings for iadv_tke. Must be 0 or 1')
+    ENDIF
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -284,6 +304,7 @@ CONTAINS
       advection_config(jg)%beta_fct       = beta_fct
       advection_config(jg)%iord_backtraj  = iord_backtraj
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
+      advection_config(jg)%iadv_tke       = iadv_tke
       advection_config(jg)%ivcfl_max      = ivcfl_max
     ENDDO
 

@@ -56,13 +56,13 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_physical_constants,   ONLY: rd_o_cpd, grav, lh_v=>alv, lh_s=>als
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config,ONLY: lvadv_tke
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,        ONLY: phy_params 
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqtke
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_advection_config,     ONLY: advection_config
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE mo_data_flake,           ONLY: h_Ice_min_flk, tpl_T_f
   USE src_turbdiff_new,        ONLY: organize_turbdiff
@@ -160,7 +160,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
    lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t
 
   INTEGER,  POINTER :: ilist(:)       ! pointer to tile index list
-  REAL(wp), POINTER :: ptr_tke(:,:,:) ! pointer to tke field
+
 
 !--------------------------------------------------------------
 
@@ -182,11 +182,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   i_startblk = p_patch%cells%start_blk(rl_start,1)
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-  IF (lvadv_tke) THEN
-    ptr_tke => p_prog%tke
-  ELSE
-    ptr_tke => p_prog_rcf%tke
-  ENDIF
   
   IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
      CALL get_turbdiff_param(jg)
@@ -196,7 +191,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,      &
 !$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,t_g_t,qv_s_t,t_2m_t,qv_2m_t,    &  
 !$OMP td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,temp_t,pres_t,qv_t,qc_t,tkvm_t,  &
-!$OMP tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t, &
+!$OMP tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,area_frac,shfl_s_t,lhfl_s_t,     &
 !$OMP qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm) ICON_OMP_GUIDED_SCHEDULE
 
   DO jb = i_startblk, i_endblk
@@ -222,7 +217,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ELSE IF ( ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
 
-!DR Note thta this must be re-checked, once turbtran is called at the very end 
+!DR Note that this must be re-checked, once turbtran is called at the very end 
 !DR of the fast physics part.   
 !DIR$ IVDEP
          DO jc = i_startidx, i_endidx
@@ -298,7 +293,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! for turbdiff
       ! INPUT to turbtran is timestep new
       z_tvs(i_startidx:i_endidx,nlev-1:nlevp1,1) =  &
-        &           SQRT(2._wp * ptr_tke(i_startidx:i_endidx,nlev-1:nlevp1,jb))
+        &           SQRT(2._wp * p_prog_rcf%tke(i_startidx:i_endidx,nlev-1:nlevp1,jb))
 
 
       ! First call of turbtran for all grid points (water points with > 50% water
@@ -652,7 +647,19 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ENDIF ! tiles / no tiles
 
       ! transform updated turbulent velocity scale back to TKE
-      ptr_tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp*(z_tvs(i_startidx:i_endidx,nlevp1,1))**2
+      p_prog_rcf%tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp*(z_tvs(i_startidx:i_endidx,nlevp1,1))**2
+
+
+
+      ! Re-compute TKE at lowest main levels. Note that slight temporal inconsistencies are 
+      ! ignored at this point.
+      IF (advection_config(jg)%iadv_tke > 0) THEN
+        DO jc=i_startidx, i_endidx
+          p_prog_rcf%tracer(jc,nlev,jb,iqtke) = 0.5_wp* ( p_prog_rcf%tke(jc,nlev,jb)   &
+            &                                           + p_prog_rcf%tke(jc,nlevp1,jb) )
+        ENDDO
+      ENDIF
+
 
     ELSE IF (  ANY( (/igme,ismag/)==atm_phy_nwp_config(jg)%inwp_turb) ) THEN
 

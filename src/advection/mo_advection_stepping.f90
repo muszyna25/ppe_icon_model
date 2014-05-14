@@ -73,7 +73,7 @@ MODULE mo_advection_stepping
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv
+  USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv, iqtke
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -559,23 +559,49 @@ CONTAINS
 
       DO jt = 1, ntracer ! Tracer loop
 
+
+        IF ( advection_config(jg)%ihadv_tracer(jt) /= 0 ) THEN
+
 !  compute divergence of the upwind fluxes for tracers
 #ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx, i_endidx
-          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+          DO jc = i_startidx, i_endidx
+            DO jk = advection_config(jg)%iadv_slev(jt), nlev
 #else
 !CDIR UNROLL=6
-        DO jk = advection_config(jg)%iadv_slev(jt), nlev
-          DO jc = i_startidx, i_endidx
+          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jc = i_startidx, i_endidx
 #endif
 
-            z_fluxdiv_c(jc,jk) =  &
-              & p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_int_state%geofac_div(jc,1,jb) + &
-              & p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_int_state%geofac_div(jc,2,jb) + &
-              & p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_int_state%geofac_div(jc,3,jb)
+              z_fluxdiv_c(jc,jk) =  &
+                & p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_int_state%geofac_div(jc,1,jb) + &
+                & p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_int_state%geofac_div(jc,2,jb) + &
+                & p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_int_state%geofac_div(jc,3,jb)
 
+            ENDDO
           ENDDO
-        ENDDO
+
+        ELSE  ! horizontal advection switched off
+
+!  compute divergence of the upwind fluxes for tracers
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+#else
+!CDIR UNROLL=6
+          DO jk = advection_config(jg)%iadv_slev(jt), nlev
+            DO jc = i_startidx, i_endidx
+#endif
+
+              z_fluxdiv_c(jc,jk) =  ptr_current_tracer(jc,jk,jb,jt) * ( &
+                & p_mflx_contra_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_int_state%geofac_div(jc,1,jb) + &
+                & p_mflx_contra_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_int_state%geofac_div(jc,2,jb) + &
+                & p_mflx_contra_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_int_state%geofac_div(jc,3,jb) )
+
+            ENDDO
+          ENDDO
+
+        ENDIF  ! ihadv_tracer(jt) /= 0
+
 
 
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
@@ -596,14 +622,27 @@ CONTAINS
           END DO
         END DO
 
-        ! Store qv advection tendency for convection scheme
-        IF (jt == iqv .AND. MOD( k_step, 2 ) == 0 .AND. iforcing == inwp) THEN
-          DO jk = advection_config(jg)%iadv_slev(jt), nlev
-            DO jc = i_startidx, i_endidx
-              opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+
+        ! Store qv advection tendency for convection scheme. 
+        ! Store TKE tendency, if TKE advection is turned on
+        !
+        IF ( MOD( k_step, 2 ) == 0 .AND. iforcing == inwp ) THEN
+          IF ( jt == iqv ) THEN
+            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+              DO jc = i_startidx, i_endidx
+                opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
+                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+              ENDDO
             ENDDO
-          ENDDO
+          ENDIF  ! jt == iqv
+          IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
+            DO jk = advection_config(jg)%iadv_slev(jt), nlev
+              DO jc = i_startidx, i_endidx
+                opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
+                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+              ENDDO
+            ENDDO
+          ENDIF  ! jt == iqtke
         ENDIF
 
       ENDDO  ! Tracer loop
@@ -717,14 +756,27 @@ CONTAINS
             END DO
           END DO
 
-          ! Store qv advection tendency for convection scheme
-          IF (jt == iqv  .AND. iforcing == inwp) THEN
-            DO jk = advection_config(jg)%iadv_slev(jt), nlev
-              DO jc = i_startidx, i_endidx
-                opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+
+          ! Store qv advection tendency for convection scheme. 
+          ! Store TKE tendency, if TKE advection is turned on
+          !
+          IF ( iforcing == inwp ) THEN
+            IF ( jt == iqv ) THEN
+              DO jk = advection_config(jg)%iadv_slev(jt), nlev
+                DO jc = i_startidx, i_endidx
+                  opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
+                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+                ENDDO
               ENDDO
-            ENDDO
+            ENDIF  ! jt == iqv
+            IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
+              DO jk = advection_config(jg)%iadv_slev(jt), nlev
+                DO jc = i_startidx, i_endidx
+                  opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
+                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+                ENDDO
+              ENDDO
+            ENDIF  ! jt == iqtke
           ENDIF
 
         END DO  ! Tracer loop
