@@ -531,7 +531,7 @@ CONTAINS
     i_itype_hlimit => advection_config(jg)%itype_hlimit
     i_rlend        = min_rledge_int-1
     !
-    CALL hor_upwind_flux( ptr_current_tracer, ptr_current_tracer,            &! in
+    CALL hor_upwind_flux( ptr_current_tracer,                                &! in
       &                  ptr_delp_mc_now,                                    &! in
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in

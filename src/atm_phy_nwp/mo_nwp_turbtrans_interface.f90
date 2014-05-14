@@ -92,7 +92,7 @@ CONTAINS
 SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
                           & p_patch, p_metrics,                & !>in
                           & ext_data,                          & !>in
-                          & p_prog, p_prog_rcf,                & !>inout
+                          & p_prog_rcf,                        & !>inout
                           & p_diag ,                           & !>inout
                           & prm_diag,                          & !>inout
                           & wtr_prog_new,                      & !>in 
@@ -103,7 +103,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-  TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog, p_prog_rcf !< current time levels
+  TYPE(t_nh_prog)             ,INTENT(inout):: p_prog_rcf      !< current time levels
   TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the diag vars
   TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !< atm phys vars
   TYPE(t_wtr_prog),            INTENT(in)   :: wtr_prog_new    !< prog vars for wtr
