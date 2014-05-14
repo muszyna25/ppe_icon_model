@@ -1295,7 +1295,110 @@ CONTAINS
 !    !ENDDO
 !  END FUNCTION adisit
   !------------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Calculates polynomial coefficients for thermal expansion and saline contraction
+  !! matching the equation of state as in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! The code below is adopted from FESOM (Quiang Wang, Sergey Danilov)
+  !!
+  !! @par Revision History
+  !! Initial version by Stephan Lorenz, MPI-M (2014)
+  !!
+  FUNCTION calc_neutralslope_coeff_func(t,s,p) result(coeff)
+    !
+    ! REFERENCE:
+    !    McDougall, T.J. 1987.  Neutral Surfaces
+    !    Journal of Physical Oceanography, vol 17, 1950-1964,
+    !-----------------------------------------------------------------
+    ! CHECK VALUE:
+    !    sw_beta=0.72088e-3 psu^-1 @ S=40.0psu, ptmp=10.0C (ITS-90), p=4000db
+    !    a_over_b=0.34765 psu*C^-1 @ S=40.0psu, ptmp=10.0C, p=4000db
+    !-----------------------------------------------------------------
+    !
+    REAL(wp), INTENT(in)  :: t        !  potential temperature (C)
+    REAL(wp), INTENT(in)  :: s        !  salinity (psu)
+    REAL(wp), INTENT(in)  :: p        !  in-situ pressure (Pa) - db?? tbchecked
+    REAL(wp)              :: coeff(2) !  thermal expansion and saline contraction coefficients
 
+    ! local variables, following the naming of the FESOM implementation
+    REAL(wp):: aob, t1, t2, t3, t4, s35, s35_2, s1, s2, s3, p1, p2, p3
+  
+    !  polynomial parameter for calculation of saline contraction coeff beta
+    REAL(wp), PARAMETER :: &
+      & bet_t0   = 0.785567e-3_wp,  &
+      & bet_t1   = 0.301985e-5_wp,  &
+      & bet_t2   = 0.555579e-7_wp,  &
+      & bet_t3   = 0.415613e-9_wp,  &
+      & bet_st0  = 0.356603e-6_wp,  &
+      & bet_st1  = 0.788212e-8_wp,  &
+      & bet_sp1  = 0.408195e-10_wp, &
+      & bet_sp2  = 0.213127e-11_wp, &
+      & bet_s2   = 0.515032e-8_wp,  &
+      & bet_p1t0 = 0.121555e-7_wp,  &
+      & bet_p1t1 = 0.192867e-9_wp,  &
+      & bet_p1t2 = 0.213127e-11_wp, &
+      & bet_p2t0 = 0.176621e-12_wp, &
+      & bet_p2t1 = 0.175379e-14_wp, &
+      & bet_p3   = 0.121551e-17_wp
+  
+    !  polynomial parameter for calculation of thermal expansion coefficient alpha
+    !  via fraction alpha over beta (aob)
+    REAL(wp), PARAMETER :: &
+      & aob_t0   = 0.665157e-1_wp,  &
+      & aob_t1   = 0.170907e-1_wp,  &
+      & aob_t2   = 0.203814e-3_wp,  &
+      & aob_t3   = 0.298357e-5_wp,  &
+      & aob_t4   = 0.255019e-7_wp,  &
+      & aob_st0  = 0.378110e-2_wp,  &
+      & aob_st1  = 0.846960e-4_wp,  &
+      & aob_sp1  = 0.164759e-6_wp,  &
+      & aob_sp2  = 0.251520e-11_wp, &
+      & aob_s2   = 0.678662e-5_wp,  &
+      & aob_p1t0 = 0.380374-4_wp,   &
+      & aob_p1t1 = 0.933746-6_wp,   &
+      & aob_p1t2 = 0.791325-8_wp,   &
+      & aob_p2t2 = 0.512857-12_wp,  &
+      & aob_p3   = 0.302285-13_wp
+     
+     t1 = t
+     t1 = t*1.00024_wp ! ??
+     s1 = s
+     p1 = p
+     
+     t2 = t1*t1
+     t3 = t2*t1
+     t4 = t3*t1
+     p2 = p1*p1
+     p3 = p2*p1
+     s35 = s-35.0_wp
+     s35_2 = s35*s35
 
+     ! calculate beta
+     coeff(2) = bet_t0 - bet_t1*t1                             &
+       &          + bet_t2*t2 - bet_t3*t3                      &
+       &          + s35*(-bet_st0 + bet_st1*t1                 &
+       &          + bet_sp1*p1 - bet_sp2*p2)                   &
+       &          + s35_2*bet_s2                               & 
+       &          + p1*(-bet_p1t0 + bet_p1t1*t1 - bet_p1t2*t2) &
+       &          + p2*(bet_p2t0 - bet_p2t1*t1)                &
+       &          + p3*bet_p3
+
+     ! calculate the thermal expansion / saline contraction ratio
+     aob      = aob_t0 + aob_t1*t1                             &
+       &         - aob_t2*t2 + aob_t3*t3                       &
+       &         - aob_t4*t4                                   &
+       &         + s35*(aob_st0 - aob_st1*t1                   &
+       &                -aob_sp1*p1 - aob_sp2*p2)              &
+       &         + s35_2*(-aob_s2)                             &
+       &         + p1*(aob_p1t0 - aob_p1t1*t1 + aob_p1t2*t2)   &
+       &         + p2*t2*aob_p2t2                              &
+       &         - p3*aob_p3
+
+     ! calculate alpha
+     coeff(1) = aob*coeff(2)
+    
+  END FUNCTION calc_neutralslope_coeff_func
+    
 END MODULE mo_oce_thermodyn
 
