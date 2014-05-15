@@ -64,6 +64,7 @@ MODULE mo_oce_thermodyn
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
+! CHARACTER(len=12)           :: str_module    = 'oce_thermody'  ! Output of module for 1 line debug
   
   PUBLIC :: ocean_correct_ThermoExpansion
   PUBLIC :: calc_internal_press
@@ -82,6 +83,10 @@ MODULE mo_oce_thermodyn
   ! PRIVATE :: convert_insitu2pot_temp
   PUBLIC :: convert_insitu2pot_temp_func
   ! PUBLIC :: adisit
+  PUBLIC :: calc_neutralslope_coeff
+  PUBLIC :: calc_neutralslope_coeff_func  ! for testbed
+
+
   REAL(wp), PARAMETER :: eosmdjwfnum(0:11) = (/                                 &
     & 9.99843699e+02_wp,  7.35212840e+00_wp, -5.45928211e-02_wp,                 &
     & 3.98476704e-04_wp,  2.96938239e+00_wp, -7.23268813e-03_wp,                 &
@@ -1399,6 +1404,90 @@ CONTAINS
      coeff(1) = aob*coeff(2)
     
   END FUNCTION calc_neutralslope_coeff_func
+  
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Calculates polynomial coefficients for thermal expansion and saline contraction
+  !! matching the equation of state as in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !!
+  !! @par Revision History
+  !! Initial version by Stephan Lorenz, MPI-M (2014)
+  !!
+  SUBROUTINE calc_neutralslope_coeff(patch_3d, tracer, neutral_alph, neutral_beta)
+    !
+    !-----------------------------------------------------------------
+    ! REFERENCE:
+    !    McDougall, T.J. 1987.  Neutral Surfaces
+    !    Journal of Physical Oceanography, vol 17, 1950-1964,
+    !-----------------------------------------------------------------
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
+    REAL(wp), INTENT(inout)                :: neutral_alph(:,:,:)
+    REAL(wp), INTENT(inout)                :: neutral_beta(:,:,:)
+    
+    ! !LOCAL VARIABLES:
+    ! loop indices
+    REAL(wp):: z_p(n_zlev), neutral_coeff(2)
+    INTEGER :: jc, jk, jb
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3d%p_patch_2d(1)
+    !-------------------------------------------------------------------------
+    all_cells => patch_2D%cells%ALL
+    !i_len      = SIZE(dz)
+    
+    ! compute pressure first
+    DO jk=1, n_zlev
+      ! #slo#: this is not yet acurately calculated without elevation
+      z_p(jk) = patch_3d%p_patch_1d(1)%zlev_m(jk) * rho_ref * sitodbar
+    END DO
+    !  tracer 1: potential temperature
+    !  tracer 2: salinity
+    IF(no_tracer==2)THEN
+      
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+            neutral_coeff = calc_neutralslope_coeff_func( tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), z_p(jk))
+            neutral_alph(jc,jk,jb) = neutral_coeff(1)
+            neutral_beta(jc,jk,jb) = neutral_coeff(2)
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+      
+    ELSEIF(no_tracer==1)THEN
+      
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+            neutral_coeff = calc_neutralslope_coeff_func( tracer(jc,jk,jb,1), sal_ref, z_p(jk))
+            neutral_alph(jc,jk,jb) = neutral_coeff(1)
+            neutral_beta(jc,jk,jb) = neutral_coeff(2)
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+      
+    ENDIF
+
+    CALL dbg_print('calc_neutral_coeff: alpha', neutral_alph , this_mod_name, 3, patch_2D%cells%in_domain)
+    CALL dbg_print('calc_neutral_coeff: beta ', neutral_beta , this_mod_name, 3, patch_2D%cells%in_domain)
+
+  END SUBROUTINE calc_neutralslope_coeff
     
 END MODULE mo_oce_thermodyn
 
