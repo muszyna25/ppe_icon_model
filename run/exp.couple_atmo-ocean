@@ -60,7 +60,7 @@ start_date="2000-01-01T00:00:00Z"
 # global resolution
 #
 R=2   # nroot
-B=2   # number of bisections applied
+B=4   # number of bisections applied
 #
 #time stepping
 #
@@ -76,10 +76,10 @@ restart_months=2                             # 2 days
 (( dt_checkpoint = restart_months * day )) # checkpointing not yet supported for coupling fields
 (( dt_restart    = restart_months * day )) # for long simulations, use month instead of days
 #
-atmo_output_interval="PT06H"
-atmo_steps_per_file=8    # 2 days
-ocean_output_interval="P01D"
-ocean_steps_per_file=2   # 2 days
+atmo_output_interval="PT01H"
+atmo_steps_per_file=80    # 2 days
+ocean_output_interval="PT01H"
+ocean_steps_per_file=20   # 2 days
  
 #-----------------------------------------------------------------------------
 # define variable names
