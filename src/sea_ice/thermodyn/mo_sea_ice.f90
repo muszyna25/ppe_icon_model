@@ -1215,7 +1215,8 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('IceSlow: hi endOf slow'     ,ice%hi,                 str_module,1, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: ConcSumEndOf slow', ice%concSum,            str_module,1, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: hs endOf slow'     ,ice%hs,                 str_module,2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: ConcSumEndOf slow', ice%concSum,            str_module,2, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: Conc.  EndOf slow', ice%conc,               str_module,2, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module,2, in_subset=p_patch%verts%owned)
     CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module,2, in_subset=p_patch%verts%owned)

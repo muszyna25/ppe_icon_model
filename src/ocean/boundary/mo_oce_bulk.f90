@@ -538,25 +538,24 @@ CONTAINS
 
 
   ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
-  !   - no energy balance correction
-  !   - number of ice classes currently kice=1 - sum of classes must be limited
-  !   - only sea ice, no snow is considered
-  !   - now possible for all cases - hi=0 if no sea ice calculation
+  !   - no energy or water balance correction
+  !   - number of ice classes currently kice=1 - sum over classes should be limited
+  !   - now both, ice and snow are limited to seaice_limit - default is 0.5 (*dz)
   IF (limit_seaice) THEN
     z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         p_ice%hi(jc,:,jb) = MIN(p_ice%hi(jc,:,jb), z_smax)
+        p_ice%hs(jc,:,jb) = MIN(p_ice%hs(jc,:,jb), z_smax)
       END DO
     END DO
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('UpdSfc: hi aft. limiter'     ,p_ice%hi       ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: hi aft. limiter'     ,p_ice%hi       ,str_module, 1, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: hs aft. limiter'     ,p_ice%hs       ,str_module, 1, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: Conc. aft. limiter'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: ConcSum aft. limit ' ,p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: T1 aft. limiter'     ,p_ice%t1       ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: T2 aft. limiter'     ,p_ice%t2       ,str_module, 4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
   END IF
 
