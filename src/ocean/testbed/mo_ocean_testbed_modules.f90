@@ -368,7 +368,7 @@ CONTAINS
     !  test values
     t = 10.0_wp
     s = 40.0_wp
-    p = 400.0_wp    !  4000 dbar = 400 bar !  TODO: check units
+    p = 4000.0_wp    !  4000 dbar = 400 bar
     co = calc_neutralslope_coeff_func(t,s,p)
     aob = co(1)/co(2)
 
