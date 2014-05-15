@@ -270,7 +270,7 @@ case "$ac_sitename" in
                 load_modules="ncl/6.0.0-gccsys" "cdo/default" "jdk" "${load_modules}"
                 make_command="make" "-j" "8"
                 submit="sbatch"
-                sync_submit=/scratch/mpi/mh0287/buildbot/bin/srunjob --account=mpi
+                sync_submit=/scratch/mpi/CC/mh0287/buildbot/bin/srunjob --account=mpi
                 case "$fortran_compiler" in
                     default|gcc)
                       NETCDFROOT  = $software_tree/netcdf-4.1.3-static-gcc47

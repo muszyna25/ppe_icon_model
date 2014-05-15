@@ -250,7 +250,7 @@ begin
   end do
 
   ;plot
-  plottingdir="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/plots/"
+  plottingdir="/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/plots/"
   plotf="ozon_r2b4"
 
   wks = gsn_open_wks("ps",plottingdir+plotf)
