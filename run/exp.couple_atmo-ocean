@@ -471,7 +471,7 @@ cat > ${ocean_namelist} << EOF
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_ocean"
- ml_varlist       = 'group:oce_default','group:ice_default'
+ ml_varlist       = 'group:oce_default','group:ice_default','FrshFlux_Evaporation','FrshFlux_TotalOcean','FrshFlux_Precipitation','HeatFlux_ShortWave'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
