@@ -1360,47 +1360,50 @@ CONTAINS
       & aob_sp1  = 0.164759e-6_wp,  &
       & aob_sp2  = 0.251520e-11_wp, &
       & aob_s2   = 0.678662e-5_wp,  &
-      & aob_p1t0 = 0.380374e-4_wp,   &
-      & aob_p1t1 = 0.933746e-6_wp,   &
-      & aob_p1t2 = 0.791325e-8_wp,   &
-      & aob_p2t2 = 0.512857e-12_wp,  &
+      & aob_p1t0 = 0.380374e-4_wp,  &
+      & aob_p1t1 = 0.933746e-6_wp,  &
+      & aob_p1t2 = 0.791325e-8_wp,  &
+      & aob_p2t2 = 0.512857e-12_wp, &
       & aob_p3   = 0.302285e-13_wp
-     
+
      t1 = t
-   ! t1 = t*1.00024_wp !  correction factor used by Danilov/Wang (??)
      s1 = s
      p1 = p
+
+   ! correction factor used by Danilov/Wang
+   !  - if necessary, temperature should be corrected on input to meet the above mentioned CHECK VALUES of the paper
+   ! t1 = t*1.00024_wp
      
-     t2 = t1*t1
-     t3 = t2*t1
-     t4 = t3*t1
-     p2 = p1*p1
-     p3 = p2*p1
-     s35 = s-35.0_wp
+     t2    = t1*t1
+     t3    = t2*t1
+     t4    = t3*t1
+     p2    = p1*p1
+     p3    = p2*p1
+     s35   = s-35.0_wp
      s35sq = s35*s35
 
-     ! calculate beta
-     coeff(2) = bet_t0 - bet_t1*t1                             &
-       &          + bet_t2*t2 - bet_t3*t3                      &
-       &          + s35*(-bet_st0 + bet_st1*t1                 &
-       &          + bet_sp1*p1 - bet_sp2*p2)                   &
-       &          + s35sq*bet_s2                               & 
-       &          + p1*(-bet_p1t0 + bet_p1t1*t1 - bet_p1t2*t2) &
-       &          + p2*(bet_p2t0 - bet_p2t1*t1)                &
-       &          + p3*bet_p3
+     ! calculate beta, saline contraction
+     coeff(2) = bet_t0 - bet_t1*t1                            &
+       &         + bet_t2*t2 - bet_t3*t3                      &
+       &         + s35*(-bet_st0    + bet_st1*t1              &
+       &         +       bet_sp1*p1 - bet_sp2*p2)             &
+       &         + s35sq*bet_s2                               & 
+       &         + p1*(-bet_p1t0 + bet_p1t1*t1 - bet_p1t2*t2) &
+       &         + p2*( bet_p2t0 - bet_p2t1*t1)               &
+       &         + p3*bet_p3
 
-     ! calculate the thermal expansion / saline contraction ratio
-     aob      = aob_t0 + aob_t1*t1                             &
-       &         - aob_t2*t2 + aob_t3*t3                       &
-       &         - aob_t4*t4                                   &
-       &         + s35*(aob_st0 - aob_st1*t1                   &
-       &                -aob_sp1*p1 - aob_sp2*p2)              &
-       &         + s35sq*(-aob_s2)                             &
-       &         + p1*(aob_p1t0 - aob_p1t1*t1 + aob_p1t2*t2)   &
-       &         + p2*t2*aob_p2t2                              &
+     ! calculate alpha/beta
+     aob      = aob_t0 + aob_t1*t1                            &
+       &         - aob_t2*t2 + aob_t3*t3                      &
+       &         - aob_t4*t4                                  &
+       &         + s35*(+aob_st0    - aob_st1*t1              &
+       &                -aob_sp1*p1 - aob_sp2*p2)             &
+       &         - s35sq*aob_s2                               &
+       &         + p1*(+aob_p1t0 - aob_p1t1*t1 + aob_p1t2*t2) &
+       &         + p2*t2*aob_p2t2                             &
        &         - p3*aob_p3
 
-     ! calculate alpha
+     ! calculate alpha, thermal expansion
      coeff(1) = aob*coeff(2)
     
   END FUNCTION calc_neutralslope_coeff_func
@@ -1414,7 +1417,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Stephan Lorenz, MPI-M (2014)
   !!
-  SUBROUTINE calc_neutralslope_coeff(patch_3d, tracer, neutral_alph, neutral_beta)
+  SUBROUTINE calc_neutralslope_coeff(patch_3d, tracer, surface_elevation, neutral_alph, neutral_beta)
     !
     !-----------------------------------------------------------------
     ! REFERENCE:
@@ -1423,13 +1426,14 @@ CONTAINS
     !-----------------------------------------------------------------
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
-    REAL(wp), INTENT(inout)                :: neutral_alph(:,:,:)
-    REAL(wp), INTENT(inout)                :: neutral_beta(:,:,:)
+    REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)         !  tracer(1): temperature, tracer(2): salinity
+    REAL(wp), INTENT(in)                   :: surface_elevation(:,:)  !  surface elevation due to height equation
+    REAL(wp), INTENT(inout)                :: neutral_alph(:,:,:)     !  thermal expansion coefficient [1/C]
+    REAL(wp), INTENT(inout)                :: neutral_beta(:,:,:)     !  saline contraction coefficient [1/psu]
     
     ! !LOCAL VARIABLES:
     ! loop indices
-    REAL(wp):: z_p(n_zlev), neutral_coeff(2)
+    REAL(wp):: pressure, neutral_coeff(2)
     INTEGER :: jc, jk, jb
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, start_index, end_index
@@ -1439,13 +1443,6 @@ CONTAINS
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
     all_cells => patch_2D%cells%ALL
-    !i_len      = SIZE(dz)
-    
-    ! compute pressure first
-    DO jk=1, n_zlev
-      ! #slo#: this is not yet acurately calculated without elevation
-      z_p(jk) = patch_3d%p_patch_1d(1)%zlev_m(jk) * rho_ref * sitodbar
-    END DO
 
     !  tracer 1: potential temperature
     !  tracer 2: salinity
@@ -1457,7 +1454,13 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
-            neutral_coeff = calc_neutralslope_coeff_func( tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), z_p(jk))
+            ! compute pressure in dezi-bar, i.e. depth of water column in vertical centre (meter)
+            !  - account for individual layer depth at bottom for use of partial cells (prism_thick_flat_sfc_c)
+            !  - add elevation by passing old, new, or intermediate value of surface elevation (e.g. p_prog(nold(1)%h)
+            pressure = patch_3d%p_patch_1d(1)%zlev_i(jk) &
+              &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,jk,jb)*0.5_wp &
+              &      + surface_elevation(jc,jb)
+            neutral_coeff = calc_neutralslope_coeff_func( tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), pressure)
             neutral_alph(jc,jk,jb) = neutral_coeff(1)
             neutral_beta(jc,jk,jb) = neutral_coeff(2)
           END DO
@@ -1474,7 +1477,10 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
-            neutral_coeff = calc_neutralslope_coeff_func( tracer(jc,jk,jb,1), sal_ref, z_p(jk))
+            pressure = patch_3d%p_patch_1d(1)%zlev_i(jk) &
+              &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,jk,jb)*0.5_wp &
+              &      + surface_elevation(jc,jb)
+            neutral_coeff = calc_neutralslope_coeff_func( tracer(jc,jk,jb,1), sal_ref, pressure)
             neutral_alph(jc,jk,jb) = neutral_coeff(1)
             neutral_beta(jc,jk,jb) = neutral_coeff(2)
           END DO

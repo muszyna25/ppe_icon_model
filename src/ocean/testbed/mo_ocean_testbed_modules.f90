@@ -363,7 +363,11 @@ CONTAINS
     alph(:,:,:) = 0.0_wp
     beta(:,:,:) = 0.0_wp
 
-    CALL calc_neutralslope_coeff(patch_3d,p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,:), alph, beta)
+    CALL calc_neutralslope_coeff( &
+      &    patch_3d,              &
+      &    p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,:), &
+      &    p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+      &    alph, beta)
 
     !  test values
     t = 10.0_wp
