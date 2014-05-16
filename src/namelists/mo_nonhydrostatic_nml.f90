@@ -49,7 +49,6 @@ MODULE mo_nonhydrostatic_nml
                                     ! from namelist
                                     & config_itime_scheme     => itime_scheme     , &
                                     & config_iadv_rcf         => iadv_rcf         , &
-                                    & config_lvadv_tke        => lvadv_tke        , &
                                     & config_lhdiff_rcf       => lhdiff_rcf       , &
                                     & config_lextra_diffu     => lextra_diffu     , &
                                     & config_lbackward_integr => lbackward_integr , &
@@ -101,7 +100,6 @@ MODULE mo_nonhydrostatic_nml
   INTEGER :: iadv_rcf                ! if 1: no reduced calling frequency for adv. and phy.
                                      ! if 2: adv. and phys. are called every 2nd time step.
                                      ! if 4: ... every 4th time step.
-  LOGICAL :: lvadv_tke               ! if true. perform vertical   advection of TKE
   LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion also at the large time step
   LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close 
                                      ! to the CFL stability limit for vertical advection
@@ -146,7 +144,7 @@ MODULE mo_nonhydrostatic_nml
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
                               & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
                               & rhotheta_offctr, lextra_diffu, lbackward_integr,          &
-                              & veladv_offctr, lvadv_tke
+                              & veladv_offctr
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -185,9 +183,6 @@ CONTAINS
 
     ! reduced calling frequency for transport
     iadv_rcf = 5  ! reduced calling frequency (transport time step = 5* dynamics time step)
-
-    ! TKE advection turned off by default
-    lvadv_tke = .FALSE.
 
     ! reduced calling frequency also for horizontal diffusion
     lhdiff_rcf = .TRUE.  ! new default since 2012-05-09 after successful testing
@@ -355,7 +350,6 @@ CONTAINS
        config_igradp_method     = igradp_method
        config_exner_expol       = exner_expol
        config_iadv_rcf          = iadv_rcf
-       config_lvadv_tke         = lvadv_tke
        config_lhdiff_rcf        = lhdiff_rcf
        config_lextra_diffu      = lextra_diffu
        config_lbackward_integr  = lbackward_integr
