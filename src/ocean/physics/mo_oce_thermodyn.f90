@@ -1372,7 +1372,7 @@ CONTAINS
 
    ! correction factor used by Danilov/Wang
    !  - if necessary, temperature should be corrected on input to meet the above mentioned CHECK VALUES of the paper
-   ! t1 = t*1.00024_wp
+   ! t1 = t*1.00024_wp  !  conversion of 1968 to 1990 temperature standard (IPTS-68 to IPTS-90, <0.001 K in ocean water)
      
      t2    = t1*t1
      t3    = t2*t1
