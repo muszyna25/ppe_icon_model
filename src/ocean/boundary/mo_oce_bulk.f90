@@ -483,21 +483,48 @@ CONTAINS
   !    p_sfc_flx%topBoundCond_windStress_u = p_ice_interface%windStress_u  !  modified in ice_slow
   !-----------------------------------------------------------------------
   ! fresh water
-  p_sfc_flx%FrshFlux_Runoff(:,:)           = Qatm%FrshFlux_Runoff(:,:)
-  p_sfc_flx%FrshFlux_TotalSalt(:,:)        = Qatm%FrshFlux_TotalSalt(:,:)
-  p_sfc_flx%FrshFlux_TotalIce(:,:)         = Qatm%FrshFlux_TotalIce(:,:)
-  p_sfc_flx%FrshFlux_TotalOcean(:,:)       = Qatm%FrshFlux_TotalOcean(:,:)
+  p_sfc_flx%FrshFlux_Precipitation(:,:) = Qatm%FrshFlux_Precipitation(:,:)
+  p_sfc_flx%FrshFlux_Evaporation(:,:)   = Qatm%FrshFlux_Evaporation(:,:)
+  p_sfc_flx%FrshFlux_SnowFall(:,:)      = Qatm%FrshFlux_SnowFall(:,:)
+  p_sfc_flx%FrshFlux_Runoff(:,:)        = Qatm%FrshFlux_Runoff(:,:)
+  p_sfc_flx%FrshFlux_TotalSalt(:,:)     = Qatm%FrshFlux_TotalSalt(:,:)
+  p_sfc_flx%FrshFlux_TotalIce(:,:)      = Qatm%FrshFlux_TotalIce(:,:)
+  p_sfc_flx%FrshFlux_TotalOcean(:,:)    = Qatm%FrshFlux_TotalOcean(:,:)
+! p_sfc_flx%FrshFlux_VolumeIce(:,:)     = Qatm%FrshFlux_VolumeIce(:,:)
+  p_sfc_flx%FrshFlux_VolumeTotal(:,:)   = Qatm%FrshFlux_VolumeTotal(:,:)
   ! Heat fluxes
-  p_sfc_flx%HeatFlux_ShortWave(:,:)        = Qatm%HeatFlux_ShortWave(:,:)
-  p_sfc_flx%HeatFlux_LongWave (:,:)        = Qatm%HeatFlux_LongWave (:,:)
-  p_sfc_flx%HeatFlux_Sensible (:,:)        = Qatm%HeatFlux_Sensible (:,:)
-  p_sfc_flx%HeatFlux_Latent   (:,:)        = Qatm%HeatFlux_Latent   (:,:)
-  p_sfc_flx%HeatFlux_Total    (:,:)        = Qatm%HeatFlux_Total    (:,:)
+  p_sfc_flx%HeatFlux_ShortWave(:,:)     = Qatm%HeatFlux_ShortWave(:,:)
+  p_sfc_flx%HeatFlux_LongWave (:,:)     = Qatm%HeatFlux_LongWave (:,:)
+  p_sfc_flx%HeatFlux_Sensible (:,:)     = Qatm%HeatFlux_Sensible (:,:)
+  p_sfc_flx%HeatFlux_Latent   (:,:)     = Qatm%HeatFlux_Latent   (:,:)
+  p_sfc_flx%HeatFlux_Total    (:,:)     = Qatm%HeatFlux_Total    (:,:)
   ! windstress
   p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%topBoundCond_windStress_u(:,:)
   p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%topBoundCond_windStress_v(:,:)
   ! surface relaxation
+
+
   p_sfc_flx%data_surfRelax_Temp(:,:)       = Qatm%data_surfRelax_Temp(:,:)
+ !p_sfc_flx%topBoundCond_windStress_u (:,:), & ! forcing of zonal component of velocity equation           [Pa]
+ !p_sfc_flx%topBoundCond_windStress_v (:,:), & ! forcing of meridional component of velocity equation      [Pa]
+ !p_sfc_flx%HeatFlux_ShortWave        (:,:), & ! surface short wave heat flux                              [W/m2]
+ !p_sfc_flx%HeatFlux_LongWave         (:,:), & ! surface long wave heat flux                               [W/m2]
+ !p_sfc_flx%HeatFlux_Sensible         (:,:), & ! surface sensible heat flux                                [W/m2]
+ !p_sfc_flx%HeatFlux_Latent           (:,:), & ! surface latent heat flux                                  [W/m2]
+ !p_sfc_flx%HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]
+ !p_sfc_flx%FrshFlux_Precipitation    (:,:), & ! total precipitation flux                                  [m/s]
+ !p_sfc_flx%FrshFlux_SnowFall         (:,:), & ! total snow flux                                           [m/s]
+ !p_sfc_flx%FrshFlux_Evaporation      (:,:), & ! evaporation flux                                          [m/s]
+ !p_sfc_flx%FrshFlux_Runoff           (:,:), & ! river runoff flux                                         [m/s]
+ !p_sfc_flx%FrshFlux_TotalSalt        (:,:), & ! sum of forcing surface freshwater flux from BC            [m/s]
+ !p_sfc_flx%FrshFlux_TotalOcean       (:,:), & ! forcing surface freshwater flux at open ocean             [m/s]
+ !p_sfc_flx%FrshFlux_TotalIce         (:,:), & ! forcing surface freshwater flux under sea ice             [m/s]
+ !p_sfc_flx%FrshFlux_VolumeIce        (:,:), & ! forcing volume flux for height equation under sea ice     [m/s]
+ !p_sfc_flx%FrshFlux_VolumeTotal      (:,:), & ! sum of forcing volume flux including relaxation           [m/s]
+ !p_sfc_flx%topBoundCond_Temp_vdiff   (:,:), & ! forcing of temperature in vertical diffusion equation     [K*m/s]
+ !p_sfc_flx%topBoundCond_Salt_vdiff   (:,:), & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
+ !p_sfc_flx%data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [K]
+ !p_sfc_flx%data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
 
 
 
