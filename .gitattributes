@@ -1117,11 +1117,6 @@ scripts/preprocessing/omip2icon.rb -text
 scripts/preprocessing/preproc4omip.rb -text
 scripts/preprocessing/preproc4omip.sh -text
 scripts/preprocessing/preproc4phc.sh -text
-scripts/preprocessing/testdata/2.98.128.table -text
-scripts/preprocessing/testdata/atm_hyb_sp_31 -text
-scripts/preprocessing/testdata/iconR2B04-grid.nc -text svneol=unset#unset
-scripts/preprocessing/testdata/oro_R2B04.nc -text svneol=unset#unset
-scripts/preprocessing/testdata/vct -text
 scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text

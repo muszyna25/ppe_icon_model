@@ -251,10 +251,6 @@ scripts/preprocessing/*.settings
 scripts/preprocessing/.cproject
 scripts/preprocessing/.project
 scripts/preprocessing/icon-dev
-scripts/preprocessing/testdata/*.settings
-scripts/preprocessing/testdata/.cproject
-scripts/preprocessing/testdata/.project
-scripts/preprocessing/testdata/icon-dev
 scripts/prototypes/*.settings
 scripts/prototypes/.cproject
 scripts/prototypes/.project
