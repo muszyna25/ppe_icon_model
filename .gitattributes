@@ -80,11 +80,6 @@ config/missing -text
 config/pvcs.pl -text
 /configure -text
 /configure.ac -text
-contrib/grid_tools/Makefile -text
-contrib/grid_tools/copy_grid_uuid.c -text
-contrib/libmtime_example/Makefile -text
-contrib/libmtime_example/example.f90 -text
-contrib/monika/remap.sh -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
 data/dmin_wetgrowth_lookup.dat -text
