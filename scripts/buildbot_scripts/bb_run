@@ -438,10 +438,8 @@ echo "$scriptname: target          = $target (source = $source)"
 # ln -s ../../../buildbot.grids grids
 
 #------------------------------------------------------------------------------
-# define which account to use, and recreate run scripts
-# only effective on blizzard
-echo "use_account_no=mh0287" >> ./config/set-up.info
-./make_runscripts "test"
+# run scripts a created in their own buildbot step
+# and are no longer part of bb_run
 
 #------------------------------------------------------------------------------\
 # read set-up info
