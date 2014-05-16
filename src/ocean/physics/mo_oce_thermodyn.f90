@@ -1304,7 +1304,9 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !! Calculates polynomial coefficients for thermal expansion and saline contraction
-  !! matching the equation of state as in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! matching the equation of state as described in (UNESCO)
+  !!   Fofonoff and Millard, 1984, UNESCO, Paris, Tech. Pap. Mar. Sci., 44, 53pp
+  !! This method is using the older !! IPTS (International Practical Temperature Scale) of 1968.
   !! The code below is adopted from FESOM (Quiang Wang, Sergey Danilov)
   !!
   !! @par Revision History
@@ -1312,13 +1314,17 @@ CONTAINS
   !!
   FUNCTION calc_neutralslope_coeff_func(t,s,p) result(coeff)
     !
-    ! REFERENCE:
+    !-----------------------------------------------------------------
+    ! REFERENCES:
     !    McDougall, T.J. 1987.  Neutral Surfaces
-    !    Journal of Physical Oceanography, vol 17, 1950-1964,
+    !    Journal of Physical Oceanography, Vol 17, 1950-1964,
     !-----------------------------------------------------------------
     ! CHECK VALUE:
     !    sw_beta=0.72088e-3 psu^-1 @ S=40.0psu, ptmp=10.0C (ITS-90), p=4000db
     !    a_over_b=0.34765 psu*C^-1 @ S=40.0psu, ptmp=10.0C, p=4000db
+    ! Valid Range:
+    !    S=25 to 40psu, p=0 to 4000db (ptmp=10C)
+    !                   p=0 to 1000db (ptmp=20-40C)
     !-----------------------------------------------------------------
     !
     REAL(wp), INTENT(in)  :: t        !  potential temperature (in ITS-90) [C]
@@ -1370,9 +1376,11 @@ CONTAINS
      s1 = s
      p1 = p
 
-   ! correction factor used by Danilov/Wang
-   !  - if necessary, temperature should be corrected on input to meet the above mentioned CHECK VALUES of the paper
-   ! t1 = t*1.00024_wp  !  conversion of 1968 to 1990 temperature standard (IPTS-68 to IPTS-90, <0.001 K in ocean water)
+   ! correction factor for conversion of 1990 to 1968 temperature standard (IPTS-68 to IPTS-90)
+   ! the correction is less than 0.001 K in ocean water temperature range
+   !  - T68 = 1.00024*T90
+   !  - above mentioned CHECK VALUES of the paper are better met by this correction
+     t1 = t*1.00024_wp
      
      t2    = t1*t1
      t3    = t2*t1
