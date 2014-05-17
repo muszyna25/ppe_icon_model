@@ -236,7 +236,7 @@ CONTAINS
 !IBM* ASSERT(NODEPS)
         DO ic = 1, icount
           zclear(ic) = zclear(ic)*(1.0_wp-MAX(zfrcl(ic,jk),zfrcl_above(ic))) &
-            & /(1.0_wp-MIN(zcloud(ic),1.0_wp-zeps))
+            & /(1.0_wp-MIN(zfrcl_above(ic),1.0_wp-zeps))
           zfrcl_above(ic) = zfrcl(ic,jk)
           zcloud(ic) = 1.0_wp-zclear(ic)
         ENDDO
