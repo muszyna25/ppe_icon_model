@@ -647,7 +647,7 @@ $builds.each_key {|build|
   # regular tasks with all dependencies {
   desc "sync for build #{build.to_s}"
   task "#{build.to_s}_sync".to_sym do
-    doSync(build)
+    doSync(build) unless ENV.has_key?('NOSYNC')
   end
   desc "Configure for build #{build.to_s}"
   task "#{build.to_s}_conf".to_sym => ["#{build.to_s}_sync".to_sym] do
