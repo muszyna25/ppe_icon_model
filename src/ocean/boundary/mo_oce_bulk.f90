@@ -56,8 +56,7 @@ USE mo_run_config,          ONLY: dtime, ltimer
 USE mo_sync,                ONLY: sync_c, sync_patch_array, global_sum_array
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
-USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast,                   &
-  &                               p_comm_work_test, p_comm_work
+USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run
 USE mo_netcdf_read,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
@@ -250,7 +249,8 @@ CONTAINS
         ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
         ! TODO: evaporation of ice and snow must be implemented
         Qatm%FrshFlux_Evaporation(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
-        Qatm%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * & 
+        Qatm%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
+        Qatm%FrshFlux_TotalOcean(:,:)  = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
           &                                  ( p_as%FrshFlux_Precipitation(:,:) + Qatm%FrshFlux_Evaporation(:,:) )
 
         ! Precipitation on ice is snow when we're below the freezing point
