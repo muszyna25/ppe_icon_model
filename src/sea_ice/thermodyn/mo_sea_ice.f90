@@ -913,11 +913,11 @@ CONTAINS
       &          t_cf_var('atmos_fluxes_FrshFlux_VolumeIce', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeIce', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_VolumeTotal', p_atm_f%FrshFlux_VolumeTotal, &
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('atmos_fluxes_FrshFlux_VolumeTotal', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeTotal', DATATYPE_FLT32),&
-      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!   CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_VolumeTotal', p_atm_f%FrshFlux_VolumeTotal, &
+!     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!     &          t_cf_var('atmos_fluxes_FrshFlux_VolumeTotal', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeTotal', DATATYPE_FLT32),&
+!     &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+!     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     CALL message(TRIM(routine), 'end' )
   END SUBROUTINE construct_atmos_fluxes
