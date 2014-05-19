@@ -1,7 +1,7 @@
 #!/bin/ksh
 # -------------------------------------------------------
 # MARS request to read data used in the ifs2icon utility.
-# run as: mars4icon_smi_32r3+ 2011010100 0 255 1/to/91
+# run as: mars4icon_smi_32r3+ 2011010100 0 255 1/to/91 (optional EDA member number)
 #
 # versions:
 #   mars4icon_smi_32r3+:      conversion of SWVL to soil moisture index SMI
@@ -40,6 +40,13 @@ pdatin=${1:-g12}          # initial time (or "${1: 2010070100 2010070200}")
 step=${2:-0}              # forecast step (in hours)
 res="${3:-255}"           # resolution
 levelist=${4:-1/to/137}   # levels (L137 from 2013062512)
+eda_number=${5:--1}       # EDA member (ensemble data assimilation 0-10)
+
+if [ ${eda_number} -eq -1 ] ; then
+  stream='enda'
+else
+  stream='oper'
+fi
 
 # --- data output ---
 
@@ -76,6 +83,7 @@ case ${res} in
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
+
 if [[ -z $RESULT_GRIB_FILE ]] ; then
   grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
 else
@@ -88,20 +96,21 @@ retrieve,
         padding  = 0,
         accuracy = 16,
         class    = od,
+        number   = ${eda_number},
         expver   = 1,
         domain   = g,
-        stream   = oper,
+        stream   = ${stream},
         type     = ${type},
         date     = ${cymd},
         time     = ${hh},
         step     = ${step},
         target   = "${grib_file}",
         param    = u/v/w/t/q/clwc/ciwc${rainsnow}/o3,   # /crwc/cswc/ rain,snow on/off
-        repres   = sh,                                  # spherical harmonics,
+        repres   = sh,                                  # spherical harmonics
         resol    = ${res},
         grid     = ${grd},
         gaussian = regular,
-        levtype  = ml,                                  # model levels,
+        levtype  = ml,                                  # model levels
         levelist = ${levelist}
 retrieve,
         param    = lnsp/z,
