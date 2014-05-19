@@ -49,7 +49,7 @@ MODULE mo_art_reaction_interface
     USE mo_nonhydro_types,         ONLY: t_nh_diag
 #ifdef __ICON_ART
     USE mo_art_radioactive,        ONLY: art_decay_radioact
-!    USE mo_art_chemtracer,      ONLY: art_loss_chemtracer
+    USE mo_art_chemtracer,         ONLY: art_loss_chemtracer
     USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode
     USE mo_art_modes,              ONLY: t_fields_radio
 #endif
@@ -100,6 +100,10 @@ CONTAINS
 jg  = p_patch%id
 
 IF(art_config(jg)%lart) THEN
+
+  ! ----------------------------------
+  ! --- Radioactive particles
+  ! ----------------------------------
   this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
   
   DO WHILE(ASSOCIATED(this_mode))
@@ -110,6 +114,16 @@ IF(art_config(jg)%lart) THEN
     end select                  
     this_mode => this_mode%next_mode
   END DO
+  
+  NULLIFY(this_mode)
+  
+  ! ----------------------------------
+  ! --- chemical tracer reactions
+  ! ----------------------------------
+
+  IF (art_config(jg)%lart_chemtracer) THEN !chemical tracer
+    CALL art_loss_chemtracer(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
+  ENDIF
   
 ENDIF
 #endif
