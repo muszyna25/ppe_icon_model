@@ -501,7 +501,7 @@ CONTAINS
   p_sfc_flx%FrshFlux_TotalSalt(:,:)     = Qatm%FrshFlux_TotalSalt(:,:)
   p_sfc_flx%FrshFlux_TotalIce(:,:)      = Qatm%FrshFlux_TotalIce(:,:)
   p_sfc_flx%FrshFlux_TotalOcean(:,:)    = Qatm%FrshFlux_TotalOcean(:,:)
-! p_sfc_flx%FrshFlux_VolumeIce(:,:)     = Qatm%FrshFlux_VolumeIce(:,:)
+  p_sfc_flx%FrshFlux_VolumeIce(:,:)     = Qatm%FrshFlux_VolumeIce(:,:)
 ! p_sfc_flx%FrshFlux_VolumeTotal(:,:)   = Qatm%FrshFlux_VolumeTotal(:,:)
   ! Heat fluxes
   p_sfc_flx%HeatFlux_ShortWave(:,:)     = Qatm%HeatFlux_ShortWave(:,:)
