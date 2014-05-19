@@ -30,7 +30,12 @@ MODULE mo_srtm
   !                                                         ! 700nm wavelength
   REAL(wp), PARAMETER :: par_upper_boundary = 25000._wp     ! equivalent to
   !                                                         ! 400nm wavelength
-  INTEGER,  PARAMETER :: i_overlap = 1
+
+  INTEGER,  PARAMETER :: i_overlap = 1       ! 1: maximum-random overlap
+                                             ! 2: generalized overlap (Hogan, Illingworth, 2000) 
+                                             ! 3: maximum overlap
+                                             ! 4: random overlap
+  REAL(wp), PARAMETER :: zdecorr = 2000.0_wp ! decorrelation length scale del(z0) 
 
 CONTAINS
 
@@ -42,7 +47,7 @@ CONTAINS
     &  col_dry_vr      , wkl_vr                                              , &
     &  cld_frc_vr      , cld_tau_sw_vr   , cld_cg_sw_vr    , cld_piz_sw_vr   , &
     &  aer_tau_sw_vr   , aer_cg_sw_vr    , aer_piz_sw_vr                     , &
-    &  ssi                                                            , &
+    &  ssi             , z_mc                                                , &
                                 !  output
     &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr )
 !!$    &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
@@ -89,6 +94,7 @@ CONTAINS
     REAL(wp), INTENT(in)    :: aer_cg_sw_vr(kbdim,klev,ksw)
     REAL(wp), INTENT(in)    :: aer_piz_sw_vr(kbdim,klev,ksw)
     REAL(wp), INTENT(in)    :: ssi(ksw)
+    REAL(wp), INTENT(in)    :: z_mc(kbdim,klev)          !< height at full levels [m]
 
     !-- Output arguments
 
@@ -145,7 +151,7 @@ CONTAINS
     INTEGER  :: indfor(kbdim,klev), indself(kbdim,klev)
     INTEGER  :: jp(kbdim,klev), jt(kbdim,klev), jt1(kbdim,klev)
 
-    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, ztotcc(kbdim)
+    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim)
     REAL(wp) :: zalbd(kbdim,ksw) , zalbp(kbdim,ksw)
     REAL(wp) :: frc_vis(ksw), frc_nir(ksw)
 !!$    REAL(wp) :: frc_par, zfvis, zfnir, zfpar, total
@@ -154,6 +160,7 @@ CONTAINS
     INTEGER(i4) :: idx(kbdim)
     INTEGER(i4) :: icount, ic, jl, jk, jsw, jb
     REAL(wp) :: zrmu0(kbdim)
+    REAL(wp) :: ccmax, ccran, alpha
 
     !-----------------------------------------------------------------------
     !-- calculate information needed ny the radiative transfer routine
@@ -203,54 +210,70 @@ CONTAINS
 
 !IBM* ASSERT(NODEPS)
     DO ic = 1, icount
-      zclear(ic)=1.0_wp
-      zcloud(ic)=0.0_wp
-      ztotcc(ic)=0.0_wp
+      zclear(ic)     = 1.0_wp
+      zcloud(ic)     = 0.0_wp
+      zfrcl_above(ic)= 0.0_wp
     ENDDO
     !
-    ! --- overlap: 1=max-ran, 2=maximum, 3=random
+    ! --- overlap
     !
     DO jk = 1, klev
 
       DO ic = 1, icount
         jl = idx(ic)
-        zfrcl(ic,jk) = cld_frc_vr(jl,jk)
-        zpm_fl_vr(ic,jk) = pm_fl_vr(jl,jk)
-        ztk_fl_vr(ic,jk) = tk_fl_vr(jl,jk)
+        zfrcl(ic,jk)       = cld_frc_vr(jl,jk)
+        zpm_fl_vr(ic,jk)   = pm_fl_vr(jl,jk)
+        ztk_fl_vr(ic,jk)   = tk_fl_vr(jl,jk)
         zcol_dry_vr(ic,jk) = col_dry_vr(jl,jk)
 !CDIR EXPAND=jpinpx
         zwkl_vr(ic,1:jpinpx,jk) = wkl_vr(jl,1:jpinpx,jk)
       ENDDO
 
-      IF (i_overlap == 1) THEN
+      SELECT CASE ( i_overlap )
+
+      CASE ( 1 )   ! maximum-random overlap
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
         DO ic = 1, icount
-          zclear(ic)=zclear(ic)*(1.0_wp-MAX(zfrcl(ic,jk),zcloud(ic))) &
-            & /(1.0_wp-MIN(zcloud(ic),1.0_wp-zeps))
-          zcloud(ic)=zfrcl(ic,jk)
-          ztotcc(ic)=1.0_wp-zclear(ic)
+          zclear(ic) = zclear(ic)*(1.0_wp-MAX(zfrcl(ic,jk),zfrcl_above(ic))) &
+            & /(1.0_wp-MIN(zfrcl_above(ic),1.0_wp-zeps))
+          zfrcl_above(ic) = zfrcl(ic,jk)
+          zcloud(ic) = 1.0_wp-zclear(ic)
         ENDDO
-      ELSEIF (i_overlap == 2) THEN
+
+      CASE ( 2 )   ! generalized maximum-random overlap (Hogan, Illingworth, 2000)
+        DO ic = 1, icount
+          ccmax = MAX( zfrcl(ic,jk),  zcloud(ic) )
+          ccran =      zfrcl(ic,jk) + zcloud(ic) - &
+                   & ( zfrcl(ic,jk) * zcloud(ic) )
+          IF ( zfrcl_above(ic) > 0.0_wp ) THEN 
+            alpha = exp( - (z_mc(ic,jk-1)-z_mc(ic,jk)) / zdecorr )
+          ELSE             ! layer thickness ???
+            alpha = 0.0_wp
+          ENDIF
+          zfrcl_above(ic) = zfrcl(ic,jk)
+          zcloud(ic) = alpha * ccmax + (1-alpha) * ccran
+          zclear(ic) = 1.0_wp-zcloud(ic)
+        ENDDO
+
+      CASE ( 3 )   ! maximum overlap
 !IBM* ASSERT(NODEPS)
         DO ic = 1, icount
-          zcloud(ic)=MAX(zcloud(ic),zfrcl(ic,jk))
-          zclear(ic)=1.0_wp-zcloud(ic)
-          ztotcc(ic)=zcloud(ic)
+          zcloud(ic) = MAX(zcloud(ic),zfrcl(ic,jk))
+          zclear(ic) = 1.0_wp-zcloud(ic)
         ENDDO
-      ELSEIF (i_overlap == 3) THEN
+
+      CASE ( 4 )   ! random overlap
 !IBM* ASSERT(NODEPS)
         DO ic = 1, icount
-          zclear(ic)=zclear(ic)*(1.0_wp-zfrcl(ic,jk))
-          zcloud(ic)=1.0_wp-zclear(ic)
-          ztotcc(ic)=zcloud(ic)
+          zclear(ic) = zclear(ic)*(1.0_wp-zfrcl(ic,jk))
+          zcloud(ic) = 1.0_wp-zclear(ic)
         ENDDO
-      ENDIF
+
+      END SELECT
 
     END DO
 
-    ! mpuetz: do we really need this line, I think not
-    zcloud(1:icount) = 1.0_wp- zclear(1:icount)
 
     CALL srtm_setcoef                                                   &
                                 !   input

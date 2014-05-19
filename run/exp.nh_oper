@@ -182,7 +182,7 @@ cat > ${atmo_namelist} << EOF
  nlev_snow      = 2      !!! 1 for assimilation cycle and forecast
  lmulti_snow    = .true. !!! .false. for assimilation cycle and forecast
  itype_heatcond = 2
- idiag_snowfrac = 4
+ idiag_snowfrac = 2
  lsnowtile      = .false.
  lseaice        = .true.
  llake          = .true.

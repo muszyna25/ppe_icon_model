@@ -176,7 +176,7 @@ CONTAINS
   !        Lin et al. (1994), MWR, 122, 1575-1593
   ! MIURA: Miura, H. (2007), Mon. Wea. Rev., 135, 4038-4044
   !
-  SUBROUTINE hor_upwind_flux( p_cc, p_c0, p_rho, p_mass_flx_e, p_vn, p_dtime,     &
+  SUBROUTINE hor_upwind_flux( p_cc, p_rho, p_mass_flx_e, p_vn, p_dtime,           &
     &                     p_patch, p_int, p_ihadv_tracer, p_igrad_c_miura,        &
     &                     p_itype_hlimit, p_iadv_slev, p_iord_backtraj, p_upflux, &
     &                     opt_rlend )
@@ -190,9 +190,6 @@ CONTAINS
 
     REAL(wp),TARGET, INTENT(IN) ::  & !< advected cell centered variable
       &  p_cc(:,:,:,:)              !< dim: (nproma,nlev,nblks_c,ntracer)
-
-    REAL(wp),TARGET, INTENT(IN) ::  & !< advected cell centered variable step (n)
-      &  p_c0(:,:,:,:)              !< dim: (nproma,nlev,nblks_c,ntracer)
 
     REAL(wp),TARGET, INTENT(IN) ::  & !< density at cell center step (n)
       &  p_rho(:,:,:)               !< dim: (nproma,nlev,nblks_c)

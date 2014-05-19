@@ -29,7 +29,6 @@ vi=hixc    # thickness times concentration
 vi=hi      # thickness only
 
 
-#nclsh="nclsh /scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/scripts/postprocessing/tools/icon_plot.ncl -altLibDir=/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/scripts/postprocessing/tools"
 nclsh="nclsh /scratch/mpi/CC/mh0287/users/m211032/Icon/icon-dev.tst/scripts/postprocessing/tools/icon_plot.ncl -altLibDir=/scratch/mpi/CC/mh0287/users/m211032/Icon/icon-dev.tst/scripts/postprocessing/tools"
 nclsh="nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools"
 

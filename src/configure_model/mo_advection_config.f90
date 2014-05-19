@@ -52,7 +52,9 @@ MODULE mo_advection_config
   IMPLICIT NONE
   PUBLIC
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+
+  CHARACTER(len=*), PARAMETER, PRIVATE :: &
+    &  version = '$Id$'
 
 
 
@@ -107,6 +109,11 @@ MODULE mo_advection_config
                                     !< 1 : 1st order upwind                      
                                     !< 3 : 3rd order PPM for CFL>                         
                                     !< 30: 3rd order PPM               
+
+    INTEGER :: &                    !< advection of TKE
+      &  iadv_tke                   !< 0 : none
+                                    !< 1 : vertical advection only
+                                    !< 2 : vertical and horizontal advection
 
     LOGICAL :: lvadv_tracer         !< if .TRUE., calculate vertical tracer advection
     LOGICAL :: lclip_tracer         !< if .TRUE., clip negative tracer values    

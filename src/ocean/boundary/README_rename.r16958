@@ -56,4 +56,28 @@ Info on renaming variables
     relax_3d_data_s            -   data_3dimRelax_Salt
     relax_3d_forc_s            -   forc_3dimRelax_Salt
 
+================================================================================
+Info on new relaxation routines
+  - revison r17227/r17229 on trunk
+  - issue #4639
+================================================================================
+
+
+ - changed relaxation subroutines:
+    update_relaxation_flux   : old relaxation method (fluxes after call of sea ice) - deactivated
+    update_surface_relaxation: relaxation fluxes (heat/freshwater) and restoring rates (for T/S) are calculated
+                               at begin of routine update_surface_fluxes using values from former timestep
+    apply_surface_relaxation : activate relaxation through simple restoring to T* and S* at begin of
+                               update_surface_fluxes, no additional fluxes for ocean forcing are used;
+                               alternatively, add diagnosed fluxes to total sum of fluxes (not yet activated)
+
+ - rename relaxation variables and new ones (t_sfc_flx)
+
+    Old Variable Name              New Variable Name    Explanation
+    ===============================================================
+    forc_fwrelax               -   FrshFlux_Relax     : freshwater flux due to relaxation [m/s]
+    (none)                     -   HeatFlux_Relax     : heat flux due to relaxation [W/m2]
+    (none)                     -   TempFlux_Relax     : temperature restoring rate [K/s]
+    (none)                     -   SaltFlux_Relax     : salinity restoring rate [psu/s]
+
 

@@ -36,7 +36,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-  end_date="2008-08-11T00:00:00Z"
+  end_date="2008-08-03T00:00:00Z"
 #
 (( dt_restart    = 10 * day )) # [s] time between model restarts = length of run
 (( dt_checkpoint =  1 * day )) # [s] time between restart file writing

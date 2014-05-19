@@ -714,7 +714,7 @@ CONTAINS
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
-                          & pt_prog, pt_prog_rcf,             & !>inout
+                          & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
                           & wtr_prog_new,                     & !>in
@@ -804,7 +804,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
-        !
+
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
@@ -812,7 +812,7 @@ CONTAINS
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
 &              klev   = nlev,                                     &
-&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover ,& !! in:  cloud cover option
+&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover, & !! in:  cloud cover option
 &              inwp_turb  = atm_phy_nwp_config(jg)%inwp_turb,     & !! in:  turbulence scheme number
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
@@ -863,7 +863,8 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new           ) ! in
+           &              wtr_prog_new,          & ! in
+           &              p_metrics              ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF
@@ -872,7 +873,7 @@ CONTAINS
     IF ( lcall_phy_jg(itradheat) ) THEN
 
       IF (msg_level >= 15) &
-&           CALL message(TRIM(routine), 'radiative heating')
+        & CALL message(TRIM(routine), 'radiative heating')
 
 
       IF (timers_level > 1) CALL timer_start(timer_pre_radiation_nwp)

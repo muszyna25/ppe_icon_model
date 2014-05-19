@@ -416,7 +416,7 @@ end
 def doSync(build)
   dir      = $targetDir[build]
   rsyncOpts = "--delete-excluded --delete"
-  rsyncOpts = "-L"
+  rsyncOpts = "-L --ignore-missing-args "
 
   file = Tempfile.new("rsyncIconTempfiles2Transfer")
   $_temps << file

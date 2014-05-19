@@ -232,4 +232,11 @@
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{nonhydrostatic\_nml}{2014-05-16 }{17293 }
+  \begin{itemize}
+   \item Removed switch for vertical TKE advection in the dynamical core (\textbf{lvadv\_tke}). TKE advection has been moved into the
+   transport scheme and can be activated with \textbf{iadv\_tke=1} in the \textbf{transport\_nml}.
+  \end{itemize}
+\end{changeitem}
+
 % --------------------------------------------------------------------------------------------

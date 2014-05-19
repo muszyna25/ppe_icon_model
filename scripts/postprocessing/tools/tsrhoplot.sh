@@ -32,7 +32,7 @@ ICONPLOT=/pool/data/ICON/tools/icon_plot.ncl     #  NCL-script
 [[ "$expPath" == "y" ]] && plotOnly="y"          # plot data via $1=y: outputIdent must be set accordingly, see below
 # ==============================================================================
 #        expIdent='Data.r13694.hupw.vppm'                                            # experiment identifier (typed)
-#         expPath='/scratch/mpi/mh0287/users/m211032/Icon/icon-dev.new/experiments'  # experiment path (typed)
+#         expPath='/scratch/mpi/CC/mh0287/users/m211032/Icon/icon-dev.new/experiments' # experiment path (typed)
          expIdent=${expPath##*/}    # delete path on left before '/'                 # automatic identifier
       outputIdent=${expIdent#*.}    # delete smallest match on left before '.'       # automatic suffix
      fileListPath="$expPath/Output"                                                  # output data path

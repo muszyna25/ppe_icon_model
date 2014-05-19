@@ -59,6 +59,7 @@ make_restart_post="false"
 grid_list=""
 exp_list=""
 post_list=""
+define_grids_folder=""
 
 cd $input_folder
 case $param in
@@ -71,10 +72,11 @@ case $param in
   test)  # create _all_ scripts for use in buildbot
     make_restart_exp="true"
     make_restart_post="true"
-    make_bb_grid="true"
+    make_bb_grid="false" # "true"
     grid_list=""
     exp_list=`ls exp.*`
     post_list=`ls post.*`
+    define_grids_folder='grids_folder="/pool/data/ICON/grids/buildbot"'
     ;;
   post_test)  # create _all_ post-processing scripts for buildbot
     make_restart_post="true"
@@ -227,6 +229,9 @@ check_accept_script()
       #    accepted_script="false"
       #    ;;
        esac
+       if [[ _${define_grids_folder} != "_" ]] ; then
+         define_grids_folder='grids_folder="/e/uscratch/extwsauf/buildbot.grids"'
+       fi
      ;; 
 
      thunder)
@@ -281,31 +286,31 @@ do
     case $name in
     *_nwp_*)
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
+      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue" ${define_grids_folder}
       ;;
     *_nh35_tri_jws*)
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="03:00:00" memory_model="small" queue="$queue"
+      cpu_time="03:00:00" memory_model="small" queue="$queue" ${define_grids_folder}
       ;;
     *)
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize
+      cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize ${define_grids_folder}
       ;;
     esac
 
     # special cases for queuing on blizzard
-    if [ $use_target = "blizzard" ] ; then
-      if [ $name = test_nh3_tri_tracer_solid_body ] ; then
-        $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-        EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-      fi
-      if [ $use_openmp = "yes" ] ; then
-        if [ $name = test_nh35_tri_jws ] ; then
-          $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-          EXPNAME="$name"  memory_model="small" queue="express"
-        fi
-      fi
-    fi
+#     if [ $use_target = "blizzard" ] ; then
+#       if [ $name = test_nh3_tri_tracer_solid_body ] ; then
+#         $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#         EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+#       fi
+#       if [ $use_openmp = "yes" ] ; then
+#         if [ $name = test_nh35_tri_jws ] ; then
+#           $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#           EXPNAME="$name"  memory_model="small" queue="express"
+#         fi
+#       fi
+#    fi
 
   fi
   
@@ -374,7 +379,7 @@ create_restart()
 
     $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
       in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" test_restart="true" \
-      queue="$queue" cpu_time="$cpu_time"
+      queue="$queue" cpu_time="$cpu_time"  ${define_grids_folder}
 
   fi
 

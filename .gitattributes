@@ -80,11 +80,6 @@ config/missing -text
 config/pvcs.pl -text
 /configure -text
 /configure.ac -text
-contrib/grid_tools/Makefile -text
-contrib/grid_tools/copy_grid_uuid.c -text
-contrib/libmtime_example/Makefile -text
-contrib/libmtime_example/example.f90 -text
-contrib/monika/remap.sh -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
 data/dmin_wetgrowth_lookup.dat -text
@@ -1122,11 +1117,6 @@ scripts/preprocessing/omip2icon.rb -text
 scripts/preprocessing/preproc4omip.rb -text
 scripts/preprocessing/preproc4omip.sh -text
 scripts/preprocessing/preproc4phc.sh -text
-scripts/preprocessing/testdata/2.98.128.table -text
-scripts/preprocessing/testdata/atm_hyb_sp_31 -text
-scripts/preprocessing/testdata/iconR2B04-grid.nc -text svneol=unset#unset
-scripts/preprocessing/testdata/oro_R2B04.nc -text svneol=unset#unset
-scripts/preprocessing/testdata/vct -text
 scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
@@ -1228,6 +1218,7 @@ src/atm_phy_echam/mo_echam_phy_memory.f90 -text
 src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
 src/atm_phy_echam/mo_greenhouse_gases.f90 -text
 src/atm_phy_echam/mo_gw_hines.f90 -text
+src/atm_phy_echam/mo_ham_aerosol_params.f90 -text
 src/atm_phy_echam/mo_icoham_sfc_indices.f90 -text
 src/atm_phy_echam/mo_interface_echam_ocean.f90 -text
 src/atm_phy_echam/mo_interface_icoham_echam.f90 -text
@@ -1310,6 +1301,7 @@ src/atm_phy_schemes/gscp_hydci_pp.f90 -text
 src/atm_phy_schemes/gscp_hydci_pp_ice.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_driver.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_main.f90 -text
+src/atm_phy_schemes/mo_2mom_mcrph_util.f90 -text
 src/atm_phy_schemes/mo_adjust.f90 -text
 src/atm_phy_schemes/mo_aerosol_util.f90 -text
 src/atm_phy_schemes/mo_albedo.f90 -text
@@ -1328,7 +1320,6 @@ src/atm_phy_schemes/mo_data_turbdiff.f90 -text
 src/atm_phy_schemes/mo_gme_turbdiff.f90 -text
 src/atm_phy_schemes/mo_gscp_cosmo.f90 -text
 src/atm_phy_schemes/mo_gwd_wms.f90 -text
-src/atm_phy_schemes/mo_ham_aerosol_params.f90 -text
 src/atm_phy_schemes/mo_lrtm_coeffs.f90 -text
 src/atm_phy_schemes/mo_lrtm_driver.f90 -text
 src/atm_phy_schemes/mo_lrtm_kgs.f90 -text

@@ -438,10 +438,8 @@ echo "$scriptname: target          = $target (source = $source)"
 # ln -s ../../../buildbot.grids grids
 
 #------------------------------------------------------------------------------
-# define which account to use, and recreate run scripts
-# only effective on blizzard
-echo "use_account_no=mh0287" >> ./config/set-up.info
-./make_runscripts "test"
+# run scripts a created in their own buildbot step
+# and are no longer part of bb_run
 
 #------------------------------------------------------------------------------\
 # read set-up info
@@ -468,40 +466,41 @@ then
 
   echo "|======================================================|" 
   echo "|                                                      |"
-  echo "|         Running grid-scripts                         |"
+  echo "|         NOT Running grid-scripts                     |"
   echo "|                                                      |"
   echo "|======================================================|"
 
-  LOOP_STATUS_FILE="LOOP_STATUS_GRID_FILE"
-  rm -f ${LOOP_STATUS_FILE}
+  # LOOP_STATUS_FILE="LOOP_STATUS_GRID_FILE"
+  # rm -f ${LOOP_STATUS_FILE}
 
 
-  stop_check="warning_on_error"
-  build_post_file="false"
+  # stop_check="warning_on_error"
+  # build_post_file="false"
 #   EXP_FILES="grid.create_nested_grids.run"
 #   run_scripts run 
-  EXP_FILES="grid.create_bb_grids.run"
-  run_scripts run
+  # EXP_FILES="grid.create_bb_grids.run"
+  # run_scripts run
 
 # Check if a 'NOT successful' is in the status file?
 
-  ALL_RUNS_OK=`grep ${TEXT_RUN_FAILED} ${LOOP_STATUS_FILE}`
+  #ALL_RUNS_OK=`grep ${TEXT_RUN_FAILED} ${LOOP_STATUS_FILE}`
 
-  if [ $? == 0 ]
-  then
-    echo "One or more Grid-Runs were not successful"
-    RETURN_STATUS=1
-    exit 1
-  else
-    echo "All Grid-Runs were successful"
-    RETURN_STATUS=0
-  fi
+  #if [ $? == 0 ]
+  #then
+  #  echo "One or more Grid-Runs were not successful"
+  #  RETURN_STATUS=1
+  #  exit 1
+  #else
+  #  echo "All Grid-Runs were successful"
+  #  RETURN_STATUS=0
+  #fi
+  RETURN_STATUS=0
 fi
 
 # if we run on the hpc_serial, copy the grids to the buildbot.grids
-if [ x$target = "xhpc_serial"  ] ; then
-  cp grids/* /e/uscratch/extwsauf/buildbot.grids
-fi
+#if [ x$target = "xhpc_serial"  ] ; then
+#  cp grids/* /e/uscratch/extwsauf/buildbot.grids
+#fi
 
 ################################################################
 

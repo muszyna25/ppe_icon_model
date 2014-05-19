@@ -2380,7 +2380,13 @@ CONTAINS
       of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
       lbounds(1)= 800._dp   ! hPa
-      ubounds(1)= 1013._dp  ! hPa
+      ubounds(1)= 0.        ! m
+!DR Note that for this particular axis in GME and COSMO, 
+!DR   scaleFactorOfSecondFixedSurface = scaledValueOfSecondFixedSurface = missing
+!DR whereas in ICON
+!DR   scaleFactorOfSecondFixedSurface = scaledValueOfSecondFixedSurface = 0
+!DR This is because, CDI does not allow layer-type vertical axis without setting 
+!DR scaleFactorOfSecondFixedSurface and scaledValueOfSecondFixedSurface.
       levels(1) = 800._dp   ! hPa
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_800), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_800), ubounds) !necessary for GRIB2

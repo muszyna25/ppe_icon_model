@@ -150,6 +150,7 @@ CONTAINS
     REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
     REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
+    REAL(wp) :: zheight(nbdim,nlev)       !< temp for height input
 
     INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
@@ -571,6 +572,7 @@ CONTAINS
 !!        IF (ltimer) CALL timer_start(timer_radiation)
 
         zaedummy(:,:) = 0.0_wp
+        zheight (:,:) = field%geom(:,:,jb)/grav
 
         CALL radiation(               &
           !
@@ -602,6 +604,7 @@ CONTAINS
           & tk_sfc     = ztemperature_rad(:)      ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
+          & z_mc       = zheight(:,:)             ,&!< in     height at full levels [m]
           & pp_hl  =field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
           & pp_fl  =field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
           & tk_fl  =field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt

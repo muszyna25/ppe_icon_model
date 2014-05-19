@@ -49,7 +49,7 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
                                      divdamp_type, rayleigh_type, iadv_rcf, rhotheta_offctr,&
-                                     lbackward_integr, veladv_offctr, divdamp_fac_o2, lvadv_tke
+                                     lbackward_integr, veladv_offctr, divdamp_fac_o2
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -1803,25 +1803,6 @@ MODULE mo_solve_nonhydro
               + p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,jk,jb) )
 
           ENDDO
-        ENDDO
-      ENDIF
-
-      IF (istep == 2 .AND. lvadv_tke) THEN ! compute TKE advection
-        DO jk = 2, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            z_w_con_up   = MAX(0._wp,p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk,jb))
-            z_w_con_down = MIN(0._wp,p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%diag%w_concorr_c(jc,jk,jb))
-
-            p_nh%prog(nnew)%tke(jc,jk,jb) = p_nh%prog(nnow)%tke(jc,jk,jb) - dtime *                            &
-              (z_w_con_up*(p_nh%prog(nnow)%tke(jc,jk,jb)-p_nh%prog(nnow)%tke(jc,jk+1,jb))*                     &
-               p_nh%metrics%inv_ddqz_z_full(jc,jk,jb) + z_w_con_down*p_nh%metrics%inv_ddqz_z_full(jc,jk-1,jb)* &
-              (p_nh%prog(nnow)%tke(jc,jk-1,jb)-p_nh%prog(nnow)%tke(jc,jk,jb)) )
-          ENDDO
-        ENDDO
-        DO jc = i_startidx, i_endidx
-          p_nh%prog(nnew)%tke(jc,1,jb)      = p_nh%prog(nnow)%tke(jc,1,jb)
-          p_nh%prog(nnew)%tke(jc,nlevp1,jb) = p_nh%prog(nnow)%tke(jc,nlevp1,jb)
         ENDDO
       ENDIF
 

@@ -69,7 +69,7 @@ CONTAINS
   !======================================================================
   SUBROUTINE sugwd(klev)
 
-  USE mo_run_config,           ONLY: nvclev
+  USE mo_run_config,           ONLY: nlevp1
   USE mo_vertical_coord_table, ONLY: vct
 
   !  Scalar arguments with intent(In):
@@ -98,7 +98,7 @@ CONTAINS
   !old  ZSIGT=0.85_wp
   !
   DO 110 jk=klev,1,-1
-    zpm1r = 0.5_wp*(vct(jk)+vct(jk+1)+zpr*(vct(nvclev+jk)+vct(nvclev+jk+1)))
+    zpm1r = 0.5_wp*(vct(jk)+vct(jk+1)+zpr*(vct(nlevp1+jk)+vct(nlevp1+jk+1)))
     zpm1r = zpm1r/zpr
 
     IF(zpm1r >= zsigt)THEN

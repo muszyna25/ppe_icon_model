@@ -420,6 +420,32 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & isteptype=TSTEP_INSTANT )
 
 
+    IF ( atm_phy_nwp_config(k_jg)%inwp_turb == iedmf ) THEN
+
+      ! &      diag%rain_edmf_rate_3d(nproma,nlevp1,nblks_c)
+      cf_desc    = t_cf_var('rain_edmf_rate_3d', 'kg m-2 s-1',                &
+        &          '3d EDMF convective rain rate', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'rain_edmf_rate_3d', diag%rain_edmf_rate_3d,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
+                  & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                  & ldims=shape3dkp1,                                           &
+                  & isteptype=TSTEP_INSTANT )
+      
+      
+      ! &      diag%snow_edmf_rate_3d(nproma,nlevp1,nblks_c)
+      cf_desc    = t_cf_var('snow_edmf_rate_3d', 'kg m-2 s-1',                   &
+        &          '3d EDMF convective snow rate', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'snow_edmf_rate_3d', diag%snow_edmf_rate_3d,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
+                  & lrestart = .FALSE., & ! .TRUE. may be necessary for ART (to be evaluated)
+                  & ldims=shape3dkp1,                                           &
+                  & isteptype=TSTEP_INSTANT )
+
+    ENDIF
+
+
     ! &      diag%rain_gsp(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp ', 'kg m-2 ', 'gridscale rain ', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 77, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1511,13 +1537,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
           & in_group=groups("pbl_vars"))
 
 
-        cf_desc    = t_cf_var('aqhfl_s', 'Kg m-2 s-1', 'surface moisture flux ' &
-          &//'average since model start', DATATYPE_FLT32)
+        WRITE(name,'(A,A6)') TRIM(prefix),"qhfl_s"
+        WRITE(long_name,'(A23,A4,A18)') "surface moisture flux ", meaning, &
+                                      & " since model start"
+        IF (lflux_avg ) THEN
+          cf_desc = t_cf_var(TRIM(name), 'Kg m-2 s-1', TRIM(long_name), DATATYPE_FLT32)
+        ELSE
+          cf_desc = t_cf_var(TRIM(name), 'Kg m-2', TRIM(long_name), DATATYPE_FLT32)
+        ENDIF
         grib2_desc = t_grib2_var(2, 0, 6, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'aqhfl_s', diag%aqhfl_s  ,                   &
+        CALL add_var( diag_list, TRIM(name), diag%aqhfl_s  ,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d,                                                    &
-          & isteptype=TSTEP_AVG, in_group=groups("pbl_vars") )
+          & isteptype=a_steptype, in_group=groups("pbl_vars") )
 
 
         ! &      diag%tcm(nproma,nblks_c)
@@ -2478,8 +2510,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     !------------------------------
 
     !      phy_tend%ddt_tke(nproma,nlevp1,nblks)
-    cf_desc    = t_cf_var('ddt_tke', 'm 2 s-3'          , &
-         &                'tendency of turbulent kinetic energy', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('ddt_tke', 'm s-2'          , &
+         &                'tendency of turbulent velocity scale', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 19, 192, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_tke', phy_tend%ddt_tke,             &
                 GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&

@@ -44,11 +44,11 @@ EDIR="hat_icoham_ape"
 #export model_data_path="/e/uscratch/mripodas/icon-dev/experiments/nh35_heldsuarezB4/"
 #export model_data_path="/e/uscratch/mripodas/icon-dev/experiments/Guehnter/"
 
-export model_data_path="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/${EDIR}/"
+export model_data_path="/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/${EDIR}/"
 #export model_data_path="/e/uhome/gzaengl/icon-dev/experiments/${EDIR}/"
 
 # temporary dir if files are from 'permission denied' dir's
-export model_data_path2="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/${EDIR}/"
+export model_data_path2="/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/${EDIR}/"
 
 #1.2 Name of file containing the data
 export file_name="hat_icoham_ape_iconR2B04-grid_0001.nc"
@@ -132,7 +132,7 @@ compute_remap_weights=1   # (1=ON,0=OFF)
 # If the weights are already available, specify the location:
 # (Don't forget the trailing "/")
 
-remap_weights_path='/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/weights/'
+remap_weights_path='/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/weights/'
 
 # For the remapping, we also need to know which optimization was used 
 # to generate the ICON grid. For example,
@@ -147,7 +147,7 @@ grid_optimization="spr0.90"
 
 #export plot_file_path="${model_data_path}/"
 
-export plot_file_path="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/plots/"
+export plot_file_path="/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/plots/"
 
 
 # Name of the output plot file
@@ -185,7 +185,7 @@ cdo_silence=0   #( 1 = silence mode; 0 = detailed report )
 #==========================================================================
 
 # Temporary variables
-export script_path='/scratch/mpi/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/'
+export script_path='/scratch/mpi/CC/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/'
 
 #
 #directory with the colormap files

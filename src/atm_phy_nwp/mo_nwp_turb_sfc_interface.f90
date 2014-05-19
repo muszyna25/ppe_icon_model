@@ -151,8 +151,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
     &         zdummy_vdf_1p(nproma), zdummy_vdf_1q(nproma), zdummy_vdf_1r(nproma), &
     &         zdummy_vdf_1s(nproma)
   REAL(wp) :: zdummy_vdf_2a(nproma,p_patch%nlev),   zdummy_vdf_2b(nproma,p_patch%nlev)
-  REAL(wp) :: zdummy_vdf_3a(nproma,p_patch%nlev+1), zdummy_vdf_3b(nproma,p_patch%nlev+1), &
-    &         zdummy_vdf_3c(nproma,p_patch%nlev+1), zdummy_vdf_3d(nproma,p_patch%nlev+1), &
+  REAL(wp) :: zdummy_vdf_3c(nproma,p_patch%nlev+1), zdummy_vdf_3d(nproma,p_patch%nlev+1), &
     &         zdummy_vdf_3k(nproma,p_patch%nlev+1), zdummy_vdf_3l(nproma,p_patch%nlev+1), &
     &         pdifts(nproma,p_patch%nlev+1) , pdiftq(nproma,p_patch%nlev+1)   , &
     &         pdiftl(nproma,p_patch%nlev+1) , pdifti(nproma,p_patch%nlev+1)   , &
@@ -269,8 +268,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 ! !$OMP zdummy_vdf_1p, zdummy_vdf_1q, zdummy_vdf_1r, &
 ! !$OMP zdummy_vdf_1s, &
 ! !$OMP zdummy_vdf_2a, zdummy_vdf_2b, &
-! !$OMP zdummy_vdf_3a, zdummy_vdf_3b, zdummy_vdf_3c, &
-! !$OMP zdummy_vdf_3d, zdummy_vdf_3k, zdummy_vdf_3l, &
+! !$OMP zdummy_vdf_3c, zdummy_vdf_3d, zdummy_vdf_3k, zdummy_vdf_3l, &
 ! !$OMP zdummy_vdf_4a, zdummy_vdf_4b, &
 ! !$OMP zdummy_vdf_6a, zdummy_vdf_6b, zdummy_vdf_6c, &
 ! !$OMP zdummy_vdf_7a, zdummy_vdf_7b, &
@@ -617,8 +615,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & LDNODECP= ldummy_vdf_a                               ,&! (OUT) optional out: no decoupling allowed
         & KPBLTYPE= kpbltype                                   ,&! (OUT) optional out: PBL type
         & PLDIFF  = zdummy_vdf_2b                              ,&! (OUT) optional out: contrib to PBL cond. by passive clouds
-        & PFPLVL  = zdummy_vdf_3a                              ,&! (OUT) optional out: PBL rain flux
-        & PFPLVN  = zdummy_vdf_3b                              ,&! (OUT) optional out: PBL snow flux
+        & PFPLVL  = prm_diag%rain_edmf_rate_3d(:,:,jb)         ,&! (OUT) optional out: PBL rain flux
+        & PFPLVN  = prm_diag%snow_edmf_rate_3d(:,:,jb)         ,&! (OUT) optional out: PBL snow flux
         & PFHPVL  = zdummy_vdf_3c                              ,&! (OUT) optional out: PBL rain enthalpy flux
         & PFHPVN  = zdummy_vdf_3d                              ,&! (OUT) optional out: PBL snow enthalpy flux
         & PEXTR2  = zdummy_vdf_7a                              ,&! (IN)    optional out:  - " -

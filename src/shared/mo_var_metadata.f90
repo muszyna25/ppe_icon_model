@@ -448,7 +448,6 @@ CONTAINS
     var_action%actionID   = actionID
     var_action%intvl      = TRIM(intvl)
     var_action%lastActive ='0000-00-00T00:00:00.000Z'  ! init
-    var_action%event      => NULL()    !initialized in collect_action
 
   END FUNCTION new_action
 

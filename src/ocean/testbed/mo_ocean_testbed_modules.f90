@@ -80,7 +80,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_oce_physics,            ONLY: t_ho_params
   USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
     & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density
+    & calc_density, calc_neutralslope_coeff, calc_neutralslope_coeff_func
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & construct_oce_diagnostics,&
@@ -153,6 +153,9 @@ CONTAINS
         CALL test_surface_flux( patch_3d, ocean_state, external_data,   &
           & datetime, surface_fluxes, physics_parameters,               &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
+
+      CASE (5)
+        CALL test_neutralcoeff( patch_3d, ocean_state)
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
@@ -341,6 +344,42 @@ CONTAINS
     !CALL timer_stop(timer_total)
     
   END SUBROUTINE test_surface_flux
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE test_neutralcoeff( patch_3d, p_os)
+    CHARACTER(LEN=*), PARAMETER ::  routine = "testbed: neutralcoeff"
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
+
+    ! local variables
+    REAL(wp):: t, s, p, co(2), aob
+    REAL(wp):: alph(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp):: beta(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    !INTEGER :: jk
+
+    alph(:,:,:) = 0.0_wp
+    beta(:,:,:) = 0.0_wp
+
+    CALL calc_neutralslope_coeff( &
+      &    patch_3d,              &
+      &    p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,:), &
+      &    p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+      &    alph, beta)
+
+    !  test values
+    t = 10.0_wp
+    s = 40.0_wp
+    p = 4000.0_wp    !  4000 dbar = 400 bar
+    co = calc_neutralslope_coeff_func(t,s,p)
+    aob = co(1)/co(2)
+
+    WRITE(message_text,'(3(a,1pg18.8))') '  Parameter: alpha = ',co(1), ' beta = ',co(2), ' alpha/beta = ',aob
+    CALL message (TRIM(routine), message_text)
+
+  END SUBROUTINE test_neutralcoeff
   !-------------------------------------------------------------------------
   
 END MODULE mo_ocean_testbed_modules

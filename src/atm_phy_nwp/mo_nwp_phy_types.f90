@@ -133,8 +133,10 @@ MODULE mo_nwp_phy_types
       &   hail_gsp_rate(:,:),  & !! grid_scale surface hail rate                         [kg/m2/s]
       &   rain_con_rate(:,:),  & !! convective surface rain rate                         [kg/m2/s]
       &   snow_con_rate(:,:),  & !! convective surface snow_rate                         [kg/m2/s]
-      &   rain_con_rate_3d(:,:,:),  & !! 3d convective rain rate                         [kg/m2/s]
-      &   snow_con_rate_3d(:,:,:),  & !! 3d convective snow_rate                         [kg/m2/s]
+      &   rain_con_rate_3d(:,:,:),  & !! 3d convective rain rate (convection scheme)     [kg/m2/s]
+      &   snow_con_rate_3d(:,:,:),  & !! 3d convective snow_rate (convection scheme)     [kg/m2/s]
+      &   rain_edmf_rate_3d(:,:,:), & !! 3d convective rain rate (EDMF scheme)           [kg/m2/s]
+      &   snow_edmf_rate_3d(:,:,:), & !! 3d convective snow_rate (EDMF scheme)           [kg/m2/s]
       &   rain_gsp(:,:),       & !! accumulated grid-scale surface rain                  [kg/m2]
       &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow                  [kg/m2]
       &   ice_gsp(:,:),        & !! accumulated grid_scale surface ice                   [kg/m2]
@@ -373,7 +375,7 @@ MODULE mo_nwp_phy_types
       ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
-      ddt_tke         (:,:,:)     !! tendency for turbulent kinetic energy [m^2/s^3]
+      ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
     !Anurag Dipankar, MPIM (2013-May-31)
     !Large-scale tendencies for idealized testcases (nlev)

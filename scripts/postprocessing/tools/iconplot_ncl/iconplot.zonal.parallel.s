@@ -79,7 +79,7 @@ export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, RRTM, ECHAMturb, SSO+or
 
 #model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
 #model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
-model_data_path="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/hat_icoham_ape/"
+model_data_path="/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/hat_icoham_ape/"
 #model_data_path2="/e/uwork/mkoehler/icon/experiments/"${expnum2}"/"
 horizontal_resolution="R2B04"
 vertical_resolution="L47"     # vertical levels
@@ -259,7 +259,7 @@ export trunc=85
 
 #remap_weights_path="${model_data_path}remap_weights/"
 #remap_weights_path='/e/uwork/mripodas/weights/'
-remap_weights_path='/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/weights/'
+remap_weights_path='/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/weights/'
 
 # For the remapping, we also need to know which optimization was used 
 # to generate the ICON grid. For example,
@@ -305,7 +305,7 @@ echo
 # Temporary variables
 
 export script_path='/e/uhome/mkoehler/icon-dev/scripts/postprocessing/tools/'
-export script_path='/scratch/mpi/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/iconplot <- ncl'
+export script_path='/scratch/mpi/CC/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/iconplot <- ncl'
 
 #directory with the colomap files
 export NCARG_COLORMAPS=${script_path}color_map:${NCARG_COLORMAPS}
@@ -327,7 +327,7 @@ export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, RRTM, ECHAMturb, SSO+or
 
 #model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
 #model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
-model_data_path="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/hat_icoham_ape/"
+model_data_path="/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/hat_icoham_ape/"
 #model_data_path2="/e/uwork/mkoehler/icon/experiments/"${expnum2}"/"
 horizontal_resolution="R2B04"
 vertical_resolution="L47"     # vertical levels
@@ -507,7 +507,7 @@ export trunc=85
 
 #remap_weights_path="${model_data_path}remap_weights/"
 #remap_weights_path='/e/uwork/mripodas/weights/'
-remap_weights_path='/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/weights/'
+remap_weights_path='/scratch/mpi/CC/mh0287/users/kristina/icon-dev/experiments/weights/'
 
 # For the remapping, we also need to know which optimization was used 
 # to generate the ICON grid. For example,
@@ -553,7 +553,7 @@ echo
 # Temporary variables
 
 export script_path='/e/uhome/mkoehler/icon-dev/scripts/postprocessing/tools/'
-export script_path='/scratch/mpi/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/iconplot <- ncl'
+export script_path='/scratch/mpi/CC/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/iconplot <- ncl'
 
 #directory with the colomap files
 export NCARG_COLORMAPS=${script_path}color_map:${NCARG_COLORMAPS}

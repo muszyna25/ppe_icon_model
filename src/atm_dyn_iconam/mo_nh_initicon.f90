@@ -44,7 +44,7 @@ MODULE mo_nh_initicon
   USE mo_kind,                ONLY: wp, i8
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, nvclev, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -1644,6 +1644,9 @@ MODULE mo_nh_initicon
 
       ! Allocate and read in vertical coordinate tables
       !
+      ! Note that here the IFS input vertical grid is set up. This has to be distinguished 
+      ! from vct_a, vct_b, vct for the ICON vertical grid.
+      !
       IF (init_mode /= MODE_COSMODE) THEN 
 
         IF (jg == 1) THEN
@@ -1671,7 +1674,6 @@ MODULE mo_nh_initicon
           vct(1:nlev_in+1)             = vct_a(:)
           vct(nlev_in+2:2*(nlev_in+1)) = vct_b(:)
 
-          nvclev = 2*(nlev_in+1)
 
           CALL alloc_vct(nlev_in)
           CALL init_vct(nlev_in)

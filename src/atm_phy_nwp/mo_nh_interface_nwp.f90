@@ -75,7 +75,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
-  USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqm_max,    &
+  USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqtke, iqm_max,    &
     &                                   msg_level, ltimer, timers_level, nqtendphy
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
 
@@ -109,6 +109,7 @@ MODULE mo_nh_interface_nwp
   USE mo_initicon_config,         ONLY: is_iau_active, iau_wgt_adv
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
+  USE mo_advection_config,        ONLY: advection_config
 
   IMPLICIT NONE
 
@@ -224,6 +225,7 @@ CONTAINS
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
       & tracers_comm, tempv_comm, exner_old_comm, w_comm
 
+    INTEGER :: ntracer_sync
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -690,7 +692,7 @@ CONTAINS
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
                           & ext_data,                         & !>in
-                          & pt_prog, pt_prog_rcf,             & !>inout
+                          & pt_prog_rcf,                      & !>inout
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
                           & wtr_prog_new,                     & !>in
@@ -871,7 +873,8 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new           ) ! in
+           &              wtr_prog_new,          & ! in
+           &              p_metrics              ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF
@@ -1267,6 +1270,24 @@ CONTAINS
 
         ENDIF ! END of LS forcing tendency accumulation
 
+        ! combine convective and EDMF rain and snow
+        IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
+!DIR$ IVDEP
+          prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
+            &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
+            & + prm_diag%rain_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
+!DIR$ IVDEP
+          prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
+            &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)   &
+            & + prm_diag%snow_edmf_rate_3d(i_startidx:i_endidx,nlevp1,jb)
+        ELSE IF (lcall_phy_jg(itconv)) THEN
+!DIR$ IVDEP
+          prm_diag%rain_con_rate          (i_startidx:i_endidx,       jb) = &
+            &   prm_diag%rain_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
+!DIR$ IVDEP
+          prm_diag%snow_con_rate          (i_startidx:i_endidx,       jb) = &
+            &   prm_diag%snow_con_rate_3d (i_startidx:i_endidx,nlevp1,jb)
+        ENDIF
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -1285,6 +1306,13 @@ CONTAINS
 
     ! Synchronize tracers if any of the updating (fast-physics) processes was active.
     ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_old
+    IF (advection_config(jg)%iadv_tke == 1) THEN
+      ! TKE does not need to be synchronized if it is advected only vertically
+      ntracer_sync = ntracer-1
+    ELSE
+      ntracer_sync = ntracer
+    ENDIF
+
     IF (l_any_fastphys) THEN
 
       IF (timers_level > 10) CALL timer_start(timer_phys_sync_tracers)
@@ -1308,13 +1336,14 @@ CONTAINS
 
       ELSE
         IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+3, pt_diag%tempv, pt_prog%w, &
-                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+3, pt_diag%tempv, pt_prog%w, &
+                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
         ELSE IF (lhdiff_rcf) THEN
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+2, pt_diag%tempv, &
-                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+2, pt_diag%tempv, &
+                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
         ELSE
-          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+1, pt_diag%tempv, f4din=pt_prog_rcf%tracer)
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+1, pt_diag%tempv, &
+                                     f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
         ENDIF
 
       ENDIF
@@ -1322,6 +1351,8 @@ CONTAINS
       IF (timers_level > 10) THEN
         CALL timer_stop(timer_phys_sync_tracers)
       ENDIF
+    ELSE IF (linit .AND. advection_config(jg)%iadv_tke == 2) THEN
+      CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,iqtke))
     ENDIF
           
     !------------------------------------------------------------ 

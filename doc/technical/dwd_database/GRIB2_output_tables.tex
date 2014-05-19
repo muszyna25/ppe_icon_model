@@ -224,6 +224,7 @@ pressure levels (as compared to GME) are highlighted in red. Note that now all $
 \groups[tri][]   & PLCOV                          &  Plant cover                                                                           &               2                                   &                     0                       &                     4                      &                 1/--                            &                      inst                   &        $\mathrm{\%}$ \\
 \groups[tri][]   & LAI                            &  Leaf area index                                                                       &               2                                   &                     0                       &                    28                      &                 1/--                            &                      inst                   &        $1$ \\
 \groups[tri][]   & NDVIRATIO                      &  ratio of current NDVI (normalized differential vegetation index) to annual max        &               2                                   &                     0                       &                   192                      &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][ll] & WW                             &  Weather interpretation  (WMO)                                                         &               0                                   &                    19                       &                    25                      &                 1/--                            &                      inst                   &        $1$ \\
   \bottomrule
 \end{longtable}
 
@@ -291,21 +292,27 @@ Soil moisture $\mathrm{W\_SO}$ is prognosed for layers $1$ to $6$. In the two lo
 \end{table}
 
 
-%\section{Extended description of available output fields}
-%
-%In order to facilitate the selection and interpretation of fields and to guard against possible mis-interpretation or mis-usage, the following section provides a more thorough 
-%description of the available output fields.
-%
+\section{Extended description of available output fields}
+
+In order to facilitate the selection and interpretation of fields and to guard against possible mis-interpretation or mis-usage, the following section provides a more thorough 
+description of the available output fields.
+
 %\subsection{External parameter}
-%
-%% uses package enumitem
-%%\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
+
+% uses package enumitem
+%\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
 %\begin{description}[leftmargin=3.0cm,style=sameline]
 % \item [AER\_SS] description of Hello
 % \item [AER\_DUST12] another description
 %\end{description}
 
 
-%\subsection{Soil and surface products}
+\subsection{Soil and surface products}
+% uses package enumitem
+%\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
+\begin{description}[leftmargin=3.0cm,style=sameline]
+  \item [HBAS\_CON] Height of the convective cloud base in m above msl. $\mathrm{HBAS\_CON}$ is initialized with $-500\,\mathrm{m}$ at points where no convection is diagnosed.
+  \item [HTOP\_CON] Same, but for cloud top.
+\end{description}
 
 %\subsection{Atmospheric products}

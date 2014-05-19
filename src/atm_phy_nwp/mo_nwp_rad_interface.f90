@@ -45,7 +45,7 @@ MODULE mo_nwp_rad_interface
   USE mo_kind,                 ONLY: wp
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_radiation_config,     ONLY: albedo_type
   USE mo_radiation,            ONLY: pre_radiation_nwp_steps
@@ -79,7 +79,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, datetime, pt_patch,pt_par_patch, &
-    & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog )
+    & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog, p_metrics )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
       &  routine = 'mo_nwp_rad_interface:nwp_radiation'
@@ -92,9 +92,10 @@ MODULE mo_nwp_rad_interface
     TYPE(t_patch)       , TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch)       , TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_external_data)       ,INTENT(inout):: ext_data
-    TYPE(t_lnd_diag)            ,INTENT(in) :: lnd_diag      !< diag vars for sfc
-    TYPE(t_nh_prog)     , TARGET,INTENT(inout):: pt_prog     !<the prognostic variables
-    TYPE(t_nh_diag)     , TARGET,INTENT(inout):: pt_diag     !<the diagnostic variables
+    TYPE(t_lnd_diag)            ,INTENT(in)   :: lnd_diag   !<diag vars for sfc
+    TYPE(t_nh_prog)     , TARGET,INTENT(inout):: pt_prog    !<the prognostic variables
+    TYPE(t_nh_diag)     , TARGET,INTENT(inout):: pt_diag    !<the diagnostic variables
+    TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
     TYPE(t_nwp_phy_diag)        ,INTENT(inout):: prm_diag
     TYPE(t_lnd_prog)            ,INTENT(inout):: lnd_prog   ! time level new
     TYPE(t_wtr_prog)            ,INTENT(   in):: wtr_prog   ! time level new
@@ -181,7 +182,7 @@ MODULE mo_nwp_rad_interface
         CASE(1) 
           CALL nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
             & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                    &
-            & pt_diag, prm_diag, lnd_prog   )
+            & pt_diag, prm_diag, lnd_prog, p_metrics )
 !         CASE(2)
 !           CALL nwp_omp_rrtm_interface ( pt_patch, ext_data, &
 !              &  lnd_diag, pt_diag, prm_diag, lnd_prog )
@@ -189,7 +190,7 @@ MODULE mo_nwp_rad_interface
         CASE default
           CALL nwp_rrtm_radiation ( pt_patch, ext_data, &
             & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,        &
-            & pt_diag, prm_diag, lnd_prog   )
+            & pt_diag, prm_diag, lnd_prog, p_metrics )
 
        END SELECT
        
@@ -197,7 +198,7 @@ MODULE mo_nwp_rad_interface
 
         CALL nwp_rrtm_radiation_reduced ( pt_patch,pt_par_patch, ext_data, &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                             &
-          & pt_diag, prm_diag, lnd_prog )
+          & pt_diag, prm_diag, lnd_prog, p_metrics )
           
       ENDIF
 
