@@ -74,13 +74,13 @@ MODULE mo_advection_vflux
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int,   &
     &                               iup_v, ippm_v, ippm_vcfl, islopel_vsm,      &
     &                               islopel_vm, ifluxl_vpd, ino_flx, izero_grad,&
-    &                               iparent_flx   
+    &                               iparent_flx
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
   USE mo_dynamics_config,     ONLY: iequations 
-  USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest, timers_level
+  USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest, timers_level, iqtke
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux_v
   USE mo_advection_limiter,   ONLY: v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
@@ -234,6 +234,12 @@ CONTAINS
 
       DO jt = 1, ntracer
 
+        IF (.NOT. PRESENT(opt_rlend) .OR. (jt == iqtke .AND. advection_config(jg)%iadv_tke == 1)) THEN
+          i_rlend_c = min_rlcell_int
+        ELSE
+          i_rlend_c = opt_rlend
+        ENDIF
+
         ! Select desired flux calculation method
         SELECT  CASE( p_ivadv_tracer(jt) )
 
@@ -244,7 +250,7 @@ CONTAINS
             &                   opt_topflx_tra=opt_topflx_tra(:,:,jt), &! in
             &                   opt_slev=p_iadv_slev(jt),              &! in
             &                   opt_rlstart=opt_rlstart,               &! in
-            &                   opt_rlend=opt_rlend                    )! in
+            &                   opt_rlend=i_rlend_c                    )! in
 
 
         CASE( ippm_vcfl )
@@ -261,7 +267,7 @@ CONTAINS
             &                  opt_slev=p_iadv_slev(jt),                     &! in
             &                  opt_ti_slev=iadv_min_slev,                    &! in
             &                  opt_rlstart=opt_rlstart,                      &! in
-            &                  opt_rlend=opt_rlend                           )! in
+            &                  opt_rlend=i_rlend_c                           )! in
         CASE( ippm_v )
           ! CALL third order PPM
           CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
@@ -271,7 +277,7 @@ CONTAINS
             &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),  &! in
             &                  opt_slev=p_iadv_slev(jt),               &! in
             &                  opt_rlstart=opt_rlstart,                &! in
-            &                  opt_rlend=opt_rlend                     )! in
+            &                  opt_rlend=i_rlend_c                     )! in
         END SELECT
       END DO  ! Tracer loop
 

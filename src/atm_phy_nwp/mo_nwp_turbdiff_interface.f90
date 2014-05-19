@@ -211,10 +211,9 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
 
 
       IF (advection_config(jg)%iadv_tke > 0) THEN
-        ! Interpolate advective TKE tendency from full levels to half levels
-        ! Convert TKE tendency to tendency of turbulent velocity scale (tvs) and add 
-        ! this tendency to ddt_tke. The latter is passed to turbdiff.
-        ! Note that d(tvs)/dt = (1/tvs)* d(tke)/dt
+        ! Interpolate advective tvs tendency from full levels to half levels
+        ! Note that both the advective TKE tendency and ddt_tke actually carry time tendencies
+        ! of tvs; attempts to horizontally advect TKE failed because of numerical instability
         !
         DO jk=2, nlev
           DO jc=i_startidx, i_endidx
@@ -223,19 +222,16 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
               &             + (1._wp - p_metrics%wgtfac_c(jc,jk,jb)) &
               &             * p_diag%ddt_tracer_adv(jc,jk-1,jb,iqtke)
 
-            ! add advective TKE tendency to ddt_tke, which is provided to turbdiff as input
-            prm_nwp_tend%ddt_tke(jc,jk,jb) = prm_nwp_tend%ddt_tke(jc,jk,jb) + tke_inc_ic(jc)/z_tvs(jc,jk,1)
+            ! add advective TKE (actually tvs) tendency to ddt_tke, which is provided to turbdiff as input
+            prm_nwp_tend%ddt_tke(jc,jk,jb) = prm_nwp_tend%ddt_tke(jc,jk,jb) + tke_inc_ic(jc)
 
           ENDDO  ! jc
         ENDDO  ! jk
         !
-        ! model top
         DO jc=i_startidx, i_endidx
 
-          ! zero gradient assumption for TKE increment at model bottom
-          ! bottom (top not necessary)
-          prm_nwp_tend%ddt_tke(jc,nlevp1,jb) = prm_nwp_tend%ddt_tke(jc,nlevp1,jb) &
-            &                                + p_diag%ddt_tracer_adv(jc,nlev,jb,iqtke)/z_tvs(jc,nlevp1,1)
+          ! zero gradient assumption for TKE increment at model bottom (top level not needed)
+          prm_nwp_tend%ddt_tke(jc,nlevp1,jb) = prm_nwp_tend%ddt_tke(jc,nlevp1,jb) + p_diag%ddt_tracer_adv(jc,nlev,jb,iqtke)
 
         ENDDO  ! jc
       ENDIF
@@ -354,14 +350,13 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
       ENDDO
 
 
-      ! Interpolate updated TKE back to main levels
+      ! Interpolate updated TKE (actually tvs) back to main levels
       ! Note that TKE at lowest main level is re-computed in nwp_turbtrans, after surface TKE
       ! has been updated.
       IF (advection_config(jg)%iadv_tke > 0) THEN
         DO jk=1, nlev
           DO jc=i_startidx, i_endidx
-            p_prog_rcf%tracer(jc,jk,jb,iqtke) = 0.5_wp* ( p_prog_rcf%tke(jc,jk,jb)   &
-              &                                         + p_prog_rcf%tke(jc,jk+1,jb) )
+            p_prog_rcf%tracer(jc,jk,jb,iqtke) = 0.5_wp* ( z_tvs(jc,jk,1) + z_tvs(jc,jk+1,1) )
           ENDDO
         ENDDO
       ENDIF

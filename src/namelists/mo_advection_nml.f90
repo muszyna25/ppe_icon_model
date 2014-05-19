@@ -280,10 +280,9 @@ CONTAINS
 
     ! TKE advection - sanity check
     !
-!    IF ( ALL((/0,1,2/) /= iadv_tke) ) THEN
-    IF ( ALL((/0,1/) /= iadv_tke) ) THEN
+    IF ( ALL((/0,1,2/) /= iadv_tke) ) THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for iadv_tke. Must be 0 or 1')
+        &  'incorrect settings for iadv_tke. Must be 0, 1 or 2')
     ENDIF
 
     !----------------------------------------------------

@@ -742,7 +742,7 @@ CONTAINS
             ! check whether horizontal substepping is switched on 
             IF (ALL( (/22,32,42,52/) /= advection_config(jg)%ihadv_tracer(iqtke)) ) THEN
               ! choose Miura with substepping
-              advection_config(jg)%ihadv_tracer(iqtke) = 52
+              advection_config(jg)%ihadv_tracer(iqtke) = 22
             ENDIF
           END SELECT
 

@@ -655,8 +655,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! ignored at this point.
       IF (advection_config(jg)%iadv_tke > 0) THEN
         DO jc=i_startidx, i_endidx
-          p_prog_rcf%tracer(jc,nlev,jb,iqtke) = 0.5_wp* ( p_prog_rcf%tke(jc,nlev,jb)   &
-            &                                           + p_prog_rcf%tke(jc,nlevp1,jb) )
+          p_prog_rcf%tracer(jc,nlev,jb,iqtke) = 0.5_wp* ( z_tvs(jc,nlev,1)   &
+            &                                           + z_tvs(jc,nlevp1,1) )
         ENDDO
       ENDIF
 
