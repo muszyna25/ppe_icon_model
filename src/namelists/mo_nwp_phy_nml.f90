@@ -321,6 +321,15 @@ CONTAINS
         dt_rad(jg) = REAL((FLOOR(dt_rad(jg)/dt_conv(jg)) + 1),wp) * dt_conv(jg)
       ENDIF
 
+
+      ! For backward compatibility, do not throw an error message, if inwp_turb=10,11 or 12 
+      ! is chosen. reset inwp_turb to 1, instead
+      IF ( ANY((/10,11,12/) == inwp_turb(jg)) ) THEN
+        inwp_turb(jg) = 1
+        WRITE(message_text,'(a,i2)') 'Reset inwp_turb to 1 for domain ', jg
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
     ENDDO
 
 

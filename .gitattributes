@@ -1328,7 +1328,6 @@ src/atm_phy_schemes/mo_srtm_kgs.f90 -text
 src/atm_phy_schemes/mo_srtm_taumol.f90 -text
 src/atm_phy_schemes/mo_sso_cosmo.f90 -text
 src/atm_phy_schemes/src_turbdiff.f90 -text
-src/atm_phy_schemes/src_turbdiff_new.f90 -text
 src/atm_phy_schemes/srtm_kgb16.f90 -text
 src/atm_phy_schemes/srtm_kgb17.f90 -text
 src/atm_phy_schemes/srtm_kgb18.f90 -text

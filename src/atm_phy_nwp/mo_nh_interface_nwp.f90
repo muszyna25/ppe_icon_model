@@ -460,7 +460,7 @@ CONTAINS
     !the lower boundary conditions for the turbulence scheme 
     !are not set otherwise
 
-    IF ( l_any_fastphys .AND. ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN 
+    IF ( l_any_fastphys .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN 
       IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
@@ -488,7 +488,7 @@ CONTAINS
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
        
       !Turbulence schemes NOT including the call to the surface scheme
-      CASE(icosmo,igme,10,11,12)  
+      CASE(icosmo,igme)  
 
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
@@ -684,7 +684,7 @@ CONTAINS
     ENDIF
 
 
-    IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. ANY( (/icosmo,igme,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+    IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 

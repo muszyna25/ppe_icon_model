@@ -483,7 +483,7 @@ CONTAINS
                     'only turbulence selected!')
 
 
-        IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. &
+        IF (( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) .AND. &
           & (turbdiff_config(jg)%lconst_z0) ) THEN
           CALL message(TRIM(method_name),' WARNING! NWP forcing set but '//  &
                       'idealized (horizontally homogeneous) roughness '//&
@@ -666,7 +666,7 @@ CONTAINS
       ENDIF
 
       IF ( (advection_config(jg)%iadv_tke) > 0 ) THEN
-        IF ( ANY( (/1,10/) == atm_phy_nwp_config(jg)%inwp_turb) ) THEN
+        IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
           iqtke = iqt        !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.

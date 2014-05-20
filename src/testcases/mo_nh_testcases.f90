@@ -1121,7 +1121,7 @@ MODULE mo_nh_testcases
   END SELECT
 
 
-  IF ( ANY( (/icosmo,iedmf,10,11,12/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
+  IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
        (nh_test_name=='APE_nh' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE'.OR. nh_test_name=='RICO') ) THEN
     DO jg = 1, n_dom
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)

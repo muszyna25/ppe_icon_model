@@ -924,8 +924,8 @@ MODULE mo_nonhydro_state
         ! from this point on, implicit referencing should be avoided. I.e. the next 
         ! internal reference will not point to iqtke+1 !!    
         IF ( advection_config(p_patch%id)%iadv_tke > 0 ) THEN
-          cf_desc    = t_cf_var('tke_mc', 'm2 s-2',         &
-            &          'turbulent kinetic energy (at full levels)', DATATYPE_FLT32)
+          cf_desc    = t_cf_var('tke_mc', 'm s-1',         &
+            &          'turbulent velocity scale (at full levels)', DATATYPE_FLT32)
           grib2_desc = t_grib2_var(0, 19, 11, ibits, GRID_REFERENCE, GRID_CELL)
           CALL add_ref( p_prog_list, 'tracer',                                       &
                     & TRIM(vname_prefix)//'tke_mc'//suffix, p_prog%tracer_ptr(iqtke)%p_3d, &

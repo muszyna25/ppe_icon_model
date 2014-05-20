@@ -48,7 +48,7 @@ MODULE mo_art_turbdiff_interface
     USE mo_exception,           ONLY: message, message_text, finish
     USE mo_nonhydro_types,      ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
     USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-    USE src_turbdiff_new,       ONLY: modvar
+    USE src_turbdiff,           ONLY: modvar
 
 #ifdef __ICON_ART
     USE mo_art_data,            ONLY: p_art_data

@@ -48,7 +48,6 @@ MODULE mo_turbdiff_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_turbdiff_config,     ONLY: turbdiff_config 
 
   USE mo_data_turbdiff,       ONLY: &
@@ -129,21 +128,6 @@ CONTAINS
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
 
-    !-----------------------
-    ! 1.b temorarily overwrite default settings of namelist variables:
-    !-----------------------
-
-!DR This is a dirty hack, since it implies that the namelist nwp_phy_nml
-!DR must be read before turbdiff_nml. Any cross dependency between namelist-modules should 
-!DR be avoided!! 
-    IF ( ANY( (/10,11/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
-      imode_tran = 0       ! mode of surface-atmosphere transfer
-      icldm_tran = 2       ! mode of cloud representation in transfer parametr.
-    END IF
-  
-    IF ( ANY( (/10,12/)==atm_phy_nwp_config(1)%inwp_turb ) ) THEN
-      imode_turb = 1       ! mode of turbulent diffusion parametrization
-    END IF
   
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -179,7 +163,6 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Sanity check
     !----------------------------------------------------
-
 
 
 

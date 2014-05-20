@@ -302,7 +302,8 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,jb) = 0._wp
-      ELSE IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+!DR      ELSE IF ( ANY( (/icosmo,10,11,12/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
+      ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN
          DO jc = i_startidx, i_endidx
           lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
