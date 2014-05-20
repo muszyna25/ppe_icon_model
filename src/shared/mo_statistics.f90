@@ -47,11 +47,9 @@ MODULE mo_statistics
   USE omp_lib
 #endif
   
-#ifndef __ICON_GRID_GENERATOR__
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
   USE mo_mpi,                ONLY: process_mpi_stdio_id, get_my_mpi_work_communicator, p_max, p_min, &
     & my_process_is_mpi_parallel, p_sum, my_process_is_mpi_seq
-#endif
   !   USE mo_io_units,           ONLY: nnml, filename_max
   !   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   
@@ -65,7 +63,6 @@ MODULE mo_statistics
   !-------------------------------------------------------------------------
   
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
-#ifndef __ICON_GRID_GENERATOR__
   PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
   PUBLIC :: accumulate_mean, levels_horizontal_mean, total_mean
   
@@ -107,7 +104,6 @@ MODULE mo_statistics
     MODULE PROCEDURE gather_sums_0D
     MODULE PROCEDURE gather_sums_1D
   END INTERFACE gather_sums
-#endif
   
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
   PUBLIC :: new_statistic, delete_statistic
@@ -242,7 +238,6 @@ MODULE mo_statistics
   
 CONTAINS
   
-#ifndef __ICON_GRID_GENERATOR__
   
   !-----------------------------------------------------------------------
   !>
@@ -1067,9 +1062,6 @@ CONTAINS
 !  !-----------------------------------------------------------------------
   
   
-  !-----------------------------------------------------------------------
-#endif
-  ! ICON_GRID_GENERATOR
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE new_statistic_operator(statistic)
