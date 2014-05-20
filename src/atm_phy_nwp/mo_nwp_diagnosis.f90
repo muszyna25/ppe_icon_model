@@ -711,6 +711,7 @@ CONTAINS
   !! - height of the top of dry convection: htop_dc
   !! - height of 0 deg C level: hzerocl
   !! - t_ice is filled with t_so(0) for non-ice points (h_ice=0)
+  !! - instantaneous 10m wind speed (resolved scales)
   !!
   !! @par Revision History
   !! Add calculation of high-, mid-, and low-level cloud cover, height
@@ -893,6 +894,16 @@ CONTAINS
             &                           p_prog_wtr_now%t_ice(jc,jb),         &
             &                           p_prog_wtr_now%h_ice(jc,jb) <= 0._wp )
         ENDDO  !jc
+      ENDIF
+
+
+      ! Compute wind speed in 10m
+      ! 
+      IF (atm_phy_nwp_config(jg)%inwp_turb > 0 ) THEN
+        DO jc = i_startidx, i_endidx
+          prm_diag%sp_10m(jc,jb) = SQRT(prm_diag%u_10m(jc,jb)**2 &
+            &                    +      prm_diag%v_10m(jc,jb)**2 )
+        ENDDO
       ENDIF
 
     ENDDO  ! jb

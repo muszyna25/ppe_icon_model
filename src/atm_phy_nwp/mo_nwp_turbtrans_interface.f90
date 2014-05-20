@@ -481,7 +481,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
           lhfl_s_t(1:i_count,jt) = qhfl_s_t(1:i_count,jt) * lh_v
 
-        ENDDO
+        ENDDO ! loop over tiles
 
 
         ! fix latent heat flux over seaice
@@ -689,11 +689,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
     ENDIF !inwp_turb
-
-
-    ! wind speed in 10m
-    prm_diag%sp_10m(i_startidx:i_endidx,jb) = SQRT(prm_diag%u_10m(i_startidx:i_endidx,jb)**2 &
-      &                                     +      prm_diag%v_10m(i_startidx:i_endidx,jb)**2 )
 
   ENDDO ! jb
 !$OMP END DO NOWAIT
