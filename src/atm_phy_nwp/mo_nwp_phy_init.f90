@@ -81,7 +81,6 @@ MODULE mo_nwp_phy_init
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 
   ! microphysics
-  USE mo_gscp_cosmo,          ONLY: hydci_pp_old_init
   USE gscp_hydci_pp,          ONLY: hydci_pp_init
   ! convection
   USE mo_cuparameters,        ONLY: sucst,  sucumf,    &
@@ -531,10 +530,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   CASE (4) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysic:SB')
     CALL two_moment_mcrph_init( )
-
-  CASE (10)  ! old hydci_pp from COSMO_V4_14
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
-    CALL hydci_pp_old_init          
     
   END SELECT
 
