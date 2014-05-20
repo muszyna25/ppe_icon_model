@@ -71,10 +71,15 @@ fi
 
 case ${res} in
     255) grd=128 ;;
+    399) grd=200 ;;
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
-grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
+if [[ -z $RESULT_GRIB_FILE ]] ; then
+  grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
+else
+  grib_file=${RESULT_GRIB_FILE}
+fi
 
 cat > ${tempdir}/MARS_IN.$$ << MARS_IFS2ICON_EOF.$$
 # MARS request for ifs2icon

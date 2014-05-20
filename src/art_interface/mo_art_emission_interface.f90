@@ -68,7 +68,7 @@ MODULE mo_art_emission_interface
     USE mo_art_radioactive,       ONLY: art_emiss_radioact
     USE mo_art_emission_seas,     ONLY: art_emission_seas
     USE mo_art_emission_dust,     ONLY: art_emission_dust
-!    USE mo_art_chemtracer,        ONLY: art_emiss_chemtracer
+    USE mo_art_chemtracer,        ONLY: art_emiss_chemtracer
 #endif
 
   IMPLICIT NONE
@@ -194,12 +194,10 @@ CONTAINS
     ! --- emissions of chemical tracer
     ! ----------------------------------
 
-        IF (art_config(jg)%lart_chemtracer) THEN
-!          CALL art_emiss_chemtracer(ext_data,p_patch,p_dtime,p_diag,p_tracer_now)
-        ENDIF
+  IF (art_config(jg)%lart_chemtracer) THEN
+    CALL art_emiss_chemtracer(ext_data,p_patch,p_dtime,p_diag,p_tracer_now)
+  ENDIF
        
-!   ENDIF
-
 #endif
 
   END SUBROUTINE art_emission_interface
