@@ -81,7 +81,7 @@ $hosts = {
 # * remote builds start with 'remote'
 $builds = {
   :localGcc          => {:host => :thingol , :subdir => 'gcc'}     ,
-  :localGccNoAtm     => {:host => :thingol , :subdir => 'gcc-noatm'}     ,
+  :localGccBranch    => {:host => :thingol , :subdir => 'gcc-branch'}     ,
   :localIntel        => {:host => :thingol , :subdir => 'intel',:CC => 'intel'}     ,
   :localIntelHi      => {:host => :thingol , :subdir => 'intel-hiopt',:CC => 'intel'}     ,
   :localCmake        => {:host => :thingol , :subdir => 'cmake'}     ,
@@ -138,6 +138,15 @@ end
 # check for the naming convention to distinguish remote from local builds
 def isLocal?(build);  'local' == build.to_s[0,5]; end
 def isRemote?(build); not isLocal?(build); end
+def getBranch
+  if File.exists?('.svn') then
+    url = `svn info | grep URL`.chomp.split(' ')[-1]
+    branch = /branches/.match(url) ? url.split('/')[-1] : master
+  else
+    branch = `git branch | grep -E '^\*'`.chomp.split(' ')[-1]
+  end
+  return branch == 'master' ? nil : branch
+end
 
 # hide some complex hash accesses
 # {
@@ -158,6 +167,7 @@ $targetDir = lambda {|build,withHost=true,revision=nil|
   dir << "#{REMOTE_USER}@#{hostname}:" if isRemote?(build) and withHost
   dir << $hosts[host][:dir] + '/' + $builds[build][:subdir]
   dir << "/r#{revision.to_s}" unless revision.nil?
+  dir << "/#{getBranch}" unless getBranch.nil?
 
   dir
 }
@@ -410,40 +420,44 @@ def doSync(build)
 
   file = Tempfile.new("rsyncIconTempfiles2Transfer")
   $_temps << file
-  myFile = file.path
-  if File.exists?('.svn') then
-    file.write(`svn list -R | grep -E -v '\/$'`)
-    # add svn revision info
-    revInfoFile = '.rev.info'
-    File.open(revInfoFile,'w') {|f| f << `svn info` }
-    file.wrote(revInfoFile << "\n")
+  if ENV.has_key?('FILELIST')
+    myFile = ENV['FILELIST']
   else
-    file.write(`git ls-files | grep -v -E '^(data|doc)'`)
-    # add svn revision info
-    revInfoFile = '.rev.info'
-    File.open(revInfoFile,'w') {|f|
-      f << `git log -4`
-      f << "# locally modified files:\n"
-      f << `git status -s | grep '^ M'| cut -d ' ' -f 3`
-    }
-    file.write(revInfoFile << "\n")
-  end
-  file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
-  # add non-added runscripts
-  file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
-  file.write("\n")
-  # add grids directory for local external data
-  #file.write(Dir.glob("grids/*.nc").join("\n") + "\n") unless isLocal?(build)
-  file.write("config/mh-override\n") if isLocal?(build)
-  file.close
-  # filter atmosphere
-  if /NoAtm/.match(build.to_s) then
-    filterAtmoRegexp = '(art_interface|atm_dyn_icoham|atm_dyn_iconam|atm_phy_echam|atm_phy_edmf|atm_phy_les|atm_phy_nwp|atm_phy_schemes|io\/atmo|lnd_phy_nwp|lnd_phy_jsbach|lnd_phy_schemes)'
-    sh "ruby -i.bak -ne 'print unless /#{filterAtmoRegexp}/' #{file.path}"
-  end
+    myFile = file.path
+    if File.exists?('.svn') then
+      file.write(`svn list -R | grep -E -v '\/$'`)
+      # add svn revision info
+      revInfoFile = '.rev.info'
+      File.open(revInfoFile,'w') {|f| f << `svn info` }
+      file.write(revInfoFile << "\n")
+    else
+      file.write(`git ls-files | grep -v -E '^(data|doc)'`)
+      # add svn revision info
+      revInfoFile = '.rev.info'
+      File.open(revInfoFile,'w') {|f|
+        f << `git log -4`
+        f << "# locally modified files:\n"
+        f << `git status -s | grep '^ M'| cut -d ' ' -f 3`
+      }
+      file.write(revInfoFile << "\n")
+    end
+    file.write(`find src/lnd_phy_jsbach -name "*.f90"`)
+    # add non-added runscripts
+    file.write(Dir.glob("run/{exp,post}*").delete_if {|v| /\.run$/.match(v)}.join("\n"))
+    file.write("\n")
+    # add grids directory for local external data
+    #file.write(Dir.glob("grids/*.nc").join("\n") + "\n") unless isLocal?(build)
+    file.write("config/mh-override\n") if isLocal?(build)
+    file.close
+    # filter atmosphere
+    if /NoAtm/.match(build.to_s) then
+      filterAtmoRegexp = '(art_interface|atm_dyn_icoham|atm_dyn_iconam|atm_phy_echam|atm_phy_edmf|atm_phy_les|atm_phy_nwp|atm_phy_schemes|io\/atmo|lnd_phy_nwp|lnd_phy_jsbach|lnd_phy_schemes)'
+      sh "ruby -i.bak -ne 'print unless /#{filterAtmoRegexp}/' #{file.path}"
+    end
 
-  system("cat #{file.path}") if  ENV.has_key?('SHOWRSYNC')
-  system("cp #{file.path} tempList") if ENV.has_key?('DEBUG')
+    system("cat #{file.path}") if  ENV.has_key?('SHOWRSYNC')
+    system("cp #{file.path} tempList") if ENV.has_key?('DEBUG')
+  end
 
   if isLocal?(build)
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile} . #{dir}"
@@ -453,7 +467,7 @@ def doSync(build)
   call(syncCmd)
 end
 def doCheckoutRev(build,rev,url)
-  dir  = $targetDir[build]+'/'+rev.to_s
+  dir  = $targetDir[build,false,rev]
   revTag = rev == 'HEAD' ? '' : "-r#{rev}"
   call(connect(build,<<-EOS
       [[ ! -d r#{rev} ]] && mkdir -p r#{rev};
@@ -637,7 +651,7 @@ $builds.each_key {|build|
   # regular tasks with all dependencies {
   desc "sync for build #{build.to_s}"
   task "#{build.to_s}_sync".to_sym do
-    doSync(build)
+    doSync(build) unless ENV.has_key?('NOSYNC')
   end
   desc "Configure for build #{build.to_s}"
   task "#{build.to_s}_conf".to_sym => ["#{build.to_s}_sync".to_sym] do

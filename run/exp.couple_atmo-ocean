@@ -1,4 +1,3 @@
-#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -57,7 +56,7 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 # global timing
 #
 start_date="2000-01-01T00:00:00Z"
-  end_date="2000-01-03T00:00:00Z"
+  end_date="2000-01-01T04:00:00Z"
 # global resolution
 #
 R=2   # nroot
@@ -77,10 +76,10 @@ restart_months=2                             # 2 days
 (( dt_checkpoint = restart_months * day )) # checkpointing not yet supported for coupling fields
 (( dt_restart    = restart_months * day )) # for long simulations, use month instead of days
 #
-atmo_output_interval="PT06H"
-atmo_steps_per_file=8    # 2 days
-ocean_output_interval="P01D"
-ocean_steps_per_file=2   # 2 days
+atmo_output_interval="PT01H"
+atmo_steps_per_file=80    # 2 days
+ocean_output_interval="PT01H"
+ocean_steps_per_file=20   # 2 days
  
 #-----------------------------------------------------------------------------
 # define variable names
@@ -472,7 +471,7 @@ cat > ${ocean_namelist} << EOF
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_ocean"
- ml_varlist       = 'group:oce_default','group:ice_default'
+ ml_varlist       = 'group:oce_default','group:ice_default', 'topBoundCond_windStress_u' , 'topBoundCond_windStress_v', 'HeatFlux_ShortWave', 'HeatFlux_LongWave', 'HeatFlux_Sensible', 'HeatFlux_Latent' , 'HeatFlux_Total', 'FrshFlux_Precipitation', 'FrshFlux_SnowFall', 'FrshFlux_Evaporation', 'FrshFlux_Runoff', 'FrshFlux_TotalSalt', 'FrshFlux_TotalOcean', 'FrshFlux_TotalIce', 'FrshFlux_VolumeIce', 'FrshFlux_VolumeTotal'
 /
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output

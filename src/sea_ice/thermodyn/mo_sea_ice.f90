@@ -154,10 +154,10 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    p_patch => p_patch_3D%p_patch_2D(1)
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_v = p_patch%nblks_v
-    nblks_e = p_patch%nblks_e
+    p_patch           => p_patch_3D%p_patch_2D(1)
+    alloc_cell_blocks =  p_patch%alloc_cell_blocks
+    nblks_v           =  p_patch%nblks_v
+    nblks_e           =  p_patch%nblks_e
 
     p_ice%kice = i_no_ice_thick_class
 
@@ -449,69 +449,73 @@ CONTAINS
     alloc_cell_blocks = p_patch%alloc_cell_blocks
 
     ALLOCATE(p_as%tafo(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for tafo failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'tafo')
+
     ALLOCATE(p_as%ftdew(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ftdew failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'ftdew')
+
     ALLOCATE(p_as%fclou(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for fclou failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'fclou')
 
     ALLOCATE(p_as%fu10(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for fu10 failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'fu10')
 
     ALLOCATE(p_as%fswr(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for fswr failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'fswr')
 
     ALLOCATE(p_as%pao(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for pao failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'pao')
 
     ALLOCATE(p_as%u(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for u failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'u')
+
     ALLOCATE(p_as%v(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for v failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'v')
 
     ALLOCATE(p_as%precip(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for precip failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'precip')
 
     ALLOCATE(p_as%evap(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for evap failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'evap')
 
     ALLOCATE(p_as%runoff(nproma,alloc_cell_blocks), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for runoff failed')
-    END IF
+    CALL finish_unless_allocate(ist,routine,'runoff')
 
+    ALLOCATE(p_as%topBoundCond_windStress_u(nproma,alloc_cell_blocks), STAT=ist)
+    CALL finish_unless_allocate(ist,routine,'topBoundCond_windStress_u')
 
-    p_as%tafo  (:,:) = 0.0_wp
-    p_as%ftdew (:,:) = 0.0_wp
-    p_as%fclou (:,:) = 0.0_wp
-    p_as%fu10  (:,:) = 0.0_wp
-    p_as%fswr  (:,:) = 0.0_wp
-    p_as%pao   (:,:) = 0.0_wp
-    p_as%u     (:,:) = 0.0_wp
-    p_as%v     (:,:) = 0.0_wp
-    p_as%precip(:,:) = 0.0_wp
-    p_as%evap  (:,:) = 0.0_wp
-    p_as%runoff(:,:) = 0.0_wp
+    ALLOCATE(p_as%topBoundCond_windStress_v(nproma,alloc_cell_blocks), STAT=ist)
+    CALL finish_unless_allocate(ist,routine,'topBoundCond_windStress_v')
+
+    ALLOCATE(p_as%FrshFlux_Precipitation(nproma,alloc_cell_blocks), STAT=ist)
+    CALL finish_unless_allocate(ist,routine,'FrshFlux_Precipitation')
+
+    ALLOCATE(p_as%FrshFlux_Runoff(nproma,alloc_cell_blocks), STAT=ist)
+    CALL finish_unless_allocate(ist,routine,'FrshFlux_Runoff')
+
+    ALLOCATE(p_as%data_surfRelax_Temp(nproma,alloc_cell_blocks), STAT=ist)
+    CALL finish_unless_allocate(ist,routine,'data_surfRelax_Temp')
+
+    ALLOCATE(p_as%data_surfRelax_Salt(nproma,alloc_cell_blocks), STAT=ist)
+    CALL finish_unless_allocate(ist,routine,'data_surfRelax_Salt')
+
+    p_as%tafo  (:,:)                    = 0.0_wp
+    p_as%ftdew (:,:)                    = 0.0_wp
+    p_as%fclou (:,:)                    = 0.0_wp
+    p_as%fu10  (:,:)                    = 0.0_wp
+    p_as%fswr  (:,:)                    = 0.0_wp
+    p_as%pao   (:,:)                    = 0.0_wp
+    p_as%u     (:,:)                    = 0.0_wp
+    p_as%v     (:,:)                    = 0.0_wp
+    p_as%precip(:,:)                    = 0.0_wp
+    p_as%evap  (:,:)                    = 0.0_wp
+    p_as%runoff(:,:)                    = 0.0_wp
+    p_as%topBoundCond_windStress_u(:,:) = 0.0_wp
+    p_as%topBoundCond_windStress_v(:,:) = 0.0_wp
+    p_as%FrshFlux_Precipitation(:,:)    = 0.0_wp
+    p_as%FrshFlux_Runoff(:,:)           = 0.0_wp
+    p_as%data_surfRelax_Temp(:,:)       = 0.0_wp
+    p_as%data_surfRelax_Salt(:,:)       = 0.0_wp
 
     CALL message(TRIM(routine), 'end')
 
@@ -806,8 +810,116 @@ CONTAINS
     p_atm_f%albnirdirw(:,:) = albedoW_sim
     p_atm_f%albnirdifw(:,:) = albedoW_sim
 
-    CALL message(TRIM(routine), 'end' )
+    ! forcing of zonal component of velocity equation,
+    CALL add_var(ocean_default_list,'atmos_fluxes_topBoundCond_windStress_u', p_atm_f%topBoundCond_windStress_u,     &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_topBoundCond_windStress_u', '', 'atmos_fluxes_topBoundCond_windStress_u', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
+    ! forcing of meridional component of velocity equation,
+    CALL add_var(ocean_default_list,'atmos_fluxes_topBoundCond_windStress_v', p_atm_f%topBoundCond_windStress_v,     &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_topBoundCond_windStress_v', '', 'atmos_fluxes_topBoundCond_windStress_v', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! 
+    CALL add_var(ocean_default_list,'atmos_fluxes_data_surfRelax_Temp', p_atm_f%data_surfRelax_Temp,     &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_data_surfRelax_Temp', '', 'atmos_fluxes_data_surfRelax_Temp', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! surface short wave heat flux                              [W/m2]
+    CALL add_var(ocean_default_list,'atmos_fluxes_HeatFlux_ShortWave', p_atm_f%HeatFlux_ShortWave,         &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_HeatFlux_ShortWave', '', 'atmos_fluxes_HeatFlux_ShortWave', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+ 
+   ! surface long wave heat flux                               [W/m2]
+    CALL add_var(ocean_default_list,'atmos_fluxes_HeatFlux_LongWave', p_atm_f%HeatFlux_LongWave,           &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_HeatFlux_LongWave', '', 'atmos_fluxes_HeatFlux_LongWave', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! surface sensible heat flux                                [W/m2]
+    CALL add_var(ocean_default_list,'atmos_fluxes_HeatFlux_Sensible', p_atm_f%HeatFlux_Sensible,           &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_HeatFlux_Sensible', '', 'atmos_fluxes_HeatFlux_Sensible', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! surface latent heat flux                                  [W/m2]
+    CALL add_var(ocean_default_list,'atmos_fluxes_HeatFlux_Latent', p_atm_f%HeatFlux_Latent,               &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_HeatFlux_Latent', '', 'atmos_fluxes_HeatFlux_Latent', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    ! total heat flux                                  [W/m2]
+    CALL add_var(ocean_default_list,'atmos_fluxes_HeatFlux_Total', p_atm_f%HeatFlux_Total,               &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_HeatFlux_Total', '', 'atmos_fluxes_HeatFlux_Total', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! total precipitation flux                                  [m/s]
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_Precipitation', p_atm_f%FrshFlux_Precipitation, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_Precipitation', '', 'atmos_fluxes_FrshFlux_Precipitation', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! total snow flux                                           [m/s]
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_SnowFall', p_atm_f%FrshFlux_SnowFall,           &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_SnowFall', '', 'atmos_fluxes_FrshFlux_SnowFall', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! evaporation flux                                          [m/s]
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_Evaporation', p_atm_f%FrshFlux_Evaporation,     &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_Evaporation', '', 'atmos_fluxes_FrshFlux_Evaporation', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! river runoff flux                                         [m/s]
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_Runoff', p_atm_f%FrshFlux_Runoff, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_Runoff', '', 'atmos_fluxes_FrshFlux_Runoff', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_TotalSalt', p_atm_f%FrshFlux_TotalSalt, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_TotalSalt', '[m/s]', 'atmos_fluxes_FrshFlux_TotalSalt', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_TotalOcean', p_atm_f%FrshFlux_TotalOcean, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_TotalOcean', '[m/s]', 'atmos_fluxes_FrshFlux_TotalOcean', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_TotalIce', p_atm_f%FrshFlux_TotalIce, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_TotalIce', '[m/s]', 'atmos_fluxes_FrshFlux_TotalIce', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_VolumeIce', p_atm_f%FrshFlux_VolumeIce, &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_FrshFlux_VolumeIce', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeIce', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+!   CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_VolumeTotal', p_atm_f%FrshFlux_VolumeTotal, &
+!     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+!     &          t_cf_var('atmos_fluxes_FrshFlux_VolumeTotal', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeTotal', DATATYPE_FLT32),&
+!     &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+!     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    CALL message(TRIM(routine), 'end' )
   END SUBROUTINE construct_atmos_fluxes
   !-------------------------------------------------------------------------
   !
@@ -1146,15 +1258,11 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch_3D, p_os, p_as, ice, QatmAve, p_sfc_flx, p_op_coeff)
+  SUBROUTINE ice_slow(p_patch_3D, p_os, ice, Qatm, p_op_coeff)
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
-    !TYPE(t_patch),            INTENT(IN)     :: p_patch 
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
-    TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
-    TYPE (t_sea_ice),         INTENT (INOUT) :: ice
-    !TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
-    TYPE (t_atmos_fluxes),    INTENT (IN)    :: QatmAve
-    TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
+    TYPE(t_sea_ice),          INTENT (INOUT) :: ice
+    TYPE(t_atmos_fluxes),     INTENT (INOUT) :: Qatm
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
     TYPE(t_patch), POINTER :: p_patch
@@ -1169,7 +1277,6 @@ CONTAINS
     ! subset range pointer
     all_cells => p_patch%cells%all 
 
-    !CALL ave_fluxes     (ice, QatmAve)
     CALL ice_zero       (ice)
 
     ice%hiold(:,:,:) = ice%hi(:,:,:)
@@ -1177,9 +1284,9 @@ CONTAINS
     CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,4, in_subset=p_patch%cells%owned)
     ! #achim
     IF      ( i_ice_therm == 2 ) THEN
-      CALL ice_growth_winton    (p_patch, p_os, ice, QatmAve%rpreci)!, QatmAve%lat)
+      CALL ice_growth_winton    (p_patch, p_os, ice, Qatm%rpreci)!, Qatm%lat)
     ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
-      CALL ice_growth_zerolayer (p_patch, p_os, ice, QatmAve%rpreci)
+      CALL ice_growth_zerolayer (p_patch, p_os, ice, Qatm%rpreci)
     END IF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1190,25 +1297,25 @@ CONTAINS
     CALL dbg_print('IceSlow: p_ice%v bef. dyn'    ,ice%v_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
     !---------------------------------------------------------------------
 
-    CALL upper_ocean_TS (p_patch,p_os,ice, QatmAve, p_sfc_flx)
-    CALL ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+    CALL upper_ocean_TS (p_patch,p_os,ice, Qatm)
+    CALL ice_conc_change(p_patch,ice, p_os)
 
-    CALL ice_ocean_stress( p_patch, QatmAve, p_sfc_flx, ice, p_os )
+    CALL ice_ocean_stress( p_patch, Qatm, ice, p_os )
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, QatmAve, p_op_coeff )
+      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, Qatm, p_op_coeff )
       CALL ice_advection( p_patch_3D, p_op_coeff, ice )
     ELSE
       ice%u = 0._wp
       ice%v = 0._wp
     ENDIF
 
-    CALL ice_clean_up( p_patch_3D, ice, p_sfc_flx, p_os )
+    CALL ice_clean_up( p_patch_3D, ice, Qatm, p_os )
 
     !CALL ice_advection  (ice)
-    !CALL write_ice      (ice,QatmAve,1,ie,je)
-    !CALL ice_zero       (ice, QatmAve)
+    !CALL write_ice      (ice,Qatm,1,ie,je)
+    !CALL ice_zero       (ice, Qatm)
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
@@ -1224,8 +1331,8 @@ CONTAINS
     CALL dbg_print('IceSlow: p_os%prog(nnew)%vn',p_os%p_prog(nnew(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%u'       ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%v'       ,p_os%p_diag%v,          str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,p_sfc_flx%topBoundCond_windStress_u, str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,p_sfc_flx%topBoundCond_windStress_v, str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,Qatm%topBoundCond_windStress_u, str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,Qatm%topBoundCond_windStress_v, str_module,4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_ice_slow)
@@ -1240,10 +1347,10 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Einar Olason, MPI-M (2013-10).
   !!
-  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, p_sfc_flx, p_os )
+  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, Qatm, p_os )
     TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
     TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
-    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: Qatm
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
 
     ! Local variables
@@ -1282,15 +1389,15 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
             &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
             ! Volmue flux due to removal
-            p_sfc_flx%FrshFlux_VolumeIce(jc,jb) = p_sfc_flx%FrshFlux_VolumeIce(jc,jb) &
+            Qatm%FrshFlux_VolumeIce(jc,jb) = Qatm%FrshFlux_VolumeIce(jc,jb) &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)    & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)      ! Snow
             ! Tracer flux due to removal
-            p_sfc_flx%FrshFlux_TotalIce (jc,jb) = p_sfc_flx%FrshFlux_TotalIce (jc,jb)                      &
+            Qatm%FrshFlux_TotalIce (jc,jb) = Qatm%FrshFlux_TotalIce (jc,jb)                      &
               & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime) & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
             ! Heat flux due to removal
-            p_sfc_flx%HeatFlux_Total(jc,jb) = p_sfc_flx%HeatFlux_Total(jc,jb)   &
+            Qatm%HeatFlux_Total(jc,jb) = Qatm%HeatFlux_Total(jc,jb)   &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
             p_ice%conc(jc,k,jb) = 0._wp
@@ -1561,13 +1668,11 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, QatmAve, p_sfc_flx)
+  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, Qatm)
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
-    !TYPE(t_atmos_for_ocean),   INTENT(IN)    :: p_as
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
-    TYPE(t_atmos_fluxes),      INTENT(IN)    :: QatmAve
-    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: Qatm
 
     !Local Variables
     ! position of ice-ocean interface below sea level                       [m]
@@ -1601,9 +1706,9 @@ CONTAINS
     ! Calculate change in water level 'zo' from liquid and solid precipitation and
     ! evaporation
     sss             (:,:)   = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    precw           (:,:)   = QatmAve% rprecw (:,:)
-    preci           (:,:)   = QatmAve% rpreci (:,:)
-    !evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
+    precw           (:,:)   = Qatm% rprecw (:,:)
+    preci           (:,:)   = Qatm% rpreci (:,:)
+    !evap            (:,:)   = (Qatm% latw(:,:)/ alv * dtime * &
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
     
@@ -1630,9 +1735,9 @@ CONTAINS
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
-    heatOceW(:,:) = ( QatmAve%SWnetw(:,:)                       &
-      &         + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+     &
-      &                 QatmAve%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
+    heatOceW(:,:) = ( Qatm%SWnetw(:,:)                       &
+      &         + Qatm%LWnetw(:,:) + Qatm%sensw(:,:)+     &
+      &                 Qatm%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) +        &
@@ -1657,11 +1762,11 @@ CONTAINS
     CALL dbg_print('UpperOceTS: newice   ', ice%newice   ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
 
-    ! Diagnosis: collect the 4 parts of heat fluxes into the p_sfc_flx variables - no flux under ice:
-    p_sfc_flx%HeatFlux_ShortWave(:,:) = QatmAve%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%HeatFlux_LongWave (:,:) = QatmAve%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%HeatFlux_Sensible (:,:) = QatmAve%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    p_sfc_flx%HeatFlux_Latent   (:,:) = QatmAve%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    ! Diagnosis: collect the 4 parts of heat fluxes into the Qatm cariables - no flux under ice:
+    Qatm%HeatFlux_ShortWave(:,:) = Qatm%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    Qatm%HeatFlux_LongWave (:,:) = Qatm%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    Qatm%HeatFlux_Sensible (:,:) = Qatm%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    Qatm%HeatFlux_Latent   (:,:) = Qatm%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! #slo# 2013-06
     ! Change of upper ocean temperature according to heat fluxes is done in vertical diffusion equation
@@ -1671,8 +1776,8 @@ CONTAINS
     !  &                                    + dtime*(heatOceI + heatOceW) /               &
     !  &                                    (clw*rho_ref * ice%zUnderIce)
     ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
-    !p_sfc_flx%topBoundCond_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
-    p_sfc_flx%HeatFlux_Total(:,:) = heatOceI(:,:) + heatOceW(:,:)
+    !Qatm%topBoundCond_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
+    Qatm%HeatFlux_Total(:,:) = heatOceI(:,:) + heatOceW(:,:)
 
     ! TODO:
     ! Temperature change of upper ocean grid cell due  to melt-water inflow and
@@ -1693,11 +1798,11 @@ CONTAINS
     ! #slo# 2013-06
     ! Change in salinity is calculated according to resulting freshwater flux due to sea ice change:
     !  - fw_ice_impl is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
-    !p_sfc_flx%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
+    !Qatm%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
 
     ! Volmue flux
     ! Fixed 27. March
-    p_sfc_flx%FrshFlux_VolumeIce(:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)    & ! Ice melt
+    Qatm%FrshFlux_VolumeIce(:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)    & ! Ice melt
       &                                 -Delhsnow(:,:)*rhos/(rho_ref*dtime)    & ! Snow melt
       &                                 + precw(:,:)*ice%concSum(:,:)          & ! Rain goes through
       &                                 - ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation
@@ -1705,24 +1810,24 @@ CONTAINS
     ! Tracer flux
     ! Fixed 27. March
     WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
-      p_sfc_flx%FrshFlux_TotalIce (:,:) = precw(:,:)*ice%concSum(:,:)        & ! Rain goes through
+      Qatm%FrshFlux_TotalIce (:,:) = precw(:,:)*ice%concSum(:,:)        & ! Rain goes through
         &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
         &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                         & ! Snow melt
         &       - (1._wp-sice/sss(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation                       
     ENDWHERE
 
-    !heatabs         (:,:)   = swsum * QatmAve% SWin(:,:) * (1 - ice%concsum)
+    !heatabs         (:,:)   = swsum * Qatm% SWin(:,:) * (1 - ice%concsum)
 
     ! set to zero on land points
     WHERE (v_base%lsm_c(:,1,:) > sea_boundary )
-      p_sfc_flx%HeatFlux_Total    (:,:) = 0.0_wp
-      p_sfc_flx%HeatFlux_ShortWave(:,:) = 0.0_wp
-      p_sfc_flx%HeatFlux_LongWave (:,:) = 0.0_wp
-      p_sfc_flx%HeatFlux_Sensible (:,:) = 0.0_wp
-      p_sfc_flx%HeatFlux_Latent   (:,:) = 0.0_wp
+      Qatm%HeatFlux_Total    (:,:) = 0.0_wp
+      Qatm%HeatFlux_ShortWave(:,:) = 0.0_wp
+      Qatm%HeatFlux_LongWave (:,:) = 0.0_wp
+      Qatm%HeatFlux_Sensible (:,:) = 0.0_wp
+      Qatm%HeatFlux_Latent   (:,:) = 0.0_wp
     END WHERE
 
-    CALL dbg_print('UpperOceTS: FwBcIce  ', p_sfc_flx%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: FwBcIce  ', Qatm%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
@@ -1737,13 +1842,11 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !! Einar Olason, renamed and added support for changing concentration
   !!
-  SUBROUTINE ice_conc_change(p_patch,ice, p_os,p_sfc_flx)
+  SUBROUTINE ice_conc_change(p_patch,ice, p_os)
 
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE (t_sea_ice),          INTENT(INOUT) :: ice
-    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
-    !TYPE (t_atmos_fluxes),     INTENT(IN)    :: QatmAve
-    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
+    TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
 
     INTEGER  :: k
  !  REAL(wp) :: sst(nproma,p_patch%alloc_cell_blocks)
@@ -2284,4 +2387,9 @@ CONTAINS
     p_acc%v                         = 0.0_wp
     p_acc%conc                      = 0.0_wp
   END SUBROUTINE reset_ice_statistics
+  SUBROUTINE finish_unless_allocate(ist, routine, tag)
+    INTEGER :: ist
+    CHARACTER(len=*) :: tag,routine
+    IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of '//TRIM(tag)//' failed.')
+  END SUBROUTINE finish_unless_allocate
 END MODULE mo_sea_ice
