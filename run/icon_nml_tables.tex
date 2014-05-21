@@ -3176,6 +3176,49 @@ C&\'' \''& &
 \tabularnewline
 
 %\hline
+ \textbf{pe\_placement\_il}&
+I(:)& -1 & &
+Advanced output option:
+Explicit assignment of output MPI ranks to the isentropic level output file.
+At most \texttt{stream\_partitions\_il} different ranks can be specified.
+See namelist parameter \texttt{pe\_placement\_ml} for further details.
+&
+\tabularnewline
+
+%\hline
+ \textbf{pe\_placement\_hl}&
+I(:)& -1 & &
+Advanced output option:
+Explicit assignment of output MPI ranks to the height level output file.
+At most \texttt{stream\_partitions\_hl} different ranks can be specified.
+See namelist parameter \texttt{pe\_placement\_ml} for further details.
+&
+\tabularnewline
+
+%\hline
+ \textbf{pe\_placement\_ml }&
+I(:)& -1 & &
+Advanced output option:
+Explicit assignment of output MPI ranks to the model level output file.
+At most \texttt{stream\_partitions\_ml} different ranks can be specified,
+out of the following list: \texttt{0} $\ldots$ (\texttt{num\_io\_procs} - 1).
+If this namelist parameters is not provided, then the output ranks are chosen
+in a Round-Robin fashion among those ranks that are not occupied by explicitly
+placed output files.
+&
+\tabularnewline
+
+%\hline
+ \textbf{pe\_placement\_pl}&
+I(:)& -1 & &
+Advanced output option:
+Explicit assignment of output MPI ranks to the pressure level output file.
+At most \texttt{stream\_partitions\_pl} different ranks can be specified.
+See namelist parameter \texttt{pe\_placement\_ml} for further details.
+&
+\tabularnewline
+
+%\hline
 p\_levels(:) &
 R&None& hPa &
  pressure levels \\

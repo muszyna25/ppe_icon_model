@@ -28,7 +28,7 @@ MODULE mo_name_list_output_init
     &                                             min_rlcell_int, min_rledge_int, min_rlvert,     &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
     &                                             MAX_TIME_LEVELS, max_levels, vname_len,         &
-    &                                             MAX_CHAR_LENGTH
+    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
@@ -43,7 +43,8 @@ MODULE mo_name_list_output_init
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
     &                                             with_keywords, insert_group,                    &
-    &                                             tolower, int2string, difference
+    &                                             tolower, int2string, difference,                &
+    &                                             sort_and_compress_list
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
     &                                             set_zlev
   USE mo_datetime,                          ONLY: t_datetime
@@ -264,6 +265,12 @@ CONTAINS
       &                                      stream_partitions_hl, &
       &                                      stream_partitions_il
 
+    !> MPI ranks which were explicitly specified by the user:
+    INTEGER                               :: pe_placement_ml(MAX_NUM_IO_PROCS), &
+      &                                      pe_placement_pl(MAX_NUM_IO_PROCS), &
+      &                                      pe_placement_hl(MAX_NUM_IO_PROCS), &
+      &                                      pe_placement_il(MAX_NUM_IO_PROCS)
+
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
       mode, taxis_tunit, dom,                                &
@@ -277,7 +284,9 @@ CONTAINS
       output_bounds, output_time_unit,                       &
       ready_file, file_interval, reg_def_mode,               &
       stream_partitions_ml, stream_partitions_pl,            &
-      stream_partitions_hl, stream_partitions_il
+      stream_partitions_hl, stream_partitions_il,            &
+      pe_placement_ml, pe_placement_pl,                      &
+      pe_placement_hl, pe_placement_il
 
     ! -- preliminary checks:
     !
@@ -348,6 +357,10 @@ CONTAINS
       stream_partitions_pl     = 1
       stream_partitions_hl     = 1
       stream_partitions_il     = 1
+      pe_placement_ml(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
+      pe_placement_pl(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
+      pe_placement_hl(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
+      pe_placement_il(:)       = -1 !< i.e. MPI rank undefined (round-robin placement)
 
       ! -- Read output_nml
 
@@ -501,6 +514,10 @@ CONTAINS
       p_onl%stream_partitions_pl     = stream_partitions_pl
       p_onl%stream_partitions_hl     = stream_partitions_hl
       p_onl%stream_partitions_il     = stream_partitions_il
+      p_onl%pe_placement_ml(:)       = pe_placement_ml(:)
+      p_onl%pe_placement_pl(:)       = pe_placement_pl(:)
+      p_onl%pe_placement_hl(:)       = pe_placement_hl(:)
+      p_onl%pe_placement_il(:)       = pe_placement_il(:)
 
       ! -- translate variables names according to variable name
       !    dictionary:
@@ -710,6 +727,7 @@ CONTAINS
       &                                     jp, idom, jg, local_i, idom_log,                  &
       &                                     grid_info_mode, ierrstat, jl, idummy, ifile,      &
       &                                     npartitions, ifile_partition
+    INTEGER                              :: pe_placement(MAX_NUM_IO_PROCS)
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE (t_output_file),      POINTER   :: p_of
     TYPE(t_list_element),      POINTER   :: element
@@ -722,7 +740,11 @@ CONTAINS
     TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
       &                                     mtime_datetime_end
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
-    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname                        !< attribute name
+    CHARACTER(len=MAX_CHAR_LENGTH)       :: proc_list_str                  !< string (unoccupied I/O ranks)
+    LOGICAL                              :: occupied_pes(MAX_NUM_IO_PROCS) !< explicitly placed I/O ranks
+    INTEGER                              :: nremaining_io_procs            !< no. of non-placed I/O ranks
+    INTEGER                              :: remaining_io_procs(MAX_NUM_IO_PROCS) !< non-placed I/O ranks
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start,     &
       &                                     output_interval
@@ -1087,16 +1109,20 @@ CONTAINS
           SELECT CASE(i_typ)
           CASE (1)
             IF (p_onl%ml_varlist(1) == ' ') CYCLE
-            npartitions = p_onl%stream_partitions_ml
+            npartitions     = p_onl%stream_partitions_ml
+            pe_placement(:) = p_onl%pe_placement_ml(:)
           CASE (2)
             IF (p_onl%pl_varlist(1) == ' ') CYCLE
-            npartitions = p_onl%stream_partitions_pl
+            npartitions     = p_onl%stream_partitions_pl
+            pe_placement(:) = p_onl%pe_placement_pl(:)
           CASE (3) 
             IF (p_onl%hl_varlist(1) == ' ') CYCLE
-            npartitions = p_onl%stream_partitions_hl
+            npartitions     = p_onl%stream_partitions_hl
+            pe_placement(:) = p_onl%pe_placement_hl(:)
           CASE (4)
             IF (p_onl%il_varlist(1) == ' ') CYCLE
-            npartitions = p_onl%stream_partitions_il
+            npartitions     = p_onl%stream_partitions_il
+            pe_placement(:) = p_onl%pe_placement_il(:)
           END SELECT
 
           IF (npartitions > 1) THEN
@@ -1135,6 +1161,10 @@ CONTAINS
             p_of%npartitions     = npartitions
             p_of%ifile_partition = ifile_partition
 
+            ! (optional:) explicitly specified I/O rank
+            p_of%io_proc_id      = -1 ! undefined MPI rank
+            p_of%pe_placement    = pe_placement(ifile_partition)
+
             ! Select all var_lists which belong to current logical domain and i_typ
             nvl = 0
             DO j = 1, nvar_lists
@@ -1171,26 +1201,106 @@ CONTAINS
       
     ENDDO LOOP_NML
 
+    ! ------------------------------------------------------
     ! Set ID of process doing I/O
+    ! ------------------------------------------------------
+
+    ! --- First, set those MPI ranks which were explicitly specified
+    !     by the user:
+    !
+    occupied_pes(:) = .FALSE.
     DO i = 1, nfiles
       IF(use_async_name_list_io) THEN
         ! Asynchronous I/O
-        IF(process_mpi_io_size==0) CALL finish(routine,'Async IO but no IO procs')
-        ! Currently the output files are assigned round robin to the I/O PEs.
-        ! Maybe this needs a finer adjustment in the future ...
-        output_file(i)%io_proc_id = MOD(i-1,process_mpi_io_size) + p_io_pe0
+        !
+        ! MPI ranks "p_io_pe0 ... (p_io_pe0+process_mpi_io_size-1)" are available.
+        IF (process_mpi_io_size == 0) CALL finish(routine, "Asynchronous I/O but no IO procs!")
+        IF ((output_file(i)%pe_placement /= -1) .AND. &
+          & ((output_file(i)%pe_placement < 0) .OR.   &
+          &  (output_file(i)%pe_placement > process_mpi_io_size))) THEN
+          CALL finish(routine, "Invalid explicit placement of IO rank!")
+        END IF
+
+        IF (output_file(i)%pe_placement /= -1) THEN
+          output_file(i)%io_proc_id = p_io_pe0 + output_file(i)%pe_placement
+          occupied_pes(output_file(i)%pe_placement+1) = .TRUE.
+        END IF
       ELSE
         ! Normal I/O done by the standard I/O processor
-         IF (p_test_run .AND. .NOT. my_process_is_mpi_test()) THEN
-            output_file(i)%io_proc_id = process_mpi_stdio_id + 1
-         ELSE
-            output_file(i)%io_proc_id = process_mpi_stdio_id
-         END IF
+        !
+        ! Only MPI rank "process_mpi_stdio_id" is available.
+        IF ((output_file(i)%pe_placement /= -1) .AND. &
+          & (output_file(i)%pe_placement /=  0)) &
+          &  CALL finish(routine, "Invalid explicit placement of IO rank!")
+
+        IF (p_test_run .AND. .NOT. my_process_is_mpi_test()) THEN
+          output_file(i)%io_proc_id = process_mpi_stdio_id + 1
+        ELSE
+          output_file(i)%io_proc_id = process_mpi_stdio_id
+        END IF
       ENDIF
     ENDDO
 
-    ! -----------------------------------------------------------
-    ! create I/O event data structures: Regular output is triggered at
+    ! --- Build a list of MPI ranks that have not yet been occupied:
+    !
+    nremaining_io_procs = 0
+    DO i=1,process_mpi_io_size
+      IF (.NOT. occupied_pes(i)) THEN
+        nremaining_io_procs = nremaining_io_procs + 1
+        remaining_io_procs(nremaining_io_procs) = (i-1)
+      END IF
+    END DO
+    ! status output, if some ranks were explicitly specified
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
+      WRITE (0,*) " "
+      WRITE (0,*) "I/O : Explicit placement of I/O ranks:"
+      DO i = 1, nfiles
+        IF (output_file(i)%pe_placement /= -1) THEN
+          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
+        END IF
+      END DO
+      IF (nremaining_io_procs > 0) THEN
+        CALL sort_and_compress_list(remaining_io_procs(1:nremaining_io_procs), proc_list_str)
+        WRITE (0,*) "I/O : Remaining I/O ranks: # ", TRIM(proc_list_str)
+      END IF
+    END IF
+
+    ! --- Then, set MPI ranks in a Round-Robin fashion for those
+    !     namelists which had no explicitly specified "pe_placement":
+    !
+    ! status print-out only when some PEs were explicitly set.
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. &
+      & my_process_is_stdio()                        .AND. &
+      & (nremaining_io_procs > 0)                    .AND. &
+      & ANY(output_file(1:nfiles)%pe_placement == -1)) THEN
+      WRITE (0,*) " "
+      WRITE (0,*) "I/O : Round-Robin placement of I/O ranks:"
+    END IF
+    j = 0
+    DO i = 1, nfiles
+      IF(use_async_name_list_io) THEN
+        IF (output_file(i)%pe_placement == -1) THEN
+          ! Asynchronous I/O
+          j = j + 1
+          output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
+          IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
+            WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
+          END IF
+        END IF
+      ELSE
+        ! this should never be reached!
+        CALL finish(routine, "Internal error!")
+      ENDIF
+    ENDDO
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
+      WRITE (0,*) " "
+    END IF
+
+    ! ------------------------------------------------------
+    ! Create I/O event data structures:
+    ! ------------------------------------------------------
+    ! 
+    !  Regular output is triggered at
     ! so-called "output event steps". The completion of an output
     ! event step is communicated via non-blocking MPI messages to the
     ! root I/O PE, which keeps track of the overall event status. This
@@ -2380,7 +2490,7 @@ CONTAINS
       of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
       ALLOCATE(lbounds(1), ubounds(1), levels(1))
       lbounds(1)= 800._dp   ! hPa
-      ubounds(1)= 0.        ! m
+      ubounds(1)=   0._dp   ! m
 !DR Note that for this particular axis in GME and COSMO, 
 !DR   scaleFactorOfSecondFixedSurface = scaledValueOfSecondFixedSurface = missing
 !DR whereas in ICON

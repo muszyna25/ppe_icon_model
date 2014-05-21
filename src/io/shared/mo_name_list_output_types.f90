@@ -17,7 +17,7 @@ MODULE mo_name_list_output_types
   USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, vname_len,                         &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
-    &                                 MAX_TIME_LEVELS, max_levels
+    &                                 MAX_TIME_LEVELS, max_levels, MAX_NUM_IO_PROCS
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
@@ -257,6 +257,12 @@ MODULE mo_name_list_output_types
       &                          stream_partitions_hl, &
       &                          stream_partitions_il
 
+    !> MPI ranks which were explicitly specified by the user:
+    INTEGER                   :: pe_placement_ml(MAX_NUM_IO_PROCS), &
+      &                          pe_placement_pl(MAX_NUM_IO_PROCS), &
+      &                          pe_placement_hl(MAX_NUM_IO_PROCS), &
+      &                          pe_placement_il(MAX_NUM_IO_PROCS)
+
     ! --------------------
     ! horizontal interpol.
     ! --------------------
@@ -356,6 +362,9 @@ MODULE mo_name_list_output_types
     !> alternating files ("stream_partitions"):
     INTEGER                               :: npartitions                      !< total no. of parts
     INTEGER                               :: ifile_partition                  !< index of this file
+
+    !> MPI rank which were explicitly specified by the user:
+    INTEGER                               :: pe_placement
 
     ! Used for async IO only
     TYPE(t_mem_win)                       :: mem_win                          !< data structure containing variables for MPI memory window

@@ -193,7 +193,7 @@ MODULE mo_impl_constants
   ! Following is the order of the grid entities (an all the associated variables)
   ! in ascending order.
   !
-  ! A. The indexes from 1 to max_rl
+  ! A. The indices from 1 to max_rl
   !    Mark the lateral boundaries of the patch
   !    start_idx(1) = start of the first boundary level. It is always 1
   !    end_idx(1)   = end of the first boundary level end_idx(1)
@@ -205,7 +205,7 @@ MODULE mo_impl_constants
   !    start_idx(0) = end_idx(max_rl) + 1
   !    end_idx(0)   = start_idx(-1) -1
   !
-  ! C. The indexes from -1 to min_rl_int
+  ! C. The indices from -1 to min_rl_int
   !    Mark the internal entities that overlap with child patches
   !    (they are defined for each child patch)
   !    start_idx(-1) = start of the internal entities overlapping with the first (two) levels
@@ -217,7 +217,7 @@ MODULE mo_impl_constants
   !    ... etc
   !    end_idx(minrl_int) = end of all the internal entities overlapping with the the child patch
   !
-  ! D. The indexes from min_rl_int-1 to min_rl
+  ! D. The indices from min_rl_int-1 to min_rl
   !    Mark the halo entities, when they do not overlap with a child patch
   !    Note: See above
   !
@@ -466,6 +466,7 @@ MODULE mo_impl_constants
   !---------------------!
   !  PARALLELIZATION    !
   !---------------------!
+
   ! Division method for area subdivision
   INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
@@ -493,6 +494,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MODE_COMBINED    = 3
   INTEGER, PARAMETER :: MODE_COSMODE     = 4
   INTEGER, PARAMETER :: MODE_DWDANA_INC  = 5
+
+  !----- MPI parallelization -----
+  INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks
 
 
   !----------------!

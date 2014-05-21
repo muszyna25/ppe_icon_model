@@ -35,7 +35,8 @@ MODULE mo_parallel_config
 
   USE mo_exception,          ONLY: message, finish
   USE mo_io_units,           ONLY: filename_max
-  USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_dom, MAX_NUM_IO_PROCS
+  USE mo_util_string,        ONLY: int2string
 
   IMPLICIT NONE
 
@@ -256,8 +257,11 @@ CONTAINS
 !         & 'value of division_method in parallel_nml namelist is not allowed')
 !     END SELECT
     ! for safety only
-    IF(num_io_procs < 0) num_io_procs = 0
-    IF(num_restart_procs < 0) num_restart_procs = 0
+    IF (num_io_procs < 0)      num_io_procs = 0
+    IF (num_restart_procs < 0) num_restart_procs = 0
+    IF (num_io_procs > MAX_NUM_IO_PROCS) THEN
+      CALL finish(method_name, "Namelist parameter num_io_procs chosen too large ( > "//TRIM(int2string(MAX_NUM_IO_PROCS))//")!")
+    END IF
 
 #endif
 
