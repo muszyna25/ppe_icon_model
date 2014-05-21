@@ -34,90 +34,27 @@ MODULE mo_test_nh_communication
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
-  USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
-    & print_timer
+  USE mo_mpi,                 ONLY: work_mpi_barrier, proc_split, push_glob_comm, pop_glob_comm
+  USE mo_timer,               ONLY: ltimer, print_timer
 
-  USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
-  USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
+  USE mo_master_control,      ONLY: get_my_process_name
+  USE mo_icon_testbed_config, ONLY: testbed_iterations
 
-  USE mo_model_domain,        ONLY:  p_patch  
+  USE mo_model_domain,        ONLY: p_patch  
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   
-  USE mo_parallel_config,    ONLY: itype_comm, iorder_sendrecv
-  USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
-!   USE mo_icon_comm_interface,ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_icon_comm_lib
   USE mo_atmo_nonhydrostatic, ONLY: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
   !-------------------------------------------------------------------------
   ! for the nh run
-  USE mo_kind,                ONLY: wp
-  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme
-  USE mo_diffusion_config,     ONLY: diffusion_config
-  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
-  USE mo_parallel_config,      ONLY: nproma, itype_comm
-  USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv,     &
-    &                                ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level
-  USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
-    &                               timer_model_init, timer_nudging,                 &
-    &                               timer_bdy_interp, timer_feedback, timer_nesting, &
-    &                               timer_integrate_nh, timer_nh_diagnostics
-  USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
-  USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
+  USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
-    &                               n_dom_start, lredgrid_phys
-  USE mo_nh_pa_test,          ONLY: set_nh_w_rho
-  USE mo_nh_df_test,          ONLY: get_nh_df_velocity
-  USE mo_integrate_density_pa,ONLY: integrate_density_pa
-  USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
-    &                               verts2cells_scalar
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start
+  USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
-  USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
-                                    complete_nesting_setup, prep_bdy_nudging,      &
-                                    outer_boundary_nudging, nest_boundary_nudging, &
-                                    prep_rho_bdy_nudging, density_boundary_nudging
-  USE mo_nh_feedback,         ONLY: feedback, relax_feedback
-  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
-  USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
-  USE mo_io_restart,          ONLY: write_restart_info_file
-  USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
-    &                               iphysproc_short, itconv, itccov, itrad, &
-    &                               itradheat, itsso, itsatad, itgwd, inwp, &
-    &                               itturb, itgscp, itsfc, min_rlcell_int,  &
-                                    min_rledge_int
-  USE mo_math_divrot,         ONLY: div_avg, div
-  USE mo_solve_nonhydro,      ONLY: solve_nh
-  USE mo_advection_stepping,  ONLY: step_advection
-  USE mo_nh_dtp_interface,    ONLY: prepare_tracer
-  USE mo_nh_diffusion,        ONLY: diffusion
-  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
-    &                               proc_split, push_glob_comm, pop_glob_comm
-#ifdef NOMPI
-  USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
-#endif
+  USE mo_datetime,            ONLY: t_datetime
   
-  USE mo_sync,                ONLY: sync_patch_array_mult, &
-                                    global_max, &
-                                    SYNC_C, SYNC_E, sync_patch_array
-  USE mo_nh_interface_nwp,    ONLY: nwp_nh_interface
-  USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
-  USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
-  USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_vertical_coord_table,ONLY: vct
-  USE mo_master_control,      ONLY: is_restart_run
-
-!   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
-!     & init_ompthread_radiation
-!   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
-
   !-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
@@ -217,39 +154,6 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: sim_time(n_dom) !< elapsed simulation time on each
                                                !< grid level
     LOGICAL, INTENT(IN) :: l_compute_diagnostic_quants    !< computation of diagnostic quantities
-
-    ! Local variables
-
-    ! Time levels
-    INTEGER :: n_now_grf, n_now, n_new, n_save, n_temp
-    INTEGER :: n_now_rcf, n_new_rcf ! accounts for reduced calling frequencies (rcf)
-
-    INTEGER :: jstep, jgp, jgc, jn
-    INTEGER :: nsteps_nest ! number of time steps executed in nested domain
-
-    REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
-    REAL(wp):: rdt_loc,  rdtadv_loc ! inverse time step for local grid level
-
-    REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
-    REAL(wp), DIMENSION(:,:,:), ALLOCATABLE  :: z_tmp_e
-
-    LOGICAL, PARAMETER :: l_straka=.FALSE.
-    LOGICAL :: l_predictor
-    LOGICAL :: l_bdy_nudge
-    LOGICAL :: linit_vertnest(2)
-    LOGICAL :: l_recompute
-    LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
-                             ! mass-fluxes and trajectory-velocities are reset to zero
-                             ! i.e. for starting new integration sweep
-    LOGICAL :: lcall_hdiff
-
-    ! Switch to determine manner of OpenMP parallelization in interpol_scal_grf
-!     LOGICAL :: lpar_fields=.FALSE.
-
-    ! Switch to determine if nested domains are called at a given time step
-    LOGICAL :: l_call_nests = .FALSE.
-
-!$  INTEGER :: num_threads_omp, omp_get_max_threads
 
    END SUBROUTINE integrate_nh_test_comm 
   !-------------------------------------------------------------------------

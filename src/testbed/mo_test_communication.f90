@@ -36,17 +36,16 @@ MODULE mo_test_communication
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
-  USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
+  USE mo_mpi,                 ONLY: work_mpi_barrier
+  USE mo_timer,               ONLY: ltimer, new_timer, timer_start, timer_stop, &
     & print_timer, activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
 
-  USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
+  USE mo_master_control,      ONLY: get_my_process_name
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
-  USE mo_ha_stepping,         ONLY: prepare_ha_dyn!, initcond_ha_dyn
-  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
+  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
   USE mo_math_gradients,      ONLY: grad_fd_norm
 
   !nh utils
@@ -55,7 +54,6 @@ MODULE mo_test_communication
   
   USE mo_parallel_config,    ONLY: itype_comm, iorder_sendrecv
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
-!   USE mo_icon_comm_interface,ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_icon_comm_lib
 
   USE mo_rrtm_data_interface, ONLY: t_rrtm_data, recv_rrtm_input, &
@@ -265,9 +263,6 @@ CONTAINS
           
     INTEGER :: timer_3D_cells_1, timer_3D_cells_2, timer_3D_cells_3, timer_3D_cells_4
     
-    INTEGER :: timer_sync_1_2_3D_cells
-    
-    
     INTEGER :: patch_no
 
     patch_no=1
@@ -314,10 +309,9 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: timer_descr
     
     ! 3D variables
-    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:), &
-      & pnt_3D_edges_4(:,:,:)
+    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:)
           
-    INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3, timer_3D_edges_4
+    INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3
         
     INTEGER :: patch_no
 
@@ -414,10 +408,9 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: timer_descr
     
     ! 3D variables
-    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:), &
-      & pnt_3D_edges_4(:,:,:)
+    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:)
           
-    INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3, timer_3D_edges_4
+    INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3
         
     INTEGER :: patch_no
 
@@ -818,10 +811,10 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   SUBROUTINE test_sync_3D_all(cell_var, edge_var, vert_var, timer)
-    INTEGER :: comm_pattern, timer
+
     REAL(wp) , POINTER:: cell_var(:,:,:), edge_var(:,:,:), vert_var(:,:,:)
 
-    INTEGER :: i, patch_no
+    INTEGER :: i, patch_no, timer
     
     patch_no = 1
     CALL timer_start(timer)

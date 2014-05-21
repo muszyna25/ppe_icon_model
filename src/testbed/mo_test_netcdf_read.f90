@@ -34,14 +34,11 @@
 MODULE mo_test_netcdf_read
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
-  USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
-    & activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
-  USE mo_parallel_config,     ONLY: nproma, icon_comm_method
+  USE mo_exception,           ONLY: message, finish
+  USE mo_timer,               ONLY: ltimer, activate_sync_timers, timers_level
+  USE mo_parallel_config,     ONLY: nproma
 
-  USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
-  USE mo_icon_testbed_config, ONLY: testbed_model, testfile_3D_time, testfile_2D_time
+  USE mo_icon_testbed_config, ONLY: testfile_3D_time, testfile_2D_time
 
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
@@ -70,7 +67,7 @@ CONTAINS
     REAL(wp), POINTER :: lnwl_array(:), levels_array(:), times_array(:)
     REAL(wp), POINTER :: aod(:,:,:,:), asy(:,:,:,:)   ! is (nproma, lnwl, blocks, time (months) )
     REAL(wp), POINTER :: z_aer_fine_mo(:,:,:,:), return_pointer(:,:,:,:)
-    INTEGER :: levels, lnwl_size, return_status, stream_id
+    INTEGER :: levels, lnwl_size, stream_id
 
     CHARACTER(*), PARAMETER :: method_name = "mo_test_netcdf_read:test_netcdf_read"
 
