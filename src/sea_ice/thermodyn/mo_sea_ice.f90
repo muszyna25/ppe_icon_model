@@ -1259,11 +1259,11 @@ CONTAINS
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
   SUBROUTINE ice_slow(p_patch_3D, p_os, ice, atmos_fluxes, p_op_coeff)
-    TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
-    TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
-    TYPE(t_sea_ice),          INTENT (INOUT) :: ice
-    TYPE(t_atmos_fluxes),     INTENT (INOUT) :: atmos_fluxes
-    TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
+    TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
+    TYPE(t_sea_ice),          INTENT(INOUT) :: ice
+    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
+    TYPE(t_operator_coeff),   INTENT(IN)    :: p_op_coeff
 
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
@@ -1351,7 +1351,7 @@ CONTAINS
     TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
     TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
     TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
-    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+    TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
 
     ! Local variables
     ! ranges
@@ -1670,7 +1670,7 @@ CONTAINS
   !!
   SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, atmos_fluxes)
     TYPE(t_patch),             INTENT(IN)    :: p_patch
-    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+    TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
     TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
 
