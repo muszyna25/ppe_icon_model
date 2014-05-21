@@ -1278,18 +1278,14 @@ CONTAINS
     END IF
     j = 0
     DO i = 1, nfiles
+      IF (output_file(i)%pe_placement /= -1) CYCLE
       IF(use_async_name_list_io) THEN
-        IF (output_file(i)%pe_placement == -1) THEN
-          ! Asynchronous I/O
-          j = j + 1
-          output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
-          IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
-            WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
-          END IF
+        ! Asynchronous I/O
+        j = j + 1
+        output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
+        IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
+          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
         END IF
-      ELSE
-        ! this should never be reached!
-        CALL finish(routine, "Internal error!")
       ENDIF
     ENDDO
     IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
