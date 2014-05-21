@@ -162,10 +162,7 @@ CONTAINS
     ! RBF kernels for grid refinement interpolation
     rbf_vec_kern_grf_e = 1    ! 1: Gaussian, 2: 1/(1+r**2), 3: inverse multiquadric
 
-    ! zero whole arrays
-    rbf_scale_grf_e(:) = 0.0_wp
-
-    ! Initialize namelist fields for scaling factors (dimension 1:max_dom); used part only
+    ! Initialize namelist fields for scaling factors (dimension 1:max_dom)
     rbf_scale_grf_e(1:max_dom) = 0.5_wp  ! default setting for vector grf interpolation
 
     ! Denominator for temperature boundary diffusion
