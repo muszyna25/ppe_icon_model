@@ -293,7 +293,10 @@ CONTAINS
     
     one_of = -1
     DO i=1,SIZE(arg)
-      IF (toupper(TRIM(in_str)) == toupper(TRIM(arg(i))))  one_of=i
+      IF (toupper(TRIM(in_str)) == toupper(TRIM(arg(i)))) THEN
+        one_of=i
+        EXIT
+      ENDIF
     END DO
   END FUNCTION one_of
 

@@ -1059,6 +1059,7 @@ MODULE mo_nh_initicon
       ! Initialization
       lmiss_ana = .FALSE.
       lmiss_fg  = .FALSE.
+      nvars_ana_mandatory = 0
 
       !===================
       ! 1: Collect groups
@@ -1154,7 +1155,6 @@ MODULE mo_nh_initicon
         ! translate GRIB2 varname to internal netcdf varname
         ! If requested GRIB2 varname is not found in the dictionary 
         ! (i.e. due to typos) -> Model abort
-        nvars_ana_mandatory = 0
         DO ivar=1,SIZE(ana_varlist)
           IF (ana_varlist(ivar) /= ' ') THEN
             nvars_ana_mandatory = nvars_ana_mandatory + 1
@@ -1227,11 +1227,6 @@ MODULE mo_nh_initicon
           grp_vars_fgfile(ngrp_vars_fgfile) = varname
         ENDIF
       ENDDO
-
-!!$write(0,*) "grp_vars_fg:  ", grp_vars_fg (1:ngrp_vars_fg) ,ngrp_vars_fg
-!!$write(0,*) "grp_vars_ana: ", grp_vars_ana(1:ngrp_vars_ana),ngrp_vars_ana
-!!$write(0,*) "grp_vars_fgfile: ", grp_vars_fgfile(1:ngrp_vars_fgfile),ngrp_vars_fgfile
-!!$write(0,*) "grp_vars_anafile: ", grp_vars_anafile(1:ngrp_vars_anafile),ngrp_vars_anafile
 
 
 

@@ -477,9 +477,11 @@ MODULE mo_nh_stepping
     CALL add_time(dtime,0,0,0,datetime)
 
     ! store state of output files for restarting purposes
-    DO i=1,SIZE(output_file)
-      output_jfile(i) = get_current_jfile(output_file(i)%out_event)
-    END DO
+    IF (output_mode%l_nml) THEN
+      DO i=1,SIZE(output_file)
+        output_jfile(i) = get_current_jfile(output_file(i)%out_event)
+      END DO
+    ENDIF
 
     ! read boundary data if necessary
     IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
