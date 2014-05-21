@@ -42,7 +42,7 @@ MODULE mo_dynamics_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: IHS_ATM_TEMP
+  USE mo_impl_constants,      ONLY: INH_ATMOSPHERE
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
@@ -102,7 +102,7 @@ CONTAINS
     !------------------------------------------------------------
     ! Set up the default values
     !------------------------------------------------------------
-    iequations     = IHS_ATM_TEMP
+    iequations     = INH_ATMOSPHERE
     idiv_method    = 1
     divavg_cntrwgt = 0.5_wp
     sw_ref_height  = 0.9_wp*2.94e4_wp/grav
