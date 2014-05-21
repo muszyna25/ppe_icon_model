@@ -619,7 +619,7 @@ CONTAINS
         END DO
         nvars = nvars - 1
 
-        IF (nvars>ntotal_vars)  CALL finish(routine, "Internal error.")
+        IF (nvars>ntotal_vars)  CALL finish(routine, "Internal error: nvars > ntotal_vars")
 
         if (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
         varlist((nvars+1):ntotal_vars) = " "
@@ -1024,7 +1024,7 @@ CONTAINS
           mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval))
           CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
             &                      lower_bound_str, idummy)
-          IF (idummy > 0)  CALL finish(routine, "Internal error!")
+          IF (idummy > 0)  CALL finish(routine, "Internal error: get_duration_string")
           mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
           IF (mtime_output_interval < mtime_lower_bound) THEN
             CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval)//" < dtime*iadv_rcf !")
