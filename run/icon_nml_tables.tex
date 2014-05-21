@@ -858,15 +858,15 @@ Note: icover = .TRUE. runs, but has not been evaluated (yet) in ICON.
 
 %\hline
 \textbf{lgw\_hines} &
-L& .FALSE.&&
+L& .TRUE.&&
 .TRUE. for atmospheric gravity wave drag by the Hines scheme&
 iforcing = 2\par
 \tabularnewline
 
 %\hline
 \textbf{lssodrag} &
-L& .FALSE.&&
-.TRUE. for subgrid scale orographic drag& iforcing = 2\par {\color{red}Not implemeted yet}
+L& .TRUE.&&
+.TRUE. for subgrid scale orographic drag& iforcing = 2
 \tabularnewline
 
 %\hline
@@ -901,6 +901,18 @@ L& .FALSE.&&
 \tabularnewline
 
 %\hline
+\textbf{ljsbach} &
+L& .FALSE.&&
+.TRUE. for calculating the JSBACH land surface& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+%\hline
+\textbf{lamip} &
+L& .FALSE.&&
+.TRUE. for AMIP simulations& iforcing = 2\par {\color{red}Not implemeted yet}
+\tabularnewline
+
+%\hline
 \textbf{dt\_rad} &
 R&
 3600.&
@@ -922,6 +934,18 @@ Defined and used in: \verb+src/namelists/mo_echam_phy_nml.f90+
 \begin{longtab}
 
 %\hline
+preset&
+C& ''none'' & &
+Setting this different to ''none'' enables a couple of defaults for
+the other \texttt{gribout\_nml} namelist parameters. If, additionally, the
+user tries to set any of these other parameters to a conflicting
+value, an error message is thrown. 
+Possible values are ''none'', ''deterministic'', ''ensemble''.
+&
+filetype=2
+\tabularnewline
+
+%\hline
 backgroundProcess&
 I& 0 & &
 Background process \\
@@ -940,14 +964,6 @@ filetype=2
 \tabularnewline
 
 %\hline
-generatingProcess\par Identifier&
-I(n\_dom)& 1 & &
-generating Process Ident- ifier \\
-- GRIB2 code table generatingProcessIdentifier.table &
-filetype=2
-\tabularnewline
-
-%\hline
 generatingSubcenter&
 I& -1 & &
 Output generating Subcenter. If this key is not set, subcenter information is taken from the grid file\\
@@ -957,42 +973,11 @@ ECMWF: 0 &
 filetype=2
 \tabularnewline
 
-lspecialdate\_invar&
-L& .FALSE. &&
-SPecial reference date for invariant and climatological fields\\
-.TRUE.: set special reference date 0001-01-01, 00:00\\
-.FASLE.: no special reference date &
-filetype = 2
-\tabularnewline
-
 %\hline
-ldate\_grib\_act&
-L& .TRUE. & &
-GRIB creation date\\
-.TRUE.: add creation date\\
-.FALSE.: add dummy date &
-filetype=2
-\tabularnewline
-
-%\hline
-lgribout\_24bit&
-L& .FALSE. & &
-If TRUE, write thermodynamic fields $\rho$, $\theta_{v}$, $T$, $p$ with 24bit precision instead of 16bit &
-filetype=2
-\tabularnewline
-
-%\hline
-localDefinitionNumber&
-I& 254 & &
-local Definition Number\\
-- GRIB2 code table grib2LocalSectionNumber.78.table &
-filetype=2
-\tabularnewline
-
-%\hline
-localNumberOfExperi- ment&
-I& 1 & &
-local Number of Experiment &
+generatingProcess\par Identifier&
+I(n\_dom)& 1 & &
+generating Process Identifier \\
+- GRIB2 code table generatingProcessIdentifier.table &
 filetype=2
 \tabularnewline
 
@@ -1011,19 +996,6 @@ Local definiton for ensemble products,
 (only set if value changed from default) &
 filetype=2
 \tabularnewline
-
-%\hline
-preset&
-C& ''none'' & &
-Setting this different to ''none'' enables a couple of defaults for
-the other \texttt{gribout\_nml} namelist parameters. If, additionally, the
-user tries to set any of these other parameters to a conflicting
-value, an error message is thrown. 
-Possible values are ''none'', ''deterministic'', ''ensemble''.
-&
-filetype=2
-\tabularnewline
-
 
 %\hline
 productionStatusOfPro-\par cessedData&
@@ -1051,7 +1023,7 @@ filetype=2
 
 %\hline
 typeOfGeneratingPro- cess&
-I& 2 & &
+I& -1 & &
 Type of generating process \\
 - GRIB2 code table 4.3 &
 filetype=2
@@ -1059,9 +1031,56 @@ filetype=2
 
 %\hline
 typeOfProcessedData&
-I& 1 & &
+I& -1 & &
 Type of data \\
 - GRIB2 code table 1.4 &
+filetype=2
+\tabularnewline
+
+%\hline
+localDefinitionNumber&
+I& -1 & &
+local Definition Number\\
+- GRIB2 code table grib2LocalSectionNumber.78.table &
+filetype=2
+\tabularnewline
+
+%\hline
+localNumberOfExperi- ment&
+I& 1 & &
+local Number of Experiment &
+filetype=2
+\tabularnewline
+
+%\hline
+localTypeOfEnsemble-\par Forecast&
+I& -1 & &
+Local definiton for ensemble products
+(only set if value changed from default) &
+filetype=2
+\tabularnewline
+
+lspecialdate\_invar&
+L& .FALSE. &&
+Special reference date for invariant and climatological fields\\
+.TRUE.: set special reference date 0001-01-01, 00:00\\
+.FASLE.: no special reference date &
+filetype = 2
+\tabularnewline
+
+%\hline
+ldate\_grib\_act&
+L& .TRUE. & &
+GRIB creation date\\
+.TRUE.: add creation date\\
+.FALSE.: add dummy date &
+filetype=2
+\tabularnewline
+
+%\hline
+lgribout\_24bit&
+L& .FALSE. & &
+If TRUE, write thermodynamic fields $\rho$, $\theta_{v}$, $T$, $p$ with 24bit precision instead of 16bit &
 filetype=2
 \tabularnewline
 
@@ -1173,7 +1192,7 @@ n\_dom$>$1
 %\hline
 lredgrid\_phys &
 L & .FALSE.& &
-If set to .true.  is calculated on a reduced grid (= one grid level higher) &
+If set to .true. radiation is calculated on a reduced grid (= one grid level higher) &
 \tabularnewline
 
 %\hline
@@ -1186,7 +1205,7 @@ May contain the keyword \texttt{<path>} which will be substituted by
 
 %\hline
 \textbf{dynamics\_parent\_ grid\_id} &
-I & & &
+I(n\_dom) & $i-1$& &
 Array of the indexes of the parent grid filenames, as described by the dynamics\_grid\_filename array.
 Indexes start at 1, an index of 0 indicates no parent. &
 \tabularnewline
@@ -1198,12 +1217,12 @@ Array of the grid filenames to be used for the radiation model.
 Filled only if the radiation grid is different from the dycore grid.
 May contain the keyword \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}.
-&
+& lredgrid\_phys=.TRUE.
 \tabularnewline
 
 %\hline
 \textbf{dynamics\_radiation\_g rid\_link} &
-I & & &
+I(n\_dom) & 1 for i=1 & &
 Array of the indexes linking the dycore grids, as described by the dynamics\_grid\_filename array,
 and the radiation\_grid\_filename array. It provides the link index of the radiation\_grid\_filename,
 for each entry of the dynamics\_grid\_filename array.
@@ -1219,8 +1238,21 @@ L & .FALSE. & &
 
 %\hline
 vertical\_grid\_filename &
-C (n\_dom) & & &
-Array of filenames. These files contain the vertical grid definition (\texttt{vct\_a}, \texttt{vct\_b}, \texttt{z\_ifc}. &
+C(n\_dom) & & &
+Array of filenames. These files contain the vertical grid definition (\texttt{vct\_a}, \texttt{vct\_b}, \texttt{z\_ifc}). 
+If empty, the vertical grid is created within ICON during the setup phase.&
+\tabularnewline
+
+%\hline
+use\_duplicated\_\par connectivity &
+L & .TRUE. & &
+if .TRUE., the zero connectivity is replaced by the last non-zero value&
+\tabularnewline
+
+%\hline
+use\_dummy\_cell\_closure &
+L & .FALSE. & &
+if .TRUE. then create a dummy cell and connect it to cells and edges with no neighbor&
 \tabularnewline
 
 \end{longtab}
@@ -1306,7 +1338,7 @@ n\_dom$>$1\tabularnewline
 
 %\hline
 rbf\_scale\_grf\_e&
-R& 0.5& &
+R(n\_dom)& 0.5& &
 RBF scale factor for grid refinement (edges)&
 n\_dom$>$1\tabularnewline
 
@@ -1454,7 +1486,7 @@ and dynamics\_nml:iequations=IHS\_ATM\_TEMP or IHS\_ATM\_THETA.
 
 %\hline
 \textbf{itime\_scheme}&
-I& 4& &
+I& 14& &
 Time integration scheme:& \tabularnewline
 & & & & 11: pure advection (no dynamics)& \tabularnewline
 & & & & 12: 2 time level semi implicit (not yet implemented)&
@@ -1554,7 +1586,7 @@ iequations$\in$\{1,2\}
 
 %\hline
 \textbf{init\_mode}&
-I & 1& &
+I & 2& &
 1: start from DWD analysis \\
 2: start from IFS analysis \\
 3: combined mode: IFS atm + GME soil \\
@@ -1600,7 +1632,7 @@ l\_sst\_in&
 L & .TRUE.& &
 Logical switch. If true, the surface temperature of the water sea points is initialized
 with the SST provided in the ifs2icon file. If false, it is initialized with the skin
-temperature. If the SST is not provided in the ifs2icon file,l\_sst\_in is reset to false.  &
+temperature. If the SST is not provided in the ifs2icon file, l\_sst\_in is reset to false.  &
 init\_mode=2
 \tabularnewline
 
@@ -1614,7 +1646,7 @@ init\_mode=1,3
 
 %\hline
 l\_coarse2fine\_mode&
-L(max\_ dom) & .FALSE.& &
+L(n\_dom) & .FALSE.& &
 If true, apply corrections for coarse-to-fine mesh interpolation to wind and temperature &
 \tabularnewline
 
@@ -1668,8 +1700,8 @@ If this parameter has not been set, we try to determine the file type by its ext
 %\hline
 \textbf{ana\_varlist} &
 C& & &
-List of mandatory analysis fields that must be present in the analysis file. If these fields cannot be found in the analysis
-file, the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
+List of mandatory analysis fields that must be present in the analysis file. If these fields are not found, 
+the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
 & init\_mode=1
 \tabularnewline
 
@@ -1680,7 +1712,7 @@ C& & &
 Dictionary file which maps internal variable names onto
 GRIB2 shortnames or NetCDF var names.
 This is a text file with two columns separated by whitespace, where
-left column: ICON variable name, right column: GRIB short name.
+left column: ICON variable name, right column: GRIB2 short name.
 &
 \tabularnewline
 
@@ -1733,7 +1765,7 @@ conservative (T) or non-conservative (F) least-squares reconstruction for 2nd or
 
 %\hline
 nudge\_efold\_width&
-R& 2.5& &
+R& 2.0& &
 e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
 \tabularnewline
 
@@ -1763,9 +1795,9 @@ stencil size for direct lon-lat interpolation:
 rbf\_scale\_mode\_ll&
 I& 2& &
 Specifies, how the RBF shape parameter is
-determined for lon-lat interpolation.
-1 : lookup table based on grid level (default)
-2 : determine automatically.
+determined for lon-lat interpolation.\\
+1 : lookup table based on grid level\\
+2 : determine automatically.\\
 So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
 &
 \tabularnewline
@@ -1835,7 +1867,7 @@ Sync output stream with file on disk after each timestep&
 
 %\hline
 dt\_diag&
-R& 86400. & &
+R& 86400. & s&
 diagnostic integral output interval &
 \tabularnewline
 
@@ -1857,14 +1889,14 @@ inextra\_2d&
 I &
 0&&
 Number of extra 2D Fields for diagnostic/debugging output. &
-iequations = 3 {\color{red}(to be done for 1, 2)}
+dynamics\_nml:iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 %\hline
 inextra\_3d&
 I &
 0&&
 Number of extra 3D Fields for diagnostic/debugging output. &
-iequations = 3 {\color{red}(to be done for 1, 2)}
+dynamics\_nml:iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 
 %\hline
@@ -1934,7 +1966,7 @@ C&' '& &
  Names not covered by the mapping are output as they are. \\
  Note that the specification of output variables, e.\,g.\ in
  \texttt{ml\_varlist}, is independent from this renaming, see
- the namelist parameter \texttt{varnames\_map\_file} for this.
+ the namelist parameter \texttt{output\_nml\_dict} for this.
 &
 \texttt{output\_nml} namelists,
 NetCDF output
@@ -1943,9 +1975,21 @@ NetCDF output
 %\hline
 lzaxis\_reference&
 L& .TRUE. & &
-FALSE: use vertical axis ZAXIS\_HYBRID for 3D atmospheric fields\\
-TRUE: use vertical axis ZAXIS\_REFERENCE for 3D atmospheric fields &
-will be removed after some testing phase
+FALSE: encode vertical axis as ZAXIS\_HYBRID for 3D atmospheric fields\\
+TRUE: encode vertical axis as ZAXIS\_REFERENCE for 3D atmospheric fields &
+GRIB2-output (ZAXIS\_HYBRID will be removed after some testing phase)
+\tabularnewline
+
+%\hline
+restart\_file\_type&
+I&  4& &
+Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2) is allowed&
+\tabularnewline
+
+%\hline
+use\_set\_event\_to\_simstep&
+L&  & &
+Currently inactive&
 \tabularnewline
 
 %\hline
