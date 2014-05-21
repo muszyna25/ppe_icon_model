@@ -112,7 +112,7 @@ MODULE mo_mpi
 #endif
 
   USE mo_kind
-  USE mo_io_units, ONLY: nerr
+  USE mo_io_units,       ONLY: nerr
 
   IMPLICIT NONE
 
@@ -1013,7 +1013,7 @@ CONTAINS
         num_restart_procs = 0
       ENDIF
     ENDIF
-    IF(num_io_procs < 0) num_io_procs = 0 ! for safety only
+    IF(num_io_procs < 0) num_io_procs = 0           ! for safety only
     IF(num_restart_procs < 0) num_restart_procs = 0 ! for safety only
 
     ! -----------------------------------------
