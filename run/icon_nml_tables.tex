@@ -116,7 +116,7 @@ switch for generating planar grid. The root level consists of 8 triangles.&
 
 \end{longtab}
 
-Defined and used in: \verb+src/grid_generator/mo_io_grid.f90+
+Defined and used in: \verb+src/grid_generator/mo_grid_levels.f90+
 
 %-----------------------------------------------------------------------------
 % grid_options:
@@ -218,7 +218,7 @@ i\_type\_optimize = 4
 
 \end{longtab}
 
-Defined and used in: \verb+src/grid_generator/mo_io_grid.f90+
+Defined and used in: \verb+src/grid_generator/mo_grid_levels.f90+
 
 
 %-----------------------------------------------------------------------------
@@ -244,7 +244,7 @@ bisections. The double periodic root level consists of 8 triangles.
 The spatial coordinates are $-1<=x<=1$, and $-\sqrt{3}/2<=y<=\sqrt{3}/2$.
 Currently the planar option can only be used as an $f$-plane.
 
-\noindent Defined and used in: \verb+src/grid_generator/mo_io_grid.f90+
+\noindent Defined and used in: \verb+src/grid_generator/mo_grid_levels.f90+
 
 
 %-----------------------------------------------------------------------------
@@ -315,7 +315,7 @@ produces GMT plots showing the locations of the nested domains&
 %\hline
 \textbf{l\_circ}&
 L&
-.TRUE.&
+.FALSE.&
 &
 Create circular (.T.) or rectangular (.F.) refined domains &
 \tabularnewline
@@ -341,7 +341,7 @@ I&
 %\hline
 \textbf{bdy\_indexing\_depth}&
 I&
-max\_rlcell (=8)&
+12&
 &
 Number of cell rows along the lateral boundary of a model domain for which the refin\_ctrl
 fields contain the distance from the lateral boundary; needs to be enlarged when lateral
@@ -381,7 +381,7 @@ lcirc=.FALSE.
 %\hline
 \textbf{center\_lon}&
 R(n\_dom-1)&
-90.&
+30.&
 deg&
 center longitude of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
@@ -390,7 +390,7 @@ specified for each nested domain separately)&
 %\hline
 \textbf{center\_lat}&
 R(n\_dom-1)&
-30.&
+90.&
 deg&
 center latitude of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
@@ -414,7 +414,7 @@ I(n\_dom+ 1)&
 0&
 &
 sets the number of grid used in the netcdf header; the number of entries must be n\_dom+1
-because the first number refers to the radiation grid &
+since the first number refers to the radiation grid &
 \tabularnewline
 
 %\hline
@@ -422,7 +422,9 @@ centre&
 I&
 0&
 &
-centre running the grid generator: 78 - edzw (DWD), 252 - MPIM &
+centre running the grid generator \\
+78: EDZW (DWD)\\
+252: MPIM &
 \tabularnewline
 
 %\hline
@@ -445,6 +447,7 @@ Output name style\\
 
 \end{longtab}
 
+Defined and used in: \verb+src/grid_generator/mo_gridrefinement.f90+
 
 
 %MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
@@ -566,14 +569,11 @@ Order of $\nabla$ operator for diffusion:\\
 5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
 background diffusion as specified via hdiff\_efdt\_ratio&
 \tabularnewline
-& & & &
-defaults: 2 for hexagonal model, 4 for hydrostatic triangular model, 5 for nonhydrostatic triangular NH model&
-\tabularnewline
 & & & & 24 or 42: $\nabla{2}$ diffusion from model top to a certain level
 (cf. k2\_pres\_max and k2\_klev\_max below);
 $\nabla^{4}$ for the lower levels.  &
 24 and 42 currently allowed only in the hydrostatic atm model
-(run\_nml:iequation = 1 or 2).
+(dynamics\_nml:iequations = 1 or 2).
 \tabularnewline
 
 %\hline
@@ -596,7 +596,7 @@ Discretization of temperature diffusion: \\
 k2\_pres\_max&
 R& -99.& Pa &
 Pressure level above which $\nabla^2$ diffusion is applied.&
-hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
+hdiff\_order = 24 or 42, and dynamics\_nml:iequations = 1 or 2.
 \tabularnewline
 
 %\hline
@@ -607,15 +607,14 @@ $\nabla^2$ diffusion is applied.
 If a positive value is specified for k2\_pres\_max,
 k2\_klev\_max is reset accordingly during the initialization
 of a model run.&
-hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2.
+hdiff\_order = 24 or 42, and dynamics\_nml:iequations = 1 or 2.
 \tabularnewline
 
 %\hline
 hdiff\_efdt\_ratio&
 R& 1.0 (hydro) \\ 36.0 (NH) & &
 ratio of e-folding time to time step (or 2{*} time step when using
-a 3 time level time stepping scheme) (only for triangles currently;
-for triangular NH model, values above 30 are recommended when using hdiff\_order=5) &
+a 3 time level time stepping scheme) (for triangular NH model, values above 30 are recommended when using hdiff\_order=5) &
 \tabularnewline
 
 %\hline
@@ -647,7 +646,7 @@ n\_dom$>$1\tabularnewline
 \textbf{hdiff\_smag\_fac}&
 R& 0.15 (hydro) \\ 0.015 (NH)& &
 Scaling factor for Smagorinsky diffusion&
-for triangles only with iequations=3, for hexagons with hdiff\_order=3
+iequations=3
 \tabularnewline
 
 \end{longtab}
@@ -665,7 +664,7 @@ This namelist is relevant if run\_nml:ldynamics=.TRUE.
 
 %\hline
 \textbf{iequations}&
-I& 1& &
+I& 3& &
 Equations and prognostic variables. Use positive indices for the atmosphere
 and negative indices for the ocean.&\tabularnewline
 &&&&0: shallow water model&\tabularnewline
@@ -681,8 +680,8 @@ idiv\_method &
 I& 1& &
 Method for divergence computation:&
 \tabularnewline
-& & & & 1: Standard Gaussian integral. Hydrostatic atm.~model:
-for unaveraged normal components,
+& & & & 1: Standard Gaussian integral. \\
+Hydrostatic atm.~model: for unaveraged normal components\\
 Non-hydrostatic atm.~model: for averaged normal components &
 \tabularnewline
 & & & & 2: bilinear averaging of divergence& \tabularnewline
@@ -695,16 +694,16 @@ idiv\_method= 2
 \tabularnewline
 
 %\hline
+lcoriolis &
+L & .TRUE.& &
+Coriolis force&
+\tabularnewline
+
+%\hline
 sw\_ref\_height &
 R &  0.9* 2.94e4/g & m &
 Reference height of shallow water model used for
 linearization in the semi-implicit time stepping scheme&
-\tabularnewline
-
-%\hline
-lcoriolis &
-L & .TRUE.& &
-Coriolis force&
 \tabularnewline
 
 \end{longtab}
