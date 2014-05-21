@@ -132,12 +132,12 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
 !<Optimize_Used>
-  SUBROUTINE update_surface_flux(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime, p_op_coeff)
+  SUBROUTINE update_surface_flux(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, jstep, datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hydro_ocean_state)                   :: p_os
     TYPE(t_atmos_for_ocean)                     :: p_as
-    TYPE(t_atmos_fluxes)                        :: Qatm
+    TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_sea_ice)                             :: p_ice
     TYPE(t_sfc_flx)                             :: p_sfc_flx
     INTEGER, INTENT(IN)                         :: jstep
@@ -234,8 +234,8 @@ CONTAINS
     CASE (Atmo_FluxFromFile)                                          !  13
 
       ! 1) Read field data from file
-      ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
-      ! 3) CALL update_flux_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
+      ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, atmos_fluxes)
+      ! 3) CALL update_flux_from_atm_flx(p_patch, p_as, p_os, p_ice, atmos_fluxes, p_sfc_flx)
 
       CALL message(TRIM(routine), 'STOP: Ocean Forcing option 13 not implemented yet' )
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
@@ -247,7 +247,7 @@ CONTAINS
       !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
       !  and do a direct assignment of atmospheric state to surface fluxes.
       !
-      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, Qatm, jstep, datetime)
+      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, atmos_fluxes, jstep, datetime)
 
     CASE (Coupled_FluxFromFile)                                       !  15
       !1) bulk formula to atmospheric state and proceed as above, the only distinction
@@ -269,7 +269,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     ! #slo# 2014-05-02:  Comments on status
     !   - a clearly defined interface to the call of ice_fast and ice_slow is missing
-    !   - different heat/freshwater/windstress fluxes are provided on p_as, Qatm, p_sfc_flx
+    !   - different heat/freshwater/windstress fluxes are provided on p_as, atmos_fluxes, p_sfc_flx
     !     which are used at least partly for both, input and output to sea ice thermodynamics
     !   - for Analytical_Forcing we don't have any definition of necessary fluxes
     !     for calls  to bulk formula and/or to sea ice
@@ -285,41 +285,41 @@ CONTAINS
       !IF (iforc_type == 2 .OR. iforc_type == 5) THEN                         !  OMIP or NCEP
       !IF (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) THEN      !  TODO: cleanup
 
-      ! put things from the file into Qatm for later inport to p_sfc_flx, which where done in update_flux_fromFile
-      Qatm%topBoundCond_windStress_u(:,:) = p_as%topBoundCond_windStress_u(:,:)
-      Qatm%topBoundCond_windStress_v(:,:) = p_as%topBoundCond_windStress_v(:,:)
+      ! put things from the file into atmos_fluxes for later inport to p_sfc_flx, which where done in update_flux_fromFile
+      atmos_fluxes%topBoundCond_windStress_u(:,:) = p_as%topBoundCond_windStress_u(:,:)
+      atmos_fluxes%topBoundCond_windStress_v(:,:) = p_as%topBoundCond_windStress_v(:,:)
 
-      Qatm%FrshFlux_Precipitation(:,:)    = p_as%FrshFlux_Precipitation(:,:)
-      !Qatm%FrshFlux_Evaporation(:,:)      = p_as%FrshFlux_Evaporation(:,:)
-      Qatm%FrshFlux_Runoff(:,:)           = p_as%FrshFlux_Runoff(:,:)
-      Qatm%data_SurfRelax_Temp(:,:)       = p_as%data_SurfRelax_Temp(:,:)
-      !Qatm%data_SurfRelax_Salt(:,:)      = p_as%data_SurfRelax_Salt(:,:)
+      atmos_fluxes%FrshFlux_Precipitation(:,:)    = p_as%FrshFlux_Precipitation(:,:)
+      !atmos_fluxes%FrshFlux_Evaporation(:,:)      = p_as%FrshFlux_Evaporation(:,:)
+      atmos_fluxes%FrshFlux_Runoff(:,:)           = p_as%FrshFlux_Runoff(:,:)
+      atmos_fluxes%data_SurfRelax_Temp(:,:)       = p_as%data_SurfRelax_Temp(:,:)
+      !atmos_fluxes%data_SurfRelax_Salt(:,:)      = p_as%data_SurfRelax_Salt(:,:)
 
 
       ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
-      CALL calc_bulk_flux_oce(p_patch, p_as, p_os , Qatm, datetime)
+      CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
-      IF (i_sea_ice >= 1) CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
+      IF (i_sea_ice >= 1) CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes, datetime)
 
       ! evaporation results from latent heat flux, as provided by bulk formula using OMIP fluxes
       IF (forcing_enable_freshwater) THEN
 
-        ! under sea ice evaporation is neglected, Qatm%latw is flux in the absence of sea ice
+        ! under sea ice evaporation is neglected, atmos_fluxes%latw is flux in the absence of sea ice
         ! TODO: evaporation of ice and snow must be implemented
-        Qatm%FrshFlux_Evaporation(:,:) = Qatm%latw(:,:) / (alv*rho_ref)
-        Qatm%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
-        Qatm%FrshFlux_TotalOcean(:,:)  = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-          &                                  ( p_as%FrshFlux_Precipitation(:,:) + Qatm%FrshFlux_Evaporation(:,:) )
+        atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*rho_ref)
+        atmos_fluxes%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
+        atmos_fluxes%FrshFlux_TotalOcean(:,:)  = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
+          &                                  ( p_as%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:) )
 
         ! Precipitation on ice is snow when we're below the freezing point
         ! TODO: use 10 m temperature, not Tsurf - Also, do this in calc_bulk_flux_oce and calc_bulk_flux_ice
         WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
-          Qatm%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
-          Qatm%rprecw(:,:) = 0._wp
+          atmos_fluxes%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
+          atmos_fluxes%rprecw(:,:) = 0._wp
         ELSEWHERE
-          Qatm%rpreci(:,:) = 0._wp
-          Qatm%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
+          atmos_fluxes%rpreci(:,:) = 0._wp
+          atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
         ENDWHERE
 
         ! TODO:
@@ -335,20 +335,20 @@ CONTAINS
 
     CASE (Coupled_FluxFromAtmo)      !  14
 
-      ! Qatm is dircetly used in the coupling
-        Qatm%SWnetw (:,:)   = Qatm%HeatFlux_ShortWave(:,:)
-        Qatm%LWnetw (:,:)   = Qatm%HeatFlux_LongWave (:,:)
-        Qatm%sensw  (:,:)   = Qatm%HeatFlux_Sensible (:,:)
-        Qatm%latw   (:,:)   = Qatm%HeatFlux_Latent   (:,:)
+      ! atmos_fluxes is dircetly used in the coupling
+        atmos_fluxes%SWnetw (:,:)   = atmos_fluxes%HeatFlux_ShortWave(:,:)
+        atmos_fluxes%LWnetw (:,:)   = atmos_fluxes%HeatFlux_LongWave (:,:)
+        atmos_fluxes%sensw  (:,:)   = atmos_fluxes%HeatFlux_Sensible (:,:)
+        atmos_fluxes%latw   (:,:)   = atmos_fluxes%HeatFlux_Latent   (:,:)
 
      
       ! Precipitation on ice is snow when we're below the freezing point
         WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
-          Qatm%rpreci(:,:) = Qatm%FrshFlux_SnowFall(:,:)
-          Qatm%rprecw(:,:) = Qatm%FrshFlux_Precipitation(:,:)
+          atmos_fluxes%rpreci(:,:) = atmos_fluxes%FrshFlux_SnowFall(:,:)
+          atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:)
         ELSEWHERE
-          Qatm%rpreci(:,:) = 0._wp
-          Qatm%rprecw(:,:) = Qatm%FrshFlux_Precipitation(:,:) + Qatm%FrshFlux_SnowFall(:,:)
+          atmos_fluxes%rpreci(:,:) = 0._wp
+          atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_SnowFall(:,:)
         ENDWHERE
       ! END IF  !  sea ice
 
@@ -367,7 +367,7 @@ CONTAINS
 
     IF (i_sea_ice >= 1) THEN
 
-      CALL dbg_print('FlxFil: i-alb (bef ifast)'  ,Qatm%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: i-alb (bef ifast)'  ,atmos_fluxes%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -379,22 +379,22 @@ CONTAINS
           &   p_ice% hs   (:,:,jb),   &
           &   p_ice% Qtop (:,:,jb),   &
           &   p_ice% Qbot (:,:,jb),   & 
-          &   Qatm%SWnet  (:,:,jb),   &
-          &   Qatm%lat(:,:,jb) + Qatm%sens(:,:,jb) + Qatm%LWnet(:,:,jb),   & 
-          &   Qatm%dlatdT(:,:,jb) + Qatm%dsensdT(:,:,jb) + Qatm%dLWdT(:,:,jb),   & 
+          &   atmos_fluxes%SWnet  (:,:,jb),   &
+          &   atmos_fluxes%lat(:,:,jb) + atmos_fluxes%sens(:,:,jb) + atmos_fluxes%LWnet(:,:,jb),   & 
+          &   atmos_fluxes%dlatdT(:,:,jb) + atmos_fluxes%dsensdT(:,:,jb) + atmos_fluxes%dLWdT(:,:,jb),   & 
           &   Tfw         (:,  jb),   &
-          &   Qatm%albvisdir(:,:,jb), &
-          &   Qatm%albvisdif(:,:,jb), &
-          &   Qatm%albnirdir(:,:,jb), &
-          &   Qatm%albnirdif(:,:,jb), &
+          &   atmos_fluxes%albvisdir(:,:,jb), &
+          &   atmos_fluxes%albvisdif(:,:,jb), &
+          &   atmos_fluxes%albnirdir(:,:,jb), &
+          &   atmos_fluxes%albnirdif(:,:,jb), &
           &   doy=datetime%yeaday)
       ENDDO
 
       ! Ocean albedo model
-      Qatm%albvisdirw = albedoW_sim
-      Qatm%albvisdifw = albedoW_sim
-      Qatm%albnirdirw = albedoW_sim
-      Qatm%albnirdifw = albedoW_sim
+      atmos_fluxes%albvisdirw = albedoW_sim
+      atmos_fluxes%albvisdifw = albedoW_sim
+      atmos_fluxes%albnirdirw = albedoW_sim
+      atmos_fluxes%albnirdifw = albedoW_sim
 
       ! #slo# 2012-12:
       ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
@@ -414,19 +414,19 @@ CONTAINS
       CALL dbg_print('FlxFil: TSurf before slow' ,p_ice%tsurf    ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('FlxFil: Qtop  before slow' ,p_ice%Qtop     ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('FlxFil: Qbot  before slow' ,p_ice%Qbot     ,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('FlxFil: i-alb before slow' ,Qatm%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('FlxFil: i-alb before slow' ,atmos_fluxes%albvisdir ,str_module,4, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
-      CALL ice_slow(p_patch_3D, p_os, p_ice, Qatm, p_op_coeff)
+      CALL ice_slow(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
 
       ! provide total salinity forcing flux
       !IF ( forcing_enable_freshwater .AND. (iforc_type == 2 .OR. iforc_type == 5) ) THEN
       !IF ( forcing_enable_freshwater .AND. (forcing_fluxes_type > 0 .AND. forcing_fluxes_type < 101 ) ) THEN
       IF ( forcing_enable_freshwater) THEN
 
-        Qatm%FrshFlux_TotalSalt(:,:) = Qatm%FrshFlux_Runoff(:,:) &
-          &                          + Qatm%FrshFlux_TotalIce(:,:) &
-          &                          + Qatm%FrshFlux_TotalOcean(:,:)
+        atmos_fluxes%FrshFlux_TotalSalt(:,:) = atmos_fluxes%FrshFlux_Runoff(:,:) &
+          &                          + atmos_fluxes%FrshFlux_TotalIce(:,:) &
+          &                          + atmos_fluxes%FrshFlux_TotalOcean(:,:)
 
       ENDIF
 
@@ -444,9 +444,9 @@ CONTAINS
       !  - apply wind stress
       ! #slo# 2014-04-30: these lines are unclear - different results
       ! TODO: check wind stress with/without sea ice model and with/without sea ice dynamics
-      !       is it OMIP windstress (over open water) or the calculated Qatm%stress_xw from calc_bulk_flux_oce
-      p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%stress_xw(:,:)
-      p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%stress_yw(:,:)
+      !       is it OMIP windstress (over open water) or the calculated atmos_fluxes%stress_xw from calc_bulk_flux_oce
+      p_sfc_flx%topBoundCond_windStress_u(:,:) = atmos_fluxes%stress_xw(:,:)
+      p_sfc_flx%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
      
       !  - no temperature relaxation
       type_surfRelax_Temp = 0   !  hack
@@ -457,10 +457,10 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
      
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
-            p_sfc_flx%HeatFlux_ShortWave(jc,jb) = Qatm%SWnetw(jc,jb) ! net SW radiation flux over water
-            p_sfc_flx%HeatFlux_LongWave (jc,jb) = Qatm%LWnetw(jc,jb) ! net LW radiation flux over water
-            p_sfc_flx%HeatFlux_Sensible (jc,jb) = Qatm%sensw (jc,jb) ! Sensible heat flux over water
-            p_sfc_flx%HeatFlux_Latent   (jc,jb) = Qatm%latw  (jc,jb) ! Latent heat flux over water
+            p_sfc_flx%HeatFlux_ShortWave(jc,jb) = atmos_fluxes%SWnetw(jc,jb) ! net SW radiation flux over water
+            p_sfc_flx%HeatFlux_LongWave (jc,jb) = atmos_fluxes%LWnetw(jc,jb) ! net LW radiation flux over water
+            p_sfc_flx%HeatFlux_Sensible (jc,jb) = atmos_fluxes%sensw (jc,jb) ! Sensible heat flux over water
+            p_sfc_flx%HeatFlux_Latent   (jc,jb) = atmos_fluxes%latw  (jc,jb) ! Latent heat flux over water
           ELSE
             p_sfc_flx%HeatFlux_ShortWave(jc,jb) = 0.0_wp
             p_sfc_flx%HeatFlux_LongWave (jc,jb) = 0.0_wp
@@ -477,8 +477,8 @@ CONTAINS
       ENDWHERE
      
       ! sum of fluxes for ocean boundary condition
-      Qatm%HeatFlux_Total(:,:) = Qatm%HeatFlux_ShortWave(:,:) + Qatm%HeatFlux_LongWave(:,:) &
-        &                      + Qatm%HeatFlux_Sensible(:,:)  + Qatm%HeatFlux_Latent(:,:)
+      atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:) + atmos_fluxes%HeatFlux_LongWave(:,:) &
+        &                      + atmos_fluxes%HeatFlux_Sensible(:,:)  + atmos_fluxes%HeatFlux_Latent(:,:)
 
     ENDIF  !  sea ice
 
@@ -487,27 +487,27 @@ CONTAINS
       IF (i_sea_ice >= 1) THEN
    
         ! ice_fast ic called from the atmosphere
-        CALL ice_slow(p_patch_3D, p_os, p_ice, Qatm, p_op_coeff)
+        CALL ice_slow(p_patch_3D, p_os, p_ice, atmos_fluxes, p_op_coeff)
         
         ! Sum of freshwater flux (for salt) F = P - E + Sn (no runoff yet included??)
-        Qatm%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-          &                                  (Qatm%FrshFlux_Precipitation(:,:) +                &
-          &                                   Qatm%FrshFlux_Evaporation(:,:) +                  &
-          &                                   Qatm%FrshFlux_SnowFall(:,:))
-        Qatm%FrshFlux_TotalSalt(:,:)  =  Qatm%FrshFlux_TotalOcean(:,:) + Qatm%FrshFlux_TotalIce(:,:)
+        atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
+          &                                  (atmos_fluxes%FrshFlux_Precipitation(:,:) +                &
+          &                                   atmos_fluxes%FrshFlux_Evaporation(:,:) +                  &
+          &                                   atmos_fluxes%FrshFlux_SnowFall(:,:))
+        atmos_fluxes%FrshFlux_TotalSalt(:,:)  =  atmos_fluxes%FrshFlux_TotalOcean(:,:) + atmos_fluxes%FrshFlux_TotalIce(:,:)
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
         !  done in mo_sea_ice:upper_ocean_TS
 
       ELSE
 
-        Qatm%topBoundCond_windStress_u(:,:) = Qatm%stress_xw(:,:)
-        Qatm%topBoundCond_windStress_v(:,:) = Qatm%stress_yw(:,:)
+        atmos_fluxes%topBoundCond_windStress_u(:,:) = atmos_fluxes%stress_xw(:,:)
+        atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
 
-        Qatm%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-          &                                 (Qatm%FrshFlux_Precipitation(:,:) +                 &
-          &                                  Qatm%FrshFlux_Evaporation(:,:) +                   &
-          &                                  Qatm%FrshFlux_SnowFall(:,:))
-        Qatm%FrshFlux_TotalSalt(:,:)  = Qatm%FrshFlux_TotalOcean(:,:)
+        atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
+          &                                 (atmos_fluxes%FrshFlux_Precipitation(:,:) +                 &
+          &                                  atmos_fluxes%FrshFlux_Evaporation(:,:) +                   &
+          &                                  atmos_fluxes%FrshFlux_SnowFall(:,:))
+        atmos_fluxes%FrshFlux_TotalSalt(:,:)  = atmos_fluxes%FrshFlux_TotalOcean(:,:)
 
       ENDIF
 
@@ -516,15 +516,15 @@ CONTAINS
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   CALL dbg_print('UpdSfc: hi aft.Bulk/Ice'  , p_ice%hi                 , str_module, 2, in_subset=p_patch%cells%owned)
   CALL dbg_print('UpdSfc: Conc.aft.Bulk/Ice', p_ice%conc               , str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk SW-flux'     , Qatm%HeatFlux_ShortWave  , str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk LW-flux'     , Qatm%HeatFlux_LongWave   , str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk Sens.  HF'   , Qatm%HeatFlux_Sensible   , str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk Latent HF'   , Qatm%HeatFlux_Latent     , str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('UpdSfc: Bulk Total  HF'   , Qatm%HeatFlux_Total      , str_module, 2, in_subset=p_patch%cells%owned)
-  CALL dbg_print('FlxFil: TotalSalt'        , Qatm%FrshFlux_TotalSalt  , str_module, 2, in_subset=p_patch%cells%owned)
-  CALL dbg_print('FlxFil: Evaporatiion'     , Qatm%FrshFlux_Evaporation, str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('FlxFil: FlxTotIce   '     , Qatm%FrshFlux_TotalIce   , str_module, 3, in_subset=p_patch%cells%owned)
-  CALL dbg_print('FlxFil: FlxTotOce   '     , Qatm%FrshFlux_TotalOcean , str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk SW-flux'     , atmos_fluxes%HeatFlux_ShortWave  , str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk LW-flux'     , atmos_fluxes%HeatFlux_LongWave   , str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk Sens.  HF'   , atmos_fluxes%HeatFlux_Sensible   , str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk Latent HF'   , atmos_fluxes%HeatFlux_Latent     , str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('UpdSfc: Bulk Total  HF'   , atmos_fluxes%HeatFlux_Total      , str_module, 2, in_subset=p_patch%cells%owned)
+  CALL dbg_print('FlxFil: TotalSalt'        , atmos_fluxes%FrshFlux_TotalSalt  , str_module, 2, in_subset=p_patch%cells%owned)
+  CALL dbg_print('FlxFil: Evaporatiion'     , atmos_fluxes%FrshFlux_Evaporation, str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('FlxFil: FlxTotIce   '     , atmos_fluxes%FrshFlux_TotalIce   , str_module, 3, in_subset=p_patch%cells%owned)
+  CALL dbg_print('FlxFil: FlxTotOce   '     , atmos_fluxes%FrshFlux_TotalOcean , str_module, 3, in_subset=p_patch%cells%owned)
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
@@ -536,29 +536,29 @@ CONTAINS
   !    p_sfc_flx%topBoundCond_windStress_u = p_ice_interface%windStress_u  !  modified in ice_slow
   !-----------------------------------------------------------------------
   ! fresh water
-  p_sfc_flx%FrshFlux_Precipitation(:,:) = Qatm%FrshFlux_Precipitation(:,:)
-  p_sfc_flx%FrshFlux_Evaporation(:,:)   = Qatm%FrshFlux_Evaporation(:,:)
-  p_sfc_flx%FrshFlux_SnowFall(:,:)      = Qatm%FrshFlux_SnowFall(:,:)
-  p_sfc_flx%FrshFlux_Runoff(:,:)        = Qatm%FrshFlux_Runoff(:,:)
-  p_sfc_flx%FrshFlux_TotalSalt(:,:)     = Qatm%FrshFlux_TotalSalt(:,:)
-  p_sfc_flx%FrshFlux_TotalIce(:,:)      = Qatm%FrshFlux_TotalIce(:,:)
-  p_sfc_flx%FrshFlux_TotalOcean(:,:)    = Qatm%FrshFlux_TotalOcean(:,:)
-  p_sfc_flx%FrshFlux_VolumeIce(:,:)     = Qatm%FrshFlux_VolumeIce(:,:)
-! p_sfc_flx%FrshFlux_VolumeTotal(:,:)   = Qatm%FrshFlux_VolumeTotal(:,:)
+  p_sfc_flx%FrshFlux_Precipitation(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:)
+  p_sfc_flx%FrshFlux_Evaporation(:,:)   = atmos_fluxes%FrshFlux_Evaporation(:,:)
+  p_sfc_flx%FrshFlux_SnowFall(:,:)      = atmos_fluxes%FrshFlux_SnowFall(:,:)
+  p_sfc_flx%FrshFlux_Runoff(:,:)        = atmos_fluxes%FrshFlux_Runoff(:,:)
+  p_sfc_flx%FrshFlux_TotalSalt(:,:)     = atmos_fluxes%FrshFlux_TotalSalt(:,:)
+  p_sfc_flx%FrshFlux_TotalIce(:,:)      = atmos_fluxes%FrshFlux_TotalIce(:,:)
+  p_sfc_flx%FrshFlux_TotalOcean(:,:)    = atmos_fluxes%FrshFlux_TotalOcean(:,:)
+  p_sfc_flx%FrshFlux_VolumeIce(:,:)     = atmos_fluxes%FrshFlux_VolumeIce(:,:)
+! p_sfc_flx%FrshFlux_VolumeTotal(:,:)   = atmos_fluxes%FrshFlux_VolumeTotal(:,:)
   ! Heat fluxes
-  p_sfc_flx%HeatFlux_ShortWave(:,:)     = Qatm%HeatFlux_ShortWave(:,:)
-  p_sfc_flx%HeatFlux_LongWave (:,:)     = Qatm%HeatFlux_LongWave (:,:)
-  p_sfc_flx%HeatFlux_Sensible (:,:)     = Qatm%HeatFlux_Sensible (:,:)
-  p_sfc_flx%HeatFlux_Latent   (:,:)     = Qatm%HeatFlux_Latent   (:,:)
-  p_sfc_flx%HeatFlux_Total    (:,:)     = Qatm%HeatFlux_Total    (:,:)
+  p_sfc_flx%HeatFlux_ShortWave(:,:)     = atmos_fluxes%HeatFlux_ShortWave(:,:)
+  p_sfc_flx%HeatFlux_LongWave (:,:)     = atmos_fluxes%HeatFlux_LongWave (:,:)
+  p_sfc_flx%HeatFlux_Sensible (:,:)     = atmos_fluxes%HeatFlux_Sensible (:,:)
+  p_sfc_flx%HeatFlux_Latent   (:,:)     = atmos_fluxes%HeatFlux_Latent   (:,:)
+  p_sfc_flx%HeatFlux_Total    (:,:)     = atmos_fluxes%HeatFlux_Total    (:,:)
   ! windstress
-  p_sfc_flx%topBoundCond_windStress_u(:,:) = Qatm%topBoundCond_windStress_u(:,:)
-  p_sfc_flx%topBoundCond_windStress_v(:,:) = Qatm%topBoundCond_windStress_v(:,:)
+  p_sfc_flx%topBoundCond_windStress_u(:,:) = atmos_fluxes%topBoundCond_windStress_u(:,:)
+  p_sfc_flx%topBoundCond_windStress_v(:,:) = atmos_fluxes%topBoundCond_windStress_v(:,:)
   ! surface relaxation
 
 
-  p_sfc_flx%data_surfRelax_Temp(:,:)       = Qatm%data_surfRelax_Temp(:,:)
- !p_sfc_flx%data_surfRelax_Salt(:,:)       = Qatm%data_surfRelax_Salt(:,:)
+  p_sfc_flx%data_surfRelax_Temp(:,:)       = atmos_fluxes%data_surfRelax_Temp(:,:)
+ !p_sfc_flx%data_surfRelax_Salt(:,:)       = atmos_fluxes%data_surfRelax_Salt(:,:)
   CALL dbg_print('TopBC : WS_u'         , p_sfc_flx%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
   CALL dbg_print('TopBC : WS_v'         , p_sfc_flx%topBoundCond_windStress_v, str_module, 3, in_subset=p_patch%cells%owned)
   CALL dbg_print('TopBC : HF_ShortWave' , p_sfc_flx%HeatFlux_ShortWave       , str_module, 3, in_subset=p_patch%cells%owned)
@@ -610,10 +610,10 @@ CONTAINS
     !
   ! IF (i_sea_ice >= 1) THEN
 
-  !   Qatm%SWnetw (:,:)   = p_sfc_flx%HeatFlux_ShortWave(:,:)
-  !   Qatm%LWnetw (:,:)   = p_sfc_flx%HeatFlux_LongWave(:,:)
+  !   atmos_fluxes%SWnetw (:,:)   = p_sfc_flx%HeatFlux_ShortWave(:,:)
+  !   atmos_fluxes%LWnetw (:,:)   = p_sfc_flx%HeatFlux_LongWave(:,:)
 
-  !   CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, Qatm, p_sfc_flx, p_op_coeff)
+  !   CALL ice_slow(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, p_op_coeff)
 
   !   ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%HeatFlux_Total
   !   !  done in mo_sea_ice:upper_ocean_TS
@@ -1469,13 +1469,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011). Originally written by D. Notz.
   !
-  SUBROUTINE update_flux_from_atm_flx(p_patch_3D, p_as, p_os, p_ice, Qatm, p_sfc_flx)
+  SUBROUTINE update_flux_from_atm_flx(p_patch_3D, p_as, p_os, p_ice, atmos_fluxes, p_sfc_flx)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
     TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
-    TYPE (t_atmos_fluxes),        INTENT (INOUT):: Qatm
+    TYPE (t_atmos_fluxes),        INTENT (INOUT):: atmos_fluxes
     TYPE(t_sfc_flx)                             :: p_sfc_flx
 
     !Local variables 
@@ -1508,25 +1508,25 @@ CONTAINS
           IF (p_ice% hi(jc,jb,i) > 0._wp)THEN
 
             p_sfc_flx%HeatFlux_Total(jc,jb)              &
-              & =  Qatm%sens(jc,jb,i) + Qatm%lat(jc,jb,i)& ! Sensible + latent heat flux at ice surface
-              & +  Qatm%LWnet(jc,jb,i)                   & ! net LW radiation flux over ice surface
-              & +  Qatm%bot(jc,jb,i)                       ! Ocean heat flux at ice bottom 
+              & =  atmos_fluxes%sens(jc,jb,i) + atmos_fluxes%lat(jc,jb,i)& ! Sensible + latent heat flux at ice surface
+              & +  atmos_fluxes%LWnet(jc,jb,i)                   & ! net LW radiation flux over ice surface
+              & +  atmos_fluxes%bot(jc,jb,i)                       ! Ocean heat flux at ice bottom 
                                                            ! liquid/solid  precipitation rate
             !                                                are zero
 
             !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-            z_evap(jc,jb) = Qatm%lat(jc,jb,i)/(als*z_rho_w)
+            z_evap(jc,jb) = atmos_fluxes%lat(jc,jb,i)/(als*z_rho_w)
 
           ELSE
 
             p_sfc_flx%HeatFlux_Total(jc,jb)            &
-            & =  Qatm%sensw(jc,jb) + Qatm%latw(jc,jb)  & ! Sensible + latent heat flux over water
-            & +  Qatm%LWnetw(jc,jb)                    & ! net LW radiation flux over water
-            & +  Qatm%SWnetw(jc,jb)                      ! net SW radiation flux ove water
+            & =  atmos_fluxes%sensw(jc,jb) + atmos_fluxes%latw(jc,jb)  & ! Sensible + latent heat flux over water
+            & +  atmos_fluxes%LWnetw(jc,jb)                    & ! net LW radiation flux over water
+            & +  atmos_fluxes%SWnetw(jc,jb)                      ! net SW radiation flux ove water
                                                          ! liquid/solid  precipitation rate are zero
 
            !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-            z_evap(jc,jb) = Qatm%latw(jc,jb)/(alv*z_rho_w)
+            z_evap(jc,jb) = atmos_fluxes%latw(jc,jb)/(alv*z_rho_w)
           ENDIF
         END DO
 
@@ -1536,7 +1536,7 @@ CONTAINS
         !calculate evaporation from latent heat flux and latent heat of vaporisation
         !This is (63) in Marsland et al.
         !+River runoff +glacial meltwater
-        z_Q_freshwater(jc,jb) = (Qatm%rpreci(jc,jb) + Qatm%rprecw(jc,jb)) -  z_evap(jc,jb)  
+        z_Q_freshwater(jc,jb) = (atmos_fluxes%rpreci(jc,jb) + atmos_fluxes%rprecw(jc,jb)) -  z_evap(jc,jb)  
 
         !Now the freshwater flux calculation is finished; this is (65) in Marsland et al.
         !Relaxation of top layer salinity to observed salinity

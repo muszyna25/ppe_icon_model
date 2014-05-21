@@ -393,7 +393,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
-    TYPE(t_atmos_fluxes)                        :: atmos_fluxes !Qatm
+    TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
     INTEGER, INTENT(in)                         :: jstep
     TYPE(t_datetime), INTENT(inout)             :: datetime
     !

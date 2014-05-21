@@ -120,7 +120,7 @@ CONTAINS
 !! Developed by Einar Olason, MPI-M (2013-06-05)
 !!
 
-  SUBROUTINE fem_ice_wrap( p_patch_3D, p_ice, p_os, Qatm, p_op_coeff )
+  SUBROUTINE fem_ice_wrap( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
 
     USE mo_ice,      ONLY: u_ice, v_ice, m_ice, a_ice, m_snow, u_w, v_w, &
       &   stress_atmice_x, stress_atmice_y, elevation, sigma11, sigma12, sigma22
@@ -129,7 +129,7 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
     TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
     TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
-    TYPE (t_atmos_fluxes),    INTENT(IN)     :: Qatm
+    TYPE (t_atmos_fluxes),    INTENT(IN)     :: atmos_fluxes
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
     ! Local variables
@@ -210,8 +210,8 @@ CONTAINS
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          CALL gvec2cvec(  Qatm%stress_x(jc,jb),                &
-                         & Qatm%stress_y(jc,jb),                &
+          CALL gvec2cvec(  atmos_fluxes%stress_x(jc,jb),                &
+                         & atmos_fluxes%stress_y(jc,jb),                &
                          & p_patch%cells%center(jc,jb)%lon,     &
                          & p_patch%cells%center(jc,jb)%lat,     &
                          & p_tau_n_c(jc,jb)%x(1),               &
@@ -1137,11 +1137,11 @@ CONTAINS
   !! @par Revision History
   !! Developed by Einar Olason, MPI-M (2013-06-05)
   !
-  SUBROUTINE ice_ocean_stress( p_patch, Qatm, p_ice, p_os )
+  SUBROUTINE ice_ocean_stress( p_patch, atmos_fluxes, p_ice, p_os )
     USE mo_ice_param,    ONLY: density_0
     USE mo_ice_iceparam, ONLY: C_d_io
     TYPE(t_patch), TARGET,    INTENT(IN)    :: p_patch
-    TYPE (t_atmos_fluxes),    INTENT(INOUT) :: Qatm
+    TYPE (t_atmos_fluxes),    INTENT(INOUT) :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
 
@@ -1175,14 +1175,14 @@ CONTAINS
 
       ! Should we multiply with concSum here?
       tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
-      Qatm%topBoundCond_windStress_u(jc,jb) = Qatm%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+      atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
-      Qatm%topBoundCond_windStress_v(jc,jb) = Qatm%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
+      atmos_fluxes%topBoundCond_windStress_v(jc,jb) = atmos_fluxes%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delv
     ENDDO
   ENDDO
-  CALL sync_patch_array(SYNC_C, p_patch, Qatm%topBoundCond_windStress_u(:,:))
-  CALL sync_patch_array(SYNC_C, p_patch, Qatm%topBoundCond_windStress_v(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
+  CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
 
   END SUBROUTINE ice_ocean_stress
 

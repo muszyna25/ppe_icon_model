@@ -811,16 +811,16 @@ CONTAINS
     p_atm_f%albnirdifw(:,:) = albedoW_sim
 
     ! forcing of zonal component of velocity equation,
-    CALL add_var(ocean_default_list,'atmos_fluxes_topBoundCond_windStress_u', p_atm_f%topBoundCond_windStress_u,     &
+    CALL add_var(ocean_default_list,'atmos_fluxes_topBC_windStress_u', p_atm_f%topBoundCond_windStress_u,     &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('atmos_fluxes_topBoundCond_windStress_u', '', 'atmos_fluxes_topBoundCond_windStress_u', DATATYPE_FLT32),&
+      &          t_cf_var('atmos_fluxes_topBC_windStress_u', '', 'atmos_fluxes_topBoundCond_windStress_u', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     ! forcing of meridional component of velocity equation,
-    CALL add_var(ocean_default_list,'atmos_fluxes_topBoundCond_windStress_v', p_atm_f%topBoundCond_windStress_v,     &
+    CALL add_var(ocean_default_list,'atmos_fluxes_topBC_windStress_v', p_atm_f%topBoundCond_windStress_v,     &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('atmos_fluxes_topBoundCond_windStress_v', '', 'atmos_fluxes_topBoundCond_windStress_v', DATATYPE_FLT32),&
+      &          t_cf_var('atmos_fluxes_topBC_windStress_v', '', 'atmos_fluxes_topBoundCond_windStress_v', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
@@ -1037,12 +1037,12 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_init( p_patch_3D, p_os, ice ) !, Qatm, QatmAve)
+  SUBROUTINE ice_init( p_patch_3D, p_os, ice ) !, atmos_fluxes, atmos_fluxesAve)
     TYPE(t_patch_3D), TARGET, INTENT(in)  :: p_patch_3D
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
-    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxes
+    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxesAve
 
     !local variables
     REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks) :: &
@@ -1061,8 +1061,8 @@ CONTAINS
     p_patch => p_patch_3D%p_patch_2D(n_dom)
 
     !Constructor basic init already done at this point
-    !   CALL alloc_mem_commo_ice (ice, Qatm, QatmAve)
-    !   CALL ice_zero            (ice, Qatm, QatmAve)
+    !   CALL alloc_mem_commo_ice (ice, atmos_fluxes, atmos_fluxesAve)
+    !   CALL ice_zero            (ice, atmos_fluxes, atmos_fluxesAve)
 
     ! FORALL(i=1:nproma, j=1:p_patch%alloc_cell_blocks, k=1:ice%kice)
     !    ice% hi    (i,j,k) = sictho (i,j)
@@ -1258,11 +1258,11 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_slow(p_patch_3D, p_os, ice, Qatm, p_op_coeff)
+  SUBROUTINE ice_slow(p_patch_3D, p_os, ice, atmos_fluxes, p_op_coeff)
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
     TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
     TYPE(t_sea_ice),          INTENT (INOUT) :: ice
-    TYPE(t_atmos_fluxes),     INTENT (INOUT) :: Qatm
+    TYPE(t_atmos_fluxes),     INTENT (INOUT) :: atmos_fluxes
     TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
 
     TYPE(t_patch), POINTER :: p_patch
@@ -1284,9 +1284,9 @@ CONTAINS
     CALL dbg_print('IceSlow: hi before groth' ,ice%hi ,str_module,4, in_subset=p_patch%cells%owned)
     ! #achim
     IF      ( i_ice_therm == 2 ) THEN
-      CALL ice_growth_winton    (p_patch, p_os, ice, Qatm%rpreci)!, Qatm%lat)
+      CALL ice_growth_winton    (p_patch, p_os, ice, atmos_fluxes%rpreci)!, atmos_fluxes%lat)
     ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
-      CALL ice_growth_zerolayer (p_patch, p_os, ice, Qatm%rpreci)
+      CALL ice_growth_zerolayer (p_patch, p_os, ice, atmos_fluxes%rpreci)
     END IF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1297,25 +1297,25 @@ CONTAINS
     CALL dbg_print('IceSlow: p_ice%v bef. dyn'    ,ice%v_prog ,str_module, idt_src, in_subset=p_patch%verts%owned)
     !---------------------------------------------------------------------
 
-    CALL upper_ocean_TS (p_patch,p_os,ice, Qatm)
+    CALL upper_ocean_TS (p_patch,p_os,ice, atmos_fluxes)
     CALL ice_conc_change(p_patch,ice, p_os)
 
-    CALL ice_ocean_stress( p_patch, Qatm, ice, p_os )
+    CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, Qatm, p_op_coeff )
+      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
       CALL ice_advection( p_patch_3D, p_op_coeff, ice )
     ELSE
       ice%u = 0._wp
       ice%v = 0._wp
     ENDIF
 
-    CALL ice_clean_up( p_patch_3D, ice, Qatm, p_os )
+    CALL ice_clean_up( p_patch_3D, ice, atmos_fluxes, p_os )
 
     !CALL ice_advection  (ice)
-    !CALL write_ice      (ice,Qatm,1,ie,je)
-    !CALL ice_zero       (ice, Qatm)
+    !CALL write_ice      (ice,atmos_fluxes,1,ie,je)
+    !CALL ice_zero       (ice, atmos_fluxes)
     !sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
     !sicomo = ice%conc (:,:,1)
     !sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
@@ -1331,8 +1331,8 @@ CONTAINS
     CALL dbg_print('IceSlow: p_os%prog(nnew)%vn',p_os%p_prog(nnew(1))%vn,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%u'       ,p_os%p_diag%u,          str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceSlow: p_os%diag%v'       ,p_os%p_diag%v,          str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,Qatm%topBoundCond_windStress_u, str_module,4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,Qatm%topBoundCond_windStress_v, str_module,4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-u' ,atmos_fluxes%topBoundCond_windStress_u,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceSlow: psfcFlx%windStr-v' ,atmos_fluxes%topBoundCond_windStress_v,str_module,4,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_ice_slow)
@@ -1347,10 +1347,10 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Einar Olason, MPI-M (2013-10).
   !!
-  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, Qatm, p_os )
+  SUBROUTINE ice_clean_up( p_patch_3D, p_ice, atmos_fluxes, p_os )
     TYPE(t_patch_3D),TARGET,   INTENT(IN)    :: p_patch_3D
     TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
-    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: Qatm
+    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
 
     ! Local variables
@@ -1389,15 +1389,15 @@ CONTAINS
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
             &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
             ! Volmue flux due to removal
-            Qatm%FrshFlux_VolumeIce(jc,jb) = Qatm%FrshFlux_VolumeIce(jc,jb) &
+            atmos_fluxes%FrshFlux_VolumeIce(jc,jb) = atmos_fluxes%FrshFlux_VolumeIce(jc,jb) &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)    & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)      ! Snow
             ! Tracer flux due to removal
-            Qatm%FrshFlux_TotalIce (jc,jb) = Qatm%FrshFlux_TotalIce (jc,jb)                      &
+            atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
               & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime) & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
             ! Heat flux due to removal
-            Qatm%HeatFlux_Total(jc,jb) = Qatm%HeatFlux_Total(jc,jb)   &
+            atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
               & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhoi/dtime          & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*alf*rhos/dtime            ! Snow
             p_ice%conc(jc,k,jb) = 0._wp
@@ -1425,26 +1425,26 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE get_atmos_fluxes (p_patch, p_os,p_as,ice, Qatm)
+  SUBROUTINE get_atmos_fluxes (p_patch, p_os,p_as,ice, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE (t_sea_ice),         INTENT(INOUT) :: ice
-    TYPE (t_atmos_fluxes),    INTENT(INOUT) :: Qatm
+    TYPE (t_atmos_fluxes),    INTENT(INOUT) :: atmos_fluxes
 
 !#ifdef coupled
-    !Qatm% SWin   =
-    !Qatm% LWin   =
-    !Qatm% sens   =
-    !Qatm% lat    =
-    !Qatm% dsensdT =
-    !Qatm% dlatdT  =
-    !Qatm% dLWdT   =
+    !atmos_fluxes% SWin   =
+    !atmos_fluxes% LWin   =
+    !atmos_fluxes% sens   =
+    !atmos_fluxes% lat    =
+    !atmos_fluxes% dsensdT =
+    !atmos_fluxes% dlatdT  =
+    !atmos_fluxes% dLWdT   =
 !#elif defined CORE
-    !CALL budget_core   (ice, Qatm)
+    !CALL budget_core   (ice, atmos_fluxes)
 !#else
-    CALL calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm)
-    CALL calc_bulk_flux_ice(p_patch, p_as, ice , Qatm)
+    CALL calc_bulk_flux_oce(p_patch, p_as, p_os, atmos_fluxes)
+    CALL calc_bulk_flux_ice(p_patch, p_as, ice , atmos_fluxes)
 !#endif
 
   END SUBROUTINE get_atmos_fluxes
@@ -1458,24 +1458,24 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE sum_fluxes        (Qatm, QatmAve)
-    TYPE (t_atmos_fluxes), INTENT (IN)    :: Qatm
-    TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+  SUBROUTINE sum_fluxes        (atmos_fluxes, atmos_fluxesAve)
+    TYPE (t_atmos_fluxes), INTENT (IN)    :: atmos_fluxes
+    TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxesAve
 
-    QatmAve % sens   (:,:,:) = QatmAve % sens   (:,:,:) + Qatm % sens   (:,:,:)
-    QatmAve % sensw  (:,:)   = QatmAve % sensw  (:,:)   + Qatm % sensw  (:,:)
-    QatmAve % lat    (:,:,:) = QatmAve % lat    (:,:,:) + Qatm % lat    (:,:,:)
-    QatmAve % latw   (:,:)   = QatmAve % latw   (:,:)   + Qatm % latw   (:,:)
-    QatmAve % LWout  (:,:,:) = QatmAve % LWout  (:,:,:) + Qatm % LWout  (:,:,:)
-    QatmAve % LWoutw (:,:)   = QatmAve % LWoutw (:,:)   + Qatm % LWoutw (:,:)
-    QatmAve % LWnet  (:,:,:) = QatmAve % LWnet  (:,:,:) + Qatm % LWnet  (:,:,:)
-    QatmAve % LWnetw (:,:)   = QatmAve % LWnetw (:,:)   + Qatm % LWnetw (:,:)
-    QatmAve % SWnet  (:,:,:) = QatmAve % SWnet  (:,:,:) + Qatm % SWnet  (:,:,:)
-    QatmAve % SWnetw (:,:)   = QatmAve % SWnetw (:,:)   + Qatm % SWnetw (:,:)
-    QatmAve % LWin   (:,:)   = QatmAve % LWin   (:,:)   + Qatm % LWin   (:,:)
-    QatmAve % rprecw (:,:)   = QatmAve % rprecw (:,:)   + Qatm % rprecw (:,:)
-    QatmAve % rpreci (:,:)   = QatmAve % rpreci (:,:)   + Qatm % rpreci (:,:)
-    QatmAve % counter        = QatmAve % counter + 1
+    atmos_fluxesAve % sens   (:,:,:) = atmos_fluxesAve % sens   (:,:,:) + atmos_fluxes % sens   (:,:,:)
+    atmos_fluxesAve % sensw  (:,:)   = atmos_fluxesAve % sensw  (:,:)   + atmos_fluxes % sensw  (:,:)
+    atmos_fluxesAve % lat    (:,:,:) = atmos_fluxesAve % lat    (:,:,:) + atmos_fluxes % lat    (:,:,:)
+    atmos_fluxesAve % latw   (:,:)   = atmos_fluxesAve % latw   (:,:)   + atmos_fluxes % latw   (:,:)
+    atmos_fluxesAve % LWout  (:,:,:) = atmos_fluxesAve % LWout  (:,:,:) + atmos_fluxes % LWout  (:,:,:)
+    atmos_fluxesAve % LWoutw (:,:)   = atmos_fluxesAve % LWoutw (:,:)   + atmos_fluxes % LWoutw (:,:)
+    atmos_fluxesAve % LWnet  (:,:,:) = atmos_fluxesAve % LWnet  (:,:,:) + atmos_fluxes % LWnet  (:,:,:)
+    atmos_fluxesAve % LWnetw (:,:)   = atmos_fluxesAve % LWnetw (:,:)   + atmos_fluxes % LWnetw (:,:)
+    atmos_fluxesAve % SWnet  (:,:,:) = atmos_fluxesAve % SWnet  (:,:,:) + atmos_fluxes % SWnet  (:,:,:)
+    atmos_fluxesAve % SWnetw (:,:)   = atmos_fluxesAve % SWnetw (:,:)   + atmos_fluxes % SWnetw (:,:)
+    atmos_fluxesAve % LWin   (:,:)   = atmos_fluxesAve % LWin   (:,:)   + atmos_fluxes % LWin   (:,:)
+    atmos_fluxesAve % rprecw (:,:)   = atmos_fluxesAve % rprecw (:,:)   + atmos_fluxes % rprecw (:,:)
+    atmos_fluxesAve % rpreci (:,:)   = atmos_fluxesAve % rpreci (:,:)   + atmos_fluxes % rpreci (:,:)
+    atmos_fluxesAve % counter        = atmos_fluxesAve % counter + 1
 
   END SUBROUTINE sum_fluxes
   !-------------------------------------------------------------------------------
@@ -1489,29 +1489,29 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ave_fluxes (ice, QatmAve)
+  SUBROUTINE ave_fluxes (ice, atmos_fluxesAve)
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-    TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+    TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxesAve
     !
     !Local variables
     REAL(wp) :: ctr
 
     !-------------------------------------------------------------------------------
 
-    ctr = REAL(QatmAve% counter,wp)
-    QatmAve% sens   (:,:,:) = QatmAve% sens  (:,:,:)  / ctr
-    QatmAve% sensw  (:,:)   = QatmAve% sensw (:,:)    / ctr
-    QatmAve% lat    (:,:,:) = QatmAve% lat   (:,:,:)  / ctr
-    QatmAve% latw   (:,:)   = QatmAve% latw  (:,:)    / ctr
-    QatmAve% LWout  (:,:,:) = QatmAve% LWout (:,:,:)  / ctr
-    QatmAve% LWoutw (:,:)   = QatmAve% LWoutw(:,:)    / ctr
-    QatmAve% LWnet  (:,:,:) = QatmAve% LWnet (:,:,:)  / ctr
-    QatmAve% LWnetw (:,:)   = QatmAve% LWnetw(:,:)    / ctr
-    QatmAve% SWnet  (:,:,:) = QatmAve% SWnet (:,:,:)  / ctr
-    QatmAve% SWnetw (:,:)   = QatmAve% SWnetw(:,:)    / ctr
-    QatmAve% LWin   (:,:)   = QatmAve% LWin  (:,:)    / ctr
-    QatmAve% rprecw (:,:)   = QatmAve% rprecw(:,:)    / ctr
-    QatmAve% rpreci (:,:)   = QatmAve% rpreci(:,:)    / ctr
+    ctr = REAL(atmos_fluxesAve% counter,wp)
+    atmos_fluxesAve% sens   (:,:,:) = atmos_fluxesAve% sens  (:,:,:)  / ctr
+    atmos_fluxesAve% sensw  (:,:)   = atmos_fluxesAve% sensw (:,:)    / ctr
+    atmos_fluxesAve% lat    (:,:,:) = atmos_fluxesAve% lat   (:,:,:)  / ctr
+    atmos_fluxesAve% latw   (:,:)   = atmos_fluxesAve% latw  (:,:)    / ctr
+    atmos_fluxesAve% LWout  (:,:,:) = atmos_fluxesAve% LWout (:,:,:)  / ctr
+    atmos_fluxesAve% LWoutw (:,:)   = atmos_fluxesAve% LWoutw(:,:)    / ctr
+    atmos_fluxesAve% LWnet  (:,:,:) = atmos_fluxesAve% LWnet (:,:,:)  / ctr
+    atmos_fluxesAve% LWnetw (:,:)   = atmos_fluxesAve% LWnetw(:,:)    / ctr
+    atmos_fluxesAve% SWnet  (:,:,:) = atmos_fluxesAve% SWnet (:,:,:)  / ctr
+    atmos_fluxesAve% SWnetw (:,:)   = atmos_fluxesAve% SWnetw(:,:)    / ctr
+    atmos_fluxesAve% LWin   (:,:)   = atmos_fluxesAve% LWin  (:,:)    / ctr
+    atmos_fluxesAve% rprecw (:,:)   = atmos_fluxesAve% rprecw(:,:)    / ctr
+    atmos_fluxesAve% rpreci (:,:)   = atmos_fluxesAve% rpreci(:,:)    / ctr
     ice    % Qbot   (:,:,:) = ice    % Qbot  (:,:,:)  / ctr
     ice    % Qtop   (:,:,:) = ice    % Qtop  (:,:,:)  / ctr
 
@@ -1527,35 +1527,35 @@ CONTAINS
   !!
   SUBROUTINE ice_zero (ice)
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
-    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxes
+    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxesAve
 
-    !Qatm    % sens        (:,:,:) = 0._wp
-    !Qatm    % sensw       (:,:)   = 0._wp
-    !Qatm    % lat         (:,:,:) = 0._wp
-    !Qatm    % latw        (:,:)   = 0._wp
-    !Qatm    % LWout       (:,:,:) = 0._wp
-    !Qatm    % LWoutw      (:,:)   = 0._wp
-    !Qatm    % LWnet       (:,:,:) = 0._wp
-    !Qatm    % LWnetw      (:,:)   = 0._wp
-    !Qatm    % SWin        (:,:)   = 0._wp
-    !Qatm    % LWin        (:,:)   = 0._wp
-    !Qatm    % rprecw      (:,:)   = 0._wp
-    !Qatm    % rpreci      (:,:)   = 0._wp
+    !atmos_fluxes    % sens        (:,:,:) = 0._wp
+    !atmos_fluxes    % sensw       (:,:)   = 0._wp
+    !atmos_fluxes    % lat         (:,:,:) = 0._wp
+    !atmos_fluxes    % latw        (:,:)   = 0._wp
+    !atmos_fluxes    % LWout       (:,:,:) = 0._wp
+    !atmos_fluxes    % LWoutw      (:,:)   = 0._wp
+    !atmos_fluxes    % LWnet       (:,:,:) = 0._wp
+    !atmos_fluxes    % LWnetw      (:,:)   = 0._wp
+    !atmos_fluxes    % SWin        (:,:)   = 0._wp
+    !atmos_fluxes    % LWin        (:,:)   = 0._wp
+    !atmos_fluxes    % rprecw      (:,:)   = 0._wp
+    !atmos_fluxes    % rpreci      (:,:)   = 0._wp
 
-!    QatmAve % sens        (:,:,:) = 0._wp
-!    QatmAve % sensw       (:,:)   = 0._wp
-!    QatmAve % lat         (:,:,:) = 0._wp
-!    QatmAve % latw        (:,:)   = 0._wp
-!    QatmAve % LWout       (:,:,:) = 0._wp
-!    QatmAve % LWoutw      (:,:)   = 0._wp
-!    QatmAve % LWnet       (:,:,:) = 0._wp
-!    QatmAve % LWnetw      (:,:)   = 0._wp
-!    QatmAve % SWin        (:,:)   = 0._wp
-!    QatmAve % LWin        (:,:)   = 0._wp
-!    QatmAve % rprecw      (:,:)   = 0._wp
-!    QatmAve % rpreci      (:,:)   = 0._wp
-!    QatmAve % counter             = 0
+!    atmos_fluxesAve % sens        (:,:,:) = 0._wp
+!    atmos_fluxesAve % sensw       (:,:)   = 0._wp
+!    atmos_fluxesAve % lat         (:,:,:) = 0._wp
+!    atmos_fluxesAve % latw        (:,:)   = 0._wp
+!    atmos_fluxesAve % LWout       (:,:,:) = 0._wp
+!    atmos_fluxesAve % LWoutw      (:,:)   = 0._wp
+!    atmos_fluxesAve % LWnet       (:,:,:) = 0._wp
+!    atmos_fluxesAve % LWnetw      (:,:)   = 0._wp
+!    atmos_fluxesAve % SWin        (:,:)   = 0._wp
+!    atmos_fluxesAve % LWin        (:,:)   = 0._wp
+!    atmos_fluxesAve % rprecw      (:,:)   = 0._wp
+!    atmos_fluxesAve % rpreci      (:,:)   = 0._wp
+!    atmos_fluxesAve % counter             = 0
 
 !    ice     % Qbot        (:,:,:) = 0._wp
 !    ice     % Qtop        (:,:,:) = 0._wp
@@ -1668,11 +1668,11 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, Qatm)
+  SUBROUTINE upper_ocean_TS(p_patch, p_os,ice, atmos_fluxes)
     TYPE(t_patch),             INTENT(IN)    :: p_patch
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
     TYPE(t_sea_ice),           INTENT(INOUT) :: ice
-    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: Qatm
+    TYPE(t_atmos_fluxes),      INTENT(INOUT) :: atmos_fluxes
 
     !Local Variables
     ! position of ice-ocean interface below sea level                       [m]
@@ -1706,9 +1706,9 @@ CONTAINS
     ! Calculate change in water level 'zo' from liquid and solid precipitation and
     ! evaporation
     sss             (:,:)   = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    precw           (:,:)   = Qatm% rprecw (:,:)
-    preci           (:,:)   = Qatm% rpreci (:,:)
-    !evap            (:,:)   = (Qatm% latw(:,:)/ alv * dtime * &
+    precw           (:,:)   = atmos_fluxes% rprecw (:,:)
+    preci           (:,:)   = atmos_fluxes% rpreci (:,:)
+    !evap            (:,:)   = (atmos_fluxes% latw(:,:)/ alv * dtime * &
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
     
@@ -1735,9 +1735,9 @@ CONTAINS
 
     ! Calculate heat input through formerly ice covered and through open water areas
     heatOceI(:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
-    heatOceW(:,:) = ( Qatm%SWnetw(:,:)                       &
-      &         + Qatm%LWnetw(:,:) + Qatm%sensw(:,:)+     &
-      &                 Qatm%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
+    heatOceW(:,:) = ( atmos_fluxes%SWnetw(:,:)                       &
+      &         + atmos_fluxes%LWnetw(:,:) + atmos_fluxes%sensw(:,:)+     &
+      &                 atmos_fluxes%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) +        &
@@ -1762,11 +1762,11 @@ CONTAINS
     CALL dbg_print('UpperOceTS: newice   ', ice%newice   ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
 
-    ! Diagnosis: collect the 4 parts of heat fluxes into the Qatm cariables - no flux under ice:
-    Qatm%HeatFlux_ShortWave(:,:) = Qatm%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    Qatm%HeatFlux_LongWave (:,:) = Qatm%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    Qatm%HeatFlux_Sensible (:,:) = Qatm%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
-    Qatm%HeatFlux_Latent   (:,:) = Qatm%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    ! Diagnosis: collect the 4 parts of heat fluxes into the atmos_fluxes cariables - no flux under ice:
+    atmos_fluxes%HeatFlux_ShortWave(:,:) = atmos_fluxes%SWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    atmos_fluxes%HeatFlux_LongWave (:,:) = atmos_fluxes%LWnetw(:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    atmos_fluxes%HeatFlux_Sensible (:,:) = atmos_fluxes%sensw (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
+    atmos_fluxes%HeatFlux_Latent   (:,:) = atmos_fluxes%latw  (:,:)*(1.0_wp-sum(ice%conc(:,:,:),2))
 
     ! #slo# 2013-06
     ! Change of upper ocean temperature according to heat fluxes is done in vertical diffusion equation
@@ -1776,8 +1776,8 @@ CONTAINS
     !  &                                    + dtime*(heatOceI + heatOceW) /               &
     !  &                                    (clw*rho_ref * ice%zUnderIce)
     ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
-    !Qatm%topBoundCond_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
-    Qatm%HeatFlux_Total(:,:) = heatOceI(:,:) + heatOceW(:,:)
+    !atmos_fluxes%topBoundCond_Temp_vdiff = (heatOceI + heatOceW) / (clw*rho_ref)
+    atmos_fluxes%HeatFlux_Total(:,:) = heatOceI(:,:) + heatOceW(:,:)
 
     ! TODO:
     ! Temperature change of upper ocean grid cell due  to melt-water inflow and
@@ -1798,11 +1798,11 @@ CONTAINS
     ! #slo# 2013-06
     ! Change in salinity is calculated according to resulting freshwater flux due to sea ice change:
     !  - fw_ice_impl is flux in m/s >0 for Delhice<0, i.e. positive input of water = decrease of sea ice depth
-    !Qatm%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
+    !atmos_fluxes%forc_fwsice(:,:) = -Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/(rho_ref*dtime)
 
     ! Volmue flux
     ! Fixed 27. March
-    Qatm%FrshFlux_VolumeIce(:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)    & ! Ice melt
+    atmos_fluxes%FrshFlux_VolumeIce(:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)    & ! Ice melt
       &                                 -Delhsnow(:,:)*rhos/(rho_ref*dtime)    & ! Snow melt
       &                                 + precw(:,:)*ice%concSum(:,:)          & ! Rain goes through
       &                                 - ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation
@@ -1810,24 +1810,24 @@ CONTAINS
     ! Tracer flux
     ! Fixed 27. March
     WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
-      Qatm%FrshFlux_TotalIce (:,:) = precw(:,:)*ice%concSum(:,:)        & ! Rain goes through
+      atmos_fluxes%FrshFlux_TotalIce (:,:) = precw(:,:)*ice%concSum(:,:)        & ! Rain goes through
         &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
         &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                         & ! Snow melt
         &       - (1._wp-sice/sss(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation                       
     ENDWHERE
 
-    !heatabs         (:,:)   = swsum * Qatm% SWin(:,:) * (1 - ice%concsum)
+    !heatabs         (:,:)   = swsum * atmos_fluxes% SWin(:,:) * (1 - ice%concsum)
 
     ! set to zero on land points
     WHERE (v_base%lsm_c(:,1,:) > sea_boundary )
-      Qatm%HeatFlux_Total    (:,:) = 0.0_wp
-      Qatm%HeatFlux_ShortWave(:,:) = 0.0_wp
-      Qatm%HeatFlux_LongWave (:,:) = 0.0_wp
-      Qatm%HeatFlux_Sensible (:,:) = 0.0_wp
-      Qatm%HeatFlux_Latent   (:,:) = 0.0_wp
+      atmos_fluxes%HeatFlux_Total    (:,:) = 0.0_wp
+      atmos_fluxes%HeatFlux_ShortWave(:,:) = 0.0_wp
+      atmos_fluxes%HeatFlux_LongWave (:,:) = 0.0_wp
+      atmos_fluxes%HeatFlux_Sensible (:,:) = 0.0_wp
+      atmos_fluxes%HeatFlux_Latent   (:,:) = 0.0_wp
     END WHERE
 
-    CALL dbg_print('UpperOceTS: FwBcIce  ', Qatm%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: FwBcIce  ', atmos_fluxes%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
@@ -1956,13 +1956,13 @@ CONTAINS
   !   tracer(:,1,:,1)  :  SST
   !
   !  OUTPUT variables:
-  !   Qatm             :  heat fluxes, derivatives, wind stress
+  !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
   !
-  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, Qatm, datetime)
+  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
-    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
+    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
 
     TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
 
@@ -2046,8 +2046,8 @@ CONTAINS
     humi    = 0.39_wp - 0.05_wp*SQRT(esta/100._wp)
     fakts   =  1.0_wp - ( 0.5_wp + 0.4_wp/90._wp &
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou**2
-    Qatm%LWin(:,:) = 0._wp
-    Qatm%LWout(:,:,:) = 0._wp
+    atmos_fluxes%LWin(:,:) = 0._wp
+    atmos_fluxes%LWout(:,:,:) = 0._wp
 
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
@@ -2080,10 +2080,10 @@ CONTAINS
     ! Over sea ice area only
     DO i = 1, p_ice%kice
       WHERE (p_ice%hi(:,i,:)>0._wp)
-        Qatm%SWnet(:,i,:) = ( 1._wp-Qatm%albvisdir(:,i,:) )*fvisdir*p_as%fswr(:,:) +   &
-          &                 ( 1._wp-Qatm%albvisdif(:,i,:) )*fvisdif*p_as%fswr(:,:) +   &
-          &                 ( 1._wp-Qatm%albnirdir(:,i,:) )*fnirdir*p_as%fswr(:,:) +   &
-          &                 ( 1._wp-Qatm%albnirdif(:,i,:) )*fnirdif*p_as%fswr(:,:)
+        atmos_fluxes%SWnet(:,i,:) = ( 1._wp-atmos_fluxes%albvisdir(:,i,:) )*fvisdir*p_as%fswr(:,:) +   &
+          &                 ( 1._wp-atmos_fluxes%albvisdif(:,i,:) )*fvisdif*p_as%fswr(:,:) +   &
+          &                 ( 1._wp-atmos_fluxes%albnirdir(:,i,:) )*fnirdir*p_as%fswr(:,:) +   &
+          &                 ( 1._wp-atmos_fluxes%albnirdif(:,i,:) )*fnirdif*p_as%fswr(:,:)
         Tsurf(:,:)    = p_ice%Tsurf(:,i,:)
         fi(:,:)       = 1.0_wp+AAi+p_as%pao(:,:)*(BBi+CCi*Tsurf(:,:) **2)
         esti(:,:)     = fi(:,:)*ai*EXP((bi-Tsurf(:,:) /di)*Tsurf(:,:) /(Tsurf(:,:) +ci))
@@ -2097,28 +2097,28 @@ CONTAINS
 
         ! #eoo# 2012-12-14: another bugfix
         ! #slo# 2012-12-13: bugfix, corrected form
-        Qatm%LWnet (:,i,:)  = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+        atmos_fluxes%LWnet (:,i,:)  = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
            &                  - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
         ! same form as MPIOM:
-        !Qatm%LWnet (:,i,:)  = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+        !atmos_fluxes%LWnet (:,i,:)  = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
         !  &         + 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:)))
         ! bug
-        !Qatm%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
+        !atmos_fluxes%LWnet (:,i,:)  = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4 &
         !  &     - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
-        Qatm%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
-        Qatm%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
+        atmos_fluxes%dLWdT (:,i,:)  = -4._wp*zemiss_def*stbo*tafoK(:,:)**3
+        atmos_fluxes%sens  (:,i,:)  = drags(:,:) * rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
           &                    * (p_as%tafo(:,:) -Tsurf(:,:))
-        Qatm%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) * fr_fac &
+        atmos_fluxes%lat   (:,i,:)  = dragl(:,:) * rhoair(:,:)* alf *p_as%fu10(:,:) * fr_fac &
           &                   * (sphumida(:,:)-sphumidi(:,:))
 
-        Qatm%dsensdT(:,i,:) = 0.95_wp*cpd*rhoair(:,:)*p_as%fu10(:,:)&
+        atmos_fluxes%dsensdT(:,i,:) = 0.95_wp*cpd*rhoair(:,:)*p_as%fu10(:,:)&
           &                  *(dragl0(:,:) - 2.0_wp*dragl(:,:))
         dsphumididesti(:,:) = alpha/(p_as%pao(:,:)-beta*esti(:,:)) &
           &                   * (1.0_wp + beta*esti(:,:)/(p_as%pao(:,:)-beta*esti(:,:)))
         destidT(:,:)        = (bi*ci*di-Tsurf(:,:)*(2.0_wp*ci+Tsurf(:,:)))&
           &                   /(di*(ci+Tsurf(:,:))**2) * esti(:,:)
         dfdT(:,:)               = 2.0_wp*CCi*BBi*Tsurf(:,:)
-        Qatm%dlatdT(:,i,:)  = alf*rhoair(:,:)*p_as%fu10(:,:)* &
+        atmos_fluxes%dlatdT(:,i,:)  = alf*rhoair(:,:)*p_as%fu10(:,:)* &
           &                  ( (sphumida(:,:)-sphumidi(:,:))*dragl1(:,:) &
           &                    - dragl(:,:)*dsphumididesti(:,:)*(fi(:,:)*destidT(:,:) &
           &                    + esti(:,:)*dfdT(:,:)) )
@@ -2126,37 +2126,37 @@ CONTAINS
     ENDDO
 
     !Dirk: why zero ?
-    Qatm%rpreci(:,:) = 0.0_wp
-    Qatm%rprecw(:,:) = 0.0_wp
+    atmos_fluxes%rpreci(:,:) = 0.0_wp
+    atmos_fluxes%rprecw(:,:) = 0.0_wp
 
     !-----------------------------------------------------------------------
     !  Calculate ice wind stress
     !-----------------------------------------------------------------------
 
     wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
-    Qatm%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
-    Qatm%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
+    atmos_fluxes%stress_x(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%u(:,:)
+    atmos_fluxes%stress_y(:,:) = Cd_ia*rhoair(:,:)*wspeed(:,:)*p_as%v(:,:)
 
     ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
     IF ( PRESENT(datetime) ) THEN
       ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
         - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      Qatm%stress_x(:,:)  = ramp*Qatm%stress_x(:,:)
-      Qatm%stress_y(:,:)  = ramp*Qatm%stress_y(:,:)
+      atmos_fluxes%stress_x(:,:)  = ramp*atmos_fluxes%stress_x(:,:)
+      atmos_fluxes%stress_y(:,:)  = ramp*atmos_fluxes%stress_y(:,:)
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulkI:stress_x'       ,Qatm%stress_x   ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:stress_y'       ,Qatm%stress_y   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkI:stress_x'       ,atmos_fluxes%stress_x   ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkI:stress_y'       ,atmos_fluxes%stress_y   ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkI:tafoK'          ,tafoK           ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkI:sphumida'       ,sphumida        ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkI:rhoair'         ,rhoair          ,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('CalcBulkI:Tsurf ice'      ,Tsurf           ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:Qatm%LWnet ice' ,Qatm%LWnet      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:Qatm%sens ice'  ,Qatm%sens       ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkI:Qatm%lat ice'   ,Qatm%lat        ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkI:atmos_fluxes%LWnet ice' ,atmos_fluxes%LWnet      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkI:atmos_fluxes%sens ice'  ,atmos_fluxes%sens       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkI:atmos_fluxes%lat ice'   ,atmos_fluxes%lat        ,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_ice
@@ -2175,13 +2175,13 @@ CONTAINS
   !   p_as%ftdew
   !   tracer(:,1,:,1)  :  SST
   !  OUTPUT variables:
-  !   Qatm             :  heat fluxes, derivatives, wind stress
+  !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
    
-  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, Qatm, datetime)
+  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, atmos_fluxes, datetime)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
-    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
+    TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
 
     TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
 
@@ -2267,26 +2267,26 @@ CONTAINS
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou(:,:)**2
     ! NB: Lwin and LWoutw is a misleading nomenclature in this case, since
     ! Berliand & Berliand ('52) calculate only LWnetw
-    Qatm%LWin(:,:) = 0._wp
-    Qatm%LWoutw(:,:) = 0._wp
+    atmos_fluxes%LWin(:,:) = 0._wp
+    atmos_fluxes%LWoutw(:,:) = 0._wp
 
     ! #eoo# 2012-12-14: another bugfix
     ! #slo# #hha# 2012-12-13: bugfix, corrected form
-    Qatm%LWnetw(:,:) = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
+    atmos_fluxes%LWnetw(:,:) = - fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
       &                - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
     ! same form as MPIOM:
-    !Qatm%LWnetw(:,:) = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
+    !atmos_fluxes%LWnetw(:,:) = - (fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
     !  &         + 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:)))
     ! bug
-    !Qatm%LWnetw(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
+    !atmos_fluxes%LWnetw(:,:) = fakts(:,:) * humi(:,:) * zemiss_def*stbo * tafoK(:,:)**4  &
     !  &         - 4._wp*zemiss_def*stbo*tafoK(:,:)**3 * (Tsurf(:,:) - p_as%tafo(:,:))
 
     ! Fractions of SWin in each band (from cice)
     fvisdir=0.28_wp; fvisdif=0.24_wp; fnirdir=0.31_wp; fnirdif=0.17_wp
-    Qatm%SWnetw(:,:) = ( 1._wp-Qatm%albvisdirw(:,:) )*fvisdir*p_as%fswr(:,:) +   &
-      &                ( 1._wp-Qatm%albvisdifw(:,:) )*fvisdif*p_as%fswr(:,:) +   &
-      &                ( 1._wp-Qatm%albnirdirw(:,:) )*fnirdir*p_as%fswr(:,:) +   &
-      &                ( 1._wp-Qatm%albnirdifw(:,:) )*fnirdif*p_as%fswr(:,:)
+    atmos_fluxes%SWnetw(:,:) = ( 1._wp-atmos_fluxes%albvisdirw(:,:) )*fvisdir*p_as%fswr(:,:) +   &
+      &                ( 1._wp-atmos_fluxes%albvisdifw(:,:) )*fvisdif*p_as%fswr(:,:) +   &
+      &                ( 1._wp-atmos_fluxes%albnirdirw(:,:) )*fnirdir*p_as%fswr(:,:) +   &
+      &                ( 1._wp-atmos_fluxes%albnirdifw(:,:) )*fnirdif*p_as%fswr(:,:)
 
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
@@ -2316,9 +2316,9 @@ CONTAINS
     ! between the 2-m and surface temperatures.
     dragl(:,:)      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl(:,:)))
     drags(:,:)      = 0.95_wp * dragl(:,:)
-    Qatm%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
+    atmos_fluxes%sensw(:,:) = drags(:,:)*rhoair(:,:)*cpd*p_as%fu10(:,:) * fr_fac &
       &               * (p_as%tafo(:,:) -Tsurf(:,:))
-    Qatm%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) * fr_fac &
+    atmos_fluxes%latw(:,:)  = dragl(:,:)*rhoair(:,:)*alv*p_as%fu10(:,:) * fr_fac &
       &               * (sphumida(:,:)-sphumidw(:,:))
 
     !-----------------------------------------------------------------------
@@ -2329,21 +2329,21 @@ CONTAINS
 
     wspeed(:,:) = SQRT( p_as%u**2 + p_as%v**2 )
     C_ao(:,:)   = MIN( 2._wp, MAX(1.1_wp, 0.61_wp+0.063_wp*wspeed ) )*1e-3_wp
-    Qatm%stress_xw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%u(:,:)
-    Qatm%stress_yw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%v(:,:)
+    atmos_fluxes%stress_xw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%u(:,:)
+    atmos_fluxes%stress_yw(:,:) = C_ao(:,:)*rhoair*wspeed(:,:)*p_as%v(:,:)
 
     ! Ramp for wind-stress - needed for ice-ocean momentum coupling during spinup
     IF ( PRESENT(datetime) ) THEN
       ramp = MIN(1._wp,(datetime%calday + datetime%caltime &
         - time_config%ini_datetime%calday - time_config%ini_datetime%caltime) / ramp_wind)
-      Qatm%stress_xw(:,:) = ramp*Qatm%stress_xw(:,:)
-      Qatm%stress_yw(:,:) = ramp*Qatm%stress_yw(:,:)
+      atmos_fluxes%stress_xw(:,:) = ramp*atmos_fluxes%stress_xw(:,:)
+      atmos_fluxes%stress_yw(:,:) = ramp*atmos_fluxes%stress_yw(:,:)
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulkO:stress_xw'       ,Qatm%stress_xw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:stress_yw'       ,Qatm%stress_yw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:stress_xw'       ,atmos_fluxes%stress_xw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:stress_yw'       ,atmos_fluxes%stress_yw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:tafoK'           ,tafoK           ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:sphumida'        ,sphumida        ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:rhoair'          ,rhoair          ,str_module,idt_src, in_subset=p_patch%cells%owned)
@@ -2351,9 +2351,9 @@ CONTAINS
     CALL dbg_print('CalcBulkO:Tsurf ocean'     ,Tsurf           ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('CalcBulkO:Tsurf ocean (nnew)', &
       &     p_os%p_prog(nnew(1))%tracer(:,1,:,1), str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:Qatm%LWnetw'     ,Qatm%LWnetw     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:Qatm%sensw'      ,Qatm%sensw      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:Qatm%latw'       ,Qatm%latw       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:atmos_fluxes%LWnetw'     ,atmos_fluxes%LWnetw     ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:atmos_fluxes%sensw'      ,atmos_fluxes%sensw      ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:atmos_fluxes%latw'       ,atmos_fluxes%latw       ,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_oce

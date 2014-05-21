@@ -274,7 +274,7 @@ CONTAINS
   !>
   SUBROUTINE test_surface_flux( patch_3d, p_os, external_data, &
     & datetime, surface_fluxes, physics_parameters,              &
-    & p_as, Qatm, p_ice, operators_coefficients)
+    & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
@@ -283,7 +283,7 @@ CONTAINS
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE(t_ho_params)                                :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
-    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: Qatm
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
@@ -336,7 +336,7 @@ CONTAINS
 
       ! Set model time.
       CALL add_time(dtime,0,0,0,datetime)
-      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, Qatm, surface_fluxes, jstep, datetime, &
+      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
         &  operators_coefficients)
 
     END DO
