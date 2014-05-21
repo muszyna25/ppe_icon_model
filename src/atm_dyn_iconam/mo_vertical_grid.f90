@@ -1935,7 +1935,7 @@ MODULE mo_vertical_grid
     !divide by gravity to get z
     z_me = z_me / grav  
 
-    !Use the quadrilateral area to decide the les filter. 
+    !Use the  triangle area to decide the les filter. 
     max_dz = MAXVAL(p_nh%metrics%ddqz_z_full_e(:,nlev,:))
     max_dz = global_max(max_dz) 
     les_filter = les_config(1)%smag_constant*(max_dz*p_patch%geometry_info%mean_cell_area)**0.33333_wp
