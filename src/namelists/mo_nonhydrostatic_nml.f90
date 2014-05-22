@@ -112,7 +112,7 @@ MODULE mo_nonhydrostatic_nml
                                      ! advected with internal substepping (to circumvent CFL 
                                      ! instability in the stratopause region).
 
-  REAL(wp):: rayleigh_type           ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
+  INTEGER :: rayleigh_type           ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
   REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
   REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
@@ -208,7 +208,7 @@ CONTAINS
     hbot_qvsubstep  = 22500._wp
 
     ! type of Rayleigh damping
-    rayleigh_type     = 2._wp           ! Klemp-type Rayleigh damping
+    rayleigh_type     = 2           ! Klemp-type Rayleigh damping
     ! Rayleigh damping of w above 45 km
     damp_height(1)    = 45000.0_wp
     ! Corresponding damping coefficient
