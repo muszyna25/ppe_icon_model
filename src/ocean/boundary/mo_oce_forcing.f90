@@ -66,7 +66,7 @@ MODULE mo_oce_forcing
   USE mo_math_constants,      ONLY: pi, deg2rad, pi_2
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, success
   USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec, t_cartesian_coordinates
-  USE mo_sea_ice_types,       ONLY: t_sfc_flx
+  USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes
   USE mo_oce_state,           ONLY: set_oce_tracer_info
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_dynamics_config,     ONLY: nold
@@ -671,21 +671,22 @@ CONTAINS
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
 !<Optimize_Used>
-  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, p_sfc_flx)
+  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, p_sfc_flx, atmos_fluxes)
     !
     TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_sfc_flx)                         :: p_sfc_flx
+    TYPE(t_atmos_fluxes)                    :: atmos_fluxes
 
     TYPE(t_subset_range), POINTER :: all_cells
 
     all_cells => patch_3d%p_patch_2d(1)%cells%All
 
-    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%topBoundCond_windStress_u,&
+    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, atmos_fluxes%topBoundCond_windStress_u,&
       & forcing_windStress_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
-    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, p_sfc_flx%topBoundCond_windStress_v,&
+    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, atmos_fluxes%topBoundCond_windStress_v,&
       & forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     IF (init_oce_relax > 0) THEN

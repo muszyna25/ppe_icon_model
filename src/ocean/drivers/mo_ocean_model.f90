@@ -480,7 +480,7 @@ CONTAINS
 !<Optimize_Used>
   SUBROUTINE construct_ocean_states(patch_3d, p_os, external_data, p_sfc_flx, &
     & p_phys_param, p_as,&
-    & p_atm_f, p_ice, p_op_coeff, solverCoeff_sp)
+    & atmos_fluxes, p_ice, p_op_coeff, solverCoeff_sp)
 
     TYPE(t_patch_3d ),TARGET,   INTENT(inout)  :: patch_3d
     TYPE(t_hydro_ocean_state),  INTENT(inout)  :: p_os(n_dom)
@@ -488,7 +488,7 @@ CONTAINS
     TYPE(t_sfc_flx),            INTENT(inout)  :: p_sfc_flx
     TYPE(t_ho_params),          INTENT(inout)  :: p_phys_param
     TYPE(t_atmos_for_ocean ),   INTENT(inout)  :: p_as
-    TYPE(t_atmos_fluxes ),      INTENT(inout)  :: p_atm_f
+    TYPE(t_atmos_fluxes ),      INTENT(inout)  :: atmos_fluxes
     TYPE(t_sea_ice),            INTENT(inout)  :: p_ice
     TYPE(t_operator_coeff),     INTENT(inout)  :: p_op_coeff
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
@@ -544,7 +544,7 @@ CONTAINS
 
     CALL construct_sea_ice(patch_3d, p_ice, kice)
     CALL construct_atmos_for_ocean(patch_3d%p_patch_2d(jg), p_as)
-    CALL construct_atmos_fluxes(patch_3d%p_patch_2d(jg), p_atm_f, kice)
+    CALL construct_atmos_fluxes(patch_3d%p_patch_2d(jg), atmos_fluxes, kice)
 
     CALL construct_ocean_forcing(patch_3d%p_patch_2d(jg),p_sfc_flx, ocean_default_list)
     CALL construct_ocean_coupling(ocean_patch_3d)
@@ -562,7 +562,8 @@ CONTAINS
     CALL init_ocean_forcing(patch_3d%p_patch_2d(1),  &
       &                     patch_3d, &
       &                     p_os(jg), &
-      &                     p_sfc_flx)
+      &                     p_sfc_flx, &
+      &                     atmos_fluxes)
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D, p_os(jg), p_ice)
 
