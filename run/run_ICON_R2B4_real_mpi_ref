@@ -283,7 +283,7 @@ cat > ${atmo_namelist} << EOF
  output         =  "nml"
 /
 &nwp_phy_nml
-inwp_gscp       = 10
+inwp_gscp       = 1
 inwp_convection = 1
 inwp_radiation  = 1
 inwp_cldcover   = 3

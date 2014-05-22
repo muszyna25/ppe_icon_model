@@ -225,7 +225,7 @@ cat >> ${atmo_namelist} << EOF
  decay_exp       = 1.2
 /
 &nwp_phy_nml
- inwp_gscp       = 10
+ inwp_gscp       = 1
  inwp_satad      = 1
  inwp_convection = 1
  inwp_cldcover   = 3        ! 0: no cld, 1: grid scale, 3: COSMO
