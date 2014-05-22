@@ -1377,7 +1377,7 @@ CONTAINS
      p1 = p
 
    ! correction factor for conversion of 1990 to 1968 temperature standard (IPTS-68 to IPTS-90)
-   ! the correction is less than 0.001 K in ocean water temperature range
+   ! the correction is less than 0.01 K in ocean water temperature range
    !  - T68 = 1.00024*T90
    !  - above mentioned CHECK VALUES of the paper are better met by this correction
      t1 = t*1.00024_wp
