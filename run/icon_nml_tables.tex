@@ -1599,6 +1599,12 @@ Time interval during which an incremental analysis update (IAU) is performed &
 init\_mode=5
 \tabularnewline
 
+rho\_incr\_filter\_wgt &
+R & 0 & s &
+Vertical filtering weight on density increments &
+init\_mode=5
+\tabularnewline
+
 %\hline
 type\_iau\_wgt&
 I & 1 &  &
@@ -3219,7 +3225,7 @@ C&\'' \''& &
 \tabularnewline
 
 %\hline
- \textbf{pe\_placement\_il}&
+ pe\_placement\_il &
 I(:)& -1 & &
 Advanced output option:
 Explicit assignment of output MPI ranks to the isentropic level output file.
@@ -3229,7 +3235,7 @@ See namelist parameter \texttt{pe\_placement\_ml} for further details.
 \tabularnewline
 
 %\hline
- \textbf{pe\_placement\_hl}&
+ pe\_placement\_hl &
 I(:)& -1 & &
 Advanced output option:
 Explicit assignment of output MPI ranks to the height level output file.
@@ -3239,7 +3245,7 @@ See namelist parameter \texttt{pe\_placement\_ml} for further details.
 \tabularnewline
 
 %\hline
- \textbf{pe\_placement\_ml }&
+ pe\_placement\_ml &
 I(:)& -1 & &
 Advanced output option:
 Explicit assignment of output MPI ranks to the model level output file.
@@ -3252,7 +3258,7 @@ placed output files.
 \tabularnewline
 
 %\hline
- \textbf{pe\_placement\_pl}&
+ pe\_placement\_pl &
 I(:)& -1 & &
 Advanced output option:
 Explicit assignment of output MPI ranks to the pressure level output file.

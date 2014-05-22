@@ -62,6 +62,7 @@ MODULE mo_initicon_nml
     & config_dt_iau             => dt_iau,            &
     & config_type_iau_wgt       => type_iau_wgt,      &
     & config_ana_varlist        => ana_varlist,       &
+    & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
     & config_ana_varnames_map_file => ana_varnames_map_file
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -97,6 +98,8 @@ MODULE mo_initicon_nml
                             ! 1: Top-hat
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_DWDANA_INC
+  REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
+                                   ! Only applicable for init_mode=MODE_DWDANA_INC
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
@@ -119,11 +122,12 @@ MODULE mo_initicon_nml
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
 
-  NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,   &
-                          nlevsoil_in, l_sst_in, lread_ana,              &
-                          ifs2icon_filename, dwdfg_filename,             &
-                          dwdana_filename, filetype, dt_iau,             &
-                          type_iau_wgt, ana_varlist, ana_varnames_map_file
+  NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
+                          nlevsoil_in, l_sst_in, lread_ana,                 &
+                          ifs2icon_filename, dwdfg_filename,                &
+                          dwdana_filename, filetype, dt_iau,                &
+                          type_iau_wgt, ana_varlist, ana_varnames_map_file, &
+                          rho_incr_filter_wgt
   
 CONTAINS
 
@@ -163,6 +167,7 @@ CONTAINS
                             ! false: start ICON from first guess file (no analysis) 
   filetype    = -1          ! "-1": undefined
   dt_iau      = 10800._wp   ! 3-hour interval for IAU
+  rho_incr_filter_wgt = 0._wp ! density increment filtering turned off
   type_iau_wgt= 1           ! Top-hat weighting function
   ana_varlist = ''          ! list of mandatory analysis fields. This list can include a subset 
                             ! or the entire set of default analysis fields. If any of these fields
@@ -255,6 +260,7 @@ CONTAINS
   config_type_iau_wgt       = type_iau_wgt
   config_ana_varlist        = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
+  config_rho_incr_filter_wgt   = rho_incr_filter_wgt
 
 
   ! write the contents of the namelist to an ASCII file

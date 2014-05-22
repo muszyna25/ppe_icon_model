@@ -47,7 +47,7 @@ MODULE mo_nh_initicon
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
@@ -57,7 +57,7 @@ MODULE mo_nh_initicon
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, nlevsoil_in, l_sst_in,  &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
-    &                               generate_filename,                                  &
+    &                               generate_filename, rho_incr_filter_wgt,             &
     &                               nml_filetype => filetype,                           &
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
@@ -3095,6 +3095,7 @@ MODULE mo_nh_initicon
     INTEGER :: i_startidx, i_endidx
     TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf   
     TYPE(t_nh_diag), POINTER :: p_diag
+    TYPE(t_nh_metrics), POINTER :: p_metrics
     INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr, w_incr
@@ -3104,6 +3105,10 @@ MODULE mo_nh_initicon
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: smtfac=0.015_wp
+
+    ! For vertical filtering of mass increments
+    REAL(wp), ALLOCATABLE :: rho_incr_smt(:,:), exner_ifc_incr(:,:), mass_incr_smt(:,:), mass_incr(:,:)
+    REAL(wp) :: mass_incr_int(nproma), mass_incr_smt_int(nproma)
 
     !-------------------------------------------------------------------------
 
@@ -3119,11 +3124,10 @@ MODULE mo_nh_initicon
       nblks_e   = p_patch(jg)%nblks_e
       i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-
       ! allocate temporary arrays for DA increments and a filtering term for vn
-      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), &
-               nabla4_vn_incr(nproma,nlev,nblks_e), &
-               STAT=ist)
+      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla4_vn_incr(nproma,nlev,nblks_e), &
+               rho_incr_smt(nproma,nlev), exner_ifc_incr(nproma,nlevp1),             &
+               mass_incr_smt(nproma,nlev), mass_incr(nproma,nlev), STAT=ist          )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
       ENDIF
@@ -3134,9 +3138,9 @@ MODULE mo_nh_initicon
       p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
       p_prog_now_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
       p_diag         => p_nh_state(jg)%diag
+      p_metrics      => p_nh_state(jg)%metrics
       iidx           => p_patch(jg)%edges%cell_idx
       iblk           => p_patch(jg)%edges%cell_blk
-
 
       ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
       !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v 
@@ -3154,7 +3158,8 @@ MODULE mo_nh_initicon
       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,rho_incr_smt,exner_ifc_incr,mass_incr_smt,mass_incr, &
+!$OMP            mass_incr_int,mass_incr_smt_int)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -3162,20 +3167,6 @@ MODULE mo_nh_initicon
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-
-!!$          !******** CONSISTENCY CHECK ************
-!!$          ! 
-!!$          ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
-!!$          ! below threshhold (currently 5E-7 kg/kg)
-!!$          ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
-!!$          ! Note: So far we are not fully convinced that the observed 'zeros' are 
-!!$          ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
-!!$          ! numerical artifacts. 
-!!$          p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
-!!$            &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
-!!$          !******** END CONSISTENCY CHECK ********
-
-
 
             ! compute exner function (based on first guess input)
             p_prog_now%exner(jc,jk,jb) = (rd/p0ref * p_prog_now%rho(jc,jk,jb)  &
@@ -3225,6 +3216,71 @@ MODULE mo_nh_initicon
 
           ENDDO  ! jc
         ENDDO  ! jk
+
+        ! Apply vertical filtering of density increments, including a correction that ensures conservation
+        ! of the vertically integrated mass increment
+        !
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            mass_incr(jc,jk) = p_diag%rho_incr(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
+          ENDDO
+        ENDDO
+
+        ! Filtered density increment
+        DO jk = 2, nlev-1
+          DO jc = i_startidx, i_endidx
+            rho_incr_smt(jc,jk) = (1._wp-2._wp*rho_incr_filter_wgt)*p_diag%rho_incr(jc,jk,jb) &
+              + rho_incr_filter_wgt*(p_diag%rho_incr(jc,jk-1,jb)+p_diag%rho_incr(jc,jk+1,jb))
+          ENDDO
+        ENDDO
+        DO jc = i_startidx, i_endidx
+          rho_incr_smt(jc,1) = (1._wp-rho_incr_filter_wgt)*p_diag%rho_incr(jc,1,jb) &
+            + rho_incr_filter_wgt*p_diag%rho_incr(jc,2,jb) 
+          rho_incr_smt(jc,nlev) = (1._wp-rho_incr_filter_wgt)*p_diag%rho_incr(jc,nlev,jb) &
+            + rho_incr_filter_wgt*p_diag%rho_incr(jc,nlev-1,jb)
+          ! correction increment for Exner pressure (zero at surface)
+          exner_ifc_incr(jc,nlevp1) = 0._wp 
+        ENDDO
+
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            mass_incr_smt(jc,jk) = rho_incr_smt(jc,jk)*p_metrics%ddqz_z_full(jc,jk,jb)
+          ENDDO
+        ENDDO
+
+        ! Vertically integrated mass increments
+        DO jc = i_startidx, i_endidx
+          mass_incr_int(jc)     = SUM(mass_incr(jc,1:nlev))
+          mass_incr_smt_int(jc) = SUM(mass_incr_smt(jc,1:nlev))
+        ENDDO
+
+        ! Apply conservation correction for vertically integrated mass increment.
+        ! Unfortunately, we have to care about possible pathological cases here
+        DO jc = i_startidx, i_endidx
+          IF (mass_incr_int(jc)*mass_incr_smt_int(jc) > 0._wp .AND. grav*ABS(mass_incr_int(jc)) > 0.5_wp &
+              .AND. grav*ABS(mass_incr_int(jc)) > 0.5_wp) THEN
+            ! Multiplicative correction if mass increments are larger than 0.5 Pa and have the same sign
+            DO jk = 1, nlev
+              rho_incr_smt(jc,jk) = rho_incr_smt(jc,jk)                         &
+               * MAX(0.98_wp,MIN(1.02_wp,mass_incr_int(jc)/mass_incr_smt_int(jc)))
+            ENDDO
+          ENDIF
+        ENDDO
+
+        ! integrate Exner correction increment (assuming hydrostatic balance of perturbation) and add it to the existing one
+        DO jk = nlev, 1, -1
+          DO jc = i_startidx, i_endidx
+
+            exner_ifc_incr(jc,jk) = exner_ifc_incr(jc,jk+1) - rd_o_cpd*grav                   &
+              * p_prog_now%exner(jc,jk,jb)/p_diag%pres(jc,jk,jb)                              &
+              * (rho_incr_smt(jc,jk)-p_diag%rho_incr(jc,jk,jb))*p_metrics%ddqz_z_full(jc,jk,jb)
+
+            p_diag%exner_incr(jc,jk,jb) = p_diag%exner_incr(jc,jk,jb) &
+              + 0.5_wp*(exner_ifc_incr(jc,jk)+exner_ifc_incr(jc,jk+1))
+
+            p_diag%rho_incr(jc,jk,jb) = rho_incr_smt(jc,jk)
+          ENDDO
+        ENDDO
 
       ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -3305,11 +3361,11 @@ MODULE mo_nh_initicon
 !$OMP END PARALLEL
 
       ! deallocate temporary arrays
-      DEALLOCATE( tempv_incr, nabla4_vn_incr, STAT=ist )
+      DEALLOCATE( tempv_incr, nabla4_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
+                  mass_incr, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
-
 
       !
       ! If IAU-window is chosen to be zero, then analysis increments are added in one go.
@@ -4258,3 +4314,4 @@ MODULE mo_nh_initicon
   END SUBROUTINE deallocate_ifs_sfc
 
 END MODULE mo_nh_initicon
+

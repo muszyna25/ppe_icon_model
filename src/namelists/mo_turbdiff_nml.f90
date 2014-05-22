@@ -55,7 +55,7 @@ MODULE mo_turbdiff_nml
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   
   IMPLICIT NONE
@@ -81,7 +81,7 @@ MODULE mo_turbdiff_nml
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea, tkesmot, impl_s, impl_t, &
+    & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
 !   additional namelist parameters:
     & lconst_z0, const_z0
 
@@ -199,6 +199,7 @@ CONTAINS
       turbdiff_config(jg)%rlam_mom     = rlam_mom
       turbdiff_config(jg)%rat_sea      = rat_sea
       turbdiff_config(jg)%tkesmot      = tkesmot
+      turbdiff_config(jg)%frcsmot      = frcsmot
       turbdiff_config(jg)%impl_s       = impl_s
       turbdiff_config(jg)%impl_t       = impl_t
 

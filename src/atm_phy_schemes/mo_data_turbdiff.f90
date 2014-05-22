@@ -115,6 +115,7 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
      &                      impl_t,   & ! implicit weight near top of the atmosphere (minimal value)
      &                      tkesmot,  & ! time smoothing factor for TKE and 
                                         ! diffusion coefficients
+     &                      frcsmot,  & ! vertical smoothing factor for TKE forcing terms 
      &                      wichfakt, & ! vertical smoothing factor for 
                                         ! explicit diffusion tendencies
      &                      securi,   & ! security factor for maximal diffusion coefficients
@@ -242,6 +243,7 @@ LOGICAL :: &
      rlam_mom     = turbdiff_config(jg)%rlam_mom
      rat_sea      = turbdiff_config(jg)%rat_sea
      tkesmot      = turbdiff_config(jg)%tkesmot
+     frcsmot      = turbdiff_config(jg)%frcsmot
      impl_s       = turbdiff_config(jg)%impl_s
      impl_t       = turbdiff_config(jg)%impl_t
 

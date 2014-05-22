@@ -63,6 +63,7 @@ MODULE mo_initicon_config
   PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
+  PUBLIC :: rho_incr_filter_wgt
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
@@ -92,6 +93,8 @@ MODULE mo_initicon_config
                             ! 1: Top-hat
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_DWDANA_INC
+  REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
+                                   ! Only applicable for init_mode=MODE_DWDANA_INC
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 

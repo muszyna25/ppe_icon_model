@@ -119,6 +119,8 @@ MODULE mo_turbdiff_config
       &  rat_sea   ! 
     REAL(wp):: &   ! time smoothing factor for TKE
       &  tkesmot   ! 
+    REAL(wp):: &   ! vertical smoothing factor of TKE forcing terms
+      &  frcsmot   ! 
     REAL(wp):: &   ! implicit weight near the surface (maximal value)
       &  impl_s    ! 
     REAL(wp):: &   ! implicit weight near top of the atmosphere (maximal value)
