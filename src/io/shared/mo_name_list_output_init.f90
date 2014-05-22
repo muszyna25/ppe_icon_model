@@ -24,15 +24,13 @@ MODULE mo_name_list_output_init
   USE mo_cdi_constants          ! We need all
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, ihs_ocean, zml_soil,              &
-    &                                             vname_len, max_dom, SUCCESS,                    &
-    &                                             min_rlcell_int, min_rledge_int, min_rlvert,     &
+    &                                             max_dom, SUCCESS,                               &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
     &                                             MAX_TIME_LEVELS, max_levels, vname_len,         &
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
-  USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
@@ -45,10 +43,8 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list
-  USE mo_math_utilities,                    ONLY: t_geographical_coordinates, check_orientation,  &
-    &                                             set_zlev
+  USE mo_math_utilities,                    ONLY: set_zlev
   USE mo_datetime,                          ONLY: t_datetime
-  USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: t_patch, p_patch, p_phys_patch
@@ -74,7 +70,7 @@ MODULE mo_name_list_output_init
     &                                             get_my_mpi_work_communicator,                   &
     &                                             p_comm_work, p_comm_work_2_io,                  &
     &                                             p_comm_io, p_comm_work_io,                      &
-    &                                             p_int, p_int_i8, p_real_dp, p_real_sp,          &
+    &                                             p_int, p_real_dp, p_real_sp,                    &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
     &                                             my_process_is_mpi_seq, my_process_is_io,        &
@@ -82,8 +78,7 @@ MODULE mo_name_list_output_init
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
     &                                             p_pe_work, p_io_pe0, p_pe
-  USE mo_communication,                     ONLY: exchange_data, t_comm_pattern, idx_no, blk_no,  &
-    &                                             t_comm_gather_pattern
+  USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
