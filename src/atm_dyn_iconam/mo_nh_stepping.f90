@@ -613,6 +613,8 @@ MODULE mo_nh_stepping
           MOD(jstep,iadv_rcf) == 1  .AND. .NOT. ltestcase) THEN
         CALL update_spinup_damping(elapsed_time_global)
       ENDIF
+    ELSE IF (divdamp_order==24) THEN
+      divdamp_fac_o2 = 0._wp
     ENDIF
 
     !--------------------------------------------------------------------------
