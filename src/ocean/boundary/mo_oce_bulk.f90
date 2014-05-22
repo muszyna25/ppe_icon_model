@@ -279,6 +279,7 @@ CONTAINS
 
     CASE (Analytical_Forcing)        !  11
       CONTINUE  ! not yet - provide fluxes for call of sea ice model (e.g. oce_test_numeric)
+      !settings in init_ocean_forcing() - windstress and relazation ONLY
 
     CASE (OMIP_FluxFromFile)         !  12
 
@@ -362,6 +363,7 @@ CONTAINS
     CASE (Analytical_Forcing)        !  11
       ! #slo# 2014-04-30 this is still necessary for oce_test_numeric etc.
       CONTINUE  ! not yet - provide fluxes for call of sea ice model, see above
+      !settings in init_ocean_forcing() - windstress and relazation ONLY
 
     CASE (OMIP_FluxFromFile)         !  12
 
