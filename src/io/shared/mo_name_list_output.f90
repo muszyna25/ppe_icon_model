@@ -39,92 +39,68 @@
 !! -------------------------------------------------------------------------
 MODULE mo_name_list_output
 
-#ifndef USE_CRAY_POINTER
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif
-! USE_CRAY_POINTER
-
-  USE mo_cdi_constants              ! We need all
+  ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: zml_soil, max_dom, SUCCESS, MAX_TIME_LEVELS, &
+  USE mo_impl_constants,            ONLY: zml_soil, max_dom, SUCCESS, MAX_TIME_LEVELS,              &
     &                                     MAX_CHAR_LENGTH
-  USE mo_grid_config,               ONLY: n_dom
   USE mo_cdi_constants              ! We need all
+  ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, nnml, nnml_output, find_next_free_unit
-  USE mo_io_config,                 ONLY: lkeep_in_sync
   USE mo_exception,                 ONLY: finish, message, message_text
-  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE
-  USE mo_var_list_element,          ONLY: level_type_ml, level_type_pl, level_type_hl,              &
-    &                                     level_type_il, lev_type_str
-  ! MPI Communication routines
-  USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
-    &                                     get_my_mpi_work_id, p_max,                                &
-    &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend
-  ! MPI Communicators
-  USE mo_mpi,                       ONLY: p_comm_work
-  ! MPI Data types
-  USE mo_mpi,                       ONLY: p_int, p_int_i8, p_real_dp, p_real_sp
-  ! MPI Process type intrinsics
-  USE mo_mpi,                       ONLY: my_process_is_stdio, my_process_is_mpi_test,              &
-                                          my_process_is_mpi_workroot, my_process_is_mpi_seq,        &
-                                          my_process_is_io, my_process_is_mpi_ioroot
-  ! MPI Process IDs
-  USE mo_mpi,                       ONLY: process_mpi_all_test_id, process_mpi_all_workroot_id
-  ! MPI Process group sizes
-  USE mo_mpi,                       ONLY: process_mpi_io_size, num_work_procs, p_n_work
-  ! Processor numbers
-  USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
-
-  USE mo_model_domain,              ONLY: t_patch, p_patch, p_phys_patch
-  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io, num_io_procs
-
-  USE mo_run_config,                ONLY: num_lev, num_levp1, dtime,                                &
-    &                                     msg_level, output_mode, ltestcase
-  USE mo_master_nml,                ONLY: model_base_dir
-  USE mo_util_string,               ONLY: t_keyword_list, associate_keyword,                        &
-    &                                     with_keywords
-  USE mo_communication,             ONLY: exchange_data, t_comm_pattern, &
-    &                                     t_comm_gather_pattern, idx_no, blk_no
-  USE mo_math_constants,            ONLY: pi, pi_180
-  USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list
-  USE mo_name_list_output_types,    ONLY: l_output_phys_patch, t_output_name_list,                  &
-  &                                       t_output_file, t_var_desc,                                &
-  &                                       t_reorder_info,                                           &
-  &                                       REMAP_NONE, REMAP_REGULAR_LATLON,                         &
-  &                                       msg_io_start, msg_io_done, msg_io_shutdown,               &
-  &                                       IRLON, IRLAT, ILATLON, ICELL, IEDGE, IVERT,               &
-  &                                       all_events
-  USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
-  USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
-    &                                     varnames_dict, out_varnames_dict,                         &
-    &                                     output_file, patch_info, lonlat_info
+  USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords
+  USE mo_dictionary,                ONLY: dict_finalize
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
     &                                     print_timer
-  USE mo_dictionary,                ONLY: dict_finalize
-  ! post-ops
-  USE mo_post_op,                   ONLY: perform_post_op
+  USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
+  ! config
+  USE mo_master_nml,                ONLY: model_base_dir
+  USE mo_grid_config,               ONLY: n_dom
+  USE mo_run_config,                ONLY: msg_level
+  USE mo_io_config,                 ONLY: lkeep_in_sync
+  USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io, num_io_procs
+  USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list
+  ! data types
+  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE
+  USE mo_name_list_output_types,    ONLY: t_output_name_list, t_output_file, t_reorder_info,        &
+  &                                       msg_io_start, msg_io_done, msg_io_shutdown, all_events
+  USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
+  ! model state
+  USE mo_model_domain,              ONLY: t_patch, p_patch
+  ! parallelization
+  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
+  USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi, get_my_mpi_work_id,  &
+    &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
+    &                                     p_comm_work, p_real_dp, p_real_sp,                        &
+    &                                     my_process_is_stdio, my_process_is_mpi_test,              &
+    &                                     my_process_is_mpi_workroot,                               &
+    &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
+    &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
+    &                                     process_mpi_io_size, num_work_procs,                      &
+    &                                     p_pe, p_pe_work, p_work_pe0, p_io_pe0
+  ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
     &                                     PROLEPTIC_GREGORIAN, setCalendar, MAX_DATETIME_STR_LEN,   &
     &                                     timedelta, newTimedelta, deallocateTimedelta
   USE mo_mtime_extensions,          ONLY: getTimeDeltaFromDateTime
-  USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
+  ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
     &                                     get_current_date, trigger_output_step_irecv,              &
     &                                     is_output_step_complete, is_output_event_finished,        &
     &                                     check_write_readyfile, blocking_wait_for_irecvs
+  ! output initialization
+  USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
+    &                                     varnames_dict, out_varnames_dict,                         &
+    &                                     output_file, patch_info, lonlat_info
+  ! post-ops
+  USE mo_post_op,                   ONLY: perform_post_op
 
 #ifndef __NO_ICON_ATMO__
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
-
-! tool dependencies, maybe restructure
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_lonlat_grid,               ONLY: t_lon_lat_grid, compute_lonlat_specs,                     &
-    &                                     rotate_latlon_grid
   USE mo_intp_data_strc,            ONLY: lonlat_grid_list
 #endif
-! #ifndef __NO_ICON_ATMO__
 
   IMPLICIT NONE
 
@@ -204,15 +180,13 @@ CONTAINS
       & .NOT. my_process_is_io()  .AND.  &
       & .NOT. my_process_is_mpi_test()) THEN
       !-- compute PEs (senders):
-
+      
       CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
       CALL compute_shutdown_async_io()
 
     ELSE
 #endif
-! #ifndef __NO_ICON_ATMO__
 #endif
-! NOMPI
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
         IF (output_file(i)%cdiFileID >= 0) THEN
@@ -224,9 +198,7 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
     ENDIF
 #endif
-! #ifndef __NO_ICON_ATMO__
 #endif
-! NOMPI
 
     DEALLOCATE(output_file)
 
@@ -336,9 +308,7 @@ CONTAINS
 
     ENDIF
 #endif
-! #ifndef __NO_ICON_ATMO__
 #endif
-! NOMPI
 
     IF (PRESENT(opt_lhas_output))  opt_lhas_output = .FALSE.
 
@@ -359,9 +329,8 @@ CONTAINS
 
       IF (check_open_file(output_file(i)%out_event) .AND.  &
         & (output_file(i)%io_proc_id == p_pe)) THEN 
-        IF (output_file(i)%cdiVlistId == CDI_UNDEFID) THEN
-          CALL setup_output_vlist(output_file(i))
-        END IF
+        IF (output_file(i)%cdiVlistId == CDI_UNDEFID)  &
+          &  CALL setup_output_vlist(output_file(i))
         CALL open_output_file(output_file(i))
       END IF
 
@@ -548,9 +517,7 @@ CONTAINS
 #else
     USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
 #endif
-! __SUNPRO_F95
 #endif
-! NOMPI
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
     LOGICAL,              INTENT(IN)            :: l_first_write
@@ -591,7 +558,6 @@ CONTAINS
         IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
           CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 #endif
-! NOMPI
 
     ! ----------------------------------------------------
     ! Go over all name list variables for this output file
@@ -637,7 +603,6 @@ CONTAINS
         END IF
       ENDIF
 #endif
-! #ifndef __NO_ICON_ATMO__
 
       IF (info%lcontained) THEN
         nindex = info%ncontained
@@ -739,7 +704,6 @@ CONTAINS
         p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
         p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
 #endif
-! #ifndef __NO_ICON_ATMO__
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT
@@ -892,7 +856,6 @@ CONTAINS
         IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
           CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win, mpierr)
 #endif
-! NOMPI
 
   END SUBROUTINE write_name_list
 
@@ -953,7 +916,8 @@ CONTAINS
     ! local variables:
 
 #ifndef __NO_ICON_ATMO__
-    LOGICAL             :: done, l_complete, lhas_output
+    LOGICAL             :: done, l_complete, lhas_output, &
+      &                    lset_timers_for_idle_pe
     INTEGER             :: jg, jstep, i
     TYPE(t_par_output_event), POINTER :: ev
 
@@ -968,10 +932,15 @@ CONTAINS
     CALL init_name_list_output(sim_step_info)
 
     ! Tell the compute PEs that we are ready to work
-    CALL async_io_send_handshake(0)
+    IF (ANY(output_file(:)%io_proc_id == p_pe)) THEN 
+      CALL async_io_send_handshake(0)
+    END IF
 
     ! Enter I/O loop
     DO
+      ! skip loop, if this output PE is idle:
+      IF (ALL(output_file(:)%io_proc_id /= p_pe)) EXIT
+
       ! Wait for a message from the compute PEs to start
       CALL async_io_wait_for_start(done, jstep)
       IF(done) EXIT ! leave loop, we are done
@@ -1028,24 +997,32 @@ CONTAINS
 
     ! finalize meteogram output
     DO jg = 1, n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_finalize(jg)
-      END IF
+      IF (meteogram_output_config(jg)%lenabled)  CALL meteogram_finalize(jg)
     END DO
 
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
 
+
+    ! Purely idle output PEs: Empty calls of timer start/stop. For
+    ! this pathological case it is important to call the same timers
+    ! as the "normal" output PEs. Otherwise we will get a deadlock
+    ! situation when computing the global sums for these timers.
+    IF (ltimer .AND. ALLOCATED(output_file)) THEN
+      IF (ALL(output_file(:)%io_proc_id /= p_pe))  lset_timers_for_idle_pe = .TRUE.
+    END IF
+    IF (ltimer .AND. .NOT. ALLOCATED(output_file)) lset_timers_for_idle_pe = .TRUE.
+    IF (lset_timers_for_idle_pe) THEN
+        CALL timer_start(timer_write_output)
+        CALL timer_stop(timer_write_output)
+    END IF
+
     IF (ltimer) CALL print_timer
-
     ! Shut down MPI
-    !
     CALL stop_mpi
-
     STOP
 #endif
-! #ifndef __NO_ICON_ATMO__
 
   END SUBROUTINE name_list_io_main_proc
   !------------------------------------------------------------------------------------------------
@@ -1063,7 +1040,6 @@ CONTAINS
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
 #endif
-! __SUNPRO_F95
 
     TYPE (t_output_file), TARGET, INTENT(IN) :: of
     LOGICAL                     , INTENT(IN) :: l_first_write
@@ -1091,7 +1067,6 @@ CONTAINS
 ! (Note: this is only allowed when we compile with MPI.)
 !CDIR GM_ARRAY(var1)
 #endif
-! __SX__
 
     CALL date_and_time(TIME=ctime)
     WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
@@ -1121,7 +1096,6 @@ CONTAINS
       END IF
     END DO
 #endif
-! #ifndef __NO_ICON_ATMO__
 
     nlev_max = 1
     DO iv = 1, of%num_vars
@@ -1168,7 +1142,6 @@ CONTAINS
           i_log_dom = of%log_patch_id
           p_ri  => lonlat_info(lonlat_id, i_log_dom)%ri
 #endif
-! #ifndef __NO_ICON_ATMO__
 
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
@@ -1328,7 +1301,6 @@ CONTAINS
    !   CALL message('',message_text)
     ENDIF
 #endif
-! __SX__
 
   END SUBROUTINE io_proc_write_name_list
 
@@ -1570,6 +1542,5 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
 #endif
-! NOMPI
 
 END MODULE mo_name_list_output
