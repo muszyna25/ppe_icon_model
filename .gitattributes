@@ -184,6 +184,7 @@ doc/technical/dwd_database/cloud_variables.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
+doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/litera.bib -text
 doc/technical/dwd_database/pics/DWD_logo.png -text
 doc/technical/dwd_database/pics/bisection.png -text

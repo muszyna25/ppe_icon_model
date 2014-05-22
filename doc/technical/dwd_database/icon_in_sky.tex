@@ -1,0 +1,103 @@
+\chapter{ICON data in the SKY data bases of DWD}
+
+
+GRIB data of the numerical weather prediction models are stored in the data base
+SKY at DWD.
+Documentation on the SKY system is available in the intranet of DWD at
+%\url{IT/Messnetz/Technik $\rightarrow$ Datenmanagement (technisch) $\rightarrow$
+%Management der DWD Fachdaten -Dokumentation $\rightarrow$ SKY}.
+%\url{IT/Messnetz/Technik -> Datenmanagement (technisch) ->
+%Management der DWD Fachdaten - Dokumentation -> SKY}.
+{\tt IT/Messnetz/Technik $\rightarrow$ Datenmanagement (technisch) $\rightarrow$
+Management der DWD Fachdaten -Dokumentation $\rightarrow$ SKY}.
+Here, some remarks are given on the SKY categories for ICON data, and some
+examples are given how to retrieve data from the data base.
+
+\section{SKY categories for ICON}
+
+In SKY the data is stored in different categories and data base subsystems.
+These are identified by the cat=CAT\_NAME parameter.
+The name of a category is made up
+of 4 parts: \${model}\_\${run}\_\${type}\_\${suite}. run, type, and suite are general
+for all forecast models of DWD. They can have the following values:
+
+
+\begin{itemize}
+ \item \textbf{run}: \textbf{main} for main forecast runs,
+                     \textbf{ass} for assimilation runs,
+                     \textbf{pre} for pre-assimilation runs.
+ \item \textbf{type}: \textbf{an} for analysis data,
+                      \textbf{fc} for forecast data,
+                      \textbf{const} for invariant data.
+ \item \textbf{suite}: \textbf{rout} for operational data in \emph{db=roma,}
+                       \textbf{para} for pre-operational data in \emph{db=parma},
+                       \textbf{exp} or \textbf{exp1} for data from experiments in
+                       \emph{db=numex}. The category extension exp1 is used for
+                       experiments of the NUMEX wizard, a special NUMEX user.
+
+                       Data from experiments is additionally
+                       identified by the parameter \emph{exp=}$NUM$ where $NUM$ is
+                       the experiment number.
+\end{itemize}
+
+The categories for ICON start with the string \textbf{ico} for ICON data on the native
+ICON grid, or with \textbf{icr} for data on a regular lat-lon grid.
+Next follows a two-letter string to identify the domain of ICON; \textbf{gl} for the
+global domain, \textbf{eu} for the nest over Europe. After the domain follows the
+mesh width of the model in units of 100 m, and then the number of levels after the
+letter l. As an example icogl130l90 is on the native grid from a global model with a mesh width
+13 km (grid R3B07) and 90 levels. icrgl400l90 is data on a regular grid from a global model with
+mesh width 40 km (R2B06) and 90 levels. icreu650l50 is an ICON nest over Europe with a
+mesh width of 6.5 km and 50 levels and interpolated to a regular lat-lon grid.
+
+Hence, the full category name for data from an operational forecast run of ICON on a
+regular grid will be \textbf{icrgl130l90\_main\_fc\_rout}. The initial analysis for this
+run is in category \textbf{icogl130l90\_main\_an\_rout}.
+
+\section{Retrieving ICON data from SKY}
+
+Here we shall give several examples how to retrieve ICON data from SKY.
+The parameter d specifies the reference or initial date, s is the forecast step, p the parameter,
+and f the name of the GRIB data file.
+
+\begin{itemize}
+\item Retrieve the 6, 12, 18, and 24 hour forecast of the 2m temperature from a forecast
+run on 2012-06-28 at 00 UTC on the global domain from an ICON run on a R3B07 grid with 90 levels:
+
+\begin{quote}
+read db=numex cat=icrgl130l90\_main\_fc\_exp1 exp=901 d=2012062800 s[h]=6,12,18,24 p=t\_2m bin f=t\_2m\_fc.grb
+\end{quote}
+
+\item Retrieve wind components U and V at 300 hPa on the regular grid from a 24 hour forecast on
+2013-10-03 at 00 UTC. lv=P specifies the level type as pressure levels:
+
+\begin{quote}
+read db=numex cat=icrgl130l90\_main\_fc\_exp1 exp=907 d=2013100300 s[h]=24 p=U,V lv=P lv1=30000 bin f=uvReg300hPa
+\end{quote}
+
+\item Retrieve the analysis of U on the native grid:
+\begin{quote}
+read db=numex cat=icogl130l90\_main\_an\_exp1 exp=907 d=2013100300 p=U bin f=u\_icon\_ana
+\end{quote}
+
+\item Retrieve temperature forecasts from 7 to 9 hours on the native grid:
+\begin{quote}
+read db=numex cat=icogl130l90\_main\_fc\_exp1 exp=907 d=2013100300 s[h]=7/to/9 p=T bin f=T\_icon\_07-09
+\end{quote}
+
+\item Retrieve a 6 hour forecast on a regular grid on pressure levels. ICON was run on a 40 km
+grid (R2B06).  Write reference date (d),
+forecast step (s), level type (lv), value of first level (lv1), decoding date (dedat), and
+store date (stdat) in information file icr.info
+
+\begin{quote}
+read db=numex cat=icrgl400l90\_main\_fc\_exp exp=9323 d=2012010100 step[h]=6 lv=P f=icr06p bin info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat sort=d,s,p,lv,lv1 infof=icr.info
+\end{quote}
+
+\item Retrieve temperature in 850 hPa from a forecast on 2013-10-05 at 12 UTC:
+
+\begin{quote}
+read db=numex cat=icrgl400l90\_main\_fc\_exp1 exp=906 d=2013100512 p=T lv1=85000 lv=P bin f=t850\_iconr
+\end{quote}
+
+\end{itemize}
