@@ -200,6 +200,7 @@ CONTAINS
     rbf_vec_scale_e(:)  = -1.0_wp
 
     ! Initialize the namelist for the method for the vorticity flux term
+    ! applies to hexagonal model only.
     i_cori_method = 3
     l_corner_vort=.TRUE.
 

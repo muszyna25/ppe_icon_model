@@ -219,7 +219,7 @@ CONTAINS
           ! pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
 
           ! logical auxiliary for MERGE operations: .TRUE. for vn >= 0
-          lvn_pos = p_vn(je,jk,jb) * p_dthalf >= 0._wp
+          lvn_pos = p_vn(je,jk,jb) >= 0._wp
 
           ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
 
@@ -467,7 +467,7 @@ CONTAINS
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
             ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
-            lvn_pos     = p_vn(je,jk,jb) * p_dt >= 0._wp
+            lvn_pos     = p_vn(je,jk,jb) >= 0._wp
 
             ! compute length of backward trajectory
             traj_length = SQRT(p_vn(je,jk,jb)**2 + p_vt(je,jk,jb)**2) * p_dt
@@ -530,7 +530,7 @@ CONTAINS
           !
 
           ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
-          lvn_pos     = p_vn(je,jk,jb) * p_dt >= 0._wp
+          lvn_pos     = p_vn(je,jk,jb) >= 0._wp
 
 
           ! get line and block indices of upwind cell
@@ -862,7 +862,7 @@ CONTAINS
 
 
 
-              IF (p_vn(je,jk,jb) * p_dthalf >= 0._wp) THEN
+              IF (p_vn(je,jk,jb) >= 0._wp) THEN
 
                 !! we are in cell 1 !!
 

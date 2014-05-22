@@ -49,7 +49,7 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order,  &
                                      divdamp_type, rayleigh_type, iadv_rcf, rhotheta_offctr,&
-                                     lbackward_integr, veladv_offctr, divdamp_fac_o2
+                                     veladv_offctr, divdamp_fac_o2
   USE mo_dynamics_config,   ONLY: idiv_method
   USE mo_parallel_config,   ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier, &
     & use_icon_comm
@@ -262,12 +262,8 @@ MODULE mo_solve_nonhydro
       l_child_vertnest = .FALSE.
       nshift = 0
     ENDIF
-    IF (lbackward_integr) THEN ! integrate backward in time (affects non-dissipative processes only)
-      dtime_r = -dtime
-    ELSE
-      dtime_r =  dtime
-    ENDIF
-    dthalf = 0.5_wp*dtime_r
+    dtime_r =  dtime
+    dthalf  = 0.5_wp*dtime
 
     ! Inverse value of iadv_rcf for tracer advection precomputations
     r_iadv_rcf = 1._wp/REAL(iadv_rcf,wp)
@@ -789,7 +785,7 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP, PREFERVECTOR
               DO jk = 1, nlev
 
-                lvn_pos = p_nh%prog(nnow)%vn(je,jk,jb) * dthalf >= 0._wp
+                lvn_pos = p_nh%prog(nnow)%vn(je,jk,jb) >= 0._wp
 
                 ! line and block indices of upwind neighbor cell
                 ilc0 = MERGE(p_patch%edges%cell_idx(je,jb,1),p_patch%edges%cell_idx(je,jb,2),lvn_pos)

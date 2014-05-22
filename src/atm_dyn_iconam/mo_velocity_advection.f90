@@ -45,8 +45,7 @@
 MODULE mo_velocity_advection
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_nonhydrostatic_config,ONLY: lextra_diffu, &
-                                     lbackward_integr, veladv_offctr
+  USE mo_nonhydrostatic_config,ONLY: lextra_diffu
   USE mo_parallel_config,   ONLY: nproma
   USE mo_run_config,        ONLY: lvert_nest, ltestcase, timers_level
   USE mo_model_domain,      ONLY: t_patch

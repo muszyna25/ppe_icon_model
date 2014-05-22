@@ -51,7 +51,6 @@ MODULE mo_nonhydrostatic_nml
                                     & config_iadv_rcf         => iadv_rcf         , &
                                     & config_lhdiff_rcf       => lhdiff_rcf       , &
                                     & config_lextra_diffu     => lextra_diffu     , &
-                                    & config_lbackward_integr => lbackward_integr , &
                                     & config_divdamp_fac      => divdamp_fac      , &
                                     & config_divdamp_fac_o2   => divdamp_fac_o2   , &
                                     & config_divdamp_order    => divdamp_order    , &
@@ -103,7 +102,6 @@ MODULE mo_nonhydrostatic_nml
   LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion also at the large time step
   LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close 
                                      ! to the CFL stability limit for vertical advection
-  LOGICAL :: lbackward_integr         ! if true: integrate backward in time (needed for testing DFI)
   REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
   INTEGER :: divdamp_order           ! Order of divergence damping
   INTEGER :: divdamp_type            ! Type of divergence damping (2D or 3D divergence)
@@ -143,8 +141,7 @@ MODULE mo_nonhydrostatic_nml
                               & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
                               & l_nest_rcf, nest_substeps, l_masscorr_nest, l_zdiffu_t,   &
                               & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
-                              & rhotheta_offctr, lextra_diffu, lbackward_integr,          &
-                              & veladv_offctr
+                              & rhotheta_offctr, lextra_diffu, veladv_offctr
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -190,9 +187,6 @@ CONTAINS
     ! apply additional horizontal diffusion on vn and w at grid points close to the stability
     ! limit for vertical advection
     lextra_diffu = .TRUE.
-
-    ! switch for testing a digital filter initialization (DFI), which includes a backward-in-time integration
-    lbackward_integr = .FALSE.
 
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
     divdamp_fac = 0.0025_wp
@@ -352,7 +346,6 @@ CONTAINS
        config_iadv_rcf          = iadv_rcf
        config_lhdiff_rcf        = lhdiff_rcf
        config_lextra_diffu      = lextra_diffu
-       config_lbackward_integr  = lbackward_integr
        config_divdamp_fac       = divdamp_fac
        config_divdamp_fac_o2    = divdamp_fac ! initialization - divdamp_fac_o2 is a derived variable that may change during runtime
        config_divdamp_order     = divdamp_order
