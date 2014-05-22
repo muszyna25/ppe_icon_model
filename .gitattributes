@@ -82,6 +82,7 @@ config/pvcs.pl -text
 /configure.ac -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
+data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
 data/rrtmg_lw.nc -text
