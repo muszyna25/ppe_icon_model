@@ -8,6 +8,14 @@
 !! Initial implementation  by  R. Johanni  (2011)
 !! Major changes: F. Prill, DWD (2012-2013)
 !!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
 !! @note: The spelling "name_list" (with underscore) is intended to make
 !!        clear that this does not pertain to a FORTRAN namelist but rather
 !!        to a list of names of output variables

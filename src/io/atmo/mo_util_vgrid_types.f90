@@ -6,6 +6,14 @@
 !! @par Revision History
 !! Initial implementation by L. Kornblueh (MPI-M), F. Prill (DWD) : 2014-01-28
 !!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
 MODULE mo_util_vgrid_types
 
   USE mo_kind,                              ONLY: wp
