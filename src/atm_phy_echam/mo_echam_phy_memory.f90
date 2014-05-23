@@ -223,6 +223,12 @@ MODULE mo_echam_phy_memory
       & alb    (:,  :),     &!< surface background albedo
       & seaice (:,  :)       !< sea ice as read in from amip input
 
+    ! Energy budget related variables
+    REAL(wp),POINTER :: &
+      & sh_vdiff (:,  :),   &!< sensible heat flux of vdiff
+      & ch_concloud (:,  :)  !< condensational heating, convection, large 
+                             !< scale clouds
+
     ! orography
     REAL(wp),POINTER :: &
       & oromea (:,  :),     &!< Orographic mean elevation
@@ -1254,6 +1260,19 @@ CONTAINS
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'thvsig', field%thvsig,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    !---------------------------
+    ! Variables for energy diagnostic of echam6 physics
+    !---------------------------
+
+       cf_desc    = t_cf_var('sh_vdiff','J/m^2/s', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, prefix//'sh_vdiff', field%sh_vdiff,             &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('ch_concloud','J/m^2/s', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, prefix//'ch_concloud', field%ch_concloud,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     !---------------------------
     ! Orographic wave drag diagnostics

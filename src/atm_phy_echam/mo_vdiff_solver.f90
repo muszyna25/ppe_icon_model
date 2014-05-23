@@ -18,9 +18,9 @@ MODULE mo_vdiff_solver
   USE mo_kind,              ONLY: wp
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_exception,         ONLY: message, message_text, finish
-  USE mo_physical_constants,ONLY: grav, cpd, cpv
+  USE mo_physical_constants,ONLY: grav, rgrav, cpd, cpv
 #ifdef __ICON__
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
+  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
@@ -752,7 +752,8 @@ CONTAINS
                              & pute_vdf, pvte_vdf, ptte_vdf,         &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
                              & pxtte_vdf, pxvarprod, pz0m,           &! out
-                             & ptke, pthvvar, pthvsig, pvmixtau      )! out
+                             & ptke, pthvvar, pthvsig, pvmixtau,     &
+                             & psh_vdiff                              )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr, idx_ice
@@ -816,6 +817,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pthvvar (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pthvsig (kbdim)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvmixtau(kbdim,klev)  ! OUT
+    REAL(wp),INTENT(INOUT) :: psh_vdiff(kbdim)  !OUT
 
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew
@@ -825,6 +827,7 @@ CONTAINS
     REAL(wp) :: zqflux(kbdim,klevp1)
     REAL(wp) :: zvarpr(kbdim,klevp1)
     REAL(wp) :: zdqtdt(kbdim,klev)
+!    REAL(wp) :: zsh_vdiff(kbdim,klev)
     INTEGER  :: jk, jl, jt, irhs, jsfc
 
 #ifndef __ICON__
@@ -967,7 +970,13 @@ CONTAINS
         pxvar(jl,jk) = bb(jl,jk,ixv) + tpfac3*pxvar(jl,jk)
       END DO
     END DO
-
+    IF ( get_lebudget() ) THEN
+      psh_vdiff(1:kproma) = 0._wp
+      DO jk=itop,klev
+        psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pdelpm1(1:kproma,jk)*rgrav* &
+        & (bb(1:kproma,jk,ih) + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
+      END DO
+    END IF
     !-------------------------------------------------------------
     ! Tendency of tracers
     !-------------------------------------------------------------

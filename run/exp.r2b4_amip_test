@@ -138,6 +138,7 @@ cat > ${atmo_namelist} << EOF
  lssodrag         = .TRUE.
  ljsbach          = .TRUE.
  dt_rad           = ${dt_rad}    ! [s] radiation time step
+ lebudget         = .TRUE.
 /
 &radiation_nml
  irad_h2o         = 1            ! prognostic vapor, liquid and ice
@@ -210,7 +211,8 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'tauu'    , 'tauv'    ,
                     'tauu_wtr', 'tauu_ice', 'tauu_lnd',
                     'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'tauu_sso', 'tauv_sso', 'diss_sso'
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 'sh_vdiff',
+                    'ch_concloud'
 /
 EOF
 fi

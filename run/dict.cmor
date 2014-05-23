@@ -124,6 +124,9 @@
   tauu_sso           prm_v_stress_sso
   diss_sso           prm_dissipation_sso
 #
+  sh_vdiff           prm_sh_vdiff
+  ch_concloud        prm_ch_concloud
+#
 # tendencies from the ECHAM6 physics with prefix 'prm_tend'
 # ---------------------------------------------------
 #

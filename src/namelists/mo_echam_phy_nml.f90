@@ -58,6 +58,7 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: ljsbach    !< .true. for calculating the JSBACH land surface
   LOGICAL  :: lhd        !< .true. for hydrologic discharge model
   LOGICAL  :: lamip      !< .true. for AMIP simulations
+  LOGICAL  :: lebudget   !< .true. for echam physcics energy budget calculation
 
 
   NAMELIST /echam_phy_nml/ lrad, dt_rad, lvdiff,    &
@@ -65,7 +66,7 @@ MODULE mo_echam_phy_nml
     &                      lssodrag, lgw_hines,     &
     &                      lmlo, lice, lmeltpond,   &
     &                      llandsurf, ljsbach, lhd, &
-    &                      lamip
+    &                      lamip, lebudget
 
 CONTAINS
   !>
@@ -96,6 +97,7 @@ CONTAINS
     ljsbach   = .FALSE.
     lhd       = .FALSE.
     lamip     = .FALSE.
+    lebudget  = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -163,6 +165,7 @@ CONTAINS
     echam_phy_config% ljsbach   = ljsbach
     echam_phy_config% lhd       = lhd                                                 
     echam_phy_config% lamip     = lamip                                                
+    echam_phy_config% lebudget  = lebudget
 
   END SUBROUTINE read_echam_phy_namelist
 

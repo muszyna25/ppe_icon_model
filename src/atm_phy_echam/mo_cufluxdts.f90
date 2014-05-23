@@ -532,6 +532,7 @@ SUBROUTINE cudtdq(kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
                   pdpmel,   prfl,     psfl,                            &
                   pcpen,    palvsh,   pqtec,    pqude,                 &
                   prsfc,    pssfc,                                     &
+                  pch_concloud,                                        &
                   pxtecl,   pxteci,                                    &
                   ptte_cnv, pqte_cnv, pxtte_cnv                        )
 !
@@ -549,6 +550,7 @@ SUBROUTINE cudtdq(kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
 !
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
 INTEGER, INTENT (IN) :: krow
+REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim)
 REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
 LOGICAL  llo1
@@ -567,7 +569,7 @@ REAL(wp) :: pdpmel(kbdim,klev),      psfl(kbdim)
 REAL(wp) :: pcpen(kbdim,klev),       palvsh(kbdim,klev)
 LOGICAL  :: ldcum(kbdim)
 !
-REAL(wp) :: zmelt(kbdim)
+REAL(wp) :: zmelt(kbdim), zcpten(kbdim,klev)
 REAL(wp) :: zsheat(kbdim)
 REAL(wp) :: pxtte(kbdim,klev,ktrac), pmfuxt(kbdim,klev,ktrac),         &
             pmfdxt(kbdim,klev,ktrac)
@@ -598,6 +600,9 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
      zsheat(jl)=0._wp
 210 END DO
 !
+  pch_concloud(1:kproma)=0._wp
+  zcpten(1:kproma,ktopm2:klev)=0._wp
+
   DO 250 jk=ktopm2,klev
 !
      IF(jk.LT.klev) THEN
@@ -614,6 +619,7 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                                    palvsh(jl,jk)*pmful(jl,jk)+         &
                                    zalv*(plude(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
               ptte(jl,jk)=ptte(jl,jk)+zdtdt
+              zcpten(jl,jk)=zdtdt*pcpen(jl,jk)
               ptte_cnv(jl,jk)=zdtdt
               zdqdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*               &
                                   (pmfuq(jl,jk+1)-pmfuq(jl,jk)+        &
@@ -706,6 +712,16 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
      prsfc(jl)=prfl(jl)
      pssfc(jl)=psfl(jl)
 310 END DO
+
+  DO jk=ktopm2,klev
+    DO jl=1,kproma
+      pch_concloud(jl)=pch_concloud(jl)+ &
+      &   zcpten(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+    END DO
+  END DO
+  DO jl=1,kproma
+     pch_concloud(jl)=pch_concloud(jl)-(alv*prsfc(jl)+als*pssfc(jl))
+  END DO
 !
 ! calculate and store convective accumulated precipitation (mm)
 

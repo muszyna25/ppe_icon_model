@@ -386,6 +386,9 @@ if string_in_list $MD $CMODES; then
     fi
     N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
     N_NPROMA_NEW="nproma=17"
+    if [ "${N_NPROMA#nproma=}" == "${N_NPROMA_NEW#nproma=}" ]; then
+      N_NPROMA_NEW='nproma=19'
+    fi
     sed -i.sedbak s/$N_NPROMA/$N_NPROMA_NEW/g ${RUN_SCRIPT}
     sed -i.sedbak s/${SCRIPT}/${EXP3}/g ${RUN_SCRIPT}
     rm ${RUN_SCRIPT}.sedbak

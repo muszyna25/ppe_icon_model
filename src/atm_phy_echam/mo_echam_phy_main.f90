@@ -1067,7 +1067,8 @@ CONTAINS
                    & field%   z0m   (:,  jb),         &! out, for the next step
                    & field%   thvvar(:,:,jb),         &! out, for the next step
                    & field%   thvsig(:,  jb),         &! out, for "cucall"
-                   & field%      tke(:,:,jb)          )! out
+                   & field%      tke(:,:,jb),         &! out
+                   & field%   sh_vdiff(:,  jb)        )! out, for energy diagnostic
 
 !    ! TIME FILTER FOR TURBULENT KINETIC ENERGY
 !
@@ -1262,6 +1263,7 @@ CONTAINS
         &          tend% q(:,:,jb,iqt:),      &! inout  xtte
         &          zqtec,                     &! inout
 !        &          tend% x_dtr(:,:,jb),       &! inout  xtec
+        &          field% ch_concloud(:,jb),  &! inout condensational heat
         &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
         &          tend% xi_dtr(:,:,jb),      &! inout  xteci
         &          field% rsfc(:,jb),         &! out
@@ -1323,6 +1325,7 @@ CONTAINS
           &        invb,                      &! in (from "cover")
           &        zcd,                      &! in
           &        zcv,                      &! in
+          &        field% ch_concloud(:,jb), &! inout condens. heat
           &        zqtec,                     &! inout (there is a clip inside)
 !          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
           &         tend% xl_dtr(:,:,jb),     &! inout  xtecl

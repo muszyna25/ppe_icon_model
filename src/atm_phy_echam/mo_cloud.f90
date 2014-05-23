@@ -108,6 +108,8 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
 ! - INPUT  3D .
 !                         , pxtm1  (tracer)                                       &
 ! - INPUT/OUTPUT 2D .
+                         , pch_concloud                                          &
+! - INPUT/OUTPUT 2D .
                          , pqtec,      pxtecl,   pxteci                          &
 !                         , pxvar,      pxskew                                    &
                          , ptte                                                  &
@@ -156,8 +158,9 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
  !     & paprl    (kbdim)          ,&!< total stratiform precipitation (rain+snow), accumulated
       & pqvi     (kbdim)          ,&!< vertically integrated spec. humidity, accumulated
       & pxlvi    (kbdim)          ,&!< vertically integrated cloud liquid water, accumulated
-      & pxivi    (kbdim)            !< vertically integrated cloud ice, accumulated
+      & pxivi    (kbdim)          ,&!< vertically integrated cloud ice, accumulated
  !     & paprs    (kbdim)            !< snowfall, accumulated
+      & pch_concloud(kbdim)         !< condensational heating of convection and large scale clouds
   REAL(wp), INTENT(INOUT) ::       &
       & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water        (n)
       & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice                 (n)
@@ -223,7 +226,8 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
            , zbap1(kbdim)         ,zqsm1(kbdim)         ,ub(kbdim)               &
            , zdtdt(kbdim)         ,zstar1(kbdim)        ,zlo2(kbdim)             &
            , ua(kbdim)            ,dua(kbdim)           ,za(kbdim)               &
-           , uaw(kbdim)           ,duaw(kbdim)
+           , uaw(kbdim)           ,duaw(kbdim)                                   &
+           , zcpq(kbdim)          ,zclten(kbdim)        ,zcpten(kbdim,klev)
   REAL(wp):: zrho(kbdim,klev)
 !
   INTEGER:: loidx(kbdim), nloidx(kbdim), jjclcpre(kbdim)
@@ -247,7 +251,8 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
            , zcolleffi, zc1, zdt2, zsaut, zsaci1, zsaci2, zsacl1, zsacl2, zlamsm &
            , zzdrr, zzdrs, zpretot, zpredel, zpresum, zmdelb, zmqp1, zxlp1       &
            , zxlold, zxiold, zdxicor, zdxlcor, zptm1_inv, zxlp1_d, zxip1_d       &
-           , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, za1, zxitop, zxibot
+           , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, za1, zxitop, zxibot  &
+           , zcons1
 !!$ used in Revised Bergeron-Findeisen process only  
 !!$  REAL(wp):: zzevp, zeps
 !!$  REAL(wp):: zsupsatw(kbdim)
@@ -324,7 +329,7 @@ icover = 1
   ztmst  = REAL(ptime_step_len,wp)
 !  zdtime = delta_time
 !  ztmst  = time_step_len
-!  zcons1 = cpd*vtmpc2
+  zcons1 = cpd*vtmpc2
   zcons2 = 1._wp/(ztmst*grav)
 !
 !     ---------------------------------------------------------------------------
@@ -392,6 +397,7 @@ icover = 1
 
         zdp(jl)        = paphm1(jl,jk+1)-paphm1(jl,jk)
         zdz(jl)        = (zgeoh(jl,jk)-zgeoh(jl,jk+1))/grav
+        zcpq(jl)       = cpd+zcons1*MAX(pqm1(jl,jk),0.0_wp)
 
         zrcp           = 1._wp/(pcd+(pcv-pcd)*MAX(pqm1(jl,jk),0.0_wp))
         zlvdcp(jl)     = alv*zrcp
@@ -1550,6 +1556,9 @@ icover = 1
                         -zsacl(jl)+zcnd(jl)+zgentl(jl)-zxlevap(jl))/ztmst
         pxite(jl,jk) = pxite(jl,jk)+pxteci(jl,jk)+(zfrl(jl)-zspr(jl)+zdep(jl)    &
                         +zgenti(jl)-zxievap(jl)-zimlt(jl)+zqsed(jl))/ztmst
+        zcpten(jl,jk) = (zlvdcp(jl)*(zcnd(jl)+zgentl(jl)-zevp(jl)-zxlevap(jl)) &
+                        +zlsdcp(jl)*(zdep(jl)+zgenti(jl)-zsub(jl)-zxievap(jl)) &
+                        +(zlsdcp(jl)-zlvdcp(jl))*(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)))/ztmst
 820  END DO
 
 !IBM* NOVECTOR
@@ -1579,6 +1588,7 @@ icover = 1
         pqte(jl,jk)    = pqte(jl,jk) - zdxlcor - zdxicor
         ptte(jl,jk)    = ptte(jl,jk) + zlvdcp(jl)*zdxlcor + zlsdcp(jl)*zdxicor
         pclcpre(jl,jk) = zclcpre(jl)
+        zcpten(jl,jk)  = zcpq(jl)*(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor)
 !
 821  END DO
 !
@@ -1660,6 +1670,7 @@ icover = 1
      zqvi(jl)  = 0.0_wp
      zxlvi(jl) = 0.0_wp
      zxivi(jl) = 0.0_wp
+     zclten(jl) = 0.0_wp
 931 END DO
 !
   DO 933 jk     = ktdia,klev
@@ -1668,6 +1679,7 @@ icover = 1
         zqvi(jl)  = zqvi(jl)+pqm1(jl,jk)*zdpg
         zxlvi(jl) = zxlvi(jl)+pxlm1(jl,jk)*zdpg
         zxivi(jl) = zxivi(jl)+pxim1(jl,jk)*zdpg
+        zclten(jl)= zclten(jl)+zcpten(jl,jk)*zdpg
 932  END DO
 933 END DO
 !
@@ -1675,6 +1687,7 @@ icover = 1
      pqvi(jl)  = zqvi(jl)!+zdtime*zqvi(jl)
      pxlvi(jl) = zxlvi(jl)!+zdtime*zxlvi(jl)
      pxivi(jl) = zxivi(jl)!+zdtime*zxivi(jl)
+     pch_concloud(jl) = pch_concloud(jl)+zclten(jl)-(alv*prsfl(jl)+als*pssfl(jl))
 934 END DO
   !
 #ifdef _PROFILE

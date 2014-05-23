@@ -63,7 +63,7 @@ CONTAINS
                        pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                        pxvarprod,  pvmixtau,    pz0m,                    &! out
-                       pthvvar,    pthvsig,     ptke                     )! out
+                       pthvvar,    pthvsig,     ptke, psh_vdiff          )! out
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
@@ -154,6 +154,7 @@ CONTAINS
                                                       !< at the new time step t    out
     REAL(wp),INTENT(INOUT) :: pthvsig      (kbdim)      !< sqrt( variance of theta_v )    out
     REAL(wp),INTENT(INOUT) :: ptke       (kbdim,klev)
+    REAL(wp),INTENT(INOUT) :: psh_vdiff (kbdim)         ! sens. heat flux
 
   
     !-----------------------------------------------------------------------
@@ -181,7 +182,8 @@ CONTAINS
                          & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                          & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                          & pxvarprod,                                   &! out ("pvdiffp" in echam)
-                         & pz0m, ptke, pthvvar, pthvsig, pvmixtau       )! out
+                         & pz0m, ptke, pthvvar, pthvsig, pvmixtau,      &
+                         & psh_vdiff                                    )! out
 
     ! Note: computation of additional diagnostics, e.g., surface sensible heat flux,
     !       wind stress, 10m wind, 2m temperature etc., has not been implemented yet.

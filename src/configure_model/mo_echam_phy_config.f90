@@ -29,7 +29,7 @@ MODULE mo_echam_phy_config
     &       get_lgw_hines, get_lssodrag,         & !<   whole echam6 configuration
     &       get_lmlo, get_lice, get_lmeltpond,   & !<   state without USEing the
     &       get_llandsurf, get_ljsbach, get_lhd, & !<   whole state.
-    &       get_lamip
+    &       get_lamip, get_lebudget
 
   !>
   !! Derived type containing main switches for configuring the echam physics package
@@ -53,7 +53,7 @@ MODULE mo_echam_phy_config
     LOGICAL  :: lhd         !<  .true. for hydrologic discharge model
 
     LOGICAL  :: lamip       !<  .true. for AMIP simulations with monthly transient boundary conditions   
-
+    LOGICAL  :: lebudget    !<  .true. for echam physics energy budget calculation
 
   END TYPE t_echam_phy_config
 
@@ -143,6 +143,9 @@ CONTAINS
     CALL message(method_name,'ECHAM6 physics boundary conditions:')
     CALL print_value('    lamip      ',echam_phy_config% lamip    )
     CALL message('','')
+    CALL message(method_name,'ECHAM6 physcis energy budget control:')
+    CALL print_value('    lebudget   ',echam_phy_config% lebudget )
+    CALL message('','')
 
 
   END SUBROUTINE configure_echam_phy
@@ -222,5 +225,10 @@ CONTAINS
   LOGICAL FUNCTION get_lamip()
     get_lamip = echam_phy_config%lamip
   END FUNCTION get_lamip
+  !>
+  !!
+  LOGICAL FUNCTION get_lebudget()
+    get_lebudget = echam_phy_config%lebudget
+  END FUNCTION get_lebudget
 
 END MODULE mo_echam_phy_config
