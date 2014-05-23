@@ -45,7 +45,7 @@ MODULE mo_run_config
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
-  PUBLIC :: check_epsilon, test_mode
+  PUBLIC :: test_mode
   PUBLIC :: configure_run
   PUBLIC :: output, t_output_mode, output_mode, max_output_modes
   PUBLIC :: debug_check_level
@@ -77,7 +77,6 @@ MODULE mo_run_config
     LOGICAL :: activate_sync_timers
     INTEGER :: profiling_output = TIMER_MODE_AGGREGATED  !< switch defining the kind of timer output
   
-    REAL(wp):: check_epsilon   !< small value for checks
     INTEGER :: test_mode = 0   !< 0= run the model, /=0 run in test mode
     INTEGER :: debug_check_level = 10  ! Define debug checks level. This is not related to the debug output in
                                       ! mo_dbg_nml, it only controls the activation of internal checks

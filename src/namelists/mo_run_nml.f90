@@ -29,7 +29,6 @@ MODULE mo_run_nml
                          & config_msg_level       => msg_level,       &
                          & config_output          => output,          &
                          & config_output_mode     => output_mode,     &
-                         & config_check_epsilon   => check_epsilon,   &
                          & config_test_mode       => test_mode,       &
                          & t_output_mode, max_output_modes,           &
                          & config_debug_check_level => debug_check_level, &
@@ -91,7 +90,6 @@ MODULE mo_run_nml
 
   LOGICAL :: msg_timestamp ! If .TRUE.: Precede output messages by time stamp.
 
-  REAL(wp) :: check_epsilon ! small value for checks
 
   INTEGER :: test_mode  ! if =0 then run the standard version,
                         ! otherwise special setup for (performance) tests, see Namelist_overview
@@ -115,7 +113,7 @@ MODULE mo_run_nml
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
-                     msg_level, check_epsilon,      &
+                     msg_level,                     &
                      test_mode,                     &
                      output,                        &
                      msg_timestamp,                 &
@@ -159,7 +157,6 @@ CONTAINS
     activate_sync_timers = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
-    check_epsilon        = 1.e-6_wp
     test_mode         = 0
     debug_check_level = 0
 
@@ -251,7 +248,6 @@ CONTAINS
 
     config_msg_level       = msg_level
     config_msg_timestamp   = msg_timestamp
-    config_check_epsilon   = check_epsilon
     config_test_mode    = test_mode
     config_debug_check_level = debug_check_level
 
