@@ -2051,12 +2051,7 @@ switch for dry convective boundary layer simulations &
 \tabularnewline
 
 %\hline
-karman\_constant & R & 0.4 &  &
-von Karman constant &
-\tabularnewline
-
-%\hline
-smag\_constant & R & 0.12 &  &
+smag\_constant & R & 0.23 &  &
 Smagorinsky constant &
 \tabularnewline
 
@@ -2100,7 +2095,7 @@ expname to name the statistical output file &
 \tabularnewline
 
 %\hline
-ldiag\_les\_out & L & .TRUE. &   &
+ldiag\_les\_out & L & .FALSE. &   &
 Control for the statistical output in LES mode &
 \tabularnewline
 
@@ -2121,7 +2116,7 @@ Defined and used in: \verb+src/namelists/mo_les_nml.f90+
 I & 0& &
 Type of lateral boundary nudging. Nudge from\\
 0: the initial data,\\
-1: IFS data analysis/forecast (if \texttt{init\_mode}=4, we take COSMO-DE data),\\
+1: IFS data analysis/forecast (if \texttt{initicon\_nml:init\_mode}=4, we take COSMO-DE data),\\
 2: ICON output data (with the identical 3d grid)&
 \tabularnewline
 
@@ -2189,8 +2184,7 @@ nlev\_snow &
 I&
 2&
 &
-number of snow layers\\
-for {\tt lmulti\_snow=.true.}&
+number of snow layers&
 lmulti\_snow=.true.
 \tabularnewline
 %\hline
@@ -2245,6 +2239,32 @@ fraction threshold for retaining the respective tile for a grid point&
 ntiles$>$1
 \tabularnewline
 
+%\hline
+lmelt &
+L&
+.TRUE.&
+&
+.TRUE. soil model with melting process&
+\tabularnewline
+
+%\hline
+lmelt\_var &
+L&
+.TRUE.&
+&
+.TRUE. freezing temperature dependent on water content&
+\tabularnewline
+
+%\hline
+lana\_rho\_snow &
+L&
+.TRUE.&
+&
+.TRUE. take rho\_snow-values from analysis file&
+init\_mode=1
+\tabularnewline
+
+%\hline
 \textbf{lmulti\_snow} &
 L&
 .TRUE.&
@@ -2283,6 +2303,54 @@ I & 2 &  & root density distribution: \\
 \tabularnewline
 
 %\hline
+itype\_trvg &
+I & 2 &  & type of vegetation transpiration parameterization \\
+1 = \\
+2 =  &
+\tabularnewline
+
+%\hline
+itype\_evsl &
+I & 2 &  & type of bare soil evaporation parameterization \\
+1 = \\
+2 =  &
+\tabularnewline
+
+%\hline
+itype\_heatcond &
+I & 1 &  & type of soil heat conductivity \\
+1 = constant soil heat conductivity\\
+2 = moisture dependent soil heat conductivity &
+\tabularnewline
+
+%\hline
+itype\_interception &
+I & 1 &  & type of plant interception \\
+1 = (effectively switched off)\\
+2 =  &
+\tabularnewline
+
+%\hline
+itype\_hydbound &
+I & 1 &  & type of hydraulic lower boundary condition \\
+1 = \\
+2 =  &
+\tabularnewline
+
+%\hline
+lstomata &
+L & .TRUE. &  & If .TRUE., use map of minimum stomatal resistance\\
+If .FALSE., use constant value of $150\, \mathrm{s/m}$.
+&
+\tabularnewline
+
+%\hline
+l2tls &
+L & .TRUE. &  & If .TRUE., forecast with 2-Time-Level integration scheme
+&
+\tabularnewline
+
+%\hline
 \textbf{lseaice} &
 L&
 .TRUE.&
@@ -2307,7 +2375,7 @@ sea ice fraction can be modified by the seaice model.\\
 means\\
 3: SST and sea ice fraction are updated daily, based on actual monthly means\\
 4: SST and sea ice fraction are updated daily, based on actual daily means,
-not yet implemented&
+\textcolor{red}{not yet implemented}&
 iequations=3\\
 iforcing=3
 \tabularnewline
@@ -2344,12 +2412,6 @@ Defined and used in: \verb+src/namelists/mo_lnd_nwp_nml.f90+
 \begin{longtab}
 
 %\hline
-is\_ls\_forcing& L & .FALSE. &  &
-switch for enabling large-scale (LS) forcing on torus grid &
-is\_plane\_torus=.TRUE.
-\tabularnewline
-
-%\hline
 is\_subsidence\_moment & L & .FALSE. &  &
 switch for enabling LS vertical advection due to subsidence for momentum equations&
 is\_plane\_torus=.TRUE.
@@ -2382,12 +2444,6 @@ inwp\_rad=.FALSE.
 \tabularnewline
 
 %\hline
-is\_geowind & L & .FALSE. &  &
-switch for enabling geostrophic wind &
-is\_plane\_torus=.TRUE.
-\tabularnewline
-
-%\hline
 is\_theta & L & .FALSE. &  &
 switch to indicate that the prescribed radiative forcing is for potential temperature &
 is\_plane\_torus=.TRUE. \\
@@ -2416,10 +2472,12 @@ File name containing the model namelists.&
 
 %\hline
 \textbf{model\_type} &
-I & 0 & &
-Identifies which component to run.
-atmosphere=1, ocean=2, radiation=3,
-dummy\_model=99 &
+I & -1 & &
+Identifies which component to run.\\
+1=atmosphere\\
+2=ocean\\
+3=radiation\\
+99=dummy\_model &
 \tabularnewline
 
 %\hline
@@ -2436,7 +2494,7 @@ End MPI rank for this model.&
 
 %\hline
 model\_inc\_rank &
-I & 0 & &
+I & 1 & &
 Stride of MPI ranks.&
 \tabularnewline
 
@@ -2472,7 +2530,6 @@ If a file name contains the keyword "\texttt{<path>}", then this
 
 \end{longtab}
 
-\newpage
 
 %------------------------------------------------------------------------------
 % meteogram_output_nml:
@@ -2557,26 +2614,26 @@ iequations=3
 
 %\hline
 \textbf{zlevels} &
-R& 10000,\\ 9000,\\...,\\1000,\\0 & m&
-array of height levels&
-iequations=3\\
-\textcolor{red}{level ordering from TOA to bottom}
+R(100)& 10000,\\ 9000,\\...,\\1000,\\0 & m&
+array of height levels\\
+\textcolor{red}{level ordering from TOA to bottom}&
+iequations=3
 \tabularnewline
 
 %\hline
 \textbf{plevels} &
-R&  100000,\\ 90000,\\ 80000,\\...,\\10000& Pa &
-array of pressure levels&
-iequations=3\\
-\textcolor{red}{level ordering from TOA to bottom}
+R(100)&  10000,\\ 20000,\\30000,\\...,\\100000& Pa &
+array of pressure levels\\
+\textcolor{red}{level ordering from TOA to bottom}&
+iequations=3
 \tabularnewline
 
 %\hline
 \textbf{ilevels} &
-R&  340,\\ 320,\\ 300 & K &
-array of isentropic levels&
-iequations=3\\
-\textcolor{red}{level ordering from TOA to bottom}
+R(100)&  340,\\ 320,\\ 300 & K &
+array of isentropic levels\\
+\textcolor{red}{level ordering from TOA to bottom}&
+iequations=3
 \tabularnewline
 
 \end{longtab}
@@ -2614,14 +2671,14 @@ Type of Rayleigh damping\\
 
 %\hline
 \textbf{rayleigh\_coeff}&
-R(n\_dom)& 0.05& &
+R(n\_dom)& 0.05 for i=1& &
 Rayleigh damping coefficient $1/\tau_{0}$ (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004);
 higher values are recommended for R2B6 or finer resolution&
 \tabularnewline
 
 %\hline
 \textbf{damp\_height}&
-R(n\_dom)& 45000& m&
+R(n\_dom)& 45000 for i=1& m&
 Height at which Rayleigh damping of vertical wind starts (needs to be adjusted to model top height; the damping
 layer should have a depth of at least 20 km when the model top is above the stratopause)&
 \tabularnewline
@@ -2691,13 +2748,6 @@ extremely rarely in practice; this is mostly an emergency fix for pathological c
 \tabularnewline
 
 %\hline
-lbackward\_integr&
-L& .FALSE. & &
-.TRUE.: Integrate backward in time (preparation for testing a digital filter initialization)
-& 
-\tabularnewline
-
-%\hline
 divdamp\_fac&
 R& 0.0025& &
 Scaling factor for divergence damping&
@@ -2710,7 +2760,7 @@ I& 4& &
 Order of divergence damping: \\
 2 = second-order divergence damping \\
 4 = fourth-order divergence damping \\
-24 = combined second-order and fourth-order divergence damping and enhanced vertical wind off-centering during the initial spinup phase (does not allow checkpointing/restarting ealier than 2.5 hours of integration) &
+24 = combined second-order and fourth-order divergence damping and enhanced vertical wind off-centering during the initial spinup phase (does not allow checkpointing/restarting earlier than 2.5 hours of integration) &
 lhdiff\_rcf = .TRUE.
 \tabularnewline
 
@@ -2729,6 +2779,13 @@ l\_nest\_rcf&
 L& .TRUE.& &
 Synchronize interpolation/feedback calls with advection (transport) time steps.
 l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
+\tabularnewline
+
+%\hline
+nest\_substeps&
+I& 2& &
+Number of dynamics substeps for the child patches.\\
+\textcolor{red}{DO NOT CHANGE!!! The code will not work correctly with other values}&
 \tabularnewline
 
 %\hline
@@ -2825,9 +2882,13 @@ I (max\_ dom)&
 &
 cloud microphysics and precipitation\\
 0: none\\
-1: hydci (COSMO-EU microphysics)\\
+1: hydci (COSMO-EU microphysics, 2-cat ice: cloud ice, snow)\\
+2: hydci\_gr (COSMO-DE microphysics, 3-cat ice: cloud ice, snow, graupel)\\
+3: as 1, but with improved ice nucleation scheme by C. Koehler\\
+4: Two-moment microphysics by A. Seifert\\
+
 9: Kessler scheme &
-run\_nml/iforcing = inwp
+run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -2851,8 +2912,16 @@ inwp\_gscp=1
 mu\_rain&
 R&
 0.0&
-1 &
-shape parameter for gamma distribution for rain&
+ &
+shape parameter in gamma distribution for rain&
+inwp\_gscp$>$0
+\tabularnewline
+
+mu\_snow&
+R&
+0.0&
+ &
+shape parameter in gamma distribution for snow&
 inwp\_gscp$>$0
 \tabularnewline
 
@@ -2864,7 +2933,7 @@ I (max\_ dom)&
 convection\\
 0: none\\
 1: Tiedtke/Bechtold convection
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -2879,7 +2948,7 @@ cloud cover scheme for radiation\\
 3: clouds from COSMO SGS cloud scheme\\
 4: clouds as in turbulence (turbdiff)\\
 5: grid scale clouds
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -2891,7 +2960,7 @@ radiation\\
 0: none\\
 1: RRTM radiation\\
 2: Ritter-Geleyn radiation
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -2901,8 +2970,8 @@ I&
 &
 saturation adjustment\\
 0: none\\
-1:
-&run\_nml/iforcing = inwp
+1: saturation adjustment at constant density
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -2916,7 +2985,7 @@ vertical diffusion and transfer\\
 2: GME turbulence scheme\\
 3: EDMF-DUALM (work in progress)\\
 5: Classical Smagorinsky diffusion
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 %\hline
 \textbf{inwp\_sso}&
@@ -2925,8 +2994,8 @@ I (max\_ dom)&
 &
 subgrid scale orographic drag\\
 0: none\\
-1: (COSMO) Lott and Miller scheme
-&run\_nml/iforcing = inwp
+1: Lott and Miller scheme (COSMO)
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -2936,8 +3005,8 @@ I (max\_ dom)&
 &
 non-orographic gravity wave drag\\
 0: none\\
-1:Orr-Ern-Bechtold-scheme(IFS)
-&run\_nml/iforcing = inwp
+1: Orr-Ern-Bechtold-scheme (IFS)
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 
@@ -2949,7 +3018,7 @@ I (max\_ dom)&
 surface scheme\\
 0: none\\
 1: TERRA
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 
@@ -2975,7 +3044,7 @@ inwp\_radiation $>$ 0
 %\hline
 itype\_z0&
 I & 2 &  & Type of roughness length data used for turbulence scheme: \\
-1 = including contribution from sub-scale orography \\
+1 = land-cover-related roughness including contribution from sub-scale orography \\
 2 = land-cover-related roughness only &
 inwp\_turb $>$ 0
 \tabularnewline
@@ -2987,7 +3056,7 @@ R (max\_ dom)&
 s&
 time interval of convection call\\
 currently each subdomain has the same value
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -2997,7 +3066,7 @@ R (max\_ dom)&
 s&
 time interval of radiation call\\
 currently each subdomain has the same value
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -3007,7 +3076,7 @@ R (max\_ dom)&
 s&
 time interval of sso call\\
 currently each subdomain has the same value
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -3017,7 +3086,7 @@ R (max\_ dom)&
 s&
 time interval of gwd call\\
 currently each subdomain has the same value
-&run\_nml/iforcing = inwp
+&run\_nml:iforcing = inwp
 \tabularnewline
 
 %\hline
@@ -3040,7 +3109,7 @@ NetCDF file with RRTM Cloud Optical Properties for ECHAM6. &
 \end{longtab}
 
 
-Defined and used in: \verb+src/namelists/mo_atm_phy_nwp_nml.f90+
+Defined and used in: \verb+src/namelists/mo_nwp_phy_nml.f90+
 
 
 \subsection{ocean\_physics\_nml}
@@ -3063,7 +3132,7 @@ l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
 %------------------------------------------------------------------------------
 % output_nml:
 %------------------------------------------------------------------------------
-\subsection{output\_nml}
+\subsection{output\_nml (used if run\_nml/output='nml')}
 
 Please note: There may be several instances of
 output\_nml in the namelist file, every one defining a list of variables with
@@ -3072,8 +3141,8 @@ separate attributes for output.
 \begin{longtab}
 
 %\hline
-\textbf{dom(:) }&
-I&-1& &
+\textbf{dom}&
+I(:)&-1& &
  Array of domains for which this name-list is used.
  If not specified (or specified as -1 as the first array member),
  this name-list will be used for all domains. \\
@@ -3101,38 +3170,64 @@ C&see description.& &
 filetype &
 I&4& &
 One of CDI's FILETYPE\_XXX constants.
-Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
+Possible values:\\
+2=FILETYPE\_GRB2,\\
+4=FILETYPE\_NC2, \\
+5=FILETYPE\_NC4
 &
 \tabularnewline
 
 %\hline
-h\_levels(:) &
-R&None& m &
+h\_levels &
+R(:)&None& m &
  height levels \\
  {\color{red} Not yet implemented.} \\
- {\color{red} The height levels are currently always taken from array zlevels in namelist nh\_pzlev\_nml. }
+ {\color{red} The height levels are currently taken from the array \emph{zlevels} in namelist nh\_pzlev\_nml. }
 &
 \tabularnewline
 
 %\hline
-\textbf{hl\_varlist(:) }&
-C&None& &
+p\_levels &
+R(:)&None& hPa &
+ pressure levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The pressure levels are currently taken from the array \emph{plevels} in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+%\hline
+i\_levels &
+R(:)&None& K &
+ isentropic levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The isentropic levels are currently taken from array \emph{ilevels} in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+%\hline
+\textbf{ml\_varlist} &
+C(:)&None& &
+ Name of model level fields to be output.
+&
+\tabularnewline
+
+%\hline
+\textbf{hl\_varlist }&
+C(:)&None& &
  Name of height level fields to be output.
 &
 \tabularnewline
 
 %\hline
-i\_levels(:) &
-R&None& K &
- isentropic levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The isentropic levels are currently always taken from array ilevels in namelist nh\_pzlev\_nml. }
+\textbf{pl\_varlist} &
+C(:)&None& &
+ Name of pressure level fields to be output.
 &
 \tabularnewline
 
 %\hline
-\textbf{il\_varlist(:) }&
-C&None& &
+\textbf{il\_varlist }&
+C(:)&None& &
  Name of isentropic level fields to be output.
 &
 \tabularnewline
@@ -3141,13 +3236,6 @@ C&None& &
 \textbf{include\_last} &
 L&.TRUE.& &
  Flag whether to include the last time step
-&
-\tabularnewline
-
-%\hline
-\textbf{ml\_varlist(:)} &
-C&None& &
- Name of model level fields to be output.
 &
 \tabularnewline
 
@@ -3163,20 +3251,37 @@ I&2& &
 \tabularnewline
 
 %\hline
- north\_pole(2) &
-R&0,90& &
- definition of north pole for rotated lon-lat grids.
-&
+ taxis\_tunit &
+I&2& &
+ Time unit of the TAXIS\_RELATIVE time axis.\\
+ 1 = TUNIT\_SECOND\\ 
+ 2 = TUNIT\_MINUTE\\
+ 3 = TUNIT\_HOUR\\
+ For a complete list of possible values see cdi.inc
+& mode=1
 \tabularnewline
 
 %\hline
- \textbf{output\_bounds(3)} &
-R&None& &
- Post-processing times (in seconds): start, end, increment.
+ \textbf{output\_bounds} &
+R(3)&None& &
+ Post-processing times: start, end, increment.
  We choose  the advection time step matching or following the 
  requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
  See namelist parameters \texttt{output\_start}, \texttt{output\_end}, \texttt{output\_interval}
  for an alternative specification of output events.
+&
+\tabularnewline
+
+%\hline
+ \textbf{output\_time\_unit} &
+I& 1 & &
+ Units of output bounds specification.\\
+ 1 = second\\
+ 2 = minute\\
+ 3 = hour\\
+ 4 = day\\
+ 5 = month\\
+ 6 = year
 &
 \tabularnewline
 
@@ -3197,6 +3302,15 @@ L&.FALSE.& &
 \tabularnewline
 
 %\hline
+ \textbf{output\_start }&
+C&\'' \''& &
+ ISO8601 time stamp for begin of output.
+ An example for this time stamp format is given below.
+ See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
+&
+\tabularnewline
+
+%\hline
 \textbf{output\_end }&
 C&\'' \''& &
  ISO8601 time stamp for end of output.
@@ -3211,14 +3325,6 @@ C&\'' \''& &
  ISO8601 time stamp for repeating output intervals.
  We choose  the advection time step matching or following the 
  requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
- An example for this time stamp format is given below.
- See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
-\tabularnewline
-
-%\hline
- \textbf{output\_start }&
-C&\'' \''& &
- ISO8601 time stamp for begin of output.
  An example for this time stamp format is given below.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
@@ -3268,22 +3374,6 @@ See namelist parameter \texttt{pe\_placement\_ml} for further details.
 \tabularnewline
 
 %\hline
-p\_levels(:) &
-R&None& hPa &
- pressure levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
-&
-\tabularnewline
-
-%\hline
-\textbf{pl\_varlist(:)} &
-C&None& &
- Name of pressure level fields to be output.
-&
-\tabularnewline
-
-%\hline
  ready\_file &
  C & \''default\'' & &
  A \emph{ready file} is a technique for handling dependencies between the NWP processes.
@@ -3309,8 +3399,24 @@ remap=1
 \tabularnewline
 
 %\hline
- \textbf{reg\_lat\_def(3)} &
-R&None& &
+ \textbf{remap }&
+I&0& &
+ interpolate horizontally\\ 
+0: none\\
+1: to regular lat-lon grid
+&
+\tabularnewline
+
+%\hline
+ north\_pole &
+R(2)&0,90& &
+ definition of north pole for rotated lon-lat grids.
+&
+\tabularnewline
+
+%\hline
+ \textbf{reg\_lat\_def} &
+R(3)&None& &
  start, increment, end latitude in degrees.
  Alternatively, the user may set the number of grid points instead of an increment.
  Details for the setting of regular grids is given below together with an example. 
@@ -3319,20 +3425,13 @@ remap=1
 \tabularnewline
 
 %\hline
- \textbf{reg\_lon\_def(3)} &
-R&None& &
+ \textbf{reg\_lon\_def} &
+R(3)&None& &
  The regular grid points are specified by three values: start, increment, end given in degrees.
  Alternatively, the user may set the number of grid points instead of an increment.
  Details for the setting of regular grids is given below together with an example. 
 &
 remap=1
-\tabularnewline
-
-%\hline
- \textbf{remap }&
-I&0& &
- interpolate horizontally, 0: none, 1: to regular lat-lon grid
-&
 \tabularnewline
 
 %\hline
@@ -3390,19 +3489,9 @@ See namelist parameter \texttt{stream\_partitions\_ml} for details.
 \tabularnewline
 
 %\hline
- taxis\_tunit &
-I&3& &
- 1 = TUNIT\_SECOND\\ 
- 2 = TUNIT\_MINUTE\\
- 3 = TUNIT\_HOUR\\
- Time unit of the TAXIS\_RELATIVE time axis.
- For a complete list of possible values see cdi.inc
-& mode=1
-\tabularnewline
-
-%\hline
 \end{longtab}
 
+Defined and used in: \verb+src/io/shared/mo_name_list_output_init.f90+
 
 % -------------------------------------------------------------
 \paragraph{Interpolation onto regular grids:}
@@ -3493,7 +3582,12 @@ sets of common variables can be added to the output:
 \texttt{group:pbl\_vars}               \>                                                                           \\
 \texttt{group:phys\_tendencies}        \>                                                                           \\
 \texttt{group:land\_vars}              \>                                                                           \\
-\texttt{group:multisnow\_vars}         \>     tile-averaged variables
+\texttt{group:snow\_vars}              \>     snow variables                                                        \\
+\texttt{group:multisnow\_vars}         \>     multi-layer snow variables                                            \\
+\texttt{group:additional\_precip\_vars}\>                                                                           \\
+\texttt{group:dwd\_fg\_atm\_vars}      \>     DWD first guess fields (atmosphere)                                   \\
+\texttt{group:dwd\_fg\_sfc\_vars}      \>     DWD first guess fields (surface/soil)                                 \\
+
 \end{tabbing}
 
 
@@ -3525,9 +3619,6 @@ sets of common variables can be added to the output:
 \texttt{total\_index}      \>  If namelist is split into concurrent files: substituted by the file counter \\ 
                            \>  (like in \texttt{jfile}), which an "unsplit" namelist would have produced
 \end{tabbing}
-
-
-Defined and used in: \verb+src/namelists/mo_name_list_output.f90+
 
 \newpage
 
@@ -3584,8 +3675,8 @@ processes full domain) &
 %\hline
 l\_test\_openmp &
 L & .FALSE.& &
-if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP paralllelization,
-the test PE gets only 1 thread in order to verify the OpenMP paralllelization&
+if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP parallelization,
+the test PE gets only 1 thread in order to verify the OpenMP parallelization&
 p\_test\_run = .TRUE.
 \tabularnewline
 
@@ -3623,6 +3714,7 @@ Sequence of send/receive calls: \\
  1 = irecv/send \\
  2 = isend/recv  \\
  3 = isend/irecv
+&
 \tabularnewline
 
 %\hline
@@ -3647,7 +3739,7 @@ Number of restart processors (running exclusively for doing restart)&
 %\hline
 pio\_type &
 I & 1& &
-Type of parallel I/O. Only used if number of I/O processors greater number of domains.
+Type of parallel I/O. Only used if number of I/O processors greater than number of domains.
 Experimental!&
 \tabularnewline
 
@@ -3678,7 +3770,8 @@ Enable debug mode for the icon\_comm\_lib &
 \tabularnewline
 
 %\hline
-max\_send\_recv \_buffer\_size &
+max\_send\_recv-\\
+ \_buffer\_size &
 I & 131072 & &
 Size of the send/receive buffers for the icon\_comm\_lib. &
 \tabularnewline
@@ -3744,7 +3837,7 @@ year used for lyr\_perp = .TRUE.&
 %\hline
 isolrad &
 I&
-3&
+0&
 &
 Insolation scheme\\
 0: Use original SRTM insolation.\\
@@ -3758,8 +3851,7 @@ resolved insolation (monthly means)\\
 %\hline
 izenith&
 I&
-3\par
-4 (for iforcing = inwp) &
+4 &
 &
 Choice of zenith angle formula for the radiative transfer computation.\par
 0: Sun in zenith everywhere\par
@@ -3791,15 +3883,13 @@ irad\_o3\par
 irad\_o2\par
 irad\_cfc11\par
 irad\_cfc12\par
-irad\_aero\par
 &
 I&
 1\par
 2\par
 3\par
 3\par
-3\par
-2\par
+0\par
 2\par
 2\par
 2\par
@@ -3810,8 +3900,6 @@ Switches for the concentration of radiative agents\par
 1: prognostic variable\par
 2: global constant\par
 3: externally specified\par
-irad\_aero = 5: Tanre aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) }\par
-irad\_aero = 6: Tegen aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 } \par
 irad\_o3 = 2: ozone climatology from MPI \par
 irad\_o3 = 4: ozone clim for Aqua Planet Exp \par
 irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier series for seasonal cycle {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
@@ -3831,16 +3919,49 @@ vmr\_cfc11\par
 vmr\_cfc12\par
 &
 R&
-353.9e-6\par
-\mbox{1693.6e-9}\par
-309.5e-9\par
+348.0e-6\par
+\mbox{1650.0e-9}\par
+306.0e-9\par
 0.20946\par
-\mbox{252.8e-12}\par
-\mbox{466.2e-12}
+\mbox{214.5e-12}\par
+\mbox{371.1e-12}
 &
 &
 Volume mixing ratio of the radiative agents&
 \tabularnewline
+
+%\hline
+irad\_aero &
+I&
+2&
+&
+Aerosols\\
+1: prognostic variable\\
+2: global constant\\
+3: externally specified\\
+5: Tanre aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) }\\
+6: Tegen aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 }
+&
+\tabularnewline
+
+%\hline
+lrad\_aero\_diag &
+L&
+.FALSE.&
+&
+writes actual aerosol optical properties to output &
+\tabularnewline
+
+%\hline
+ighg &
+I&
+0&
+&
+Select dynamic greenhouse gases scenario (read from file)\\
+0 : select default gas volume mixing ratios - 1990 values (CMIP5)\\
+1 : transient CMIP5 scenario from file & run\_nml/iforcing=2 (ECHAM)
+\tabularnewline
+
 %\hline
 \end{longtab}
 
