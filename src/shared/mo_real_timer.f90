@@ -1,5 +1,3 @@
-MODULE mo_real_timer
-
 !>
 !! utility for real time measurements
 !! on AIX a wrapper for the fast read_real_time function is used
@@ -18,6 +16,14 @@ MODULE mo_real_timer
 !!
 !! $Id$
 !!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+MODULE mo_real_timer
 
   USE mo_kind,            ONLY: dp
   USE mo_exception,       ONLY: finish, message, message_text

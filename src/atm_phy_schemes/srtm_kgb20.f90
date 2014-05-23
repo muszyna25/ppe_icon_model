@@ -11,6 +11,14 @@ SUBROUTINE srtm_kgb20
 !     Revision: 2.4
 !     BAND 20:  5150-6150 cm-1 (low - H2O; high - H2O)
 !     Reformatted for F90 by JJMorcrette, ECMWF
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
 
 !     ------------------------------------------------------------------
 

@@ -32,27 +32,13 @@
 !!   (2007-06); U. Schlese, MPI-M (2007-06); M. Esch, MPI-M (2007-06); S.J.
 !!   Lorenz, MPI-M (2007-11); T. Raddatz, MPI-M (2006-05); I. Kirchner.
 !!
-!! @par Copyright
-!!   2002-2009 by the Deutsche Wetterdienst (DWD) and the Max-Planck-Institut
-!!   for Meteorology (MPI-M).  This software is provided for non-commerical
-!!   use only.  See the LICENSE and the WARRANTY conditions
+!! @par Copyright and License
 !!
-!! @par License
-!!   The use of ICON is hereby granted free of charge for an unlimited time,
-!!   provided:
-!!   <ol>
-!!    <li> Its use is limited to own non-commercial and non-violent purposes;
-!!    <li> The code is not re-distributed without the consent of DWD and MPI-M;
-!!    <li> This header appears in all copies of the code;
-!!    <li> You accept the warranty conditions (see WARRANTY).
-!!   </ol>
-!!   Commericial use of the code is allowed subject to a separate licensing
-!!   agreement with the DWD and MPI-M
-!!
-!! @par Warranty
-!!   This code is distributed in the hope that it will be useful, but WITHOUT
-!!   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-!!   FITNESS FOR A PARTICULAR PURPOSE.
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
 !
 MODULE mo_radiation
 
@@ -1702,32 +1688,6 @@ CONTAINS
 !! @par Revision History
 !! Origianl Source by J.S.Rast, MPI-Met Hamburg, (2013-08-30)
 !!
-!! @par Copyright
-!! 2002-2011 by DWD and MPI-M
-!! This software is provided for non-commercial use only.
-!! See the LICENSE and the WARRANTY conditions.
-!!
-!! @par License
-!! The use of ICON is hereby granted free of charge for an unlimited time,
-!! provided the following rules are accepted and applied:
-!! <ol>
-!! <li> You may use or modify this code for your own non commercial and non
-!!    violent purposes.
-!! <li> The code may not be re-distributed without the consent of the authors.
-!! <li> The copyright notice and statement of authorship must appear in all
-!!    copies.
-!! <li> You accept the warranty conditions (see WARRANTY).
-!! <li> In case you intend to use the code commercially, we oblige you to sign
-!!    an according license agreement with DWD and MPI-M.
-!! </ol>
-!!
-!! @par Warranty
-!! This code has been tested up to a certain level. Defects and weaknesses,
-!! which may be included in the code, do not establish any warranties by the
-!! authors.
-!! The authors do not make any warranty, express or implied, or assume any
-!! liability or responsibility for the use, acquisition or application of this
-!! software.
 !!
 SUBROUTINE rad_aero_diag (                                  &
       & kg              ,kb              ,kce             , &

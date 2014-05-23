@@ -6,45 +6,26 @@
   !pgi$g opt=1
 #endif
 
-  !>
-  !! Contains the implementation of interpolation onto regular grids.
-  !!
-  !! @par Revision History
-  !! Moved from mo_intp_rbf_coeffs : 2012-03-20, F. Prill (DWD)
-  !! Modified by Anurag Dipankar, MPIM, 2012-12-28
-  !!-Replaced usage of ptr_int%cart_edge%coord with ptr_patch%edges%cartesian_center which is now calculated
-  !! within the grid_generator. The ptr_int variable is not calculated anymore.
-  !!
-  !! @par Copyright
-  !! 2002-2007 by DWD and MPI-M
-  !! This software is provided for non-commercial use only.
-  !! See the LICENSE and the WARRANTY conditions.
-  !!
-  !! @par License
-  !! The use of ICON is hereby granted free of charge for an unlimited time,
-  !! provided the following rules are accepted and applied:
-  !! <ol>
-  !! <li> You may use or modify this code for your own non commercial and non
-  !!    violent purposes.
-  !! <li> The code may not be re-distributed without the consent of the authors.
-  !! <li> The copyright notice and statement of authorship must appear in all
-  !!    copies.
-  !! <li> You accept the warranty conditions (see WARRANTY).
-  !! <li> In case you intend to use the code commercially, we oblige you to sign
-  !!    an according license agreement with DWD and MPI-M.
-  !! </ol>
-  !!
-  !! @par Warranty
-  !! This code has been tested up to a certain level. Defects and weaknesses,
-  !! which may be included in the code, do not establish any warranties by the
-  !! authors.
-  !! The authors do not make any warranty, express or implied, or assume any
-  !! liability or responsibility for the use, acquisition or application of this
-  !! software.
-  !!
-  !! TODO[FP] Move, if possible, lonlat interpolation data structure from
-  !!          "mo_intp_data_strc" into this module.
-  !!
+!>
+!! Contains the implementation of interpolation onto regular grids.
+!!
+!! @par Revision History
+!! Moved from mo_intp_rbf_coeffs : 2012-03-20, F. Prill (DWD)
+!! Modified by Anurag Dipankar, MPIM, 2012-12-28
+!!-Replaced usage of ptr_int%cart_edge%coord with ptr_patch%edges%cartesian_center which is now calculated
+!! within the grid_generator. The ptr_int variable is not calculated anymore.
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
+!! TODO[FP] Move, if possible, lonlat interpolation data structure from
+!!          "mo_intp_data_strc" into this module.
+!!
   MODULE mo_intp_lonlat
     !-------------------------------------------------------------------------
     !

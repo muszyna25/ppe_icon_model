@@ -17,6 +17,13 @@
 !! R. Schnur,  MPI, November 2010, for current time step and CO2 only
 !! L. Kornblueh, MPI, March 2013, adapted as temporary reader in ICON
 !! 
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
 MODULE mo_greenhouse_gases
 
   USE mo_kind,                 ONLY: wp

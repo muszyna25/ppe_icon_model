@@ -16,28 +16,14 @@
 !!   MPI-M (2007-06); U. Schlese, MPI-M (2007-06); M. Esch, MPI-M (2007-06);
 !!   S.J. Lorenz, MPI-M (2007-11).
 !!
-!! @par Copyright
-!!   2002-2009 by the Deutsche Wetterdienst (DWD) and the Max-Planck-Institut
-!!   for Meteorology (MPI-M).  This software is provided for non-commerical
-!!   use only.  See the LICENSE and the WARRANTY conditions
+!! @par Copyright and License
 !!
-!! @par License
-!!   The use of ICON is hereby granted free of charge for an unlimited time,
-!!   provided:
-!!   <ol>
-!!    <li> Its use is limited to own non-commercial and non-violent purposes;
-!!    <li> The code is not re-distributed without the consent of DWD and MPI-M;
-!!    <li> This header appears in all copies of the code;
-!!    <li> You accept the warranty conditions (see WARRANTY).
-!!   </ol>
-!!   Commericial use of the code is allowed subject to a separate licensing
-!!   agreement with the DWD and MPI-M
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
 !!
-!! @par Warranty
-!!   This code is distributed in the home that it will be useful, but WITHOUT
-!!   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-!!   FITNESS FOR A PARTICULAR PURPOSE.
-!
 MODULE mo_newcld_optics
 
   USE mo_kind,                 ONLY: wp

@@ -64,27 +64,13 @@
 !! - Taken from ECHAM6.2, wrapped in module and modified for ICON
 !!   by Monika Esch, MPI-M (2013-11)
 !!
-!! @par Copyright
-!!   2013 by Max-Planck-Institut for Meteorology (MPI-M).
-!!   This software is provided for non-commerical use only.
-!!   See the LICENSE and the WARRANTY conditions
+!! @par Copyright and License
 !!
-!! @par License
-!!   The use of ICON is hereby granted free of charge for an unlimited time,
-!!   provided:
-!!   <ol>
-!!    <li> Its use is limited to own non-commercial and non-violent purposes;
-!!    <li> The code is not re-distributed without the consent of DWD and MPI-M;
-!!    <li> This header appears in all copies of the code;
-!!    <li> You accept the warranty conditions (see WARRANTY).
-!!   </ol>
-!!   Commericial use of the code is allowed subject to a separate licensing
-!!   agreement with the DWD and MPI-M
-!!
-!! @par Warranty
-!!   This code is distributed in the hope that it will be useful, but WITHOUT
-!!   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-!!   FITNESS FOR A PARTICULAR PURPOSE.
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
 !
 #ifdef __xlC__
 @PROCESS HOT

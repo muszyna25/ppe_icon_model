@@ -19,32 +19,13 @@
 !!   Bergstrom. The rewrites were designed to better interface with the structure
 !!   of the ICON family of models and elements of the ICON programming standard.
 !!
-!! @par Copyright
-!!   2002-2009 by the Deutsche Wetterdienst (DWD) and the Max-Planck-Institut
-!!   for Meteorology (MPI-M).  This software is provided for non-commerical
-!!   use only.  See the LICENSE and the WARRANTY conditions.  The AER copyright
-!!   on the original code is as follows: Copyright 2002-2009, Atmospheric and
-!!   Environmental Research, Inc. (AER). This software may be used, copied, or
-!!   redistributed as long as it is not sold and this copyright notice is
-!!   reproduced on each copy made.  This model is provided as is without any
-!!   express or implied warranties. (http://www.rtweb.aer.com/)
+!! @par Copyright and License
 !!
-!! @par License
-!!   The use of ICON is hereby granted free of charge for an unlimited time,
-!!   provided:
-!!   <ol>
-!!    <li> Its use is limited to own non-commercial and non-violent purposes;
-!!    <li> The code is not re-distributed without the consent of DWD and MPI-M;
-!!    <li> This header appears in all copies of the code;
-!!    <li> You accept the warranty conditions (see WARRANTY).
-!!   </ol>
-!!   Commericial use of the code is allowed subject to a separate licensing
-!!   agreement with the DWD and MPI-M
-!!
-!! @par Warranty
-!!   This code is distributed in the home that it will be useful, but WITHOUT
-!!   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-!!   FITNESS FOR A PARTICULAR PURPOSE.
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
 !
 MODULE mo_lrtm
 

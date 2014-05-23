@@ -72,6 +72,15 @@
 !   which are calculated once in the driver
 ! - Include pointers for q and n in particle type and pass by argument
 !   instead of global pointers in module (q_cloud, n_cloud, etc.)
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
 !===============================================================================!
 
 MODULE mo_2mom_mcrph_main
