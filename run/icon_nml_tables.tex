@@ -3132,7 +3132,7 @@ l\_constant\_mixing  & L & .FALSE. & &  & \tabularnewline
 %------------------------------------------------------------------------------
 % output_nml:
 %------------------------------------------------------------------------------
-\subsection{output\_nml (used if run\_nml/output='nml')}
+\subsection{output\_nml (relevant if run\_nml/output='nml')}
 
 Please note: There may be several instances of
 output\_nml in the namelist file, every one defining a list of variables with
@@ -4045,14 +4045,14 @@ lvert\_nest=.TRUE.
 nshift&
 I(max\_ dom)& 0& &
 vertical half level of parent domain which coincides with
-upper boundary of the current domain&
+upper boundary of the current domain \textcolor{red}{required for vertical refinement, which is not yet implemented}&
 lvert\_nest=.TRUE.
 \tabularnewline
 
 %\hline
 ltimer&
 L & .TRUE.& &
-TRUE: Timer for monitoring thr runtime of specific routines is on (FALSE = off)&
+TRUE: Timer for monitoring the runtime of specific routines is on (FALSE = off)&
 \tabularnewline
 
 %\hline
@@ -4114,7 +4114,7 @@ restart\_filename&
 C &
 &
 &
-File name for restart/checkpoint files (containg keyword
+File name for restart/checkpoint files (containing keyword
 substitution patterns \texttt{<gridfile>}, \texttt{<idom>}, \texttt{<rsttime>}, \texttt{<mtype>}).
 default: ''\texttt{<gridfile>\_restart\_<mtype>\_<rsttime>.nc}''.
 &
@@ -4135,7 +4135,7 @@ TIMER\_MODE\_WRITE\_FILES=3.
 Defined and used in: \verb+src/namelists/mo_run_nml.f90+
 
 
-\subsection{sea\_ice\_nml}
+\subsection{sea\_ice\_nml (relevant if run\_nml/iforcing=2 (ECHAM))}
 
 \begin{longtab}
 
@@ -4278,7 +4278,7 @@ I& 1& &
 Calendar type: \\
 0=Julian/Gregorian \\
 1=proleptic Gregorian\\
-2=30day/month,360day/year &
+2=30day/month, 360day/year &
 \tabularnewline
 
 %\hline
@@ -4313,6 +4313,7 @@ L & .FALSE. &&
 .TRUE., if time loop shall start with
 step 0 regardless whether we are in a standard run or in a
 restarted run (which means re-initialized run).
+&
 \tabularnewline
 
 \end{longtab}
@@ -4346,9 +4347,9 @@ L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
 \textbf{ihadv\_tracer}&
 I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & 5& & 0: no horiz. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant) & \tabularnewline
+& & 5& & 0: no horiz. transport (note that the specific tracer quantity $q$ is kept constant and not tracer mass $\rho q$) & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
-& & & & 2: Miura (2nd order, lin. reconstr.)&  \tabularnewline
+& & & & 2: Miura (2nd order, linear reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
 & & & & 4: FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
 & & & & 5: hybrid Miura3/FFSL (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
@@ -4356,17 +4357,21 @@ I(ntracer)&
 & & & & 22: combination of miura and miura with subcycling&  \tabularnewline
 & & & & 32: combination of miura3 and miura with subcycling&  \tabularnewline
 & & & & 42: combination of FFSL and miura with subcycling& \tabularnewline
-& & & & 52: combination of hybrid FFSL/Miura3 with subcycling& \tabularnewline
+& & & & 52: combination of hybrid FFSL/Miura3 with subcycling \\
+
+Subcycling means that the integration from time step n to n+1 is splitted into substeps to meet the stability requirements. 
+For NWP runs, substepping is generally applied above $z=22\,\mathrm{km}$ (see nonhydrostatic\_nml/hbot\_qvsubstep).
+& \tabularnewline
 
 
 %\hline
 ivadv\_tracer&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant) & \tabularnewline
+& & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
-& & & & 30: ppm (3rd order)& \tabularnewline
+& & & & 30: ppm (3rd order, CFL$<=$1)& \tabularnewline
 
 %\hline
 iadv\_tke& 
@@ -4379,13 +4384,13 @@ I&
 
 %\hline
 lstrang &
-L& .FALSE.& & splitting into fractional steps & \tabularnewline
-& & & & - second order Strang splitting (.TRUE.) & \tabularnewline
-& & & & - first order Godunov splitting (.FALSE.)& \tabularnewline
+L& .FALSE.& & Time splitting method & \tabularnewline
+& & & & TRUE: second order Strang splitting & \tabularnewline
+& & & & FALSE: first order Godunov splitting & \tabularnewline
 
 %\hline
 ctracer\_list&
-C& ''& & list of tracer names &
+C& ''& & list of tracer names & run\_nml/ltestcase=.TRUE.
 \tabularnewline
 
 %\hline
@@ -4407,25 +4412,25 @@ I(ntracer)&
 
 %\hline
 niter\_fct&
-I& 1& & number of iterations  of monotone flux correction procedure& ihadv\_tracer = 3, 32, 4 \\ itype\_hlimit = 3
+I& 1& & number of iterations  of monotone flux correction procedure (experimental!)& itype\_hlimit = 3
 \tabularnewline
 
 %\hline
 beta\_fct&
 R& 1.005& & factor of allowed over-/undershooting in monotonous limiter & 
-ihadv\_tracer = 3, 32, 4, 42, 5, 52 \\ itype\_hlimit = 3
+itype\_hlimit = 3
 \tabularnewline
 
 %\hline
 iord\_backtraj&
 I& 1& & order of backward trajectory calculation:& \tabularnewline
 & & & & 1: first order& \tabularnewline
-& & & & 2: second order (iterative; currently 1 iteration hardcoded)& ihadv\_tracer='miura'
+& & & & 2: second order (iterative; currently 1 iteration hardcoded; experimental!)& ihadv\_tracer='miura'
 \tabularnewline
 
 %\hline
 igrad\_c\_miura&
-I& 1& & Method for gradient reconstruction at cell center for 2nd order miura& \tabularnewline
+I& 1& & Method for gradient reconstruction at cell center for 2nd order miura scheme& \tabularnewline
 & & & & 1: Least-squares (linear, non-consv)& ihadv\_tracer=2\tabularnewline
 & & & & 2: Green-Gauss&
 \tabularnewline
@@ -4471,19 +4476,19 @@ type of surface-atmosphere transfer& inwp\_turb = 1
 
 %\hline
 imode\_tran &
-I                &      1      & &
+I                &      0      & &
 mode of surface-atmosphere transfer & inwp\_turb = 1
 \tabularnewline
 
 %\hline
 icldm\_tran &
-I                &      0      & &
+I                &      2      & &
 mode of cloud representation in transfer parametr & inwp\_turb = 1
 \tabularnewline
 
 %\hline
 imode\_turb &
-I                &      3      & &
+I                &      1      & &
 mode of turbulent diffusion parametrization & inwp\_turb = 1
 \tabularnewline
 
@@ -4526,7 +4531,7 @@ consideration of thermal TKE-sources in the enthalpy budget & inwp\_turb = 1
 %\hline
 lprfcor &
 L                &     .FALSE.      & &
-using the profile values of the lowest main level instead of the mean value of the lowest layer for surface flux calulations & inwp\_turb = 1
+using the profile values of the lowest main level instead of the mean value of the lowest layer for surface flux calculations & inwp\_turb = 1
 \tabularnewline
 
 %\hline
@@ -4544,7 +4549,7 @@ consideration of fluctuations of the heat capacity of air & inwp\_turb = 1
 %\hline
 limpltkediff &
 L                &     .TRUE.      & &
-consideration of fluctuations of the heat capacity of air & inwp\_turb = 1
+use semi-implicit TKE diffusion & inwp\_turb = 1
 \tabularnewline
 
 %\hline
@@ -4575,15 +4580,15 @@ lconst\_z0=.TRUE.
 %\hline
 tkhmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$ inwp\_turb = 10, constant for inwp\_turb = 1)
- for for heat and moisture & inwp\_turb = 1,10 \\
+Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+for heat and moisture & inwp\_turb = 1 \\
 \tabularnewline
 
 %\hline
 tkmmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient  (proportional to $1/\sqrt{Ri}$ inwp\_turb = 10, constant for inwp\_turb = 1)
-  for momentum & inwp\_turb = 1,10 \\
+Scaling factor for minimum vertical diffusion coefficient  (proportional to $1/\sqrt{Ri}$)
+ for momentum & inwp\_turb = 1 \\
 \tabularnewline
 
 \end{longtab}
@@ -5560,7 +5565,7 @@ C & ' '
 &
 Filename of external parameter dictionary,
 This is a text file with two columns separated by whitespace, where
-left column: NetCDF name, right column: GRIB short name.
+left column: NetCDF name, right column: GRIB2 short name. It is required, if external parameter are read from a file in GRIB2 format.
  &
 \tabularnewline
 
@@ -5609,8 +5614,8 @@ Defined and used in: \verb+src/namelists/mo_art_nml.f90+
 
 \section{Information on vertical level distribution}
 
-The hydrostatic and nonhydrostatic models need hybrid vertical level information to generate the
-terrain following coorindates. The hybrid level specification is stored in
+If no vertical sleve coodinate is chosen (ivctype $/=$2), the hydrostatic and nonhydrostatic models need hybrid vertical level information to generate the
+terrain following coordinates. The hybrid level specification is stored in
 $<$icon home$>$/hyb\_params/HYB\_PARAMS\_$<$nlev$>$.
 The {\bf hydrostatic} model assumes to get {\bf pressure based} coordinates, the {\bf nonhydrostatic}
 model expects {\bf height based} coordinates. For further information see $<$icon home$>$/hyb\_params/README.
