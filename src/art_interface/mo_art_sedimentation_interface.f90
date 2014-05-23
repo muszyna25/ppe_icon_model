@@ -10,6 +10,8 @@
 !!
 !! @par Revision History
 !! Initial revision by Kristina Lundgren, KIT (2012-06-01)
+!! Modifications by Daniel Rieger, KIT (2014-05-22)
+!! - Adaption to changes in ART data structure
 !!
 !! @par Copyright
 !! 2002-2010 by DWD, MPI-M, and KIT.
@@ -40,30 +42,26 @@
 !!
 MODULE mo_art_sedi_interface
 
-    USE mo_kind,                   ONLY: wp
-    USE mo_parallel_config,        ONLY: nproma
-    USE mo_model_domain,           ONLY: t_patch
-    USE mo_impl_constants,         ONLY: min_rlcell
-    USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
-    USE mo_art_config,             ONLY: art_config
-    USE mo_exception,              ONLY: finish
-    USE mo_linked_list,            ONLY: t_var_list, t_list_element
-    USE mo_var_metadata_types,     ONLY: t_var_metadata, t_tracer_meta
-    USE mo_advection_vflux,        ONLY: upwind_vflux_ppm_cfl
-    USE mo_run_config,             ONLY: ntracer
-    USE mo_loopindices,            ONLY: get_indices_c
+  USE mo_kind,                          ONLY: wp
+  USE mo_parallel_config,               ONLY: nproma
+  USE mo_model_domain,                  ONLY: t_patch
+  USE mo_impl_constants,                ONLY: min_rlcell
+  USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
+  USE mo_art_config,                    ONLY: art_config
+  USE mo_exception,                     ONLY: finish
+  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
+  USE mo_loopindices,                   ONLY: get_indices_c
 #ifdef __ICON_ART
 ! infrastructure routines
-    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode
-    USE mo_art_modes,              ONLY: t_fields_2mom,t_fields_radio, &
-        &                                t_fields_volc
-    USE mo_art_data,               ONLY: p_art_data, UNDEF_INT_ART
-    USE mo_art_clipping,           ONLY: art_clip_lt
+  USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
+  USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
+                                          &   t_fields_volc
+  USE mo_art_data,                      ONLY: p_art_data, UNDEF_INT_ART
+  USE mo_art_clipping,                  ONLY: art_clip_lt
 ! sedimentation and deposition routines
-    USE mo_art_sedi_volc,          ONLY: art_sedi_volc
-!    USE mo_art_aerosol,            ONLY: p_mflx_contra_vsed, vdep_ash
-    USE mo_art_sedi_depo,          ONLY: art_calc_v_sed_dep
-!    USE mo_art_aerosol_utilities,  ONLY: art_modal_parameters,art_air_properties
+  USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
+  USE mo_art_sedi_depo,                 ONLY: art_calc_v_sed_dep
 #endif
 
   IMPLICIT NONE
@@ -74,102 +72,85 @@ MODULE mo_art_sedi_interface
 
 
 CONTAINS
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE art_sedi_interface( p_patch, &
+           &                   p_dtime, &
+           &                   p_prog_list, p_prog, &
+           &                   p_metrics, p_rho, p_diag, &
+           &                   p_tracer_new, &
+           &                   p_cellhgt_mc_now, p_rhodz_new, &
+           &                   lprint_cfl, &
+           &                   opt_topflx_tra )
+!! Interface for ART routines for calculation of
+!! sedimentation and deposition velocities
+!!
+!! @par Revision History
+!! Initial revision by Kristina Lundgren, KIT (2012-06-01)
+!! Modifications by Daniel Rieger, KIT (2014-05-22)
+!! - Adaption to changes in ART data structure
+!! - Calculation of deposition velocities
+  TYPE(t_patch), TARGET, INTENT(IN) :: &
+    &  p_patch                            !< patch on which computation is performed
+  REAL(wp), INTENT(IN)              :: &
+    &  p_dtime
 
-
-  !>
-  !! Interface for ART-routine sedi_volc
-  !!
-  !! This interface calls the ART-routine sedi_volc, if ICON has been
-  !! built including the ART-package. Otherwise, this is simply a dummy
-  !! routine.
-  !!
-  !! @par Revision History
-  !! Initial revision by Kristina Lundgren, KIT (2012-06-01)
-  !!
-
-  SUBROUTINE art_sedi_interface( p_patch, &
-             &                   p_dtime, &
-             &                   p_prog_list, p_prog, &
-             &                   p_metrics, p_rho, p_diag, &
-             &                   p_tracer_new, &
-             &                   p_cellhgt_mc_now, p_rhodz_new, &
-             &                   lprint_cfl, &
-             &                   opt_topflx_tra )
-
-
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
-      &  p_patch                             !< is performed
-
-    REAL(wp), INTENT(IN)              :: &
-      &  p_dtime
-
-    TYPE(t_var_list), INTENT(IN)      :: &   !< current prognostic state list
-     &  p_prog_list                          ! drieg: I think we do not need this
-
-    TYPE(t_nh_prog), INTENT(IN)       :: &   !< current prognostic state
-     &  p_prog
-
-    TYPE(t_nh_metrics), INTENT(IN)    :: &
-     &   p_metrics
-
-
-    REAL(wp), INTENT(IN)              :: &   !<density of air at full levels
-      &  p_rho(:,:,:)                        !< [kg/m3]
-                                             !< dim: (nproma,nlev,nblks_c)
-
-    TYPE(t_nh_diag), INTENT(IN)       :: &   !<diagnostic variables
-      &  p_diag
-
-
-    REAL(wp), INTENT(INOUT) ::  &            !< tracer mixing ratios (specific concentrations)
-      &  p_tracer_new(:,:,:,:)               !< at current time level n+1 (after transport)
-                                             !< [kg/kg]
-                                             !< dim: (nproma,nlev,nblks_c,ntracer)
-
-    REAL(wp), INTENT(IN) ::          &       !< cell height defined at full levels for
-      &  p_cellhgt_mc_now(:,:,:)             !<
-                                             !< NH: \Delta z       [m]
-                                             !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), INTENT(IN) ::  &               !< NH: density weighted cell depth (\rho*(z_half(top)-z_half(bottom))
-      &  p_rhodz_new(:,:,:)                  !< at full levels and time step n+1 [kg/m**2]
-                                             !< dim: (nproma,nlev,nblks_c)
-
-    LOGICAL, INTENT(IN) ::   &               !< determines if vertical CFL number shall be printed
-      &  lprint_cfl                          !< in routine upwind_vflux_ppm_cfl
-
-    REAL(wp), INTENT(IN), OPTIONAL:: &       !< vertical tracer flux at upper boundary
-      &  opt_topflx_tra(:,:,:)               !< NH: [kg/m**2/s]
-                                             !< dim: (nproma,nblks_c,ntracer)
-                                             
-    REAL(wp), ALLOCATABLE :: &      !< upwind flux at half levels due to sedimentation
-      &  p_upflux_sed(:,:,:)          !< dim: (nproma,nlevp1,nblks_c)
+  TYPE(t_var_list),INTENT(IN)       :: &  
+    &  p_prog_list                        !< current prognostic state list
+  TYPE(t_nh_prog), INTENT(IN)       :: &  
+    &  p_prog                             !< current prognostic state
+  TYPE(t_nh_metrics), INTENT(IN)    :: &
+    &   p_metrics                         !< metrical fields
+  REAL(wp), INTENT(IN)              :: & 
+    &  p_rho(:,:,:)                       !< density of air at full levels
+  TYPE(t_nh_diag), INTENT(IN)       :: &
+    &  p_diag                             !< diagnostic variables
+  REAL(wp), INTENT(INOUT)           :: &
+    &  p_tracer_new(:,:,:,:)              !< tracer mixing ratio [kg/kg]
+  REAL(wp), INTENT(IN)              :: &      
+    &  p_cellhgt_mc_now(:,:,:)            !< cell height defined at full levels for
+  REAL(wp), INTENT(IN)              :: &
+    &  p_rhodz_new(:,:,:)                 !< density weighted cell depth (\rho*(z_half(top)-z_half(bottom)) at full levels and time step n+1 [kg/m**2]
+  LOGICAL, INTENT(IN)               :: &               
+    &  lprint_cfl                         !< determines if vertical CFL number shall be printed in upwind_vflux_ppm_cfl
+  REAL(wp), INTENT(IN), OPTIONAL    :: &     
+    &  opt_topflx_tra(:,:,:)              !< vertical tracer flux at upper boundary [kg/m**2/s]
+  REAL(wp), ALLOCATABLE             :: &  
+    &  p_upflux_sed(:,:,:)                !< upwind flux at half levels due to sedimentation
+    
+  REAL(wp),POINTER                  :: &
+    &  mflx_contra_vsed(:,:,:),        &
+    &  nflx_contra_vsed(:,:,:),        &
+    &  flx_contra_vsed(:,:,:)
       
-    REAL(wp),POINTER :: &
-      &  mflx_contra_vsed(:,:,:),  &
-      &  nflx_contra_vsed(:,:,:),  &
-      &  flx_contra_vsed(:,:,:)
+  REAL(wp) ::       &
+    &  sedim_update    !< tracer tendency due to sedimentation
       
-    REAL(wp) :: sedim_update            !< tracer tendency due to sedimentation
-      
-    INTEGER  :: jc,jk,ikp1,jb           !< loop index for: index in block,full and half levels,block
-    INTEGER  :: nlev,nlevp1,nblks, &
-    &           i_nchdom, i_rlstart, i_rlend,  i_startblk, i_endblk,i_startidx, i_endidx
-      
-    INTEGER  :: jg                      !< patch id
-    INTEGER  :: jsp
-    INTEGER  :: i
-    INTEGER  :: iubc=0                  !< upper boundary condition 0 = none
-    INTEGER  :: itype_vlimit=2          !< Monotone limiter
-    LOGICAL  :: lcompute_gt
-    LOGICAL  :: lcleanup_gt
+  INTEGER  ::       &  
+    &  jc,          &  !< loop index for: index in cell
+    &  jk,          &  !< loop index for: index in level full
+    &  ikp1,        &  !< loop index for: index in level half
+    &  jb,          &  !< loop index for: index in block
+    &  nlev,        &  !< number of full levels
+    &  nlevp1,      &  !< number of half levels
+    &  nblks,       &  !< number of blocks
+    &  i_nchdom,    &
+    &  i_rlstart,   &
+    &  i_rlend,     &
+    &  i_startblk,  &
+    &  i_endblk,    &
+    &  i_startidx,  &
+    &  i_endidx,    &
+    &  jg,          & !< patch id
+    &  jsp, i,      & !< counter
+    &  iubc=0,      & !< upper boundary condition 0 = none
+    &  itype_vlimit=2 !< Monotone limiter
+  LOGICAL  :: lcompute_gt
+  LOGICAL  :: lcleanup_gt
 
 #ifdef __ICON_ART
-    TYPE(t_mode), POINTER   :: this_mode
-#endif
-
-
-#ifdef __ICON_ART
+  TYPE(t_mode), POINTER   :: this_mode
 
   lcompute_gt=.TRUE. ! compute geometrical terms
   lcleanup_gt=.TRUE. ! clean up geometrical terms. obs. this i currently done for all components. improvement:
@@ -195,7 +176,7 @@ CONTAINS
   
     ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
     
-!drieg: i think we do not need the air properties at this point, but i am not sure  yet
+!drieg: Necessary depending on parameterizations that will be used
 !    CALL art_air_properties(p_patch,p_art_data(jg))
     this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
    
@@ -285,8 +266,9 @@ CONTAINS
 
 #endif
 
-  END SUBROUTINE art_sedi_interface
-
-
+END SUBROUTINE art_sedi_interface
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_sedi_interface
 

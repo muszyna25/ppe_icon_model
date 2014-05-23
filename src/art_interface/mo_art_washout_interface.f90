@@ -42,26 +42,26 @@
 !!
 MODULE mo_art_washout_interface
 
-    USE mo_kind,                ONLY: wp
-    USE mo_model_domain,        ONLY: t_patch
-    USE mo_art_config,          ONLY: art_config
-    USE mo_exception,           ONLY: finish
-    USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-    USE mo_run_config,          ONLY: iqr,iqs
-    USE mo_nonhydro_state,      ONLY: p_nh_state
+  USE mo_kind,                          ONLY: wp
+  USE mo_model_domain,                  ONLY: t_patch
+  USE mo_art_config,                    ONLY: art_config
+  USE mo_exception,                     ONLY: finish
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
+  USE mo_run_config,                    ONLY: iqr,iqs
+  USE mo_nonhydro_state,                ONLY: p_nh_state
 
 #ifdef __ICON_ART
 ! Infrastructure Routines
-    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode
-    USE mo_art_modes,              ONLY: t_fields_2mom,t_fields_radio, &
-        &                                t_fields_volc
-    USE mo_art_data,               ONLY: p_art_data
-    USE mo_art_aerosol_utilities,  ONLY: art_air_properties
-    USE mo_art_clipping,           ONLY: art_clip_lt
+  USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
+  USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
+                                          &   t_fields_volc
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_aerosol_utilities,         ONLY: art_air_properties
+  USE mo_art_clipping,                  ONLY: art_clip_lt
 ! Washout Routines
-    USE mo_art_washout_volc,       ONLY:art_washout_volc
-    USE mo_art_radioactive,        ONLY:art_washout_radioact
-    USE mo_art_washout_aerosol,    ONLY:art_aerosol_washout
+  USE mo_art_washout_volc,              ONLY: art_washout_volc
+  USE mo_art_radioactive,               ONLY: art_washout_radioact
+  USE mo_art_washout_aerosol,           ONLY: art_aerosol_washout
 #endif
 
   IMPLICIT NONE
@@ -70,47 +70,37 @@ MODULE mo_art_washout_interface
 
   PUBLIC  :: art_washout_interface
 
-
 CONTAINS
-
-
-  !>
-  !! Interface for ART-routines dealing with washout
-  !!
-  !! This interface calls the ART-routines, if ICON has been 
-  !! built including the ART-package. Otherwise, this is simply a dummy 
-  !! routine.
-  !!
-
-  SUBROUTINE art_washout_interface(            & !>in
-      &          dt_phy_jg,                    & !>in
-      &          p_patch,                      & !>in
-      &          prm_diag,                     & !>in
-      &          p_rho,                        & !>in
-      &          p_tracer_new)                  !>inout
-
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
-      &  p_patch                             !< is performed
-
-    REAL(wp), INTENT(IN) ::dt_phy_jg         !< time interval, fast physics
-
-    TYPE(t_nwp_phy_diag),       INTENT(IN) ::& !< diagnostic variables
-     &  prm_diag 
-
-    REAL(wp), INTENT(IN) ::  &          !< density of air 
-      &  p_rho(:,:,:)                   !< 
-                                        !< [kg/m3]
-                                        !< dim: (nproma,nlev,nblks_c)
-
-    REAL(wp), INTENT(INOUT) ::  &       !< tracer mixing ratios (specific concentrations)
-      &  p_tracer_new(:,:,:,:)          !< after transport 
-                                        !< [kg/kg]
-                                        !< dim: (nproma,nlev,nblks_c,ntracer)
-
-    INTEGER  :: jg                      !< patch id
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE art_washout_interface(            & !>in
+    &          dt_phy_jg,                    & !>in
+    &          p_patch,                      & !>in
+    &          prm_diag,                     & !>in
+    &          p_rho,                        & !>in
+    &          p_tracer_new)                   !>inout
+!>
+!! Interface for ART-routines dealing with washout
+!!
+!! This interface calls the ART-routines, if ICON has been 
+!! built including the ART-package. Otherwise, this is simply a dummy 
+!! routine.
+!!
+  TYPE(t_patch), TARGET, INTENT(IN) :: &
+    &  p_patch                             !< patch on which computation is performed
+  REAL(wp), INTENT(IN)              :: &
+    &  dt_phy_jg                           !< time interval, fast physics
+  TYPE(t_nwp_phy_diag), INTENT(IN)  :: &
+    &  prm_diag                            !< diagnostic variables
+  REAL(wp), INTENT(IN)              :: &          
+    &  p_rho(:,:,:)                        !< density of air  [kg/m3]
+  REAL(wp), INTENT(INOUT)           :: &
+    &  p_tracer_new(:,:,:,:)               !< tracer mixing ratios after transport  [kg/kg]
+  INTEGER  :: jg                           !< patch id
     
 #ifdef __ICON_ART
-    TYPE(t_mode), POINTER   :: this_mode
+  TYPE(t_mode), POINTER   :: this_mode
 #endif
     !-----------------------------------------------------------------------
  
@@ -158,8 +148,9 @@ CONTAINS
   ENDIF
 #endif
 
-  END SUBROUTINE art_washout_interface
-
-
+END SUBROUTINE art_washout_interface
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_washout_interface
 

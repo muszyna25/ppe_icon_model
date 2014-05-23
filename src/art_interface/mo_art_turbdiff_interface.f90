@@ -41,18 +41,18 @@
 !!
 MODULE mo_art_turbdiff_interface
 
-    USE mo_kind,                ONLY: wp
-    USE mo_parallel_config,     ONLY: nproma
-    USE mo_model_domain,        ONLY: t_patch
-    USE mo_art_config,          ONLY: art_config
-    USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_nonhydro_types,      ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
-    USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-    USE src_turbdiff,           ONLY: modvar
 
+  USE mo_kind,                          ONLY: wp
+  USE mo_parallel_config,               ONLY: nproma
+  USE mo_model_domain,                  ONLY: t_patch
+  USE mo_art_config,                    ONLY: art_config
+  USE mo_exception,                     ONLY: message, message_text, finish
+  USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE src_turbdiff,                     ONLY: modvar
 #ifdef __ICON_ART
-    USE mo_art_data,            ONLY: p_art_data
-    USE mo_art_surface_value,   ONLY: art_surface_value
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_surface_value,             ONLY: art_surface_value
 #endif
 
   IMPLICIT NONE
@@ -61,18 +61,10 @@ MODULE mo_art_turbdiff_interface
 
   PUBLIC  :: art_turbdiff_interface
 
-
 CONTAINS
-
-
-!>
-!! Interface for ART-routines dealing with turbdiff
 !!
-!! This interface calls the ART-routines, if ICON has been
-!! built including the ART-package. Otherwise, this is simply a dummy
-!! routine.
+!!-------------------------------------------------------------------------
 !!
-
 SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &          p_patch,                      & !>in
     &          p_prog_rcf,                   & !>in
@@ -82,32 +74,39 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &          jb,                           & !>in, optional
     &          opt_sv, opt_fc,               & !>in, optional
     &          i_st, i_en, dt )                !>in, optional
-
-  CHARACTER(len=*), INTENT(in) :: defcase  !< definition of case
-
-  TYPE(t_patch), TARGET, INTENT(IN) :: &   !< patch on which computation
-    &  p_patch                             !< is performed
-
-  TYPE(t_nh_prog),  INTENT(in)      :: p_prog_rcf    !< the prog vars
-  TYPE(t_nwp_phy_tend), INTENT(in)  :: prm_nwp_tend  !< atm phys tendencies
-
-  TYPE(modvar), DIMENSION(:), INTENT(inout) :: ptr     !< passive tracer pointer type structure for diffusion
-
-  TYPE(t_nh_metrics), INTENT(in), OPTIONAL    :: p_metrics
-  TYPE(t_nh_diag), INTENT(in), OPTIONAL       :: p_diag        !< the diag vars
-  TYPE(t_nwp_phy_diag), INTENT(in), OPTIONAL  :: prm_diag      !< atm phys vars
-
-  INTEGER, INTENT(in), OPTIONAL               :: jb, i_st, i_en
-
+!! Interface for ART-routines dealing with turbdiff
+!!
+!! This interface calls the ART-routines, if ICON has been
+!! built including the ART-package. Otherwise, this is simply a dummy
+!! routine.
+!!
+  CHARACTER(len=*), INTENT(in)              :: &
+    &  defcase                           !< definition of case
+  TYPE(t_patch), TARGET, INTENT(IN)         :: &
+    &  p_patch                           !< patch on which computation is performed
+  TYPE(t_nh_prog),  INTENT(in)              :: &
+    &  p_prog_rcf                        !< the prog vars
+  TYPE(t_nwp_phy_tend), INTENT(in)          :: &
+    &  prm_nwp_tend                      !< atm phys tendencies
+  TYPE(modvar), DIMENSION(:), INTENT(inout) :: &
+    &  ptr                               !< passive tracer pointer type structure for diffusion
+  TYPE(t_nh_metrics), INTENT(in), OPTIONAL  :: &
+    &  p_metrics                         !< metrical fields
+  TYPE(t_nh_diag), INTENT(in), OPTIONAL     :: &
+    &  p_diag                            !< the diag vars
+  TYPE(t_nwp_phy_diag), INTENT(in), OPTIONAL:: &
+    &  prm_diag                          !< atm phys vars
+  INTEGER, INTENT(in), OPTIONAL             :: &
+    &  jb, i_st, i_en
   REAL(wp), DIMENSION(:,:,:), INTENT(out), TARGET, OPTIONAL :: &
-    & opt_sv  !< surface value according to transfer coeff.
-  LOGICAL, INTENT(in), OPTIONAL               :: opt_fc
-
-  REAL(wp), INTENT(in), OPTIONAL              :: dt
-  
-  REAL(wp),POINTER  ::  &
-    &  sv(:,:,:),       & !< surface value of tracer
-    &  vdep(:,:,:)        !< deposition velocity of tracer
+    &  opt_sv                            !< surface value according to transfer coeff.
+  LOGICAL, INTENT(in), OPTIONAL             :: &
+    &  opt_fc
+  REAL(wp), INTENT(in), OPTIONAL            :: &
+    &  dt
+  REAL(wp),POINTER                 ::  &
+    &  sv(:,:,:),                      & !< surface value of tracer
+    &  vdep(:,:,:)                       !< deposition velocity of tracer
     
   !Local variables
   ! ---------------------------------------
@@ -171,6 +170,8 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
 #endif
 
 END SUBROUTINE art_turbdiff_interface
-
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_turbdiff_interface
 

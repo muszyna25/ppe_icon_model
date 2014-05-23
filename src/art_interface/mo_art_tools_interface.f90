@@ -40,11 +40,9 @@
 !!
 
 MODULE mo_art_tools_interface
-
-  USE mo_nonhydro_types,       ONLY: t_nh_state
-  
+  USE mo_nonhydro_types,                ONLY: t_nh_state
 #ifdef __ICON_ART
-  USE mo_art_unit_conversion,  ONLY: art_massmix2density
+  USE mo_art_unit_conversion,           ONLY: art_massmix2density
 #endif
 
   IMPLICIT NONE
@@ -54,7 +52,9 @@ MODULE mo_art_tools_interface
   PUBLIC  :: art_tools_interface 
 
 CONTAINS
-
+!!
+!!-------------------------------------------------------------------------
+!!
 SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
   !>
   !! Interface for ART tools
@@ -62,14 +62,12 @@ SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
   !! @par Revision History
   !! Initial revision by Daniel Rieger, KIT (2013-12-16)
   
-  character(len=*),intent(in) :: & 
-    &  defcase                !< definition of case 
-    
-  type(t_nh_state),target,intent(in)   ::  &
-    &  p_nh_state
-
-  integer,intent(in)            :: &
-    &  jg                     !< domain index
+  CHARACTER(len=*),INTENT(in)        :: & 
+    &  defcase                            !< definition of case 
+  TYPE(t_nh_state),TARGET,INTENT(in) :: &
+    &  p_nh_state                         !< prognostic state
+  INTEGER,INTENT(in)                 :: &
+    &  jg                                 !< domain index
   
 #ifdef __ICON_ART
 
@@ -78,8 +76,9 @@ SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
   END IF
 
 #endif
-  
-  
+    
 END SUBROUTINE art_tools_interface
-  
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_tools_interface

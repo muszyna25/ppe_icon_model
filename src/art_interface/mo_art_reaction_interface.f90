@@ -10,6 +10,8 @@
 !!
 !! @par Revision History
 !! Initial revision by Max Bangert, KIT (2013-02-15)
+!! Modifications by Daniel Rieger, KIT (2014-05-22)
+!! - Adaption to changes in ART data structure
 !!
 !! @par Copyright
 !! 2002-2010 by DWD, MPI-M, and KIT
@@ -40,18 +42,16 @@
 !!
 MODULE mo_art_reaction_interface
 
-    USE mo_kind,                   ONLY: wp
-    USE mo_model_domain,           ONLY: t_patch
-    USE mo_art_config,             ONLY: art_config
-    USE mo_exception,              ONLY: message, message_text, finish
-    USE mo_linked_list,            ONLY: t_var_list,t_list_element
-    USE mo_var_metadata_types,     ONLY: t_var_metadata
-    USE mo_nonhydro_types,         ONLY: t_nh_diag
+  USE mo_kind,                          ONLY: wp
+  USE mo_model_domain,                  ONLY: t_patch
+  USE mo_art_config,                    ONLY: art_config
+  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_nonhydro_types,                ONLY: t_nh_diag
 #ifdef __ICON_ART
-    USE mo_art_radioactive,        ONLY: art_decay_radioact
-    USE mo_art_chemtracer,         ONLY: art_loss_chemtracer
-    USE mo_art_modes_linked_list,  ONLY: p_mode_state,t_mode
-    USE mo_art_modes,              ONLY: t_fields_radio
+  USE mo_art_radioactive,               ONLY: art_decay_radioact
+  USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
+  USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
+  USE mo_art_modes,                     ONLY: t_fields_radio
 #endif
 
   IMPLICIT NONE
@@ -60,9 +60,11 @@ MODULE mo_art_reaction_interface
 
   PUBLIC  :: art_reaction_interface
 
-
 CONTAINS
-
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE art_reaction_interface( p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
   !>
   !! Interface for ART-routines treating reactions of any kind (chemistry, radioactive decay)
   !!
@@ -72,64 +74,58 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Max Bangert, KIT (2013-02-25)
-  SUBROUTINE art_reaction_interface( p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
 
-
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
-      &  p_patch                             !< is performed
-
-    REAL(wp), INTENT(IN) ::p_dtime           !< time step
-
-    TYPE(t_nh_diag), INTENT(IN) ::p_diag
-
-    TYPE(t_var_list), INTENT(IN) :: &        !< current prognostic state list
-      &  p_prog_list
-
-    REAL(wp), INTENT(INOUT) ::  &
-      &  p_tracer_now(:,:,:,:)               !< tracer mixing ratios (specific concentrations)
+  TYPE(t_patch), TARGET, INTENT(IN) ::  & 
+    &  p_patch                             !< patch on which computation is performed
+  REAL(wp), INTENT(IN)              ::  &
+    &  p_dtime                             !< time step
+  TYPE(t_nh_diag), INTENT(IN)       ::  &
+    &  p_diag                              !< list of diagnostic fields
+  TYPE(t_var_list), INTENT(IN)      ::  &
+    &  p_prog_list                         !< current prognostic state list
+  REAL(wp), INTENT(INOUT)           ::  &
+    &  p_tracer_now(:,:,:,:)               !< tracer mixing ratios (specific concentrations)
 
 #ifdef __ICON_ART
-    TYPE(t_mode), POINTER   :: this_mode
+  TYPE(t_mode), POINTER   :: this_mode
 #endif
-    INTEGER  :: jg                           !< domain index
-
-    !-----------------------------------------------------------------------
+  INTEGER  :: jg                           !< domain index
+  !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
+  jg  = p_patch%id
 
-jg  = p_patch%id
+  IF(art_config(jg)%lart) THEN
 
-IF(art_config(jg)%lart) THEN
-
-  ! ----------------------------------
-  ! --- Radioactive particles
-  ! ----------------------------------
-  this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+    ! ----------------------------------
+    ! --- Radioactive particles
+    ! ----------------------------------
+    this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
   
-  DO WHILE(ASSOCIATED(this_mode))
-    ! Select type of mode
-    select type (fields=>this_mode%fields)
+    DO WHILE(ASSOCIATED(this_mode))
+      ! Select type of mode
+      select type (fields=>this_mode%fields)
         type is (t_fields_radio)
           CALL  art_decay_radioact(p_patch,p_dtime,p_tracer_now(:,:,:,fields%itracer),fields%halflife) 
-    end select                  
-    this_mode => this_mode%next_mode
-  END DO
+      end select                  
+      this_mode => this_mode%next_mode
+    END DO
   
-  NULLIFY(this_mode)
+    NULLIFY(this_mode)
   
-  ! ----------------------------------
-  ! --- chemical tracer reactions
-  ! ----------------------------------
+    ! ----------------------------------
+    ! --- chemical tracer reactions
+    ! ----------------------------------
 
-  IF (art_config(jg)%lart_chemtracer) THEN !chemical tracer
-    CALL art_loss_chemtracer(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
-  ENDIF
+    IF (art_config(jg)%lart_chemtracer) THEN !chemical tracer
+      CALL art_loss_chemtracer(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
+    ENDIF
   
-ENDIF
+  ENDIF ! lart
 #endif
 
-  END SUBROUTINE art_reaction_interface
-
-
+END SUBROUTINE art_reaction_interface
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_reaction_interface
-

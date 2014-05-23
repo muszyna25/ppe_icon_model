@@ -1,7 +1,7 @@
 !>
 !! Provides interface to ART-routines dealing with emissions
 !!
-!! This module provides an interface to the ART-routine emission_volc.
+!! This module provides an interface to the ART emission routines.
 !! The interface is written in such a way, that ICON will compile and run 
 !! properly, even if the ART-routines are not available at compile time.
 !!
@@ -46,29 +46,29 @@
 !!
 MODULE mo_art_emission_interface
 
-    USE mo_kind,                  ONLY: wp
-    USE mo_model_domain,          ONLY: t_patch
-    USE mo_art_config,            ONLY: art_config
-    USE mo_exception,             ONLY: finish
-    USE mo_nonhydro_types,        ONLY: t_nh_diag
-    USE mo_ext_data_types,        ONLY: t_external_data
-    USE mo_run_config,            ONLY: iCS137,iI131,iTE132, &
-                                   &    iZR95,iXE133,iI131g, &
-                                   &    iI131o,iBA140,iRU103
+  USE mo_kind,                          ONLY: wp
+  USE mo_model_domain,                  ONLY: t_patch
+  USE mo_art_config,                    ONLY: art_config
+  USE mo_exception,                     ONLY: finish
+  USE mo_nonhydro_types,                ONLY: t_nh_diag
+  USE mo_ext_data_types,                ONLY: t_external_data
+  USE mo_run_config,                    ONLY: iCS137,iI131,iTE132,          &
+                                          &   iZR95,iXE133,iI131g,          &
+                                          &   iI131o,iBA140,iRU103
     
 #ifdef __ICON_ART
 ! Infrastructure Routines
-    USE mo_art_modes_linked_list, ONLY: p_mode_state,t_mode
-    USE mo_art_modes,             ONLY: t_fields_2mom,t_fields_radio, &
-        &                               t_fields_volc
-    USE mo_art_data,              ONLY: p_art_data
-    USE mo_art_aerosol_utilities, ONLY: art_air_properties
+  USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
+  USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
+                                          &   t_fields_volc
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_aerosol_utilities,         ONLY: art_air_properties
 ! Emission Routines
-    USE mo_art_emission_volc,     ONLY: art_organize_emission_volc
-    USE mo_art_radioactive,       ONLY: art_emiss_radioact
-    USE mo_art_emission_seas,     ONLY: art_emission_seas
-    USE mo_art_emission_dust,     ONLY: art_emission_dust
-    USE mo_art_chemtracer,        ONLY: art_emiss_chemtracer
+  USE mo_art_emission_volc,             ONLY: art_organize_emission_volc
+  USE mo_art_radioactive,               ONLY: art_emiss_radioact
+  USE mo_art_emission_seas,             ONLY: art_emission_seas
+  USE mo_art_emission_dust,             ONLY: art_emission_dust
+  USE mo_art_chemtracer,                ONLY: art_emiss_chemtracer
 #endif
 
   IMPLICIT NONE
@@ -78,41 +78,32 @@ MODULE mo_art_emission_interface
   PUBLIC  :: art_emission_interface
 
 CONTAINS
-  !>
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer_now)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! Rewritten by Daniel Rieger, KIT (2013-09-30)
-
-  SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer_now)
-
-    ! atmosphere external data				      
-    TYPE(t_external_data),               INTENT(IN) :: ext_data
-
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
-      &  p_patch                             !< is performed
- 
-    REAL(wp), INTENT(IN) ::p_dtime
-
-    REAL(wp), INTENT(INOUT) ::  &  !< density of air 
-      &  p_rho(:,:,:)              !< [kg/m3]
-
-    TYPE(t_nh_diag), INTENT(IN) ::p_diag            !< 	 
-
-    REAL(wp), INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
-      &  p_tracer_now(:,:,:,:)     !< at current time level n (before transport)
-                                   !< [kg/kg]
-
-    INTEGER  :: jg                !< patch id
-                                                     
+  TYPE(t_external_data), INTENT(IN) ::  &
+    &  ext_data                            !< atmosphere external data
+  TYPE(t_patch), TARGET, INTENT(IN) ::  & 
+    &  p_patch                             !< patch on which computation is performed
+  REAL(wp), INTENT(IN)              ::  &
+    &  p_dtime                             !< time step
+  REAL(wp), INTENT(INOUT)           ::  &
+    &  p_rho(:,:,:)                        !< density of air [kg/m3]
+  TYPE(t_nh_diag), INTENT(IN)       ::  &
+    &  p_diag                              !< list of diagnostic fields
+  REAL(wp), INTENT(INOUT)           ::  &
+    &  p_tracer_now(:,:,:,:)               !< tracer mixing ratios [kg/kg]
+  ! Local variables
+  INTEGER  ::  jg                          !< patch id
 #ifdef __ICON_ART
-    TYPE(t_mode), POINTER   :: this_mode
-#endif
-    !-----------------------------------------------------------------------
- 
-#ifdef __ICON_ART
-    
+  TYPE(t_mode), POINTER   :: this_mode     !< pointer to current aerosol mode
+
   jg  = p_patch%id
      
   IF (art_config(jg)%lart) THEN
@@ -129,7 +120,6 @@ CONTAINS
           call fields%modal_param(p_art_data(jg),p_patch,p_tracer_now)
           ! Now the according emission routine has to be found
           select case(TRIM(fields%info%name))
-            ! drieg: this is not yet nice, but a working state and first approach to new structures
             case ('seasa')
               call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
             case ('seasb')
@@ -144,11 +134,10 @@ CONTAINS
               call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
             case default
               call finish('mo_art_emission_interface:art_emission_interface', &
-                   &      'No according emission routine to mode')
+                   &      'No according emission routine to mode'//TRIM(fields%info%name))
           end select
         class is (t_fields_radio)
           select case(TRIM(fields%info%name))
-            ! drieg: this is not yet nice, but a working state and first approach to new structures
             case ('CS137')
               call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iCS137),373)
             case ('I131')
@@ -181,18 +170,17 @@ CONTAINS
       this_mode => this_mode%next_mode
     END DO
   END IF
-   ! ----------------------------------
-   ! --- volcano emissions
-   ! ----------------------------------
-  ! drieg: this is not yet nice, but a working state and first approach to new structures
+  ! ----------------------------------
+  ! --- volcano emissions
+  ! ----------------------------------
+  
   IF (art_config(jg)%lart_volcano) THEN
     CALL art_organize_emission_volc(p_patch,p_dtime,p_rho,p_tracer_now) 
   ENDIF
 
-
-    ! ----------------------------------
-    ! --- emissions of chemical tracer
-    ! ----------------------------------
+  ! ----------------------------------
+  ! --- emissions of chemical tracer
+  ! ----------------------------------
 
   IF (art_config(jg)%lart_chemtracer) THEN
     CALL art_emiss_chemtracer(ext_data,p_patch,p_dtime,p_diag,p_tracer_now)
@@ -200,8 +188,9 @@ CONTAINS
        
 #endif
 
-  END SUBROUTINE art_emission_interface
-
-
+END SUBROUTINE art_emission_interface
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_emission_interface
 

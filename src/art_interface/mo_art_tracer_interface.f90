@@ -10,7 +10,8 @@
 !!
 !! @par Revision History
 !! Initial revision by Kristina Lundgren (2012-04-03)
-!!
+!! Modified by Daniel Rieger, KIT (2014-05-22)
+!! - Usage of the generalized ART infrastructure
 !! @par Copyright
 !! 2002-2010 by DWD, MPI-M, and KIT.
 !! This software is provided for non-commercial use only.
@@ -39,17 +40,16 @@
 !! software.
 !!
 MODULE mo_art_tracer_interface
-    USE mo_model_domain,         ONLY: t_patch
-    USE mo_exception,            ONLY: message
-    USE mo_linked_list,          ONLY: t_var_list
-    USE mo_fortran_tools,        ONLY: t_ptr_2d3d
-    USE mo_advection_config,     ONLY: t_advection_config
-    USE mo_nwp_phy_types,        ONLY: t_nwp_phy_tend
-    USE mo_nonhydro_types,       ONLY: t_nh_prog
-    USE mo_art_config,           ONLY: art_config
+  USE mo_exception,                     ONLY: message
+  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_fortran_tools,                 ONLY: t_ptr_2d3d
+  USE mo_advection_config,              ONLY: t_advection_config
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_tend
+  USE mo_nonhydro_types,                ONLY: t_nh_prog
+  USE mo_art_config,                    ONLY: art_config
 #ifdef __ICON_ART
-    USE mo_art_tracer,           ONLY: art_tracer
-    USE mo_art_init,             ONLY: art_init
+  USE mo_art_tracer,                    ONLY: art_tracer
+  USE mo_art_init,                      ONLY: art_init
 #endif
 
   IMPLICIT NONE
@@ -59,63 +59,64 @@ MODULE mo_art_tracer_interface
   PUBLIC  :: art_tracer_interface 
 
 CONTAINS
-  !>
-  !! Interface for ART-routine art_ini_tracer 
-  !!
-  !! This interface calls the ART-routine art_ini_tracer, if ICON has been 
-  !! built including the ART-package. Otherwise, this is simply a dummy 
-  !! routine.
-  !!
-  !! @par Revision History
-  !! Initial revision by Kristina Lundgren, KIT (2012-04-03)
-  SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
-    &                            ptr_arr,advconf,phy_tend, p_prog,&
-    &                            timelev,ldims,tlev_source)
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
+   &                            ptr_arr,advconf,phy_tend, p_prog,&
+   &                            timelev,ldims,tlev_source)
+!! Interface for ART-routine art_ini_tracer 
+!!
+!! This interface calls the ART-routine art_ini_tracer, if ICON has been 
+!! built including the ART-package. Otherwise, this is simply a dummy 
+!! routine.
+!!
+!! @par Revision History
+!! Initial revision by Kristina Lundgren, KIT (2012-04-03)
+  INTEGER,INTENT(in)             :: &
+    &   jg,                         & !< patch id
+    &   nblks_c                       !< patch block
+  TYPE(t_var_list),INTENT(INOUT) :: &
+    &   this_list                     !< current list: prognostic or phys. tend.    
+  TYPE(t_ptr_2d3d),INTENT(inout) :: &
+    &   ptr_arr(:)                    !< pointer to each element in list
+  TYPE(t_advection_config),INTENT(inout) ::  &
+    &   advconf                       !< advection config
+      
+  TYPE(t_nwp_phy_tend),INTENT(inout),OPTIONAL :: &
+    &   phy_tend                      !< physical tendencies
+      
+  TYPE(t_nh_prog),INTENT(inout),OPTIONAL :: &
+    &   p_prog                        !< prognostic variables
+      
+  INTEGER,INTENT(in), OPTIONAL   :: &
+    &   timelev,                    & !< drieg : why is timelevel optional?
+    &   ldims(3),                   & !< local dimensions, for checking
+    &   tlev_source                   !< actual TL for TL dependent vars
 
-    INTEGER,INTENT(in)      :: &
-      &   jg,                  &        !< patch id
-      &   nblks_c                       !< patch block
-      
-    TYPE(t_var_list),INTENT(INOUT) :: &
-      &   this_list                     !< current list: prognostic or phys. tend.
-      
-    TYPE(t_ptr_2d3d),INTENT(inout) :: &
-      &   ptr_arr(:)                    !< pointer to each element in list
-    
-    TYPE(t_advection_config),INTENT(inout) ::  &
-      &   advconf                       !< advection config
-      
-    TYPE(t_nwp_phy_tend),INTENT(inout),OPTIONAL :: &
-      &   phy_tend                      !< physical tendencies
-      
-    TYPE(t_nh_prog),INTENT(inout),OPTIONAL :: &
-      &   p_prog                        !< prognostic variables
-      
-    INTEGER,INTENT(in), OPTIONAL :: &
-      &   timelev,                  &   !< drieg : why is timelevel optional?
-      &   ldims(3),                 &   !< local dimensions, for checking
-      &   tlev_source                   !< actual TL for TL dependent vars
+  CHARACTER(len=*), INTENT(IN)   :: & 
+    &   vname_prefix                  !< list name
+  CHARACTER(len=*), INTENT(IN)   :: & 
+    &   defcase                       !< definition of case 
 
-    CHARACTER(len=*), INTENT(IN) :: & 
-      &   vname_prefix                  !< list name
-    CHARACTER(len=*), INTENT(IN) :: & 
-      &   defcase                       !< definition of case 
-
-    !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
-      CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
+  IF (art_config(jg)%lart) THEN
+    CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
       
-      CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&
-       & tlev_source) 
+    CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&
+      & tlev_source) 
       
-      IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
-        CALL art_init(jg,this_list)
-      END IF
+    IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
+      CALL art_init(jg,this_list)
+    END IF
+  ENDIF ! lart
 #endif
 
-  END SUBROUTINE art_tracer_interface 
-
-
+END SUBROUTINE art_tracer_interface 
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_tracer_interface
 

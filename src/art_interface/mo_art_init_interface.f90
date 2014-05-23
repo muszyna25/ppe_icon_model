@@ -41,8 +41,8 @@
 MODULE mo_art_init_interface
 
 #ifdef __ICON_ART
-  USE mo_art_init_all_dom,        ONLY: art_init_all_dom
-  USE mo_art_clean_up,            ONLY: art_clean_up
+  USE mo_art_init_all_dom,              ONLY: art_init_all_dom
+  USE mo_art_clean_up,                  ONLY: art_clean_up
 #endif
   
   IMPLICIT NONE
@@ -52,25 +52,30 @@ MODULE mo_art_init_interface
   PUBLIC :: art_init_interface
 
 CONTAINS
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE art_init_interface(n_dom,defcase)
 
-  SUBROUTINE art_init_interface(n_dom,defcase)
-
-    INTEGER,intent(in) :: n_dom     !< number of model domains
-    CHARACTER(LEN=*),intent(in) :: defcase  !< construction or destruction?
+  INTEGER,intent(in)          :: &
+    &  n_dom                        !< number of model domains
+  CHARACTER(LEN=*),intent(in) :: &
+    &  defcase                      !< construction or destruction?
     
 #ifdef __ICON_ART
     
+  if (TRIM(defcase) == 'construct') then
+    CALL art_init_all_dom(n_dom)
+  end if
     
-    if (TRIM(defcase) == 'construct') then
-      CALL art_init_all_dom(n_dom)
-    end if
-    
-    if (TRIM(defcase) == 'destruct') then
-      CALL art_clean_up(n_dom)
-    end if
+  if (TRIM(defcase) == 'destruct') then
+    CALL art_clean_up(n_dom)
+  end if
     
 #endif
 
-  END SUBROUTINE art_init_interface
-
+END SUBROUTINE art_init_interface
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_art_init_interface
