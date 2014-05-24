@@ -39,7 +39,7 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
 USE mo_dynamics_config,      ONLY: iequations
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
-USE mo_grid_config,          ONLY: n_dom, start_time, is_plane_torus
+USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
 ! to break circular dependency KF???
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -123,7 +123,7 @@ CONTAINS
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
-
+    REAL(wp) :: sim_time
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -143,14 +143,25 @@ CONTAINS
 
     ENDIF
 
-    ! initialize ldom_active flag
-    DO jg=1, n_dom
-      IF (jg > 1 .AND. start_time(jg) > 0._wp) THEN
-        p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
-      ELSE
-        p_patch(jg)%ldom_active = .TRUE.
-      ENDIF
-    ENDDO
+    ! initialize ldom_active flag if this is not a restart run
+    IF (.NOT. is_restart_run()) THEN
+      DO jg=1, n_dom
+        IF (jg > 1 .AND. start_time(jg) > 0._wp) THEN
+          p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
+        ELSE
+          p_patch(jg)%ldom_active = .TRUE.
+        ENDIF
+      ENDDO
+    ELSE
+      CALL get_restart_attribute("sim_time_DOM01", sim_time)
+      DO jg=1, n_dom
+        IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
+          p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
+        ELSE
+          p_patch(jg)%ldom_active = .TRUE.
+        ENDIF
+      ENDDO
+    ENDIF
 
     !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
@@ -240,11 +251,15 @@ CONTAINS
 #ifdef NOMPI
       ! TODO : Non-MPI mode does not work for multiple domains
       DO jg = 1,n_dom
-        CALL read_restart_files( p_patch(jg), n_dom)
+        IF (p_patch(jg)%ldom_active) THEN
+          CALL read_restart_files( p_patch(jg), n_dom)
+        ENDIF
       END DO
 #else
       DO jg = 1,n_dom
-        CALL read_restart_files( p_patch(jg), n_dom )
+        IF (p_patch(jg)%ldom_active) THEN
+          CALL read_restart_files( p_patch(jg), n_dom )
+        ENDIF
       END DO
 #endif      
       CALL message(TRIM(routine),'normal exit from read_restart_files')

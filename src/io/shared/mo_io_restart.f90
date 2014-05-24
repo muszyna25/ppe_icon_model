@@ -90,11 +90,13 @@ MODULE mo_io_restart
     &                                 timer_write_restart_file
 
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
+  USE mo_grid_config,           ONLY: l_limited_area
 
 #ifndef __NO_ICON_ATMO__
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
+!GZ: but then we need an alternative method of skipping unnecessary time levels!
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
-    &                                 LEAPFROG_EXPL, LEAPFROG_SI
+    &                                 LEAPFROG_EXPL, LEAPFROG_SI, INH_ATMOSPHERE
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
 #endif
 
@@ -190,11 +192,13 @@ CONTAINS
   SUBROUTINE write_restart_info_file
     INTEGER :: nrf
     nrf = find_next_free_unit(10,100)
-    OPEN(nrf,file=restart_info_file)
-    WRITE(nrf, '(a,a)')                &
-         'gridspec: grid_D01_atm.nc', &
-         ' ! here should be the physical filename including path'
-    CLOSE(nrf)
+    IF (my_process_is_mpi_workroot()) THEN
+      OPEN(nrf,file=restart_info_file)
+      WRITE(nrf, '(a,a)')                &
+           'gridspec: grid_D01_atm.nc', &
+           ' ! here should be the physical filename including path'
+      CLOSE(nrf)
+    ENDIF
     CALL message('',restart_info_file//' written')
   END SUBROUTINE write_restart_info_file
   !
@@ -312,16 +316,23 @@ CONTAINS
         WRITE(0,*) "streamOpenRead ", TRIM(rst_filename)
         ! note: we have opened the file for domain 1 already
         IF (idom > 1) THEN
-          fileID  = streamOpenRead(rst_filename)
-          vlistID = streamInqVlist(fileID)
+          INQUIRE(file=TRIM(rst_filename), exist=lexists)
+          IF (lexists) THEN
+            fileID  = streamOpenRead(rst_filename)
+            vlistID = streamInqVlist(fileID)
+          ENDIF
         END IF
       END IF
-      CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
-      IF (my_process_is_mpi_workroot()) THEN
-        CALL streamClose(fileID)
-      END IF
+      IF (lexists) THEN
+        CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
+        IF (my_process_is_mpi_workroot()) THEN
+          CALL streamClose(fileID)
+        END IF
 
-      CALL message(TRIM(routine), 'read global attributes from restart file')
+        CALL message(TRIM(routine), 'read global attributes from restart file')
+      ELSE
+        CALL message(TRIM(routine), 'Warning: domain not active at restart time')
+      ENDIF
 
       ! since we do not know about the total number of domains yet,
       ! we have to ask the current restart file for this
@@ -923,7 +934,7 @@ CONTAINS
       !
       IF (my_process_is_mpi_workroot()) THEN
         !
-        CALL addVarListToVlist(var_lists(i), var_lists(i)%p%cdiVlistID)
+        CALL addVarListToVlist(var_lists(i), var_lists(i)%p%cdiVlistID, jg)
         !
         WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
              restart_filename, var_lists(i)%p%name,             &
@@ -981,7 +992,7 @@ CONTAINS
           !
           IF (my_process_is_mpi_workroot()) THEN
             !
-            CALL addVarListToVlist(var_lists(j), var_lists(j)%p%cdiVlistID)
+            CALL addVarListToVlist(var_lists(j), var_lists(j)%p%cdiVlistID, jg)
             !
             WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
                  restart_filename, var_lists(j)%p%name,             &
@@ -1006,9 +1017,10 @@ CONTAINS
   !
   ! define variables and attributes
   !
-  SUBROUTINE addVarListToVlist(this_list, vlistID)
+  SUBROUTINE addVarListToVlist(this_list, vlistID, jg)
     TYPE (t_var_list), INTENT(inout) :: this_list
     INTEGER,           INTENT(inout) :: vlistID
+    INTEGER,           INTENT(in)    :: jg
     !
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
@@ -1019,7 +1031,7 @@ CONTAINS
     REAL(wp) :: casted_missval
     !
     INTEGER :: time_level
-    INTEGER :: tlev_skip
+    LOGICAL :: lskip_timelev, lskip_extra_timelevs
 
     element => start_with
     element%next_list_element => this_list%p%first_list_element
@@ -1042,31 +1054,33 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
-#ifndef __NO_ICON_ATMO__
-! this should be removed !
-      ! get information about timelevel to be skipped for current field
-      ! for the time being this will work with the global patch only
-      IF (element%field%info%tlev_source == 0) THEN
-        tlev_skip = nnew(1)          ! ATTENTION: 1 (global patch) hardcoded
-      ELSE IF (element%field%info%tlev_source == 1) THEN
-        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 (global patch) hardcoded
+      lskip_timelev = .FALSE.
+      IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. jg == 1)) THEN
+        lskip_extra_timelevs = .TRUE.
       ELSE
-        tlev_skip = -99
+        lskip_extra_timelevs = .FALSE.
+      ENDIF
+
+#ifndef __NO_ICON_ATMO__
+      ! get information about timelevel to be skipped for current field
+      IF (element%field%info%tlev_source == 0 ) THEN
+        IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
+        ! this is needed to skip the extra time levels allocated for nesting
+        IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
+      ELSE IF (element%field%info%tlev_source == 1) THEN
+        IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
       ENDIF
 
 
       SELECT CASE (iequations)
       CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
 
-        IF ( time_level == tlev_skip                        &
+        IF ( lskip_timelev                                  &
           & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
           & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) CYCLE   ! skip field
       CASE default
-        IF ( time_level == tlev_skip ) CYCLE   ! skip field
+        IF ( lskip_timelev ) CYCLE   ! skip field
       END SELECT
-!  #else
-      ! this is not clear if needed
-      IF ( time_level == tlev_skip ) CYCLE   ! skip field
 #endif
 
       !
@@ -1603,7 +1617,10 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
     !
     INTEGER :: time_level
-    INTEGER :: tlev_skip
+    INTEGER :: jg
+    LOGICAL :: lskip_timelev, lskip_extra_timelevs
+
+    jg = p_patch%id
 
     !
     ! Loop over all fields in linked list
@@ -1631,29 +1648,32 @@ CONTAINS
       ! get time index of current field
       time_level = get_var_timelevel(element%field)
 
-#ifndef __NO_ICON_ATMO__
-! this should be removed !
-      ! get information about timelevel to be skipped for current field
-      ! for the time being this will work with the global patch only
-      IF (element%field%info%tlev_source == 0) THEN
-        tlev_skip = nnew(1)          ! ATTENTION: 1 (global patch) hardcoded
-      ELSE IF (element%field%info%tlev_source == 1) THEN
-        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 (global patch) hardcoded
+      lskip_timelev = .FALSE.
+      IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. jg == 1)) THEN
+        lskip_extra_timelevs = .TRUE.
       ELSE
-        tlev_skip = -99
+        lskip_extra_timelevs = .FALSE.
+      ENDIF
+
+#ifndef __NO_ICON_ATMO__
+      ! get information about timelevel to be skipped for current field
+      IF (element%field%info%tlev_source == 0 ) THEN
+        IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
+        ! this is needed to skip the extra time levels allocated for nesting
+        IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
+      ELSE IF (element%field%info%tlev_source == 1) THEN
+        IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
       ENDIF
 
       SELECT CASE (iequations)
       CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
 
-        IF ( time_level == tlev_skip                        &
+        IF ( lskip_timelev                                  &
           & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
           & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) CYCLE   ! skip field
       CASE default
-        IF ( time_level == tlev_skip ) CYCLE   ! skip field
+        IF ( lskip_timelev ) CYCLE   ! skip field
       END SELECT
-! #else
-     IF ( time_level == tlev_skip ) CYCLE   ! skip field
 #endif
 
       nindex = MERGE(info%ncontained, 1, info%lcontained)

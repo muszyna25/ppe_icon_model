@@ -125,7 +125,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                        &  p_prog_lnd_now, p_prog_lnd_new,   &
                        &  p_prog_wtr_now, p_prog_wtr_new,   &
                        &  p_diag_lnd,                       &
-                       &  ext_data, phy_params)
+                       &  ext_data, phy_params, lnest_start)
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -138,6 +138,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_wtr_prog),            INTENT(inout) :: p_prog_wtr_now, p_prog_wtr_new
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
+  LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start
 
   INTEGER             :: jk, jk1
   REAL(wp)            :: rsltn   ! horizontal resolution
@@ -167,6 +168,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   LOGICAL :: lland, lglac
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
+  LOGICAL :: linit_mode
 
   INTEGER :: jb,ic,jc,jt,jg,ist
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -192,6 +194,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
      routine = 'mo_nwp_phy_init:init_nwp_phy'
+
+  ! This is needed for correct flow control when a nested domain is initialized after restarting
+  IF (PRESENT(lnest_start)) THEN
+    linit_mode = lnest_start
+  ELSE
+    linit_mode = .NOT. is_restart_run()
+  ENDIF
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -242,7 +251,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
   CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
-  IF (.NOT. is_restart_run())THEN
+  IF (linit_mode) THEN
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -414,7 +423,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     END DO
     CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
 
-  ELSE  ! if is_restart_run()
+  ELSE  ! in case of restart
     !
     ! necessary, because only t_g(nnow_rcf) is written to the restart file
     ! with the following copy statement the ocean points of t_g(nnew_rcf) are 
@@ -643,7 +652,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
-      !IF (irad_o3 == io3_ape .AND. .NOT. is_restart_run()) THEN
+      !IF (irad_o3 == io3_ape .AND. linit_mode) THEN
       IF (irad_o3 == io3_ape ) THEN
 
 !        CALL o3_zl2ml(p_patch%nblks_c,p_patch%npromz_c,        & ! 
@@ -771,7 +780,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
-    IF (irad_o3 == io3_ape .AND. .NOT. is_restart_run() ) THEN
+    IF (irad_o3 == io3_ape .AND. linit_mode ) THEN
 
       rl_start = 1  ! Initialization should be done for all points
       rl_end   = min_rlcell
@@ -916,10 +925,10 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !< surface initialization (including seaice)
   !------------------------------------------
 
-  IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
+  IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. linit_mode ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
       &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag)
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. is_restart_run()) THEN
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN ! restart mode
 
     IF ( lsnowtile ) THEN
       CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
@@ -933,7 +942,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! initialize gz0 (roughness length * g)
   !
-  IF ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. .NOT. is_restart_run() ) THEN
+  IF ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) .AND. linit_mode ) THEN
 
 
     ! gz0 is initialized, if we start from IFS surface (MODE_IFSANA) or 
@@ -1000,7 +1009,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ENDIF  !operation mode
 
   ! For 3D Smagorinsky turbulence model 
-  ELSE IF (  atm_phy_nwp_config(jg)%is_les_phy .AND. .NOT. is_restart_run() ) THEN
+  ELSE IF (  atm_phy_nwp_config(jg)%is_les_phy .AND. linit_mode ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Smagorinsky turbulence')
 
@@ -1043,7 +1052,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! Initialize turbulence models
   !
-  IF ( (atm_phy_nwp_config(jg)%inwp_turb == icosmo) .AND. .NOT. is_restart_run() ) THEN
+  IF ( (atm_phy_nwp_config(jg)%inwp_turb == icosmo) .AND. linit_mode ) THEN
   
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 

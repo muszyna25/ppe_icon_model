@@ -273,6 +273,11 @@ CONTAINS
           &  'dt_checkpoint < 2.5 hours not allowed in combination with divdamp_order = 24'
         CALL finish(method_name, message_text)
     ENDIF
+    IF (ANY(NINT(start_time(:)) == NINT(dt_checkpoint))) THEN
+        WRITE(message_text,'(a)') &
+          &  'writing a checkpoint file exactly at the start time of a nest is not allowed'
+        CALL finish(method_name, message_text)
+    ENDIF
 
     WRITE(message_text,'(a,f10.2,a,f16.10,a)')          &
          &'dt_checkpoint :',dt_checkpoint,' seconds =', &

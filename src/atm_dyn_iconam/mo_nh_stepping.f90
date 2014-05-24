@@ -1551,6 +1551,13 @@ MODULE mo_nh_stepping
               time_config%sim_time(jg) < end_time(jgc)) THEN
             p_patch(jgc)%ldom_active = .TRUE.
 
+            jstep_adv(jgc)%ntsteps       = 0
+            jstep_adv(jgc)%marchuk_order = 0
+            time_config%sim_time(jgc)    = time_config%sim_time(jg)
+            linit_slowphy(jgc)           = .TRUE.
+            t_elapsed_phy(jgc,:)         = 0._wp
+            linit_dyn(jgc)               = .TRUE.
+
             IF (  atm_phy_nwp_config(jgc)%inwp_surface == 1 ) THEN
               CALL aggregate_landvars(p_patch(jg), ext_data(jg),                &
                 p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), p_lnd_state(jg)%diag_lnd)
@@ -1576,9 +1583,7 @@ MODULE mo_nh_stepping
               & p_lnd_state(jgc)%prog_wtr(nnew_rcf(jgc)),&
               & p_lnd_state(jgc)%diag_lnd               ,&
               & ext_data(jgc)                           ,&
-              & phy_params(jgc)                          )
-
-            time_config%sim_time(jgc) = time_config%sim_time(jg)
+              & phy_params(jgc), lnest_start=.TRUE.      )
 
             CALL compute_airmass(p_patch(jgc),                   &
               &                  p_nh_state(jgc)%metrics,        &

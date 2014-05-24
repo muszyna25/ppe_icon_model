@@ -35,7 +35,8 @@ MODULE mo_io_restart_async
     &                                   restart_attributes_count_int, restart_attributes_count_text, &
     &                                   restart_attributes_count_real, restart_attributes_count_bool
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
-  USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
+  USE mo_grid_config,             ONLY: l_limited_area
+  USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
@@ -440,7 +441,11 @@ CONTAINS
     ! find patch
     p_pd => find_patch(patch_id, subname)
 
-    ! usually, only the first compute PE needs the dynamic restart arguments
+    ! set activity flag - this needs to be done on all compute PEs because the restart
+    ! file may be incomplete otherwise when a nest is started during runtime
+    p_pd%l_dom_active = l_dom_active
+
+    ! otherwise, only the first compute PE needs the dynamic restart arguments
     ! in the case of processor splitting, the first PE of the split subset needs them as well
     IF (p_pe_work == 0 .OR. p_pe_work == p_pd%work_pe0_id) THEN
 
@@ -465,8 +470,6 @@ CONTAINS
       ! Patch-dependent attributes
       ! --------------------------
 
-      ! set activity flag
-      p_pd%l_dom_active = l_dom_active
 
       ! copy optional array parameter
       IF (PRESENT(opt_pvct)) THEN
@@ -598,13 +601,13 @@ CONTAINS
 
       p_pd => patch_data(idx)
 
-      ! check, if the patch is actice
+      ! check if the patch is actice
       IF (.NOT. p_pd%l_dom_active) CYCLE
 
       ! write the variable restart lists
       IF (my_process_is_restart()) THEN
 
-        ! considerate the right restart process
+        ! consider the right restart process
         IF (p_pe == p_pd%restart_proc_id) THEN
 
           ! set global restart attributes/lists
@@ -823,8 +826,6 @@ CONTAINS
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, calday,                p_comm_work)
         p_ra%datetime%calday = INT(calday,i8)
         CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%daysec,  p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew(1),               p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew_rcf(1),           p_comm_work)
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%jstep,            p_comm_work)
 
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%n_opt_output_file, p_comm_work)
@@ -854,6 +855,9 @@ CONTAINS
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnew,             p_comm_work)
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnew_rcf,         p_comm_work)
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnow_rcf,         p_comm_work)
+
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew(p_pd%id),         p_comm_work)
+          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew_rcf(p_pd%id),     p_comm_work)
 
           ! optional parameter values
           CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_depth,      p_comm_work)
@@ -1045,8 +1049,6 @@ CONTAINS
       CALL p_pack_real(datetime%caltime,         p_msg, MAX_BUF_SIZE, position, p_comm_work)
       CALL p_pack_int( INT(datetime%calday),     p_msg, MAX_BUF_SIZE, position, p_comm_work)
       CALL p_pack_real(datetime%daysec,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( nnew(1),                  p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( nnew_rcf(1),              p_msg, MAX_BUF_SIZE, position, p_comm_work)
       CALL p_pack_int( jstep,                    p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
       CALL p_pack_int( p_ra%n_opt_output_file,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
@@ -1073,6 +1075,9 @@ CONTAINS
         CALL p_pack_int( nnew(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_int( nnow_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
+
+        CALL p_pack_int( nnew(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
         ! optional parameter values
         CALL p_pack_bool(p_pd%l_opt_depth,      p_msg, MAX_BUF_SIZE, position, p_comm_work)
@@ -1789,7 +1794,6 @@ CONTAINS
       IF (my_process_is_work()) THEN
         p_pd%id              = p_patch(jg)%id
         p_pd%work_pe0_id     = p_patch(jg)%proc0
-        p_pd%l_dom_active    = p_patch(jg)%ldom_active
         p_pd%nlev            = p_patch(jg)%nlev
         p_pd%cell_type       = p_patch(jg)%cell_type
         p_pd%nblks_glb_c     = (p_patch(jg)%n_patch_cells-1)/nproma + 1
@@ -1804,7 +1808,6 @@ CONTAINS
       ! transfer data to restart PEs
       CALL p_bcast(p_pd%id,              bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%work_pe0_id,     bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%l_dom_active,    bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%nlev,            bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%cell_type,       bcast_root, p_comm_work_2_restart)
       CALL p_bcast(p_pd%nblks_glb_c,     bcast_root, p_comm_work_2_restart)
@@ -2496,12 +2499,15 @@ CONTAINS
   !
   ! Returns true, if the time level of the given field is valid, else false.
   !
-  FUNCTION has_valid_time_level (p_info)
+  FUNCTION has_valid_time_level (p_info,id)
 
     TYPE(t_var_metadata), POINTER, INTENT(IN) :: p_info
+    INTEGER, INTENT(IN)           :: id
+
     LOGICAL                       :: has_valid_time_level
 
-    INTEGER                       :: idx, time_level, tlev_skip
+    INTEGER                       :: idx, time_level
+    LOGICAL                       :: lskip_timelev, lskip_extra_timelevs
 
 #ifdef DEBUG
     CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'has_valid_time_level'
@@ -2513,33 +2519,39 @@ CONTAINS
       RETURN
     ENDIF
 
+    lskip_timelev = .FALSE.
+    IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. id == 1)) THEN
+      lskip_extra_timelevs = .TRUE.
+    ELSE
+      lskip_extra_timelevs = .FALSE.
+    ENDIF
+
     ! get time index of the given field
     idx = INDEX(p_info%name,'.TL')
     IF (idx == 0) THEN
       time_level = -1
     ELSE
       time_level = ICHAR(p_info%name(idx+3:idx+3)) - ICHAR('0')
-    ENDIF
 
-    ! get information about time level to be skipped for current field
-    ! for the time being this will work with the global patch only
-    IF (p_info%tlev_source == 0) THEN
-      tlev_skip = nnew(1)          ! ATTENTION: 1 (global patch) hardcoded
-    ELSE IF (p_info%tlev_source == 1) THEN
-      tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 (global patch) hardcoded
-    ELSE
-      tlev_skip = -99
+      ! get information about time level to be skipped for current field
+      IF (p_info%tlev_source == 0) THEN
+        IF (time_level == nnew(id))                    lskip_timelev = .TRUE.
+        ! this is needed to skip the extra time levels allocated for nesting
+        IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
+      ELSE IF (p_info%tlev_source == 1) THEN
+        IF (time_level == nnew_rcf(id)) lskip_timelev = .TRUE.
+      ENDIF
     ENDIF
 
     SELECT CASE (iequations)
       CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
 
-        IF ( time_level == tlev_skip                        &
+        IF ( lskip_timelev                        &
           & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
           & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) &
           & has_valid_time_level = .FALSE.
       CASE default
-        IF ( time_level == tlev_skip ) has_valid_time_level = .FALSE.
+        IF ( lskip_timelev ) has_valid_time_level = .FALSE.
     END SELECT
 
 #ifdef DEBUG
@@ -2671,7 +2683,7 @@ CONTAINS
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info,p_pd%id)) CYCLE
 
       ! get current level
       IF(p_info%ndims == 2) THEN
@@ -2818,7 +2830,7 @@ CONTAINS
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info,p_pd%id)) CYCLE
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
@@ -2984,8 +2996,9 @@ CONTAINS
   !
   ! Initialize the variable list of the given restart file.
   !
-  SUBROUTINE init_restart_variables(p_rf)
+  SUBROUTINE init_restart_variables(p_rf,patch_id)
     TYPE(t_restart_file), POINTER, INTENT(IN) :: p_rf
+    INTEGER, INTENT(IN)           :: patch_id
 
     TYPE(t_var_data), POINTER     :: p_vars(:)
     TYPE(t_var_metadata), POINTER :: p_info
@@ -3009,7 +3022,7 @@ CONTAINS
       p_info => p_vars(iv)%info
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info,patch_id)) CYCLE
 
       ! set grid ID
       gridID = CDI_UNDEFID
@@ -3276,7 +3289,7 @@ CONTAINS
     p_rf%cdiTimeIndex = 0
 
     ! init list of restart variables
-    CALL init_restart_variables (p_rf)
+    CALL init_restart_variables (p_rf,p_pd%id)
 
   END SUBROUTINE init_restart_vlist
 
