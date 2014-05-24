@@ -1017,6 +1017,7 @@ CONTAINS
     ! this pathological case it is important to call the same timers
     ! as the "normal" output PEs. Otherwise we will get a deadlock
     ! situation when computing the global sums for these timers.
+    lset_timers_for_idle_pe = .FALSE.
     IF (ltimer .AND. ALLOCATED(output_file)) THEN
       IF (ALL(output_file(:)%io_proc_id /= p_pe))  lset_timers_for_idle_pe = .TRUE.
     END IF
