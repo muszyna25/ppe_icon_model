@@ -76,10 +76,10 @@ atmo_dyn_grids='iconR2B02-grid.nc'
 
 # define variable names
 #
-dict_file='dict.cmor'
+dict_file='dict.${EXPNAME}'
+cat dict.icoham.mpim > ${dict_file}
+cat dict.echam.mpim >> ${dict_file}
 #
-
-
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
 # ------------------------

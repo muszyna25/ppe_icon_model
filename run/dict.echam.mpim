@@ -4,49 +4,17 @@
 # translation is used or the name does not occur in the dictionary.
 #
 # This file contains a dictionary for the mapping between "add_var"
-# names and CMOR or CMOR inspired names.
+# names and names used at MPI-M for postprocessing.
 #
 # ===========================================================
 #
 # atmosphere
 # ==========
 #
-# variables from the dynamical core with prefix 'ha_prog_out'
-# -----------------------------------------------------------
-#
-# CMOR names         "add_var" name
-# ---------------------------------
-#
-  ps                 ha_prog_out_pres_sfc
-  ta                 ha_prog_out_temp
-  hus                ha_prog_out_qv
-  clw                ha_prog_out_qw
-  cli                ha_prog_out_qi
-
-# variables from the dynamical core with prefix 'ha_diag_out'
-# -----------------------------------------------------------
-#
-# CMOR names         "add_var" name
-# ---------------------------------
-#
-  ua                 ha_diag_out_u
-  va                 ha_diag_out_v
-  sd                 ha_diag_out_div
-  svo                ha_diag_out_rel_vort
-  wap                ha_diag_out_wpres_mc
-  pfull              ha_diag_out_pres_mc
-#
-# other names        "add_var" name
-# ---------------------------------
-#
-  gpfull             ha_diag_out_geo_mc
-  geosp             topography_c
-#
-
 # variables from the ECHAM6 physics with prefix 'prm'
 # ---------------------------------------------------
 #
-# CMOR names         "add_var" name
+# dict names         "add_var" name
 # ---------------------------------
 #
   hur                prm_r
@@ -97,9 +65,6 @@
   tauv_ice           prm_v_stress_tile_2
   tauv_lnd           prm_v_stress_tile_3
 #
-# other names        "add_var" name
-# ---------------------------------
-#
   cosmu0             prm_cosmu0
 #
   rsns               prm_swflxsfc
@@ -130,7 +95,7 @@
 # tendencies from the ECHAM6 physics with prefix 'prm_tend'
 # ---------------------------------------------------
 #
-# Temperature:
+# temperature:
   tend_temp          prm_tend_temp
   tend_temp_phy      prm_tend_temp_phy
   tend_temp_radlw    prm_tend_temp_radlw
@@ -140,55 +105,30 @@
   tend_temp_vdf      prm_tend_temp_vdf
   tend_temp_gwh      prm_tend_temp_gwh
   tend_temp_sso      prm_tend_temp_sso
-# u-Wind:
+#
+# u-wind:
   tend_u             prm_tend_u
   tend_u_phy         prm_tend_u_phy
   tend_u_cnv         prm_tend_u_cnv
   tend_u_vdf         prm_tend_u_vdf
   tend_u_gwh         prm_tend_u_gwh
   tend_u_sso         prm_tend_u_sso
-# v-Wind:
+#
+# v-wind:
   tend_v             prm_tend_v
   tend_v_phy         prm_tend_v_phy
   tend_v_cnv         prm_tend_v_cnv
   tend_v_vdf         prm_tend_v_vdf
   tend_v_gwh         prm_tend_v_gwh
   tend_v_sso         prm_tend_v_sso
-# detrained water (liq+ice)
-  tend_xl_dtr        prm_tend_xl_dtr
-  tend_xi_dtr        prm_tend_xi_dtr
+#
 # qv
   tend_qv            prm_tend_qv
   tend_qv_phy        prm_tend_qv_phy
   tend_qv_cld        prm_tend_qv_cld
   tend_qv_cnv        prm_tend_qv_cnv
   tend_qv_vdf        prm_tend_qv_vdf
-
 #
-# land / JSBACH
-# =============
-#
-# CMOR names         "add_var" name
-# ---------------------------------
-#
-#
-# ocean
-# =====
-#
-# CMOR names         "add_var" name
-# ---------------------------------
-#
-#
-# ice
-# ===
-#
-# CMOR names         "add_var" name
-# ---------------------------------
-#
-#
-# ocean biogeochemistry
-# =====================
-#
-# CMOR names         "add_var" name
-# ---------------------------------
-#
+# xl and xi
+  tend_xl_dtr        prm_tend_xl_dtr
+  tend_xi_dtr        prm_tend_xi_dtr

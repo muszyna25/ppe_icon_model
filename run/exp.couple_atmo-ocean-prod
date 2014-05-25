@@ -1,4 +1,3 @@
-#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -120,7 +119,9 @@ dt_file=$dt_restart
 #-----------------------------------------------------------------------------
 # define variable names
 #
-dict_file='dict.cmor'
+dict_file='dict.${EXPNAME}'
+cat dict.icoham.mpim > ${dict_file}
+cat dict.echam.mpim >> ${dict_file}
 #
 #-----------------------------------------------------------------------------
 #

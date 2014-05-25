@@ -1,4 +1,3 @@
-#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -75,7 +74,9 @@ atmo_model_equations=1   # equation system
 #-----------------------------------------------------------------------------
 # define variable names
 #
-dict_file='dict.cmor'
+dict_file='dict.${EXPNAME}'
+cat dict.icoham.mpim > ${dict_file}
+cat dict.echam.mpim >> ${dict_file}
 #
 #-----------------------------------------------------------------------------
 # horizontal grid

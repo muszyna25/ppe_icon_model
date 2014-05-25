@@ -1,0 +1,35 @@
+# The following table defines the dictionary for the mapping  between
+# user defined short names and short names defined in the "add_var"
+# calls in ICON. The "add_var" names are used by default, if either no
+# translation is used or the name does not occur in the dictionary.
+#
+# This file contains a dictionary for the mapping between "add_var"
+# names and names used at MPI-M for postprocessing.
+#
+# ===========================================================
+#
+# atmosphere
+# ==========
+#
+# variables from the dynamical core (no prefix)
+# ---------------------------------------------
+#
+# dict names         "add_var" name
+# ---------------------------------
+#
+  ta                 temp
+  hus                qv
+  clw                qc
+  cli                qi
+#
+  ua                 u
+  va                 v
+#
+  pfull              pres
+  ps                 pres_sfc
+  psl                pres_msl
+
+# variables from the external data (no prefix)
+# --------------------------------------------
+  orog               topography_c
+#

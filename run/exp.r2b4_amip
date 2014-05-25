@@ -57,8 +57,9 @@ output_atm_phy_tend_temp=no  # atm. physics tendencies for temperature
 output_atm_phy_tend_wind=no  # atm. physics tendencies for wind
 output_atm_phy_tend_trac=no  # atm. physics tendencies for tracers
 
-# dictionary for variable names
-dict_file='dict.cmor'
+# dictionary file for variable names
+dict_file="dict.${EXPNAME}'
+rm -f ${dict_file}
 
 #__________________________________________________________________________________________________
 
@@ -137,6 +138,7 @@ cat > ${atmo_namelist} << EOF
  lssodrag         = .TRUE.
  ljsbach          = .TRUE.
  dt_rad           = ${dt_rad}    ! [s] radiation time step
+ lebudget         = .TRUE.
 /
 &radiation_nml
  irad_h2o         = 1            ! prognostic vapor, liquid and ice
@@ -165,6 +167,10 @@ cat > ${atmo_namelist} << EOF
 EOF
 
 if [[ "$output_atm_dyn" == "yes" ]]; then
+  if [[ "$dict_icoham_mpim" /= "yes" ]]; then
+    cat dict.icoham.mpim >> ${dict_file}
+    dict_icoham_mpim="yes"
+  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_dyn"
@@ -184,6 +190,10 @@ EOF
 fi
 
 if [[ "$output_atm_phy" == "yes" ]]; then
+  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+    cat dict.echam.mpim >> ${dict_file}
+    dict_echam_mpim="yes"
+  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy"
@@ -209,7 +219,8 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'tauu'    , 'tauv'    ,
                     'tauu_wtr', 'tauu_ice', 'tauu_lnd',
                     'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'tauu_sso', 'tauv_sso', 'diss_sso'
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sh_vdiff', 'ch_concloud'
 /
 EOF
 fi
@@ -241,6 +252,10 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
+  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+    cat dict.echam.mpim >> ${dict_file}
+    dict_echam_mpim="yes"
+  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_temp"
@@ -258,7 +273,11 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
-    cat >> ${atmo_namelist} << EOF
+  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+    cat dict.echam.mpim >> ${dict_file}
+    dict_echam_mpim="yes"
+  fi
+  cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_wind"
  filename_format  = "<output_filename>_<datetime2>"
@@ -275,7 +294,11 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
-    cat >> ${atmo_namelist} << EOF
+  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+    cat dict.echam.mpim >> ${dict_file}
+    dict_echam_mpim="yes"
+  fi
+  cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_trac"
  filename_format  = "<output_filename>_<datetime2>"
