@@ -167,7 +167,7 @@ cat > ${atmo_namelist} << EOF
 EOF
 
 if [[ "$output_atm_dyn" == "yes" ]]; then
-  if [[ "$dict_icoham_mpim" /= "yes" ]]; then
+  if [[ "$dict_icoham_mpim" != "yes" ]]; then
     cat dict.icoham.mpim >> ${dict_file}
     dict_icoham_mpim="yes"
   fi
@@ -190,7 +190,7 @@ EOF
 fi
 
 if [[ "$output_atm_phy" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+  if [[ "$dict_echam_mpim" != "yes" ]]; then
     cat dict.echam.mpim >> ${dict_file}
     dict_echam_mpim="yes"
   fi
@@ -252,7 +252,7 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+  if [[ "$dict_echam_mpim" != "yes" ]]; then
     cat dict.echam.mpim >> ${dict_file}
     dict_echam_mpim="yes"
   fi
@@ -273,7 +273,7 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+  if [[ "$dict_echam_mpim" != "yes" ]]; then
     cat dict.echam.mpim >> ${dict_file}
     dict_echam_mpim="yes"
   fi
@@ -294,7 +294,7 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" /= "yes" ]]; then
+  if [[ "$dict_echam_mpim" != "yes" ]]; then
     cat dict.echam.mpim >> ${dict_file}
     dict_echam_mpim="yes"
   fi
