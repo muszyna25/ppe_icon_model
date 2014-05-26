@@ -477,16 +477,6 @@ DO jk = kstart,klev
       cc_tot(jl,jk) = 0.0_wp
     ENDIF
 
-!debug
-!IF ( (cc_tot(jl,jk) > 1.0) .OR. (cc_tot(jl,jk) < 0.0)  .OR. &
-!  &  (qv_tot(jl,jk) > 1.0) .OR. (qv_tot(jl,jk) < 0.0)  .OR. &
-!  &  (qc_tot(jl,jk) > 1.0) .OR. (qc_tot(jl,jk) < 0.0)  .OR. &
-!  &  (qi_tot(jl,jk) > 1.0) .OR. (qi_tot(jl,jk) < 0.0) ) THEN
-!  write(*,*) 'cover_koe1: ', jk, t_g(jl), &
-!    & qv_tot(jl,jk), qc_tot(jl,jk), qi_tot(jl,jk), cc_tot(jl,jk), qtvar(jl,jk)
-!ENDIF
-!xxxxx
-
   ENDDO
 ENDDO
 

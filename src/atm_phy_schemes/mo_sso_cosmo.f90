@@ -636,12 +636,8 @@ SUBROUTINE sso (                                                       &
 
         pdu_sso(j1,j3)=zdudt(j1)
         pdv_sso(j1,j3)=zdvdt(j1)
-! GZ: use differential formulation in order to avoid artifacts (and numerical
-!     instabilities) due to possible sign changes at long time steps
-!        zust             = pu(j1,j3)+zdt2*zdudt(j1)
-!        zvst             = pv(j1,j3)+zdt2*zdvdt(j1)
-!        zdis=0.5_ireals*(pu(j1,j3)**2+pv(j1,j3)**2-zust**2-zvst**2)
-!        zdedt            = zdis/zdt2
+! For ICON, the dissipative heating rate is computed in the interface module
+! for SSO and non-orographic gw drag together
 #ifndef __ICON__
         zdedt = -(pu(j1,j3)*zdudt(j1)+pv(j1,j3)*zdvdt(j1))
         zdtdt(j1)     = zdedt       /Cp_d

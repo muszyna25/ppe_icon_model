@@ -918,14 +918,6 @@ CONTAINS
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = wrk_p_patch_g%cells%child_blk(jl_g,jb_g,1:4)
       wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
 
-      ! Safety check only: edge_idx and vertex_idx must always be valid!
- !     if(any(wrk_p_patch%cells%edge_idx(jl,jb,:) <= 0) .or. &
- !      & any(wrk_p_patch%cells%edge_blk(jl,jb,:) <= 0) )    &
- !      & CALL finish('divide_patch','Illegal value for patch%cells%edge_idx')
- !     if(any(wrk_p_patch%cells%vertex_idx(jl,jb,:) <= 0) .or. &
- !      & any(wrk_p_patch%cells%vertex_blk(jl,jb,:) <= 0) )    &
- !      & CALL finish('divide_patch','Illegal value for patch%cells%vertex_idx')
-
       wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_g%cells%num_edges(jl_g,jb_g)
       wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_g%cells%center(jl_g,jb_g)%lat
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_g%cells%center(jl_g,jb_g)%lon
