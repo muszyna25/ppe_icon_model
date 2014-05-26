@@ -21,7 +21,6 @@ MODULE mo_echam_conv_constants
 
   IMPLICIT NONE
   PUBLIC
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   LOGICAL, PARAMETER :: lmfmid   = .true.    !< true when midlevel    convection is switched on
   LOGICAL, PARAMETER :: lmfdd    = .true.    !< true when cumulus downdraft      is switched on

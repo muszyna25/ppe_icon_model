@@ -39,8 +39,6 @@ MODULE mo_hs_test
 
   ! Module parameters
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   REAL(wp), PARAMETER :: HSsigb    = 0.7_wp
   REAL(wp), PARAMETER :: HSvcoeff1 = 1._wp/(1._wp-HSsigb)
   REAL(wp), PARAMETER :: HSvcoeff2 = -HSsigb/(1._wp-HSsigb)

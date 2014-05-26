@@ -21,8 +21,6 @@ MODULE mo_gme_turbdiff
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: partura, parturs, progimp_turb, nearsfc
 

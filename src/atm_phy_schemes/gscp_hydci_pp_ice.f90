@@ -33,7 +33,6 @@
 !!
 !------------------------------------------------------------------------------
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! implemented into ICON by Felix Rieper (2012-06)
@@ -259,8 +258,6 @@ USE data_hydci_pp_ice,     ONLY:    afrac_dust, &  !! look-up table of activated
 IMPLICIT NONE
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 !------------------------------------------------------------------------------
 !! Public subroutines

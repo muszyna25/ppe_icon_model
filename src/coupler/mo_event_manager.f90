@@ -14,7 +14,6 @@
 !! 
 !! @author Rene Redler, Max-Planck Institute for Meteorology, Germany
 !!
-!! $Id:$
 !!
 !! @par Revision History
 !! first implementation by Rene Redler (2011-02-28)

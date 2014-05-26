@@ -24,7 +24,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id: n/a$
 !!
 
 !----------------------------
@@ -68,8 +67,6 @@ USE mo_gridref_config
 IMPLICIT NONE
 
 PRIVATE
-
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 TYPE(t_patch), POINTER :: p_patch(:)
 

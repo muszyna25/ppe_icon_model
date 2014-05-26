@@ -23,8 +23,6 @@ MODULE mo_nh_prepadv_types
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: t_prepare_adv, t_step_adv, prep_adv, jstep_adv
 

@@ -42,8 +42,6 @@ MODULE mo_oce_check_tools
   
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_oce_index
   PUBLIC :: ocean_check_level_sea_land_mask
 

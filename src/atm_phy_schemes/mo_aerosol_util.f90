@@ -35,8 +35,6 @@ MODULE mo_aerosol_util
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
  
   !RRTM

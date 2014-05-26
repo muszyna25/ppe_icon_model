@@ -71,8 +71,6 @@ MODULE mo_ocean_initial_conditions
   PUBLIC :: apply_initial_conditions, init_ocean_bathymetry
   PUBLIC :: fill_tracer_x_height
   
-  !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
   

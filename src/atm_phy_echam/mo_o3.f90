@@ -40,8 +40,6 @@ MODULE mo_o3
 
   include 'netcdf.inc'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
 
   SUBROUTINE read_amip_o3(year, p_patch)

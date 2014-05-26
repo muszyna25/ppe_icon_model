@@ -36,8 +36,6 @@ MODULE mo_icoham_sfc_indices
   PUBLIC :: nsfc_type, iwtr, iice, ilnd, igbm   !< variables
   PUBLIC :: init_sfc_indices                    !< subroutine
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   INTEGER :: nsfc_type   !< total number of surface types
   INTEGER :: iwtr = 1    !< index for water-covered surface
   INTEGER :: iice = 2    !< index for ice-covered   surface

@@ -93,8 +93,6 @@ MODULE mo_nh_initicon
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:) 

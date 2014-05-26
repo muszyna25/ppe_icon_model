@@ -58,8 +58,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
 REAL(wp), PARAMETER :: zp0      = 100000._wp          !< surface pressure
 REAL(wp), PARAMETER :: zt0      = 300._wp             !< atmospheric temperature
 REAL(wp), PARAMETER :: zscale_h = 8781.419026_wp      !< scale height

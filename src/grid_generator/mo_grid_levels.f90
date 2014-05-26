@@ -95,8 +95,6 @@ MODULE mo_grid_levels
 
   INCLUDE 'netcdf.inc'
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
 
   PUBLIC :: init_grid, destruct_grids, nf
   PUBLIC :: grid_on_level,number_of_grid_levels,     &

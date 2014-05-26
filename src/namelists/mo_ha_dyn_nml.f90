@@ -30,8 +30,6 @@ MODULE mo_ha_dyn_nml
   PRIVATE
   PUBLIC :: read_ha_dyn_namelist
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !---------------------
   ! namelist variables
   !---------------------

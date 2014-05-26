@@ -69,8 +69,6 @@ MODULE mo_nh_latbc
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   LOGICAL                :: lread_qr, lread_qs  ! are qr, qs provided as input?
   LOGICAL                :: lread_vn            ! is vn provided as input?

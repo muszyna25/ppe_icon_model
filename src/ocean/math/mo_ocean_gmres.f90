@@ -53,8 +53,7 @@ MODULE mo_ocean_gmres
   
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
   PUBLIC :: ocean_restart_gmres, gmres_oce_old, ocean_restart_gmres_singlePrecesicion
   PUBLIC :: gmres_oce_e2e
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_ocean_gmres'

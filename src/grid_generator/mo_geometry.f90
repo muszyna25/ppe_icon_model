@@ -121,8 +121,6 @@ MODULE mo_geometry
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: generate_geometry, init_grid
 
   ! LOGICAL :: lgrid_initialized = .false.

@@ -50,8 +50,6 @@ MODULE mo_ha_2tl_si
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: step_2tl_si
 
   CONTAINS

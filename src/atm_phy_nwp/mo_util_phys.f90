@@ -38,8 +38,6 @@ MODULE mo_util_phys
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = &
-    &  '$Id$'
 
 
   PUBLIC :: nwp_dyn_gust

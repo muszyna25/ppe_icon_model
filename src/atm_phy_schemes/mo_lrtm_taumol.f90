@@ -32,8 +32,6 @@ module mo_lrtm_taumol
 
   private
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC  :: chi_mls, lrtm_taumol
 

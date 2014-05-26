@@ -34,8 +34,6 @@ MODULE mo_ocean_nml
 #endif
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   PUBLIC
 
 

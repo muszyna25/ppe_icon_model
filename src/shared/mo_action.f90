@@ -74,9 +74,6 @@ MODULE mo_action
   !
   INTEGER, PARAMETER, PUBLIC :: ACTION_RESET = 1   ! re-set field to 0
 
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be 
                                         ! assigned to a single action
 

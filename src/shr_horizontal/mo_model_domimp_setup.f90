@@ -117,8 +117,6 @@ MODULE mo_model_domimp_setup
   
   PUBLIC :: fill_grid_subsets, fill_grid_subset_names, read_grid_subsets, write_grid_subsets
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
   
   !-------------------------------------------------------------------------
   

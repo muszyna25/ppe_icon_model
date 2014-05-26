@@ -110,8 +110,6 @@ MODULE mo_seaice_nwp
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   REAL (wp), PARAMETER ::                             &
                        &  frsi_min     = 0.03_wp    , &  !< minimum sea-ice fraction [-]

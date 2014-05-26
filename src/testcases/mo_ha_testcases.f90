@@ -96,8 +96,6 @@ MODULE mo_ha_testcases
   PRIVATE 
   PUBLIC :: read_ha_testcase_namelist, init_testcase, rotate_axis_deg  !subroutines
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$' 
-
   ! Namelist variables
 
   CHARACTER(len=MAX_CHAR_LENGTH),PUBLIC :: ctest_name   ! Test case specifier

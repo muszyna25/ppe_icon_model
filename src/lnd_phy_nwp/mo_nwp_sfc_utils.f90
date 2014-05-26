@@ -51,8 +51,6 @@ MODULE mo_nwp_sfc_utils
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
 #ifdef __SX__

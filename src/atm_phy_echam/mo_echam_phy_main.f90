@@ -69,8 +69,6 @@ MODULE mo_echam_phy_main
   PRIVATE
   PUBLIC :: echam_phy_main
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !!

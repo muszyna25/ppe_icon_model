@@ -43,8 +43,6 @@ MODULE mo_turbulence_diag
   PRIVATE
   PUBLIC :: atm_exchange_coeff, sfc_exchange_coeff, sfc_exchange_coeff_amip
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !! Compute various thermodynamic variables for all (full) vertical levels;

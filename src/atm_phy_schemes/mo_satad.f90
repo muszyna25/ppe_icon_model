@@ -76,8 +76,6 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
   PUBLIC  :: dqsatdT
   PUBLIC  :: qsat_rho
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
 CONTAINS

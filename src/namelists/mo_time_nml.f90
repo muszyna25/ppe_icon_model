@@ -33,8 +33,6 @@ MODULE mo_time_nml
   PRIVATE
   PUBLIC :: read_time_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !--------------------
   ! Namelist variables
   !--------------------

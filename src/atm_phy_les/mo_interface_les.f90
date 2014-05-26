@@ -10,7 +10,6 @@
 !!  first implementation by Kristina Froehlich, DWD (2009-06-12)
 !!  Modified for les physics by Anurag Dipankar, MPIM (2013-07-01)
 !!
-!! $Id: n/a$
 !!
 !! @par Copyright and License
 !!
@@ -88,8 +87,6 @@ MODULE mo_interface_les
 
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd

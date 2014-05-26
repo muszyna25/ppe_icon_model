@@ -11,8 +11,6 @@ MODULE mo_coupling_config
 
   IMPLICIT NONE
   PUBLIC
-
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 !>
 !! Namelist input to steer the coulpling events
 !!

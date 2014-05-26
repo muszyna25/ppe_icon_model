@@ -35,8 +35,6 @@ MODULE mo_ldf_test
   PRIVATE
   PUBLIC :: ldf_temp
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
 CONTAINS
 

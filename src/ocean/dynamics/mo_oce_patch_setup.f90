@@ -113,8 +113,7 @@ MODULE mo_oce_patch_setup
   
   PUBLIC :: complete_ocean_patch
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
   
   !-------------------------------------------------------------------------
   

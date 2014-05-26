@@ -34,8 +34,6 @@ USE mo_parallel_config,  ONLY: nproma
 
 IMPLICIT NONE
 
-CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
 PRIVATE
 
 PUBLIC :: get_indices_c, get_indices_e, get_indices_v

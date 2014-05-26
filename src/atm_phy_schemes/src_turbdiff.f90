@@ -434,8 +434,6 @@ IMPLICIT NONE
 PUBLIC  :: init_canopy, organize_turbdiff, turb_cloud, vert_grad_diff, &
            modvar
 
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 INTEGER (KIND=iintegers), PARAMETER :: &
 !

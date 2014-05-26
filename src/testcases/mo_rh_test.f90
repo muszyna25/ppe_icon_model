@@ -46,8 +46,6 @@ MODULE mo_rh_test
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_hydro_state_prog_rhtest
 
 

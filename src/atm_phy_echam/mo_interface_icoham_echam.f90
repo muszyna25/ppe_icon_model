@@ -53,8 +53,6 @@ MODULE mo_interface_icoham_echam
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: interface_icoham_echam
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_icoham_echam'
 
 CONTAINS

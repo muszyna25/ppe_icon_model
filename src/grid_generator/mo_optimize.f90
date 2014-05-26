@@ -50,8 +50,6 @@ MODULE mo_optimize
 
   PRIVATE
 
-  !  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: optimize_heikes
 
 CONTAINS

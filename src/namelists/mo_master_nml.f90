@@ -25,8 +25,6 @@ MODULE mo_master_nml
   IMPLICIT NONE
 
   PRIVATE
-  
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: read_master_namelist, lrestart, no_of_models
   PUBLIC :: t_master_nml, master_nml_array

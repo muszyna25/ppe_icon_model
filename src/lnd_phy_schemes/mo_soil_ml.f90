@@ -33,7 +33,6 @@
 !!  Doms, Foerstner, Heise, Herzog, Raschendorfer, Schrodin, Reinhardt, Vogel
 !!    (September 2005): "A Description of the Nonhydrostatic Regional Model LM",
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! implemented into ICON by K. Froehlich, E. Machulskaya, and J. Helmert (2010-11-XX)
@@ -399,8 +398,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 !------------------------------------------------------------------------------
 ! Public subroutines

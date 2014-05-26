@@ -31,7 +31,6 @@ MODULE mo_meteogram_nml
 
   IMPLICIT NONE
   PUBLIC :: read_meteogram_namelist
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   !-------------------------------------------------------------------------
   ! Namelist variables

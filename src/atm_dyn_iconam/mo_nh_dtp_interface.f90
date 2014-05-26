@@ -46,8 +46,6 @@ MODULE mo_nh_dtp_interface
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: prepare_tracer
   PUBLIC :: compute_airmass

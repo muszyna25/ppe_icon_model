@@ -110,8 +110,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
 PUBLIC :: nabla2_vec
 PUBLIC :: nabla2_scalar, nabla2_scalar_avg

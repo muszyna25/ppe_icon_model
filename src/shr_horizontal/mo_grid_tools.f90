@@ -42,8 +42,6 @@ MODULE mo_grid_tools
   PUBLIC :: get_oriented_edges_from_global_vertices
   PUBLIC :: find_oriented_edge_from_vertices
   PUBLIC :: create_dummy_cell_closure
-
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
   
   !-------------------------------------------------------------------------

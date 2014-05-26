@@ -45,8 +45,6 @@ MODULE mo_nh_held_suarez_interface
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC  :: held_suarez_nh_interface
 

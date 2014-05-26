@@ -30,8 +30,6 @@ MODULE mo_action_types
   PUBLIC  :: t_var_action
 
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   INTEGER, PARAMETER :: NMAX_ACTION=5
 

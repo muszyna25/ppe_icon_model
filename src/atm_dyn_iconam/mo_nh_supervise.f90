@@ -43,8 +43,6 @@ MODULE mo_nh_supervise
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   ! Needed by supervise_total_integrals_nh to keep data between steps
   REAL(wp), ALLOCATABLE, SAVE :: z_total_tracer_old(:)

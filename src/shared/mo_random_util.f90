@@ -28,8 +28,6 @@ MODULE mo_random_util
 
   IMPLICIT NONE
   PRIVATE
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
  
   PUBLIC :: add_random_noise_global
 

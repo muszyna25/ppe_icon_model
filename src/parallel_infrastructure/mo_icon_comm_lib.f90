@@ -17,7 +17,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id: n/a$
 !!
 MODULE mo_icon_comm_lib
 
@@ -89,8 +88,6 @@ MODULE mo_icon_comm_lib
 
   PUBLIC :: t_mpi_mintype
   PUBLIC :: mpi_reduce_mindistance_pts
-
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   !--------------------------------------------------------------
   
   !--------------------------------------------------------------

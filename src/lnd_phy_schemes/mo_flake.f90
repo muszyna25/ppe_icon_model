@@ -316,8 +316,6 @@ MODULE mo_flake
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   ! The variables declared below are accessible to all program units of the MODULE "mo_flake".
   ! These are basically variables handled "internally" by FLake routines.

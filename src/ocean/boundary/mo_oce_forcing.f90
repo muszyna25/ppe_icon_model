@@ -67,7 +67,6 @@ MODULE mo_oce_forcing
   PRIVATE
   INCLUDE 'netcdf.inc'
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(LEN=12)           :: str_module    = 'oceForcing  '  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
 

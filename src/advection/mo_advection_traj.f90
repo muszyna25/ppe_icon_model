@@ -57,8 +57,6 @@ MODULE mo_advection_traj
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC :: btraj

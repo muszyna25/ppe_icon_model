@@ -50,8 +50,6 @@ MODULE mo_rrtm_data_interface
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER:: &
-    &  version = '$Id$'
 
 
   PUBLIC :: t_rrtm_data

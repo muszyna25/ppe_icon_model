@@ -111,8 +111,6 @@ MODULE mo_datetime
     MODULE PROCEDURE l_comp_date_eq
   END INTERFACE 
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   ! Calendar types
   !
   INTEGER,  PARAMETER :: julian_gregorian    = 0 !< historic Julian / Gregorian

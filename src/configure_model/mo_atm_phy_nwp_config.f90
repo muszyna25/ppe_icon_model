@@ -50,8 +50,6 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: ltuning_ozone, tune_rhebc_land, tune_rhebc_ocean
   PUBLIC :: tune_gkdrag, tune_gkwake, tune_gfluxlaun
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for atm dynamics
   !!--------------------------------------------------------------------------

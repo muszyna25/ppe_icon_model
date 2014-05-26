@@ -52,8 +52,6 @@ MODULE mo_cover_koe
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: cover_koe
 

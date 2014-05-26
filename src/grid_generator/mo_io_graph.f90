@@ -51,8 +51,6 @@ MODULE mo_io_graph
 
   INCLUDE 'netcdf.inc'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC output_graph, input_graph, init_graphgen
 
   !--------------------------------------------------------------------

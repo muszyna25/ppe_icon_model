@@ -59,8 +59,6 @@ MODULE mo_nwp_turbtrans_interface
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC  ::  nwp_turbtrans

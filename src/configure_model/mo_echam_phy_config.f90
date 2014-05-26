@@ -66,8 +66,6 @@ MODULE mo_echam_phy_config
   !!
   TYPE(t_echam_phy_config)    :: echam_phy_config
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !!

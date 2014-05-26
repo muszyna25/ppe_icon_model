@@ -100,8 +100,6 @@ MODULE mo_nh_dcmip_tc
 
   PUBLIC  :: init_nh_dcmip_tc
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   ! parameters defining the initial atmospheric state of
   ! the background and the tropical cyclone
   !-----------------------------------------------------

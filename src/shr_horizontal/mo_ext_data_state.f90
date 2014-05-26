@@ -102,8 +102,6 @@ MODULE mo_ext_data_state
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   INTEGER::  nlev_o3, nmonths
 
   CHARACTER(len=6)  :: levelname

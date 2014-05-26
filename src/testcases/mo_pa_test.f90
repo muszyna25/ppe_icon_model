@@ -55,8 +55,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
 REAL(wp), PARAMETER :: zp0     = 100000._wp
 REAL(wp), PARAMETER :: zt0     = 300._wp
 REAL(wp), PARAMETER :: ztau    = 4._wp * rdaylen     ! 4 days period

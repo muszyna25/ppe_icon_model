@@ -87,8 +87,6 @@ MODULE m_dyn
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
   PUBLIC :: dyn_theta
 

@@ -10,7 +10,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id$
 !!
 MODULE mo_build_decomposition
 

@@ -65,8 +65,6 @@ MODULE mo_nh_init_nest_utils
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   REAL(wp), PARAMETER :: rd_o_cvd = 1._wp / cvd_o_rd
 

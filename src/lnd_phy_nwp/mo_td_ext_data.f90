@@ -55,8 +55,6 @@ MODULE mo_td_ext_data
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC  :: set_actual_td_ext_data

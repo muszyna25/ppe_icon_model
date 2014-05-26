@@ -32,8 +32,6 @@ MODULE mo_gw_hines_config
   PRIVATE
   PUBLIC :: t_gw_hines_config, gw_hines_config
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------------
   ! Basic configuration setup for Hines gravity wave drag scheme
   !--------------------------------------------------------------------------

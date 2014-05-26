@@ -69,8 +69,6 @@ MODULE mo_adjust
 
    PRIVATE
 
-   CHARACTER(LEN=*), PARAMETER :: &
-     &  version = '$Id$'
 
 
    !     ------------------------------------------------------------

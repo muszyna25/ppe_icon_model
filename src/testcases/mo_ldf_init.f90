@@ -52,8 +52,6 @@ MODULE mo_ldf_init
 
   PUBLIC :: ldf_init_prog_state
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   ! Variables for initialisation of hydrostatic prognostic state
 
   REAL(wp), PARAMETER :: eta0  = 0.252_wp !

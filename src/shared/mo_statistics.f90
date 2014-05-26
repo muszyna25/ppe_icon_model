@@ -38,8 +38,6 @@ MODULE mo_statistics
   
   PRIVATE
 #define VerticalDim_Position 2
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   
   !-------------------------------------------------------------------------
   

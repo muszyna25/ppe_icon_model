@@ -56,8 +56,6 @@ MODULE mo_run_nml
   PRIVATE
   PUBLIC :: read_run_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !------------------------------------------------------------------------
   ! Namelist variables
   !------------------------------------------------------------------------

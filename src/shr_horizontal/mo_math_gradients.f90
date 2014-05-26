@@ -107,8 +107,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
 PUBLIC :: grad_fd_norm, grad_fd_tang
 PUBLIC :: grad_green_gauss_cell

@@ -46,8 +46,6 @@ MODULE mo_lrtm_rtrnmr
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: lrtm_rtrnmr
 

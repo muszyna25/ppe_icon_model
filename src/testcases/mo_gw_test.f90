@@ -46,8 +46,6 @@ MODULE mo_gw_test
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
   REAL(wp) :: gw_brunt_vais  ! Brunt Vaisala frequency (1/s)
   REAL(wp) :: gw_u0          ! mean zonal wind (m/s)

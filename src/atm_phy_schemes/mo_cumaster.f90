@@ -106,8 +106,6 @@ MODULE mo_cumaster
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: cumastrn
 

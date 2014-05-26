@@ -50,8 +50,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 !modules interface-------------------------------------------
 !subroutines
 PUBLIC :: blk_no, idx_no, idx_1d

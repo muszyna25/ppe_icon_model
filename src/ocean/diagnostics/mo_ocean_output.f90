@@ -73,9 +73,6 @@ MODULE mo_ocean_output
   PRIVATE
   PUBLIC :: output_ocean
   
-  !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   INTEGER :: nsteps_since_last_output = 0
   
   !-------------------------------------------------------------------------

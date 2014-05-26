@@ -14,7 +14,6 @@
 !! Hierarchical statistics output and some cleanups by S. Koerner,
 !!   DWD (2012-11-27)
 !!
-!! $Id$
 !!
 !! @par Copyright and License
 !!

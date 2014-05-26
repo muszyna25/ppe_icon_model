@@ -46,8 +46,6 @@ MODULE mo_cuparameters
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
   
   !*    Common of physical constants of IFS

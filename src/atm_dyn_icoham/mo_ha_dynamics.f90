@@ -57,7 +57,6 @@ MODULE mo_ha_dynamics
   IMPLICIT NONE
 
   PRIVATE
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   PUBLIC :: dyn_temp
   PUBLIC :: continuity

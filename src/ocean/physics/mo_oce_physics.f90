@@ -73,8 +73,7 @@ MODULE mo_oce_physics
   
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_oce_physics'
   CHARACTER(LEN=12)           :: str_module    = 'ocePhysics  '  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug

@@ -74,8 +74,6 @@ MODULE mo_hdiff
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: hdiff_expl
 
  CONTAINS

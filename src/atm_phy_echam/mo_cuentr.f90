@@ -33,8 +33,6 @@ MODULE mo_cuentr
   PRIVATE
   PUBLIC  :: cuentr
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !!

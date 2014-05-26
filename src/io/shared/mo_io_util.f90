@@ -38,8 +38,6 @@ MODULE mo_io_util
   PUBLIC :: get_filetype
   PUBLIC :: get_file_extension
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   ! module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_util'
 

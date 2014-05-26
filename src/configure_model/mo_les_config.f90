@@ -26,8 +26,6 @@ MODULE mo_les_config
   PRIVATE
   PUBLIC :: t_les_config, les_config, configure_les
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------------
   ! Basic configuration setup for LES with or without TORUS grid
   !--------------------------------------------------------------------------

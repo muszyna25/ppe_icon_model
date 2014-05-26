@@ -10,7 +10,6 @@
 !!
 !!==============================================================================
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! Ported into ICON from UCLA-LES by Anurag Dipankar (2013-12-15) 

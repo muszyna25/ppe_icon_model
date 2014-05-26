@@ -11,8 +11,6 @@ MODULE mo_lrtm_par
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: &
-    &  version = '$Id$'
 
   PUBLIC
   SAVE

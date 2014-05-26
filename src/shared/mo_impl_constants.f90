@@ -46,8 +46,6 @@ MODULE mo_impl_constants
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   PUBLIC
 
   ! define model name and version

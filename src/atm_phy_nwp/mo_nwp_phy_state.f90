@@ -27,7 +27,6 @@ MODULE mo_nwp_phy_state
 !! @author Kristina Froehlich, DWD
 !! @author Marco Giorgetta, MPI-M
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! Initial  by Kristina Froehlich (2009-06-10)
@@ -96,9 +95,6 @@ PRIVATE
 
 INCLUDE 'netcdf.inc'
 
-! !VERSION CONTROL:
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 !public interface
 !

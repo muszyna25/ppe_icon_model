@@ -53,8 +53,6 @@ MODULE mo_decomposition_tools
 
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   !------------------------------
   TYPE t_decomposition_structure

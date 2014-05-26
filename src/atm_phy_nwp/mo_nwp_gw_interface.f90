@@ -48,8 +48,6 @@ MODULE mo_nwp_gw_interface
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC  ::  nwp_gwdrag

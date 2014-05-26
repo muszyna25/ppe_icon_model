@@ -38,8 +38,6 @@ MODULE mo_coupling_nml
   IMPLICIT NONE
 
   PRIVATE
-  
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   PUBLIC :: read_coupling_namelist
 

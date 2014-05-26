@@ -36,8 +36,6 @@ MODULE mo_convect_tables
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   ! variables public
 

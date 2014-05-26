@@ -87,8 +87,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 PUBLIC :: cloud_diag, turb_cloud
 

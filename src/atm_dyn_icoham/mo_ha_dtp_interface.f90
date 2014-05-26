@@ -51,8 +51,6 @@ MODULE mo_ha_dtp_interface
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: prepare_tracer
   PUBLIC :: prepare_tracer_RK
   PUBLIC :: prepare_tracer_leapfrog

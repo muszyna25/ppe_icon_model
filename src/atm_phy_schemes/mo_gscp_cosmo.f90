@@ -33,7 +33,6 @@
 !!
 !------------------------------------------------------------------------------
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! implemented into ICOHAM by Kristina Froehlich and Axel Seifert (2010-06-10)
@@ -189,8 +188,6 @@ USE mo_exception         , ONLY: message, message_text
 IMPLICIT NONE
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 !------------------------------------------------------------------------------
 !! Public subroutines

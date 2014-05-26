@@ -45,8 +45,6 @@ MODULE mo_opt_diagnostics
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = &
-    & '$Id$'
 
   ! data types
   PUBLIC :: t_nh_opt_diag         ! optional diagnostic variables (data type)

@@ -38,8 +38,6 @@ MODULE mo_ha_leapfrog
   PRIVATE
   PUBLIC ::  step_leapfrog_expl, asselin, leapfrog_update_prog
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
 
   !>

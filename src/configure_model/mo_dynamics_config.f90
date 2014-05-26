@@ -37,8 +37,6 @@ MODULE mo_dynamics_config
   PUBLIC :: nold, nnow, nnew, nsav1, nsav2, nnow_rcf, nnew_rcf
   PUBLIC :: configure_dynamics
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------------
   ! Basic settings for the dynamical core 
   !--------------------------------------------------------------------------

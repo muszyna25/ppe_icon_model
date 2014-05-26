@@ -43,8 +43,6 @@ MODULE mo_nh_diagnose_pres_temp
 
   PUBLIC :: diagnose_pres_temp
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   CONTAINS
 

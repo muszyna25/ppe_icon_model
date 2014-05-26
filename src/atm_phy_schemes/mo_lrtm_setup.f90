@@ -32,8 +32,6 @@ module mo_lrtm_setup
 
   private
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   public  :: lrtm_setup, ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl
 

@@ -77,9 +77,6 @@ PRIVATE
 
 INCLUDE 'cdi.inc'
 
-!VERSION CONTROL:
-CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
 !public interface
 !
 ! subroutines

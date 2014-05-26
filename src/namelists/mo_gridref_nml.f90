@@ -45,8 +45,6 @@ MODULE mo_gridref_nml
   PRIVATE
   PUBLIC :: read_gridref_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !---------------------
   ! namelist variables
   !---------------------

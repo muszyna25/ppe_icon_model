@@ -55,8 +55,6 @@ MODULE mo_nh_dcmip_schaer
 
    PRIVATE
 
-   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
    PUBLIC :: init_nh_prog_dcmip_schaer
    PUBLIC :: init_nh_topo_dcmip_schaer
 

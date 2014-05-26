@@ -62,8 +62,6 @@ USE mo_kind,               ONLY: ireals=>wp     , &
 
 IMPLICIT NONE
 
-CHARACTER(len=*), PARAMETER, PRIVATE :: &
-  &  version = '$Id$'
 
 PUBLIC
 

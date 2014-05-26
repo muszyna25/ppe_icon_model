@@ -94,8 +94,6 @@ MODULE mo_si_correction
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   REAL(wp),PARAMETER :: tr = 300._wp      ! reference temperature
   REAL(wp),PARAMETER :: rdtr = rd*tr      ! rd*(reference temperature).
   LOGICAL,PARAMETER  :: loperm = .false.  ! used by subroutine conteq.

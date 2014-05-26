@@ -166,8 +166,6 @@ MODULE mo_model_domimp_patches
   INCLUDE 'netcdf.inc'
 #endif
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: import_basic_patches

@@ -47,8 +47,6 @@ MODULE mo_lnd_nwp_config
 
   PUBLIC :: configure_lnd_nwp
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------------
   ! Basic configuration setup for NWP land
   !--------------------------------------------------------------------------

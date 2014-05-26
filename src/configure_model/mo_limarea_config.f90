@@ -32,8 +32,6 @@ MODULE mo_limarea_config
 
   PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !>
   !!----------------------------------------------------------------------------
   !! Derived type containing control variables specific to the nonhydrostatic 

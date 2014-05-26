@@ -63,9 +63,7 @@ MODULE mo_oce_state
   IMPLICIT NONE
   PRIVATE
   
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
   !public interface
   !
   ! subroutines

@@ -59,8 +59,6 @@ MODULE mo_surface_les
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: surface_conditions
 
   REAL(wp), PARAMETER :: km_min  = 0.01_wp !min viscosity

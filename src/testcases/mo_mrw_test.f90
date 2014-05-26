@@ -43,8 +43,6 @@ MODULE mo_mrw_test
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   REAL (wp), PUBLIC :: mountctr_lon_deg, mountctr_lat_deg, mountctr_height, &
                        mount_half_width, mount_u0
 

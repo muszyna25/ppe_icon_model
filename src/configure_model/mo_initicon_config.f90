@@ -47,8 +47,6 @@ MODULE mo_initicon_config
   PUBLIC :: rho_incr_filter_wgt
 
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: &
-    &  version = '$Id$'
 
   ! ----------------------------------------------------------------------------
   ! 1.0 Namelist variables for the init_icon preprocessing program

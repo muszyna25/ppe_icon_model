@@ -62,7 +62,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id: n/a$
 !!
 MODULE mo_grid
   !
@@ -84,8 +83,6 @@ MODULE mo_grid
   IMPLICIT NONE
 
   PRIVATE
-
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
 
   !--------------------------------------------------------------

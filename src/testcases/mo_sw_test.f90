@@ -46,8 +46,6 @@ MODULE mo_sw_test
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_will2_test, init_will3_test, init_will5_test,&
             init_will6_test, init_usbr_test,  init_swgw_test
 

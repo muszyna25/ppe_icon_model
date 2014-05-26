@@ -31,8 +31,6 @@ MODULE mo_nh_pzlev_config
   IMPLICIT NONE
   PUBLIC
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
 
 
   !!--------------------------------------------------------------------------

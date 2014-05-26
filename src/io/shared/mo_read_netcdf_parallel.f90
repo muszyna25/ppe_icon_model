@@ -43,8 +43,6 @@ INCLUDE 'netcdf.inc'
 
 INTEGER, PARAMETER :: nf_read = NF_NOWRITE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 !modules interface-------------------------------------------
 !subroutines
 PUBLIC :: p_nf_open

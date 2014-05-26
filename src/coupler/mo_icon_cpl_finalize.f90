@@ -9,7 +9,6 @@
 !! 
 !! @author Rene Redler, MPI-M
 !!
-!! $Id:$
 !!
 !! @par Revision History
 !! first implementation by Rene Redler (2010-02-13)
@@ -47,8 +46,6 @@ MODULE mo_icon_cpl_finalize
   IMPLICIT NONE
 
   PRIVATE
-
-  CHARACTER(len=*), PARAMETER    :: version = '$Id$'
 
   INTEGER                        :: i
   LOGICAL                        :: l_MPI_is_finalized ! to check whether MPI_finalize was called.

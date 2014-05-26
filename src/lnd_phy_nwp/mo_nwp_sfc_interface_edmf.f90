@@ -47,8 +47,6 @@ MODULE mo_nwp_sfc_interface_edmf
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC  ::  nwp_surface_edmf

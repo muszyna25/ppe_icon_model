@@ -73,8 +73,6 @@ MODULE mo_echam_phy_memory
 #ifdef HAVE_F95
   PUBLIC :: t_ptr2d, t_ptr3d
 #endif
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_memory'
 
   !!--------------------------------------------------------------------------

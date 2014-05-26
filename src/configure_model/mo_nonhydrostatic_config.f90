@@ -34,9 +34,6 @@ MODULE mo_nonhydrostatic_config
 
   PUBLIC
 
-
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !>
   !!----------------------------------------------------------------------------
   !! Derived type containing control variables specific to the nonhydrostatic 

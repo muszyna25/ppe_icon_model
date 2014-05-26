@@ -32,8 +32,6 @@ MODULE data_gwd
 
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
   !==============================================================================
   

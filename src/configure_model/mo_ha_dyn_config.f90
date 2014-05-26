@@ -32,8 +32,6 @@ MODULE mo_ha_dyn_config
   PRIVATE
   PUBLIC :: t_ha_dyn_config, ha_dyn_config, configure_ha_dyn
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !>
   !!--------------------------------------------------------------------------
   !! Derived type containing control variables specific to the hydrostatic 

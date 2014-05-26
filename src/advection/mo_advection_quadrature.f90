@@ -57,8 +57,6 @@ MODULE mo_advection_quadrature
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC :: prep_gauss_quadrature_l

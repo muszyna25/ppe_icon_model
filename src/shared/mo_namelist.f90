@@ -45,8 +45,6 @@ MODULE mo_namelist
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 ! !PUBLIC ENTITIES
   PUBLIC :: position_nml           ! function  : position namelist file
   PUBLIC :: open_nml               ! subroutine: open default namelist file

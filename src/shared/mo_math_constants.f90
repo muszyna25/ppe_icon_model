@@ -39,8 +39,6 @@ IMPLICIT NONE
 
 PUBLIC
 
-CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
 !
 ! ! Mathematical constants (in brackets original C names)
 !

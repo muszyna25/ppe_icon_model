@@ -47,8 +47,6 @@ MODULE mo_interpol_config
   PUBLIC :: rbf_dim_c2l, l_intp_c2l, l_mono_c2l                                 !< variables
   PUBLIC :: rbf_scale_mode_ll                                                   !< variables
   PUBLIC :: configure_interpolation                                             !< subroutine
-
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
   !>
   !!
   !TYPE :: t_interpol_config

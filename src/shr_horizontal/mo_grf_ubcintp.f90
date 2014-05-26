@@ -17,7 +17,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id: n/a$
 !!
 
 !----------------------------
@@ -49,8 +48,6 @@ USE mo_grf_intp_data_strc
 IMPLICIT NONE
 
 PRIVATE
-
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 PUBLIC :: interpol_vec_ubc, interpol_scal_ubc
 

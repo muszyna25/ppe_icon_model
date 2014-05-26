@@ -77,8 +77,6 @@ MODULE mo_advection_vflux
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: vert_upwind_flux
   PUBLIC :: upwind_vflux_up

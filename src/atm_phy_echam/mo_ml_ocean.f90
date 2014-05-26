@@ -24,8 +24,6 @@ MODULE mo_ml_ocean
   IMPLICIT NONE
   PUBLIC :: ml_ocean
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
 
   SUBROUTINE ml_ocean ( kproma, start_column, end_column, pdtime,pahflw,pahfsw,ptrflw,psoflw,ptsw )

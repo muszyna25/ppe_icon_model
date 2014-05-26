@@ -37,8 +37,6 @@ MODULE mo_sleve_nml
   PRIVATE
   PUBLIC:: read_sleve_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !----------------------------------------------------------------------------
   ! Namelist variables for the SLEVE coordinate
   !---------------------------------------------------------------------------

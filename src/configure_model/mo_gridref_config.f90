@@ -38,8 +38,6 @@ MODULE mo_gridref_config
     &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t,        &
     &                    l_mass_consvcorr, l_density_nudging, fbk_relax_timescale
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------------
   ! Basic configuration setup for grid refinement
   !--------------------------------------------------------------------------

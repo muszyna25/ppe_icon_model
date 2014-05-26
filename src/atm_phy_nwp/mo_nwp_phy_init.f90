@@ -111,8 +111,6 @@ MODULE mo_nwp_phy_init
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC  :: init_nwp_phy
 

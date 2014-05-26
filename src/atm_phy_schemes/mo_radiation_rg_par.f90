@@ -25,8 +25,6 @@ MODULE mo_radiation_rg_par
 
   PUBLIC
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 !      INCLUDE "gme_par_rad.h"
 !     *PARAMETERS* FOR SPECTRAL RESOLUTION OF RADIATIVE TRANSFER CODE

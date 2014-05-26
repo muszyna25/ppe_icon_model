@@ -78,8 +78,6 @@ MODULE mo_oce_ab_timestepping_mimetic
   
   PRIVATE
   
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   !
   ! PUBLIC INTERFACE
   !

@@ -29,8 +29,6 @@ MODULE mo_echam_conv_nml
   PRIVATE
   PUBLIC :: read_echam_conv_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !--------------------------------------------------------------
   ! Namelist variables 
   !--------------------------------------------------------------

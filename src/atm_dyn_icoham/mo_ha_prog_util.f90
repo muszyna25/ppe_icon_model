@@ -29,8 +29,6 @@ MODULE mo_ha_prog_util
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: copy_prog_state
   PUBLIC :: update_prog_state
   PUBLIC :: init_hydro_state_prog_isoRest

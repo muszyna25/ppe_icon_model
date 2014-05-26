@@ -193,8 +193,6 @@ MODULE mo_echam_convect_tables
   REAL(wp) :: tlucu(1:2,lucupmin-2:lucupmax+1)     ! fused table
   REAL(wp) :: tlucuw(1:2,lucupmin-2:lucupmax+1)    ! fused table
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !----------------------------------------------------------------------------
 CONTAINS
   !----------------------------------------------------------------------------

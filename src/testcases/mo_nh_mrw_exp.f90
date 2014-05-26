@@ -56,8 +56,6 @@ MODULE mo_nh_mrw_exp
 
    PRIVATE
 
-   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
 
    REAL(wp), PUBLIC :: u0_mrw                 ! (m/s) wind speed for mrw and mwbr_const cases 
    REAL(wp), PUBLIC :: mount_height_mrw       ! (m) maximum mount height in mrw and mwbr

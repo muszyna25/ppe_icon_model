@@ -33,8 +33,6 @@ module mo_lrtm_coeffs
 
   private
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   public  :: lrtm_coeffs, lwatmref, lwavplank, lwavplankderiv
 

@@ -34,8 +34,6 @@ MODULE mo_held_suarez_interface
   PRIVATE
   PUBLIC :: held_suarez_interface
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !! SUBROUTINE held_suarez -- the Interface between ICON dynamics and

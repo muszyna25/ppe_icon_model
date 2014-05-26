@@ -60,8 +60,6 @@ MODULE mo_small_circle_c
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: scc_inner, scc_outer, scc_prepare, scc_inner_root
 
 CONTAINS

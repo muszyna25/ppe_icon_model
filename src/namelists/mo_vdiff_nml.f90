@@ -26,8 +26,6 @@ MODULE mo_vdiff_nml
   PRIVATE
   PUBLIC :: read_vdiff_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !--------------------
   ! namelist variables   
   !--------------------

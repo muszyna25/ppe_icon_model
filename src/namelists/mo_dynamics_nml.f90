@@ -38,8 +38,6 @@ MODULE mo_dynamics_nml
   PRIVATE
   PUBLIC :: read_dynamics_namelist
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !---------------------------------------------------------------
   ! Namelist variables 
   !---------------------------------------------------------------

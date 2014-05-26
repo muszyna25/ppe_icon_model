@@ -74,9 +74,6 @@ MODULE mo_ocean_statistics
   PUBLIC :: new_ocean_statistics
 
   
-  !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
 
   !-------------------------------------------------------------------------
   

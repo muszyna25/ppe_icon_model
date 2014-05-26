@@ -46,9 +46,7 @@ MODULE mo_oce_boundcond
   IMPLICIT NONE
   
   PRIVATE
-  
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+   
   
   PUBLIC :: bot_bound_cond_horz_veloc
   PUBLIC :: top_bound_cond_horz_veloc

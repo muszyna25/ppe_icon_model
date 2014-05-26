@@ -54,8 +54,6 @@ MODULE mo_oce_diagnostics
   
   !PRIVATE
   
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(LEN=12)           :: str_module    = 'oceDiag     '  ! Output of module for 1 line debug
   
   INTEGER :: diag_unit = -1 ! file handle for the global timeseries output

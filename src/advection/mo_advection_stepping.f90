@@ -71,8 +71,6 @@ MODULE mo_advection_stepping
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC :: step_advection

@@ -46,8 +46,6 @@ MODULE mo_ha_2tl_si_solver
 
   PRIVATE
 
-! !VERSION CONTROL:
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 ! !PUBLIC MEMBER FUNCTIONS/SUBROUTINES
   PUBLIC :: solver    ! solver

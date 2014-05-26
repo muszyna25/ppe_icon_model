@@ -95,8 +95,6 @@ MODULE mo_ha_rungekutta
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_RungeKutta, step_RungeKutta, cleanup_RungeKutta
 !   PUBLIC :: RK_update_prog
 

@@ -45,8 +45,6 @@ MODULE mo_icosahedron_geometry
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_icosahedron_vertices
   PUBLIC :: init_planar_vertices
   PUBLIC :: get_icosahedron_vertex

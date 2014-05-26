@@ -23,8 +23,6 @@ MODULE mo_echam_phy_cleanup
   PRIVATE
   PUBLIC  :: cleanup_echam_phy
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !! Top-level routine for the cleanup for ECHAM6 physics.

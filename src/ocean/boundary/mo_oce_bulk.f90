@@ -96,7 +96,6 @@ PRIVATE :: update_surface_relaxation
 PRIVATE :: read_forc_data_oce
 PRIVATE :: balance_elevation
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
 CHARACTER(len=12)           :: str_module    = 'oceBulk     '  ! Output of module for 1 line debug
 INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 REAL(wp), PARAMETER         :: seconds_per_month = 2.592e6_wp  ! TODO: use real month length

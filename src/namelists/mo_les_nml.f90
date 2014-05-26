@@ -32,8 +32,6 @@ MODULE mo_les_nml
   PUBLIC :: read_les_namelist
   PUBLIC :: turb_profile_list, turb_tseries_list
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   REAL(wp) :: sst        ! prescribed SST
   REAL(wp) :: shflx      ! prescribed sensible heat flux (Km/s)
   REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)

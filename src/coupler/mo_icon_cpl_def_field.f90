@@ -5,7 +5,6 @@
 !! 
 !! @author Rene Redler, MPI-M
 !!
-!! $Id:$
 !!
 !! @par Revision History
 !! first implementation by Rene Redler (2010-02-13)

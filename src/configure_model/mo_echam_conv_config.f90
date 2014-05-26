@@ -28,8 +28,6 @@ MODULE mo_echam_conv_config
   PUBLIC :: t_echam_conv_config, echam_conv_config
   PUBLIC :: configure_echam_convection, cleanup_echam_convection
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !>
   !! Derived type containing main swithes for configuring 
   !! the cumulus convection scheme of ECHAM

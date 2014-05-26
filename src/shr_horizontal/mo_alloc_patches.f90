@@ -47,9 +47,6 @@ MODULE mo_alloc_patches
 
   PRIVATE
 
-
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: deallocate_patch

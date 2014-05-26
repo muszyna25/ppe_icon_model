@@ -39,8 +39,6 @@ MODULE mo_sea_ice_nml
 
   PUBLIC :: read_sea_ice_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   INTEGER,PUBLIC :: kice                !< Number of ice classes
   INTEGER,PUBLIC :: i_ice_therm         !< Thermodynamic model switch:
                                         ! 1: Zero layers

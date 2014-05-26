@@ -68,8 +68,6 @@ MODULE mo_cuflxtends
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: cuflxn, cudtdqn,cududv,cuctracer
 

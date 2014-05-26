@@ -201,9 +201,6 @@ END INTERFACE
 TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_c, comm_pat_glb_to_loc_e, comm_pat_glb_to_loc_v
 
 
-CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
-
 CONTAINS
 
 !-------------------------------------------------------------------------

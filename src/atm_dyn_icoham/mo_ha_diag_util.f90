@@ -59,7 +59,6 @@ MODULE mo_ha_diag_util
   IMPLICIT NONE
 
   PRIVATE
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   PUBLIC :: update_diag_state
   PUBLIC :: update_dyn_output

@@ -91,8 +91,6 @@ MODULE mo_nml_crosscheck
 
   PUBLIC :: atm_crosscheck
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
 CONTAINS
 

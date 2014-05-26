@@ -62,8 +62,6 @@ MODULE mo_vertical_grid
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   ! Constants used for the computation of the background reference atmosphere of the nh-model
   !

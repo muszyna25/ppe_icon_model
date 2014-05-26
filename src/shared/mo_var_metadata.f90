@@ -49,8 +49,6 @@ MODULE mo_var_metadata
   PUBLIC  :: new_action
   PUBLIC  :: actions
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
 CONTAINS
 

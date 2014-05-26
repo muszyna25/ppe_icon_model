@@ -46,9 +46,6 @@ MODULE mo_smooth_topo
   PUBLIC :: smooth_topography 
 
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-
 CONTAINS
 
   !-------------------------------------------------------------------------

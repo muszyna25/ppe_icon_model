@@ -122,8 +122,6 @@ MODULE mo_pp_scheduler
   ! interface definition
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   ! functions and subroutines
   PUBLIC :: pp_scheduler_init

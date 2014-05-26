@@ -37,8 +37,6 @@ MODULE mo_extpar_nml
   PRIVATE
   PUBLIC read_extpar_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !------------------------------------------------------------------------
   ! Namelist variables
   !------------------------------------------------------------------------

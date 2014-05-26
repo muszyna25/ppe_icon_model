@@ -113,8 +113,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 
 PUBLIC :: recon_lsq_cell_l, recon_lsq_cell_l_svd
 PUBLIC :: recon_lsq_cell_q, recon_lsq_cell_q_svd

@@ -40,8 +40,6 @@ MODULE mo_nh_dcmip_hadley
 
    PRIVATE
 
-   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
    PUBLIC :: init_nh_dcmip_hadley
    PUBLIC :: set_nh_velocity_hadley
 

@@ -44,8 +44,7 @@ MODULE mo_scalar_product
   
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
   PUBLIC :: calc_scalar_product_veloc_3d
   PUBLIC :: nonlinear_coriolis_3d
   PUBLIC :: nonlinear_coriolis_3d_old

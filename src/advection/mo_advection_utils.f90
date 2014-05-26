@@ -51,8 +51,6 @@ MODULE mo_advection_utils
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC :: laxfr_upflux

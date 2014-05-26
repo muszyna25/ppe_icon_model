@@ -30,8 +30,6 @@ MODULE mo_turbdiff_config
   IMPLICIT NONE
   PUBLIC
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
 
 
   !!--------------------------------------------------------------------------

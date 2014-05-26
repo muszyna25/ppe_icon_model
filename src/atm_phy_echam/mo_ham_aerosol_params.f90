@@ -22,8 +22,6 @@ MODULE mo_ham_aerosol_params
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id: mo_ham_aerosol_params.f90 17115 2014-05-02 15:01:52Z dreinert $'
 
 
   INTEGER :: ncdnc = 0  !< CDNC activation is off

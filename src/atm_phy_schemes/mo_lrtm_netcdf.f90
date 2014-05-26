@@ -19,8 +19,6 @@ MODULE mo_lrtm_netcdf
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: lrtm_read,                              &
     &       lw_kgb01, lw_kgb02, lw_kgb03, lw_kgb04, &

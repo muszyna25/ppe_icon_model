@@ -33,8 +33,6 @@ MODULE mo_diffusion_config
   PUBLIC :: t_diffusion_config, diffusion_config  !< derived type and variable
   PUBLIC :: configure_diffusion                   !< subroutine
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------------
   ! Basic configuration setup for diffusion
   !--------------------------------------------------------------------------

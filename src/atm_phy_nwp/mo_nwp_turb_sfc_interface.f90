@@ -62,8 +62,6 @@ MODULE mo_nwp_turb_sfc_interface
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC  ::  nwp_turbulence_sfc

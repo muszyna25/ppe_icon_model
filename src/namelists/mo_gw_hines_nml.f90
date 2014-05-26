@@ -38,8 +38,6 @@ MODULE mo_gw_hines_nml
   PRIVATE
   PUBLIC :: read_gw_hines_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !-----------------------------------!
   ! gw_hines_nml namelist variables   !
   !-----------------------------------!

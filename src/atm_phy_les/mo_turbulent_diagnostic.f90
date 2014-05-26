@@ -14,7 +14,6 @@
 !! @par Revision History
 !! first implementation  by Anurag Dipankar, MPIM (2014-01)
 !!
-!! $Id: n/a$
 !!
 !! @par Copyright and License
 !!
@@ -70,8 +69,6 @@ MODULE mo_turbulent_diagnostic
 
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   PUBLIC  :: calculate_turbulent_diagnostics, write_vertical_profiles, write_time_series
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output

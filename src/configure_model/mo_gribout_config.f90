@@ -35,8 +35,6 @@ MODULE mo_gribout_config
   PUBLIC :: gribout_config
   PUBLIC :: configure_gribout
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for grib output
   !!--------------------------------------------------------------------------

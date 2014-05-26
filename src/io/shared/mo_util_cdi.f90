@@ -41,8 +41,6 @@ MODULE mo_util_cdi
   PUBLIC  :: test_cdi_varID
   PUBLIC  :: set_additional_GRIB2_keys
 
-  CHARACTER(len=*), PARAMETER :: version = &
-    &    '$Id$'
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
   INTERFACE read_cdi_2d

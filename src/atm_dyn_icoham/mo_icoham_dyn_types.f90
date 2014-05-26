@@ -28,8 +28,6 @@ MODULE mo_icoham_dyn_types
   PUBLIC :: t_ptr3d
 #endif
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !>
   !! Derived data type for building pointer arrays
   !!

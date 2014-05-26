@@ -59,8 +59,6 @@ MODULE mo_gmres
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 ! !PUBLIC MEMBER FUNCTIONS/SUBROUTINES
   PUBLIC :: gmres
   PUBLIC :: gmres_e2e

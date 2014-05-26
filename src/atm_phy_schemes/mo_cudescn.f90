@@ -50,8 +50,6 @@ MODULE mo_cudescn
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: cudlfsn, cuddrafn
 

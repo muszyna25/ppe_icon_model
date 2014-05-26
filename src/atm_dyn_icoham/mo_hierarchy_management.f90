@@ -113,9 +113,6 @@ MODULE mo_hierarchy_management
   REAL(wp),ALLOCATABLE :: z_pres_mc_now(:,:,:)  !< full level pressure at time step n
   REAL(wp),ALLOCATABLE :: z_pres_ic_now(:,:,:)  !< half level pressure at time step n
 
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: process_grid, interpolate_diagnostics
 
 CONTAINS

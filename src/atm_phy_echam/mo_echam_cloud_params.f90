@@ -26,7 +26,6 @@ MODULE mo_echam_cloud_params
 
   IMPLICIT NONE
   PRIVATE
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_cloud_params'
 
   PUBLIC :: sucloud, init_cloud_tables

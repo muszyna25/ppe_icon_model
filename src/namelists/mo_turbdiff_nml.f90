@@ -44,9 +44,6 @@ MODULE mo_turbdiff_nml
 
   PUBLIC :: read_turbdiff_namelist
 
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !----------------------------------!
   ! additional turbdiff_nml namelist variables  !
   !----------------------------------!

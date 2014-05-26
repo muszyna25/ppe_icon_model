@@ -76,8 +76,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 PUBLIC :: kin_vel_rot, lamb_rot
 
 CONTAINS

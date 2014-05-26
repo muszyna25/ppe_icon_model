@@ -45,8 +45,6 @@ MODULE mo_expensive_functions
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC ::  convert_t2theta,     convert_theta2t,    &
              convert_t2theta_lin, convert_theta2t_lin
 

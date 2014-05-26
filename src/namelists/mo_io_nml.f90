@@ -51,7 +51,6 @@ MODULE mo_io_nml
 
   IMPLICIT NONE
   PUBLIC :: read_io_namelist
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   
 CONTAINS

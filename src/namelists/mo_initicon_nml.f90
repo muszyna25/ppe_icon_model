@@ -52,8 +52,6 @@ MODULE mo_initicon_nml
 
   PUBLIC :: read_initicon_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
   CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 

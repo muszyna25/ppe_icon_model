@@ -33,8 +33,6 @@ MODULE mo_vdiff_upward_sweep
   PRIVATE
   PUBLIC :: vdiff_up
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !!

@@ -34,8 +34,6 @@ MODULE mo_ifs_coord
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   INTEGER :: nlevm1         ! (number of levels)-1.
   INTEGER :: nplev          ! *number of pressure levels.

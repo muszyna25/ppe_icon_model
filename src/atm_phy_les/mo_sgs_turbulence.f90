@@ -62,8 +62,6 @@ MODULE mo_sgs_turbulence
   IMPLICIT NONE
 
   PRIVATE
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
   REAL(wp),         PARAMETER :: z_1by3  = 1._wp/3._wp
 
   !Parameter for vertical scheme type

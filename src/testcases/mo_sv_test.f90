@@ -45,8 +45,6 @@ MODULE mo_sv_test
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
  !DEFINED PARAMETERS:
   REAL(wp), PARAMETER :: zp0     = 100000._wp !< surface pressure
   REAL(wp), PARAMETER :: zt0     = 300._wp    !< temperature (isothermal)

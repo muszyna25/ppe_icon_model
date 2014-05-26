@@ -47,8 +47,6 @@ MODULE mo_les_turb_interface
 
   PUBLIC  ::  les_turbulence
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !!
   !!-------------------------------------------------------------------------

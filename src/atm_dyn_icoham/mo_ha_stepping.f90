@@ -72,8 +72,6 @@ MODULE mo_ha_stepping
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: prepare_ha_dyn, initcond_ha_dyn
   PUBLIC :: perform_ha_stepping
 

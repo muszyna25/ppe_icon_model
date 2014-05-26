@@ -25,8 +25,6 @@ MODULE mo_ssortns
 
   PUBLIC :: ssodrag
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
 
 SUBROUTINE ssodrag ( kproma        ,& ! in,  loop length in block of cells/columns

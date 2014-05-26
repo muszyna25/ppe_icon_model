@@ -45,8 +45,6 @@ MODULE mo_ha_dynamics_adv
 
   IMPLICIT NONE
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   PUBLIC
 
 CONTAINS

@@ -155,8 +155,6 @@ USE mo_turbdiff_config,      ONLY: turbdiff_config
 
 IMPLICIT NONE
 
-CHARACTER(len=*), PARAMETER, PRIVATE :: &
-  &  version = '$Id$'
 
 PUBLIC
 

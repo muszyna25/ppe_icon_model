@@ -20,8 +20,6 @@ MODULE mo_vdiff_config
   PRIVATE
   PUBLIC :: t_vdiff_config, vdiff_config
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !>
   !! Derived type
   !!

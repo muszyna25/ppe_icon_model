@@ -61,8 +61,6 @@ MODULE mo_nonhydrostatic_nml
   PRIVATE
   PUBLIC  :: read_nonhydrostatic_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !-----------------------------------------------------------------------------
   ! Namelist variables
   !-----------------------------------------------------------------------------

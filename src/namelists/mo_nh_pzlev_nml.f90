@@ -37,9 +37,6 @@ MODULE mo_nh_pzlev_nml
 
   PUBLIC :: read_nh_pzlev_namelist
 
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !----------------------------------!
   ! nh_pzlev_nml namelist variables  !
   !----------------------------------!

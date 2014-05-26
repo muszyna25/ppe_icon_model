@@ -54,8 +54,6 @@ MODULE mo_advection_limiter
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: hflx_limiter_mo
   PUBLIC :: hflx_limiter_sm

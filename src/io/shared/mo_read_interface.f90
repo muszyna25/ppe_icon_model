@@ -56,8 +56,6 @@ MODULE mo_read_interface
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: read_netcdf_broadcast_method, read_netcdf_distribute_method
   PUBLIC :: t_stream_id
 

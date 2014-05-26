@@ -18,7 +18,6 @@
 !!  Call nwp_diagnosis with ih_clch, ih_clcm by Helmut Frank, DWD (2013-01-18)
 !!  Calculate gusts in 6 hours               by Helmut Frank, DWD (2013-03-13)
 !!
-!! $Id: n/a$
 !!
 !! @par Copyright and License
 !!
@@ -96,9 +95,6 @@ MODULE mo_nh_interface_nwp
 
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
   REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd

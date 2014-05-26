@@ -42,8 +42,6 @@ MODULE mo_ha_diagnostics
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   ! ASCII files that contain the global integrals
 
   CHARACTER (len=MAX_CHAR_LENGTH) :: file_ti, file_tti  ! file names

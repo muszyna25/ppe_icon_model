@@ -74,8 +74,6 @@ MODULE mo_gridref
 
   IMPLICIT NONE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   PRIVATE
 
   INCLUDE 'netcdf.inc'

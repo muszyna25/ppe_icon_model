@@ -49,8 +49,6 @@ MODULE mo_gwd_wms
   
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC :: gwdrag_wms

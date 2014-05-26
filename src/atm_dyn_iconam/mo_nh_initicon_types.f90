@@ -9,7 +9,6 @@
 !!
 !! @author Daniel Reinert, DWD
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! First version by Guenther Zaengl, DWD (2011-07-13)
@@ -32,9 +31,6 @@ MODULE mo_nh_initicon_types
   IMPLICIT NONE
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   !
   !variables

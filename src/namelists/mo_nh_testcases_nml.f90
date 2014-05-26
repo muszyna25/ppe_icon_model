@@ -67,8 +67,6 @@ MODULE mo_nh_testcases_nml
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl 
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
 

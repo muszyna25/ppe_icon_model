@@ -18,7 +18,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id: n/a$
 !!
 MODULE mo_setup_subdivision
   ! If METIS is installed, uncomment the following line
@@ -75,8 +74,6 @@ MODULE mo_setup_subdivision
   IMPLICIT NONE
 
   PRIVATE
-
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   !modules interface-------------------------------------------
   !subroutines

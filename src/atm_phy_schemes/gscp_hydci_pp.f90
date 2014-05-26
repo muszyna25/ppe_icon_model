@@ -33,7 +33,6 @@
 !!
 !------------------------------------------------------------------------------
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! implemented into ICON by Felix Rieper (2012-06)
@@ -275,8 +274,6 @@ USE data_gscp                 !xxx: common module COSMO/ICON, all variables are 
 IMPLICIT NONE
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 !------------------------------------------------------------------------------
 !! Public subroutines

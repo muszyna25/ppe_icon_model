@@ -48,7 +48,6 @@ MODULE mo_oce_math_operators
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=12)           :: str_module    = 'oceMathOps  '  ! Output of module for 1 line debug
   INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 

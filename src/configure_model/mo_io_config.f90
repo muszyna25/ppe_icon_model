@@ -31,7 +31,6 @@ MODULE mo_io_config
 
   IMPLICIT NONE
   PUBLIC
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   !--------------------------------------------------------------------------
   ! Derived type 

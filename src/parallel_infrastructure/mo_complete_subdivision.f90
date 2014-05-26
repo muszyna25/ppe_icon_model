@@ -14,7 +14,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id: n/a$
 !!
 MODULE mo_complete_subdivision
   !-------------------------------------------------------------------------
@@ -46,8 +45,6 @@ MODULE mo_complete_subdivision
   IMPLICIT NONE
 
   PRIVATE
-
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   !modules interface-------------------------------------------
   !subroutines

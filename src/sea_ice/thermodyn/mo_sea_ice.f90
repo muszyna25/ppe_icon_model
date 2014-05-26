@@ -99,8 +99,6 @@ MODULE mo_sea_ice
   PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !to be put into namelist
   !  INTEGER :: i_no_ice_thick_class = 1
 

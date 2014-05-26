@@ -32,8 +32,6 @@ MODULE mo_icon_testbed_nml
   PRIVATE
   PUBLIC :: read_icon_testbed_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
        
   CONTAINS
   

@@ -89,8 +89,6 @@ MODULE mo_echam_vdiff_params
 
   REAL(wp) :: custf, cwstf
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !-------------
   !>

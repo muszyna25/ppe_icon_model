@@ -83,8 +83,6 @@ MODULE mo_nonhydro_state
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_vgrid'
 

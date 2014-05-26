@@ -119,8 +119,6 @@ MODULE mo_gw_hines
   REAL(wp) :: lat_rmscon    !< [degN] rmscon is used poleward of this latitude
   REAL(wp) :: rmscon_eq     !< [m/s]  rms constant used equatorward of lat_rmscon_eq
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
 
   SUBROUTINE gw_hines ( jg         ,&! in,  grid level/domain index

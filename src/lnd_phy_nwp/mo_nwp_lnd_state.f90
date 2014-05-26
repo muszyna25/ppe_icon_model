@@ -26,7 +26,6 @@
 !! @author Kristina Froehlich, DWD
 !! @author Marco Giorgetta, MPI-M
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! Initial  by Kristina Froehlich (2010-11-09)
@@ -81,9 +80,6 @@ MODULE mo_nwp_lnd_state
   IMPLICIT NONE
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   !public interface
   !

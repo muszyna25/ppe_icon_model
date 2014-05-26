@@ -45,7 +45,6 @@ MODULE mo_hdiff_hyb_lin
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: hdiff_hyb_lin 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
   !>

@@ -103,8 +103,6 @@ MODULE mo_echam_phy_init
   PUBLIC  :: init_echam_phy, initcond_echam_phy
   PUBLIC  :: additional_restart_init
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !! Top-level routine for initialization of ECHAM6 physics.

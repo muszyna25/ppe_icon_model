@@ -26,8 +26,6 @@ MODULE mo_grid_subset
   IMPLICIT NONE
   INCLUDE 'netcdf.inc'
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
 
   PUBLIC :: fill_subset, get_index_range

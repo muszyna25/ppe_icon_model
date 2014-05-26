@@ -39,8 +39,6 @@ MODULE mo_eta_coord_diag
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: half_level_pressure, full_level_pressure
   PUBLIC :: auxhyb, geopot
 

@@ -41,8 +41,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
 REAL(wp), PARAMETER :: zp_hs      = 100000._wp            !< surface pressure
 REAL(wp), PARAMETER :: zt_hs      = 300._wp               !< atmospheric temperature
 !REAL(wp), PARAMETER :: zt_hs      = 250._wp               !< atmospheric temperature

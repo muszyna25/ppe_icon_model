@@ -32,9 +32,6 @@ MODULE mo_art_config
   PUBLIC 
 
 
-  CHARACTER(len=*),PARAMETER :: version = '$Id$'
-
-
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------

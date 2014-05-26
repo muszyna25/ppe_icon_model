@@ -57,8 +57,6 @@ MODULE mo_nh_diffusion
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC :: diffusion
 

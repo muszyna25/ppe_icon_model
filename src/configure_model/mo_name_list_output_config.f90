@@ -44,8 +44,6 @@ MODULE mo_name_list_output_config
   PUBLIC :: first_output_name_list
   PUBLIC :: add_var_desc
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: &
-    &  version = '$Id$'
 
   ! Constant defining how many variable entries are added when resizing array:
   INTEGER, PARAMETER :: NVARS_GROW = 10

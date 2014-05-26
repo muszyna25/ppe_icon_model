@@ -35,8 +35,6 @@ PRIVATE
 
 PUBLIC :: cucall
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS 
 
 SUBROUTINE cucall(   iconv,                                          &! in

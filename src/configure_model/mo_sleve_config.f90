@@ -33,8 +33,6 @@ MODULE mo_sleve_config
   PUBLIC :: min_lay_thckn, stretch_fac, top_height
   PUBLIC :: decay_scale_1, decay_scale_2, decay_exp, flat_height
   PUBLIC :: lread_smt
-
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
   !>
   !!--------------------------------------------------------------------------
   !! Type definition 

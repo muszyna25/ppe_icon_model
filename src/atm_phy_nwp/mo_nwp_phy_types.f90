@@ -23,7 +23,6 @@
 !! @author Kristina Froehlich, DWD
 !! @author Marco Giorgetta, MPI-M
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! Initial  by Kristina Froehlich (2009-06-10)
@@ -54,9 +53,6 @@ MODULE mo_nwp_phy_types
   PRIVATE
 
 
-  ! !VERSION CONTROL:
-  CHARACTER(len=*), PARAMETER :: version = &
-    & '$Id$'
 
   !public interface
   !

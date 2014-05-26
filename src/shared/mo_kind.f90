@@ -37,8 +37,6 @@ MODULE mo_kind
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------
   !
   ! Floating point section

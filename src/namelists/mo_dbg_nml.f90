@@ -27,8 +27,6 @@ MODULE mo_dbg_nml
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   PUBLIC
 
 

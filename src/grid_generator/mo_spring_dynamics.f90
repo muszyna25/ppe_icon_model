@@ -39,8 +39,6 @@ MODULE mo_spring_dynamics
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   PUBLIC ::  spring_dynamics
 
 CONTAINS

@@ -40,8 +40,6 @@ MODULE mo_echam_phy_nml
   PRIVATE
   PUBLIC :: read_echam_phy_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   LOGICAL  :: lrad       !< .true. for radiation.
   REAL(wp) :: dt_rad   !! "-"                     radiation
   LOGICAL  :: lvdiff     !< .true. for vertical diffusion.

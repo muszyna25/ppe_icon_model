@@ -14,7 +14,6 @@
 !! first implementation by Pilar Ripodas, DWD (2011-03)
 !! generalized overlap by Martin Koehler, DWD (2014-04)
 !!
-!! $Id: n/a$
 !!
 !! @par Copyright and License
 !!
@@ -56,9 +55,6 @@ MODULE mo_nwp_diagnosis
 
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC  :: nwp_statistics
   PUBLIC  :: nwp_diag_for_output

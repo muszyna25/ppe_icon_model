@@ -56,8 +56,6 @@ MODULE mo_nwp_rrtm_interface
   PRIVATE
 
 
-  CHARACTER(len=*), PARAMETER:: &
-    &  version = '$Id$'
 
 
   PUBLIC :: nwp_rrtm_ozon_aerosol

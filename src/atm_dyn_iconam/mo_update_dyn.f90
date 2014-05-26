@@ -38,8 +38,6 @@ MODULE mo_update_dyn
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   PUBLIC  :: add_slowphys
 

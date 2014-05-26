@@ -41,8 +41,6 @@ MODULE mo_interface_echam_ocean
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: interface_echam_ocean
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_echam_ocean'
 
 CONTAINS

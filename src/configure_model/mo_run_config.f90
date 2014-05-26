@@ -52,9 +52,6 @@ MODULE mo_run_config
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
 
-
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
     ! Namelist variables
     !
     LOGICAL :: ltestcase       !< Run idealized test case

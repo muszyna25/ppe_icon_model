@@ -35,8 +35,6 @@ MODULE mo_lnd_jsbach_config
   PUBLIC :: t_lnd_jsbach_config, lnd_jsbach_config  !< derived type and variable for configuration
   PUBLIC :: configure_lnd_jsbach                    !< subroutine
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !>
   !! Derived type containing main switches for JSBACH land surface scheme
   !!

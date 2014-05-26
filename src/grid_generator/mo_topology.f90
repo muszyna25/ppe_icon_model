@@ -148,8 +148,6 @@ MODULE mo_topology
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_topology_grid, init_topology_graph
   PUBLIC :: generate_tree, generate_graph, read_graph, write_graph
   PUBLIC :: destruct_topology_grid, destruct_topology_graph

@@ -34,8 +34,6 @@ MODULE mo_ls_forcing_nml
   PUBLIC :: read_ls_forcing_namelist, is_ls_forcing, is_subsidence_moment, is_subsidence_heat, &
             is_advection, is_geowind, is_rad_forcing, is_theta
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   LOGICAL  :: is_ls_forcing  !true if any forcing is on
   LOGICAL  :: is_subsidence_moment  !true if subsidence is on for u and v
   LOGICAL  :: is_subsidence_heat    !true if subsidence is on for thermodyn. variables

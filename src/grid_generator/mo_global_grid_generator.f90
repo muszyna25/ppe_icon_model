@@ -102,8 +102,6 @@ MODULE mo_global_grid_generator
   !--------------------------------------------------------------
   !  Public subroutines
   PUBLIC global_graph_generator, global_grid_generator, prepare_gridref
-  
-  !!$  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 CONTAINS
   
   SUBROUTINE global_graph_generator()

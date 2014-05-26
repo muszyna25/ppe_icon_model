@@ -54,8 +54,6 @@ MODULE mo_util_dbg_prnt
   PUBLIC :: c_i, c_b, nc_i, nc_b
   !PUBLIC :: v_subdom_cell !, v_suball_cell, v_subset_edge  !  part of subset to store
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
   ! indices of cells and neighbours for debug output at single cell
   INTEGER :: c_b, c_i, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3), near_proc_id
   INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v

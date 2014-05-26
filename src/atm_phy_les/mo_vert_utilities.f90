@@ -34,8 +34,6 @@ MODULE mo_vert_utilities
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: vert_intp_full2half_cell_3d, vert_intp_linear_1d, global_hor_mean
   PUBLIC :: vertical_derivative
 

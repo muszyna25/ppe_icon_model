@@ -33,8 +33,6 @@ MODULE mo_nonhydro_types
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = &
-    & '$Id$'
 
   PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
   PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)

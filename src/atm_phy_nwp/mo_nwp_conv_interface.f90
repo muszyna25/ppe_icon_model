@@ -46,8 +46,6 @@ MODULE mo_nwp_conv_interface
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC  ::  nwp_convection

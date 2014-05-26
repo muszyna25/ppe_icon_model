@@ -112,8 +112,6 @@ MODULE mo_advection_hflux
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC :: hor_upwind_flux

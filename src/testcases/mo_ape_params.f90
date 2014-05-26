@@ -33,8 +33,6 @@ MODULE mo_ape_params
   PUBLIC
   PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_ice, ape_sst_const
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   ! Requirements for APE
 
   REAL(wp),PARAMETER :: sst_min = tmelt        !< no sea ice in APE

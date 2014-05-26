@@ -39,8 +39,6 @@ MODULE mo_extpar_config
   PUBLIC :: extpar_filename, generate_filename, generate_td_filename
   PUBLIC :: extpar_varnames_map_file
 
-  CHARACTER(len=*),PARAMETER :: version = '$Id$'
-
   !>
   !!----------------------------------------------------------------------------
   !! Derived type containing control variables specific to the nonhydrostatic 

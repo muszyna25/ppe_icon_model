@@ -52,8 +52,6 @@ MODULE mo_netcdf_read
 
   INCLUDE 'netcdf.inc'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: read_netcdf_data
   PUBLIC :: read_netcdf_data_single
   PUBLIC :: nf

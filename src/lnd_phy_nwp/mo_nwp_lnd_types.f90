@@ -9,7 +9,6 @@
 !!
 !! @author Daniel Reinert, DWD
 !!
-!! $Id: n/a$
 !!
 !! @par Revision History
 !! Initial by Kristina Froehlich (2010-11-09)
@@ -35,9 +34,6 @@ MODULE mo_nwp_lnd_types
   IMPLICIT NONE
   PRIVATE
 
-  ! !VERSION CONTROL:
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   !
   !variables

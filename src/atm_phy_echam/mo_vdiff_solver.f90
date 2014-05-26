@@ -58,7 +58,6 @@ MODULE mo_vdiff_solver
   INTEGER, ALLOCATABLE :: ibtm_mtrx (:)    !< shape: (nmatrix)
 
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_vdiff_solver'
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
   !>

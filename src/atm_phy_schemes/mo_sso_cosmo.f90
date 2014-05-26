@@ -198,8 +198,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: &
-  &  version = '$Id$'
 
 !------------------------------------------------------------------------------
 ! Public subroutines

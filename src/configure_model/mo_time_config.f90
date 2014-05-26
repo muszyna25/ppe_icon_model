@@ -32,8 +32,6 @@ MODULE mo_time_config
   PRIVATE
   PUBLIC :: t_time_config, time_config, restart_experiment
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: &
-    &  version = '$Id$'
 
   !>
   !! Derived type containing information for time control. 

@@ -52,8 +52,6 @@ MODULE mo_nh_dcmip_rest_atm
 
    PRIVATE
 
-   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
    PUBLIC :: init_nh_prog_dcmip_rest_atm
    PUBLIC :: init_nh_topo_dcmip_rest_atm
 

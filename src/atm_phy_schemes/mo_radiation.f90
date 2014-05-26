@@ -97,8 +97,6 @@ MODULE mo_radiation
 
   PUBLIC :: pre_radiation_nwp, radiation, radheat, pre_radiation_nwp_steps
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   ! --- radiative transfer parameters
   !

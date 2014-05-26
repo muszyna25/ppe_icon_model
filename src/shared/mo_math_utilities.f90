@@ -87,8 +87,6 @@ MODULE mo_math_utilities
   
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
   PUBLIC :: t_cartesian_coordinates
   PUBLIC :: t_geographical_coordinates
   PUBLIC :: t_line

@@ -46,8 +46,6 @@ MODULE mo_icoham_dyn_memory
   PUBLIC :: p_hydro_state
   PUBLIC :: construct_icoham_dyn_state, destruct_icoham_dyn_state
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !----------------------------------------------------------------------------
   !                          MEMORY BUFFER 
   !----------------------------------------------------------------------------

@@ -45,8 +45,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 PUBLIC :: t_errors              ! errors TYPE definition
 PUBLIC :: err_norm            ! calculate all errors
 PUBLIC :: err_norm_scal

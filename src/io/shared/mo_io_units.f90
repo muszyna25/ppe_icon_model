@@ -47,8 +47,6 @@ MODULE mo_io_units
 !
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   PUBLIC
 
 ! This paramter is taken from /usr/include/stdio.h (ANSI C standard). If problems

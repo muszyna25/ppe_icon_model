@@ -47,8 +47,6 @@ MODULE mo_nwp_soil_init
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   PUBLIC  :: terra_multlay_init

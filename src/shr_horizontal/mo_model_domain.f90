@@ -93,8 +93,6 @@ MODULE mo_model_domain
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
   ! ! the following abstract data types are taken from mo_grid,
 
   PUBLIC :: t_patch

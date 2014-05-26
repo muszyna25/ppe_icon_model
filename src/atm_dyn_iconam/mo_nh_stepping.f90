@@ -149,8 +149,6 @@ MODULE mo_nh_stepping
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
 

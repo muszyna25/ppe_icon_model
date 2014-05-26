@@ -82,9 +82,6 @@ MODULE mo_ocean_ext_data
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-
   PUBLIC :: construct_ocean_ext_data
   PUBLIC :: destruct_ocean_ext_data
 

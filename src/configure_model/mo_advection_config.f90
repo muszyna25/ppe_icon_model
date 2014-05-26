@@ -34,8 +34,6 @@ MODULE mo_advection_config
   PUBLIC
 
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: &
-    &  version = '$Id$'
 
 
 

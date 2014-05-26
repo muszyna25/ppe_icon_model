@@ -39,9 +39,6 @@ MODULE mo_ocean_nml_crosscheck
 
   PUBLIC :: oce_crosscheck
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-
 CONTAINS
 
   !>

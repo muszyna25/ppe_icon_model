@@ -52,8 +52,6 @@ MODULE mo_nh_dcmip_gw
 
    PRIVATE
 
-   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
    PUBLIC :: init_nh_dcmip_gw
    PUBLIC :: init_nh_gw_analyt
    PUBLIC :: gw_clat           ! namelist variable

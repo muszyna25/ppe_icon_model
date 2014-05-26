@@ -86,8 +86,6 @@ MODULE mo_pp_tasks
   ! interface definition
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
   ! max. name string length
   INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   64

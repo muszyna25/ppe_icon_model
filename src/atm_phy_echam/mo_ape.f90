@@ -25,8 +25,6 @@ MODULE mo_ape
   PRIVATE
   PUBLIC :: aqua_surface
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   !! Compute saturation specific humidity at the sea surface

@@ -35,8 +35,6 @@ MODULE mo_limarea_nml
   PRIVATE
   PUBLIC read_limarea_namelist
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   !------------------------------------------------------------------------
   ! Namelist variables
   !------------------------------------------------------------------------

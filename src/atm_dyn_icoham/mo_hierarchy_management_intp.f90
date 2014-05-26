@@ -74,8 +74,6 @@ IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 PUBLIC :: interpolate_diagnostics, interpolate_tendencies, boundary_tendencies, feedback
 
 CONTAINS

@@ -89,8 +89,6 @@ MODULE mo_ocean_testbed_modules
 
   PUBLIC :: ocean_test_modules
   
-  !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=12)           :: debug_string = 'testbed     '  ! Output of module for 1 line debug
   
   !-------------------------------------------------------------------------

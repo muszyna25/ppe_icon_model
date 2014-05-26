@@ -45,8 +45,6 @@ MODULE mo_advection_nml
   PUBLIC :: read_transport_namelist
 
 
-  CHARACTER(len=*), PARAMETER :: &
-    &  version = '$Id$'
 
 
   !----------------------------------!

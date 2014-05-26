@@ -88,8 +88,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   PUBLIC :: test_tracer_diffusion_vertical_implicit
   PUBLIC :: test_velocity_diffusion_vert_implicit
   
-  !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=12)           :: debug_string = 'testbed     '  ! Output of module for 1 line debug
   
   !-------------------------------------------------------------------------

@@ -37,8 +37,6 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
   PRIVATE
 
   PUBLIC :: init_grid_configuration, get_grid_rescale_factor

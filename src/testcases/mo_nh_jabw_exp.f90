@@ -64,8 +64,6 @@ MODULE mo_nh_jabw_exp
 
   
    PRIVATE
-
-   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
    REAL(wp), PARAMETER :: cpd_o_rd  = 1._wp / rd_o_cpd 
 
 

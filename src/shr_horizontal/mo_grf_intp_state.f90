@@ -26,7 +26,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!! $Id: n/a$
 !!
 MODULE mo_grf_intp_state
 !-------------------------------------------------------------------------

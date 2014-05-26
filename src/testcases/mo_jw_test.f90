@@ -60,8 +60,6 @@ MODULE mo_jw_test
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_hydro_state_prog_jwtest, jw_uptb
 
   REAL(wp), PARAMETER :: eta0  = 0.252_wp !

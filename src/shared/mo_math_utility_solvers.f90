@@ -80,8 +80,6 @@ MODULE mo_math_utility_solvers
   IMPLICIT NONE
   
   PRIVATE
-  
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
       
   PUBLIC :: solve_lu
   PUBLIC :: solve_chol

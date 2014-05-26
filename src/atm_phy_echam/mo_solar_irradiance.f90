@@ -47,8 +47,6 @@ MODULE mo_solar_irradiance
   LOGICAL, SAVE :: lread_solar = .TRUE., lread_solar_radt = .TRUE.
   INTEGER, SAVE :: last_year = -999999, last_year_radt = -999999
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
 
   SUBROUTINE read_ssi_bc(year, lradt)

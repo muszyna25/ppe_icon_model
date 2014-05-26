@@ -70,8 +70,6 @@ MODULE mo_exception
     MODULE PROCEDURE print_rvalue  !< real
   END INTERFACE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !>
   SUBROUTINE debug_messages_on

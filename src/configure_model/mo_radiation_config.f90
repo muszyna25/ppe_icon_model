@@ -29,8 +29,6 @@ MODULE mo_radiation_config
   IMPLICIT NONE
   PUBLIC
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !--------------------------------------------------------------------------
   ! Basic configuration setup for radiation
   !--------------------------------------------------------------------------

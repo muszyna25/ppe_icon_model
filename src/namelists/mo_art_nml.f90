@@ -39,9 +39,6 @@ MODULE mo_art_nml
 
   PUBLIC :: read_art_namelist
 
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !----------------------------------!
   ! art_nml namelist variables       !
   !----------------------------------!

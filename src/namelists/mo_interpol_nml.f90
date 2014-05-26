@@ -49,8 +49,6 @@ MODULE mo_interpol_nml
   PRIVATE
   PUBLIC :: read_interpol_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !--------------------
   ! namelist variables
   !--------------------

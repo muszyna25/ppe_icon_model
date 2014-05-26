@@ -80,10 +80,7 @@ MODULE mo_hydro_ocean_run
   IMPLICIT NONE
   
   PRIVATE
-  
-  !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+   
   ! public interface
   !
   ! public subroutines

@@ -88,9 +88,7 @@ MODULE mo_ocean_initialization
   IMPLICIT NONE
   PRIVATE
   
-  ! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
   !public interface
   !
   ! subroutines

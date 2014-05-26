@@ -42,8 +42,7 @@ MODULE mo_oce_thermodyn
   
   PRIVATE
   
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
+ 
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_oce_thermodyn'
 ! CHARACTER(len=12)           :: str_module    = 'oce_thermody'  ! Output of module for 1 line debug
   

@@ -52,8 +52,6 @@ MODULE mo_echam_phy_bcs
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: echam_phy_bcs_global
-
-  CHARACTER(len=*), PARAMETER :: version    = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_bcs'
 
 CONTAINS

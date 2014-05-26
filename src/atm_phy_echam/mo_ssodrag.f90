@@ -70,8 +70,6 @@ MODULE mo_ssodrag
   REAL(wp), PARAMETER :: gtsec  = 0.00001_wp   ! Security min value for anisotropy and GW stress.
   REAL(wp), PARAMETER :: gvsec  = 0.10_wp      ! Security min value for ulow
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
   !======================================================================
   SUBROUTINE sugwd(klev)

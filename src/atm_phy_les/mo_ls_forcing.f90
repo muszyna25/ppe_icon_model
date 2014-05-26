@@ -43,8 +43,6 @@ MODULE mo_ls_forcing
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: init_ls_forcing, apply_ls_forcing
 
   !Anurag Dipankar, MPIM (2013-May): variables for large-scale (LS) 

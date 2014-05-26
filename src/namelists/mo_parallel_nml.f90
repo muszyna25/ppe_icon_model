@@ -70,8 +70,6 @@ MODULE mo_parallel_nml
   PRIVATE
   PUBLIC :: read_parallel_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = &
-    &  '$Id$'
 
 
 

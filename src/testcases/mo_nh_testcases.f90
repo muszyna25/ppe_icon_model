@@ -83,8 +83,6 @@ MODULE mo_nh_testcases
   
   PUBLIC :: init_nh_testtopo,init_nh_testcase
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 ! !DEFINED PARAMETERS for jablonowski williamson: 
 !  The rest of the needed parameters are define in mo_nh_jabw_exp
   REAL(wp), PARAMETER :: ps0   = 1.e5_wp  ! surface pressure (Pa)

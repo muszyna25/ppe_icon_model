@@ -30,8 +30,6 @@ MODULE mo_diffusion_nml
   PRIVATE
   PUBLIC :: read_diffusion_namelist
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   !-------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary parameters setting up the
   !     configuration of the dynamical core

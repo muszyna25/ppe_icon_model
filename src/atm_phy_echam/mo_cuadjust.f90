@@ -25,8 +25,6 @@ MODULE mo_cuadjust
 
   PUBLIC :: cuadjtq
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
 CONTAINS
 
 SUBROUTINE cuadjtq(  kproma, kbdim, klev, kk,                 &
