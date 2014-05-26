@@ -2502,6 +2502,7 @@ Stride of MPI ranks.&
 model\_restart\_info\_ filename &
 C & restart. info & &
 Name (including full path) of the restart info file for this model&
+{\color{red} Not yet implemented.}
 \tabularnewline
 
 \end{longtab}
@@ -2514,7 +2515,7 @@ Name (including full path) of the restart info file for this model&
 \begin{longtab}
 
 %\hline
-\textbf{l\_restart}&
+\textbf{lrestart}&
 L & .FALSE. & &
 If .TRUE.: Current experiment is started from a restart.&
 \tabularnewline
@@ -3769,6 +3770,7 @@ L & .FALSE. & &
 %\hline
 restart\_chunk\_size &
 I & 1 & &
+\emph{(Advanced namelist parameter:)}
 Number of levels to be buffered by the asynchronous restart process.
 The (asynchronous) restart is capable of writing and communicating
 more than one 2D slice at once. &
@@ -4201,13 +4203,19 @@ Calendar type: \\
 dt\_restart &
 R & 86400.*30.& s &
 Length of restart cycle in seconds.
+This namelist parameter specifies how long the model runs until it saves its
+state to a file and stops.
+Later, the model run can be resumed, s.\,t.\ a simulation over
+a long period of time can be split into a chain of restarted model runs.
+
 Note that the frequency of writing restart files is controlled by
-io\_nml:dt\_checkpoint. If the value of dt\_checkpoint resulting from
-model default or user's specification is longer than dt\_restart,
-it will be reset (by the model) to dt\_restart so
+\texttt{io\_nml:dt\_checkpoint}. 
+Only if the value of \texttt{dt\_checkpoint} resulting from
+model default or user's specification is longer than \texttt{dt\_restart},
+it will be reset (by the model) to \texttt{dt\_restart} so
 that at least one restart file is generated during the restart cycle.
-If dt\_restart is larger than but not a multiple of dt\_checkpoint,
-restart file will NOT be generated at the end of the restart cycle.
+If \texttt{dt\_restart} is larger than but not a multiple of \texttt{dt\_checkpoint},
+restart file will \emph{not} be generated at the end of the restart cycle.
 &
 \tabularnewline
 
