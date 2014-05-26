@@ -179,7 +179,7 @@ if [[ "$output_atm_dyn" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
- file_interval    = "PT01D"                          ! ISO-format interval
+ file_interval    = "P01D"                           ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'ta'      , 'cl'      , 'hur'     ,
                     'hus'     , 'clw'     , 'cli'     ,
@@ -202,7 +202,7 @@ if [[ "$output_atm_phy" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
- file_interval    = "PT01D"                          ! ISO-format interval
+ file_interval    = "P01D"                           ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'cosmu0'  , 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
@@ -234,7 +234,7 @@ if [[ "$output_lnd_phy" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
- file_interval    = "PT01D"                          ! ISO-format interval
+ file_interval    = "P01D"                           ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
@@ -264,7 +264,7 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
- file_interval    = "PT01D"                          ! ISO-format interval
+ file_interval    = "P01D"                           ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld'
                     'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso'
@@ -285,7 +285,7 @@ if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
- file_interval    = "PT01D"                          ! ISO-format interval
+ file_interval    = "P01D"                           ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso'
                     'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso'
@@ -306,7 +306,7 @@ if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  output_interval  = "PT01H"                          ! ISO-format interval
- file_interval    = "PT01D"                          ! ISO-format interval
+ file_interval    = "P01D"                           ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf', 'tend_x_dtr'
 /
