@@ -182,6 +182,7 @@ MODULE mo_lnd_nwp_nml
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
+                             ! Note that this is currently the only available option!
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
     itype_lndtbl   = 1       ! choice of table for associating surface parameters to land-cover classes
     itype_root     = 2       ! type of root density distribution

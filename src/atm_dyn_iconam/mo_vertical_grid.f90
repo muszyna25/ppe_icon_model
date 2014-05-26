@@ -33,7 +33,7 @@ MODULE mo_vertical_grid
   USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_grid_config,           ONLY: n_dom
   USE mo_nonhydrostatic_config, ONLY: rayleigh_type, rayleigh_coeff, damp_height, &
-    &                                 igradp_method, ivctype, vwind_offctr,       &
+    &                                 igradp_method, vwind_offctr,                &
     &                                 exner_expol, l_zdiffu_t, thslp_zdiffu,      &
     &                                 thhgtd_zdiffu
   USE mo_diffusion_config,      ONLY: diffusion_config

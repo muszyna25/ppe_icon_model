@@ -117,9 +117,10 @@ CONTAINS
 
     is_relative_time = .FALSE.
 
-  IF (is_restart_run()) THEN
+
+    IF (is_restart_run()) THEN
  
-   ! 2.1 Overwrite the defaults above by values in the restart file
+      ! 2.1 Overwrite the defaults above by values in the restart file
 
       funit = open_and_restore_namelist('time_nml')
       READ(funit,NML=time_nml)
@@ -134,7 +135,7 @@ CONTAINS
       CALL get_restart_attribute( 'current_calday' , restart_calday  )
       CALL get_restart_attribute( 'current_daysec' , restart_daysec  )
 
-  END IF
+    END IF
 
    !------------------------------------------------------------------------
    !  Read user's (new) specifications. (Done so far by all MPI processes)
