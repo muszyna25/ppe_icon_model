@@ -89,6 +89,8 @@ data/external/etopo40.cdf -text
 data/rrtmg_lw.nc -text
 data/sound_landseabr -text
 data/sound_rce -text
+doc/Namelist_overview.pdf -text
+doc/Namelist_overview.tex -text
 doc/contrib/ICON_Grafik1_Legende_Okt09.jpg -text
 doc/contrib/ICON_Grafik1_Okt09.jpg -text
 doc/contrib/ICON_Grafik2_Legende_Okt09.jpg -text
@@ -106,6 +108,8 @@ doc/figures/Huis_thesis/Fig2.4_TriangleUpDown.tex -text
 doc/figures/Huis_thesis/Fig2.5_Triangle.tex -text
 doc/figures/Huis_thesis/Fig2.6_Hexagon.tex -text
 doc/icon-authors.txt -text
+doc/icon_nml_tables.tex -text
+doc/incompatible_changes.tex -text
 doc/resources/doxyfile_icon_html -text
 doc/resources/doxyfile_icon_pdf -text
 doc/resources/doxygen_html_footer.html -text
@@ -673,8 +677,6 @@ lapack/spotrf.f -text
 lapack/spotrs.f -text
 /make_my_runscript -text
 /make_runscripts -text
-run/Namelist_overview.pdf -text
-run/Namelist_overview.tex -text
 run/README -text
 run/add_required_atmo_hydrostatic_files -text
 run/add_required_atmo_non-hydrostatic_files -text
@@ -779,8 +781,6 @@ run/exp.test_oce_parallel -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
-run/icon_nml_tables.tex -text
-run/incompatible_changes.tex -text
 run/mapfile_vlist.txt -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
