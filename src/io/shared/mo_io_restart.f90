@@ -1055,13 +1055,12 @@ CONTAINS
       time_level = get_var_timelevel(element%field)
 
       lskip_timelev = .FALSE.
+      lskip_extra_timelevs = .FALSE.
+#ifndef __NO_ICON_ATMO__
       IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. jg == 1)) THEN
         lskip_extra_timelevs = .TRUE.
-      ELSE
-        lskip_extra_timelevs = .FALSE.
       ENDIF
 
-#ifndef __NO_ICON_ATMO__
       ! get information about timelevel to be skipped for current field
       IF (element%field%info%tlev_source == 0 ) THEN
         IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
@@ -1649,13 +1648,12 @@ CONTAINS
       time_level = get_var_timelevel(element%field)
 
       lskip_timelev = .FALSE.
+      lskip_extra_timelevs = .FALSE.
+#ifndef __NO_ICON_ATMO__
       IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. jg == 1)) THEN
         lskip_extra_timelevs = .TRUE.
-      ELSE
-        lskip_extra_timelevs = .FALSE.
       ENDIF
 
-#ifndef __NO_ICON_ATMO__
       ! get information about timelevel to be skipped for current field
       IF (element%field%info%tlev_source == 0 ) THEN
         IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
