@@ -2303,17 +2303,10 @@ I & 2 &  & root density distribution: \\
 \tabularnewline
 
 %\hline
-itype\_trvg &
-I & 2 &  & type of vegetation transpiration parameterization \\
-1 = \\
-2 =  &
-\tabularnewline
-
-%\hline
 itype\_evsl &
 I & 2 &  & type of bare soil evaporation parameterization \\
-1 = \\
-2 =  &
+2 = Dickinson (1984)\\
+3 = Noilhan and Platon (1989) &
 \tabularnewline
 
 %\hline
@@ -2326,15 +2319,15 @@ I & 1 &  & type of soil heat conductivity \\
 %\hline
 itype\_interception &
 I & 1 &  & type of plant interception \\
-1 = (effectively switched off)\\
-2 =  &
+1 = effectively switched off (secirity minimum of $1E-6\,\mathrm{m}$ for surface area index)\\
+2 = Rain and snow interception (\textcolor{red}{under development}) &
 \tabularnewline
 
 %\hline
 itype\_hydbound &
 I & 1 &  & type of hydraulic lower boundary condition \\
-1 = \\
-2 =  &
+1 = none \\
+3 = ground water as lower boundary of soil column &
 \tabularnewline
 
 %\hline
