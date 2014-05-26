@@ -404,7 +404,7 @@ if [ $interp_temp -eq 1 ];then
 
    check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' ${cdo} call 2"
 
-   ${cdo} selname,geosp ${ftmp}".nc" ${ftmp}"_PHIS.nc"
+   ${cdo} -chname,orog,geosp -mulc,9.81 -selname,orog ${ftmp}".nc" ${ftmp}"_PHIS.nc"
 
    check_error $? "In script JWw_postpro_driver.bash: part 'Interpolating temperature' ${cdo} call 3"
 

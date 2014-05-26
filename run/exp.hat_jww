@@ -138,10 +138,9 @@ cat > $atmo_namelist << EOF
  include_last     = .FALSE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}"
- ml_varlist       = 'ps'      , 'ta'      ,
-                    'ua'      , 'va'      , 'wap'     ,
-                    'pfull'   , 'geosp'  ,
-                    'sd'     , 'svo'
+ ml_varlist       = 'orog'    , 'ps'      , 'pfull'   ,
+                    'ta'      , 'ua'      , 'va'      , 'wap'     ,
+                    'sd'      , 'svo'
 /
 &dynamics_nml
  iequations      = ${atmo_model_equations}
