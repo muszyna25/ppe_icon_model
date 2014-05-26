@@ -407,19 +407,7 @@ CONTAINS
     timer_prep_phy = new_timer("prep_phy")
 
     timer_update_prog_phy = new_timer("update_prog_phy")
-
-
-
-!     timer_sync_delay = new_timer("sync_delay")
-!     timer_sync_outbuffer = new_timer("sync_outbuffer")
-!     timer_sync_psend_1 = new_timer("sync_psend_1")
-!     timer_sync_isend_2 = new_timer("sync_isend_2")
-!     timer_sync_recv_2 = new_timer("sync_recv_2")
-!     timer_sync_isend_3 = new_timer("sync_isend_3")
-!     timer_sync_wait = new_timer("sync_wait")
-
     timer_nh_diagnostics = new_timer("nh_diagnostics")
-
     timer_diagnose_pres_temp = new_timer("diagnose_pres_temp")
     timer_satad_v_3D = new_timer("satad")
     timer_phys_u_v = new_timer("phys_u_v")

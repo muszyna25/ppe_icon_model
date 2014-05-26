@@ -1348,6 +1348,7 @@ src/atm_phy_schemes/srtm_kgb26.f90 -text
 src/atm_phy_schemes/srtm_kgb27.f90 -text
 src/atm_phy_schemes/srtm_kgb28.f90 -text
 src/atm_phy_schemes/srtm_kgb29.f90 -text
+src/attic/mo_lrtm_rtrnmr.f90.old -text
 src/configure_model/mo_advection_config.f90 -text
 src/configure_model/mo_art_config.f90 -text
 src/configure_model/mo_atm_phy_nwp_config.f90 -text

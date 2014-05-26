@@ -216,30 +216,15 @@ CONTAINS
 
     ENDIF
     
-    
     !------------------------------------------------------------
     ! Reset lfeedback to false for all model domains if lfeedback(1) = false
     IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
     
-    !------------------------------------------------------------
-               
-!     write(0,*) no_of_dynamics_grids
-!     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)
-!     write(0,*) dynamics_parent_grid_id(1:no_of_dynamics_grids)
-!     write(0,*) no_of_radiation_grids
-!     IF (no_of_radiation_grids > 0) THEN
-!       write(0,*) radiation_grid_filename(1:no_of_radiation_grids)
-!       write(0,*) dynamics_radiation_grid_link(1:no_of_dynamics_grids)
-!     ENDIF
-
-!     CALL finish("grid_nml_setup","stop")
-
   END SUBROUTINE init_grid_configuration
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   SUBROUTINE get_gridfile_root_level( ncid, grid_root, grid_level )
-!     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
     INTEGER,    INTENT(in)     :: ncid
     INTEGER,    INTENT(inout)  :: grid_root, grid_level
 
@@ -249,21 +234,6 @@ CONTAINS
   END SUBROUTINE get_gridfile_root_level
   !-------------------------------------------------------------------------
     
-  !-------------------------------------------------------------------------
-!   SUBROUTINE get_gridfile_rescale_factor( patch_file, rescale_factor )
-!     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
-!     REAL(wp),   INTENT(out)          ::  rescale_factor
-! 
-!     INTEGER :: ncid, netcd_status
-! 
-!     CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
-!     netcd_status = nf_get_att_double(ncid, nf_global,'earth_rescale_factor', &
-!         & rescale_factor)
-!     IF (netcd_status /= nf_noerr) rescale_factor = 1.0_wp
-!     CALL nf(nf_close(ncid))
-! 
-!   END SUBROUTINE get_gridfile_rescale_factor
-  !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   SUBROUTINE get_gridfile_sphere_radius( ncid, sphere_radius )
     INTEGER,    INTENT(in)     :: ncid

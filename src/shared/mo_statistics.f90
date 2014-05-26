@@ -642,7 +642,6 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET :: levelWeights(:), levelMean(:)
     REAL(wp) ::  totalWeight, totalSum
     INTEGER :: level, start_vertical, end_vertical, allocated_levels
-!    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':LevelHorizontalMean_3D_InRange_2Dweights'
 
     IF (PRESENT(start_level)) THEN
       start_vertical = start_level
@@ -967,78 +966,6 @@ CONTAINS
 
   END SUBROUTINE gather_sums_0D
   !-----------------------------------------------------------------------
-  
-
-!  !-----------------------------------------------------------------------
-!  !>
-!  FUNCTION globalspace_3d_sum_max_level_array(values, indexed_subset, weights, &
-!    & subset_indexed_weights, max_level_array) result(total_sum)
-!    REAL(wp) :: values(:,:,:)
-!    TYPE(t_subset_indexed), TARGET, OPTIONAL :: indexed_subset
-!    REAL(wp), OPTIONAL :: weights(:,:,:)
-!    REAL(wp), OPTIONAL :: subset_indexed_weights(:,:)  ! weights but indexed but the subset index
-!    ! dim: (vertical_levels, indexed_subset%size)
-!    INTEGER :: max_level_array(:,:)
-!    REAL(wp) :: total_sum
-!
-!    REAL(wp) :: sum_value
-!    INTEGER :: i, block, idx, level
-!    INTEGER :: communicator
-!    !    INTEGER :: idx
-!    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':Sum_3D_AllLevels_3Dweights_InIndexed'
-!
-!    IF (.NOT. PRESENT(indexed_subset)) &
-!      & CALL finish(method_name,  "Currently requires indexed_subset parameter. Abort.")
-!
-!    ! init the min, max values
-!    sum_value = 0._wp
-!    IF (PRESENT(weights)) THEN
-!
-!      DO i=1, indexed_subset%SIZE
-!        block = indexed_subset%block(i)
-!        idx = indexed_subset%idx(i)
-!        DO level = 1, max_level_array(idx, block)
-!          sum_value  = sum_value + values(idx, level, block) * weights(idx, level, block)
-!        ENDDO
-!      ENDDO
-!
-!    ELSEIF (PRESENT(subset_indexed_weights)) THEN
-!
-!      DO i=1, indexed_subset%SIZE
-!        block = indexed_subset%block(i)
-!        idx = indexed_subset%idx(i)
-!        DO level = 1, max_level_array(idx, block)
-!          sum_value  = sum_value + values(idx, level, block) * subset_indexed_weights(level, i)
-!        ENDDO
-!      ENDDO
-!
-!    ELSE
-!
-!      DO i=1, indexed_subset%SIZE
-!        block = indexed_subset%block(i)
-!        idx = indexed_subset%idx(i)
-!        DO level = 1, max_level_array(idx, block)
-!          sum_value  = sum_value + values(idx, level, block)
-!        ENDDO
-!      ENDDO
-!
-!    ENDIF
-!
-!    ! the global min, max is avaliable only to stdio process
-!    IF (my_process_is_mpi_parallel()) THEN
-!
-!      communicator = indexed_subset%patch%work_communicator
-!      ! these are avaliable to all processes
-!      total_sum = p_sum( sum_value,  comm=communicator)
-!
-!    ELSE
-!
-!      total_sum = sum_value
-!
-!    ENDIF
-!
-!  END FUNCTION globalspace_3d_sum_max_level_array
-!  !-----------------------------------------------------------------------
   
   
   !-----------------------------------------------------------------------

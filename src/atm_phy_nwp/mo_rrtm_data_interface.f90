@@ -50,8 +50,6 @@ MODULE mo_rrtm_data_interface
 
   PRIVATE
 
-
-
   PUBLIC :: t_rrtm_data
   PUBLIC :: init_rrtm_model_repart
   PUBLIC :: destruct_rrtm_model_repart
@@ -532,10 +530,9 @@ CONTAINS
                                                         ! = smoothed fr_glac
     REAL(wp), TARGET ::  cos_mu0(:,:)        ! cosine of solar zenith angle
 
-!    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
     REAL(wp), TARGET ::  alb_vis_dif(:,:) !< in surface albedo for visible range, diffuse
+!    REAL(wp), TARGET ::  alb_vis_dir(:,:) ! surface albedo for visible and near IR range, direct
 !    REAL(wp), TARGET ::  alb_nir_dir(:,:) ! surface albedo for visible and near IR range, direct
-!    REAL(wp), TARGET ::  alb_nir_dif(:,:) !< in surface albedo for visible range, diffuse
 
     REAL(wp), TARGET ::  emis_rad(:,:)      ! lw sfc emissivity
     REAL(wp), TARGET ::  tk_sfc(:,:)      ! surface temperature at trad [K]
@@ -606,24 +603,6 @@ CONTAINS
       &  status   = is_ready,                       &
       &  scope    = until_sync,                     &
       &  name     = "tmp" )
-! 
-    
-!     recv_tmp      = new_icon_comm_variable ( &
-!       &  recv_var = rrtm_data%albedo_vis_dir, &
-!       &  send_var = alb_vis_dir,                    &
-!       &  comm_pattern_index = recv_comm_pattern,    &
-!       &  status   = is_ready,                       &
-!       &  scope    = until_sync,                     &
-!       &  name     = "tmp" )
-          
-!     recv_tmp      = new_icon_comm_variable ( &
-!       &  recv_var = rrtm_data%albedo_nir_dir, &
-!       &  send_var = alb_nir_dir,                    &
-!       &  comm_pattern_index = recv_comm_pattern,    &
-!       &  status   = is_ready,                       &
-!       &  scope    = until_sync,                     &
-!       &  name     = "tmp" )
-      
          
     recv_tmp      = new_icon_comm_variable ( &
       &  recv_var = rrtm_data%albedo_vis_dif, &
@@ -688,8 +667,7 @@ CONTAINS
       &  status   = is_ready,                       &
       &  scope    = until_sync,                     &
       &  name     = "tmp" )
-    
-          
+         
     recv_tmp      = new_icon_comm_variable ( &
       &  recv_var = rrtm_data%qm_liquid     , &
       &  send_var = qm_liq,                        &
