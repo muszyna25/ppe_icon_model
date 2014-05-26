@@ -58,7 +58,7 @@ output_atm_phy_tend_wind=no  # atm. physics tendencies for wind
 output_atm_phy_tend_trac=no  # atm. physics tendencies for tracers
 
 # dictionary file for variable names
-dict_file="dict.${EXPNAME}'
+dict_file="dict.${EXPNAME}"
 rm -f ${dict_file}
 
 #__________________________________________________________________________________________________

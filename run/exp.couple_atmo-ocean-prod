@@ -119,7 +119,7 @@ dt_file=$dt_restart
 #-----------------------------------------------------------------------------
 # define variable names
 #
-dict_file='dict.${EXPNAME}'
+dict_file="dict.${EXPNAME}"
 cat dict.icoham.mpim > ${dict_file}
 cat dict.echam.mpim >> ${dict_file}
 #
