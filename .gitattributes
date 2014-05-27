@@ -684,6 +684,7 @@ run/add_required_atmo_non-hydrostatic_files -text
 run/add_required_ocean_files -text
 run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
+run/checksuite/run_ICON_R02B04N06M_ref -text
 run/dict.echam.mpim -text
 run/dict.extpar -text
 run/dict.icoham.mpim -text
