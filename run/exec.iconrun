@@ -187,7 +187,6 @@ cat >> $master_namelist << EOF
 &master_model_nml
   model_name="$model_name"
   model_namelist_filename="$model_namelist_filename"
-  model_restart_info_filename=""
   model_type=$model_type
   model_min_rank=$model_min_rank
   model_max_rank=$model_max_rank
