@@ -160,6 +160,32 @@ EOF
 
 cat > NAMELIST_NWP << EOF
 
+! parallel_nml: MPI parallelization -------------------------------------------
+&parallel_nml
+ nproma                      =                          8         ! loop chunk length
+ p_test_run                  =                     .FALSE.	  ! .TRUE. means verification run for MPI parallelization
+ num_io_procs                =                          1	  ! number of I/O processors
+ num_restart_procs           =              ${nrest_procs}	  ! number of restart processors
+ iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
+/
+
+! run_nml: general switches ---------------------------------------------------
+&run_nml
+ ltestcase                   =                      .TRUE.	  ! idealized testcase runs
+ num_lev                     =         90, 60, 54, 60, 54         ! number of full levels (atm.) for each domain
+ lvert_nest                  =                      .TRUE.        ! vertical nesting
+ nsteps                      =                  ${nsteps}         ! number of time steps of this run
+ dtime                       =                        288         ! timestep in seconds
+ ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
+ ltransport                  =                      .TRUE.	  ! compute large-scale tracer transport
+ ntracer                     =                          5	  ! number of advected tracers
+ iforcing                    =                          3	  ! forcing of dynamics and transport by parameterized processes
+ msg_level                   =                          7	  ! controls how much printout is written during runtime
+ ltimer                      =                     .FALSE.	  ! timer for monitoring the runtime of specific routines
+ timers_level                =                         10	  ! performance timer granularity
+ output                      =                       "nml"        ! main switch for enabling/disabling components of the model output
+/
+
 ! diffusion_nml: horizontal (numerical) diffusion ----------------------------
 &diffusion_nml
  hdiff_order                 =                          5         ! order of nabla operator for diffusion
@@ -169,8 +195,6 @@ cat > NAMELIST_NWP << EOF
  hdiff_smag_fac              =                          0.015	  ! scaling factor for Smagorinsky diffusion
  lhdiff_vn                   =                      .TRUE.	  ! diffusion on the horizontal wind field
  lhdiff_temp                 =                      .TRUE.	  ! diffusion on the temperature field
- hdiff_multfac               =                          1.0	  ! multiplication factor of normalized diffusion coefficient
- hdiff_tv_ratio              =                          1.0	  ! ratio of diffusion coefficients for temperature and normal wind
 /
 
 ! dynamics_nml: dynamical core -----------------------------------------------
@@ -201,10 +225,9 @@ cat > NAMELIST_NWP << EOF
 ! gridref_nml: grid refinement and nesting -----------------------------------
 &gridref_nml
  grf_intmethod_e             =                          6         ! interpolation method for grid refinement
- grf_scalfbk                 =                          1	  ! feedback method for dynamical scalar variables
- grf_tracfbk                 =                          1	  ! feedback method for tracer variables
+ grf_scalfbk                 =                          2	  ! feedback method for dynamical scalar variables
+ grf_tracfbk                 =                          2	  ! feedback method for tracer variables
  denom_diffu_v               =                        150.0	  ! Deniminator for lateral boundary diffusion of velocity
- l_mass_consvcorr            =                     .FALSE.        ! .TRUE.=apply mass conservation correction in feedback
 /
 
 ! io_nml: general switches for model I/O -------------------------------------
@@ -277,32 +300,6 @@ cat > NAMELIST_NWP << EOF
                                 'group:precip_vars', 'group:additional_precip_vars'
 /
 
-! parallel_nml: MPI parallelization -------------------------------------------
-&parallel_nml
- nproma                      =                          8         ! loop chunk length
- p_test_run                  =                     .FALSE.	  ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          1	  ! number of I/O processors
- num_restart_procs           =              ${nrest_procs}	  ! number of restart processors
- iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
-/
-
-! run_nml: general switches ---------------------------------------------------
-&run_nml
- ltestcase                   =                      .TRUE.	  ! idealized testcase runs
- num_lev                     =         90, 60, 54, 60, 54         ! number of full levels (atm.) for each domain
- lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                  ${nsteps}         ! number of time steps of this run
- dtime                       =                        288         ! timestep in seconds
- ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
- ltransport                  =                      .TRUE.	  ! compute large-scale tracer transport
- ntracer                     =                          5	  ! number of advected tracers
- iforcing                    =                          3	  ! forcing of dynamics and transport by parameterized processes
- msg_level                   =                          7	  ! controls how much printout is written during runtime
- ltimer                      =                     .FALSE.	  ! timer for monitoring the runtime of specific routines
- timers_level                =                         10	  ! performance timer granularity
- output                      =                       "nml"        ! main switch for enabling/disabling components of the model output
-/
-
 ! sleve_nml: vertical level specification -------------------------------------
 &sleve_nml
  min_lay_thckn               =                         20.0       ! layer thickness of lowermost layer
@@ -326,7 +323,7 @@ cat > NAMELIST_NWP << EOF
  ivadv_tracer                =              3, 3, 3, 3, 3	  ! tracer specific method to compute vertical advection
  itype_hlimit                =           3, 4, 4, 4, 4, 0	  ! type of limiter for horizontal transport
  ihadv_tracer                =          52, 2, 2, 2, 2, 0	  ! tracer specific method to compute horizontal advection
- llsq_svd                    =                      .TRUE.	  ! use SV decompositionfor least squares design matrix
+ llsq_svd                    =                      .TRUE.	  ! use SV decomposition for least squares design matrix
  beta_fct                    =                          1.005     ! factor of allowed over-/undershooting in monotonous limiter
 /
 
