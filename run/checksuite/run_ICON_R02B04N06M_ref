@@ -142,8 +142,6 @@ cat > NAMELIST_NWP << EOF
  hdiff_smag_fac              =                          0.015	  ! scaling factor for Smagorinsky diffusion
  lhdiff_vn                   =                      .TRUE.	  ! diffusion on the horizontal wind field
  lhdiff_temp                 =                      .TRUE.	  ! diffusion on the temperature field
- hdiff_multfac               =                          1.0	  ! multiplication factor of normalized diffusion coefficient
- hdiff_tv_ratio              =                          1.0	  ! ratio of diffusion coefficients for temperature and normal wind
 /
 
 ! dynamics_nml: dynamical core -----------------------------------------------
@@ -173,10 +171,9 @@ cat > NAMELIST_NWP << EOF
 ! gridref_nml: grid refinement and nesting -----------------------------------
 &gridref_nml
  grf_intmethod_e             =                          6         ! interpolation method for grid refinement
- grf_scalfbk                 =                          1	  ! feedback method for dynamical scalar variables
- grf_tracfbk                 =                          1	  ! feedback method for tracer variables
+ grf_scalfbk                 =                          2	  ! feedback method for dynamical scalar variables
+ grf_tracfbk                 =                          2	  ! feedback method for tracer variables
  denom_diffu_v               =                        150.0	  ! Deniminator for lateral boundary diffusion of velocity
- l_mass_consvcorr            =                     .FALSE.        ! .TRUE.=apply mass conservation correction in feedback
 /
 
 ! io_nml: general switches for model I/O -------------------------------------
