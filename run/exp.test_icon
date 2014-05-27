@@ -11,14 +11,13 @@ if [ ! -d "${EXP_ORI}" ]; then
   echo 'no experiment '${EXP_ORI}' found'
   exit 1
 fi
-if [ ! -f ${EXP_ORI}/restart.info -o ! -f ${EXP_ORI}/${EXP_ORI}_restart_atm_${RESTART_DATE}.nc ]; then
+if [ ! -f ${EXP_ORI}/${EXP_ORI}_restart_atm_${RESTART_DATE}.nc ]; then
   echo -e "\033[31mThe run ${EXP_ORI} did not write any restart at ${RESTART_DATE}\033[00m"
   exit 1
 fi
 rm -rf ${EXP_NEW}
 mkdir ${EXP_NEW}
 cd ${EXP_NEW}
-cp ../${EXP_ORI}/restart.info .
 cp ../${EXP_ORI}/${EXP_ORI}_restart_atm_${RESTART_DATE}.nc .
 ln -sf ${EXP_ORI}_restart_atm_${RESTART_DATE}.nc restart_atm_DOM01.nc
 }

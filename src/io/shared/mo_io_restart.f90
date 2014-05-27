@@ -162,10 +162,6 @@ MODULE mo_io_restart
   INTEGER :: private_nv  = -1
   INTEGER :: private_ne  = -1
   !
-  !
-  CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
-  !
-  !
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_restart'
   !

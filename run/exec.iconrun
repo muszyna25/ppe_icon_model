@@ -122,7 +122,6 @@ if  [ x$restart_atmo_from != "x" ] ; then
 #  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm_DOM01.nc
   cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
   ln -s cp_restart_atm.nc restart_atm_DOM01.nc
-  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info .
   restart=".true."
 fi
 if  [ x$restart_ocean_from != "x" ] ; then
@@ -130,7 +129,6 @@ if  [ x$restart_ocean_from != "x" ] ; then
 #  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
   cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} cp_restart_oce_DOM01.nc
   ln -s cp_restart_oce_DOM01.nc restart_oce_DOM01.nc
-  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info .
   restart=".true."
 fi
 #-----------------------------------------------------------------------------
