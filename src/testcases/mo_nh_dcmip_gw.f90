@@ -57,14 +57,12 @@ MODULE mo_nh_dcmip_gw
    PUBLIC :: gw_clat           ! namelist variable
    PUBLIC :: gw_u0             ! namelist variable
    PUBLIC :: gw_delta_temp     ! namelist variable
-   PUBLIC :: fcfugal           ! additional R.H.S for dycore
 
    REAL(wp) :: gw_clat                    ! Lat of perturbation center [deg]
    REAL(wp) :: gw_u0                      ! maximum amplitude
                                           ! of the zonal wind          [m s^-1]
    REAL(wp) :: gw_delta_temp              ! Max amplitude of perturbation [K]
 
-   REAL(wp), ALLOCATABLE :: fcfugal(:,:)  ! centrifugal force
 
 !--------------------------------------------------------------------
 
@@ -468,16 +466,6 @@ CONTAINS
     i_nchdom = MAX(1,p_patch%n_childdom)
 
 
-
-    ! Attention: this does only work for the global patch!
-    ALLOCATE( fcfugal(nproma,p_patch%nblks_e), STAT=ist )
-    IF(ist/=SUCCESS)THEN
-       CALL finish('mo_nh_dcmip_gw:init_nh_gw_analyt',  &
-        &      ' allocation of centrifugal force failed!')
-    END IF   
-    fcfugal(:,:) = 0._wp
-
-
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!    I: Init background state     !!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -862,7 +850,8 @@ CONTAINS
 
 
         !
-        ! compute centrifugal force at edge (normal component)
+        ! compute centrifugal force at edge (normal component): stored on ddt_vn_phy in order to be
+        ! added as an external term to the right-hand-side of the horizontal momentum equation
         !
         i_rlstart = 1
         i_rlend   = min_rledge
@@ -876,11 +865,12 @@ CONTAINS
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, i_rlstart, i_rlend)
 
-
-          DO je = i_startidx, i_endidx
-            z_lat = p_patch%edges%center(je,jb)%lat
-            fcfugal(je,jb) = -(zomega**2)*grid_sphere_radius*COS(z_lat)*SIN(z_lat) &
-              &            * p_patch%edges%primal_normal(je,jb)%v2
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              z_lat = p_patch%edges%center(je,jb)%lat
+              p_nh_diag%ddt_vn_phy(je,jk,jb) = -(zomega**2)*grid_sphere_radius*COS(z_lat)*SIN(z_lat) &
+                &            * p_patch%edges%primal_normal(je,jb)%v2
+            ENDDO
           ENDDO
         ENDDO
 
