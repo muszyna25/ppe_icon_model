@@ -39,7 +39,6 @@ MODULE mo_master_nml
     CHARACTER(len=132) :: model_name
 
     CHARACTER(len=filename_max) :: model_namelist_filename
-    CHARACTER(len=filename_max) :: model_restart_info_filename
 
     INTEGER :: model_type
     INTEGER :: model_min_rank
@@ -78,7 +77,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     CHARACTER(len=132) :: model_name
     CHARACTER(len=filename_max) :: model_namelist_filename
-    CHARACTER(len=filename_max) :: model_restart_info_filename
     INTEGER :: model_type
     INTEGER :: model_min_rank
     INTEGER :: model_max_rank
@@ -88,7 +86,6 @@ CONTAINS
     NAMELIST /master_model_nml/    &
       model_name,                  &
       model_namelist_filename,     &
-      model_restart_info_filename, &
       model_type,                  &
       model_min_rank,              &
       model_max_rank,              &
@@ -136,7 +133,6 @@ CONTAINS
       ! default values
       model_name=''
       model_namelist_filename=''
-      model_restart_info_filename=''
       model_type=-1
       model_min_rank=0
       model_max_rank=-1 
@@ -158,10 +154,6 @@ CONTAINS
       CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
       master_nml_array(no_of_models)%model_namelist_filename = &
         &  TRIM(with_keywords(keywords, model_namelist_filename))
-
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords_restart)
-      master_nml_array(no_of_models)%model_restart_info_filename=&
-        & TRIM(with_keywords(keywords_restart, model_restart_info_filename))
 
       master_nml_array(no_of_models)%model_type              = model_type
       master_nml_array(no_of_models)%model_min_rank          = model_min_rank
