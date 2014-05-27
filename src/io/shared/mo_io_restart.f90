@@ -48,12 +48,6 @@
 !!    Note:
 !!    -  The domain-dependent suffix "...DOMxx" is also required for non-nested setups.
 !!
-!! 3. For domain 1: 
-!!
-!!    Restart info file (ASCII text)
-!!    -----------------------------
-!!    containing the grid file name
-!!
 !! --------------------------------------------------------------------------------
 !!
 !OPTION! -pvctl conflict
@@ -112,18 +106,8 @@ MODULE mo_io_restart
 
   INCLUDE 'netcdf.inc'
   !
-  PUBLIC :: set_restart_time
-  PUBLIC :: set_restart_vct
-  PUBLIC :: set_restart_depth_lnd
-  PUBLIC :: set_restart_height_snow
-  PUBLIC :: init_restart
-  PUBLIC :: open_writing_restart_files
   PUBLIC :: create_restart_file
-  PUBLIC :: close_writing_restart_files
   PUBLIC :: read_restart_files
-  PUBLIC :: finish_restart
-  PUBLIC :: write_restart_info_file
-  PUBLIC :: read_restart_info_file
   PUBLIC :: read_restart_header
   !
   TYPE t_restart_files
@@ -188,96 +172,17 @@ MODULE mo_io_restart
   !------------------------------------------------------------------------------------------------
 CONTAINS
   !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE write_restart_info_file
-    INTEGER :: nrf
-    nrf = find_next_free_unit(10,100)
-    IF (my_process_is_mpi_workroot()) THEN
-      OPEN(nrf,file=restart_info_file)
-      WRITE(nrf, '(a,a)')                &
-           'gridspec: grid_D01_atm.nc', &
-           ' ! here should be the physical filename including path'
-      CLOSE(nrf)
-    ENDIF
-    CALL message('',restart_info_file//' written')
-  END SUBROUTINE write_restart_info_file
-  !
-  SUBROUTINE read_restart_info_file(gridspecfile, status)
-    LOGICAL,          INTENT(out) :: status
-    CHARACTER(len=*), INTENT(out) :: gridspecfile
-    !
-    LOGICAL :: lexist
-    INTEGER :: delimiter, comment
-    INTEGER :: nrf, ios
-    CHARACTER(len=256) :: iomsg, functionality
-    CHARACTER(len=filename_max) :: buffer, line
-    !
-    CALL message('',restart_info_file//' to be read')
-    status = .FALSE. ! initially
-    gridspecfile = ''
-    !
-    INQUIRE(FILE=restart_info_file,exist=lexist)
-    IF (.NOT. lexist) THEN
-      CALL finish('read_restart_info_file',restart_info_file//' is missing')
-    ENDIF
-    !
-    nrf = find_next_free_unit(10,100)
-    ! just to be pedantic: status='old'
-    OPEN(nrf,file=restart_info_file,STATUS='OLD')
-    for_all_lines: DO
-#ifdef __SX__
-      READ(nrf, '(a)', IOSTAT=ios) buffer
-      iomsg = ' unknown - sxf90 does not support IOMSG'
-#else
-      READ(nrf, '(a)', IOSTAT=ios, IOMSG=iomsg) buffer
-#endif
-      IF (ios < 0) THEN
-        EXIT ! information missing
-      ELSE IF (ios > 0) THEN
-        CALL finish('read_restart_info_file',restart_info_file//' read error '//TRIM(iomsg))
-      END IF
-      line = ADJUSTL(buffer)
-      delimiter = INDEX(line,':')
-      IF (delimiter == 0) CYCLE
-      functionality = TRIM(line(1:delimiter))
-      IF (functionality(1:8) == 'gridspec') THEN
-        comment = INDEX(line,'!')
-        gridspecfile = TRIM(ADJUSTL(line(delimiter+1:comment-1)))
-        status = .TRUE.
-        EXIT
-      ENDIF
-    ENDDO for_all_lines
-    CLOSE(nrf)
-    !
-  END SUBROUTINE read_restart_info_file
-  !
-  !------------------------------------------------------------------------------------------------
   !> Reads attributes and namelists for all available domains from restart file.
-  SUBROUTINE read_restart_header(modeltype_str, grid_file_name)
+  SUBROUTINE read_restart_header(modeltype_str)
     CHARACTER(LEN=*), INTENT(IN)  :: modeltype_str
-    CHARACTER(LEN=*), INTENT(OUT) :: grid_file_name
     ! local variables
-    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::read_restart_header"
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::read_restart_header"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
-    LOGICAL :: lsuccess, lexists
-    INTEGER :: idom, total_dom, fileID, vlistID, root_pe
+    LOGICAL                        :: lsuccess, lexists
+    INTEGER                        :: idom, total_dom, fileID, vlistID, root_pe
 
     ! rank of broadcast root PE
     root_pe = 0
-
-    ! First read the restart master file (ASCII format) to find out
-    ! which NetCDF files the model should read.
-
-    CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-
-    IF (lsuccess) THEN
-      CALL message( TRIM(routine),                &
-        & 'Running model in restart mode. '       &
-        & //'Horizontal grid should be read from '&
-        & //TRIM(grid_file_name) )
-    ELSE
-      CALL finish(TRIM(routine),'Failed to read restart info file')
-    END IF
 
     idom = 1
     rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
@@ -2025,9 +1930,7 @@ CONTAINS
         CALL message('reading_restart_file','Variable '//TRIM(name)//' not defined.')
       ENDDO for_all_vars
       !
-      IF (my_process_is_mpi_workroot()) THEN
-        CALL streamClose(fileID)
-      END IF
+      IF (my_process_is_mpi_workroot())  CALL streamClose(fileID)
       !
     ENDDO for_all_files
     !

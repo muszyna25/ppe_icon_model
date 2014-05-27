@@ -58,7 +58,6 @@ MODULE mo_ha_stepping
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_total, timer_intrp_diagn
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
-  USE mo_io_restart,          ONLY: write_restart_info_file
   
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
   USE mo_parallel_config,     ONLY: use_icon_comm, use_async_restart_output
@@ -411,10 +410,6 @@ CONTAINS
                                     & jstep, "atm", vct )
           END DO
         ENDIF
-
-        ! Create the master (meta) file in ASCII format which contains
-        ! info about which files should be read in for a restart run.
-        CALL write_restart_info_file
       END IF
     END IF
 

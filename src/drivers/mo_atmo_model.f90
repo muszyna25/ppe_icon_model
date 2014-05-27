@@ -199,9 +199,8 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
     ! local variables
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:init_atmo_model"
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
-    INTEGER                        :: jg, jgp, jstep0, error_status
-    TYPE(t_sim_step_info)          :: sim_step_info  
+    INTEGER                 :: jg, jgp, jstep0, error_status
+    TYPE(t_sim_step_info)   :: sim_step_info  
 
     ! set mtime-Calendar
     CALL setCalendar(PROLEPTIC_GREGORIAN)
@@ -214,7 +213,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     IF (is_restart_run()) THEN
-      CALL read_restart_header("atm", grid_file_name)
+      CALL read_restart_header("atm")
     END IF ! is_restart_run()
 
     !---------------------------------------------------------------------

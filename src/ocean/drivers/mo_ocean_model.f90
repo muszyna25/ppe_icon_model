@@ -144,11 +144,10 @@ CONTAINS
     INTEGER :: jg
     TYPE(t_sim_step_info) :: sim_step_info
     INTEGER :: jstep0
-    CHARACTER(LEN=max_char_length) :: grid_file_name
 
     !-------------------------------------------------------------------
     IF (is_restart_run()) THEN
-      CALL read_restart_header("oce", grid_file_name)
+      CALL read_restart_header("oce")
     END IF
 
     !-------------------------------------------------------------------

@@ -52,7 +52,7 @@ MODULE mo_hydro_ocean_run
   USE mo_oce_math_operators,     ONLY: calculate_thickness, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
-  USE mo_io_restart,             ONLY: write_restart_info_file, create_restart_file
+  USE mo_io_restart,             ONLY: create_restart_file
   USE mo_oce_bulk,               ONLY: update_surface_flux
   USE mo_sea_ice,                ONLY: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
@@ -410,9 +410,6 @@ CONTAINS
             &  ocean_Zlevels=n_zlev,                                         &
             &  ocean_Zheight_CellMiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
             &  ocean_Zheight_CellInterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-          ! Cr                      eate the master (meta) file in ASCII format which contains
-          ! info about which files should be read in for a restart run.
-          CALL write_restart_info_file
         END IF
 
         ! check cfl criterion

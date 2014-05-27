@@ -79,9 +79,9 @@ MODULE mo_nh_stepping
                                          prep_outer_bdy_nudging
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday
-  USE mo_io_restart,               ONLY: write_restart_info_file, create_restart_file
+  USE mo_io_restart,               ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,          ONLY:  SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
+  USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inwp, iecham, itturb, itgscp, itsfc, ippm_v,              &
     &                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS !, icosmo
@@ -738,9 +738,6 @@ MODULE mo_nh_stepping
                                   & opt_output_jfile           = output_jfile )
         END DO
 
-        ! Create the master (meta) file in ASCII format which contains
-        ! info about which files should be read in for a restart run.
-        CALL write_restart_info_file
 #ifdef MESSY
         CALL messy_channel_write_output(IOMODE_RST)
 !        CALL messy_ncregrid_write_restart

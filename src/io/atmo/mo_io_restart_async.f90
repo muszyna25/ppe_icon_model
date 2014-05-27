@@ -624,7 +624,6 @@ CONTAINS
           CALL restart_write_var_list(p_pd)
           CALL create_restart_file_link(p_pd%restart_file, p_pd%restart_proc_id, p_pd%id, &
             &                           p_pd%l_opt_ndom, p_pd%opt_ndom )
-          CALL create_restart_info_file(p_pd%restart_file)
           CALL close_restart_file(p_pd%restart_file)
 
         ENDIF
@@ -3455,26 +3454,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE create_restart_file_link
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Creates an information file from the given restart file.
-  !
-  SUBROUTINE create_restart_info_file(rf)
-
-    TYPE (t_restart_file), INTENT(IN)  :: rf
-    INTEGER :: nrf
-    CHARACTER(LEN=20)                  :: info_file_name
-    CHARACTER(LEN=*), PARAMETER        :: subname = MODUL_NAME//'create_restart_info_file'
-
-    nrf = find_next_free_unit(10,100)
-    info_file_name = TRIM(rf%linkprefix)//'.info'
-    OPEN(nrf, file=info_file_name)
-    WRITE(nrf, '(4a)')'gridspec: ',TRIM(rf%linkname),' ! ',TRIM(rf%filename)
-    CLOSE(nrf)
-    CALL message('',TRIM(info_file_name)//' written')
-
-  END SUBROUTINE create_restart_info_file
 
 #endif
 
