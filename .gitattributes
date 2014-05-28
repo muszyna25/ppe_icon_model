@@ -1094,7 +1094,7 @@ scripts/postprocessing/tools/splitHemisphere.rb -text
 scripts/postprocessing/tools/tsrhoplot.sh -text
 scripts/postprocessing/tools/water_budget.s -text
 scripts/postprocessing/tools/xsec.py -text
-scripts/preprocessing/IFS2ICON_README.TXT -text
+scripts/preprocessing/README_MARS4ICON.TXT -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
