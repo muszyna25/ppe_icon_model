@@ -298,7 +298,7 @@ CONTAINS
     CALL ICON_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_points,1:5), info, ierror )
 #endif
     IF ( info > 0 ) THEN
-      buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
+      buffer(nbr_hor_points+1:nbr_points,1:5) = 0.0_wp
       prm_field(jg)%hi  (:,1,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
       prm_field(jg)%hs  (:,1,:) = RESHAPE (buffer(:,2), (/ nproma, p_patch%nblks_c /) )
       prm_field(jg)%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, p_patch%nblks_c /) )
