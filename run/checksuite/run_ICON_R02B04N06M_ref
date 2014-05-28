@@ -12,7 +12,7 @@
 # Cray batch script for the ICON model
 #
 # Initializes the Jablonowski Williamson test case with a 
-# mountain instead of the wind perturbation.
+# mountain instead of the wind perturbation. 
 # Setup with multiple nests.
 #
 # Platform: Cray XC30
