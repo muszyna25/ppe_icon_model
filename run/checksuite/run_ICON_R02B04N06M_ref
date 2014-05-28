@@ -18,7 +18,7 @@
 # Platform: Cray XC30
 #           xce.dwd.de
 #
-# 05/2014 : F. Prill, DWD
+# 05/2014 : G. Zaengl, F. Prill, DWD
 #
 # ----------------------------------------------------------------------------
 # ============================================================================
@@ -54,7 +54,7 @@ MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/control_model
 
 
 # ----------------------------------------------------------------------------
-# copy input data: grids, external parameters
+# copy input data: grids, external parameters, model
 # ----------------------------------------------------------------------------
 
 # the directory for the experiment will be created, if not already there
@@ -63,6 +63,7 @@ if [ ! -d $EXPDIR ]; then
 fi
 cd ${EXPDIR}
 
+# grid files
 ln -sf ${GRIDDIR}/iconR2B03_DOM00.nc iconR2B03_DOM00.nc
 ln -sf ${GRIDDIR}/iconR2B04_DOM01.nc iconR2B04_DOM01.nc
 ln -sf ${GRIDDIR}/iconR2B05_DOM02.nc iconR2B05_DOM02.nc
