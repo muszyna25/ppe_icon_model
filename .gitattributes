@@ -965,6 +965,7 @@ scripts/postprocessing/climplot/zondia-seas_def_title -text
 scripts/postprocessing/climplot/zondia_def_axes -text
 scripts/postprocessing/climplot/zondia_def_contour -text
 scripts/postprocessing/climplot/zondia_seas_icon_batch.met -text
+scripts/postprocessing/dwd_release.xslt -text
 scripts/postprocessing/plotcatalog/animate.gif -text
 scripts/postprocessing/plotcatalog/cat-links.html -text
 scripts/postprocessing/plotcatalog/cat.koehler.icon.L35.xml -text
