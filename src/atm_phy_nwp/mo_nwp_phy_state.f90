@@ -1141,12 +1141,42 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
           & ldims=shape2d, lrestart=.FALSE.,                                    &
           & in_group=groups("rad_vars"))
 
+        ! &      diag%trsol_up_toa(nproma,nblks_c)
+        cf_desc    = t_cf_var('trsol_up_toa', '', 'shortwave upward transmisivity at TOA', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'trsol_up_toa', diag%trsol_up_toa,                    &
+          & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,                &
+          & ldims=shape2d, lrestart=.FALSE.                                     )
+
+        ! &      diag%trsol_up_sfc(nproma,nblks_c)
+        cf_desc    = t_cf_var('trsol_up_sfc', '', 'shortwave upward transmisivity at surface', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'trsol_up_sfc', diag%trsol_up_sfc,                    &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+          & ldims=shape2d, lrestart=.FALSE.                                     )
+
+        ! &      diag%trsol_dn_sfc_diff(nproma,nblks_c)
+        cf_desc    = t_cf_var('trsol_dn_sfc_diff', '', 'shortwave diffuse downward transmisivity at surface', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'trsol_dn_sfc_diff', diag%trsol_dn_sfc_diff,   &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+          & ldims=shape2d, lrestart=.FALSE.                                     )
+
+
         ! &      diag%lwflxsfc(nproma,nblks_c)
         cf_desc    = t_cf_var('thb_s', 'W m-2', 'longwave net flux at surface', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'thb_s', diag%lwflxsfc,                        &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d,                                                      &
+          & in_group=groups("rad_vars"))
+
+        ! &      diag%lwflx_up_sfc(nproma,nblks_c)
+        cf_desc    = t_cf_var('thu_s', 'W m-2', 'longwave upward flux at surface', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 5, 4, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'thu_s', diag%lwflx_up_sfc,                    &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+          & ldims=shape2d,  lrestart=.FALSE.,                                   &
           & in_group=groups("rad_vars"))
 
 
@@ -1387,13 +1417,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
         !------------------
         !Radiation 3D variables
 
-        ! &      diag%lwflxclr(nproma,nlev,nblks_c)
-        cf_desc    = t_cf_var('lwflxclr', 'W m-2', 'longwave clear-sky net flux', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(0, 5, 6, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'lwflxclr', diag%lwflxclr,                   &
-          & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-          & ldims=shape3dkp1, lrestart=.FALSE. )
-
         ! &      diag%lwflxall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('lwflxall', 'W m-2 ', 'longwave net flux', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1401,13 +1424,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
           & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
           & ldims=shape3dkp1 )
 
-        ! &      diag%trsolclr(nproma,nlev,nblks_c)
-        cf_desc    = t_cf_var('trsolclr', '', 'shortwave clear-sky net tranmissivity', &
-             &                DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'trsolclr', diag%trsolclr,                   &
-          & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-          & ldims=shape3dkp1, lrestart=.FALSE. )
 
         ! &      diag%trsolall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('trsolall', '', 'shortwave net tranmissivity', DATATYPE_FLT32)

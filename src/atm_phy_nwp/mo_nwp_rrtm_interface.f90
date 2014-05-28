@@ -40,7 +40,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nonhydro_types,       ONLY: t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
-  USE mo_radiation,            ONLY: radiation
+  USE mo_radiation,            ONLY: radiation, radiation_nwp
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_srtm_config,          ONLY: jpsw
@@ -568,7 +568,8 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
     TYPE(t_nh_metrics),         INTENT(in)   :: p_metrics
-    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: aclcov(nproma,pt_patch%nblks_c),     &
+               trsol_clr_sfc(nproma,pt_patch%nblks_c)
 
 
     ! Local scalars:
@@ -619,7 +620,7 @@ CONTAINS
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
 
-      CALL radiation(               &
+      CALL radiation_nwp(               &
                               !
                               ! input
                               ! -----
@@ -666,12 +667,14 @@ CONTAINS
                               ! output
                               ! ------
                               !
-        & cld_cvr    =aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
-        & emter_clr  =prm_diag%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-        & trsol_clr  =prm_diag%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-        & emter_all  =prm_diag%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-        & trsol_all  =prm_diag%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
-        & opt_halo_cosmu0 = .FALSE. )
+        & cld_cvr    =  aclcov             (:,jb),  &     !< out cloud cover in a column [m2/m2]
+        & flx_lw_net =  prm_diag%lwflxall(:,:,jb), &      !< out terrestrial flux, all sky, net down
+        & trsol_net  =  prm_diag%trsolall(:,:,jb), &      !< out solar transmissivity, all sky, net down
+        & flx_uplw_sfc = prm_diag%lwflx_up_sfc(:,jb), &   !< out longwave upward flux at surface
+        & trsol_up_toa = prm_diag%trsol_up_toa(:,jb), &   !< out upward solar transmissivity at TOA
+        & trsol_up_sfc = prm_diag%trsol_up_sfc(:,jb), &   !< out upward solar transmissivity at surface
+        & trsol_dn_sfc_diffus = prm_diag%trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
+        & trsol_clr_sfc = trsol_clr_sfc(:,jb)   )  !< out clear-sky net transmissvity at surface (used with reduced grid only)
 
       ENDDO ! blocks
 
@@ -742,10 +745,15 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq5(:,:,:)
     ! Output fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aclcov   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxclr (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolclr (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflx_up_sfc   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_up_toa   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_up_sfc   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_dn_sfc_diff(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_clr_sfc   (:,:)
+
+
     ! Pointer to parent patach or local parent patch for reduced grid
     TYPE(t_patch), POINTER       :: ptr_pp
 
@@ -836,9 +844,12 @@ CONTAINS
         zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,3), &
         zrg_clc      (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_aclcov   (nproma,          nblks_par_c),   &
-        zrg_lwflxclr (nproma,nlev_rg+1,nblks_par_c),   &
+        zrg_lwflx_up_sfc   (nproma,    nblks_par_c),   &
+        zrg_trsol_up_toa   (nproma,    nblks_par_c),   &
+        zrg_trsol_up_sfc   (nproma,    nblks_par_c),   &
+        zrg_trsol_dn_sfc_diff(nproma,  nblks_par_c),   &
+        zrg_trsol_clr_sfc    (nproma,  nblks_par_c),   &
         zrg_lwflxall (nproma,nlev_rg+1,nblks_par_c),   &
-        zrg_trsolclr (nproma,nlev_rg+1,nblks_par_c),   &
         zrg_trsolall (nproma,nlev_rg+1,nblks_par_c)    )
 
       rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
@@ -1055,7 +1066,7 @@ CONTAINS
         ! Type of convection is required as INTEGER field
         zrg_ktype(1:i_endidx,jb) = NINT(zrg_rtype(1:i_endidx,jb))
 
-        CALL radiation(               &
+        CALL radiation_nwp(               &
                                 !
                                 ! input
                                 ! -----
@@ -1102,12 +1113,15 @@ CONTAINS
                                 ! output
                                 ! ------
                                 !
-          & cld_cvr    =zrg_aclcov    (:,jb)  ,&!< out   cloud cover in a column [m2/m2]
-          & emter_clr  =zrg_lwflxclr(:,:,jb)  ,&!< out   LW (terrestrial) flux,clear sky, net down
-          & trsol_clr  =zrg_trsolclr(:,:,jb)  ,&!< out   solar transmissivity, clear sky, net down
-          & emter_all  =zrg_lwflxall(:,:,jb)  ,&!< out   terrestrial flux, all sky, net down
-          & trsol_all  =zrg_trsolall(:,:,jb)  ,&!< out   solar transmissivity, all sky, net down
-          & opt_halo_cosmu0 = .FALSE. )
+          & cld_cvr    =  zrg_aclcov    (:,jb), &      !< out   cloud cover in a column [m2/m2]
+          & flx_lw_net =  zrg_lwflxall(:,:,jb), &      !< out terrestrial flux, all sky, net down
+          & trsol_net  =  zrg_trsolall(:,:,jb), &      !< out solar transmissivity, all sky, net down
+          & flx_uplw_sfc = zrg_lwflx_up_sfc(:,jb), &   !< out longwave upward flux at surface
+          & trsol_up_toa = zrg_trsol_up_toa(:,jb), &   !< out upward solar transmissivity at TOA
+          & trsol_up_sfc = zrg_trsol_up_sfc(:,jb), &   !< out upward solar transmissivity at surface
+          & trsol_dn_sfc_diffus = zrg_trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
+          & trsol_clr_sfc = zrg_trsol_clr_sfc(:,jb)   )  !< out clear-sky net transmissvity at surface (used with reduced grid only)
+
 
       ENDDO ! blocks
 
@@ -1115,13 +1129,13 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-      CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                             &
-        &  nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr,                 &
-        & zrg_trsolall, zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,      &
-        & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov,                       &
-        & prm_diag%lwflxclr, prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
-
-
+      CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                                     &
+        &  nlev_rg, zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_up_sfc,  &
+        &  zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff,                             &
+        &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,                           &
+        &  zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,           &
+        &  prm_diag%trsolall, prm_diag%lwflx_up_sfc, prm_diag%trsol_up_toa, prm_diag%trsol_up_sfc,&
+        &  prm_diag%trsol_dn_sfc_diff )
 
       ! Debug output of radiation output fields
       IF (msg_level >= 16) THEN
@@ -1168,12 +1182,12 @@ CONTAINS
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
         zrg_albdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,        &
         zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld, zrg_clc,    &
-        zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,               &
+        zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_lwflx_up_sfc, zrg_trsol_up_toa,       &
+        zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff, zrg_trsol_clr_sfc,                       &
         zrg_fr_land,zrg_fr_glac,zrg_emis_rad)
       
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------
-
 
   !---------------------------------------------------------------------------------------
   !>
@@ -1467,8 +1481,8 @@ CONTAINS
     ! aclcov is also output but not used
     CALL send_rrtm_output(        &
       & rrtm_data               , &
-      & prm_diag%lwflxclr(:,:,:), &!< out terrestrial flux, clear sky, net down
-      & prm_diag%trsolclr(:,:,:), &!< out sol. transmissivity, clear sky, net down
+      & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
+      & prm_diag%trsolall(:,:,:), &!< out sol. transmissivity, all sky, net down
       & prm_diag%lwflxall(:,:,:), &!< out terrestrial flux, all sky, net down
       & prm_diag%trsolall(:,:,:))  !< out solar transmissivity, all sky, net down
     
@@ -1483,22 +1497,6 @@ CONTAINS
           &                         i_startidx, i_endidx, rl_start, rl_end)
                
         DO jc = i_startidx, i_endidx
-
-          check_diff = MAXVAL(ABS(prm_diag%lwflxclr(jc,:,jb) - test_lwflxclr(jc,:,jb)))
-          IF (check_diff > 0.0_wp) THEN
-            write(0,*) " jc,jb=", jc,jb
-            write(0,*) " prm_diag%lwflxclr=", prm_diag%lwflxclr(jc,:,jb)
-            write(0,*) " test_lwflxclr=", test_lwflxclr(jc,:,jb)
-            CALL finish(method_name,"lwflxclr differs")
-          ENDIF
-        
-          check_diff = MAXVAL(ABS(prm_diag%trsolclr(jc,:,jb) - test_trsolclr(jc,:,jb)))
-          IF (check_diff > 0.0_wp) THEN
-            write(0,*) " jc,jb=", jc,jb
-            write(0,*) " prm_diag%trsolclr=", prm_diag%trsolclr(jc,:,jb)
-            write(0,*) " test_trsolclr=", test_trsolclr(jc,:,jb)
-            CALL finish(method_name,"trsolclr differs")
-          ENDIF
         
           check_diff = MAXVAL(ABS(prm_diag%lwflxall(jc,:,jb) - test_lwflxall(jc,:,jb)))
           IF (check_diff > 0.0_wp) THEN

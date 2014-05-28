@@ -188,12 +188,14 @@ MODULE mo_nwp_phy_types
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
       &  tsfctrad(:,:),        & !! surface temperature at trad [K]
-      &  lwflxclr(:,:,:),      & !! longwave clear-sky net flux [W/m2]
       &  lwflxall(:,:,:),      & !! longwave net flux           [W/m2]
       &  lwflxsfc(:,:),        & !! longwave net flux at surface [W/m2]
+      &  lwflx_up_sfc(:,:),    & !! longwave upward flux at surface [W/m2]
       &  lwflxsfc_t(:,:,:),    & !! tile-based longwave net flux at surface [W/m2]
-      &  trsolclr(:,:,:),      & !! shortwave clear-sky net tranmissivity []
-      &  trsolall(:,:,:),      & !! shortwave net tranmissivity []
+      &  trsolall(:,:,:),      & !! shortwave net tranmissivity (i.e. net flux normalized by irradiance) []
+      &  trsol_up_toa(:,:),    & !! normalized shortwave net upward flux at the top of the atmosphere
+      &  trsol_up_sfc(:,:),    & !! normalized shortwave net upward flux at the surface
+      &  trsol_dn_sfc_diff(:,:),& !! normalized shortwave diffuse downward radiative flux at the surface
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]
       &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]

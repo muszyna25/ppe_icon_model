@@ -55,7 +55,8 @@ CONTAINS
     &  aer_tau_sw_vr   , aer_cg_sw_vr    , aer_piz_sw_vr                     , &
     &  ssi             , z_mc                                                , &
                                 !  output
-    &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr )
+    &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
+    &  flxd_dff_sfc                                                            )
 !!$    &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
 !!$    &  flxd_nir_all_sfc, flxd_vis_all_sfc, flxu_nir_all_toa, flxu_vis_all_toa, &
 !!$    &  flxd_nir_clr_sfc, flxd_vis_clr_sfc, flxu_nir_clr_toa, flxu_vis_clr_toa, &
@@ -124,6 +125,8 @@ CONTAINS
 !!$    REAL(wp), INTENT(out)   :: dff_frc_vis_sfc(kbdim)    !< fraction of diffuse visible
 !!$    REAL(wp), INTENT(out)   :: dff_frc_par_sfc(kbdim)    !< fraction of diffuse PAR at the surface
 
+    REAL(wp), INTENT(out), OPTIONAL :: flxd_dff_sfc(kbdim)   !< surface downward diffuse rad
+
     !-- Local variables
 
     REAL(wp) :: z_colmol(kbdim,klev) ,  z_co2mult(kbdim,klev)
@@ -157,7 +160,7 @@ CONTAINS
     INTEGER  :: indfor(kbdim,klev), indself(kbdim,klev)
     INTEGER  :: jp(kbdim,klev), jt(kbdim,klev), jt1(kbdim,klev)
 
-    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim)
+    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim), zflxd_diff(kbdim)
     REAL(wp) :: zalbd(kbdim,ksw) , zalbp(kbdim,ksw)
     REAL(wp) :: frc_vis(ksw), frc_nir(ksw)
 !!$    REAL(wp) :: frc_par, zfvis, zfnir, zfpar, total
@@ -167,6 +170,7 @@ CONTAINS
     INTEGER(i4) :: icount, ic, jl, jk, jsw, jb
     REAL(wp) :: zrmu0(kbdim)
     REAL(wp) :: ccmax, ccran, alpha
+    LOGICAL  :: lcomp_diffuse
 
     !-----------------------------------------------------------------------
     !-- calculate information needed ny the radiative transfer routine
@@ -209,6 +213,15 @@ CONTAINS
         flxd_sw_clr(jl,jk) = 0.0_wp
       END DO
     END DO
+
+    IF (PRESENT(flxd_dff_sfc)) THEN
+      lcomp_diffuse = .TRUE.
+      DO jl = 1, kproma
+        flxd_dff_sfc(jl) = 0.0_wp
+      ENDDO
+    ELSE
+      lcomp_diffuse = .FALSE.
+    ENDIF
 
     IF (icount == 0) RETURN
 
@@ -404,6 +417,10 @@ CONTAINS
 !!$      dff_frc_par_sfc(jl)    = 0.0_wp
 !!$    ENDDO
 
+    IF (lcomp_diffuse) THEN
+      zflxd_diff(:) = 0._wp
+    ENDIF
+
     DO jb = 1,ksw
 
       ! all bands
@@ -422,7 +439,12 @@ CONTAINS
         ENDDO
       ENDDO
 
-
+      IF (lcomp_diffuse) THEN ! compute diffuse part of surface radiation
+        DO ic = 1, icount
+          zflxd_diff(ic) = zflxd_diff(ic) + bnd_wght(jb)*( zcloud(ic)*(zbbfd(ic,klev+1,jb)-zsudu(ic,jb))  &
+            &                                            + zclear(ic)*(zbbcd(ic,klev+1,jb)-zsuduc(ic,jb)) )
+        ENDDO
+      ENDIF
 
 !!$      ! PAR fraction
 !!$      IF (ksw /= 14 ) CALL finish ('srtm_srtm_224gp', &
@@ -532,6 +554,13 @@ CONTAINS
         ENDDO
       ENDDO
 
+
+      IF (lcomp_diffuse) THEN ! compute diffuse part of surface radiation
+        DO ic = 1, icount
+          jl = idx(ic)
+          flxd_dff_sfc(jl) = zflxd_diff(ic)
+        ENDDO
+      ENDIF
 
 !!$    DO jl=1,kproma
 !!$      total = flxd_nir_all_sfc(jl) + zeps

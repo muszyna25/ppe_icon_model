@@ -95,7 +95,7 @@ MODULE mo_radiation
 
   PRIVATE
 
-  PUBLIC :: pre_radiation_nwp, radiation, radheat, pre_radiation_nwp_steps
+  PUBLIC :: pre_radiation_nwp, radiation, radiation_nwp, radheat, pre_radiation_nwp_steps
 
 
   ! --- radiative transfer parameters
@@ -775,7 +775,7 @@ CONTAINS
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5                                      ,&
       ! output
       & flx_dnlw        ,flx_dnsw        ,flx_dnlw_clr    ,flx_dnsw_clr    ,&
-      & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc)
+      & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc )
 !!$      & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc,&
 !!$      & toa_solar_irr   ,nir_sfc         ,nir_dff_sfc                      ,&
 !!$      & vis_sfc         ,vis_dff_sfc     ,dvis_sfc        ,dpar_sfc        ,&
@@ -815,6 +815,241 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_radiation)
 
   END SUBROUTINE radiation
+
+  !-----------------------------------------------------------------------------
+  !>
+  !! @brief Organizes the calls to the ratiation solver
+  !!
+  !! @remarks This routine organises the input/output for the radiation
+  !! computation.  The state of radiatively active constituents is set as the
+  !! input. Output are flux transmissivities and emissivities at all the half
+  !! levels of the grid (respectively ratio solar flux/solar input and ratio
+  !! thermal flux/local black-body flux). This output will be used in radheat
+  !! at all time steps until the next full radiation time step.
+  !
+  SUBROUTINE radiation_nwp(                                                &
+    ! input
+    &  jg, jb                                                              &
+    & ,jce               ,kbdim           ,klev             ,klevp1        &
+    & ,ktype             ,zland           ,zglac            ,cos_mu0       &
+    & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
+    & ,emis_rad                                                            &
+    & ,tk_sfc            ,z_mc            ,pp_hl            ,pp_fl         &
+    & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
+    & ,qm_o3                                                               &
+    & ,cdnc              ,cld_frc                                          &
+    & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
+    ! output
+    & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa,         &
+    &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc                    )
+
+    ! input
+    ! -----
+    !
+    INTEGER, INTENT(in)   :: &
+      &  jg,                 & !< domain index
+      &  jb,                 & !< block index
+      &  jce,                & !< end   index for loop over block
+      &  kbdim,              & !< dimension of block over cells
+      &  klev,               & !< number of full levels = number of layers
+      &  klevp1                !< number of half levels = number of layer interfaces
+    INTEGER, INTENT(in)   :: &
+      &  ktype(kbdim)          !< type of convection
+
+    REAL(wp), INTENT(in)  :: &
+      &  zland(kbdim),       & !< land-sea mask. (1. = land, 0. = sea/lakes)
+      &  zglac(kbdim),       & !< fraction of land covered by glaciers
+      &  cos_mu0(kbdim),     & !< cos of zenith angle
+      &  alb_vis_dir(kbdim), & !< surface albedo for visible range and direct light
+      &  alb_nir_dir(kbdim), & !< surface albedo for NIR range and direct light
+      &  alb_vis_dif(kbdim), & !< surface albedo for visible range and diffuse light
+      &  alb_nir_dif(kbdim), & !< surface albedo for NIR range and diffuse light
+      &  emis_rad(kbdim),    & !< longwave surface emissivity
+      &  tk_sfc(kbdim),      & !< Surface temperature
+      &  z_mc(kbdim,klev),   & !< height at full levels [m]
+      &  pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
+      &  pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
+      &  tk_fl(kbdim,klev),  & !< Temperature on full levels [K]
+      &  qm_vap(kbdim,klev), & !< Water vapor mixing ratio
+      &  qm_liq(kbdim,klev), & !< Liquid water mixing ratio
+      &  qm_ice(kbdim,klev), & !< Ice water mixing ratio
+      &  cdnc(kbdim,klev),   & !< Cloud drop number concentration
+      &  cld_frc(kbdim,klev),& !< Cloud fraction
+      &  zaeq1(kbdim,klev) , & !< aerosol continental
+      &  zaeq2(kbdim,klev) , & !< aerosol maritime
+      &  zaeq3(kbdim,klev) , & !< aerosol urban
+      &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
+      &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
+      &  dt_rad                !< radiation time step
+
+
+    ! output
+    ! ------
+    !
+    REAL(wp), INTENT(inout) ::      &
+      &  cld_cvr(kbdim),            & !< Cloud cover in a column
+      &  flx_lw_net(kbdim,klevp1),  & !< Net longwave radiative flux [W/m**2]
+      &  flx_uplw_sfc(kbdim),       & !< Srfc upward lw flux  [Wm2]
+      &  trsol_net (kbdim,klevp1),  & !< Net solar transmissivity (=net radiative flux normalized by irradiance)
+      &  trsol_up_toa(kbdim),       & !< TOA upward shortwave transmissivity (normalized upward flux)
+      &  trsol_up_sfc(kbdim),       & !< Surface upward shortwave transmissivity (normalized upward flux)
+      &  trsol_dn_sfc_diffus(kbdim),& !< Surface downward diffuse shortwave transmissivity (normalized diffuse downward flux)
+      &  trsol_clr_sfc(kbdim)         !< Surface net clear-sky solar transmissivity
+
+    INTEGER  :: jk, jl
+
+    REAL(wp) ::                     &
+      &  pp_sfc(kbdim),             & !< surface pressure [Pa}
+      &  tk_hl(kbdim,klevp1),       & !< Tempeature at half levels [Pa]
+      &  xq_vap(kbdim,klev),        & !< Water vapor mixing ratio
+      &  xq_liq(kbdim,klev),        & !< Liquid water mixing ratio
+      &  xq_ice(kbdim,klev),        & !< Ice mixing ratio
+      &  cld_frc_sec(kbdim,klev),   & !< secure cloud fraction [m2/m2]
+      &  xm_co2(kbdim,klev),        & !< CO2 mixing ratio
+      &  qm_o3(kbdim,klev),         & !< Ozone mixing ratio
+      &  xm_o2(kbdim,klev),         & !< O2 mixing ratio
+      &  xm_ch4(kbdim,klev),        & !< Methane mixing ratio
+      &  xm_n2o(kbdim,klev),        & !< Nitrous Oxide mixing ratio
+      &  xm_cfc11(kbdim,klev),      & !< CFC 11 mixing ratio
+      &  xm_cfc12(kbdim,klev),      & !< CFC 12 mixing ratio
+      &  flx_uplw_sfc_clr(kbdim),   & !< Srfc upward lw flux (clear sky) [Wm2]
+      &  flx_upsw_sfc_clr(kbdim),   & !< Srfc upward sw flux (clear sky) [Wm2]
+      &  flx_upsw_sfc(kbdim),       & !< Srfc upward sw flux (total) [Wm2]
+      &  flx_upsw_toa(kbdim),       & !< TOA  upward sw flux (total) [Wm2]
+      &  flx_dnsw_diff_sfc(kbdim),  & !< Srfc diffuse downward sw flux (total) [Wm2]
+      &  flx_sw_net(kbdim,klevp1),  & !< Net dwnwrd SW flux [Wm2]
+      &  flx_lw_net_clr(kbdim,klevp1),& !< Net dn LW flux (clear sky) [Wm2]
+      &  flx_sw_net_clr(kbdim,klevp1)   !< Net dn SW flux (clear sky) [Wm2]
+
+
+    IF (ltimer) CALL timer_start(timer_radiation)
+    
+    !
+    ! 1.1 p, T, q(vap,liq,ice) and clouds
+    ! -----------------------------------
+    !
+    ! --- Pressure (surface and distance between half levels)
+    !
+    pp_sfc(1:jce)        = pp_hl(1:jce,klevp1)
+    !
+    ! --- temperature at half levels
+    !
+    DO jk=2,klev
+      DO jl = 1, jce
+        tk_hl(jl,jk) = (tk_fl(jl,jk-1)*pp_fl(jl,jk-1)*( pp_fl(jl,jk)          &
+          &    - pp_hl(jl,jk) ) + tk_fl(jl,jk)*pp_fl(jl,jk)*( pp_hl(jl,jk)    &
+          &    - pp_fl(jl,jk-1))) /(pp_hl(jl,jk)*(pp_fl(jl,jk) -pp_fl(jl,jk-1)))
+      END DO
+    END DO
+    DO jl = 1, jce
+      tk_hl(jl,klevp1) = tk_sfc(jl)
+      tk_hl(jl,1)      = tk_fl(jl,1)-pp_fl(jl,1)*(tk_fl(jl,1) - tk_hl(jl,2))  &
+        &                / (pp_fl(jl,1)-pp_hl(jl,2))
+    END DO
+    !
+    ! --- phases of water substance
+    !
+    xq_vap(1:jce,:) = MAX(qm_vap(1:jce,:),0.0_wp)
+    xq_liq(1:jce,:) = MAX(qm_liq(1:jce,:),0.0_wp)       ! cloud liquid
+    xq_ice(1:jce,:) = MAX(qm_ice(1:jce,:),0.0_wp)       ! cloud ice
+    !
+    ! --- cloud cover
+    !
+    DO jk = 1, klev
+      DO jl = 1, jce
+
+        ! no cloud water -> no cloud fraction
+        IF (xq_liq(jl,jk) > 0.0_wp .OR. xq_ice(jl,jk) > 0.0_wp) THEN
+          cld_frc_sec(jl,jk) = cld_frc(jl,jk)
+        ELSE
+          cld_frc_sec(jl,jk) = 0.0_wp
+        END IF
+
+        ! cloud fraction <= 100% !
+        cld_frc_sec(jl,jk) = MIN( cld_frc_sec(jl,jk), 1.0_wp )
+
+      END DO
+    END DO
+
+    cld_cvr(1:jce) = 1.0_wp - cld_frc_sec(1:jce,1)
+    DO jk = 2, klev
+      cld_cvr(1:jce) = cld_cvr(1:jce)                                                &
+        &              *(1.0_wp-MAX(cld_frc_sec(1:jce,jk),cld_frc_sec(1:jce,jk-1)))  &
+        &              /(1.0_wp-MIN(cld_frc_sec(1:jce,jk-1),1.0_wp-EPSILON(1.0_wp)))
+    END DO
+    cld_cvr(1:jce) = 1.0_wp-cld_cvr(1:jce)
+    !
+    ! 1.2 Non-water tracers
+    ! ---------------------
+    !
+    ! --- gas profiles in [ppm]
+    !
+    xm_co2   (1:jce,:) = gas_profile(jce, klev, irad_co2,    &
+      &                              mmr_gas = mmr_co2   )
+    xm_ch4   (1:jce,:) = gas_profile(jce, klev, irad_ch4,    &
+      &                              mmr_gas = mmr_ch4,      &
+      &                              pressure = pp_fl,       &
+      &                              xp = vpp_ch4        )
+    xm_n2o   (1:jce,:) = gas_profile(jce, klev, irad_n2o,    &
+      &                              mmr_gas = mmr_n2o,      &
+      &                              pressure = pp_fl,       &
+      &                              xp = vpp_n2o        )
+    xm_o2    (1:jce,:) = gas_profile(jce, klev, irad_o2,     &
+      &                              mmr_gas = mmr_o2    )
+#ifdef __SX__
+    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
+      &                              mmr_gas = REAL(vmr_cfc11,wp) )
+    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
+      &                              mmr_gas = REAL(vmr_cfc12,wp) )
+#else
+    xm_cfc11 (1:jce,:) = gas_profile(jce, klev, irad_cfc11,  &
+      &                              mmr_gas = vmr_cfc11 )
+    xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
+      &                              mmr_gas = vmr_cfc12 )
+#endif
+    !
+
+    ! 2.0 Call interface to radiation solver
+    ! --------------------------------------
+    !
+    CALL rrtm_interface(                                                    &
+      ! input
+      & jg              ,jb                                                ,&
+      & jce             ,kbdim           ,klev                             ,&
+      & ktype           ,zland           ,zglac                            ,&
+      & cos_mu0                                                            ,&
+      & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emis_rad        ,z_mc                                              ,&
+      & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
+      & tk_hl           ,tk_sfc          ,xq_vap                           ,&
+      & xq_liq          ,xq_ice                                            ,&
+      & cdnc                                                               ,&
+      & cld_frc_sec                                                        ,&
+      & qm_o3           ,xm_co2          ,xm_ch4                           ,&
+      & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
+      & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5                                      ,&
+      ! output
+      & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
+      & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
+      & flx_dnsw_diff_sfc, flx_upsw_toa                                     )
+
+
+    !
+    ! 3.0 Diagnostics
+    ! ---------------
+    !
+    ! --- Diagnose transmissivities from solar fluxes
+
+    trsol_net (1:jce,1:klevp1) = flx_sw_net (1:jce,1:klevp1)/SPREAD(cos_mu0(1:jce)*tsi_radt,2,klevp1)
+    trsol_clr_sfc(1:jce)       = flx_sw_net_clr(1:jce,klevp1)/(cos_mu0(1:jce)*tsi_radt)
+    trsol_up_sfc(1:jce)        = flx_upsw_sfc  (1:jce)/(cos_mu0(1:jce)*tsi_radt)
+    trsol_up_toa(1:jce)        = flx_upsw_toa  (1:jce)/(cos_mu0(1:jce)*tsi_radt)
+    trsol_dn_sfc_diffus(1:jce) = flx_dnsw_diff_sfc(1:jce)/(cos_mu0(1:jce)*tsi_radt)
+
+    IF (ltimer) CALL timer_stop(timer_radiation)
+
+  END SUBROUTINE radiation_nwp
+
   !---------------------------------------------------------------------------
   !>
   !! GAS_PROFILE:  Determines Gas distributions based on case specification
@@ -942,7 +1177,8 @@ CONTAINS
     & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5                                  ,&
     ! output
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
-    & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr)
+    & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
+    & flx_dnsw_diff_sfc, flx_upsw_toa                                     )
 !!$    & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
 !!$    & sw_irr_toa      ,nir_sfc         ,nir_dff_sfc                      ,&
 !!$    & vis_sfc         ,vis_dff_sfc     ,dvis_sfc        ,dpar_sfc        ,&
@@ -1002,6 +1238,7 @@ CONTAINS
       &  flx_sw_net_clr(kbdim,klev+1),    & !< clrsky downward SW flux profile,
       &  flx_uplw_sfc(kbdim),             & !< sfc LW upward flux,
       &  flx_upsw_sfc(kbdim),             & !< sfc SW upward flux,
+      &  flx_upsw_sfc(kbdim),             & !< sfc SW upward flux,
       &  flx_uplw_sfc_clr(kbdim),         & !< clrsky sfc LW upward flux,
       &  flx_upsw_sfc_clr(kbdim)            !< clrsky sfc SW upward flux,
 !!$      &  flx_upsw_sfc_clr(kbdim),         & !< clrsky sfc SW upward flux,
@@ -1013,6 +1250,10 @@ CONTAINS
 !!$      &  dvis_sfc(kbdim),                 & !< surf. visible downward
 !!$      &  dpar_sfc(kbdim),                 & !< surf. PAR downw.
 !!$      &  par_dff_sfc(kbdim)                 !< fraction of diffuse PAR
+
+    REAL(wp), INTENT(out), OPTIONAL ::    &
+      &  flx_dnsw_diff_sfc(kbdim),        & !< sfc SW diffuse downward flux,
+      &  flx_upsw_toa(kbdim)                !< TOA SW upward flux,
 
     INTEGER  :: jk, jl, jp, jkb, jspec,   & !< loop indicies
       &  icldlyr(kbdim,klev)                !< index for clear or cloudy
@@ -1318,7 +1559,8 @@ CONTAINS
       &    aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr                   ,&
       &    ssi_radt        ,z_mc                                             ,&
       !    output
-      &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr)
+      &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
+      &    flx_dnsw_diff_sfc                                                  )
 !!$      &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr   ,&
 !!$      &    dnir_sfc        ,dvis_sfc        ,unir_toa        ,uvis_toa       ,&
 !!$      &    dnir_sfc_cld    ,dvis_sfc_cld    ,unir_toa_cld    ,uvis_toa_cld   ,&
@@ -1341,6 +1583,7 @@ CONTAINS
     flx_uplw_sfc_clr(1:jce) = flx_uplw_clr_vr(1:jce,1)
     flx_upsw_sfc(1:jce)     = flx_upsw(1:jce,klev+1)
     flx_upsw_sfc_clr(1:jce) = flx_upsw_clr(1:jce,klev+1)
+    IF (PRESENT(flx_upsw_toa)) flx_upsw_toa(1:jce) = flx_upsw(1:jce,1)
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
 
