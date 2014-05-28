@@ -5,12 +5,12 @@
                                                                                           
        Mark a file to be deleted from the DWD release:       				
 
-          svn propset dwd_release remove cmake		   
+          svn propset dwd_release remove <file>		   
 
        Get a list of all files/directories                                            
        with attribute "dwd_release", value=remove		    
 
-         svn -R proplist --verbose --xml | xsltproc dwd_release.xslt - 
+         svn -R proplist --verbose --xml | xsltproc scripts/postprocessing/dwd_release.xslt - 
       										   
        2014-05-28 : F. Prill, DWD                                                         
                                                                                           
