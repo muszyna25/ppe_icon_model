@@ -130,6 +130,11 @@ MODULE mo_nwp_phy_types
                                  !! convective surface precipitation rate
       &   gsp_prec_rate_avg(:,:),   & !! average since model start of                    [kg/m2/s]
                                  !! grid-scale surface precipitation rate
+!     the following precipitation variables *0 are accumulated only to the previous call of ww_diagnostics
+      &   rain_gsp0(:,:),      & !! accumulated grid-scale surface rain                  [kg/m2]
+      &   snow_gsp0(:,:),      & !! accumulated grid_scale surface snow                  [kg/m2]
+      &   rain_con0(:,:),      & !! accumulated convective surface rain                  [kg/m2]
+      &   snow_con0(:,:),      & !! accumulated convective surface snow                  [kg/m2]
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cape    (:,:),       & !! convective available energy
       &   con_gust(:,:),       & !! convective gusts near surface
@@ -306,8 +311,9 @@ MODULE mo_nwp_phy_types
       &  ktype   (:,:),     & !< Type of convection
       &  k850    (:,:),     & !< level index that corrsponds to the height 
                               !< of the standard atmosphere 850hPa level above ground
-      &  k950    (:,:)        !< level index that corresponds to the height 
+      &  k950    (:,:),     & !< level index that corresponds to the height 
                               !< of the standard atmosphere 950hPa level above ground
+      &  iww     (:,:)        !< significant weather
 
 
     LOGICAL, POINTER        &

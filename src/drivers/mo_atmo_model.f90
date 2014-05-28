@@ -48,10 +48,11 @@ MODULE mo_atmo_model
     &                                   msg_level,                                            &
     &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
-    &                                   grid_generatingSubcenter                                ! grid generating subcenter
+    &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
+    &                                   iforcing
   USE mo_gribout_config,          ONLY: configure_gribout
   USE mo_impl_constants,          ONLY: ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                   ishallow_water
+    &                                   ishallow_water, inwp
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
@@ -85,6 +86,7 @@ MODULE mo_atmo_model
   ! external data, physics
   USE mo_ext_data_state,          ONLY: ext_data, init_ext_data, destruct_ext_data
   USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
+  USE mo_nwp_ww,                  ONLY: configure_ww
 
   USE mo_diffusion_config,        ONLY: configure_diffusion
 
@@ -472,6 +474,9 @@ CONTAINS
       DO jg =1,n_dom
         CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
           &                            p_patch(jg)%nshift_total  )
+        IF ( iforcing == inwp) THEN
+          CALL configure_ww( jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+        END IF
       ENDDO
     ENDIF
 

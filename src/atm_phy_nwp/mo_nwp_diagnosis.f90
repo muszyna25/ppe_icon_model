@@ -44,12 +44,15 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, ntiles_total
-  USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog
+  USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog, t_lnd_prog
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
+  USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
+  USE mo_datetime,           ONLY: date_to_time, rdaylen
+  USE mo_time_config,        ONLY: time_config
 
   IMPLICIT NONE
 
@@ -621,7 +624,7 @@ CONTAINS
 
         ENDIF  ! lflux_avg
 
-      ENDDO ! nblks     
+      ENDDO ! nblks
 !$OMP END DO NOWAIT
 
     END IF  ! p_sim_time
@@ -705,6 +708,7 @@ CONTAINS
                             & pt_prog_rcf,                & !in
                             & pt_diag,                    & !in
                             & lnd_diag,                   & !in
+                            & p_prog_lnd_now,             & !in
                             & p_prog_wtr_now,             & !in
                             & prm_diag                    ) !inout    
               
@@ -718,6 +722,7 @@ CONTAINS
 
     TYPE(t_nh_diag),     INTENT(IN)   :: pt_diag     ! the diagnostic variables
     TYPE(t_lnd_diag),    INTENT(IN)   :: lnd_diag    ! land diag state
+    TYPE(t_lnd_prog),    INTENT(IN)   :: p_prog_lnd_now ! land prognostic state (now)
     TYPE(t_wtr_prog),    INTENT(INOUT):: p_prog_wtr_now ! water prognostic state (now)
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
 
@@ -737,6 +742,8 @@ CONTAINS
     REAL(wp), PARAMETER :: grav_o_cpd = grav/cpd
 
     REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
+
+    REAL(wp):: dhour_ww                        ! calling intervall of ww_diagnostics in hours
 
   !-----------------------------------------------------------------
 
@@ -759,6 +766,12 @@ CONTAINS
 
     ! minimum top index for dry convection
     mtop_min = (ih_clch+ih_clcm)/2    
+
+    ! time difference since last call of ww_diagnostics
+    CALL date_to_time(time_config%cur_datetime)
+    CALL date_to_time(ww_datetime(jg))
+    dhour_ww = (time_config%cur_datetime%calday  - ww_datetime(jg)%calday + &
+                time_config%cur_datetime%caltime - ww_datetime(jg)%caltime)*24._wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
@@ -883,10 +896,37 @@ CONTAINS
         ENDDO
       ENDIF
 
+      IF (atm_phy_nwp_config(jg)%inwp_gscp > 0 ) THEN
+
+        CALL ww_diagnostics( nproma, nlev, nlevp1, i_startidx, i_endidx, jg,             &
+            &                pt_diag%temp(:,:,jb), pt_prog_rcf%tracer(:,:,jb,iqv),       &
+            &                pt_prog_rcf%tracer(:,:,jb,iqc),                             &
+            &                pt_diag%u   (:,:,jb), pt_diag%v       (:,:,jb),             &
+            &                pt_diag%pres(:,:,jb), pt_diag%pres_ifc(:,:,jb),             &
+            &                prm_diag%t_2m     (:,jb), prm_diag%td_2m   (:,jb),          &
+            &                p_prog_lnd_now%t_g(:,jb),                                   &
+            &                prm_diag%clct     (:,jb), prm_diag%clcm    (:,jb),          &
+            &                prm_diag%u_10m    (:,jb), prm_diag%v_10m   (:,jb),          &
+            &                prm_diag%rain_gsp0(:,jb), prm_diag%rain_gsp(:,jb),          &
+            &                prm_diag%rain_con0(:,jb), prm_diag%rain_con(:,jb),          &
+            &                prm_diag%snow_gsp0(:,jb), prm_diag%snow_gsp(:,jb),          &
+            &                prm_diag%snow_con0(:,jb), prm_diag%snow_con(:,jb),          &
+            &                prm_diag%mbas_con (:,jb), prm_diag%mtop_con(:,jb),          &
+            &                dhour_ww, 'ICON',         prm_diag%iww     (:,jb) )
+!       Save precipitation and time until next call of ww_diagnostics
+        DO jc = i_startidx, i_endidx
+          prm_diag%rain_gsp0(jc,jb) = prm_diag%rain_gsp(jc,jb)
+          prm_diag%rain_con0(jc,jb) = prm_diag%rain_con(jc,jb)
+          prm_diag%snow_gsp0(jc,jb) = prm_diag%snow_gsp(jc,jb)
+          prm_diag%snow_con0(jc,jb) = prm_diag%snow_con(jc,jb)
+        ENDDO
+      ENDIF
+
     ENDDO  ! jb
 !$OMP END DO
 
 !$OMP END PARALLEL  
+    ww_datetime(jg) = time_config%cur_datetime
 
 
   END SUBROUTINE nwp_diag_for_output

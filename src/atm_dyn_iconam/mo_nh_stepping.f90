@@ -305,6 +305,7 @@ MODULE mo_nh_stepping
           &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
           &                      p_nh_state(jg)%diag,                    & !in
           &                      p_lnd_state(jg)%diag_lnd,               & !in
+          &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
           &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
           &                      prm_diag(jg)                            ) !inout
       ENDDO
@@ -619,6 +620,7 @@ MODULE mo_nh_stepping
             &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
             &                      p_nh_state(jg)%diag,                    & !in
             &                      p_lnd_state(jg)%diag_lnd,               & !in
+            &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
             &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
             &                      prm_diag(jg)                            ) !inout
         ENDDO

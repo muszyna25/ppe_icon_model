@@ -107,6 +107,8 @@ MODULE mo_nwp_phy_init
   USE mo_initicon_config,     ONLY: init_mode
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init
 
+  USE mo_nwp_ww,              ONLY: configure_ww
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1244,6 +1246,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL sugwwms(nflevg=nlev, ppref=pref, klaunch=phy_params%klaunch)
     CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
 
+  END IF
+
+  !  WW diagnostics
+  !
+  IF ( atm_phy_nwp_config(jg)%inwp_gscp > 0) THEN
+    CALL configure_ww( jg, nlev, nshift)
   END IF
 
 

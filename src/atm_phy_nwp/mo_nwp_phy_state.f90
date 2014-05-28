@@ -431,6 +431,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & ldims=shape2d, in_group=groups("precip_vars"),             &
                 & isteptype=TSTEP_ACCUM )
 
+    ! &      diag%rain_gsp0(nproma,nblks_c)
+    cf_desc    = t_cf_var('rain_gsp0', 'kg m-2 ', 'gridscale rain0', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 77, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'rain_gsp0', diag%rain_gsp0,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                & ldims=shape2d,                                             &
+                & loutput=.false., lrestart=.TRUE.,                          &
+                & isteptype=TSTEP_ACCUM )
+
 
     ! &      diag%snow_gsp(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_gsp', 'kg m-2 ', 'gridscale snow', DATATYPE_FLT32)
@@ -439,6 +448,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                 & ldims=shape2d,                                             &
                 & in_group=groups("precip_vars"),                            &
+                & isteptype=TSTEP_ACCUM )
+
+    ! &      diag%snow_gsp0(nproma,nblks_c)
+    cf_desc    = t_cf_var('snow_gsp0', 'kg m-2 ', 'gridscale snow0', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 56, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'snow_gsp0', diag%snow_gsp0,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                & ldims=shape2d,                                             &
+                & loutput=.false., lrestart=.TRUE.,                          &
                 & isteptype=TSTEP_ACCUM )
 
 
@@ -450,6 +468,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & ldims=shape2d, in_group=groups("precip_vars"),              &
                 & isteptype=TSTEP_ACCUM )
 
+    ! &      diag%rain_con0(nproma,nblks_c)
+    cf_desc    = t_cf_var('rain_con0', 'kg m-2 ', 'convective rain0', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 76, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'rain_con0', diag%rain_con0,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                & ldims=shape2d,                                             &
+                & loutput=.false., lrestart=.TRUE.,                          &
+                & isteptype=TSTEP_ACCUM )
+
 
     ! &      diag%snow_con(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con', 'kg m-2', 'convective snow', DATATYPE_FLT32)
@@ -458,6 +485,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,                                              &
                 & in_group=groups("precip_vars"),                             &
+                & isteptype=TSTEP_ACCUM )
+
+    ! &      diag%snow_con0(nproma,nblks_c)
+    cf_desc    = t_cf_var('snow_con0', 'kg m-2', 'convective snow0', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 1, 55, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'snow_con0', diag%snow_con0,                     &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                & ldims=shape2d,                                              &
+                & loutput=.false., lrestart=.TRUE.,                           &
                 & isteptype=TSTEP_ACCUM )
 
 
@@ -2218,6 +2254,16 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     CALL add_var( diag_list, 'hzerocl', diag%hzerocl,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.FALSE.)
+
+
+    !  significant weather WW
+    cf_desc    = t_cf_var('ww', '', 'significant_weather', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(0, 19, 25, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'ww', diag%iww,                                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
+                & ldims=shape2d, lrestart=.FALSE.,                                   &
+                & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
+      
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &
                  'construction of NWP physical fields finished')  
