@@ -1238,7 +1238,6 @@ CONTAINS
       &  flx_sw_net_clr(kbdim,klev+1),    & !< clrsky downward SW flux profile,
       &  flx_uplw_sfc(kbdim),             & !< sfc LW upward flux,
       &  flx_upsw_sfc(kbdim),             & !< sfc SW upward flux,
-      &  flx_upsw_sfc(kbdim),             & !< sfc SW upward flux,
       &  flx_uplw_sfc_clr(kbdim),         & !< clrsky sfc LW upward flux,
       &  flx_upsw_sfc_clr(kbdim)            !< clrsky sfc SW upward flux,
 !!$      &  flx_upsw_sfc_clr(kbdim),         & !< clrsky sfc SW upward flux,
