@@ -79,7 +79,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   rg_fr_land, rg_fr_glac, rg_emis_rad,                                     &
   rg_cosmu0, rg_albvisdir, rg_albnirdir, rg_albvisdif, rg_albnirdif,       &
   rg_albdif, rg_tsfc, rg_rtype, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc,   &
-  rg_tot_cld, rg_clc, rg_q_o3, rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5 )
+  rg_tot_cld, rg_clc, rg_q_o3, rg_aeq1, rg_aeq2, rg_aeq3, rg_aeq4, rg_aeq5,&
+  z_pres_ifc, z_tot_cld                                                    )
 
   ! Input grid parameters
   INTEGER, INTENT(IN)  :: jg, jgp  ! domain IDs of main and reduced grids
@@ -102,17 +103,18 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     rg_albnirdif(:,:), rg_albdif(:,:), rg_tsfc(:,:), rg_rtype(:,:),          &
     rg_pres_ifc(:,:,:), rg_pres(:,:,:), rg_temp(:,:,:), rg_acdnc(:,:,:),     &
     rg_tot_cld(:,:,:,:), rg_clc(:,:,:), rg_q_o3(:,:,:), rg_aeq1(:,:,:),      &
-    rg_aeq2(:,:,:), rg_aeq3(:,:,:), rg_aeq4(:,:,:),rg_aeq5(:,:,:)
+    rg_aeq2(:,:,:), rg_aeq3(:,:,:), rg_aeq4(:,:,:),rg_aeq5(:,:,:),           &
+    ! these have the same function as the intermediate storage fields below but are passed to the calling routine
+    z_pres_ifc(:,:,:), z_tot_cld(:,:,:,:) 
 
 
   ! Intermediate storage fields needed in the case of MPI parallelization
-  REAL(wp), ALLOCATABLE, TARGET ::                                         &
-    z_fr_land(:,:),z_fr_glac(:,:), z_emis_rad(:,:),                        &
-    z_cosmu0(:,:), z_albvisdir(:,:), z_albnirdir(:,:), z_albvisdif(:,:),   &
-    z_albnirdif(:,:), z_albdif(:,:), z_tsfc(:,:), z_rtype(:,:),            &
-    z_pres_ifc(:,:,:), z_pres(:,:,:), z_temp(:,:,:), z_acdnc(:,:,:),       &
-    z_tot_cld(:,:,:,:), z_clc(:,:,:), z_q_o3(:,:,:), z_aeq1(:,:,:),        &
-    z_aeq2(:,:,:), z_aeq3(:,:,:), z_aeq4(:,:,:),z_aeq5(:,:,:),             &
+  REAL(wp), ALLOCATABLE, TARGET ::                                             &
+    z_fr_land(:,:),z_fr_glac(:,:), z_emis_rad(:,:),                            &
+    z_cosmu0(:,:), z_albvisdir(:,:), z_albnirdir(:,:), z_albvisdif(:,:),       &
+    z_albnirdif(:,:), z_albdif(:,:), z_tsfc(:,:), z_rtype(:,:),                &
+    z_pres(:,:,:), z_temp(:,:,:), z_acdnc(:,:,:), z_clc(:,:,:), z_q_o3(:,:,:), &
+    z_aeq1(:,:,:), z_aeq2(:,:,:), z_aeq3(:,:,:), z_aeq4(:,:,:), z_aeq5(:,:,:), &
     z_aux3d(:,:,:), zrg_aux3d(:,:,:)
 
 
@@ -195,9 +197,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
              z_albnirdir(nproma,nblks_c_lp), z_albvisdif(nproma,nblks_c_lp),            &
              z_albnirdif(nproma,nblks_c_lp), z_albdif(nproma,nblks_c_lp),               &
              z_tsfc(nproma,nblks_c_lp), z_rtype(nproma,nblks_c_lp),                     &
-             z_pres_ifc(nproma,nlevp1_rg,nblks_c_lp), z_pres(nproma,nlev_rg,nblks_c_lp),&
-             z_temp(nproma,nlev_rg,nblks_c_lp), z_acdnc(nproma,nlev_rg,nblks_c_lp),     &
-             z_tot_cld(nproma,nlev_rg,nblks_c_lp,3), z_clc(nproma,nlev_rg,nblks_c_lp),  &
+             z_pres(nproma,nlev_rg,nblks_c_lp), z_temp(nproma,nlev_rg,nblks_c_lp),      &
+             z_acdnc(nproma,nlev_rg,nblks_c_lp), z_clc(nproma,nlev_rg,nblks_c_lp),      &
              z_q_o3(nproma,nlev_rg,nblks_c_lp), z_aeq1(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq2(nproma,nlev_rg,nblks_c_lp), z_aeq3(nproma,nlev_rg,nblks_c_lp),      &
              z_aeq4(nproma,nlev_rg,nblks_c_lp), z_aeq5(nproma,nlev_rg,nblks_c_lp),      &
@@ -454,7 +455,21 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           aeq5(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
           aeq5(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
           aeq5(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
-        
+
+      ENDDO
+    ENDDO
+  
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+      DO jk = 1, nlev
+        jk1 = jk + nshift
+#else
+    DO jk = 1, nlev
+      jk1 = jk + nshift
+      DO jc = i_startidx, i_endidx
+#endif
+
         p_acdnc(jc,jk1,jb) =                                        &
           acdnc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
           acdnc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -546,9 +561,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
     i_startblk = p_patch(jgp)%cells%start_blk(1,1)
     i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell,i_nchdom)
 
-    ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
@@ -569,11 +583,11 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
       ENDDO
 
     ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
-    DEALLOCATE(z_fr_land, z_fr_glac, z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir, z_albvisdif,&
-      & z_albnirdif, z_albdif, z_tsfc, z_rtype, z_pres_ifc, z_pres, z_temp, z_acdnc, z_tot_cld,  &
+    DEALLOCATE(z_fr_land, z_fr_glac, z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir, &
+      & z_albvisdif, z_albnirdif, z_albdif, z_tsfc, z_rtype, z_pres, z_temp, z_acdnc,&
       & z_clc, z_q_o3, z_aeq1, z_aeq2, z_aeq3, z_aeq4, z_aeq5, z_aux3d, zrg_aux3d )
 
   ENDIF
@@ -590,9 +604,9 @@ END SUBROUTINE upscale_rad_input
 SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
   rg_aclcov, rg_lwflxall, rg_trsolall, rg_trsol_clr_sfc, rg_lwflx_up_sfc,  &
   rg_trsol_up_toa, rg_trsol_up_sfc, rg_trsol_dn_sfc_diff,                  &
-  tsfc_rg, albdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg,                  &
-  pres_ifc_rg, tsfc, albdif, aclcov, lwflxall, trsolall, lwflx_up_sfc,     &
-  trsol_up_toa, trsol_up_sfc, trsol_dn_sfc_diff                            )
+  tsfc_rg, albdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, z_tot_cld,       &
+  pres_ifc_rg, z_pres_ifc, tsfc, albdif, aclcov, lwflxall, trsolall,       &
+  lwflx_up_sfc, trsol_up_toa, trsol_up_sfc, trsol_dn_sfc_diff              )
 
 
   ! Input grid parameters
@@ -605,9 +619,9 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
     rg_trsol_up_toa(:,:), rg_trsol_up_sfc(:,:), rg_trsol_dn_sfc_diff(:,:)
 
   ! Auxiliary input fields on reduced grid needed for downscaling corrections
-  REAL(wp), INTENT(IN), TARGET ::                                   &
-    tsfc_rg(:,:), albdif_rg(:,:), emis_rad_rg(:,:), cosmu0_rg(:,:), &
-    tot_cld_rg(:,:,:,:), pres_ifc_rg(:,:,:)
+  REAL(wp), INTENT(IN), TARGET ::                                                &
+    tsfc_rg(:,:), albdif_rg(:,:), emis_rad_rg(:,:), cosmu0_rg(:,:),              &
+    tot_cld_rg(:,:,:,:), pres_ifc_rg(:,:,:), z_pres_ifc(:,:,:), z_tot_cld(:,:,:,:)
 
   ! Auxiliary input fields on full grid needed for downscaling corrections
   REAL(wp), INTENT(IN) :: tsfc(:,:), albdif(:,:), rg_trsol_clr_sfc(:,:)
@@ -618,8 +632,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
   trsol_up_toa(:,:), trsol_up_sfc(:,:), trsol_dn_sfc_diff(:,:)
 
   ! Intermediate storage fields needed in the case of MPI parallelization
-  REAL(wp), ALLOCATABLE, TARGET ::                                            &
-    z_lwflxall(:,:,:), z_trsolall(:,:,:), z_pres_ifc(:,:,:), z_tot_cld(:,:,:,:)
+  REAL(wp), ALLOCATABLE, TARGET ::  z_lwflxall(:,:,:), z_trsolall(:,:,:)
 
   ! Storage fields needed to downscale transmissitivity differences for solar radiation
   REAL(wp), ALLOCATABLE, TARGET ::             &
@@ -711,7 +724,6 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
   IF (jgp == 0) THEN
     
     ALLOCATE( z_lwflxall(nproma,nlevp1_rg,nblks_c_lp),        z_trsolall(nproma,nlevp1_rg,nblks_c_lp),          &
-              z_pres_ifc(nproma,nlevp1_rg,nblks_c_lp),        z_tot_cld(nproma,nlev_rg,nblks_c_lp,3),           &
               zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                                   &
               zrg_aux3d(nproma,n2dvars,nblks_c_lp),           z_aux3d(nproma,10,p_patch(jg)%nblks_c),           &
               zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp),  z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c) )
@@ -734,16 +746,12 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
     zpg_aux3d(:,itrclrsfc,:)= rg_trsol_clr_sfc(:,:)
 !$OMP END PARALLEL WORKSHARE
 
-    nlev_tot = 3*nlevp1_rg + n2dvars
+    nlev_tot = 2*nlevp1_rg + n2dvars
 
-    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 4, nlev_tot, &
+    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 3, nlev_tot, &
                             RECV1=z_lwflxall, SEND1=rg_lwflxall,     &
                             RECV2=z_trsolall, SEND2=rg_trsolall,     &
-                            RECV3=z_pres_ifc, SEND3=pres_ifc_rg,     &
-                            RECV4=zrg_aux3d , SEND4=zpg_aux3d        )
-
-    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 3, 3*nlev_rg, &
-                            RECV4D=z_tot_cld, SEND4D=tot_cld_rg       )
+                            RECV3=zrg_aux3d , SEND3=zpg_aux3d        )
 
     p_lwflxall   => z_lwflxall
     p_trsolall   => z_trsolall
@@ -1052,7 +1060,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
 !$OMP END PARALLEL
 
   IF (jgp == 0) THEN
-    DEALLOCATE(z_lwflxall, z_trsolall, z_pres_ifc, z_tot_cld, zpg_aux3d)
+    DEALLOCATE(z_lwflxall, z_trsolall, zpg_aux3d)
   ENDIF
 
   DEALLOCATE(zrg_aux3d, z_aux3d, zrg_trdiffsolall, z_trdiffsolall)

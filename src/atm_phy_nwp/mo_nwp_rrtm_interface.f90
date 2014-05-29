@@ -732,11 +732,13 @@ CONTAINS
     INTEGER,  ALLOCATABLE, TARGET:: zrg_ktype    (:,:) ! type of convection (real)
 
     REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_ifc (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zlp_pres_ifc (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_pres     (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_temp     (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zlp_tot_cld  (:,:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_clc      (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq1(:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq2(:,:,:)
@@ -768,9 +770,9 @@ CONTAINS
 
     ! Local scalars:
     INTEGER:: jc,jk,jb
-    INTEGER:: jg                     !domain id
-    INTEGER:: nlev, nlevp1, nlev_rg  !< number of full and half levels
-    INTEGER:: nblks_par_c            !nblks for reduced grid
+    INTEGER:: jg                      !domain id
+    INTEGER:: nlev, nlevp1, nlev_rg   !< number of full and half levels
+    INTEGER:: nblks_par_c, nblks_lp_c !nblks for reduced grid
 
     INTEGER:: rl_start, rl_end
     INTEGER:: i_startblk, i_endblk    !> blocks
@@ -807,9 +809,11 @@ CONTAINS
       IF (jg == 1) THEN
         ptr_pp => pt_par_patch
         nblks_par_c = pt_par_patch%nblks_c
+        nblks_lp_c  =  p_patch_local_parent(jg)%nblks_c
       ELSE ! Nested domain with MPI parallelization
         ptr_pp      => p_patch_local_parent(jg)
         nblks_par_c =  ptr_pp%nblks_c
+        nblks_lp_c  =  ptr_pp%nblks_c
       ENDIF
 
       ! Add extra layer for atmosphere above model top if requested
@@ -832,6 +836,7 @@ CONTAINS
         zrg_rtype    (nproma,nblks_par_c),             &
         zrg_ktype    (nproma,nblks_par_c),             &
         zrg_pres_ifc (nproma,nlev_rg+1,nblks_par_c),   &
+        zlp_pres_ifc (nproma,nlev_rg+1,nblks_lp_c ),   &
         zrg_pres     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_temp     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_o3       (nproma,nlev_rg  ,nblks_par_c),   &
@@ -842,6 +847,7 @@ CONTAINS
         zrg_aeq5     (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_acdnc    (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,3), &
+        zlp_tot_cld  (nproma,nlev_rg  ,nblks_lp_c,3),  &
         zrg_clc      (nproma,nlev_rg  ,nblks_par_c),   &
         zrg_aclcov   (nproma,          nblks_par_c),   &
         zrg_lwflx_up_sfc   (nproma,    nblks_par_c),   &
@@ -884,12 +890,13 @@ CONTAINS
         & prm_diag%albnirdif, prm_diag%albdif, prm_diag%tsfctrad,       &
         & prm_diag%ktype, pt_diag%pres_ifc, pt_diag%pres,               &
         & pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld, prm_diag%clc,  &
-        & ext_data%atm%o3(:,:,:), zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,    &
+        & ext_data%atm%o3, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,           &
         & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
         & zrg_albnirdif, zrg_albdif, zrg_tsfc, zrg_rtype, zrg_pres_ifc, &
         & zrg_pres, zrg_temp, zrg_acdnc, zrg_tot_cld, zrg_clc, zrg_o3,  &
-        & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5 )
+        & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5,             &
+        & zlp_pres_ifc, zlp_tot_cld)
 
 
       rl_start = grf_ovlparea_start_c
@@ -1132,8 +1139,8 @@ CONTAINS
       CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                                     &
         &  nlev_rg, zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_up_sfc,  &
         &  zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff,                             &
-        &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,                           &
-        &  zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,           &
+        &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld, zlp_tot_cld, zrg_pres_ifc,&
+        &  zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,           &
         &  prm_diag%trsolall, prm_diag%lwflx_up_sfc, prm_diag%trsol_up_toa, prm_diag%trsol_up_sfc,&
         &  prm_diag%trsol_dn_sfc_diff )
 
@@ -1184,7 +1191,7 @@ CONTAINS
         zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld, zrg_clc,    &
         zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_lwflx_up_sfc, zrg_trsol_up_toa,       &
         zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff, zrg_trsol_clr_sfc,                       &
-        zrg_fr_land,zrg_fr_glac,zrg_emis_rad)
+        zrg_fr_land, zrg_fr_glac, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld)
       
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------
