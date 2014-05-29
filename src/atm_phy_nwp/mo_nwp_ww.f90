@@ -51,7 +51,7 @@ MODULE mo_nwp_ww
   USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                    b2w   => c3les , & !! pressure over water (l) and ice (i)
                                    b4w   => c4les     !!               -- " --
-  USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: max_dom
 
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_vertical_coord_table,  ONLY: vct_a
@@ -482,7 +482,7 @@ CPRECIP: IF ( rkdiff > rldiff) THEN
          vbl = vbl / ( ph(i,ke1)-ph(i,ifog_wind(jg)) )
          DO k = ifog_temp(jg), ke
            tblmax = MAX( t(i,k), tblmax)
-           qvmin = MAX( qv(i,k),1.E-12)
+           qvmin = MAX( qv(i,k), 1.e-12_wp)
            zfrac = LOG( pf(i,k)*qvmin/(b1*(rdv+O_m_rdv*qvmin)))
            tdbl = (b2w*b3-b4w*zfrac)/(b2w-zfrac)
            tdbl = MIN( tdbl, t(i,k))
