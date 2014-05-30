@@ -69,56 +69,17 @@ MODULE mo_echam_phy_config
 CONTAINS
   !>
   !!
-  SUBROUTINE configure_echam_phy( ctest_name )
+  SUBROUTINE configure_echam_phy
 
-    CHARACTER(LEN=*),INTENT(IN) :: ctest_name
     CHARACTER(LEN=*),PARAMETER  :: method_name ='mo_echam_phy_config:configure_echam_phy'
 
     !------------------
 
-    CALL message('','')
-    CALL message(method_name,'ECHAM6 physics is configured as defined in &echam_phy_nml')
-
-    SELECT CASE (TRIM(ctest_name))
-    CASE('APE','APEi','APEc','JWw-Moist','LDF-Moist','jabw_m','APE_nh',&
-      &  'RCE', 'RCE_CBL','RCE_glb','RCEhydro')
-
-      CALL message(method_name,'with modifications for the testcase '//TRIM(ctest_name)//':')
-
-      echam_phy_config% lssodrag  = .FALSE.
-      echam_phy_config% lmlo      = .FALSE.
-      SELECT CASE (TRIM(ctest_name))
-      CASE('APEi','APEc')
-        echam_phy_config% lice      = .TRUE.
-      CASE DEFAULT
-        echam_phy_config% lice      = .FALSE.
-      END SELECT
-      echam_phy_config% lmeltpond = .FALSE.
-      echam_phy_config% llandsurf = .FALSE.
-      echam_phy_config% ljsbach   = .FALSE.
-      echam_phy_config% lhd       = .FALSE.
-      echam_phy_config% lamip     = .FALSE.
-
-    CASE('AMIP') ! ctest_name
-
-      CALL message(method_name,'with modifications for the testcase '//TRIM(ctest_name)//':')
-
 #ifdef __NO_JSBACH__
-      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__ to run the AMIP setup")
+    IF ( echam_phy_config% ljsbach ) THEN
+      CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__ to run this experiment")
+    END IF
 #endif
-
-      echam_phy_config% lssodrag  = .TRUE.
-      echam_phy_config% lmlo      = .FALSE.
-      echam_phy_config% lice      = .TRUE.
-      echam_phy_config% lmeltpond = .FALSE.
-      echam_phy_config% llandsurf = .FALSE.
-      echam_phy_config% ljsbach   = .TRUE.
-      echam_phy_config% lhd       = .FALSE.
-      echam_phy_config% lamip     = .TRUE.
-
-    CASE DEFAULT ! ctest_name
-
-    END SELECT ! ctest_name
 
     CALL message('','')
     CALL message(method_name,'ECHAM6 physics configuration:')
@@ -130,7 +91,6 @@ CONTAINS
     CALL print_value('    icover     ',echam_phy_config% icover   )
     CALL print_value('    lgw_hines  ',echam_phy_config% lgw_hines)
     CALL print_value('    lssodrag   ',echam_phy_config% lssodrag )
-    CALL print_value('    lssodrag   ',echam_phy_config% lssodrag )
     CALL print_value('    lmlo       ',echam_phy_config% lmlo     )
     CALL print_value('    lice       ',echam_phy_config% lice     )
     CALL print_value('    lmeltpond  ',echam_phy_config% lmeltpond)
@@ -141,7 +101,7 @@ CONTAINS
     CALL message(method_name,'ECHAM6 physics boundary conditions:')
     CALL print_value('    lamip      ',echam_phy_config% lamip    )
     CALL message('','')
-    CALL message(method_name,'ECHAM6 physcis energy budget control:')
+    CALL message(method_name,'ECHAM6 physics energy budget control:')
     CALL print_value('    lebudget   ',echam_phy_config% lebudget )
     CALL message('','')
 

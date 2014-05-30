@@ -42,11 +42,6 @@ start_date="2008-08-01T00:00:00Z"
 (( dt_checkpoint =  1 * day )) # [s] time between restart file writing
 #
 #-----------------------------------------------------------------------------
-# model timing
-dt_dyn=120.                    # [s]  dynamics  time step
-dt_rad=7200.                   # [s]  radiation time step
-#
-#-----------------------------------------------------------------------------
 # model parameters
 atmo_model_equations=1         # equation system
 #                              1=hydrost. atm. T
@@ -157,7 +152,7 @@ cat >> ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev        = ${nlev},     ! number of full levels of vertical grid
- dtime          = ${dt_dyn}    ! timestep in seconds
+ dtime          = 120.         ! timestep in seconds
  ltransport     = .TRUE.
  ntracer        = 3            ! default: 0
  iforcing       = 2            ! 3: NWP forcing; 6:inhecham forcing
@@ -167,12 +162,20 @@ cat >> ${atmo_namelist} << EOF
  profiling_output = 3
 /
 &echam_phy_nml
- lrad             = .TRUE.
- lvdiff           = .TRUE.
- lgw_hines        = .FALSE.
- lconv            = .TRUE.
- lcond            = .TRUE.
- dt_rad           = ${dt_rad}
+ lrad           = .TRUE.
+ dt_rad         =  7200.       ! [s] radiative transfer interval
+ lvdiff         = .TRUE.
+ lconv          = .TRUE.
+ lcond          = .TRUE.
+ lgw_hines      = .FALSE.
+ lssodrag       = .FALSE.
+ lmlo           = .FALSE.
+ lice           = .FALSE.
+ lmeltpond      = .FALSE.
+ llandsurf      = .FALSE.
+ ljsbach        = .FALSE.
+ lhd            = .FALSE.
+ lamip          = .FALSE.
 /
 &radiation_nml
  irad_o3    = 4 !should be the ozone clim for APE  

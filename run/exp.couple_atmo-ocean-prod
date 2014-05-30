@@ -94,9 +94,6 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 #
 dtime=$dtime_atmo
 #
-# radiation time step
-(( dt_rad  = 2 * hour ))
-#
 # atm_dyn output - ACTIVATE WHEN USING NML OUTPUT - now for production
 #(( dt_data_atm_dyn =  6 * hour ))  # [s] data output interval, write output every 6 hours
 (( dt_data_atm_dyn = 24 * hour ))  # [s] data output interval, write output daily
@@ -347,12 +344,20 @@ cat > $atmo_namelist << EOF
  ctracer_list = 'vwi45' ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
- lcond     = .TRUE.
- lconv     = .TRUE.
- lvdiff    = .TRUE.
- lrad      = .TRUE.
- lgw_hines = .TRUE.
- dt_rad     = ${dt_rad} ! [s] compute radiative transfer every other hour
+ lrad       = .TRUE.
+ dt_rad     =  7200.        ! [s] radiative transfer interval
+ lvdiff     = .TRUE.
+ lconv      = .TRUE.
+ lcond      = .TRUE.
+ lgw_hines  = .TRUE.
+ lssodrag   = .FALSE.
+ lmlo       = .FALSE.
+ lice       = .TRUE.
+ lmeltpond  = .FALSE.
+ llandsurf  = .FALSE.
+ ljsbach    = .FALSE.
+ lhd        = .FALSE.
+ lamip      = .FALSE.
 /
 &echam_conv_nml
 /

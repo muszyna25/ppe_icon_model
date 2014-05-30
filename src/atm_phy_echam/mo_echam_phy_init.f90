@@ -139,7 +139,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Main switches (phy_config%lrad, phy_config%lcond, etc.)
 
-    CALL configure_echam_phy (ctest_name)
+    CALL configure_echam_phy
 
     ! For radiation:
 
@@ -444,8 +444,6 @@ CONTAINS
             CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
-              !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
-              !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
               field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
               field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
             END DO
@@ -458,7 +456,7 @@ CONTAINS
           IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc for a coupled run')
 
         CASE('APEi')
-          ! The same as APE except that, whenever SST reaches tmelt, we put
+          ! The same as APE, except that whenever SST reaches tmelt, we put
           ! 1m-thick ice with a concentration of 0.9 on top
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
@@ -477,8 +475,6 @@ CONTAINS
               IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
 !                ! Set the ice surface temperature to the same value as the lowest model level above
 !                ! surface. This is copied from the JWw and LDF cases.
-!                field%tsfc_tile(jc,jb,iice) = &
-!                  &     p_hydro_state(jg)%prog(nnow(jg))%temp(jc,nlev,jb)
 
                 field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
                 field%conc  (jc,1,jb) = 0.9_wp
@@ -489,21 +485,21 @@ CONTAINS
                 field%hi    (jc,1,jb) = 0._wp
                 field%seaice(jc,  jb) = field%conc(jc,1,jb)
               ENDIF
-              field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
-                &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
+              field% tsfc(jc,jb) = field%seaice(jc,jb)  *field%tsfc_tile(jc,jb,iice) &
+                &      + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           END DO
 !$OMP END PARALLEL DO
-          field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation
-          field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
-          field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-          field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation
-          field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
-          field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
+          field% albvisdir_ice(:,:,:) = albi    ! albedo in the visible range for direct radiation
+          field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
+          field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
+          field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
+          field% albvisdir_wtr(:,:)   = albedoW ! albedo in the visible range for direct radiation
+          field% albnirdir_wtr(:,:)   = albedoW ! albedo in the NIR range for direct radiation
+          field% albvisdif_wtr(:,:)   = albedoW ! albedo in the visible range for diffuse radiation
+          field% albnirdif_wtr(:,:)   = albedoW ! albedo in the NIR range for diffuse radiation
 
         CASE('APEc')
           ! The same as APEi, except we initialize with no ice and don't modify the surface
@@ -524,21 +520,21 @@ CONTAINS
               field%conc  (jc,1,jb) = 0._wp
               field%hi    (jc,1,jb) = 0._wp
               field%seaice(jc,  jb) = field%conc(jc,1,jb)
-              field% tsfc(jc,jb) = field%seaice(jc,jb)*field%tsfc_tile(jc,jb,iice) &
-                &       + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
+              field% tsfc(jc,jb) = field%seaice(jc,jb)  *field%tsfc_tile(jc,jb,iice) &
+                &      + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           END DO
 !$OMP END PARALLEL DO
-          field% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-          field% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation
-          field% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
-          field% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-          field% albvisdir_wtr(:,:) = albedoW ! albedo in the visible range for direct radiation
-          field% albnirdir_wtr(:,:) = albedoW ! albedo in the NIR range for direct radiation
-          field% albvisdif_wtr(:,:) = albedoW ! ! albedo in the visible range for diffuse radiation
-          field% albnirdif_wtr(:,:) = albedoW ! albedo in the NIR range for diffuse radiation
+          field% albvisdir_ice(:,:,:) = albi    ! albedo in the visible range for direct radiation
+          field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
+          field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
+          field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
+          field% albvisdir_wtr(:,:)   = albedoW ! albedo in the visible range for direct radiation
+          field% albnirdir_wtr(:,:)   = albedoW ! albedo in the NIR range for direct radiation
+          field% albvisdif_wtr(:,:)   = albedoW ! albedo in the visible range for diffuse radiation
+          field% albnirdif_wtr(:,:)   = albedoW ! albedo in the NIR range for diffuse radiation
 
 ! This shouldn't be necessary!
           IF ( is_coupled_run() ) THEN

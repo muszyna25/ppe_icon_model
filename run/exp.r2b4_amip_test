@@ -1,4 +1,3 @@
-#!/bin/bash
 #__________________________________________________________________________________________________
 #
 # ICON AMIP run script.
@@ -130,16 +129,21 @@ cat > ${atmo_namelist} << EOF
  ihadv_tracer     = 52,2,2,2,2
 /
 &echam_phy_nml
- lamip            = .TRUE.
  lrad             = .TRUE.
+ dt_rad           =  3600.      ! [s] radiation time step
  lvdiff           = .TRUE.
  lconv            = .TRUE.
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
+ lmlo             = .FALSE.
+ lice             = .TRUE.
+ lmeltpond        = .FALSE.
+ llandsurf        = .FALSE.
  ljsbach          = .TRUE.
- dt_rad           = ${dt_rad}    ! [s] radiation time step
+ lhd              = .FALSE.
  lebudget         = .TRUE.
+ lamip            = .TRUE.
 /
 &radiation_nml
  irad_h2o         = 1            ! prognostic vapor, liquid and ice

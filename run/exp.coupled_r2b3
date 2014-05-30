@@ -1,4 +1,3 @@
-#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script defines the experiment.
@@ -68,7 +67,6 @@ B=3   # number of bisections applied
 dtime_atmo=${dtime_atmo:=600}
 dtime_ocean=$hour
 dt_coupling=$hour
-(( dt_rad        = 2 * hour ))  # radiation time step
 #
 #---------------------------------------------------------------------------
 #model timing
@@ -281,12 +279,20 @@ cat > $atmo_namelist << EOF
  ctracer_list = 'vwi45' ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
- lcond     = .TRUE.
- lconv     = .TRUE.
- lvdiff    = .TRUE.
- lrad      = .TRUE.
- lgw_hines = .TRUE.
- dt_rad     = ${dt_rad} ! [s] compute radiative transfer every other hour
+ lrad       = .TRUE.
+ dt_rad     =  7200.        ! [s] radiative transfer interval
+ lvdiff     = .TRUE.
+ lconv      = .TRUE.
+ lcond      = .TRUE.
+ lgw_hines  = .TRUE.
+ lssodrag   = .FALSE.
+ lmlo       = .FALSE.
+ lice       = .TRUE.
+ lmeltpond  = .FALSE.
+ llandsurf  = .FALSE.
+ ljsbach    = .FALSE.
+ lhd        = .FALSE.
+ lamip      = .FALSE.
 /
 &echam_conv_nml
 /

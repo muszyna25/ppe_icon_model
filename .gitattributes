@@ -703,8 +703,6 @@ run/exp.couple_dummy_models -text
 run/exp.coupled_r2b3 -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
-run/exp.hat_icoham_ape_Acntl -text
-run/exp.hat_icoham_ape_r2b6 -text
 run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
 run/exp.hat_jww_echam -text

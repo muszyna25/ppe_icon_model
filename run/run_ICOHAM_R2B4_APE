@@ -148,10 +148,19 @@ cat > NAMELIST_ICON << EOF
 &dynamics_ctl
 /
 &echam_phy_nml
- lcond  = .TRUE.            ! switch on  large-scale condensation
- lconv  = .TRUE.            ! switch on  cumulus convection
- lvdiff = .TRUE.            ! switch on  surface and PBL processes
- lrad   = .TRUE.            ! switch off radiation
+ lrad       = .TRUE.
+ lvdiff     = .TRUE.
+ lconv      = .TRUE.
+ lcond      = .TRUE.
+ lgw_hines  = .TRUE.
+ lssodrag   = .FALSE.
+ lmlo       = .FALSE.
+ lice       = .FALSE.
+ lmeltpond  = .FALSE.
+ llandsurf  = .FALSE.
+ ljsbach    = .FALSE.
+ lhd        = .FALSE.
+ lamip      = .FALSE.
 /
 &transport_ctl
  ihadv_tracer = 2           ! default: 'muscl', test 'muscl_nolimit'
