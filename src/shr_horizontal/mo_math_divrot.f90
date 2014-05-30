@@ -645,8 +645,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-  IF (ptr_patch%cell_type == 3) THEN
-
 
 !$OMP PARALLEL
 
@@ -746,93 +744,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-ELSEIF (ptr_patch%cell_type == 6) THEN
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, rl_start, rl_end)
-
-    !
-    ! 1. compute right hand side of linear system
-    !
-!CDIR UNROLL=5
-    DO jk = slev, elev
-
-      DO jc = i_startidx, i_endidx
-
-!CDIR EXPAND=6
-        DO js = 1, 6
-          ! original version
-          !z_d(js) = ptr_int_lsq%lsq_weights_c(jc,js,jb)                   &
-          !  &     * (p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb))
-
-          ! note, that the multiplication with lsq_weights_c(jc,js,jb) at
-          ! runtime is now avoided. Instead, the multiplication with
-          ! lsq_weights_c(jc,js,jb) has been shifted into the transposed
-          ! Q-matrix.
-
-          z_d(js,jc,jk) = p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb)
-        ENDDO
-      ENDDO
-    ENDDO
-
-    !
-    ! 2. compute cell based coefficients for quadratic reconstruction
-    !
-    DO jk = slev, elev
-
-      DO jc = i_startidx, i_endidx
-
-        ! calculate matrix vector product Q^T d (transposed of Q times LHS)
-        ! (intrinsic function matmul not applied, due to massive
-        ! performance penalty on the NEC. Instead the intrinsic dot product
-        ! function is applied
-!CDIR BEGIN EXPAND=6
-!!        z_qt_times_d(1) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,1,1:6,jb),z_d(1:6,jc,jk))
-!!        z_qt_times_d(2) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,2,1:6,jb),z_d(1:6,jc,jk))
-        z_qt_times_d(3) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,3,1:6,jb),z_d(1:6,jc,jk))
-        z_qt_times_d(4) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,4,1:6,jb),z_d(1:6,jc,jk))
-        z_qt_times_d(5) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,5,1:6,jb),z_d(1:6,jc,jk))
-!CDIR END
-
-        !
-        ! Solve linear system Rx=Q^T d by back substitution
-        !
-        p_coeff(jc,jk,jb,6) = ptr_rrdiag(jc,5,jb) * z_qt_times_d(5)
-        p_coeff(jc,jk,jb,5) = ptr_rrdiag(jc,4,jb)                                         &
-          &                 * ( z_qt_times_d(4) - ptr_rutri(jc,1,jb)*p_coeff(jc,jk,jb,6) )
-        p_coeff(jc,jk,jb,4) = ptr_rrdiag(jc,3,jb)                                         &
-          &                 * ( z_qt_times_d(3) - ptr_rutri(jc,2,jb)*p_coeff(jc,jk,jb,5)  &
-          &                 - ptr_rutri(jc,3,jb) * p_coeff(jc,jk,jb,6) )
-        !p_coeff(jc,jk,jb,3) = ptr_rrdiag(jc,2,jb)                                         &
-        !  &                 * ( z_qt_times_d(2) - ptr_rutri(jc,4,jb)*p_coeff(jc,jk,jb,4)  &
-        !  &                 - ptr_rutri(jc,5,jb) * p_coeff(jc,jk,jb,5)                    &
-        !  &                 - ptr_rutri(jc,6,jb) * p_coeff(jc,jk,jb,6) )
-        !p_coeff(jc,jk,jb,2) = ptr_rrdiag(jc,1,jb)                                         &
-        !  &                 * ( z_qt_times_d(1) - ptr_rutri(jc,7,jb)*p_coeff(jc,jk,jb,3)  &
-        !  &                 - ptr_rutri(jc,8,jb) * p_coeff(jc,jk,jb,4)                    &
-        !  &                 - ptr_rutri(jc,9,jb) * p_coeff(jc,jk,jb,5)                    &
-        !  &                 - ptr_rutri(jc,10,jb)* p_coeff(jc,jk,jb,6) )
-
-        !p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)                                              &
-        !  &                  - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1)     &
-        !  &                  - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)     &
-        !  &                  - p_coeff(jc,jk,jb,4) * ptr_int_lsq%lsq_moments(jc,jb,3)     &
-        !  &                  - p_coeff(jc,jk,jb,5) * ptr_int_lsq%lsq_moments(jc,jb,4)     &
-        !  &                  - p_coeff(jc,jk,jb,6) * ptr_int_lsq%lsq_moments(jc,jb,5)
-
-      END DO ! end loop over cells
-
-    END DO ! end loop over vertical levels
-
-  END DO ! end loop over blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-ENDIF
 
 END SUBROUTINE recon_lsq_cell_q
 
@@ -953,8 +864,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iblk => ptr_int_lsq%lsq_blk_c
 
 
-  IF (ptr_patch%cell_type == 3) THEN
-
 
 !$OMP PARALLEL
 
@@ -1037,76 +946,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-ELSEIF (ptr_patch%cell_type == 6) THEN
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b) ICON_OMP_RUNTIME_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, rl_start, rl_end)
-
-    !
-    ! 1. compute right hand side of linear system
-    !
-!CDIR UNROLL=5
-    DO jk = slev, elev
-
-      DO jc = i_startidx, i_endidx
-
-!CDIR EXPAND=6
-        DO js = 1, 6
-          ! original version
-          !z_b(js) = ptr_int_lsq%lsq_weights_c(jc,js,jb)                   &
-          !  &     * (p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb))
-
-          ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-          ! runtime is now avoided. Instead, the multiplication has been
-          ! shifted into the pseudoinverse.
-
-          z_b(js,jc,jk) = p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb)
-        ENDDO
-      ENDDO
-    ENDDO
-
-    !
-    ! 2. compute cell based coefficients for quadratic reconstruction
-    !    calculate matrix vector product PINV(A) * b
-    !
-    DO jk = slev, elev
-
-      DO jc = i_startidx, i_endidx
-
-        ! (intrinsic function matmul not applied, due to massive
-        ! performance penalty on the NEC. Instead the intrinsic dot product
-        ! function is applied
-!CDIR BEGIN EXPAND=6
-        p_coeff(jc,jk,jb,6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:6,jb), &
-          &                               z_b(1:6,jc,jk))
-        p_coeff(jc,jk,jb,5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:6,jb), &
-          &                               z_b(1:6,jc,jk))
-        p_coeff(jc,jk,jb,4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:6,jb), &
-          &                               z_b(1:6,jc,jk))
-
-        !p_coeff(jc,jk,jb,3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:6,jb), &
-        !  &                               z_b(1:6,jc,jk))
-        !p_coeff(jc,jk,jb,2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:6,jb), &
-        !  &                               z_b(1:6,jc,jk))
-!CDIR END
-
-        !p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:6), &
-        !  &                   ptr_int_lsq%lsq_moments(jc,jb,1:5))
-
-
-      END DO ! end loop over cells
-
-    END DO ! end loop over vertical levels
-
-  END DO ! end loop over blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-ENDIF
 
 END SUBROUTINE recon_lsq_cell_q_svd
 
@@ -2190,10 +2029,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$OMP PARALLEL
 
 
-SELECT CASE (ptr_patch%cell_type)
-
-CASE (3) ! (cell_type == 3)
-
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -2262,44 +2097,6 @@ CASE (3) ! (cell_type == 3)
   END DO
 !$OMP END DO NOWAIT
 
-CASE (6) ! (cell_type == 6)
-
-  ! no grid refinement in hexagonal model
-  nblks_c   = ptr_patch%nblks_c
-  npromz_c  = ptr_patch%npromz_c
-
-!$OMP DO PRIVATE(jb,nlen,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = 1, nblks_c
-
-    IF (jb /= nblks_c) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_c
-    ENDIF
-
-#ifdef __LOOP_EXCHANGE
-    DO jc = 1, nlen
-      DO jk = slev, elev
-#else
-!CDIR UNROLL=6
-    DO jk = slev, elev
-      DO jc = 1, nlen
-#endif
-
-          div_vec_c(jc,jk,jb) =   &
-          &   vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) &
-          & + vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) &
-          & + vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb) &
-          & + vec_e(iidx(jc,jb,4),jk,iblk(jc,jb,4)) * ptr_int%geofac_div(jc,4,jb) &
-          & + vec_e(iidx(jc,jb,5),jk,iblk(jc,jb,5)) * ptr_int%geofac_div(jc,5,jb) &
-          & + vec_e(iidx(jc,jb,6),jk,iblk(jc,jb,6)) * ptr_int%geofac_div(jc,6,jb)
-
-      END DO
-    END DO
-  END DO
-!$OMP END DO NOWAIT
-
-END SELECT
 !$OMP END PARALLEL
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -2399,11 +2196,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
 
-
-SELECT CASE (ptr_patch%cell_type)
-
-CASE (3) ! (cell_type == 3)
-
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -2432,49 +2224,6 @@ CASE (3) ! (cell_type == 3)
 
   ENDDO
 !$OMP END DO NOWAIT
-
-CASE (6) ! (cell_type == 6)
-
-  ! no grid refinement in hexagonal model
-  nblks_c   = ptr_patch%nblks_c
-  npromz_c  = ptr_patch%npromz_c
-
-!$OMP DO PRIVATE(jb,nlen,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = 1, nblks_c
-
-    IF (jb /= nblks_c) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_c
-    ENDIF
-
-#ifdef __LOOP_EXCHANGE
-    DO jc = 1, nlen
-      DO ji = 1, dim4d
-        DO jk = slev(ji), elev(ji)
-#else
-    DO ji = 1, dim4d
-!CDIR UNROLL=6
-      DO jk = slev(ji), elev(ji)
-        DO jc = 1, nlen
-#endif
-
-          f4dout(jc,jk,jb,ji) =   &
-          &   f4din(iidx(jc,jb,1),jk,iblk(jc,jb,1),ji) * ptr_int%geofac_div(jc,1,jb) &
-          & + f4din(iidx(jc,jb,2),jk,iblk(jc,jb,2),ji) * ptr_int%geofac_div(jc,2,jb) &
-          & + f4din(iidx(jc,jb,3),jk,iblk(jc,jb,3),ji) * ptr_int%geofac_div(jc,3,jb) &
-          & + f4din(iidx(jc,jb,4),jk,iblk(jc,jb,4),ji) * ptr_int%geofac_div(jc,4,jb) &
-          & + f4din(iidx(jc,jb,5),jk,iblk(jc,jb,5),ji) * ptr_int%geofac_div(jc,5,jb) &
-          & + f4din(iidx(jc,jb,6),jk,iblk(jc,jb,6),ji) * ptr_int%geofac_div(jc,6,jb)
-
-        ENDDO
-      ENDDO
-    ENDDO
-
-  ENDDO
-!$OMP END DO NOWAIT
-
-END SELECT
 !$OMP END PARALLEL
 
 !IF(ltimer) CALL timer_stop(timer_div)
@@ -2975,10 +2724,6 @@ END IF
 !
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
-
-CASE (3)
-
   iidx => ptr_patch%verts%edge_idx
   iblk => ptr_patch%verts%edge_blk
 
@@ -3039,53 +2784,6 @@ CASE (3)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-CASE (6) ! (cell_type == 6)
-
-  iidx => ptr_patch%verts%edge_idx
-  iblk => ptr_patch%verts%edge_blk
-
-  ! values for the blocking
-  ! no grid refinement in hexagonal model
-  nblks_v   = ptr_patch%nblks_v
-  npromz_v  = ptr_patch%npromz_v
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = 1, nblks_v
-    IF (jb /= nblks_v) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_v
-    ENDIF
-    !
-    ! Compute the discrete rotation for a triangle by
-    ! application of Stokes theorem (which requires the scalar
-    ! product of the vector field with the tangent unit vectors
-    ! going around dual cell jv counterclockwise)
-    !
-#ifdef __LOOP_EXCHANGE
-    DO jv = 1, nlen
-      DO jk = slev, elev
-#else
-    DO jk = slev, elev
-      DO jv = 1, nlen
-#endif
-        !
-        ! add individual edge contributions to rotation
-        !
-        rot_vec(jv,jk,jb) =   &
-          vec_e(iidx(jv,jb,1),jk,iblk(jv,jb,1)) * ptr_int%geofac_rot(jv,1,jb) + &
-          vec_e(iidx(jv,jb,2),jk,iblk(jv,jb,2)) * ptr_int%geofac_rot(jv,2,jb) + &
-          vec_e(iidx(jv,jb,3),jk,iblk(jv,jb,3)) * ptr_int%geofac_rot(jv,3,jb)
-
-      END DO
-
-    END DO
-
-  ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-END SELECT
 
 END SUBROUTINE rot_vertex_atmos
 
