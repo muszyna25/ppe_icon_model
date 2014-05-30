@@ -48,7 +48,7 @@ MODULE mo_echam_phy_init
 
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
-  USE mo_nh_testcases_nml,     ONLY: nh_test_name 
+  USE mo_nh_testcases_nml,     ONLY: nh_test_name, th_cbl
   USE mo_ape_params,           ONLY: ape_sst
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
@@ -64,14 +64,12 @@ MODULE mo_echam_phy_init
 
   ! cumulus convection
   USE mo_convect_tables,       ONLY: init_convect_tables
-  USE mo_echam_convect_tables, &
-    & ONLY: init_echam_convect_tables => init_convect_tables 
+  USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables 
 
   ! stratiform clouds and cloud cover
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
 
   ! air-sea-land interface
-  ! USE mo_ext_data_state,       ONLY: ext_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
                                    & init_sfc_indices
 
@@ -90,7 +88,7 @@ MODULE mo_echam_phy_init
   USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
-                                   & timer_prep_echam_phy
+    &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
   USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
@@ -387,17 +385,17 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE initcond_echam_phy( p_patch, p_hydro_state, ctest_name )
+  SUBROUTINE initcond_echam_phy( p_patch, temp, qv, ctest_name )
 
     TYPE(t_patch)    ,INTENT(IN) :: p_patch(:)
-    TYPE(t_hydro_atm),INTENT(IN) :: p_hydro_state(:)
+    REAL(wp)         ,INTENT(IN) :: temp(:,:,:)
+    REAL(wp)         ,INTENT(IN) :: qv(:,:,:)
     CHARACTER(LEN=*), INTENT(IN) :: ctest_name
 
     ! local variables and pointers
 
-    INTEGER  :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce, jk
-    REAL(wp) :: zprat, zn1, zn2, zcdnc, zlat
-    LOGICAL  :: lland, lglac
+    INTEGER  :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce
+    REAL(wp) :: zlat
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
@@ -437,15 +435,15 @@ CONTAINS
         ! For idealized test cases
 
         SELECT CASE (ctest_name)
-        CASE('APE','RCEhydro') !Note that there is only one surface type in this case
+        CASE('APE','APE_nh','RCEhydro') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
             CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
-              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+              field% tsfc     (jc,jb     ) = ape_sst(ape_sst_case,zlat)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
@@ -454,6 +452,22 @@ CONTAINS
 !$OMP END PARALLEL DO
 
           IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc for a coupled run')
+
+        CASE('RCE','RCE_glb','RCE_CBL') !Note that there is only one surface type in this case
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+            DO jb = jbs,nblks_c
+              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+              DO jc = jcs,jce
+                zlat = p_patch(jg)%cells%center(jc,jb)%lat
+                field% tsfc_tile(jc,jb,iwtr) = th_cbl(1)
+                field% tsfc     (jc,     jb) = th_cbl(1)
+              END DO
+              field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+              field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+            END DO
+!$OMP END PARALLEL DO
 
         CASE('APEi')
           ! The same as APE, except that whenever SST reaches tmelt, we put
@@ -465,7 +479,7 @@ CONTAINS
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
               ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
+              field% tsfc_tile  (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
               ! Initialise the ice - Tsurf, T1 & T2 must be in degC
               field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
               field% Tsurf      (jc,1, jb  ) = Tf
@@ -473,9 +487,6 @@ CONTAINS
               field% T2         (jc,1, jb  ) = Tf
               field% hs         (jc,1, jb  ) = 0._wp
               IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
-!                ! Set the ice surface temperature to the same value as the lowest model level above
-!                ! surface. This is copied from the JWw and LDF cases.
-
                 field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
                 field%conc  (jc,1,jb) = 0.9_wp
                 field%hi    (jc,1,jb) = 1.0_wp
@@ -706,22 +717,19 @@ CONTAINS
           ENDIF
 
 
-        CASE('JWw-Moist','LDF-Moist')
+        CASE('JWw-Moist','LDF-Moist','jabw_m')
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
             CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-           ! Set the surface temperature to the same value as the lowest model
+
+            ! Set the surface temperature to the same value as the lowest model
             ! level above surface. For this test case, currently we assume
             ! there is no land or sea ice.
 
-           !field% tsfc_tile(jcs:jce,iwtr,jb) = p_hydro_state(jg)%prog(nnow(jg))% &
-           !                                  & temp(jcs:jce,nlev,jb)
-           !field% tsfc     (jcs:jce,     jb) = field% tsfc_tile(jcs:jce,iwtr,jb)
-            field% tsfc_tile(jcs:jce,jb,iwtr) = p_hydro_state(jg)%prog(nnow(jg))% &
-                                              & temp(jcs:jce,nlev,jb)
-            field% tsfc     (jcs:jce,     jb) = field% tsfc_tile(jcs:jce,jb,iwtr)
+            field% tsfc_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
+            field% tsfc     (jcs:jce,jb     ) = temp(jcs:jce,nlev,jb)
 
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
@@ -733,17 +741,9 @@ CONTAINS
         END SELECT
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-        ! Compute pressure at half and full levels
-
-        CALL half_level_pressure( p_hydro_state(jg)%prog(nnow(jg))%pres_sfc(:,jb), &! in
-                                & nproma, jce,                          &! in
-                                & field%presi_old(:,:,jb)               )! out
-
-        CALL full_level_pressure( field%presi_old(:,:,jb), nproma, jce, &! in
-                                & field%presm_old(:,:,jb)               )! out
 
         ! Initialize the flag lfland (.TRUE. if the fraction of land in
         ! a grid box is larger than zero). In ECHAM a local array
@@ -752,38 +752,9 @@ CONTAINS
         DO jc = jcs,jce
           field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
           field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
-          ! DWD NWP version
-        ! field%lfland(jc,jb) = ext_data(jg)%atm%lsm_atm_c(jc,jb) > 0
-        ! field%lfglac(jc,jb) = ext_data(jg)%atm%soiltyp  (jc,jb) == 1 ! soiltyp=ice
-        ENDDO
+        END DO
 
-
-        ! Initialize cloud droplet number concentration (acdnc)
-        ! (In ECHAM6 this is done in subroutine "physc" using a
-        ! "IF (lstart) THEN" block.)
-
-        DO jk = 1,nlev
-          DO jc = jcs,jce
-             zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
-
-             lland = field%lfland(jc,jb)
-             lglac = lland.AND.field%glac(jc,jb).GT.0._wp
-             IF (lland.AND.(.NOT.lglac)) THEN
-               zn1= 50._wp
-               zn2=220._wp
-             ELSE
-               zn1= 50._wp
-               zn2= 80._wp
-             ENDIF
-             IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
-                zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
-             ELSE
-                zcdnc=zn2*1.e6_wp
-             ENDIF
-             field% acdnc(jc,jk,jb) = zcdnc
-          END DO !jc
-        END DO   !jk
-      ENDDO      !jb
+      END DO      !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
@@ -792,13 +763,9 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-      field% q(:,:,:,iqv)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv)
-     !field% q(:,:,:,iqc)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqc)
-     !field% q(:,:,:,iqi)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqi)
-     !field% q(:,:,:,iqt:) = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqt:)
-
-      field% xvar  (:,:,:) = cvarmin*field% q(:,:,:,iqv)
-      field% xskew (:,:,:) = 2._wp
+      field% q    (:,:,:,iqv) = qv(:,:,:)
+      field% xvar (:,:,:)     = qv(:,:,:)*cvarmin
+      field% xskew(:,:,:)     = 2._wp
 
       ! Other variabels (cf. subroutine init_g3 in ECHAM6)
 
@@ -841,13 +808,13 @@ CONTAINS
       field% rintop(:,  :) = 0._wp
 
       field% albvisdir(:,  :) = 0.07_wp ! albedo in the visible range for direct radiation
-                                             ! (set to the albedo of water for testing)
+                                        ! (set to the albedo of water for testing)
       field% albnirdir(:,  :) = 0.07_wp ! albedo in the NIR range for direct radiation
-                                             ! (set to the albedo of water for testing)
+                                        ! (set to the albedo of water for testing)
       field% albvisdif(:,  :) = 0.07_wp ! albedo in the visible range for diffuse radiation
-                                             ! (set to the albedo of water for testing)
+                                        ! (set to the albedo of water for testing)
       field% albnirdif(:,  :) = 0.07_wp ! albedo in the NIR range for diffuse radiation
-                                             ! (set to the albedo of water for testing)
+                                        ! (set to the albedo of water for testing)
 
       tend% xl_dtr(:,:,:)  = 0._wp  !"xtecl" in ECHAM
       tend% xi_dtr(:,:,:)  = 0._wp  !"xteci" in ECHAM
@@ -878,7 +845,6 @@ CONTAINS
 !$OMP END PARALLEL
 
 !$OMP PARALLEL WORKSHARE
-       !field% coriol(:,:)   = p_patch(jg)%cells%f_c(:,:)
         field% ustar (:,:)   = 1._wp
         field% kedisp(:,:)   = 0._wp
         field% tkem0 (:,:,:) = 1.e-4_wp
@@ -998,8 +964,6 @@ CONTAINS
 
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
-             !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
-             !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
               field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
               field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
             END DO
@@ -1021,9 +985,6 @@ CONTAINS
         DO jc = jcs,jce
           field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
           field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
-          ! DWD NWP version
-        ! field%lfland(jc,jb) = ext_data(jg)%atm%lsm_atm_c(jc,jb) > 0
-        ! field%lfglac(jc,jb) = ext_data(jg)%atm%soiltyp  (jc,jb) == 1 ! soiltyp=ice
         ENDDO !jc
       ENDDO   !jb
 !$OMP END DO NOWAIT

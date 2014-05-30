@@ -186,6 +186,10 @@ CONTAINS
 
     REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon 
 
+    ! Temporary variables used for cloud droplet number concentration
+
+    REAL(wp) :: zprat, zn1, zn2, zcdnc
+    LOGICAL  :: lland, lglac
 
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
@@ -267,9 +271,11 @@ CONTAINS
     IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
     IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
 
-    !!3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS--------------------
+    !---------------------------------------------------------------------
+    ! 3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS
     !     (Needed only for sub-models. Note: sequence of arguments
     !      different from the original ECHAM6)
+    !---------------------------------------------------------------------
     !
     !CALL WMO_tropopause( jce, nbdim, nlev,         &! in
     !                   & ncctop, nccbot, lresum,   &! in
@@ -277,11 +283,40 @@ CONTAINS
     !                   & field% presm_old(:,:,jb), &! in
     !                   & field% tropo(:,jb),       &! out for diagnostics
     !                   & itrpwmo, itrpwmop1        )! out for submodel
+
     !---------------------------------------------------------------------
+    ! 3.12 INITIALISATION OF CLOUD DROPLET NUMBER CONCENTRATION 
+    !      (1/M**3) USED IN RADLSW AND CLOUD
+    !---------------------------------------------------------------------
+
+    DO jk = 1,nlev
+      DO jc = jcs,jce
+        !
+        zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
+
+        lland = field%lfland(jc,jb)
+        lglac = lland.AND.field%glac(jc,jb).GT.0._wp
+        IF (lland.AND.(.NOT.lglac)) THEN
+          zn1= 50._wp
+          zn2=220._wp
+        ELSE
+          zn1= 50._wp
+          zn2= 80._wp
+        ENDIF
+        IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
+          zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
+        ELSE
+          zcdnc=zn2*1.e6_wp
+        ENDIF
+        field% acdnc(jc,jk,jb) = zcdnc
+        !
+      END DO
+    END DO
 
     !-------------------------------------------------------------------
     ! 3.13 DIAGNOSE CURRENT CLOUD COVER
     !-------------------------------------------------------------------
+
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
 
     IF (phy_config%lcond) THEN

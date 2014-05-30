@@ -19,8 +19,8 @@ MODULE mo_atmo_hydrostatic
   USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, iforcing, nlev, &
-    &                             msg_level, output_mode, ntracer, iqc, iqt
-  USE mo_dynamics_config,   ONLY: iequations
+    &                             msg_level, output_mode, ntracer, iqv, iqc, iqt
+  USE mo_dynamics_config,   ONLY: iequations, nnow
   USE mo_advection_config,  ONLY: configure_advection
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: n_diags, n_checkpoints
@@ -122,7 +122,6 @@ CONTAINS
        &                      1, 0, .FALSE., .FALSE., ntracer          ) 
     ENDDO
 
-
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL init_echam_phy( p_patch(1:), ctest_name, &
                             & nlev, vct_a, vct_b, ceta, time_config%cur_datetime )
@@ -133,13 +132,16 @@ CONTAINS
     !------------------------------------------------------------------
     ! Here constant values are also initialized,
     ! such as analytical topography.
-    ! It should be caleed even in reastart mode
+    ! It should be called even in restart mode
     CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
                         & p_grf_state(1:), p_hydro_state )
 
-    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
-      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ctest_name )
-
+    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
+      CALL initcond_echam_phy( p_patch(1:)                                         ,&
+        &                      p_hydro_state(jg)%prog(nnow(jg))% temp  (:,:,:)     ,&
+        &                      p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
+        &                      ctest_name                                          )
+    END IF
 
     !------------------------------------------------------------------
     ! The most primitive event handling algorithm:
