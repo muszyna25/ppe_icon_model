@@ -1180,41 +1180,32 @@ CONTAINS
   !! @par Revision History
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
-  SUBROUTINE v_ppm_slimiter_mo( p_patch, p_cc, p_face, p_slope, p_face_up,   &
-    &                           p_face_low, opt_rlstart, opt_rlend, opt_slev )
+  SUBROUTINE v_ppm_slimiter_mo( p_cc, p_face, p_slope, p_face_up,            &
+    &                           p_face_low, i_startidx, i_endidx, slev, elev )
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is performed
-      &  p_patch
 
     REAL(wp), INTENT(IN) ::  &     !< advected cell centered variable
-      &  p_cc(:,:,:)               !< dim: (nproma,nlev,nblks_c)
+      &  p_cc(:,:)                 !< dim: (nproma,nlev)
 
     REAL(wp), INTENT(IN) ::  &     !< reconstructed face values of the advected field
-      &  p_face(:,:,:)             !< dim: (nproma,nlevp1,nblks_c)
+      &  p_face(:,:)               !< dim: (nproma,nlevp1)
 
     REAL(wp), INTENT(IN) ::  &     !< monotonized slope
-      &  p_slope(:,:,:)            !< dim: (nproma,nlev,nblks_c)
+      &  p_slope(:,:)              !< dim: (nproma,nlev)
 
     REAL(wp), INTENT(INOUT) :: &   !< final face value (upper face, height based)
-      &  p_face_up(:,:,:)          !< dim: (nproma,nlevp,nblks_c)
+      &  p_face_up(:,:)            !< dim: (nproma,nlevp)
 
     REAL(wp), INTENT(INOUT) :: &   !< final face value (lower face, height based)
-      &  p_face_low(:,:,:)         !< dim: (nproma,nlevp,nblks_c)
+      &  p_face_low(:,:)           !< dim: (nproma,nlevp)
 
-    INTEGER, INTENT(IN), OPTIONAL ::  &   !< optional vertical start level
-      &  opt_slev
+    INTEGER, INTENT(IN)     :: &   !< horizontal start and end index of DO loop
+      & i_startidx, i_endidx
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'cell value'
+    INTEGER, INTENT(IN)     :: &   !< vertical start and end index of DO loop
+      & slev, elev
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
-
-    INTEGER  :: nlev                      !< number of full levels
-    INTEGER  :: slev                      !< vertical start level
-    INTEGER  :: jc, jk, jb                !< index of cell, vertical level and block
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: jc, jk                    !< index of cell and vertical level
     INTEGER  :: ikp1                      !< vertical level plus one
 
     REAL(wp) :: z_delta                   !< lower minus upper face value
@@ -1222,78 +1213,39 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    ! check optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev  = opt_slev
-    ELSE
-      slev  = 1
-    END IF
+    DO jk = slev, elev
 
-    IF ( PRESENT(opt_rlstart) ) THEN
-      i_rlstart = opt_rlstart
-    ELSE
-      i_rlstart = grf_bdywidth_c
-    ENDIF
+      ! index of bottom half level
+      ikp1 = jk + 1
 
-    IF ( PRESENT(opt_rlend) ) THEN
-      i_rlend = opt_rlend
-    ELSE
-      i_rlend = min_rlcell
-    ENDIF
+      DO jc = i_startidx, i_endidx
 
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
-
-    ! number of vertical levels
-    nlev = p_patch%nlev
-
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1,z_delta,z_a6i) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+        z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
+        z_a6i     = 6._wp * (p_cc(jc,jk)                      &
+          &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
 
 
-      DO jk = slev, nlev
+        IF ( p_slope(jc,jk) == 0._wp) THEN
+          p_face_up(jc,jk)  = p_cc(jc,jk)
+          p_face_low(jc,jk) = p_cc(jc,jk)
 
-        ! index of bottom half level
-        ikp1 = jk + 1
+        ELSE IF (z_delta * z_a6i > z_delta * z_delta) THEN
+          p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
+          p_face_low(jc,jk) = p_face(jc,ikp1)
 
-        DO jc = i_startidx, i_endidx
+        ELSE IF (z_delta * z_a6i < -1._wp * (z_delta * z_delta)) THEN
+          p_face_up(jc,jk)  = p_face(jc,jk)
+          p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
 
-          z_delta   = p_face(jc,ikp1,jb) - p_face(jc,jk,jb)
-          z_a6i     = 6._wp * (p_cc(jc,jk,jb)                           &
-            &       - 0.5_wp * (p_face(jc,jk,jb) + p_face(jc,ikp1,jb)))
-
-
-          IF ( p_slope(jc,jk,jb) == 0._wp) THEN
-            p_face_up(jc,jk,jb)  = p_cc(jc,jk,jb)
-            p_face_low(jc,jk,jb) = p_cc(jc,jk,jb)
-
-          ELSE IF (z_delta * z_a6i > z_delta * z_delta) THEN
-            p_face_up(jc,jk,jb)  = 3._wp*p_cc(jc,jk,jb) - 2._wp*p_face(jc,ikp1,jb)
-            p_face_low(jc,jk,jb) = p_face(jc,ikp1,jb)
-
-          ELSE IF (z_delta * z_a6i < -1._wp * (z_delta * z_delta)) THEN
-            p_face_up(jc,jk,jb)  = p_face(jc,jk,jb)
-            p_face_low(jc,jk,jb) = 3._wp*p_cc(jc,jk,jb) - 2._wp*p_face(jc,jk,jb)
-
-          ELSE
-            p_face_up(jc,jk,jb)  = p_face(jc,jk,jb)
-            p_face_low(jc,jk,jb) = p_face(jc,ikp1,jb)
-          ENDIF
-
-        END DO
+        ELSE
+          p_face_up(jc,jk)  = p_face(jc,jk)
+          p_face_low(jc,jk) = p_face(jc,ikp1)
+        ENDIF
 
       END DO
 
     END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+
 
   END SUBROUTINE v_ppm_slimiter_mo
 
@@ -1318,124 +1270,77 @@ CONTAINS
   !! @par Revision History
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
-  SUBROUTINE v_ppm_slimiter_sm( p_patch, p_cc, p_face, p_face_up,            &
-    &                           p_face_low, opt_rlstart, opt_rlend, opt_slev )
+  SUBROUTINE v_ppm_slimiter_sm( p_cc, p_face, p_face_up, p_face_low, &
+    &                           i_startidx, i_endidx, slev, elev     )
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &    !< patch on which computation is performed
-      &  p_patch
 
     REAL(wp), INTENT(IN) ::  &     !< advected cell centered variable
-      &  p_cc(:,:,:)               !< dim: (nproma,nlev,nblks_c)
+      &  p_cc(:,:)                 !< dim: (nproma,nlev)
 
     REAL(wp), INTENT(IN) ::  &     !< reconstructed face values of the advected field
-      &  p_face(:,:,:)             !< dim: (nproma,nlevp1,nblks_c)
+      &  p_face(:,:)               !< dim: (nproma,nlevp1)
 
     REAL(wp), INTENT(INOUT) :: &   !< final face value (upper face, height based)
-      &  p_face_up(:,:,:)          !< dim: (nproma,nlevp,nblks_c)
+      &  p_face_up(:,:)            !< dim: (nproma,nlevp)
 
     REAL(wp), INTENT(INOUT) :: &   !< final face value (lower face, height based)
-      &  p_face_low(:,:,:)         !< dim: (nproma,nlevp,nblks_c)
+      &  p_face_low(:,:)           !< dim: (nproma,nlevp)
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
-      & opt_slev
+    INTEGER, INTENT(IN)     :: &   !< horizontal start and end index of DO loop
+      & i_startidx, i_endidx
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart                    !< only valid for calculation of 'cell value'
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+    INTEGER, INTENT(IN)     :: &   !< vertical start and end index of DO loop
+      & slev, elev
 
     REAL(wp) :: z_delta                   !< lower minus upper face value
     REAL(wp) :: z_a6i                     !< curvature of parabola
 
-    INTEGER  :: nlev                      !< number of full levels
-    INTEGER  :: slev                      !< vertical start level
-    INTEGER  :: jc, jk, jb                !< index of cell, vertical level and block
+    INTEGER  :: jc, jk                    !< index of cell and vertical level
     INTEGER  :: ikp1                      !< vertical level plus one
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
 
   !-------------------------------------------------------------------------
 
-    ! check optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      slev  = opt_slev
-    ELSE
-      slev  = 1
-    END IF
 
-    IF ( PRESENT(opt_rlstart) ) THEN
-      i_rlstart = opt_rlstart
-    ELSE
-      i_rlstart = grf_bdywidth_c
-    ENDIF
+    DO jk = slev, elev
 
-    IF ( PRESENT(opt_rlend) ) THEN
-      i_rlend = opt_rlend
-    ELSE
-      i_rlend = min_rlcell
-    ENDIF
+      ! index of bottom half level
+      ikp1 = jk + 1
 
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
+      DO jc = i_startidx, i_endidx
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
-
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1,z_delta,z_a6i) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-      DO jk = slev, nlev
-
-        ! index of bottom half level
-        ikp1 = jk + 1
-
-        DO jc = i_startidx, i_endidx
-
-          z_delta   = p_face(jc,ikp1,jb) - p_face(jc,jk,jb)
-          z_a6i     = 6._wp * (p_cc(jc,jk,jb)                           &
-            &       - 0.5_wp * (p_face(jc,jk,jb) + p_face(jc,ikp1,jb)))
+        z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
+        z_a6i     = 6._wp * (p_cc(jc,jk)                      &
+          &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
 
 
-          IF (ABS(z_delta) < -1._wp*z_a6i) THEN
+        IF (ABS(z_delta) < -1._wp*z_a6i) THEN
 
-            IF (p_cc(jc,jk,jb) < MIN(p_face(jc,jk,jb),p_face(jc,ikp1,jb)) ) THEN
-              p_face_up(jc,jk,jb)  = p_cc(jc,jk,jb)
-              p_face_low(jc,jk,jb) = p_cc(jc,jk,jb)
+          IF (p_cc(jc,jk) < MIN(p_face(jc,jk),p_face(jc,ikp1)) ) THEN
+            p_face_up(jc,jk)  = p_cc(jc,jk)
+            p_face_low(jc,jk) = p_cc(jc,jk)
+
+          ELSE
+
+            IF (p_face(jc,jk) > p_face(jc,ikp1)) THEN
+              p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
+              p_face_low(jc,jk) = p_face(jc,ikp1)
 
             ELSE
-
-              IF (p_face(jc,jk,jb) > p_face(jc,ikp1,jb)) THEN
-                p_face_up(jc,jk,jb)  = 3._wp*p_cc(jc,jk,jb) - 2._wp*p_face(jc,ikp1,jb)
-                p_face_low(jc,jk,jb) = p_face(jc,ikp1,jb)
-
-              ELSE
-                p_face_up(jc,jk,jb)  = p_face(jc,jk,jb)
-                p_face_low(jc,jk,jb) = 3._wp*p_cc(jc,jk,jb) - 2._wp*p_face(jc,jk,jb)
-
-              ENDIF
+              p_face_up(jc,jk)  = p_face(jc,jk)
+              p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
 
             ENDIF
 
-          ELSE
-            p_face_up(jc,jk,jb)  = p_face(jc,jk,jb)
-            p_face_low(jc,jk,jb) = p_face(jc,ikp1,jb)
           ENDIF
 
-        END DO
+        ELSE
+          p_face_up(jc,jk)  = p_face(jc,jk)
+          p_face_low(jc,jk) = p_face(jc,ikp1)
+        ENDIF
 
       END DO
 
     END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
   END SUBROUTINE v_ppm_slimiter_sm
 

@@ -832,8 +832,7 @@ CONTAINS
       END DO ! end loop over vertical levels
 
     END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!$OMP END DO
 
 !DR  cfl_p_max=MAXVAL(z_cfl_p(:,34:54,:))
 !DR  cfl_m_max=MAXVAL(z_cfl_m(:,34:54,:))
@@ -850,41 +849,35 @@ CONTAINS
     ! Therefore 2 additional fields z_face_up and z_face_low are
     ! introduced.
     !
-    IF (p_itype_vlimit == islopel_vsm) THEN
-      ! semi-monotonic (sm) limiter
-      CALL v_ppm_slimiter_sm( p_patch, p_cc, z_face,                  & !in
-        &                   z_face_up, z_face_low,                    & !inout
-        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend, & !in
-        &                   opt_slev=slev                             ) !in
-    ELSE IF (p_itype_vlimit == islopel_vm) THEN
-      ! monotonic (mo) limiter
-      CALL v_ppm_slimiter_mo( p_patch, p_cc, z_face, z_slope,         & !in
-        &                   z_face_up, z_face_low,                    & !inout
-        &                   opt_rlstart=i_rlstart, opt_rlend=i_rlend, & !in
-        &                   opt_slev=slev                             ) !in
-    ELSE
-      ! simply copy face values to 'face_up' and 'face_low' arrays
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-          &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
+        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
+      IF (p_itype_vlimit == islopel_vsm) THEN
+        ! semi-monotonic (sm) limiter
+        CALL v_ppm_slimiter_sm( p_cc(:,:,jb), z_face(:,:,jb),           & !in
+          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),    & !inout
+          &                   i_startidx, i_endidx, slev, nlev          ) !in
+      ELSE IF (p_itype_vlimit == islopel_vm) THEN
+        ! monotonic (mo) limiter
+        CALL v_ppm_slimiter_mo( p_cc(:,:,jb), z_face(:,:,jb), z_slope(:,:,jb), & !in
+          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),           & !inout
+          &                   i_startidx, i_endidx, slev, nlev                 ) !in
+      ELSE
+       ! simply copy face values to 'face_up' and 'face_low' arrays
         DO jk = slev, nlev
           ! index of bottom half level
           ikp1 = jk + 1
           z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)
           z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)
         ENDDO
-      ENDDO
+      ENDIF
+    ENDDO
 !$OMP ENDDO
-!$OMP END PARALLEL
-    ENDIF
 
 
-
-!$OMP PARALLEL
     IF ( l_out_edgeval ) THEN
 
       ! 5a. Compute edge value of advected quantity by applying a 
@@ -1367,34 +1360,27 @@ CONTAINS
 
 
 !$OMP PARALLEL
-    !
-    ! The contravariant mass flux should never exactly vanish
-    !
-    IF (l_out_edgeval) THEN
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-          &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-        DO jk = slevp1, elev
-          p_mflx_contra_v(i_startidx:i_endidx,jk,jb) =                            &
-          &              p_mflx_contra_v(i_startidx:i_endidx,jk,jb)               &
-          &              + SIGN(dbl_eps,p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
-        ENDDO
-      ENDDO
-!$OMP END DO
-    ENDIF
-
-
-
-!$OMP DO PRIVATE(jb,jk,jc,ik,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
-!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,          &
-!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,ik,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m,    &
+!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,             &
+!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2,nlist,ji_p,&
+!$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12, &
+!$OMP            z_lext_1,z_lext_2) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
       &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+
+
+    ! The contravariant mass flux should never exactly vanish
+    !
+    IF (l_out_edgeval) THEN
+      DO jk = slevp1, elev
+        p_mflx_contra_v(i_startidx:i_endidx,jk,jb) =                            &
+        &              p_mflx_contra_v(i_startidx:i_endidx,jk,jb)               &
+        &              + SIGN(dbl_eps,p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
+      ENDDO
+    ENDIF
 
     !
     ! 1. Compute density weighted (fractional) Courant number 
@@ -1683,41 +1669,26 @@ CONTAINS
 
       END DO
 
-    END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
+      !
+      ! 4. Limitation of first guess parabola (which is based on z_face)
+      ! Note that z_face_up(k) does not need to equal z_face_low(k-1) after
+      ! the limitation procedure.
+      ! Therefore 2 additional fields z_face_up and z_face_low are
+      ! introduced.
+      !
+      IF (p_itype_vlimit == islopel_vsm) THEN
+        ! semi-monotonic (sm) limiter
+        CALL v_ppm_slimiter_sm( p_cc(:,:,jb), z_face(:,:,jb),           & !in
+          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),    & !inout
+          &                   i_startidx, i_endidx, slev, elev          ) !in
+      ELSE IF (p_itype_vlimit == islopel_vm) THEN
+        ! monotonic (mo) limiter
+        CALL v_ppm_slimiter_mo( p_cc(:,:,jb), z_face(:,:,jb), z_slope(:,:,jb), & !in
+          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),           & !inout
+          &                   i_startidx, i_endidx, slev, elev                 ) !in
+      ENDIF
 
-
-    !
-    ! 4. Limitation of first guess parabola (which is based on z_face)
-    ! Note that z_face_up(k) does not need to equal z_face_low(k-1) after
-    ! the limitation procedure.
-    ! Therefore 2 additional fields z_face_up and z_face_low are
-    ! introduced.
-    !
-    IF (p_itype_vlimit == islopel_vsm) THEN
-      ! semi-monotonic (sm) limiter
-      CALL v_ppm_slimiter_sm( p_patch, p_cc, z_face,              & !in
-        &                     z_face_up, z_face_low,              & !inout
-        &                     opt_rlstart=i_rlstart,              & !in
-        &                     opt_rlend=i_rlend, opt_slev=slev    ) !in
-    ELSE IF (p_itype_vlimit == islopel_vm) THEN
-      ! monotonic (mo) limiter
-      CALL v_ppm_slimiter_mo( p_patch, p_cc, z_face, z_slope,     & !in
-        &                     z_face_up, z_face_low,              & !inout
-        &                     opt_rlstart=i_rlstart,              & !in
-        &                     opt_rlend=i_rlend, opt_slev=slev    ) !in
-    ENDIF
-
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,ik,ikp1,jc,i_startidx,i_endidx,nlist,ji_p,ji_m,jk_shift,z_iflx_m, &
-!$OMP z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,ikm1,z_lext_1,z_lext_2) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
       IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
         ! simply copy face values to 'face_up' and 'face_low' arrays
@@ -1971,28 +1942,20 @@ CONTAINS
         &              p_upflux(:,slev,jb),              &! out
         &              p_upflux(:,nlevp1,jb), llbc_adv)   ! out
 
-    ENDDO ! end loop over blocks
-!$OMP END DO
 
-
-    ! If desired, get edge value of advected quantity 
-    IF ( l_out_edgeval ) THEN
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-          &                 i_startidx, i_endidx, i_rlstart, i_rlend )
+      ! If desired, get edge value of advected quantity 
+      IF ( l_out_edgeval ) THEN
 
         DO jk = slevp1, nlev
-
           DO jc = i_startidx, i_endidx
             p_upflux(jc,jk,jb) = p_upflux(jc,jk,jb)/p_mflx_contra_v(jc,jk,jb)
           ENDDO
         ENDDO
 
-      ENDDO
+      ENDIF
+
+    ENDDO
 !$OMP END DO NOWAIT
-    ENDIF
 !$OMP END PARALLEL
 
 
