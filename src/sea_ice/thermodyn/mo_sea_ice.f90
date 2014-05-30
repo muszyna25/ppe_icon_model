@@ -803,16 +803,56 @@ CONTAINS
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
-    CALL add_var(ocean_default_list,'topBoundCond_Temp_vdiff',atmos_fluxes%topBoundCond_Temp_vdiff  (:,:),     & ! forcing of temperature in vertical diffusion equation     [K*m/s]
-    CALL add_var(ocean_default_list,'topBoundCond_Salt_vdiff',atmos_fluxes%topBoundCond_Salt_vdiff  (:,:),     & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
-    CALL add_var(ocean_default_list,'data_surfRelax_Temp',atmos_fluxes%data_surfRelax_Temp          (:,:),     & ! contains data to which temperature is relaxed             [K]
-    CALL add_var(ocean_default_list,'data_surfRelax_Salt',atmos_fluxes%data_surfRelax_Salt          (:,:),     & ! contains data to which salinity is relaxed                [psu]
-    ! 
+    ! relaxation fields {{{
+    !
+    ! forcing of temperature in vertical diffusion equation     [K*m/s]
+    CALL add_var(ocean_default_list,'topBoundCond_Temp_vdiff  ',atmos_fluxes%topBoundCond_Temp_vdiff ,     &
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_topBC_Temp_vdiff', '', 'atmos_fluxes_topBoundCond_Temp_vdiff', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! forcing of salinity in vertical diffusion equation        [psu*m/s]
+    CALL add_var(ocean_default_list,'topBoundCond_Salt_vdiff  ',atmos_fluxes%topBoundCond_Salt_vdiff ,     & 
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_topBC_Salt_vdiff', '', 'atmos_fluxes_topBoundCond_Salt_vdiff', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! contains data to which salinity is relaxed                [psu]
+    CALL add_var(ocean_default_list,'data_surfRelax_Salt      ',atmos_fluxes%data_surfRelax_Salt     ,     & 
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('atmos_fluxes_data_surfRelax_Salt', '', 'atmos_fluxes_data_surfRelax_Salt', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+
+    ! contains data to which temperature is relaxed             [K]
     CALL add_var(ocean_default_list,'atmos_fluxes_data_surfRelax_Temp', atmos_fluxes%data_surfRelax_Temp,     &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('atmos_fluxes_data_surfRelax_Temp', '', 'atmos_fluxes_data_surfRelax_Temp', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'atmos_fluxes_HeatFlux_Relax', atmos_fluxes%HeatFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('atmos_fluxes_HeatFlux_Relax', 'W/m2', 'atmos_fluxes_HeatFlux_Relax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(ocean_default_list, 'atmos_fluxes_FrshFlux_Relax', atmos_fluxes%FrshFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('atmos_fluxes_FrshFlux_Relax', 'm/s', 'atmos_fluxes_FrshFlux_Relax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(ocean_default_list, 'atmos_fluxes_TempFlux_Relax', atmos_fluxes%TempFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('atmos_fluxes_TempFlux_Relax', 'K/s', 'atmos_fluxes_TempFlux_Relax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    CALL add_var(ocean_default_list, 'atmos_fluxes_SaltFlux_Relax', atmos_fluxes%SaltFlux_Relax , &
+    &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+    &          t_cf_var('atmos_fluxes_SaltFlux_Relax', 'psu/s', 'atmos_fluxes_SaltFlux_Relax', DATATYPE_FLT32),&
+    &          t_grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+    &          ldims=(/nproma,alloc_cell_blocks/))
+    ! }}}
 
     ! surface short wave heat flux                              [W/m2]
     CALL add_var(ocean_default_list,'atmos_fluxes_HeatFlux_ShortWave', atmos_fluxes%HeatFlux_ShortWave,         &

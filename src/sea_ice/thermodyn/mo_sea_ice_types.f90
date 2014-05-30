@@ -180,12 +180,22 @@ MODULE mo_sea_ice_types
     REAL(wp), POINTER ::   &
       &  topBoundCond_windStress_u(:,:),     & ! forcing of zonal component of velocity equation,
       &  topBoundCond_windStress_v(:,:),     & ! forcing of meridional component of velocity equation,
-      &  data_surfRelax_Temp      (:,:),     & !  
+      & & ! relaxaton
+      &  topBoundCond_Temp_vdiff  (:,:),     & ! forcing of temperature in vertical diffusion equation     [K*m/s]
+      &  topBoundCond_Salt_vdiff  (:,:),     & ! forcing of salinity in vertical diffusion equation        [psu*m/s]
+      &  data_surfRelax_Temp      (:,:),     & ! contains data to which temperature is relaxed             [K]
+      &  data_surfRelax_Salt      (:,:),     & ! contains data to which salinity is relaxed                [psu]
+      &  HeatFlux_Relax           (:,:),     & ! surface heat flux due to relaxation                       [W/m2]
+      &  FrshFlux_Relax           (:,:),     & ! surface freshwater flux due to relaxation                 [m/s]
+      &  TempFlux_Relax           (:,:),     & ! temperature tracer flux due to relaxation                 [K/s]
+      &  SaltFlux_Relax           (:,:),     & ! salinity tracer flux due to relaxation                    [psu/s]
+      & & ! heat fluxes
       &  HeatFlux_ShortWave       (:,:),     & ! surface short wave heat flux                              [W/m2]
       &  HeatFlux_LongWave        (:,:),     & ! surface long wave heat flux                               [W/m2]
       &  HeatFlux_Sensible        (:,:),     & ! surface sensible heat flux                                [W/m2]
       &  HeatFlux_Latent          (:,:),     & ! surface latent heat flux                                  [W/m2]
       &  HeatFlux_Total           (:,:),     & ! sum of forcing surface heat flux                          [W/m2]
+      & & ! fresh water + salt
       &  FrshFlux_Precipitation   (:,:),     & ! total precipitation flux                                  [m/s]
       &  FrshFlux_SnowFall        (:,:),     & ! total snow flux                                           [m/s]
       &  FrshFlux_Evaporation     (:,:),     & ! evaporation flux                                          [m/s]

@@ -462,7 +462,7 @@ CONTAINS
     & p_phys_param, p_as,&
     & atmos_fluxes, p_ice, p_op_coeff, solverCoeff_sp)
 
-    TYPE(t_patch_3d ),TARGET,   INTENT(inout)  :: patch_3d
+    TYPE(t_patch_3D ),TARGET,   INTENT(inout)  :: patch_3d
     TYPE(t_hydro_ocean_state),  INTENT(inout)  :: p_os(n_dom)
     TYPE(t_external_data),      INTENT(inout)  :: external_data(n_dom)
     TYPE(t_sfc_flx),            INTENT(inout)  :: p_sfc_flx
@@ -542,7 +542,6 @@ CONTAINS
     CALL init_ocean_forcing(patch_3d%p_patch_2d(1),  &
       &                     patch_3d, &
       &                     p_os(jg), &
-      &                     p_sfc_flx, &
       &                     atmos_fluxes)
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D, p_os(jg), p_ice)

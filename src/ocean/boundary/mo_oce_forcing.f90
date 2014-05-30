@@ -449,12 +449,12 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
-  SUBROUTINE init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
+  SUBROUTINE init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
 
-    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
+    TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_sfc_flx)                   :: p_sfc_flx
+    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
+    TYPE(t_atmos_fluxes)                    :: atmos_fluxes
 
     ! Local Variables
 
@@ -553,7 +553,7 @@ CONTAINS
         & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
 
       IF (no_tracer>=1) THEN
-        p_sfc_flx%data_surfRelax_Temp(:,:) = z_surfRelax(:,:)
+        atmos_fluxes%data_surfRelax_Temp(:,:) = z_surfRelax(:,:)
       ELSE
         CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
       END IF
@@ -563,7 +563,7 @@ CONTAINS
       IF (no_tracer > 1) THEN
         CALL read_netcdf_data (ncid, 'S', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
           & patch_2d%cells%decomp_info%glb_index, z_surfRelax)
-        p_sfc_flx%data_surfRelax_Salt(:,:) = z_surfRelax(:,:)
+        atmos_fluxes%data_surfRelax_Salt(:,:) = z_surfRelax(:,:)
       END IF
 
       ! close file
@@ -573,8 +573,8 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
         DO jc = start_cell_index, end_cell_index
           IF ( patch_3d%lsm_c(jc,1,jb) > sea_boundary ) THEN
-            p_sfc_flx%data_surfRelax_Temp(jc,jb) = 0.0_wp
-            IF (no_tracer>1) p_sfc_flx%data_surfRelax_Salt(jc,jb) = 0.0_wp
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = 0.0_wp
+            IF (no_tracer>1) atmos_fluxes%data_surfRelax_Salt(jc,jb) = 0.0_wp
           ENDIF
         END DO
       END DO
@@ -592,7 +592,7 @@ CONTAINS
 
     SELECT CASE(type_surfRelax_Temp)
     CASE(3)
-      p_sfc_flx%data_surfRelax_Temp(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
+      atmos_fluxes%data_surfRelax_Temp(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,1)
 
     CASE(4)
       ! smooth ape relaxation, as in temperature_smoothAPE in mo_cean_initial_conditions
@@ -605,7 +605,7 @@ CONTAINS
         DO jc = start_cell_index, end_cell_index
           DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
 
-            p_sfc_flx%data_surfRelax_Temp(jc,jb) = relax_temperature_min    + &
+            atmos_fluxes%data_surfRelax_Temp(jc,jb) = relax_temperature_min    + &
               & (COS(waveNo * MIN(ABS(patch_2d%cells%center(jc,jb)%lat), poleLat))**2) * temperature_difference
 
           END DO
@@ -616,7 +616,7 @@ CONTAINS
 
     IF (type_surfRelax_Salt == 3) THEN
       IF (no_tracer > 1) THEN
-        p_sfc_flx%data_surfRelax_Salt(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,2)
+        atmos_fluxes%data_surfRelax_Salt(:,:) = ocean_state%p_prog(nold(1))%tracer(:,1,:,2)
       END IF
     END IF
 
@@ -634,12 +634,12 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     IF (type_surfRelax_Temp > 0) THEN
       idt_src=0  ! output print level - 0: print in any case
-      z_c(:,1,:) = p_sfc_flx%data_surfRelax_Temp(:,:)
+      z_c(:,1,:) = atmos_fluxes%data_surfRelax_Temp(:,:)
       CALL dbg_print('init relaxation - T'       ,z_c      ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     END IF
     IF (type_surfRelax_Salt > 0) THEN
       IF (no_tracer > 1) THEN
-        z_c(:,1,:) = p_sfc_flx%data_surfRelax_Salt(:,:)
+        z_c(:,1,:) = atmos_fluxes%data_surfRelax_Salt(:,:)
         CALL dbg_print('init relaxation - S'       ,z_c   ,str_module,idt_src, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
       ELSE
         CALL finish(TRIM(routine),' type_surfRelax_Salt>0 and no_tracer<2 - ABORT')
@@ -651,12 +651,11 @@ CONTAINS
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
 !<Optimize_Used>
-  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, p_sfc_flx, atmos_fluxes)
+  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, atmos_fluxes)
     !
     TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
-    TYPE(t_sfc_flx)                         :: p_sfc_flx
     TYPE(t_atmos_fluxes)                    :: atmos_fluxes
 
     TYPE(t_subset_range), POINTER :: all_cells
@@ -670,7 +669,7 @@ CONTAINS
       & forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
     IF (init_oce_relax > 0) THEN
-      CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, p_sfc_flx)
+      CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
     END IF
   END SUBROUTINE init_ocean_forcing
 
