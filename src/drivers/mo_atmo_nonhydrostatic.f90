@@ -197,13 +197,14 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
-        l_rh(jg) = is_variable_in_output(first_output_name_list, &
-          &                              var_name="rh")
+        l_rh(jg) = is_variable_in_output(first_output_name_list, var_name="rh")
       END DO
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh )
-    ENDIF
+    END IF
 
-    CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+    IF (iforcing == inwp) THEN
+      CALL construct_nwp_phy_state( p_patch(1:), l_rh )
+      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+    END IF
 
 #ifdef MESSY
     DO jg=1,n_dom
@@ -278,7 +279,7 @@ CONTAINS
           ! For dry test cases: do not sample moist variables
           ! (but allow for TORUS moist runs; see also mo_mtgrm_output.F90)
           IF (ltestcase .and. .not. is_plane_torus) THEN
-             CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
+            CALL meteogram_init(meteogram_output_config(jg), jg, p_patch(jg), &
               &                ext_data(jg), p_nh_state(jg),                  &
               &                p_lnd_state=p_lnd_state(jg), iforcing=iforcing)
           ELSE
@@ -298,17 +299,37 @@ CONTAINS
     !
     ! Initialize model with real atmospheric data if appropriate switches are set
     !
-    IF (      .NOT. ltestcase                             &
-      & .AND. (iforcing == inwp .OR. iforcing == iecham)  &
-      & .AND. .NOT. is_restart_run()                     ) THEN
+    IF (.NOT. ltestcase .AND. .NOT. is_restart_run() ) THEN
 
-      IF (timers_level > 5) CALL timer_start(timer_init_icon)
-      CALL init_icon (p_patch(1:), p_nh_state(1:), prm_diag(1:), p_lnd_state(1:), &
-        &             p_int_state(1:), p_grf_state(1:), ext_data(1:))
-      IF (timers_level > 5) CALL timer_stop(timer_init_icon)
+      IF (iforcing == inwp) THEN
 
-    ENDIF
+        ! Initialize atmosphere, surface and land
 
+        IF (timers_level > 5) CALL timer_start(timer_init_icon)
+        CALL init_icon (p_patch(1:)     ,&
+          &             p_int_state(1:) ,&
+          &             p_grf_state(1:) ,&
+          &             p_nh_state(1:)  ,&
+          &             ext_data(1:)    ,&
+          &             prm_diag(1:)    ,&
+          &             p_lnd_state(1:) )
+        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
+
+      ELSE IF (iforcing == iecham) THEN
+
+        ! Initialize the atmosphere only
+
+        IF (timers_level > 5) CALL timer_start(timer_init_icon)
+        CALL init_icon (p_patch(1:)     ,&
+          &             p_int_state(1:) ,&
+          &             p_grf_state(1:) ,&
+          &             p_nh_state(1:)  ,&
+          &             ext_data(1:)    )
+        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
+
+      END IF
+
+    END IF
 
     !---------------------------------------------------------
     ! The most primitive event handling algorithm: 
@@ -345,7 +366,7 @@ CONTAINS
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
-    CALL pp_scheduler_init( (.NOT. ltestcase .OR. iforcing == inwp) )
+    CALL pp_scheduler_init( (iforcing == inwp) )
 
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
@@ -438,8 +459,8 @@ CONTAINS
 
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
+      CALL destruct_nwp_lnd_state( p_lnd_state )
     ENDIF
-    CALL destruct_nwp_lnd_state( p_lnd_state )
 
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN

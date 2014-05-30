@@ -25,7 +25,7 @@ MODULE mo_nh_initicon
   USE mo_kind,                ONLY: wp, i8
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqm_max
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
@@ -43,18 +43,17 @@ MODULE mo_nh_initicon
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_DWDANA_INC, MODE_IFSANA, MODE_COMBINED,        &
-    &                               MODE_COSMODE, min_rlcell, min_rledge,               &
+    &                               MODE_COSMODE, min_rlcell,                           &
     &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
-  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_netcdf_read,         ONLY: read_netcdf_data, read_netcdf_data_single, nf
   USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d
-  USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, interp_uv_2_vn, init_w
+  USE mo_nh_init_utils,       ONLY: hydro_adjust, convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_util_string,         ONLY: tolower, toupper, difference, add_to_list, one_of
+  USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of
   USE mo_util_file,           ONLY: util_filesize
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, lseaice, llake, &
@@ -78,8 +77,8 @@ MODULE mo_nh_initicon
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, filetype_nc2, filetype_grb2, &
-    &                               vlistInqVarZaxis, vlistNvars, streamInqVlist,     &
-    &                               streamOpenRead, streamInqNvars, cdiInqMissval
+    &                               vlistNvars, streamInqVlist,                       &
+    &                               streamOpenRead, cdiInqMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
@@ -150,16 +149,15 @@ MODULE mo_nh_initicon
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE init_icon (p_patch, p_nh_state, prm_diag, p_lnd_state, p_int_state, &
-    &                   p_grf_state, ext_data)
+  SUBROUTINE init_icon (p_patch,  p_int_state, p_grf_state, p_nh_state, &
+    &                   ext_data, prm_diag, p_lnd_state)
 
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
-    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
-    TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
-
+    TYPE(t_patch),          INTENT(IN)              :: p_patch(:)
+    TYPE(t_int_state),      INTENT(IN)              :: p_int_state(:)
+    TYPE(t_gridref_state),  INTENT(IN)              :: p_grf_state(:)
+    TYPE(t_nh_state),       INTENT(INOUT)           :: p_nh_state(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT), OPTIONAL :: prm_diag(:)
+    TYPE(t_lnd_state),      INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
     TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: ext_data(:)
 
     INTEGER :: jg, ist
@@ -473,7 +471,7 @@ MODULE mo_nh_initicon
   SUBROUTINE close_init_files(fileID_fg, fileID_ana)
     INTEGER, INTENT(INOUT) :: fileID_ana(:), fileID_fg(:) ! dim (1:n_dom)
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::close_init_files"
+!!$    CHARACTER(*), PARAMETER :: routine = "mo_nh_initicon::close_init_files"
     INTEGER :: jg
 
     IF(p_pe == p_io) THEN
@@ -515,8 +513,8 @@ MODULE mo_nh_initicon
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:process_dwdana_atm'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = 'mo_nh_initicon:process_dwdana_atm'
 
 !-------------------------------------------------------------------------
 
@@ -555,8 +553,8 @@ MODULE mo_nh_initicon
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:process_dwdanainc_atm'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = 'mo_nh_initicon:process_dwdanainc_atm'
 
 !-------------------------------------------------------------------------
 
@@ -598,8 +596,8 @@ MODULE mo_nh_initicon
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:process_dwdana_sfc'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = 'mo_nh_initicon:process_dwdana_sfc'
 
 !-------------------------------------------------------------------------
 
@@ -641,8 +639,8 @@ MODULE mo_nh_initicon
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicons:process_ifsana_atm'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = 'mo_nh_initicons:process_ifsana_atm'
 
     LOGICAL :: lomega_in
 
@@ -698,8 +696,8 @@ MODULE mo_nh_initicon
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:process_ifsana_sfc'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = 'mo_nh_initicon:process_ifsana_sfc'
 
 !-------------------------------------------------------------------------
 
@@ -2035,18 +2033,21 @@ MODULE mo_nh_initicon
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
 
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qr', p_patch(jg)%n_patch_cells_g,      &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
+      IF ( iqr /= 0 ) THEN
+        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qr', p_patch(jg)%n_patch_cells_g,      &
+          &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+          &                  nlev, my_ptr3d,                                                       &
+          &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
+      END IF
 
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-      CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qs', p_patch(jg)%n_patch_cells_g,      &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
-
+      IF ( iqs /= 0 ) THEN
+        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'qs', p_patch(jg)%n_patch_cells_g,      &
+          &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+          &                  nlev, my_ptr3d,                                                       &
+          &                  opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg))
+      END IF
 
     ENDDO ! loop over model domains
 
@@ -2073,7 +2074,7 @@ MODULE mo_nh_initicon
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
 
     INTEGER :: jg
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev
 
     INTEGER :: ngrp_vars_ana
 
@@ -2092,7 +2093,6 @@ MODULE mo_nh_initicon
 
       ! number of vertical full and half levels
       nlev   = p_patch(jg)%nlev
-      nlevp1 = p_patch(jg)%nlevp1
 
       ! Skip reading the atmospheric input data if a model domain 
       ! is not active at initial time
@@ -2157,18 +2157,22 @@ MODULE mo_nh_initicon
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! For the time being identical to qr from FG => usually read from FG
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qr', p_patch(jg)%n_patch_cells_g,    &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      IF ( iqr /= 0 ) THEN
+        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
+        CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qr', p_patch(jg)%n_patch_cells_g,    &
+          &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+          &                  nlev, my_ptr3d,                                                       &
+          &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      END IF
 
       ! For the time being identical to qs from FG => usually read from FG
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qs', p_patch(jg)%n_patch_cells_g,    &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      IF ( iqs /= 0 ) THEN
+        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
+        CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qs', p_patch(jg)%n_patch_cells_g,    &
+          &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
+          &                  nlev, my_ptr3d,                                                       &
+          &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+      END IF
 
     ENDDO ! loop over model domains
 
@@ -2193,7 +2197,7 @@ MODULE mo_nh_initicon
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
 
     INTEGER :: jg
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev
 
     INTEGER ::ngrp_vars_ana
 
@@ -2212,7 +2216,6 @@ MODULE mo_nh_initicon
 
       ! number of vertical full and half levels
       nlev   = p_patch(jg)%nlev
-      nlevp1 = p_patch(jg)%nlevp1
 
       ! Skip reading the atmospheric input data if a model domain 
       ! is not active at initial time
@@ -2289,7 +2292,6 @@ MODULE mo_nh_initicon
 
     INTEGER :: jg, jt, jb, jc, i_endidx
 
-    INTEGER :: mpi_comm
     INTEGER :: ngrp_vars_fg, ngrp_vars_ana
     REAL(wp), POINTER :: my_ptr2d(:,:)
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
@@ -2317,13 +2319,6 @@ MODULE mo_nh_initicon
       IF(p_pe == p_io ) THEN 
         CALL message (TRIM(routine), 'read sfc_FG fields from '//TRIM(dwdfg_file(jg)))
       ENDIF  ! p_io
-
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test 
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
-
 
       !----------------------------------------!
       ! read in DWD First Guess (surface)      !
@@ -2718,7 +2713,7 @@ MODULE mo_nh_initicon
     TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
 
-    INTEGER :: jc,je,jk,jb,jg             ! loop indices
+    INTEGER :: jc,je,jk,jb,jg,jt          ! loop indices
     INTEGER :: ist
     INTEGER :: nlev, nlevp1               ! number of vertical levels
     INTEGER :: nblks_c, nblks_e           ! number of blocks
@@ -2739,6 +2734,9 @@ MODULE mo_nh_initicon
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: smtfac=0.015_wp
+
+    ! to sum up the water loading term
+    REAL(wp) :: z_qsum
 
     !-------------------------------------------------------------------------
 
@@ -2832,14 +2830,16 @@ MODULE mo_nh_initicon
             p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
               &                    * p_prog_now%exner(jc,jk,jb)
 
+            ! Sum up the hydrometeor species for the water loading term
+            z_qsum = 0._wp
+            DO jt = 2, iqm_max
+              z_qsum = z_qsum + p_prog_now_rcf%tracer(jc,jk,jb,jt)
+            ENDDO
+
             ! compute temperature (currently unused - but we could use it to check the hydrostatic
             ! balance of the DA increments)
             p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
-              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
-              &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)                &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)                &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)                &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)) )
+              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum)
 
           ENDDO  ! jc
         ENDDO  ! jk
@@ -3016,13 +3016,28 @@ MODULE mo_nh_initicon
         !
 
         ! Compute virtual temperature
-        CALL virtual_temp(p_patch(jg), initicon(jg)%atm%temp, & !in
-          &               p_prog_now%tracer(:,:,:,iqv),       & !in
-          &               p_prog_now%tracer(:,:,:,iqc),       & !in
-          &               p_prog_now%tracer(:,:,:,iqi),       & !in
-          &               p_prog_now%tracer(:,:,:,iqr),       & !in
-          &               p_prog_now%tracer(:,:,:,iqs),       & !in
-          &               p_diag%tempv                        ) !out  
+        IF ( iqc /= 0 .AND. iqi /= 0 .AND. iqr /= 0 .AND. iqs /= 0 ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               qr=p_prog_now%tracer(:,:,:,iqr), & !in
+            &               qs=p_prog_now%tracer(:,:,:,iqs), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE IF ( iqc /= 0 .AND. iqi /= 0 ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        END IF
 
         ! Convert thermodynamic variables into set of NH prognostic variables
         CALL convert_thdvars(p_patch(jg), zpres_nh,  & !in
@@ -3064,7 +3079,7 @@ MODULE mo_nh_initicon
     TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
 
-    INTEGER :: jc,je,jk,jb,jg             ! loop indices
+    INTEGER :: jc,je,jk,jb,jg,jt          ! loop indices
     INTEGER :: ist
     INTEGER :: nlev, nlevp1               ! number of vertical levels
     INTEGER :: nblks_c, nblks_e           ! number of blocks
@@ -3084,6 +3099,9 @@ MODULE mo_nh_initicon
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: smtfac=0.015_wp
+
+    ! to sum up the water loading term
+    REAL(wp) :: z_qsum
 
     ! For vertical filtering of mass increments
     REAL(wp), ALLOCATABLE :: rho_incr_smt(:,:), exner_ifc_incr(:,:), mass_incr_smt(:,:), mass_incr(:,:)
@@ -3162,14 +3180,16 @@ MODULE mo_nh_initicon
               &                    * p_prog_now%exner(jc,jk,jb)
 
 
+            ! Sum up the hydrometeor species for the water loading term
+            z_qsum = 0._wp
+            DO jt = 2, iqm_max
+              z_qsum = z_qsum + p_prog_now_rcf%tracer(jc,jk,jb,jt)
+            ENDDO
+
             ! compute temperature (based on first guess input)
             ! required for virtual temperature increment
             p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
-              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
-              &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)                &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)                &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)                &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)) )
+              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum)
 
 
             ! compute thermodynamic increments
@@ -3177,13 +3197,9 @@ MODULE mo_nh_initicon
             p_diag%exner_incr(jc,jk,jb) = rd_o_cpd * p_prog_now%exner(jc,jk,jb) &
               &                  / p_diag%pres(jc,jk,jb) * initicon(jg)%atm_inc%pres(jc,jk,jb)
 
-            tempv_incr(jc,jk,jb) = (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) &
-              &                   - (p_prog_now_rcf%tracer(jc,jk,jb,iqc)               &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqi)               &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqr)               &
-              &                   +  p_prog_now_rcf%tracer(jc,jk,jb,iqs)))             &
-              &                   *  initicon(jg)%atm_inc%temp(jc,jk,jb)               &
-              &                   +  vtmpc1*p_diag%temp(jc,jk,jb)                      &
+            tempv_incr(jc,jk,jb) = (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum) &
+              &                   * initicon(jg)%atm_inc%temp(jc,jk,jb)                          &
+              &                   + vtmpc1*p_diag%temp(jc,jk,jb)                                 &
               &                   * initicon(jg)%atm_inc%qv(jc,jk,jb)
 
             p_diag%rho_incr(jc,jk,jb) = ( initicon(jg)%atm_inc%pres(jc,jk,jb) &
@@ -3703,8 +3719,12 @@ MODULE mo_nh_initicon
           DO jc = 1, nlen
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
+            IF ( iqr /= 0 ) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
+            END IF
+            IF ( iqs /= 0 ) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
+            END IF
           ENDDO
         ENDDO
 
@@ -3763,17 +3783,16 @@ MODULE mo_nh_initicon
     TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
     INTEGER  :: jg, jb, jc, jt, js, jp, ic
-    INTEGER  :: nblks_c, npromz_c, nlen, nlev
+    INTEGER  :: nblks_c, npromz_c, nlen
     REAL(wp) :: zfrice_thrhld
 
-!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nlev)
+!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c)
     DO jg = 1, n_dom
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       nblks_c   = p_patch(jg)%nblks_c
       npromz_c  = p_patch(jg)%npromz_c
-      nlev      = p_patch(jg)%nlev
 
 
 !$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld) ICON_OMP_DEFAULT_SCHEDULE
@@ -3992,7 +4011,7 @@ MODULE mo_nh_initicon
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     ! Local variables: loop control and dimensions
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_initicon::allocate_initicon"
+!!$    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_initicon::allocate_initicon"
     INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_e
 
 !-------------------------------------------------------------------------
