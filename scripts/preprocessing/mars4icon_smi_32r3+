@@ -43,9 +43,9 @@ levelist=${4:-1/to/137}   # levels (L137 from 2013062512)
 eda_number=${5:--1}       # EDA member (ensemble data assimilation 0-10)
 
 if [ ${eda_number} -eq -1 ] ; then
-  stream='enda'
-else
   stream='oper'
+else
+  stream='enda'
 fi
 
 # --- data output ---
@@ -75,11 +75,20 @@ else
   rainsnow=""
 fi
 
+##if [ ${cymd} -ge 20131119 ] ; then
+#  stream="elda"
+#  anoffset=9
+##else
+##  stream="enda"
+##  anoffset=0
+##fi
+
 # --- read ---
 
 case ${res} in
     255) grd=128 ;;
     399) grd=200 ;;
+    639) grd=320 ;;
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
@@ -97,10 +106,12 @@ retrieve,
         accuracy = 16,
         class    = od,
         number   = ${eda_number},
+      ##expver   = 63,
         expver   = 1,
         domain   = g,
         stream   = ${stream},
         type     = ${type},
+      ##anoffset = ${anoffset},
         date     = ${cymd},
         time     = ${hh},
         step     = ${step},
