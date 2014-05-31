@@ -76,12 +76,11 @@ MODULE mo_advection_hflux
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell, grad_fe_cell
-  USE mo_math_laplace,        ONLY: directional_laplace
   USE mo_math_divrot,         ONLY: recon_lsq_cell_l, recon_lsq_cell_q,         &
     &                               recon_lsq_cell_cpoor, recon_lsq_cell_c,     &
     &                               recon_lsq_cell_l_svd, recon_lsq_cell_q_svd, &
     &                               recon_lsq_cell_cpoor_svd,                   &
-    &                               recon_lsq_cell_c_svd, div
+    &                               recon_lsq_cell_c_svd, recon_lsq_cell_l_consv_svd
   USE mo_interpol_config,     ONLY: llsq_lin_consv, llsq_high_consv, lsq_high_ord, &
     &                               lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -91,7 +90,7 @@ MODULE mo_advection_hflux
   USE mo_run_config,          ONLY: ntracer, timers_level
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c 
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
-    &                               sync_patch_array_mult, sync_patch_array_4de3
+    &                               sync_patch_array_mult, sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux, t_list2D
@@ -748,20 +747,14 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
     REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
-      &  z_grad(nproma,p_patch%nlev,2,p_patch%nblks_c) 
+      &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c) 
                                                !< cell center (geographical coordinates)
 
     REAL(wp), TARGET ::    &                        !< coefficient of the lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,3,p_patch%nblks_c) 
+      &  z_lsq_coeff(3,nproma,p_patch%nlev,p_patch%nblks_c) 
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
-
-    REAL(wp), POINTER :: ptr_cc(:,:,:)         !< ptr to tracer field or coefficient c0
-                                               !< of lsq reconstruction (for nonconservative
-                                               !< lsq ptr_cc again equals the tracer field).
-    REAL(wp), POINTER :: ptr_grad(:,:,:,:)     !< Pointer to reconstructed zonal and
-                                               !< meridional gradients.
 
     REAL(vp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
       &  z_distv_bary(:,:,:,:)          !< barycenter of advected area
@@ -787,6 +780,7 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
+    LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
 
    !-------------------------------------------------------------------------
 
@@ -922,44 +916,37 @@ CONTAINS
     END IF ! ld_compute
 
 
-
+    use_zlsq = .FALSE. ! default: use z_grad to store the gradient
     !
     ! 2. reconstruction of (unlimited) cell based gradient (lat,lon)
     !
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
-      IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,     &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_lconsv=l_consv)
+      IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
+      CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,         &
+        &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                              opt_lconsv=l_consv)
+      use_zlsq = .TRUE.
+      ELSE IF (advection_config(pid)%llsq_svd) THEN
+      CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_lin, z_grad,           &
+        &                        opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
       ELSE
       CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,         &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_lconsv=l_consv)
+      use_zlsq = .TRUE.
       ENDIF
-
-      IF (l_consv) THEN
-        ptr_cc   => z_lsq_coeff(:,:,1,:)   ! first coefficient of lsq rec.
-      ELSE
-        ptr_cc   => p_cc(:,:,:)
-      ENDIF
-      ptr_grad => z_lsq_coeff(:,:,2:3,:) ! gradients of lsq rec.
 
     ELSE IF (p_igrad_c_miura == 2) THEN
       ! Green-Gauss method
       CALL grad_green_gauss_cell( p_cc, p_patch, p_int, z_grad, opt_slev=slev, &
         &                         opt_elev=elev, opt_rlend=i_rlend_c )
 
-      ptr_cc   => p_cc(:,:,:)
-      ptr_grad => z_grad(:,:,:,:)
 
     ELSE IF (p_igrad_c_miura == 3) THEN
       ! gradient based on three-node triangular element
       CALL grad_fe_cell( p_cc, p_patch, p_int, z_grad, opt_slev=slev, &
         &                opt_elev=elev, opt_rlend=i_rlend_c )
-
-      ptr_cc   => p_cc(:,:,:)
-      ptr_grad => z_grad(:,:,:,:)
 
     ENDIF
 
@@ -1018,9 +1005,29 @@ CONTAINS
             ibc0 = z_cell_blk(je,jk,jb)  
 
             ! Calculate 'edge value' of advected quantity (cc_bary)
-            p_out_e(je,jk,jb) = ptr_cc(ilc0,jk,ibc0)                       &
-              &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)   &
-              &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0)
+            p_out_e(je,jk,jb) = p_cc(ilc0,jk,ibc0)                       &
+              &    + z_distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)   &
+              &    + z_distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0)
+
+          ENDDO ! loop over edges
+        ENDDO   ! loop over vertical levels
+
+      ELSE IF (use_zlsq) THEN
+
+!CDIR UNROLL=5
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
+
+            ! Calculate reconstructed tracer value at barycenter of rhomboidal
+            ! area which is swept across the corresponding edge.  
+            ilc0 = z_cell_idx(je,jk,jb)
+            ibc0 = z_cell_blk(je,jk,jb)
+
+            ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
+            p_out_e(je,jk,jb) = ( z_lsq_coeff(1,ilc0,jk,ibc0)                  &
+              &    + z_distv_bary(je,jk,jb,1) * z_lsq_coeff(2,ilc0,jk,ibc0)    &
+              &    + z_distv_bary(je,jk,jb,2) * z_lsq_coeff(3,ilc0,jk,ibc0) )  &
+              &    * p_mass_flx_e(je,jk,jb)
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
@@ -1037,9 +1044,9 @@ CONTAINS
             ibc0 = z_cell_blk(je,jk,jb)
 
             ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-            p_out_e(je,jk,jb) = ( ptr_cc(ilc0,jk,ibc0)                        &
-              &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)    &
-              &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0) )  &
+            p_out_e(je,jk,jb) = ( p_cc(ilc0,jk,ibc0)                      &
+              &    + z_distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)    &
+              &    + z_distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0) )  &
               &    * p_mass_flx_e(je,jk,jb)
 
           ENDDO ! loop over edges
@@ -1186,20 +1193,14 @@ CONTAINS
       &  opt_ti_elev
 
     REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
-      &  z_grad(nproma,p_patch%nlev,2,p_patch%nblks_c) 
+      &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c) 
                                                !< cell center (geographical coordinates)
 
     REAL(wp), TARGET ::    &                        !< coefficient of the lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,3,p_patch%nblks_c) 
+      &  z_lsq_coeff(3,nproma,p_patch%nlev,p_patch%nblks_c) 
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
-
-    REAL(wp), POINTER :: ptr_cc(:,:,:)         !< ptr to tracer field or coefficient c0
-                                               !< of lsq reconstruction (for nonconservative
-                                               !< lsq ptr_cc again equals the tracer field).
-    REAL(wp), POINTER :: ptr_grad(:,:,:,:)     !< Pointer to reconstructed zonal and
-                                               !< meridional gradients.
 
     REAL(vp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
       &  z_distv_bary(:,:,:,:)          !< barycenter of advected area
@@ -1240,6 +1241,7 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
+    LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
     INTEGER  :: nsub               !< counter for sub-timesteps
     INTEGER  :: nnow, nnew, nsav   !< time indices
 
@@ -1400,27 +1402,27 @@ CONTAINS
     !
     DO nsub=1, p_ncycl
 
+      use_zlsq = .FALSE.
       !
       ! 2. reconstruction of (unlimited) cell based gradient (lat,lon)
       !
       IF (p_igrad_c_miura == 1) THEN
         ! least squares method
-        IF (advection_config(pid)%llsq_svd) THEN
+        IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
+        CALL recon_lsq_cell_l_consv_svd( z_tracer(:,:,:,nnow), p_patch, p_int%lsq_lin, &
+          &                              z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
+          &                              opt_rlend=i_rlend_c, opt_lconsv=l_consv)
+        use_zlsq = .TRUE.
+        ELSE IF (advection_config(pid)%llsq_svd) THEN
         CALL recon_lsq_cell_l_svd( z_tracer(:,:,:,nnow), p_patch, p_int%lsq_lin, &
-          &                    z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
-          &                    opt_rlend=i_rlend_c, opt_lconsv=l_consv)
+          &                    z_grad, opt_slev=slev, opt_elev=elev,             &
+          &                    opt_rlend=i_rlend_c)
         ELSE
         CALL recon_lsq_cell_l( z_tracer(:,:,:,nnow), p_patch, p_int%lsq_lin,     &
           &                    z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
           &                    opt_rlend=i_rlend_c, opt_lconsv=l_consv)
+        use_zlsq = .TRUE.
         ENDIF
-
-        IF (l_consv) THEN
-          ptr_cc   => z_lsq_coeff(:,:,1,:)   ! first coefficient of lsq rec.
-        ELSE
-          ptr_cc   => z_tracer(:,:,:,nnow)
-        ENDIF
-        ptr_grad => z_lsq_coeff(:,:,2:3,:) ! gradients of lsq rec.
 
       ELSE IF (p_igrad_c_miura == 2) THEN
         ! Green-Gauss method
@@ -1428,8 +1430,6 @@ CONTAINS
           &                         z_grad, opt_slev=slev, opt_elev=elev, &
           &                         opt_rlend=i_rlend_c )
 
-        ptr_cc   => z_tracer(:,:,:,nnow)
-        ptr_grad => z_grad(:,:,:,:)
 
       ELSE IF (p_igrad_c_miura == 3) THEN
         ! gradient based on three-node triangular element
@@ -1437,8 +1437,6 @@ CONTAINS
           &                z_grad, opt_slev=slev, opt_elev=elev, &
           &                opt_rlend=i_rlend_c )
 
-        ptr_cc   => z_tracer(:,:,:,nnow)
-        ptr_grad => z_grad(:,:,:,:)
 
       ENDIF
 
@@ -1474,22 +1472,41 @@ CONTAINS
         !     area which is swept across the corresponding edge.
         ! 3.2 Compute intermediate tracer mass flux 
         !
+        IF (use_zlsq) THEN
 !CDIR UNROLL=5
-        DO jk = slev, elev
+          DO jk = slev, elev
 
-          DO je = i_startidx, i_endidx
+            DO je = i_startidx, i_endidx
 
-            ilc0 = z_cell_idx(je,jk,jb)
-            ibc0 = z_cell_blk(je,jk,jb)  
+              ilc0 = z_cell_idx(je,jk,jb)
+              ibc0 = z_cell_blk(je,jk,jb)  
 
-            ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
-            z_tracer_mflx(je,jk,jb,nsub) = ( ptr_cc(ilc0,jk,ibc0)            &
-              &      + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,1,ibc0)   &
-              &      + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,2,ibc0) ) &
-              &      * p_mass_flx_e(je,jk,jb)
+              ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
+              z_tracer_mflx(je,jk,jb,nsub) = ( z_lsq_coeff(1,ilc0,jk,ibc0)        &
+                &      + z_distv_bary(je,jk,jb,1) * z_lsq_coeff(2,ilc0,jk,ibc0)   &
+                &      + z_distv_bary(je,jk,jb,2) * z_lsq_coeff(3,ilc0,jk,ibc0) ) &
+                &      * p_mass_flx_e(je,jk,jb)
 
-          ENDDO ! loop over edges
-        ENDDO   ! loop over vertical levels
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        ELSE
+!CDIR UNROLL=5
+          DO jk = slev, elev
+
+            DO je = i_startidx, i_endidx
+
+              ilc0 = z_cell_idx(je,jk,jb)
+              ibc0 = z_cell_blk(je,jk,jb)  
+
+              ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
+              z_tracer_mflx(je,jk,jb,nsub) = ( z_tracer(ilc0,jk,ibc0,nnow)   &
+                &      + z_distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)   &
+                &      + z_distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0) ) &
+                &      * p_mass_flx_e(je,jk,jb)
+
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        ENDIF
 
       ENDDO    ! loop over blocks
 !$OMP END DO NOWAIT
@@ -1758,7 +1775,7 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
     REAL(wp) ::   &                     !< coefficients of lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,lsq_high_set%dim_unk+1,p_patch%nblks_c) 
+      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c) 
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
@@ -1978,7 +1995,7 @@ CONTAINS
     ! Synchronize polynomial coefficients
     ! Note: a special sync routine is needed here because the fourth dimension
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
-    CALL sync_patch_array_4de3(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+    CALL sync_patch_array_4de1(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
 
 
 
@@ -2044,7 +2061,7 @@ CONTAINS
 
 !CDIR EXPAND=6
             p_out_e(je,jk,jb) =                                                       &
-              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:6,ptr_ibc(je,jk,jb)), &
+              &  DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
@@ -2058,7 +2075,7 @@ CONTAINS
 
 !CDIR EXPAND=8
             p_out_e(je,jk,jb) =                                                       &
-              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:8,ptr_ibc(je,jk,jb)), &
+              &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
@@ -2072,7 +2089,7 @@ CONTAINS
 
 !CDIR EXPAND=10
             p_out_e(je,jk,jb) =                                                        &
-              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:10,ptr_ibc(je,jk,jb)), &
+              &  DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)
 
           ENDDO
@@ -2098,7 +2115,7 @@ CONTAINS
 
 !CDIR EXPAND=6
             p_out_e(je,jk,jb) =                                                       &
-              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:6,ptr_ibc(je,jk,jb)), &
+              &  DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)            &
               &  * p_mass_flx_e(je,jk,jb)
 
@@ -2113,7 +2130,7 @@ CONTAINS
 
 !CDIR EXPAND=8
             p_out_e(je,jk,jb) =                                                       &
-              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:8,ptr_ibc(je,jk,jb)), &
+              &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)            &
               &  * p_mass_flx_e(je,jk,jb)
 
@@ -2128,7 +2145,7 @@ CONTAINS
 
 !CDIR EXPAND=10
             p_out_e(je,jk,jb) =                                                        &
-              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:10,ptr_ibc(je,jk,jb)), &
+              &  DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)            &
               &  * p_mass_flx_e(je,jk,jb)
 
@@ -2265,7 +2282,7 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
    REAL(wp) ::   &                     !< coefficients of lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,lsq_high_set%dim_unk+1,p_patch%nblks_c) 
+      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c) 
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
@@ -2525,9 +2542,9 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
-          &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                    opt_rlstart=2, opt_lconsv=l_consv )
+        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+          &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+          &                              opt_rlstart=2, opt_lconsv=l_consv )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
@@ -2575,7 +2592,7 @@ CONTAINS
     ! Synchronize polynomial coefficients
     ! Note: a special sync routine is needed here because the fourth dimension
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
-    CALL sync_patch_array_4de3(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
+    CALL sync_patch_array_4de1(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
 
 
 
@@ -2623,11 +2640,11 @@ CONTAINS
 
 !CDIR EXPAND=3
           p_out_e(je,jk,jb) =                                                            &
-            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:3,ptr_ibc0(je,jk,jb)), &
+            &   ( DOT_PRODUCT(z_lsq_coeff(1:3,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:3,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:3,ptr_ibc1(je,jk,jb)), &
+            &   + DOT_PRODUCT(z_lsq_coeff(1:3,ptr_ilc1(je,jk,jb),jk,ptr_ibc1(je,jk,jb)), &
             &     z_quad_vector_sum1(je,1:3,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:3,ptr_ibc2(je,jk,jb)), &
+            &   + DOT_PRODUCT(z_lsq_coeff(1:3,ptr_ilc2(je,jk,jb),jk,ptr_ibc2(je,jk,jb)), &
             &     z_quad_vector_sum2(je,1:3,jk,jb) ) )                                   &
             &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
             &   * p_mass_flx_e(je,jk,jb)
@@ -2643,11 +2660,11 @@ CONTAINS
 
 !CDIR EXPAND=6
           p_out_e(je,jk,jb) =                                                            &
-            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:6,ptr_ibc0(je,jk,jb)), &
+            &   ( DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:6,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:6,ptr_ibc1(je,jk,jb)), &
+            &   + DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc1(je,jk,jb),jk,ptr_ibc1(je,jk,jb)), &
             &     z_quad_vector_sum1(je,1:6,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:6,ptr_ibc2(je,jk,jb)), &
+            &   + DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc2(je,jk,jb),jk,ptr_ibc2(je,jk,jb)), &
             &     z_quad_vector_sum2(je,1:6,jk,jb) ) )                                   &
             &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
             &   * p_mass_flx_e(je,jk,jb)
@@ -2662,11 +2679,11 @@ CONTAINS
 
 !CDIR EXPAND=8
           p_out_e(je,jk,jb) =                                                            &
-            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:8,ptr_ibc0(je,jk,jb)), &
+            &   ( DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:8,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:8,ptr_ibc1(je,jk,jb)), &
+            &   + DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc1(je,jk,jb),jk,ptr_ibc1(je,jk,jb)), &
             &     z_quad_vector_sum1(je,1:8,jk,jb) )                                     &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:8,ptr_ibc2(je,jk,jb)), &
+            &   + DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc2(je,jk,jb),jk,ptr_ibc2(je,jk,jb)), &
             &     z_quad_vector_sum2(je,1:8,jk,jb) ) )                                   &
             &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
             &   * p_mass_flx_e(je,jk,jb)
@@ -2681,11 +2698,11 @@ CONTAINS
 
 !CDIR EXPAND=10
           p_out_e(je,jk,jb) =                                                            &
-            &   ( DOT_PRODUCT(z_lsq_coeff(ptr_ilc0(je,jk,jb),jk,1:10,ptr_ibc0(je,jk,jb)),&
+            &   ( DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)),&
             &     z_quad_vector_sum0(je,1:10,jk,jb) )                                    &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc1(je,jk,jb),jk,1:10,ptr_ibc1(je,jk,jb)),&
+            &   + DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc1(je,jk,jb),jk,ptr_ibc1(je,jk,jb)),&
             &     z_quad_vector_sum1(je,1:10,jk,jb) )                                    &
-            &   + DOT_PRODUCT(z_lsq_coeff(ptr_ilc2(je,jk,jb),jk,1:10,ptr_ibc2(je,jk,jb)),&
+            &   + DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc2(je,jk,jb),jk,ptr_ibc2(je,jk,jb)),&
             &     z_quad_vector_sum2(je,1:10,jk,jb) ) )                                  &
             &   / (z_dreg_area0(je,jk,jb)+z_dreg_area1(je,jk,jb)+z_dreg_area2(je,jk,jb) )&
             &   * p_mass_flx_e(je,jk,jb)
@@ -2827,7 +2844,7 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
    REAL(wp) ::   &                     !< coefficients of lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,lsq_high_set%dim_unk+1,p_patch%nblks_c) 
+      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c) 
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
@@ -3087,13 +3104,13 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                    opt_rlstart=2, opt_lconsv=l_consv )
+          &                    opt_rlstart=2 )
       ELSE
         CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-          &                    opt_rlstart=2, opt_lconsv=l_consv )
+          &                    opt_rlstart=2 )
       ENDIF
     ELSE IF (lsq_high_ord == 2) THEN
       ! quadratic reconstruction
@@ -3125,9 +3142,7 @@ CONTAINS
     ! Synchronize polynomial coefficients
     ! Note: a special sync routine is needed here because the fourth dimension
     ! of z_lsq_coeff is (for efficiency reasons) on the third index
-    CALL sync_patch_array_4de3(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
-
-
+    CALL sync_patch_array_4de1(SYNC_C,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
 
     !
     ! 3. Calculate approximation to the area average \Phi_{avg} of the tracer
@@ -3163,7 +3178,7 @@ CONTAINS
 
 !CDIR EXPAND=3
           p_out_e(je,jk,jb) =                                                            &
-            &     DOT_PRODUCT(z_lsq_coeff(patch0_cell_idx(je,jk,jb),jk,1:3,patch0_cell_blk(je,jk,jb)), &
+            &     DOT_PRODUCT(z_lsq_coeff(1:3,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:3,jk,jb))
         ENDDO
       ENDDO
@@ -3177,9 +3192,9 @@ CONTAINS
 
 !CDIR EXPAND=3
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
-          &    + DOT_PRODUCT(z_lsq_coeff(patch1_cell_idx(ie,jb),jk,1:3,patch1_cell_blk(ie,jb)),  &
+          &    + DOT_PRODUCT(z_lsq_coeff(1:3,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum1(ie,1:3,jb) )                                      &
-          &    + DOT_PRODUCT(z_lsq_coeff(patch2_cell_idx(ie,jb),jk,1:3,patch2_cell_blk(ie,jb)),  &
+          &    + DOT_PRODUCT(z_lsq_coeff(1:3,patch2_cell_idx(ie,jb),jk,patch2_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum2(ie,1:3,jb) )
       ENDDO  ! ie
 
@@ -3192,7 +3207,7 @@ CONTAINS
 
 !CDIR EXPAND=6
           p_out_e(je,jk,jb) =                                                            &
-            &     DOT_PRODUCT(z_lsq_coeff(patch0_cell_idx(je,jk,jb),jk,1:6,patch0_cell_blk(je,jk,jb)), &
+            &     DOT_PRODUCT(z_lsq_coeff(1:6,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:6,jk,jb))
         ENDDO
       ENDDO
@@ -3206,9 +3221,9 @@ CONTAINS
 
 !CDIR EXPAND=6
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
-          &    + DOT_PRODUCT(z_lsq_coeff(patch1_cell_idx(ie,jb),jk,1:6,patch1_cell_blk(ie,jb)),  &
+          &    + DOT_PRODUCT(z_lsq_coeff(1:6,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum1(ie,1:6,jb) )                                      &
-          &    + DOT_PRODUCT(z_lsq_coeff(patch2_cell_idx(ie,jb),jk,1:6,patch2_cell_blk(ie,jb)),  &
+          &    + DOT_PRODUCT(z_lsq_coeff(1:6,patch2_cell_idx(ie,jb),jk,patch2_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum2(ie,1:6,jb) )
       ENDDO  ! ie
 
@@ -3220,7 +3235,7 @@ CONTAINS
 
 !CDIR EXPAND=10
           p_out_e(je,jk,jb) =                                                            &
-            &     DOT_PRODUCT(z_lsq_coeff(patch0_cell_idx(je,jk,jb),jk,1:10,patch0_cell_blk(je,jk,jb)),&
+            &     DOT_PRODUCT(z_lsq_coeff(1:10,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)),&
             &     z_quad_vector_sum0(je,1:10,jk,jb))
         ENDDO
       ENDDO
@@ -3234,9 +3249,9 @@ CONTAINS
 
 !CDIR EXPAND=10
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)  &
-          &    + DOT_PRODUCT(z_lsq_coeff(patch1_cell_idx(ie,jb),jk,1:10,patch1_cell_blk(ie,jb)),&
+          &    + DOT_PRODUCT(z_lsq_coeff(1:10,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),&
           &      z_quad_vector_sum1(ie,1:10,jb) )                                    &
-          &    + DOT_PRODUCT(z_lsq_coeff(patch2_cell_idx(ie,jb),jk,1:10,patch2_cell_blk(ie,jb)),&
+          &    + DOT_PRODUCT(z_lsq_coeff(1:10,patch2_cell_idx(ie,jb),jk,patch2_cell_blk(ie,jb)),&
           &      z_quad_vector_sum2(ie,1:10,jb) )
       ENDDO  ! ie
 

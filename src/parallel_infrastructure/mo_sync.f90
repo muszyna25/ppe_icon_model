@@ -44,7 +44,7 @@ USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_r
   &                              p_gather, p_gatherv
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
-USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
+USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
                                  exchange_data_mult, t_comm_pattern,           &
                                  blk_no, idx_no, idx_1d
 
@@ -62,7 +62,7 @@ PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array, omp_global_sum_array,                     &
           global_sum_array2, global_sum_array3,                       &
           sync_patch_array_mult, global_min, global_max,              &
-          sync_patch_array_4de3, decomposition_statistics,            &
+          sync_patch_array_4de1, decomposition_statistics,            &
           enable_sync_checks, disable_sync_checks,                    &
           cumulative_sync_patch_array, complete_cumulative_sync
 
@@ -332,6 +332,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
 
 END SUBROUTINE sync_patch_array_mult
 
+
 !>
 !! Does boundary exchange for a 4D field for which the extra dimension
 !! is on the third index.
@@ -340,7 +341,7 @@ END SUBROUTINE sync_patch_array_mult
 !! Optimized version by Guenther Zaengl, Apr 2010, based on routines
 !! developed by Rainer Johanni
 !!
-SUBROUTINE sync_patch_array_4de3(typ, p_patch, nfields, f4din)
+SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
 
    INTEGER, INTENT(IN)             :: typ
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
@@ -366,24 +367,24 @@ SUBROUTINE sync_patch_array_4de3(typ, p_patch, nfields, f4din)
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
-     ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,4)))
+     ALLOCATE(arr3(UBOUND(f4din,2), UBOUND(f4din,3), UBOUND(f4din,4)))
      DO i = 1, nfields
-       arr3(:,:,:) = f4din(:,:,i,:)
+       arr3(:,:,:) = f4din(i,:,:,:)
        CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
      ENDDO
      DEALLOCATE(arr3)
    ENDIF
 
    ! Boundary exchange for work PEs
-!   IF(p_nprocs /= 1 .AND. p_pe /= p_test_pe) THEN
      IF(my_process_is_mpi_parallel()) THEN
-     IF (nfields/=UBOUND(f4din,3)) &
-       CALL finish('sync_patch_array_4de3','inconsistent arguments')
-     ndim2tot = nfields*SIZE(f4din,2)
-     CALL exchange_data_4de3(p_pat, nfields, ndim2tot, recv=f4din)
+     IF (nfields/=UBOUND(f4din,1)) &
+       CALL finish('sync_patch_array_4de1','inconsistent arguments')
+     ndim2tot = nfields*SIZE(f4din,3)
+     CALL exchange_data_4de1(p_pat, nfields, ndim2tot, recv=f4din)
    ENDIF
 
-END SUBROUTINE sync_patch_array_4de3
+END SUBROUTINE sync_patch_array_4de1
+
 
 
 !-------------------------------------------------------------------------

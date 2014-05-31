@@ -56,7 +56,7 @@ PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_mult, exchange_data_grf,                   &
           start_async_comm, complete_async_comm,                   &
-          exchange_data_4de3, delete_comm_gather_pattern
+          exchange_data_4de1, delete_comm_gather_pattern
 PUBLIC :: t_comm_pattern
 PUBLIC :: reorder_comm_pattern
 PUBLIC :: reorder_comm_pattern_snd
@@ -1908,6 +1908,8 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
 END SUBROUTINE exchange_data_mult
 
+
+
 !>
 !! Does data exchange according to a communication pattern (in p_pat).
 !!
@@ -1915,19 +1917,19 @@ END SUBROUTINE exchange_data_mult
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !! Optimized version by Guenther Zaengl to process a 4D field whose extra dimension
-!! is on the third index
+!! is on the first index
 !!
-SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
+SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
 
    TYPE(t_comm_pattern), INTENT(IN) :: p_pat
 
    REAL(wp), INTENT(INOUT)           :: recv(:,:,:,:)
    REAL(wp), INTENT(IN   ), OPTIONAL :: send(:,:,:,:)
 
-   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_4de3"
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_4de1"
    INTEGER, INTENT(IN)           :: nfields, ndim2tot
 
-   INTEGER :: ndim2, noffset
+   INTEGER :: ndim2, koffset
 
    REAL(wp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
 
@@ -1954,7 +1956,7 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
      lsend  = .FALSE.
    ENDIF
 
-   ndim2 = SIZE(recv,2)
+   ndim2 = SIZE(recv,3)
 
    IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3)) THEN
      ! Set up irecv's for receive buffers
@@ -1968,59 +1970,30 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
      ENDDO
    ENDIF
 
-
-   ! Set up send buffer
-#ifdef __SX__
-   IF ( lsend ) THEN
-     DO n = 1, nfields
-       noffset = (n-1)*ndim2
-!CDIR UNROLL=6
-       DO k = 1, ndim2
-         DO i = 1, p_pat%n_send
-           send_buf(k+noffset,i) = &
-             send(p_pat%send_src_idx(i),k,n,p_pat%send_src_blk(i))
-         ENDDO
-       ENDDO
-     ENDDO
-   ELSE
-       ! Send and receive arrays are identical (for boundary exchange)
-     DO n = 1, nfields
-       noffset = (n-1)*ndim2
-!CDIR UNROLL=6
-       DO k = 1, ndim2
-         DO i = 1, p_pat%n_send
-           send_buf(k+noffset,i) = &
-             recv(p_pat%send_src_idx(i),k,n,p_pat%send_src_blk(i))
-         ENDDO
-       ENDDO
-     ENDDO
-   ENDIF
-#else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,noffset)
+!$OMP PARALLEL DO PRIVATE(jb,jl,koffset)
 #endif
    DO i = 1, p_pat%n_send
      jb = p_pat%send_src_blk(i)
      jl = p_pat%send_src_idx(i)
      IF ( lsend ) THEN
-       DO n = 1, nfields
-         noffset = (n-1)*ndim2
-         DO k = 1, ndim2
-           send_buf(k+noffset,i) = send(jl,k,n,jb)
+       DO k = 1, ndim2
+         koffset = (k-1)*nfields
+         DO n = 1, nfields
+           send_buf(n+koffset,i) = send(n,jl,k,jb)
          ENDDO
        ENDDO
      ELSE
-       DO n = 1, nfields
-         noffset = (n-1)*ndim2
-         DO k = 1, ndim2
-           send_buf(k+noffset,i) = recv(jl,k,n,jb)
+       DO k = 1, ndim2
+         koffset = (k-1)*nfields
+         DO n = 1, nfields
+           send_buf(n+koffset,i) = recv(n,jl,k,jb)
          ENDDO
        ENDDO
      ENDIF
    ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
-#endif
 #endif
 
 
@@ -2089,40 +2062,28 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
    ENDIF
 
    ! Fill in receive buffer
-
-#ifdef __SX__
-   DO n = 1, nfields
-     noffset = (n-1)*ndim2
-!CDIR UNROLL=6
-     DO k = 1, ndim2
-       DO i = 1, p_pat%n_pnts
-         recv(p_pat%recv_dst_idx(i),k,n,p_pat%recv_dst_blk(i)) =  &
-           recv_buf(k+noffset,p_pat%recv_src(i))
-       ENDDO
-     ENDDO
-   ENDDO
-#else
 #ifdef __OMPPAR_COPY__
-!$OMP PARALLEL DO PRIVATE(jb,jl,ik,noffset)
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik,koffset)
 #endif
    DO i = 1, p_pat%n_pnts
      jb = p_pat%recv_dst_blk(i)
      jl = p_pat%recv_dst_idx(i)
      ik  = p_pat%recv_src(i)
-     DO n = 1, nfields
-       noffset = (n-1)*ndim2
-       DO k = 1, ndim2
-         recv(jl,k,n,jb) = recv_buf(k+noffset,ik)
+     DO k = 1, ndim2
+       koffset = (k-1)*nfields
+       DO n = 1, nfields
+         recv(n,jl,k,jb) = recv_buf(n+koffset,ik)
        ENDDO
      ENDDO
    ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
 #endif
-#endif
+
    IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
-END SUBROUTINE exchange_data_4de3
+END SUBROUTINE exchange_data_4de1
+
 
 
 !>

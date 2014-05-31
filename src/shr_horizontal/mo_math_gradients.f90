@@ -446,7 +446,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
 REAL(wp), INTENT(inout) ::  &
-  &  p_grad(:,:,:,:)      ! dim:(nproma,nlev,2,nblks_c)
+  &  p_grad(:,:,:,:)      ! dim:(2,nproma,nlev,nblks_c)
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
@@ -497,8 +497,7 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
   IF (ptr_patch%id > 1) THEN
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
 !$OMP WORKSHARE
-    p_grad(:,:,1,1:i_startblk) = 0._wp
-    p_grad(:,:,2,1:i_startblk) = 0._wp
+    p_grad(:,:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -525,13 +524,13 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
         ! multiply cell-based input values with precomputed grid geometry factor
 
         ! zonal(u)-component of Green-Gauss gradient
-        p_grad(jc,jk,1,jb) = &
+        p_grad(1,jc,jk,jb) = &
           &    ptr_int%gradc_bmat(jc,1,1,jb)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
           &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
           &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
         ! meridional(v)-component of Green-Gauss gradient
-        p_grad(jc,jk,2,jb) =  &
+        p_grad(2,jc,jk,jb) =  &
           &    ptr_int%gradc_bmat(jc,2,1,jb)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
           &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
           &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
@@ -594,7 +593,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
 REAL(vp), INTENT(inout) ::  &
-  &  p_grad(:,:,:,:)      ! dim:(nproma,4,nlev,nblks_c)
+  &  p_grad(:,:,:,:)      ! dim:(4,nproma,nlev,nblks_c)
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
@@ -666,28 +665,28 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
         ! multiply cell-based input values with shape function derivatives
 
         ! zonal(u)-component of gradient, field 1
-        p_grad(jc,1,jk,jb) = &
-          &    ptr_int%gradc_bmat(jc,1,1,jb)*p_ccpr(iidx(jc,jb,1),1,jk,iblk(jc,jb,1))  &
-          &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_ccpr(iidx(jc,jb,2),1,jk,iblk(jc,jb,2))  &
-          &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_ccpr(iidx(jc,jb,3),1,jk,iblk(jc,jb,3))
+        p_grad(1,jc,jk,jb) = &
+          &    ptr_int%gradc_bmat(jc,1,1,jb)*p_ccpr(1,iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_ccpr(1,iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_ccpr(1,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
         ! meridional(v)-component of gradient, field 1
-        p_grad(jc,2,jk,jb) =  &
-          &    ptr_int%gradc_bmat(jc,2,1,jb)*p_ccpr(iidx(jc,jb,1),1,jk,iblk(jc,jb,1))  &
-          &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_ccpr(iidx(jc,jb,2),1,jk,iblk(jc,jb,2))  &
-          &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_ccpr(iidx(jc,jb,3),1,jk,iblk(jc,jb,3))
+        p_grad(2,jc,jk,jb) =  &
+          &    ptr_int%gradc_bmat(jc,2,1,jb)*p_ccpr(1,iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_ccpr(1,iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_ccpr(1,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
         ! zonal(u)-component of gradient, field 2
-        p_grad(jc,3,jk,jb) = &
-          &    ptr_int%gradc_bmat(jc,1,1,jb)*p_ccpr(iidx(jc,jb,1),2,jk,iblk(jc,jb,1))  &
-          &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_ccpr(iidx(jc,jb,2),2,jk,iblk(jc,jb,2))  &
-          &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_ccpr(iidx(jc,jb,3),2,jk,iblk(jc,jb,3))
+        p_grad(3,jc,jk,jb) = &
+          &    ptr_int%gradc_bmat(jc,1,1,jb)*p_ccpr(2,iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,1,2,jb)*p_ccpr(2,iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,1,3,jb)*p_ccpr(2,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
         ! meridional(v)-component of gradient, field 2
-        p_grad(jc,4,jk,jb) =  &
-          &    ptr_int%gradc_bmat(jc,2,1,jb)*p_ccpr(iidx(jc,jb,1),2,jk,iblk(jc,jb,1))  &
-          &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_ccpr(iidx(jc,jb,2),2,jk,iblk(jc,jb,2))  &
-          &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_ccpr(iidx(jc,jb,3),2,jk,iblk(jc,jb,3))
+        p_grad(4,jc,jk,jb) =  &
+          &    ptr_int%gradc_bmat(jc,2,1,jb)*p_ccpr(2,iidx(jc,jb,1),jk,iblk(jc,jb,1))  &
+          &  + ptr_int%gradc_bmat(jc,2,2,jb)*p_ccpr(2,iidx(jc,jb,2),jk,iblk(jc,jb,2))  &
+          &  + ptr_int%gradc_bmat(jc,2,3,jb)*p_ccpr(2,iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
@@ -747,7 +746,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
 REAL(wp), INTENT(inout) ::  &
-  &  p_grad(:,:,:,:)      ! dim:(nproma,nlev,2,nblks_c)
+  &  p_grad(:,:,:,:)      ! dim:(2,nproma,nlev,nblks_c)
 
 ! optional: calculated face values of cell centered quantity
 REAL(wp), INTENT(inout), OPTIONAL ::  &
@@ -811,8 +810,7 @@ ENDIF
   IF (ptr_patch%id > 1) THEN
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
 !$OMP WORKSHARE
-    p_grad(:,:,1,1:i_startblk) = 0._wp
-    p_grad(:,:,2,1:i_startblk) = 0._wp
+    p_grad(:,:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -835,13 +833,13 @@ ENDIF
         ! multiply cell-based input values with precomputed grid geometry factor
 
         ! zonal(u)-component of Green-Gauss gradient
-        p_grad(jc,jk,1,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
+        p_grad(1,jc,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
           ptr_int%geofac_grg(jc,2,jb,1)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
           ptr_int%geofac_grg(jc,3,jb,1)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
           ptr_int%geofac_grg(jc,4,jb,1)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
         ! meridional(v)-component of Green-Gauss gradient
-        p_grad(jc,jk,2,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
+        p_grad(2,jc,jk,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
           ptr_int%geofac_grg(jc,2,jb,2)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
           ptr_int%geofac_grg(jc,3,jb,2)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
           ptr_int%geofac_grg(jc,4,jb,2)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
