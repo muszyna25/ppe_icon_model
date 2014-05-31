@@ -385,16 +385,17 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE initcond_echam_phy( p_patch, temp, qv, ctest_name )
+  SUBROUTINE initcond_echam_phy( jg, p_patch, temp, qv, ctest_name )
 
-    TYPE(t_patch)    ,INTENT(IN) :: p_patch(:)
-    REAL(wp)         ,INTENT(IN) :: temp(:,:,:)
-    REAL(wp)         ,INTENT(IN) :: qv(:,:,:)
-    CHARACTER(LEN=*), INTENT(IN) :: ctest_name
+    INTEGER          ,INTENT(in) :: jg
+    TYPE(t_patch)    ,INTENT(in) :: p_patch
+    REAL(wp)         ,INTENT(in) :: temp(:,:,:)
+    REAL(wp)         ,INTENT(in) :: qv(:,:,:)
+    CHARACTER(LEN=*), INTENT(in) :: ctest_name
 
     ! local variables and pointers
 
-    INTEGER  :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce
+    INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce
     REAL(wp) :: zlat
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
@@ -412,25 +413,11 @@ CONTAINS
 
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
 
-    ! total number of domains/ grid levels
-
-    ndomain = SIZE(prm_field)
-    IF (ndomain.eq.0) CALL finish('init_phy_memory', &
-       & 'ERROR: array prm_field has zero length')
-
-    !-------------------------
-    ! Loop over all domains
-    !-------------------------
-    DO jg = 1,ndomain
-
       field => prm_field(jg)
       tend  => prm_tend (jg)
 
-      !----------------------------------------
-      ! Loop over all blocks in domain jg
-      !----------------------------------------
-      nblks_c = p_patch(jg)%nblks_c
-      jbs     = p_patch(jg)%cells%start_blk(2,1)
+      nblks_c = p_patch%nblks_c
+      jbs     = p_patch%cells%start_blk(2,1)
 
         ! For idealized test cases
 
@@ -439,9 +426,9 @@ CONTAINS
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
             DO jc = jcs,jce
-              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              zlat = p_patch%cells%center(jc,jb)%lat
               field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
               field% tsfc     (jc,jb     ) = ape_sst(ape_sst_case,zlat)
             END DO
@@ -457,9 +444,9 @@ CONTAINS
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = jbs,nblks_c
-              CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+              CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
               DO jc = jcs,jce
-                zlat = p_patch(jg)%cells%center(jc,jb)%lat
+                zlat = p_patch%cells%center(jc,jb)%lat
                 field% tsfc_tile(jc,jb,iwtr) = th_cbl(1)
                 field% tsfc     (jc,     jb) = th_cbl(1)
               END DO
@@ -475,9 +462,9 @@ CONTAINS
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
             DO jc = jcs,jce
-              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              zlat = p_patch%cells%center(jc,jb)%lat
               ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
               field% tsfc_tile  (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
               ! Initialise the ice - Tsurf, T1 & T2 must be in degC
@@ -518,9 +505,9 @@ CONTAINS
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
             DO jc = jcs,jce
-              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              zlat = p_patch%cells%center(jc,jb)%lat
               field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
               ! Initialise the ice - Tsurf, T1 & T2 must be in degC
               field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
@@ -552,8 +539,8 @@ CONTAINS
 
              ALLOCATE(buffer(nproma*nblks_c,5))
 
-             nbr_hor_points = p_patch(jg)%n_patch_cells
-             nbr_points     = nproma * p_patch(jg)%nblks_c
+             nbr_hor_points = p_patch%n_patch_cells
+             nbr_points     = nproma * p_patch%nblks_c
 
              !
              !  see drivers/mo_atmo_model.f90:
@@ -666,8 +653,8 @@ CONTAINS
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
                 field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
-                CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc_tile(:,:,iwtr))
-                CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc     (:,:))
+                CALL sync_patch_array(sync_c, p_patch, field%tsfc_tile(:,:,iwtr))
+                CALL sync_patch_array(sync_c, p_patch, field%tsfc     (:,:))
              ENDIF
              !
              ! OCEANU
@@ -677,7 +664,7 @@ CONTAINS
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                CALL sync_patch_array(sync_c, p_patch(jg), field%ocu(:,:))
+                CALL sync_patch_array(sync_c, p_patch, field%ocu(:,:))
              ENDIF
              !
              ! OCEANV
@@ -687,7 +674,7 @@ CONTAINS
              IF ( info > 0 ) THEN
                 buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
                 field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                CALL sync_patch_array(sync_c, p_patch(jg), field%ocv(:,:))
+                CALL sync_patch_array(sync_c, p_patch, field%ocv(:,:))
              ENDIF
 
              !
@@ -703,11 +690,11 @@ CONTAINS
                field%conc(:,1,:) = RESHAPE (buffer(:,3), (/ nproma, nblks_c /) )
                field%T1  (:,1,:) = RESHAPE (buffer(:,4), (/ nproma, nblks_c /) )
                field%T2  (:,1,:) = RESHAPE (buffer(:,5), (/ nproma, nblks_c /) )
-               CALL sync_patch_array(sync_c, p_patch(jg), field%hi  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch(jg), field%hs  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch(jg), field%seaice(:,:))
-               CALL sync_patch_array(sync_c, p_patch(jg), field%T1  (:,1,:))
-               CALL sync_patch_array(sync_c, p_patch(jg), field%T2  (:,1,:))
+               CALL sync_patch_array(sync_c, p_patch, field%hi  (:,1,:))
+               CALL sync_patch_array(sync_c, p_patch, field%hs  (:,1,:))
+               CALL sync_patch_array(sync_c, p_patch, field%seaice(:,:))
+               CALL sync_patch_array(sync_c, p_patch, field%T1  (:,1,:))
+               CALL sync_patch_array(sync_c, p_patch, field%T2  (:,1,:))
                field%seaice(:,:) = field%conc(:,1,:)
              ENDIF
 #endif
@@ -722,7 +709,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
 
             ! Set the surface temperature to the same value as the lowest model
             ! level above surface. For this test case, currently we assume
@@ -743,7 +730,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
-        CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+        CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
 
         ! Initialize the flag lfland (.TRUE. if the fraction of land in
         ! a grid box is larger than zero). In ECHAM a local array
@@ -838,8 +825,8 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
-        CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
-        field% coriol(jcs:jce,jb) = p_patch(jg)%cells%f_c(jcs:jce,jb)
+        CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+        field% coriol(jcs:jce,jb) = p_patch%cells%f_c(jcs:jce,jb)
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -913,7 +900,6 @@ CONTAINS
 !!$      field% debug_3d_8(:,:,:) = 0.0_wp
 
       NULLIFY( field,tend )
-    ENDDO !domain loop
 
   END SUBROUTINE initcond_echam_phy
   !-------------

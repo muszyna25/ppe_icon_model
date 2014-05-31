@@ -137,10 +137,13 @@ CONTAINS
                         & p_grf_state(1:), p_hydro_state )
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      CALL initcond_echam_phy( p_patch(1:)                                         ,&
-        &                      p_hydro_state(jg)%prog(nnow(jg))% temp  (:,:,:)     ,&
-        &                      p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
-        &                      ctest_name                                          )
+      DO jg = 1,n_dom
+        CALL initcond_echam_phy( jg                                                  ,&
+          &                      p_patch(jg)                                         ,&
+          &                      p_hydro_state(jg)%prog(nnow(jg))% temp  (:,:,:)     ,&
+          &                      p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
+          &                      ctest_name                                          )
+      END DO
     END IF
 
     !------------------------------------------------------------------
