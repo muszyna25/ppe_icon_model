@@ -541,10 +541,13 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
+      iqm_max = 3    !! end index of water species mixing ratios
       ico2   = 4     !! CO2
       iqt    = 4     !! starting index of non-water species
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
+      iqs  = 0
+      iqr  = 0
     CASE (INWP)
     
       ! ** NWP physics section ** 
@@ -688,6 +691,7 @@ CONTAINS
         iqv    = 1     !> water vapour
         iqc    = 2     !! cloud water
         iqi    = 3     !! ice
+        iqm_max = 3    !! end index of water species mixing ratios
         ico2   = 5     !! CO2
         iqt    = 4     !! starting index of non-water species
         nqtendphy = 0  !! number of water species for which convective and turbulent

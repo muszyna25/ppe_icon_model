@@ -126,35 +126,64 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE virtual_temp(p_patch, temp, qv, qc, qi, qr, qs, temp_v)
+  SUBROUTINE virtual_temp(p_patch, temp, qv, qc, qi, qr, qs, qg, qh, temp_v)
 
 
     TYPE(t_patch), INTENT(IN) :: p_patch
 
     ! Input fields - all defined at full model levels
-    REAL(wp), INTENT(IN)           :: temp(:,:,:) ! temperature (K)
-    REAL(wp), INTENT(IN)           :: qv  (:,:,:) ! specific humidity
-    REAL(wp), INTENT(IN), OPTIONAL :: qc  (:,:,:) ! specific cloud water
-    REAL(wp), INTENT(IN), OPTIONAL :: qi  (:,:,:) ! specific cloud ice
-    REAL(wp), INTENT(IN), OPTIONAL :: qr  (:,:,:) ! specific rain water
-    REAL(wp), INTENT(IN), OPTIONAL :: qs  (:,:,:) ! specific snow
+    REAL(wp), INTENT(IN)                   :: temp(:,:,:) ! temperature (K)
+    REAL(wp), INTENT(IN)                   :: qv  (:,:,:) ! specific humidity
+    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: qc  (:,:,:) ! specific cloud water
+    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: qi  (:,:,:) ! specific cloud ice
+    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: qr  (:,:,:) ! specific rain water
+    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: qs  (:,:,:) ! specific snow
+    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: qg  (:,:,:) ! specific graupel
+    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: qh  (:,:,:) ! specific hail
 
     REAL(wp), INTENT(OUT) :: temp_v(:,:,:) ! virtual temperature (K)
 
-    INTEGER :: jb, jk, jc
+    INTEGER :: jb, jk, jc, jt
     INTEGER :: nlen, nlev
-    LOGICAL :: l_cloud_precip
+    INTEGER :: num_qcpvars ! number of cloud or precipitation variables
+    REAL(wp):: z_qsum(nproma,SIZE(temp,2))
+
+    TYPE t_fieldptr
+      REAL(wp), POINTER :: fld(:,:,:)
+    END TYPE t_fieldptr
+    TYPE(t_fieldptr) :: qptr(6)
 
     nlev = SIZE(temp,2) ! in order to be usable for input and output data
 
-    IF (PRESENT(qc) .AND. PRESENT(qi) .AND. PRESENT(qr) .AND. PRESENT(qs)) THEN
-      l_cloud_precip = .TRUE.
-    ELSE
-      l_cloud_precip = .FALSE.
+    num_qcpvars = 0
+    IF (PRESENT(qc)) THEN
+      num_qcpvars = num_qcpvars + 1
+      qptr(num_qcpvars)%fld => qc
+    ENDIF
+    IF (PRESENT(qr)) THEN
+      num_qcpvars = num_qcpvars + 1
+      qptr(num_qcpvars)%fld => qr
+    ENDIF
+    IF (PRESENT(qi)) THEN
+      num_qcpvars = num_qcpvars + 1
+      qptr(num_qcpvars)%fld => qi
+    ENDIF
+    IF (PRESENT(qs)) THEN
+      num_qcpvars = num_qcpvars + 1
+      qptr(num_qcpvars)%fld => qs
+    ENDIF
+    IF (PRESENT(qg)) THEN
+      num_qcpvars = num_qcpvars + 1
+      qptr(num_qcpvars)%fld => qg
+    ENDIF
+    IF (PRESENT(qh)) THEN
+      num_qcpvars = num_qcpvars + 1
+      qptr(num_qcpvars)%fld => qh
     ENDIF
 
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,nlen,jk,jc,jt,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
@@ -162,21 +191,23 @@ CONTAINS
       ELSE
         nlen = p_patch%npromz_c
       ENDIF
-
-      IF (l_cloud_precip) THEN
-        DO jk = 1, nlev
-          DO jc = 1, nlen
-            temp_v(jc,jk,jb) = temp(jc,jk,jb) * (1._wp + vtmpc1*qv(jc,jk,jb) -      &
-                              (qc(jc,jk,jb)+qi(jc,jk,jb)+qr(jc,jk,jb)+qs(jc,jk,jb)) )
-          ENDDO
-        ENDDO
-      ELSE
-        DO jk = 1, nlev
-          DO jc = 1, nlen
-            temp_v(jc,jk,jb) = temp(jc,jk,jb) * (1._wp + vtmpc1*qv(jc,jk,jb))
+      
+      z_qsum(:,:) = 0._wp
+      IF (num_qcpvars > 0) THEN
+        DO jt = 1, num_qcpvars
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              z_qsum(jc,jk) = z_qsum(jc,jk) + qptr(jt)%fld(jc,jk,jb)
+            ENDDO
           ENDDO
         ENDDO
       ENDIF
+
+      DO jk = 1, nlev
+        DO jc = 1, nlen
+          temp_v(jc,jk,jb) = temp(jc,jk,jb) * (1._wp + vtmpc1*qv(jc,jk,jb) - z_qsum(jc,jk))
+        ENDDO
+      ENDDO
 
     ENDDO
 !$OMP END DO NOWAIT

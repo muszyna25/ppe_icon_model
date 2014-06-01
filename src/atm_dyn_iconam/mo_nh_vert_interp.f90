@@ -295,7 +295,8 @@ CONTAINS
 
     ! Compute virtual temperature of input data
     CALL virtual_temp(p_patch, initicon%atm_in%temp, initicon%atm_in%qv, initicon%atm_in%qc, &
-                      initicon%atm_in%qi, initicon%atm_in%qr, initicon%atm_in%qs, temp_v_in  )
+                      initicon%atm_in%qi, initicon%atm_in%qr, initicon%atm_in%qs,            &
+                      temp_v=temp_v_in)
 
     ! 1. Compute pressure and height of input data, using the IFS routines
 
@@ -465,8 +466,8 @@ CONTAINS
                   l_pd_limit=.TRUE.)
 
     ! Compute virtual temperature with preliminary QV
-    CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc, &
-                      initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, z_tempv)
+    CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc,    &
+                      initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, temp_v=z_tempv)
 
     ! Interpolate pressure on ICON grid
     CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,    &
@@ -486,8 +487,8 @@ CONTAINS
                  opt_qc=initicon%atm%qc ) ! ... for consistency checking
 
     ! Compute virtual temperature with final QV
-    CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc, &
-                      initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, z_tempv)
+    CALL virtual_temp(p_patch, initicon%atm%temp, initicon%atm%qv, initicon%atm%qc,    &
+                      initicon%atm%qi, initicon%atm%qr, initicon%atm%qs, temp_v=z_tempv)
 
     ! Final interpolation of pressure on ICON grid
     CALL pressure_intp_initmode(initicon%atm_in%pres, temp_v_in, initicon%atm_in%z3d,    &

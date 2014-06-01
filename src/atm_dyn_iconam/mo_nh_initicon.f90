@@ -2727,6 +2727,9 @@ MODULE mo_nh_initicon
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: zpres_nh, pres_incr, u_incr, v_incr, vn_incr, &
                                                nabla4_vn_incr, w_incr
+    ! to sum up the water loading term
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: z_qsum
+
     REAL(wp) :: vn_incr_smt
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -2734,9 +2737,6 @@ MODULE mo_nh_initicon
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
     REAL(wp), PARAMETER :: smtfac=0.015_wp
-
-    ! to sum up the water loading term
-    REAL(wp) :: z_qsum
 
     !-------------------------------------------------------------------------
 
@@ -2763,6 +2763,7 @@ MODULE mo_nh_initicon
                vn_incr  (nproma,nlev,nblks_e),  &
                w_incr   (nproma,nlevp1,nblks_c),&
                nabla4_vn_incr(nproma,nlev,nblks_e), &
+               z_qsum   (nproma,nlev),          &
                STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
@@ -2798,11 +2799,21 @@ MODULE mo_nh_initicon
       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
+
+        ! Sum up the hydrometeor species for the water loading term
+        z_qsum(:,:) = 0._wp
+        DO jt = 2, iqm_max
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              z_qsum(jc,jk) = z_qsum(jc,jk) + p_prog_now_rcf%tracer(jc,jk,jb,jt)
+            ENDDO
+          ENDDO
+        ENDDO
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
@@ -2830,16 +2841,10 @@ MODULE mo_nh_initicon
             p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
               &                    * p_prog_now%exner(jc,jk,jb)
 
-            ! Sum up the hydrometeor species for the water loading term
-            z_qsum = 0._wp
-            DO jt = 2, iqm_max
-              z_qsum = z_qsum + p_prog_now_rcf%tracer(jc,jk,jb,jt)
-            ENDDO
-
             ! compute temperature (currently unused - but we could use it to check the hydrostatic
             ! balance of the DA increments)
             p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
-              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum)
+              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk))
 
           ENDDO  ! jc
         ENDDO  ! jk
@@ -3051,7 +3056,7 @@ MODULE mo_nh_initicon
 
 
       ! deallocate temporary arrays
-      DEALLOCATE( zpres_nh, pres_incr, u_incr, v_incr, vn_incr, nabla4_vn_incr, w_incr, STAT=ist )
+      DEALLOCATE( zpres_nh, pres_incr, u_incr, v_incr, vn_incr, nabla4_vn_incr, w_incr, z_qsum, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
@@ -3101,7 +3106,7 @@ MODULE mo_nh_initicon
     REAL(wp), PARAMETER :: smtfac=0.015_wp
 
     ! to sum up the water loading term
-    REAL(wp) :: z_qsum
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_qsum
 
     ! For vertical filtering of mass increments
     REAL(wp), ALLOCATABLE :: rho_incr_smt(:,:), exner_ifc_incr(:,:), mass_incr_smt(:,:), mass_incr(:,:)
@@ -3122,9 +3127,10 @@ MODULE mo_nh_initicon
       i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
       ! allocate temporary arrays for DA increments and a filtering term for vn
-      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla4_vn_incr(nproma,nlev,nblks_e), &
-               rho_incr_smt(nproma,nlev), exner_ifc_incr(nproma,nlevp1),             &
-               mass_incr_smt(nproma,nlev), mass_incr(nproma,nlev), STAT=ist          )
+      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla4_vn_incr(nproma,nlev,nblks_e),   &
+               rho_incr_smt(nproma,nlev), exner_ifc_incr(nproma,nlevp1),               &
+               mass_incr_smt(nproma,nlev), mass_incr(nproma,nlev), z_qsum(nproma,nlev),&
+               STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
       ENDIF
@@ -3155,12 +3161,22 @@ MODULE mo_nh_initicon
       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,rho_incr_smt,exner_ifc_incr,mass_incr_smt,mass_incr, &
-!$OMP            mass_incr_int,mass_incr_smt_int)
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,rho_incr_smt,exner_ifc_incr,mass_incr_smt,mass_incr, &
+!$OMP            mass_incr_int,mass_incr_smt_int,z_qsum)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
+
+        ! Sum up the hydrometeor species for the water loading term
+        z_qsum(:,:) = 0._wp
+        DO jt = 2, iqm_max
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              z_qsum(jc,jk) = z_qsum(jc,jk) + p_prog_now_rcf%tracer(jc,jk,jb,jt)
+            ENDDO
+          ENDDO
+        ENDDO
 
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
@@ -3179,17 +3195,10 @@ MODULE mo_nh_initicon
             p_diag%tempv(jc,jk,jb) = p_prog_now%theta_v(jc,jk,jb) &
               &                    * p_prog_now%exner(jc,jk,jb)
 
-
-            ! Sum up the hydrometeor species for the water loading term
-            z_qsum = 0._wp
-            DO jt = 2, iqm_max
-              z_qsum = z_qsum + p_prog_now_rcf%tracer(jc,jk,jb,jt)
-            ENDDO
-
             ! compute temperature (based on first guess input)
             ! required for virtual temperature increment
             p_diag%temp(jc,jk,jb) = p_diag%tempv(jc,jk,jb)  &
-              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum)
+              &                   / (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk))
 
 
             ! compute thermodynamic increments
@@ -3197,10 +3206,9 @@ MODULE mo_nh_initicon
             p_diag%exner_incr(jc,jk,jb) = rd_o_cpd * p_prog_now%exner(jc,jk,jb) &
               &                  / p_diag%pres(jc,jk,jb) * initicon(jg)%atm_inc%pres(jc,jk,jb)
 
-            tempv_incr(jc,jk,jb) = (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum) &
-              &                   * initicon(jg)%atm_inc%temp(jc,jk,jb)                          &
-              &                   + vtmpc1*p_diag%temp(jc,jk,jb)                                 &
-              &                   * initicon(jg)%atm_inc%qv(jc,jk,jb)
+            tempv_incr(jc,jk,jb) = (1._wp + vtmpc1*p_prog_now_rcf%tracer(jc,jk,jb,iqv) - z_qsum(jc,jk)) &
+              &                   * initicon(jg)%atm_inc%temp(jc,jk,jb)                                 &
+              &                   + vtmpc1*p_diag%temp(jc,jk,jb)*initicon(jg)%atm_inc%qv(jc,jk,jb)
 
             p_diag%rho_incr(jc,jk,jb) = ( initicon(jg)%atm_inc%pres(jc,jk,jb) &
               &                / (rd*p_diag%tempv(jc,jk,jb)) )         &
@@ -3357,7 +3365,7 @@ MODULE mo_nh_initicon
 
       ! deallocate temporary arrays
       DEALLOCATE( tempv_incr, nabla4_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
-                  mass_incr, STAT=ist )
+                  mass_incr, z_qsum, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF

@@ -433,7 +433,7 @@ MODULE mo_nh_latbc
     CALL virtual_temp( p_patch, p_latbc_data(tlev)%atm%temp, p_latbc_data(tlev)%atm%qv, &
       &                p_latbc_data(tlev)%atm%qc, p_latbc_data(tlev)%atm%qi,            &
       &                p_latbc_data(tlev)%atm%qr, p_latbc_data(tlev)%atm%qs,            &
-      &                temp_v )
+      &                temp_v=temp_v )
 
     !
     ! Compute NH prognostic thermodynamical variables 
