@@ -173,7 +173,7 @@ CONTAINS
 
     igrad_c_miura   = 1         ! MIURA linear least squares reconstruction
 
-    llsq_svd        = .FALSE.   ! apply QR-decomposition (FALSE)
+    llsq_svd        = .TRUE.    ! apply singular-value-decomposition (FALSE: use QR-decomposition)
 
 
 
