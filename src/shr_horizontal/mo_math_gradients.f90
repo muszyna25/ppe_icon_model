@@ -445,7 +445,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 !
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
-REAL(wp), INTENT(inout) ::  &
+REAL(vp), INTENT(inout) ::  &
   &  p_grad(:,:,:,:)      ! dim:(2,nproma,nlev,nblks_c)
 
 INTEGER :: slev, elev     ! vertical start and end level
@@ -745,7 +745,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 !
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
-REAL(wp), INTENT(inout) ::  &
+REAL(vp), INTENT(inout) ::  &
   &  p_grad(:,:,:,:)      ! dim:(2,nproma,nlev,nblks_c)
 
 ! optional: calculated face values of cell centered quantity

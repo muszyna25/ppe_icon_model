@@ -379,7 +379,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER, INTENT(IN), OPTIONAL ::  &   !< start and end values of refin_ctrl flag
     &  opt_rlstart, opt_rlend
 
-  REAL(wp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
+  REAL(vp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
     &  p_coeff(:,:,:,:)          !< (constant and gradients in latitudinal and
                                  !< longitudinal direction)
 

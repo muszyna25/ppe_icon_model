@@ -746,7 +746,7 @@ CONTAINS
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
 
-    REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
+    REAL(vp), TARGET ::    &                   !< reconstructed gradient vector at
       &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c) 
                                                !< cell center (geographical coordinates)
 
@@ -1192,7 +1192,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level (tracer independent part)
       &  opt_ti_elev
 
-    REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
+    REAL(vp), TARGET ::    &                   !< reconstructed gradient vector at
       &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c) 
                                                !< cell center (geographical coordinates)
 
