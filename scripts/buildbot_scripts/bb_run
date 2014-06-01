@@ -12,10 +12,10 @@
 # | BLIZZ_yMnO    | blizzard  | blizz_yMnO    |
 # | BLIZZ_yMyO    | blizzard  | blizz_yMyO    |
 # |               |           |               |
-# | SQUALL_gcc    | squall    | squall_gcc    |
-# | SQUALL_nag    | squall    | squall_nag    |
-# | SQUALL_intel  | squall    | squall_intel  |
-# | SQUALL_pgi    | squall    | squall_pgi    |
+# | THUNDER_gcc   | thunder   | thunder_gcc   |
+# | THUNDER_nag   | thunder   | thunder_nag   |
+# | THUNDER_intel | thunder   | thunder_intel |
+# | THUNDER_pgi   | thunder   | thunder_pgi   |
 # |               |           |               |
 # +---------------+-----------+---------------+
 #

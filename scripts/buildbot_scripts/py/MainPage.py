@@ -29,7 +29,7 @@ class HomePage(HtmlResource):
 
       for filename in os.listdir("icon_run"):
 	if filename.find("exp.test_") == 0:
-          ExpDict = {"Description" : " ","Model" : " ","Grid" : " "}
+          ExpDict = {"Description" : " ","Model" : " "}
           ExpDict["ExpName"] = filename.lstrip("exp.")
             
           file = open("icon_run/" + filename)
@@ -48,11 +48,6 @@ class HomePage(HtmlResource):
               Info.replace("\n","")
               ExpDict["Model"] = Info.strip(" ")
                 
-            if line.find("_Grid_") >= 0:
-	      tmp,Info = line.split("_bb_table_Grid_",1)
-              Info.replace("\n","")
-              ExpDict["Grid"] = Info.strip(" ")
-              
           file.close
           ExpList.append(filename.lstrip("exp."))
           ExpListInfo.append(ExpDict)
@@ -138,7 +133,6 @@ figures.<p>
       data += "      <td width=\"250\"><i>Experiment (exp)</i></td>\n"
       data += "      <td width=\"380\"><i>Description</i></td>\n"
       data += "      <td width=\"200\"><i>Model</i></td>\n"
-      data += "      <td width=\"120\"><i>Grid</i></td>\n"
       data += "    </tr>\n  </thead>"
       data += "  <tfoot></tfoot>\n"
 
@@ -155,7 +149,6 @@ figures.<p>
 	data += e.get('ExpName') + "&modus=nightly\">" + e.get('ExpName') + "</a></td>\n"
         data += "      <td class=\"last_night\">" + e.get('Description') + "</td>\n"
         data += "      <td>" + e.get('Model') + "</td>\n"
-        data += "      <td>" + e.get('Grid') + "</td>\n"
         data += "   </tr>"
       
       data += "  </tbody>\n</table>\n"
