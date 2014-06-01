@@ -1626,6 +1626,10 @@ CONTAINS
     &                 pqi           ,  & ! optional ! must be present if opt_nh_corr=.true.
     &                 ppres_ifc     ,  & ! optional ! must be present if opt_nh_corr=.true.
     &                 albedo, albedo_t,& ! optional: albedo fields
+    &                 lwflx_up_sfc_rs, & ! optional: longwave upward flux at surface
+    &                 trsol_up_toa,    & ! optional: normalized shortwave upward flux at the top of the atmosphere
+    &                 trsol_up_sfc,    & ! optional: normalized shortwave upward flux at the surface
+    &                 trsol_dn_sfc_diff,&! optional: normalized shortwave diffuse downward radiative flux at the surface
     &                 lp_count,        & ! optional: number of land points
     &                 gp_count_t,      & ! optional: number of land points per tile
     &                 spi_count,       & ! optional: number of seaice points
@@ -1646,6 +1650,10 @@ CONTAINS
     &                 pflxsfclw_t   ,  &
     &                 pflxtoasw     ,  &
     &                 pflxtoalw     ,  &
+    &                 lwflx_up_sfc  ,  &
+    &                 swflx_up_toa  ,  &
+    &                 swflx_up_sfc  ,  &
+    &                 swflx_dn_sfc_diff,&
     &                 dflxlw_dT        )
 
     INTEGER,  INTENT(in)  ::    &
@@ -1674,7 +1682,11 @@ CONTAINS
       &     ptsfc_t   (kbdim,ntiles+ntiles_wtr),& ! tile-specific surface temperature at t  [K]
       &     cosmu0    (kbdim),       & ! cosine of solar zenith angle
       &     albedo    (kbdim),       & ! grid-box average albedo
-      &     albedo_t  (kbdim,ntiles+ntiles_wtr)   ! tile-specific albedo
+      &     albedo_t  (kbdim,ntiles+ntiles_wtr), &   ! tile-specific albedo
+      &     lwflx_up_sfc_rs(kbdim),& ! longwave upward flux at surface calculated at radiation time steps
+      &     trsol_up_toa(kbdim),   & ! normalized shortwave upward flux at the top of the atmosphere
+      &     trsol_up_sfc(kbdim),   & ! normalized shortwave upward flux at the surface
+      &     trsol_dn_sfc_diff(kbdim) ! normalized shortwave diffuse downward radiative flux at the surface
 
     INTEGER, INTENT(in), OPTIONAL  ::     &
       &     lp_count, gp_count_t(ntiles), &  ! number of land points
@@ -1699,7 +1711,11 @@ CONTAINS
       &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave 
                                                     ! surface net flux [W/m2]
       &     pflxtoasw (kbdim), &       ! shortwave toa net flux [W/m2]
-      &     pflxtoalw (kbdim)          ! longwave  toa net flux [W/m2]
+      &     pflxtoalw (kbdim), &       ! longwave  toa net flux [W/m2]
+      &     lwflx_up_sfc(kbdim), &     ! longwave upward flux at surface [W/m2]
+      &     swflx_up_toa(kbdim), &     ! shortwave upward flux at the top of the atmosphere [W/m2]
+      &     swflx_up_sfc(kbdim), &     ! shortwave upward flux at the surface [W/m2]
+      &     swflx_dn_sfc_diff(kbdim)   ! shortwave diffuse downward radiative flux at the surface [W/m2]
 
     REAL(wp), INTENT(out), OPTIONAL :: &
       &   dflxlw_dT (kbdim)            ! temperature tendency of 
@@ -1756,8 +1772,15 @@ CONTAINS
 !    zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
 
     IF (l_nh_corr) THEN !
-      ! Disaggregation of longwave and shortwave fluxes for tile approach
-      
+
+      ! Additional shortwave fluxes for NWP requirements
+      DO jc = jcs, jce
+        swflx_up_toa(jc)      = pi0(jc)*trsol_up_toa(jc)
+        swflx_up_sfc(jc)      = pi0(jc)*trsol_up_sfc(jc)
+        swflx_dn_sfc_diff(jc) = pi0(jc)*trsol_dn_sfc_diff(jc)
+      ENDDO
+
+      ! Correction of longwave fluxes for changes in ground temperature
       tqv(:)            = 0._wp
       intclw(:,klevp1)  = 0._wp
       intcli(:,klevp1)  = 0._wp
@@ -1772,6 +1795,7 @@ CONTAINS
 
       DO jc = jcs, jce
         dlwem_o_dtg(jc) = pemiss(jc)*4._wp*stbo*ptsfc(jc)**3
+        lwflx_up_sfc(jc) = lwflx_up_sfc_rs(jc) + dlwem_o_dtg(jc)*(ptsfc(jc) - ptsfctrad(jc))
         IF (tqv(jc) > 15._wp) then
           lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
         ELSE
@@ -1795,7 +1819,8 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF (ntiles > 1) THEN ! Additional corrections for tile approach
+      ! Disaggregation of longwave and shortwave fluxes for tile approach
+      IF (ntiles > 1) THEN
         DO jc = jcs, jce
           ! parameterization of clear-air solar transmissivity in order to use the same 
           ! formulation as in mo_phys_nest_utilities:downscale_rad_output

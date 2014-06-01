@@ -997,14 +997,10 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
       jb3 = iblk(jc,jb,3)
       jb4 = iblk(jc,jb,4)
 
-      lwflx_up_sfc(jc1,jb1) = z_aux3d(jc1,6,jb1) + dlwflxall_o_dtg(jc,nlevp1)* &
-            ( tsfc(jc1,jb1) - tsfc_backintp(jc1,jb1) )
-      lwflx_up_sfc(jc2,jb2) = z_aux3d(jc2,6,jb2) + dlwflxall_o_dtg(jc,nlevp1)* &
-            ( tsfc(jc2,jb2) - tsfc_backintp(jc2,jb2) )
-      lwflx_up_sfc(jc3,jb3) = z_aux3d(jc3,6,jb3) + dlwflxall_o_dtg(jc,nlevp1)* &
-            ( tsfc(jc3,jb3) - tsfc_backintp(jc3,jb3) )
-      lwflx_up_sfc(jc4,jb4) = z_aux3d(jc4,6,jb4) + dlwflxall_o_dtg(jc,nlevp1)* &
-            ( tsfc(jc4,jb4) - tsfc_backintp(jc4,jb4) )
+      lwflx_up_sfc(jc1,jb1) = z_aux3d(jc1,6,jb1) + dlwem_o_dtg(jc)* (tsfc(jc1,jb1) - tsfc_backintp(jc1,jb1))
+      lwflx_up_sfc(jc2,jb2) = z_aux3d(jc2,6,jb2) + dlwem_o_dtg(jc)* (tsfc(jc2,jb2) - tsfc_backintp(jc2,jb2))
+      lwflx_up_sfc(jc3,jb3) = z_aux3d(jc3,6,jb3) + dlwem_o_dtg(jc)* (tsfc(jc3,jb3) - tsfc_backintp(jc3,jb3))
+      lwflx_up_sfc(jc4,jb4) = z_aux3d(jc4,6,jb4) + dlwem_o_dtg(jc)* (tsfc(jc4,jb4) - tsfc_backintp(jc4,jb4))
 
       trsol_up_toa(jc1,jb1) = MAX(z_aux3d(jc1,7,jb1) + dtrans_o_dalb_all(jc,1)* &
           ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), 0._wp)

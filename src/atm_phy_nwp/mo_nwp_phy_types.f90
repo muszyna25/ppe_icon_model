@@ -196,11 +196,15 @@ MODULE mo_nwp_phy_types
       &  lwflxall(:,:,:),      & !! longwave net flux           [W/m2]
       &  lwflxsfc(:,:),        & !! longwave net flux at surface [W/m2]
       &  lwflx_up_sfc(:,:),    & !! longwave upward flux at surface [W/m2]
+      &  lwflx_up_sfc_rs(:,:), & !! longwave upward flux at surface calculated at radiation time steps [W/m2]
       &  lwflxsfc_t(:,:,:),    & !! tile-based longwave net flux at surface [W/m2]
       &  trsolall(:,:,:),      & !! shortwave net tranmissivity (i.e. net flux normalized by irradiance) []
-      &  trsol_up_toa(:,:),    & !! normalized shortwave net upward flux at the top of the atmosphere
-      &  trsol_up_sfc(:,:),    & !! normalized shortwave net upward flux at the surface
+      &  trsol_up_toa(:,:),    & !! normalized shortwave upward flux at the top of the atmosphere
+      &  trsol_up_sfc(:,:),    & !! normalized shortwave upward flux at the surface
       &  trsol_dn_sfc_diff(:,:),& !! normalized shortwave diffuse downward radiative flux at the surface
+      &  swflx_up_toa(:,:),    & !! shortwave upward flux at the top of the atmosphere [W/m2]
+      &  swflx_up_sfc(:,:),    & !! shortwave upward flux at the surface [W/m2]
+      &  swflx_dn_sfc_diff(:,:),& !! shortwave diffuse downward radiative flux at the surface [W/m2]
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]
       &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]

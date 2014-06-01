@@ -670,7 +670,7 @@ CONTAINS
         & cld_cvr    =  aclcov             (:,jb),  &     !< out cloud cover in a column [m2/m2]
         & flx_lw_net =  prm_diag%lwflxall(:,:,jb), &      !< out terrestrial flux, all sky, net down
         & trsol_net  =  prm_diag%trsolall(:,:,jb), &      !< out solar transmissivity, all sky, net down
-        & flx_uplw_sfc = prm_diag%lwflx_up_sfc(:,jb), &   !< out longwave upward flux at surface
+        & flx_uplw_sfc = prm_diag%lwflx_up_sfc_rs(:,jb),& !< out longwave upward flux at surface
         & trsol_up_toa = prm_diag%trsol_up_toa(:,jb), &   !< out upward solar transmissivity at TOA
         & trsol_up_sfc = prm_diag%trsol_up_sfc(:,jb), &   !< out upward solar transmissivity at surface
         & trsol_dn_sfc_diffus = prm_diag%trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
@@ -1141,8 +1141,8 @@ CONTAINS
         &  zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff,                             &
         &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld, zlp_tot_cld, zrg_pres_ifc,&
         &  zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,           &
-        &  prm_diag%trsolall, prm_diag%lwflx_up_sfc, prm_diag%trsol_up_toa, prm_diag%trsol_up_sfc,&
-        &  prm_diag%trsol_dn_sfc_diff )
+        &  prm_diag%trsolall, prm_diag%lwflx_up_sfc_rs, prm_diag%trsol_up_toa,                    &
+        &  prm_diag%trsol_up_sfc, prm_diag%trsol_dn_sfc_diff )
 
       ! Debug output of radiation output fields
       IF (msg_level >= 16) THEN
