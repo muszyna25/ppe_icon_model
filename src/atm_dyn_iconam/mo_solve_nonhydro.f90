@@ -748,7 +748,7 @@ MODULE mo_solve_nonhydro
 !$OMP END WORKSHARE
         ENDIF
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0,lvn_pos,z_ntdistv_bary,distv_bary), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0,lvn_pos,z_ntdistv_bary,distv_bary) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -885,7 +885,7 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &

@@ -1257,7 +1257,7 @@ CONTAINS
 !$OMP            h_b1_lk_now,t_scf_lk_now,t_snow_lk_new,h_snow_lk_new,        &
 !$OMP            t_ice_new,h_ice_new,t_mnw_lk_new,t_wml_lk_new,               &
 !$OMP            t_bot_lk_new,c_t_lk_new,h_ml_lk_new,t_b1_lk_new,h_b1_lk_new, &
-!$OMP            t_scf_lk_new)
+!$OMP            t_scf_lk_new) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       !

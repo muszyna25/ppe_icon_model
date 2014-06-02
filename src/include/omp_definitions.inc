@@ -10,16 +10,14 @@
 #define ICON_OMP $omp
 #define ICON_OMP_SINGLE $omp single
 #define ICON_OMP_END_SINGLE $omp end single
-
-#ifdef __SX__
 #define ICON_OMP_DO $omp do
 #define ICON_OMP_PARALLEL_DO $omp parallel do
-#define ICON_OMP_DEFAULT_SCHEDULE
+
+#ifdef _CRAYFTN
+#define ICON_OMP_DEFAULT_SCHEDULE SCHEDULE(guided)
 #define ICON_OMP_RUNTIME_SCHEDULE SCHEDULE(runtime)
 #define ICON_OMP_GUIDED_SCHEDULE  SCHEDULE(guided)
-#else
-#define ICON_OMP_DO $omp do 
-#define ICON_OMP_PARALLEL_DO $omp parallel do 
+#else 
 #define ICON_OMP_DEFAULT_SCHEDULE SCHEDULE(dynamic,1)
 #define ICON_OMP_RUNTIME_SCHEDULE SCHEDULE(dynamic,1)
 #define ICON_OMP_GUIDED_SCHEDULE  SCHEDULE(dynamic,1)

@@ -3155,7 +3155,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,ie,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,ie,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &

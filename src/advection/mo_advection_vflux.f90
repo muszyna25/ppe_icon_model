@@ -1365,7 +1365,7 @@ CONTAINS
 !$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,             &
 !$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2,nlist,ji_p,&
 !$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12, &
-!$OMP            z_lext_1,z_lext_2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_lext_1,z_lext_2) ICON_OMP_GUIDED_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
