@@ -23,36 +23,42 @@
 MODULE mo_interface_icoham_echam
 
   USE mo_kind                  ,ONLY: wp
-  USE mo_exception             ,ONLY: finish !, message
+  USE mo_exception             ,ONLY: finish !, message, message_text, print_value
+
   USE mo_impl_constants        ,ONLY: min_rlcell_int
   USE mo_impl_constants_grf    ,ONLY: grf_bdywidth_e, grf_bdywidth_c
 
-  USE mo_datetime              ,ONLY: t_datetime
+  USE mo_coupling_config       ,ONLY: is_coupled_run
+  USE mo_parallel_config       ,ONLY: nproma
+  USE mo_run_config            ,ONLY: nlev, ntracer, ltimer
+  USE mo_echam_phy_config      ,ONLY: echam_phy_config
+
   USE mo_model_domain          ,ONLY: t_patch
-  USE mo_loopindices           ,ONLY: get_indices_c, get_indices_e
   USE mo_intp_data_strc        ,ONLY: t_int_state
   USE mo_intp_rbf              ,ONLY: rbf_vec_interpol_cell
-  USE mo_sync                  ,ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
+
+  USE mo_loopindices           ,ONLY: get_indices_c, get_indices_e
+  USE mo_sync                  ,ONLY: sync_c, sync_e, sync_patch_array, sync_patch_array_mult
+
+  USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
+  USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
+
+  USE mo_datetime              ,ONLY: t_datetime
+  USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
+  USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
+  USE mo_echam_phy_main        ,ONLY: echam_phy_main
+  USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
 
   USE mo_timer                 ,ONLY: timer_start, timer_stop,        &
     &                                 timer_dyn2phy, timer_phy2dyn,   &
     &                                 timer_echam_phy, timer_coupling
 
-  USE mo_parallel_config       ,ONLY: nproma, p_test_run
-  USE mo_run_config            ,ONLY: nlev, ntracer, ltimer
-  USE mo_echam_phy_config      ,ONLY: echam_phy_config
-  USE mo_coupling_config       ,ONLY: is_coupled_run
-
-  USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
-  USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
-  USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
-  USE mo_echam_phy_main        ,ONLY: echam_phy_main
-  USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
-
   IMPLICIT NONE
+
   PRIVATE
+
   PUBLIC :: interface_icoham_echam
+
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_icoham_echam'
 
 CONTAINS
@@ -76,58 +82,71 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid level
   !! rather than the entire grid tree.
 
-  SUBROUTINE interface_icoham_echam( datetime,             &! in
-    &                                pdtime, psteplen, jg, &! in
-    &                                p_patch,              &! in
-    &                                p_int_state,          &! in
-    &                                dyn_prog_old,         &! in
-    &                                dyn_diag_old,         &! in
-    &                                dyn_prog_new,         &! in
-    &                                dyn_tend             ) ! inout
+  SUBROUTINE interface_icoham_echam( pdtime, psteplen ,& !in
+    &                                datetime         ,& !in
+    &                                patch            ,& !in
+    &                                pt_int_state     ,& !in
+    &                                dyn_prog_old     ,& !in
+    &                                dyn_diag_old     ,& !in
+    &                                dyn_prog_new     ,& !in
+    &                                dyn_tend         )  !inout
 
-    ! Arguments
+    !
+    !> Arguments:
+    !
+    REAL(wp)              , INTENT(in)            :: pdtime          !< time step
+    REAL(wp)              , INTENT(in)            :: psteplen        !< 2*time step in case of leapfrog
+    TYPE(t_datetime)      , INTENT(in)            :: datetime
 
-    TYPE(t_datetime),      INTENT(IN)    :: datetime
-    REAL(wp),              INTENT(IN)    :: pdtime        !< time step
-    REAL(wp),              INTENT(IN)    :: psteplen      !< 2*time step in case of leapfrog
-    INTEGER,               INTENT(IN)    :: jg            !< grid level/domain index
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
-    TYPE(t_int_state),TARGET,INTENT(IN)  :: p_int_state
+    TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
+    TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
 
-    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: dyn_prog_old
-    TYPE(t_hydro_atm_diag),INTENT(IN)    :: dyn_diag_old
-    TYPE(t_hydro_atm_prog),INTENT(IN)    :: dyn_prog_new
+    TYPE(t_hydro_atm_prog), INTENT(inout)         :: dyn_prog_old
+    TYPE(t_hydro_atm_diag), INTENT(in)            :: dyn_diag_old
+    TYPE(t_hydro_atm_prog), INTENT(in)            :: dyn_prog_new
 
-    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: dyn_tend
+    TYPE(t_hydro_atm_prog), INTENT(inout)         :: dyn_tend
+
+    ! Local array bounds
+
+    INTEGER  :: i_nchdom             !< number of child patches
+    INTEGER  :: i_startblk, i_endblk
+    INTEGER  :: rl_start, rl_end
+    INTEGER  :: jg                   !< grid index
+    INTEGER  :: jc, jcs, jce         !< cell in row index, start and end indices
+    INTEGER  :: je, jes, jee         !< edge in row index, start and end indices
+    INTEGER  :: jk                   !< level in column index
+    INTEGER  :: jb, jbs, jbe         !< row in block index, start and end indices
+    INTEGER  :: jcn,jbn              !< jc and jb of neighbor cells sharing an edge je
 
     ! Local variables
 
-    LOGICAL  :: any_uv_tend, ltrig_rad
-    REAL(wp) :: ztime_radtran  !< time instance (in radian) at which radiative transfer is computed
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
-    INTEGER :: jb,jbs   !< block index and its staring value
-    INTEGER :: jcs,jce  !< start/end column index within each block
-    INTEGER :: jc, jk   !< column index, vertical level index
-    INTEGER :: jcn,jbn  !< column and block indices of a neighbour cell
+    LOGICAL  :: any_uv_tend
+    LOGICAL  :: ltrig_rad
+    REAL(wp) :: time_radtran
 
-    INTEGER:: i_nchdom  !< number of child patches
-    INTEGER:: rl_start, rl_end, i_startblk, i_endblk
+    INTEGER  :: return_status
 
-    INTEGER:: return_status
+    ! Local parameters
+
     CHARACTER(*), PARAMETER :: method_name = "interface_icoham_echam"
 
-    !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------------------
+
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
     ! Inquire current grid level and the total number of grid cells
-    i_nchdom = MAX(1,p_patch%n_childdom)
+    i_nchdom = MAX(1,patch%n_childdom)
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = patch%cells%start_blk(rl_start,1)
+    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
+
+    jg    = patch%id
 
     !-------------------------------------------------------------------------
     ! Dynamics to physics: remap dynamics variables to physics grid
@@ -141,30 +160,46 @@ CONTAINS
     ! re-mapping will be called here.
 
 
-
     ! LL The physics runs only on the owned cells
     !  but the following rbf_vec_interpol_cell may use the halos(?)
-    CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
+    !
+    ! - prm_field(jg)%u
+    ! - prm_field(jg)%v
+    CALL sync_patch_array( SYNC_E, patch, dyn_prog_old%vn )
 
-    CALL rbf_vec_interpol_cell( dyn_prog_old%vn,      &! in
-      &                         p_patch, p_int_state, &! in
-      &                         prm_field(jg)%u,      &! out
-      &                         prm_field(jg)%v,      &! out
-      &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in    
+    CALL rbf_vec_interpol_cell( dyn_prog_old%vn       ,&! in
+      &                         patch                 ,&! in
+      &                         pt_int_state          ,&! in
+      &                         prm_field(jg)%u       ,&! out
+      &                         prm_field(jg)%v       ,&! out
+      &                         opt_rlstart=rl_start  ,&! in
+      &                         opt_rlend=rl_end      ) ! in    
 
 !$OMP PARALLEL WORKSHARE
-    prm_field(jg)%         q(:,:,:,:) = dyn_prog_old%     tracer(:,:,:,:)
-    prm_field(jg)%      temp(:,:,:)   = dyn_prog_old%       temp(:,:,:)
 
-    prm_field(jg)% presi_old(:,:,:)   = dyn_diag_old%    pres_ic(:,:,:)
-    prm_field(jg)% presm_old(:,:,:)   = dyn_diag_old%    pres_mc(:,:,:)
-
-    prm_field(jg)%        qx(:,:,:)   = dyn_diag_old%         qx(:,:,:)
-    prm_field(jg)%        tv(:,:,:)   = dyn_diag_old%      tempv(:,:,:)
+    ! Fill the physics state variables, which are used by echam:
+    !
     prm_field(jg)%      geom(:,:,:)   = dyn_diag_old%     geo_mc(:,:,:)
-    prm_field(jg)%      geoi(:,:,:)   = dyn_diag_old%     geo_ic(:,:,:)
-    prm_field(jg)%     omega(:,:,:)   = dyn_diag_old%   wpres_mc(:,:,:)
+    !
     prm_field(jg)%       vor(:,:,:)   = dyn_diag_old% rel_vort_c(:,:,:)
+    !
+    prm_field(jg)%      temp(:,:,:)   = dyn_prog_old%       temp(:,:,:)
+    prm_field(jg)%        tv(:,:,:)   = dyn_diag_old%      tempv(:,:,:)
+    !
+    prm_field(jg)% presm_old(:,:,:)   = dyn_diag_old%    pres_mc(:,:,:)
+    !
+    prm_field(jg)%         q(:,:,:,:) = dyn_prog_old%     tracer(:,:,:,:)
+    !
+    ! cloud water+ice
+    prm_field(jg)%        qx(:,:,:)   = dyn_diag_old%         qx(:,:,:)
+    !
+    ! vertical velocity in p-system
+    prm_field(jg)%     omega(:,:,:)   = dyn_diag_old%   wpres_mc(:,:,:)
+    !
+    prm_field(jg)%      geoi(:,:,:)   = dyn_diag_old%     geo_ic(:,:,:)
+    !
+    prm_field(jg)% presi_old(:,:,:)   = dyn_diag_old%    pres_ic(:,:,:)
+
 !$OMP END PARALLEL WORKSHARE
 
     !---------------------------------
@@ -173,7 +208,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
-      CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+      CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
       ! Pressure at time step "new" (i.e., n+1)
 
@@ -192,10 +227,10 @@ CONTAINS
 
     ! LL The physics runs only on the owned cells
     !    but the following rbf_vec_interpol_cell may use the halos(?)
-    CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
+    CALL sync_patch_array( SYNC_E, patch, dyn_tend%vn )
 
     CALL rbf_vec_interpol_cell( dyn_tend%vn,          &! in
-      &                         p_patch, p_int_state, &! in
+      &                         patch, pt_int_state,  &! in
       &                         prm_tend(jg)%u,       &! out
       &                         prm_tend(jg)%v,       &! out
       &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in
@@ -203,42 +238,46 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
-      CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+      CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       prm_tend(jg)% temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
       prm_tend(jg)%    q(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    IF (ltimer)  THEN
+    !
+    !=====================================================================================
+
+    IF (ltimer) THEN
       CALL timer_stop (timer_dyn2phy)
       CALL timer_start(timer_echam_phy)
     END IF
 
-    !-------------------------------------------------------------------------
-    ! Prepare some global parameters or parameter arrays
-    !-------------------------------------------------------------------------
+    !=====================================================================================
     !
+    ! (3) Prepare boundary conditions for ECHAM physics
+    !     
     CALL echam_phy_bcs_global( datetime     ,&! in
       &                        jg           ,&! in
-      &                        p_patch      ,&! in
+      &                        patch        ,&! in
       &                        pdtime       ,&! in
       &                        ltrig_rad    ,&! out
-      &                        ztime_radtran) ! out
+      &                        time_radtran ) ! out
+    !
+    !=====================================================================================
 
-    !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
-    !    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
-    !    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
-
-    !---------------------------------------------------------------------------------
-    ! For each block, call "echam_phy_main" to compute various parameterised processes
-    !---------------------------------------------------------------------------------
+    !=====================================================================================
+    !
+    ! (4) Call echam physics and compute the total physics tendencies.
+    !     This includes the atmospheric processes (proper ECHAM) and
+    !     the land processes, which are vertically implicitly coupled
+    !     to the parameterization of vertical turbulent fluxes.
     !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
-    DO jb = i_startblk,i_endblk
 
-      CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
       ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
       ! buffers prm_field and prm_tend. In addition it can also directly access
@@ -259,57 +298,59 @@ CONTAINS
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
         &                  ltrig_rad    ,&! in
-        &                  ztime_radtran) ! in
+        &                  time_radtran ) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+    !
+    !=====================================================================================
 
-    !    WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MAXVAL( prm_field(jg)% swflxsfc_avg(:,:))
-    !    WRITE(0,*)' nach PYHSC rad fluxes lw sfc', MINVAL( prm_field(jg)% lwflxsfc_avg(:,:))
+    IF (ltimer) CALL timer_stop(timer_echam_phy)
 
-    IF (ltimer)  THEN
-      CALL timer_stop (timer_echam_phy)
-    END IF
-
-    !-------------------------------------------------------------------------
-    ! If running in atm-oce coupled mode, exchange information 
-    !-------------------------------------------------------------------------
-    ! 
+    !=====================================================================================
+    !
+    ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
+    !     
+    !
     IF ( is_coupled_run() ) THEN
       IF (ltimer) CALL timer_start(timer_coupling)
 
-      CALL interface_echam_ocean( jg, p_patch )
+      CALL interface_echam_ocean( jg, patch )
 
       IF (ltimer) CALL timer_stop(timer_coupling)
     END IF
+    !
+    !=====================================================================================
 
-    !-------------------------------------------------------------------------
-    ! Physics to dynamics: remap tendencies to the dynamics grid
-    !-------------------------------------------------------------------------
-    ! Currently this includes a simple copying of the temperature and tracer
-    ! tendencies to the dynamics data structure, and convert the u- and v-wind
-    ! tendencies to the normal wind tendency.
-    ! Once a physics grid of different resolution is intruduced,
-    ! conservative re-mapping will be called here.
+    IF (ltimer) CALL timer_start(timer_phy2dyn)
 
-    IF (ltimer)  THEN
-      CALL timer_start(timer_phy2dyn)
-    END IF
-
+    !=====================================================================================
+    !
+    !     Copy  physics tandencies in temp. and tracers from the physics to the dynamics
+    !     
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
-      CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+      CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       dyn_tend%   temp(jcs:jce,:,jb)   = prm_tend(jg)% temp(jcs:jce,:,jb)
       dyn_tend% tracer(jcs:jce,:,jb,:) = prm_tend(jg)%    q(jcs:jce,:,jb,:)
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+    !
+    CALL sync_patch_array( SYNC_C, patch, dyn_tend%temp )
+    CALL sync_patch_array_mult(SYNC_C, patch, ntracer, f4din=dyn_tend% tracer)
+    !
+    !=====================================================================================
 
-    CALL sync_patch_array( SYNC_C, p_patch, dyn_tend%temp )
-    CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer)
 
+    !=====================================================================================
+    !
+    ! (6) Convert physics tandencies in the wind components (u,v) to tendencies in
+    !     normal wind vn.
+    !
+    !
     any_uv_tend = echam_phy_config%lconv     .OR. &
       &           echam_phy_config%lvdiff    .OR. &
       &           echam_phy_config%lgw_hines .OR. &
@@ -317,53 +358,55 @@ CONTAINS
 
     IF (any_uv_tend) THEN
 
-      ALLOCATE(zdudt(nproma,nlev,p_patch%nblks_c), &
-        &      zdvdt(nproma,nlev,p_patch%nblks_c), &
+      ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
+        &      zdvdt(nproma,nlev,patch%nblks_c), &
         &      stat=return_status)
       IF (return_status > 0) THEN
         CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
       END IF
-      IF (p_test_run) THEN
-        zdudt(:,:,:) = 0.0_wp
-        zdvdt(:,:,:) = 0.0_wp
-      END IF
+      zdudt(:,:,:) = 0.0_wp
+      zdvdt(:,:,:) = 0.0_wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
-        CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        zdudt(jcs:jce,:,jb) =   prm_tend(jg)% u_phy(jcs:jce,:,jb)
-        zdvdt(jcs:jce,:,jb) =   prm_tend(jg)% v_phy(jcs:jce,:,jb)
+        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+        zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
+        zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
       END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ! Now derive the physics-induced normal wind tendency, and add it to the
       ! total tendency.
-      CALL sync_patch_array_mult(SYNC_C, p_patch, 2, zdudt, zdvdt)
+      CALL sync_patch_array_mult(SYNC_C, patch, 2, zdudt, zdvdt)
 
-      jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
+      jbs   = patch%edges%start_blk(grf_bdywidth_e+1,1)
+      jbe   = patch%nblks_e
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,p_patch%nblks_e
-        CALL get_indices_e(p_patch, jb,jbs,p_patch%nblks_e, jcs,jce, grf_bdywidth_e+1)
+!$OMP DO PRIVATE(jb,jk,je,jes,jee,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = jbs,jbe
+        CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
+
         DO jk = 1,nlev
-          DO jc = jcs,jce
 
-            jcn  =   p_patch%edges%cell_idx(jc,jb,1)
-            jbn  =   p_patch%edges%cell_blk(jc,jb,1)
-            zvn1 =   zdudt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,1)%v1 &
-              &    + zdvdt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,1)%v2
+          DO je = jes,jee
+            jcn  =   patch%edges%cell_idx(je,jb,1)
+            jbn  =   patch%edges%cell_blk(je,jb,1)
+            zvn1 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v1 &
+              &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,1)%v2
 
-            jcn  =   p_patch%edges%cell_idx(jc,jb,2)
-            jbn  =   p_patch%edges%cell_blk(jc,jb,2)
-            zvn2 =   zdudt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,2)%v1 &
-              &    + zdvdt(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(jc,jb,2)%v2
+            jcn  =   patch%edges%cell_idx(je,jb,2)
+            jbn  =   patch%edges%cell_blk(je,jb,2)
+            zvn2 =   zdudt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v1 &
+              &    + zdvdt(jcn,jk,jbn)*patch%edges%primal_normal_cell(je,jb,2)%v2
 
-            dyn_tend%vn(jc,jk,jb) =   dyn_tend%vn(jc,jk,jb)             &
-              &                     + p_int_state%c_lin_e(jc,1,jb)*zvn1 &
-              &                     + p_int_state%c_lin_e(jc,2,jb)*zvn2
-          END DO ! jc
+            dyn_tend%vn(je,jk,jb)        =   dyn_tend%vn(je,jk,jb)              &
+              &                            + pt_int_state%c_lin_e(je,1,jb)*zvn1 &
+              &                            + pt_int_state%c_lin_e(je,2,jb)*zvn2
+
+          END DO ! je
         END DO ! jk
       END DO ! jb
 !$OMP END DO NOWAIT
@@ -371,11 +414,13 @@ CONTAINS
 
       DEALLOCATE(zdudt, zdvdt)
 
-    END IF !any_uv_tend
+    END IF ! any_uv_tend
+    !
+    !=====================================================================================
 
     IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
-    !--------------------------
   END SUBROUTINE interface_icoham_echam
+  !----------------------------------------------------------------------------
 
 END MODULE mo_interface_icoham_echam

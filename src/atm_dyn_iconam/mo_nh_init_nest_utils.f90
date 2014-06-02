@@ -34,7 +34,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
     &                                 min_rlvert, min_rlvert_int, MAX_CHAR_LENGTH,&
-    &                                 dzsoil
+    &                                 dzsoil, inwp
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -400,7 +400,7 @@ MODULE mo_nh_init_nest_utils
                             p_parent_metrics%exner_ref_mc(jc,nlev_p,jb)
       ENDDO
 
-      IF (iforcing == 3) THEN
+      IF (iforcing == inwp) THEN
         ! Collect diagnostic physics fields (the only really important ones are the precip fields)
         DO jc = i_startidx, i_endidx
           phdiag_par(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
@@ -491,7 +491,7 @@ MODULE mo_nh_init_nest_utils
         f4din1=p_parent_prog_rcf%tracer, f4dout1=p_child_prog_rcf%tracer, llimit_nneg=l_limit)
     ENDIF
 
-    IF (iforcing == 3) THEN
+    IF (iforcing == inwp) THEN
       CALL sync_patch_array(SYNC_C,p_patch(jg),phdiag_par)
       CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
         phdiag_par, phdiag_chi, lnoshift=.TRUE.                 )
@@ -524,7 +524,7 @@ MODULE mo_nh_init_nest_utils
     CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, ntracer, ntracer*nlev_p, &
       &                     RECV4D=tracer_lp, SEND4D=p_parent_prog_rcf%tracer    )
 
-    IF (iforcing == 3) &
+    IF (iforcing == inwp) &
       &      CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=phdiag_lp, SEND=phdiag_par)
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1) &
@@ -562,7 +562,7 @@ MODULE mo_nh_init_nest_utils
       CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer,f4din=p_child_prog_rcf%tracer)
     ENDIF
 
-    IF (iforcing == 3) THEN
+    IF (iforcing == inwp) THEN
       IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, phdiag_lp)
       CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, &
                                   1, 1, f3din1=phdiag_lp, f3dout1=phdiag_chi, overshoot_fac=1.005_wp )
@@ -627,7 +627,7 @@ MODULE mo_nh_init_nest_utils
                             p_child_metrics%exner_ref_mc(jc,nlev_c,jb)
       ENDDO
 
-      IF (iforcing == 3) THEN
+      IF (iforcing == inwp) THEN
         DO jc = i_startidx, i_endidx
           prm_diag(jgc)%tot_prec(jc,jb)       = MAX(0._wp,phdiag_chi(jc,1,jb))
           prm_diag(jgc)%rain_gsp(jc,jb)       = MAX(0._wp,phdiag_chi(jc,2,jb))

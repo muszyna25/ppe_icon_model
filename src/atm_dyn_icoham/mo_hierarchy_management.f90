@@ -537,8 +537,8 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_now), &! in
               &                     p_hydro_state(jg)%diag       )  ! inout
 
-            CALL interface_icoham_echam( grid_datetime,                 &! in
-              &                          zdtime, zdtime, jg,            &! in
+            CALL interface_icoham_echam( zdtime, zdtime,                &! in
+              &                          grid_datetime,                 &! in
               &                          p_patch(jg),                   &! in
               &                          p_int_state(jg),               &! in
               &                          p_hydro_state(jg)%prog(n_now), &! inout
@@ -684,8 +684,8 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_old), &! in
               &                     p_hydro_state(jg)%diag         )! inout
 
-            CALL interface_icoham_echam( grid_datetime,                 &! in
-              &                          zdtime, 2._wp*zdtime, jg,      &! in
+            CALL interface_icoham_echam( zdtime, 2._wp*zdtime,          &! in
+              &                          grid_datetime,                 &! in
               &                          p_patch(jg),                   &! in
               &                          p_int_state(jg),               &! in
               &                          p_hydro_state(jg)%prog(n_old), &! inout
@@ -879,8 +879,8 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_now), &! in
               &                     p_hydro_state(jg)%diag       )  ! inout
 
-            CALL interface_icoham_echam( grid_datetime,                 &! in
-              &                          zdtime, zdtime, jg,            &! in
+            CALL interface_icoham_echam( zdtime, zdtime,                &! in
+              &                          grid_datetime,                 &! in
               &                          p_patch(jg),                   &! in
               &                          p_int_state(jg),               &! in
               &                          p_hydro_state(jg)%prog(n_now), &! inout

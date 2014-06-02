@@ -35,9 +35,9 @@ MODULE mo_nh_vert_interp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv, dtdz_standardatm
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
+  USE mo_run_config,          ONLY: iforcing
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_impl_constants,      ONLY: inwp, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
+  USE mo_impl_constants,      ONLY: inwp, iecham, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_COSMODE
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode
@@ -634,10 +634,10 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, temp_z_out)
 
-    IF (  iforcing == inwp  ) THEN
+    IF (  iforcing == inwp .OR. iforcing == iecham  ) THEN
       ptr_tempv => p_diag%tempv(:,:,:)
     ELSE
-      ptr_tempv =>  p_diag%temp(:,:,:)
+      ptr_tempv => p_diag%temp(:,:,:)
     END IF
 
     ! Interpolate pressure on z-levels
@@ -755,7 +755,7 @@ CONTAINS
     ! Compute height at pressure levels (i.e. geopot/g); this height 
     ! field is afterwards also used as target coordinate for vertical 
     ! interpolation
-    IF (  iforcing == inwp  ) THEN
+    IF (  iforcing == inwp .OR. iforcing == iecham  ) THEN
       ptr_tempv => p_diag%tempv
     ELSE
       ptr_tempv => p_diag%temp

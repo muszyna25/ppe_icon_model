@@ -62,7 +62,7 @@ MODULE m_dyn
   USE mo_io_config,          ONLY: l_outputtime
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevm1, nlevp1,iqv, iforcing, &
-                                   iqc, iqi, iqr, iqs, output_mode
+                                   iqm_max, output_mode
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
   USE mo_intp,               ONLY: cell_avg,                    &
@@ -139,9 +139,9 @@ MODULE m_dyn
 
 ! Local scalars:
 
-  INTEGER  :: jb, jk, je, jc ! loop indices
-  INTEGER  :: jkp            ! vertical level indices
-  REAL(wp) :: rovcp          ! R/cp
+  INTEGER  :: jb, jk, je, jc, jt ! loop indices
+  INTEGER  :: jkp                ! vertical level indices
+  REAL(wp) :: rovcp              ! R/cp
 
 ! Local arrays:
 ! ( *_c* and *_e* denote cells and edges, respectively.
@@ -432,25 +432,15 @@ MODULE m_dyn
    SELECT CASE (iforcing)
    CASE (iecham, ildf_echam, inwp)  ! real physics with moist atmosphere
 
-     IF (iforcing==inwp) THEN
+     z_aux_tracer(:,:,jb) = 0._wp
 
+     DO jt=2,iqm_max
        DO jk = 1, nlev
          DO jc = i_startidx,i_endidx
-           z_aux_tracer(jc,jk,jb) =   pt_prog%tracer(jc,jk,jb,iqc) &
-                                  & + pt_prog%tracer(jc,jk,jb,iqi) &
-                                  & + pt_prog%tracer(jc,jk,jb,iqr) &
-                                  & + pt_prog%tracer(jc,jk,jb,iqs)
-         ENDDO
-       ENDDO
-
-     ELSE
-       DO jk = 1, nlev
-         DO jc = i_startidx,i_endidx
-           z_aux_tracer(jc,jk,jb) =   pt_prog%tracer(jc,jk,jb,iqc) &
-                                  & + pt_prog%tracer(jc,jk,jb,iqi)  
-         ENDDO
-       ENDDO
-     END IF
+           z_aux_tracer(jc,jk,jb) = z_aux_tracer(jc,jk,jb) + pt_prog%tracer(jc,jk,jb,jt)
+         END DO
+       END DO
+     END DO
 
      pt_diag%virt_incr(i_startidx:i_endidx,:,jb) =                     &
           &  vtmpc1*pt_prog%tracer(i_startidx:i_endidx,:,jb,iqv)       &

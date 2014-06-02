@@ -218,14 +218,12 @@ CONTAINS
 
     SELECT CASE(itopo)
 
-    CASE(0) ! do not read external data except in some cases (see below)
+    CASE(0) ! itopo, do not read external data except in some cases (see below)
       !
       ! initalize external data with meaningful data, in the case that they 
       ! are not read in from file.
-      SELECT CASE ( iforcing )
-      CASE ( inwp )
+      IF ( iforcing == inwp ) THEN
         DO jg = 1, n_dom
-          ext_data(jg)%atm%emis_rad(:,:)    = zemiss_def ! longwave surface emissivity
           ext_data(jg)%atm%fr_land(:,:)     = 0._wp      ! land fraction
           ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp      ! land fraction (smoothed)
           ext_data(jg)%atm%fr_glac_smt(:,:) = 0._wp      ! glacier fraction (smoothed)
@@ -243,18 +241,19 @@ CONTAINS
           ext_data(jg)%atm%frac_t(:,:,isub_water) = 1._wp ! set only ocean to 1
           ext_data(jg)%atm%lc_class_t(:,:,:) = 1          ! land cover class 
         END DO
-      CASE ( iecham, ildf_echam)
+      END IF
+      IF ( iforcing == inwp .OR. iforcing == iecham .OR. iforcing == ildf_echam ) THEN
         DO jg = 1, n_dom
           ext_data(jg)%atm%emis_rad(:,:)    = zemiss_def ! longwave surface emissivity
         END DO
-      END SELECT
+      END IF
 
       ! call read_ext_data_atm to read O3
       ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
       ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
       IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == 2 .OR. &
          & echam_phy_config%ljsbach) THEN
-        IF (echam_phy_config%ljsbach) THEN
+        IF ( echam_phy_config%ljsbach .AND. (iequations /= inh_atmosphere) ) THEN
           CALL message( TRIM(routine),'topography is grown to elevation' )
         ELSE
           CALL message( TRIM(routine),'Running with analytical topography' )
@@ -263,17 +262,21 @@ CONTAINS
           &                     extpar_varnames_dict)
       END IF 
 
-    CASE(1) ! read external data from file
+    CASE(1) ! itopo, read external data from file
 
       CALL message( TRIM(routine),'Start reading external data from file' )
 
       CALL read_ext_data_atm (p_patch, ext_data, nlev_o3, cdi_extpar_id, cdi_filetype, &
         &                     extpar_varnames_dict)
-      DO jg = 1, n_dom
-        CALL smooth_topography (p_patch(jg), p_int_state(jg),  &
-                                ext_data(jg)%atm%topography_c, &
-                                ext_data(jg)%atm%sso_stdh      )
-      ENDDO
+
+      IF ( iforcing == inwp ) THEN
+        DO jg = 1, n_dom
+          CALL smooth_topography ( p_patch(jg)                   ,&
+            &                      p_int_state(jg)               ,&
+            &                      ext_data(jg)%atm%topography_c ,&
+            &                      ext_data(jg)%atm%sso_stdh     )
+        END DO
+      END IF
 
       CALL message( TRIM(routine),'Finished reading external data' )
 
@@ -281,8 +284,7 @@ CONTAINS
       ! is done in time, based on ini_datetime (midnight). Fields are updated on a 
       ! daily basis.
       !
-      SELECT CASE ( iforcing )
-      CASE ( inwp )
+      IF ( iforcing == inwp ) THEN
 
         ! When initializing the model we set the target hour to 0 (midnight) as well. 
         ! When restarting, the target interpolation time must be set to cur_datetime 
@@ -318,13 +320,13 @@ CONTAINS
           ENDDO
         ENDIF  ! albedo_type
 
-      END SELECT
+      END IF
 
-    CASE DEFAULT
+    CASE DEFAULT ! itopo
 
       CALL finish( TRIM(routine), 'topography selection not supported' )
 
-    END SELECT
+    END SELECT ! itopo
 
     ! close CDI stream (file):
     DO jg=1,n_dom
@@ -479,24 +481,16 @@ CONTAINS
       &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,             &
       &           isteptype=TSTEP_CONSTANT )
 
-    IF (echam_phy_config%ljsbach) THEN
-      ! atmosphere land-sea-mask at surface on cell centers
-      ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
-      cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
-        &                   'Atmosphere model land-sea-mask', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
-        grib2_desc, ldims=shape2d_c )
+    ! geopotential (s)
+    !
+    ! fis          p_ext_atm%fis(nproma,nblks_c)
+    cf_desc    = t_cf_var('Geopotential_(s)', 'm2 s-2', &
+      &                   'Geopotential (s)', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var( 0, 3, 4, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'fis', p_ext_atm%fis,           &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
 
-      ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
-      cf_desc    = t_cf_var('elevation at cell center', 'm', &
-      &                     'elevation', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
-      &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-                    grib2_desc, ldims=shape2d_c )
-    END IF
 
     ! ozone mixing ratio
     !
@@ -509,87 +503,70 @@ CONTAINS
       &           grib2_desc, ldims=shape3d_c, loutput=.TRUE. )
 
 
-  SELECT CASE ( iequations )
-  CASE ( inh_atmosphere )
-
-
-    ! land sea mask for cells (LOGICAL)
-    ! Note: Here "loutput" is set to .FALSE. since the output
-    !       scheme operates on REAL model variables only and
-    !       throws an error on this.
-    !
-    ! llsm_atm_c    p_ext_atm%llsm_atm_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('land_sea_mask_(cell)', '-', &
-      &                   'land sea mask (cell)', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,       &
-      &           isteptype=TSTEP_CONSTANT )
-
-    ! land fraction
-    !
-    ! fr_land      p_ext_atm%fr_land(nproma,nblks_c)
-    cf_desc    = t_cf_var('land_area_fraction', '-', 'Fraction land', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land,   &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-      &           isteptype=TSTEP_CONSTANT,                       &
-      &           in_group=groups("dwd_fg_sfc_vars") )
-
-
-    ! glacier fraction
-    !
-    ! fr_glac      p_ext_atm%fr_glac(nproma,nblks_c)
-    cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
-
-
-    ! maybe the next one (fr_land_smt)
-    ! should be moved into corresponding if block
-
-    ! land fraction (smoothed)
-    !
-    ! fr_land_smt  p_ext_atm%fr_land_smt(nproma,nblks_c)
-    cf_desc    = t_cf_var('land_area_fraction_(smoothed)', '-', &
-      &                   'land area fraction (smoothed)', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_land_smt', p_ext_atm%fr_land_smt, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,         &
-      &           isteptype=TSTEP_CONSTANT )
-
-
-    ! glacier area fraction (smoothed)
-    !
-    ! fr_glac_smt  p_ext_atm%fr_glac_smt(nproma,nblks_c)
-    cf_desc    = t_cf_var('glacier_area_fraction_(smoothed)', '-', &
-      &                   'glacier area fraction (smoothed)', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fr_glac_smt', p_ext_atm%fr_glac_smt, &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-
-    ! geopotential (s)
-    !
-    ! fis          p_ext_atm%fis(nproma,nblks_c)
-    cf_desc    = t_cf_var('Geopotential_(s)', 'm2 s-2', &
-      &                   'Geopotential (s)', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 3, 4, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'fis', p_ext_atm%fis,           &
-      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-      &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
-
-
-
-    SELECT CASE ( iforcing )
-    CASE ( inwp )
+    IF ( iforcing == inwp ) THEN
       ! external parameter for NWP forcing
+
+      ! land sea mask for cells (LOGICAL)
+      ! Note: Here "loutput" is set to .FALSE. since the output
+      !       scheme operates on REAL model variables only and
+      !       throws an error on this.
+      !
+      ! llsm_atm_c    p_ext_atm%llsm_atm_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('land_sea_mask_(cell)', '-', &
+        &                   'land sea mask (cell)', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,       &
+        &           isteptype=TSTEP_CONSTANT )
+
+
+      ! land fraction
+      !
+      ! fr_land      p_ext_atm%fr_land(nproma,nblks_c)
+      cf_desc    = t_cf_var('land_area_fraction', '-', 'Fraction land', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land,   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
+        &           isteptype=TSTEP_CONSTANT,                       &
+        &           in_group=groups("dwd_fg_sfc_vars") )
+
+
+      ! glacier fraction
+      !
+      ! fr_glac      p_ext_atm%fr_glac(nproma,nblks_c)
+      cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac,   &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE. )
+
+
+      ! maybe the next one (fr_land_smt)
+      ! should be moved into corresponding if block
+
+      ! land fraction (smoothed)
+      !
+      ! fr_land_smt  p_ext_atm%fr_land_smt(nproma,nblks_c)
+      cf_desc    = t_cf_var('land_area_fraction_(smoothed)', '-', &
+        &                   'land area fraction (smoothed)', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'fr_land_smt', p_ext_atm%fr_land_smt, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,         &
+        &           isteptype=TSTEP_CONSTANT )
+
+
+      ! glacier area fraction (smoothed)
+      !
+      ! fr_glac_smt  p_ext_atm%fr_glac_smt(nproma,nblks_c)
+      cf_desc    = t_cf_var('glacier_area_fraction_(smoothed)', '-', &
+        &                   'glacier area fraction (smoothed)', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 192, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'fr_glac_smt', p_ext_atm%fr_glac_smt, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
       ! roughness length
       !
@@ -1185,11 +1162,31 @@ CONTAINS
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
           &           ldims=shape2d_c, loutput=.TRUE.                             )
 
-      ENDIF  ! albedo_type
+      END IF  ! albedo_type
+
+    END IF ! iforcing
 
 
+    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
 
-    CASE ( iecham, ildf_echam )
+      ! atmosphere land-sea-mask at surface on cell centers
+      ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('Atmosphere model land-sea-mask at cell center', '-2/-1/1/2', &
+        &                   'Atmosphere model land-sea-mask', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lsm_ctr_c', p_ext_atm%lsm_ctr_c,        &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+        grib2_desc, ldims=shape2d_c )
+
+      IF (iequations == ihs_atm_temp .OR. iequations == ihs_atm_theta ) THEN
+        ! elevation p_ext_atm%elevation_c(nproma,nblks_c)
+        cf_desc    = t_cf_var('elevation at cell center', 'm', &
+          &                     'elevation', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_list, 'elevation_c', p_ext_atm%elevation_c,        &
+          &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
+          grib2_desc, ldims=shape2d_c )
+      END IF
 
       ! longwave surface emissivity
       !
@@ -1200,23 +1197,7 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
-    END SELECT ! iforcing
-
-  CASE ( ihs_atm_temp, ihs_atm_theta )
-
-    SELECT CASE ( iforcing )
-    CASE ( iecham, ildf_echam)
-      ! longwave surface emissivity
-      !
-      ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
-      cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 2, 3, 199, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )     
-    END SELECT
-        
-  END SELECT ! iequations
+    END IF
 
   END SUBROUTINE new_ext_data_atm_list
 
@@ -1345,7 +1326,7 @@ CONTAINS
 
     END IF ! irad_o3
 
-    IF(iforcing == inwp) THEN
+    IF (iforcing == inwp) THEN
 
     ! Black carbon aerosol
     !
@@ -1681,7 +1662,7 @@ CONTAINS
       ! 1. Check validity of external parameter file   !
       !------------------------------------------------!
 
-      IF ( itopo == 1 ) THEN
+      IF ( itopo == 1 .AND. iforcing == inwp) THEN
         CALL inquire_extpar_file(p_patch, jg, cdi_extpar_id(jg), cdi_filetype(jg), &
           &                      nclass_lu(jg), nmonths_ext(jg), is_frglac_in(jg))
       END IF
@@ -1946,29 +1927,55 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    IF(itopo == 0 .AND. echam_phy_config%ljsbach ) THEN
-      !
+    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
+
       ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
       ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically 
       ! initialized and uses a real topography.
+
       DO jg = 1,n_dom
 
         IF(my_process_is_stdio()) CALL nf(nf_open(TRIM(p_patch(jg)%grid_filename), NF_NOWRITE, ncid), routine)
 
-        ! get elevation [m]
-        CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
-          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-          &                    ext_data(jg)%atm%elevation_c)
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
         CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
           &                     ext_data(jg)%atm%lsm_ctr_c)
-        ! Mask out ocean
-        ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp,  ext_data(jg)%atm%lsm_ctr_c(:,:) > 0)
+
+        ! get topography [m]
+        ! - The hydrostatic AMIP setup grows the topography form zero to the elevation
+        !   read from the grid file. Therefore the read in topography is stored in
+        !   'elevation_c' and the actual 'topography_c' is computed later.
+        ! - The non-hydrostatic AMIP setup starts directly from the topography read from
+        !   the grid file. Hence the read in topography is stored in 'topography_c'.
+        SELECT CASE (iequations)
+        CASE (ihs_atm_temp,ihs_atm_theta) ! iequations
+          ! Read topography
+          CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &                    ext_data(jg)%atm%elevation_c)
+          ! Mask out ocean
+          ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp, &
+            &                                       ext_data(jg)%atm%lsm_ctr_c(:,:)  > 0     )
+        CASE (inh_atmosphere) ! iequations
+          ! Read topography
+          CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g, &
+            &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
+            &                    ext_data(jg)%atm%topography_c)
+          ! Mask out ocean
+          ext_data(jg)%atm%topography_c(:,:) = MERGE(ext_data(jg)%atm%topography_c(:,:), 0._wp, &
+            &                                        ext_data(jg)%atm%lsm_ctr_c(:,:)   > 0     )
+        END SELECT ! iequations
 
         IF( my_process_is_stdio()) CALL nf(nf_close(ncid), routine)
+
+        ! LW surface emissivity
+        !
+        ! (eventually emis_rad should be read from file)
+        !
+        ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
 
       END DO
 
@@ -1978,7 +1985,7 @@ CONTAINS
     ! Read data from ExtPar file                     !
     !------------------------------------------------!
 
-    IF (itopo == 1) THEN
+    IF (itopo == 1 .AND. iforcing == inwp) THEN
       DO jg = 1,n_dom
 
         IF(my_process_is_stdio()) THEN
@@ -2296,16 +2303,7 @@ CONTAINS
 
             ENDIF
           END IF
-            
-        CASE ( iecham, ildf_echam )
-          IF ( l_emiss ) THEN
-            CALL read_cdi_2d(cdi_extpar_id(jg), 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,         &
-              &              p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index, &
-              &              ext_data(jg)%atm%emis_rad, opt_dict=extpar_varnames_dict)
-          ELSE
-            ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
-          ENDIF
-            
+
         END SELECT ! iforcing
 
         !

@@ -605,7 +605,8 @@ CONTAINS
         ! Store qv advection tendency for convection scheme. 
         ! Store TKE tendency, if TKE advection is turned on
         !
-        IF ( MOD( k_step, 2 ) == 0 .AND. iforcing == inwp ) THEN
+        IF ( PRESENT(opt_ddt_tracer_adv) .AND. (MOD( k_step, 2 ) == 0) &
+          &  .AND. iforcing == inwp ) THEN
           IF ( jt == iqv ) THEN
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
               DO jc = i_startidx, i_endidx
@@ -739,7 +740,7 @@ CONTAINS
           ! Store qv advection tendency for convection scheme. 
           ! Store TKE tendency, if TKE advection is turned on
           !
-          IF ( iforcing == inwp ) THEN
+          IF ( PRESENT(opt_ddt_tracer_adv) .AND. (iforcing == inwp) ) THEN
             IF ( jt == iqv ) THEN
               DO jk = advection_config(jg)%iadv_slev(jt), nlev
                 DO jc = i_startidx, i_endidx

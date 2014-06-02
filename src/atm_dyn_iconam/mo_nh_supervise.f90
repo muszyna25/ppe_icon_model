@@ -29,8 +29,8 @@ MODULE mo_nh_supervise
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime, msg_level, &
     &                               ltransport, ntracer, lforcing, iforcing
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, min_rlcell_int, &
-    min_rledge_int
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, iecham, &
+    &                               min_rlcell_int, min_rledge_int
   USE mo_physical_constants,  ONLY: cvd
   USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id, &
     &                               process_mpi_stdio_id
@@ -261,7 +261,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    IF (ltransport  .OR. ( iforcing == inwp ) ) THEN
+    IF (ltransport  .OR. ( iforcing == inwp ) .OR. ( iforcing == iecham )) THEN
 
       z_total_tracer(:)   = 0.0_wp
       z_aux_tracer(:,:,:) = 0.0_wp
@@ -401,7 +401,7 @@ CONTAINS
       '    mean surf press.'
 
     ! Open the datafile for tracer diagnostic
-    IF (ltransport .OR. ( iforcing == inwp ) ) THEN
+    IF (ltransport .OR. ( iforcing == inwp ) .OR. ( iforcing == iecham )) THEN
 
       !!$       ALLOCATE(z_total_tracer_old(ntracer), STAT=ist)
       !!$       IF(ist/=SUCCESS)THEN

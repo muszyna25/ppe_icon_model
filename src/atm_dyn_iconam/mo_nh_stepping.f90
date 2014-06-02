@@ -214,7 +214,9 @@ MODULE mo_nh_stepping
        CALL init_ls_forcing(p_nh_state(1)%metrics)
   ENDIF
 
-  CALL setup_time_ctrl_physics( )
+  IF (iforcing == inwp) THEN
+    CALL setup_time_ctrl_physics( )
+  END IF
 
   END SUBROUTINE prepare_nh_integration
   !-------------------------------------------------------------------------
@@ -429,10 +431,12 @@ MODULE mo_nh_stepping
       nsnow     = nlev_snow
     END DO
   ELSE IF (iforcing == iecham) THEN
-    DO jg=1,n_dom
-      nsoil(jg) = lnd_jsbach_config(jg)%nsoil
-      nsnow     = 0
-    END DO
+    IF (allocated(lnd_jsbach_config)) THEN
+      DO jg=1,n_dom
+        nsoil(jg) = lnd_jsbach_config(jg)%nsoil
+      END DO
+    END IF
+    nsnow = 0
   END IF
 
   ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress

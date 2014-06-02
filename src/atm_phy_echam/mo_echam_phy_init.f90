@@ -31,7 +31,6 @@ MODULE mo_echam_phy_init
   USE mo_netcdf_read,          ONLY: netcdf_open_input, netcdf_close, netcdf_read_oncells_2D
 
   ! model configuration
-  USE mo_dynamics_config,      ONLY: nnow
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer
   USE mo_vertical_coord_table, ONLY: vct

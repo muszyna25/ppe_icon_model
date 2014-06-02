@@ -438,16 +438,10 @@ CONTAINS
     CALL finish( TRIM(method_name), 'NWP physics only implemented in the '//&
                'nonhydrostatic atm model')
 
-    IF ((iforcing==IECHAM).AND.(iequations==INH_ATMOSPHERE)) &
-    CALL finish( TRIM(method_name), 'ECHAM physics not implemented in the '//&
-               'nonhydrostatic atm model')
-
     !--------------------------------------------------------------------
     ! NWP physics
     !--------------------------------------------------------------------
     IF (iforcing==inwp) THEN
-
- !     CALL configure_atm_phy_nwp(n_dom,ltestcase)
 
       DO jg =1,n_dom
 
@@ -533,23 +527,23 @@ CONTAINS
     ! Set tracer indices
     !
     SELECT CASE(iforcing)
-    CASE (IECHAM,ILDF_ECHAM)
+    CASE (IECHAM,ILDF_ECHAM)  ! iforcing
 
-      IF (ntracer < 3) &
-      CALL finish(TRIM(method_name),'ECHAM physics needs at least 3 tracers')
+      IF (ntracer < 3) CALL finish(TRIM(method_name),'ECHAM physics needs at least 3 tracers')
 
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqm_max = 3    !! end index of water species mixing ratios
+      iqr    = 0     !! 0: no rain water
+      iqs    = 0     !! 0: no snow
       ico2   = 4     !! CO2
+      iqm_max= 3     !! end index of water species mixing ratios
       iqt    = 4     !! starting index of non-water species
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
-      iqs  = 0
-      iqr  = 0
-    CASE (INWP)
-    
+
+    CASE (INWP) ! iforcing
+
       ! ** NWP physics section ** 
       !
       ! IMPORTANT: For NWP physics, five microphysics tracers (QV, QC, QI, QR and QS) must always be
@@ -686,18 +680,20 @@ CONTAINS
         atm_phy_nwp_config(jg)%nclass_gscp = iqm_max
       ENDDO
 
-    CASE default !
+    CASE default ! iforcing
 
         iqv    = 1     !> water vapour
         iqc    = 2     !! cloud water
         iqi    = 3     !! ice
-        iqm_max = 3    !! end index of water species mixing ratios
+        iqr    = 0     !! 0: no rain water
+        iqs    = 0     !! 0: no snow
         ico2   = 5     !! CO2
+        iqm_max= 3     !! end index of water species mixing ratios
         iqt    = 4     !! starting index of non-water species
         nqtendphy = 0  !! number of water species for which convective and turbulent
                        !! tendencies are stored
 
-    END SELECT
+    END SELECT ! iforcing
 
 
     IF (ltransport) THEN
@@ -759,7 +755,7 @@ CONTAINS
         END IF
 
 
-        IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
+        IF (echam_phy_config%lrad) THEN
           IF ( izenith > 5)  &
             CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
         ENDIF
@@ -773,16 +769,6 @@ CONTAINS
     ! Tracer transport
     !--------------------------------------------------------------------
     ! General
-
-    ! similar check already performed in read_run_namelist.
-    !
-    !IF(ltransport .AND. ntracer <= 0) THEN
-    !  CALL finish( TRIM(method_name),'Tracer transport switched on but ntracer <= 0')
-    !ENDIF
-
-    !IF (.NOT.ltransport .AND. ntracer > 0) &
-    !  CALL finish( TRIM(method_name),          &
-    !  'either set ltransport = true or ntracer to 0 ')
 
     SELECT CASE (iequations)
     CASE (INH_ATMOSPHERE)
@@ -925,16 +911,16 @@ CONTAINS
 
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
-    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 
-!!$    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
 #ifdef __NO_JSBACH__
+    CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
     IF (echam_phy_config% ljsbach) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
     ENDIF
     echam_phy_config% ljsbach   = .FALSE.     
 #endif
-  END SUBROUTINE land_crosscheck
 
+  END SUBROUTINE land_crosscheck
+  !---------------------------------------------------------------------------------------
 
 END MODULE mo_nml_crosscheck

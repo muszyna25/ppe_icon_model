@@ -19,7 +19,7 @@ MODULE mo_atmo_model
   USE mo_exception,               ONLY: message, finish !, message_text
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators,                           &
-    &                                   p_pe_work, get_my_mpi_all_id, process_mpi_io_size,    &
+    &                                   p_pe_work, process_mpi_io_size,                       &
     &                                   my_process_is_restart, process_mpi_restart_size
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
@@ -29,8 +29,15 @@ MODULE mo_atmo_model
     &                                   num_restart_procs,                                    &
     &                                   use_async_restart_output !,use_icon_comm
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
+#ifndef NOMPI
+#if defined(__GET_MAXRSS__)
+  USE mo_mpi,                     ONLY: get_my_mpi_all_id
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
-  USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH
+#endif
+#endif
+  USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH,                             &
+    &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
+    &                                   ishallow_water, inwp
   USE mo_io_restart,              ONLY: read_restart_header
   USE mo_io_restart_attributes,   ONLY: get_restart_attribute
 
@@ -51,8 +58,6 @@ MODULE mo_atmo_model
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
     &                                   iforcing
   USE mo_gribout_config,          ONLY: configure_gribout
-  USE mo_impl_constants,          ONLY: ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
-    &                                   ishallow_water, inwp
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
