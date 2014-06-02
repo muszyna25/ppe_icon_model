@@ -1077,9 +1077,9 @@ CONTAINS
     
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
-    !>  accumulate tendencies of slow_physics: Not called when LS focing is ON
+    !>  accumulate tendencies of slow_physics: 
     !-------------------------------------------------------------------------
-    IF( l_any_slowphys .OR. lcall_phy_jg(itradheat) .AND. .NOT.is_ls_forcing ) THEN
+    IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
       IF (p_test_run) THEN
         z_ddt_u_tot = 0._wp
@@ -1208,6 +1208,43 @@ CONTAINS
           END DO  
         ENDIF
 
+        !-------------------------------------------------------------------------
+        !>  accumulate tendencies of slow_physics when LS forcing is ON
+        !-------------------------------------------------------------------------
+        IF (is_ls_forcing) THEN
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              z_ddt_temp(jc,jk,jb) = z_ddt_temp(jc,jk,jb)               &
+                                +  prm_nwp_tend%ddt_temp_ls(jk)
+
+
+              ! Convert temperature tendency into Exner function tendency
+              z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
+                &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
+                &          + prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
+                &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi)
+
+              pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
+                &                             * (z_ddt_temp(jc,jk,jb)                             &
+                &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
+                &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
+                &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
+                &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
+
+
+              ! add u/v forcing tendency here
+              z_ddt_u_tot(jc,jk,jb) = z_ddt_u_tot(jc,jk,jb) &
+                &                   + prm_nwp_tend%ddt_u_ls(jk)
+
+              z_ddt_v_tot(jc,jk,jb) = z_ddt_v_tot(jc,jk,jb) &
+                &                   + prm_nwp_tend%ddt_v_ls(jk)
+
+            END DO  ! jc
+          END DO  ! jk
+
+        ENDIF ! END of LS forcing tendency accumulation
+
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1215,98 +1252,6 @@ CONTAINS
 
     END IF!END OF slow physics tendency accumulation 
 
-!-----------------------------------------------------------------------------------------
-!AD (2013-03-June): Add large scale forcing tendencies in similar manner as above (I don't
-!                   trust this way that much!). For now it works with LS radiative forcing. 
-!  (2013-25-June): ls_forcing is made independent of slowphy call and therefore if any other
-!                  physics like radiation or sso or conv is called later on, they must be
-!                  included here in like above.                   
-!-----------------------------------------------------------------------------------------     
-    IF(is_ls_forcing)THEN  
-
-      IF (p_test_run) THEN
-        z_ddt_u_tot = 0._wp
-        z_ddt_v_tot = 0._wp
-      ENDIF
-
-      IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
-
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-      
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-              &          i_startidx, i_endidx, rl_start, rl_end)
-
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-              z_ddt_temp(jc,jk,jb) = prm_nwp_tend%ddt_temp_ls(jk)
-            END DO 
-          END DO
-
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
-
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-
-          ENDDO
-        ENDDO
-
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
-
-        ! Convert temperature tendency into Exner function tendency
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-
-            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
-              &          + prm_nwp_tend%ddt_tracer_ls(jk,iqc)          &
-              &          + prm_nwp_tend%ddt_tracer_ls(jk,iqi)
-
-            pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
-              &                             * (z_ddt_temp(jc,jk,jb)                          &
-              &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
-              &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
-              &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
-
-          ENDDO
-        ENDDO
-
-        !add u/v forcing tendency here
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            z_ddt_u_tot(jc,jk,jb) = prm_nwp_tend%ddt_u_ls(jk)
-            z_ddt_v_tot(jc,jk,jb) = prm_nwp_tend%ddt_v_ls(jk)
-          END DO 
-        END DO
-
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-      IF (timers_level > 3) CALL timer_stop(timer_phys_acc_1)
-
-    END IF!END of LS forcing tendency accumulation 
 
 
     !--------------------------------------------------------

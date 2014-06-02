@@ -37,13 +37,13 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-end_date="2008-09-02T00:00:00Z"
+end_date="2008-09-02T12:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=0.15
+dtime=0.16
 dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 6 hours
 #
 #-----------------------------------------------------------------------------
@@ -59,7 +59,7 @@ iforcing=3         # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r100s200.nc'
+atmo_dyn_grids='torus_grid_x86_y86_e150m.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -89,7 +89,7 @@ cat > ${atmo_namelist} << EOF
  ldynamics    = .TRUE.       ! dynamics
  ltransport   = .TRUE.       ! transport
  iforcing     = ${iforcing}  !
- ntracer      =  3           ! number of tracers - default 0
+ ntracer      =  5           ! number of tracers - default 0
  ltimer       = .true.       ! 
  timers_level = 100          !
  msg_level    = 15           ! detailed report during integration
@@ -122,24 +122,20 @@ cat > ${atmo_namelist} << EOF
 /
 &diffusion_nml
  lhdiff_temp  = .TRUE.
- lhdiff_vn    = .FALSE.
+ lhdiff_vn    = .TRUE.
  lhdiff_w     = .FALSE
 /
 &nwp_phy_nml
 inwp_gscp       = 1
 inwp_convection = 0
 inwp_radiation  = 0
-inwp_cldcover   = 0
+inwp_cldcover   = 5
 inwp_turb       = 5
 inwp_satad      = 1
 inwp_surface    = 0
 /
 &turbdiff_nml
 lconst_z0 = .TRUE.
-/
-&transport_nml
- ihadv_tracer = 1,1,1,0,0,0,0
- ivadv_tracer = 1,1,1,0,0,0,0
 /
 &nonhydrostatic_nml
  iadv_rhotheta = 2
@@ -149,7 +145,7 @@ lconst_z0 = .TRUE.
  rayleigh_coeff  = 0.10      ! Rayleigh coefficient for damping in upper levels
  vwind_offctr    = 0.4       ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .false.   ! top open upper boundary condition. might help to go higher
- damp_height     = 3200      ! damping height, keep top 5-10 levels for damping
+ damp_height     = 3600      ! damping height, keep top 5-10 levels for damping
 /
 &sleve_nml                   ! vertical grid standard output for message level >= 15
  min_lay_thckn   = 0         ! lowest level thickness (between half-levels), set 0 to do equal spacing
@@ -163,13 +159,14 @@ lconst_z0 = .TRUE.
 &output_nml
  filetype         = 4
  dom              = -1
- output_bounds    = 0.,86400.,1800.   !start, end, increment
- steps_per_file   = 10
+ output_time_unit = 2 
+ output_bounds    = 0.,5760.,15.  !start, end, increment
+ steps_per_file   = 2880
  include_last     = .TRUE.
  remap            = 0   ! triangular grid
  output_filename  = '${EXPNAME}_tri'
  output_grid      = .TRUE.
- ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc', 'qr'
+ ml_varlist       = 'shfl_s','lhfl_s','umfl_s','vmfl_s','t_g','pres_sfc','qv_s','z_pbl','u','v','w','temp','theta_v','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc', 'qr'
 /
 EOF
 #-----------------------------------------------------------------------------
