@@ -285,14 +285,24 @@ def checkNames(build,exp)
 end
 # cat output together to a fiven file
 # output file variable is #{exp}_Output with value `tempfile`_#{exp}.nc
-def joinModelOutput(exp,ifilePattern: "#{exp}*.nc")
-  "
-  cd experiments;
-  joinModelOutput_#{exp}=$(tempfile -s _#{exp}.nc);
-  [[ -f ${#{exp}_Output} ]] && rm ${joinModelOutput_#{exp}};
-  cdo cat #{exp}/#{ifilePattern} ${joinModelOutput_#{exp}};
-  cd -;
-  "
+def joinModelOutput(exp: exp,ifilePattern: "#{exp}*.nc",expTag: '')
+  if ifilePattern.nil? then
+    "
+    cd experiments;
+    joinModelOutput_#{expTag}=$(tempfile -s _#{exp}.nc);
+    [[ -f ${#{exp}_Output} ]] && rm ${joinModelOutput_#{exp}};
+    cdo cat #{exp}/#{ifilePattern} ${joinModelOutput_#{exp}};
+    cd -;
+    "
+  else
+    "
+    cd #{Dir::Tmpname.tmpdir}
+    joinModelOutput_#{exp}_#{expTag}=$(tempfile -s _#{exp}.nc);
+    [[ -f ${#{exp}_Output} ]] && rm ${joinModelOutput_#{exp}};
+    cdo cat '#{ifilePattern}' ${joinModelOutput_#{exp}_#{expTag}};
+    cd -;
+    "
+  end
 end
 # rm output from joinModelOutput
 def rmJoinedModelOutput(*exps)
@@ -549,8 +559,8 @@ def doCmpExps(build,expA,expB)
     debug="#{ENV.has_key?('DEBUG')}"
     showDiffSelection="#{show}"
     [[ $debug = 'true' ]] && set -x
-    #{joinModelOutput(expA)}
-    #{joinModelOutput(expB)}
+    #{joinModelOutput(exp: expA)}
+    #{joinModelOutput(exp: expB)}
     #{diffThese("${joinModelOutput_#{expA}}","${joinModelOutput_#{expB}}")}
     [[ $showDiffSelection = 'true' ]] && (
         #{selectBy(var,ts,lev)}
@@ -560,17 +570,21 @@ def doCmpExps(build,expA,expB)
              EOS
             ),true)
 end
-def doCmpDirs(build,dirA,dirB,expA=File.basename(dirA),expB=File.basename(dirB))
+def doCmpDirs(build,dirA: dirA,dirB: dirB,expA: expA,expB: expB)
+  expA = File.basename(dirA) if expA.nil?
+  expB = File.basename(dirB) if expB.nil?
+
   var,ts,lev,show = setSelection
 
   checkOutput = lambda {|dirA,dirB|
+    expTagA, expTagB = 'A', 'B'
     call(connect(build,<<-EOS
       debug="#{ENV.has_key?('DEBUG')}"
       showDiffSelection="#{show}"
       [[ $debug = 'true' ]] && set -x
-      #{joinModelOutput(expA)}
-      #{joinModelOutput(expB)}
-      #{diffThese("${joinModelOutput_#{expA}}","${joinModelOutput_#{expB}}")}
+      #{joinModelOutput(exp: expA,ifilePattern: "#{dirA}/#{expA}*nc",expTag: expTagA)}
+      #{joinModelOutput(exp: expB,ifilePattern: "#{dirB}/#{expB}*nc",expTag: expTagB)}
+      #{diffThese("${joinModelOutput_#{expB}_#{expTagA}}","${joinModelOutput_#{expB}_#{expTagB}}")}
       [[ $showDiffSelection = 'true' ]] && (
           #{selectBy(var,ts,lev)}
           cdo infov ${selectBy} -sub ${joinModelOutput_#{expA}} ${joinModelOutput_#{expB}} 
@@ -703,8 +717,8 @@ $builds.each_key {|build|
     doCmpExps(build,args.expA,args.expB)
   end
   desc "Compare model output of 2 experiment directories"
-  task "#{build.to_s}_cmpDirs".to_sym, [:dirA,:dirB] do |t, args|
-    doCmpDirs(build,args.dirA,args.dirB)
+  task "#{build.to_s}_cmpDirs".to_sym, [:dirA,:dirB,:expA,:expB] do |t, args|
+    doCmpDirs(build,dirA: args.dirA,dirB: args.dirB,expA: args.expA, expB: args.expB)
   end
 
   # post processing
