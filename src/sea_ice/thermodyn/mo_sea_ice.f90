@@ -30,7 +30,7 @@ MODULE mo_sea_ice
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_dynamics_config,     ONLY: nold, nnew
-  USE mo_model_domain,        ONLY: t_patch, t_patch_3D
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3D, t_patch_vert
   USE mo_exception,           ONLY: finish, message
   USE mo_impl_constants,      ONLY: success, max_char_length, sea_boundary
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, ki, ks, Tf, albi, albim, albsm, albs,   &
@@ -936,11 +936,11 @@ CONTAINS
       &          t_cf_var('atmos_fluxes_FrshFlux_VolumeIce', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeIce', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-!   CALL add_var(ocean_default_list,'atmos_fluxes_FrshFlux_VolumeTotal', atmos_fluxes%FrshFlux_VolumeTotal, &
-!     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-!     &          t_cf_var('atmos_fluxes_FrshFlux_VolumeTotal', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeTotal', DATATYPE_FLT32),&
-!     &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-!     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+   CALL add_var(ocean_default_list,'atmos_fluxes_cellThicknessUnderIce', atmos_fluxes%cellThicknessUnderIce, &
+     &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+     &          t_cf_var('atmos_flux_cellThicknessUnderIce', 'm', 'atmos_fluxes_cellThicknessUnderIce', DATATYPE_FLT32),&
+     &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+     &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     CALL message(TRIM(routine), 'end' )
   END SUBROUTINE construct_atmos_fluxes
@@ -1378,17 +1378,21 @@ CONTAINS
 
     ! Local variables
     ! ranges
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER                                            :: all_cells
     ! pathc
-    TYPE(t_patch),POINTER    :: p_patch
+    TYPE(t_patch),POINTER                                                    :: p_patch
+    TYPE(t_patch_vert),POINTER                                               :: p_patch_vert
     ! counters
-    INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
+    INTEGER                                                                  :: k, jb, jc, i_startidx_c, i_endidx_c
     ! Sea surface salinity
     REAL(wp), DIMENSION (nproma, p_patch_3d%p_patch_2D(1)%alloc_cell_blocks) :: sss
+    REAL(wp)                                                                 :: draftave
+    REAL(wp), DIMENSION (p_ice%kice)                                         :: draft
 
     ! subset range pointer
-    p_patch => p_patch_3D%p_patch_2D(1)
-    all_cells => p_patch%cells%all 
+    p_patch      => p_patch_3D%p_patch_2D(1)
+    p_patch_vert => p_patch_3D%p_patch_1D(1)
+    all_cells    => p_patch%cells%all
     ! Sea surface salinity
     sss(:,:)  =  p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
@@ -1429,12 +1433,15 @@ CONTAINS
             p_ice%hs  (jc,k,jb) = 0._wp
             p_ice%vols(jc,k,jb) = 0._wp
           ENDIF
+          draft(k)               = (rhos * p_ice%hs(jc,k,jb) + rhoi * p_ice%hi(jc,k,jb)) / rho_ref
         ENDDO
-
+          draftave               = sum(draft(:) * p_ice%conc(jc,:,jb))
+!         p_ice%zUnderIce(jc,jb) = p_patch_vert%prism_thick_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) - draftave
       ENDDO
     ENDDO
 
-    p_ice%concSum = SUM(p_ice%conc, 2)
+    p_ice%concSum                           = SUM(p_ice%conc, 2)
+!   atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
 
   END SUBROUTINE ice_clean_up
 
