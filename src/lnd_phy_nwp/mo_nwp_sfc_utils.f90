@@ -21,7 +21,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: tmelt, tf_salt, rdocp => rd_o_cpd  ! r_d / cp_d
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
+  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
@@ -69,6 +69,7 @@ INTEGER, PARAMETER :: nlsnow= 2
   PUBLIC :: init_snowtile_lists
   PUBLIC :: init_sea_lists
   PUBLIC :: aggregate_t_g_q_v
+  PUBLIC :: copy_lnd_prog_now2new
 
 CONTAINS
 
@@ -2364,6 +2365,84 @@ CONTAINS
   CALL diagnose_ext_aggr (p_patch, ext_data)
 
   END SUBROUTINE update_ndvi
+
+!-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  !! Copies the tile-based prognostic land-state variables from time level now to 
+  !! time level new. This has no relevance for the forecast results but
+  !! avoids missing values when writing output at an odd integer multiple of the global
+  !! physics time step
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2014-06-02)
+  !!
+  !-------------------------------------------------------------------------
+ 
+  SUBROUTINE copy_lnd_prog_now2new(p_patch, p_prog_lnd_now, p_prog_lnd_new)
+
+
+    TYPE(t_patch),         INTENT(IN)    :: p_patch       !<grid/patch info.
+    TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now
+    TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_new
+    
+    ! Local array bounds:
+    
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: is, ie    !< slices
+
+    ! Local :
+
+    INTEGER :: jb,jt
+!-------------------------------------------------------------------------
+
+
+    ! include nest boundary and halo points
+    rl_start = 1
+    rl_end   = min_rlcell
+
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,is,ie)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        & is, ie, rl_start, rl_end)
+
+      DO jt = 1, ntiles_total+ntiles_water
+        p_prog_lnd_new%t_s_t(is:ie,jb,jt) = p_prog_lnd_now%t_s_t(is:ie,jb,jt)
+      ENDDO
+
+      DO jt = 1, ntiles_total
+        p_prog_lnd_new%w_i_t(is:ie,jb,jt)        = p_prog_lnd_now%w_i_t(is:ie,jb,jt)
+        p_prog_lnd_new%t_so_t(is:ie,:,jb,jt)     = p_prog_lnd_now%t_so_t(is:ie,:,jb,jt)
+        p_prog_lnd_new%w_so_t(is:ie,:,jb,jt)     = p_prog_lnd_now%w_so_t(is:ie,:,jb,jt)
+        p_prog_lnd_new%w_so_ice_t(is:ie,:,jb,jt) = p_prog_lnd_now%w_so_ice_t(is:ie,:,jb,jt)
+        p_prog_lnd_new%t_snow_t(is:ie,jb,jt)     = p_prog_lnd_now%t_snow_t(is:ie,jb,jt)
+        p_prog_lnd_new%w_snow_t(is:ie,jb,jt)     = p_prog_lnd_now%w_snow_t(is:ie,jb,jt)
+        p_prog_lnd_new%rho_snow_t(is:ie,jb,jt)   = p_prog_lnd_now%rho_snow_t(is:ie,jb,jt)
+      ENDDO
+
+      IF (lmulti_snow) THEN
+        DO jt = 1, ntiles_total
+          p_prog_lnd_new%t_snow_mult_t(is:ie,:,jb,jt)   = p_prog_lnd_now%t_snow_mult_t(is:ie,:,jb,jt)
+          p_prog_lnd_new%rho_snow_mult_t(is:ie,:,jb,jt) = p_prog_lnd_now%rho_snow_mult_t(is:ie,:,jb,jt)
+          p_prog_lnd_new%wliq_snow_t(is:ie,:,jb,jt)     = p_prog_lnd_now%wliq_snow_t(is:ie,:,jb,jt)
+          p_prog_lnd_new%wtot_snow_t(is:ie,:,jb,jt)     = p_prog_lnd_now%wtot_snow_t(is:ie,:,jb,jt)
+          p_prog_lnd_new%dzh_snow_t(is:ie,:,jb,jt)      = p_prog_lnd_now%dzh_snow_t(is:ie,:,jb,jt)
+        ENDDO
+      ENDIF
+
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE copy_lnd_prog_now2new
+
 
 END MODULE mo_nwp_sfc_utils
 

@@ -86,7 +86,7 @@ MODULE mo_nwp_phy_init
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
-    &                               aggregate_t_g_q_v
+    &                               aggregate_t_g_q_v, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_lnd, lsnowtile, ntiles_water, &
     &                               lseaice, isub_water, isub_lake, isub_seaice
   USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
@@ -925,14 +925,21 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   !< surface initialization (including seaice)
   !------------------------------------------
 
-  IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. linit_mode ) THEN  ! TERRA
-    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
-      &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag)
-  ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN ! restart mode
-
-    IF ( lsnowtile ) THEN
-      CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
+  IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
+    IF (linit_mode) THEN
+      CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now, p_prog_lnd_new, &
+        &                   p_prog_wtr_now, p_prog_wtr_new, p_diag_lnd, p_diag)
+    ELSE 
+      IF ( lsnowtile ) THEN ! restart mode with snowtiles
+        CALL init_snowtile_lists(p_patch, ext_data, p_diag_lnd)
+      ENDIF
     ENDIF
+
+    ! Copy timelevel now to timelevel new for land state. This has no impact on the prognostic
+    ! results but ensures that the output over non-prognostic grid points (water) is the same
+    ! for even and odd multiples of the advection time step
+    CALL copy_lnd_prog_now2new(p_patch, p_prog_lnd_now, p_prog_lnd_new)
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init TERRA')
   END IF
 
 
