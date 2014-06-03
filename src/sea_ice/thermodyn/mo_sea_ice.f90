@@ -936,9 +936,9 @@ CONTAINS
       &          t_cf_var('atmos_fluxes_FrshFlux_VolumeIce', '[m/s]', 'atmos_fluxes_FrshFlux_VolumeIce', DATATYPE_FLT32),&
       &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
-   CALL add_var(ocean_default_list,'atmos_fluxes_cellThicknessUnderIce', atmos_fluxes%cellThicknessUnderIce, &
+   CALL add_var(ocean_default_list,'atmos_flux_cellThicknessUnderIce', atmos_fluxes%cellThicknessUnderIce, &
      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-     &          t_cf_var('atmos_flux_cellThicknessUnderIce', 'm', 'atmos_fluxes_cellThicknessUnderIce', DATATYPE_FLT32),&
+     &          t_cf_var('atmos_flux_cellThicknessUnderIce', 'm', 'atmos_flux_cellThicknessUnderIce', DATATYPE_FLT32),&
      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
@@ -1060,12 +1060,13 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_init( p_patch_3D, p_os, ice ) !, atmos_fluxes, atmos_fluxesAve)
+  SUBROUTINE ice_init( p_patch_3D, p_os, ice, cellThicknessUnderIce)
     TYPE(t_patch_3D), TARGET, INTENT(in)  :: p_patch_3D
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxes
-    !TYPE (t_atmos_fluxes), INTENT (INOUT) :: atmos_fluxesAve
+    REAL(wp), &
+      & DIMENSION(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks), &
+      & INTENT(OUT)                       :: cellThicknessUnderIce
 
     !local variables
     REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks) :: &
@@ -1139,6 +1140,8 @@ CONTAINS
     ! TODO: use prism_thick_flat_sfc_c instead of del_zlev_m
     ice%zUnderIce (:,:)   = v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) &
       &                      - sum(draft(:,:,:) * ice%conc(:,:,:),2)
+
+    cellThicknessUnderIce (:,:) = ice%zUnderIce(:,:)
 
     IF ( i_ice_dyn == 1 ) THEN ! AWI dynamics
       CALL ice_fem_grid_init(p_patch_3D)
