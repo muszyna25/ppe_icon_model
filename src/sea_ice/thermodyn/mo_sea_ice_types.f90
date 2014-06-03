@@ -93,7 +93,10 @@ MODULE mo_sea_ice_types
       &  TempFlux_Relax_acc             (:,:),  &
       &  SaltFlux_Relax_acc             (:,:),  &
       &  data_surfRelax_Temp_acc        (:,:),  &
-      &  data_surfRelax_Salt_acc        (:,:)
+      &  data_surfRelax_Salt_acc        (:,:),  &
+      !
+      !
+      &  cellThicknessUnderIce          (:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)
@@ -204,7 +207,10 @@ MODULE mo_sea_ice_types
       &  FrshFlux_TotalOcean      (:,:),     & ! forcing surface freshwater flux at open ocean             [m/s]
       &  FrshFlux_TotalIce        (:,:),     & ! forcing surface freshwater flux under sea ice             [m/s]
       &  FrshFlux_VolumeIce       (:,:),     & ! forcing volume flux for height equation under sea ice     [m/s]
-      &  FrshFlux_VolumeTotal     (:,:)!,     & ! sum of forcing volume flux including relaxation           [m/s]
+      &  FrshFlux_VolumeTotal     (:,:),     & ! sum of forcing volume flux including relaxation           [m/s]
+      !
+      !
+      &  cellThicknessUnderIce          (:,:)
 
     TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
       & ALLOCATABLE :: topBoundCond_windStress_cc(:,:)

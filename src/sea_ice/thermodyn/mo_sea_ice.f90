@@ -1441,7 +1441,7 @@ CONTAINS
     ENDDO
 
     p_ice%concSum                           = SUM(p_ice%conc, 2)
-!   atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
+    atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
 
   END SUBROUTINE ice_clean_up
 
