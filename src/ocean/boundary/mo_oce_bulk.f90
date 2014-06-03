@@ -1301,12 +1301,14 @@ CONTAINS
             atmos_fluxes%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-atmos_fluxes%data_surfRelax_Temp(jc,jb))
 
             ! Diagnosed heat flux Q_surf due to relaxation
-            !  Q_surf = F_T*dz/(rho*Cp) = -dz/tau*(T-T*)/(rho*Cp)  [W/m2]
-            !  HeatFlux_Relax = thick * TempFlux_Relax / (rho_ref*clw)
+            !  Q_surf = F_T*dz * (rho*Cp) = -dz/tau*(T-T*) * (rho*Cp)  [W/m2]
+            !  HeatFlux_Relax = thick * TempFlux_Relax * (rho_ref*clw)
+            ! this heat flux is negative if relaxation flux is negative, i.e. heat is released if temperature decreases
             ! this flux is for diagnosis only and not added to tracer forcing
+            due to relaxation
 
             thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
-            atmos_fluxes%HeatFlux_Relax(jc,jb) = -atmos_fluxes%TempFlux_Relax(jc,jb) * thick / (rho_ref*clw)
+            atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
 
           ENDIF
     
@@ -1328,7 +1330,7 @@ CONTAINS
       !   dS/dt = Operators + F_S
       ! i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity S if S is saltier than relaxation data S*)
       ! note that the freshwater flux is opposite in sign to F_S, see below,
-      ! i.e. fwf >0 for  S-S* >0 (i.e. increasing freshwater flux to decrease the salinity)
+      ! i.e. fwf >0 for  S-S* >0 (i.e. increasing freshwater flux to decrease salinity)
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
