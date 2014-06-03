@@ -26,7 +26,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
-  USE mo_run_config,          ONLY: iqv, iqm_max, lforcing, iforcing
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, iqm_max, lforcing, iforcing
   USE mo_impl_constants,      ONLY: min_rlcell, max_char_length, iheldsuarez
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
@@ -151,18 +151,38 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp) THEN
         IF ( lforcing .AND. iforcing /= iheldsuarez  ) THEN
 
-          DO jk = slev, nlev
+          DO jk = slev, slev_moist-1
             z_qsum(:,jk) = 0._wp
           ENDDO
 
-          ! Add hydrometeor species to water loading term
-          DO jt = 2, iqm_max
+          IF (iqm_max == 3) THEN   ! Echam physics
             DO jk = slev_moist, nlev
               DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) 
               ENDDO
             ENDDO
-          ENDDO
+          ELSE                     ! NWP physics
+            DO jk = slev_moist, nlev
+              DO jc = i_startidx, i_endidx
+                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+              ENDDO
+            ENDDO
+          ENDIF
+
+          ! Add further hydrometeor species to water loading term if required
+          IF (iqm_max > MAX(iqs,5)) THEN
+            DO jt = iqs+1, iqm_max
+              DO jk = slev_moist, nlev
+                DO jc = i_startidx, i_endidx
+                  z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+                ENDDO
+              ENDDO
+            ENDDO
+          ENDIF
 
           DO jk = slev, nlev
 !DIR$ IVDEP
