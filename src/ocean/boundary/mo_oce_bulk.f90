@@ -1305,7 +1305,6 @@ CONTAINS
             !  HeatFlux_Relax = thick * TempFlux_Relax * (rho_ref*clw)
             ! this heat flux is negative if relaxation flux is negative, i.e. heat is released if temperature decreases
             ! this flux is for diagnosis only and not added to tracer forcing
-            due to relaxation
 
             thick = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
             atmos_fluxes%HeatFlux_Relax(jc,jb) = atmos_fluxes%TempFlux_Relax(jc,jb) * thick * rho_ref*clw
