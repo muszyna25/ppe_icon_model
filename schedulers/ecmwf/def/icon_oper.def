@@ -22,6 +22,7 @@
 # 2012-summer: Upgrade to multi-experiment, multi-user,
 #              catch-up-mode, plotting (Martin Koehler)
 # 2012-end:    Switch to C2A (Martin Koehler and Stefan Koerner)
+# 2014-06:     Switch to CCA (Cray, Martin Koehler
 #
 
 # ---USER SETUP------------------------------------
@@ -66,14 +67,14 @@ setenv -i HOST
 setenv -i TMPDIR
 
 # HPC environment:
-set SCHOST      c2a
+set SCHOST      cca
 set WSHOST      ecgb
 set SCTEMP      /scratch/ms/de/$ICON_ID/icon
 set ECTEMP      /scratch/ms/de/$ICON_ID/icon
 set SCPERM      /perm/ms/de/$USER
-set ECPERM      /$SCHOST$SCPERM            # mounted c2a perm on ecgate
+set ECPERM      /$SCHOST$SCPERM            # mounted cca perm on ecgate
 set SCPERMIII   /perm/ms/de/$ICON_ID
-set ECPERMIII   /$SCHOST$SCPERMIII         # mounted c2a perm on ecgate
+set ECPERMIII   /$SCHOST$SCPERMIII         # mounted cca perm on ecgate
 set SCBASEDIR   $SCPERM/icon-dev/schedulers/ecmwf
 set ECBASEDIR   $ECPERM/icon-dev/schedulers/ecmwf
 set SCSOFT      /perm/ms/de/deia

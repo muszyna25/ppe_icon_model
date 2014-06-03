@@ -1,6 +1,6 @@
 #==========================================================================
 #  compile ICON under individual user
-#  submit on c2a as: llsubmit build.job
+#  submit on cca as: llsubmit build.job
 #  ATTENTION: change user (e.g. "dei2") to your own ID!
 #==========================================================================
 
