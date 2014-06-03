@@ -544,7 +544,7 @@ CONTAINS
       &                     p_os(jg), &
       &                     atmos_fluxes)
     IF (i_sea_ice >= 1) &
-      &   CALL ice_init(patch_3D, p_os(jg), p_ice)
+      &   CALL ice_init(patch_3D, p_os(jg), p_ice, atmos_fluxes%cellThicknessUnderIce)
 
     IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(patch_3D)
 
