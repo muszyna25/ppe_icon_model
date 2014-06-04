@@ -237,6 +237,7 @@ doc/userguide/content/output.tex -text
 doc/userguide/content/preface.tex -text
 doc/userguide/content/title.tex -text
 doc/userguide/content/visualization.tex -text
+doc/userguide/icon_user_guide.pdf -text
 doc/userguide/icon_user_guide.tex -text
 doc/userguide/icon_user_guide_bib.bib -text
 doc/userguide/pictures/contour_plot.png -text
