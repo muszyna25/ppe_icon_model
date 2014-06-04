@@ -200,7 +200,7 @@ cat > NAMELIST_NWP << EOF
  grf_intmethod_e             =                          6         ! interpolation method for grid refinement
  grf_scalfbk                 =                          2         ! feedback method for dynamical scalar variables
  grf_tracfbk                 =                          2         ! feedback method for tracer variables
- denom_diffu_v               =                        150.0       ! Deniminator for lateral boundary diffusion of velocity
+ denom_diffu_v               =                        150.0       ! Denominator for lateral boundary diffusion of velocity
 /
 
 ! io_nml: general switches for model I/O -------------------------------------
