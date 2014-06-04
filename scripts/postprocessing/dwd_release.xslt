@@ -5,7 +5,7 @@
                                                                                           
        Mark a file to be deleted from the DWD release:       				
 
-          svn propset dwd_release remove <file>		   
+          svn propset dwd_release remove "file"
 
        Get a list of all files/directories                                            
        with attribute "dwd_release", value=remove		    
