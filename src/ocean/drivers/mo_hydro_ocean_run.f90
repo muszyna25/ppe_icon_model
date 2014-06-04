@@ -387,10 +387,10 @@ CONTAINS
           &                             patch_3d%p_patch_1d(1)%zlev_m, &
           &                             ocean_state(jg)%p_diag)
 
-        CALL output_ocean( patch_3d, ocean_state, p_ext_data,          &
-          &                datetime, lwrite_restart,            &
-          &                p_sfc_flx, p_phys_param,             &
-          &                p_as, p_atm_f, p_ice,operators_coefficients, &
+        CALL output_ocean( patch_3d, ocean_state, &
+          &                datetime,              &
+          &                p_sfc_flx,             &
+          &                p_ice,                 &
           &                jstep, jstep0)
       
         ! Shift time indices for the next loop

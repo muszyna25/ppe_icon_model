@@ -86,23 +86,17 @@ CONTAINS
   !! Developed by Peter Korn, MPI-M  (2008-2010).
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE output_ocean( patch_3d, ocean_state, p_ext_data,          &
-    & datetime, lwrite_restart,            &
-    & p_sfc_flx, p_phys_param,             &
-    & p_as, p_atm_f, p_ice,operators_coefficients, &
+  SUBROUTINE output_ocean( patch_3d, ocean_state,     &
+    & datetime,    &
+    & p_sfc_flx,             &
+    & p_ice, &
     & jstep, jstep0)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
-    LOGICAL, INTENT(in)                              :: lwrite_restart
     TYPE(t_sfc_flx)                                  :: p_sfc_flx
-    TYPE (t_ho_params)                               :: p_phys_param
-    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
-    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     INTEGER,   INTENT(in)     :: jstep, jstep0
     
 

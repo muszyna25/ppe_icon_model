@@ -227,10 +227,10 @@ CONTAINS
         & patch_2D%verts%owned,       &
         & n_zlev)
           
-        CALL output_ocean( patch_3d, ocean_state, external_data,          &
-          & datetime, .false.,                  &
-          & surface_fluxes, physics_parameters,             &
-          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients, &
+        CALL output_ocean( patch_3d, ocean_state,         &
+          & datetime,                  &
+          & surface_fluxes,              &
+          & ocean_ice,&
           & jstep, jstep0)
 
         ! Shift time indices for the next loop
@@ -329,6 +329,13 @@ CONTAINS
       CALL dbg_print('IceBudget: salt diff', &
       &              saltAfter - saltBefore , &
       &              debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
+
+      CALL output_ocean( patch_3D,   &
+        &                p_os(n_dom),&
+        &                datetime,   &
+        &                surface_fluxes,  &
+        &                p_ice,      &
+        &                jstep, jstep0)
     END DO
     
     !CALL timer_stop(timer_total)

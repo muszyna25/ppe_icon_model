@@ -2440,7 +2440,6 @@ CONTAINS
       &                    * SUM(p_ice%hi(:,:,:)*p_ice%conc(:,:,:),2) &
       &                    * p_patch%cells%area(:,:)
     saltInLiquidWater(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,2) &
-!     &                    * (v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:)) &
       &                    * p_ice%zUnderIce(:,:) &
       &                    * p_patch%cells%area(:,:)
 
