@@ -665,6 +665,7 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                       palvsh(jl,jk)*pmful(jl,jk)-                      &
                       zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk)+plude(jl,jk)))
               ptte(jl,jk)=ptte(jl,jk)+zdtdt
+              zcpten(jl,jk)=zdtdt*pcpen(jl,jk)
               ptte_cnv(jl,jk)=zdtdt
               zdqdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*              &
                         (pmfuq(jl,jk)+pmfdq(jl,jk)+plude(jl,jk)+       &
