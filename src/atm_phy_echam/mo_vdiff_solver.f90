@@ -821,6 +821,7 @@ CONTAINS
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew
     REAL(wp) :: zrhodz, zhexp, zlam, zcons23, z2geomf, zz2geo, zmix, ztkesq
+    REAL(wp) :: zcp, zpc
     REAL(wp) :: zvidis(kbdim)
     REAL(wp) :: zdis  (kbdim,klev)
     REAL(wp) :: zqflux(kbdim,klevp1)
@@ -940,17 +941,22 @@ CONTAINS
 
         zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
 
-        ! The following line must be consistent with that computing pcptgz in
-        ! the subroutine mo_turbulence_diag:atm_exchange_coeff concerning the
-        ! used specific heats.
+        zcp = cpd+(cpv-cpd)*pqm1(jl,jk) ! cp of moist air
+        zpc = pcd+(pcv-pcd)*pqm1(jl,jk) ! cp (hydrost.) or cv (non-hydrost.) of moist air
+
+        ! The computation of the new temperature must be consistent with the computation of
+        ! the static energy pcptgz in the subroutine mo_turbulence_diag:atm_exchange_coeff.
+        ! The same specific heat must be used.
         !
-!!$        ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk)) &   !
-!!$              & /(pcd+(pcv-pcd)*zqnew)                    ! <-- not consistent in r14442
+        ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk))/zcp
         !
-        ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk)) &      !
-              & /(cpd+(cpv-cpd)*pqm1(jl,jk))                 !
-        !
-        ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
+        ! Now derive the temperature tendency for constant pressure
+        ! conditions for the hydrostatic dycore (zcp/zpc=1) or the
+        ! non-hydrostatic dycore (zcp/zpc>1), where the mechanical work
+        ! (=expansion) is done later by the dynamics.
+        ! 
+        ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt *zcp/zpc
+
         ! When coupled with JSBACH: Correction of tte for snow melt
         IF (phy_config%ljsbach) THEN
           IF (jk == klev) ptte_vdf(jl,jk) = ptte_vdf(jl,jk)-ptte_corr(jl)
@@ -973,7 +979,7 @@ CONTAINS
       psh_vdiff(1:kproma) = 0._wp
       DO jk=itop,klev
         psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pdelpm1(1:kproma,jk)*rgrav* &
-        & (bb(1:kproma,jk,ih) + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
+        & (bb(1:kproma,jk,ih) + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk) + zdis(1:kproma,jk)) * zrdt
       END DO
     END IF
     !-------------------------------------------------------------
