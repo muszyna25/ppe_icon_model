@@ -1364,8 +1364,12 @@ CONTAINS
       END DO
     END DO
 
-    ! decrease of temperature from top to bottom
-    CALL increaseTracerLevelsLinearly(patch_3d, ocean_tracer=ocean_temperature, &
+    ! adjust temperature from top to bottom linearly with index of levels
+    !CALL increaseTracerLevelsLinearly(patch_3d, ocean_tracer=ocean_temperature, &
+    !  & bottom_value=initial_temperature_bottom)
+
+    ! adjust temperature from top to bottom vertically linear
+    CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
       & bottom_value=initial_temperature_bottom)
 
   END SUBROUTINE temperature_smoothAPE
