@@ -7,28 +7,55 @@ import pylab,numpy,dateutil.parser
 
 
 # ==============================================================================
+# USAGE {{{
+def usage():
+  return """
+  # USAGE =====================================================================
+  #
+  #   ./archive.py EXP=<expname> FILEPATTERN=<pattern> ARCHDIR=<dir> TAG=<rxxxxx>
+  #
+  # ===========================================================================
+  #
+  # expname     : string for naming things
+  # tag         : additional placeholder, e.g. for revisions, if not used, set it to ''
+  # filepattern : quoted wildcard for model result relative to the 'experiments' dir
+  # archdir     : directory, where the archived data is placed (default: ./archive)
+  #
+  # more options are (keys area llways uppercase)
+  # DEBUG       : False/True
+  # CALCPSI     : path, where to find the psi calculation and plotting scipt
+  # ICONPLOT    : call for icon_plot.ncl, default is 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools'
+  #
+  # #
+  # !!!! THIS SCRIPT IS MEANT TO BE STARTED IN THE MODEL RESULTS DIRECTORY !!!!
+  """
+# }}}
 # OPTION HANDLING {{{ =========================================================
-options = {
-            'ARCHDIR'     : './archive',
-            'EXP'         : 'oce_mpiom',
-            'FILEPATTERN' : 'oce_mpiom/oce_mpiom_*.nc*',
-            'DEBUG'       : False,
-            'FORCE'       : False,
-            'CALCPSI'     : '/scratch/mpi/CC/mh0287/users/m300064/src/icon-HEAD/scripts/postprocessing/tools/calc_psi.py',
-            'TAG'         : 'r1xxxx',
-            'ICONPLOT'    : 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools',
-            'PROCS'       : 8,
-           }
+def parseOptions():
+  options = {
+              'ARCHDIR'     : './archive',
+              'EXP'         : 'oce_mpiom',
+              'FILEPATTERN' : 'oce_mpiom/oce_mpiom_*.nc*',
+              'DEBUG'       : False,
+              'FORCE'       : False,
+              'CALCPSI'     : '/scratch/mpi/CC/mh0287/users/m300064/src/icon-HEAD/scripts/postprocessing/tools/calc_psi.py',
+              'TAG'         : 'r1xxxx',
+              'ICONPLOT'    : 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools',
+              'PROCS'       : 8,
+              'JOBISRUNNING': True,
+              'DRYRUN'      : False,
+             }
 
-optsGiven = sys.argv[1:]
-for optVal in optsGiven:
-    key,value    = optVal.split('=')
-    if key in ['FORCE','DEBUG']:
-        value = value.lower() in ['true','1']
-    if 'PROCS' == key:
-      value = int(value)
+  optsGiven = sys.argv[1:]
+  for optVal in optsGiven:
+      key,value    = optVal.split('=')
+      if key in ['FORCE','DEBUG','JOBISRUNNING','DRYRUN']:
+          value = value.lower() in ['true','1']
+      if 'PROCS' == key:
+        value = int(value)
 
-    options[key] = value
+      options[key] = value
+  return options
 # }}}
 # HELPER METHODS {{{ =========================================================== 
 def dbg(obj):
@@ -47,7 +74,9 @@ def doExit(value=0):
   sys.exit(value)
 
 "" " load the last archiving status ir available """
-def loadLog():
+def loadLog(options):
+  if options['FORCE']:
+    os.remove(LOGFILE)
   if os.path.exists(LOGFILE):
     dbg("Load last status from LOGFILE")
     LOG = json.load(open(LOGFILE))
@@ -57,10 +86,6 @@ def loadLog():
     LOG = {}
 
   return LOG
-
-""" get year from yearly output file """
-def yearFrom(yfilename):
-  return os.path.basename(yfilename).split('.')[0].split('_')[-1]
 
 """ append list of image together """
 def collectImageToMapByRows(images,columns,ofile):
@@ -93,8 +118,10 @@ def showyear(file):
 """ collect the years, which aree stored in to files """
 def scanFilesForTheirYears(fileList,procs,log):
 
-  log['yearsOfFiles'] = {}
-  pool = multiprocessing.Pool(14)
+  if not log.has_key('yearsOfFiles'):
+    log['yearsOfFiles'] = {}
+
+  pool = multiprocessing.Pool(procs)
   lock = multiprocessing.Lock()
   results = []
 
@@ -110,13 +137,74 @@ def scanFilesForTheirYears(fileList,procs,log):
 
   pool.close()
   pool.join()
-# }}}
-# INTERNALS {{{ ================================================================
-LOGFILE         = 'archive.log'
-LOG             = loadLog();dbg(LOG)
-cdo             = Cdo()
-cdo.debug       = options['DEBUG']
-cdo.forceOutput = options['FORCE']
+
+  dumpLog()
+
+""" create yearly and yearMean filenames """
+def getFileNamesForYears(year,archdir,experimentInfo):
+  yearFile     = "%s/%s_%s.nc"%(archdir,experimentInfo,year)
+  yearMeanFile = "%s/%s_%s_mean.nc"%(archdir,experimentInfo,year)
+
+  return [yearFile, yearMeanFile]
+
+""" write a single file for a given years from a list of input files """
+def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInfo):
+  yearFile, yearMeanFile = getFileNamesForYears(year,archdir,experimentInfo)
+
+  if (not os.path.exists(yearFile) or forceOutput):
+    if (os.path.exists(yearFile)):
+      os.remove(yearFile)
+
+    catFiles = []
+    for ifile in ifiles:
+      ofile = "%s/_catFile_%s_%s"%(archdir,year,os.path.basename(ifile))
+      catFiles.append(cdo.selyear(year, input  = ifile, output = ofile))
+    if ( 1 == len(ifiles) ):
+      cdo.copy(input = catFiles[0], output = yearFile)
+    else:
+      cdo.cat(input = " ".join(catFiles), output = yearFile)
+
+    if (shouldComputeYearMean):
+      cdo.yearmean(input = yearFile,output = yearMeanFile,forceOutput = forceOutput)
+    else:
+      yearMeanFile = None
+        
+    map(lambda x: os.remove(x),catFiles)
+  else:
+    print("Use existing yearFile '%s'"%(yearFile))
+
+""" split input files into yearly files - compute yearmean if desired """
+def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,procs):
+  pool      = multiprocessing.Pool(procs)
+  yearFiles = []
+  for year,files in filesOfYears.iteritems():
+    yearFile        = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,True,expInfo])
+    yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
+    yearFiles.append([year,yearFile,yearMeanFile])
+
+  pool.close()
+  pool.join()
+
+  return yearFiles
+
+""" wrapper of 'cdo.yearmean' """
+def _cdoYearmean(ifile,ofile):
+  cdo.yearmean(input = ifile, output = ofile)
+
+""" compute yearmean of input """
+def computeYearMean(ifiles):
+  pool      = multiprocessing.Pool(procs)
+  yearFiles = []
+  for ifile in ifiles:
+    yearFile        = pool.apply_async(_cdoYearmean,[files,str(year),archdir,forceOutput,True,expInfo])
+    yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
+    yearFiles.append([year,yearMeanFile])
+
+  pool.close()
+  pool.join()
+
+  return yearFiles
+
 # }}}
 #=============================================================================== 
 # MAIN =========================================================================
@@ -132,105 +220,112 @@ cdo.forceOutput = options['FORCE']
 #   throughflows from total ym 
 #   glob. vertical mixing form total monmean
 #
-def usage():
-  return """
-  # USAGE =====================================================================
-  #
-  #   ./archive.py EXP=<expname> FILEPATTERN=<pattern> ARCHDIR=<dir> TAG=<rxxxxx>
-  #
-  # ===========================================================================
-  #
-  # expname     : string for naming things
-  # tag         : additional placeholder, e.g. for revisions, if not used, set it to ''
-  # filepattern : quoted wildcard for model result relative to the 'experiments' dir
-  # archdir     : directory, where the archived data is placed (default: ./archive)
-  #
-  # more options are (keys area llways uppercase)
-  # DEBUG       : False/True
-  # CALCPSI     : path, where to find the psi calculation and plotting scipt
-  # ICONPLOT    : call for icon_plot.ncl, default is 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools'
-  #
-  # #
-  # !!!! THIS SCRIPT IS MEANT TO BE STARTED IN THE MODEL RESULTS DIRECTORY !!!!
-  """
 #=============================================================================== 
-# Check input:
-#   options
+# INTERNALS {{{ ================================================================
+options         = parseOptions()
 dbg(options)
-#   are the files accessable?
-ifiles = glob.glob(options['FILEPATTERN'])
-dbg(ifiles); LOG['ifiles'] = ifiles
-if 0 == len(ifiles):
+LOGFILE         = 'archive.log'
+LOG             = loadLog(options)
+dbg(LOG)
+LOG['options']  = options
+cdo             = Cdo()
+cdo.debug       = options['DEBUG']
+cdo.forceOutput = options['FORCE']
+# }}}
+# -----------------------------------------------------------------------------
+# INPUT HANDLING: {{{
+# are the files accessable?
+iFiles = glob.glob(options['FILEPATTERN'])
+
+# SKIP the last file, if the job is still running
+if options['JOBISRUNNING']:
+  iFiles.pop()
+dbg(iFiles)
+if 0 == len(iFiles):
   print usage()
   print("Could not find any result files!")
-  exit(1)
+  doExit(1)
 else:
-  print("will use \n" + "\n".join(ifiles))
+  print("will use \n" + "\n".join(iFiles))
+
 # is the archive dir accessable
 if not os.path.isdir(options['ARCHDIR']):
   os.makedirs(options['ARCHDIR'])
+
+# look for new files (process only those, unless the FORCE options is not set
+if LOG.has_key('yearsOfFiles'):
+  processedFiles = LOG['yearsOfFiles'].keys()
+else:
+  processedFiles = []
+newFiles = set(iFiles) ^ set(processedFiles)
+dbg("New Files found:");dbg(newFiles)
+
+# get the data dir from iFiles for later use
+LOG['dataDir'] = os.path.dirname(iFiles[0])
+# }}}
 # =======================================================================================
 # DATA SPLITTING {{{ ====================================================================
-#TODO:
-# scanFilesForTheirYears(ifiles,options['PROCS'],LOG)
-# dbg(LOG)
-# doExit()
+if options['FORCE']:
+  scanFilesForTheirYears(iFiles,options['PROCS'],LOG)
+else:
+  scanFilesForTheirYears(newFiles,options['PROCS'],LOG)
+dbg(LOG['yearsOfFiles'])
 
-if (options['FORCE'] or ('splityear?' in LOG.keys() and (False == LOG['splityear?']))):
-  try:
-       
-    if os.path.isdir(options['ARCHDIR']):
-      dbg("remove ARCHDIR: "+options['ARCHDIR'])
-      shutil.rmtree(options['ARCHDIR'])
-      os.makedirs(options['ARCHDIR'])
+# compute all contributing simulation years
+allYears = set(); _allYears = LOG['yearsOfFiles'].values()
+for years in _allYears:
+  allYears.update(years)
+allYears = list(allYears)
+allYears.sort()
+# drop the last one if job is running
+if options['JOBISRUNNING']:
+  allYears.pop()
+dbg(allYears)
+# collect all files, which contain data for given years
+filesOfYears = {}
+for year in allYears:
+  yearFiles = []
+  for _file, _years in LOG['yearsOfFiles'].iteritems():
+    if year in _years:
+      yearFiles.append(_file)
+  dbg(yearFiles)
+  filesOfYears[year] = yearFiles
+LOG['filesOfYears'] = filesOfYears
 
-    cdo.splityear(input  = "-cat '%s'"%(options['FILEPATTERN']),
-                  output = '/'.join([options['ARCHDIR'],options['EXP']+'_']),
-                  options = '-v')
-    LOG['splityear?'] = True
-    LOG['splitfiles'] = glob.glob('/'.join([options['ARCHDIR'],options['EXP']+'_'])+'*')
+if options['DRYRUN']:
+  doExit()
 
-    # some error handling: cdo puts a '*' at the end, if its at the end of the pattern'
-    for i,f in enumerate(LOG['splitfiles']):
-      if '*' == f[-1]:
-        shutil.move(f,f[0:-1])
-        LOG['splitfiles'][i] = f[0:-1]
-    LOG['years'] = map(lambda x: yearFrom(x), LOG['splitfiles'])
-    for year in LOG['years']:
-      yearlyFile  = '/'.join([options['ARCHDIR'],options['EXP']+'_'])+year+'.nc'
-      if os.path.exists(yearlyFile):
-        LOG[year] = yearlyFile
+# process each year separately: collect yearly data, compute year mean files
+splitInfo = splitFilesIntoYears(LOG['filesOfYears'],
+                                options['ARCHDIR'],
+                                options['FORCE'],
+                                options['EXP'],
+                                options['PROCS'])
+years, yearMeanFiles = [],[]
+for _info in splitInfo:
+  year,yearlyFile,yearMeanFile = _info[0], _info[1], _info[2]
+  LOG[year] = yearlyFile
+  years.append(year)
+  yearMeanFiles.append(yearMeanFile)
 
-    dumpLog()
-
-  except:
-    print("splityear failed somehow")
-    LOG['splityear?'] = False
-    doExit(1)
-
+years.sort()
+yearMeanFiles.sort()
+LOG['years']      = years
+LOG['splityear?'] = True
+dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
-# COMPUTE YEARMEAN FILES {{{ ============================================================
+# COMPUTE SINGLE YEARMEAN FILES {{{ ============================================================
 ymFile = '/'.join([options['ARCHDIR'],'_'.join([options['EXP'],'yearmean.nc'])])
-if not os.path.exists(ymFile):
-  def _createYearMeanOf(ifile,ofile):
-    cdo.yearmean(input=ifile,output=ofile)
-
-  ymFiles = []
-  pool  = multiprocessing.Pool(options['PROCS'])
-  for f in LOG['splitfiles']:
-    ofile = '/'.join([options['ARCHDIR'],"ym_"+os.path.basename(f)])
-    pool.apply_async(_createYearMeanOf,[f,ofile])
-    ymFiles.append(ofile)
-
-  pool.close()
-  pool.join()
-
-  cdo.cat(input=" ".join(ymFiles),output=ymFile)
+if ( not os.path.exists(ymFile) or options['FORCE'] ):
+  if (os.path.exists(ymFile)):
+    os.remove(ymFile)
+  cdo.cat(input=" ".join(yearMeanFiles),output=ymFile)
   # rm ymFiles
-  map(lambda x: os.remove(x),ymFiles)
+  #map(lambda x: os.remove(x),ymFiles)
 else:
   print("Use existing ymFile: "+ymFile)
+#doExit()
 # }}} ===================================================================================
 # PREPARE INPUT FOR PSI CALC {{{
 # collect the last 20 years if there are more than 40 years, last 10 otherwise
@@ -239,9 +334,10 @@ if len(LOG['years']) > 40:
 else:
   nyears4psi = 10
 years4Psi = LOG['years'][-(nyears4psi+2):-1]
+dbg(LOG['years'])
 dbg(years4Psi)
-uvintName = 'u_vint_acc'
 yearInfo = '-'.join([years4Psi[0],years4Psi[-1]])
+uvintName = "u_vint_acc"
 uvintFile = '/'.join([options['ARCHDIR'],'_'.join([uvintName,yearInfo])+'.nc'])
 cdo.timmean(input = "-selname,%s -selyear,%s/%s %s"%(uvintName,years4Psi[0],years4Psi[-1],ymFile),
             output = uvintFile)
@@ -287,14 +383,14 @@ regioMasks    = {}
 for location, regioCode in regioCodes.iteritems():
   ofile     = '/'.join([options['ARCHDIR'],'_'.join(['regioMask',location])+'.nc'])
   ofileTemp = '/'.join([options['ARCHDIR'],'_'.join(['_regioMask',location])+'.nc'])
-  cdo.eqc(regioCode,input = '-selname,%s -seltimestep,1 %s'%(regioMaskVar,LOG['ifiles'][0]),output = ofileTemp)
+  cdo.eqc(regioCode,input = '-selname,%s -seltimestep,1 %s'%(regioMaskVar,iFiles[0]),output = ofileTemp)
   regioMasks[location] = cdo.div(input = '%s %s'%(ofileTemp,ofileTemp),output = ofile)
 # create the mask from 3d mask wet_c
 regioVertMasks    = {}
 for depth in regioDepths:
   depth = str(depth)
   ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioVertMask',depth+'m'])+'.nc'])
-  regioVertMasks[depth] = cdo.sellevel(depth,input = '-div -selname,wet_c -seltimestep,1 %s -selname,wet_c -seltimestep,1 %s'%(LOG['ifiles'][0],LOG['ifiles'][0]),output = ofile)
+  regioVertMasks[depth] = cdo.sellevel(depth,input = '-div -selname,wet_c -seltimestep,1 %s -selname,wet_c -seltimestep,1 %s'%(iFiles[0],iFiles[0]),output = ofile)
 # compute the regional mean values
 for location, regioCode in regioCodes.iteritems():
   regioMeanData[location] = {}
@@ -321,9 +417,9 @@ if not os.path.exists(plotFile):
 # }}}
 # DRAKE FLOW {{{
 # cat all diagnostics together
-diagnosticFiles  = glob.glob("oce_diagnostics-*txt")
+diagnosticFiles  = glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"]))
 diagnosticJoined = options['ARCHDIR']+'/'+'_'.join([options['EXP'],"diagnostics.txt"])
-
+dbg(diagnosticFiles)
 header     = open(diagnosticFiles[0],'r').readline().split(' ')
 dateIndex, drakeIndex  = header.index('date'), header.index('drake_passage')
 
