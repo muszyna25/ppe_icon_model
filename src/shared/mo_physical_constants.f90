@@ -154,7 +154,7 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: clw   = (rcpl + 1.0_wp) * cpd !> specific heat capacity of liquid water
   REAL(wp), PARAMETER :: cv_v  = (rcpv + 1.0_wp) * cpd - rv
   !
-  REAL(wp), PARAMETER :: O_m_rdv  = 1._wp-rd/rv   !> [ ]
+  REAL(wp), PARAMETER :: o_m_rdv  = 1._wp-rd/rv   !> [ ]
   REAL(wp), PARAMETER :: rd_o_cpd = rd/cpd        !! [ ]
   REAL(wp), PARAMETER :: cvd_o_rd = cvd/rd        !! [ ]
   !
