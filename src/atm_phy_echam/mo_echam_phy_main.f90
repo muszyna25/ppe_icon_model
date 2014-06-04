@@ -28,10 +28,11 @@ MODULE mo_echam_phy_main
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: grav, cpd, cpv
-  USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
+  USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
+  USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, ltimer
+  USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_o3,                  ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
@@ -224,8 +225,15 @@ CONTAINS
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
     !------------------------------------------------------------
 
-    zcd = cpd
-    zcv = cpv
+    ! Use constant volume or constant pressure specific heats for dry air and vapor
+    ! for the computation of temperature tendencies.
+    IF ( iequations == inh_atmosphere ) THEN
+      zcd = cvd
+      zcv = cvv
+    ELSE
+      zcd = cpd
+      zcv = cpv
+    END IF
 
     DO jk = 1,nlev
       DO jc = jcs,jce
