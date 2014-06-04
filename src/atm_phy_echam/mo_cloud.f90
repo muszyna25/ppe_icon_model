@@ -58,8 +58,7 @@ MODULE mo_cloud
 
 USE mo_kind,               ONLY : wp
 USE mo_math_constants,     ONLY : pi
-USE mo_physical_constants, ONLY : grav, rd, alv, als, rv, vtmpc1, tmelt, cpd     &
-                                , vtmpc2, rhoh2o
+USE mo_physical_constants, ONLY : grav, rd, alv, als, rv, vtmpc1, tmelt, rhoh2o
 USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_spline    &
                                 , lookup_uaw_spline, lookup_ubc                  &
                                 , lookup_ua_eor_uaw_spline
@@ -93,7 +92,8 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
 !                         , icover                                                &
 ! - INPUT  2D .
                          , paphm1                                                &
-                         , papm1,  papp1                                         & 
+                         , papm1                                                 &
+!                         , papp1                                                 & 
                          , ptm1,   ptvm1,   pgeo,   pvervel                      &
                          , pacdnc                                                &
                          , pqm1,   pxlm1,   pxim1, pcair                         &
@@ -102,7 +102,7 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
 !                         , pgeo,       pbetass                                   &
 !                         , paphp1   (cloud_subm)                                 &
 ! - INPUT  1D .
-                         , knvb,   pcd,    pcv                                   &
+                         , knvb                                                  &
 ! - INPUT  3D .
 !                         , pxtm1  (tracer)                                       &
 ! - INPUT/OUTPUT 2D .
@@ -128,12 +128,12 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
   INTEGER,  INTENT(IN)    :: kproma, kbdim, ktdia, klev, klevp1
 !  INTEGER,  INTENT(IN)    :: icover
   INTEGER,  INTENT(IN)    :: knvb(kbdim)
-  REAL(wp), INTENT(IN)    :: pdelta_time, ptime_step_len, pcd, pcv
+  REAL(wp), INTENT(IN)    :: pdelta_time, ptime_step_len
   REAL(wp), INTENT(IN)    ::       &
       & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                        (n-1)
       & pvervel  (kbdim,klev)     ,&!< vertical velocity in pressure coordinate       (n)
       & papm1    (kbdim,klev)     ,&!< pressure at full levels                        (n-1)
-      & papp1    (kbdim,klev)     ,&!< pressure at full levels                        (n+1)
+!      & papp1    (kbdim,klev)     ,&!< pressure at full levels                        (n+1)
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
       & pqm1     (kbdim,klev)     ,&!< specific humidity                              (n-1)
       & ptm1     (kbdim,klev)     ,&!< temperature                                    (n-1)
@@ -225,7 +225,7 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
            , zdtdt(kbdim)         ,zstar1(kbdim)        ,zlo2(kbdim)             &
            , ua(kbdim)            ,dua(kbdim)           ,za(kbdim)               &
            , uaw(kbdim)           ,duaw(kbdim)                                   &
-           , zcpq(kbdim)          ,zclten(kbdim)        ,zcpten(kbdim,klev)
+           , zclten(kbdim)        ,zcpten(kbdim,klev)
   REAL(wp):: zrho(kbdim,klev)
 !
   INTEGER:: loidx(kbdim), nloidx(kbdim), jjclcpre(kbdim)
@@ -240,7 +240,7 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
 
   REAL(wp):: zbqp1, zbbap1, ztt, zgent, zdqsat, zqcdif, zfrho, zqp1b, zbetai0    &
            , zbetai1, zskewp1, zvarp1, zifrac, zvarmx, zdtime, zepsec, zxsec     &
-           , zqsec, ztmst, zcons2, zrcp, zcons, ztdif, zsnmlt, zclcstar          &
+           , zqsec, ztmst, zcons2, zrc, zcons, ztdif, zsnmlt, zclcstar           &
            , zdpg, zesi, zalpha, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat  &
            , zqsw, zsusatw, zdv, zast, zbst, zzepr, zxip1, zxifall, zal1, zal2   &
            , zlc, zdqsdt, zlcdqsdt, zdtdtstar, zxilb, zrelhum, zqtau, zpp, zqq   &
@@ -249,8 +249,7 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
            , zcolleffi, zc1, zdt2, zsaut, zsaci1, zsaci2, zsacl1, zsacl2, zlamsm &
            , zzdrr, zzdrs, zpretot, zpredel, zpresum, zmdelb, zmqp1, zxlp1       &
            , zxlold, zxiold, zdxicor, zdxlcor, zptm1_inv, zxlp1_d, zxip1_d       &
-           , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, za1, zxitop, zxibot  &
-           , zcons1
+           , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, za1, zxitop, zxibot
 !!$ used in Revised Bergeron-Findeisen process only  
 !!$  REAL(wp):: zzevp, zeps
 !!$  REAL(wp):: zsupsatw(kbdim)
@@ -325,9 +324,6 @@ icover = 1
 !
   zdtime = REAL(pdelta_time,wp)
   ztmst  = REAL(ptime_step_len,wp)
-!  zdtime = delta_time
-!  ztmst  = time_step_len
-  zcons1 = cpd*vtmpc2
   zcons2 = 1._wp/(ztmst*grav)
 !
 !     ---------------------------------------------------------------------------
@@ -395,11 +391,10 @@ icover = 1
 
         zdp(jl)        = paphm1(jl,jk+1)-paphm1(jl,jk)
         zdz(jl)        = (zgeoh(jl,jk)-zgeoh(jl,jk+1))/grav
-        zcpq(jl)       = cpd+zcons1*MAX(pqm1(jl,jk),0.0_wp)
 
-        zrcp           = 1._wp/(pcd+(pcv-pcd)*MAX(pqm1(jl,jk),0.0_wp))
-        zlvdcp(jl)     = alv*zrcp
-        zlsdcp(jl)     = als*zrcp
+        zrc            = 1._wp/pcair(jl,jk)
+        zlvdcp(jl)     = alv*zrc
+        zlsdcp(jl)     = als*zrc
 201  END DO
 !
 !     ----------------------------------------------------------------------------
@@ -706,9 +701,6 @@ icover = 1
 !IBM* NOVECTOR
      DO 500 jl = 1,kproma
 
-        zrcp        = 1._wp/(pcd+(pcv-pcd)*MAX(pqm1(jl,jk),0.0_wp))
-        zlvdcp(jl)  = alv*zrcp
-        zlsdcp(jl)  = als*zrcp
         zlc         = FSEL(zlo2(jl),zlsdcp(jl),zlvdcp(jl))
         zua         = FSEL(zlo2(jl),ua(jl),uaw(jl))
         zdua        = FSEL(zlo2(jl),dua(jl),duaw(jl))
@@ -1554,9 +1546,10 @@ icover = 1
                         -zsacl(jl)+zcnd(jl)+zgentl(jl)-zxlevap(jl))/ztmst
         pxite(jl,jk) = pxite(jl,jk)+pxteci(jl,jk)+(zfrl(jl)-zspr(jl)+zdep(jl)    &
                         +zgenti(jl)-zxievap(jl)-zimlt(jl)+zqsed(jl))/ztmst
-        zcpten(jl,jk) = (zlvdcp(jl)*(zcnd(jl)+zgentl(jl)-zevp(jl)-zxlevap(jl)) &
-                        +zlsdcp(jl)*(zdep(jl)+zgenti(jl)-zsub(jl)-zxievap(jl)) &
-                        +(zlsdcp(jl)-zlvdcp(jl))*(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)))/ztmst
+        zcpten(jl,jk) = ( zlvdcp(jl)*(zcnd(jl)+zgentl(jl)-zevp(jl)-zxlevap(jl))  &
+                        + zlsdcp(jl)*(zdep(jl)+zgenti(jl)-zsub(jl)-zxievap(jl))  &
+                        +(zlsdcp(jl)-zlvdcp(jl))                                 &
+                        *(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)))/ztmst
 820  END DO
 
 !IBM* NOVECTOR
@@ -1586,7 +1579,11 @@ icover = 1
         pqte(jl,jk)    = pqte(jl,jk) - zdxlcor - zdxicor
         ptte(jl,jk)    = ptte(jl,jk) + zlvdcp(jl)*zdxlcor + zlsdcp(jl)*zdxicor
         pclcpre(jl,jk) = zclcpre(jl)
-        zcpten(jl,jk)  = zcpq(jl)*(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor)
+
+        ! Here mulitply with the same specific heat as used in the definition
+        ! of zlvdcp and zlsdcp ( =Lv/(cp or cv) and Ls/(cp or cv) ) in order
+        ! to obtain the specific heating by cloud processes in [W/kg].
+        zcpten(jl,jk)  = pcair(jl,jk)*(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor)
 !
 821  END DO
 !

@@ -1353,7 +1353,7 @@ CONTAINS
           &        pdtime, psteplen,         &! in
           &        field% presi_old(:,:,jb), &! in
           &        field% presm_old(:,:,jb), &! in
-          &        field% presm_new(:,:,jb), &! in
+!          &        field% presm_new(:,:,jb), &! in
           &        field% temp (:,:,jb),     &! in. tm1
           &        field%   tv (:,:,jb),     &! in. ztvm1
           &        field% geom (:,:,jb),     &! in. geom1
@@ -1364,8 +1364,6 @@ CONTAINS
           &        field% q(:,:,jb,iqi),     &! in. xim1
           &        zcair(:,:),               &! in
           &        invb,                      &! in (from "cover")
-          &        zcd,                      &! in
-          &        zcv,                      &! in
           &        field% ch_concloud(:,jb), &! inout condens. heat
           &        zqtec,                     &! inout (there is a clip inside)
 !          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
