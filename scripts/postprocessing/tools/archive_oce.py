@@ -50,7 +50,7 @@ def parseOptions():
   for optVal in optsGiven:
       key,value    = optVal.split('=')
       if key in ['FORCE','DEBUG','JOBISRUNNING','DRYRUN']:
-          value = value.lower() in ['true','1']
+        value = value.lower() in ['true','1']
       if 'PROCS' == key:
         value = int(value)
 
@@ -73,7 +73,7 @@ def doExit(value=0):
   dumpLog()
   sys.exit(value)
 
-"" " load the last archiving status ir available """
+""" load the last archiving status ir available """
 def loadLog(options):
   if options['FORCE']:
     os.remove(LOGFILE)
@@ -87,7 +87,7 @@ def loadLog(options):
 
   return LOG
 
-""" append list of image together """
+""" append list of image together """ #{{{
 def collectImageToMapByRows(images,columns,ofile):
   imageMap     = {}
   imageColumns = {}
@@ -109,13 +109,13 @@ def collectImageToMapByRows(images,columns,ofile):
   cmd = "convert -append %s %s"%(' '.join(imageMap.values()),ofile)
   dbg(cmd)
   subprocess.check_call(cmd,shell=True,env=os.environ)
-  map(lambda x: os.remove(x),imageMap.values())
+  map(lambda x: os.remove(x),imageMap.values()) #}}}
 
 """ warpper around cdo showyear for multiprocessing """
 def showyear(file):
   return cdo.showyear(input = file)[0].split(' ')
 
-""" collect the years, which aree stored in to files """
+""" collect the years, which aree stored in to files """ #{{{
 def scanFilesForTheirYears(fileList,procs,log):
 
   if not log.has_key('yearsOfFiles'):
@@ -138,7 +138,7 @@ def scanFilesForTheirYears(fileList,procs,log):
   pool.close()
   pool.join()
 
-  dumpLog()
+  dumpLog() #}}}
 
 """ create yearly and yearMean filenames """
 def getFileNamesForYears(year,archdir,experimentInfo):
@@ -147,7 +147,7 @@ def getFileNamesForYears(year,archdir,experimentInfo):
 
   return [yearFile, yearMeanFile]
 
-""" write a single file for a given years from a list of input files """
+""" write a single file for a given years from a list of input files """ #{{{
 def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInfo):
   yearFile, yearMeanFile = getFileNamesForYears(year,archdir,experimentInfo)
 
@@ -172,6 +172,7 @@ def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInf
     map(lambda x: os.remove(x),catFiles)
   else:
     print("Use existing yearFile '%s'"%(yearFile))
+#}}}
 
 """ split input files into yearly files - compute yearmean if desired """
 def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,procs):
