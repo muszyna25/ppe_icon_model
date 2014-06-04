@@ -618,7 +618,6 @@ CONTAINS
                                         !< advection scheme applicable to a height      
                                         !< based coordinate system (coeff_grid=-1)
 
-!DR    REAL(wp) :: cfl_m_max, cfl_p_max !< maximum Courant number from both sides
     !-----------------------------------------------------------------------
 
     ! check optional arguments
@@ -834,12 +833,6 @@ CONTAINS
     END DO
 !$OMP END DO
 
-!DR  cfl_p_max=MAXVAL(z_cfl_p(:,34:54,:))
-!DR  cfl_m_max=MAXVAL(z_cfl_m(:,34:54,:))
-!DR  WRITE(message_text,'(a,e16.8)') 'CFL_P MAX', cfl_p_max
-!DR  CALL message('vertical_upwind_flux',message_text)
-!DR  WRITE(message_text,'(a,e16.8)') 'CFL_M MAX', cfl_m_max
-!DR  CALL message('vertical_upwind_flux',message_text)
 
 
     !

@@ -783,33 +783,6 @@ CONTAINS
            bf_cc(2,2) = MERGE(ptr_bfcc(je,jb,1,2)%lat,         &
              &                ptr_bfcc(je,jb,2,2)%lat, lvn_pos ) 
 
-!DRWRITE(0,*)
-!DRWRITE(0,*) "x: dreg_patch0(je,1:4,1,jk,jb): ", dreg_patch0(je,1:4,1,jk,jb)
-!DRWRITE(0,*) "y: dreg_patch0(je,1:4,2,jk,jb): ", dreg_patch0(je,1:4,2,jk,jb)
-!DRWRITE(0,*)
-!DRWRITE(0,*) "x: dreg_patch1(je,1:4,1,jk,jb): ", dreg_patch1(je,1:4,1,jk,jb)
-!DRWRITE(0,*) "y: dreg_patch1(je,1:4,2,jk,jb): ", dreg_patch1(je,1:4,2,jk,jb)
-!DRWRITE(0,*) "cell center of underlying cell (patch1) (x,y): ", bf_cc(1,1:2)
-!DRWRITE(0,*)
-!DRWRITE(0,*) "x: dreg_patch2(je,1:4,1,jk,jb): ", dreg_patch2(je,1:4,1,jk,jb)
-!DRWRITE(0,*) "y: dreg_patch2(je,1:4,2,jk,jb): ", dreg_patch2(je,1:4,2,jk,jb)
-!DRWRITE(0,*) "cell center of underlying cell (patch2) (x,y): ", bf_cc(2,1:2)
-!DRWRITE(0,*)
-!DRWRITE(0,*) "up_vert1 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,1)%lon,          &
-!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,1)%lon,lvn_pos), &
-!DR  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,1)%lat,          &
-!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,1)%lat,lvn_pos)
-!DRWRITE(0,*) "up_vert2 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,2)%lon,          &
-!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,2)%lon,lvn_pos), &
-!DR  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,2)%lat,          &
-!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,2)%lat,lvn_pos)
-!DRWRITE(0,*) "up_vert3 (x,y): ",MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,3)%lon,          &
-!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,3)%lon,lvn_pos), &
-!DR  &                           MERGE(p_int%pos_on_tplane_c_edge(je,jb,1,3)%lat,          &
-!DR  &                                 p_int%pos_on_tplane_c_edge(je,jb,2,3)%lat,lvn_pos)
-!DRWRITE(0,*)
-!DRWRITE(0,*) "system orientation, v_t: ", p_patch%edges%system_orientation(je,jb), p_vt(je,jk,jb)
-!DRWRITE(0,*)
 
            ! patch 1 in translated system
            !

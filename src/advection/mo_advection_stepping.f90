@@ -257,9 +257,6 @@ CONTAINS
       &  iidx, iblk                          !< of edges
 
 
-!AL   REAL(wp) :: z_min, z_max
-!DR   CHARACTER(LEN=MAX_CHAR_LENGTH) :: ctrdiag
-
    !-----------------------------------------------------------------------
 
     IF(ltimer) CALL timer_start(timer_transport)
@@ -825,17 +822,6 @@ CONTAINS
                                  & f4din=opt_ddt_tracer_adv )
     ENDIF
 
-!   output some diagnostics
-!DR     DO jk = 1, nlev
-!DR      WRITE(0,'(2X,I2)') jk
-!DR      DO jt = 1, ntracer
-!DR        z_min = MINVAL( p_tracer_new(:,jk,:,jt) )
-!DR        z_max = MAXVAL( p_tracer_new(:,jk,:,jt) )
-!DR        WRITE( 0,'(I1,A2,E16.9,2X,E16.9)' )  &
-!DR          &  jt, ": ", z_min, z_max
-!DR      END DO
-!DR      WRITE(6,'(A)') TRIM(ctrdiag)
-!DR     END DO
 
   IF (ltimer) CALL timer_stop(timer_transport)
 
