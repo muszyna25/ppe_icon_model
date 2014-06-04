@@ -1,28 +1,45 @@
 README file for ICON
 ====================
+
 Marco Giorgetta, MPI-M,  2011-01-27
+Modified: D. Reinert, F. Prill (DWD, 2014-06-04)
 
-Valid for revision 3272 on "trunk/icon-dev"
+This directory contains scripts and source codes of the ICON framework.
+This README file guides through the initial steps for getting started
+with a first experiment.
 
-Tested:
+Table of Contents:
+
+A) Building the model
+B) Construct grids
+C) Run a pre-defined experiment file
+D) Running other real-data tests (DWD example scripts)
+
+
+- See Sections B) - C) for a description of running experiments
+  pre-defined in the "/run" subdirectory.
+
+- See Section D) for some remarks on running real-data tests in the
+  DWD computing environment.
+
+
+
+
+#-----------------------------------------------------------------------------
+
+General Remarks.
+
+Sections A) - C) are tested for the following configurations:
+(valid for revision 3272 on "trunk/icon-dev")
+
 - "./configure" + "./build_command" on Blizzard, Tornado and Squall
 - experiment "exp.test_hat_jww.run" on Blizzard, Tornado and Squall
 - "make index" on Squall and Tornado
 - "make doc" tested on Squall (software missing on Tornado)
 
-#-----------------------------------------------------------------------------
 
-This README file guides through the initial steps for getting started
-with a first experiment.
 
 #-----------------------------------------------------------------------------
-
-This directory contains scripts and source codes of the ICON framework.
-To begin working with ICON models, a number of steps are necessary:
-
-A) Building the model
-B) Construct grids
-C) Run an experiment
 
 
 A) Building the model
@@ -100,6 +117,16 @@ your web browser.
 
 B) Construct grids
 ==================
+
+--------------------------------------------------------------------------------
+Please note:
+
+The following description is related to the MPI-M version of the ICON
+grid generator. For remarks on the basic (slightly different) grid
+creation procedure see the ICON user guide.
+--------------------------------------------------------------------------------
+
+
 The ICON horizontal spherical grid is based on the projection of the icosahedron
 on the sphere. The initial icosahedron grid is refined by <n>-secting the edges,
 and further refinement is obtained by iteratively bisecting the created edges.
@@ -201,4 +228,24 @@ The regular grid file can be viewed for example with GrADS.
 N.B.: ICON data files include an absolute time axis, but GrADS
       needs a relative time axis. A conversion is achieved by
       the "-r" option used above with the cdo remapping command.
+
+
+D) Running other real-data tests
+================================
+
+The general procedure of creating the ICON binary and setting up
+real-data experiments is described in the ICON user manual,
+cf. "doc/userguide".
+
+Best practice settings for a real-data test case have been collected
+in the experiment file "run/exp.nh_oper".  This run script is intended
+to be used like in Section C.
+
+Further stand-alone example scripts that contain basic namelist
+settings as well as batch queuing settings for the DWD Cray XC30
+platform can be found in the subdirectory
+"/run/checksuite.xce.dwd.de/".  
+See the comments in these run scripts for details.
+
+
 
