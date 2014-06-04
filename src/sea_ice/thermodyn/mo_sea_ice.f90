@@ -98,6 +98,7 @@ MODULE mo_sea_ice
   PUBLIC :: calc_bulk_flux_ice
   PUBLIC :: calc_bulk_flux_oce
   PUBLIC :: update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
+  PUBLIC :: ice_budgets
 
   !to be put into namelist
   !  INTEGER :: i_no_ice_thick_class = 1
@@ -1835,7 +1836,7 @@ CONTAINS
 
     ! Volmue flux
     ! Fixed 27. March
-    atmos_fluxes%FrshFlux_VolumeIce(:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime)    & ! Ice melt
+    atmos_fluxes%FrshFlux_VolumeIce(:,:) = -Delhice(:,:)* rhoi/(rho_ref*dtime) & ! Ice melt
       &                                 -Delhsnow(:,:)*rhos/(rho_ref*dtime)    & ! Snow melt
       &                                 + precw(:,:)*ice%concSum(:,:)          & ! Rain goes through
       &                                 - ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation
@@ -1843,7 +1844,7 @@ CONTAINS
     ! Tracer flux
     ! Fixed 27. March
     WHERE (v_base%lsm_c(:,1,:) <= sea_boundary )
-      atmos_fluxes%FrshFlux_TotalIce (:,:) = precw(:,:)*ice%concSum(:,:)        & ! Rain goes through
+      atmos_fluxes%FrshFlux_TotalIce (:,:) = precw(:,:)*ice%concSum(:,:)     & ! Rain goes through
         &       - (1._wp-sice/sss(:,:))*Delhice(:,:)*rhoi/(rho_ref*dtime)    & ! Ice melt
         &       - Delhsnow(:,:)*rhos/(rho_ref*dtime)                         & ! Snow melt
         &       - (1._wp-sice/sss(:,:))*ice%newice(:,:)*rhoi/(rho_ref*dtime)   ! New-ice formation                       
@@ -2374,19 +2375,19 @@ CONTAINS
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('CalcBulkO:stress_xw'       ,atmos_fluxes%stress_xw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:stress_yw'       ,atmos_fluxes%stress_yw  ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:tafoK'           ,tafoK           ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:sphumida'        ,sphumida        ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:rhoair'          ,rhoair          ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    idt_src=3  ! output print level (1-5, fix)                                                                    
-    CALL dbg_print('CalcBulkO:Tsurf ocean'     ,Tsurf           ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:Tsurf ocean (nnew)', &
-      &     p_os%p_prog(nnew(1))%tracer(:,1,:,1), str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:atmos_fluxes%LWnetw'     ,atmos_fluxes%LWnetw     ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:atmos_fluxes%sensw'      ,atmos_fluxes%sensw      ,str_module,idt_src, in_subset=p_patch%cells%owned)
-    CALL dbg_print('CalcBulkO:atmos_fluxes%latw'       ,atmos_fluxes%latw       ,str_module,idt_src, in_subset=p_patch%cells%owned)
+    idt_src=4  ! output print level (1-5          , fix)
+    CALL dbg_print('CalcBulkO:stress_xw'          , atmos_fluxes%stress_xw, str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:stress_yw'          , atmos_fluxes%stress_yw, str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:tafoK'              , tafoK                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:sphumida'           , sphumida              , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:rhoair'             , rhoair                , str_module, idt_src, in_subset=p_patch%cells%owned)
+    idt_src=3  ! output print level (1-5          , fix)
+    CALL dbg_print('CalcBulkO:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:Tsurf ocean (nnew)' , p_os%p_prog(nnew(1))%tracer(:,1,:,1), &
+      &                                                                     str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:atmos_fluxes%LWnetw', atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:atmos_fluxes%sensw' , atmos_fluxes%sensw    , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('CalcBulkO:atmos_fluxes%latw'  , atmos_fluxes%latw     , str_module, idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE calc_bulk_flux_oce
@@ -2425,4 +2426,30 @@ CONTAINS
     CHARACTER(len=*) :: tag,routine
     IF (ist /= SUCCESS) CALL finish(TRIM(routine),'allocation of '//TRIM(tag)//' failed.')
   END SUBROUTINE finish_unless_allocate
+  FUNCTION ice_budgets(p_patch, p_ice, p_os, info) RESULT(salt)
+    TYPE(t_patch),POINTER                                 :: p_patch
+    TYPE (t_sea_ice),       INTENT(INOUT)                 :: p_ice
+    TYPE(t_hydro_ocean_state)                             :: p_os
+    CHARACTER(len=*)                                      :: info
+    REAL(wp), DIMENSION(nproma,p_patch%alloc_cell_blocks) :: salt
+
+    REAL(wp), DIMENSION(nproma,p_patch%alloc_cell_blocks) :: saltInSeaice, saltInLiquidWater
+
+    ! compute salt amount in the first layer
+    saltInSeaice(:,:)      = sice &
+      &                    * SUM(p_ice%hi(:,:,:)*p_ice%conc(:,:,:),2) &
+      &                    * p_patch%cells%area(:,:)
+    saltInLiquidWater(:,:) = p_os%p_prog(nold(1))%tracer(:,1,:,2) &
+!     &                    * (v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:)) &
+      &                    * p_ice%zUnderIce(:,:) &
+      &                    * p_patch%cells%area(:,:)
+
+    salt(:,:) = saltInSeaice + saltInLiquidWater
+
+    CALL dbg_print('IceBudget: salt '//TRIM(info)  , &
+      &            salt , &
+      &            str_module, 5, in_subset=p_patch%cells%owned)
+    !
+    ! compute liquid volume in the first layer incl. water prepresentative of sea ice
+  END FUNCTION ice_budgets
 END MODULE mo_sea_ice

@@ -54,7 +54,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
     & destruct_atmos_fluxes,&
     & destruct_sea_ice,  &
-    & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
+    & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics, ice_budgets
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
@@ -267,7 +267,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
-    REAL(wp):: draft(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: draft, saltBefore, saltAfter
     INTEGER :: jstep, jg, jtrc
     !INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
@@ -315,9 +315,20 @@ CONTAINS
 
       ! Set model time.
       CALL add_time(dtime,0,0,0,datetime)
+
+      ! diagnostics BEFORE
+      saltBefore = ice_budgets(patch_2D, p_ice, p_os(n_dom),'BEFORE')
+
+      ! call component
       CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
         &  operators_coefficients)
 
+      ! diagnostics AFTER
+      saltAfter =  ice_budgets(patch_2D, p_ice, p_os(n_dom),'AFTER')
+
+      CALL dbg_print('IceBudget: salt diff', &
+      &              saltAfter - saltBefore , &
+      &              debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
     END DO
     
     !CALL timer_stop(timer_total)
