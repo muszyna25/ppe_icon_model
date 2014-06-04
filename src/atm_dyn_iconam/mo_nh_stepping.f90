@@ -299,6 +299,7 @@ MODULE mo_nh_stepping
       CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
 
       DO jg=1, n_dom
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         ! diagnostics which are only required for output 
         CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
           &                      ih_clch(jg), ih_clcm(jg),               & !in
@@ -616,6 +617,7 @@ MODULE mo_nh_stepping
         CALL diag_for_output_phys
 
         DO jg=1, n_dom
+          IF (.NOT. ldom_active(jg)) CYCLE
           ! diagnostics which are only required for output 
           CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
             &                      ih_clch(jg), ih_clcm(jg),               & !in
@@ -634,6 +636,7 @@ MODULE mo_nh_stepping
       ! Unit conversion for output from mass mixing ratios to densities
       !
       DO jg = 1, n_dom
+        IF (.NOT. ldom_active(jg)) CYCLE
         CALL art_tools_interface('unit_conversion',p_nh_state(jg),jg)
       END DO
     ENDIF
