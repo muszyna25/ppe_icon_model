@@ -76,7 +76,7 @@
   ts_ice             prm_tsfc_ice
   ts_lnd             prm_tsfc_lnd
 #
-  alb                prm_alb
+  alb                prm_albvisdir
 #
   prlr               prm_rsfl
   prcr               prm_rsfc
