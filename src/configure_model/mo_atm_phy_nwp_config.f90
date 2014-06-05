@@ -79,11 +79,6 @@ MODULE mo_atm_phy_nwp_config
     REAL(wp) :: mu_rain          !! parameter in gamma distribution for rain
     REAL(wp) :: mu_snow          !! ...for snow
 
-    INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
-    LOGICAL :: ltkesso, lexpcor
-    REAL(wp):: tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-      &        rlam_heat, rlam_mom, rat_sea 
-
     REAL(wp) :: qi0, qc0
     REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
     REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation 

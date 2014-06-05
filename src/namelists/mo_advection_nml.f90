@@ -30,7 +30,7 @@ MODULE mo_advection_nml
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
     &                               MIURA, FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,   &
-    &                               inol, ifluxl_m, ifluxl_sm, inol_v,          &
+    &                               inol, ifluxl_sm, inol_v,                    &
     &                               islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -159,7 +159,7 @@ CONTAINS
     !-----------------------
     ctracer_list    = ''
     ihadv_tracer(:) = MIURA     ! miura horizontal advection scheme
-    itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+    itype_hlimit(:) = ifluxl_sm ! positive definite flux limiter
     ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     iadv_tke        = 0         ! no TKE advection
