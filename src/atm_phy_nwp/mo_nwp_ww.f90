@@ -120,7 +120,7 @@ CONTAINS
 
 !   Find next layer below height of 500 hPa, and next layer to height of 500 hPa
     ihb500hPa(jg) = kstart_moist(jg)
-    DO jk = kstart_moist(jg), nlev
+    DO jk = MAX( kstart_moist(jg),2) , nlev
       jk1 = jk + nshift_total
       IF  ( 0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < h_500hPa) THEN
         ihb500hPa(jg) = jk
