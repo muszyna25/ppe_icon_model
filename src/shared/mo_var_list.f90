@@ -1035,7 +1035,7 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
+    INTEGER :: idims(5), i1, i2, i3
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -1105,12 +1105,15 @@ CONTAINS
     ptr => new_list_element%field%r_ptr(:,:,:,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
+#ifndef __OMP_FIRSTTOUCH__
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
+
       new_list_element%field%r_ptr = ieee_value(new_list_element%field%r_ptr, ieee_signaling_nan)
+
 #else
       new_list_element%field%r_ptr = 0.0_wp
 #endif
@@ -1122,6 +1125,18 @@ CONTAINS
     IF (PRESENT(initval_r)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
     ENDIF
+#else
+
+!$omp parallel do private(i1, i2) SCHEDULE(runtime)
+    DO i3 = 1, idims(3)
+      DO i1 = 1, idims(1)
+        DO i2 = 1, idims(2)
+           ptr(i1, i2, i3) = 0.0_wp
+        ENDDO
+      ENDDO
+    ENDDO    
+!$omp end parallel do
+#endif    
     !
   END SUBROUTINE add_var_list_element_r3d
   !------------------------------------------------------------------------------------------------
@@ -1168,7 +1183,7 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(5)
+    INTEGER :: idims(5), i1, i2
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -1238,6 +1253,7 @@ CONTAINS
     ptr => new_list_element%field%r_ptr(:,:,1,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
+#ifndef __OMP_FIRSTTOUCH__
     IF (PRESENT(lmiss)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
     ELSE
@@ -1255,6 +1271,16 @@ CONTAINS
     IF (PRESENT(initval_r)) THEN
       new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
     ENDIF
+#else
+
+!$omp parallel do private(i1, i2) SCHEDULE(runtime)
+    DO i2 = 1, idims(2)
+      DO i1 = 1, idims(1)
+        ptr(i1, i2) = 0.0_wp
+      ENDDO
+    ENDDO
+!$omp end parallel do
+#endif
     !
   END SUBROUTINE add_var_list_element_r2d
   !------------------------------------------------------------------------------------------------
