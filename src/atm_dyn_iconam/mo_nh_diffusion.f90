@@ -34,6 +34,7 @@ MODULE mo_nh_diffusion
   USE mo_intp,                ONLY: edges2cells_vector
   USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, iadv_rcf, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
+  USE mo_turbdiff_config,     ONLY: turbdiff_config
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer, iforcing, lvert_nest
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
@@ -85,13 +86,14 @@ MODULE mo_nh_diffusion
     REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_temp
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla2_e
     REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_nabla2_c
-    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla4_e
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: z_nabla4_e
+    REAL(vp), DIMENSION(nproma,p_patch%nlev) :: z_nabla4_e2
 
     REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w, diff_multfac_n2w(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, je, ic, ishift
-    INTEGER :: nlev              !< number of full levels
+    INTEGER :: nlev, nlevp1              !< number of full and half levels
 
     ! start index levels and diffusion coefficient for boundary diffusion
     INTEGER :: start_bdydiff_e
@@ -103,6 +105,7 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: v_cell
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: kh_c, div
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset,   &
                 nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, vn_cell1, vn_cell2
     REAL(wp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
@@ -131,7 +134,8 @@ MODULE mo_nh_diffusion
     start_bdydiff_e = 5 ! refin_ctrl level at which boundary diffusion starts
 
     ! number of vertical levels
-    nlev = p_patch%nlev
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
 
     ! Normalized diffusion coefficient for boundary diffusion
     IF (lhdiff_rcf) THEN
@@ -251,12 +255,8 @@ MODULE mo_nh_diffusion
 
     IF (diffu_type == 4) THEN
 
-#ifdef __MIXED_PRECISION
-      CALL finish ('', 'hdiff_order=4 not implemented for mixed precision mode; compile without -D__MIXED_PRECISION')
-#else
       CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e,  &
                        opt_rlstart=7,opt_nabla2=z_nabla2_e )
-#endif
 
     ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 1) THEN
 
@@ -513,126 +513,101 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm), ICON_OMP_RUNTIME_SCHEDULE
-        DO jb = i_startblk,i_endblk
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm,z_nabla4_e2), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
 
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
 
          ! Compute nabla4(v)
 #ifdef __LOOP_EXCHANGE
-          DO je = i_startidx, i_endidx
-            DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
-          DO jk = 1, nlev
-            DO je = i_startidx, i_endidx
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
 #endif
 
-              nabv_tang = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
-                          v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,1)%v2 + &
-                          u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
-                          v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,2)%v2
+            nabv_tang = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
+                        v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,1)%v2 + &
+                        u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
+                        v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-              nabv_norm = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
-                          v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,3)%v2 + &
-                          u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
-                          v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                          p_patch%edges%primal_normal_vert(je,jb,4)%v2
+            nabv_norm = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
+                        v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,3)%v2 + &
+                        u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
+                        v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                        p_patch%edges%primal_normal_vert(je,jb,4)%v2
 
-              ! The factor of 4 comes from dividing by twice the "correct" length
-              z_nabla4_e(je,jk,jb) = 4._wp * (                        &
-                (nabv_norm - 2._wp*z_nabla2_e(je,jk,jb))              &
-                *p_patch%edges%inv_vert_vert_length(je,jb)**2 +       &
-                (nabv_tang - 2._wp*z_nabla2_e(je,jk,jb))              &
-                *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
+            ! The factor of 4 comes from dividing by twice the "correct" length
+            z_nabla4_e2(je,jk) = 4._wp * (                          &
+              (nabv_norm - 2._wp*z_nabla2_e(je,jk,jb))              &
+              *p_patch%edges%inv_vert_vert_length(je,jb)**2 +       &
+              (nabv_tang - 2._wp*z_nabla2_e(je,jk,jb))              &
+              *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
 
-            ENDDO
           ENDDO
-
         ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    ENDIF
 
-    ! For nested domains, the diffusion contribution is already
-    ! included in the time tendency interpolated from the parent
-    ! domain. Thus, the boundary zone is skipped here.
-
-    rl_start = grf_bdywidth_e+1
-    rl_end   = min_rledge_int
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-    IF (diffu_type == 5) THEN ! Smagorinsky diffusion combined with fourth-order background diffusion
-      IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,i_endblk
-
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
+        ! Apply diffusion for the case of diffu_type = 5
+        IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                    &
                 p_patch%edges%area_edge(je,jb) *                                    &
                 (MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),kh_smag_e(je,jk,jb))* &
-                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) * &
+                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e2(je,jk)   * &
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
-        ENDDO
-!$OMP END DO
-      ELSE IF (jg > 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,i_endblk
-
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
+        ELSE IF (jg > 1) THEN
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +               &
                 p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*         &
-                z_nabla2_e(je,jk,jb) - z_nabla4_e(je,jk,jb) *                  &
+                z_nabla2_e(je,jk,jb) - z_nabla4_e2(je,jk) *                    &
                 MAX(diff_multfac_vn(jk),bdy_diff*p_int%nudgecoeff_e(je,jb)) *  &
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
-        ENDDO
-!$OMP END DO
-      ELSE
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk,i_endblk
-
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
+        ELSE
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                   &
-                p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*             &
-                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) *&
+              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                 &
+                p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*           &
+                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e2(je,jk) *&
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
-        ENDDO
-!$OMP END DO
-      ENDIF
-    ELSE IF (diffu_type == 3) THEN ! Only Smagorinsky diffusion
+        ENDIF
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    ENDIF
+
+    ! Apply diffusion for the cases of diffu_type = 3 or 4
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,rl_start,rl_end)
+
+    rl_start = grf_bdywidth_e+1
+    rl_end   = min_rledge_int
+
+    i_startblk = p_patch%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+    IF (diffu_type == 3) THEN ! Only Smagorinsky diffusion
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk,i_endblk
@@ -668,7 +643,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO
       ENDIF
-    ELSE
+    ELSE IF (diffu_type == 4) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
 
@@ -709,6 +684,56 @@ MODULE mo_nh_diffusion
 !$OMP END DO
 
     ENDIF ! vn boundary diffusion
+
+    ! Compute input quantities for turbulence scheme
+    IF (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) THEN
+
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,kh_c,div), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+#endif
+
+            kh_c(jc,jk) = (kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb) + &
+                           kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb) + &
+                           kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))/ &
+                          diff_multfac_smag(jk)
+
+            div(jc,jk) = p_nh_prog%vn(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
+                         p_nh_prog%vn(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
+                         p_nh_prog%vn(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
+          ENDDO
+        ENDDO
+
+        DO jk = 2, nlev ! levels 1 and nlevp1 are unused
+          DO jc = i_startidx, i_endidx
+
+            p_nh_diag%div_ic(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb)*div(jc,jk) + &
+              (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*div(jc,jk-1)
+
+            p_nh_diag%hdef_ic(jc,jk,jb) = (p_nh_metrics%wgtfac_c(jc,jk,jb)*kh_c(jc,jk) + &
+              (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*kh_c(jc,jk-1))**2
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+
+    ENDIF
 
     IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN ! add diffusion on vertical wind speed
                      ! remark: the surface level (nlevp1) is excluded because w is diagnostic there
@@ -780,6 +805,29 @@ MODULE mo_nh_diffusion
               diff_multfac_n2w(jk) * p_patch%cells%area(jc,jb) * z_nabla2_c(jc,jk,jb)
           ENDDO
         ENDDO
+
+        IF (turbdiff_config(jg)%itype_sher >= 2) THEN ! compute horizontal gradients of w
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+            DO jk = 2, nlev
+#else
+          DO jk = 2, nlev
+            DO jc = i_startidx, i_endidx
+#endif
+             p_nh_diag%dwdx(jc,jk,jb) =  p_int%geofac_grg(jc,1,jb,1)*p_nh_prog%w(jc,jk,jb) + &
+               p_int%geofac_grg(jc,2,jb,1)*p_nh_prog%w(icidx(jc,jb,1),jk,icblk(jc,jb,1))   + &
+               p_int%geofac_grg(jc,3,jb,1)*p_nh_prog%w(icidx(jc,jb,2),jk,icblk(jc,jb,2))   + &
+               p_int%geofac_grg(jc,4,jb,1)*p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))
+
+             p_nh_diag%dwdy(jc,jk,jb) =  p_int%geofac_grg(jc,1,jb,2)*p_nh_prog%w(jc,jk,jb) + &
+               p_int%geofac_grg(jc,2,jb,2)*p_nh_prog%w(icidx(jc,jb,1),jk,icblk(jc,jb,1))   + &
+               p_int%geofac_grg(jc,3,jb,2)*p_nh_prog%w(icidx(jc,jb,2),jk,icblk(jc,jb,2))   + &
+               p_int%geofac_grg(jc,4,jb,2)*p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))
+
+            ENDDO
+          ENDDO
+        ENDIF
 
       ENDDO
 !$OMP END DO

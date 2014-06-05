@@ -261,6 +261,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  tke=z_tvs(:,:,:),                                                          & !inout
         &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb),      & !inout
         &  rcld=prm_diag%rcld(:,:,jb),                                                & !inout
+        &  hdef2=p_diag%hdef_ic(:,:,jb), hdiv=p_diag%div_ic(:,:,jb),                  & !in
+        &  dwdx=p_diag%dwdx(:,:,jb), dwdy=p_diag%dwdy(:,:,jb),                        & !in
         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb),                                    & !inout
         &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb),                                    & !inout
         &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb),                                 & !inout

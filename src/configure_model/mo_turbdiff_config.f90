@@ -59,6 +59,8 @@ MODULE mo_turbdiff_config
       &  ltkesso
     LOGICAL :: &   ! consider convective buoyancy production for TKE
       &  ltkecon
+    LOGICAL :: &   ! calculation separ. horiz. shear production for TKE
+      &  ltkeshs
     LOGICAL :: &   ! explicit corrections of the implicit calculated turbul. diff.
       &  lexpcor
     LOGICAL :: &   ! consideration of thermal TKE-sources in the enthalpy budget

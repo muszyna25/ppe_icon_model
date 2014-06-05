@@ -389,6 +389,7 @@ USE mo_data_turbdiff, ONLY : &
 !
     ltkesso,      & ! consider SSO-wake turbulence production of TKE
     ltkecon,      & ! consider convective buoyancy production of TKE
+    ltkeshs,      & ! consider separ. horiz. shear production of TKE
     lexpcor,      & ! explicit corrections of the implicit calculated
 !                   ! turbulent diffusion
     ltmpcor,      & ! consideration of thermal TKE-sources in the enthalpy budget
@@ -779,8 +780,10 @@ SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
           ptr, opt_ntrac, &
 !
           tcm, tch, tfm, tfh, tfv, dzm, dzh, &
-          tke, tkvm, tkvh, rcld, &
-          edr, tket_sso, tket_conv, &
+          tke, tkvm, tkvh, rcld,             &
+          hdef2, hdiv, dwdx, dwdy,           &
+!
+          edr, tket_sso, tket_conv, tket_hshr, &
           u_tens, v_tens, t_tens, &
           qv_tens, qc_tens, &
           tketens, &
@@ -1048,8 +1051,8 @@ REAL (KIND=ireals), DIMENSION(ie,2:ke1), TARGET, INTENT(INOUT) :: &
 REAL (KIND=ireals), DIMENSION(:,2:), TARGET, INTENT(INOUT) :: &
 #endif
 !
-     tkvm,         & ! turbulent diffusion coefficient for momentum  (m/s2 )
-     tkvh            ! turbulent diffusion coefficient for heat      (m/s2 )
+     tkvm,         & ! turbulent diffusion coefficient for momentum  (m2/s )
+     tkvh            ! turbulent diffusion coefficient for heat      (m2/s )
                      ! (and other scalars)
 
 #ifdef __xlC__
@@ -1061,6 +1064,18 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, INTENT(INOUT) :: &
      rcld            ! standard deviation of the saturation deficit
                      ! (as input and output)
                      ! fractional cloud cover (in turbdiff)            --
+
+#ifdef __xlC__
+REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, TARGET, INTENT(IN) :: &
+#else
+REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, TARGET, INTENT(IN) :: &
+#endif
+!
+     hdef2,        & ! horizontal deformation square at half levels  ( 1/s2 )
+     hdiv,         & ! horizontal divergence                   ,,    ( 1/s )
+!
+     dwdx,         & ! zonal      derivative of vertical wind  ,,    ( 1/s )
+     dwdy            ! meridional derivative of vertical wind  ,,    ( 1/s )
 
 #ifdef __xlC__
 REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, TARGET, INTENT(INOUT) :: &
@@ -1108,7 +1123,9 @@ REAL (KIND=ireals), DIMENSION(ie,ke1), OPTIONAL, TARGET, INTENT(OUT) :: &
 REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, TARGET, INTENT(OUT) :: &
 #endif
 !
-     edr             ! eddy dissipation rate of TKE (EDR)            (m2/s3)
+     edr,          & ! eddy dissipation rate of TKE (EDR)            (m2/s3)
+     tket_sso,     & ! TKE-tendency due to SSO wake production       (m2/s3)
+     tket_hshr       ! TKE-tendency due to separ. horiz. shear       (m2/s3)
 
 #ifdef __xlC__
 REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(IN) :: &
@@ -3870,14 +3887,87 @@ SUBROUTINE turbdiff
       END IF
 !print *,"nach gradient"
 
-!     Mechanischer Antrieb durch vertikale Scherung:
+!-------------------------------------------
+     !Total mechanical forcing:  
 
-      DO k=2,kem !von oben nach unten
-         DO i=istartpar,iendpar
-          ! frm(i,k)=vari(i,k,u_m)**2+vari(i,k,v_m)**2+fc_min
-            frm(i,k)=MAX( vari(i,k,u_m)**2+vari(i,k,v_m)**2, fc_min )
+     !hdef2 = (d1v2+d2v1)^2 + (d1v1-d2v2)^2 !horizontal deformation square     (at half levels)
+     !hdiv  = (d1v1+d2v2)                   !horizontal wind-divergence            ,,
+
+     !dwdx !zonal      derivation of vertical wind                                 ,,
+     !dwdy !meridional derivation of vertical wind                                 ,,
+
+     !vel_div=hdiv+dzdw=0 !Incomressibility
+
+     !itype_sher = 0 : only single column vertical shear
+     !             1 : previous and additional 3D horiz. shear correction
+     !             2 : previous and additional 3D vertc. shear correction
+
+     !ltkeshs: consider separated non-turbulent horizontal shear mode
+
+!     Mechanical forcing by vertical shear:
+
+!Achtung: in EV ist fc_min ein horiz. Feld
+      IF (itype_sher.GE.2 .AND. (PRESENT(dwdx) .AND. PRESENT(dwdy) .AND. PRESENT(hdiv))) THEN
+         !Include 3D-shear correction by the vertical wind (employing incomressibility):
+         DO k=2,kem
+            DO i=istartpar,iendpar
+               frm(i,k)=MAX( (vari(i,k,u_m)+dwdx(i,k))**2+(vari(i,k,v_m)+dwdy(i,k))**2+z3*hdiv(i,k)**2, fc_min)
+            END DO
          END DO
-      END DO
+      ELSE   
+         !Load pure single column shear:
+         DO k=2,kem 
+            DO i=istartpar,iendpar
+               frm(i,k)=MAX( vari(i,k,u_m)**2+vari(i,k,v_m)**2, fc_min)
+            END DO
+         END DO
+      END IF    
+
+!     Mechanical forcing by horizontal shear:
+
+      IF (PRESENT(hdef2)) THEN 
+
+         IF (itype_sher.GE.1) THEN
+            !Apply horizontal 3D-shear correction:
+            DO k=2,kem 
+               DO i=istartpar,iendpar
+                  frm(i,k)=frm(i,k)+hdef2(i,k) !extended shear
+               END DO
+            END DO
+         END IF   
+
+         !Additional impact by separated horizontal shear:
+         IF ((ltkeshs .OR. PRESENT(tket_hshr)) .AND. PRESENT(hdiv)) THEN 
+            !Include separated horizontal shear mode:
+
+            fakt=z1/(z2*b_2)**2; len=a_hshr*akt*z1d2*l_hori
+            DO k=2,kem 
+               DO i=istartpar,iendpar
+                  wert=ABS(fakt*hdiv(i,k))
+                  frh(i,k)=len*(SQRT(wert**2+hdef2(i,k))-wert) !strain velocity of the sep. hor. shear mode
+                  hlp(i,k)=(frh(i,k))**3/len                   !additional TKE-source by related shear
+               END DO
+            END DO
+            IF (PRESENT(tket_hshr)) THEN
+               !Load output variable for the TKE-source by separated horiz. shear:
+               DO k=2,kem 
+                  DO i=istartpar,iendpar
+                     tket_hshr(i,k)=hlp(i,k)
+                  END DO
+               END DO
+            END IF
+            IF (ltkeshs) THEN 
+               !Consider separated horizontal shear mode in mechanical forcing:
+               DO k=2,kem 
+                  DO i=istartpar,iendpar
+                     frm(i,k)=frm(i,k)+hlp(i,k)/tkvm(i,k) !extended shear
+                  END DO
+               END DO
+            END IF   
+
+         END IF   
+ 
+      END IF
 
       !Addition verallgemeinerter Scherterme durch nicht-turbulente subskalige Stroemung:
 

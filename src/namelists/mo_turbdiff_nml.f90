@@ -35,7 +35,7 @@ MODULE mo_turbdiff_nml
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
-    & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
+    & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
     & a_hshr 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -59,7 +59,7 @@ MODULE mo_turbdiff_nml
     & itype_tran, itype_sher, itype_wcld, itype_synd, &
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
-    & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
+    & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
     & rlam_heat, rlam_mom, rat_sea, tkesmot, frcsmot, impl_s, impl_t, &
     & a_hshr, &
 !   additional namelist parameters:

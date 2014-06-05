@@ -173,7 +173,7 @@ INTEGER (KIND=iintegers) :: &
 !
     imode_turb   =1,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
-    itype_sher   =1,       & ! type of shear production for TKE
+    itype_sher   =0,       & ! type of shear production for TKE
     imode_circ   =2,       & ! mode of treating the circulation term
     ilow_dcond   =1          ! type of the default condition at the lower boundary
 
@@ -181,6 +181,7 @@ LOGICAL :: &
 !
     ltkesso      =.FALSE., & ! calculation SSO-wake turbulence production for TKE
     ltkecon      =.FALSE., & ! consider convective buoyancy production for TKE
+    ltkeshs      =.FALSE., & ! consider separ. horiz. shear production for TKE
     lexpcor      =.FALSE., & ! explicit corrections of the implicit calculated turbul. diff.
     ltmpcor      =.FALSE., & ! consideration of thermal TKE-sources in the enthalpy budget
     lprfcor      =.FALSE., & ! using the profile values of the lowest main level instead of
@@ -228,6 +229,7 @@ LOGICAL :: &
 
      ltkesso      = turbdiff_config(jg)%ltkesso
      ltkecon      = turbdiff_config(jg)%ltkecon
+     ltkeshs      = turbdiff_config(jg)%ltkeshs
      lexpcor      = turbdiff_config(jg)%lexpcor
      ltmpcor      = turbdiff_config(jg)%ltmpcor
      lprfcor      = turbdiff_config(jg)%lprfcor

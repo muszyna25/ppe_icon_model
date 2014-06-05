@@ -155,7 +155,7 @@ REAL (KIND=ireals) ::         &
   c_diff     =  0.20_ireals,  & ! of TKE
 !
   ! Length scale factor for separate horizontal shear production
-  a_hshr     =  0.20_ireals,  & ! of TKE
+  a_hshr     =  1.00_ireals,  & ! of TKE
 !
   ! Length scale factor for the stability correction
   a_stab     =  0.00_ireals,  & ! no stability correction so far

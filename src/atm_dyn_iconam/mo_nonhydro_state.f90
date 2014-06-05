@@ -55,6 +55,7 @@ MODULE mo_nonhydro_state
     &                                iqng, iqnh, iqtke, nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
+  USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
@@ -1385,6 +1386,42 @@ MODULE mo_nonhydro_state
                 &   vert_intp_method=VINTP_METHOD_LIN ),   &
                 &   in_group=groups("atmo_derived_vars") )
 
+    IF (turbdiff_config(p_patch%id)%itype_sher >= 1 .OR. turbdiff_config(p_patch%id)%ltkeshs) THEN
+      ! div_ic          p_diag%div_ic(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('divergence at half levels', 's-1', 'divergence at half levels', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'div_ic', p_diag%div_ic,                          &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,   &
+                  & ldims=shape3d_chalf, lrestart=.FALSE. )
+
+
+      ! hdef_ic          p_diag%hdef_ic(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('horizontal wind field deformation', 's-2', 'Deformation', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'hdef_ic', p_diag%hdef_ic,                            &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_chalf, lrestart=.FALSE. )
+    ENDIF
+
+    IF (turbdiff_config(p_patch%id)%itype_sher >= 2) THEN
+      ! dwdx          p_diag%dwdx(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('Zonal gradient of vertical wind', 's-1', 'Zonal gradient of vertical wind', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'dwdx', p_diag%dwdx,                            &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_chalf, lrestart=.FALSE. )
+
+      ! dwdy          p_diag%dwdy(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('Meridional gradient of vertical wind', 's-1', 'Meridional gradient of vertical wind', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'dwdy', p_diag%dwdy,                            &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_chalf, lrestart=.FALSE. )
+    ENDIF
 
     ! vor          p_diag%vor(nproma,nlev,nblks_c)
     !

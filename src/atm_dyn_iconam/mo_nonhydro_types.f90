@@ -106,6 +106,10 @@ MODULE mo_nonhydro_types
     &  vfl_tracer(:,:,:,:), & ! vertical tracer flux at cells               [kg/m/s]
                               ! (nproma,nlevp1,nblks_c,ntracer)
     &  div(:,:,:),          & ! divergence(nproma,nlev,nblks_c)     [1/s]
+    &  div_ic(:,:,:),       & ! divergence at half levels(nproma,nlevp1,nblks_c)     [1/s]
+    &  hdef_ic(:,:,:),      & ! horizontal wind field deformation (nproma,nlevp1,nblks_c)     [1/s^2]
+    &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
+    &  dwdy(:,:,:),         & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  mass_fl_e(:,:,:),    & ! horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
