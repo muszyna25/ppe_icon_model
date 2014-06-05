@@ -4419,11 +4419,18 @@ type of water cloud diagnosis within the turbulence scheme:\\
 
 %\hline
 itype\_sher &
-I                &      1      & &
+I                &      0      & &
 Type of shear forcing used in turbulence:\\
 0: only vertical shear of horizontal wind\\
-1: previous plus horizontal shear correction (inactive)\\
-2: previous plus shear from vertical velocity (inactive) &
+1: previous plus horizontal shear correction \\
+2: previous plus shear from vertical velocity &
+\tabularnewline
+
+%\hline
+ltkeshs &
+L                &     .FALSE.      & &
+Include correction term for coarse grids in horizontal shear production term (needed 
+at non-convection-resolving model resolutions in order to get a non-negligible impact) & itype\_sher $\ge$ 1
 \tabularnewline
 
 %\hline
