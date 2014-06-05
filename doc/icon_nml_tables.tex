@@ -4379,127 +4379,232 @@ Defined and used in: \verb+src/namelists/mo_advection_nml.f90+
 \begin{longtab}
 
 %\hline
-itype\_tran &
-I            & 2      &&
-type of surface-atmosphere transfer& inwp\_turb = 1
+imode\_turb &
+I                &      1      & &
+Mode of solving the TKE equation for atmosph. layers:\\
+0: diagnostic equation\\
+1: prognostic equation (current version)\\
+2: prognostic equation (intrinsically positive definite) & 
 \tabularnewline
 
 %\hline
 imode\_tran &
 I                &      0      & &
-mode of surface-atmosphere transfer & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-icldm\_tran &
-I                &      2      & &
-mode of cloud representation in transfer parametr & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-imode\_turb &
-I                &      1      & &
-mode of turbulent diffusion parametrization & inwp\_turb = 1
+Same as \emph{imode\_turb} but only for the transfer layer &
 \tabularnewline
 
 %\hline
 icldm\_turb &
 I                &      2      & &
-mode of cloud representation in turbulence parametr & inwp\_turb = 1
+Mode of water cloud representation in turbulence for atmosph. layers:\\
+-1: ignoring cloud water completely (pure dry scheme)\\
+ 0: no clouds considered (all cloud water is evaporated)\\
+ 1: only grid scale condensation possible\\
+ 2: also sub grid (turbulent) condensation considered  &
 \tabularnewline
 
 %\hline
-itype\_sher &
-I                &      1      & &
-type of shear production for TKE & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-ltkesso &
-L                &     .FALSE.      & &
-calculation SSO-wake turbulence production for TKE & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-ltkecon &
-L                &     .FALSE.      & &
-consider convective buoyancy production for TKE & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-lexpcor &
-L                &     .FALSE.      & &
-explicit corrections of the implicit calculated turbul. diff. & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-ltmpcor &
-L                &     .FALSE.      & &
-consideration of thermal TKE-sources in the enthalpy budget & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-lprfcor &
-L                &     .FALSE.      & &
-using the profile values of the lowest main level instead of the mean value of the lowest layer for surface flux calculations & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-lnonloc &
-L                &     .FALSE.      & &
-nonlocal calculation of vertical gradients used for turbul. diff. & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-lcpfluc &
-L                &     .FALSE.      & &
-consideration of fluctuations of the heat capacity of air & inwp\_turb = 1
-\tabularnewline
-
-%\hline
-limpltkediff &
-L                &     .TRUE.      & &
-use semi-implicit TKE diffusion & inwp\_turb = 1
+icldm\_tran &
+I                &      2      & &
+Same as \emph{icldm\_turb} but only for the transfer layer &
 \tabularnewline
 
 %\hline
 itype\_wcld &
 I                &     2      & &
-type of water cloud diagnosis & inwp\_turb = 1
+type of water cloud diagnosis within the turbulence scheme:\\
+1: employing a scheme based on relative humitidy\\
+2: employing a statistical saturation adjustment & icldm\_turb=2 or icldm\_tran=2
 \tabularnewline
 
 %\hline
-itype\_synd &
-I                &     2      & &
-type of diagnostics of synoptical near surface variables & inwp\_turb = 1
+itype\_sher &
+I                &      1      & &
+Type of shear forcing used in turbulence:\\
+0: only vertical shear of horizontal wind\\
+1: previous plus horizontal shear correction (inactive)\\
+2: previous plus shear from vertical velocity (inactive) &
 \tabularnewline
 
 %\hline
-lconst\_z0 &
+ltkesso &
 L                &     .FALSE.      & &
-TRUE: horizontally homogeneous roughness length z0 & inwp\_turb = 1
+Consider TKE-production by sub grid SSO wakes & inwp\_sso = 1
 \tabularnewline
 
 %\hline
-const\_z0 &
-R                &     0.001      & m &
-value for horizontally homogeneous roughness length z0 & inwp\_turb = 1 \\
-lconst\_z0=.TRUE.
+ltkecon &
+L                &     .FALSE.      & &
+Consider TKE-production by sub grid convective plumes (inactive) & inwp\_conv = 1
+\tabularnewline
+
+%\hline
+ltkeshs &
+L                &     .FALSE.      & &
+Consider TKE-production by separated horizontal shear eddies (inactive) &
+\tabularnewline
+
+%\hline
+ltmpcor &
+L                &     .FALSE.      & &
+Consider thermal TKE sources in enthalpy equation &
+\tabularnewline
+
+%\hline
+lsflcnd &
+L                &     .TRUE.      & &
+Use lower flux condition for vertical diffusion calculation (TRUE) instead of a lower concentration condition (FALSE) &
+\tabularnewline
+
+%\hline
+lexpcor &
+L                &     .FALSE.      & &
+Explicit corrections of implicitly calculated vertical diffusion of non-conservative scalars that are involved in sub grid condensation processes &
+\tabularnewline
+
+%\hline
+tur\_len &
+R                &     500.0      & m &
+Asymptotic maximal turbulent distance ($\kappa * tur\_len$ is the integral turbulent master length scale) &
+\tabularnewline
+
+%\hline
+pat\_len &
+R                &     100.0      & m &
+Effective length scale of thermal surface patterns controlling TKE-production by sub grid kata/ana-batic circulations. In case of $pat\_len=0$, 
+this production is switched off.&
+\tabularnewline
+
+%\hline
+c\_diff &
+R                &     0.2      & 1 &
+Length scale factor for vertical diffusion of TKE. In case of $c\_diff=0$, TKE is not diffused vertically.&
+\tabularnewline
+
+%\hline
+a\_stab &
+R                &     0.0      & 1 &
+Factor for stability correction of turbulent length scale. In case of $a\_stab=0$, the turbulent length scale is not reduced for stable stratification.&
+\tabularnewline
+
+%\hline
+a\_hshr &
+R                &     1.0      & 1 &
+Length scale factor for the separated horizontal shear mode. In case of $a\_hshr=0$, this shear mode has no effect.& ltkeshs=.TRUE.
 \tabularnewline
 
 %\hline
 tkhmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
 Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
-for heat and moisture & inwp\_turb = 1 \\
+for heat and moisture &
 \tabularnewline
 
 %\hline
 tkmmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
 Scaling factor for minimum vertical diffusion coefficient  (proportional to $1/\sqrt{Ri}$)
- for momentum & inwp\_turb = 1 \\
+ for momentum & 
 \tabularnewline
+
+%\hline
+itype\_synd &
+I                &     2      & &
+Type of diagnostics of synoptic near surface variables:\\
+1: Considering the mean surface roughness of a grid box\\
+2: Considering a fictive surface roughness of a SYNOP lawn &
+\tabularnewline
+
+%\hline
+rlam\_heat &
+R                &     1.0     & 1 &
+Scaling factor of the laminar boundary layer for heat (scalars). The larger rlam\_heat, the larger is the laminar resistance. &
+\tabularnewline
+
+%\hline
+rat\_sea &
+R                &     10.0     & 1 &
+Ratio of laminar scaling factors for scalars over sea and land. The larger rat\_sea, the larger is the laminar resistance 
+for a sea surface compared to a land surface. &
+\tabularnewline
+
+%\hline
+tkesmot &
+R                &     0.15     & 1 &
+Time smoothing factor within $[0, 1]$ for TKE. In case of $tkesmot=0$, no smoothing is active. &
+\tabularnewline
+
+%\hline
+frcsmot &
+R                &     0.0     & 1 &
+Vertical smoothing factor within $[0, 1]$ for TKE forcing terms. In case of $frcmot=0$, no smoothing is active. &
+\tabularnewline
+
+%\hline
+impl\_s &
+R                &     1.20     & 1 &
+Implicit weight near the surface (maximal value) &
+\tabularnewline
+
+%\hline
+impl\_t &
+R                &     0.75     & 1 &
+Implicit weight near top of the atmosphere (minimal value) &
+\tabularnewline
+
+%\hline
+lconst\_z0 &
+L                &     .FALSE.      & &
+TRUE: horizontally homogeneous roughness length z0 & 
+\tabularnewline
+
+%\hline
+const\_z0 &
+R                &     0.001      & m &
+value for horizontally homogeneous roughness length z0 & lconst\_z0=.TRUE.
+\tabularnewline
+
+
+
+
+
+
+
+
+
+%\hline
+itype\_tran &
+I            & 2      &&
+type of surface-atmosphere transfer& 
+\tabularnewline
+
+
+
+
+%\hline
+lprfcor &
+L                &     .FALSE.      & &
+using the profile values of the lowest main level instead of the mean value of the lowest layer for surface flux calculations & 
+\tabularnewline
+
+%\hline
+lnonloc &
+L                &     .FALSE.      & &
+nonlocal calculation of vertical gradients used for turbul. diff. & 
+\tabularnewline
+
+%\hline
+lcpfluc &
+L                &     .FALSE.      & &
+consideration of fluctuations of the heat capacity of air & 
+\tabularnewline
+
+%\hline
+limpltkediff &
+L                &     .TRUE.      & &
+use semi-implicit TKE diffusion & 
+\tabularnewline
+
 
 \end{longtab}
 
