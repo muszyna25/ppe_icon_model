@@ -16,8 +16,7 @@ MODULE mo_cumastr
 
   USE mo_kind,               ONLY: wp
 !  USE mo_control,            ONLY: nn
-  USE mo_physical_constants, ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd,   &
-                                   vtmpc2
+  USE mo_physical_constants, ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv
 !  USE mo_time_control,       ONLY: time_step_len
 !  USE mo_param_switches,     ONLY: iconv, lconvmassfix
   USE mo_echam_convect_tables,     ONLY: prepare_ua_index_spline,lookup_ua_spline, &
@@ -124,7 +123,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
               zup1(kbdim,klev),         zvp1(kbdim,klev),              &
               ztu(kbdim,klev),          zqu(kbdim,klev),               &
               zlu(kbdim,klev),          zlude(kbdim,klev),             &
-              zqude(kbdim,klev),        zcpq(kbdim,klev),              &
+              zqude(kbdim,klev),                                       &
+              zcpq(kbdim,klev),         zcq(kbdim,klev),               &
               zmfu(kbdim,klev),         zmfd(kbdim,klev),              &
               zqsat(kbdim,klev),        zrain(kbdim),                  &
               za(kbdim),                ua(kbdim)
@@ -170,7 +170,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
         zqsat(jl,jk)=ua(jl)/papp1(jl,jk)
         zqsat(jl,jk)=MIN(0.5_wp,zqsat(jl,jk))
         zqsat(jl,jk)=zqsat(jl,jk)/(1._wp-vtmpc1*zqsat(jl,jk))
-        zcpq(jl,jk)=pcd+(pcv-pcd)*MAX(pqm1(jl,jk),0.0_wp)
+        zcpq(jl,jk)=cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_wp) ! cp of moist air for comp. of fluxes
+        zcq (jl,jk)=pcd+(pcv-pcd)*MAX(pqm1(jl,jk),0.0_wp) ! cp or cv of moist air for temp tendency
      END DO
 
      DO 1104 jt=1,ktrac
@@ -205,7 +206,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
-                  pqtec,    zqude,    zcpq,                            &
+                  pqtec,    zqude,    zcpq,     zcq,                   &
                   pch_concloud,                                        &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
@@ -224,7 +225,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
-                  pqtec,    zqude,    zcpq,                            &
+                  pqtec,    zqude,    zcpq,     zcq,                   &
                   pch_concloud,                                        &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
@@ -243,7 +244,7 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   paphp1,   pgeo,                                      &
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
-                  pqtec,    zqude,    zcpq,                            &
+                  pqtec,    zqude,    zcpq,     zcq,                   &
                   pch_concloud,                                        &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
@@ -300,7 +301,7 @@ SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
            paphp1,   pgeo,                                              &
            ptte,     pqte,     pvom,     pvol,                          &
            prsfc,    pssfc,    pxtec,                                   &
-           pqtec,    pqude,    zcpen,                                   &
+           pqtec,    pqude,    zcpen,    zcen,                          &
            pch_concloud,                                                &
            ldcum,    ktype,    kcbot,    kctop,                         &
            ptu,      pqu,      plu,      plude,                         &
@@ -433,7 +434,8 @@ REAL(wp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
            zmful(kbdim,klev),       zrfl(kbdim),                       &
            zuu(kbdim,klev),         zvu(kbdim,klev),                   &
            zud(kbdim,klev),         zvd(kbdim,klev)
-REAL(wp):: zcpen(kbdim,klev),       zcpcu(kbdim,klev)
+REAL(wp):: zcpen(kbdim,klev),       zcen(kbdim,klev),                  &
+           zcpcu(kbdim,klev)
 REAL(wp):: zentr(kbdim),            zhcbase(kbdim),                    &
            zmfub(kbdim),            zmfub1(kbdim),                     &
            zktype(kbdim),           zldcum(kbdim),                     &
@@ -1053,7 +1055,7 @@ INTRINSIC MIN, MAX
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
-              zcpen,    zalvsh,   pqtec,    pqude,                     &
+              zcen,     zalvsh,   pqtec,    pqude,                     &
               prsfc,    pssfc,                                         &
               pch_concloud,                                            &
               pxtecl,   pxteci,                                        &
@@ -1094,7 +1096,7 @@ SUBROUTINE cumastrt( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            paphp1,   pgeo,                                             &
            ptte,     pqte,     pvom,     pvol,                         &
            prsfc,    pssfc,    pxtec,                                  &
-           pqtec,    pqude,    zcpen,                                  &
+           pqtec,    pqude,    zcpen,    zcen,                         &
            pch_concloud,                                               &
            ldcum,    ktype,    kcbot,    kctop,                        &
            ptu,      pqu,      plu,      plude,                        &
@@ -1227,7 +1229,8 @@ REAL(wp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
            zmful(kbdim,klev),       zrfl(kbdim),                       &
            zuu(kbdim,klev),         zvu(kbdim,klev),                   &
            zud(kbdim,klev),         zvd(kbdim,klev)
-REAL(wp):: zcpen(kbdim,klev),       zcpcu(kbdim,klev)
+REAL(wp):: zcpen(kbdim,klev),       zcen(kbdim,klev),                  &
+           zcpcu(kbdim,klev)
 REAL(wp):: zentr(kbdim),            zhcbase(kbdim),                    &
            zmfub(kbdim),            zmfub1(kbdim),                     &
            zcpcui(kbdim,klev),      zictop0(kbdim),                    &
@@ -1587,7 +1590,7 @@ INTRINSIC MIN, MAX
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
-              zcpen,    zalvsh,   pqtec,    pqude,                     &
+              zcen,     zalvsh,   pqtec,    pqude,                     &
               prsfc,    pssfc,                                         &
               pch_concloud,                                            &
               pxtecl,   pxteci,                                        &
@@ -1626,7 +1629,7 @@ SUBROUTINE cumastrh( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            paphp1,   pgeo,                                             &
            ptte,     pqte,     pvom,     pvol,                         &
            prsfc,    pssfc,    pxtec,                                  &
-           pqtec,    pqude,    zcpen,                                  &
+           pqtec,    pqude,    zcpen,    zcen,                         &
            pch_concloud,                                               &
            ldcum,    ktype,    kcbot,    kctop,                        &
            ptu,      pqu,      plu,      plude,                        &
@@ -1759,7 +1762,8 @@ REAL(wp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
            zmful(kbdim,klev),       zrfl(kbdim),                       &
            zuu(kbdim,klev),         zvu(kbdim,klev),                   &
            zud(kbdim,klev),         zvd(kbdim,klev)
-REAL(wp):: zcpen(kbdim,klev),       zcpcu(kbdim,klev)
+REAL(wp):: zcpen(kbdim,klev),       zcen(kbdim,klev),                  &
+           zcpcu(kbdim,klev)
 REAL(wp):: zentr(kbdim),            zhcbase(kbdim),                    &
            zmfub(kbdim),            zmfub1(kbdim),                     &
            zcpcui(kbdim,klev),      zictop0(kbdim),                    &
@@ -2169,7 +2173,7 @@ INTRINSIC MIN, MAX
               zmfus,    zmfds,    zmfuq,    zmfdq,                     &
               zmful,    zdmfup,   zdmfdp,   plude,                     &
               zdpmel,   zrfl,     zsfl,                                &
-              zcpen,    zalvsh,   pqtec,    pqude,                     &
+              zcen,     zalvsh,   pqtec,    pqude,                     &
               prsfc,    pssfc,                                         &
               pch_concloud,                                            &
               pxtecl,   pxteci,                                        &
