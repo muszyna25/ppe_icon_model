@@ -72,8 +72,6 @@ MODULE mo_turbdiff_config
       &  lcpfluc
     LOGICAL :: &   ! lower flux condition for vertical diffusion calculation
       &  lsflcnd
-    LOGICAL :: &   ! use semi-implicit TKE diffusion
-      &  limpltkediff
 
     LOGICAL :: &   ! TRUE: horizontally homogeneous roughness length 
       &  lconst_z0 ! (for idealized testcases)
@@ -104,6 +102,8 @@ MODULE mo_turbdiff_config
       &  impl_s    ! 
     REAL(wp):: &   ! implicit weight near top of the atmosphere (maximal value)
       &  impl_t    ! 
+    REAL(wp):: &   ! Length scale factor for the separated horizontal shear mode
+      &  a_hshr    ! 
 
     REAL(wp):: &   ! horizontally homogeneous roughness length 
       &  const_z0  ! (for idealized testcases)

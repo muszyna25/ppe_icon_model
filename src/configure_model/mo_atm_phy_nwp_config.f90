@@ -80,7 +80,7 @@ MODULE mo_atm_phy_nwp_config
     REAL(wp) :: mu_snow          !! ...for snow
 
     INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
-    LOGICAL :: limpltkediff, ltkesso, lexpcor
+    LOGICAL :: ltkesso, lexpcor
     REAL(wp):: tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
       &        rlam_heat, rlam_mom, rat_sea 
 

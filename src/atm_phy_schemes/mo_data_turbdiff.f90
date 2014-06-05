@@ -187,8 +187,8 @@ LOGICAL :: &
                              ! the mean value of the lowest layer for surface flux calulations
     lnonloc      =.FALSE., & ! nonlocal calculation of vertical gradients used for turbul. diff.
     lcpfluc      =.FALSE., & ! consideration of fluctuations of the heat capacity of air
-    lsflcnd      =.TRUE.,  & ! lower flux condition for vertical diffusion calculation
-    limpltkediff =.TRUE.     ! use semi-implicit TKE diffusion
+    lsflcnd      =.TRUE.     ! lower flux condition for vertical diffusion calculation
+!DR    limpltkediff =.TRUE.     ! use semi-implicit TKE diffusion
 
 INTEGER (KIND=iintegers) :: &
 !
@@ -234,7 +234,6 @@ LOGICAL :: &
      lnonloc      = turbdiff_config(jg)%lnonloc
      lcpfluc      = turbdiff_config(jg)%lcpfluc
      lsflcnd      = turbdiff_config(jg)%lsflcnd
-     limpltkediff = turbdiff_config(jg)%limpltkediff
 
      itype_wcld   = turbdiff_config(jg)%itype_wcld
      itype_synd   = turbdiff_config(jg)%itype_synd
