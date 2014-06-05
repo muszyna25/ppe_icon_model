@@ -30,7 +30,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & eos_type, i_sea_ice, l_staggered_timestep, gibraltar,         &
     & cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write
-    ! & use_ThermoExpansion_Correction
+  ! & use_ThermoExpansion_Correction
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -46,9 +46,9 @@ MODULE mo_hydro_ocean_run
     & calc_vert_velocity,       &
     & update_time_indices
   USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog, t_operator_coeff, t_solverCoeff_singlePrecision
+    & t_hydro_ocean_prog, t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_oce_state,              ONLY: ocean_restart_list
- ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
+  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_oce_math_operators,     ONLY: calculate_thickness, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
@@ -79,7 +79,7 @@ MODULE mo_hydro_ocean_run
   IMPLICIT NONE
   
   PRIVATE
-   
+  
   ! public interface
   !
   ! public subroutines
@@ -93,9 +93,9 @@ MODULE mo_hydro_ocean_run
   !-------------------------------------------------------------------------
   
 CONTAINS
-
+  
   !-------------------------------------------------------------------------
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, p_phys_param, is_restart)
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_operator_coeff)            :: operators_coefficients
@@ -113,14 +113,14 @@ CONTAINS
         & operators_coefficients)
     ELSE
     ENDIF
-
-!    CALL update_diffusion_matrices( patch_3d,         &
-!      & p_phys_param,                 &
-!      & operators_coefficients%matrix_vert_diff_e,&
-!      & operators_coefficients%matrix_vert_diff_c)
-
+    
+    !    CALL update_diffusion_matrices( patch_3d,         &
+    !      & p_phys_param,                 &
+    !      & operators_coefficients%matrix_vert_diff_e,&
+    !      & operators_coefficients%matrix_vert_diff_c)
+    
     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
-
+    
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
   
@@ -132,12 +132,12 @@ CONTAINS
   !! Developed by Peter Korn, MPI-M  (2008-2010).
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
     & datetime, lwrite_restart,            &
     & p_sfc_flx, p_phys_param,             &
     & p_as, p_atm_f, p_ice,operators_coefficients, &
-    & solverCoeff_sp)
+    & solvercoeff_sp)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
@@ -150,7 +150,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     
     ! local variables
     INTEGER :: jstep, jg, jtrc
@@ -168,7 +168,7 @@ CONTAINS
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
     !------------------------------------------------------------------
     
-    patch_2D      => patch_3d%p_patch_2d(1)
+    patch_2d      => patch_3d%p_patch_2d(1)
     
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far
@@ -181,7 +181,7 @@ CONTAINS
     patch_2d => patch_3d%p_patch_2d(jg)
     
     CALL datetime_to_string(datestring, datetime)
-
+    
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
     
@@ -217,230 +217,204 @@ CONTAINS
         CALL calculate_density( patch_3d,                        &
           & ocean_state(jg)%p_prog(nold(1))%tracer, &
           & ocean_state(jg)%p_diag%rho )
-
+        
         CALL update_ocean_statistics(ocean_state(1),                              &
           & p_sfc_flx,                            &
-          & patch_2D%cells%owned,   &
-          & patch_2D%edges%owned,   &
-          & patch_2D%verts%owned,   &
+          & patch_2d%cells%owned,   &
+          & patch_2d%edges%owned,   &
+          & patch_2d%verts%owned,   &
           & n_zlev)
-        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2D%cells%owned)
-
+        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2d%cells%owned)
+        
         CALL write_name_list_output(jstep=jstep0)
-
+        
         CALL reset_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx)
         IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
       ENDIF
-
+      
     ENDIF ! output_mode%l_nml
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
     
-      time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
+    time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
       
-        CALL datetime_to_string(datestring, datetime)
-        WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-        CALL message (TRIM(routine), message_text)
+      CALL datetime_to_string(datestring, datetime)
+      WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+      CALL message (TRIM(routine), message_text)
+
+      ! CALL sync_patch_array(sync_c, patch_2d, ocean_state(jg)%p_prog(nold(1))%h)
       
-          !In case of a time-varying forcing:
-          IF (ltimer) CALL timer_start(timer_upd_flx)
-          CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
-            & jstep, datetime, operators_coefficients)
-
-          ! update_sfcflx has changed p_prog(nold(1))%h
-          CALL sync_patch_array(sync_c, patch_2D, ocean_state(jg)%p_prog(nold(1))%h)
-        
-          IF(.NOT.l_staggered_timestep)THEN
-          
-            CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solverCoeff_sp)
-          
-          !  CALL set_lateral_boundary_values( patch_3d, ocean_state(jg)%p_prog(nold(1))%vn)
-          !  CALL sync_patch_array(sync_e, patch_3d%p_patch_2d(jg), ocean_state(jg)%p_prog(nold(1))%vn)
-          
-            CALL calc_scalar_product_veloc_3D( patch_3d,  &
-            & ocean_state(jg)%p_prog(nold(1))%vn,         &
-            & ocean_state(jg)%p_prog(nold(1))%vn,         &
-            & ocean_state(jg)%p_diag,                     &
-            & operators_coefficients)
-          
-            ! activate for calc_scalar_product_veloc_3D
-            !---------DEBUG DIAGNOSTICS-------------------------------------------
-            idt_src=3  ! output print level (1-5, fix)
-            CALL dbg_print('on entry: h-old'           ,ocean_state(jg)%p_prog(nold(1))%h ,str_module,idt_src, &
-            & patch_2d%cells%owned )
-            CALL dbg_print('on entry: h-new'           ,ocean_state(jg)%p_prog(nnew(1))%h ,str_module,idt_src, &
-            & patch_2d%cells%owned )
-            CALL dbg_print('HydOce: ScaProdVel kin'    ,ocean_state(jg)%p_diag%kin        ,str_module,idt_src, &
-            & patch_2d%cells%owned )
-            CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,ocean_state(jg)%p_diag%ptp_vn     ,str_module,idt_src, &
-            & patch_2d%edges%owned )
-            !---------------------------------------------------------------------          
-          IF (ltimer) CALL timer_stop(timer_upd_flx)
-          
-          
-          IF (ltimer) CALL timer_start(timer_upd_phys)        
-          CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param)
-!           SELECT CASE (eos_type)
-!           CASE(1)
-!             CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param,&
-!             & density_linear_function)
-!           CASE(2)
-!             CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param,&
-!             & density_mpiom_function)
-!           CASE(3)
-!             CALL update_ho_params(patch_3d,ocean_state(jg), p_sfc_flx, p_phys_param,&
-!             & density_jmdwfg06_function)
-!           CASE default
-!           END SELECT
-          IF (ltimer) CALL timer_stop(timer_upd_phys)
-        
-          !------------------------------------------------------------------------
-          ! solve for new free surface
-          IF (ltimer) CALL timer_start(timer_solve_ab)
-          CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
-          & p_sfc_flx, p_phys_param, jstep, operators_coefficients, solverCoeff_sp)!, p_int(jg))
-          IF (ltimer) CALL timer_stop(timer_solve_ab)
-        
-          !------------------------------------------------------------------------
-          ! Step 4: calculate final normal velocity from predicted horizontal
-          ! velocity vn_pred and updated surface height
-          IF (ltimer) CALL timer_start(timer_normal_veloc)
-          CALL calc_normal_velocity_ab(patch_3d, ocean_state(jg),&
-          & operators_coefficients, solverCoeff_sp,  p_ext_data(jg), p_phys_param)
-          IF (ltimer) CALL timer_stop(timer_normal_veloc)
-        
-          !------------------------------------------------------------------------
-          ! Step 5: calculate vertical velocity from continuity equation under
-          ! incompressiblity condition in the non-shallow-water case
-          IF ( iswm_oce /= 1 ) THEN
-            IF (ltimer) CALL timer_start(timer_vert_veloc)
-            CALL calc_vert_velocity( patch_3d, ocean_state(jg),operators_coefficients)
-            IF (ltimer) CALL timer_stop(timer_vert_veloc)
-          ENDIF
-          !------------------------------------------------------------------------
-
-          IF (idbg_mxmn > 1) THEN
-            CALL levels_horizontal_mean(values=ocean_state(jg)%p_prog(1)%h(:,:), weights=patch_2D%cells%area(:,:), &
-                & in_subset=patch_3d%p_patch_2d(1)%cells%owned, mean=mean_height)
-            CALL debug_print_mean("Mean Height", mean_height, 2)
-          ENDIF
-
-          !------------------------------------------------------------------------
-          ! Step 6: transport tracers and diffuse them
-          IF (no_tracer>=1) THEN
-            IF (ltimer) CALL timer_start(timer_tracer_ab)
-            CALL advect_tracer_ab( patch_3d, ocean_state(jg), p_phys_param,&
-            & p_sfc_flx,&
-            & operators_coefficients,&
-            & jstep)
-            IF (ltimer) CALL timer_stop(timer_tracer_ab)
-
-!            IF (use_ThermoExpansion_Correction) THEN
-!              CALL ocean_correct_ThermoExpansion(                                      &
-!                & patch_3d         = patch_3d,                                        &
-!               ! & old_temeperature = ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,1), &
-!               ! & new_temeperature = ocean_state(jg)%p_prog(nnew(1))%tracer(:,:,:,1), &
-!                & temperature_difference = ocean_state(jg)%p_diag%temp_horizontally_diffused, &
-!                & old_height       = ocean_state(jg)%p_prog(nold(1))%h,               &
-!                & new_height       = ocean_state(jg)%p_prog(nnew(1))%h)
-!            ENDIF
-
-          ENDIF
-        
-        ENDIF
+      !In case of a time-varying forcing:
+      IF (ltimer) CALL timer_start(timer_upd_flx)
+      CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+        & jstep, datetime, operators_coefficients)
+      ! update_sfcflx has changed p_prog(nold(1))%h
       
-        ! One integration cycle finished on the lowest grid level (coarsest
-        ! resolution). Set model time.
-        CALL add_time(dtime,0,0,0,datetime)
+      !           IF(.NOT.l_staggered_timestep)THEN
       
-        ! Not nice, but the name list output requires this
-        time_config%sim_time(1) = time_config%sim_time(1) + dtime
+      CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
       
-        ! perform accumulation for special variables
-        IF (ltimer) CALL timer_start(timer_extra20)
-        IF (no_tracer>=1) THEN
-          CALL calc_potential_density( patch_3d,                            &
-            &                          ocean_state(jg)%p_prog(nold(1))%tracer,                         &
-            &                          ocean_state(jg)%p_diag%rhopot )
-          CALL calc_psi (patch_2d,patch_3d, ocean_state(jg)%p_diag%u(:,:,:),&
-            &                          ocean_state(jg)%p_prog(nold(1))%h(:,:),                         &
-            &                          ocean_state(jg)%p_diag%u_vint, datetime)
-        ENDIF
-        
-        ! update accumulated vars
-        CALL update_ocean_statistics(ocean_state(1),&
-          &                          p_sfc_flx,           &
-          &                          patch_2D%cells%owned,&
-          &                          patch_2D%edges%owned,&
-          &                          patch_2D%verts%owned,&
+      CALL calc_scalar_product_veloc_3d( patch_3d,  &
+        & ocean_state(jg)%p_prog(nold(1))%vn,         &
+        & ocean_state(jg)%p_prog(nold(1))%vn,         &
+        & ocean_state(jg)%p_diag,                     &
+        & operators_coefficients)
+      
+      ! activate for calc_scalar_product_veloc_3D
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('on entry: h-old'           ,ocean_state(jg)%p_prog(nold(1))%h ,str_module,idt_src, &
+        & patch_2d%cells%owned )
+      CALL dbg_print('on entry: h-new'           ,ocean_state(jg)%p_prog(nnew(1))%h ,str_module,idt_src, &
+        & patch_2d%cells%owned )
+      CALL dbg_print('HydOce: ScaProdVel kin'    ,ocean_state(jg)%p_diag%kin        ,str_module,idt_src, &
+        & patch_2d%cells%owned )
+      CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,ocean_state(jg)%p_diag%ptp_vn     ,str_module,idt_src, &
+        & patch_2d%edges%owned )
+      !---------------------------------------------------------------------
+      IF (ltimer) CALL timer_stop(timer_upd_flx)
+      
+      
+      IF (ltimer) CALL timer_start(timer_upd_phys)
+      CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param)
+      IF (ltimer) CALL timer_stop(timer_upd_phys)
+      
+      !------------------------------------------------------------------------
+      ! solve for new free surface
+      IF (ltimer) CALL timer_start(timer_solve_ab)
+      CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
+        & p_sfc_flx, p_phys_param, jstep, operators_coefficients, solvercoeff_sp)!, p_int(jg))
+      IF (ltimer) CALL timer_stop(timer_solve_ab)
+      
+      !------------------------------------------------------------------------
+      ! Step 4: calculate final normal velocity from predicted horizontal
+      ! velocity vn_pred and updated surface height
+      IF (ltimer) CALL timer_start(timer_normal_veloc)
+      CALL calc_normal_velocity_ab(patch_3d, ocean_state(jg),&
+        & operators_coefficients, solvercoeff_sp,  p_ext_data(jg), p_phys_param)
+      IF (ltimer) CALL timer_stop(timer_normal_veloc)
+      
+      !------------------------------------------------------------------------
+      ! Step 5: calculate vertical velocity from continuity equation under
+      ! incompressiblity condition in the non-shallow-water case
+      IF ( iswm_oce /= 1 ) THEN
+        IF (ltimer) CALL timer_start(timer_vert_veloc)
+        CALL calc_vert_velocity( patch_3d, ocean_state(jg),operators_coefficients)
+        IF (ltimer) CALL timer_stop(timer_vert_veloc)
+      ENDIF
+      !------------------------------------------------------------------------
+      
+      IF (idbg_mxmn > 1) THEN
+        CALL levels_horizontal_mean(values=ocean_state(jg)%p_prog(1)%h(:,:), weights=patch_2d%cells%area(:,:), &
+          & in_subset=patch_3d%p_patch_2d(1)%cells%owned, mean=mean_height)
+        CALL debug_print_mean("Mean Height", mean_height, 2)
+      ENDIF
+      
+      !------------------------------------------------------------------------
+      ! Step 6: transport tracers and diffuse them
+      IF (no_tracer>=1) THEN
+        IF (ltimer) CALL timer_start(timer_tracer_ab)
+        CALL advect_tracer_ab( patch_3d, ocean_state(jg), p_phys_param,&
+          & p_sfc_flx,&
+          & operators_coefficients,&
+          & jstep)
+        IF (ltimer) CALL timer_stop(timer_tracer_ab)        
+      ENDIF
+      
+      !         ENDIF
+      
+      ! One integration cycle finished on the lowest grid level (coarsest
+      ! resolution). Set model time.
+      CALL add_time(dtime,0,0,0,datetime)
+      
+      ! Not nice, but the name list output requires this
+      time_config%sim_time(1) = time_config%sim_time(1) + dtime
+      
+      ! perform accumulation for special variables
+      IF (ltimer) CALL timer_start(timer_extra20)
+      IF (no_tracer>=1) THEN
+        CALL calc_potential_density( patch_3d,                            &
+          & ocean_state(jg)%p_prog(nold(1))%tracer,                         &
+          & ocean_state(jg)%p_diag%rhopot )
+        CALL calc_psi (patch_2d,patch_3d, ocean_state(jg)%p_diag%u(:,:,:),&
+          & ocean_state(jg)%p_prog(nold(1))%h(:,:),                         &
+          & ocean_state(jg)%p_diag%u_vint, datetime)
+      ENDIF
+      
+      ! update accumulated vars
+      CALL update_ocean_statistics(ocean_state(1),&
+        & p_sfc_flx,           &
+        & patch_2d%cells%owned,&
+        & patch_2d%edges%owned,&
+        & patch_2d%verts%owned,&
         & n_zlev)
-        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2D%cells%owned)
+      IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
       
-        dolic           => patch_3d%p_patch_1d(1)%dolic_c
-        prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
-        CALL calc_fast_oce_diagnostics( patch_2D,      &
-          &                             dolic, &
-          &                             prism_thickness, &
-          &                             patch_3d%p_patch_1d(1)%zlev_m, &
-          &                             ocean_state(jg)%p_diag)
-
-        CALL output_ocean( patch_3d, ocean_state, &
-          &                datetime,              &
-          &                p_sfc_flx,             &
-          &                p_ice,                 &
-          &                jstep, jstep0)
+      dolic           => patch_3d%p_patch_1d(1)%dolic_c
+      prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
+      CALL calc_fast_oce_diagnostics( patch_2d,      &
+        & dolic, &
+        & prism_thickness, &
+        & patch_3d%p_patch_1d(1)%zlev_m, &
+        & ocean_state(jg)%p_diag)
       
-        IF (ltimer) CALL timer_stop(timer_extra20)
-        ! Shift time indices for the next loop
-        ! this HAS to ge into the restart files, because the start with the following loop
-        CALL update_time_indices(jg)
-        ! update intermediate timestepping variables for the tracers
-        CALL update_intermediate_tracer_vars(ocean_state(jg))
+      CALL output_ocean( patch_3d, ocean_state, &
+        &                datetime,              &
+        &                p_sfc_flx,             &
+        &                p_ice,                 &
+        &                jstep, jstep0)
       
-        ! write a restart or checkpoint file
-        IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
-          CALL create_restart_file( patch = patch_2d,       &
-            &  datetime=datetime,      &
-            &  jstep=jstep,            &
-            &  model_type="oce",       &
-            &  opt_sim_time=time_config%sim_time(1),&
-            &  opt_nice_class=1,       &
-            &  ocean_Zlevels=n_zlev,                                         &
-            &  ocean_Zheight_CellMiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-            &  ocean_Zheight_CellInterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-        END IF
-
-        ! check cfl criterion
-        IF (cfl_check) THEN
-          CALL check_cfl_horizontal(ocean_state(jg)%p_prog(nnew(1))%vn, &
-            &                       patch_3d%p_patch_2D(1)%edges%inv_dual_edge_length, &
-            &                       dtime, &
-            &                       patch_3d%p_patch_2D(1)%edges%ALL, &
-            &                       cfl_threshold, &
-            &                       ocean_state(jg)%p_diag%cfl_horz, &
-            &                       cfl_stop_on_violation,&
-            &                       cfl_write)
-          CALL check_cfl_vertical(ocean_state(jg)%p_diag%w, &
-            &                     patch_3d%p_patch_1D(1)%prism_center_dist_c, &
-            &                     dtime, &
-            &                     patch_3d%p_patch_2D(1)%cells%ALL,&
-            &                     cfl_threshold, &
-            &                     ocean_state(jg)%p_diag%cfl_vert, &
-            &                     cfl_stop_on_violation,&
-            &                     cfl_write)
-        END IF
+      IF (ltimer) CALL timer_stop(timer_extra20)
+      ! Shift time indices for the next loop
+      ! this HAS to ge into the restart files, because the start with the following loop
+      CALL update_time_indices(jg)
+      ! update intermediate timestepping variables for the tracers
+      CALL update_intermediate_tracer_vars(ocean_state(jg))
       
-      ENDDO time_loop
+      ! write a restart or checkpoint file
+      IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
+        CALL create_restart_file( patch = patch_2d,       &
+          & datetime=datetime,      &
+          & jstep=jstep,            &
+          & model_type="oce",       &
+          & opt_sim_time=time_config%sim_time(1),&
+          & opt_nice_class=1,       &
+          & ocean_zlevels=n_zlev,                                         &
+          & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
+          & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+      END IF
       
+      ! check cfl criterion
+      IF (cfl_check) THEN
+        CALL check_cfl_horizontal(ocean_state(jg)%p_prog(nnew(1))%vn, &
+          & patch_3d%p_patch_2d(1)%edges%inv_dual_edge_length, &
+          & dtime, &
+          & patch_3d%p_patch_2d(1)%edges%ALL, &
+          & cfl_threshold, &
+          & ocean_state(jg)%p_diag%cfl_horz, &
+          & cfl_stop_on_violation,&
+          & cfl_write)
+        CALL check_cfl_vertical(ocean_state(jg)%p_diag%w, &
+          & patch_3d%p_patch_1d(1)%prism_center_dist_c, &
+          & dtime, &
+          & patch_3d%p_patch_2d(1)%cells%ALL,&
+          & cfl_threshold, &
+          & ocean_state(jg)%p_diag%cfl_vert, &
+          & cfl_stop_on_violation,&
+          & cfl_write)
+      END IF
+      
+    ENDDO time_loop
+    
     CALL timer_stop(timer_total)
     
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
   
-
+  
   !-------------------------------------------------------------------------
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE update_intermediate_tracer_vars(ocean_state)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     
@@ -451,5 +425,5 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   
-    
+  
 END MODULE mo_hydro_ocean_run

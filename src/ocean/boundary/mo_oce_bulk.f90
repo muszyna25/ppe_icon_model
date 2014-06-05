@@ -721,8 +721,8 @@ CONTAINS
     !  - volume flux is considered for forcing_enable_freshwater=true only
     !    i.e. for salinity relaxation only, no volume flux is applied
     IF (forcing_enable_freshwater) THEN
-      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb)*dtime
         END DO

@@ -29,7 +29,7 @@ MODULE mo_ocean_output
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & diagnostics_level, &
-    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar
+    & eos_type, i_sea_ice, gibraltar
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode

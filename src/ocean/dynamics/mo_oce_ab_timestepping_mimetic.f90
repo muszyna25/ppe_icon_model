@@ -760,7 +760,7 @@ CONTAINS
       CALL grad_fd_norm_oce_2d_onBlock(         &
         & ocean_state%p_prog(nold(1))%h,        &
         & patch_2D,                             &
-        & op_coeffs%grad_coeff(:,1,:),          &
+        & op_coeffs%grad_coeff(:,1,blockNo),    &
         & z_gradh_e(:,blockNo),                 &
         & start_edge_index, end_edge_index, blockNo)
 
