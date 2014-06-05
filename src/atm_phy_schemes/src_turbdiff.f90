@@ -1134,14 +1134,14 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
 #endif
 !
      tket_conv       ! TKE-tendency due to convective buoyancy       (m2/s3)
-
-#ifdef __xlC__
-REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(OUT) :: &
-#else
-REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
-#endif
-!
-     tket_sso        ! TKE-tendency due to SSO wake production       (m2/s3)
+! 
+! #ifdef __xlC__
+! REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(OUT) :: &
+! #else
+! REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(OUT) :: &
+! #endif
+! !
+!      tket_sso        ! TKE-tendency due to SSO wake production       (m2/s3)
 
 #ifdef __xlC__
 REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
