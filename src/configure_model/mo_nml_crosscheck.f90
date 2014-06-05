@@ -715,8 +715,8 @@ CONTAINS
           ! force monotonous slope limiter for vertical advection
           advection_config(jg)%itype_vlimit(iqtke) = 2
 
-          ! force monotonous flux limiter for horizontal advection
-          advection_config(jg)%itype_hlimit(iqtke) = 3
+          ! force positive definite flux limiter for horizontal advection
+          advection_config(jg)%itype_hlimit(iqtke) = 4
 
           SELECT CASE (advection_config(jg)%iadv_tke)
           CASE (1)
