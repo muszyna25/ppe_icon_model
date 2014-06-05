@@ -163,7 +163,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_restart_mixedPrecision_gmres     = 3
   INTEGER :: select_solver                       = select_restart_gmres
   LOGICAL :: use_continuity_correction           = .true.  
-  INTEGER :: fast_performance_level              = 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
+  INTEGER :: fast_performance_level              = 50 ! 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
                                                       ! 1 = no optimized calls
                                                       ! 5 = standard (use of gmres restart)
                                                       ! > 10 = latest performnce optimizations
@@ -178,14 +178,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: threshold_min_S       =  0.0_wp    ! abort criterion for salinity minimum
   REAL(wp) :: threshold_max_S       = 60.0_wp    ! abort criterion for salinity minimum
 
-  INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
-                                                 ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
-  INTEGER  :: density_computation   = 1          ! 1 = calc_density_MPIOM_func,2 = calc_density_MPIOM_elemental,
-                                                 ! 3 = calc_density_MPIOM_elemental_wrap
-  INTEGER  :: no_tracer             = 2          ! number of tracers 
+  INTEGER  :: no_tracer             = 2          ! number of tracers
 
   ! more ocean parameters, not yet well placed
-  INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit  
+!   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit  
   INTEGER  :: expl_vertical_tracer_diff   = 1    ! 0=explicit, 1 = implicit
   INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
@@ -211,18 +207,6 @@ MODULE mo_ocean_nml
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
 
-  REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical 
-                                                 ! diffusion is multiplied before it is added to the background 
-                                                 ! vertical diffusion ! coeffcient for the velocity. See usage in
-                                                 ! mo_oce_physics.f90, update_ho_params, variable z_av0
-  REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
-  LOGICAL  :: l_constant_mixing     = .FALSE.    ! .TRUE.: the vertical mixing coefficients for velocity and tracer
-                                                 ! are kept constant over time and are set to the background values; no convection
-!  LOGICAL  :: l_convection          = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
-!                                                 ! are unchanged in case of instable stratification
-!  LOGICAL  :: l_pp_scheme           = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
-                                                 ! are set to the background values in case of stable stratification
-  LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
                                                  ! 2-dimensional surface relaxation of temperature and salinity:
   INTEGER  :: type_surfRelax_Temp  = 0           ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file
@@ -307,7 +291,6 @@ MODULE mo_ocean_nml
     &                 discretization_scheme        , &
     &                 dzlev_m                      , &
     &                 expl_vertical_tracer_diff    , &
-    &                 expl_vertical_velocity_diff  , &
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
@@ -355,34 +338,54 @@ MODULE mo_ocean_nml
     &                 threshold_min_T              
 
 
+  REAL(wp) :: convection_InstabilityThreshold = -5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: backgroundDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
+  
   NAMELIST/ocean_diffusion_nml/&
-    &                 HORZ_VELOC_DIFF_TYPE        , &
-    &                 biharmonic_diffusion_factor , &
-    &                 k_pot_temp_h                , &
-    &                 k_pot_temp_v                , &
-    &                 k_sal_h                     , &
-    &                 k_sal_v                     , &
-    &                 k_veloc_h                   , &
-    &                 k_veloc_v                   , &
-    &                 MAX_VERT_DIFF_TRAC          , &
-    &                 MAX_VERT_DIFF_VELOC         , &      
-    &                 l_smooth_veloc_diffusion    
+    &  HORZ_VELOC_DIFF_TYPE        ,    &
+    &  biharmonic_diffusion_factor ,    &
+    &  k_pot_temp_h                ,    &
+    &  k_pot_temp_v                ,    &
+    &  k_sal_h                     ,    &
+    &  k_sal_v                     ,    &
+    &  k_veloc_h                   ,    &
+    &  k_veloc_v                   ,    &
+    &  MAX_VERT_DIFF_TRAC          ,    &
+    &  MAX_VERT_DIFF_VELOC         ,    &
+    &  l_smooth_veloc_diffusion    ,    &
+    &  convection_InstabilityThreshold, &
+    &  backgroundDiffusion_threshold
 
   ! ocean_physics_nml
-  LOGICAL :: use_ThermoExpansion_Correction = .FALSE.
+  ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.
+  INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
+                                                 ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
+  LOGICAL :: use_convection_parameterization = .TRUE.
+  REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
+                                                 ! diffusion is multiplied before it is added to the background
+                                                 ! vertical diffusion ! coeffcient for the velocity. See usage in
+                                                 ! mo_oce_physics.f90, update_ho_params, variable z_av0
+  REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
+  LOGICAL  :: use_constant_mixing     = .FALSE.    ! .TRUE.: the vertical mixing coefficients for velocity and tracer
+                                                 ! are kept constant over time and are set to the background values; no convection
+!  LOGICAL  :: l_convection          = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
+!                                                 ! are unchanged in case of instable stratification
+!  LOGICAL  :: l_pp_scheme           = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
+                                                 ! are set to the background values in case of stable stratification
+  LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
   NAMELIST/ocean_physics_nml/&
-    &                 CWA                         , &
-    &                 CWT                         , &
-    &                 EOS_TYPE                    , &
-    &                 N_POINTS_IN_MUNK_LAYER      , &
-    &                 bottom_drag_coeff           , &
-    &                 density_computation         , &
-    &                 i_sea_ice                   , &
-    &                 l_constant_mixing           , &
-    &                 l_wind_mixing               , &
-    &                 richardson_tracer           , &
-    &                 richardson_veloc            , &
-    &                 use_ThermoExpansion_Correction
+    &  CWA                         , &
+    &  CWT                         , &
+    &  EOS_TYPE                    , &
+    &  N_POINTS_IN_MUNK_LAYER      , &
+    &  bottom_drag_coeff           , &
+    &  i_sea_ice                   , &
+    &  use_constant_mixing         , &
+    &  l_wind_mixing               , &
+    &  richardson_tracer           , &
+    &  richardson_veloc            , &
+    &  use_convection_parameterization !            , &
+    ! &                 use_ThermoExpansion_Correction
 
 
   ! ------------------------------------------------------------------------
@@ -421,8 +424,8 @@ MODULE mo_ocean_nml
 #endif
 !DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
   REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
-  REAL(wp) :: forcing_windStress_u_amplitude       = 0.0_wp
-  REAL(wp) :: forcing_windStress_v_amplitude       = 0.0_wp
+  REAL(wp) :: forcing_windStress_u_amplitude       = 1.0_wp
+  REAL(wp) :: forcing_windStress_v_amplitude       = 1.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
   INTEGER  :: forcing_smooth_steps                 = 1
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
@@ -552,7 +555,7 @@ MODULE mo_ocean_nml
  !!    - separated subroutine ocean_nml_setup from the original
  !!      setup_run subroutine (which is moved to mo_run_nml)
  !!
-!<Optimize_Used>
+!<Optimize:inUse>
  SUBROUTINE setup_ocean_nml( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename

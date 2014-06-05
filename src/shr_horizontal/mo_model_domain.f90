@@ -924,8 +924,10 @@ MODULE mo_model_domain
                                           ! This array assumes a flat surface. dimension: (nproma, n_zlev, nblks_e)
       &  inv_prism_center_dist_c(:,:,:),& ! inverse vertical distance between prism centers at cells. Unit [m].
                                           ! This array assumes a flat surface  dimension: (nproma, n_zlev, nblks_c)
-      &  inv_prism_center_dist_e(:,:,:)   ! inverse vertical distance between prism centers at edges. Unit [m].
+      &  inv_prism_center_dist_e(:,:,:),& ! inverse vertical distance between prism centers at edges. Unit [m].
                                           ! This array assumes a flat surface dimension: (nproma, n_zlev, nblks_e)
+      &  depth_CellMiddle(:,:,:),      & ! depth of the middle of the prism, update according to the current h
+      &  depth_CellInterface(:,:,:)      ! depths at the interface (size is levels + 1)
 
   END TYPE t_patch_vert
 

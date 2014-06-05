@@ -42,14 +42,10 @@ MODULE mo_ocean_statistics
   USE mo_oce_state,              ONLY: ocean_restart_list
  ! USE mo_ocean_initialization,   ONLY: set_lateral_boundary_values
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
-    & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & construct_oce_diagnostics,&
@@ -81,7 +77,7 @@ CONTAINS
 
     
   !---------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE update_ocean_statistics(ocean_state,p_sfc_flx,cells,edges,verts,max_zlev)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     TYPE(t_sfc_flx),           INTENT(inout) :: p_sfc_flx
@@ -137,6 +133,7 @@ CONTAINS
   !---------------------------------------------------------------------
   
   !---------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE compute_mean_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(inout) :: p_acc
     TYPE(t_sfc_flx),         INTENT(inout) :: p_sfc_flx
@@ -203,6 +200,7 @@ CONTAINS
   !---------------------------------------------------------------------
   
   !---------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
     TYPE(t_hydro_ocean_acc), INTENT(inout) :: p_acc
     TYPE(t_sfc_flx),         INTENT(inout) :: p_sfc_flx

@@ -35,7 +35,7 @@ MODULE mo_oce_state
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc ,t_ptr3d ,t_oce_config ,t_ocean_tracer ,    &
     &                               t_ocean_regions ,t_ocean_region_volumes ,t_ocean_region_areas ,t_ocean_basins 
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, MIN_DOLIC,               &
@@ -114,7 +114,7 @@ CONTAINS
   !!  Modification by Stephan Lorenz, MPI-M, (2010-06-01) - no temporary memory array
   !
   !
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_hydro_ocean_state( patch_2d, p_os )
     
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d(n_dom)
@@ -161,7 +161,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE destruct_hydro_ocean_state(p_os)
     TYPE(t_hydro_ocean_state), TARGET,INTENT(inout)   :: p_os(n_dom)
     
@@ -210,7 +210,7 @@ CONTAINS
   !! Developed  by  Stephan Lorenz, MPI-M (2011/06).
   !!
   
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_hydro_ocean_base(patch_2d, v_base)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
@@ -348,7 +348,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_hydro_ocean_prog(patch_2d, p_os_prog, timelevel)
     
     TYPE(t_patch), INTENT(in), TARGET :: patch_2d
@@ -460,7 +460,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
   
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_hydro_ocean_diag(patch_2d,p_os_diag)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
@@ -817,7 +817,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2005).
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE destruct_hydro_ocean_diag(p_os_diag)
     
     TYPE(t_hydro_ocean_diag), INTENT(inout) :: p_os_diag
@@ -851,7 +851,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_hydro_ocean_aux(patch_2d, p_os_aux)
     
     TYPE(t_patch),TARGET, INTENT(in)                :: patch_2d
@@ -979,7 +979,7 @@ CONTAINS
     
   END SUBROUTINE construct_hydro_ocean_aux
   
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_hydro_ocean_acc(patch_2d, p_os_acc)
     
     TYPE(t_patch),TARGET, INTENT(in)                :: patch_2d
@@ -1119,7 +1119,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2005).
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE destruct_hydro_ocean_aux(p_os_aux)
     
     TYPE(t_hydro_ocean_aux), INTENT(inout)      :: p_os_aux
@@ -1148,7 +1148,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE destruct_patch_3d(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)    :: patch_3d
@@ -1173,7 +1173,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter korn, MPI-M (2012/08).
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_patch_3d(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)    :: patch_3d
@@ -1383,7 +1383,7 @@ CONTAINS
     CALL add_var(ocean_default_list, 'inverse prism_thick_c', patch_3d%p_patch_1d(n_dom)%inv_prism_thick_c, &
       & grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('inverse prism_thick_c','m','time independent depth at cells', DATATYPE_FLT32),&
+      & t_cf_var('inverse prism_thick_c','m','time dependent depth at cells', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'prism_center_dist_c', patch_3d%p_patch_1d(n_dom)%prism_center_dist_c, &
@@ -1395,7 +1395,7 @@ CONTAINS
     CALL add_var(ocean_default_list, 'inv_prism_thick_e', patch_3d%p_patch_1d(n_dom)%inv_prism_thick_e, &
       & grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('prism_thick_flat_sfc_c','m','time independent depth at edges', DATATYPE_FLT32),&
+      & t_cf_var('inv_prism_thick_e','m','time dependent inverse thickeness at edges', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'inv_prism_center_dist_c', &
@@ -1409,10 +1409,24 @@ CONTAINS
       & patch_3d%p_patch_1d(n_dom)%inv_prism_center_dist_e, &
       & grid_unstructured_cell, &
       & za_depth_below_sea, &
-      & t_cf_var('inv_prism_center_dist_e','1/m','inverse of dist betweenprism centers at edges', DATATYPE_FLT32),&
+      & t_cf_var('inv_prism_center_dist_e','1/m','inverse of dist between prism centers at edges', DATATYPE_FLT32),&
       & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
-    
+    CALL add_var(ocean_default_list, 'depth_CellMiddle',   &
+      & patch_3d%p_patch_1d(n_dom)%depth_CellMiddle,       &
+      & grid_unstructured_cell,                             &
+      & za_depth_below_sea,                                 &
+      & t_cf_var('depth_CellMiddle','m','depth at the middle of the cells', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+    CALL add_var(ocean_default_list, 'depth_CellInterface',   &
+      & patch_3d%p_patch_1d(n_dom)%depth_CellInterface,       &
+      & grid_unstructured_cell,                                &
+      & za_depth_below_sea_half,                               &
+      & t_cf_var('depth_CellInterface','m','depth at cell interfaces', DATATYPE_FLT32),&
+      & t_grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
+     
   END SUBROUTINE construct_patch_3d
   
   !-------------------------------------------------------------------------
@@ -1422,7 +1436,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Stephan Lorenz, MPI-M (2011).
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE set_oce_tracer_info(max_oce_tracer,&
     & oce_tracer_names,&
     & oce_tracer_longnames,&

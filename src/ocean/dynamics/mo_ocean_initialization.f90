@@ -31,7 +31,7 @@ MODULE mo_ocean_initialization
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     & success, max_char_length, min_dolic,               &
@@ -109,7 +109,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE construct_ocean_var_lists(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
@@ -189,7 +189,7 @@ CONTAINS
   !! - all 3-dim structures moved from patch_oce to type  t_hydro_ocean_base
   !!
   !!  mpi parallelized
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ho_base( patch_2d, p_ext_data, v_base )
     
     TYPE(t_patch),  TARGET,   INTENT(inout)    :: patch_2d
@@ -917,7 +917,7 @@ CONTAINS
   !! Modified by Stephan Lorenz,        MPI-M (2012-02)
   !!
   !!  no-mpi parallelized
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ho_basins( patch_2d, v_base )
     
     TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
@@ -1128,7 +1128,6 @@ CONTAINS
       & iter,' no of cor:',g_cor
     CALL message(TRIM(routine), TRIM(message_text))
     
-!    p_test_run = p_test_run_bac
 !    !chekc if iarea is the same
 !    z_sync_c(:,:) =  REAL(iarea(:,:),wp)
 !    CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
@@ -1283,7 +1282,7 @@ CONTAINS
   !!  developed by Peter Korn, 2011
   !!  mpi parallelized LL (no sync required)
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_coriolis_oce( ptr_patch )
     !
     IMPLICIT NONE
@@ -1385,7 +1384,7 @@ CONTAINS
   !! Developed  by  Peter korn, MPI-M (2012/08).
   !!
   
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_patch_3d(patch_3d, p_ext_data, v_base)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)    :: patch_3d
@@ -1532,10 +1531,13 @@ CONTAINS
           patch_3d%p_patch_1d(1)%prism_volume(jc,jk,jb)           = &
             & patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb) * &
             & patch_3d%p_patch_2d(1)%cells%area(jc,jb)
+          patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,jk,jb)      = patch_3d%p_patch_1d(1)%zlev_m(jk)
+          patch_3d%p_patch_1d(1)%depth_CellInterface(jc,jk,jb)   = patch_3d%p_patch_1d(1)%zlev_i(jk)
           
           patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
         END DO
+        patch_3d%p_patch_1d(1)%depth_CellInterface(jc,dolic_c(jc,jb)+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(dolic_c(jc,jb)+1)
         
         ! set bottom/columns values
         jk = dolic_c(jc,jb)
@@ -1709,7 +1711,7 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   !------------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE complete_ocean_subsets(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1723,7 +1725,7 @@ CONTAINS
   
   
   
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE set_subset_ocean_vertical_layers(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1772,7 +1774,7 @@ CONTAINS
   !------------------------------------------------------------------------------------
   ! ignore land points in range subsets
   ! this only works if the land points are re-ordered
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE ocean_subsets_ignore_land(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1844,7 +1846,7 @@ CONTAINS
   !------------------------------------------------------------------------------------
   
   !------------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE check_ocean_subsets(patch_3d)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     
@@ -1902,6 +1904,7 @@ CONTAINS
   !>
   !! @par Revision History
   !! Developed  by  Stephan Lorenz, MPI-M (2011).
+!<Optimize:inUse>
   SUBROUTINE set_del_zlev(n_zlev, dzlev_m, del_zlev_i, del_zlev_m, zlev_i, zlev_m)
     INTEGER,  INTENT(IN) :: n_zlev
     REAL(wp), INTENT(IN) :: dzlev_m(100)
@@ -1925,7 +1928,7 @@ CONTAINS
   
   
   !------------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_oce_config()
     oce_config%tracer_names(1)     = 'T'
     oce_config%tracer_longnames(1) = 'potential temperature'
@@ -1939,7 +1942,7 @@ CONTAINS
     oce_config%tracer_codes(2)     = 201
     oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
   END SUBROUTINE
-!<Optimize_Used>
+!<Optimize:inUse>
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep
     LOGICAL is_initial_timestep

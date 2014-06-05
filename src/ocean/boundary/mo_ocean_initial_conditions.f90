@@ -99,7 +99,7 @@ CONTAINS
   
 
   !-------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE apply_initial_conditions(patch_3d, ocean_state, external_data, &
     & operators_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
@@ -303,7 +303,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE initialize_diagnostic_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
@@ -336,7 +336,7 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ocean_bathymetry(patch_3d, cells_bathymetry)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET  :: cells_bathymetry(:,:)
@@ -371,7 +371,7 @@ CONTAINS
 
   
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ocean_salinity(patch_3d, ocean_salinity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_salinity(:,:,:)
@@ -459,7 +459,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ocean_temperature(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
@@ -541,7 +541,11 @@ CONTAINS
 
     !------------------------------
     CASE (212)
-      CALL temperature_smoothAPE(patch_3d, ocean_temperature)
+      CALL temperature_smoothAPE_LinearDepth(patch_3d, ocean_temperature)
+
+    !------------------------------
+    CASE (213)
+      CALL temperature_smoothAPE_LinearLevels(patch_3d, ocean_temperature)
 
     !------------------------------
     CASE (401)
@@ -580,7 +584,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ocean_velocity(patch_3d, normal_velocity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: normal_velocity(:,:,:)
@@ -625,7 +629,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_ocean_surface_height(patch_3d, ocean_height)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_height(:,:)
@@ -688,7 +692,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
@@ -728,7 +732,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
@@ -780,7 +784,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
@@ -814,7 +818,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
@@ -849,7 +853,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
@@ -1318,7 +1322,8 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE temperature_smoothAPE(patch_3d, ocean_temperature)
+!<Optimize:inUse>
+  SUBROUTINE temperature_smoothAPE_LinearLevels(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
@@ -1364,15 +1369,67 @@ CONTAINS
       END DO
     END DO
 
-    ! adjust temperature from top to bottom linearly with index of levels
-    !CALL increaseTracerLevelsLinearly(patch_3d, ocean_tracer=ocean_temperature, &
-    !  & bottom_value=initial_temperature_bottom)
+    ! decrease of temperature from top to bottom
+    CALL increaseTracerLevelsLinearly(patch_3d, ocean_tracer=ocean_temperature, &
+      & bottom_value=initial_temperature_bottom)
 
-    ! adjust temperature from top to bottom vertically linear
+  END SUBROUTINE temperature_smoothAPE_LinearLevels
+  !-------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE temperature_smoothAPE_LinearDepth(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, je, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: temperature_difference, poleLat, waveNo
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(method_name), ' using smoothAPE')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    temperature_difference = initial_temperature_top - initial_temperature_bottom
+    poleLat = ABS(forcing_temperature_poleLat * deg2rad)
+    waveNo = pi_2 / poleLat
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+          ocean_temperature(jc,jk,jb) = MAX(initial_temperature_bottom + &
+            & (COS(waveNo * MIN(ABS(patch_2d%cells%center(jc,jb)%lat), poleLat))**2) * temperature_difference, &
+            & initial_temperature_bottom)
+        END DO
+      END DO
+    END DO
+
+    ! add meridional temperature slope over all latitudes
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+          ocean_temperature(jc,jk,jb) = MAX(ocean_temperature(jc,jk,jb) + &
+            & (patch_2d%cells%center(jc,jb)%lat + poleLat) / pi_2 * initial_temperature_shift, &
+            & initial_temperature_bottom)
+        END DO
+      END DO
+    END DO
+
+    ! decrease of temperature from top to bottom
     CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
       & bottom_value=initial_temperature_bottom)
 
-  END SUBROUTINE temperature_smoothAPE
+  END SUBROUTINE temperature_smoothAPE_LinearDepth
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
@@ -1424,7 +1481,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE tracer_VerticallyLinearly(patch_3d, ocean_tracer, top_value, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1459,7 +1516,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
   ! decrease tvertically linerarly the given tracer based on the top level value
   ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE increaseTracerVerticallyLinearly(patch_3d, ocean_tracer, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1499,7 +1556,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
   ! decrease tvertically linerarly the given tracer based on the top level value
   ! of the tracer and using a decres of (top_value - bottom_value) / (n_zlev - 1)
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE increaseTracerLevelsLinearly(patch_3d, ocean_tracer, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1708,7 +1765,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg
     REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width
     REAL(wp):: temperature
@@ -1761,7 +1818,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: distan
     REAL(wp):: perturbation_lat, perturbation_lon,  max_perturbation, perturbation_width
     ! REAL(wp):: z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -1787,29 +1844,29 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
 
-        z_dolic = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+        levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
-        IF (z_dolic > 0) THEN
+        IF (levels > 0) THEN
           ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
           ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
           ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
           ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
-          ocean_temperature(jc,1:z_dolic,jb) = 20.0_wp
+          ocean_temperature(jc,1:levels,jb) = 20.0_wp
           distan = SQRT((cell_center(jc,jb)%lat - perturbation_lat * deg2rad)**2 + &
             & (cell_center(jc,jb)%lon - perturbation_lon * deg2rad)**2)
 
           !Local hot perturbation
           IF(distan<=5.0_wp*deg2rad)THEN
-            DO jk = 1, z_dolic
+            DO jk = 1, levels
               ocean_temperature(jc,jk,jb) =          &
                 & ocean_temperature(jc,jk,jb)          &
                 & + max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
               !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
-                & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk) / patch_3d%p_patch_1d(1)%zlev_i(z_dolic+1))
+                & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(jk) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
             END DO
           ENDIF !Local hot perturbation
 
-        END IF !(z_dolic > 0)
+        END IF !(levels > 0)
       END DO
     END DO
 
@@ -1870,7 +1927,7 @@ CONTAINS
 
     INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: z_dolic
+    INTEGER :: levels
     REAL(wp):: lat_deg, lon_deg, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
@@ -1921,7 +1978,6 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
   SUBROUTINE salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_salinity(:,:,:)
@@ -1950,7 +2006,6 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
-!<Optimize_Used>
   SUBROUTINE fill_FromVerticalArrayProfile(patch_3d, ocean_tracer, VerticalProfileValue)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -2379,7 +2434,7 @@ CONTAINS
   !-----------------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE fill_tracer_x_height(patch_3d, ocean_state)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state

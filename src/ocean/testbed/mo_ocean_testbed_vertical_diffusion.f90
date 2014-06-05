@@ -46,7 +46,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
     & t_hydro_ocean_prog, t_ocean_tracer
   USE mo_oce_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
   USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
@@ -57,9 +56,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
-    & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & construct_oce_diagnostics,&

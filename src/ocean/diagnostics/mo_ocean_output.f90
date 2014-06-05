@@ -41,15 +41,11 @@ MODULE mo_ocean_output
     & t_hydro_ocean_prog
   USE mo_oce_state,              ONLY: ocean_restart_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_oce_physics,            ONLY: t_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
-    & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & construct_oce_diagnostics,&
@@ -80,24 +76,24 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   !>
-  !! Main stepping routine for call of hydrostatic ocean model
-  !!
   !! @par Revision History
   !! Developed by Peter Korn, MPI-M  (2008-2010).
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
+!<Optimize:inUse>
   SUBROUTINE output_ocean( patch_3d, ocean_state,     &
     & datetime,    &
     & p_sfc_flx,             &
     & p_ice, &
     & jstep, jstep0)
-    
+
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     TYPE(t_sfc_flx)                                  :: p_sfc_flx
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
-    INTEGER,   INTENT(in)     :: jstep, jstep0
+    INTEGER,   INTENT(in)                            :: jstep, jstep0
+
     
 
     ! local variables
@@ -165,6 +161,7 @@ CONTAINS
   !-------------------------------------------------------------------------
     
   !-------------------------------------------------------------------------
+!<Optimize:inUse>
   SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
     INTEGER, INTENT(in) :: timelevel
     TYPE(t_hydro_ocean_diag) :: p_diag

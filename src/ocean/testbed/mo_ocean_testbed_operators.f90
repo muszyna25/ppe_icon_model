@@ -158,7 +158,7 @@ CONTAINS
     write(0,*)'OPERATOR-TEST:curl-integral:',jk,curl_integral(jk)
     END DO
     !calculate domain integrated div
-    CALL div_oce_3d( vn_e, patch_2D,operators_coefficients%div_coeff, div)
+    CALL div_oce_3d( vn_e, patch_3D,operators_coefficients%div_coeff, div)
     div_integral=0.0_wp
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_index, end_index)
@@ -189,7 +189,7 @@ IF(jk==1)&
     END DO
 
     !product rule for divergence
-    CALL div_oce_3d( vn_e, patch_2D,operators_coefficients%div_coeff, div)
+    CALL div_oce_3d( vn_e, patch_3D,operators_coefficients%div_coeff, div)
     CALL grad_fd_norm_oce_3d( trac_c, patch_3D, operators_coefficients%grad_coeff, grad)
 
     lhs=0.0_wp

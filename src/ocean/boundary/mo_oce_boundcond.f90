@@ -19,6 +19,9 @@
 !! headers of the routines.
 !!
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_oce_boundcond
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
@@ -37,7 +40,7 @@ MODULE mo_oce_boundcond
   USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_physics,        ONLY: t_ho_params
-  USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d_3d, div_oce_3D
+!   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d_3d, div_oce_3D
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array
@@ -74,8 +77,8 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn,         MPI-M (2010)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  !!  mpi parallelized LL
   !!
+  !<Optimize:inUse:done>
   SUBROUTINE top_bound_cond_horz_veloc( patch_3D, p_os, p_op_coeff, p_sfc_flx)  !  , &
  !  & top_bc_u_c, top_bc_v_c, top_bc_u_cc )
     !
@@ -89,7 +92,7 @@ CONTAINS
     
     !Local variables
     INTEGER :: jc, jb
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: start_index, end_index
     REAL(wp):: z_scale(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: smooth_coeff, u_diff, v_diff, stress_coeff
     TYPE(t_subset_range), POINTER :: all_cells   
@@ -100,14 +103,29 @@ CONTAINS
     patch_2D   => patch_3D%p_patch_2D(1)
     all_cells => patch_2D%cells%all
     !-----------------------------------------------------------------------
+    IF (is_restart_run()) THEN
+      smooth_coeff = 1.0_wp
+    ELSE
+      smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
+      current_step = current_step + 1
+    ENDIF
     
     ! Modification of surface wind forcing according to surface boundary condition
+!ICON_OMP_PARALLEL
     IF(iswm_oce == 1)THEN
       !z_scale(:,:) = v_base%del_zlev_m(1)*rho_ref
       !z_scale(:,:) = rho_ref*patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)
-       z_scale(:,:) = rho_ref*p_os%p_diag%thick_c(:,:)
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        z_scale(:,jb) = rho_ref*p_os%p_diag%thick_c(:,jb)
+      ENDDO
+!ICON_OMP_END_DO 
     ELSEIF(iswm_oce /= 1)THEN
-      z_scale = rho_ref
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        z_scale(:,jb) = rho_ref
+      ENDDO
+!ICON_OMP_END_DO
     ENDIF
 
     ! set to zero (NAG)
@@ -122,28 +140,35 @@ CONTAINS
    CASE (0)
 
    !  ! CALL message (TRIM(routine),'ZERO top velocity boundary conditions chosen')
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = all_cells%start_block, all_cells%end_block
-       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-       DO jc = i_startidx_c, i_endidx_c
-         p_os%p_aux%bc_top_u(jc,jb)          =0.0_wp
-         p_os%p_aux%bc_top_v(jc,jb)          =0.0_wp
-         p_os%p_aux%bc_top_veloc_cc(jc,jb)%x =0.0_wp
+       p_os%p_aux%bc_top_u(:,jb)          =0.0_wp
+       p_os%p_aux%bc_top_v(:,jb)          =0.0_wp
+       CALL get_index_range(all_cells, jb, start_index, end_index)
+       DO jc = start_index, end_index
+!          p_os%p_aux%bc_top_u(jc,jb)          =0.0_wp
+!          p_os%p_aux%bc_top_v(jc,jb)          =0.0_wp
+          p_os%p_aux%bc_top_veloc_cc(jc,jb)%x =0.0_wp
        END DO
      END DO
+!ICON_OMP_END_DO
 
     CASE (1) ! Forced by wind stress stored in p_sfc_flx
 
       ! CALL message (TRIM(routine),'(1) top velocity boundary condition: use surface wind stress')
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, stress_coeff) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-            p_os%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)/z_scale(jc,jb)
-            p_os%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)/z_scale(jc,jb)
-            p_os%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x/z_scale(jc,jb)
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          IF (patch_3d%p_patch_1d(1)%dolic_c(jc, jb) > 0) THEN
+            stress_coeff = 1.0_wp / z_scale(jc,jb)
+            p_os%p_aux%bc_top_u(jc,jb)          = p_sfc_flx%topBoundCond_windStress_u(jc,jb)    * stress_coeff
+            p_os%p_aux%bc_top_v(jc,jb)          = p_sfc_flx%topBoundCond_windStress_v(jc,jb)    * stress_coeff
+            p_os%p_aux%bc_top_veloc_cc(jc,jb)%x = p_sfc_flx%topBoundCond_windStress_cc(jc,jb)%x * stress_coeff
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_DO
 
  !  CASE (2) ! Forced by difference between wind velocity stored in p_sfc_flx and ocean velocity at top layer
  !    ! TODO: topBoundCond_windStress_u is not a velocity, but boundary condition for diffusion
@@ -152,8 +177,8 @@ CONTAINS
 
  !    ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
  !    DO jb = all_cells%start_block, all_cells%end_block
- !      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
- !      DO jc = i_startidx_c, i_endidx_c
+ !      CALL get_index_range(all_cells, jb, start_index, end_index)
+ !      DO jc = start_index, end_index
  !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
  !        top_bc_u_c(jc,jb)    = ( p_sfc_flx%topBoundCond_windStress_u(jc,jb)   &
  !          & - p_os%p_diag%u(jc,1,jb) ) / z_scale(jc,jb)
@@ -180,8 +205,8 @@ CONTAINS
 
  !    ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
  !    DO jb = all_cells%start_block, all_cells%end_block
- !      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
- !      DO jc = i_startidx_c, i_endidx_c
+ !      CALL get_index_range(all_cells, jb, start_index, end_index)
+ !      DO jc = start_index, end_index
  !        IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
  !          u_diff = p_sfc_flx%topBoundCond_windStress_u(jc,jb) - p_os%p_diag%u(jc,1,jb)
  !          v_diff = p_sfc_flx%topBoundCond_windStress_v(jc,jb) - p_os%p_diag%v(jc,1,jb)
@@ -198,17 +223,11 @@ CONTAINS
 
     CASE (4) ! gradually increase the for forcing_smooth_steps
 
-      IF (is_restart_run()) THEN
-        smooth_coeff = 1.0_wp
-      ELSE
-        smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
-        current_step = current_step + 1
-      ENDIF
-
     ! CALL message (TRIM(routine),'(2) top velocity boundary condition: use forc-u minus U(1) ')
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, stress_coeff) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
           IF(patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
 
             stress_coeff = smooth_coeff / z_scale(jc,jb)
@@ -220,14 +239,16 @@ CONTAINS
          ENDIF
        END DO
      END DO
+!ICON_OMP_END_DO
 
     CASE default
       CALL finish("top_bound_cond_horz_veloc", "unknown i_bc_veloc_top")
 
     END SELECT
+!ICON_OMP_END_PARALLEL
 
     CALL map_cell2edges_3D( patch_3D, p_os%p_aux%bc_top_veloc_cc,p_os%p_aux%bc_top_vn,p_op_coeff,level=1)
-    CALL sync_patch_array(SYNC_E, patch_3D%p_patch_2D(1), p_os%p_aux%bc_top_vn)
+    ! CALL sync_patch_array(SYNC_E, patch_3D%p_patch_2D(1), p_os%p_aux%bc_top_vn)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
@@ -253,7 +274,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !! Modified by Stephan Lorenz,     MPI-M (2010-07)
-!<Optimize_Used>
+  !<Optimize:inUse:done>
   SUBROUTINE bot_bound_cond_horz_veloc( patch_3D, p_os, p_phys_param, p_op_coeff)
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3D
@@ -265,9 +286,8 @@ CONTAINS
     ! Local variables
     INTEGER :: jb, je,jc
     !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: start_index, end_index, bottom_level
     !INTEGER :: i_startidx_e, i_endidx_e
-    INTEGER :: z_dolic!, z_dolic_c1,z_dolic_c2
     REAL(wp) :: z_norm
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
     CHARACTER(LEN=max_char_length), PARAMETER :: &
@@ -279,63 +299,65 @@ CONTAINS
     all_cells       => patch_2D%cells%all
     edges_in_domain => patch_2D%edges%in_domain
 
+!ICON_OMP_PARALLEL
     SELECT CASE (i_bc_veloc_bot)
 
     CASE(0)
+!ICON_OMP_DO  PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
           p_os%p_aux%bc_bot_veloc_cc(jc,jb)%x = 0.0_wp
         END DO
       END DO
+!ICON_OMP_END_DO
 
     CASE(1)!Bottom friction
  
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, bottom_level, z_norm) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-          IF ( z_dolic > min_dolic ) THEN  ! wet points only
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          bottom_level =  patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+          IF ( bottom_level > 0 ) THEN  ! wet points only
 
-            z_norm  = SQRT(2.0_wp * p_os%p_diag%kin(jc,z_dolic,jb))
+            z_norm  = SQRT(2.0_wp * p_os%p_diag%kin(jc,bottom_level,jb))
 
             p_os%p_aux%bc_bot_veloc_cc(jc,jb)%x = &
-              & p_phys_param%bottom_drag_coeff * z_norm * p_os%p_diag%p_vn(jc,z_dolic,jb)%x
+              & p_phys_param%bottom_drag_coeff * z_norm * p_os%p_diag%p_vn(jc,bottom_level,jb)%x
 
             !p_os%p_aux%bc_bot_u(jc,jb) = &
-            !  & p_phys_param%bottom_drag_coeff * z_norm * p_os%p_diag%u(jc,z_dolic,jb)
+            !  & p_phys_param%bottom_drag_coeff * z_norm * p_os%p_diag%u(jc,bottom_level,jb)
             !p_os%p_aux%bc_bot_v(jc,jb) = &
-            !  & p_phys_param%bottom_drag_coeff * z_norm * p_os%p_diag%v(jc,z_dolic,jb)
+            !  & p_phys_param%bottom_drag_coeff * z_norm * p_os%p_diag%v(jc,bottom_level,jb)
 
           END IF
         END DO
       END DO
-      CALL map_cell2edges_3D( patch_3D, p_os%p_aux%bc_bot_veloc_cc,p_os%p_aux%bc_bot_vn,p_op_coeff,level=1)
-      !CALL map_cell2edges_2d( patch_3D, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
-      CALL sync_patch_array(SYNC_E, patch_2D, p_os%p_aux%bc_bot_vn)
+!ICON_OMP_END_DO
 
     CASE(2) !Bottom friction and topographic slope
       CALL message (TRIM(routine), &
         & 'TOPOGRAPHY_SLOPE bottom velocity boundary conditions not implemented yet')
       CALL finish (TRIM(routine), 'TOPOGRAPHY_SLOPE bottom velocity boundary conditions not implemented yet') 
 ! !       DO jb = all_cells%start_block, all_cells%end_block
-! !         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !         DO jc = i_startidx_c, i_endidx_c
+! !         CALL get_index_range(all_cells, jb, start_index, end_index)
+! !         DO jc = start_index, end_index
 ! !           
-! !           !z_dolic = v_base%dolic_c(jc,jb)
-! !           z_dolic = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
-! !           IF ( z_dolic >= min_dolic ) THEN  ! wet points only
+! !           !bottom_level = v_base%dolic_c(jc,jb)
+! !           bottom_level = patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
+! !           IF ( bottom_level >= min_dolic ) THEN  ! wet points only
 ! !             
-! !             z_norm  = SQRT(2.0_wp*p_os%p_diag%kin(jc,z_dolic,jb))
+! !             z_norm  = SQRT(2.0_wp*p_os%p_diag%kin(jc,bottom_level,jb))
 ! !             
 ! !             p_os%p_aux%bc_bot_veloc_cc(jc,jb)%x =&
-! !               & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%p_vn(jc,z_dolic,jb)%x
+! !               & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%p_vn(jc,bottom_level,jb)%x
 ! !             
 ! !             !Only for RBF relevant: there should be an if, PK
 ! !             p_os%p_aux%bc_bot_u(jc,jb)=&
-! !               & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%u(jc,z_dolic,jb)
+! !               & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%u(jc,bottom_level,jb)
 ! !             p_os%p_aux%bc_bot_v(jc,jb)=&
-! !               & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%v(jc,z_dolic,jb)
+! !               & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%v(jc,bottom_level,jb)
 ! !             
 ! !           END IF
 ! !         END DO
@@ -387,7 +409,11 @@ CONTAINS
     CASE default
       CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions')
     END SELECT
+!ICON_OMP_END_PARALLEL
 
+    CALL map_cell2edges_3D( patch_3D, p_os%p_aux%bc_bot_veloc_cc,p_os%p_aux%bc_bot_vn,p_op_coeff,level=1)
+      !CALL map_cell2edges_2d( patch_3D, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn,p_op_coeff)
+    ! CALL sync_patch_array(SYNC_E, patch_2D, p_os%p_aux%bc_bot_vn)
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     !CALL dbg_print('bot bound.cond. u_c'         ,p_os%p_aux%bc_bot_u      ,str_module,idt_src)
@@ -423,7 +449,7 @@ CONTAINS
 ! !     !
 ! !     ! Local variables
 ! !     INTEGER :: jb, jc, je, i_dolic
-! !     INTEGER :: i_startidx_c, i_endidx_c
+! !     INTEGER :: start_index, end_index
 ! !     INTEGER :: i_startidx_e, i_endidx_e
 ! !     REAL(wp) :: z_grad_h(nproma,1,patch_2D%nblks_e)
 ! !     INTEGER, DIMENSION(:,:,:),POINTER :: iidx, iblk
@@ -481,8 +507,8 @@ CONTAINS
 ! !     !----------------------------------------
 ! !     
 ! !     DO jb = all_cells%start_block, all_cells%end_block
-! !       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-! !       DO jc = i_startidx_c, i_endidx_c
+! !       CALL get_index_range(all_cells, jb, start_index, end_index)
+! !       DO jc = start_index, end_index
 ! !         !calulate  Pu dot P (nabla H), this corresponds to continuous top boundary condition u dot nabla H
 ! !         bot_bc_w(jc,jb) = -DOT_PRODUCT(z_grad_h_cc(jc,1,jb)%x,&
 ! !           & p_os%p_diag%p_vn(jc,1,jb)%x)
@@ -636,7 +662,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!  mpi parallelized LL (no sync required)
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE top_bound_cond_tracer( patch_2D, pstate_oce, tracer_id, p_sfc_flx, top_bc_tracer)
     
     TYPE(t_patch)    , TARGET, INTENT(in) :: patch_2D             ! patch on which computation is performed
@@ -647,7 +673,7 @@ CONTAINS
     !
     !Local variables
     INTEGER :: jc, jb
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: start_index, end_index
     REAL(wp):: z_c(nproma,patch_2D%alloc_cell_blocks)
 
     TYPE(t_subset_range), POINTER :: all_cells
@@ -659,15 +685,15 @@ CONTAINS
     
     IF (tracer_id == 1) THEN
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
           top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb)
         END DO
       END DO
     ELSE IF (tracer_id == 2) THEN
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
           top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
         END DO
       END DO
@@ -702,14 +728,14 @@ CONTAINS
     
     !Local variables
     INTEGER :: jc, jb
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: start_index, end_index
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
     all_cells => patch_2D%cells%all
     
     DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
         bot_bc_tracer(jc,jb, tracer_id) = 0.0_wp
       END DO
     END DO

@@ -54,7 +54,7 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-11)
   !! Modified        by Stephan Lorenz, MPI-M (2012-06)
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE init_oce_index (patch_2d, patch_3d, pstate_oce, p_ext_data)
 
     TYPE(t_patch),             TARGET, INTENT(in)     :: patch_2d(n_dom)
@@ -267,7 +267,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE ocean_check_level_sea_land_mask( patch_3d )
     !
     TYPE(t_patch_3D ),TARGET, INTENT(IN):: patch_3d

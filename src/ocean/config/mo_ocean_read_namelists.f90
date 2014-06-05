@@ -54,7 +54,7 @@ CONTAINS
   !>
   !! Read namelists for ocean models
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename

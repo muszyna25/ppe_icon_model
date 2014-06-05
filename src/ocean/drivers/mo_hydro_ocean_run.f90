@@ -29,8 +29,8 @@ MODULE mo_hydro_ocean_run
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & eos_type, i_sea_ice, l_staggered_timestep, gibraltar,         &
-    & cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write,   &
-    & use_ThermoExpansion_Correction
+    & cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write
+    ! & use_ThermoExpansion_Correction
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -40,7 +40,7 @@ MODULE mo_hydro_ocean_run
   USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
     & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
-    & timer_upd_phys, timer_upd_flx
+    & timer_upd_phys, timer_upd_flx, timer_extra20
   USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
@@ -58,12 +58,11 @@ MODULE mo_hydro_ocean_run
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_oce_physics,            ONLY: t_ho_params, update_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
-    & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density, ocean_correct_ThermoExpansion
+  USE mo_oce_thermodyn,          ONLY: calc_potential_density, &
+    & calculate_density! , ocean_correct_ThermoExpansion
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_fast_oce_diagnostics, &
-    & t_oce_timeseries, calc_moc, calc_psi
+    & t_oce_timeseries, calc_psi
   USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
@@ -96,7 +95,7 @@ MODULE mo_hydro_ocean_run
 CONTAINS
 
   !-------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE prepare_ho_stepping(patch_3d, operators_coefficients, ocean_state, p_phys_param, is_restart)
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_operator_coeff)            :: operators_coefficients
@@ -133,6 +132,7 @@ CONTAINS
   !! Developed by Peter Korn, MPI-M  (2008-2010).
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
+!<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
     & datetime, lwrite_restart,            &
     & p_sfc_flx, p_phys_param,             &
@@ -214,7 +214,7 @@ CONTAINS
         CALL calc_potential_density( patch_3d,                     &
           & ocean_state(jg)%p_prog(nold(1))%tracer,&
           & ocean_state(jg)%p_diag%rhopot )
-        CALL calc_density( patch_3d,                        &
+        CALL calculate_density( patch_3d,                        &
           & ocean_state(jg)%p_prog(nold(1))%tracer, &
           & ocean_state(jg)%p_diag%rho )
 
@@ -280,24 +280,20 @@ CONTAINS
           
           
           IF (ltimer) CALL timer_start(timer_upd_phys)        
-          SELECT CASE (eos_type)
-          CASE(1)
-            CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param,&
-            & calc_density_lin_eos_func)
-          CASE(2)
-            CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param,&
-            & calc_density_mpiom_func)
-          CASE(3)
-            CALL update_ho_params(patch_3d,ocean_state(jg), p_sfc_flx, p_phys_param,&
-            & calc_density_jmdwfg06_eos_func)
-          CASE default
-          END SELECT
+          CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param)
+!           SELECT CASE (eos_type)
+!           CASE(1)
+!             CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param,&
+!             & density_linear_function)
+!           CASE(2)
+!             CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param,&
+!             & density_mpiom_function)
+!           CASE(3)
+!             CALL update_ho_params(patch_3d,ocean_state(jg), p_sfc_flx, p_phys_param,&
+!             & density_jmdwfg06_function)
+!           CASE default
+!           END SELECT
           IF (ltimer) CALL timer_stop(timer_upd_phys)
-        
-!          CALL update_diffusion_matrices( patch_3d,   &
-!          & p_phys_param,                             &
-!          & operators_coefficients%matrix_vert_diff_e,&
-!          & operators_coefficients%matrix_vert_diff_c)
         
           !------------------------------------------------------------------------
           ! solve for new free surface
@@ -340,15 +336,15 @@ CONTAINS
             & jstep)
             IF (ltimer) CALL timer_stop(timer_tracer_ab)
 
-            IF (use_ThermoExpansion_Correction) THEN
-              CALL ocean_correct_ThermoExpansion(                                      &
-                & patch_3d         = patch_3d,                                        &
-!                & old_temeperature = ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,1), &
-!                & new_temeperature = ocean_state(jg)%p_prog(nnew(1))%tracer(:,:,:,1), &
-                & temperature_difference = ocean_state(jg)%p_diag%temp_horizontally_diffused, &
-                & old_height       = ocean_state(jg)%p_prog(nold(1))%h,               &
-                & new_height       = ocean_state(jg)%p_prog(nnew(1))%h)
-            ENDIF
+!            IF (use_ThermoExpansion_Correction) THEN
+!              CALL ocean_correct_ThermoExpansion(                                      &
+!                & patch_3d         = patch_3d,                                        &
+!               ! & old_temeperature = ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,1), &
+!               ! & new_temeperature = ocean_state(jg)%p_prog(nnew(1))%tracer(:,:,:,1), &
+!                & temperature_difference = ocean_state(jg)%p_diag%temp_horizontally_diffused, &
+!                & old_height       = ocean_state(jg)%p_prog(nold(1))%h,               &
+!                & new_height       = ocean_state(jg)%p_prog(nnew(1))%h)
+!            ENDIF
 
           ENDIF
         
@@ -362,6 +358,7 @@ CONTAINS
         time_config%sim_time(1) = time_config%sim_time(1) + dtime
       
         ! perform accumulation for special variables
+        IF (ltimer) CALL timer_start(timer_extra20)
         IF (no_tracer>=1) THEN
           CALL calc_potential_density( patch_3d,                            &
             &                          ocean_state(jg)%p_prog(nold(1))%tracer,                         &
@@ -369,7 +366,8 @@ CONTAINS
           CALL calc_psi (patch_2d,patch_3d, ocean_state(jg)%p_diag%u(:,:,:),&
             &                          ocean_state(jg)%p_prog(nold(1))%h(:,:),                         &
             &                          ocean_state(jg)%p_diag%u_vint, datetime)
-        ENDIF 
+        ENDIF
+        
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),&
           &                          p_sfc_flx,           &
@@ -393,6 +391,7 @@ CONTAINS
           &                p_ice,                 &
           &                jstep, jstep0)
       
+        IF (ltimer) CALL timer_stop(timer_extra20)
         ! Shift time indices for the next loop
         ! this HAS to ge into the restart files, because the start with the following loop
         CALL update_time_indices(jg)
@@ -441,7 +440,7 @@ CONTAINS
   
 
   !-------------------------------------------------------------------------
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE update_intermediate_tracer_vars(ocean_state)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
     

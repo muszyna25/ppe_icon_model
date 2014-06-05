@@ -42,12 +42,12 @@ MODULE mo_ocean_gmres
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
     & timer_gmres_p_sum, activate_sync_timers
   USE mo_oce_types,           ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
-  USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array, &
-    & sync_e, sync_c, sync_v, sync_patch_array
+  USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array
+  !  & sync_e, sync_c, sync_v, sync_patch_array
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, p_barrier, p_sum, &
     & get_my_mpi_work_communicator
-  USE mo_util_dbg_prnt,             ONLY: dbg_print
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   
   IMPLICIT NONE
   
@@ -84,12 +84,12 @@ CONTAINS
   !! Based on gmres_oce_old
   !! restart functionality and optimization L.Linardakis, MPIM, 2013
   !-------------------------------------------------------------------------
-!<Optimize_Used> 
+!<Optimize:inUse>
   SUBROUTINE ocean_restart_gmres( x,lhs,        &
     & h_e, thickness_c, old_h, p_patch_3d,      &
     & p_op_coeff, b,                            &
     & absolute_tolerance,  relative_tolerance,  &
-    & m,maxiterex,niter,res,                    &
+    & m, maxiterex,niter,res,                   &
     & preconditioner)
     !
     ! !DESCRIPTION
@@ -1643,7 +1643,7 @@ CONTAINS
     
     res(1:niter) = ABS(rn2(1:niter))
     
-  END SUBROUTINE gmres_oce_e2e
-  
+  END SUBROUTINE gmres_oce_e2e  
   !-------------------------------------------------------------------------
+  
 END MODULE mo_ocean_gmres

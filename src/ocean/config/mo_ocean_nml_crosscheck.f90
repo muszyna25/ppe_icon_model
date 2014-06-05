@@ -49,7 +49,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Hui Wan, MPI (2011-07)
   !!
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE resize_ocean_simulation_length()
 
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
@@ -145,7 +145,7 @@ CONTAINS
 
   END SUBROUTINE resize_ocean_simulation_length
 
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE check_thicknesses
 
     ! ensure, that all used thicknesses are non-zero
@@ -154,7 +154,7 @@ CONTAINS
     END IF
   END SUBROUTINE check_thicknesses
 
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE oce_crosscheck()
 
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_ocean_nml_crosscheck:oce_crosscheck'
@@ -182,8 +182,8 @@ CONTAINS
     END SELECT
 
     IF (no_tracer < 1) THEN
-      CALL warning("oce_crosscheck", "no_tracer < 1, set l_constant_mixing=TRUE")
-      l_constant_mixing = .TRUE.
+      CALL warning("oce_crosscheck", "no_tracer < 1, set use_constant_mixing=TRUE")
+      use_constant_mixing = .TRUE.
     ENDIF
 
     CALL check_thicknesses

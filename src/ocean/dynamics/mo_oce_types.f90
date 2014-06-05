@@ -38,6 +38,7 @@ MODULE mo_oce_types
   PUBLIC :: t_ocean_region_areas
   PUBLIC :: t_ocean_basins
 
+  PUBLIC :: t_verticalAdvection_ppm_coefficients
   PUBLIC :: t_operator_coeff
   PUBLIC :: t_solverCoeff_singlePrecision
 
@@ -344,17 +345,6 @@ MODULE mo_oce_types
     TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE
   
-  !! array of states
-  !
-  TYPE t_hydro_ocean_state
-    
-    TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at different time levels
-    TYPE(t_hydro_ocean_diag) :: p_diag
-    TYPE(t_hydro_ocean_aux)  :: p_aux
-    TYPE(t_hydro_ocean_acc)  :: p_acc
-    
-  END TYPE t_hydro_ocean_state
-  
   INTEGER, PARAMETER :: max_tracers = 2
   TYPE t_oce_config
     CHARACTER(LEN=max_char_length) :: tracer_names(max_tracers)
@@ -433,6 +423,26 @@ MODULE mo_oce_types
     INTEGER :: &
       & atlantic = 1, pacific = 3
   END TYPE t_ocean_basins
+  !-----------------------------
+
+
+  !-------------------------------------------------------------------------------
+  TYPE t_verticalAdvection_ppm_coefficients
+    !  coefficients for the upwind_vflux_ppm vertical advection
+    !  these are allocated in a block mode (ie each block allocates its own coefeicients)
+    ! all dimensions are (nproma, levels),
+    !  although not all the levels are actually used
+    REAL(wp), POINTER ::  cellHeightRatio_This_toBelow(:,:)
+    REAL(wp), POINTER ::  cellHeightRatio_This_toThisBelow(:,:)
+    REAL(wp), POINTER ::  cellHeight_2xBelow_x_RatioThis_toThisBelow(:,:)
+    REAL(wp), POINTER ::  cellHeightRatio_This_toThisAboveBelow(:,:)
+    REAL(wp), POINTER ::  cellHeightRatio_2xAboveplusThis_toThisBelow(:,:)
+    REAL(wp), POINTER ::  cellHeightRatio_2xBelowplusThis_toThisAbove(:,:)
+    REAL(wp), POINTER ::  cellHeightRatio_ThisAbove_to2xThisplusBelow(:,:)
+    REAL(wp), POINTER ::  cellHeightRatio_ThisBelow_to2xThisplusAbove(:,:)
+    REAL(wp), POINTER ::  cellHeight_inv_ThisAboveBelow2Below(:,:)
+
+  END TYPE t_verticalAdvection_ppm_coefficients
 
   TYPE t_operator_coeff
 
@@ -504,6 +514,8 @@ MODULE mo_oce_types
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:)
 
+    TYPE(t_verticalAdvection_ppm_coefficients), POINTER :: verticalAdvectionPPMcoeffs(:)
+
 !    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
 !    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
 !    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
@@ -511,6 +523,7 @@ MODULE mo_oce_types
 
   END TYPE t_operator_coeff
 
+    
   TYPE t_solverCoeff_singlePrecision
     ! the same as in t_operator_coeff in single precision for using in the solver
     REAL(sp), ALLOCATABLE :: grad_coeff(:,:)                     ! as in t_operator_coeff for the 1st level
@@ -522,6 +535,20 @@ MODULE mo_oce_types
     REAL(sp), ALLOCATABLE :: cell_thickness(:,:)                ! as t_hydro_ocean_diag thick_c
 
   END TYPE t_solverCoeff_singlePrecision
+
+
+  !-----------------------------------------------------------
+  ! array of states
+  TYPE t_hydro_ocean_state
+
+    TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at different time levels
+    TYPE(t_hydro_ocean_diag) :: p_diag
+    TYPE(t_hydro_ocean_aux)  :: p_aux
+    TYPE(t_hydro_ocean_acc)  :: p_acc
+    TYPE(t_operator_coeff), POINTER :: operator_coeff
+
+  END TYPE t_hydro_ocean_state
+
   
 END MODULE mo_oce_types
 

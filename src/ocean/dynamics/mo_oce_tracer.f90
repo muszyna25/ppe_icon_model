@@ -35,7 +35,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                      
   &                                     expl_vertical_tracer_diff, iswm_oce, l_edge_based,                  &
   &                                     flux_calculation_horz, flux_calculation_vert, miura_order1,         &
   &                                     l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
-  &                                     use_tracer_x_height, l_skip_tracer, use_ThermoExpansion_Correction
+  &                                     use_tracer_x_height, l_skip_tracer! , use_ThermoExpansion_Correction
 USE mo_util_dbg_prnt,             ONLY: dbg_print
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -91,7 +91,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   INTEGER                                          :: timestep
 
   !Local variables
-  INTEGER  :: i_no_t, jk
+  INTEGER  :: tracer_index, jk
   INTEGER  :: i_startidx_c, i_endidx_c, jc, jb
   REAL(wp) :: z_relax!, delta_z
   INTEGER  :: iloc(2)
@@ -109,40 +109,40 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
                                & p_os,       &
                                & p_op_coeff)
 
-  DO i_no_t = 1, no_tracer
-    !CALL sync_patch_array(SYNC_C, p_patch,p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t))
+  DO tracer_index = 1, no_tracer
+    !CALL sync_patch_array(SYNC_C, p_patch,p_os%p_prog(nold(1))%tracer(:,:,:,tracer_index))
     !First tracer is temperature
     !Second tracer is salinity
     IF( iswm_oce /= 1) THEN
       CALL top_bound_cond_tracer( p_patch,  &
                                 & p_os,     &
-                                & i_no_t,   &
+                                & tracer_index,   &
                                 & p_sfc_flx,&
                                 & p_os%p_aux%bc_top_tracer)
     ENDIF
 
-    IF (use_ThermoExpansion_Correction .and. i_no_t == 1) THEN
-       CALL advect_individual_tracer_ab( p_patch_3D,                             &
-                                 & p_os%p_prog(nold(1))%ocean_tracers(i_no_t), &
-                                 & p_os, p_op_coeff,                          &
-                                 & p_os%p_aux%bc_top_tracer(:,:,i_no_t),      &
-                                 & p_os%p_aux%bc_bot_tracer(:,:,i_no_t),      &
-                                 & p_param%K_tracer_h(:,:,:,i_no_t ),         &
-                                 & p_param%A_tracer_v(:,:,:, i_no_t),         &
-                                 & p_os%p_prog(nnew(1))%ocean_tracers(i_no_t), &
-                                 & i_no_t,                                     &
-                                 & p_os%p_diag%temp_horizontally_diffused )
-    ELSE
+!    IF (use_ThermoExpansion_Correction .and. tracer_index == 1) THEN
+!       CALL advect_individual_tracer_ab( p_patch_3D,                             &
+!                                 & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
+!                                 & p_os, p_op_coeff,                          &
+!                                 & p_os%p_aux%bc_top_tracer(:,:,tracer_index),      &
+!                                 & p_os%p_aux%bc_bot_tracer(:,:,tracer_index),      &
+!                                 & p_param%K_tracer_h(:,:,:,tracer_index ),         &
+!                                 & p_param%A_tracer_v(:,:,:, tracer_index),         &
+!                                 & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index), &
+!                                 & tracer_index,                                     &
+!                                 & p_os%p_diag%temp_horizontally_diffused )
+!    ELSE
       CALL advect_individual_tracer_ab( p_patch_3D,                             &
-                                 & p_os%p_prog(nold(1))%ocean_tracers(i_no_t), &
+                                 & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
                                  & p_os, p_op_coeff,                          &
-                                 & p_os%p_aux%bc_top_tracer(:,:,i_no_t),      &
-                                 & p_os%p_aux%bc_bot_tracer(:,:,i_no_t),      &
-                                 & p_param%K_tracer_h(:,:,:,i_no_t ),         &
-                                 & p_param%A_tracer_v(:,:,:, i_no_t),         &
-                                 & p_os%p_prog(nnew(1))%ocean_tracers(i_no_t), &
-                                 & i_no_t )
-    ENDIF
+                                 & p_os%p_aux%bc_top_tracer(:,:,tracer_index),      &
+                                 & p_os%p_aux%bc_bot_tracer(:,:,tracer_index),      &
+                                 & p_param%K_tracer_h(:,:,:,tracer_index ),         &
+                                 & p_param%A_tracer_v(:,:,:, tracer_index),         &
+                                 & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index), &
+                                 & tracer_index )
+!    ENDIF
 
   END DO
 
@@ -345,7 +345,7 @@ END SUBROUTINE advect_tracer_ab
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2012).
-!<Optimize_Used>
+!<Optimize:inUse>
   SUBROUTINE prepare_tracer_transport(patch_3D, p_os, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
@@ -558,6 +558,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch_3D, old_ocean_tracer,       &
       CALL advect_flux_vertical( p_patch_3D,                     &
                                & old_ocean_tracer%concentration, &
                                & p_os,                           &
+                               & p_op_coeff,                     &
                                & bc_top_tracer,                  &
                                & bc_bot_tracer,                  &
                                & flux_vert,                      &

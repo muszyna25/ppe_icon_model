@@ -47,21 +47,21 @@ MODULE mo_ocean_testbed_modules
   USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog, t_ocean_tracer
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_oce_bulk,               ONLY: update_surface_flux
   USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
   USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
     & destruct_atmos_fluxes,&
     & destruct_sea_ice,  &
-    & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics, ice_budgets
+    & update_ice_statistic, &
+    & compute_mean_ice_statistics, reset_ice_statistics, &
+    & ice_budgets
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
-    & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density, calc_neutralslope_coeff, calc_neutralslope_coeff_func
+  USE mo_oce_thermodyn,          ONLY: calc_potential_density, &
+    & calculate_density, calc_neutralslope_coeff, calc_neutralslope_coeff_func
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & construct_oce_diagnostics,&
@@ -227,10 +227,12 @@ CONTAINS
         & patch_2D%verts%owned,       &
         & n_zlev)
           
-        CALL output_ocean( patch_3d, ocean_state,         &
-          & datetime,                  &
-          & surface_fluxes,              &
-          & ocean_ice,&
+        CALL output_ocean(  &
+          & patch_3d,       &
+          & ocean_state,    &
+          & datetime,       &
+          & surface_fluxes, &
+          & ocean_ice,      &
           & jstep, jstep0)
 
         ! Shift time indices for the next loop
@@ -254,7 +256,7 @@ CONTAINS
   SUBROUTINE test_surface_flux( patch_3d, p_os, external_data, &
     & datetime, surface_fluxes, physics_parameters,              &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
-    
+
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
@@ -265,7 +267,7 @@ CONTAINS
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    
+
     ! local variables
     REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: draft, saltBefore, saltAfter
     INTEGER :: jstep, jg, jtrc
@@ -275,11 +277,11 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER :: jstep0 ! start counter for time loop
-    
+
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
     !------------------------------------------------------------------
-    
+
     patch_2D      => patch_3d%p_patch_2d(1)
     CALL datetime_to_string(datestring, datetime)
 
@@ -307,7 +309,7 @@ CONTAINS
     CALL dbg_print('sfcflx: zUnderIce' ,p_ice%zUnderIce,debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
 
     DO jstep = (jstep0+1), (jstep0+nsteps)
-    
+
       p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -337,9 +339,9 @@ CONTAINS
         &                p_ice,      &
         &                jstep, jstep0)
     END DO
-    
+
     !CALL timer_stop(timer_total)
-    
+
   END SUBROUTINE test_surface_flux
   !-------------------------------------------------------------------------
 
@@ -347,7 +349,7 @@ CONTAINS
   !>
   SUBROUTINE test_neutralcoeff( patch_3d, p_os)
     CHARACTER(LEN=*), PARAMETER ::  routine = "testbed: neutralcoeff"
-    
+
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
 

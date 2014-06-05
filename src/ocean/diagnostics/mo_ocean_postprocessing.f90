@@ -30,7 +30,7 @@ MODULE mo_ocean_postprocessing
   USE mo_oce_physics,         ONLY: t_ho_params
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
   USE mo_ocean_nml
-  USE mo_oce_thermodyn,       ONLY: calc_density, calc_internal_press
+  USE mo_oce_thermodyn,       ONLY: calculate_density, calc_internal_press
   USE mo_dynamics_config,     ONLY: nold, nnew
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
@@ -172,7 +172,7 @@ CONTAINS
     ! calclulate volume
     CALL calculate_thickness( patch_3D, ocean_state, external_data, operators_coefficients, solverCoeff_sp)
 
-    CALL calc_density( patch_3d,            &
+    CALL calculate_density( patch_3d,            &
         & tracers(:,:,:,1:2),&
         & ocean_state%p_diag%rho(:,:,:) )
 
