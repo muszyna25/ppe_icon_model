@@ -1255,6 +1255,9 @@ END SUBROUTINE message
     zthetas, zlamli, zlamsat, zlams, rsandf, zlamq, zlam0, zrhod, zlamdry,  &
     zsri, zKe, zthliq, zlamic
 
+  ! For performance improvement
+  REAL    (KIND=ireals) :: ln_2, ln_3, ln_10
+
 !  INTEGER (KIND=iintegers) :: i_loc, isub
 
 !- End of header
@@ -1352,7 +1355,7 @@ END SUBROUTINE message
     zdzms(kso) = zmls(kso) - zmls(kso-1)   ! layer thickness betw. main levels
   ENDDO
 
-
+  ln_10 = LOG(10._ireals)
 
 
 !---loop over tiles---
@@ -1412,7 +1415,7 @@ END SUBROUTINE message
       DO i = istarts, iends
         mstyp           = soiltyp_subs(i)        ! soil type
         zalam(i,kso)  = cala0(mstyp)              ! heat conductivity parameter
-        zpsis(i,kso)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i,kso))
+        zpsis(i,kso)    = -zpsi0 * EXP(ln_10*(1.88_ireals-0.013_ireals*zsandf(i,kso)))
         zb_por(i,kso)   = 2.91_ireals + .159_ireals*zclayf(i,kso)
         zedb(i,kso)     = 1._ireals/zb_por(i,kso)
 !<JH
@@ -1445,7 +1448,7 @@ END SUBROUTINE message
 !>JH  IF (ntstep == nstart) THEN
 !   Determine constants clgk0 for BATS-scheme
   DO jb       = 1, 10
-    clgk0(jb) = LOG10(MAX(zepsi,ck0di(jb)/ckrdi))
+    clgk0(jb) = LOG(MAX(zepsi,ck0di(jb)/ckrdi))/ln_10
   END DO
 !<JH  ENDIF
 
@@ -1528,27 +1531,27 @@ END SUBROUTINE message
 ! based on Peters-Lidard et al. (1998) and Johansen (1975),
 ! see also Block, Alexander (2007), Dissertation BTU Cottbus
     
+    zlamli  = LOG(0.57_ireals)       ! LOG(thermal conductivity of water)
+    zlamic  = LOG(2.2_ireals)        ! LOG(thermal conductivity of ice)
+    zlamq   = LOG(7.7_ireals)        ! LOG(thermal conductivity of quartz)
+    ln_2    = LOG(2._ireals)
+    ln_3    = LOG(3._ireals)
+
     DO kso = 1, ke_soil+1
       DO i = istarts, iends
         zthetas = zporv(i,kso)                                 ! porosity
         zthliq  = zthetas - w_so_ice_now(i,kso)/zdzhs(kso) ! unfrozen volume fraction
-
-        zlamli  = 0.57_ireals                              ! thermal conductivity of water
-        zlamic  = 2.2_ireals                               ! thermal conductivity of ice
-        zlamq   = 7.7_ireals                               ! thermal conductivity of quartz
   
         rsandf = zsandf(i,kso)/100._ireals                     ! quartz content
   
-        if (rsandf >= 0.2_ireals)  zlam0 = 2.0_ireals      ! thermal conductivity non-quartz
-        if (rsandf <  0.2_ireals)  zlam0 = 3.0_ireals
+        if (rsandf >= 0.2_ireals)  zlam0 = ln_2      ! LOG(thermal conductivity non-quartz)
+        if (rsandf <  0.2_ireals)  zlam0 = ln_3
   
   ! saturated thermal conductivity
 
-        zlams = zlamq**rsandf * zlam0**(1._ireals-rsandf)  ! solids thermal conductivity
+        zlams = zlamq*rsandf + zlam0*(1._ireals-rsandf)  ! LOG(solids thermal conductivity)
   
-       !zlamsat = (clamso(m_styp(i))**(1.0_ireals-zthetas)) * (zlamli**zthliq) &
-       !          * (zlamic**(zthetas-zthliq))
-        zlamsat = zlams**(1.0_ireals-zthetas) * zlamic**(zthetas-zthliq) * zlamli**zthliq
+        zlamsat = EXP(zlams*(1.0_ireals-zthetas) + zlamic*(zthetas-zthliq) + zthliq*zlamli)
   
   ! dry thermal conductivity
 
@@ -1567,11 +1570,11 @@ END SUBROUTINE message
           zKe = 0.0_ireals
           IF ( soiltyp_subs(i) == 3 .or. soiltyp_subs(i) == 4 ) THEN ! coarse soil
             IF ( zsri >= 0.05_ireals ) THEN
-              zKe = 0.7_ireals*LOG10(zsri) + 1.0_ireals 
+              zKe = 0.7_ireals*LOG(zsri)/ln_10 + 1.0_ireals 
             ENDIF
           ELSE                                                       ! fine soil (other)
             IF ( zsri >= 0.1_ireals ) THEN
-              zKe = LOG10(zsri) + 1.0_ireals
+              zKe = LOG(zsri)/ln_10 + 1.0_ireals
             ENDIF
           ENDIF
         ENDIF
@@ -1638,7 +1641,7 @@ END SUBROUTINE message
        
         !  'potential' temperature of lowest atmospheric layer
         zplow          = p0(i) ! + pp(i)
-        zth_low (i)  =  t(i) *( (ps(i)/zplow)**rdocp )
+        zth_low (i)  =  t(i) * EXP(rdocp*LOG(ps(i)/zplow))
 
         zdt_atm (i)  =  zth_low(i)-t_g(i)
         zdq_atm (i)  =  qv(i)-qv_s(i)
@@ -1942,7 +1945,7 @@ END SUBROUTINE message
     ! moisture and potential temperature of lowest atmospheric layer
     zplow          = p0(i) ! + pp(i)
     zqvlow         = qv(i)
-    zth_low (i)  =  t(i) *( (ps(i)/zplow)**rdocp )
+    zth_low (i)  =  t(i) * EXP(rdocp*LOG(ps(i)/zplow))
 
     ! density*transfer coefficient*wind velocity
     zrhoch(i)    = ztmch(i)*(1._ireals/g) + zepsi
@@ -2051,8 +2054,8 @@ END SUBROUTINE message
   DO i = istarts, iends
         zwimax(i) = MAX(1.E-6_ireals,4.E-4_ireals * sai(i)) ! Security min. value 1E-6 m
         zpercmax = 2.E-3_ireals
-        zfd_wi(i)=MIN(1._ireals,MAX(0.0_ireals, (zwin(i)/zwimax(i))**(2._ireals/3._ireals)))
-        zf_pd(i) = MIN(1._ireals,MAX(0.0_ireals, (zwpn(i)/zpercmax )**(2._ireals/3._ireals))) 
+        zfd_wi(i)=MIN(1._ireals,MAX(0.0_ireals, EXP((2._ireals/3._ireals)*LOG(zwin(i)/zwimax(i))) ))
+        zf_pd(i) = MIN(1._ireals,MAX(0.0_ireals, EXP((2._ireals/3._ireals)*LOG(zwpn(i)/zpercmax)) )) 
 
         zewi(i)=zsf_heav(-zep_s(i)) * zf_wi(i)*zfd_wi(i)*zep_s(i) ! canopy covered part
         zepd(i)=zsf_heav(-zep_s(i)) * (1._ireals - zf_wi(i))*zf_pd(i)*zep_s(i) ! bare soil part
@@ -2091,8 +2094,8 @@ END SUBROUTINE message
                       (5.0_ireals + zbedi(i))
               zdmax  = zbedi(i)*cfinull*zk0di(i)/crhowm 
               zs1(i)  = zs1(i)/(z1*zporv(i,1))
-              zd     = 1.02_ireals*zdmax*zs1(i)**(zbedi(i) + 2._ireals) * &
-                                                (zsnull(i)/zs1(i))**zbf1
+              zd     = 1.02_ireals*zdmax*EXP( (zbedi(i)+2._ireals)*LOG(zs1(i)) ) * &
+                                         EXP( zbf1*LOG(zsnull(i)/zs1(i)) )
               zck    = (1.0_ireals + 1550.0_ireals*cdmin/zdmax)*zbf2
               ! maximum sustainable moisture flux in the uppermost surface
               ! layer in kg/(s*m**2)
@@ -3440,7 +3443,7 @@ ELSE   IF (itype_interception == 2) THEN
         DO i = istarts, iends
 !          IF (llandmask(i)) THEN  ! for landpoints only
             IF (zwsnew(i).GT.zepsi) THEN
-              zalas_mult(i,ksn) = 2.22_ireals*(rho_snow_mult_now(i,ksn)/rho_i)**1.88_ireals
+              zalas_mult(i,ksn) = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_mult_now(i,ksn)/rho_i))
             END IF
 !          END IF          ! land-points only
         END DO
@@ -3545,7 +3548,7 @@ ELSE   IF (itype_interception == 2) THEN
 !
 ! BR 7/2005 Introduce new dependency of snow heat conductivity on snow density
 !
-          zalas  = 2.22_ireals*(rho_snow_now(i)/rho_i)**1.88_ireals
+          zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_now(i)/rho_i))
 
 ! BR 11/2005 Use alternative formulation for heat conductivity by Sun et al., 1999
 !            The water vapour transport associated conductivity is not included.
@@ -3857,7 +3860,7 @@ ENDIF
             tmp_num = ztsnow(i) + zdt*2._ireals*(zfor_snow_mult(i) - zgsb(i))  &
                            /zrocs(i)/(zswitch(i)/rho_snow_mult_now(i,1)*rho_w) &
                            &- ( ztsn(i) - zts(i) )
-            zalas  = 2.22_ireals*(rho_snow_mult_now(i,1)/rho_i)**1.88_ireals
+            zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_mult_now(i,1)/rho_i))
   
             ztsnow_im    = - zrhoch(i) * (cp_d + zdqvtsnow(i) * lh_s)       &
                                          - zalas/(zdzh_snow(i,1) + zdzh_snow(i,2))
@@ -3932,10 +3935,9 @@ ENDIF
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
                   zaa    = g*zpsis(i,kso)/lh_f
-                  zw_m(i) = zw_m(i)*((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)&
-                    &         *zaa))**(-zedb(i,kso))
+                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
-                  znen   = 1._ireals-zaa*(zporv(i,kso)*zdzhs(kso)/zliquid)**zb_por(i,kso)
+                  znen   = 1._ireals-zaa*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
@@ -4010,7 +4012,7 @@ ENDIF
 ! BR        zalas  = MAX(calasmin,MIN(calasmax, calasmin + calas_dw*zwsnew(i)))
 ! BR 7/2005 Introduce new dependency of snow heat conductivity on snow density
 !
-            zalas  = 2.22_ireals*(rho_snow_now(i)/rho_i)**1.88_ireals
+            zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_now(i)/rho_i))
 
             ztsnow_im    = - zrhoch(i) * (cp_d + zdqvtsnow(i) * lh_s)       &
                                          - zalas/zdz_snow_fl(i)
@@ -4281,7 +4283,7 @@ ENDIF
     
                 IF (wliq_snow_now(i,ksn)/zdzh_snow(i,ksn) .GT. cwhc) THEN
                   zfukt             = (wliq_snow_now(i,ksn)/zdzh_snow(i,ksn) - cwhc)/zp1
-                  zq0               = chcond * zfukt**3.0_ireals
+                  zq0               = chcond * zfukt**3
                   zqbase(i)       = MIN(zq0*zdt,wliq_snow_now(i,ksn))
                   wliq_snow_now(i,ksn) = wliq_snow_now(i,ksn) - zqbase(i)
                   wtot_snow_now(i,ksn) = wtot_snow_now(i,ksn) - zqbase(i)
@@ -4602,10 +4604,9 @@ ENDIF
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
                   zaa    = g*zpsis(i,kso)/lh_f
-                  zw_m(i) = zw_m(i)*((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)&
-                    &         *zaa))**(-zedb(i,kso))
-                  zliquid= MAX(zepsi,w_so_new(i,kso) -  w_so_ice_new(i,kso))
-                  znen   = 1._ireals-zaa*(zporv(i,kso)*zdzhs(kso)/zliquid)**zb_por(i,kso)
+                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
+                  zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
+                  znen   = 1._ireals-zaa*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
@@ -5122,3 +5123,4 @@ END FUNCTION watrdiff_RT
 
 
 END MODULE mo_soil_ml
+
