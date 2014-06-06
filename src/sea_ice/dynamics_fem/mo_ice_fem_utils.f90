@@ -205,6 +205,10 @@ CONTAINS
     END DO
 
     ! Then we map to edges
+#ifdef NAGFOR
+    ! only for parallel testing with nag
+    tau_n = 0.0_wp
+#endif
     CALL map_cell2edges_3D( p_patch_3D, p_tau_n_c, tau_n ,p_op_coeff, 1)
     CALL sync_patch_array(SYNC_E, p_patch, tau_n)
 
