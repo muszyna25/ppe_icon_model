@@ -105,9 +105,9 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: v_cell
-    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: kh_c, div
-    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset,   &
-                nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, vn_cell1, vn_cell2
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: kh_c, div, vn_vert1, vn_vert2, vn_vert3, vn_vert4, &
+                                                dvt_norm, dvt_tang, vn_cell1, vn_cell2
+    REAL(wp) :: smag_offset, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff
     REAL(wp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
 
@@ -300,58 +300,58 @@ MODULE mo_nh_diffusion
           DO je = i_startidx, i_endidx
 #endif
 
-            vn_vert1 = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
-                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,1)%v2
+            vn_vert1(je,jk) = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
+                              v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,1)%v2
 
-            vn_vert2 = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
-                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,2)%v2
+            vn_vert2(je,jk) = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
+                              v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang = p_patch%edges%system_orientation(je,jb)* (   &
-                       u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
-                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,2)%v2 - &
-                      (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
-                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,1)%v2) )
+            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+                              u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
+                              v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,2)%v2 - &
+                             (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
+                              v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,1)%v2) )
 
-            vn_vert3 = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
-                       v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,3)%v2
+            vn_vert3(je,jk) = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
+                              v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,3)%v2
 
-            vn_vert4 = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
-                       v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,4)%v2
+            vn_vert4(je,jk) = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
+                              v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,4)%v2
 
-            dvt_norm = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,4)%v1 + &
-                       v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,4)%v2 - &
-                      (u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,3)%v1 + &
-                       v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,3)%v2)
+            dvt_norm(je,jk) = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,4)%v1 + &
+                              v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,4)%v2 - &
+                             (u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,3)%v1 + &
+                              v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,3)%v2)
 
             ! Smagorinsky diffusion coefficient
-            kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(             (  &
-              (vn_vert4-vn_vert3)*p_patch%edges%inv_vert_vert_length(je,jb) -&
-              dvt_tang*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (  &
-              (vn_vert2-vn_vert1)*p_patch%edges%system_orientation(je,jb)*   &
-              p_patch%edges%inv_primal_edge_length(je,jb) +         &
-              dvt_norm*p_patch%edges%inv_vert_vert_length(je,jb))**2 )
+            kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(                           (  &
+              (vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb)- &
+              dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (         &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*   &
+              p_patch%edges%inv_primal_edge_length(je,jb) +                                &
+              dvt_norm(je,jk)*p_patch%edges%inv_vert_vert_length(je,jb))**2 )
 
             ! The factor of 4 comes from dividing by twice the "correct" length
-            z_nabla2_e(je,jk,jb) = 4._wp * (                        &
-              (vn_vert4 + vn_vert3 - 2._wp*p_nh_prog%vn(je,jk,jb))  &
-              *p_patch%edges%inv_vert_vert_length(je,jb)**2 +       &
-              (vn_vert2 + vn_vert1 - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+            z_nabla2_e(je,jk,jb) = 4._wp * (                                      &
+              (vn_vert4(je,jk) + vn_vert3(je,jk) - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+              *p_patch%edges%inv_vert_vert_length(je,jb)**2 +                     &
+              (vn_vert2(je,jk) + vn_vert1(je,jk) - 2._wp*p_nh_prog%vn(je,jk,jb))  &
               *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
 
           ENDDO
@@ -415,58 +415,59 @@ MODULE mo_nh_diffusion
           DO je = i_startidx, i_endidx
 #endif
 
-            vn_vert1 = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
-                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,1)%v2
+            vn_vert1(je,jk) = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
+                              v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,1)%v2
 
-            vn_vert2 = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
-                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,2)%v2
+            vn_vert2(je,jk) = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
+                              v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang = p_patch%edges%system_orientation(je,jb)* (   &
-                       u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
-                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,2)%v2 - &
-                      (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
-                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,1)%v2) )
+            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+                              u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
+                              v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,2)%v2 - &
+                             (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
+                              v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,1)%v2) )
 
-            vn_cell1 = u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                       v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_cell(je,jb,1)%v2
+            vn_cell1(je,jk) = u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                              v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_cell(je,jb,1)%v2
 
-            vn_cell2 = u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
-                       v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_cell(je,jb,2)%v2
+            vn_cell2(je,jk) = u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
+                              v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
-            dvt_norm = u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
-                       v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_cell(je,jb,2)%v2 - &
-                      (u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_cell(je,jb,1)%v1 + &
-                       v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_cell(je,jb,1)%v2)
+            dvt_norm(je,jk) = u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
+                              v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_cell(je,jb,2)%v2 - &
+                             (u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_cell(je,jb,1)%v1 + &
+                              v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_cell(je,jb,1)%v2)
+
 
             ! Smagorinsky diffusion coefficient
-            kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(             (  &
-              (vn_cell2-vn_cell1)*p_patch%edges%inv_dual_edge_length(je,jb) -&
-              dvt_tang*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (  &
-              (vn_vert2-vn_vert1)*p_patch%edges%system_orientation(je,jb)*   &
-              p_patch%edges%inv_primal_edge_length(je,jb) +         &
-              dvt_norm*p_patch%edges%inv_dual_edge_length(je,jb))**2 )
+            kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT(                           (  &
+              (vn_cell2(je,jk)-vn_cell1(je,jk))*p_patch%edges%inv_dual_edge_length(je,jb)- &
+              dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (         &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*   &
+              p_patch%edges%inv_primal_edge_length(je,jb) +                                &
+              dvt_norm(je,jk)*p_patch%edges%inv_dual_edge_length(je,jb))**2 )
 
             ! The factor of 4 comes from dividing by twice the "correct" length
-            z_nabla2_e(je,jk,jb) = 4._wp * (                        &
-              (vn_cell2 + vn_cell1 - 2._wp*p_nh_prog%vn(je,jk,jb))  &
-              *p_patch%edges%inv_dual_edge_length(je,jb)**2 +       &
-              (vn_vert2 + vn_vert1 - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+            z_nabla2_e(je,jk,jb) = 4._wp * (                                      &
+              (vn_cell2(je,jk) + vn_cell1(je,jk) - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+              *p_patch%edges%inv_dual_edge_length(je,jb)**2 +                     &
+              (vn_vert2(je,jk) + vn_vert1(je,jk) - 2._wp*p_nh_prog%vn(je,jk,jb))  &
               *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
 
           ENDDO
@@ -1086,13 +1087,13 @@ MODULE mo_nh_diffusion
 !$OMP END PARALLEL
 
       ! This could be further optimized, but applications without physics are quite rare; 
-      IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp .OR. iforcing /= iecham ) THEN
+      IF ( .NOT. lhdiff_rcf .OR. linit .OR. (iforcing /= inwp .AND. iforcing /= iecham) ) THEN
         CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
       ENDIF
 
     ENDIF ! temperature diffusion
 
-    IF ( .NOT. lhdiff_rcf .OR. linit .OR. iforcing /= inwp .OR. iforcing /= iecham ) THEN
+    IF ( .NOT. lhdiff_rcf .OR. linit .OR. (iforcing /= inwp .AND. iforcing /= iecham) ) THEN
       IF (diffusion_config(jg)%lhdiff_w) CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w)
     ENDIF
 
