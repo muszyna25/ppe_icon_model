@@ -600,7 +600,7 @@ CONTAINS
     !cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%ALL
     z_vert_density_grad_c => ocean_state%p_diag%zgrad_rho
-    
+    levels = n_zlev
     !-------------------------------------------------------------------------
     z_av0 = richardson_veloc
     
