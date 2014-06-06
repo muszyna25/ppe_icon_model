@@ -690,7 +690,7 @@ CONTAINS
       real_fmt   = 'es26.18'
       ! * number of non-tracer diag. variables
       WRITE(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
-      WRITE(fmt_string,'(a)') '(i5.5,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
+      WRITE(fmt_string,'(a)') '(i15.15,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
       ! create date and time string
       ! * non-tracer diags
       WRITE(line,fmt_string) &
