@@ -1920,7 +1920,7 @@ MODULE mo_vertical_grid
     les_filter = les_config(1)%smag_constant*(max_dz*p_patch%geometry_info%mean_cell_area)**0.33333_wp
 
     IF (msg_level >= 10) THEN
-      WRITE(message_text,'(a,E10.3)') 'LES grid-scale filter: ',les_filter
+      WRITE(message_text,'(a,i4,a,f8.3)') 'LES grid-scale filter for domain ',p_patch%id,' =',les_filter
       CALL message(TRIM(routine),message_text)
     END IF
      
