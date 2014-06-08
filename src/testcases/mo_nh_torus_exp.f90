@@ -69,7 +69,7 @@ MODULE mo_nh_torus_exp
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
   REAL(wp), PARAMETER :: dtdz_st = 0.04_wp    !< theta lapse rate in stratosphere (T>0!)
   REAL(wp), PARAMETER :: z_tropo = 11000._wp  !height tropopause
-  REAL(wp), PARAMETER :: rh_sfc  = 0.71_wp    !RH at surface [1], default 0.8
+  REAL(wp), PARAMETER :: rh_sfc  = 0.8_wp    !RH at surface [1], default 0.8
 
   !DEFINED PARAMETERS (RICO case):
   REAL(wp), PARAMETER :: zpsfc   = 101540._wp   !< surface pressure
