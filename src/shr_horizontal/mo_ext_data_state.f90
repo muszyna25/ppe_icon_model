@@ -39,7 +39,7 @@ MODULE mo_ext_data_state
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
-    &                              max_char_length, min_rlcell_int,                                 &
+    &                              max_char_length, min_rlcell_int, min_rlcell,                     &
     &                              HINTP_TYPE_LONLAT_NNB, MODIS,                                    &
     &                              SUCCESS
   USE mo_math_constants,     ONLY: dbl_eps
@@ -2315,7 +2315,7 @@ CONTAINS
         i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
         rl_start = 1
-        rl_end   = min_rlcell_int
+        rl_end   = min_rlcell
 
         i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
         i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
