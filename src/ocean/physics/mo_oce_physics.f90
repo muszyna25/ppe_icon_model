@@ -651,6 +651,7 @@ CONTAINS
 
         !--------------------------------------------------------
         ! calculate here the density to be used in the dynamics
+        ! pressure(1:levels) = patch_3d%p_patch_1d(1)%zlev_m(1:levels) * rho_ref * sitodbar
         pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * rho_ref * sitodbar
         ocean_state%p_diag%rho(jc,1:levels,jb) = &
             & calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels,jb,1), &
