@@ -488,6 +488,58 @@ MODULE mo_nh_diffusion
 
     ENDIF
 
+    ! Compute input quantities for turbulence scheme
+    IF (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) THEN
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,kh_c,div), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+#endif
+
+            kh_c(jc,jk) = (kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb) + &
+                           kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb) + &
+                           kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))/ &
+                          diff_multfac_smag(jk)
+
+            div(jc,jk) = p_nh_prog%vn(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
+                         p_nh_prog%vn(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
+                         p_nh_prog%vn(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
+          ENDDO
+        ENDDO
+
+        DO jk = 2, nlev ! levels 1 and nlevp1 are unused
+          DO jc = i_startidx, i_endidx
+
+            p_nh_diag%div_ic(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb)*div(jc,jk) + &
+              (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*div(jc,jk-1)
+
+            p_nh_diag%hdef_ic(jc,jk,jb) = (p_nh_metrics%wgtfac_c(jc,jk,jb)*kh_c(jc,jk) + &
+              (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*kh_c(jc,jk-1))**2
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ENDIF
+
     IF (diffu_type == 5) THEN ! Add fourth-order background diffusion
 
       IF (discr_vn > 1) CALL sync_patch_array(SYNC_E,p_patch,z_nabla2_e)
@@ -686,55 +738,6 @@ MODULE mo_nh_diffusion
 
     ENDIF ! vn boundary diffusion
 
-    ! Compute input quantities for turbulence scheme
-    IF (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) THEN
-
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,kh_c,div), ICON_OMP_RUNTIME_SCHEDULE
-      DO jb = i_startblk,i_endblk
-
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
-
-#ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx, i_endidx
-          DO jk = 1, nlev
-#else
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-#endif
-
-            kh_c(jc,jk) = (kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb) + &
-                           kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb) + &
-                           kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))/ &
-                          diff_multfac_smag(jk)
-
-            div(jc,jk) = p_nh_prog%vn(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
-                         p_nh_prog%vn(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
-                         p_nh_prog%vn(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
-          ENDDO
-        ENDDO
-
-        DO jk = 2, nlev ! levels 1 and nlevp1 are unused
-          DO jc = i_startidx, i_endidx
-
-            p_nh_diag%div_ic(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb)*div(jc,jk) + &
-              (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*div(jc,jk-1)
-
-            p_nh_diag%hdef_ic(jc,jk,jb) = (p_nh_metrics%wgtfac_c(jc,jk,jb)*kh_c(jc,jk) + &
-              (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*kh_c(jc,jk-1))**2
-          ENDDO
-        ENDDO
-
-      ENDDO
-!$OMP END DO
-
-    ENDIF
 
     IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN ! add diffusion on vertical wind speed
                      ! remark: the surface level (nlevp1) is excluded because w is diagnostic there
@@ -766,6 +769,30 @@ MODULE mo_nh_diffusion
               p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb)
           ENDDO
         ENDDO
+
+        IF (turbdiff_config(jg)%itype_sher >= 2) THEN ! compute horizontal gradients of w
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+            DO jk = 2, nlev
+#else
+          DO jk = 2, nlev
+            DO jc = i_startidx, i_endidx
+#endif
+             p_nh_diag%dwdx(jc,jk,jb) =  p_int%geofac_grg(jc,1,jb,1)*p_nh_prog%w(jc,jk,jb) + &
+               p_int%geofac_grg(jc,2,jb,1)*p_nh_prog%w(icidx(jc,jb,1),jk,icblk(jc,jb,1))   + &
+               p_int%geofac_grg(jc,3,jb,1)*p_nh_prog%w(icidx(jc,jb,2),jk,icblk(jc,jb,2))   + &
+               p_int%geofac_grg(jc,4,jb,1)*p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))
+
+             p_nh_diag%dwdy(jc,jk,jb) =  p_int%geofac_grg(jc,1,jb,2)*p_nh_prog%w(jc,jk,jb) + &
+               p_int%geofac_grg(jc,2,jb,2)*p_nh_prog%w(icidx(jc,jb,1),jk,icblk(jc,jb,1))   + &
+               p_int%geofac_grg(jc,3,jb,2)*p_nh_prog%w(icidx(jc,jb,2),jk,icblk(jc,jb,2))   + &
+               p_int%geofac_grg(jc,4,jb,2)*p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))
+
+            ENDDO
+          ENDDO
+        ENDIF
+
       ENDDO
 !$OMP END DO
 
@@ -806,29 +833,6 @@ MODULE mo_nh_diffusion
               diff_multfac_n2w(jk) * p_patch%cells%area(jc,jb) * z_nabla2_c(jc,jk,jb)
           ENDDO
         ENDDO
-
-        IF (turbdiff_config(jg)%itype_sher >= 2) THEN ! compute horizontal gradients of w
-#ifdef __LOOP_EXCHANGE
-          DO jc = i_startidx, i_endidx
-!DIR$ IVDEP
-            DO jk = 2, nlev
-#else
-          DO jk = 2, nlev
-            DO jc = i_startidx, i_endidx
-#endif
-             p_nh_diag%dwdx(jc,jk,jb) =  p_int%geofac_grg(jc,1,jb,1)*p_nh_prog%w(jc,jk,jb) + &
-               p_int%geofac_grg(jc,2,jb,1)*p_nh_prog%w(icidx(jc,jb,1),jk,icblk(jc,jb,1))   + &
-               p_int%geofac_grg(jc,3,jb,1)*p_nh_prog%w(icidx(jc,jb,2),jk,icblk(jc,jb,2))   + &
-               p_int%geofac_grg(jc,4,jb,1)*p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))
-
-             p_nh_diag%dwdy(jc,jk,jb) =  p_int%geofac_grg(jc,1,jb,2)*p_nh_prog%w(jc,jk,jb) + &
-               p_int%geofac_grg(jc,2,jb,2)*p_nh_prog%w(icidx(jc,jb,1),jk,icblk(jc,jb,1))   + &
-               p_int%geofac_grg(jc,3,jb,2)*p_nh_prog%w(icidx(jc,jb,2),jk,icblk(jc,jb,2))   + &
-               p_int%geofac_grg(jc,4,jb,2)*p_nh_prog%w(icidx(jc,jb,3),jk,icblk(jc,jb,3))
-
-            ENDDO
-          ENDDO
-        ENDIF
 
       ENDDO
 !$OMP END DO
