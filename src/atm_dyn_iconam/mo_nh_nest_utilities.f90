@@ -35,7 +35,7 @@ MODULE mo_nh_nest_utilities
   USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
   USE mo_dynamics_config,     ONLY: nnow, nsav1, nnow_rcf
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc
+  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iforcing
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf
@@ -55,6 +55,7 @@ MODULE mo_nh_nest_utilities
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_nh_initicon_types,   ONLY: t_pi_atm
+  USE mo_advection_config,    ONLY: advection_config
 
   IMPLICIT NONE
 
@@ -241,7 +242,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx,       &
       ib, jb, ic, jc, ie, je, jk, jt, js, i_nchdom, nshift, jk_start, jshift
     INTEGER :: nlev, nlevp1           !< number of full and half levels
-    INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen
+    INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, ntracer_bdyintp
 
     REAL(wp) :: rdt_ubc, dthalf
     ! Switch to control if the child domain is vertically nested and therefore 
@@ -270,6 +271,12 @@ CONTAINS
     ! number of vertical levels
     nlev   = p_patch(jg)%nlev
     nlevp1 = p_patch(jg)%nlevp1
+
+    IF (advection_config(jg)%iadv_tke == 1) THEN
+      ntracer_bdyintp = ntracer-1
+    ELSE
+      ntracer_bdyintp = ntracer
+    ENDIF
 
     ! determine if upper boundary interpolation is needed
     IF (lvert_nest .AND. (p_patch(jg)%nshift_child > 0)) THEN  
@@ -425,11 +432,11 @@ CONTAINS
       DO ic = jshift+1, jshift+nlen
         jc = p_grf%idxlist_bdyintp_src_c(ic)
         jb = p_grf%blklist_bdyintp_src_c(ic)
-        DO jt = 1,ntracer
+        DO jt = 1,ntracer_bdyintp
 !DIR$ IVDEP
           DO jk = jk_start, nlev
 #else
-      DO jt = 1,ntracer
+      DO jt = 1,ntracer_bdyintp
         DO jk = jk_start, nlev
 !CDIR NODEP
           DO ic = jshift+1, jshift+nlen
@@ -548,6 +555,7 @@ CONTAINS
     INTEGER :: nlev_c, nlevp1_c        ! number of full and half levels (child domain)
 
     INTEGER :: i_chidx, i_nchdom, i_sbc, i_ebc
+    INTEGER :: ntracer_bdyintp
 
     REAL(wp) :: aux3dp(nproma,ntracer+4,p_patch(jg)%nblks_c), &
       aux3dc(nproma,ntracer+4,p_patch(jgc)%nblks_c), &
@@ -602,6 +610,13 @@ CONTAINS
       l_child_vertnest = .TRUE.
     ELSE
       l_child_vertnest = .FALSE.
+    ENDIF
+
+    ! exclude TKE from boundary interpolation if it is only vertically advected
+    IF (advection_config(jg)%iadv_tke == 1) THEN
+      ntracer_bdyintp = ntracer-1
+    ELSE
+      ntracer_bdyintp = ntracer
     ENDIF
 
     ! Perform interpolations to upper nest boundary needed for vertical nesting
@@ -791,19 +806,22 @@ CONTAINS
       i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
       i_endblk   = p_gcp%end_blk(grf_bdyintp_end_c,i_chidx)
 
-      CALL exchange_data_mult(p_pc%comm_pat_interpolation_c, ntracer, ntracer*nlev_c, &
-        RECV4D=p_diagc%grf_tend_tracer,SEND4D=p_diagp%grf_tend_tracer)
+      CALL exchange_data_mult(p_pc%comm_pat_interpolation_c, ntracer_bdyintp, ntracer_bdyintp*nlev_c, &
+        RECV4D=p_diagc%grf_tend_tracer(:,:,:,1:ntracer_bdyintp),                                      &
+        SEND4D=p_diagp%grf_tend_tracer(:,:,:,1:ntracer_bdyintp))
 
 
     ELSE IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 2) THEN
 
       ! Apply positive definite limiter on full tracer fields but not on tendencies
-      l_limit(1:ntracer) = .FALSE.
-      l_limit(ntracer+1:2*ntracer) = .TRUE.
+      l_limit(1:ntracer_bdyintp) = .FALSE.
+      l_limit(ntracer_bdyintp+1:2*ntracer_bdyintp) = .TRUE.
 
-      CALL interpol_scal_grf ( p_pp, p_pc, p_grf%p_dom(i_chidx), 2*ntracer,  &
-        f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,     &
-        f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, llimit_nneg=l_limit )
+      CALL interpol_scal_grf ( p_pp, p_pc, p_grf%p_dom(i_chidx), 2*ntracer_bdyintp, &
+        f4din1 =  p_diagp%grf_tend_tracer(:,:,:,1:ntracer_bdyintp),                 &
+        f4dout1 = p_diagc%grf_tend_tracer(:,:,:,1:ntracer_bdyintp),                 &
+        f4din2  = p_nhp_tr%tracer(:,:,:,1:ntracer_bdyintp),                         &
+        f4dout2 = p_nhc_tr%tracer(:,:,:,1:ntracer_bdyintp), llimit_nneg=l_limit     )
 
     ENDIF
 
@@ -873,8 +891,9 @@ CONTAINS
       i_startidx, i_endidx, istartblk_c, istartblk_e
     INTEGER :: nlev_c, nlev_p
     INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
-    !< domain and upper boundary of child domain (in terms 
-    !< of vertical levels) 
+                           !< domain and upper boundary of child domain (in terms 
+                           !< of vertical levels)
+    INTEGER :: ntracer_nudge !< number of tracers to be nudged
 
     ! Local arrays for interpolated parent-grid values, and difference fields. These have
     ! to be allocatable because their dimensions differ between MPI and non-MPI runs
@@ -898,6 +917,12 @@ CONTAINS
       l_parallel = .FALSE.
     ELSE
       l_parallel = .TRUE.
+    ENDIF
+
+    IF (iforcing > 1) THEN  ! tracers represent moisture variables
+      ntracer_nudge = 3     ! take only QV, QC and QI - nudging precip variables does not make much sense
+    ELSE
+      ntracer_nudge = ntracer
     ENDIF
 
     p_parent_prog     => p_nh_state(jgp)%prog(nsav1(jgp))
@@ -944,8 +969,8 @@ CONTAINS
       diff_w      (nproma, nlev_c+1, p_patch_local_parent(jg)%nblks_c) )
 
     IF(ltransport .AND. lstep_adv) &
-      ALLOCATE(parent_tr(nproma, nlev_p, p_patch_local_parent(jg)%nblks_c, ntracer),&
-      &        diff_tr  (nproma, nlev_c, p_patch_local_parent(jg)%nblks_c, ntracer) )
+      ALLOCATE(parent_tr(nproma, nlev_p, p_patch_local_parent(jg)%nblks_c, ntracer_nudge),&
+      &        diff_tr  (nproma, nlev_c, p_patch_local_parent(jg)%nblks_c, ntracer_nudge) )
 
     ! Value of i_startblk needed for subroutine call for parent-to-child interpolation
     istartblk_e = 1
@@ -983,8 +1008,8 @@ CONTAINS
       RECV=parent_vn, SEND=p_parent_prog%vn)
 
     IF (ltransport .AND. lstep_adv) &
-      CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, ntracer, ntracer*nlev_p, &
-      RECV4D=parent_tr, SEND4D=p_parent_prog_rcf%tracer)
+      CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, ntracer_nudge, ntracer_nudge*nlev_p, &
+      RECV4D=parent_tr, SEND4D=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_nudge))
 
     ! 2nd step: perform feedback from refined grid to intermediate grid and compute differences
 
@@ -1039,7 +1064,7 @@ CONTAINS
       ! Tracers
       IF (ltransport .AND. lstep_adv) THEN
 
-        DO jt = 1, ntracer
+        DO jt = 1, ntracer_nudge
 
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
@@ -1122,12 +1147,12 @@ CONTAINS
       p_diag%grf_tend_w)
 
     IF (ltransport .AND. lstep_adv) THEN
-      IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, ntracer, ntracer*nlev_c, recv4d=diff_tr)
+      IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, ntracer_nudge, ntracer_nudge*nlev_c, recv4d=diff_tr)
 
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx,  &
-        &                         0, ntracer, istartblk_c, f4din=diff_tr,      &
-        &                         f4dout=p_diag%grf_tend_tracer )
-      CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer,f4din=p_diag%grf_tend_tracer)
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx,          &
+        &                         0, ntracer_nudge, istartblk_c, f4din=diff_tr,        &
+        &                         f4dout=p_diag%grf_tend_tracer(:,:,:,1:ntracer_nudge) )
+      CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer_nudge,f4din=p_diag%grf_tend_tracer(:,:,:,1:ntracer_nudge))
     ENDIF
 
     DEALLOCATE(parent_thv, diff_thv, parent_rho, diff_rho, parent_w, diff_w, parent_vn, diff_vn)
@@ -1577,13 +1602,20 @@ CONTAINS
     ! Indices
     INTEGER :: jb, jc, jk, jt, ic
 
-    INTEGER :: nlev  ! number of vertical full levels
+    INTEGER :: nlev          ! number of vertical full levels
+    INTEGER :: ntracer_nudge !< number of tracers to be nudged
 
     REAL(wp) :: rd_o_cvd, rd_o_p0ref, upper_lim, lower_lim
 
     ! Set pointers
     p_nh  => p_nh_state(jg)
     p_int => p_int_state(jg)
+
+    IF (iforcing > 1) THEN  ! tracers represent moisture variables
+      ntracer_nudge = 3     ! take only QV, QC and QI - nudging precip variables does not make much sense
+    ELSE
+      ntracer_nudge = ntracer
+    ENDIF
 
     ! R/c_v (not present in physical constants)
     rd_o_cvd = 1._wp / cvd_o_rd
@@ -1641,11 +1673,11 @@ CONTAINS
       DO ic = 1, p_nh%metrics%nudge_c_dim
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)
-        DO jt = 1, ntracer
+        DO jt = 1, ntracer_nudge
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-      DO jt = 1, ntracer
+      DO jt = 1, ntracer_nudge
         DO jk = 1, nlev
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, p_nh%metrics%nudge_c_dim

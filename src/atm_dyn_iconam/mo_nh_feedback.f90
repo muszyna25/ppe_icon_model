@@ -1008,6 +1008,7 @@ CONTAINS
     INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
     INTEGER :: nlev_p, nlevp1_p  ! number of full and half levels (parent dom)
     INTEGER :: nshift
+    INTEGER :: ntracer_fbk
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
       feedback_vn, feedback_w
@@ -1072,6 +1073,12 @@ CONTAINS
     nshift = p_pc%nshift
     js     = nshift
 
+    IF (iforcing > 1) THEN  ! tracers represent moisture variables
+      ntracer_fbk = 3       ! take only QV, QC and QI
+    ELSE
+      ntracer_fbk = ntracer
+    ENDIF
+
     i_nchdom = MAX(1,p_pc%n_childdom)
     i_chidx  = p_pc%parent_child_index
     i_nchdom_p = MAX(1,p_patch(jgp)%n_childdom)
@@ -1105,7 +1112,7 @@ CONTAINS
       feedback_w         (nproma, nlev_c, i_startblk:i_endblk))
 
     IF(ltransport .AND. l_trac_fbk) &
-      ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, ntracer))
+      ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, ntracer_fbk))
 
     i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
     i_endblk   = p_gep%end_blk(min_rledge,i_chidx)
@@ -1215,11 +1222,11 @@ CONTAINS
       IF (ltransport .AND. l_trac_fbk) THEN ! tracer mass feedback
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
-          DO jt = 1, ntracer
+          DO jt = 1, ntracer_fbk
 !DIR$ IVDEP
             DO jk = 1, nlev_c
 #else
-        DO jt = 1, ntracer
+        DO jt = 1, ntracer_fbk
 !CDIR UNROLL=8
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
@@ -1284,8 +1291,8 @@ CONTAINS
       RECV1=parent_vn, SEND1=feedback_vn )
 
     IF (ltransport .AND. l_trac_fbk) &
-      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer, ntracer*nlev_c, &
-      RECV4D=parent_rhoqx, SEND4D=feedback_rhoqx)
+      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer_fbk, ntracer_fbk*nlev_c, &
+      RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
 
     p_fbk_rho => parent_rho
     p_fbk_thv => parent_thv
@@ -1536,11 +1543,11 @@ CONTAINS
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
-            DO jt = 1, ntracer
+            DO jt = 1, ntracer_fbk
 !DIR$ IVDEP
               DO jk = nshift+1, nlev_p
 #else
-        DO jt = 1, ntracer
+        DO jt = 1, ntracer_fbk
           DO jk = nshift+1, nlev_p
             DO jc = i_startidx,i_endidx
               IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
@@ -1603,8 +1610,8 @@ CONTAINS
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
     IF (ltransport .AND. l_trac_fbk) THEN
-      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer+3, p_parent_prog%rho, p_parent_prog%theta_v, &
-        p_parent_prog%w, f4din=p_parent_prog_rcf%tracer)
+      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer_fbk+3, p_parent_prog%rho, p_parent_prog%theta_v, &
+        p_parent_prog%w, f4din=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_fbk))
     ELSE
       CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,p_parent_prog%rho,p_parent_prog%theta_v,   &
         p_parent_prog%w)
