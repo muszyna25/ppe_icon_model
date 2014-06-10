@@ -131,7 +131,7 @@
 MODULE mo_icon_interpolation_scalar
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,                ONLY: wp, dp, sp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, min_rlcell_int
   USE mo_grid_config,         ONLY: l_limited_area
@@ -150,14 +150,10 @@ MODULE mo_icon_interpolation_scalar
   PUBLIC :: edges2verts_scalar
   PUBLIC :: edges2cells_scalar 
   PUBLIC :: cells2verts_scalar
+  PUBLIC :: cells2verts_scalar_ri
   PUBLIC :: verts2cells_scalar
   PUBLIC :: cell_avg
   PUBLIC :: edges2edges_scalar
-
-INTERFACE cells2verts_scalar
-  MODULE PROCEDURE cells2verts_scalar_dp
-  MODULE PROCEDURE cells2verts_scalar_dp2sp
-END INTERFACE
 
 CONTAINS
 
@@ -793,8 +789,8 @@ END SUBROUTINE edges2cells_scalar
 !! @par Revision History
 !! Developed  by Almut Gassmann, MPI-M (2009-01-28)
 !!
-SUBROUTINE cells2verts_scalar_dp( p_cell_in, ptr_patch, c_int, p_vert_out,  &
-  &                               opt_slev, opt_elev, opt_rlstart, opt_rlend )
+SUBROUTINE cells2verts_scalar( p_cell_in, ptr_patch, c_int, p_vert_out,  &
+  &                            opt_slev, opt_elev, opt_rlstart, opt_rlend )
 !
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
@@ -924,21 +920,22 @@ ENDIF
 IF (ltimer) CALL timer_stop(timer_intp)
 
 
-END SUBROUTINE cells2verts_scalar_dp
+END SUBROUTINE cells2verts_scalar
 !------------------------------------------------------------------------
 
 !>
-!!  Same as above, but provides output in single precision.
+!!  Same as above, but provides output optionally in single precision and
+!!  assumes reversed index order of the output field in loop exchange mode
 !!
 !!
-SUBROUTINE cells2verts_scalar_dp2sp( p_cell_in, ptr_patch, c_int, p_vert_out,  &
-  &                                 opt_slev, opt_elev, opt_rlstart, opt_rlend )
+SUBROUTINE cells2verts_scalar_ri( p_cell_in, ptr_patch, c_int, p_vert_out,  &
+  &                               opt_slev, opt_elev, opt_rlstart, opt_rlend )
 !
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 
 ! cell based scalar input field
-REAL(dp), INTENT(in) :: p_cell_in(:,:,:)   ! dim: (nproma,nlev,nblks_c)
+REAL(wp), INTENT(in) :: p_cell_in(:,:,:)   ! dim: (nproma,nlev,nblks_c)
 
 ! coefficients for interpolation
 REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,9-cell_type,nblks_v)
@@ -951,7 +948,7 @@ INTEGER, INTENT(in), OPTIONAL :: opt_elev  ! optional vertical end level
 INTEGER, INTENT(in), OPTIONAL ::  opt_rlstart, opt_rlend
 
 ! vertex based scalar output field
-REAL(sp), INTENT(inout) :: p_vert_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
+REAL(vp), INTENT(inout) :: p_vert_out(:,:,:) ! dim: (nlev,nproma,nblks_v) or (nproma,nlev,nblks_v)
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jv, jk, jb
@@ -994,8 +991,6 @@ i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 
-IF (ltimer) CALL timer_start(timer_intp)
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1007,13 +1002,13 @@ IF (ltimer) CALL timer_start(timer_intp)
 #ifdef __LOOP_EXCHANGE
     DO jv = i_startidx, i_endidx
       DO jk = slev, elev
+         p_vert_out(jk,jv,jb) =                                         &
 #else
 !CDIR UNROLL=6
     DO jk = slev, elev
       DO jv = i_startidx, i_endidx
+         p_vert_out(jv,jk,jb) =                                         &
 #endif
-
-         p_vert_out(jv,jk,jb) =                       &
            c_int(jv,1,jb) * p_cell_in(iidx(jv,jb,1),jk,iblk(jv,jb,1)) + &
            c_int(jv,2,jb) * p_cell_in(iidx(jv,jb,2),jk,iblk(jv,jb,2)) + &
            c_int(jv,3,jb) * p_cell_in(iidx(jv,jb,3),jk,iblk(jv,jb,3)) + &
@@ -1028,10 +1023,8 @@ IF (ltimer) CALL timer_start(timer_intp)
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-IF (ltimer) CALL timer_stop(timer_intp)
 
-
-END SUBROUTINE cells2verts_scalar_dp2sp
+END SUBROUTINE cells2verts_scalar_ri
 !------------------------------------------------------------------------
 
 !

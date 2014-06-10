@@ -31,7 +31,7 @@ MODULE mo_velocity_advection
   USE mo_run_config,        ONLY: lvert_nest, timers_level
   USE mo_model_domain,      ONLY: t_patch
   USE mo_intp_data_strc,    ONLY: t_int_state
-  USE mo_intp,              ONLY: cells2verts_scalar
+  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar_ri
   USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_math_divrot,       ONLY: rot_vertex
   USE mo_vertical_grid,     ONLY: nrdmax
@@ -94,8 +94,14 @@ MODULE mo_velocity_advection
     REAL(vp):: z_w_concorr_mc(nproma,p_patch%nlev)
     REAL(vp):: z_w_con_c(nproma,p_patch%nlevp1)
     REAL(vp):: z_w_con_c_full(nproma,p_patch%nlev,p_patch%nblks_c)
+    ! These fields in addition have reversed index order (vertical first) for optimization
+#ifdef __LOOP_EXCHANGE
+    REAL(vp):: z_v_grad_w(p_patch%nlev,nproma,p_patch%nblks_e)
+    REAL(vp):: z_w_v(p_patch%nlevp1,nproma,p_patch%nblks_v)
+#else
     REAL(vp):: z_v_grad_w(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(vp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
+#endif
 
     ! Pointers
     INTEGER, DIMENSION(:,:,:), POINTER   &
@@ -161,7 +167,7 @@ MODULE mo_velocity_advection
     scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
 
     ! Compute w at vertices
-    IF (.NOT. lvn_only) CALL cells2verts_scalar(p_prog%w, p_patch, &
+    IF (.NOT. lvn_only) CALL cells2verts_scalar_ri(p_prog%w, p_patch, &
       p_int%cells_aw_verts, z_w_v, opt_rlend=min_rlvert_int-1)
 
     ! Compute vertical vorticity component at vertices
@@ -285,22 +291,27 @@ MODULE mo_velocity_advection
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
+        ! Compute v*grad w on edges (level nlevp1 is not needed because w(nlevp1) is diagnostic)
+        ! Note: this implicitly includes a minus sign for the gradients, which is needed later on
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP
           DO jk = 1, nlev
+            z_v_grad_w(jk,je,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
+             (p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) - p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2))) &
+             + z_vt_ie(je,jk,jb) * p_patch%edges%inv_primal_edge_length(je,jb) *                       &
+             p_patch%edges%system_orientation(je,jb) *                                                 &
+             (z_w_v(jk,ividx(je,jb,1),ivblk(je,jb,1)) - z_w_v(jk,ividx(je,jb,2),ivblk(je,jb,2))) 
 #else
 !CDIR UNROLL=3
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-#endif
-            ! Compute v*grad w on edges (level nlevp1 is not needed because w(nlevp1) is diagnostic)
-            ! Note: this implicitly includes a minus sign for the gradients, which is needed later on
             z_v_grad_w(je,jk,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
              (p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) - p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2))) &
              + z_vt_ie(je,jk,jb) * p_patch%edges%inv_primal_edge_length(je,jb) *                       &
              p_patch%edges%system_orientation(je,jb) *                                                 &
              (z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) - z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))) 
+#endif
 
           ENDDO
         ENDDO
@@ -440,31 +451,36 @@ MODULE mo_velocity_advection
       CALL get_indices_c(p_patch, jb, i_startblk_2, i_endblk_2, &
                          i_startidx_2, i_endidx_2, rl_start_2, rl_end_2)
 
-      ! Interpolate horizontal advection of w from edges to cells
+
+      ! Compute vertical derivative terms of vertical wind advection
+      DO jk = 2, nlev
+!DIR$ IVDEP
+        DO jc = i_startidx_2, i_endidx_2
+          p_diag%ddt_w_adv(jc,jk,jb,ntnd) =  - z_w_con_c(jc,jk)   *                                 &
+            (p_prog%w(jc,jk-1,jb)*p_metrics%coeff1_dwdz(jc,jk,jb) -                                 &
+             p_prog%w(jc,jk+1,jb)*p_metrics%coeff2_dwdz(jc,jk,jb) +                                 &
+             p_prog%w(jc,jk,jb)*(p_metrics%coeff2_dwdz(jc,jk,jb) - p_metrics%coeff1_dwdz(jc,jk,jb)) )
+        ENDDO
+      ENDDO
+
+      ! Interpolate horizontal advection of w from edges to cells and add to advective tendency
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx_2, i_endidx_2
 !DIR$ IVDEP
         DO jk = 2, nlev
+          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)       + &
+            p_int%e_bln_c_s(jc,1,jb)*z_v_grad_w(jk,ieidx(jc,jb,1),ieblk(jc,jb,1)) + &
+            p_int%e_bln_c_s(jc,2,jb)*z_v_grad_w(jk,ieidx(jc,jb,2),ieblk(jc,jb,2)) + &
+            p_int%e_bln_c_s(jc,3,jb)*z_v_grad_w(jk,ieidx(jc,jb,3),ieblk(jc,jb,3))
 #else
 !CDIR UNROLL=6
-      DO jk = 1, nlev ! starting at level 2 would be sufficient, but this improves usage of unrolling
+      DO jk = 2, nlev
         DO jc = i_startidx_2, i_endidx_2
-#endif
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) =                                         &
+          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)       + &
             p_int%e_bln_c_s(jc,1,jb)*z_v_grad_w(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
             p_int%e_bln_c_s(jc,2,jb)*z_v_grad_w(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
             p_int%e_bln_c_s(jc,3,jb)*z_v_grad_w(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
-        ENDDO
-      ENDDO
-
-      ! Sum up remaining terms of vertical wind advection
-      DO jk = 2, nlev
-!DIR$ IVDEP
-        DO jc = i_startidx_2, i_endidx_2
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd) - z_w_con_c(jc,jk)    * &
-            (p_prog%w(jc,jk-1,jb)*p_metrics%coeff1_dwdz(jc,jk,jb) -                                 &
-             p_prog%w(jc,jk+1,jb)*p_metrics%coeff2_dwdz(jc,jk,jb) +                                 &
-             p_prog%w(jc,jk,jb)*(p_metrics%coeff2_dwdz(jc,jk,jb) - p_metrics%coeff1_dwdz(jc,jk,jb)) )
+#endif
         ENDDO
       ENDDO
 
