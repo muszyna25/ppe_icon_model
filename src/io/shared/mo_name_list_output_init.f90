@@ -1406,7 +1406,8 @@ CONTAINS
         &                  generate_output_filenames, local_i, p_comm_io)
       ! ------------------------------------------------------------------------------------------
       IF (dom_sim_step_info%jstep0 > 0) &
-        &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
+        &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
+        &                            is_restart_run(), lrecover_open_file=.TRUE.)
     END DO
 
     ! tell the root I/O process that all output event data structures
@@ -1421,7 +1422,8 @@ CONTAINS
          &                               p_comm_work_io, process_work_io0)
 
     IF (dom_sim_step_info%jstep0 > 0) &
-      &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, lrecover_open_file=.TRUE.)
+      &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
+      &                            is_restart_run(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
     IF (.NOT. my_process_is_mpi_test()) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &

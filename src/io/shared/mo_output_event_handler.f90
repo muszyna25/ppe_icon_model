@@ -2207,10 +2207,11 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  SUBROUTINE set_event_to_simstep(event, jstep, lrecover_open_file)
-    TYPE(t_output_event), INTENT(INOUT), target :: event              !< output event data structure
-    INTEGER,              INTENT(IN)            :: jstep              !< simulation step
-    LOGICAL,              INTENT(IN)            :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
+  SUBROUTINE set_event_to_simstep(event, jstep, l_isrestart, lrecover_open_file)
+    TYPE(t_output_event),   INTENT(INOUT), TARGET :: event              !< output event data structure
+    INTEGER,                INTENT(IN)            :: jstep              !< simulation step
+    LOGICAL,                INTENT(IN)            :: l_isrestart        !< .TRUE. if this is a restart run
+    LOGICAL,                INTENT(IN)            :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_event_to_simstep"
     CHARACTER(LEN=10) :: jpart_str
@@ -2232,10 +2233,24 @@ CONTAINS
       DO i_pe=1,n_pes
         event_step_data => event%event_step(istep)%event_step_data(i_pe)
 
-
+        ! Spooling forward the event status to a given step means that
+        ! we have to set the "open" flag.
         event_step_data%l_open_file = .TRUE.
 
-        IF (event_step_data%jpart > 1) THEN
+        ! Test if the opening of the file at step "jstep" would
+        ! destroy a file of the same name that has been created in a
+        ! previous run (i.e. we are in a restart run).
+        !
+        ! This happens in the following two situations:
+        !
+        ! - Each file contains more than one output step and "jstep"
+        !   corresponds to an output step "in the middle of the file".
+        !
+        ! - We are in a restart run and we are dealing with the first
+        !   output file, which also contains the initial state.
+
+        IF ((event_step_data%jpart > 1) .OR.         &
+          & (l_isrestart .AND. (event_step_data%jfile == 1))) THEN
           ! Resuming after a restart means that we have to open the
           ! file for output though this has not been planned
           ! initially. We must find a unique suffix then for this new
@@ -2269,16 +2284,17 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  RECURSIVE SUBROUTINE set_event_to_simstep_par(event, jstep, lrecover_open_file)
+  RECURSIVE SUBROUTINE set_event_to_simstep_par(event, jstep, l_isrestart, lrecover_open_file)
     TYPE(t_par_output_event), POINTER    :: event              !< output event data structure
     INTEGER,                  INTENT(IN) :: jstep              !< simulation step
+    LOGICAL,                  INTENT(IN) :: l_isrestart        !< .TRUE. if this is a restart run
     LOGICAL,                  INTENT(IN) :: lrecover_open_file !< Flag. If true, we test for an existing file from previous runs
 
     IF (.NOT. ASSOCIATED(event)) RETURN
     IF (ASSOCIATED(event%next)) THEN
-      CALL set_event_to_simstep_par(event%next, jstep, lrecover_open_file)
+      CALL set_event_to_simstep_par(event%next, jstep, l_isrestart, lrecover_open_file)
     END IF
-    CALL set_event_to_simstep(event%output_event, jstep, lrecover_open_file)
+    CALL set_event_to_simstep(event%output_event, jstep, l_isrestart, lrecover_open_file)
   END SUBROUTINE set_event_to_simstep_par
 
 
