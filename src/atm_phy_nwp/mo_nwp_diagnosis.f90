@@ -1246,19 +1246,19 @@ CONTAINS
             qvmin = MIN(qvmin,p_prog_rcf%tracer(jc,jk,jb,iqv))
             qcmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqc))
             qcmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqc))
-            qrmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqr))
-            qrmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqr))
-            qimax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqi))
-            qimin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqi))
-            qsmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqs))
-            qsmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqs))
+            qrmax = MAX(qrmax,p_prog_rcf%tracer(jc,jk,jb,iqr))
+            qrmin = MIN(qrmin,p_prog_rcf%tracer(jc,jk,jb,iqr))
+            qimax = MAX(qimax,p_prog_rcf%tracer(jc,jk,jb,iqi))
+            qimin = MIN(qimin,p_prog_rcf%tracer(jc,jk,jb,iqi))
+            qsmax = MAX(qsmax,p_prog_rcf%tracer(jc,jk,jb,iqs))
+            qsmin = MIN(qsmin,p_prog_rcf%tracer(jc,jk,jb,iqs))
             
             IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
                  & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
-               qgmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqg))
-               qgmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqg))
-               qhmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqh))
-               qhmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqh))
+               qgmax = MAX(qgmax,p_prog_rcf%tracer(jc,jk,jb,iqg))
+               qgmin = MIN(qgmin,p_prog_rcf%tracer(jc,jk,jb,iqg))
+               qhmax = MAX(qhmax,p_prog_rcf%tracer(jc,jk,jb,iqh))
+               qhmin = MIN(qhmin,p_prog_rcf%tracer(jc,jk,jb,iqh))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
                qncmax = MAX(qncmax,p_prog_rcf%tracer(jc,jk,jb,iqnc))
@@ -1274,8 +1274,8 @@ CONTAINS
 !$OMP END PARALLEL
 
     ! Take maximum/minimum over all PEs
-    wmax  = global_max(tmax)
-    wmin  = global_min(tmin)
+    wmax  = global_max(wmax)
+    wmin  = global_min(wmin)
     tmax  = global_max(tmax)
     tmin  = global_min(tmin)
     qvmax = global_max(qvmax)
@@ -1305,9 +1305,9 @@ CONTAINS
     ! Standard output
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
     CASE(1)
-       WRITE(message_text,'(A10,9A11)')   '  var: ', 'w','qv','qc','qr','qi','qs'
+       WRITE(message_text,'(A10,8A11)')   '  var: ', 'w','qv','qc','qr','qi','qs'
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,9E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax
+       WRITE(message_text,'(A10,8E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax
        CALL message("",TRIM(message_text))
        WRITE(message_text,'(A10,8E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin
        CALL message("",TRIM(message_text))
@@ -1316,7 +1316,7 @@ CONTAINS
        CALL message("",TRIM(message_text))
        WRITE(message_text,'(A10,9E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,tmax
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,8E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin,tmin
+       WRITE(message_text,'(A10,9E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin,tmin
        CALL message("",TRIM(message_text))
     CASE(5)
        WRITE(message_text,'(A10,10A11)')   '  var: ', 'w','qv','qc','qr','qi','qs','qg','qh','qnc','qni'
