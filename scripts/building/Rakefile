@@ -31,8 +31,9 @@ REMOTE_USER = 'm300064'
 @fileList   = FileList.new("src/**/*.{F,F90,f,h,c,inc,f90}","support/*.{c,h}","externals/**/*.{c,h}")
 
 # local master source code directory
-SRCDIR      = ENV.has_key?('SRCDIR')? ENV['SRCDIR'] : '.'
-WORKDIR     = File.expand_path('.')
+SRCDIR     = ENV.has_key?('SRCDIR')? ENV['SRCDIR'] : '.'
+WORKDIR    = File.expand_path('.')
+OCEAN_ONLY = ( not ENV.has_key?('OCEAN_ONLY') or 'false' != ENV['OCEAN_ONLY']) ? true : false
 # remote runscripts
 DEFAULT_EXP = 'test_oce_default'
 #plotter
@@ -493,7 +494,7 @@ def doSync(build)
   $_temps << file
 
   # if OceanOnly
-  if ENV.has_key?('OO') then
+  if OCEAN_ONLY then
     getOceanOnlyfilelist.each {|f| file.write(f + "\n") }
     file.close
     ENV['FILELIST'] = file.path
@@ -941,6 +942,7 @@ task :check ,[:p] do |t,args|
     'REMOTE_USER' => REMOTE_USER,
     'WORKDIR' => WORKDIR,
     'RAKEFILE' => __FILE__,
+    'OCEAN_ONLY' => OCEAN_ONLY.to_s,
   }.each {|k,v|
     puts [k.rjust(16,' '),v.ljust(20,' ')].join(': ')
   }
