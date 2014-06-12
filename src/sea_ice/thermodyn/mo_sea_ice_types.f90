@@ -221,10 +221,10 @@ MODULE mo_sea_ice_types
   TYPE t_sea_ice_budgets
   ! accumulated fields of the sea-ice state
     REAL(wp), POINTER :: &
-      & salt_00         (:,:,:)       ,   & 
-      & salt_01         (:,:,:)       ,   &
-      & salt_02         (:,:,:)       ,   &
-      & salt_03       (:,:,:)           
+      & salt_00         (:,:)       ,   & 
+      & salt_01         (:,:)       ,   &
+      & salt_02         (:,:)       ,   &
+      & salt_03         (:,:)           
   END TYPE t_sea_ice_budgets
   TYPE t_sea_ice_acc
   ! accumulated fields of the sea-ice state

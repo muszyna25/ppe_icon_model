@@ -59,9 +59,8 @@ MODULE mo_ocean_testbed_modules
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_density_mpiom_func, calc_density_lin_eos_func,&
-    & calc_density_jmdwfg06_eos_func, calc_potential_density, &
-    & calc_density, calc_neutralslope_coeff, calc_neutralslope_coeff_func
+  USE mo_oce_thermodyn,          ONLY: calc_potential_density, calculate_density, &
+    & calc_neutralslope_coeff, calc_neutralslope_coeff_func
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & construct_oce_diagnostics,&
@@ -328,7 +327,7 @@ CONTAINS
         CALL calc_potential_density( patch_3d,                     &
           & p_os(n_dom)%p_prog(nold(1))%tracer,&
           & p_os(n_dom)%p_diag%rhopot )
-        CALL calc_density( patch_3d,                        &
+        CALL calculate_density( patch_3d,                        &
           & p_os(n_dom)%p_prog(nold(1))%tracer, &
           & p_os(n_dom)%p_diag%rho )
 
