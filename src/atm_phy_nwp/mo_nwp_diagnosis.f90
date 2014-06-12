@@ -39,7 +39,9 @@ MODULE mo_nwp_diagnosis
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi
+  USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
+                                   iqni, iqni_nuc, iqg, iqh, iqnr, iqns,&
+                                   iqng, iqnh, iqnc, inccn, ininpot, ininact    
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
@@ -53,6 +55,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mo_datetime,           ONLY: date_to_time, rdaylen
   USE mo_time_config,        ONLY: time_config
+  USE mo_exception,          ONLY: finish
 
   IMPLICIT NONE
 
@@ -63,6 +66,7 @@ MODULE mo_nwp_diagnosis
   PUBLIC  :: nwp_diag_for_output
   PUBLIC  :: nwp_diag_output_1
   PUBLIC  :: nwp_diag_output_2
+  PUBLIC  :: nwp_diag_output_minmax_micro
 
 CONTAINS
 
@@ -1158,6 +1162,176 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE nwp_diag_output_2
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Extended diagnostics for NWP physics interface
+  !! for run-time min/max output of microphysics variables
+  !!
+
+  SUBROUTINE nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
+
+    TYPE(t_nh_prog), INTENT(in) :: p_prog      !< the dyn prog vars
+    TYPE(t_patch),   INTENT(in) :: p_patch     !< grid/patch info.
+    TYPE(t_nh_diag), INTENT(in) :: p_diag      !< NH diagnostic state
+    TYPE(t_nh_prog), INTENT(in) :: p_prog_rcf  !< state for tracer variables
+
+
+    ! Local variables
+    REAL(wp) :: qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax
+    REAL(wp) :: qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin
+
+    ! loop indices
+    INTEGER :: jc,jk,jb,jg
+
+    INTEGER :: nlev                    !< number of full levels
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< number of child domains
+
+    CALL message('mo_nwp_diagnosis:','output min/max values of microphysics')
+
+    nlev = p_patch%nlev
+    jg   = p_patch%id
+
+    ! Exclude the nest boundary zone 
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+    ! Find local min/max
+    wmax  = 0.0_wp
+    wmin  = 0.0_wp
+    tmax  = 0.0_wp
+    tmin  = 0.0_wp
+    qvmax = 0.0_wp
+    qvmin = 0.0_wp
+    qcmax = 0.0_wp
+    qcmin = 0.0_wp
+    qrmax = 0.0_wp
+    qrmin = 0.0_wp
+    qimax = 0.0_wp
+    qimin = 0.0_wp
+    qsmax = 0.0_wp
+    qsmin = 0.0_wp
+    qgmax = 0.0_wp
+    qgmin = 0.0_wp
+    qhmax = 0.0_wp
+    qhmin = 0.0_wp
+
+    qncmax = 0.0_wp
+    qncmin = 0.0_wp
+    qnimax = 0.0_wp
+    qnimin = 0.0_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev
+         DO jc = i_startidx, i_endidx
+            wmax  = MAX(wmax, p_prog%w(jc,jk,jb))
+            wmin  = MIN(wmin, p_prog%w(jc,jk,jb))
+            tmax  = MAX(tmax, p_diag%temp(jc,jk,jb))
+            tmin  = MIN(tmin, p_diag%temp(jc,jk,jb))
+            qvmax = MAX(qvmax,p_prog_rcf%tracer(jc,jk,jb,iqv))
+            qvmin = MIN(qvmin,p_prog_rcf%tracer(jc,jk,jb,iqv))
+            qcmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqc))
+            qcmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqc))
+            qrmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqr))
+            qrmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqr))
+            qimax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqi))
+            qimin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqi))
+            qsmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqs))
+            qsmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqs))
+            
+            IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
+                 & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+               qgmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqg))
+               qgmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqg))
+               qhmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqh))
+               qhmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqh))
+            END IF
+            IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+               qncmax = MAX(qncmax,p_prog_rcf%tracer(jc,jk,jb,iqnc))
+               qncmin = MIN(qncmin,p_prog_rcf%tracer(jc,jk,jb,iqnc))
+               qnimax = MAX(qnimax,p_prog_rcf%tracer(jc,jk,jb,iqni))
+               qnimin = MIN(qnimin,p_prog_rcf%tracer(jc,jk,jb,iqni))
+            END IF
+         ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ! Take maximum/minimum over all PEs
+    wmax  = global_max(tmax)
+    wmin  = global_min(tmin)
+    tmax  = global_max(tmax)
+    tmin  = global_min(tmin)
+    qvmax = global_max(qvmax)
+    qvmin = global_min(qvmin)
+    qcmax = global_max(qcmax)
+    qcmin = global_min(qcmin)
+    qrmax = global_max(qrmax)
+    qrmin = global_min(qrmin)
+    qimax = global_max(qimax)
+    qimin = global_min(qimin)
+    qsmax = global_max(qsmax)
+    qsmin = global_min(qsmin)
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
+         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+       qgmax = global_max(qgmax)
+       qgmin = global_min(qgmin)
+       qhmax = global_max(qhmax)
+       qhmin = global_min(qhmin)
+    END IF
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+       qncmax = global_max(qncmax)
+       qncmin = global_min(qncmin)
+       qnimax = global_max(qnimax)
+       qnimin = global_min(qnimin)
+    END IF
+
+    ! Standard output
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+    CASE(1)
+       WRITE(message_text,'(A10,9A11)')   '  var: ', 'w','qv','qc','qr','qi','qs'
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,9E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,8E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin
+       CALL message("",TRIM(message_text))
+    CASE(4)
+       WRITE(message_text,'(A10,9A11)')   '  var: ', 'w','qv','qc','qr','qi','qs','qg','qh','temp'
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,9E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,tmax
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,8E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin,tmin
+       CALL message("",TRIM(message_text))
+    CASE(5)
+       WRITE(message_text,'(A10,10A11)')   '  var: ', 'w','qv','qc','qr','qi','qs','qg','qh','qnc','qni'
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,10E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,qncmax,qnimax
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,10E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin,qncmin,qnimin
+       CALL message("",TRIM(message_text))       
+    CASE DEFAULT       
+          CALL finish('nwp_diag_output_minmax_micro', 'Cloud microphysics scheme not yet known in diagnostics.')
+    END SELECT
+
+
+  END SUBROUTINE nwp_diag_output_minmax_micro
+
 !
 !===========================================================================
 !

@@ -3,9 +3,21 @@
 !>
 !! This module is the interface between nwp_nh_interface to the 
 !! microphysical parameterisations:
-!! inwp_gscp == 1 == one_moment bulk microphysics by Doms and Schaettler(2004) 
+!!
+!! inwp_gscp == 1 : one_moment bulk microphysics by Doms and Schaettler(2004) 
 !!                                                and Seifert and Beheng(2006)
-!! inwp_gscp == 2 == ...
+!! inwp_gscp == 2 : one-moment graupel scheme
+!!
+!! inwp_gscp == 3 : two-moment cloud ice scheme of Koehler (2013)
+!!
+!! inwp_gscp == 4 : two-moment bulk microphysics by Seifert and Beheng (2006)
+!!                  with prescribed cloud droplet number
+!!
+!! inwp_gscp == 5 : two-moment bulk microphysics by Seifert and Beheng (2006)
+!!                  with prognostic cloud droplet number and some aerosol,
+!!                  CCN and IN tracers
+!!
+!! inwp_gscp == 9 : a simple Kessler-type warm rain scheme
 !!
 !! @author Kristina Froehlich, DWD, Offenbach (2010-01-25)
 !!
@@ -39,8 +51,8 @@ MODULE mo_nwp_gscp_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
-                                     iqni, iqni_nuc, iqg, iqh, iqnr, iqns,&
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,       &
+                                     iqni, iqni_nuc, iqg, iqh, iqnr, iqns,     &
                                      iqng, iqnh, iqnc, inccn, ininpot, ininact    
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_gscp_cosmo,           ONLY: kessler_pp
@@ -48,8 +60,7 @@ MODULE mo_nwp_gscp_interface
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph
-  USE mo_sync,                 ONLY: global_max, global_min
-
+  USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
 
   IMPLICIT NONE
 
@@ -91,9 +102,7 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jb,jg               !<block indeces
-    REAL(wp) :: qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax
-    REAL(wp) :: qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin
+    INTEGER :: jc,jb,jg               !<block indices
 
     ! local variables
     !
@@ -113,95 +122,10 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !Some run time diagnostics for two moment scheme. It would be better
-    !to have similar diagnostics for other schemes as well
-    IF (msg_level>10.AND.atm_phy_nwp_config(jg)%inwp_gscp==4) THEN
-
-      !local max val 
-      tmax  = MAXVAL(p_diag%temp(:,:,:))
-      qvmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqv))
-      qcmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqc))
-      qrmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqr))
-      qsmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqs))
-      qimax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqi))
-      qhmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqh))
-      qgmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqg))
-      qvmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqv))
-      qcmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqc))
-      qrmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqr))
-      qimin = MINVAL(p_prog_rcf%tracer(:,:,:,iqi))
-      qsmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqs))
-      qgmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqg))
-      qhmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqh))
-      wmax  = MAXVAL(p_prog%w(:,:,:))
-      wmin  = MINVAL(p_prog%w(:,:,:))
-      
-      !now calculate global max
-      tmax  = global_max(tmax)
-      qvmax = global_max(qvmax)
-      qcmax = global_max(qcmax)
-      qrmax = global_max(qrmax)
-      qsmax = global_max(qsmax)
-      qimax = global_max(qimax)
-      qgmax = global_max(qgmax)
-      qhmax = global_max(qhmax)
-      qvmin = global_min(qvmin)
-      qcmin = global_min(qcmin)
-      qrmin = global_min(qrmin)
-      qimin = global_min(qimin)
-      qsmin = global_min(qsmin)
-      qgmin = global_min(qgmin)
-      qhmin = global_min(qhmin)
-      wmax  = global_max(wmax)
-      wmin  = global_max(wmin)
-
-      CALL message ("mo_gscp_interface:", "output max values before microphysics")
-      WRITE(message_text,'(A10,9A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh','tmax'
-      CALL message("",TRIM(message_text))
-      WRITE(message_text,'(A10,9E11.3)') '   ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,tmax
-      CALL message("",TRIM(message_text))
-      CALL message ("mo_gscp_interface:", "output min values before microphysics")
-      WRITE(message_text,'(A10,8A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh'
-      CALL message("",TRIM(message_text))
-      WRITE(message_text,'(A10,8E11.3)') '   ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin
-      CALL message("",TRIM(message_text))
-
-    END IF
-    !Some run time diagnostics for two moment scheme. It would be better
-    !to have similar diagnostics for other schemes as well
-    IF (msg_level>10.AND.atm_phy_nwp_config(jg)%inwp_gscp==5) THEN
-
-      !local max val 
-      qncmax= MAXVAL(p_prog_rcf%tracer(:,:,:,ininact))
-      !qncmax= MAXVAL(p_prog_rcf%tracer(:,:,:,iqnc))
-      qnimax= MAXVAL(p_prog_rcf%tracer(:,:,:,iqni))
-      qvmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqv))
-      qcmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqc))
-      qrmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqr))
-      qsmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqs))
-      qimax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqi))
-      qhmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqh))
-      qgmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqg))
-      wmax  = MAXVAL(p_prog%w(:,:,:))
-      
-      !now calculate global max
-      qncmax= global_max(qncmax)
-      qnimax= global_max(qnimax)
-      qvmax = global_max(qvmax)
-      qcmax = global_max(qcmax)
-      qrmax = global_max(qrmax)
-      qsmax = global_max(qsmax)
-      qimax = global_max(qimax)
-      qgmax = global_max(qgmax)
-      qhmax = global_max(qhmax)
-      wmax  = global_max(wmax)
-
-      CALL message ("mo_gscp_interface:", "output max values before microphysics")
-      WRITE(message_text,'(A10,10A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh','qnc','qni'
-      CALL message("",TRIM(message_text))
-      WRITE(message_text,'(A10,10E11.3)') '   ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,qncmax,qnimax
-      CALL message("",TRIM(message_text))
-
+    ! Some run time diagnostics (can also be used for other schemes)
+    IF (msg_level>10 .AND. &
+         & ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 )) THEN
+       CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
 !$OMP PARALLEL
@@ -222,7 +146,7 @@ CONTAINS
           WRITE(0,*) "                           "
 
         CASE(1)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
-!                ! version unified with COSMO scheme
+                 ! version unified with COSMO scheme
                  ! unification version: COSMO_V4_23
 
           CALL hydci_pp (                                   &
@@ -340,7 +264,7 @@ CONTAINS
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.          )    
 
-        CASE(5)  ! two-moment scheme with prognotic cloud droplet number
+        CASE(5)  ! two-moment scheme with prognostic cloud droplet number
                  ! and budget equations for CCN and IN
 
           CALL two_moment_mcrph(                       &
@@ -407,177 +331,83 @@ CONTAINS
 
         END SELECT
 
-
-
         !-------------------------------------------------------------------------
         !>
         !! Calculate surface precipitation
         !!
         !-------------------------------------------------------------------------
       
-        IF(atm_phy_nwp_config(jg)%inwp_gscp==4.OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+        SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+        CASE(4,5)
 
 !DIR$ IVDEP
-          DO jc =  i_startidx, i_endidx
+           DO jc =  i_startidx, i_endidx
+              prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)                         &
+                   &                   + tcall_gscp_jg * prm_diag%rain_gsp_rate (jc,jb)
+              prm_diag%ice_gsp(jc,jb)  = prm_diag%ice_gsp(jc,jb)                          & 
+                   &                   + tcall_gscp_jg * prm_diag%ice_gsp_rate (jc,jb)
+              prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)                         &
+                   &                   + tcall_gscp_jg * prm_diag%snow_gsp_rate (jc,jb)
+              prm_diag%hail_gsp(jc,jb) = prm_diag%hail_gsp(jc,jb)                         &
+                   &                   + tcall_gscp_jg * prm_diag%hail_gsp_rate (jc,jb)
+              prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)                   &
+                   &                   + tcall_gscp_jg * prm_diag%graupel_gsp_rate (jc,jb)
+              prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)                         &
+                   &                   + tcall_gscp_jg * ( prm_diag%rain_gsp_rate (jc,jb) &
+                   &                                     + prm_diag%ice_gsp_rate (jc,jb)  &
+                   &                                     + prm_diag%snow_gsp_rate (jc,jb) &
+                   &                                     + prm_diag%hail_gsp_rate (jc,jb) &
+                   &                                     + prm_diag%graupel_gsp_rate (jc,jb) )
+           ENDDO
 
-            prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)        &
-   &                                 + tcall_gscp_jg                   &
+        CASE(2)
+
+!DIR$ IVDEP
+           DO jc =  i_startidx, i_endidx
+
+            prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)           &
+   &                                 + tcall_gscp_jg                      &
    &                                 * prm_diag%rain_gsp_rate (jc,jb)
-
-            prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)        &
-   &                                 + tcall_gscp_jg                   &
+            prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)           &
+   &                                 + tcall_gscp_jg                      &
    &                                 * prm_diag%snow_gsp_rate (jc,jb)
-
-            prm_diag%ice_gsp(jc,jb) = prm_diag%ice_gsp(jc,jb)          &
-   &                                 + tcall_gscp_jg                   &
-   &                                 * prm_diag%ice_gsp_rate (jc,jb)
-
-            prm_diag%hail_gsp(jc,jb) = prm_diag%hail_gsp(jc,jb)        &
-   &                                 + tcall_gscp_jg                   &
-   &                                 * prm_diag%hail_gsp_rate (jc,jb)
-
-            prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)  &
-   &                                 + tcall_gscp_jg                   &
+            prm_diag%graupel_gsp(jc,jb) = prm_diag%graupel_gsp(jc,jb)     &
+   &                                 + tcall_gscp_jg                      &
    &                                 * prm_diag%graupel_gsp_rate (jc,jb)
-
-            prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)         &
-   &                                 +  tcall_gscp_jg                   &
-   &                                 * ( prm_diag%rain_gsp_rate (jc,jb) &
-   &                                 +   prm_diag%snow_gsp_rate (jc,jb) &
-   &                                 +   prm_diag%ice_gsp_rate (jc,jb)  &
-   &                                 +   prm_diag%hail_gsp_rate (jc,jb) &
+            prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)           &
+   &                                 +  tcall_gscp_jg                     &
+   &                                 * ( prm_diag%rain_gsp_rate (jc,jb)   &
+   &                                 +   prm_diag%snow_gsp_rate (jc,jb)   &
    &                                 +   prm_diag%graupel_gsp_rate (jc,jb) )
-
           ENDDO
- 
-        ELSE !For all other schemes
+
+        CASE DEFAULT
 
 !DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
 
-            prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)        &
-   &                                 + tcall_gscp_jg                   &
+            prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)         & 
+   &                                 + tcall_gscp_jg                    &
    &                                 * prm_diag%rain_gsp_rate (jc,jb)
-
-            prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)        &
-   &                                 + tcall_gscp_jg                   &
+            prm_diag%snow_gsp(jc,jb) = prm_diag%snow_gsp(jc,jb)         &
+   &                                 + tcall_gscp_jg                    &
    &                                 * prm_diag%snow_gsp_rate (jc,jb)
-
             prm_diag%tot_prec(jc,jb) = prm_diag%tot_prec(jc,jb)         &
    &                                 +  tcall_gscp_jg                   &
    &                                 * ( prm_diag%rain_gsp_rate (jc,jb) &
    &                                 +   prm_diag%snow_gsp_rate (jc,jb) )
           ENDDO
 
-        END IF 
+        END SELECT
 
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
  
-    !Some run time diagnostics for two moment scheme
-    IF (msg_level>10.AND.atm_phy_nwp_config(jg)%inwp_gscp==4) THEN
-
-      !local max val 
-      tmax  = MAXVAL(p_diag%temp(:,:,:))
-      qvmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqv))
-      qcmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqc))
-      qrmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqr))
-      qsmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqs))
-      qimax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqi))
-      qhmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqh))
-      qgmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqg))
-      qvmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqv))
-      qcmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqc))
-      qrmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqr))
-      qimin = MINVAL(p_prog_rcf%tracer(:,:,:,iqi))
-      qsmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqs))
-      qgmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqg))
-      qhmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqh))
-      wmax  = MAXVAL(p_prog%w(:,:,:))
-      wmin  = MINVAL(p_prog%w(:,:,:))
-
-      tmax  = global_max(tmax)
-      qvmax = global_max(qvmax)
-      qcmax = global_max(qcmax)
-      qrmax = global_max(qrmax)
-      qsmax = global_max(qsmax)
-      qimax = global_max(qimax)
-      qgmax = global_max(qgmax)
-      qhmax = global_max(qhmax)
-      qvmin = global_min(qvmin)
-      qcmin = global_min(qcmin)
-      qrmin = global_min(qrmin)
-      qimin = global_min(qimin)
-      qsmin = global_min(qsmin)
-      qgmin = global_min(qgmin)
-      qhmin = global_min(qhmin)
-      wmax  = global_max(wmax)
-      wmin  = global_max(wmin)
-
-      CALL message ("mo_gscp_interface:", "output max values after microphysics")
-      WRITE(message_text,'(A10,9A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh','tmax'
-      CALL message("",TRIM(message_text))
-      WRITE(message_text,'(A10,9E11.3)') '   ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,tmax
-      CALL message("",TRIM(message_text))
-      CALL message ("mo_gscp_interface:", "output min values after microphysics")
-      WRITE(message_text,'(A10,8A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh'
-      CALL message("",TRIM(message_text))
-      WRITE(message_text,'(A10,8E11.3)') '   ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin
-      CALL message("",TRIM(message_text))
-
-    END IF
-    IF (msg_level>10.AND.atm_phy_nwp_config(jg)%inwp_gscp==5) THEN
-
-      !local max val 
-      qncmax= MAXVAL(p_prog_rcf%tracer(:,:,:,iqnc))
-      qvmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqv))
-      qcmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqc))
-      qrmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqr))
-      qsmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqs))
-      qimax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqi))
-      qhmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqh))
-      qgmax = MAXVAL(p_prog_rcf%tracer(:,:,:,iqg))
-      qvmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqv))
-      qcmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqc))
-      qrmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqr))
-      qimin = MINVAL(p_prog_rcf%tracer(:,:,:,iqi))
-      qsmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqs))
-      qgmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqg))
-      qhmin = MINVAL(p_prog_rcf%tracer(:,:,:,iqh))
-      wmax  = MAXVAL(p_prog%w(:,:,:))
-      wmin  = MINVAL(p_prog%w(:,:,:))
-      
-      !now calculate global max
-      qncmax= global_max(qncmax)
-      qvmax = global_max(qvmax)
-      qcmax = global_max(qcmax)
-      qrmax = global_max(qrmax)
-      qsmax = global_max(qsmax)
-      qimax = global_max(qimax)
-      qgmax = global_max(qgmax)
-      qhmax = global_max(qhmax)
-      qvmin = global_min(qvmin)
-      qcmin = global_min(qcmin)
-      qrmin = global_min(qrmin)
-      qimin = global_min(qimin)
-      qsmin = global_min(qsmin)
-      qgmin = global_min(qgmin)
-      qhmin = global_min(qhmin)
-      wmax  = global_max(wmax)
-      wmin  = global_max(wmin)
-
-      CALL message ("mo_gscp_interface:", "output max values after microphysics")
-      WRITE(message_text,'(A10,9A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh','qnc'
-      CALL message("",TRIM(message_text))
-      WRITE(message_text,'(A10,9E11.3)') '   ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,qncmax
-      CALL message("",TRIM(message_text))
-      CALL message ("mo_gscp_interface:", "output min values after microphysics")
-      WRITE(message_text,'(A10,8A11)')   '   ', 'w','qv','qc','qr','qi','qs','qg','qh'
-      CALL message("",TRIM(message_text))
-      WRITE(message_text,'(A10,8E11.3)') '   ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin
-      CALL message("",TRIM(message_text))
-
+    ! Some more run time diagnostics (can also be used for other schemes)
+    IF (msg_level>10 .AND. &
+         & ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 )) THEN
+       CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
      
