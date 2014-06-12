@@ -43,7 +43,9 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
+  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg, iqh,   &
+    &                               iqnc, iqnr, iqni, iqns, iqng, iqnh,             &
+    &                               inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
     &                               cldopt_filename
   !radiation
@@ -63,6 +65,10 @@ MODULE mo_nwp_phy_init
 
   ! microphysics
   USE gscp_hydci_pp,          ONLY: hydci_pp_init
+  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
+    &                               set_qnc, set_qnr, set_qni,   &
+    &                               set_qns, set_qng
+
   ! convection
   USE mo_cuparameters,        ONLY: sucst,  sucumf,    &
     &                               su_yoethf,         &
@@ -105,7 +111,6 @@ MODULE mo_nwp_phy_init
   USE mo_datetime,            ONLY: iso8601
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: init_mode
-  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init
 
   USE mo_nwp_ww,              ONLY: configure_ww
 
@@ -191,6 +196,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   REAL(wp) :: hag                    ! height above ground
   REAL(wp) :: h850_standard, h950_standard  ! height of 850hPa and 950hPa level in m
 
+  REAL(wp) :: N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin     ! for CCN and IN in case of gscp=5
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
      routine = 'mo_nwp_phy_init:init_nwp_phy'
@@ -518,9 +524,38 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     CALL hydci_pp_init
 
   CASE (4) !two moment micrphysics
-    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysic:SB')
-    CALL two_moment_mcrph_init( )
-    
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
+    CALL two_moment_mcrph_init( msg_level=msg_level )
+
+  CASE (5) !two moment micrphysics
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
+    CALL two_moment_mcrph_init(N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
+
+    IF (linit_mode) THEN ! Initial condition for CCN and IN fields
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,zfull) ICON_OMP_GUIDED_SCHEDULE
+       DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+               &                i_startidx, i_endidx, rl_start, rl_end)
+          DO jk=1,nlev
+             DO jc=i_startidx,i_endidx
+                zfull = 0.5_wp*(vct_a(jk)+vct_a(jk+1))
+                IF(zfull > z0_nccn) THEN
+                   p_prog_now%tracer(jc,jk,jb,inccn) = N_cn0*exp((z0_nccn-zfull)/z1e_nccn)
+                ELSE
+                   p_prog_now%tracer(jc,jk,jb,inccn) = N_cn0
+                END IF
+                IF(zfull > z0_nin) THEN
+                   p_prog_now%tracer(jc,jk,jb,ininpot)  = N_in0*exp((z0_nin -zfull)/z1e_nin)
+                ELSE
+                   p_prog_now%tracer(jc,jk,jb,ininpot)  = N_in0
+                END IF
+             END DO
+          END DO
+       END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    END IF 
   END SELECT
 
 

@@ -79,8 +79,8 @@ MODULE mo_nh_wk_exp
 
 
   ! Data for the initial profile of relative humidity:
-   REAL(wp), PARAMETER :: rh_min_wk   = 0.25_wp        ! [%] ! rel. hum. above the tropopause level
-   REAL(wp), PARAMETER :: rh_max_wk   = 1.0_wp         ! [%]  
+   REAL(wp), PARAMETER :: rh_min_wk   = 0.10_wp        ! [%] ! rel. hum. above the tropopause level
+   REAL(wp), PARAMETER :: rh_max_wk   = 0.90_wp        ! [%]  
 
    INTEGER,  PARAMETER :: niter=20
    REAL(wp), PUBLIC :: qv_max_wk   != 0.012_wp  - 0.016_wp  !NAMELIST PARAMETER
@@ -353,7 +353,7 @@ MODULE mo_nh_wk_exp
 
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            z_u = u_infty_wk * TANH((z_full(jk)-hmin_wk)/(href_wk-hmin_wk))  !v component is zero
+            z_u = u_infty_wk * ( TANH((z_full(jk)-hmin_wk)/(href_wk-hmin_wk)) - 0.45_wp) 
             ptr_nh_prog%vn(je,jk,jb) = &
              z_u * ptr_patch%edges%primal_normal(je,jb)%v1
           ENDDO !je

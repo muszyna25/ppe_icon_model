@@ -35,7 +35,7 @@ MODULE mo_run_config
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
-  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng
+  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
   PUBLIC :: iqtke
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
@@ -117,6 +117,10 @@ MODULE mo_run_config
     INTEGER :: iqnr       !<rain number
     INTEGER :: iqns       !<snow number
     INTEGER :: iqng       !<graupel number
+    INTEGER :: iqnc       !<cloud number
+    INTEGER :: inccn      !<ccn number
+    INTEGER :: ininpot    !<number of aerosol particles which are potential IN
+    INTEGER :: ininact    !<number of activated IN
 
     ! For TKE advection
     INTEGER :: iqtke      !< turbulent kinetic energy

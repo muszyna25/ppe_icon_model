@@ -44,10 +44,11 @@ MODULE mo_nml_crosscheck
     &                              num_io_procs, itype_comm, num_restart_procs
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
-    &                              nqtendphy, iqv, iqc, iqi,                  &
+    &                              nqtendphy, iqtke, iqv, iqc, iqi,           &
     &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
     &                              iqni, iqni_nuc, iqg, iqm_max,              &
-    &                              iqh, iqnr, iqns, iqng, iqnh, iqtke,        &                     
+    &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
+    &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
     &                              output_mode, dtime_adv
   USE mo_gridref_config
@@ -590,6 +591,10 @@ CONTAINS
       iqns     = ntracer+100
       iqng     = ntracer+100
       iqnh     = ntracer+100
+      iqnc     = ntracer+100
+      inccn    = ntracer+100
+      ininpot  = ntracer+100
+      ininact  = ntracer+100
 
       !
       !
@@ -631,6 +636,25 @@ CONTAINS
        
         IF (.NOT. art_config(1)%lart) ntracer = 12
 
+      CASE(5)  ! two-moment scheme with prognotic cloud drop number and CCN and IN budgets
+      
+        iqg  = 6
+        iqh  = 7
+        iqni = 8        
+        iqnr = 9        
+        iqns = 10        
+        iqng = 11        
+        iqnh = 12
+        iqnc = 13
+        inccn = 14
+        ininpot = 15
+        ininact = 16
+
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 7     !! end index of water species mixing ratios
+        iqt       = 17    !! start index of other tracers not related at all to moisture
+       
+        IF (.NOT. art_config(1)%lart) ntracer = 16
       END SELECT ! microphysics schemes
 
 

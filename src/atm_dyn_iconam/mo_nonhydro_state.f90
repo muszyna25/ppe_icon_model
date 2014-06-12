@@ -49,10 +49,11 @@ MODULE mo_nonhydro_state
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method, iadv_rcf
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: iforcing, ntracer,                    &
-    &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar, &
-    &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns, & 
-    &                                iqng, iqnh, iqtke, nqtendphy, ltestcase 
+  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
+    &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar,      &
+    &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
+    &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
+    &                                iqtke, nqtendphy, ltestcase 
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
@@ -745,151 +746,228 @@ MODULE mo_nonhydro_state
  
         !two moment scheme: be carefull to follow the order in which tracers (iqg,iqh,..)
         !are listed in mo_nml_crosscheck.f90
-        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4) THEN            
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN            
 
-          !graupel (iqg=6)
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqg)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qg',                             &
-            &            'kg kg-1','specific_graupel_content', DATATYPE_FLT32),        &
-            &           t_grib2_var(0, 1, 32, ibits, GRID_REFERENCE, GRID_CELL),       &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=1,                                                 & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqg),            &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqg)),           &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
-            &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            !graupel (iqg=6)
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqg)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qg',                             &
+                    &  'kg kg-1','specific_graupel_content', DATATYPE_FLT32),        &
+                    & t_grib2_var(0, 1, 32, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqg),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqg)),           &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-          !hail (iqh=7) 
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qh'//suffix, p_prog%tracer_ptr(iqh)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qh',                             &
-            &            'kgkg-1 ','specific_hail_content', DATATYPE_FLT32),           &
-            &           t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=1,                                                 & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqh),            &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqh)),           &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
-            &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            !hail (iqh=7) 
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qh'//suffix, p_prog%tracer_ptr(iqh)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qh',                            &
+                    &  'kgkg-1 ','specific_hail_content', DATATYPE_FLT32),   &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqh),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqh)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-          !ice number concentration (iqni=8)
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qni'//suffix, p_prog%tracer_ptr(iqni)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qni',                            &
-            &            ' kg-1 ','number_concentration_cloud_ice', DATATYPE_FLT32),   &
-            &           t_grib2_var(0, 6, 29, ibits, GRID_REFERENCE, GRID_CELL),       &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=1,                                                 & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqni),           &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
-            &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            !ice number concentration (iqni=8)
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qni'//suffix, p_prog%tracer_ptr(iqni)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qni',                            &
+                    &  ' kg-1 ','number_concentration_cloud_ice', DATATYPE_FLT32),   &
+                    & t_grib2_var(0, 6, 29, ibits, GRID_REFERENCE, GRID_CELL),       &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqni),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-          !rain droplet concentration (iqnr=9)
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qnr'//suffix, p_prog%tracer_ptr(iqnr)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qnr',                            &
-            &            ' kg-1 ','number_concentration_rain_droplet', DATATYPE_FLT32),&
-            &           t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=1,                                                 & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqnr),           &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqnr)),          &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
-            &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            !rain droplet concentration (iqnr=9)
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qnr'//suffix, p_prog%tracer_ptr(iqnr)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qnr',                            &
+                    &  ' kg-1 ','number_concentration_rain_droplet', DATATYPE_FLT32),&
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqnr),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqnr)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
+            !snow concentration (iqns=10)
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qns'//suffix, p_prog%tracer_ptr(iqns)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qns',                            &
+                    &  ' kg-1 ','number_concentration_snow', DATATYPE_FLT32),        &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqns),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqns)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-          !snow concentration (iqns=10)
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qns'//suffix, p_prog%tracer_ptr(iqns)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qns',                            &
-            &            ' kg-1 ','number_concentration_snow', DATATYPE_FLT32),        &
-            &           t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=1,                                                 & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqns),           &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqns)),          &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
-            &                       lower_limit=0._wp  ),                              &           
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            !graupel concentration (iqng=11)
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qng'//suffix, p_prog%tracer_ptr(iqng)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qng',                            &
+                    &  ' kg-1 ','number_concentration_graupel', DATATYPE_FLT32),     &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqng),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqng)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-          !graupel concentration (iqng=11)
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qng'//suffix, p_prog%tracer_ptr(iqng)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qng',                            &
-            &            ' kg-1 ','number_concentration_graupel', DATATYPE_FLT32),     &
-            &           t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=1,                                                 & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqng),           &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqng)),          &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
-            &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            !hail concentration (iqnh=12)
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qnh'//suffix, p_prog%tracer_ptr(iqnh)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qnh',                            &
+                    &  ' kg-1 ','number_concentration_hail', DATATYPE_FLT32),        &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqnh),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqnh)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
-          !hail concentration (iqnh=12)
-          CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qnh'//suffix, p_prog%tracer_ptr(iqnh)%p_3d, &
-            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'qnh',                            &
-            &            ' kg-1 ','number_concentration_hail', DATATYPE_FLT32),        &
-            &           t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
-            &           ldims=shape3d_c,                                               &
-            &           tlev_source=1,                                                 & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       ihadv_tracer=advconf%ihadv_tracer(iqnh),           &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqnh)),          &
-            &           vert_interp=create_vert_interp_metadata(                       &
-            &                       vert_intp_type=vintp_types("P","Z","I"),           &
-            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
-            &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
-            &                       lower_limit=0._wp  ),                              & 
-            &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+        END IF ! inwp_gscp==4 .or. inwp_gscp==5 
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN            
+            ! cloud droplet concentration (iqnc=13)
+            ! QNC  pdis=0 pcat=6 pnum=28 #DWD: Number of cloud droplets per unit mass of air. paramId=502315
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qnc'//suffix, p_prog%tracer_ptr(iqnc)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'qnc',                            &
+                    &  ' kg-1 ','number_concentration_cloud_droplets', DATATYPE_FLT32), &
+                    & t_grib2_var(0, 6, 28, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqnc),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqnc)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            ! concentration of cloud condensation nuclei
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'nccn'//suffix, p_prog%tracer_ptr(inccn)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'nccn',' kg-1 ',                  &
+                    & 'number_concentration_cloud_condensation_nuclei', DATATYPE_FLT32), &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(inccn),          &
+                    &             ivadv_tracer=advconf%ivadv_tracer(inccn)),         &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'ninpot'//suffix, p_prog%tracer_ptr(ininpot)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'ninpot',' kg-1 ',                  &
+                    & 'number_concentration_potential_ice_nuclei', DATATYPE_FLT32), &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(ininpot),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(ininpot)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            CALL add_ref( p_prog_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'ninact'//suffix, p_prog%tracer_ptr(ininact)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & t_cf_var(TRIM(vname_prefix)//'ninact',' kg-1 ',                &
+                    & 'number_concentration_activated_ice_nuclei', DATATYPE_FLT32),  &
+                    & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(ininact),           &
+                    &             ivadv_tracer=advconf%ivadv_tracer(ininact)),          &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                              & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+         END IF ! inwp_gscp==5
 
-        END IF ! inwp_gscp==4
-       
         ! EDMF: total water variance
         IF (atm_phy_nwp_config(p_patch%id)%inwp_turb == iedmf) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &

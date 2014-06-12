@@ -327,7 +327,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                   & isteptype=TSTEP_INSTANT )
 
     !For two moment microphysics
-    ELSE IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4 ) THEN
+    ELSE IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4 .OR. atm_phy_nwp_config(k_jg)%inwp_gscp == 5 ) THEN
 
        ! &      diag%ice_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &
@@ -498,7 +498,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
 
 
     !Surface precipitation variables for two moment microphysics
-    IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4 ) THEN
+    IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4   &
+      &  .OR. atm_phy_nwp_config(k_jg)%inwp_gscp == 5 ) THEN
 
        ! &      diag%ice_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp', 'kg m-2', 'gridscale ice', DATATYPE_FLT32)

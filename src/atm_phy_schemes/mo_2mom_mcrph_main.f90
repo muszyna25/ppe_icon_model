@@ -72,6 +72,7 @@
 !   which are calculated once in the driver
 ! - Include pointers for q and n in particle type and pass by argument
 !   instead of global pointers in module (q_cloud, n_cloud, etc.)
+!===============================================================================!
 !!
 !! @par Copyright and License
 !!
@@ -141,7 +142,8 @@ MODULE mo_2mom_mcrph_main
        & w_p, p_p, t_p, rho_p, qv,                          &
        & rrho_04, rrho_c,                                   &
        & q_cloud, q_ice, q_rain, q_graupel, q_snow, q_hail, &
-       & n_cloud, n_ice, n_rain, n_graupel, n_snow, n_hail
+       & n_cloud, n_ice, n_rain, n_graupel, n_snow, n_hail, &
+       & n_cn, n_inpot, n_inact
 !$omp threadprivate (w_p)
 !$omp threadprivate (p_p)
 !$omp threadprivate (t_p)
@@ -159,6 +161,9 @@ MODULE mo_2mom_mcrph_main
 !$omp threadprivate (n_graupel)
 !$omp threadprivate (q_hail)
 !$omp threadprivate (n_hail)
+!$omp threadprivate (n_cn)
+!$omp threadprivate (n_inact)
+!$omp threadprivate (n_inpot)
 
   real(wp) :: qnc_const
 
@@ -216,11 +221,29 @@ MODULE mo_2mom_mcrph_main
     PROCEDURE :: mue_Dm_relation => rain_mue_Dm_relation
   END TYPE particle_rain
 
+  TYPE aerosol_ccn         
+     REAL(wp)      :: Ncn0      ! CN concentration at ground
+     REAL(wp)      :: Nmin      ! minimum value for CCN
+     REAL(wp)      :: lsigs     ! log(sigma_s)
+     REAL(wp)      :: R2        ! in mum
+     REAL(wp)      :: etas      ! soluble fraction
+     REAL(wp)      :: z0        ! parameter for height-dependency, constant up to z0_nccn
+     REAL(wp)      :: z1e       ! 1/e scale height of N_ccn profile
+  END TYPE aerosol_ccn
+
+  TYPE aerosol_in      
+     REAL(wp)      :: N0     ! CN concentration at ground
+     REAL(wp)      :: z0     ! parameter for height-dependency, constant up to z0_nccn
+     REAL(wp)      :: z1e    ! 1/e scale height of N_ccn profile
+  END TYPE aerosol_in
+
   ! These are the fundamental particle variables for the two-moment scheme
   ! These pointers will be specified from the list of pre-defined particles 
   TYPE(particle), POINTER        :: cloud, ice, snow, graupel, hail, rain
   TYPE(particle_sphere)          :: ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs
   TYPE(particle_rain),   POINTER :: rain_coeffs
+  TYPE(aerosol_ccn)              :: ccn_coeffs
+  TYPE(aerosol_in)               :: in_coeffs
 
   ! Physical parameters and coefficients which occur only in the two-moment scheme
 
@@ -251,14 +274,14 @@ MODULE mo_2mom_mcrph_main
 
   ! .. exponents for simple height dependency of terminal fall velocity
   REAL(wp), PARAMETER :: rho_vel    = 0.4e0_wp    !..exponent for density correction 
-  REAL(wp), PARAMETER :: rho_vel_c  = 1.0e0_wp    !..for cloud droplets
+  REAL(wp), PARAMETER :: rho_vel_c  = 0.2e0_wp    !..for cloud droplets
 
   ! .. Phillips et al. ice nucleation scheme, see ice_nucleation_homhet() for more details 
   REAL(wp) ::                         & 
        &    na_dust    = 162.e3_wp,   & ! initial number density of dust [1/m³], Phillips08 value 162e3
        &    na_soot    =  15.e6_wp,   & ! initial number density of soot [1/m³], Phillips08 value 15e6
        &    na_orga    = 177.e6_wp,   & ! initial number density of organics [1/m3], Phillips08 value 177e6
-       &    ni_het_max = 100.0e3_wp,  & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3 
+       &    ni_het_max = 50.0e3_wp,   & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3 
        &    ni_hom_max = 5000.0e3_wp    ! number of liquid aerosols between 100-5000 per liter
 
   INTEGER, PARAMETER ::               & ! Look-up table for Phillips et al. nucleation
@@ -335,12 +358,14 @@ MODULE mo_2mom_mcrph_main
   ! Parameter for evaporation of rain, determines change of n_rain during evaporation
   REAL(wp) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
 
-  ! debug switch
+  ! debug switches
   LOGICAL, PARAMETER     :: isdebug = .false.   ! use only when really desperate
+  LOGICAL, PARAMETER     :: ischeck = .false.   ! frequently check for positive definite q's
                                      
   ! some cloud microphysical switches
   LOGICAL, PARAMETER     :: ice_multiplication = .TRUE.  ! default is .true.
   LOGICAL, PARAMETER     :: enhanced_melting   = .TRUE.  ! default is .true.
+  LOGICAL                :: use_prog_in        = .FALSE.
 
   ! switches for shedding
   ! UB: Das angefrorene Wasser wird bei T > T_shed, 
@@ -428,7 +453,7 @@ MODULE mo_2mom_mcrph_main
        &                              'ice_cosmo5', & !.name...Bezeichnung der Partikelklasse
        &                              0.000000, & !.nu...e..Breiteparameter der Verteil.
        &                              0.333333, & !.mu.....Exp.-parameter der Verteil.
-       &                              1.00d-06, & !.x_max..maximale Teilchenmasse D=???e-2m
+       &                              1.00d-05, & !.x_max..maximale Teilchenmasse D=???e-2m
        &                              1.00d-12, & !.x_min..minimale Teilchenmasse D=200e-6m
        &                              0.835000, & !.a_geo..Koeff. Geometrie
        &                              0.390000, & !.b_geo..Koeff. Geometrie
@@ -531,11 +556,14 @@ CONTAINS
 
     INTEGER :: wolke_typ = 2403 ! default cloud type
 
-    REAL(wp), DIMENSION(1:1) :: x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
+    REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
 
     IF (PRESENT(cloud_type)) THEN
        wolke_typ = cloud_type
     END IF
+
+    CALL message(TRIM(routine), "init_2mom_scheme: ")
+    WRITE(txt,'(A,I10)')   "  cloud_type = ",cloud_type ; CALL message(routine,TRIM(txt))
 
     ice_typ   = wolke_typ/1000           ! (0) no ice, (1) no hail (2) with hail
     nuc_i_typ = MOD(wolke_typ/100,10)    ! choice of ice nucleation, see ice_nucleation_homhet()
@@ -605,6 +633,7 @@ CONTAINS
     ENDIF
 
     CALL message(TRIM(routine), "init_2mom_scheme: rain coeffs and sedi vel")
+    q_r = 1.0e-3_wp
     WRITE (txt,'(2A)') "    name  = ",rain%name ; CALL message(routine,TRIM(txt))        
     WRITE(txt,'(A,D10.3)') "     alfa  = ",rain_coeffs%alfa ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     beta  = ",rain_coeffs%beta ; CALL message(routine,TRIM(txt))
@@ -615,16 +644,16 @@ CONTAINS
     WRITE(txt,'(A,D10.3)') "     cmu3  = ",rain_coeffs%cmu3 ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     cmu4  = ",rain_coeffs%cmu4 ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,I10)')   "     cmu5  = ",rain_coeffs%cmu5 ; CALL message(routine,TRIM(txt))
-    x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,x_r,vn_rain_min,vq_rain_min,1,1)
-    x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,x_r,vn_rain_max,vq_rain_max,1,1)
+    x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1)
+    x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1)
     WRITE(txt,'(A)')       "    out-of-cloud: " ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     vq_rain_min  = ",vq_rain_min ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     vq_rain_max  = ",vq_rain_max ; CALL message(routine,TRIM(txt))
     q_c = 1e-3_wp
-    x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,x_r,vn_rain_min,vq_rain_min,1,1,q_c)
-    x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,x_r,vn_rain_max,vq_rain_max,1,1,q_c)
+    x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1,q_c)
+    x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1,q_c)
     WRITE(txt,'(A)')       "    in-cloud: " ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
     WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
@@ -654,21 +683,21 @@ CONTAINS
     dep_rate_ice(:,:)  = 0.0_wp
     dep_rate_snow(:,:) = 0.0_wp
 
-!    IF (isdebug) WRITE (txt,*) 'CLOUDS: cloud_nucleation'
-      IF (nuc_c_typ .EQ. 0) THEN
-        IF (isdebug) WRITE (txt,*) '  ... force constant cloud droplet number conc.'
-        DO k=kstart,kend
-           n_cloud(:,k) = qnc_const
-        END DO
-     END IF
-!      ELSEIF (nuc_c_typ < 6) THEN
-!        IF (isdebug) WRITE (txt,*) '  ... according to SB2006'
-!        CALL cloud_nucleation()
-!      ELSE
-!        IF (isdebug) WRITE (txt,*) '  ... look-up tables according to Segal& Khain'
-!        CALL cloud_nucleation_SK()
-!      END IF
-!    END IF
+    IF (isdebug) CALL message(TRIM(routine),'cloud_nucleation')
+    IF (nuc_c_typ .EQ. 0) THEN
+
+       IF (isdebug) CALL message(TRIM(routine),'  ... force constant cloud droplet number')
+       n_cloud(:,:) = qnc_const
+
+    ELSEIF (nuc_c_typ < 6) THEN
+       IF (isdebug) CALL message(TRIM(routine),'  ... according to SB2006')
+       !CALL cloud_nucleation()
+    ELSE
+       IF (isdebug) CALL message(TRIM(routine),'  ... look-up tables according to Segal& Khain')
+       CALL ccn_activation_sk()
+    END IF
+
+    IF (ischeck) CALL check('start')
 
     IF (nuc_c_typ.ne.0) THEN
        DO k=kstart,kend
@@ -676,68 +705,84 @@ CONTAINS
           n_cloud(:,k) = MIN(n_cloud(:,k), q_cloud(:,k) / cloud%x_min)
        END DO
     END IF
-
+    
     IF (ice_typ > 0) THEN
 
        ! homogeneous and heterogeneous ice nucleation
-       CALL ice_nucleation_homhet()
+       CALL ice_nucleation_homhet ()
        DO k=kstart,kend
           n_ice(:,k) = MIN(n_ice(:,k), q_ice(:,k)/ice%x_min)
           n_ice(:,k) = MAX(n_ice(:,k), q_ice(:,k)/ice%x_max)
        END DO
+       IF (ischeck) CALL check('ice nucleation')
 
        ! homogeneous freezing of cloud droplets
        CALL cloud_freeze ()
+       IF (ischeck) CALL check('cloud_freeze')
        
        ! depositional growth of all ice particles
        ! ( store deposition rate of ice and snow for conversion calculation in 
        !   ice_riming and snow_riming )
        CALL vapor_dep_relaxation (nsize, nlev, dt, dep_rate_ice, dep_rate_snow)
+       IF (ischeck) CALL check('vapor_dep_relaxation')
 
        ! ice-ice collisions
        CALL ice_selfcollection ()
        CALL snow_selfcollection ()
        CALL snow_ice_collection ()
+       IF (ischeck) CALL check('ice and snow collection')
+
        CALL graupel_selfcollection ()
        CALL graupel_ice_collection ()
        CALL graupel_snow_collection ()
-       
+       IF (ischeck) CALL check('graupel collection')
+
        IF (ice_typ > 1) THEN
+
           ! conversion of graupel to hail in wet growth regime
           CALL graupel_hail_conv_wet_gamlook ()
+          IF (ischeck) CALL check('graupel_hail_conv_wet_gamlook')
+
           ! hail collisions
           CALL hail_ice_collection ()    ! Important?
           CALL hail_snow_collection ()   ! Important?
-          ! AS Question: If yes, then implement a hail_graupel_collection with low efficiency?
+          IF (ischeck) CALL check('hail collection')
        END IF
 
        ! riming of ice with cloud droplets and rain drops, and conversion to graupel
        CALL ice_riming (nsize,nlev,dep_rate_ice)
+       IF (ischeck) CALL check('ice_riming')
 
        ! riming of snow with cloud droplets and rain drops, and conversion to graupel
-       CALL snow_riming (nsize,nlev,dep_rate_snow)
-       
+       CALL snow_riming (nsize,nlev,dep_rate_snow)      
+       IF (ischeck) CALL check('snow_riming')
+
        ! more riming
        IF (ice_typ > 1) THEN
           CALL hail_cloud_riming ()
           CALL hail_rain_riming ()
+      IF (ischeck) CALL check('hail riming')
        END IF
        CALL graupel_cloud_riming ()
        CALL graupel_rain_riming ()
+      IF (ischeck) CALL check('graupel riming')
 
        ! freezing of rain and conversion to ice/graupel/hail
        CALL rain_freeze_gamlook ()
+       IF (ischeck) CALL check('rain_freeze_gamlook')
 
        ! melting
        CALL ice_melting ()
        CALL snow_melting ()
        CALL graupel_melting ()
        IF (ice_typ > 1) CALL hail_melting ()
+       IF (ischeck) CALL check('melting')
 
        ! evaporation from melting ice particles
        CALL snow_evaporation ()
        CALL graupel_evaporation ()
        IF (ice_typ > 1) CALL hail_evaporation ()
+       IF (ischeck) CALL check('evaporation of ice')
 
     ENDIF
 
@@ -758,6 +803,7 @@ CONTAINS
        CALL accretionSB ()
        CALL rain_selfcollectionSB ()
     ENDIF
+    IF (ischeck) CALL check('warm rain')
 
     ! evaporation of rain following Seifert (2008)
     CALL rain_evaporation ()
@@ -792,6 +838,7 @@ CONTAINS
        END DO
     END IF
 
+    IF (ischeck) CALL check('clouds_twomoment end')
     IF (isdebug) CALL message(TRIM(routine),"clouds_twomoment end")
 
   END SUBROUTINE clouds_twomoment
@@ -1002,11 +1049,11 @@ CONTAINS
   END FUNCTION coll_theta_12
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_rain(this,thisCoeffs,x,vn,vq,its,ite,qc)
+  subroutine sedi_vel_rain(this,thisCoeffs,q,x,vn,vq,its,ite,qc)
     TYPE(particle), intent(in)      :: this
     TYPE(particle_rain), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: x(its:ite)
+    real(wp), intent(in)  :: q(its:ite),x(its:ite)
     real(wp), intent(in), optional  :: qc(its:ite)
     real(wp), intent(inout) :: vn(its:ite), vq(its:ite)
 
@@ -1014,43 +1061,53 @@ CONTAINS
     real(wp) :: D_m,mue,D_p
 
     do i=its,ite
-       D_m = this%diameter(x(i))
-       IF (PRESENT(qc)) THEN
-          if (qc(i) >= q_crit) THEN 
-             mue = (this%nu+1.0_wp)/this%b_geo - 1.0_wp
-          else
+       if (q(i).gt.q_crit) then
+          D_m = this%diameter(x(i))
+          IF (PRESENT(qc)) THEN
+             if (qc(i) >= q_crit) THEN 
+                mue = (this%nu+1.0_wp)/this%b_geo - 1.0_wp
+             else
+                mue = thisCoeffs%mue_Dm_relation(D_m)
+             end if
+          ELSE
              mue = thisCoeffs%mue_Dm_relation(D_m)
-          end if
-       ELSE
-          mue = thisCoeffs%mue_Dm_relation(D_m)
-       END IF
-       D_p = D_m * exp((-1./3.)*log((mue+3.)*(mue+2.)*(mue+1.)))          
-       vn(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+1.)*log(1.0 + thisCoeffs%gama*D_p))
-       vq(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+4.)*log(1.0 + thisCoeffs%gama*D_p))
+          END IF
+          D_p = D_m * exp((-1./3.)*log((mue+3.)*(mue+2.)*(mue+1.)))          
+          vn(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+1.)*log(1.0 + thisCoeffs%gama*D_p))
+          vq(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+4.)*log(1.0 + thisCoeffs%gama*D_p))
+       else
+          vn(i) = 0.0_wp
+          vq(i) = 0.0_wp
+       end if
     end do
   end subroutine sedi_vel_rain
 
   ! bulk sedimentation velocities
-  subroutine sedi_vel_sphere(this,thisCoeffs,x,vn,vq,its,ite)
+  subroutine sedi_vel_sphere(this,thisCoeffs,q,x,vn,vq,its,ite)
     TYPE(particle), intent(in)        :: this
     TYPE(particle_sphere), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: x(its:ite)
+    real(wp), intent(in)  :: q(its:ite),x(its:ite)
     real(wp), intent(out) :: vn(its:ite), vq(its:ite)
 
     integer  :: i
     real(wp) :: lam,v_n,v_q
 
     do i=its,ite
-       lam = exp(this%b_vel* log(thisCoeffs%coeff_lambda*x(i)))
-       v_n = thisCoeffs%coeff_alfa_n * lam
-       v_q = thisCoeffs%coeff_alfa_q * lam
-       v_n = MAX(v_n,this%vsedi_min)
-       v_q = MAX(v_q,this%vsedi_min)
-       v_n = MIN(v_n,this%vsedi_max)
-       v_q = MIN(v_q,this%vsedi_max)
-       vn(i) = v_n
-       vq(i) = v_q
+       if (q(i).gt.q_crit) then
+          lam = exp(this%b_vel* log(thisCoeffs%coeff_lambda*x(i)))
+          v_n = thisCoeffs%coeff_alfa_n * lam
+          v_q = thisCoeffs%coeff_alfa_q * lam
+          v_n = MAX(v_n,this%vsedi_min)
+          v_q = MAX(v_q,this%vsedi_min)
+          v_n = MIN(v_n,this%vsedi_max)
+          v_q = MIN(v_q,this%vsedi_max)
+          vn(i) = v_n
+          vq(i) = v_q
+       else
+          vn(i) = 0.0_wp
+          vq(i) = 0.0_wp
+       end if
     end do
   end subroutine sedi_vel_sphere
 
@@ -1727,7 +1784,7 @@ CONTAINS
              T_c = T_a - T_3
              q_c = q_cloud(i,k)
              n_c = n_cloud(i,k)
-             IF (q_c > 0.0_wp) THEN
+             IF (q_c > 0.0_wp .and. T_c < -30.0_wp) THEN
                 IF (T_c < -50.0_wp) THEN            
                    fr_q = q_c             !..instantaneous freezing
                    fr_n = n_c             !..below -50 C
@@ -1791,7 +1848,7 @@ CONTAINS
   REAL(wp)            :: nuc_n, nuc_q
   REAL(wp)            :: T_a,p_a,ssi
   REAL(wp)            :: q_i,n_i,x_i,r_i
-  REAL(wp)            :: ndiag
+  REAL(wp)            :: ndiag, ndiag_dust, ndiag_all
 
   ! switch for version of Phillips et al. scheme 
   ! (but make sure you have the correct INCLUDE file)
@@ -1816,7 +1873,7 @@ CONTAINS
   REAL      :: xt,xs 
   INTEGER   :: ss,tt
 
-  LOGICAL   :: use_homnuc = .true.
+  LOGICAL   :: use_homnuc 
 
   REAL(wp), DIMENSION(3) :: infrac
 
@@ -1854,7 +1911,7 @@ CONTAINS
         na_soot  =  25.e6_wp 
         na_orga  =  30.e6_wp 
      END IF
-     IF (nuc_typ.EQ.5) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
+     IF (nuc_typ.EQ.6) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
         na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
         na_soot  =   0.e6_wp 
         na_orga  =   0.e6_wp 
@@ -1868,7 +1925,7 @@ CONTAINS
         e_si = e_es(T_a)
         ssi  = qv(i,k) * R_d * T_a / e_si
         
-        IF (T_p(i,k) < T_nuc .AND. ssi > 0.0_wp  &
+        IF (T_a < T_nuc .AND. ssi > 1.0_wp  &
              & .AND. ( n_ice(i,k)+n_snow(i,k) < ni_het_max ) ) THEN
 
            IF (q_cloud(i,k) > 0.0_wp) THEN
@@ -1885,7 +1942,7 @@ CONTAINS
 
               ! calculate indices used for 2D look-up tables
               xt = (274.- real(T_p(i,k)))  / ttstep
-              xs = 100. * real(ssi) / ssstep    
+              xs = 100. * real(ssi-1.0_wp) / ssstep    
               xt = MIN(xt,real(ttmax-1))
               xs = MIN(xs,real(ssmax-1))          
               tt = INT(xt)
@@ -1898,18 +1955,38 @@ CONTAINS
                    &    + (tt+1-xt)*(xs-ss)   * afrac_soot(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_soot(tt+1,ss+1)
               infrac(3) = (tt+1-xt)*(ss+1-xs) * afrac_orga(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_orga(tt+1,ss  ) &
                    &    + (tt+1-xt)*(xs-ss)   * afrac_orga(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_orga(tt+1,ss+1)
+
            ENDIF
 
-           ndiag = na_dust * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
+           IF (use_prog_in) THEN
+              ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
+              ndiag_all  = n_inpot(i,k) * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)           
+              ndiag_dust = n_inpot(i,k) * infrac(1) 
+              ndiag = ndiag_all
+           ELSE
+              ! all aerosol species are diagnostic
+              ndiag = na_dust * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)           
+           END IF
            ndiag = MIN(ndiag,ni_het_max)
            
-           nuc_n = MAX(ndiag - (n_ice(i,k) + n_snow(i,k)),0.0_wp)
+           IF (use_prog_in) THEN              
+              nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
+           ELSE
+              nuc_n = MAX(ndiag - (n_ice(i,k) + n_snow(i,k)),0.0_wp)
+           END IF
            nuc_q = MIN(nuc_n * ice%x_min, qv(i,k))
-           
+           nuc_n = nuc_q / ice%x_min
+ 
            n_ice(i,k) = n_ice(i,k) + nuc_n
            q_ice(i,k) = q_ice(i,k) + nuc_q
            qv(i,k)    = qv(i,k)    - nuc_q
 
+           IF (use_prog_in .and. ndiag_all.gt.1e-12) THEN              
+              ! add number of activated IN to n_inact
+              n_inact(i,k) = n_inact(i,k) + nuc_n
+              ! estimate the number of activated dust particles and substract from n_inpot
+              n_inpot(i,k) = max(n_inpot(i,k) - nuc_n * ndiag_dust/ndiag_all,0.0_wp)
+           END IF
         ENDIF
 
      END DO
@@ -1927,7 +2004,7 @@ CONTAINS
           ! critical supersaturation for homogeneous nucleation
           scr  = 2.349 - T_a / 259.00
           
-          IF (ssi > scr .AND. n_ice(i,k) < ni_hom_max ) THEN
+          IF (ssi > scr .AND. T_a < 235.0 .AND. n_ice(i,k) < ni_hom_max ) THEN
 
             n_i = n_ice(i,k)
             q_i = q_ice(i,k)
@@ -1995,6 +2072,7 @@ CONTAINS
 
   SUBROUTINE vapor_dep_relaxation(nsize, nlev, dt_local, dep_rate_ice, dep_rate_snow)
     !*******************************************************************************
+
     ! Deposition and sublimation                                                   *
     !*******************************************************************************
     INTEGER,  INTENT(IN) :: nsize, nlev
@@ -2012,7 +2090,7 @@ CONTAINS
     REAL(wp)            :: T_a         
     REAL(wp)            :: e_si            !..saturation water pressure over ice
     REAL(wp)            :: e_sw            !..saturation water pressure over liquid
-    REAL(wp)            :: e_d,p_a,dep_sum
+    REAL(wp)            :: e_d,p_a,dep_sum !,weight
 
     IF (isdebug) THEN
        WRITE(txt,*) "vapor_deposition_growth " ; CALL message(routine,TRIM(txt))
@@ -2022,12 +2100,12 @@ CONTAINS
        DO i = istart,iend
           p_a  = p_p(i,k)
           T_a  = T_p(i,k)
-          e_d  = qv(i,k) * R_d * T_a
-          e_si = e_es(T_a)
-          e_sw = e_ws(T_a)
-          s_si(i,k) = e_d / e_si - 1.0    !..supersaturation over ice
-          D_vtp = diffusivity(T_a,p_a)    !  D_v = 8.7602e-5 * T_a**(1.81) / p_a
           IF (T_a < T_3) THEN
+             e_d  = qv(i,k) * R_d * T_a
+             e_si = e_es(T_a)
+             e_sw = e_ws(T_a)
+             s_si(i,k) = e_d / e_si - 1.0    !..supersaturation over ice
+             D_vtp = diffusivity(T_a,p_a)    !  D_v = 8.7602e-5 * T_a**(1.81) / p_a
              g_i(i,k) = 4.0*pi / ( L_ed**2 / (K_T * R_d * T_a**2) + R_d * T_a / (D_vtp * e_si) )
           ELSE
              g_i(i,k)  = 0.0
@@ -2064,13 +2142,7 @@ CONTAINS
              
              qvsidiff  = qv(i,k) - e_es(T_a)/(R_d*T_a)
 
-             if (abs(qvsidiff).lt.eps) then                
-                dep_ice(i,k)     = 0.0
-                dep_snow(i,k)    = 0.0
-                dep_graupel(i,k) = 0.0               
-                dep_hail(i,k)    = 0.0
-                dep_sum          = 0.0
-             else
+             if (abs(qvsidiff).gt.eps) then                
              
                 ! deposition rates are already multiplied with dt_local, therefore divide them here
                 tau_i_i  = zdt/qvsidiff*dep_ice(i,k)
@@ -2091,7 +2163,8 @@ CONTAINS
                 dep_graupel(i,k) = Xfac * tau_g_i
                 dep_hail(i,k)    = Xfac * tau_h_i
              
-                IF (qvsidiff < 0.0) THEN
+                ! this limiter should not be necessary
+                IF (qvsidiff < 0.0_wp) THEN
                    dep_ice(i,k)     = MAX(dep_ice(i,k),    -q_ice(i,k))
                    dep_snow(i,k)    = MAX(dep_snow(i,k),   -q_snow(i,k))
                    dep_graupel(i,k) = MAX(dep_graupel(i,k),-q_graupel(i,k)) 
@@ -2099,21 +2172,31 @@ CONTAINS
                 END IF
 
                 dep_sum = dep_ice(i,k) + dep_graupel(i,k) + dep_snow(i,k) + dep_hail(i,k)
-             END IF
 
-             q_graupel(i,k) = q_graupel(i,k) + dep_graupel(i,k)
-             
-             q_ice(i,k)     = q_ice(i,k)     + dep_ice(i,k)
-             q_snow(i,k)    = q_snow(i,k)    + dep_snow(i,k)
-             IF (ice_typ > 1) THEN
-                q_hail(i,k)    = q_hail(i,k)    + dep_hail(i,k)
-             END IF
+                ! this limiter should not be necessary
+!                IF (qvsidiff > 0.0_wp .and. dep_sum > qvsidiff) then
+!                   weight = qvsidiff / dep_sum
+!                   dep_sum          = weight * dep_sum
+!                   dep_ice(i,k)     = weight * dep_ice(i,k) 
+!                   dep_snow(i,k)    = weight * dep_snow(i,k) 
+!                   dep_graupel(i,k) = weight * dep_graupel(i,k) 
+!                   dep_hail(i,k)    = weight * dep_hail(i,k) 
+!                END IF
 
-             qv(i,k) = qv(i,k) - dep_sum
-             
-             dep_rate_ice(i,k)  = dep_rate_ice(i,k)  + dep_ice(i,k)
-             dep_rate_snow(i,k) = dep_rate_snow(i,k) + dep_snow(i,k)
-           
+                q_ice(i,k)     = q_ice(i,k)     + dep_ice(i,k)
+                q_snow(i,k)    = q_snow(i,k)    + dep_snow(i,k)
+                q_graupel(i,k) = q_graupel(i,k) + dep_graupel(i,k)             
+                IF (ice_typ > 1) THEN
+                   q_hail(i,k)    = q_hail(i,k)    + dep_hail(i,k)
+                END IF
+                
+                qv(i,k) = qv(i,k) - dep_sum
+
+                dep_rate_ice(i,k)  = dep_rate_ice(i,k)  + dep_ice(i,k)
+                dep_rate_snow(i,k) = dep_rate_snow(i,k) + dep_snow(i,k)
+
+             END IF
+                        
           ENDIF
        ENDDO
     ENDDO
@@ -2408,6 +2491,7 @@ CONTAINS
                 ELSE                           
                    !..heterogeneous freezing
                    j_het = MAX(b_HET * ( EXP( a_HET * (T_3 - T_a)) - 1.0 ),0.0_wp) / rho_w * dt
+!!                   if (use_prog_in) j_het = MIN(j_het, n_inact(i,k)/q_r)
 
                    ! Je nach Groesse werden die gefrorenen Regentropfen dem Wolkeneis zugeschlagen
                    ! oder dem Graupel oder Hagel. Hierzu erfolgt eine partielle Integration des Spektrums von 0
@@ -2457,6 +2541,9 @@ CONTAINS
 
              q_rain(i,k) = q_rain(i,k) - fr_q
              n_rain(i,k) = n_r - fr_n
+             !if (use_prog_in) then
+             !   n_inact(i,k) = n_inact(i,k) + fr_n
+             !end if
 
              IF (ice_typ < 2) THEN 
                 ! ohne Hagelklasse,  gefrierender Regen wird Eis oder Graupel
@@ -2466,8 +2553,10 @@ CONTAINS
                 n_graupel(i,k) = n_graupel(i,k)  + fr_n_h + fr_n_g
              ELSE
                 ! mit Hagelklasse, gefrierender Regen wird Eis, Graupel oder Hagel
-                q_ice(i,k) = q_ice(i,k)  + fr_q_i
-                n_ice(i,k) = n_ice(i,k)  + fr_n_i
+                q_snow(i,k) = q_snow(i,k)  + fr_q_i
+                n_snow(i,k) = n_snow(i,k)  + fr_n_i
+                !q_ice(i,k) = q_ice(i,k)  + fr_q_i
+                !n_ice(i,k) = n_ice(i,k)  + fr_n_i
                 q_graupel(i,k) = q_graupel(i,k)  + fr_q_g
                 n_graupel(i,k) = n_graupel(i,k)  + fr_n_g
                 q_hail(i,k) = q_hail(i,k)  + fr_q_h
@@ -5059,6 +5148,411 @@ CONTAINS
 
  END SUBROUTINE snow_riming
 
+ SUBROUTINE ccn_activation_sk()
+   !*******************************************************************************
+   !       Calculation of ccn activation                                          *
+   !       using the look-up tables by Segal and Khain 2006 (JGR, vol.11)         *
+   !       (implemented by Heike Noppel)                                          *
+   !*******************************************************************************
+
+    IMPLICIT NONE
+
+    ! Locale Variablen 
+    INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
+    INTEGER            :: i_lsigs, i_R2
+    REAL(wp)   :: n_c,q_c,rho_a
+    REAL(wp)   :: nuc_n, nuc_q
+    REAL(wp)   :: Ncn, wcb
+    REAL(wp)   :: tab_Ncn(n_ncn),                 & ! look-up-table for Ncn 
+                          tab_R2(n_r2),           & ! look-up_tbale for R2
+                          tab_lsigs(n_lsigs),     & ! look-up-table for log(sigma_s)
+                          tab_wcb(n_wcb),         & ! look-up-table for w at cloud base
+                          tab_Ndrop(n_wcb,n_ncn), & ! number of cloud droplets in look_up-Table
+                          tab_Ndrop_i(n_wcb)        ! number of cloud droplets in look_up-Table, 
+                                                    !           interpolated with respect to Ncn
+
+    INTEGER            :: i,k,nuc_typ
+
+    nuc_typ = nuc_c_typ
+
+    tab_R2  = (/0.02d0, 0.03d0, 0.04d0/)     ! in 10^(-6) m
+    tab_wcb = (/0.5d0, 1.0d0, 2.5d0, 5.0d0/)
+    tab_Ncn = (/50.d06, 100.d06, 200.d06, 400.d06, 800.d06, 1600.d06, 3200.d06, 6400.d06/) 
+    tab_lsigs = (/0.1d0, 0.2d0, 0.3d0, 0.4d0, 0.5d0/)
+
+    ! ATTENTION: At the moment only the values given above can be chosen for R2, 
+    ! and lsigs (see below).
+    ! Only wcb and N_cn0 can be interpolated. For the others this possibility is still missing.
+    ! For high N_cn0 and small values of wcb a kind of "saturation" for cloud droplet 
+    ! nucleation was assumed, because the original look-up tables don't give these values. 
+    ! This assumption might be wrong!!! (comment by Heike Noppel)
+         
+    IF(isdebug) THEN
+       WRITE(txt,*) "cloud_activation_SK: nuc_typ = ",nuc_typ ; CALL message(routine,TRIM(txt))
+    ENDIF
+
+    ! this could be done in an IF(firstcall.eq.false) block and i-value stored in ccn_coeffs
+    i_lsigs = 0
+    i_R2   = 0
+    DO k=1,n_lsigs
+      IF (ccn_coeffs%lsigs==tab_lsigs(k)) THEN
+         i_lsigs=k
+         EXIT
+      ENDIF
+    END DO
+    DO k=1,n_r2
+      IF (ccn_coeffs%R2==tab_R2(k)) THEN
+         i_R2=k
+         EXIT
+      ENDIF
+    END DO
+    IF (i_lsigs==0) THEN
+       CALL finish(TRIM(routine),'Error in two_moment_mcrph: Invalid value for LSIGS in ccn_activation_sk')
+    END IF
+    IF (i_R2==0) THEN
+       CALL finish(TRIM(routine),'Error in two_moment_mcrph: Invalid value for R2 in ccn_activation_sk')
+    END IF
+
+    CALL lookuptable(tab_Ndrop,i_lsigs,i_R2)
+
+    DO k = kstart,kend
+       DO i = istart,iend
+
+          nuc_q = 0.0d0
+          nuc_n = 0.d0
+          n_c   = n_cloud(i,k)
+          q_c   = q_cloud(i,k)
+          rho_a = rho_p(i,k)
+          wcb   = w_p(i,k)
+
+          if (q_c > 0.0_wp .and. wcb > 0.0_wp) then
+
+             ! hard upper limit for number conc that
+             ! eliminates also unrealistic high value
+             ! that would come from the dynamical core
+             
+             n_cloud(i,k) = MIN(n_cloud(i,k),ccn_coeffs%Ncn0)
+
+             Ncn = n_cn(i,k) ! number of CN from prognostic variable
+
+             ! min value for vertical velocity (instead of Nmin of older code)
+             wcb = max(wcb,0.2_wp)
+
+             ! Interpolation of the look-up tables with respect to Ncn
+             
+             ! If Ncn is outside the range of the lookup table values, resulting 
+             ! NCCN are clipped to the margin values. For the case of these margin values
+             ! beeing larger than Ncn, limit NCCN by Ncn:
+             tab_Ndrop_i = MIN(ip_ndrop_ncn(tab_Ndrop,tab_Ncn,Ncn), Ncn)
+             
+             ! interpol. with respect to wcb = ip_ndrop_wcb          
+             nuc_n = MAX(ccn_coeffs%etas * ip_ndrop_wcb(tab_Ndrop_i,tab_wcb,wcb),ccn_coeffs%Nmin) - n_c
+
+             nuc_n = MAX(nuc_n,0.0d0)
+
+             nuc_q = MIN(nuc_n * cloud%x_min, qv(i,k))
+             nuc_n = nuc_q / cloud%x_min
+
+             n_cn(i,k)    = n_cn(i,k)    - MIN(Ncn,nuc_n)
+             n_cloud(i,k) = n_cloud(i,k) + nuc_n
+             q_cloud(i,k) = q_cloud(i,k) + nuc_q
+             qv(i,k)      = qv(i,k)      - nuc_q
+
+          END IF
+
+       END DO
+    END DO
+
+  CONTAINS
+     
+    SUBROUTINE lookuptable(tab_ndrop,i_lsigs,i_R2)
+
+      IMPLICIT NONE
+
+      INTEGER, PARAMETER ::  n_wcb = 4, n_ncn = 8
+      INTEGER            ::  i_lsigs, i_R2
+      DOUBLE PRECISION   ::  &
+        ndrop1_11(n_ncn), ndrop1_12(n_ncn), ndrop1_13(n_ncn), ndrop1_14(n_ncn), ndrop1_15(n_ncn), &
+        ndrop1_21(n_ncn), ndrop1_22(n_ncn), ndrop1_23(n_ncn), ndrop1_24(n_ncn), ndrop1_25(n_ncn), & 
+        ndrop1_31(n_ncn), ndrop1_32(n_ncn), ndrop1_33(n_ncn), ndrop1_34(n_ncn), ndrop1_35(n_ncn), & 
+        ndrop1_41(n_ncn), ndrop1_42(n_ncn), ndrop1_43(n_ncn), ndrop1_44(n_ncn), ndrop1_45(n_ncn), &
+        ndrop2_11(n_ncn), ndrop2_12(n_ncn), ndrop2_13(n_ncn), ndrop2_14(n_ncn), ndrop2_15(n_ncn), &
+        ndrop2_21(n_ncn), ndrop2_22(n_ncn), ndrop2_23(n_ncn), ndrop2_24(n_ncn), ndrop2_25(n_ncn), & 
+        ndrop2_31(n_ncn), ndrop2_32(n_ncn), ndrop2_33(n_ncn), ndrop2_34(n_ncn), ndrop2_35(n_ncn), & 
+        ndrop2_41(n_ncn), ndrop2_42(n_ncn), ndrop2_43(n_ncn), ndrop2_44(n_ncn), ndrop2_45(n_ncn), &
+        ndrop3_11(n_ncn), ndrop3_12(n_ncn), ndrop3_13(n_ncn), ndrop3_14(n_ncn), ndrop3_15(n_ncn), &
+        ndrop3_21(n_ncn), ndrop3_22(n_ncn), ndrop3_23(n_ncn), ndrop3_24(n_ncn), ndrop3_25(n_ncn), & 
+        ndrop3_31(n_ncn), ndrop3_32(n_ncn), ndrop3_33(n_ncn), ndrop3_34(n_ncn), ndrop3_35(n_ncn), & 
+        ndrop3_41(n_ncn), ndrop3_42(n_ncn), ndrop3_43(n_ncn), ndrop3_44(n_ncn), ndrop3_45(n_ncn), &
+        tab_ndrop(n_wcb,n_ncn)
+ 
+      ! look up tables
+      ! Ncn              50       100       200       400       800       1600      3200      6400
+      ! table4a (R2=0.02mum, wcb=0.5m/s) (for Ncn=3200  and Ncn=6400 "extrapolated")
+      ndrop1_11 =  (/  42.2d06,  70.2d06, 112.2d06, 173.1d06, 263.7d06, 397.5d06, 397.5d06, 397.5d06/)
+      ndrop1_12 =  (/  35.5d06,  60.1d06, 100.0d06, 163.9d06, 264.5d06, 418.4d06, 418.4d06, 418.4d06/)
+      ndrop1_13 =  (/  32.6d06,  56.3d06,  96.7d06, 163.9d06, 272.0d06, 438.5d06, 438.5d06, 438.5d06/)
+      ndrop1_14 =  (/  30.9d06,  54.4d06,  94.6d06, 162.4d06, 271.9d06, 433.5d06, 433.5d06, 433.5d06/)
+      ndrop1_15 =  (/  29.4d06,  51.9d06,  89.9d06, 150.6d06, 236.5d06, 364.4d06, 364.4d06, 364.4d06/)
+      ! table4b (R2=0.02mum, wcb=1.0m/s) (for Ncn=50 "interpolted" and Ncn=6400 extrapolated)
+      ndrop1_21 =  (/  45.3d06,  91.5d06, 158.7d06, 264.4d06, 423.1d06, 672.5d06, 397.5d06, 397.5d06/)
+      ndrop1_22 =  (/  38.5d06,  77.1d06, 133.0d06, 224.9d06, 376.5d06, 615.7d06, 418.4d06, 418.4d06/)
+      ndrop1_23 =  (/  35.0d06,  70.0d06, 122.5d06, 212.0d06, 362.1d06, 605.3d06, 438.5d06, 438.5d06/)
+      ndrop1_24 =  (/  32.4d06,  65.8d06, 116.4d06, 204.0d06, 350.6d06, 584.4d06, 433.5d06, 433.5d06/)
+      ndrop1_25 =  (/  31.2d06,  62.3d06, 110.1d06, 191.3d06, 320.6d06, 501.3d06, 364.4d06, 364.4d06/)
+      ! table4c (R2=0.02mum, wcb=2.5m/s) (for Ncn=50 and Ncn=100 "interpolated")
+      ndrop1_31 =  (/  50.3d06, 100.5d06, 201.1d06, 373.1d06, 664.7d06,1132.8d06,1876.8d06,2973.7d06/)
+      ndrop1_32 =  (/  44.1d06,  88.1d06, 176.2d06, 314.0d06, 546.9d06, 941.4d06,1579.2d06,2542.2d06/)
+      ndrop1_33 =  (/  39.7d06,  79.5d06, 158.9d06, 283.4d06, 498.9d06, 865.9d06,1462.6d06,2355.8d06/)
+      ndrop1_34 =  (/  37.0d06,  74.0d06, 148.0d06, 264.6d06, 468.3d06, 813.3d06,1371.3d06,2137.2d06/)
+      ndrop1_35 =  (/  34.7d06,  69.4d06, 138.8d06, 246.9d06, 432.9d06, 737.8d06,1176.7d06,1733.0d06/)
+      ! table4d (R2=0.02mum, wcb=5.0m/s) (for Ncn=50,100,200 "interpolated")
+      ndrop1_41 =  (/  51.5d06, 103.1d06, 206.1d06, 412.2d06, 788.1d06,1453.1d06,2585.1d06,4382.5d06/)
+      ndrop1_42 =  (/  46.6d06,  93.2d06, 186.3d06, 372.6d06, 657.2d06,1202.8d06,2098.0d06,3556.9d06/)
+      ndrop1_43 =  (/  70.0d06,  70.0d06, 168.8d06, 337.6d06, 606.7d06,1078.5d06,1889.0d06,3206.9d06/)
+      ndrop1_44 =  (/  42.2d06,  84.4d06, 166.4d06, 312.7d06, 562.2d06,1000.3d06,1741.1d06,2910.1d06/)
+      ndrop1_45 =  (/  36.5d06,  72.9d06, 145.8d06, 291.6d06, 521.0d06, 961.1d06,1551.1d06,2444.6d06/)
+      ! table5a (R2=0.03mum, wcb=0.5m/s) 
+      ndrop2_11 =  (/  50.0d06,  95.8d06, 176.2d06, 321.6d06, 562.3d06, 835.5d06, 835.5d06, 835.5d06/)
+      ndrop2_12 =  (/  44.7d06,  81.4d06, 144.5d06, 251.5d06, 422.7d06, 677.8d06, 677.8d06, 677.8d06/)
+      ndrop2_13 =  (/  40.2d06,  72.8d06, 129.3d06, 225.9d06, 379.9d06, 606.5d06, 606.5d06, 606.5d06/)
+      ndrop2_14 =  (/  37.2d06,  67.1d06, 119.5d06, 206.7d06, 340.5d06, 549.4d06, 549.4d06, 549.4d06/)
+      ndrop2_15 =  (/  33.6d06,  59.0d06,  99.4d06, 150.3d06, 251.8d06, 466.0d06, 466.0d06, 466.0d06/)
+      ! table5b (R2=0.03mum, wcb=1.0m/s) (Ncn=50 "interpolated", Ncn=6400 "extrapolated)
+      ndrop2_21 =  (/  50.7d06, 101.4d06, 197.6d06, 357.2d06, 686.6d06,1186.4d06,1892.2d06,1892.2d06/)
+      ndrop2_22 =  (/  46.6d06,  93.3d06, 172.2d06, 312.1d06, 550.7d06, 931.6d06,1476.6d06,1476.6d06/)
+      ndrop2_23 =  (/  42.2d06,  84.4d06, 154.0d06, 276.3d06, 485.6d06, 811.2d06,1271.7d06,1271.7d06/)
+      ndrop2_24 =  (/  39.0d06,  77.9d06, 141.2d06, 251.8d06, 436.7d06, 708.7d06,1117.7d06,1117.7d06/)
+      ndrop2_25 =  (/  35.0d06,  70.1d06, 123.9d06, 210.2d06, 329.9d06, 511.9d06, 933.4d06, 933.4d06/)
+      ! table5c (R2=0.03mum, wcb=2.5m/s)
+      ndrop2_31 =  (/  51.5d06, 103.0d06, 205.9d06, 406.3d06, 796.4d06,1524.0d06,2781.4d06,4609.3d06/)
+      ndrop2_32 =  (/  49.6d06,  99.1d06, 198.2d06, 375.5d06, 698.3d06,1264.1d06,2202.8d06,3503.6d06/)
+      ndrop2_33 =  (/  45.8d06,  91.6d06, 183.2d06, 339.5d06, 618.9d06,1105.2d06,1881.8d06,2930.9d06/)
+      ndrop2_34 =  (/  42.3d06,  84.7d06, 169.3d06, 310.3d06, 559.5d06, 981.7d06,1611.6d06,2455.6d06/)
+      ndrop2_35 =  (/  38.2d06,  76.4d06, 152.8d06, 237.3d06, 473.3d06, 773.1d06,1167.9d06,1935.0d06/)
+      ! table5d (R2=0.03mum, wcb=5.0m/s)
+      ndrop2_41 =  (/  51.9d06, 103.8d06, 207.6d06, 415.1d06, 819.6d06,1616.4d06,3148.2d06,5787.9d06/)
+      ndrop2_42 =  (/  50.7d06, 101.5d06, 203.0d06, 405.9d06, 777.0d06,1463.8d06,2682.6d06,4683.0d06/)
+      ndrop2_43 =  (/  47.4d06,  94.9d06, 189.7d06, 379.4d06, 708.7d06,1301.3d06,2334.3d06,3951.8d06/)
+      ndrop2_44 =  (/  44.0d06,  88.1d06, 176.2d06, 352.3d06, 647.8d06,1173.0d06,2049.7d06,3315.6d06/)
+      ndrop2_45 =  (/  39.7d06,  79.4d06, 158.8d06, 317.6d06, 569.5d06, 988.5d06,1615.6d06,2430.3d06/)
+      ! table6a (R2=0.04mum, wcb=0.5m/s)
+      ndrop3_11 =  (/  50.6d06, 100.3d06, 196.5d06, 374.7d06, 677.3d06,1138.9d06,1138.9d06,1138.9d06/)
+      ndrop3_12 =  (/  48.4d06,  91.9d06, 170.6d06, 306.9d06, 529.2d06, 862.4d06, 862.4d06, 862.4d06/)
+      ndrop3_13 =  (/  44.4d06,  82.5d06, 150.3d06, 266.4d06, 448.0d06, 740.7d06, 740.7d06, 740.7d06/)
+      ndrop3_14 =  (/  40.9d06,  75.0d06, 134.7d06, 231.9d06, 382.1d06, 657.6d06, 657.6d06, 657.6d06/)
+      ndrop3_15 =  (/  34.7d06,  59.3d06,  93.5d06, 156.8d06, 301.9d06, 603.8d06, 603.8d06, 603.8d06/)
+      ! table6b (R2=0.04mum, wcb=1.0m/s)
+      ndrop3_21 =  (/  50.9d06, 101.7d06, 201.8d06, 398.8d06, 773.7d06,1420.8d06,2411.8d06,2411.8d06/)
+      ndrop3_22 =  (/  49.4d06,  98.9d06, 189.7d06, 356.2d06, 649.5d06,1117.9d06,1805.2d06,1805.2d06/)
+      ndrop3_23 =  (/  45.6d06,  91.8d06, 171.5d06, 214.9d06, 559.0d06, 932.8d06,1501.6d06,1501.6d06/)
+      ndrop3_24 =  (/  42.4d06,  84.7d06, 155.8d06, 280.5d06, 481.9d06, 779.0d06,1321.9d06,1321.9d06/)
+      ndrop3_25 =  (/  36.1d06,  72.1d06, 124.4d06, 198.4d06, 319.1d06, 603.8d06,1207.6d06,1207.6d06/)
+      ! table6c (R2=0.04mum, wcb=2.5m/s)
+      ndrop3_31 =  (/  51.4d06, 102.8d06, 205.7d06, 406.9d06, 807.6d06,1597.5d06,3072.2d06,5393.9d06/)
+      ndrop3_32 =  (/  50.8d06, 101.8d06, 203.6d06, 396.0d06, 760.4d06,1422.1d06,2517.4d06,4062.8d06/)
+      ndrop3_33 =  (/  48.2d06,  96.4d06, 193.8d06, 367.3d06, 684.0d06,1238.3d06,2087.3d06,3287.1d06/)
+      ndrop3_34 =  (/  45.2d06,  90.4d06, 180.8d06, 335.7d06, 611.2d06,1066.3d06,1713.4d06,2780.3d06/)
+      ndrop3_35 =  (/  38.9d06,  77.8d06, 155.5d06, 273.7d06, 455.2d06, 702.2d06,1230.7d06,2453.7d06/)
+      ! table6d (R2=0.04mum, wcb=5.0m/s)
+      ndrop3_41 =  (/  53.1d06, 106.2d06, 212.3d06, 414.6d06, 818.3d06,1622.2d06,3216.8d06,6243.9d06/)
+      ndrop3_42 =  (/  51.6d06, 103.2d06, 206.3d06, 412.5d06, 805.3d06,1557.4d06,2940.4d06,5210.1d06/)
+      ndrop3_43 =  (/  49.6d06,  99.2d06, 198.4d06, 396.7d06, 755.5d06,1414.5d06,2565.3d06,4288.1d06/)
+      ndrop3_44 =  (/  46.5d06,  93.0d06, 186.0d06, 371.9d06, 692.9d06,1262.0d06,2188.3d06,3461.2d06/)
+      ndrop3_45 =  (/  39.9d06,  79.9d06, 159.7d06, 319.4d06, 561.7d06, 953.9d06,1493.9d06,2464.7d06/)
+
+      SELECT CASE (i_lsigs)
+      CASE(1)
+          SELECT CASE(i_R2)
+          Case(1)
+            tab_Ndrop(1,:)=ndrop1_11
+            tab_Ndrop(2,:)=ndrop1_21
+            tab_Ndrop(3,:)=ndrop1_31
+            tab_Ndrop(4,:)=ndrop1_41
+          CASE(2)
+            tab_Ndrop(1,:)=ndrop2_11
+            tab_Ndrop(2,:)=ndrop2_21
+            tab_Ndrop(3,:)=ndrop2_31
+            tab_Ndrop(4,:)=ndrop2_41
+          CASE(3)
+            tab_Ndrop(1,:)=ndrop3_11
+            tab_Ndrop(2,:)=ndrop3_21
+            tab_Ndrop(3,:)=ndrop3_31
+            tab_Ndrop(4,:)=ndrop3_41
+          CASE DEFAULT
+            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
+          END SELECT
+      CASE(2)
+          SELECT CASE(i_R2)
+          CASE(1)
+            tab_Ndrop(1,:)=ndrop1_12
+            tab_Ndrop(2,:)=ndrop1_22
+            tab_Ndrop(3,:)=ndrop1_32
+            tab_Ndrop(4,:)=ndrop1_42
+          CASE(2)
+            tab_Ndrop(1,:)=ndrop2_12
+            tab_Ndrop(2,:)=ndrop2_22
+            tab_Ndrop(3,:)=ndrop2_32
+            tab_Ndrop(4,:)=ndrop2_42
+          CASE(3)
+            tab_Ndrop(1,:)=ndrop3_12
+            tab_Ndrop(2,:)=ndrop3_22
+            tab_Ndrop(3,:)=ndrop3_32
+            tab_Ndrop(4,:)=ndrop3_42
+          CASE DEFAULT
+            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
+          END SELECT
+      CASE(3)
+          SELECT CASE(i_R2)
+          CASE(1)
+            tab_Ndrop(1,:)=ndrop1_13
+            tab_Ndrop(2,:)=ndrop1_23
+            tab_Ndrop(3,:)=ndrop1_33
+            tab_Ndrop(4,:)=ndrop1_43
+          CASE(2)
+            tab_Ndrop(1,:)=ndrop2_13
+            tab_Ndrop(2,:)=ndrop2_23
+            tab_Ndrop(3,:)=ndrop2_33
+            tab_Ndrop(4,:)=ndrop2_43
+          CASE(3)
+            tab_Ndrop(1,:)=ndrop3_13
+            tab_Ndrop(2,:)=ndrop3_23
+            tab_Ndrop(3,:)=ndrop3_33
+            tab_Ndrop(4,:)=ndrop3_43
+          CASE DEFAULT
+            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
+          END SELECT
+      CASE(4)
+          SELECT CASE(i_R2)
+          CASE(1)
+            tab_Ndrop(1,:)=ndrop1_14
+            tab_Ndrop(2,:)=ndrop1_24
+            tab_Ndrop(3,:)=ndrop1_34
+            tab_Ndrop(4,:)=ndrop1_44
+          CASE(2)
+            tab_Ndrop(1,:)=ndrop2_14
+            tab_Ndrop(2,:)=ndrop2_24
+            tab_Ndrop(3,:)=ndrop2_34
+            tab_Ndrop(4,:)=ndrop2_44
+          CASE(3)
+            tab_Ndrop(1,:)=ndrop3_14
+            tab_Ndrop(2,:)=ndrop3_24
+            tab_Ndrop(3,:)=ndrop3_34
+            tab_Ndrop(4,:)=ndrop3_44
+          CASE DEFAULT
+            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
+          END SELECT
+      CASE(5)
+          SELECT CASE(i_R2)
+          CASE(1)
+            tab_Ndrop(1,:)=ndrop1_15
+            tab_Ndrop(2,:)=ndrop1_25
+            tab_Ndrop(3,:)=ndrop1_35
+            tab_Ndrop(4,:)=ndrop1_45
+          CASE(2)
+            tab_Ndrop(1,:)=ndrop2_15
+            tab_Ndrop(2,:)=ndrop2_25
+            tab_Ndrop(3,:)=ndrop2_35
+            tab_Ndrop(4,:)=ndrop2_45
+          CASE(3)
+            tab_Ndrop(1,:)=ndrop3_15
+            tab_Ndrop(2,:)=ndrop3_25
+            tab_Ndrop(3,:)=ndrop3_35
+            tab_Ndrop(4,:)=ndrop3_45
+          CASE DEFAULT
+            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
+          END SELECT
+      CASE DEFAULT
+        write(*,*)  "!!!! wrong value for lsigs in cloud_nucleation_SK !!!!!"
+      END SELECT            
+      RETURN
+    END SUBROUTINE lookuptable
+     
+    !--------------
+
+    FUNCTION ip_ndrop_ncn(tab_ndrop,tab_ncn,Ncn)
+
+      ! Interpolation of the look-up table with respect to aerosol concentration Ncn
+
+      IMPLICIT NONE
+      INTEGER, PARAMETER ::  n_wcb = 4, n_ncn=8
+      INTEGER            ::  ki
+      REAL(wp)           ::  ip_ndrop_ncn(n_wcb)
+      DOUBLE PRECISION   ::  tab_ncn(n_ncn), tab_ndrop(n_wcb,n_ncn), Ncn
+      LOGICAL :: found
+  
+      ! Interpolation of Ndrop from the values of Ncn in the look-up-table to given Ncn            
+      found = .FALSE.
+      IF (Ncn <= tab_ncn(1)) THEN
+        ip_ndrop_ncn = tab_ndrop(:,1) 
+        found = .TRUE.
+      ELSE IF (Ncn >= tab_ncn(n_ncn)) then
+        ip_ndrop_ncn = tab_ndrop(:,n_ncn)      
+        found = .TRUE.
+      ELSE
+        DO ki = 1,n_ncn-1
+          IF (Ncn >= tab_ncn(ki) .AND.  Ncn <= tab_ncn(ki+1)) THEN
+            ip_ndrop_ncn(:) = tab_ndrop(:,ki) + &
+                 (tab_ndrop(:,ki+1)-tab_ndrop(:,ki)) / (tab_ncn(ki+1)-tab_ncn(ki)) * (Ncn-tab_ncn(ki))
+            found = .TRUE.
+            EXIT
+          END IF
+        END DO
+      END IF
+
+      IF (.NOT.found) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, ip_ndrop_ncn: lookup table interpolation failed! ')
+      END IF
+
+      RETURN
+
+    END FUNCTION  ip_ndrop_ncn
+
+    !------------------
+
+    FUNCTION ip_ndrop_wcb(tab_Ndrop_i,tab_wcb,wcb)
+
+      ! Interpolation of the interpolated look-up table with respect to w_cb
+
+      IMPLICIT NONE
+
+      REAL(wp)           :: ip_ndrop_wcb
+      INTEGER, PARAMETER :: n_wcb = 4
+      INTEGER            :: ki
+      DOUBLE PRECISION   :: tab_wcb(1:n_wcb), tab_Ndrop_i(1:n_wcb), wcb
+      LOGICAL :: found
+
+      !... Interpolation for Ndrop from the values of wcb in the look-up-tabel to detected wcb
+            
+      found = .FALSE.
+      ip_ndrop_wcb = 0
+      IF (wcb <= tab_wcb(1)) THEN
+        ip_ndrop_wcb = tab_ndrop_i(1) / tab_wcb(1) * wcb
+        found = .TRUE.
+      ELSE IF (wcb  >= tab_wcb(n_wcb)) then
+        ip_ndrop_wcb = tab_ndrop_i(n_wcb)      
+        found = .TRUE.
+      ELSE
+        DO ki = 1,n_wcb-1
+          IF (wcb >= tab_wcb(ki) .AND.  wcb <= tab_wcb(ki+1)) THEN
+            ip_ndrop_wcb = tab_ndrop_i(ki) + &
+              (tab_ndrop_i(ki+1)-tab_ndrop_i(ki)) / (tab_wcb(ki+1)-tab_wcb(ki)) * (wcb-tab_wcb(ki))
+            found = .TRUE.
+            EXIT
+          END IF
+        END DO
+      END IF
+
+      IF (.NOT.found) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, ip_ndrop_wcb: lookup table interpolation failed! ')
+      END IF
+
+      RETURN
+
+    END FUNCTION  ip_ndrop_wcb
+
+  END SUBROUTINE ccn_activation_sk
+
   !*******************************************************************************
   ! Sedimentation subroutines for ICON
   !*******************************************************************************
@@ -5337,9 +5831,54 @@ CONTAINS
     ENDDO
     precrate(its:ite) = - q_fluss(its:ite,kte) ! Regenrate
 
+    DO k=kts,kte
+       np(:,k) = MIN(np(:,k), qp(:,k)/ptype%x_min)
+       np(:,k) = MAX(np(:,k), qp(:,k)/ptype%x_max)
+    END DO
+
     RETURN
 
   END SUBROUTINE sedi_icon_sphere
+
+  SUBROUTINE check(mtxt)
+    CHARACTER(len=*) :: mtxt
+    INTEGER k
+    REAL(wp), PARAMETER :: meps = -1e-12
+
+    DO k = kstart,kend
+       IF (MINVAL(q_cloud(:,k)) < meps) THEN
+          WRITE (txt,'(1X,A,I4,A)') '  qc < 0 at k = ',k,' after '//TRIM(mtxt)
+          CALL message(routine,TRIM(txt))
+          CALL finish(TRIM(routine),txt)
+       ENDIF
+       IF (MINVAL(q_rain(:,k)) < meps) THEN
+          WRITE (txt,'(1X,A,I4,A)') '  qr < 0 at k = ',k,' after '//TRIM(mtxt)
+          CALL message(routine,TRIM(txt))
+          CALL finish(TRIM(routine),txt)
+       ENDIF
+       IF (MINVAL(q_ice(:,k)) < meps) THEN
+          WRITE (txt,'(1X,A,I4,A)') '  qi < 0 at k = ',k,' after '//TRIM(mtxt)
+          CALL message(routine,TRIM(txt))
+          CALL finish(TRIM(routine),txt)
+       ENDIF
+       IF (MINVAL(q_snow(:,k)) < meps) THEN
+          WRITE (txt,'(1X,A,I4,A)') '  qs < 0 at k = ',k,' after '//TRIM(mtxt)
+          CALL message(routine,TRIM(txt))
+          CALL finish(TRIM(routine),txt)
+       ENDIF
+       IF (MINVAL(q_graupel(:,k)) < meps) THEN
+          WRITE (txt,'(1X,A,I4,A)') '  qg < 0 at k = ',k,' after '//TRIM(mtxt)
+          CALL message(routine,TRIM(txt))
+          CALL finish(TRIM(routine),txt)
+       ENDIF
+       IF (MINVAL(q_hail(:,k)) < meps) THEN
+          WRITE (txt,'(1X,A,I4,A)') '  qh < 0 at k = ',k,' after '//TRIM(mtxt)
+          CALL message(routine,TRIM(txt))
+          CALL finish(TRIM(routine),txt)
+       ENDIF
+    END DO
+
+  END SUBROUTINE check
 
 #endif
   
