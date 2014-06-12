@@ -415,7 +415,7 @@ CONTAINS
         !!
         !-------------------------------------------------------------------------
       
-        IF(atm_phy_nwp_config(jg)%inwp_gscp==4.OR.atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+        IF(atm_phy_nwp_config(jg)%inwp_gscp==4.OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
 
 !DIR$ IVDEP
           DO jc =  i_startidx, i_endidx
