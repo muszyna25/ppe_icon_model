@@ -391,12 +391,19 @@ retrieve,
 retrieve,
         ${db_para_atmo},
         param    = ci,
-        fieldset = ci0
-compute,
-        formula  = "nobitmap(ci0,0)",                   # missing value -> 0
-        fieldset = ci
-write,  
-        fieldset = ci, 
+# The following lines of the MARS retrieval command remove the 
+# bitmap in the sea-ice field.
+# They are not required since the CDI are able to handle GRIB
+# bitmaps; however, these lines have caused problems on lce.dwd.de.
+# Therefore, the bitmap-treatment for the CI field has been 
+# disabled (FP, 2014-06-12).
+#
+#        fieldset = ci0
+#compute,
+#        formula  = "nobitmap(ci0,0)",                   # missing value -> 0
+#        fieldset = ci
+#write,  
+#        fieldset = ci, 
         target   = "${target_file[$i_rq]}"
 # Retrieve constant fields
 retrieve,
