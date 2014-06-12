@@ -56,7 +56,7 @@ MODULE mo_sea_ice
     &                               GRID_UNSTRUCTURED_VERT, GRID_VERTEX,    &
     &                               GRID_UNSTRUCTURED_EDGE, GRID_EDGE
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
-    &                               t_atmos_for_ocean, t_sea_ice_acc
+    &                               t_atmos_for_ocean, t_sea_ice_acc, t_sea_ice_budgets
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
   USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -376,7 +376,41 @@ CONTAINS
 
     CALL message(TRIM(routine), 'end' )
 
+    CALL construct_sea_ice_budgets(p_patch_3D,p_ice%acc%budgets, ocean_default_list)
   END SUBROUTINE construct_sea_ice
+  SUBROUTINE construct_sea_ice_budgets(patch_3d,budgets, varlist)
+    TYPE(t_patch_3d) :: patch_3d
+    TYPE(t_sea_ice_budgets) :: budgets
+    TYPE(t_var_list)        :: varlist
+
+    INTEGER :: alloc_cell_blocks
+    TYPE(t_patch), POINTER :: patch
+    INTEGER :: ibits = DATATYPE_PACK16
+
+    patch           => patch_3D%p_patch_2D(1)
+    alloc_cell_blocks =  patch%alloc_cell_blocks
+
+    CALL add_var(varlist, 'salt_00', budgets%salt_00 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('salt_00', 'kg', '', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_budgets"))
+    CALL add_var(varlist, 'salt_01', budgets%salt_00 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('salt_01', 'kg', '', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_budgets"))
+    CALL add_var(varlist, 'salt_02', budgets%salt_00 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('salt_02', 'kg', '', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_budgets"))
+    CALL add_var(varlist, 'salt_03', budgets%salt_00 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('salt_03', 'kg', '', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_budgets"))
+  END SUBROUTINE construct_sea_ice_budgets
   !-------------------------------------------------------------------------
   !
   !> Destructor of sea-ice model, deallocates all components.

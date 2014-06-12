@@ -28,6 +28,7 @@ MODULE mo_sea_ice_types
   ! public types
   PUBLIC  :: t_sea_ice
   PUBLIC  :: t_sea_ice_acc
+  PUBLIC  :: t_sea_ice_budgets
   PUBLIC  :: t_sfc_flx
   PUBLIC  :: t_atmos_fluxes
   PUBLIC  :: t_atmos_for_ocean
@@ -217,6 +218,14 @@ MODULE mo_sea_ice_types
 
   END TYPE t_atmos_fluxes
 
+  TYPE t_sea_ice_budgets
+  ! accumulated fields of the sea-ice state
+    REAL(wp), POINTER :: &
+      & salt_00         (:,:,:)       ,   & 
+      & salt_01         (:,:,:)       ,   &
+      & salt_02         (:,:,:)       ,   &
+      & salt_03       (:,:,:)           
+  END TYPE t_sea_ice_budgets
   TYPE t_sea_ice_acc
   ! accumulated fields of the sea-ice state
     REAL(wp), POINTER :: &
@@ -226,6 +235,7 @@ MODULE mo_sea_ice_types
     REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity on cell centre (diagnostic)    [m/s]
       & v(:,:)                   ! Meridional velocity on cell centre (diagn.)   [m/s]
+    TYPE(t_sea_ice_budgets) :: budgets
   END TYPE t_sea_ice_acc
   TYPE t_sea_ice
 

@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   !
   ! New groups can be added by extending the VAR_GROUPS list.
   !
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(33) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(34) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -74,6 +74,7 @@ MODULE mo_var_metadata_types
     &  "OCE_PHYSICS           ",  &
     &  "OCE_COEFFS            ",  &
     &  "ICE_DEFAULT           ",  &
+    &  "ICE_BUDGETS           ",  &
     &  "ICE_DIAG              "/)
 
 

@@ -116,8 +116,7 @@ CONTAINS
     jg = 1
     nsteps_since_last_output = nsteps_since_last_output + 1
     !------------------------------------------------------------------
-     IF (.not. istime4name_list_output(jstep)) RETURN
-
+    IF (.not. istime4name_list_output(jstep)) RETURN
 
     !------------------------------------------------------------------
         IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
