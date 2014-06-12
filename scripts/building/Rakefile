@@ -437,7 +437,7 @@ def getFilesBy(dir,subdirs,pattern: '**/*.{f90,inc}',filelist: [])
   end
   files
 end
-def getOceanOnlyfilelist
+def getOceanOnlyfilelist(build)
   oceanFiles = []
   oceanFiles << getFilesBy("src"   ,%w[ocean sea_ice parallel_infrastructure include shared])
 
@@ -479,9 +479,15 @@ def getOceanOnlyfilelist
 
   # remove nc files
   oceanFiles.delete_if {|f| %w[.nc .grb .png .eps .ps .pdf].include?(File.extname(f)) }
+
+  oceanFiles.delete_if {|f| /mh-override/.match(f) } unless isLocal?(build)
+
+  oceanFiles
 end
-task :checkOceanFilelist do
-  puts getOceanOnlyfilelist
+task :checkOceanFilelist, [:build] do |t,args|
+
+  args.build = :localGcc if args.build.nil?
+  puts getOceanOnlyfilelist(args.build)
 end
 
 # synchronization call for given build
@@ -495,7 +501,7 @@ def doSync(build)
 
   # if OceanOnly
   if OCEAN_ONLY then
-    getOceanOnlyfilelist.each {|f| file.write(f + "\n") }
+    getOceanOnlyfilelist(build).each {|f| file.write(f + "\n") }
     file.close
     ENV['FILELIST'] = file.path
   end
