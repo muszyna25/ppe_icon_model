@@ -422,6 +422,67 @@ def doDiffThis(build,fA,fB,tool='meld')
    EOS
   ))
 end
+def getFilesBy(dir,subdirs,pattern: '**/*.{f90,inc}',filelist: [])
+  files = []
+  if filelist.empty? then
+  subdirs.each {|subdir|
+    files << Dir.glob([dir,subdir,pattern].join(File::SEPARATOR))
+  }
+  else
+  subdirs.each {|subdir|
+    filelist = [filelist] unless filelist.kind_of?(Array)
+    filelist.each {|file| files << [dir,subdir,file].join(File::SEPARATOR) }
+  }
+  end
+  files
+end
+def getOceanOnlyfilelist
+  oceanFiles = []
+  oceanFiles << getFilesBy("src"   ,%w[ocean sea_ice parallel_infrastructure include shared])
+
+  oceanFiles << getFilesBy("src/io",%w[shared])
+
+  oceanFiles << getFilesBy("src",%w[advection], filelist: "mo_advection_utils.f90")
+
+  oceanFiles << getFilesBy("src",%w[configure_model], 
+             filelist: %w[mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90])
+
+  oceanFiles << getFilesBy("src",%w[drivers], 
+                           filelist: %w[control_model.f90 mo_master_control.f90])
+
+  oceanFiles << getFilesBy("src", %w[namelists], 
+                           filelist: %w[mo_dbg_nml.f90  mo_dynamics_nml.f90 mo_gribout_nml.f90 mo_grid_nml.f90 mo_io_nml.f90 mo_master_nml.f90 mo_parallel_nml.f90 mo_run_nml.f90 mo_sea_ice_nml.f90 mo_time_nml.f90])
+
+  oceanFiles << getFilesBy("src", %w[shr_horizontal],
+                           filelist: %w[mo_alloc_patches.f90 mo_ext_data_types.f90 mo_grid_geometry_info.f90 mo_grid_tools.f90 mo_intp_data_strc.f90 mo_lonlat_grid.f90 mo_model_domain.f90 mo_model_domimp_patches.f90 mo_model_domimp_setup.f90 mo_reorder_patches.f90 mo_icon_interpolation_scalar.f90])
+
+  oceanFiles << getFilesBy("src", %w[testcases],
+                           filelist: "mo_ape_params.f90")
+
+  oceanFiles << Dir.glob("run/*oce*")
+  oceanFiles << getFilesBy("run",['.'],
+                           filelist: %w[exec.iconrun add_run_routines post.test_compare_restarts])
+
+
+  oceanFiles << Dir.glob("config/*")
+
+  %w[data doc include scripts support create_builds build_all aclocal.m4 configure.ac configure make_my_runscript make_runscripts make_nat-ape-dec_runs Makefile.in externals].each {|item|
+    if File.directory?(item) then
+      oceanFiles <<  Dir.glob("#{item}/**/*")
+    else
+      oceanFiles << item
+    end
+  }
+
+  oceanFiles.flatten!
+
+  # remove nc files
+  oceanFiles.delete_if {|f| %w[.nc .grb .png .eps .ps .pdf].include?(File.extname(f)) }
+end
+task :checkOceanFilelist do
+  puts getOceanOnlyfilelist
+end
+
 # synchronization call for given build
 def doSync(build)
   dir      = $targetDir[build]
@@ -430,6 +491,13 @@ def doSync(build)
 
   file = Tempfile.new("rsyncIconTempfiles2Transfer")
   $_temps << file
+
+  # if OceanOnly
+  if ENV.has_key?('OO') then
+    getOceanOnlyfilelist.each {|f| file.write(f + "\n") }
+    file.close
+    ENV['FILELIST'] = file.path
+  end
   if ENV.has_key?('FILELIST')
     myFile = ENV['FILELIST']
   else
