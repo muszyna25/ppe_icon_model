@@ -319,12 +319,8 @@ MODULE mo_model_domain
     ! number of edges connected to cell
     INTEGER, ALLOCATABLE :: num_edges(:)
 
-    ! line index of parent triangle:
-    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: parent_idx(:,:)
-    ! block index of parent triangle:
-    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: parent_blk(:,:)
+    ! index of parent triangle:
+    INTEGER, ALLOCATABLE :: parent(:)
     ! parent child index, number of current cell in parent's child_idx/child_blk:
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: pc_idx(:,:)

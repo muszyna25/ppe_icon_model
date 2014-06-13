@@ -665,7 +665,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen
+    INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen, ip
 
     !-----------------------------------------------------------------------
 
@@ -686,8 +686,9 @@ CONTAINS
 
         DO jl = 1, nlen
 
-          ilp = patch_pre(jg)%cells%parent_idx(jl,jb)
-          ibp = patch_pre(jg)%cells%parent_blk(jl,jb)
+          ip = patch_pre(jg)%cells%parent(idx_1d(jl,jb))
+          ilp = idx_no(ip)
+          ibp = blk_no(ip)
 
           IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,1) == jl .AND. &
             & patch_pre(jgp)%cells%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%cells%pc_idx(jl,jb) = 1
@@ -1146,13 +1147,8 @@ CONTAINS
     IF (max_cell_connectivity == 3) THEN ! triangular grid
 
       CALL nf(nf_inq_varid(ncid, 'parent_cell_index', varid))
-      ! patch_pre%cells%parent_idx(:,:)
-      ! patch_pre%cells%parent_blk(:,:)
-      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-      CALL reshape_idx( array_c_int(:,1), patch_pre%nblks_c, &
-        & patch_pre%npromz_c,  &
-        & patch_pre%cells%parent_idx(:,:),  &
-        & patch_pre%cells%parent_blk(:,:) )
+      ! patch_pre%cells%parent(:)
+      CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%parent(:)))
       ! patch_pre%cells%child_idx(:,:,:)
       ! patch_pre%cells%child_blk(:,:,:)
       CALL nf(nf_inq_varid(ncid, 'child_cell_index', varid))

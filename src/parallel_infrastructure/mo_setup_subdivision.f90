@@ -504,13 +504,7 @@ CONTAINS
         flag_c(:) = 0
 
         DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-          jl_p = wrk_p_patch_pre%cells%parent_idx(jl,jb)
-          jb_p = wrk_p_patch_pre%cells%parent_blk(jl,jb)
-
-          flag_c(idx_1d(jl_p, jb_p)) = &
+          flag_c(wrk_p_patch_pre%cells%parent(j)) = &
             MAX(1,wrk_p_patch_pre%cells%phys_id(jl,jb))
         ENDDO
 
@@ -532,16 +526,8 @@ CONTAINS
         ! Owners of the cells of the parent patch are now in tmp.
         ! Set owners in current patch from this
 
-        DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-          jl_p = wrk_p_patch_pre%cells%parent_idx(jl,jb)
-          jb_p = wrk_p_patch_pre%cells%parent_blk(jl,jb)
-
-          cell_owner(j) = tmp(idx_1d(jl_p,jb_p))
-
-        ENDDO
+        cell_owner(1:wrk_p_patch_pre%n_patch_cells_g) = &
+          tmp(wrk_p_patch_pre%cells%parent(1:wrk_p_patch_pre%n_patch_cells_g))
 
         DEALLOCATE(flag_c, tmp)
 
@@ -609,10 +595,7 @@ CONTAINS
 
     DO j = 1, p_patch_pre%n_patch_cells_g
 
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
-      jp = idx_1d(p_patch_pre%cells%parent_idx(jl,jb), &
-        &         p_patch_pre%cells%parent_blk(jl,jb))
+      jp = p_patch_pre%cells%parent(j)
 
       IF(cell_owner_p(jp) < 0) THEN
         cell_owner_p(jp) = cell_owner(j)
@@ -665,7 +648,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
-    INTEGER :: i, j, jl, jb, jb_g, jl_g, je, jv, jg, jc
+    INTEGER :: i, j, jl, jb, jb_g, jl_g, je, jv, jg, jc, jc_p
 
 #ifdef __PGIC__
     TYPE(nb_flag_list_elem), ALLOCATABLE :: flag2_c_list(:), &
@@ -909,14 +892,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in patch
-      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in patch
+      jc = wrk_p_patch%cells%decomp_info%glb_index(j)
 
-      ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+      jb_g = blk_no(jc) ! Block index in global patch
+      jl_g = idx_no(jc) ! Line  index in global patch
+
+      ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      wrk_p_patch%cells%parent_idx(jl,jb)  = wrk_p_patch_pre%cells%parent_idx(jl_g,jb_g)
-      wrk_p_patch%cells%parent_blk(jl,jb)  = wrk_p_patch_pre%cells%parent_blk(jl_g,jb_g)
+      jc_p = wrk_p_patch_pre%cells%parent(jc)
+
+      wrk_p_patch%cells%parent_idx(jl,jb)  = idx_no(jc_p)
+      wrk_p_patch%cells%parent_blk(jl,jb)  = blk_no(jc_p)
       wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_pre%cells%pc_idx(jl_g,jb_g)
       wrk_p_patch%cells%child_idx(jl,jb,1:4) = wrk_p_patch_pre%cells%child_idx(jl_g,jb_g,1:4)
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = wrk_p_patch_pre%cells%child_blk(jl_g,jb_g,1:4)

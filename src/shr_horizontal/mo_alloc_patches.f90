@@ -623,8 +623,7 @@ CONTAINS
     ! !grid cells
     !
     ALLOCATE( p_patch_pre%cells%num_edges(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%parent_idx(nproma,p_patch_pre%alloc_cell_blocks) )
-    ALLOCATE( p_patch_pre%cells%parent_blk(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%parent(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%pc_idx(nproma,p_patch_pre%alloc_cell_blocks) )
     ALLOCATE( p_patch_pre%cells%child_idx(nproma,p_patch_pre%alloc_cell_blocks,4) )
     ALLOCATE( p_patch_pre%cells%child_blk(nproma,p_patch_pre%alloc_cell_blocks,4) )
@@ -689,8 +688,7 @@ CONTAINS
     ! Set all newly allocated arrays to 0
 
     p_patch_pre%cells%num_edges = 0
-    p_patch_pre%cells%parent_idx = 0
-    p_patch_pre%cells%parent_blk = 0
+    p_patch_pre%cells%parent = 0
     p_patch_pre%cells%pc_idx = 0
     p_patch_pre%cells%child_idx = 0
     p_patch_pre%cells%child_blk = 0
@@ -837,8 +835,7 @@ CONTAINS
     ! !grid cells
     !
     DEALLOCATE( p_patch_pre%cells%num_edges )
-    DEALLOCATE( p_patch_pre%cells%parent_idx )
-    DEALLOCATE( p_patch_pre%cells%parent_blk )
+    DEALLOCATE( p_patch_pre%cells%parent )
     DEALLOCATE( p_patch_pre%cells%pc_idx )
     DEALLOCATE( p_patch_pre%cells%child_idx )
     DEALLOCATE( p_patch_pre%cells%child_blk )
