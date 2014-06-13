@@ -354,24 +354,20 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: refin_ctrl(:)
 
     ! list of start indices for each refin_ctrl level
-    ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants), index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
+    ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants)
+    INTEGER, ALLOCATABLE :: start_index(:)
 
     ! list of end indices for each refin_ctrl level
-    ! index1=min_rlcell,max_rlcell, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
+    ! index1=min_rlcell,max_rlcell
+    INTEGER, ALLOCATABLE :: end_index(:)
 
     ! list of start block for each refin_ctrl level
-    ! index1=min_rlcell,max_rlcell, index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
+    ! index1=min_rlcell,max_rlcell
+    INTEGER, ALLOCATABLE :: start_block(:)
 
     ! list of end block for each refin_ctrl level
-    ! index1=min_rlcell,max_rlcell, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
+    ! index1=min_rlcell,max_rlcell
+    INTEGER, ALLOCATABLE :: end_block(:)
 
   END TYPE t_pre_grid_cells
 
@@ -627,24 +623,20 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: refin_ctrl(:)
 
     ! list of start indices for each refin_ctrl level
-    ! index1=min_rledge,max_rledge (defined in mo_impl_constants), index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
+    ! index1=min_rledge,max_rledge (defined in mo_impl_constants)
+    INTEGER, ALLOCATABLE :: start_index(:)
 
     ! list of end indices for each refin_ctrl level
-    ! index1=min_rledge,max_rledge, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
+    ! index1=min_rledge,max_rledge
+    INTEGER, ALLOCATABLE :: end_index(:)
 
     ! list of start block for each refin_ctrl level
-    ! index1=min_rledge,max_rledge, index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
+    ! index1=min_rledge,max_rledge
+    INTEGER, ALLOCATABLE :: start_block(:)
 
     ! list of end block for each refin_ctrl level
-    ! index1=min_rledge,max_rledge, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
+    ! index1=min_rledge,max_rledge
+    INTEGER, ALLOCATABLE :: end_block(:)
 
   END TYPE t_pre_grid_edges
 
@@ -763,24 +755,20 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: refin_ctrl(:)
 
     ! list of start indices for each refin_ctrl level
-    ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants), index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
+    ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants)
+    INTEGER, ALLOCATABLE :: start_index(:)
 
     ! list of end indices for each refin_ctrl level
-    ! index1=min_rlvert,max_rlvert, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
+    ! index1=min_rlvert,max_rlvert
+    INTEGER, ALLOCATABLE :: end_index(:)
 
     ! list of start block for each refin_ctrl level
-    ! index1=min_rlvert,max_rlvert, index2=n_childdom
-    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
+    ! index1=min_rlvert,max_rlvert
+    INTEGER, ALLOCATABLE :: start_block(:)
 
     ! list of end block for each refin_ctrl level
-    ! index1=min_rlvert,max_rlvert, index2=n_childdom
-    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
-    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
+    ! index1=min_rlvert,max_rlvert
+    INTEGER, ALLOCATABLE :: end_block(:)
 
   END TYPE t_pre_grid_vertices
 

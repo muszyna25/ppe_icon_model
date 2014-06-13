@@ -526,7 +526,7 @@ CONTAINS
           old2new(ic) = n
         END IF
       END DO
-      ! update start_idx/blk and end_idx_blk
+      ! update start_index/block and end_index/block
       patch%cells%end_index(irefin)     = idx_no(n)
       patch%cells%end_block(irefin)     = blk_no(n)
       patch%cells%start_index(irefin-1) = idx_no(n+1)
@@ -552,7 +552,7 @@ CONTAINS
           old2new(ic) = n
         END IF
       END DO
-      ! update start_idx/blk and end_idx_blk
+      ! update start_index/block and end_index/block
       patch%edges%end_index(irefin)     = idx_no(n)
       patch%edges%end_block(irefin)     = blk_no(n)
       patch%edges%start_index(irefin-1) = idx_no(n+1)
@@ -578,7 +578,7 @@ CONTAINS
           old2new(ic) = n
         END IF
       END DO
-      ! update start_idx/blk and end_idx_blk
+      ! update start_index/block and end_index/block
       patch%verts%end_index(irefin)     = idx_no(n)
       patch%verts%end_block(irefin)     = blk_no(n)
       patch%verts%start_index(irefin-1) = idx_no(n+1)
@@ -1005,61 +1005,49 @@ CONTAINS
     !
     CALL allocate_pre_patch( patch_pre )
 
-    ! patch_pre%cells%start_idx(:,:)
-    ! patch_pre%cells%start_blk(:,:)
-    ! patch_pre%cells%end_idx(:,:)
-    ! patch_pre%cells%end_blk(:,:)
+    ! patch_pre%cells%start_index(:,:)
+    ! patch_pre%cells%start_block(:,:)
+    ! patch_pre%cells%end_index(:,:)
+    ! patch_pre%cells%end_block(:,:)
     ! nesting does not work for hex grids
     CALL nf(nf_inq_varid(ncid, 'start_idx_c', varid))
     CALL nf(nf_get_var_int(ncid, varid, start_idx_c(:,:)))
-    CALL reshape_idx_list( start_idx_c,                                &
-      & patch_pre%cells%start_idx, patch_pre%cells%start_blk )
     CALL reshape_index_list( start_idx_c(:,1),                         &
       & patch_pre%cells%start_index, patch_pre%cells%start_block )
     CALL nf(nf_inq_varid(ncid, 'end_idx_c', varid))
     CALL nf(nf_get_var_int(ncid, varid, end_idx_c(:,:)))
     ! Needed for backward compatibility of old grids
     IF (dim_idxlist > 1) end_idx_c(min_rlcell_int,1) = patch_pre%n_patch_cells_g
-    CALL reshape_idx_list( end_idx_c,                                &
-        & patch_pre%cells%end_idx, patch_pre%cells%end_blk )
     CALL reshape_index_list( end_idx_c(:,1),                         &
         & patch_pre%cells%end_index, patch_pre%cells%end_block )
 
-    ! patch_pre%edges%start_idx(:,:)
-    ! patch_pre%edges%start_blk(:,:)
-    ! patch_pre%edges%end_idx(:,:)
-    ! patch_pre%edges%end_blk(:,:)
+    ! patch_pre%edges%start_index(:,:)
+    ! patch_pre%edges%start_block(:,:)
+    ! patch_pre%edges%end_index(:,:)
+    ! patch_pre%edges%end_block(:,:)
     CALL nf(nf_inq_varid(ncid, 'start_idx_e', varid))
     CALL nf(nf_get_var_int(ncid, varid, start_idx_e(:,:)))
-    CALL reshape_idx_list( start_idx_e,                                &
-      & patch_pre%edges%start_idx, patch_pre%edges%start_blk )
     CALL reshape_index_list( start_idx_e(:,1),                           &
       & patch_pre%edges%start_index, patch_pre%edges%start_block )
     CALL nf(nf_inq_varid(ncid, 'end_idx_e', varid))
     CALL nf(nf_get_var_int(ncid, varid, end_idx_e(:,:)))
     ! Needed for backward compatibility of old grids
     IF (dim_idxlist > 1) end_idx_e(min_rledge_int,1) = patch_pre%n_patch_edges_g
-    CALL reshape_idx_list( end_idx_e,                                &
-      & patch_pre%edges%end_idx, patch_pre%edges%end_blk )
     CALL reshape_index_list( end_idx_e(:,1),                           &
       & patch_pre%edges%end_index, patch_pre%edges%end_block )
 
-    ! patch_pre%verts%start_idx(:,:)
-    ! patch_pre%verts%start_blk(:,:)
-    ! patch_pre%verts%end_idx(:,:)
-    ! patch_pre%verts%end_blk(:,:)
+    ! patch_pre%verts%start_index(:,:)
+    ! patch_pre%verts%start_block(:,:)
+    ! patch_pre%verts%end_index(:,:)
+    ! patch_pre%verts%end_block(:,:)
     CALL nf(nf_inq_varid(ncid, 'start_idx_v', varid))
     CALL nf(nf_get_var_int(ncid, varid, start_idx_v(:,:)))
-    CALL reshape_idx_list( start_idx_v,                                &
-      & patch_pre%verts%start_idx, patch_pre%verts%start_blk )
     CALL reshape_index_list( start_idx_v(:,1),                           &
       & patch_pre%verts%start_index, patch_pre%verts%start_block )
     CALL nf(nf_inq_varid(ncid, 'end_idx_v', varid))
     CALL nf(nf_get_var_int(ncid, varid, end_idx_v(:,:)))
     ! Needed for backward compatibility of old grids
     IF (dim_idxlist > 1) end_idx_v(min_rlvert_int,1) = patch_pre%n_patch_verts_g
-    CALL reshape_idx_list( end_idx_v,                                &
-      & patch_pre%verts%end_idx, patch_pre%verts%end_blk )
     CALL reshape_index_list( end_idx_v(:,1),                           &
       & patch_pre%verts%end_index, patch_pre%verts%end_block )
 
@@ -2284,40 +2272,6 @@ CONTAINS
 
   END SUBROUTINE reshape_idx
   !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !!               reshape the start_idx / end_idx fields for blocking.
-  !!
-  !! @par Revision History
-  !! Developed  by Guenther Zaengl, DWD (2009-07-22)
-  !!
-  SUBROUTINE reshape_idx_list( indlist_in, idx_out, blk_out )
-
-
-
-    ! input index array
-    INTEGER, INTENT(in) :: indlist_in(:,:)
-
-    ! output line index array
-    INTEGER, INTENT(inout) :: idx_out(:,:)
-    ! output block index array
-    INTEGER, INTENT(inout) :: blk_out(:,:)
-
-    INTEGER :: jg
-
-    !-----------------------------------------------------------------------
-
-    blk_out(:,1) = (indlist_in(:,1) - 1) / nproma + 1
-    idx_out(:,1) =  indlist_in(:,1) - (blk_out(:,1) - 1) * nproma
-    IF (max_childdom > 1) THEN
-      DO jg = 2, max_childdom
-        blk_out(:,jg) = blk_out(:,1)
-        idx_out(:,jg) = idx_out(:,1)
-      ENDDO
-    ENDIF
-
-  END SUBROUTINE reshape_idx_list
 
   SUBROUTINE reshape_index_list( indlist_in, idx_out, blk_out )
 

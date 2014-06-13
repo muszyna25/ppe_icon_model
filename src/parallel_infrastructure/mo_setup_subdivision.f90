@@ -724,14 +724,14 @@ CONTAINS
          flag2_list = flag2_c_list, &
          n2_ilev = n2_ilev_c, &
          decomp_info = wrk_p_patch%cells%decomp_info, &
-         start_idx = wrk_p_patch%cells%start_index, &
-         start_blk = wrk_p_patch%cells%start_block, &
-         end_idx = wrk_p_patch%cells%end_index, &
-         end_blk = wrk_p_patch%cells%end_block, &
-         start_idx_g = wrk_p_patch_pre%cells%start_index, &
-         start_blk_g = wrk_p_patch_pre%cells%start_block, &
-         end_idx_g = wrk_p_patch_pre%cells%end_index, &
-         end_blk_g = wrk_p_patch_pre%cells%end_block, &
+         start_index = wrk_p_patch%cells%start_index, &
+         start_block = wrk_p_patch%cells%start_block, &
+         end_index = wrk_p_patch%cells%end_index, &
+         end_block = wrk_p_patch%cells%end_block, &
+         start_index_g = wrk_p_patch_pre%cells%start_index, &
+         start_block_g = wrk_p_patch_pre%cells%start_block, &
+         end_index_g = wrk_p_patch_pre%cells%end_index, &
+         end_block_g = wrk_p_patch_pre%cells%end_block, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .TRUE., &
          refin_ctrl = wrk_p_patch_pre%cells%refin_ctrl, &
@@ -751,14 +751,14 @@ CONTAINS
          flag2_list = flag2_e_list, &
          n2_ilev = n2_ilev_e, &
          decomp_info = wrk_p_patch%edges%decomp_info, &
-         start_idx = wrk_p_patch%edges%start_index, &
-         start_blk = wrk_p_patch%edges%start_block, &
-         end_idx = wrk_p_patch%edges%end_index, &
-         end_blk = wrk_p_patch%edges%end_block, &
-         start_idx_g = wrk_p_patch_pre%edges%start_index, &
-         start_blk_g = wrk_p_patch_pre%edges%start_block, &
-         end_idx_g = wrk_p_patch_pre%edges%end_index, &
-         end_blk_g = wrk_p_patch_pre%edges%end_block, &
+         start_index = wrk_p_patch%edges%start_index, &
+         start_block = wrk_p_patch%edges%start_block, &
+         end_index = wrk_p_patch%edges%end_index, &
+         end_block = wrk_p_patch%edges%end_block, &
+         start_index_g = wrk_p_patch_pre%edges%start_index, &
+         start_block_g = wrk_p_patch_pre%edges%start_block, &
+         end_index_g = wrk_p_patch_pre%edges%end_index, &
+         end_block_g = wrk_p_patch_pre%edges%end_block, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
          refin_ctrl = wrk_p_patch_pre%edges%refin_ctrl, &
@@ -778,14 +778,14 @@ CONTAINS
          flag2_list = flag2_v_list, &
          n2_ilev = n2_ilev_v, &
          decomp_info = wrk_p_patch%verts%decomp_info, &
-         start_idx = wrk_p_patch%verts%start_index, &
-         start_blk = wrk_p_patch%verts%start_block, &
-         end_idx = wrk_p_patch%verts%end_index, &
-         end_blk = wrk_p_patch%verts%end_block, &
-         start_idx_g = wrk_p_patch_pre%verts%start_index, &
-         start_blk_g = wrk_p_patch_pre%verts%start_block, &
-         end_idx_g = wrk_p_patch_pre%verts%end_index, &
-         end_blk_g = wrk_p_patch_pre%verts%end_block, &
+         start_index = wrk_p_patch%verts%start_index, &
+         start_block = wrk_p_patch%verts%start_block, &
+         end_index = wrk_p_patch%verts%end_index, &
+         end_block = wrk_p_patch%verts%end_block, &
+         start_index_g = wrk_p_patch_pre%verts%start_index, &
+         start_block_g = wrk_p_patch_pre%verts%start_block, &
+         end_index_g = wrk_p_patch_pre%verts%end_index, &
+         end_block_g = wrk_p_patch_pre%verts%end_block, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
          refin_ctrl = wrk_p_patch_pre%verts%refin_ctrl, &
@@ -1816,8 +1816,8 @@ CONTAINS
        patch_id, nblks, npromz, cell_type, &
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
        flag2_list, n2_ilev, decomp_info, &
-       start_idx, start_blk, end_idx, end_blk, &
-       start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
+       start_index, start_block, end_index, end_block, &
+       start_index_g, start_block_g, end_index_g, end_block_g, &
        order_type_of_halos, l_cell_correction, refin_ctrl, refinement_predicate)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
          patch_id, nblks, npromz, cell_type, &
@@ -1828,9 +1828,9 @@ CONTAINS
     TYPE(nb_flag_list_elem), INTENT(in) :: flag2_list(0:)
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:), INTENT(inout) :: &
-         start_idx, start_blk, end_idx, end_blk
+         start_index, start_block, end_index, end_block
     INTEGER, DIMENSION(min_rlcve:), INTENT(in) :: &
-         start_idx_g, start_blk_g, end_idx_g, end_blk_g
+         start_index_g, start_block_g, end_index_g, end_block_g
     INTERFACE
       FUNCTION refinement_predicate(flag, irl0) RESULT(p)
         INTEGER, INTENT(in) :: flag, irl0
@@ -1853,8 +1853,8 @@ CONTAINS
         patch_id, nblks, npromz, cell_type, &
         min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
         flag2_list, n2_ilev, decomp_info, &
-        start_idx, start_blk, end_idx, end_blk, &
-        start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
+        start_index, start_block, end_index, end_block, &
+        start_index_g, start_block_g, end_index_g, end_block_g, &
         order_type_of_halos, l_cell_correction)
       RETURN
     END IF
@@ -1905,7 +1905,7 @@ CONTAINS
       &                      decomp_info%glb_index(1:n_inner), &
       &                      (/(i, i = 1, n_inner)/))
 
-    ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
+    ! Set start_index/block ... end_index/block for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
     ! setting of the inner global indices.
 
@@ -1914,25 +1914,25 @@ CONTAINS
     DO i=min_rlcve_int,max_rlcve
 !CDIR IEXPAND
       CALL get_local_idx_blk(decomp_info, &
-        & start_idx_g(i),             &
-        & start_blk_g(i),             &
-        & start_idx(i),               &
-        & start_blk(i),               &
+        & start_index_g(i),             &
+        & start_block_g(i),             &
+        & start_index(i),               &
+        & start_block(i),               &
         & +1 )
 !CDIR IEXPAND
       CALL get_local_idx_blk(decomp_info, &
-        & end_idx_g(i),               &
-        & end_blk_g(i),               &
-        & end_idx(i),                 &
-        & end_blk(i),                 &
+        & end_index_g(i),               &
+        & end_block_g(i),               &
+        & end_index(i),                 &
+        & end_block(i),                 &
         & -1 )
     ENDDO
 
     ! Preset remaining index sections with dummy values
-    start_idx(min_rlcve:min_rlcve_int-1) = -9999
-    start_blk(min_rlcve:min_rlcve_int-1) = -9999
-    end_idx(min_rlcve:min_rlcve_int-1)   = -9999
-    end_blk(min_rlcve:min_rlcve_int-1)   = -9999
+    start_index(min_rlcve:min_rlcve_int-1) = -9999
+    start_block(min_rlcve:min_rlcve_int-1) = -9999
+    end_index(min_rlcve:min_rlcve_int-1)   = -9999
+    end_block(min_rlcve:min_rlcve_int-1)   = -9999
 
     SELECT CASE(order_type_of_halos)
     CASE (0,2)
@@ -1953,9 +1953,9 @@ CONTAINS
       END DO
       CALL quicksort(temp_glb_index(1:j-1), temp_owner(1:j-1))
       k_start = SUM(n2_ilev(0:ref_flag))
-      IF (start_idx(irlev)==-9999 .AND. k_start + 1 <= n_patch_cve) THEN
-        start_idx(irlev) = idx_no(k_start + 1) ! line index
-        start_blk(irlev) = blk_no(k_start + 1) ! block index
+      IF (start_index(irlev)==-9999 .AND. k_start + 1 <= n_patch_cve) THEN
+        start_index(irlev) = idx_no(k_start + 1) ! line index
+        start_block(irlev) = blk_no(k_start + 1) ! block index
       ENDIF
 
       DO k = k_start + 1, n_patch_cve
@@ -1965,10 +1965,10 @@ CONTAINS
       DEALLOCATE(temp_glb_index, temp_owner)
 
       ! Set end index when the last point is processed
-      end_idx(min_rlcve:irlev) = idx_no(n_patch_cve)
-      end_blk(min_rlcve:irlev) = blk_no(n_patch_cve)
-      start_idx(min_rlcve:irlev-1) = start_idx(irlev)
-      start_blk(min_rlcve:irlev-1) = start_blk(irlev)
+      end_index(min_rlcve:irlev) = idx_no(n_patch_cve)
+      end_block(min_rlcve:irlev) = blk_no(n_patch_cve)
+      start_index(min_rlcve:irlev-1) = start_index(irlev)
+      start_block(min_rlcve:irlev-1) = start_block(irlev)
 
     CASE(1)
       k = n_inner
@@ -1989,21 +1989,21 @@ CONTAINS
             jb = blk_no(k) ! block index
             jl = idx_no(k) ! line index
             ! This ensures that just the first point found at this irlev is saved as start point
-            IF (start_idx(irlev)==-9999) THEN
-              start_idx(irlev) = jl
-              start_blk(irlev) = jb
+            IF (start_index(irlev)==-9999) THEN
+              start_index(irlev) = jl
+              start_block(irlev) = jb
             ENDIF
-            end_idx(irlev) = jl
-            end_blk(irlev) = jb
+            end_index(irlev) = jl
+            end_block(irlev) = jb
           END IF
         END DO
 
         ! Just in case that no grid point is found (may happen for ilev=1)
-        IF (.NOT. l_cell_correction .AND. start_idx(irlev)==-9999) THEN
-          start_idx(irlev) = end_idx(irlev+1)+1
-          start_blk(irlev) = end_blk(irlev+1)
-          end_idx(irlev)   = end_idx(irlev+1)
-          end_blk(irlev)   = end_blk(irlev+1)
+        IF (.NOT. l_cell_correction .AND. start_index(irlev)==-9999) THEN
+          start_index(irlev) = end_index(irlev+1)+1
+          start_block(irlev) = end_block(irlev+1)
+          end_index(irlev)   = end_index(irlev+1)
+          end_block(irlev)   = end_block(irlev+1)
         ENDIF
 
       ENDDO
@@ -2019,18 +2019,18 @@ CONTAINS
       IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
         DO ilev = 2, max_hw_cve, 2
           irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
-          start_idx(irlev) = end_idx(irlev+1) + 1
-          start_blk(irlev) = end_blk(irlev+1)
-          end_idx(irlev)   = end_idx(irlev+1)
-          end_blk(irlev)   = end_blk(irlev+1)
+          start_index(irlev) = end_index(irlev+1) + 1
+          start_block(irlev) = end_block(irlev+1)
+          end_index(irlev)   = end_index(irlev+1)
+          end_block(irlev)   = end_block(irlev+1)
         ENDDO
       ENDIF
       DO ilev = ilev_st,max_hw_cve
         irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
-        start_idx(irlev) = end_idx(ilev1) + 1
-        start_blk(irlev) = end_blk(ilev1)
-        end_idx(irlev)   = end_idx(ilev1)
-        end_blk(irlev)   = end_blk(ilev1)
+        start_index(irlev) = end_index(ilev1) + 1
+        start_block(irlev) = end_block(ilev1)
+        end_index(irlev)   = end_index(ilev1)
+        end_block(irlev)   = end_block(ilev1)
       ENDDO
     END SELECT
 
@@ -2044,18 +2044,18 @@ CONTAINS
         ! If a PE owns only nest boundary points, it may happen that
         ! one or more index sections of halo cells/verts/edges are
         ! empty. These are filled here
-        IF (start_blk(0)     > end_blk(min_rlcve_int) &
-             .OR. start_blk(0) == end_blk(min_rlcve_int) &
-             .AND. start_idx(0) > end_idx(min_rlcve_int) ) THEN
+        IF (start_block(0)     > end_block(min_rlcve_int) &
+             .OR. start_block(0) == end_block(min_rlcve_int) &
+             .AND. start_index(0) > end_index(min_rlcve_int) ) THEN
           DO i = min_rlcve_int-1, min_rlcve, -1
-            IF (start_idx(i) == -9999 .OR. &
-                 start_blk(i) == -9999 .OR. &
-                 end_idx(i)   == -9999 .OR. &
-                 end_blk(i)   == -9999 ) THEN
-              start_idx(i) = start_idx(i+1)
-              start_blk(i) = start_blk(i+1)
-              end_idx(i)   = end_idx(i+1)
-              end_blk(i)   = end_blk(i+1)
+            IF (start_index(i) == -9999 .OR. &
+                 start_block(i) == -9999 .OR. &
+                 end_index(i)   == -9999 .OR. &
+                 end_block(i)   == -9999 ) THEN
+              start_index(i) = start_index(i+1)
+              start_block(i) = start_block(i+1)
+              end_index(i)   = end_index(i+1)
+              end_block(i)   = end_block(i+1)
             ENDIF
           ENDDO
         ENDIF
@@ -2065,28 +2065,28 @@ CONTAINS
         ! splitting is applied)
         IF (nblks <= 0 .OR. npromz <= 0) THEN
           DO i=min_rlcve,min_rlcve_int-1
-            start_idx(i) = start_idx(min_rlcve_int)
-            start_blk(i) = start_blk(min_rlcve_int)
-            end_idx(i)   = end_idx(min_rlcve_int)
-            end_blk(i)   = end_blk(min_rlcve_int)
+            start_index(i) = start_index(min_rlcve_int)
+            start_block(i) = start_block(min_rlcve_int)
+            end_index(i)   = end_index(min_rlcve_int)
+            end_block(i)   = end_block(min_rlcve_int)
           ENDDO
         ENDIF
       END IF
       ! special treatment for sequential runs with trivial decomposition
       IF (exec_sequence == 0 .AND. SUM(n2_ilev(1:)) == 0) THEN
-        end_idx(min_rlcve:min_rlcve_int-1) &
-             = end_idx(min_rlcve_int)
-        end_blk(min_rlcve:min_rlcve_int-1) &
-             = end_blk(min_rlcve_int)
-        IF (end_idx(min_rlcve_int) == nproma) THEN
-          start_blk(min_rlcve:min_rlcve_int-1) = &
-               &   end_blk(min_rlcve_int) + 1
-          start_idx(min_rlcve:min_rlcve_int-1) = 1
+        end_index(min_rlcve:min_rlcve_int-1) &
+             = end_index(min_rlcve_int)
+        end_block(min_rlcve:min_rlcve_int-1) &
+             = end_block(min_rlcve_int)
+        IF (end_index(min_rlcve_int) == nproma) THEN
+          start_block(min_rlcve:min_rlcve_int-1) = &
+               &   end_block(min_rlcve_int) + 1
+          start_index(min_rlcve:min_rlcve_int-1) = 1
         ELSE
-          start_idx(min_rlcve:min_rlcve_int-1) = &
-               &    end_idx(min_rlcve_int) + 1
-          start_blk(min_rlcve:min_rlcve_int-1) = &
-               &   end_blk(min_rlcve_int)
+          start_index(min_rlcve:min_rlcve_int-1) = &
+               &    end_index(min_rlcve_int) + 1
+          start_block(min_rlcve:min_rlcve_int-1) = &
+               &   end_block(min_rlcve_int)
         END IF
       END IF
 
@@ -2102,8 +2102,8 @@ CONTAINS
        patch_id, nblks, npromz, cell_type, &
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
        flag2_list, n2_ilev, decomp_info, &
-       start_idx, start_blk, end_idx, end_blk, &
-       start_idx_g, start_blk_g, end_idx_g, end_blk_g, &
+       start_index, start_block, end_index, end_block, &
+       start_index_g, start_block_g, end_index_g, end_block_g, &
        order_type_of_halos, l_cell_correction)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
          patch_id, nblks, npromz, cell_type, &
@@ -2114,9 +2114,9 @@ CONTAINS
     TYPE(nb_flag_list_elem), INTENT(in) :: flag2_list(0:)
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:), INTENT(inout) :: &
-         start_idx, start_blk, end_idx, end_blk
+         start_index, start_block, end_index, end_block
     INTEGER, DIMENSION(min_rlcve:), INTENT(in) :: &
-         start_idx_g, start_blk_g, end_idx_g, end_blk_g
+         start_index_g, start_block_g, end_index_g, end_block_g
 
     INTEGER :: i, ilev, ilev1, ilev_st, irlev, j, exec_sequence
 
@@ -2136,7 +2136,7 @@ CONTAINS
       &                      decomp_info%glb_index(:), &
       &                      (/(i, i = 1, n_patch_cve)/))
 
-    ! Set start_idx/blk ... end_idx/blk for cells/verts/edges.
+    ! Set start_index/block ... end_index/block for cells/verts/edges.
     ! This must be done here since it depends on the special (monotonic)
     ! setting of the inner global indices.
 
@@ -2145,25 +2145,25 @@ CONTAINS
     DO i=min_rlcve_int,max_rlcve
 !CDIR IEXPAND
       CALL get_local_idx_blk(decomp_info, &
-        & start_idx_g(i),             &
-        & start_blk_g(i),             &
-        & start_idx(i),               &
-        & start_blk(i),               &
+        & start_index_g(i),             &
+        & start_block_g(i),             &
+        & start_index(i),               &
+        & start_block(i),               &
         & +1 )
 !CDIR IEXPAND
       CALL get_local_idx_blk(decomp_info, &
-        & end_idx_g(i),               &
-        & end_blk_g(i),               &
-        & end_idx(i),                 &
-        & end_blk(i),                 &
+        & end_index_g(i),               &
+        & end_block_g(i),               &
+        & end_index(i),                 &
+        & end_block(i),                 &
         & -1 )
     ENDDO
 
     ! Preset remaining index sections with dummy values
-    start_idx(min_rlcve:min_rlcve_int-1) = -9999
-    start_blk(min_rlcve:min_rlcve_int-1) = -9999
-    end_idx(min_rlcve:min_rlcve_int-1)   = -9999
-    end_blk(min_rlcve:min_rlcve_int-1)   = -9999
+    start_index(min_rlcve:min_rlcve_int-1) = -9999
+    start_block(min_rlcve:min_rlcve_int-1) = -9999
+    end_index(min_rlcve:min_rlcve_int-1)   = -9999
+    end_block(min_rlcve:min_rlcve_int-1)   = -9999
 
     SELECT CASE(order_type_of_halos)
     CASE (0,2)
@@ -2174,10 +2174,10 @@ CONTAINS
       irlev = min_rlcve_int-1
 
       ! Set end index when the last point is processed
-      start_idx(min_rlcve:irlev-1) = start_idx(irlev)
-      start_blk(min_rlcve:irlev-1) = start_blk(irlev)
-      end_idx(min_rlcve:irlev) = idx_no(n_patch_cve)
-      end_blk(min_rlcve:irlev) = blk_no(n_patch_cve)
+      start_index(min_rlcve:irlev-1) = start_index(irlev)
+      start_block(min_rlcve:irlev-1) = start_block(irlev)
+      end_index(min_rlcve:irlev) = idx_no(n_patch_cve)
+      end_block(min_rlcve:irlev) = blk_no(n_patch_cve)
 
     CASE(1)
       ! Gather all halo cells/verts/edges except those lying in the lateral boundary interpolation zone
@@ -2190,10 +2190,10 @@ CONTAINS
 
       ! Just in case that no grid point is found (may happen for ilev=1)
       IF (.NOT. l_cell_correction) THEN
-        start_idx(irlev) = end_idx(irlev+1)+1
-        start_blk(irlev) = end_blk(irlev+1)
-        end_idx(irlev)   = end_idx(irlev+1)
-        end_blk(irlev)   = end_blk(irlev+1)
+        start_index(irlev) = end_index(irlev+1)+1
+        start_block(irlev) = end_block(irlev+1)
+        end_index(irlev)   = end_index(irlev+1)
+        end_block(irlev)   = end_block(irlev+1)
       ENDIF
 
       ! Fill start and end indices for remaining index sections
@@ -2207,18 +2207,18 @@ CONTAINS
       IF (l_cell_correction .AND. cell_type==6) THEN ! for hexagons, there are no even-order halo cells
         DO ilev = 2, max_hw_cve, 2
           irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
-          start_idx(irlev) = end_idx(irlev+1) + 1
-          start_blk(irlev) = end_blk(irlev+1)
-          end_idx(irlev)   = end_idx(irlev+1)
-          end_blk(irlev)   = end_blk(irlev+1)
+          start_index(irlev) = end_index(irlev+1) + 1
+          start_block(irlev) = end_block(irlev+1)
+          end_index(irlev)   = end_index(irlev+1)
+          end_block(irlev)   = end_block(irlev+1)
         ENDDO
       ENDIF
       DO ilev = ilev_st,max_hw_cve
         irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
-        start_idx(irlev) = end_idx(ilev1) + 1
-        start_blk(irlev) = end_blk(ilev1)
-        end_idx(irlev)   = end_idx(ilev1)
-        end_blk(irlev)   = end_blk(ilev1)
+        start_index(irlev) = end_index(ilev1) + 1
+        start_block(irlev) = end_block(ilev1)
+        end_index(irlev)   = end_index(ilev1)
+        end_block(irlev)   = end_block(ilev1)
       ENDDO
     END SELECT
 
@@ -2232,18 +2232,18 @@ CONTAINS
         ! If a PE owns only nest boundary points, it may happen that
         ! one or more index sections of halo cells/verts/edges are
         ! empty. These are filled here
-        IF (start_blk(0)     > end_blk(min_rlcve_int) &
-             .OR. start_blk(0) == end_blk(min_rlcve_int) &
-             .AND. start_idx(0) > end_idx(min_rlcve_int) ) THEN
+        IF (start_block(0)     > end_block(min_rlcve_int) &
+             .OR. start_block(0) == end_block(min_rlcve_int) &
+             .AND. start_index(0) > end_index(min_rlcve_int) ) THEN
           DO i = min_rlcve_int-1, min_rlcve, -1
-            IF (start_idx(i) == -9999 .OR. &
-                 start_blk(i) == -9999 .OR. &
-                 end_idx(i)   == -9999 .OR. &
-                 end_blk(i)   == -9999 ) THEN
-              start_idx(i) = start_idx(i+1)
-              start_blk(i) = start_blk(i+1)
-              end_idx(i)   = end_idx(i+1)
-              end_blk(i)   = end_blk(i+1)
+            IF (start_index(i) == -9999 .OR. &
+                 start_block(i) == -9999 .OR. &
+                 end_index(i)   == -9999 .OR. &
+                 end_block(i)   == -9999 ) THEN
+              start_index(i) = start_index(i+1)
+              start_block(i) = start_block(i+1)
+              end_index(i)   = end_index(i+1)
+              end_block(i)   = end_block(i+1)
             ENDIF
           ENDDO
         ENDIF
@@ -2253,28 +2253,28 @@ CONTAINS
         ! splitting is applied)
         IF (nblks <= 0 .OR. npromz <= 0) THEN
           DO i=min_rlcve,min_rlcve_int-1
-            start_idx(i) = start_idx(min_rlcve_int)
-            start_blk(i) = start_blk(min_rlcve_int)
-            end_idx(i)   = end_idx(min_rlcve_int)
-            end_blk(i)   = end_blk(min_rlcve_int)
+            start_index(i) = start_index(min_rlcve_int)
+            start_block(i) = start_block(min_rlcve_int)
+            end_index(i)   = end_index(min_rlcve_int)
+            end_block(i)   = end_block(min_rlcve_int)
           ENDDO
         ENDIF
       END IF
       ! special treatment for sequential runs with trivial decomposition
       IF (exec_sequence == 0 .AND. SUM(n2_ilev(1:)) == 0) THEN
-        end_idx(min_rlcve:min_rlcve_int-1) &
-             = end_idx(min_rlcve_int)
-        end_blk(min_rlcve:min_rlcve_int-1) &
-             = end_blk(min_rlcve_int)
-        IF (end_idx(min_rlcve_int) == nproma) THEN
-          start_blk(min_rlcve:min_rlcve_int-1) = &
-               &   end_blk(min_rlcve_int) + 1
-          start_idx(min_rlcve:min_rlcve_int-1) = 1
+        end_index(min_rlcve:min_rlcve_int-1) &
+             = end_index(min_rlcve_int)
+        end_block(min_rlcve:min_rlcve_int-1) &
+             = end_block(min_rlcve_int)
+        IF (end_index(min_rlcve_int) == nproma) THEN
+          start_block(min_rlcve:min_rlcve_int-1) = &
+               &   end_block(min_rlcve_int) + 1
+          start_index(min_rlcve:min_rlcve_int-1) = 1
         ELSE
-          start_idx(min_rlcve:min_rlcve_int-1) = &
-               &    end_idx(min_rlcve_int) + 1
-          start_blk(min_rlcve:min_rlcve_int-1) = &
-               &   end_blk(min_rlcve_int)
+          start_index(min_rlcve:min_rlcve_int-1) = &
+               &    end_index(min_rlcve_int) + 1
+          start_block(min_rlcve:min_rlcve_int-1) = &
+               &   end_block(min_rlcve_int)
         END IF
       END IF
     END DO
@@ -2871,23 +2871,6 @@ CONTAINS
     IF(ipiv<n-1) CALL sort_array_by_row(x(:,ipiv+1:),y(:,ipiv+1:),row)
 
   END SUBROUTINE sort_array_by_row
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Utility function: Compute number of points in nproma-based array
-  !!
-  !! @par Revision History
-  !! F. Prill, Nov 2011
-  !!
-  FUNCTION count_entries(start_blk, start_idx, &
-    &                    end_blk, end_idx)
-    INTEGER :: count_entries
-    INTEGER, INTENT(IN) :: start_blk, start_idx, end_blk, end_idx
-
-    count_entries = nproma * (end_blk - start_blk)  &
-      &             + end_idx - start_idx + 1
-  END FUNCTION count_entries
 
 
 #ifdef HAVE_METIS
