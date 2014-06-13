@@ -904,7 +904,8 @@ CONTAINS
 
       wrk_p_patch%cells%parent_idx(jl,jb)  = idx_no(jc_p)
       wrk_p_patch%cells%parent_blk(jl,jb)  = blk_no(jc_p)
-      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_pre%cells%pc_idx(jl_g,jb_g)
+
+      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_pre%cells%pc_idx(jc)
       wrk_p_patch%cells%child_idx(jl,jb,1:4) = wrk_p_patch_pre%cells%child_idx(jl_g,jb_g,1:4)
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = wrk_p_patch_pre%cells%child_blk(jl_g,jb_g,1:4)
       wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_pre%cells%child_id(jl_g,jb_g)

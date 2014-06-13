@@ -665,7 +665,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen, ip
+    INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen, ip, j
 
     !-----------------------------------------------------------------------
 
@@ -673,7 +673,7 @@ CONTAINS
 
       jgp = patch_pre(jg)%parent_id
 
-      patch_pre(jg)%cells%pc_idx(:,:) = 0
+      patch_pre(jg)%cells%pc_idx(:) = 0
       patch_pre(jg)%edges%pc_idx(:,:) = 0
 
       DO jb = 1, patch_pre(jg)%nblks_c
@@ -686,19 +686,20 @@ CONTAINS
 
         DO jl = 1, nlen
 
-          ip = patch_pre(jg)%cells%parent(idx_1d(jl,jb))
+          j = idx_1d(jl, jb)
+          ip = patch_pre(jg)%cells%parent(j)
           ilp = idx_no(ip)
           ibp = blk_no(ip)
 
           IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,1) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%cells%pc_idx(jl,jb) = 1
+            & patch_pre(jgp)%cells%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%cells%pc_idx(j) = 1
           IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,2) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%cells%pc_idx(jl,jb) = 2
+            & patch_pre(jgp)%cells%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%cells%pc_idx(j) = 2
           IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,3) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%cells%pc_idx(jl,jb) = 3
+            & patch_pre(jgp)%cells%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%cells%pc_idx(j) = 3
           IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,4) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%cells%pc_idx(jl,jb) = 4
-!          IF(patch_pre(jg)%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+            & patch_pre(jgp)%cells%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%cells%pc_idx(j) = 4
+!          IF(patch_pre(jg)%cells%pc_idx(j) == 0) CALL finish('set_pc_idx','cells%pc_idx')
 
         ENDDO
 

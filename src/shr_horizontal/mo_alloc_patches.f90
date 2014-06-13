@@ -624,7 +624,7 @@ CONTAINS
     !
     ALLOCATE( p_patch_pre%cells%num_edges(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%parent(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%pc_idx(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%pc_idx(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%child_idx(nproma,p_patch_pre%alloc_cell_blocks,4) )
     ALLOCATE( p_patch_pre%cells%child_blk(nproma,p_patch_pre%alloc_cell_blocks,4) )
     ALLOCATE( p_patch_pre%cells%child_id(nproma,p_patch_pre%alloc_cell_blocks) )

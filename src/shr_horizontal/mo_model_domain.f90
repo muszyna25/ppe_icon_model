@@ -322,8 +322,7 @@ MODULE mo_model_domain
     ! index of parent triangle:
     INTEGER, ALLOCATABLE :: parent(:)
     ! parent child index, number of current cell in parent's child_idx/child_blk:
-    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: pc_idx(:,:)
+    INTEGER, ALLOCATABLE :: pc_idx(:)
 
     ! line indices of child triangles:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,4
