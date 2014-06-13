@@ -947,7 +947,7 @@ CONTAINS
 
       wrk_p_patch%edges%parent_idx(jl,jb)    = idx_no(jpg)
       wrk_p_patch%edges%parent_blk(jl,jb)    = blk_no(jpg)
-      wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_pre%edges%pc_idx(jl_g,jb_g)
+      wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_pre%edges%pc_idx(jg)
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = wrk_p_patch_pre%edges%child_idx(jl_g,jb_g,1:4)
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = wrk_p_patch_pre%edges%child_blk(jl_g,jb_g,1:4)
       wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jl_g,jb_g)

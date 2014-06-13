@@ -642,7 +642,7 @@ CONTAINS
     ! !grid edges
     !
     ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
-    ALLOCATE( p_patch_pre%edges%pc_idx(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%pc_idx(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%child_idx(nproma,p_patch_pre%nblks_e,4) )
     ALLOCATE( p_patch_pre%edges%child_blk(nproma,p_patch_pre%nblks_e,4) )
     ALLOCATE( p_patch_pre%edges%child_id(nproma,p_patch_pre%nblks_e) )

@@ -674,7 +674,7 @@ CONTAINS
       jgp = patch_pre(jg)%parent_id
 
       patch_pre(jg)%cells%pc_idx(:) = 0
-      patch_pre(jg)%edges%pc_idx(:,:) = 0
+      patch_pre(jg)%edges%pc_idx(:) = 0
 
       DO j = 1, patch_pre(jg)%n_patch_cells_g
 
@@ -698,14 +698,14 @@ CONTAINS
         ibp = blk_no(ip)
 
         IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 1
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%edges%pc_idx(j) = 1
         IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 2
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%edges%pc_idx(j) = 2
         IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,3) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 3
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%edges%pc_idx(j) = 3
         IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 4
-!          IF(patch_pre(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%edges%pc_idx(j) = 4
+!          IF(patch_pre(jg)%edges%pc_idx(j) == 0) CALL finish('set_pc_idx','edges%pc_idx')
 
       ENDDO
 

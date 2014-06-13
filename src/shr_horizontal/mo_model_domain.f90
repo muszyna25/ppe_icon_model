@@ -583,9 +583,8 @@ MODULE mo_model_domain
 
     ! index of parent edge:
     INTEGER, ALLOCATABLE :: parent(:)
-    ! parent child index, number of current edge in parent's child_idx/child_blk:
-    ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: pc_idx(:,:)
+    ! parent child index, number of current edge in parent's child:
+    INTEGER, ALLOCATABLE :: pc_idx(:)
 
     ! line indices of child edges:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
