@@ -896,9 +896,6 @@ CONTAINS
 
       jg = wrk_p_patch%cells%decomp_info%glb_index(j)
 
-      jb_g = blk_no(jg) ! Block index in global patch
-      jl_g = idx_no(jg) ! Line  index in global patch
-
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
@@ -915,10 +912,9 @@ CONTAINS
 
       wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges( &
         wrk_p_patch%cells%decomp_info%glb_index(j))
-
       wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jg)%lat
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jg)%lon
-      wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jg)
       wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_pre%cells%child_id(jg)
     ENDDO
 
@@ -939,8 +935,10 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Block index in patch
-      jl_g = idx_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Line  index in patch
+      jg = wrk_p_patch%edges%decomp_info%glb_index(j)
+
+      jb_g = blk_no(jg) ! Block index in global patch
+      jl_g = idx_no(jg) ! Line  index in global patch
 
       ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
@@ -952,7 +950,7 @@ CONTAINS
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = wrk_p_patch_pre%edges%child_blk(jl_g,jb_g,1:4)
       wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jl_g,jb_g)
 
-      wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jg)
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows + 1
@@ -972,12 +970,14 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Block index in patch
-      jl_g = idx_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Line  index in patch
+      jg = wrk_p_patch%verts%decomp_info%glb_index(j)
+
+      jb_g = blk_no(jg) ! Block index in global patch
+      jl_g = idx_no(jg) ! Line  index in global patch
 
       wrk_p_patch%verts%vertex(jl,jb)%lat    = wrk_p_patch_pre%verts%vertex(jl_g,jb_g)%lat
       wrk_p_patch%verts%vertex(jl,jb)%lon    = wrk_p_patch_pre%verts%vertex(jl_g,jb_g)%lon
-      wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_pre%verts%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_pre%verts%refin_ctrl(jg)
     ENDDO
 
     DO j = 0, n_boundary_rows + 1
@@ -1824,7 +1824,7 @@ CONTAINS
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
     INTEGER, INTENT(in) :: order_type_of_halos
     LOGICAL, INTENT(in) :: l_cell_correction
-    INTEGER, INTENT(in) :: refin_ctrl(:, :), n2_ilev(0:)
+    INTEGER, INTENT(in) :: refin_ctrl(:), n2_ilev(0:)
     TYPE(nb_flag_list_elem), INTENT(in) :: flag2_list(0:)
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:), INTENT(inout) :: &
@@ -1886,9 +1886,7 @@ CONTAINS
       j = 0
       DO WHILE (j < n_patch_cve_g .AND. jf <= n_patch_cve)
         j = temp_glb_index(jf)
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-        irl0 = refin_ctrl(jl,jb)
+        irl0 = refin_ctrl(j)
         IF (refinement_predicate(temp_ilev(jf), irl0)) THEN
           decomp_info%glb_index(k) = j
           decomp_info%owner_local(k) = temp_owner(jf)
@@ -1983,9 +1981,7 @@ CONTAINS
         irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
         DO j = 1, n2_ilev(ilev)
           jf = flag2_list(ilev)%idx(j)
-          jb = blk_no(jf) ! block index
-          jl = idx_no(jf) ! line index
-          irl0 = refin_ctrl(jl,jb)
+          irl0 = refin_ctrl(jf)
           IF (.NOT. refinement_predicate(ilev, irl0)) THEN
             k = k + 1
             decomp_info%glb_index(k) = jf
@@ -2588,14 +2584,11 @@ CONTAINS
           ! Skip cell if it is not in subset or does not belong to current physical domain
           IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
 
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-
           ! Disregard outer nest boundary points for the time being. They do very little
           ! computational work, so they can be added to the closest PEs afterwards
-          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(jl,jb) == -1   .OR.     &
-              .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(jl,jb) >= 1 .AND. &
-               wrk_p_patch_pre%cells%refin_ctrl(jl,jb) <= 3 .AND. .NOT. locean) THEN
+          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) == -1   .OR.     &
+              .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) >= 1 .AND. &
+               wrk_p_patch_pre%cells%refin_ctrl(j) <= 3 .AND. .NOT. locean) THEN
             nn = nn+1
             cell_desc(3,npt-nn) = REAL(j,wp)
             CYCLE
@@ -2670,11 +2663,9 @@ CONTAINS
 
       DO j = 1, wrk_p_patch_pre%n_patch_cells_g
         IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
-          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(jl,jb) /= -1   .OR.     &
-              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(jl,jb) <= 0 .OR. &
-               wrk_p_patch_pre%cells%refin_ctrl(jl,jb) >= 4) .OR. locean) THEN
+          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) /= -1   .OR.     &
+              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(j) <= 0 .OR. &
+               wrk_p_patch_pre%cells%refin_ctrl(j) >= 4) .OR. locean) THEN
             nc = nc+1
             owner(j) = NINT(cell_desc(4,nc))
           ENDIF

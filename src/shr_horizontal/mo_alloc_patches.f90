@@ -632,7 +632,7 @@ CONTAINS
     ALLOCATE( p_patch_pre%cells%edge(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%vertex(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%center(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%refin_ctrl(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%refin_ctrl(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
     ALLOCATE( p_patch_pre%cells%end_idx(min_rlcell:max_rlcell,max_childdom) )
     ALLOCATE( p_patch_pre%cells%start_blk(min_rlcell:max_rlcell,max_childdom) )
@@ -651,7 +651,7 @@ CONTAINS
     ALLOCATE( p_patch_pre%edges%child_idx(nproma,p_patch_pre%nblks_e,4) )
     ALLOCATE( p_patch_pre%edges%child_blk(nproma,p_patch_pre%nblks_e,4) )
     ALLOCATE( p_patch_pre%edges%child_id(nproma,p_patch_pre%nblks_e) )
-    ALLOCATE( p_patch_pre%edges%refin_ctrl(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%refin_ctrl(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%start_idx(min_rledge:max_rledge,max_childdom) )
     ALLOCATE( p_patch_pre%edges%end_idx(min_rledge:max_rledge,max_childdom) )
     ALLOCATE( p_patch_pre%edges%start_blk(min_rledge:max_rledge,max_childdom) )
@@ -669,7 +669,7 @@ CONTAINS
     ! !grid verts
     !
     ALLOCATE( p_patch_pre%verts%vertex(nproma,p_patch_pre%nblks_v) )
-    ALLOCATE( p_patch_pre%verts%refin_ctrl(nproma,p_patch_pre%nblks_v) )
+    ALLOCATE( p_patch_pre%verts%refin_ctrl(p_patch_pre%n_patch_verts_g) )
     ALLOCATE( p_patch_pre%verts%start_idx(min_rlvert:max_rlvert,max_childdom) )
     ALLOCATE( p_patch_pre%verts%end_idx(min_rlvert:max_rlvert,max_childdom) )
     ALLOCATE( p_patch_pre%verts%start_blk(min_rlvert:max_rlvert,max_childdom) )

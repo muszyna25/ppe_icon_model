@@ -351,8 +351,7 @@ MODULE mo_model_domain
     TYPE(t_geographical_coordinates), ALLOCATABLE :: center(:)
 
     ! refinement control flag
-    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
+    INTEGER, ALLOCATABLE :: refin_ctrl(:)
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants), index2=n_childdom
@@ -625,8 +624,7 @@ MODULE mo_model_domain
     ! edges geometry
 
     ! refinement control flag
-    ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
+    INTEGER, ALLOCATABLE :: refin_ctrl(:)
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge (defined in mo_impl_constants), index2=n_childdom
@@ -762,8 +760,7 @@ MODULE mo_model_domain
     TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:,:)
 
     ! refinement control flag
-    ! index1=1,nproma, index2=1,nblks_v
-    INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
+    INTEGER, ALLOCATABLE :: refin_ctrl(:)
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants), index2=n_childdom

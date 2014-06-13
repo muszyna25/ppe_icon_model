@@ -1139,11 +1139,9 @@ CONTAINS
         & 'nesting incompatible with non-triangular grid')
     ENDIF
 
-    ! patch_pre%cells%refin_ctrl(:,:)
+    ! patch_pre%cells%refin_ctrl(:)
     CALL nf(nf_inq_varid(ncid, 'refin_c_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-    CALL reshape_int( array_c_int(:,1), patch_pre%nblks_c, &
-      & patch_pre%npromz_c, patch_pre%cells%refin_ctrl(:,:) )
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%refin_ctrl(:)))
 
     ! patch_pre%edges%parent_idx(:,:)
     ! patch_pre%edges%parent_blk(:,:)
@@ -1187,17 +1185,13 @@ CONTAINS
     CALL reshape_int( array_e_int(:,1), patch_pre%nblks_e, patch_pre%npromz_e, &
       & patch_pre%edges%child_id(:,:) )
 
-    ! patch_pre%edges%refin_ctrl(:,:)
+    ! patch_pre%edges%refin_ctrl(:)
     CALL nf(nf_inq_varid(ncid, 'refin_e_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-    CALL reshape_int( array_e_int(:,1), patch_pre%nblks_e, patch_pre%npromz_e, &
-      & patch_pre%edges%refin_ctrl(:,:) )
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%refin_ctrl(:)))
 
-    ! patch_pre%verts%refin_ctrl(:,:)
+    ! patch_pre%verts%refin_ctrl(:)
     CALL nf(nf_inq_varid(ncid, 'refin_v_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
-    CALL reshape_int( array_v_int(:,1), patch_pre%nblks_v, patch_pre%npromz_v, &
-      & patch_pre%verts%refin_ctrl(:,:) )
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%verts%refin_ctrl(:)))
 
     ! BEGIN NEW SUBDIV
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
