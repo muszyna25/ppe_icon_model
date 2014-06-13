@@ -655,7 +655,7 @@ CONTAINS
     !
     ! !grid verts
     !
-    ALLOCATE( p_patch_pre%verts%vertex(nproma,p_patch_pre%nblks_v) )
+    ALLOCATE( p_patch_pre%verts%vertex(p_patch_pre%n_patch_verts_g) )
     ALLOCATE( p_patch_pre%verts%refin_ctrl(p_patch_pre%n_patch_verts_g) )
     ALLOCATE( p_patch_pre%verts%cell(p_patch_pre%n_patch_verts_g,6) )
     ALLOCATE( p_patch_pre%verts%num_edges(p_patch_pre%n_patch_verts_g) )
@@ -693,8 +693,8 @@ CONTAINS
     p_patch_pre%edges%start_block = 0
     p_patch_pre%edges%end_block = 0
 
-    p_patch_pre%verts%vertex(:,:)%lon = 0._wp
-    p_patch_pre%verts%vertex(:,:)%lat = 0._wp
+    p_patch_pre%verts%vertex(:)%lon = 0._wp
+    p_patch_pre%verts%vertex(:)%lat = 0._wp
     p_patch_pre%verts%refin_ctrl = 0
     p_patch_pre%verts%cell = 0
     p_patch_pre%verts%num_edges = 0

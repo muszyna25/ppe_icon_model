@@ -1063,17 +1063,13 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
     CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lat))
 
-    ! patch_pre%verts%vertex(:,:)%lon
+    ! patch_pre%verts%vertex(:)%lon
     CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-    CALL reshape_real( array_v_real(:,1), patch_pre%nblks_v, &
-      & patch_pre%npromz_v, patch_pre%verts%vertex(:,:)%lon )
+    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lon))
 
-    ! patch_pre%verts%vertex(:,:)%lat
+    ! patch_pre%verts%vertex(:)%lat
     CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-    CALL reshape_real( array_v_real(:,1), patch_pre%nblks_v, &
-      & patch_pre%npromz_v, patch_pre%verts%vertex(:,:)%lat )
+    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lat))
 
     !------------------------------------------
     ! nesting/lateral boundary indexes

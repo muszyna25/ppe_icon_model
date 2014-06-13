@@ -724,8 +724,7 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: num_edges(:)
 
     ! longitude & latitude of vertex:
-    ! index1=1,nproma, index2=1,nblks_v
-    TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:,:)
+    TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:)
 
     ! refinement control flag
     INTEGER, ALLOCATABLE :: refin_ctrl(:)

@@ -972,12 +972,8 @@ CONTAINS
 
       jg = wrk_p_patch%verts%decomp_info%glb_index(j)
 
-      jb_g = blk_no(jg) ! Block index in global patch
-      jl_g = idx_no(jg) ! Line  index in global patch
-
-      wrk_p_patch%verts%vertex(jl,jb)%lat    = wrk_p_patch_pre%verts%vertex(jl_g,jb_g)%lat
-      wrk_p_patch%verts%vertex(jl,jb)%lon    = wrk_p_patch_pre%verts%vertex(jl_g,jb_g)%lon
-      wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_pre%verts%refin_ctrl(jg)
+      wrk_p_patch%verts%vertex(jl,jb)     = wrk_p_patch_pre%verts%vertex(jg)
+      wrk_p_patch%verts%refin_ctrl(jl,jb) = wrk_p_patch_pre%verts%refin_ctrl(jg)
     ENDDO
 
     DO j = 0, n_boundary_rows + 1
@@ -2579,18 +2575,14 @@ CONTAINS
           IF (cell_desc(1,nc) >= 0._wp) THEN
             DO i = 1, 3
               jv = wrk_p_patch_pre%cells%vertex(j,i)
-              jl_v = idx_no(jv)
-              jb_v = blk_no(jv)
-              cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lat)
-              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lon)
+              cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jv)%lat)
+              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jv)%lon)
             ENDDO
           ELSE
             DO i = 1, 3
               jv = wrk_p_patch_pre%cells%vertex(j,i)
-              jl_v = idx_no(jv)
-              jb_v = blk_no(jv)
-              cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lat)
-              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lon)
+              cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jv)%lat)
+              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jv)%lon)
             ENDDO
           ENDIF
 
@@ -2986,12 +2978,8 @@ CONTAINS
         patch_pre%cells%vertex(cell,1:3)
     ENDDO
 
-    DO vertex = 1, no_of_verts
-      jb = blk_no(vertex) ! block index
-      jl = idx_no(vertex) ! line index
-      decomposition_struct%vertex_geo_coord(vertex)%lat = patch_pre%verts%vertex(jl,jb)%lat
-      decomposition_struct%vertex_geo_coord(vertex)%lon = patch_pre%verts%vertex(jl,jb)%lon
-    ENDDO
+    decomposition_struct%vertex_geo_coord(1:no_of_verts) = &
+      patch_pre%verts%vertex(1:no_of_verts)
 
     NULLIFY(decomposition_struct%cell_cartesian_center)
     CALL geographical_to_cartesian(decomposition_struct%cell_geo_center, no_of_cells, &
