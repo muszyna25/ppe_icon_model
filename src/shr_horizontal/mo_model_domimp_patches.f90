@@ -97,8 +97,8 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, t_grid_cells, &
-                                   t_grid_edges, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
+                                   t_pre_grid_edges, p_patch_local_parent
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_valid_local_index
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &

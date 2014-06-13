@@ -97,7 +97,7 @@ MODULE mo_model_domain
 
   PUBLIC :: t_patch, t_pre_patch
   PUBLIC :: t_grid_cells, t_pre_grid_cells
-  PUBLIC :: t_grid_edges
+  PUBLIC :: t_grid_edges, t_pre_grid_edges
   PUBLIC :: t_grid_vertices
   PUBLIC :: t_phys_patch
   PUBLIC :: t_subset_range, t_subset_range_index, t_subset_indexed
@@ -606,6 +606,72 @@ MODULE mo_model_domain
 
   END TYPE t_grid_edges
 
+  TYPE t_pre_grid_edges
+
+    ! line index of parent edge:
+    ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, ALLOCATABLE :: parent_idx(:,:)
+    ! block index of parent edge:
+    ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, ALLOCATABLE :: parent_blk(:,:)
+    ! parent child index, number of current edge in parent's child_idx/child_blk:
+    ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, ALLOCATABLE :: pc_idx(:,:)
+
+    ! line indices of child edges:
+    ! index1=1,nproma, index2=1,nblks_e, index3=1,4
+    INTEGER, ALLOCATABLE :: child_idx(:,:,:)
+    ! block indices of child edges:
+    ! index1=1,nproma, index2=1,nblks_e, index3=1,4
+    INTEGER, ALLOCATABLE :: child_blk(:,:,:)
+    ! domain ID of child edges:
+    ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, ALLOCATABLE :: child_id(:,:)
+
+    ! line indices of adjacent cells:
+    ! index1=1,nproma, index2=1,nblks_e, index3=1,2
+    INTEGER, ALLOCATABLE :: cell_idx(:,:,:)
+    ! block indices of adjacent cells:
+    ! index1=1,nproma, index2=1,nblks_e, index3=1,2
+    INTEGER, ALLOCATABLE :: cell_blk(:,:,:)
+
+    ! line indices of edge vertices:
+    ! vertex indices 3 and 4 are the non-edge-aligned vertices of cells 1 and 2
+    ! index1=1,nproma, index2=1,nblks_e, index3=1,4
+    INTEGER, ALLOCATABLE :: vertex_idx(:,:,:)
+    ! block indices of edge vertices:
+    ! index1=1,nproma, index2=1,nblks_e, index3=1,4
+    INTEGER, ALLOCATABLE :: vertex_blk(:,:,:)
+
+    !-------------------------------------------------
+    ! edges geometry
+
+    ! refinement control flag
+    ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
+
+    ! list of start indices for each refin_ctrl level
+    ! index1=min_rledge,max_rledge (defined in mo_impl_constants), index2=n_childdom
+    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
+
+    ! list of end indices for each refin_ctrl level
+    ! index1=min_rledge,max_rledge, index2=n_childdom
+    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
+
+    ! list of start block for each refin_ctrl level
+    ! index1=min_rledge,max_rledge, index2=n_childdom
+    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
+
+    ! list of end block for each refin_ctrl level
+    ! index1=min_rledge,max_rledge, index2=n_childdom
+    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
+
+  END TYPE t_pre_grid_edges
+
   !  !grid_vertices class
 
   TYPE t_grid_vertices
@@ -978,7 +1044,7 @@ MODULE mo_model_domain
     ! ! grid information on the patch
     !
     TYPE(t_pre_grid_cells) :: cells
-    TYPE(t_grid_edges) :: edges
+    TYPE(t_pre_grid_edges) :: edges
     TYPE(t_grid_vertices) :: verts
 
   END TYPE t_pre_patch
