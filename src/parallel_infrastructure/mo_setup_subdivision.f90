@@ -725,10 +725,8 @@ CONTAINS
          start_block = wrk_p_patch%cells%start_block, &
          end_index = wrk_p_patch%cells%end_index, &
          end_block = wrk_p_patch%cells%end_block, &
-         start_index_g = wrk_p_patch_pre%cells%start_index, &
-         start_block_g = wrk_p_patch_pre%cells%start_block, &
-         end_index_g = wrk_p_patch_pre%cells%end_index, &
-         end_block_g = wrk_p_patch_pre%cells%end_block, &
+         start_g = wrk_p_patch_pre%cells%start, &
+         end_g = wrk_p_patch_pre%cells%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .TRUE., &
          refin_ctrl = wrk_p_patch_pre%cells%refin_ctrl, &
@@ -752,10 +750,8 @@ CONTAINS
          start_block = wrk_p_patch%edges%start_block, &
          end_index = wrk_p_patch%edges%end_index, &
          end_block = wrk_p_patch%edges%end_block, &
-         start_index_g = wrk_p_patch_pre%edges%start_index, &
-         start_block_g = wrk_p_patch_pre%edges%start_block, &
-         end_index_g = wrk_p_patch_pre%edges%end_index, &
-         end_block_g = wrk_p_patch_pre%edges%end_block, &
+         start_g = wrk_p_patch_pre%edges%start, &
+         end_g = wrk_p_patch_pre%edges%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
          refin_ctrl = wrk_p_patch_pre%edges%refin_ctrl, &
@@ -779,10 +775,8 @@ CONTAINS
          start_block = wrk_p_patch%verts%start_block, &
          end_index = wrk_p_patch%verts%end_index, &
          end_block = wrk_p_patch%verts%end_block, &
-         start_index_g = wrk_p_patch_pre%verts%start_index, &
-         start_block_g = wrk_p_patch_pre%verts%start_block, &
-         end_index_g = wrk_p_patch_pre%verts%end_index, &
-         end_block_g = wrk_p_patch_pre%verts%end_block, &
+         start_g = wrk_p_patch_pre%verts%start, &
+         end_g = wrk_p_patch_pre%verts%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
          refin_ctrl = wrk_p_patch_pre%verts%refin_ctrl, &
@@ -1780,8 +1774,8 @@ CONTAINS
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
        flag2_list, n2_ilev, decomp_info, &
        start_index, start_block, end_index, end_block, &
-       start_index_g, start_block_g, end_index_g, end_block_g, &
-       order_type_of_halos, l_cell_correction, refin_ctrl, refinement_predicate)
+       start_g, end_g, order_type_of_halos, l_cell_correction, refin_ctrl, &
+       refinement_predicate)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
          patch_id, nblks, npromz, cell_type, &
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
@@ -1792,8 +1786,7 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:), INTENT(inout) :: &
          start_index, start_block, end_index, end_block
-    INTEGER, DIMENSION(min_rlcve:), INTENT(in) :: &
-         start_index_g, start_block_g, end_index_g, end_block_g
+    INTEGER, DIMENSION(min_rlcve:), INTENT(in) :: start_g, end_g
     INTERFACE
       FUNCTION refinement_predicate(flag, irl0) RESULT(p)
         INTEGER, INTENT(in) :: flag, irl0
@@ -1804,7 +1797,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::build_patch_start_end'
 
     INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jf, jl, &
-         exec_sequence, ref_flag, k, k_start, n_inner
+         exec_sequence, ref_flag, k, k_start, n_inner, temp
 
     INTEGER, ALLOCATABLE :: temp_glb_index(:), permutation(:), temp_ilev(:), &
       &                     temp_owner(:)
@@ -1816,8 +1809,7 @@ CONTAINS
         patch_id, nblks, npromz, cell_type, &
         min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
         flag2_list, n2_ilev, decomp_info, &
-        start_index, start_block, end_index, end_block, &
-        start_index_g, start_block_g, end_index_g, end_block_g, &
+        start_index, start_block, end_index, end_block, start_g, end_g, &
         order_type_of_halos, l_cell_correction)
       RETURN
     END IF
@@ -1876,19 +1868,13 @@ CONTAINS
     ! halo cells; they are set below
     DO i=min_rlcve_int,max_rlcve
 !CDIR IEXPAND
-      CALL get_local_idx_blk(decomp_info, &
-        & start_index_g(i),             &
-        & start_block_g(i),             &
-        & start_index(i),               &
-        & start_block(i),               &
-        & +1 )
+      CALL get_local_idx(decomp_info, start_g(i), temp, +1)
+      start_index(i) = idx_no(temp)
+      start_block(i) = blk_no(temp)
 !CDIR IEXPAND
-      CALL get_local_idx_blk(decomp_info, &
-        & end_index_g(i),               &
-        & end_block_g(i),               &
-        & end_index(i),                 &
-        & end_block(i),                 &
-        & -1 )
+      CALL get_local_idx(decomp_info, end_g(i), temp, -1)
+      end_index(i) = idx_no(temp)
+      end_block(i) = blk_no(temp)
     ENDDO
 
     ! Preset remaining index sections with dummy values
@@ -2065,8 +2051,7 @@ CONTAINS
        patch_id, nblks, npromz, cell_type, &
        min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve, &
        flag2_list, n2_ilev, decomp_info, &
-       start_index, start_block, end_index, end_block, &
-       start_index_g, start_block_g, end_index_g, end_block_g, &
+       start_index, start_block, end_index, end_block, start_g, end_g, &
        order_type_of_halos, l_cell_correction)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
          patch_id, nblks, npromz, cell_type, &
@@ -2078,10 +2063,9 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:), INTENT(inout) :: &
          start_index, start_block, end_index, end_block
-    INTEGER, DIMENSION(min_rlcve:), INTENT(in) :: &
-         start_index_g, start_block_g, end_index_g, end_block_g
+    INTEGER, DIMENSION(min_rlcve:), INTENT(in) :: start_g, end_g
 
-    INTEGER :: i, ilev, ilev1, ilev_st, irlev, exec_sequence
+    INTEGER :: i, ilev, ilev1, ilev_st, irlev, exec_sequence, temp
 
     ! if all cells/vertices/edges have flag == 0
     IF ((n2_ilev(0) /= n_patch_cve) .OR. (n2_ilev(0) /= n_patch_cve_g)) &
@@ -2107,19 +2091,13 @@ CONTAINS
     ! halo cells; they are set below
     DO i=min_rlcve_int,max_rlcve
 !CDIR IEXPAND
-      CALL get_local_idx_blk(decomp_info, &
-        & start_index_g(i),             &
-        & start_block_g(i),             &
-        & start_index(i),               &
-        & start_block(i),               &
-        & +1 )
+      CALL get_local_idx(decomp_info, start_g(i), temp, +1)
+      start_index(i) = idx_no(temp)
+      start_block(i) = blk_no(temp)
 !CDIR IEXPAND
-      CALL get_local_idx_blk(decomp_info, &
-        & end_index_g(i),               &
-        & end_block_g(i),               &
-        & end_index(i),                 &
-        & end_block(i),                 &
-        & -1 )
+      CALL get_local_idx(decomp_info, end_g(i), temp, -1)
+      end_index(i) = idx_no(temp)
+      end_block(i) = blk_no(temp)
     ENDDO
 
     ! Preset remaining index sections with dummy values

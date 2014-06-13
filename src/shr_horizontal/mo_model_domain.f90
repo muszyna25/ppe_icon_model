@@ -355,19 +355,11 @@ MODULE mo_model_domain
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants)
-    INTEGER, ALLOCATABLE :: start_index(:)
+    INTEGER, ALLOCATABLE :: start(:)
 
     ! list of end indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell
-    INTEGER, ALLOCATABLE :: end_index(:)
-
-    ! list of start block for each refin_ctrl level
-    ! index1=min_rlcell,max_rlcell
-    INTEGER, ALLOCATABLE :: start_block(:)
-
-    ! list of end block for each refin_ctrl level
-    ! index1=min_rlcell,max_rlcell
-    INTEGER, ALLOCATABLE :: end_block(:)
+    INTEGER, ALLOCATABLE :: end(:)
 
   END TYPE t_pre_grid_cells
 
@@ -604,19 +596,11 @@ MODULE mo_model_domain
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge (defined in mo_impl_constants)
-    INTEGER, ALLOCATABLE :: start_index(:)
+    INTEGER, ALLOCATABLE :: start(:)
 
     ! list of end indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge
-    INTEGER, ALLOCATABLE :: end_index(:)
-
-    ! list of start block for each refin_ctrl level
-    ! index1=min_rledge,max_rledge
-    INTEGER, ALLOCATABLE :: start_block(:)
-
-    ! list of end block for each refin_ctrl level
-    ! index1=min_rledge,max_rledge
-    INTEGER, ALLOCATABLE :: end_block(:)
+    INTEGER, ALLOCATABLE :: end(:)
 
   END TYPE t_pre_grid_edges
 
@@ -731,19 +715,11 @@ MODULE mo_model_domain
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants)
-    INTEGER, ALLOCATABLE :: start_index(:)
+    INTEGER, ALLOCATABLE :: start(:)
 
     ! list of end indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert
-    INTEGER, ALLOCATABLE :: end_index(:)
-
-    ! list of start block for each refin_ctrl level
-    ! index1=min_rlvert,max_rlvert
-    INTEGER, ALLOCATABLE :: start_block(:)
-
-    ! list of end block for each refin_ctrl level
-    ! index1=min_rlvert,max_rlvert
-    INTEGER, ALLOCATABLE :: end_block(:)
+    INTEGER, ALLOCATABLE :: end(:)
 
   END TYPE t_pre_grid_vertices
 

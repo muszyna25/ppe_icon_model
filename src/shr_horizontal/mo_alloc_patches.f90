@@ -633,10 +633,8 @@ CONTAINS
     ALLOCATE( p_patch_pre%cells%vertex(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%center(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%refin_ctrl(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%start_index(min_rlcell:max_rlcell) )
-    ALLOCATE( p_patch_pre%cells%end_index(min_rlcell:max_rlcell) )
-    ALLOCATE( p_patch_pre%cells%start_block(min_rlcell:max_rlcell) )
-    ALLOCATE( p_patch_pre%cells%end_block(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch_pre%cells%start(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch_pre%cells%end(min_rlcell:max_rlcell) )
 
     !
     ! !grid edges
@@ -647,10 +645,8 @@ CONTAINS
     ALLOCATE( p_patch_pre%edges%child_id(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%refin_ctrl(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%cell(p_patch_pre%n_patch_edges_g,2) )
-    ALLOCATE( p_patch_pre%edges%start_index(min_rledge:max_rledge) )
-    ALLOCATE( p_patch_pre%edges%end_index(min_rledge:max_rledge) )
-    ALLOCATE( p_patch_pre%edges%start_block(min_rledge:max_rledge) )
-    ALLOCATE( p_patch_pre%edges%end_block(min_rledge:max_rledge) )
+    ALLOCATE( p_patch_pre%edges%start(min_rledge:max_rledge) )
+    ALLOCATE( p_patch_pre%edges%end(min_rledge:max_rledge) )
 
     !
     ! !grid verts
@@ -659,10 +655,8 @@ CONTAINS
     ALLOCATE( p_patch_pre%verts%refin_ctrl(p_patch_pre%n_patch_verts_g) )
     ALLOCATE( p_patch_pre%verts%cell(p_patch_pre%n_patch_verts_g,6) )
     ALLOCATE( p_patch_pre%verts%num_edges(p_patch_pre%n_patch_verts_g) )
-    ALLOCATE( p_patch_pre%verts%start_index(min_rlvert:max_rlvert) )
-    ALLOCATE( p_patch_pre%verts%end_index(min_rlvert:max_rlvert) )
-    ALLOCATE( p_patch_pre%verts%start_block(min_rlvert:max_rlvert) )
-    ALLOCATE( p_patch_pre%verts%end_block(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch_pre%verts%start(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch_pre%verts%end(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0
 
     p_patch_pre%cells%num_edges = 0
@@ -677,10 +671,8 @@ CONTAINS
     p_patch_pre%cells%center(:)%lon = 0._wp
     p_patch_pre%cells%center(:)%lat = 0._wp
     p_patch_pre%cells%refin_ctrl = 0
-    p_patch_pre%cells%start_index = 0
-    p_patch_pre%cells%end_index = 0
-    p_patch_pre%cells%start_block = 0
-    p_patch_pre%cells%end_block = 0
+    p_patch_pre%cells%start = 0
+    p_patch_pre%cells%end = 0
 
     p_patch_pre%edges%parent = 0
     p_patch_pre%edges%pc_idx = 0
@@ -688,20 +680,16 @@ CONTAINS
     p_patch_pre%edges%child_id = 0
     p_patch_pre%edges%cell = 0
     p_patch_pre%edges%refin_ctrl = 0
-    p_patch_pre%edges%start_index = 0
-    p_patch_pre%edges%end_index = 0
-    p_patch_pre%edges%start_block = 0
-    p_patch_pre%edges%end_block = 0
+    p_patch_pre%edges%start = 0
+    p_patch_pre%edges%end = 0
 
     p_patch_pre%verts%vertex(:)%lon = 0._wp
     p_patch_pre%verts%vertex(:)%lat = 0._wp
     p_patch_pre%verts%refin_ctrl = 0
     p_patch_pre%verts%cell = 0
     p_patch_pre%verts%num_edges = 0
-    p_patch_pre%verts%start_index = 0
-    p_patch_pre%verts%end_index = 0
-    p_patch_pre%verts%start_block = 0
-    p_patch_pre%verts%end_block = 0
+    p_patch_pre%verts%start = 0
+    p_patch_pre%verts%end = 0
 
   END SUBROUTINE allocate_pre_patch
   !-------------------------------------------------------------------------
@@ -804,10 +792,8 @@ CONTAINS
     DEALLOCATE( p_patch_pre%cells%vertex )
     DEALLOCATE( p_patch_pre%cells%center )
     DEALLOCATE( p_patch_pre%cells%refin_ctrl )
-    DEALLOCATE( p_patch_pre%cells%start_index )
-    DEALLOCATE( p_patch_pre%cells%end_index )
-    DEALLOCATE( p_patch_pre%cells%start_block )
-    DEALLOCATE( p_patch_pre%cells%end_block )
+    DEALLOCATE( p_patch_pre%cells%start )
+    DEALLOCATE( p_patch_pre%cells%end )
     !
     ! !grid edges
     !
@@ -817,10 +803,8 @@ CONTAINS
     DEALLOCATE( p_patch_pre%edges%child_id )
     DEALLOCATE( p_patch_pre%edges%cell )
     DEALLOCATE( p_patch_pre%edges%refin_ctrl )
-    DEALLOCATE( p_patch_pre%edges%start_index )
-    DEALLOCATE( p_patch_pre%edges%end_index )
-    DEALLOCATE( p_patch_pre%edges%start_block )
-    DEALLOCATE( p_patch_pre%edges%end_block )
+    DEALLOCATE( p_patch_pre%edges%start )
+    DEALLOCATE( p_patch_pre%edges%end )
     !
     ! !grid verts
     !
@@ -828,10 +812,8 @@ CONTAINS
     DEALLOCATE( p_patch_pre%verts%cell )
     DEALLOCATE( p_patch_pre%verts%num_edges )
     DEALLOCATE( p_patch_pre%verts%refin_ctrl )
-    DEALLOCATE( p_patch_pre%verts%start_index )
-    DEALLOCATE( p_patch_pre%verts%end_index )
-    DEALLOCATE( p_patch_pre%verts%start_block )
-    DEALLOCATE( p_patch_pre%verts%end_block )
+    DEALLOCATE( p_patch_pre%verts%start )
+    DEALLOCATE( p_patch_pre%verts%end )
 
   END SUBROUTINE deallocate_pre_patch
   !-------------------------------------------------------------------------

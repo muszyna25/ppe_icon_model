@@ -54,6 +54,7 @@ PUBLIC :: p_nf_get_att_text
 PUBLIC :: p_nf_get_att_int
 PUBLIC :: p_nf_get_att_double
 PUBLIC :: p_nf_get_var_int
+PUBLIC :: p_nf_get_vara_int
 PUBLIC :: p_nf_get_var_double
 PUBLIC :: p_nf_get_vara_double
 PUBLIC :: p_nf_inq_attid
@@ -518,6 +519,58 @@ INTEGER FUNCTION p_nf_get_var_double(ncid, varid, dvals)
    CALL p_bcast(dvals(1:len), p_io, p_comm_input_bcast)
 
 END FUNCTION p_nf_get_var_double
+
+!-------------------------------------------------------------------------
+!>
+!!               Wrapper for nf_get_vara_int.
+!!
+!!
+!! @par Revision History
+!! Initial version by Marco Giorgetta, Sept 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
+!!
+INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
+
+!
+   INTEGER, INTENT(in)  :: ncid, varid, start(*), count(*)
+   INTEGER, INTENT(out) :: ivals(*)
+
+   INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), i
+
+
+   IF (p_pe == p_io) THEN
+
+      ! First get the length of the array
+
+      res = nf_inq_varndims(ncid, varid, ndims)
+      IF(res /= nf_noerr) GOTO 9999
+      res = nf_inq_vardimid(ncid, varid, dimids)
+      IF(res /= nf_noerr) GOTO 9999
+
+      len = 1
+      DO i = 1, ndims
+         len = len * count(i)
+      ENDDO
+
+      res = nf_get_vara_int(ncid, varid, start, count, ivals)
+
+   ENDIF
+
+9999 CONTINUE
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_get_vara_int = res
+
+   ! If there was an error, don't try to broadcast the values
+
+   IF(res /= nf_noerr) return
+
+   ! Broadcast number of values and values themselves
+
+   CALL p_bcast(len, p_io, p_comm_input_bcast)
+   CALL p_bcast(ivals(1:len), p_io, p_comm_input_bcast)
+
+END FUNCTION p_nf_get_vara_int
 
 !-------------------------------------------------------------------------
 !>
