@@ -88,7 +88,6 @@ MODULE mo_model_domimp_patches
   USE mo_kind,               ONLY: wp
   !USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: success,                &
-    &                              max_char_length,        &
     &                              min_rlcell, max_rlcell, &
     &                              min_rledge, max_rledge, &
     &                              min_rlvert, max_rlvert, &
@@ -101,37 +100,29 @@ MODULE mo_model_domimp_patches
                                    t_pre_grid_edges, p_patch_local_parent
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_valid_local_index
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
-    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id, &
-    & init_butterfly_idx, fill_grid_subsets
+  USE mo_model_domimp_setup, ONLY: init_quad_twoadjcells, init_coriolis, &
+    & set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
   USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
-  USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
-    & lfeedback, l_limited_area, max_childdom, &
-    & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-    & radiation_grid_filename,  lplane,                   &
-    & grid_length_rescale_factor,                         &
-    & is_plane_torus, grid_sphere_radius,                 &
-    & use_duplicated_connectivity,  use_dummy_cell_closure
+  USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
+    & l_limited_area, max_childdom, dynamics_parent_grid_id, &
+    & lplane, grid_length_rescale_factor, is_plane_torus, grid_sphere_radius, &
+    & use_duplicated_connectivity, use_dummy_cell_closure
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level
   USE mo_master_control,     ONLY: my_process_is_ocean
-  USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
-  USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work, get_my_global_mpi_id
+  USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_e
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
-  USE mo_master_nml,         ONLY: model_base_dir
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
     &  set_grid_geometry_derived_info, copy_grid_geometry_info,            &
     & parallel_read_geometry_info, triangular_cell
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, &
     & allocate_pre_patch, allocate_remaining_patch
-  USE mo_math_constants,     ONLY: pi, pi_2
-  USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
+  USE mo_math_constants,     ONLY: pi
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
 #ifndef __NO_ICON_ATMO__
@@ -153,7 +144,6 @@ MODULE mo_model_domimp_patches
     & nf_inq_varid       => p_nf_inq_varid,          &
     & nf_get_att_text    => p_nf_get_att_text,       &
     & nf_get_att_int     => p_nf_get_att_int,        &
-    & nf_get_att_double  => p_nf_get_att_double,     &
     & nf_get_var_int     => p_nf_get_var_int,        &
     & nf_get_var_double  => p_nf_get_var_double
 #endif
@@ -740,16 +730,6 @@ CONTAINS
     TYPE(t_pre_patch), TARGET, INTENT(inout) ::  patch_pre      ! patch data structure
 
     INTEGER, ALLOCATABLE :: &
-      & array_c_int(:,:),  &  ! temporary arrays to read in integer values
-      & array_e_int(:,:),  &
-      & array_v_int(:,:)
-
-    REAL(wp), ALLOCATABLE :: &
-      & array_c_real(:,:), &  ! temporary arrays to read in real values
-      & array_e_real(:,:), &
-      & array_v_real(:,:)
-
-    INTEGER, ALLOCATABLE :: &
       & start_idx_c(:,:), end_idx_c(:,:), &  ! temporary arrays to read in index lists
       & start_idx_e(:,:), end_idx_e(:,:), &
       & start_idx_v(:,:), end_idx_v(:,:)
@@ -771,9 +751,8 @@ CONTAINS
 
     INTEGER :: ncid, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
-    INTEGER :: jc, je, ilc, ibc, ic
+    INTEGER :: jc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
-    INTEGER :: block_size
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -956,22 +935,6 @@ CONTAINS
     !
     ! allocate temporary arrays to read in data form the grid/patch generator
     !
-    ! integer arrays
-    ALLOCATE( array_c_int(patch_pre%n_patch_cells_g,6),  &
-      & array_e_int(patch_pre%n_patch_edges_g,6),  &
-      & array_v_int(patch_pre%n_patch_verts_g,6),  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish (TRIM(method_name), 'allocation for array_[cev]_int failed')
-    ENDIF
-    ! real arrays
-    ALLOCATE( array_c_real(patch_pre%n_patch_cells_g,6),  &
-      & array_e_real(patch_pre%n_patch_edges_g,6),  &
-      & array_v_real(patch_pre%n_patch_verts_g,6),  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish (TRIM(method_name), 'allocation for array_[cev]_real failed')
-    ENDIF
     ! integer arrays for index lists
     ALLOCATE( start_idx_c(min_rlcell:max_rlcell,dim_idxlist),  &
       & end_idx_c  (min_rlcell:max_rlcell,dim_idxlist),  &
@@ -1132,9 +1095,6 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%child_id(:)))
 
     IF(ishift_child_id /= 0 .AND. patch_pre%n_childdom>0) THEN
- !     DO je = start_idx_e(grf_bdyintp_start_e,1), end_idx_e(min_rledge,patch_pre%n_childdom)
- !       array_e_int(je,1) = array_e_int(je,1) - ishift_child_id
- !     ENDDO
       WHERE (patch_pre%edges%child_id(:) > 0) &
         patch_pre%edges%child_id(:) = &
           patch_pre%edges%child_id(:) - ishift_child_id
@@ -1182,18 +1142,6 @@ CONTAINS
     !
     ! deallocate temporary arrays to read in data form the grid/patch generator
     !
-    ! integer arrays
-    DEALLOCATE( array_c_int, array_e_int, array_v_int,  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish (TRIM(method_name), 'deallocation for array_[cev]_int failed')
-    ENDIF
-    ! real arrays
-    DEALLOCATE( array_c_real, array_e_real, array_v_real,  &
-      & stat=ist )
-    IF (ist /= success) THEN
-      CALL finish (TRIM(method_name), 'deallocation for array_[cev]_real failed')
-    ENDIF
     ! index lists arrays
     DEALLOCATE( start_idx_c, end_idx_c, start_idx_e, end_idx_e, start_idx_v, end_idx_v, &
       & stat=ist )
@@ -1334,7 +1282,6 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
     patch%boundary_depth_index = nudge_zone_width
     return_status = nf_inq_attid(ncid, nf_global, 'boundary_depth_index', varid)
-    ! write(0,*) get_my_global_mpi_id(), " nf_inq_attid return_status=", return_status
     IF (return_status == nf_noerr) THEN
        CALL nf(nf_get_att_int(ncid, nf_global, 'boundary_depth_index', patch%boundary_depth_index))
        IF (nudge_zone_width < 0) THEN
@@ -1643,10 +1590,10 @@ CONTAINS
     ENDDO
     !---------------------------------------------------
     ! read cartesian positions
-    return_status = read_cartesian_positions(ncid, ig, patch, n_lp, id_lp, &
+    return_status = read_cartesian_positions(ncid, patch, n_lp, id_lp, &
       & array_c_real, array_e_real, array_v_real)
     IF (return_status /= 0) & ! this is an old grid
-      CALL calculate_cartesian_positions(ig, patch, n_lp, id_lp)
+      CALL calculate_cartesian_positions(patch, n_lp, id_lp)
     !-------------------------------------------------
 
 
@@ -1778,11 +1725,10 @@ CONTAINS
   END SUBROUTINE move_dummies_to_end
 
   !-------------------------------------------------------------------------
-  INTEGER FUNCTION read_cartesian_positions(ncid, ig, patch, n_lp, id_lp, &
+  INTEGER FUNCTION read_cartesian_positions(ncid, patch, n_lp, id_lp, &
     & array_c_real, array_e_real, array_v_real)
 
     INTEGER,       INTENT(in)    :: ncid
-    INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
@@ -1958,9 +1904,8 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE calculate_cartesian_positions(ig, patch, n_lp, id_lp)
+  SUBROUTINE calculate_cartesian_positions(patch, n_lp, id_lp)
 
-    INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
