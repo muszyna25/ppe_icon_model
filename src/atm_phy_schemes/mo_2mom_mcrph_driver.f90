@@ -57,7 +57,7 @@ USE mo_physical_constants,   ONLY: &
 
 USE mo_exception,      ONLY: finish, message, message_text
 
-#ifndef __SX__
+#ifdef TWOMOM   
 USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       istart,iend,kstart,kend,          &
      &                       clouds_twomoment,                 &
@@ -77,11 +77,11 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       ltabdminwgg,                               &
      &                       init_2mom_scheme,                          &
      &                       qnc_const, q_crit, lprogin => use_prog_in
+#endif
 USE mo_2mom_mcrph_util, ONLY:                            &
      &                       gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
      &                       init_dmin_wetgrowth,        &
      &                       init_dmin_wg_gr_ltab_equi
-#endif
 
 !==============================================================================
 
@@ -196,7 +196,7 @@ CONTAINS
 
     LOGICAL, PARAMETER :: explicit_solver = .true.  ! explicit or semi-implicit solver
 
-#ifndef __SX__
+#ifdef TWOMOM  
 
     ! inverse of vertical layer thickness
     rdz = 1._wp / dz
@@ -985,7 +985,7 @@ CONTAINS
      
     INTEGER :: unitnr
 
-#ifndef __SX__
+#ifdef TWOMOM
 
     CALL init_2mom_scheme(cloud_type)
 
@@ -1014,7 +1014,7 @@ CONTAINS
 
     INTEGER :: unitnr
 
-#ifndef __SX__
+#ifdef TWOMOM
 
     IF (msg_level>5) CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme")
 
