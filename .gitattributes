@@ -805,7 +805,6 @@ run/exp.test_oce_parallel -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
-run/mapfile_vlist.txt -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.oce_longrun -text
