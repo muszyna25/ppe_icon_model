@@ -1331,19 +1331,10 @@ CONTAINS
     !----------------------------------------------------------------------------------
     ! compute cells%num_edges
     ! works for general unstructured grid
-    DO ibc = 1, patch_pre%nblks_c
-      block_size = nproma
-      IF (ibc == patch_pre%nblks_c) block_size = patch_pre%npromz_c
-      DO ilc=1, block_size
-
-        patch_pre%cells%num_edges(ilc,ibc) = 0
-        DO ji = 1, max_cell_connectivity
-          IF ( patch_pre%cells%edge_idx(ilc,ibc,ji) > 0 ) &
-            & patch_pre%cells%num_edges(ilc,ibc) = &
-            & patch_pre%cells%num_edges(ilc,ibc) + 1
-        END DO
-
-      END DO
+    DO jc = 1, patch_pre%n_patch_cells_g
+      patch_pre%cells%num_edges(jc) = &
+        COUNT(patch_pre%cells%edge_idx(idx_no(jc), blk_no(jc), &
+          &   1:max_cell_connectivity) > 0)
     END DO
 
     !----------------------------------------------------------------------------------

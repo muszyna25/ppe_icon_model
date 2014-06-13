@@ -922,7 +922,8 @@ CONTAINS
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = wrk_p_patch_pre%cells%child_blk(jl_g,jb_g,1:4)
       wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_pre%cells%child_id(jl_g,jb_g)
 
-      wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges(jl_g,jb_g)
+      wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges( &
+        wrk_p_patch%cells%decomp_info%glb_index(j))
       wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lat
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lon
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jl_g,jb_g)
@@ -1257,7 +1258,7 @@ CONTAINS
         jl_c = idx_no(flag2_c_list(0)%idx(ic))
         jb_c = blk_no(flag2_c_list(0)%idx(ic))
 
-        DO i = 1, wrk_p_patch_pre%cells%num_edges(jl_c,jb_c)
+        DO i = 1, wrk_p_patch_pre%cells%num_edges(flag2_c_list(0)%idx(ic))
 
           jl_e = wrk_p_patch_pre%cells%edge_idx(jl_c,jb_c,i)
           jb_e = wrk_p_patch_pre%cells%edge_blk(jl_c,jb_c,i)
@@ -1493,7 +1494,7 @@ CONTAINS
             jc = flag2_c_list(2*ilev+k)%idx(ic)
             jl_c = idx_no(jc)
             jb_c = blk_no(jc)
-            DO i = 1, wrk_p_patch_pre%cells%num_edges(jl_c, jb_c)
+            DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
               jl_e = wrk_p_patch_pre%cells%edge_idx(jl_c, jb_c, i)
               jb_e = wrk_p_patch_pre%cells%edge_blk(jl_c, jb_c, i)
               je = idx_1d(jl_e, jb_e)
@@ -1571,7 +1572,7 @@ CONTAINS
             jl_c = idx_no(jc)
             jb_c = blk_no(jc)
 
-            DO i = 1, wrk_p_patch_pre%cells%num_edges(jl_c, jb_c)
+            DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
 
               jl_v = wrk_p_patch_pre%cells%vertex_idx(jl_c, jb_c, i)
               jb_v = wrk_p_patch_pre%cells%vertex_blk(jl_c, jb_c, i)
@@ -2691,7 +2692,7 @@ CONTAINS
           IF (owner(j) >= 0) CYCLE
           jb = blk_no(j) ! block index
           jl = idx_no(j) ! line index
-          DO ii = 1, wrk_p_patch_pre%cells%num_edges(jl,jb)
+          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
             jn = idx_1d(wrk_p_patch_pre%cells%neighbor_idx(jl,jb,ii),wrk_p_patch_pre%cells%neighbor_blk(jl,jb,ii))
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
@@ -2968,7 +2969,7 @@ CONTAINS
       ! which are also in the subset in the adjacency list
 
       nc = nc+1
-      DO i = 1,wrk_p_patch_pre%cells%num_edges(jl,jb)
+      DO i = 1,wrk_p_patch_pre%cells%num_edges(j)
         jl_n = wrk_p_patch_pre%cells%neighbor_idx(jl,jb,i)
         jb_n = wrk_p_patch_pre%cells%neighbor_blk(jl,jb,i)
         jn = idx_1d(jl_n,jb_n)

@@ -317,8 +317,7 @@ MODULE mo_model_domain
 
     INTEGER :: max_connectivity
     ! number of edges connected to cell
-    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: num_edges(:,:)
+    INTEGER, ALLOCATABLE :: num_edges(:)
 
     ! line index of parent triangle:
     ! index1=1,nproma, index2=1,nblks_c

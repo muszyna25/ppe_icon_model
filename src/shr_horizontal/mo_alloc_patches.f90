@@ -622,7 +622,7 @@ CONTAINS
     !
     ! !grid cells
     !
-    ALLOCATE( p_patch_pre%cells%num_edges(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%num_edges(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%parent_idx(nproma,p_patch_pre%alloc_cell_blocks) )
     ALLOCATE( p_patch_pre%cells%parent_blk(nproma,p_patch_pre%alloc_cell_blocks) )
     ALLOCATE( p_patch_pre%cells%pc_idx(nproma,p_patch_pre%alloc_cell_blocks) )
