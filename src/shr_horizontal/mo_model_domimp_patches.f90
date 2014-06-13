@@ -393,7 +393,6 @@ CONTAINS
 
     ENDDO grid_level_loop
 
-    CALL complete_parent_index(patch)
     CALL set_pc_idx(patch)
 
 
@@ -653,69 +652,6 @@ CONTAINS
   END SUBROUTINE set_missing_geometry_info
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  !! This method_name completes the patch information for parent edges
-  !!
-  !! @par Revision History
-  !! Developed  by Guenther. Zaengl, DWD, 2009-03-19
-  !! Moved here by Rainer Johanni, Oct 2011
-  !!
-  SUBROUTINE complete_parent_index(patch)
-
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
-
-    ! local variables
-
-    TYPE(t_grid_edges), POINTER :: p_gep => NULL()
-    TYPE(t_patch),      POINTER :: p_pp => NULL()
-
-    INTEGER :: jb, je, jg, ji, i_startblk, i_endblk,         &
-      & i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id
-
-    !-----------------------------------------------------------------------
-    !
-
-    DO jg = n_dom_start, n_dom-1
-
-      p_gep  => patch(jg)%edges
-      p_pp   => patch(jg)
-
-      i_nchdom = p_pp%n_childdom
-      IF (i_nchdom == 0) CYCLE
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-      i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
-      i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
-
-      ! Complete parent edge information
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
-
-        DO ji = 3, 4 ! Index completion only needed for child edges 3+4
-          DO je = i_startidx, i_endidx
-
-            iic = p_gep%child_idx(je,jb,ji)
-            ibc = p_gep%child_blk(je,jb,ji)
-            i_child_id = p_gep%child_id(je,jb)
-
-            IF ((iic/= 0) .AND. (ibc/= 0)) THEN
-              patch(i_child_id)%edges%parent_idx(iic,ibc) = je
-              patch(i_child_id)%edges%parent_blk(iic,ibc) = jb
-            ENDIF
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-    ENDDO
-
-  END SUBROUTINE complete_parent_index
 
   !-------------------------------------------------------------------------
   !>
