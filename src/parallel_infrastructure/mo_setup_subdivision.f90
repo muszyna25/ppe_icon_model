@@ -45,8 +45,7 @@ MODULE mo_setup_subdivision
     &                              set_inner_glb_index, set_outer_glb_index
   USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
-       mpi_in_place, mpi_max, mpi_success
+  USE mo_mpi,                ONLY: MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, &
     & p_pe_work, p_n_work, my_process_is_mpi_parallel
@@ -62,14 +61,14 @@ MODULE mo_setup_subdivision
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
-                             deallocate_pre_patch, deallocate_patch
+                             deallocate_pre_patch
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
     & read_ascii_decomposition
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, testbed_process
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort,           ONLY: quicksort, insertion_sort
-  USE mo_dist_dir,            ONLY: dist_dir_setup, dist_dir_get_owners
+  USE mo_dist_dir,            ONLY: dist_dir_setup
 
   IMPLICIT NONE
 
@@ -112,7 +111,6 @@ CONTAINS
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, POINTER :: cell_owner_p(:)
     REAL(wp) :: weight(p_patch_pre(1)%n_childdom)
-    TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
@@ -355,7 +353,7 @@ CONTAINS
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
-    INTEGER :: n, i, j, jl, jb, jl_p, jb_p
+    INTEGER :: n, i, j
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
@@ -587,7 +585,7 @@ CONTAINS
     INTEGER, INTENT(OUT) :: cell_owner_p(:) !> Output: Cell division for parent.
                                             !> Must be allocated to n_patch_cells of the global parent
 
-    INTEGER :: j, jl, jb, jp
+    INTEGER :: j, jp
     INTEGER :: cnt(SIZE(cell_owner_p))
 
     cell_owner_p(:) = -1
@@ -648,7 +646,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
-    INTEGER :: i, j, jl, jb, jb_g, jl_g, je, jv, jg, jc, jc_p, jpg, jcg(4)
+    INTEGER :: i, j, jl, jb, je, jv, jg, jc, jc_p, jpg, jcg(4)
 
 #ifdef __PGIC__
     TYPE(nb_flag_list_elem), ALLOCATABLE :: flag2_c_list(:), &
@@ -661,7 +659,6 @@ CONTAINS
          n2_ilev_e(0:2*n_boundary_rows+1)
 #endif
     INTEGER, ALLOCATABLE :: owned_edges(:), owned_verts(:)
-    INTEGER :: ierror
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
@@ -860,9 +857,6 @@ CONTAINS
       jl = idx_no(j) ! Line  index in distributed patch
 
       jg = wrk_p_patch%cells%decomp_info%glb_index(j)
-
-      jb_g = blk_no(jg) ! Block index in global patch
-      jl_g = idx_no(jg) ! Line  index in global patch
 
       DO i=1,wrk_p_patch%cell_type
 !CDIR IEXPAND
@@ -1142,7 +1136,7 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
-      INTEGER :: n, i, ic, j, jv, jv_, je, jl_e, jb_e, jl_v, jb_v, ilev, jc, jc_, k
+      INTEGER :: n, i, ic, j, jv, jv_, je, ilev, jc, jc_, k
       LOGICAL, ALLOCATABLE :: pack_mask(:)
       INTEGER, ALLOCATABLE :: temp_cells(:), temp_vertices(:), &
                               temp_vertices_owner(:), temp_edges(:), &
@@ -1698,7 +1692,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: vertices(:)
       INTEGER, INTENT(OUT) :: owner(:)
 
-      INTEGER :: i, jv, n, j, jl, jb, jc, &
+      INTEGER :: i, jv, n, j, jc, &
         &        t_cells(wrk_p_patch_pre%verts%max_connectivity), &
         &        t_cell_owner(wrk_p_patch_pre%verts%max_connectivity), &
         &        a_iown(2), a_mod_iown(2)
@@ -2087,7 +2081,7 @@ CONTAINS
     INTEGER, DIMENSION(min_rlcve:), INTENT(in) :: &
          start_index_g, start_block_g, end_index_g, end_block_g
 
-    INTEGER :: i, ilev, ilev1, ilev_st, irlev, j, exec_sequence
+    INTEGER :: i, ilev, ilev1, ilev_st, irlev, exec_sequence
 
     ! if all cells/vertices/edges have flag == 0
     IF ((n2_ilev(0) /= n_patch_cve) .OR. (n2_ilev(0) /= n_patch_cve_g)) &
@@ -2338,7 +2332,7 @@ CONTAINS
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
                               ! the parent grid level (true) or for the target grid level (false) 
 
-    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, &
+    INTEGER :: i, ii, j, jn, nc, nn, npt, jd, idp, ncs, &
       &        nce, jm(1), jv
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
@@ -2951,8 +2945,8 @@ CONTAINS
     TYPE(t_decomposition_structure) :: decomposition_struct
     TYPE(t_pre_patch) :: patch_pre
 
-    INTEGER :: no_of_cells, no_of_verts, cell, vertex
-    INTEGER :: jb, jl, i, jl_v, jb_v, return_status
+    INTEGER :: no_of_cells, no_of_verts, cell
+    INTEGER :: return_status
 
     CHARACTER(*), PARAMETER :: method_name = "fill_wrk_decomposition_struct"
 
