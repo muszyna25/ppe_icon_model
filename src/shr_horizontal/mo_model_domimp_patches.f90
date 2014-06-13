@@ -1082,17 +1082,13 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, &
       &                    patch_pre%cells%vertex(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%center(:,:)%lon
+    ! patch_pre%cells%center(:)%lon
     CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-    CALL reshape_real( array_c_real(:,1), patch_pre%nblks_c, &
-      & patch_pre%npromz_c, patch_pre%cells%center(:,:)%lon )
+    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lon))
 
-    ! patch_pre%cells%center(:,:)%lat
+    ! patch_pre%cells%center(:)%lat
     CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-    CALL reshape_real( array_c_real(:,1), patch_pre%nblks_c, &
-      & patch_pre%npromz_c, patch_pre%cells%center(:,:)%lat )
+    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lat))
 
     ! patch_pre%verts%vertex(:,:)%lon
     CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))

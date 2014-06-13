@@ -348,9 +348,7 @@ MODULE mo_model_domain
     ! cell geometry
 
     ! longitude & latitude of centers of triangular cells
-    ! index1=nproma, index2=1,nblks_c
-    TYPE(t_geographical_coordinates), ALLOCATABLE ::  &
-      & center(:,:)
+    TYPE(t_geographical_coordinates), ALLOCATABLE :: center(:)
 
     ! refinement control flag
     ! index1=1,nproma, index2=1,nblks_c

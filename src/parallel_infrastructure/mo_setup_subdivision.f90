@@ -915,8 +915,9 @@ CONTAINS
 
       wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges( &
         wrk_p_patch%cells%decomp_info%glb_index(j))
-      wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lat
-      wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lon
+
+      wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jg)%lat
+      wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jg)%lon
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_pre%cells%child_id(jg)
     ENDDO
@@ -2499,9 +2500,6 @@ CONTAINS
 
         IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
 
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-
         nc = nc+1 ! Cell counter
 
         ! Patch division for radiation calculations:
@@ -2510,8 +2508,8 @@ CONTAINS
         ! This is accomplished by mapping all cells to one section
         ! lying in the NH and having a width of 0.4*pi (72 deg)
 
-        cclat = wrk_p_patch_pre%cells%center(jl,jb)%lat
-        cclon = wrk_p_patch_pre%cells%center(jl,jb)%lon
+        cclat = wrk_p_patch_pre%cells%center(j)%lat
+        cclon = wrk_p_patch_pre%cells%center(j)%lon
 
         IF (cclat>=0._wp .AND. cclon>=-0.2_wp*pi .AND. cclon<=0.2_wp*pi) THEN
           cell_desc(1,nc) = cclat
@@ -2565,13 +2563,10 @@ CONTAINS
 
         IF (subset_flag(j) <= 0) CYCLE
 
-        jb = blk_no(j) ! block index
-        jl = idx_no(j) ! line index
-
         nc = nc+1 ! Cell counter
 
-        cell_desc(1,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lat
-        cell_desc(2,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lon
+        cell_desc(1,nc) = wrk_p_patch_pre%cells%center(j)%lat
+        cell_desc(2,nc) = wrk_p_patch_pre%cells%center(j)%lon
         cell_desc(3,nc) = REAL(nc,wp)
         cell_desc(4,nc) = 0.0_wp
 
@@ -2608,8 +2603,8 @@ CONTAINS
             nc = nc+1 ! Cell counter
           ENDIF
 
-          cell_desc(1,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lat
-          cell_desc(2,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lon
+          cell_desc(1,nc) = wrk_p_patch_pre%cells%center(j)%lat
+          cell_desc(2,nc) = wrk_p_patch_pre%cells%center(j)%lon
 
           ! Using the center of the cells for geometric subdivision leads
           ! to "toothed" edges of the subdivision area
@@ -3036,10 +3031,10 @@ CONTAINS
       & CALL finish (method_name, "ALLOCATE(decomposition_struct")
 
     DO cell = 1, no_of_cells
-      jb = blk_no(cell) ! block index
-      jl = idx_no(cell) ! line index
-      decomposition_struct%cell_geo_center(cell)%lat = patch_pre%cells%center(jl,jb)%lat
-      decomposition_struct%cell_geo_center(cell)%lon = patch_pre%cells%center(jl,jb)%lon
+      decomposition_struct%cell_geo_center(cell)%lat = &
+        patch_pre%cells%center(cell)%lat
+      decomposition_struct%cell_geo_center(cell)%lon = &
+        patch_pre%cells%center(cell)%lon
       decomposition_struct%cells_vertex(1:3, cell) = &
         patch_pre%cells%vertex(cell,1:3)
     ENDDO
