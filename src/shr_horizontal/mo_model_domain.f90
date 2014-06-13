@@ -764,6 +764,50 @@ MODULE mo_model_domain
 
   END TYPE t_grid_vertices
 
+  TYPE t_pre_grid_vertices
+
+    INTEGER :: max_connectivity
+
+    ! line indices of cells around each vertex:
+    ! index1=1,nproma, index2=1,nblks_v, index3=1,6
+    INTEGER, ALLOCATABLE :: cell_idx(:,:,:)
+    ! block indices of cells around each vertex:
+    ! index1=1,nproma, index2=1,nblks_v, index3=1,6
+    INTEGER, ALLOCATABLE :: cell_blk(:,:,:)
+
+    ! number of edges connected to vertex
+    ! index1=1,nproma, index2=1,nblks_v
+    INTEGER, ALLOCATABLE :: num_edges(:,:)
+
+    ! longitude & latitude of vertex:
+    ! index1=1,nproma, index2=1,nblks_v
+    TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:,:)
+
+    ! refinement control flag
+    ! index1=1,nproma, index2=1,nblks_v
+    INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
+
+    ! list of start indices for each refin_ctrl level
+    ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants), index2=n_childdom
+    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
+
+    ! list of end indices for each refin_ctrl level
+    ! index1=min_rlvert,max_rlvert, index2=n_childdom
+    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
+
+    ! list of start block for each refin_ctrl level
+    ! index1=min_rlvert,max_rlvert, index2=n_childdom
+    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
+
+    ! list of end block for each refin_ctrl level
+    ! index1=min_rlvert,max_rlvert, index2=n_childdom
+    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
+
+  END TYPE t_pre_grid_vertices
 
   ! !patch class
 
@@ -1045,7 +1089,7 @@ MODULE mo_model_domain
     !
     TYPE(t_pre_grid_cells) :: cells
     TYPE(t_pre_grid_edges) :: edges
-    TYPE(t_grid_vertices) :: verts
+    TYPE(t_pre_grid_vertices) :: verts
 
   END TYPE t_pre_patch
 
