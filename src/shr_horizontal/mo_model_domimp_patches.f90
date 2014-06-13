@@ -676,32 +676,15 @@ CONTAINS
       patch_pre(jg)%cells%pc_idx(:) = 0
       patch_pre(jg)%edges%pc_idx(:,:) = 0
 
-      DO jb = 1, patch_pre(jg)%nblks_c
+      DO j = 1, patch_pre(jg)%n_patch_cells_g
 
-        IF (jb /= patch_pre(jg)%nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = patch_pre(jg)%npromz_c
-        ENDIF
+        ip = patch_pre(jg)%cells%parent(j)
 
-        DO jl = 1, nlen
-
-          j = idx_1d(jl, jb)
-          ip = patch_pre(jg)%cells%parent(j)
-          ilp = idx_no(ip)
-          ibp = blk_no(ip)
-
-          IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,1) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%cells%pc_idx(j) = 1
-          IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,2) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%cells%pc_idx(j) = 2
-          IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,3) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%cells%pc_idx(j) = 3
-          IF(patch_pre(jgp)%cells%child_idx(ilp,ibp,4) == jl .AND. &
-            & patch_pre(jgp)%cells%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%cells%pc_idx(j) = 4
-!          IF(patch_pre(jg)%cells%pc_idx(j) == 0) CALL finish('set_pc_idx','cells%pc_idx')
-
-        ENDDO
+        IF(patch_pre(jgp)%cells%child(ip,1)==j) patch_pre(jg)%cells%pc_idx(j) = 1
+        IF(patch_pre(jgp)%cells%child(ip,2)==j) patch_pre(jg)%cells%pc_idx(j) = 2
+        IF(patch_pre(jgp)%cells%child(ip,3)==j) patch_pre(jg)%cells%pc_idx(j) = 3
+        IF(patch_pre(jgp)%cells%child(ip,4)==j) patch_pre(jg)%cells%pc_idx(j) = 4
+!          IF(patch_pre(jg)%cells%pc_idx(j)== 0) CALL finish('set_pc_idx','cells%pc_idx')
 
       ENDDO
 
@@ -1150,16 +1133,9 @@ CONTAINS
       CALL nf(nf_inq_varid(ncid, 'parent_cell_index', varid))
       ! patch_pre%cells%parent(:)
       CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%parent(:)))
-      ! patch_pre%cells%child_idx(:,:,:)
-      ! patch_pre%cells%child_blk(:,:,:)
+      ! patch_pre%cells%child(:,:)
       CALL nf(nf_inq_varid(ncid, 'child_cell_index', varid))
-      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:4)))
-      DO ji = 1, 4
-        CALL reshape_idx( array_c_int(:,ji), patch_pre%nblks_c, &
-          & patch_pre%npromz_c,  &
-          & patch_pre%cells%child_idx(:,:,ji),  &
-          & patch_pre%cells%child_blk(:,:,ji) )
-      END DO
+      CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%child(:,:)))
       ! patch_pre%cells%child_id(:,:)
       CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
       CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
