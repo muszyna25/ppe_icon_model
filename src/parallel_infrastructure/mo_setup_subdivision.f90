@@ -873,11 +873,11 @@ CONTAINS
         wrk_p_patch%cells%neighbor_blk(jl,jb,i) = blk_no(jc)
 
 !CDIR IEXPAND
-        CALL get_local_idx_blk(wrk_p_patch%edges%decomp_info, &
-          & wrk_p_patch_pre%cells%edge_idx(jl_g,jb_g,i),      &
-          & wrk_p_patch_pre%cells%edge_blk(jl_g,jb_g,i),      &
-          & wrk_p_patch%cells%edge_idx(jl,jb,i),            &
-          & wrk_p_patch%cells%edge_blk(jl,jb,i))
+        CALL get_local_idx(wrk_p_patch%edges%decomp_info, &
+          & wrk_p_patch_pre%cells%edge(jg,i), jc)
+
+        wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(jc)
+        wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(jc)
 
 !CDIR IEXPAND
         CALL get_local_idx_blk(wrk_p_patch%verts%decomp_info, &
@@ -1251,9 +1251,9 @@ CONTAINS
 
         DO i = 1, wrk_p_patch_pre%cells%num_edges(flag2_c_list(0)%idx(ic))
 
-          jl_e = wrk_p_patch_pre%cells%edge_idx(jl_c,jb_c,i)
-          jb_e = wrk_p_patch_pre%cells%edge_blk(jl_c,jb_c,i)
-          je = idx_1d(jl_e, jb_e)
+          je = wrk_p_patch_pre%cells%edge(flag2_c_list(0)%idx(ic),i)
+          jl_e = idx_no(je)
+          jb_e = blk_no(je)
 
           jc = idx_1d(wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 1), &
                       wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 1))
@@ -1483,12 +1483,8 @@ CONTAINS
         DO k = -1, 0
           DO ic = 1, n2_ilev_c(2*ilev+k)
             jc = flag2_c_list(2*ilev+k)%idx(ic)
-            jl_c = idx_no(jc)
-            jb_c = blk_no(jc)
             DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
-              jl_e = wrk_p_patch_pre%cells%edge_idx(jl_c, jb_c, i)
-              jb_e = wrk_p_patch_pre%cells%edge_blk(jl_c, jb_c, i)
-              je = idx_1d(jl_e, jb_e)
+              je = wrk_p_patch_pre%cells%edge(jc, i)
               n_temp_edges = n_temp_edges + 1
               temp_edges(n_temp_edges) = je
               edge_cells(n_temp_edges) = jc

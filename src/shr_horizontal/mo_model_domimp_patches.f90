@@ -1072,16 +1072,10 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, &
       &                    patch_pre%cells%neighbor(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%edge_idx(:,:,:)
-    ! patch_pre%cells%edge_blk(:,:,:)
+    ! patch_pre%cells%edge(:,:)
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:max_cell_connectivity)))
-    DO ji = 1, max_cell_connectivity
-      CALL reshape_idx( array_c_int(:,ji), patch_pre%nblks_c, &
-        & patch_pre%npromz_c,  &
-        & patch_pre%cells%edge_idx(:,:,ji),  &
-        & patch_pre%cells%edge_blk(:,:,ji) )
-    END DO
+    CALL nf(nf_get_var_int(ncid, varid, &
+      &     patch_pre%cells%edge(:,1:max_cell_connectivity)))
 
     ! patch_pre%cells%vertex_idx(:,:,:)
     ! patch_pre%cells%vertex_blk(:,:,:)
@@ -1296,8 +1290,7 @@ CONTAINS
     ! works for general unstructured grid
     DO jc = 1, patch_pre%n_patch_cells_g
       patch_pre%cells%num_edges(jc) = &
-        COUNT(patch_pre%cells%edge_idx(idx_no(jc), blk_no(jc), &
-          &   1:max_cell_connectivity) > 0)
+        COUNT(patch_pre%cells%edge(jc, 1:max_cell_connectivity) > 0)
     END DO
 
     !----------------------------------------------------------------------------------
@@ -1340,17 +1333,13 @@ CONTAINS
             END IF
 
             ! account for dummy edges arising in case of a pentagon
-            IF ( patch_pre%cells%edge_idx(ilc,ibc,ji) == 0 ) THEN
+            IF ( patch_pre%cells%edge(ic,ji) == 0 ) THEN
               IF ( ji /= 6 ) THEN
-                patch_pre%cells%edge_idx(ilc,ibc,ji) =  &
-                  & patch_pre%cells%edge_idx(ilc,ibc,6)
-                patch_pre%cells%edge_blk(ilc,ibc,ji) =  &
-                  & patch_pre%cells%edge_blk(ilc,ibc,6)
+                patch_pre%cells%edge(ic,ji) = patch_pre%cells%edge(ic,6)
               END IF
               ! Fill dummy edge with existing index to simplify do loops
               ! Note, however, that related multiplication factors must be zero
-              patch_pre%cells%edge_idx(ilc,ibc,6) = patch_pre%cells%edge_idx(ilc,ibc,5)
-              patch_pre%cells%edge_blk(ilc,ibc,6) = patch_pre%cells%edge_blk(ilc,ibc,5)
+              patch_pre%cells%edge(ic,6) = patch_pre%cells%edge(ic,5)
             END IF
 
           END DO  ! ji = 1, 6

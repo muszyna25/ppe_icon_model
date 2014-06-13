@@ -629,8 +629,7 @@ CONTAINS
     ALLOCATE( p_patch_pre%cells%child_id(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%neighbor(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
-    ALLOCATE( p_patch_pre%cells%edge_idx(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
-    ALLOCATE( p_patch_pre%cells%edge_blk(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
+    ALLOCATE( p_patch_pre%cells%edge(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%vertex_idx(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%vertex_blk(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%center(nproma,p_patch_pre%alloc_cell_blocks) )
@@ -692,8 +691,7 @@ CONTAINS
     p_patch_pre%cells%child_id = 0
     p_patch_pre%cells%phys_id = 0
     p_patch_pre%cells%neighbor = 0
-    p_patch_pre%cells%edge_idx = 0
-    p_patch_pre%cells%edge_blk = 0
+    p_patch_pre%cells%edge = 0
     p_patch_pre%cells%vertex_idx = 0
     p_patch_pre%cells%vertex_blk = 0
     p_patch_pre%cells%center(:,:)%lon = 0._wp
@@ -836,8 +834,7 @@ CONTAINS
     DEALLOCATE( p_patch_pre%cells%child )
     DEALLOCATE( p_patch_pre%cells%child_id )
     DEALLOCATE( p_patch_pre%cells%neighbor )
-    DEALLOCATE( p_patch_pre%cells%edge_idx )
-    DEALLOCATE( p_patch_pre%cells%edge_blk )
+    DEALLOCATE( p_patch_pre%cells%edge )
     DEALLOCATE( p_patch_pre%cells%vertex_idx )
     DEALLOCATE( p_patch_pre%cells%vertex_blk )
     DEALLOCATE( p_patch_pre%cells%center )

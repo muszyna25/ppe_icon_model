@@ -337,12 +337,9 @@ MODULE mo_model_domain
     ! index2=1,3
     INTEGER, ALLOCATABLE :: neighbor(:,:)
 
-    ! line indices of edges of triangle:
-    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
-    INTEGER, ALLOCATABLE :: edge_idx(:,:,:)
-    ! block indices of edges of triangle:
-    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
-    INTEGER, ALLOCATABLE :: edge_blk(:,:,:)
+    ! indices of edges of triangle:
+    ! index2=1,3
+    INTEGER, ALLOCATABLE :: edge(:,:)
 
     ! line indices of verts of triangle:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3
