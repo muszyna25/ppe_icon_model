@@ -688,30 +688,24 @@ CONTAINS
 
       ENDDO
 
-      DO jb = 1, patch_pre(jg)%nblks_e
+      DO j = 1, patch_pre(jg)%n_patch_edges_g
 
-        IF (jb /= patch_pre(jg)%nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = patch_pre(jg)%npromz_e
-        ENDIF
+        jl = idx_no(j)
+        jb = blk_no(j)
 
-        DO jl = 1, nlen
+        ip = patch_pre(jg)%edges%parent(j)
+        ilp = idx_no(ip)
+        ibp = blk_no(ip)
 
-          ilp = patch_pre(jg)%edges%parent_idx(jl,jb)
-          ibp = patch_pre(jg)%edges%parent_blk(jl,jb)
-
-          IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
-            & patch_pre(jgp)%edges%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 1
-          IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
-            & patch_pre(jgp)%edges%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 2
-          IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,3) == jl .AND. &
-            & patch_pre(jgp)%edges%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 3
-          IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
-            & patch_pre(jgp)%edges%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 4
+        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 1
+        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 2
+        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,3) == jl .AND. &
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 3
+        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
+          & patch_pre(jgp)%edges%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%edges%pc_idx(jl,jb) = 4
 !          IF(patch_pre(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
-
-        ENDDO
 
       ENDDO
 
@@ -1131,14 +1125,9 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'refin_c_ctrl', varid))
     CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%refin_ctrl(:)))
 
-    ! patch_pre%edges%parent_idx(:,:)
-    ! patch_pre%edges%parent_blk(:,:)
+    ! patch_pre%edges%parent(:)
     CALL nf(nf_inq_varid(ncid, 'parent_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-    CALL reshape_idx( array_e_int(:,1), patch_pre%nblks_e, &
-      & patch_pre%npromz_e,  &
-      & patch_pre%edges%parent_idx(:,:),  &
-      & patch_pre%edges%parent_blk(:,:) )
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%parent(:)))
 
     ! patch_pre%edges%child_idx(:,:,:)
     ! patch_pre%edges%child_blk(:,:,:)

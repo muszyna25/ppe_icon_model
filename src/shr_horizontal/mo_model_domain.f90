@@ -581,12 +581,8 @@ MODULE mo_model_domain
 
   TYPE t_pre_grid_edges
 
-    ! line index of parent edge:
-    ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: parent_idx(:,:)
-    ! block index of parent edge:
-    ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: parent_blk(:,:)
+    ! index of parent edge:
+    INTEGER, ALLOCATABLE :: parent(:)
     ! parent child index, number of current edge in parent's child_idx/child_blk:
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: pc_idx(:,:)

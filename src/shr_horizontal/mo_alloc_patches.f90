@@ -641,8 +641,7 @@ CONTAINS
     !
     ! !grid edges
     !
-    ALLOCATE( p_patch_pre%edges%parent_idx(nproma,p_patch_pre%nblks_e) )
-    ALLOCATE( p_patch_pre%edges%parent_blk(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%pc_idx(nproma,p_patch_pre%nblks_e) )
     ALLOCATE( p_patch_pre%edges%child_idx(nproma,p_patch_pre%nblks_e,4) )
     ALLOCATE( p_patch_pre%edges%child_blk(nproma,p_patch_pre%nblks_e,4) )
@@ -688,8 +687,7 @@ CONTAINS
     p_patch_pre%cells%start_block = 0
     p_patch_pre%cells%end_block = 0
 
-    p_patch_pre%edges%parent_idx = 0
-    p_patch_pre%edges%parent_blk = 0
+    p_patch_pre%edges%parent = 0
     p_patch_pre%edges%pc_idx = 0
     p_patch_pre%edges%child_idx = 0
     p_patch_pre%edges%child_blk = 0
@@ -819,8 +817,7 @@ CONTAINS
     !
     ! !grid edges
     !
-    DEALLOCATE( p_patch_pre%edges%parent_idx )
-    DEALLOCATE( p_patch_pre%edges%parent_blk )
+    DEALLOCATE( p_patch_pre%edges%parent )
     DEALLOCATE( p_patch_pre%edges%pc_idx )
     DEALLOCATE( p_patch_pre%edges%child_idx )
     DEALLOCATE( p_patch_pre%edges%child_blk )
