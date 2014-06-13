@@ -1146,8 +1146,7 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
-      INTEGER :: n, i, ic, j, jv, je, jl_e, jb_e, jl_v, jb_v, ilev, &
-                 jl_c, jb_c, jc, jc_, k
+      INTEGER :: n, i, ic, j, jv, je, jl_e, jb_e, jl_v, jb_v, ilev, jc, jc_, k
       LOGICAL, ALLOCATABLE :: pack_mask(:)
       INTEGER, ALLOCATABLE :: temp_cells(:), temp_vertices(:), &
                               temp_vertices_owner(:), temp_edges(:), &
@@ -1246,9 +1245,6 @@ CONTAINS
 
       ! collect inner and outer edges and vertices adjacent to cells of level 0
       DO ic = 1, n2_ilev_c(0)
-
-        jl_c = idx_no(flag2_c_list(0)%idx(ic))
-        jb_c = blk_no(flag2_c_list(0)%idx(ic))
 
         DO i = 1, wrk_p_patch_pre%cells%num_edges(flag2_c_list(0)%idx(ic))
 
@@ -1426,9 +1422,7 @@ CONTAINS
           jl_v = idx_no(temp_vertices(jv))
           jb_v = blk_no(temp_vertices(jv))
           DO i = 1, wrk_p_patch_pre%verts%num_edges(jl_v, jb_v)
-            jl_c = wrk_p_patch_pre%verts%cell_idx(jl_v, jb_v, i)
-            jb_c = wrk_p_patch_pre%verts%cell_blk(jl_v, jb_v, i)
-            jc = idx_1d(jl_c, jb_c)
+            jc = wrk_p_patch_pre%verts%cell(temp_vertices(jv), i)
             IF (jc > 0) THEN
               n_temp_cells = n_temp_cells + 1
               temp_cells(n_temp_cells) = jc
@@ -1721,12 +1715,7 @@ CONTAINS
         jb_v = blk_no(jv) ! block index
         jl_v = idx_no(jv) ! line index
         n = wrk_p_patch_pre%verts%num_edges(jl_v, jb_v)
-        DO j = 1, n
-          jl = wrk_p_patch_pre%verts%cell_idx(jl_v, jb_v, j)
-          jb = wrk_p_patch_pre%verts%cell_blk(jl_v, jb_v, j)
-          jc = idx_1d(jl,jb)
-          t_cells(j) = jc
-        END DO
+        t_cells(1:n) = wrk_p_patch_pre%verts%cell(jv, 1:n)
         CALL insertion_sort(t_cells(1:n))
         t_cell_owner(1:n) = cell_owner(t_cells(1:n))
         jc = COUNT(t_cell_owner(1:n) >= 0)

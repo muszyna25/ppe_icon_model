@@ -1154,25 +1154,22 @@ CONTAINS
 
     ! BEGIN NEW SUBDIV
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%verts%cell(:,1:max_verts_connectivity)))
     ! eliminate indices < 0, this should not happen but some older grid files
     ! seem to contain such indices
-    WHERE(array_v_int < 0) array_v_int = 0
+    WHERE(patch_pre%verts%cell(:,1:max_verts_connectivity) < 0) &
+      patch_pre%verts%cell(:,1:max_verts_connectivity) = 0
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-    CALL move_dummies_to_end(array_v_int, patch_pre%n_patch_verts_g, &
-         max_verts_connectivity, use_duplicated_connectivity)
-    DO ji = 1, max_verts_connectivity
-      CALL reshape_idx(array_v_int(:,ji), patch_pre%nblks_v, &
-        & patch_pre%npromz_v,  &
-        & patch_pre%verts%cell_idx(:,:,ji),  &
-        & patch_pre%verts%cell_blk(:,:,ji) )
-    END DO
+    CALL move_dummies_to_end(patch_pre%verts%cell(:,1:max_verts_connectivity), &
+      patch_pre%n_patch_verts_g, max_verts_connectivity, &
+      use_duplicated_connectivity)
     !
     ! Set verts%num_edges (in array_v_int(:,1))
     DO ji = 1, patch_pre%n_patch_verts_g
-      array_v_int(ji,1) = COUNT(array_v_int(ji, 1:max_verts_connectivity) /= 0)
+      array_v_int(ji,1) = &
+        COUNT(patch_pre%verts%cell(ji,1:max_verts_connectivity) /= 0)
     END DO
     CALL reshape_int( array_v_int(:,1), patch_pre%nblks_v, patch_pre%npromz_v, &
          & patch_pre%verts%num_edges(:,:) )

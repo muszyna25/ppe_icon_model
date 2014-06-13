@@ -657,8 +657,7 @@ CONTAINS
     !
     ALLOCATE( p_patch_pre%verts%vertex(nproma,p_patch_pre%nblks_v) )
     ALLOCATE( p_patch_pre%verts%refin_ctrl(p_patch_pre%n_patch_verts_g) )
-    ALLOCATE( p_patch_pre%verts%cell_idx(nproma,p_patch_pre%nblks_v,6) )
-    ALLOCATE( p_patch_pre%verts%cell_blk(nproma,p_patch_pre%nblks_v,6) )
+    ALLOCATE( p_patch_pre%verts%cell(p_patch_pre%n_patch_verts_g,6) )
     ALLOCATE( p_patch_pre%verts%num_edges(nproma,p_patch_pre%nblks_v) )
     ALLOCATE( p_patch_pre%verts%start_index(min_rlvert:max_rlvert) )
     ALLOCATE( p_patch_pre%verts%end_index(min_rlvert:max_rlvert) )
@@ -697,8 +696,7 @@ CONTAINS
     p_patch_pre%verts%vertex(:,:)%lon = 0._wp
     p_patch_pre%verts%vertex(:,:)%lat = 0._wp
     p_patch_pre%verts%refin_ctrl = 0
-    p_patch_pre%verts%cell_idx = 0
-    p_patch_pre%verts%cell_blk = 0
+    p_patch_pre%verts%cell = 0
     p_patch_pre%verts%num_edges = 0
     p_patch_pre%verts%start_index = 0
     p_patch_pre%verts%end_index = 0
@@ -827,6 +825,7 @@ CONTAINS
     ! !grid verts
     !
     DEALLOCATE( p_patch_pre%verts%vertex )
+    DEALLOCATE( p_patch_pre%verts%cell )
     DEALLOCATE( p_patch_pre%verts%refin_ctrl )
     DEALLOCATE( p_patch_pre%verts%start_index )
     DEALLOCATE( p_patch_pre%verts%end_index )

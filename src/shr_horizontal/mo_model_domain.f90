@@ -717,11 +717,8 @@ MODULE mo_model_domain
     INTEGER :: max_connectivity
 
     ! line indices of cells around each vertex:
-    ! index1=1,nproma, index2=1,nblks_v, index3=1,6
-    INTEGER, ALLOCATABLE :: cell_idx(:,:,:)
-    ! block indices of cells around each vertex:
-    ! index1=1,nproma, index2=1,nblks_v, index3=1,6
-    INTEGER, ALLOCATABLE :: cell_blk(:,:,:)
+    ! index2=1,6
+    INTEGER, ALLOCATABLE :: cell(:,:)
 
     ! number of edges connected to vertex
     ! index1=1,nproma, index2=1,nblks_v
