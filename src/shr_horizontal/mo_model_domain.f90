@@ -721,8 +721,7 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: cell(:,:)
 
     ! number of edges connected to vertex
-    ! index1=1,nproma, index2=1,nblks_v
-    INTEGER, ALLOCATABLE :: num_edges(:,:)
+    INTEGER, ALLOCATABLE :: num_edges(:)
 
     ! longitude & latitude of vertex:
     ! index1=1,nproma, index2=1,nblks_v

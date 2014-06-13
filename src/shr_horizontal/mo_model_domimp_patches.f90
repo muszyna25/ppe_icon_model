@@ -1166,13 +1166,11 @@ CONTAINS
       patch_pre%n_patch_verts_g, max_verts_connectivity, &
       use_duplicated_connectivity)
     !
-    ! Set verts%num_edges (in array_v_int(:,1))
+    ! Set verts%num_edges
     DO ji = 1, patch_pre%n_patch_verts_g
-      array_v_int(ji,1) = &
+      patch_pre%verts%num_edges(ji) = &
         COUNT(patch_pre%verts%cell(ji,1:max_verts_connectivity) /= 0)
     END DO
-    CALL reshape_int( array_v_int(:,1), patch_pre%nblks_v, patch_pre%npromz_v, &
-         & patch_pre%verts%num_edges(:,:) )
 
     ! patch_pre%edges%cell(:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))

@@ -1146,7 +1146,7 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
-      INTEGER :: n, i, ic, j, jv, je, jl_e, jb_e, jl_v, jb_v, ilev, jc, jc_, k
+      INTEGER :: n, i, ic, j, jv, jv_, je, jl_e, jb_e, jl_v, jb_v, ilev, jc, jc_, k
       LOGICAL, ALLOCATABLE :: pack_mask(:)
       INTEGER, ALLOCATABLE :: temp_cells(:), temp_vertices(:), &
                               temp_vertices_owner(:), temp_edges(:), &
@@ -1419,10 +1419,9 @@ CONTAINS
         END IF
         n_temp_cells = 0
         DO jv = 1, n_temp_vertices
-          jl_v = idx_no(temp_vertices(jv))
-          jb_v = blk_no(temp_vertices(jv))
-          DO i = 1, wrk_p_patch_pre%verts%num_edges(jl_v, jb_v)
-            jc = wrk_p_patch_pre%verts%cell(temp_vertices(jv), i)
+          jv_ = temp_vertices(jv)
+          DO i = 1, wrk_p_patch_pre%verts%num_edges(jv_)
+            jc = wrk_p_patch_pre%verts%cell(jv_, i)
             IF (jc > 0) THEN
               n_temp_cells = n_temp_cells + 1
               temp_cells(n_temp_cells) = jc
@@ -1703,7 +1702,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: vertices(:)
       INTEGER, INTENT(OUT) :: owner(:)
 
-      INTEGER :: i, jv, jb_v, jl_v, n, j, jl, jb, jc, &
+      INTEGER :: i, jv, n, j, jl, jb, jc, &
         &        t_cells(wrk_p_patch_pre%verts%max_connectivity), &
         &        t_cell_owner(wrk_p_patch_pre%verts%max_connectivity), &
         &        a_iown(2), a_mod_iown(2)
@@ -1712,9 +1711,7 @@ CONTAINS
       ! compute ownership of vertices
       DO i = 1, SIZE(vertices)
         jv = vertices(i)
-        jb_v = blk_no(jv) ! block index
-        jl_v = idx_no(jv) ! line index
-        n = wrk_p_patch_pre%verts%num_edges(jl_v, jb_v)
+        n = wrk_p_patch_pre%verts%num_edges(jv)
         t_cells(1:n) = wrk_p_patch_pre%verts%cell(jv, 1:n)
         CALL insertion_sort(t_cells(1:n))
         t_cell_owner(1:n) = cell_owner(t_cells(1:n))
