@@ -859,16 +859,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in patch
-      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in patch
+      jg = wrk_p_patch%cells%decomp_info%glb_index(j)
+
+      jb_g = blk_no(jg) ! Block index in global patch
+      jl_g = idx_no(jg) ! Line  index in global patch
 
       DO i=1,wrk_p_patch%cell_type
 !CDIR IEXPAND
-        CALL get_local_idx_blk(wrk_p_patch%cells%decomp_info, &
-          & wrk_p_patch_pre%cells%neighbor_idx(jl_g,jb_g,i),  &
-          & wrk_p_patch_pre%cells%neighbor_blk(jl_g,jb_g,i),  &
-          & wrk_p_patch%cells%neighbor_idx(jl,jb,i),        &
-          & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
+        CALL get_local_idx(wrk_p_patch%cells%decomp_info, &
+          & wrk_p_patch_pre%cells%neighbor(jg,i), jc)
+
+        wrk_p_patch%cells%neighbor_idx(jl,jb,i) = idx_no(jc)
+        wrk_p_patch%cells%neighbor_blk(jl,jb,i) = blk_no(jc)
 
 !CDIR IEXPAND
         CALL get_local_idx_blk(wrk_p_patch%edges%decomp_info, &
@@ -2293,6 +2295,49 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  !!               Calculates local indices l_i from global indices g_i
+  !!               using the mapping in decomp_info
+  !!
+  !! @par Revision History
+  !! Initial version by Rainer Johanni, Nov 2009
+  !!
+  SUBROUTINE get_local_idx(decomp_info, g_i, l_i, opt_mode)
+
+    !
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
+    INTEGER, INTENT(in) :: g_i
+    INTEGER, INTENT(in), OPTIONAL :: opt_mode
+
+    INTEGER, INTENT(out) :: l_i
+
+    INTEGER :: mode
+
+    !-----------------------------------------------------------------------
+
+    ! mode controls the behaviour if the global index is valid, but outside the local domain:
+    ! mode > 0 : Map it to the next greater index (even if this is outside the local domain)
+    ! mode < 0 : Map it to the next smaller index (even if this is 0)
+    ! mode = 0 : Map it to a negative value (negative of global index)
+
+    IF(PRESENT(opt_mode)) THEN
+      mode = opt_mode
+    ELSE
+      mode = 0
+    ENDIF
+
+    IF (mode == 0) THEN
+      l_i = get_local_index(decomp_info%glb2loc_index, g_i)
+      IF (l_i < 0) l_i = -g_i
+    ELSE IF (mode > 0) THEN
+      l_i = get_valid_local_index(decomp_info%glb2loc_index, g_i, .TRUE.)
+    ELSE
+      l_i = get_valid_local_index(decomp_info%glb2loc_index, g_i)
+    END IF
+
+  END SUBROUTINE get_local_idx
+
+  !-------------------------------------------------------------------------
+  !>
   !!               Calculates local line/block indices l_idx, l_blk
   !!               from global line/block indices g_idx, g_blk
   !!               using the mapping in decomp_info
@@ -2309,33 +2354,9 @@ CONTAINS
 
     INTEGER, INTENT(out) :: l_idx, l_blk
 
-    INTEGER mode, j_g, j_l
+    INTEGER j_l
 
-    !-----------------------------------------------------------------------
-
-    ! mode controls the behaviour if the global index is valid, but outside the local domain:
-    ! mode > 0 : Map it to the next greater index (even if this is outside the local domain)
-    ! mode < 0 : Map it to the next smaller index (even if this is 0)
-    ! mode = 0 : Map it to a negative value (negative of global index)
-
-    IF(PRESENT(opt_mode)) THEN
-      mode = opt_mode
-    ELSE
-      mode = 0
-    ENDIF
-
-    ! Get 1D global index from g_idx, g_blk
-
-    j_g = idx_1d(g_idx, g_blk)
-
-    IF (mode == 0) THEN
-      j_l = get_local_index(decomp_info%glb2loc_index, j_g)
-      IF (j_l < 0) j_l = -j_g
-    ELSE IF (mode > 0) THEN
-      j_l = get_valid_local_index(decomp_info%glb2loc_index, j_g, .TRUE.)
-    ELSE
-      j_l = get_valid_local_index(decomp_info%glb2loc_index, j_g)
-    END IF
+    CALL get_local_idx(decomp_info, idx_1d(g_idx, g_blk), j_l, opt_mode)
 
     l_idx = idx_no(j_l)
     l_blk = blk_no(j_l)
@@ -2679,10 +2700,8 @@ CONTAINS
         DO i = 1, nn
           j = NINT(cell_desc(3,npt-i))
           IF (owner(j) >= 0) CYCLE
-          jb = blk_no(j) ! block index
-          jl = idx_no(j) ! line index
           DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
-            jn = idx_1d(wrk_p_patch_pre%cells%neighbor_idx(jl,jb,ii),wrk_p_patch_pre%cells%neighbor_blk(jl,jb,ii))
+            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
                 owner(j) = owner(jn)
@@ -2958,13 +2977,12 @@ CONTAINS
       ! which are also in the subset in the adjacency list
 
       nc = nc+1
+
       DO i = 1,wrk_p_patch_pre%cells%num_edges(j)
-        jl_n = wrk_p_patch_pre%cells%neighbor_idx(jl,jb,i)
-        jb_n = wrk_p_patch_pre%cells%neighbor_blk(jl,jb,i)
-        jn = idx_1d(jl_n,jb_n)
+        jn = wrk_p_patch_pre%cells%neighbor(j,i)
 
         ! Neighbor not existing
-        IF(jl_n<1 .or. jb_n<1 .or. jn>wrk_p_patch_pre%n_patch_cells_g) CYCLE
+        IF(jn > wrk_p_patch_pre%n_patch_cells_g .OR. jn < 1) CYCLE
 
         ! Neighbor not in subset
         IF(subset_flag(jn)<0) CYCLE

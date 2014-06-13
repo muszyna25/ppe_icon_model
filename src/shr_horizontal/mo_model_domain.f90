@@ -333,12 +333,9 @@ MODULE mo_model_domain
     ! (may differ from the "normal" domain ID in case of domain merging):
     INTEGER, ALLOCATABLE :: phys_id(:)
 
-    ! line indices of triangles next to each cell:
-    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
-    INTEGER, ALLOCATABLE :: neighbor_idx(:,:,:)
-    ! block indices of triangles next to each cell:
-    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
-    INTEGER, ALLOCATABLE :: neighbor_blk(:,:,:)
+    ! indices of triangles next to each cell:
+    ! index2=1,3
+    INTEGER, ALLOCATABLE :: neighbor(:,:)
 
     ! line indices of edges of triangle:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3

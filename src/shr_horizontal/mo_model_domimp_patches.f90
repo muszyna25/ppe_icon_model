@@ -786,7 +786,7 @@ CONTAINS
 
     INTEGER :: ncid, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
-    INTEGER :: jc, je, ilc, ibc
+    INTEGER :: jc, je, ilc, ibc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
     INTEGER :: block_size
     !-----------------------------------------------------------------------
@@ -1067,16 +1067,10 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%phys_id(:)))
 
-    ! patch_pre%cells%neighbor_idx(:,:,:)
-    ! patch_pre%cells%neighbor_blk(:,:,:)
+    ! patch_pre%cells%neighbor(:,:)
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:max_cell_connectivity)))
-    DO ji = 1, max_cell_connectivity
-      CALL reshape_idx( array_c_int(:,ji), patch_pre%nblks_c, &
-        & patch_pre%npromz_c,  &
-        & patch_pre%cells%neighbor_idx(:,:,ji),  &
-        & patch_pre%cells%neighbor_blk(:,:,ji) )
-    END DO
+    CALL nf(nf_get_var_int(ncid, varid, &
+      &                    patch_pre%cells%neighbor(:,1:max_cell_connectivity)))
 
     ! patch_pre%cells%edge_idx(:,:,:)
     ! patch_pre%cells%edge_blk(:,:,:)
@@ -1315,22 +1309,20 @@ CONTAINS
         IF (ibc == patch_pre%nblks_c) block_size = patch_pre%npromz_c
         DO ilc=1, block_size
 
+          ic = idx_1d(ilc, ibc)
+
           DO ji = 1, 6
 
             ! account for dummy cells arising in case of a pentagon
-            IF ( patch_pre%cells%neighbor_idx(ilc,ibc,ji) == 0 ) THEN
+            IF ( patch_pre%cells%neighbor(ic,ji) == 0 ) THEN
               IF ( ji /= 6 ) THEN
-                patch_pre%cells%neighbor_idx(ilc,ibc,ji) =  &
-                  & patch_pre%cells%neighbor_idx(ilc,ibc,6)
-                patch_pre%cells%neighbor_blk(ilc,ibc,ji) =  &
-                  & patch_pre%cells%neighbor_blk(ilc,ibc,6)
+                patch_pre%cells%neighbor(ic,ji) = patch_pre%cells%neighbor(ic,6)
                 ! this should not happen
   !               CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
               END IF
               ! Fill dummy neighbor with an existing index to simplify do loops
               ! Note, however, that related multiplication factors must be zero
-              patch_pre%cells%neighbor_idx(ilc,ibc,6) = patch_pre%cells%neighbor_idx(ilc,ibc,5)
-              patch_pre%cells%neighbor_blk(ilc,ibc,6) = patch_pre%cells%neighbor_blk(ilc,ibc,5)
+              patch_pre%cells%neighbor(ic,6) = patch_pre%cells%neighbor(ic,5)
             END IF
 
             ! account for dummy verts arising in case of a pentagon
