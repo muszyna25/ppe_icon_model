@@ -712,6 +712,7 @@ run/dict.echam.mpim -text
 run/dict.extpar -text
 run/dict.icoham.mpim -text
 run/dict.iconam.mpim -text
+run/dict.output.dwd -text
 run/exec.iconrun -text
 run/exp.ICON_limarea -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
