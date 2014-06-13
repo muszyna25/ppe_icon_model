@@ -644,7 +644,7 @@ CONTAINS
     ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%pc_idx(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%child(p_patch_pre%n_patch_edges_g,4) )
-    ALLOCATE( p_patch_pre%edges%child_id(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%child_id(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%refin_ctrl(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%cell_idx(nproma,p_patch_pre%nblks_e,2) )
     ALLOCATE( p_patch_pre%edges%cell_blk(nproma,p_patch_pre%nblks_e,2) )

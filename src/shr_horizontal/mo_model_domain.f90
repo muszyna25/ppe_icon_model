@@ -590,8 +590,7 @@ MODULE mo_model_domain
     ! index2=1,4
     INTEGER, ALLOCATABLE :: child(:,:)
     ! domain ID of child edges:
-    ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: child_id(:,:)
+    INTEGER, ALLOCATABLE :: child_id(:)
 
     ! line indices of adjacent cells:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,2

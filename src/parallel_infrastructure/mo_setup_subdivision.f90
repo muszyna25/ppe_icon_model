@@ -937,9 +937,6 @@ CONTAINS
 
       jg = wrk_p_patch%edges%decomp_info%glb_index(j)
 
-      jb_g = blk_no(jg) ! Block index in global patch
-      jl_g = idx_no(jg) ! Line  index in global patch
-
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
@@ -951,7 +948,7 @@ CONTAINS
       wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_pre%edges%pc_idx(jg)
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
-      wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jl_g,jb_g)
+      wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jg)
 
       wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jg)
     ENDDO

@@ -1131,19 +1131,18 @@ CONTAINS
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
 
-    ! patch_pre%edges%child_id(:,:)
+    ! patch_pre%edges%child_id(:)
     CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%child_id(:)))
 
     IF(ishift_child_id /= 0 .AND. patch_pre%n_childdom>0) THEN
  !     DO je = start_idx_e(grf_bdyintp_start_e,1), end_idx_e(min_rledge,patch_pre%n_childdom)
  !       array_e_int(je,1) = array_e_int(je,1) - ishift_child_id
  !     ENDDO
-      WHERE (array_e_int(:,1) > 0) array_e_int(:,1) = array_e_int(:,1) - ishift_child_id
+      WHERE (patch_pre%edges%child_id(:) > 0) &
+        patch_pre%edges%child_id(:) = &
+          patch_pre%edges%child_id(:) - ishift_child_id
     ENDIF
-
-    CALL reshape_int( array_e_int(:,1), patch_pre%nblks_e, patch_pre%npromz_e, &
-      & patch_pre%edges%child_id(:,:) )
 
     ! patch_pre%edges%refin_ctrl(:)
     CALL nf(nf_inq_varid(ncid, 'refin_e_ctrl', varid))
