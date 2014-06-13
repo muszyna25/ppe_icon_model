@@ -328,12 +328,10 @@ MODULE mo_model_domain
     ! index2=1,4
     INTEGER, ALLOCATABLE :: child(:,:)
     ! domain ID of child triangles:
-    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: child_id(:,:)
+    INTEGER, ALLOCATABLE :: child_id(:)
     ! physical domain ID of triangles
     ! (may differ from the "normal" domain ID in case of domain merging):
-    ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: phys_id(:,:)
+    INTEGER, ALLOCATABLE :: phys_id(:)
 
     ! line indices of triangles next to each cell:
     ! index1=1,nproma, index2=1,nblks_c, index3=1,3

@@ -505,7 +505,7 @@ CONTAINS
 
         DO j = 1, wrk_p_patch_pre%n_patch_cells_g
           flag_c(wrk_p_patch_pre%cells%parent(j)) = &
-            MAX(1,wrk_p_patch_pre%cells%phys_id(jl,jb))
+            MAX(1,wrk_p_patch_pre%cells%phys_id(j))
         ENDDO
 
         ! Divide subset of patch
@@ -892,33 +892,31 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jc = wrk_p_patch%cells%decomp_info%glb_index(j)
+      jg = wrk_p_patch%cells%decomp_info%glb_index(j)
 
-      jb_g = blk_no(jc) ! Block index in global patch
-      jl_g = idx_no(jc) ! Line  index in global patch
+      jb_g = blk_no(jg) ! Block index in global patch
+      jl_g = idx_no(jg) ! Line  index in global patch
 
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      jc_p = wrk_p_patch_pre%cells%parent(jc)
+      jc_p = wrk_p_patch_pre%cells%parent(jg)
 
       wrk_p_patch%cells%parent_idx(jl,jb)  = idx_no(jc_p)
       wrk_p_patch%cells%parent_blk(jl,jb)  = blk_no(jc_p)
-
-
-      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_pre%cells%pc_idx(jc)
+      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_pre%cells%pc_idx(jg)
       wrk_p_patch%cells%child_idx(jl,jb,1:4) = &
-        idx_no(wrk_p_patch_pre%cells%child(jc,1:4))
+        idx_no(wrk_p_patch_pre%cells%child(jg,1:4))
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = &
-        blk_no(wrk_p_patch_pre%cells%child(jc,1:4))
-      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_pre%cells%child_id(jl_g,jb_g)
+        blk_no(wrk_p_patch_pre%cells%child(jg,1:4))
+      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_pre%cells%child_id(jg)
 
       wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges( &
         wrk_p_patch%cells%decomp_info%glb_index(j))
       wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lat
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lon
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jl_g,jb_g)
-      wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_pre%cells%child_id(jl_g,jb_g)
+      wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_pre%cells%child_id(jg)
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows

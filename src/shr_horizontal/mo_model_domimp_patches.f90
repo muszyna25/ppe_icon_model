@@ -1063,11 +1063,9 @@ CONTAINS
     CALL reshape_index_list( end_idx_v(:,1),                           &
       & patch_pre%verts%end_index, patch_pre%verts%end_block )
 
-    ! patch_pre%cells%phys_id(:,:)
+    ! patch_pre%cells%phys_id(:)
     CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-    CALL reshape_int( array_c_int(:,1), patch_pre%nblks_c, patch_pre%npromz_c, &
-      & patch_pre%cells%phys_id(:,:) )
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%phys_id(:)))
 
     ! patch_pre%cells%neighbor_idx(:,:,:)
     ! patch_pre%cells%neighbor_blk(:,:,:)
@@ -1138,27 +1136,25 @@ CONTAINS
       CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%child(:,:)))
       ! patch_pre%cells%child_id(:,:)
       CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
-      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+      CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%child_id(:)))
 
       ! Preparation: In limited-area mode, check if child domain ID's read
       ! from the grid files need to be shifted
       IF (ig == 1 .AND. l_limited_area .AND. patch_pre%n_childdom>0) THEN
         ! domain ID of first nested domain should be 2
-!        ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
-        ishift_child_id = MINVAL(array_c_int(:,1),MASK=array_c_int(:,1)>0) - 2
+!        ishift_child_id = patch_pre%cells%child_id(start_idx_c(grf_bdyintp_start_c,1),1) - 2
+        ishift_child_id = MINVAL(patch_pre%cells%child_id(:),MASK=patch_pre%cells%child_id(:)>0) - 2
         WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
         CALL message ('', TRIM(message_text))
       ENDIF
 
       IF(ishift_child_id /= 0 .AND. patch_pre%n_childdom>0) THEN
  !       DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch_pre%n_childdom)
- !         array_c_int(jc,1) = array_c_int(jc,1) - ishift_child_id
+ !         patch_pre%cells%child_id(jc) = patch_pre%cells%child_id(jc) - ishift_child_id
  !       ENDDO
-        WHERE (array_c_int(:,1) > 0) array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
+        WHERE (patch_pre%cells%child_id(:) > 0) patch_pre%cells%child_id(:) = &
+          patch_pre%cells%child_id(:) - ishift_child_id
       ENDIF
-
-      CALL reshape_int( array_c_int(:,1), patch_pre%nblks_c, &
-        & patch_pre%npromz_c, patch_pre%cells%child_id(:,:) )
 
     ELSE
       CALL message ('read_patch',&
