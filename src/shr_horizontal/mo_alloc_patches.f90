@@ -622,8 +622,6 @@ CONTAINS
     !
     ! !grid cells
     !
-    p_patch_pre%cells%dummy_cell_block = 0
-    p_patch_pre%cells%dummy_cell_index = 0
     ALLOCATE( p_patch_pre%cells%num_edges(nproma,p_patch_pre%alloc_cell_blocks) )
     ALLOCATE( p_patch_pre%cells%parent_idx(nproma,p_patch_pre%alloc_cell_blocks) )
     ALLOCATE( p_patch_pre%cells%parent_blk(nproma,p_patch_pre%alloc_cell_blocks) )

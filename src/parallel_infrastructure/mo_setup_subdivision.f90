@@ -480,7 +480,6 @@ CONTAINS
             ALLOCATE(radiation_owner(wrk_p_patch_pre%n_patch_cells_g))
 
         CALL p_bcast(radiation_owner, 0, comm=p_comm_work)
-        wrk_p_patch_pre%cells%radiation_owner => radiation_owner
 
       ENDIF
 

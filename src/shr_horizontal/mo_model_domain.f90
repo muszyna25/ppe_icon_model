@@ -96,7 +96,7 @@ MODULE mo_model_domain
   ! ! the following abstract data types are taken from mo_grid,
 
   PUBLIC :: t_patch, t_pre_patch
-  PUBLIC :: t_grid_cells
+  PUBLIC :: t_grid_cells, t_pre_grid_cells
   PUBLIC :: t_grid_edges
   PUBLIC :: t_grid_vertices
   PUBLIC :: t_phys_patch
@@ -312,6 +312,91 @@ MODULE mo_model_domain
       ! =0 if no dummy cell
 
   END TYPE t_grid_cells
+
+  TYPE t_pre_grid_cells
+
+    INTEGER :: max_connectivity
+    ! number of edges connected to cell
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: num_edges(:,:)
+
+    ! line index of parent triangle:
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: parent_idx(:,:)
+    ! block index of parent triangle:
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: parent_blk(:,:)
+    ! parent child index, number of current cell in parent's child_idx/child_blk:
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: pc_idx(:,:)
+
+    ! line indices of child triangles:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,4
+    INTEGER, ALLOCATABLE :: child_idx(:,:,:)
+    ! block indices of child triangles:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,4
+    INTEGER, ALLOCATABLE :: child_blk(:,:,:)
+    ! domain ID of child triangles:
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: child_id(:,:)
+    ! physical domain ID of triangles
+    ! (may differ from the "normal" domain ID in case of domain merging):
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: phys_id(:,:)
+
+    ! line indices of triangles next to each cell:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
+    INTEGER, ALLOCATABLE :: neighbor_idx(:,:,:)
+    ! block indices of triangles next to each cell:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
+    INTEGER, ALLOCATABLE :: neighbor_blk(:,:,:)
+
+    ! line indices of edges of triangle:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
+    INTEGER, ALLOCATABLE :: edge_idx(:,:,:)
+    ! block indices of edges of triangle:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
+    INTEGER, ALLOCATABLE :: edge_blk(:,:,:)
+
+    ! line indices of verts of triangle:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
+    INTEGER, ALLOCATABLE :: vertex_idx(:,:,:)
+    ! block indices of verts of triangle:
+    ! index1=1,nproma, index2=1,nblks_c, index3=1,3
+    INTEGER, ALLOCATABLE :: vertex_blk(:,:,:)
+
+    ! cell geometry
+
+    ! longitude & latitude of centers of triangular cells
+    ! index1=nproma, index2=1,nblks_c
+    TYPE(t_geographical_coordinates), ALLOCATABLE ::  &
+      & center(:,:)
+
+    ! refinement control flag
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
+
+    ! list of start indices for each refin_ctrl level
+    ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants), index2=n_childdom
+    INTEGER, ALLOCATABLE :: start_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_index(:) ! revised implementation
+
+    ! list of end indices for each refin_ctrl level
+    ! index1=min_rlcell,max_rlcell, index2=n_childdom
+    INTEGER, ALLOCATABLE :: end_idx(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_index(:) ! revised implementation
+
+    ! list of start block for each refin_ctrl level
+    ! index1=min_rlcell,max_rlcell, index2=n_childdom
+    INTEGER, ALLOCATABLE :: start_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: start_block(:) ! revised implementation
+
+    ! list of end block for each refin_ctrl level
+    ! index1=min_rlcell,max_rlcell, index2=n_childdom
+    INTEGER, ALLOCATABLE :: end_blk(:,:) ! to be removed soon
+    INTEGER, ALLOCATABLE :: end_block(:) ! revised implementation
+
+  END TYPE t_pre_grid_cells
 
   ! !grid_edge class
 
@@ -892,7 +977,7 @@ MODULE mo_model_domain
     !
     ! ! grid information on the patch
     !
-    TYPE(t_grid_cells) :: cells
+    TYPE(t_pre_grid_cells) :: cells
     TYPE(t_grid_edges) :: edges
     TYPE(t_grid_vertices) :: verts
 
