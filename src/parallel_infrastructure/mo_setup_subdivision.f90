@@ -39,7 +39,7 @@ MODULE mo_setup_subdivision
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index
@@ -62,7 +62,7 @@ MODULE mo_setup_subdivision
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
-                             deallocate_basic_patch, deallocate_patch
+                             deallocate_pre_patch, deallocate_patch
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, divide_geometric_medial, &
     & read_ascii_decomposition
   USE mo_math_utilities,      ONLY: geographical_to_cartesian
@@ -98,22 +98,22 @@ CONTAINS
   !!        sequential runs where it simply copies (and initializes)
   !!        the patch data structure.
   !!
-  SUBROUTINE decompose_domain( p_patch, p_patch_global )
+  SUBROUTINE decompose_domain( p_patch, p_patch_pre )
 
     TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch(n_dom_start:)
-    TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
+    TYPE(t_pre_patch), INTENT(INOUT), TARGET :: p_patch_pre(n_dom_start:)
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:decompose_domain")
 
     ! Local variables:
     INTEGER :: jg, jgp, jc, jgc, n, &
       &        n_procs_decomp
-    INTEGER :: nprocs(p_patch_global(1)%n_childdom)
+    INTEGER :: nprocs(p_patch_pre(1)%n_childdom)
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, POINTER :: cell_owner_p(:)
-    REAL(wp) :: weight(p_patch_global(1)%n_childdom)
+    REAL(wp) :: weight(p_patch_pre(1)%n_childdom)
     TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
-    TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
+    TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
 
@@ -141,8 +141,8 @@ CONTAINS
 
     ! Get weights for 1st generation patches
     proc_split = .FALSE.
-    DO jc = 1, p_patch_global(1)%n_childdom
-      jgc = p_patch_global(1)%child_id(jc)
+    DO jc = 1, p_patch_pre(1)%n_childdom
+      jgc = p_patch_pre(1)%child_id(jc)
       weight(jc) = patch_weight(jgc)
       IF(weight(jc) > 0._wp) proc_split = .TRUE.
     ENDDO
@@ -151,7 +151,7 @@ CONTAINS
     IF(patch_weight(1) /= 0._wp) &
       CALL finish(routine,'Weight for root patch must be 0')
     DO jg = 2, n_dom
-      jgp = p_patch_global(jg)%parent_id
+      jgp = p_patch_pre(jg)%parent_id
       IF(jgp /= 1 .AND. patch_weight(jg) > 0._wp) &
         CALL finish(routine,'Weight for higher level patch must be 0')
     ENDDO
@@ -168,7 +168,7 @@ CONTAINS
 
       ! In this case, the working processor set must be at least as big
       ! as the number of childs of the root patch
-      IF(p_patch_global(1)%n_childdom > n_procs_decomp) &
+      IF(p_patch_pre(1)%n_childdom > n_procs_decomp) &
         CALL finish(routine,'Too few procs for processor grid splitting')
 
       ! Get the number of procs per patch according to weight(:).
@@ -178,15 +178,15 @@ CONTAINS
       ! The remaining procs are divided among patches similar to
       ! the d'Hondt method for elections
 
-      DO n = p_patch_global(1)%n_childdom+1, n_procs_decomp
+      DO n = p_patch_pre(1)%n_childdom+1, n_procs_decomp
         jg = MAXLOC(weight(:)/REAL(nprocs(:)+1,wp),1)
         nprocs(jg) = nprocs(jg)+1
       ENDDO
 
       IF(p_pe_work==0) THEN
         WRITE(0,*) 'Processor splitting:'
-        DO jc = 1, p_patch_global(1)%n_childdom
-          jgc =  p_patch_global(1)%child_id(jc)
+        DO jc = 1, p_patch_pre(1)%n_childdom
+          jgc =  p_patch_pre(1)%child_id(jc)
           WRITE(0,'(a,i0,a,f10.3,a,i0,a,i0)')                                              &
             &   'Patch ',jgc,' weight ',weight(jc),' gets ',nprocs(jc),' of ',n_procs_decomp
           IF (nprocs(jc) <= 1) &
@@ -204,8 +204,8 @@ CONTAINS
       ! ... for 1st generation childs
 
       n = 0
-      DO jc = 1, p_patch_global(1)%n_childdom
-        jgc = p_patch_global(1)%child_id(jc)
+      DO jc = 1, p_patch_pre(1)%n_childdom
+        jgc = p_patch_pre(1)%child_id(jc)
         p_patch(jgc)%proc0  = n
         p_patch(jgc)%n_proc = nprocs(jc)
         n = n + nprocs(jc)
@@ -215,7 +215,7 @@ CONTAINS
 
       DO jg = 2, n_dom
 
-        jgp = p_patch_global(jg)%parent_id
+        jgp = p_patch_pre(jg)%parent_id
 
         IF(jgp /= 1) THEN
           p_patch(jg)%n_proc = p_patch(jgp)%n_proc
@@ -250,12 +250,12 @@ CONTAINS
 
     DO jg = n_dom_start, n_dom
 
-      jgp = p_patch_global(jg)%parent_id
+      jgp = p_patch_pre(jg)%parent_id
 
       IF(jg == n_dom_start) THEN
-        NULLIFY(wrk_p_parent_patch_g) ! Must be NULL for global patch
+        NULLIFY(wrk_p_parent_patch_pre) ! Must be NULL for patch
       ELSE
-        wrk_p_parent_patch_g => p_patch_global(jgp)
+        wrk_p_parent_patch_pre => p_patch_pre(jgp)
       ENDIF
 
       ! Set division method, divide_for_radiation is only used for patch 0
@@ -265,14 +265,14 @@ CONTAINS
       ! Here comes the actual domain decomposition:
       ! Every cells gets assigned an owner.
 
-      ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
+      ALLOCATE(cell_owner(p_patch_pre(jg)%n_patch_cells))
       IF(jg > n_dom_start) THEN
-        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
+        ALLOCATE(cell_owner_p(p_patch_pre(jgp)%n_patch_cells))
       END IF
 
       IF (my_process_is_mpi_parallel()) THEN
-        CALL divide_patch_cells(p_patch_global(jg), jg, p_patch(jg)%n_proc, &
-             p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_g, &
+        CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
+             p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_pre, &
              p_patch(jg)%cells%radiation_owner)
       ELSE
         cell_owner(:) = 0 ! trivial "decomposition"
@@ -281,10 +281,10 @@ CONTAINS
       IF(jg > n_dom_start) THEN
         ! Assign the cell owners of the current patch to the parent cells
         ! for the construction of the local parent, set "-1" elsewhere.
-        CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
+        CALL divide_parent_cells(p_patch_pre(jg),cell_owner,cell_owner_p)
       END IF
 
-      DEALLOCATE(p_patch_global(jg)%cells%phys_id)
+      DEALLOCATE(p_patch_pre(jg)%cells%phys_id)
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
       ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
@@ -303,13 +303,13 @@ CONTAINS
         order_type_of_halos = 1
       END SELECT
 
-      ! CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
-      CALL divide_patch(p_patch(jg), p_patch_global(jg), cell_owner, n_ghost_rows, order_type_of_halos, p_pe_work)
+      ! CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
+      CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, n_ghost_rows, order_type_of_halos, p_pe_work)
 
       IF(jg > n_dom_start) THEN
         order_type_of_halos = 0
-        ! CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
-        CALL divide_patch(p_patch_local_parent(jg), p_patch_global(jgp), cell_owner_p, 1, &
+        ! CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
+        CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), cell_owner_p, 1, &
           & order_type_of_halos,  p_pe_work)
       ENDIF
 
@@ -318,21 +318,21 @@ CONTAINS
 
     ENDDO
 
-    ! The global patches may be discarded now
+    ! The patches may be discarded now
     DO jg = n_dom_start, n_dom
-      CALL deallocate_basic_patch( p_patch_global(jg) )
+      CALL deallocate_pre_patch( p_patch_pre(jg) )
     ENDDO
 
   END SUBROUTINE decompose_domain
 
   !-----------------------------------------------------------------------------
   !>
-  !! Divides the cells of a global patch (in wrk_p_patch_g) for parallelization.
+  !! Divides the cells of a patch (in wrk_p_patch_pre) for parallelization.
   !!
   !! Outputs the subdivsion in cell_owner(:) which must already be allocated
-  !! to the correct size (wrk_p_patch_g%n_patch_cells)
+  !! to the correct size (wrk_p_patch_pre%n_patch_cells)
   !!
-  !! If  wrk_p_parent_patch_g is associated, this indicates that the patch has a parent
+  !! If  wrk_p_parent_patch_pre is associated, this indicates that the patch has a parent
   !! which has consquences for subdivision (cell with the same parent must not
   !! get to different PEs).
   !!
@@ -340,16 +340,17 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch_cells(wrk_p_patch_g, patch_no, n_proc, proc0, cell_owner, &
-                                wrk_p_parent_patch_g, radiation_owner)
+  SUBROUTINE divide_patch_cells(wrk_p_patch_pre, patch_no, n_proc, proc0, &
+    &                           cell_owner, wrk_p_parent_patch_pre, &
+    &                           radiation_owner)
 
-    TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch_g
+    TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
                                      ! used to identify patch specific decomposition
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     INTEGER, POINTER :: cell_owner(:) !> Cell division
-    TYPE(t_patch), POINTER :: wrk_p_parent_patch_g
+    TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     INTEGER, POINTER :: radiation_owner(:)
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
@@ -378,7 +379,7 @@ CONTAINS
 
           IF (division_file_name(patch_no) == "") THEN
             use_division_file_name = &
-              & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+              & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename))//'.cell_domain_ids'
           ELSE
             use_division_file_name = division_file_name(patch_no)
           ENDIF
@@ -390,7 +391,7 @@ CONTAINS
           IF(i /= 0) CALL finish('divide_patch',&
             & 'Unable to open input file: '//TRIM(use_division_file_name))
 
-          DO j = 1, wrk_p_patch_g%n_patch_cells
+          DO j = 1, wrk_p_patch_pre%n_patch_cells
             READ(n,*,IOSTAT=i) cell_owner(j)
             IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
           ENDDO
@@ -400,12 +401,13 @@ CONTAINS
 
           IF (division_file_name(patch_no) == "") THEN
             use_division_file_name = &
-              & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+              & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename))//'.cell_domain_ids'
           ELSE
             use_division_file_name = division_file_name(patch_no)
           ENDIF
 
-          CALL read_ascii_decomposition(use_division_file_name, cell_owner, wrk_p_patch_g%n_patch_cells)
+          CALL read_ascii_decomposition(use_division_file_name, cell_owner, &
+            &                           wrk_p_patch_pre%n_patch_cells)
 
         ELSE
 
@@ -414,7 +416,8 @@ CONTAINS
           ! just to make sure that the radiation onwer is not acitve
 
           ! fill decomposition_structure
-          CALL fill_wrk_decomposition_struct(decomposition_struct, wrk_p_patch_g)
+          CALL fill_wrk_decomposition_struct(decomposition_struct, &
+            &                                wrk_p_patch_pre)
 
           SELECT CASE (division_method(patch_no))
 
@@ -474,10 +477,10 @@ CONTAINS
         & division_method(patch_no) == ext_div_medial_redrad) THEN
         ! distribute the radiation owner
         IF (p_pe_work /= 0) &
-            ALLOCATE(radiation_owner(wrk_p_patch_g%n_patch_cells))
+            ALLOCATE(radiation_owner(wrk_p_patch_pre%n_patch_cells))
 
         CALL p_bcast(radiation_owner, 0, comm=p_comm_work)
-        wrk_p_patch_g%cells%radiation_owner => radiation_owner
+        wrk_p_patch_pre%cells%radiation_owner => radiation_owner
 
       ENDIF
 
@@ -488,7 +491,7 @@ CONTAINS
 
       ! Built-in subdivison methods
 
-      IF(ASSOCIATED(wrk_p_parent_patch_g)) THEN
+      IF(ASSOCIATED(wrk_p_parent_patch_pre)) THEN
 
         ! Cells with the same parent must not go to different PEs.
         ! Thus we have to divide in reality the subset of the parent cells
@@ -498,28 +501,30 @@ CONTAINS
         ! Determine the subset of the parent patch covering the actual patch
         ! by flagging the according cells
 
-        ALLOCATE(flag_c(wrk_p_parent_patch_g%n_patch_cells))
+        ALLOCATE(flag_c(wrk_p_parent_patch_pre%n_patch_cells))
         flag_c(:) = 0
 
-        DO j = 1, wrk_p_patch_g%n_patch_cells
+        DO j = 1, wrk_p_patch_pre%n_patch_cells
 
           jb = blk_no(j) ! block index
           jl = idx_no(j) ! line index
-          jl_p = wrk_p_patch_g%cells%parent_idx(jl,jb)
-          jb_p = wrk_p_patch_g%cells%parent_blk(jl,jb)
+          jl_p = wrk_p_patch_pre%cells%parent_idx(jl,jb)
+          jb_p = wrk_p_patch_pre%cells%parent_blk(jl,jb)
 
-          flag_c(idx_1d(jl_p, jb_p)) = MAX(1,wrk_p_patch_g%cells%phys_id(jl,jb))
+          flag_c(idx_1d(jl_p, jb_p)) = &
+            MAX(1,wrk_p_patch_pre%cells%phys_id(jl,jb))
         ENDDO
 
         ! Divide subset of patch
         ! Receives the PE  numbers for every cell
-        ALLOCATE(tmp(wrk_p_parent_patch_g%n_patch_cells))
+        ALLOCATE(tmp(wrk_p_parent_patch_pre%n_patch_cells))
 
         IF(division_method(patch_no) == div_geometric) THEN
-          CALL divide_subset_geometric( flag_c, n_proc, wrk_p_parent_patch_g, tmp, .TRUE.)
+          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
+            &                          tmp, .TRUE.)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
-          CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_g, tmp)
+          CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_pre, tmp)
 #endif
         ELSE
           CALL finish('divide_patch','Illegal division_method setting')
@@ -528,12 +533,12 @@ CONTAINS
         ! Owners of the cells of the parent patch are now in tmp.
         ! Set owners in current patch from this
 
-        DO j = 1, wrk_p_patch_g%n_patch_cells
+        DO j = 1, wrk_p_patch_pre%n_patch_cells
 
           jb = blk_no(j) ! block index
           jl = idx_no(j) ! line index
-          jl_p = wrk_p_patch_g%cells%parent_idx(jl,jb)
-          jb_p = wrk_p_patch_g%cells%parent_blk(jl,jb)
+          jl_p = wrk_p_patch_pre%cells%parent_idx(jl,jb)
+          jb_p = wrk_p_patch_pre%cells%parent_blk(jl,jb)
 
           cell_owner(j) = tmp(idx_1d(jl_p,jb_p))
 
@@ -547,16 +552,17 @@ CONTAINS
 
         ! Set subset flags where the "subset" is the whole patch
 
-        ALLOCATE(flag_c(wrk_p_patch_g%n_patch_cells))
+        ALLOCATE(flag_c(wrk_p_patch_pre%n_patch_cells))
         flag_c(:) = 1
 
         ! Divide complete patch
 
         IF(division_method(patch_no) == div_geometric) THEN
-          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_g, cell_owner, .FALSE.)
+          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
+            &                          cell_owner, .FALSE.)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
-          CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_g, cell_owner)
+          CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, cell_owner)
 #endif
         ELSE
           CALL finish('divide_patch','Illegal division_method setting')
@@ -574,8 +580,8 @@ CONTAINS
     ! Output how many cells go to every PE
 
   !  IF(p_pe_work==0) THEN
-  !    PRINT '(a,i0,a,i0)','Patch: ',wrk_p_patch_g%id,&
-  !      & ' Total number of cells: ',wrk_p_patch_g%n_patch_cells
+  !    PRINT '(a,i0,a,i0)','Patch: ',wrk_p_patch_pre%id,&
+  !      & ' Total number of cells: ',wrk_p_patch_pre%n_patch_cells
   !    DO n = 0, p_n_work-1
   !      PRINT '(a,i5,a,i8)','PE',n,' # cells: ',COUNT(cell_owner(:) == n)
   !    ENDDO
@@ -589,10 +595,10 @@ CONTAINS
   !! Sets the owner for the division of the cells of the parent patch
   !! with the same subdivision as the child
 
-  SUBROUTINE divide_parent_cells(p_patch_g, cell_owner, cell_owner_p)
+  SUBROUTINE divide_parent_cells(p_patch_pre, cell_owner, cell_owner_p)
 
-    TYPE(t_patch), INTENT(IN) :: p_patch_g  !> Global patch for which the parent should be divided
-    INTEGER, POINTER  :: cell_owner(:)   !> Ownership of cells in p_patch_g
+    TYPE(t_pre_patch), INTENT(IN) :: p_patch_pre  !> Patch for which the parent should be divided
+    INTEGER, POINTER  :: cell_owner(:)   !> Ownership of cells in p_patch_pre
     INTEGER, INTENT(OUT) :: cell_owner_p(:) !> Output: Cell division for parent.
                                             !> Must be allocated to n_patch_cells of the global parent
 
@@ -602,11 +608,12 @@ CONTAINS
     cell_owner_p(:) = -1
     cnt(:) = 0
 
-    DO j = 1, p_patch_g%n_patch_cells
+    DO j = 1, p_patch_pre%n_patch_cells
 
       jb = blk_no(j) ! block index
       jl = idx_no(j) ! line index
-      jp = idx_1d(p_patch_g%cells%parent_idx(jl,jb), p_patch_g%cells%parent_blk(jl,jb))
+      jp = idx_1d(p_patch_pre%cells%parent_idx(jl,jb), &
+        &         p_patch_pre%cells%parent_blk(jl,jb))
 
       IF(cell_owner_p(jp) < 0) THEN
         cell_owner_p(jp) = cell_owner(j)
@@ -625,7 +632,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !>
-  !! Divides a global patch (in wrk_p_patch_g) for parallelization.
+  !! Divides a patch (in wrk_p_patch_pre) for parallelization.
   !!
   !! Parameters:
   !! cell_owner          owner PE numbers of the global cells
@@ -645,11 +652,12 @@ CONTAINS
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
   !! Major rewrite to reduce memory consumption, Thomas Jahns and Moritz Hanke, Sep 2013
 
-  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_g, cell_owner, n_boundary_rows, order_type_of_halos, my_proc)
+  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_pre, cell_owner, &
+    &                     n_boundary_rows, order_type_of_halos, my_proc)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
-    TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
+    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
 
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
@@ -694,7 +702,7 @@ CONTAINS
     ! Get the number of cells/edges/verts and other data for patch allocation
     !-----------------------------------------------------------------------------------------------
 
-    CALL prepare_patch(wrk_p_patch_g, wrk_p_patch, &
+    CALL prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          SUM(n2_ilev_c(:)), SUM(n2_ilev_e(:)), SUM(n2_ilev_v(:)))
 
     !-----------------------------------------------------------------------------------------------
@@ -717,12 +725,12 @@ CONTAINS
       &                 p_comm_work, p_pe_work, p_n_work)
 
     !-----------------------------------------------------------------------------------------------
-    ! Get the indices of local cells/edges/verts within global patch and vice versa.
+    ! Get the indices of local cells/edges/verts within patch and vice versa.
 
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_cells, &
-         n_patch_cve_g = wrk_p_patch_g%n_patch_cells, &
-         patch_id = wrk_p_patch_g%id, &
+         n_patch_cve_g = wrk_p_patch_pre%n_patch_cells, &
+         patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_c, &
          npromz = wrk_p_patch%npromz_c, &
          cell_type = wrk_p_patch%cell_type, &
@@ -738,18 +746,18 @@ CONTAINS
          start_blk = wrk_p_patch%cells%start_block, &
          end_idx = wrk_p_patch%cells%end_index, &
          end_blk = wrk_p_patch%cells%end_block, &
-         start_idx_g = wrk_p_patch_g%cells%start_index, &
-         start_blk_g = wrk_p_patch_g%cells%start_block, &
-         end_idx_g = wrk_p_patch_g%cells%end_index, &
-         end_blk_g = wrk_p_patch_g%cells%end_block, &
+         start_idx_g = wrk_p_patch_pre%cells%start_index, &
+         start_blk_g = wrk_p_patch_pre%cells%start_block, &
+         end_idx_g = wrk_p_patch_pre%cells%end_index, &
+         end_blk_g = wrk_p_patch_pre%cells%end_block, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .TRUE., &
-         refin_ctrl = wrk_p_patch_g%cells%refin_ctrl, &
+         refin_ctrl = wrk_p_patch_pre%cells%refin_ctrl, &
          refinement_predicate = refine_cells)
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_edges, &
-         n_patch_cve_g = wrk_p_patch_g%n_patch_edges, &
-         patch_id = wrk_p_patch_g%id, &
+         n_patch_cve_g = wrk_p_patch_pre%n_patch_edges, &
+         patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_e, &
          npromz = wrk_p_patch%npromz_e, &
          cell_type = wrk_p_patch%cell_type, &
@@ -765,18 +773,18 @@ CONTAINS
          start_blk = wrk_p_patch%edges%start_block, &
          end_idx = wrk_p_patch%edges%end_index, &
          end_blk = wrk_p_patch%edges%end_block, &
-         start_idx_g = wrk_p_patch_g%edges%start_index, &
-         start_blk_g = wrk_p_patch_g%edges%start_block, &
-         end_idx_g = wrk_p_patch_g%edges%end_index, &
-         end_blk_g = wrk_p_patch_g%edges%end_block, &
+         start_idx_g = wrk_p_patch_pre%edges%start_index, &
+         start_blk_g = wrk_p_patch_pre%edges%start_block, &
+         end_idx_g = wrk_p_patch_pre%edges%end_index, &
+         end_blk_g = wrk_p_patch_pre%edges%end_block, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
-         refin_ctrl = wrk_p_patch_g%edges%refin_ctrl, &
+         refin_ctrl = wrk_p_patch_pre%edges%refin_ctrl, &
          refinement_predicate = refine_edges)
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_verts, &
-         n_patch_cve_g = wrk_p_patch_g%n_patch_verts, &
-         patch_id = wrk_p_patch_g%id, &
+         n_patch_cve_g = wrk_p_patch_pre%n_patch_verts, &
+         patch_id = wrk_p_patch_pre%id, &
          nblks = wrk_p_patch%nblks_v, &
          npromz = wrk_p_patch%npromz_v, &
          cell_type = wrk_p_patch%cell_type, &
@@ -792,13 +800,13 @@ CONTAINS
          start_blk = wrk_p_patch%verts%start_block, &
          end_idx = wrk_p_patch%verts%end_index, &
          end_blk = wrk_p_patch%verts%end_block, &
-         start_idx_g = wrk_p_patch_g%verts%start_index, &
-         start_blk_g = wrk_p_patch_g%verts%start_block, &
-         end_idx_g = wrk_p_patch_g%verts%end_index, &
-         end_blk_g = wrk_p_patch_g%verts%end_block, &
+         start_idx_g = wrk_p_patch_pre%verts%start_index, &
+         start_blk_g = wrk_p_patch_pre%verts%start_block, &
+         end_idx_g = wrk_p_patch_pre%verts%end_index, &
+         end_blk_g = wrk_p_patch_pre%verts%end_block, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
-         refin_ctrl = wrk_p_patch_g%verts%refin_ctrl, &
+         refin_ctrl = wrk_p_patch_pre%verts%refin_ctrl, &
          refinement_predicate = refine_verts)
 
     ! Sanity checks: are there still elements of the index lists filled with dummy values?
@@ -869,28 +877,28 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in patch
+      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in patch
 
       DO i=1,wrk_p_patch%cell_type
 !CDIR IEXPAND
         CALL get_local_idx_blk(wrk_p_patch%cells%decomp_info, &
-          & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),  &
-          & wrk_p_patch_g%cells%neighbor_blk(jl_g,jb_g,i),  &
+          & wrk_p_patch_pre%cells%neighbor_idx(jl_g,jb_g,i),  &
+          & wrk_p_patch_pre%cells%neighbor_blk(jl_g,jb_g,i),  &
           & wrk_p_patch%cells%neighbor_idx(jl,jb,i),        &
           & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
 
 !CDIR IEXPAND
         CALL get_local_idx_blk(wrk_p_patch%edges%decomp_info, &
-          & wrk_p_patch_g%cells%edge_idx(jl_g,jb_g,i),      &
-          & wrk_p_patch_g%cells%edge_blk(jl_g,jb_g,i),      &
+          & wrk_p_patch_pre%cells%edge_idx(jl_g,jb_g,i),      &
+          & wrk_p_patch_pre%cells%edge_blk(jl_g,jb_g,i),      &
           & wrk_p_patch%cells%edge_idx(jl,jb,i),            &
           & wrk_p_patch%cells%edge_blk(jl,jb,i))
 
 !CDIR IEXPAND
         CALL get_local_idx_blk(wrk_p_patch%verts%decomp_info, &
-          & wrk_p_patch_g%cells%vertex_idx(jl_g,jb_g,i),    &
-          & wrk_p_patch_g%cells%vertex_blk(jl_g,jb_g,i),    &
+          & wrk_p_patch_pre%cells%vertex_idx(jl_g,jb_g,i),    &
+          & wrk_p_patch_pre%cells%vertex_blk(jl_g,jb_g,i),    &
           & wrk_p_patch%cells%vertex_idx(jl,jb,i),          &
           & wrk_p_patch%cells%vertex_blk(jl,jb,i))
 
@@ -902,24 +910,24 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Block index in patch
+      jl_g = idx_no(wrk_p_patch%cells%decomp_info%glb_index(j)) ! Line  index in patch
 
       ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      wrk_p_patch%cells%parent_idx(jl,jb)  = wrk_p_patch_g%cells%parent_idx(jl_g,jb_g)
-      wrk_p_patch%cells%parent_blk(jl,jb)  = wrk_p_patch_g%cells%parent_blk(jl_g,jb_g)
-      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_g%cells%pc_idx(jl_g,jb_g)
-      wrk_p_patch%cells%child_idx(jl,jb,1:4) = wrk_p_patch_g%cells%child_idx(jl_g,jb_g,1:4)
-      wrk_p_patch%cells%child_blk(jl,jb,1:4) = wrk_p_patch_g%cells%child_blk(jl_g,jb_g,1:4)
-      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
+      wrk_p_patch%cells%parent_idx(jl,jb)  = wrk_p_patch_pre%cells%parent_idx(jl_g,jb_g)
+      wrk_p_patch%cells%parent_blk(jl,jb)  = wrk_p_patch_pre%cells%parent_blk(jl_g,jb_g)
+      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_pre%cells%pc_idx(jl_g,jb_g)
+      wrk_p_patch%cells%child_idx(jl,jb,1:4) = wrk_p_patch_pre%cells%child_idx(jl_g,jb_g,1:4)
+      wrk_p_patch%cells%child_blk(jl,jb,1:4) = wrk_p_patch_pre%cells%child_blk(jl_g,jb_g,1:4)
+      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_pre%cells%child_id(jl_g,jb_g)
 
-      wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_g%cells%num_edges(jl_g,jb_g)
-      wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_g%cells%center(jl_g,jb_g)%lat
-      wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_g%cells%center(jl_g,jb_g)%lon
-      wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_g%cells%refin_ctrl(jl_g,jb_g)
-      wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
+      wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges(jl_g,jb_g)
+      wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lat
+      wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jl_g,jb_g)%lon
+      wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_pre%cells%child_id(jl_g,jb_g)
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows
@@ -939,20 +947,20 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Block index in patch
+      jl_g = idx_no(wrk_p_patch%edges%decomp_info%glb_index(j)) ! Line  index in patch
 
       ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      wrk_p_patch%edges%parent_idx(jl,jb)    = wrk_p_patch_g%edges%parent_idx(jl_g,jb_g)
-      wrk_p_patch%edges%parent_blk(jl,jb)    = wrk_p_patch_g%edges%parent_blk(jl_g,jb_g)
-      wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_g%edges%pc_idx(jl_g,jb_g)
-      wrk_p_patch%edges%child_idx(jl,jb,1:4) = wrk_p_patch_g%edges%child_idx(jl_g,jb_g,1:4)
-      wrk_p_patch%edges%child_blk(jl,jb,1:4) = wrk_p_patch_g%edges%child_blk(jl_g,jb_g,1:4)
-      wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_g%edges%child_id(jl_g,jb_g)
+      wrk_p_patch%edges%parent_idx(jl,jb)    = wrk_p_patch_pre%edges%parent_idx(jl_g,jb_g)
+      wrk_p_patch%edges%parent_blk(jl,jb)    = wrk_p_patch_pre%edges%parent_blk(jl_g,jb_g)
+      wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_pre%edges%pc_idx(jl_g,jb_g)
+      wrk_p_patch%edges%child_idx(jl,jb,1:4) = wrk_p_patch_pre%edges%child_idx(jl_g,jb_g,1:4)
+      wrk_p_patch%edges%child_blk(jl,jb,1:4) = wrk_p_patch_pre%edges%child_blk(jl_g,jb_g,1:4)
+      wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jl_g,jb_g)
 
-      wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_g%edges%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jl_g,jb_g)
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows + 1
@@ -972,12 +980,12 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jb_g = blk_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Line  index in global patch
+      jb_g = blk_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Block index in patch
+      jl_g = idx_no(wrk_p_patch%verts%decomp_info%glb_index(j)) ! Line  index in patch
 
-      wrk_p_patch%verts%vertex(jl,jb)%lat    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lat
-      wrk_p_patch%verts%vertex(jl,jb)%lon    = wrk_p_patch_g%verts%vertex(jl_g,jb_g)%lon
-      wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_g%verts%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%verts%vertex(jl,jb)%lat    = wrk_p_patch_pre%verts%vertex(jl_g,jb_g)%lat
+      wrk_p_patch%verts%vertex(jl,jb)%lon    = wrk_p_patch_pre%verts%vertex(jl_g,jb_g)%lon
+      wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_pre%verts%refin_ctrl(jl_g,jb_g)
     ENDDO
 
     DO j = 0, n_boundary_rows + 1
@@ -992,22 +1000,22 @@ CONTAINS
 
   CONTAINS
 
-    SUBROUTINE prepare_patch(wrk_p_patch_g, wrk_p_patch, &
+    SUBROUTINE prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          n_patch_cells, n_patch_edges, n_patch_verts)
       !> output patch, designated as INOUT because
       !! a few attributes are already set
       TYPE(t_patch), INTENT(inout) :: wrk_p_patch
-      TYPE(t_patch), INTENT(in) :: wrk_p_patch_g
+      TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
       INTEGER, INTENT(in) :: n_patch_cells, n_patch_edges, n_patch_verts
 
       wrk_p_patch%n_patch_cells = n_patch_cells
       wrk_p_patch%n_patch_edges = n_patch_edges
       wrk_p_patch%n_patch_verts = n_patch_verts
 
-      ! save the number of cells/edges/verts of the global patch
-      wrk_p_patch%n_patch_cells_g = wrk_p_patch_g%n_patch_cells
-      wrk_p_patch%n_patch_edges_g = wrk_p_patch_g%n_patch_edges
-      wrk_p_patch%n_patch_verts_g = wrk_p_patch_g%n_patch_verts
+      ! save the number of cells/edges/verts of the patch
+      wrk_p_patch%n_patch_cells_g = wrk_p_patch_pre%n_patch_cells
+      wrk_p_patch%n_patch_edges_g = wrk_p_patch_pre%n_patch_edges
+      wrk_p_patch%n_patch_verts_g = wrk_p_patch_pre%n_patch_verts
       !
       ! calculate and save values for the blocking, these are needed for patch allocation.
       ! NB: Avoid the case nblks=0 for empty patches, this might cause troubles
@@ -1031,26 +1039,26 @@ CONTAINS
       wrk_p_patch%npromz_v      = wrk_p_patch%n_patch_verts - (wrk_p_patch%nblks_v - 1)*nproma
 
       ! Also needed for patch allocation
-      wrk_p_patch%max_childdom  = wrk_p_patch_g%max_childdom
+      wrk_p_patch%max_childdom  = wrk_p_patch_pre%max_childdom
 
       ! Set other scalar members of patch here too ..
-      wrk_p_patch%grid_filename      = wrk_p_patch_g%grid_filename
-      wrk_p_patch%level              = wrk_p_patch_g%level
-      wrk_p_patch%id                 = wrk_p_patch_g%id
-      wrk_p_patch%cells%max_connectivity = wrk_p_patch_g%cells%max_connectivity
-      wrk_p_patch%verts%max_connectivity = wrk_p_patch_g%verts%max_connectivity
-      wrk_p_patch%parent_id          = wrk_p_patch_g%parent_id
-      wrk_p_patch%parent_child_index = wrk_p_patch_g%parent_child_index
-      wrk_p_patch%child_id(:)        = wrk_p_patch_g%child_id(:)
-      wrk_p_patch%child_id_list(:)   = wrk_p_patch_g%child_id_list(:)
-      wrk_p_patch%n_childdom         = wrk_p_patch_g%n_childdom
-      wrk_p_patch%n_chd_total        = wrk_p_patch_g%n_chd_total
-      wrk_p_patch%nlev               = wrk_p_patch_g%nlev
-      wrk_p_patch%nlevp1             = wrk_p_patch_g%nlevp1
-      wrk_p_patch%nshift             = wrk_p_patch_g%nshift
-      wrk_p_patch%nshift_total       = wrk_p_patch_g%nshift_total
-      wrk_p_patch%nshift_child       = wrk_p_patch_g%nshift_child
-      wrk_p_patch%grid_uuid          = wrk_p_patch_g%grid_uuid
+      wrk_p_patch%grid_filename      = wrk_p_patch_pre%grid_filename
+      wrk_p_patch%level              = wrk_p_patch_pre%level
+      wrk_p_patch%id                 = wrk_p_patch_pre%id
+      wrk_p_patch%cells%max_connectivity = wrk_p_patch_pre%cells%max_connectivity
+      wrk_p_patch%verts%max_connectivity = wrk_p_patch_pre%verts%max_connectivity
+      wrk_p_patch%parent_id          = wrk_p_patch_pre%parent_id
+      wrk_p_patch%parent_child_index = wrk_p_patch_pre%parent_child_index
+      wrk_p_patch%child_id(:)        = wrk_p_patch_pre%child_id(:)
+      wrk_p_patch%child_id_list(:)   = wrk_p_patch_pre%child_id_list(:)
+      wrk_p_patch%n_childdom         = wrk_p_patch_pre%n_childdom
+      wrk_p_patch%n_chd_total        = wrk_p_patch_pre%n_chd_total
+      wrk_p_patch%nlev               = wrk_p_patch_pre%nlev
+      wrk_p_patch%nlevp1             = wrk_p_patch_pre%nlevp1
+      wrk_p_patch%nshift             = wrk_p_patch_pre%nshift
+      wrk_p_patch%nshift_total       = wrk_p_patch_pre%nshift_total
+      wrk_p_patch%nshift_child       = wrk_p_patch_pre%nshift_child
+      wrk_p_patch%grid_uuid          = wrk_p_patch_pre%grid_uuid
 
       !-----------------------------------------------------------------------------------------------
       ! Allocate the required data arrays in patch
@@ -1207,8 +1215,8 @@ CONTAINS
       ! collect cells of level 0
       n2_ilev_c(0) = COUNT(cell_owner(:)==my_proc)
 
-      IF ((n2_ilev_c(0) == wrk_p_patch_g%n_patch_cells) .AND. &
-        & (n2_ilev_c(0) == wrk_p_patch_g%n_patch_cells_g)) THEN
+      IF ((n2_ilev_c(0) == wrk_p_patch_pre%n_patch_cells) .AND. &
+        & (n2_ilev_c(0) == wrk_p_patch_pre%n_patch_cells_g)) THEN
 
         CALL compute_flag_lists_short(flag2_c_list, flag2_v_list, flag2_e_list, &
           &                           n2_ilev_c, n2_ilev_v, n2_ilev_e, &
@@ -1224,7 +1232,7 @@ CONTAINS
         &      flag2_c_list(0)%owner(n2_ilev_c(0)))
 
       j = 0
-      DO i = 1, wrk_p_patch_g%n_patch_cells
+      DO i = 1, wrk_p_patch_pre%n_patch_cells
         IF (cell_owner(i) == my_proc) THEN
           j = j + 1
           flag2_c_list(0)%idx(j) = i
@@ -1236,13 +1244,13 @@ CONTAINS
       n_temp_edges = 0
       n_temp_vertices = 0
       ALLOCATE(inner_edges(n2_ilev_c(0) * &
-                           wrk_p_patch_g%cells%max_connectivity), &
+                           wrk_p_patch_pre%cells%max_connectivity), &
                temp_edges(n2_ilev_c(0) * &
-                          wrk_p_patch_g%cells%max_connectivity), &
+                          wrk_p_patch_pre%cells%max_connectivity), &
                edge_cells(n2_ilev_c(0) * &
-                          wrk_p_patch_g%cells%max_connectivity), &
+                          wrk_p_patch_pre%cells%max_connectivity), &
                temp_vertices(n2_ilev_c(0) * &
-                             wrk_p_patch_g%cells%max_connectivity))
+                             wrk_p_patch_pre%cells%max_connectivity))
 
       ! collect inner and outer edges and vertices adjacent to cells of level 0
       DO ic = 1, n2_ilev_c(0)
@@ -1250,16 +1258,16 @@ CONTAINS
         jl_c = idx_no(flag2_c_list(0)%idx(ic))
         jb_c = blk_no(flag2_c_list(0)%idx(ic))
 
-        DO i = 1, wrk_p_patch_g%cells%num_edges(jl_c,jb_c)
+        DO i = 1, wrk_p_patch_pre%cells%num_edges(jl_c,jb_c)
 
-          jl_e = wrk_p_patch_g%cells%edge_idx(jl_c,jb_c,i)
-          jb_e = wrk_p_patch_g%cells%edge_blk(jl_c,jb_c,i)
+          jl_e = wrk_p_patch_pre%cells%edge_idx(jl_c,jb_c,i)
+          jb_e = wrk_p_patch_pre%cells%edge_blk(jl_c,jb_c,i)
           je = idx_1d(jl_e, jb_e)
 
-          jc = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1), &
-                      wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1))
-          jc_ = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 2), &
-                       wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 2))
+          jc = idx_1d(wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 1), &
+                      wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 1))
+          jc_ = idx_1d(wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 2), &
+                       wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 2))
 
           IF (jc <= 0 .OR. jc_ <= 0 .OR. jc == jc_) THEN
             n_inner_edges = n_inner_edges + 1
@@ -1274,8 +1282,8 @@ CONTAINS
           END IF
 
           n_temp_vertices = n_temp_vertices + 1
-          jl_v = wrk_p_patch_g%cells%vertex_idx(jl_c, jb_c, i)
-          jb_v = wrk_p_patch_g%cells%vertex_blk(jl_c, jb_c, i)
+          jl_v = wrk_p_patch_pre%cells%vertex_idx(jl_c, jb_c, i)
+          jb_v = wrk_p_patch_pre%cells%vertex_blk(jl_c, jb_c, i)
           temp_vertices(n_temp_vertices) = idx_1d(jl_v, jb_v)
         END DO
       END DO
@@ -1398,13 +1406,13 @@ CONTAINS
           jl_e = idx_no(je)
           jb_e = blk_no(je)
 
-          jl_c = wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1)
-          jb_c = wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1)
+          jl_c = wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 1)
+          jb_c = wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 1)
           jc = idx_1d(jl_c, jb_c)
 
           IF (jc == edge_cells(i)) THEN
-            jl_c = wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 2)
-            jb_c = wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 2)
+            jl_c = wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 2)
+            jb_c = wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 2)
             jc = idx_1d(jl_c, jb_c)
           END IF
 
@@ -1426,19 +1434,19 @@ CONTAINS
 
         ! collect all cells adjacent to the outer vertices
         IF (SIZE(temp_cells(:)) < n_temp_vertices * &
-          & wrk_p_patch_g%verts%max_connectivity) THEN
+          & wrk_p_patch_pre%verts%max_connectivity) THEN
 
           DEALLOCATE(temp_cells)
           ALLOCATE(temp_cells(n_temp_vertices * &
-            &      wrk_p_patch_g%verts%max_connectivity))
+            &      wrk_p_patch_pre%verts%max_connectivity))
         END IF
         n_temp_cells = 0
         DO jv = 1, n_temp_vertices
           jl_v = idx_no(temp_vertices(jv))
           jb_v = blk_no(temp_vertices(jv))
-          DO i = 1, wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
-            jl_c = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, i)
-            jb_c = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, i)
+          DO i = 1, wrk_p_patch_pre%verts%num_edges(jl_v, jb_v)
+            jl_c = wrk_p_patch_pre%verts%cell_idx(jl_v, jb_v, i)
+            jb_c = wrk_p_patch_pre%verts%cell_blk(jl_v, jb_v, i)
             jc = idx_1d(jl_c, jb_c)
             IF (jc > 0) THEN
               n_temp_cells = n_temp_cells + 1
@@ -1464,21 +1472,21 @@ CONTAINS
         ! get all edges of cells of level 2*ilev and level 2*ilev-1
         IF (SIZE(temp_edges(:)) < (n2_ilev_c(2*ilev) + &
           &                        n2_ilev_c(2*ilev - 1)) * &
-          &                       wrk_p_patch_g%cells%max_connectivity) THEN
+          &                       wrk_p_patch_pre%cells%max_connectivity) THEN
 
           DEALLOCATE(temp_edges)
           ALLOCATE(temp_edges((n2_ilev_c(2*ilev) + &
             &                  n2_ilev_c(2*ilev - 1)) * &
-            &                 wrk_p_patch_g%cells%max_connectivity))
+            &                 wrk_p_patch_pre%cells%max_connectivity))
         END IF
         IF (SIZE(edge_cells(:)) < (n2_ilev_c(2*ilev) + &
           &                        n2_ilev_c(2*ilev - 1)) * &
-          &                       wrk_p_patch_g%cells%max_connectivity) THEN
+          &                       wrk_p_patch_pre%cells%max_connectivity) THEN
 
           DEALLOCATE(edge_cells)
           ALLOCATE(edge_cells((n2_ilev_c(2*ilev) + &
             &                  n2_ilev_c(2*ilev - 1)) * &
-            &                 wrk_p_patch_g%cells%max_connectivity))
+            &                 wrk_p_patch_pre%cells%max_connectivity))
         END IF
         n_temp_edges = 0
         DO k = -1, 0
@@ -1486,9 +1494,9 @@ CONTAINS
             jc = flag2_c_list(2*ilev+k)%idx(ic)
             jl_c = idx_no(jc)
             jb_c = blk_no(jc)
-            DO i = 1, wrk_p_patch_g%cells%num_edges(jl_c, jb_c)
-              jl_e = wrk_p_patch_g%cells%edge_idx(jl_c, jb_c, i)
-              jb_e = wrk_p_patch_g%cells%edge_blk(jl_c, jb_c, i)
+            DO i = 1, wrk_p_patch_pre%cells%num_edges(jl_c, jb_c)
+              jl_e = wrk_p_patch_pre%cells%edge_idx(jl_c, jb_c, i)
+              jb_e = wrk_p_patch_pre%cells%edge_blk(jl_c, jb_c, i)
               je = idx_1d(jl_e, jb_e)
               n_temp_edges = n_temp_edges + 1
               temp_edges(n_temp_edges) = je
@@ -1549,11 +1557,11 @@ CONTAINS
         n_temp_edges = n
 
         IF (SIZE(temp_vertices(:)) < SUM(n2_ilev_c(2*ilev-1:2*ilev)) * &
-          &                              wrk_p_patch_g%cells%max_connectivity) THEN
+          &                              wrk_p_patch_pre%cells%max_connectivity) THEN
 
           DEALLOCATE(temp_vertices)
           ALLOCATE(temp_vertices(SUM(n2_ilev_c(2*ilev-1:2*ilev)) * &
-            &                        wrk_p_patch_g%cells%max_connectivity))
+            &                        wrk_p_patch_pre%cells%max_connectivity))
         END IF
         ! collect all vertices of level ilev + 1
         n_temp_vertices = 0
@@ -1564,10 +1572,10 @@ CONTAINS
             jl_c = idx_no(jc)
             jb_c = blk_no(jc)
 
-            DO i = 1, wrk_p_patch_g%cells%num_edges(jl_c, jb_c)
+            DO i = 1, wrk_p_patch_pre%cells%num_edges(jl_c, jb_c)
 
-              jl_v = wrk_p_patch_g%cells%vertex_idx(jl_c, jb_c, i)
-              jb_v = wrk_p_patch_g%cells%vertex_blk(jl_c, jb_c, i)
+              jl_v = wrk_p_patch_pre%cells%vertex_idx(jl_c, jb_c, i)
+              jb_v = wrk_p_patch_pre%cells%vertex_blk(jl_c, jb_c, i)
               jv = idx_1d(jl_v, jb_v)
 
               IF (jv > 0) THEN
@@ -1668,8 +1676,8 @@ CONTAINS
       ! compute flag2 arrays
       !--------------------------------------------------------------------------
 
-      IF ((COUNT(cell_owner(:)==my_proc) /= wrk_p_patch_g%n_patch_cells) .OR. &
-        & (wrk_p_patch_g%n_patch_cells /= wrk_p_patch_g%n_patch_cells_g)) &
+      IF ((COUNT(cell_owner(:)==my_proc) /= wrk_p_patch_pre%n_patch_cells) .OR. &
+        & (wrk_p_patch_pre%n_patch_cells /= wrk_p_patch_pre%n_patch_cells_g)) &
         CALL finish("compute_flag_lists_short", &
           &         "cell_owner content does not fit for this routine")
 
@@ -1677,33 +1685,33 @@ CONTAINS
       n2_ilev_c(:) = 0
       n2_ilev_v(:) = 0
       n2_ilev_e(:) = 0
-      n2_ilev_c(0) = wrk_p_patch_g%n_patch_cells
-      n2_ilev_v(0) = wrk_p_patch_g%n_patch_verts
-      n2_ilev_e(0) = wrk_p_patch_g%n_patch_edges
+      n2_ilev_c(0) = wrk_p_patch_pre%n_patch_cells
+      n2_ilev_v(0) = wrk_p_patch_pre%n_patch_verts
+      n2_ilev_e(0) = wrk_p_patch_pre%n_patch_edges
 
       ! allocate and set flag2_cve_list arrays
-      ALLOCATE(flag2_c_list(0)%idx(wrk_p_patch_g%n_patch_cells), &
-        &      flag2_c_list(0)%owner(wrk_p_patch_g%n_patch_cells), &
-        &      flag2_v_list(0)%idx(wrk_p_patch_g%n_patch_verts), &
-        &      flag2_v_list(0)%owner(wrk_p_patch_g%n_patch_verts), &
+      ALLOCATE(flag2_c_list(0)%idx(wrk_p_patch_pre%n_patch_cells), &
+        &      flag2_c_list(0)%owner(wrk_p_patch_pre%n_patch_cells), &
+        &      flag2_v_list(0)%idx(wrk_p_patch_pre%n_patch_verts), &
+        &      flag2_v_list(0)%owner(wrk_p_patch_pre%n_patch_verts), &
         &      flag2_v_list(1)%idx(0), &
         &      flag2_v_list(1)%owner(0), &
-        &      flag2_e_list(0)%idx(wrk_p_patch_g%n_patch_edges), &
-        &      flag2_e_list(0)%owner(wrk_p_patch_g%n_patch_edges), &
+        &      flag2_e_list(0)%idx(wrk_p_patch_pre%n_patch_edges), &
+        &      flag2_e_list(0)%owner(wrk_p_patch_pre%n_patch_edges), &
         &      flag2_e_list(1)%idx(0), &
         &      flag2_e_list(1)%owner(0))
 
-      DO i = 1, wrk_p_patch_g%n_patch_cells
+      DO i = 1, wrk_p_patch_pre%n_patch_cells
         flag2_c_list(0)%idx(i) = i
       END DO
       flag2_c_list(0)%owner(:) = my_proc
 
-      DO i = 1, wrk_p_patch_g%n_patch_verts
+      DO i = 1, wrk_p_patch_pre%n_patch_verts
         flag2_v_list(0)%idx(i) = i
       END DO
       flag2_v_list(0)%owner(:) = my_proc
 
-      DO i = 1, wrk_p_patch_g%n_patch_edges
+      DO i = 1, wrk_p_patch_pre%n_patch_edges
         flag2_e_list(0)%idx(i) = i
       END DO
       flag2_e_list(0)%owner(:) = my_proc
@@ -1718,8 +1726,8 @@ CONTAINS
       END DO
 
       ! allocate and set owner arrays
-      ALLOCATE(owned_verts(wrk_p_patch_g%n_patch_verts), &
-        &      owned_edges(wrk_p_patch_g%n_patch_edges))
+      ALLOCATE(owned_verts(wrk_p_patch_pre%n_patch_verts), &
+        &      owned_edges(wrk_p_patch_pre%n_patch_edges))
       owned_verts(:) = flag2_v_list(0)%idx(:)
       owned_edges(:) = flag2_e_list(0)%idx(:)
     END SUBROUTINE compute_flag_lists_short
@@ -1729,8 +1737,8 @@ CONTAINS
       INTEGER, INTENT(OUT) :: owner(:)
 
       INTEGER :: i, jv, jb_v, jl_v, n, j, jl, jb, jc, &
-        &        t_cells(wrk_p_patch_g%verts%max_connectivity), &
-        &        t_cell_owner(wrk_p_patch_g%verts%max_connectivity), &
+        &        t_cells(wrk_p_patch_pre%verts%max_connectivity), &
+        &        t_cell_owner(wrk_p_patch_pre%verts%max_connectivity), &
         &        a_iown(2), a_mod_iown(2)
       LOGICAL :: swap
 
@@ -1739,10 +1747,10 @@ CONTAINS
         jv = vertices(i)
         jb_v = blk_no(jv) ! block index
         jl_v = idx_no(jv) ! line index
-        n = wrk_p_patch_g%verts%num_edges(jl_v, jb_v)
+        n = wrk_p_patch_pre%verts%num_edges(jl_v, jb_v)
         DO j = 1, n
-          jl = wrk_p_patch_g%verts%cell_idx(jl_v, jb_v, j)
-          jb = wrk_p_patch_g%verts%cell_blk(jl_v, jb_v, j)
+          jl = wrk_p_patch_pre%verts%cell_idx(jl_v, jb_v, j)
+          jb = wrk_p_patch_pre%verts%cell_blk(jl_v, jb_v, j)
           jc = idx_1d(jl,jb)
           t_cells(j) = jc
         END DO
@@ -1777,8 +1785,8 @@ CONTAINS
         je = edges(i)
         jl_e = idx_no(je)
         jb_e = blk_no(je)
-        a_idx(:) = idx_1d(wrk_p_patch_g%edges%cell_idx(jl_e, jb_e, 1:2), &
-                          wrk_p_patch_g%edges%cell_blk(jl_e, jb_e, 1:2))
+        a_idx(:) = idx_1d(wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 1:2), &
+                          wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 1:2))
         ! outer boundary edges always belong to single adjacent cell owner
         a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
         a_iown(:) = cell_owner(a_idx(:))
@@ -2352,12 +2360,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_divide_patch, &
+  SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_p_patch_pre, &
                                      owner, lparent_level)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
+    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
@@ -2405,7 +2413,7 @@ CONTAINS
       proc_offset(:)   = 0
       corr_ratio(:)    = 1._wp
 
-      DO j = 1, wrk_divide_patch%n_patch_cells
+      DO j = 1, wrk_p_patch_pre%n_patch_cells
         IF (subset_flag(j) > 0) THEN
           count_physdom(subset_flag(j)) = count_physdom(subset_flag(j)) + 1
           count_total = count_total + 1
@@ -2476,7 +2484,7 @@ CONTAINS
     ! cell_desc(3,:)   cell number (for back-sorting at the end)
     ! cell_desc(4,:)   will be set with the owner
 
-    ALLOCATE(cell_desc(4,wrk_divide_patch%n_patch_cells))
+    ALLOCATE(cell_desc(4,wrk_p_patch_pre%n_patch_cells))
 
     nc = 0
     nn = 0
@@ -2485,7 +2493,7 @@ CONTAINS
 
       cell_desc(1:2,:) = 1.d99 ! for finding min lat/lon
 
-      DO j = 1, wrk_divide_patch%n_patch_cells
+      DO j = 1, wrk_p_patch_pre%n_patch_cells
 
         IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
 
@@ -2500,8 +2508,8 @@ CONTAINS
         ! This is accomplished by mapping all cells to one section
         ! lying in the NH and having a width of 0.4*pi (72 deg)
 
-        cclat = wrk_divide_patch%cells%center(jl,jb)%lat
-        cclon = wrk_divide_patch%cells%center(jl,jb)%lon
+        cclat = wrk_p_patch_pre%cells%center(jl,jb)%lat
+        cclon = wrk_p_patch_pre%cells%center(jl,jb)%lon
 
         IF (cclat>=0._wp .AND. cclon>=-0.2_wp*pi .AND. cclon<=0.2_wp*pi) THEN
           cell_desc(1,nc) = cclat
@@ -2549,9 +2557,9 @@ CONTAINS
       ncell_offset(0) = 0
       ncell_offset(1) = nc
 
-    ELSE IF (wrk_divide_patch%cell_type == 6) THEN
+    ELSE IF (wrk_p_patch_pre%cell_type == 6) THEN
 
-      DO j = 1, wrk_divide_patch%n_patch_cells
+      DO j = 1, wrk_p_patch_pre%n_patch_cells
 
         IF (subset_flag(j) <= 0) CYCLE
 
@@ -2560,8 +2568,8 @@ CONTAINS
 
         nc = nc+1 ! Cell counter
 
-        cell_desc(1,nc) = wrk_divide_patch%cells%center(jl,jb)%lat
-        cell_desc(2,nc) = wrk_divide_patch%cells%center(jl,jb)%lon
+        cell_desc(1,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lat
+        cell_desc(2,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lon
         cell_desc(3,nc) = REAL(nc,wp)
         cell_desc(4,nc) = 0.0_wp
 
@@ -2571,14 +2579,14 @@ CONTAINS
 
     ELSE ! domain decomposition for triangular cells with optional splitting into physical domains
 
-      npt = wrk_divide_patch%n_patch_cells+1
+      npt = wrk_p_patch_pre%n_patch_cells+1
 
       DO jd = 1, num_physdom
 
         idp = id_physdom(jd)
 
 !CDIR NODEP
-        DO j = 1, wrk_divide_patch%n_patch_cells
+        DO j = 1, wrk_p_patch_pre%n_patch_cells
 
           ! Skip cell if it is not in subset or does not belong to current physical domain
           IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
@@ -2588,9 +2596,9 @@ CONTAINS
 
           ! Disregard outer nest boundary points for the time being. They do very little
           ! computational work, so they can be added to the closest PEs afterwards
-          IF (lparent_level .AND. wrk_divide_patch%cells%refin_ctrl(jl,jb) == -1   .OR.     &
-              .NOT. lparent_level .AND. wrk_divide_patch%cells%refin_ctrl(jl,jb) >= 1 .AND. &
-               wrk_divide_patch%cells%refin_ctrl(jl,jb) <= 3 .AND. .NOT. locean) THEN
+          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(jl,jb) == -1   .OR.     &
+              .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(jl,jb) >= 1 .AND. &
+               wrk_p_patch_pre%cells%refin_ctrl(jl,jb) <= 3 .AND. .NOT. locean) THEN
             nn = nn+1
             cell_desc(3,npt-nn) = REAL(j,wp)
             CYCLE
@@ -2598,8 +2606,8 @@ CONTAINS
             nc = nc+1 ! Cell counter
           ENDIF
 
-          cell_desc(1,nc) = wrk_divide_patch%cells%center(jl,jb)%lat
-          cell_desc(2,nc) = wrk_divide_patch%cells%center(jl,jb)%lon
+          cell_desc(1,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lat
+          cell_desc(2,nc) = wrk_p_patch_pre%cells%center(jl,jb)%lon
 
           ! Using the center of the cells for geometric subdivision leads
           ! to "toothed" edges of the subdivision area
@@ -2607,17 +2615,17 @@ CONTAINS
 
           IF (cell_desc(1,nc) >= 0._wp) THEN
             DO i = 1, 3
-              jl_v = wrk_divide_patch%cells%vertex_idx(jl,jb,i)
-              jb_v = wrk_divide_patch%cells%vertex_blk(jl,jb,i)
-              cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
-              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
+              jl_v = wrk_p_patch_pre%cells%vertex_idx(jl,jb,i)
+              jb_v = wrk_p_patch_pre%cells%vertex_blk(jl,jb,i)
+              cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lat)
+              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lon)
             ENDDO
           ELSE
             DO i = 1, 3
-              jl_v = wrk_divide_patch%cells%vertex_idx(jl,jb,i)
-              jb_v = wrk_divide_patch%cells%vertex_blk(jl,jb,i)
-              cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lat)
-              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_divide_patch%verts%vertex(jl_v,jb_v)%lon)
+              jl_v = wrk_p_patch_pre%cells%vertex_idx(jl,jb,i)
+              jb_v = wrk_p_patch_pre%cells%vertex_blk(jl,jb,i)
+              cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lat)
+              cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lon)
             ENDDO
           ENDIF
 
@@ -2661,13 +2669,13 @@ CONTAINS
     DO jd = 1, num_physdom
       idp = id_physdom(jd)
 
-      DO j = 1, wrk_divide_patch%n_patch_cells
+      DO j = 1, wrk_p_patch_pre%n_patch_cells
         IF(subset_flag(j) == idp .OR. .NOT. lsplit_merged_domains .AND. subset_flag(j)> 0) THEN
           jb = blk_no(j) ! block index
           jl = idx_no(j) ! line index
-          IF (lparent_level .AND. wrk_divide_patch%cells%refin_ctrl(jl,jb) /= -1   .OR.     &
-              .NOT. lparent_level .AND. (wrk_divide_patch%cells%refin_ctrl(jl,jb) <= 0 .OR. &
-               wrk_divide_patch%cells%refin_ctrl(jl,jb) >= 4) .OR. locean) THEN
+          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(jl,jb) /= -1   .OR.     &
+              .NOT. lparent_level .AND. (wrk_p_patch_pre%cells%refin_ctrl(jl,jb) <= 0 .OR. &
+               wrk_p_patch_pre%cells%refin_ctrl(jl,jb) >= 4) .OR. locean) THEN
             nc = nc+1
             owner(j) = NINT(cell_desc(4,nc))
           ENDIF
@@ -2684,8 +2692,8 @@ CONTAINS
           IF (owner(j) >= 0) CYCLE
           jb = blk_no(j) ! block index
           jl = idx_no(j) ! line index
-          DO ii = 1, wrk_divide_patch%cells%num_edges(jl,jb)
-            jn = idx_1d(wrk_divide_patch%cells%neighbor_idx(jl,jb,ii),wrk_divide_patch%cells%neighbor_blk(jl,jb,ii))
+          DO ii = 1, wrk_p_patch_pre%cells%num_edges(jl,jb)
+            jn = idx_1d(wrk_p_patch_pre%cells%neighbor_idx(jl,jb,ii),wrk_p_patch_pre%cells%neighbor_blk(jl,jb,ii))
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
                 owner(j) = owner(jn)
@@ -2903,12 +2911,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE divide_subset_metis(subset_flag, n_proc, wrk_divide_patch, &
+  SUBROUTINE divide_subset_metis(subset_flag, n_proc, wrk_p_patch_pre, &
                                  owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_patch), INTENT(in) :: wrk_divide_patch
+    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
 
@@ -2926,11 +2934,11 @@ CONTAINS
     ! Since the METIS rountine is called with the option for C-Style numbering,
     ! we let local_index start with 0 here!
 
-    ALLOCATE(local_index(wrk_divide_patch%n_patch_cells))
+    ALLOCATE(local_index(wrk_p_patch_pre%n_patch_cells))
     local_index(:) = -1
 
     nc = 0
-    DO j = 1, wrk_divide_patch%n_patch_cells
+    DO j = 1, wrk_p_patch_pre%n_patch_cells
       jb = blk_no(j) ! block index
       jl = idx_no(j) ! line index
       IF(subset_flag(j)>0) THEN
@@ -2942,15 +2950,15 @@ CONTAINS
     ! Construct adjacency structure of graph
     ! Please note that the Metis vertices are our grid cells!
 
-    ALLOCATE(metis_xadj(0:wrk_divide_patch%n_patch_cells))
-    ALLOCATE(metis_adjncy(wrk_divide_patch%n_patch_cells*wrk_divide_patch%cell_type))
+    ALLOCATE(metis_xadj(0:wrk_p_patch_pre%n_patch_cells))
+    ALLOCATE(metis_adjncy(wrk_p_patch_pre%n_patch_cells*wrk_p_patch_pre%cell_type))
     metis_options(:) = 0
 
     metis_xadj(0) = 0
     na = 0 ! Counts adjacency entries
     nc = 0 ! Counts cells in subset
 
-    DO j = 1, wrk_divide_patch%n_patch_cells
+    DO j = 1, wrk_p_patch_pre%n_patch_cells
       jb = blk_no(j) ! block index
       jl = idx_no(j) ! line index
 
@@ -2960,13 +2968,13 @@ CONTAINS
       ! which are also in the subset in the adjacency list
 
       nc = nc+1
-      DO i = 1,wrk_divide_patch%cells%num_edges(jl,jb)
-        jl_n = wrk_divide_patch%cells%neighbor_idx(jl,jb,i)
-        jb_n = wrk_divide_patch%cells%neighbor_blk(jl,jb,i)
+      DO i = 1,wrk_p_patch_pre%cells%num_edges(jl,jb)
+        jl_n = wrk_p_patch_pre%cells%neighbor_idx(jl,jb,i)
+        jb_n = wrk_p_patch_pre%cells%neighbor_blk(jl,jb,i)
         jn = idx_1d(jl_n,jb_n)
 
         ! Neighbor not existing
-        IF(jl_n<1 .or. jb_n<1 .or. jn>wrk_divide_patch%n_patch_cells) CYCLE
+        IF(jl_n<1 .or. jb_n<1 .or. jn>wrk_p_patch_pre%n_patch_cells) CYCLE
 
         ! Neighbor not in subset
         IF(subset_flag(jn)<0) CYCLE
@@ -2989,7 +2997,7 @@ CONTAINS
     owner(:) = -1
     nc = 0 ! Counts cells in subset
 
-    DO j = 1, wrk_divide_patch%n_patch_cells
+    DO j = 1, wrk_p_patch_pre%n_patch_cells
       IF(subset_flag(j)>0) THEN
         nc = nc+1
         owner(j) = tmp(nc)
@@ -3005,7 +3013,7 @@ CONTAINS
   !>
   SUBROUTINE fill_wrk_decomposition_struct(decomposition_struct, patch)
     TYPE(t_decomposition_structure) :: decomposition_struct
-    TYPE(t_patch) :: patch
+    TYPE(t_pre_patch) :: patch
 
     INTEGER :: no_of_cells, no_of_verts, cell, vertex
     INTEGER :: jb, jl, i, jl_v, jb_v, return_status

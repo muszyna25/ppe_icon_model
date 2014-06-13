@@ -97,8 +97,8 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges, &
-                                   p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, t_grid_cells, &
+                                   t_grid_edges, p_patch_local_parent
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_valid_local_index
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real,  &
@@ -128,8 +128,8 @@ MODULE mo_model_domimp_patches
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
     &  set_grid_geometry_derived_info, copy_grid_geometry_info,            &
     & parallel_read_geometry_info, triangular_cell
-  USE mo_alloc_patches,      ONLY: set_patches_grid_filename, allocate_basic_patch, &
-    & allocate_remaining_patch
+  USE mo_alloc_patches,      ONLY: set_patches_grid_filename, &
+    & allocate_pre_patch, allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi, pi_2
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
@@ -168,7 +168,7 @@ MODULE mo_model_domimp_patches
 
   !modules interface-------------------------------------------
   !subroutines
-  PUBLIC :: import_basic_patches
+  PUBLIC :: import_pre_patches
   PUBLIC :: complete_patches
   PUBLIC :: reorder_patch_refin_ctrl
 
@@ -207,10 +207,10 @@ CONTAINS
   !!  - only basic patch information for subdivision is read here
   !!    into the full (undivided, global) patch data structure
   !!
-  SUBROUTINE import_basic_patches( patch,num_lev,num_levp1,nshift)
+  SUBROUTINE import_pre_patches( patch,num_lev,num_levp1,nshift)
 
     INTEGER,INTENT(in) :: num_lev(:), num_levp1(:), nshift(:)
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
+    TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
 
     INTEGER :: jg, jg1, n_chd, n_chdc
     INTEGER :: jgp            ! parent patch index
@@ -220,13 +220,13 @@ CONTAINS
 
     !CHARACTER(filename_max) :: patch_file, gridtype
 
-    TYPE(t_patch), POINTER ::  &
+    TYPE(t_pre_patch), POINTER ::  &
       & p_single_patch => NULL()
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
     !-----------------------------------------------------------------------
 
-    CALL message ('mo_model_domimp_patches:import_basic_patches', &
+    CALL message ('mo_model_domimp_patches:import_pre_patches', &
       & 'start to import patches')
 
     ! Set some basic flow control variables on the patch
@@ -330,7 +330,7 @@ CONTAINS
         patch(jg)%nshift_child = patch(patch(jg)%child_id(1))%nshift
         DO jg1 = 1, patch(jg)%n_childdom
           IF (patch(patch(jg)%child_id(jg1))%nshift /= patch(jg)%nshift_child) &
-            & CALL finish ('mo_model_domimp_patches:import_basic_patches', &
+            & CALL finish ('mo_model_domimp_patches:import_pre_patches', &
             & 'multiple nests at the same level must have the same nshift')
         ENDDO
       ELSE
@@ -389,14 +389,14 @@ CONTAINS
 
       p_single_patch => patch(jg)
 
-      CALL read_basic_patch( jg, p_single_patch )
+      CALL read_pre_patch( jg, p_single_patch )
 
     ENDDO grid_level_loop
 
     CALL set_pc_idx(patch)
 
 
-  END SUBROUTINE import_basic_patches
+  END SUBROUTINE import_pre_patches
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -439,7 +439,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Get all patch information not read by read_basic_patch
+      ! Get all patch information not read by read_pre_patch
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp )
     ENDDO
 
@@ -650,8 +650,6 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE set_missing_geometry_info
-  !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   !>
@@ -662,7 +660,7 @@ CONTAINS
   !!
   SUBROUTINE set_pc_idx(patch)
 
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
+    TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch(n_dom_start:)
 
     ! local variables
 
@@ -762,13 +760,13 @@ CONTAINS
   !!   for subdivision into the fully allocated patch and read_remaining_patch
   !!   for reading the remaining information
   !!
-  SUBROUTINE read_basic_patch( ig, patch, patch_file )
+  SUBROUTINE read_pre_patch( ig, patch, patch_file )
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/read_basic_patch'
+    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/read_pre_patch'
     INTEGER,             INTENT(in)    ::  ig           ! domain ID
     CHARACTER(LEN=*),    INTENT(in), OPTIONAL ::  patch_file   ! name of grid file
 
-    TYPE(t_patch), TARGET, INTENT(inout) ::  patch      ! patch data structure
+    TYPE(t_pre_patch), TARGET, INTENT(inout) ::  patch      ! patch data structure
 
     INTEGER, ALLOCATABLE :: &
       & array_c_int(:,:),  &  ! temporary arrays to read in integer values
@@ -1024,7 +1022,7 @@ CONTAINS
     !
     ! Allocate patch arrays which are read here
     !
-    CALL allocate_basic_patch( patch )
+    CALL allocate_pre_patch( patch )
 
     ! patch%cells%start_idx(:,:)
     ! patch%cells%start_blk(:,:)
@@ -1413,7 +1411,7 @@ CONTAINS
 
     CALL message (TRIM(method_name), 'read_patches finished')
 
-  END SUBROUTINE read_basic_patch
+  END SUBROUTINE read_pre_patch
   !-------------------------------------------------------------------------
 
 

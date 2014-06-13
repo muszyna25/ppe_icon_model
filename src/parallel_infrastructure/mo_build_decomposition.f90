@@ -21,9 +21,10 @@ MODULE mo_build_decomposition
   USE mo_grid_config,          ONLY: n_dom, n_dom_start
   USE mo_mpi,                  ONLY: my_process_is_mpi_parallel
   USE mo_loopindices,          ONLY: get_indices_e
-  USE mo_model_domain,         ONLY: p_patch,t_patch_3d,t_patch,p_patch_local_parent
-  USE mo_model_domimp_patches, ONLY: reorder_patch_refin_ctrl, import_basic_patches,             &
-    &                                complete_patches
+  USE mo_model_domain,         ONLY: p_patch, t_pre_patch, t_patch_3d, &
+    &                                t_patch, p_patch_local_parent
+  USE mo_model_domimp_patches, ONLY: reorder_patch_refin_ctrl, &
+    & import_pre_patches, complete_patches
   USE mo_parallel_config,      ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
   USE mo_impl_constants,       ONLY: success, max_dom
   USE mo_exception,            ONLY: finish, message, message_text, get_filename_noext
@@ -52,8 +53,8 @@ CONTAINS
     TYPE(t_patch_3d), POINTER, OPTIONAL :: patch_3d
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'build_decomposition'
-    TYPE(t_patch), ALLOCATABLE  :: p_patch_global(:)
-    INTEGER                     :: error_status,jg
+    TYPE(t_pre_patch), ALLOCATABLE :: p_patch_pre(:)
+    INTEGER                        :: error_status,jg
     
     ! Check p_patch allocation status
     
@@ -75,11 +76,11 @@ CONTAINS
     ! --------------------------
                   
     ! compute domain decomposition on-the-fly        
-    ALLOCATE(p_patch_global(n_dom_start:n_dom))
-    CALL import_basic_patches(p_patch_global,num_lev,num_levp1,nshift)
+    ALLOCATE(p_patch_pre(n_dom_start:n_dom))
+    CALL import_pre_patches(p_patch_pre,num_lev,num_levp1,nshift)
     ! use internal domain decomposition algorithm
-    CALL decompose_domain(p_patch, p_patch_global)
-    DEALLOCATE(p_patch_global)
+    CALL decompose_domain(p_patch, p_patch_pre)
+    DEALLOCATE(p_patch_pre)
 
     ! setup communication patterns (also done in sequential runs)
     CALL complete_parallel_setup(p_patch, is_ocean_decomposition)
