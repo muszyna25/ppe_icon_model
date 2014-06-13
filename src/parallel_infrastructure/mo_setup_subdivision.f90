@@ -648,7 +648,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
-    INTEGER :: i, j, jl, jb, jb_g, jl_g, je, jv, jg, jc, jc_p, jpg
+    INTEGER :: i, j, jl, jb, jb_g, jl_g, je, jv, jg, jc, jc_p, jpg, jcg(4)
 
 #ifdef __PGIC__
     TYPE(nb_flag_list_elem), ALLOCATABLE :: flag2_c_list(:), &
@@ -944,12 +944,13 @@ CONTAINS
       ! This will be changed in set_parent_child_relations.
 
       jpg = wrk_p_patch_pre%edges%parent(jg)
+      jcg = wrk_p_patch_pre%edges%child(jg,1:4)
 
       wrk_p_patch%edges%parent_idx(jl,jb)    = idx_no(jpg)
       wrk_p_patch%edges%parent_blk(jl,jb)    = blk_no(jpg)
       wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_pre%edges%pc_idx(jg)
-      wrk_p_patch%edges%child_idx(jl,jb,1:4) = wrk_p_patch_pre%edges%child_idx(jl_g,jb_g,1:4)
-      wrk_p_patch%edges%child_blk(jl,jb,1:4) = wrk_p_patch_pre%edges%child_blk(jl_g,jb_g,1:4)
+      wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
+      wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
       wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jl_g,jb_g)
 
       wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jg)

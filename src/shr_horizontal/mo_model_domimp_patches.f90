@@ -665,7 +665,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen, ip, j
+    INTEGER :: jg, jgp, ip, j
 
     !-----------------------------------------------------------------------
 
@@ -690,21 +690,12 @@ CONTAINS
 
       DO j = 1, patch_pre(jg)%n_patch_edges_g
 
-        jl = idx_no(j)
-        jb = blk_no(j)
-
         ip = patch_pre(jg)%edges%parent(j)
-        ilp = idx_no(ip)
-        ibp = blk_no(ip)
 
-        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,1) == jb ) patch_pre(jg)%edges%pc_idx(j) = 1
-        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,2) == jb ) patch_pre(jg)%edges%pc_idx(j) = 2
-        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,3) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,3) == jb ) patch_pre(jg)%edges%pc_idx(j) = 3
-        IF(patch_pre(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
-          & patch_pre(jgp)%edges%child_blk(ilp,ibp,4) == jb ) patch_pre(jg)%edges%pc_idx(j) = 4
+        IF(patch_pre(jgp)%edges%child(ip,1)==j) patch_pre(jg)%edges%pc_idx(j) = 1
+        IF(patch_pre(jgp)%edges%child(ip,2)==j) patch_pre(jg)%edges%pc_idx(j) = 2
+        IF(patch_pre(jgp)%edges%child(ip,3)==j) patch_pre(jg)%edges%pc_idx(j) = 3
+        IF(patch_pre(jgp)%edges%child(ip,4)==j) patch_pre(jg)%edges%pc_idx(j) = 4
 !          IF(patch_pre(jg)%edges%pc_idx(j) == 0) CALL finish('set_pc_idx','edges%pc_idx')
 
       ENDDO
@@ -1129,24 +1120,16 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'parent_edge_index', varid))
     CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%parent(:)))
 
-    ! patch_pre%edges%child_idx(:,:,:)
-    ! patch_pre%edges%child_blk(:,:,:)
+    ! patch_pre%edges%child(:,:)
     CALL nf(nf_inq_varid(ncid, 'child_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:4)))
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%child(:,:)))
 
     ! First ensure that child edge indices are all positive;
     ! if there are negative values, grid files are too old
-    IF(ANY(array_e_int(:,1:4)<0)) THEN
+    IF(ANY(patch_pre%edges%child(:,1:4)<0)) THEN
       CALL finish (TRIM(method_name), &
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
-
-    DO ji = 1, 4
-      CALL reshape_idx( array_e_int(:,ji), patch_pre%nblks_e, &
-        & patch_pre%npromz_e, &
-        & patch_pre%edges%child_idx(:,:,ji),  &
-        & patch_pre%edges%child_blk(:,:,ji) )
-    END DO
 
     ! patch_pre%edges%child_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
