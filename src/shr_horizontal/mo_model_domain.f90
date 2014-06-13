@@ -95,7 +95,7 @@ MODULE mo_model_domain
 
   ! ! the following abstract data types are taken from mo_grid,
 
-  PUBLIC :: t_patch
+  PUBLIC :: t_patch, t_pre_patch
   PUBLIC :: t_grid_cells
   PUBLIC :: t_grid_edges
   PUBLIC :: t_grid_vertices
@@ -809,6 +809,200 @@ MODULE mo_model_domain
 
   END TYPE t_patch
   !-----------------------------------------------------------------------------------
+  ! !prepare patch class
+
+  TYPE t_pre_patch
+
+    !
+    ! !  level in grid hierarchy on which patch lives
+    !
+    CHARACTER(LEN=filename_max) :: grid_filename
+    !
+    ! uuid of grid
+    TYPE(t_uuid) :: grid_uuid
+    !
+    ! grid level
+    INTEGER :: level
+    !
+    ! domain ID of current domain
+    INTEGER :: id
+    !
+    ! indicator if current model domain is active
+    LOGICAL :: ldom_active
+
+    !-------------------------------------
+    !> The grid domain geometry parameters
+    ! cell type =3 or 6
+    INTEGER :: cell_type
+
+    INTEGER :: geometry_type
+
+    TYPE(t_grid_geometry_info) :: geometry_info
+    !-------------------------------------
+    INTEGER :: boundary_depth_index  ! when is limited area grid, this is the  number of boundary levels based
+                                     ! on the edge-connected cells (the fisrt level are cells that have
+                                     ! at least one boundary edge, the next level are cells shering an edge with
+                                     ! level 1 cells, etc
+    
+    !
+    ! domain ID of parent domain
+    INTEGER :: parent_id
+    !
+    ! child domain index of current domain as seen from parent domain
+    ! In other words: I am the nth child of my parents (n=parent_child_index)
+    INTEGER :: parent_child_index
+    !
+    ! list of child domain ID's
+    INTEGER :: child_id(max_dom)
+    !
+    ! actual number of child domains
+    INTEGER :: n_childdom
+    !
+    ! total number of child domains in the calling tree (over all nest levels)
+    INTEGER :: n_chd_total
+    !
+    ! corresponding list of child domain ID's
+    INTEGER :: child_id_list(max_dom)
+    !
+    ! maximum number of child domains
+    INTEGER :: max_childdom
+    !
+
+    ! total number of locally allocated cells, edges and vertices
+    INTEGER :: n_patch_cells
+    INTEGER :: n_patch_edges
+    INTEGER :: n_patch_verts
+
+    ! total number of exist cells
+!    INTEGER :: n_exist_cells
+!    INTEGER :: n_cell_blocks
+!    INTEGER :: last_cell_block_size
+
+    ! in case of a dummy cell, we keep the blk and index of it
+!    INTEGER :: dummy_cell_blk
+!    INTEGER :: dummy_cell_idx
+
+
+    !
+    ! ! number of cells, edges and vertices in the global patch
+    INTEGER :: n_patch_cells_g
+    INTEGER :: n_patch_edges_g
+    INTEGER :: n_patch_verts_g
+    !
+    ! ! values for the blocking
+    !
+    INTEGER :: alloc_cell_blocks  ! number of allocated cell blocks
+    ! number of blocks and chunk length in last block
+    ! ... for the cells
+    INTEGER :: nblks_c
+    INTEGER :: npromz_c
+    ! ... for the edges
+    INTEGER :: nblks_e
+    INTEGER :: npromz_e
+    ! ... for the vertices
+    INTEGER :: nblks_v
+    INTEGER :: npromz_v
+    !
+    ! ! vertical full and half levels
+    !
+    ! number of full and half levels
+    INTEGER :: nlev
+    INTEGER :: nlevp1
+    !
+    ! half level of parent domain (jg-1) that coincides
+    ! with the upper margin of the current domain jg
+    INTEGER :: nshift
+    !
+    ! total shift of model top with respect to global domain
+    INTEGER :: nshift_total
+    !
+    ! the same information seen from the parent level (duplication needed to simplify flow control)
+    INTEGER :: nshift_child
+
+
+    !
+    ! ! Mask and bathymetry for ocean patch
+    !  TYPE(t_patch_ocean) ::  &
+    !    &  patch_oce
+
+    !
+    ! ! grid information on the patch
+    !
+    TYPE(t_grid_cells) ::  &
+      & cells
+    TYPE(t_grid_edges) ::  &
+      & edges
+    TYPE(t_grid_vertices) ::  &
+      & verts
+
+    !
+    ! communication patterns for parallelization
+    !
+    ! Boundary exchange within patches, defined on regular patches and local parents
+    TYPE(t_comm_pattern) :: comm_pat_c
+    TYPE(t_comm_pattern) :: comm_pat_c1 ! reduced communication pattern, only level-1 halo cells
+    TYPE(t_comm_pattern) :: comm_pat_e
+    TYPE(t_comm_pattern) :: comm_pat_v
+
+    ! Interpolation for grid refinement, defined only on regular patches
+    TYPE(t_comm_pattern) :: comm_pat_interpolation_c
+    TYPE(t_comm_pattern) :: comm_pat_interpol_vec_grf(4)
+    TYPE(t_comm_pattern) :: comm_pat_interpol_scal_grf(4)
+    TYPE(t_comm_pattern) :: comm_pat_interpol_vec_ubc(4)
+    TYPE(t_comm_pattern) :: comm_pat_interpol_scal_ubc(4)
+
+    ! Gather complete patch to proc 0
+    ! Useful only for regular patches (defined but unused on local parents)
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_c
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_e
+    TYPE(t_comm_gather_pattern) :: comm_pat_gather_v
+
+    ! Communication between local parent and its global counterpart,
+    ! defined only on local parents.
+    ! Please note that these communicate between
+    ! p_patch_local_parent(jg) and p_patch(p_patch(jg)%parent_id)
+    TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_c
+    TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_e
+    TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c_fbk
+    TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_e_fbk
+
+    ! Halo comm patterns for the icon_commm_lib
+    INTEGER ::  sync_cells_not_in_domain
+    INTEGER ::  sync_cells_not_owned       ! = cells_not_in_domain
+    INTEGER ::  sync_cells_one_edge_in_domain
+    INTEGER ::  sync_edges_not_owned
+    INTEGER ::  sync_edges_not_in_domain
+    INTEGER ::  sync_verts_not_owned
+    INTEGER ::  sync_verts_not_in_domain
+
+    ! basic parallelization info for this patch
+    LOGICAL :: compute_is_parallel  ! if true more than 1 processes are used
+    LOGICAL :: is_in_parallel_test  ! if true there's one process that runs seq and compares the results to the parallel runs
+    LOGICAL :: is_test_parallel_process  ! if true this process runs seq and compares the results to the parallel runs
+
+    ! basic communicators concerning this patch
+    !> the work universe of this patch, halo exchange, global sum,
+    ! etc, takes place in this universe
+
+
+    INTEGER :: work_communicator
+    !> the work universe plus the sequential test process,
+    ! in case it exists (otherwise the same as work_communicator)
+    INTEGER :: parallel_test_communicator
+
+    ! MPI communicator for this patch
+    INTEGER :: comm
+    !
+    ! my index among the processors on this patch
+    INTEGER :: rank
+    !
+    ! total number of processors on this patch
+    INTEGER :: n_proc
+    !
+    ! global id of processor with rank 0 (within the working set p_comm_work)
+    INTEGER :: proc0
+
+  END TYPE t_pre_patch
 
   !-----------------------------------------------------------------------------------
   ! Description of physical patches
