@@ -65,9 +65,9 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE set_patches_grid_filename( p_patch )
+  SUBROUTINE set_patches_grid_filename( p_patch_pre )
 
-    TYPE(t_pre_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+    TYPE(t_pre_patch), TARGET, INTENT(inout) :: p_patch_pre(n_dom_start:)
 
     INTEGER :: jg
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
@@ -77,11 +77,11 @@ CONTAINS
 
       CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
       IF (jg==0) THEN
-        p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
+        p_patch_pre(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
       ELSE
-        p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
+        p_patch_pre(jg)%grid_filename = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
       ENDIF
-      !     write(0,*) jg, "grid_filename:",TRIM(p_patch(jg)%grid_filename)
+      !     write(0,*) jg, "grid_filename:",TRIM(p_patch_pre(jg)%grid_filename)
     ENDDO
 
   END SUBROUTINE set_patches_grid_filename
@@ -602,9 +602,9 @@ CONTAINS
   !! Initial version (split out from read_patch) Rainer Johanni, Oct. 2010
   !! Split into allocate_basic_patch/allocate_remaining_patch, Rainer Johanni, Nov. 2011
   !!
-  SUBROUTINE allocate_pre_patch(p_patch)
+  SUBROUTINE allocate_pre_patch(p_patch_pre)
 
-    TYPE(t_pre_patch), INTENT(inout) :: p_patch
+    TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
 
     INTEGER :: max_childdom
 
@@ -612,143 +612,140 @@ CONTAINS
     ! - alloc_cell_blocks
     ! - nblks_e
     ! - nblks_v
-    ! - n_patch_cells
-    ! - n_patch_edges
-    ! - n_patch_verts
     ! - n_patch_cells_g
     ! - n_patch_edges_g
     ! - n_patch_verts_g
     ! - max_childdom
 
-    p_patch%cell_type = p_patch%cells%max_connectivity
-    max_childdom = p_patch%max_childdom
+    p_patch_pre%cell_type = p_patch_pre%cells%max_connectivity
+    max_childdom = p_patch_pre%max_childdom
     !
     ! !grid cells
     !
-    p_patch%cells%dummy_cell_block = 0
-    p_patch%cells%dummy_cell_index = 0
-    ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%pc_idx(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%alloc_cell_blocks,4) )
-    ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%alloc_cell_blocks,4) )
-    ALLOCATE( p_patch%cells%child_id(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%center(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%refin_ctrl(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
-    ALLOCATE( p_patch%cells%end_idx(min_rlcell:max_rlcell,max_childdom) )
-    ALLOCATE( p_patch%cells%start_blk(min_rlcell:max_rlcell,max_childdom) )
-    ALLOCATE( p_patch%cells%end_blk(min_rlcell:max_rlcell,max_childdom) )
-    ALLOCATE( p_patch%cells%start_index(min_rlcell:max_rlcell) )
-    ALLOCATE( p_patch%cells%end_index(min_rlcell:max_rlcell) )
-    ALLOCATE( p_patch%cells%start_block(min_rlcell:max_rlcell) )
-    ALLOCATE( p_patch%cells%end_block(min_rlcell:max_rlcell) )
+    p_patch_pre%cells%dummy_cell_block = 0
+    p_patch_pre%cells%dummy_cell_index = 0
+    ALLOCATE( p_patch_pre%cells%num_edges(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%parent_idx(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%parent_blk(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%pc_idx(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%child_idx(nproma,p_patch_pre%alloc_cell_blocks,4) )
+    ALLOCATE( p_patch_pre%cells%child_blk(nproma,p_patch_pre%alloc_cell_blocks,4) )
+    ALLOCATE( p_patch_pre%cells%child_id(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%phys_id(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%neighbor_idx(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
+    ALLOCATE( p_patch_pre%cells%neighbor_blk(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
+    ALLOCATE( p_patch_pre%cells%edge_idx(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
+    ALLOCATE( p_patch_pre%cells%edge_blk(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
+    ALLOCATE( p_patch_pre%cells%vertex_idx(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
+    ALLOCATE( p_patch_pre%cells%vertex_blk(nproma,p_patch_pre%alloc_cell_blocks,p_patch_pre%cell_type) )
+    ALLOCATE( p_patch_pre%cells%center(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%refin_ctrl(nproma,p_patch_pre%alloc_cell_blocks) )
+    ALLOCATE( p_patch_pre%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch_pre%cells%end_idx(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch_pre%cells%start_blk(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch_pre%cells%end_blk(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch_pre%cells%start_index(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch_pre%cells%end_index(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch_pre%cells%start_block(min_rlcell:max_rlcell) )
+    ALLOCATE( p_patch_pre%cells%end_block(min_rlcell:max_rlcell) )
 
     !
     ! !grid edges
     !
-    ALLOCATE( p_patch%edges%parent_idx(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%parent_blk(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%pc_idx(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%child_idx(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%child_blk(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%child_id(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%refin_ctrl(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%start_idx(min_rledge:max_rledge,max_childdom) )
-    ALLOCATE( p_patch%edges%end_idx(min_rledge:max_rledge,max_childdom) )
-    ALLOCATE( p_patch%edges%start_blk(min_rledge:max_rledge,max_childdom) )
-    ALLOCATE( p_patch%edges%end_blk(min_rledge:max_rledge,max_childdom) )
-    ALLOCATE( p_patch%edges%cell_idx(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
-    ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
-    ALLOCATE( p_patch%edges%start_index(min_rledge:max_rledge) )
-    ALLOCATE( p_patch%edges%end_index(min_rledge:max_rledge) )
-    ALLOCATE( p_patch%edges%start_block(min_rledge:max_rledge) )
-    ALLOCATE( p_patch%edges%end_block(min_rledge:max_rledge) )
+    ALLOCATE( p_patch_pre%edges%parent_idx(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%parent_blk(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%pc_idx(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%child_idx(nproma,p_patch_pre%nblks_e,4) )
+    ALLOCATE( p_patch_pre%edges%child_blk(nproma,p_patch_pre%nblks_e,4) )
+    ALLOCATE( p_patch_pre%edges%child_id(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%refin_ctrl(nproma,p_patch_pre%nblks_e) )
+    ALLOCATE( p_patch_pre%edges%start_idx(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch_pre%edges%end_idx(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch_pre%edges%start_blk(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch_pre%edges%end_blk(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch_pre%edges%cell_idx(nproma,p_patch_pre%nblks_e,2) )
+    ALLOCATE( p_patch_pre%edges%cell_blk(nproma,p_patch_pre%nblks_e,2) )
+    ALLOCATE( p_patch_pre%edges%vertex_idx(nproma,p_patch_pre%nblks_e,4) )
+    ALLOCATE( p_patch_pre%edges%vertex_blk(nproma,p_patch_pre%nblks_e,4) )
+    ALLOCATE( p_patch_pre%edges%start_index(min_rledge:max_rledge) )
+    ALLOCATE( p_patch_pre%edges%end_index(min_rledge:max_rledge) )
+    ALLOCATE( p_patch_pre%edges%start_block(min_rledge:max_rledge) )
+    ALLOCATE( p_patch_pre%edges%end_block(min_rledge:max_rledge) )
 
     !
     ! !grid verts
     !
-    ALLOCATE( p_patch%verts%vertex(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%refin_ctrl(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%start_idx(min_rlvert:max_rlvert,max_childdom) )
-    ALLOCATE( p_patch%verts%end_idx(min_rlvert:max_rlvert,max_childdom) )
-    ALLOCATE( p_patch%verts%start_blk(min_rlvert:max_rlvert,max_childdom) )
-    ALLOCATE( p_patch%verts%end_blk(min_rlvert:max_rlvert,max_childdom) )
-    ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,6) )
-    ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,6) )
-    ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
-    ALLOCATE( p_patch%verts%start_index(min_rlvert:max_rlvert) )
-    ALLOCATE( p_patch%verts%end_index(min_rlvert:max_rlvert) )
-    ALLOCATE( p_patch%verts%start_block(min_rlvert:max_rlvert) )
-    ALLOCATE( p_patch%verts%end_block(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch_pre%verts%vertex(nproma,p_patch_pre%nblks_v) )
+    ALLOCATE( p_patch_pre%verts%refin_ctrl(nproma,p_patch_pre%nblks_v) )
+    ALLOCATE( p_patch_pre%verts%start_idx(min_rlvert:max_rlvert,max_childdom) )
+    ALLOCATE( p_patch_pre%verts%end_idx(min_rlvert:max_rlvert,max_childdom) )
+    ALLOCATE( p_patch_pre%verts%start_blk(min_rlvert:max_rlvert,max_childdom) )
+    ALLOCATE( p_patch_pre%verts%end_blk(min_rlvert:max_rlvert,max_childdom) )
+    ALLOCATE( p_patch_pre%verts%cell_idx(nproma,p_patch_pre%nblks_v,6) )
+    ALLOCATE( p_patch_pre%verts%cell_blk(nproma,p_patch_pre%nblks_v,6) )
+    ALLOCATE( p_patch_pre%verts%num_edges(nproma,p_patch_pre%nblks_v) )
+    ALLOCATE( p_patch_pre%verts%start_index(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch_pre%verts%end_index(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch_pre%verts%start_block(min_rlvert:max_rlvert) )
+    ALLOCATE( p_patch_pre%verts%end_block(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0
 
-    p_patch%cells%num_edges = 0
-    p_patch%cells%parent_idx = 0
-    p_patch%cells%parent_blk = 0
-    p_patch%cells%pc_idx = 0
-    p_patch%cells%child_idx = 0
-    p_patch%cells%child_blk = 0
-    p_patch%cells%child_id = 0
-    p_patch%cells%phys_id = 0
-    p_patch%cells%neighbor_idx = 0
-    p_patch%cells%neighbor_blk = 0
-    p_patch%cells%edge_idx = 0
-    p_patch%cells%edge_blk = 0
-    p_patch%cells%vertex_idx = 0
-    p_patch%cells%vertex_blk = 0
-    p_patch%cells%center(:,:)%lon = 0._wp
-    p_patch%cells%center(:,:)%lat = 0._wp
-    p_patch%cells%refin_ctrl = 0
-    p_patch%cells%start_idx = 0
-    p_patch%cells%end_idx = 0
-    p_patch%cells%start_blk = 0
-    p_patch%cells%end_blk = 0
-    p_patch%cells%start_index = 0
-    p_patch%cells%end_index = 0
-    p_patch%cells%start_block = 0
-    p_patch%cells%end_block = 0
+    p_patch_pre%cells%num_edges = 0
+    p_patch_pre%cells%parent_idx = 0
+    p_patch_pre%cells%parent_blk = 0
+    p_patch_pre%cells%pc_idx = 0
+    p_patch_pre%cells%child_idx = 0
+    p_patch_pre%cells%child_blk = 0
+    p_patch_pre%cells%child_id = 0
+    p_patch_pre%cells%phys_id = 0
+    p_patch_pre%cells%neighbor_idx = 0
+    p_patch_pre%cells%neighbor_blk = 0
+    p_patch_pre%cells%edge_idx = 0
+    p_patch_pre%cells%edge_blk = 0
+    p_patch_pre%cells%vertex_idx = 0
+    p_patch_pre%cells%vertex_blk = 0
+    p_patch_pre%cells%center(:,:)%lon = 0._wp
+    p_patch_pre%cells%center(:,:)%lat = 0._wp
+    p_patch_pre%cells%refin_ctrl = 0
+    p_patch_pre%cells%start_idx = 0
+    p_patch_pre%cells%end_idx = 0
+    p_patch_pre%cells%start_blk = 0
+    p_patch_pre%cells%end_blk = 0
+    p_patch_pre%cells%start_index = 0
+    p_patch_pre%cells%end_index = 0
+    p_patch_pre%cells%start_block = 0
+    p_patch_pre%cells%end_block = 0
 
-    p_patch%edges%parent_idx = 0
-    p_patch%edges%parent_blk = 0
-    p_patch%edges%pc_idx = 0
-    p_patch%edges%child_idx = 0
-    p_patch%edges%child_blk = 0
-    p_patch%edges%child_id = 0
-    p_patch%edges%refin_ctrl = 0
-    p_patch%edges%start_idx = 0
-    p_patch%edges%end_idx = 0
-    p_patch%edges%start_blk = 0
-    p_patch%edges%end_blk = 0
-    p_patch%edges%start_index = 0
-    p_patch%edges%end_index = 0
-    p_patch%edges%start_block = 0
-    p_patch%edges%end_block = 0
+    p_patch_pre%edges%parent_idx = 0
+    p_patch_pre%edges%parent_blk = 0
+    p_patch_pre%edges%pc_idx = 0
+    p_patch_pre%edges%child_idx = 0
+    p_patch_pre%edges%child_blk = 0
+    p_patch_pre%edges%child_id = 0
+    p_patch_pre%edges%refin_ctrl = 0
+    p_patch_pre%edges%start_idx = 0
+    p_patch_pre%edges%end_idx = 0
+    p_patch_pre%edges%start_blk = 0
+    p_patch_pre%edges%end_blk = 0
+    p_patch_pre%edges%start_index = 0
+    p_patch_pre%edges%end_index = 0
+    p_patch_pre%edges%start_block = 0
+    p_patch_pre%edges%end_block = 0
 
-    p_patch%verts%vertex(:,:)%lon = 0._wp
-    p_patch%verts%vertex(:,:)%lat = 0._wp
-    p_patch%verts%refin_ctrl = 0
-    p_patch%verts%start_idx = 0
-    p_patch%verts%end_idx = 0
-    p_patch%verts%start_blk = 0
-    p_patch%verts%end_blk = 0
-    p_patch%verts%cell_idx = 0
-    p_patch%verts%cell_blk = 0
-    p_patch%verts%num_edges = 0
-    p_patch%verts%start_index = 0
-    p_patch%verts%end_index = 0
-    p_patch%verts%start_block = 0
-    p_patch%verts%end_block = 0
+    p_patch_pre%verts%vertex(:,:)%lon = 0._wp
+    p_patch_pre%verts%vertex(:,:)%lat = 0._wp
+    p_patch_pre%verts%refin_ctrl = 0
+    p_patch_pre%verts%start_idx = 0
+    p_patch_pre%verts%end_idx = 0
+    p_patch_pre%verts%start_blk = 0
+    p_patch_pre%verts%end_blk = 0
+    p_patch_pre%verts%cell_idx = 0
+    p_patch_pre%verts%cell_blk = 0
+    p_patch_pre%verts%num_edges = 0
+    p_patch_pre%verts%start_index = 0
+    p_patch_pre%verts%end_index = 0
+    p_patch_pre%verts%start_block = 0
+    p_patch_pre%verts%end_block = 0
 
   END SUBROUTINE allocate_pre_patch
   !-------------------------------------------------------------------------
@@ -835,66 +832,66 @@ CONTAINS
   !! @par Revision History
   !! Initial version, Rainer Johanni, Nov. 2011
   !!
-  SUBROUTINE deallocate_pre_patch(p_patch)
+  SUBROUTINE deallocate_pre_patch(p_patch_pre)
 
-    TYPE(t_pre_patch), INTENT(inout) :: p_patch
+    TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
     !
     ! !grid cells
     !
-    DEALLOCATE( p_patch%cells%num_edges )
-    DEALLOCATE( p_patch%cells%parent_idx )
-    DEALLOCATE( p_patch%cells%parent_blk )
-    DEALLOCATE( p_patch%cells%pc_idx )
-    DEALLOCATE( p_patch%cells%child_idx )
-    DEALLOCATE( p_patch%cells%child_blk )
-    DEALLOCATE( p_patch%cells%child_id )
-    DEALLOCATE( p_patch%cells%neighbor_idx )
-    DEALLOCATE( p_patch%cells%neighbor_blk )
-    DEALLOCATE( p_patch%cells%edge_idx )
-    DEALLOCATE( p_patch%cells%edge_blk )
-    DEALLOCATE( p_patch%cells%vertex_idx )
-    DEALLOCATE( p_patch%cells%vertex_blk )
-    DEALLOCATE( p_patch%cells%center )
-    DEALLOCATE( p_patch%cells%refin_ctrl )
-    DEALLOCATE( p_patch%cells%start_idx )
-    DEALLOCATE( p_patch%cells%end_idx )
-    DEALLOCATE( p_patch%cells%start_blk )
-    DEALLOCATE( p_patch%cells%end_blk )
-    DEALLOCATE( p_patch%cells%start_index )
-    DEALLOCATE( p_patch%cells%end_index )
-    DEALLOCATE( p_patch%cells%start_block )
-    DEALLOCATE( p_patch%cells%end_block )
+    DEALLOCATE( p_patch_pre%cells%num_edges )
+    DEALLOCATE( p_patch_pre%cells%parent_idx )
+    DEALLOCATE( p_patch_pre%cells%parent_blk )
+    DEALLOCATE( p_patch_pre%cells%pc_idx )
+    DEALLOCATE( p_patch_pre%cells%child_idx )
+    DEALLOCATE( p_patch_pre%cells%child_blk )
+    DEALLOCATE( p_patch_pre%cells%child_id )
+    DEALLOCATE( p_patch_pre%cells%neighbor_idx )
+    DEALLOCATE( p_patch_pre%cells%neighbor_blk )
+    DEALLOCATE( p_patch_pre%cells%edge_idx )
+    DEALLOCATE( p_patch_pre%cells%edge_blk )
+    DEALLOCATE( p_patch_pre%cells%vertex_idx )
+    DEALLOCATE( p_patch_pre%cells%vertex_blk )
+    DEALLOCATE( p_patch_pre%cells%center )
+    DEALLOCATE( p_patch_pre%cells%refin_ctrl )
+    DEALLOCATE( p_patch_pre%cells%start_idx )
+    DEALLOCATE( p_patch_pre%cells%end_idx )
+    DEALLOCATE( p_patch_pre%cells%start_blk )
+    DEALLOCATE( p_patch_pre%cells%end_blk )
+    DEALLOCATE( p_patch_pre%cells%start_index )
+    DEALLOCATE( p_patch_pre%cells%end_index )
+    DEALLOCATE( p_patch_pre%cells%start_block )
+    DEALLOCATE( p_patch_pre%cells%end_block )
     !
     ! !grid edges
     !
-    DEALLOCATE( p_patch%edges%parent_idx )
-    DEALLOCATE( p_patch%edges%parent_blk )
-    DEALLOCATE( p_patch%edges%pc_idx )
-    DEALLOCATE( p_patch%edges%child_idx )
-    DEALLOCATE( p_patch%edges%child_blk )
-    DEALLOCATE( p_patch%edges%child_id )
-    DEALLOCATE( p_patch%edges%refin_ctrl )
-    DEALLOCATE( p_patch%edges%start_idx )
-    DEALLOCATE( p_patch%edges%end_idx )
-    DEALLOCATE( p_patch%edges%start_blk )
-    DEALLOCATE( p_patch%edges%end_blk )
-    DEALLOCATE( p_patch%edges%start_index )
-    DEALLOCATE( p_patch%edges%end_index )
-    DEALLOCATE( p_patch%edges%start_block )
-    DEALLOCATE( p_patch%edges%end_block )
+    DEALLOCATE( p_patch_pre%edges%parent_idx )
+    DEALLOCATE( p_patch_pre%edges%parent_blk )
+    DEALLOCATE( p_patch_pre%edges%pc_idx )
+    DEALLOCATE( p_patch_pre%edges%child_idx )
+    DEALLOCATE( p_patch_pre%edges%child_blk )
+    DEALLOCATE( p_patch_pre%edges%child_id )
+    DEALLOCATE( p_patch_pre%edges%refin_ctrl )
+    DEALLOCATE( p_patch_pre%edges%start_idx )
+    DEALLOCATE( p_patch_pre%edges%end_idx )
+    DEALLOCATE( p_patch_pre%edges%start_blk )
+    DEALLOCATE( p_patch_pre%edges%end_blk )
+    DEALLOCATE( p_patch_pre%edges%start_index )
+    DEALLOCATE( p_patch_pre%edges%end_index )
+    DEALLOCATE( p_patch_pre%edges%start_block )
+    DEALLOCATE( p_patch_pre%edges%end_block )
     !
     ! !grid verts
     !
-    DEALLOCATE( p_patch%verts%vertex )
-    DEALLOCATE( p_patch%verts%refin_ctrl )
-    DEALLOCATE( p_patch%verts%start_idx )
-    DEALLOCATE( p_patch%verts%end_idx )
-    DEALLOCATE( p_patch%verts%start_blk )
-    DEALLOCATE( p_patch%verts%end_blk )
-    DEALLOCATE( p_patch%verts%start_index )
-    DEALLOCATE( p_patch%verts%end_index )
-    DEALLOCATE( p_patch%verts%start_block )
-    DEALLOCATE( p_patch%verts%end_block )
+    DEALLOCATE( p_patch_pre%verts%vertex )
+    DEALLOCATE( p_patch_pre%verts%refin_ctrl )
+    DEALLOCATE( p_patch_pre%verts%start_idx )
+    DEALLOCATE( p_patch_pre%verts%end_idx )
+    DEALLOCATE( p_patch_pre%verts%start_blk )
+    DEALLOCATE( p_patch_pre%verts%end_blk )
+    DEALLOCATE( p_patch_pre%verts%start_index )
+    DEALLOCATE( p_patch_pre%verts%end_index )
+    DEALLOCATE( p_patch_pre%verts%start_block )
+    DEALLOCATE( p_patch_pre%verts%end_block )
 
   END SUBROUTINE deallocate_pre_patch
   !-------------------------------------------------------------------------
