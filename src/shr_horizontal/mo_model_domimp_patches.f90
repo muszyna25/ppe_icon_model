@@ -1177,17 +1177,10 @@ CONTAINS
     CALL reshape_int( array_v_int(:,1), patch_pre%nblks_v, patch_pre%npromz_v, &
          & patch_pre%verts%num_edges(:,:) )
 
-    ! patch_pre%edges%cell_idx(:,:,:)
-    ! patch_pre%edges%cell_blk(:,:,:)
+    ! patch_pre%edges%cell(:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
-    WHERE(array_e_int(:, 1:2) < 0) array_e_int(:, 1:2) = 0
-    DO ji = 1, 2
-      CALL reshape_idx( array_e_int(:,ji), patch_pre%nblks_e, &
-        & patch_pre%npromz_e, &
-        & patch_pre%edges%cell_idx(:,:,ji),  &
-        & patch_pre%edges%cell_blk(:,:,ji) )
-    END DO
+    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%cell(:,:)))
+    WHERE(patch_pre%edges%cell(:, :) < 0) patch_pre%edges%cell(:, :) = 0
 
     ! p_p%edges%vertex_idx(:,:,:)
     ! p_p%edges%vertex_blk(:,:,:)

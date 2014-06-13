@@ -592,12 +592,9 @@ MODULE mo_model_domain
     ! domain ID of child edges:
     INTEGER, ALLOCATABLE :: child_id(:)
 
-    ! line indices of adjacent cells:
-    ! index1=1,nproma, index2=1,nblks_e, index3=1,2
-    INTEGER, ALLOCATABLE :: cell_idx(:,:,:)
-    ! block indices of adjacent cells:
-    ! index1=1,nproma, index2=1,nblks_e, index3=1,2
-    INTEGER, ALLOCATABLE :: cell_blk(:,:,:)
+    ! indices of adjacent cells:
+    ! index2=1,2
+    INTEGER, ALLOCATABLE :: cell(:,:)
 
     ! line indices of edge vertices:
     ! vertex indices 3 and 4 are the non-edge-aligned vertices of cells 1 and 2

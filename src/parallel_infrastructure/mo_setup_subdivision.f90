@@ -1253,13 +1253,9 @@ CONTAINS
         DO i = 1, wrk_p_patch_pre%cells%num_edges(flag2_c_list(0)%idx(ic))
 
           je = wrk_p_patch_pre%cells%edge(flag2_c_list(0)%idx(ic),i)
-          jl_e = idx_no(je)
-          jb_e = blk_no(je)
 
-          jc = idx_1d(wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 1), &
-                      wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 1))
-          jc_ = idx_1d(wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 2), &
-                       wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 2))
+          jc = wrk_p_patch_pre%edges%cell(je, 1)
+          jc_ = wrk_p_patch_pre%edges%cell(je, 2)
 
           IF (jc <= 0 .OR. jc_ <= 0 .OR. jc == jc_) THEN
             n_inner_edges = n_inner_edges + 1
@@ -1393,18 +1389,12 @@ CONTAINS
           ALLOCATE(temp_cells(n_temp_edges))
         END IF
         DO i = 1, n_temp_edges
-          je = temp_edges(i)
-          jl_e = idx_no(je)
-          jb_e = blk_no(je)
 
-          jl_c = wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 1)
-          jb_c = wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 1)
-          jc = idx_1d(jl_c, jb_c)
+          je = temp_edges(i)
+          jc = wrk_p_patch_pre%edges%cell(je, 1)
 
           IF (jc == edge_cells(i)) THEN
-            jl_c = wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 2)
-            jb_c = wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 2)
-            jc = idx_1d(jl_c, jb_c)
+            jc = wrk_p_patch_pre%edges%cell(je, 2)
           END IF
 
           IF (jc > 0 .AND. jc /= edge_cells(i)) THEN
@@ -1761,15 +1751,12 @@ CONTAINS
       INTEGER, INTENT(IN) :: edges(:)
       INTEGER, INTENT(OUT) :: owner(:)
 
-      INTEGER :: i, je, jl_e, jb_e, a_idx(2), a_iown(2), a_mod_iown(2)
+      INTEGER :: i, je, a_idx(2), a_iown(2), a_mod_iown(2)
 
       DO i = 1, SIZE(edges)
 
         je = edges(i)
-        jl_e = idx_no(je)
-        jb_e = blk_no(je)
-        a_idx(:) = idx_1d(wrk_p_patch_pre%edges%cell_idx(jl_e, jb_e, 1:2), &
-                          wrk_p_patch_pre%edges%cell_blk(jl_e, jb_e, 1:2))
+        a_idx(:) = wrk_p_patch_pre%edges%cell(je, 1:2)
         ! outer boundary edges always belong to single adjacent cell owner
         a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
         a_iown(:) = cell_owner(a_idx(:))
