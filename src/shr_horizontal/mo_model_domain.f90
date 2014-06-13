@@ -596,14 +596,6 @@ MODULE mo_model_domain
     ! index2=1,2
     INTEGER, ALLOCATABLE :: cell(:,:)
 
-    ! line indices of edge vertices:
-    ! vertex indices 3 and 4 are the non-edge-aligned vertices of cells 1 and 2
-    ! index1=1,nproma, index2=1,nblks_e, index3=1,4
-    INTEGER, ALLOCATABLE :: vertex_idx(:,:,:)
-    ! block indices of edge vertices:
-    ! index1=1,nproma, index2=1,nblks_e, index3=1,4
-    INTEGER, ALLOCATABLE :: vertex_blk(:,:,:)
-
     !-------------------------------------------------
     ! edges geometry
 

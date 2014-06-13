@@ -647,8 +647,6 @@ CONTAINS
     ALLOCATE( p_patch_pre%edges%child_id(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%refin_ctrl(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%cell(p_patch_pre%n_patch_edges_g,2) )
-    ALLOCATE( p_patch_pre%edges%vertex_idx(nproma,p_patch_pre%nblks_e,4) )
-    ALLOCATE( p_patch_pre%edges%vertex_blk(nproma,p_patch_pre%nblks_e,4) )
     ALLOCATE( p_patch_pre%edges%start_index(min_rledge:max_rledge) )
     ALLOCATE( p_patch_pre%edges%end_index(min_rledge:max_rledge) )
     ALLOCATE( p_patch_pre%edges%start_block(min_rledge:max_rledge) )

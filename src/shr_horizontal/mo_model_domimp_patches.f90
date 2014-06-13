@@ -1182,17 +1182,6 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%cell(:,:)))
     WHERE(patch_pre%edges%cell(:, :) < 0) patch_pre%edges%cell(:, :) = 0
 
-    ! p_p%edges%vertex_idx(:,:,:)
-    ! p_p%edges%vertex_blk(:,:,:)
-    CALL nf(nf_inq_varid(ncid, 'edge_vertices', varid))
-    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
-    DO ji = 1, 2
-      CALL reshape_idx( array_e_int(:,ji), patch_pre%nblks_e, &
-        & patch_pre%npromz_e, &
-        & patch_pre%edges%vertex_idx(:,:,ji),  &
-        & patch_pre%edges%vertex_blk(:,:,ji) )
-    END DO
-
     ! END NEW SUBDIV
 
 
