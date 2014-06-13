@@ -874,17 +874,17 @@ CONTAINS
 
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%edges%decomp_info, &
-          & wrk_p_patch_pre%cells%edge(jg,i), jc)
+          & wrk_p_patch_pre%cells%edge(jg,i), je)
 
-        wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(jc)
-        wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(jc)
+        wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(je)
+        wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(je)
 
 !CDIR IEXPAND
-        CALL get_local_idx_blk(wrk_p_patch%verts%decomp_info, &
-          & wrk_p_patch_pre%cells%vertex_idx(jl_g,jb_g,i),    &
-          & wrk_p_patch_pre%cells%vertex_blk(jl_g,jb_g,i),    &
-          & wrk_p_patch%cells%vertex_idx(jl,jb,i),          &
-          & wrk_p_patch%cells%vertex_blk(jl,jb,i))
+        CALL get_local_idx(wrk_p_patch%verts%decomp_info, &
+          & wrk_p_patch_pre%cells%vertex(jg,i), jv)
+
+        wrk_p_patch%cells%vertex_idx(jl,jb,i) = idx_no(jv)
+        wrk_p_patch%cells%vertex_blk(jl,jb,i) = blk_no(jv)
 
       ENDDO
     ENDDO
@@ -1273,9 +1273,8 @@ CONTAINS
           END IF
 
           n_temp_vertices = n_temp_vertices + 1
-          jl_v = wrk_p_patch_pre%cells%vertex_idx(jl_c, jb_c, i)
-          jb_v = wrk_p_patch_pre%cells%vertex_blk(jl_c, jb_c, i)
-          temp_vertices(n_temp_vertices) = idx_1d(jl_v, jb_v)
+          temp_vertices(n_temp_vertices) = &
+            wrk_p_patch_pre%cells%vertex(flag2_c_list(0)%idx(ic), i)
         END DO
       END DO
 
@@ -1556,14 +1555,10 @@ CONTAINS
           DO ic = 1, n2_ilev_c(2*ilev+k)
 
             jc = flag2_c_list(2*ilev+k)%idx(ic)
-            jl_c = idx_no(jc)
-            jb_c = blk_no(jc)
 
             DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
 
-              jl_v = wrk_p_patch_pre%cells%vertex_idx(jl_c, jb_c, i)
-              jb_v = wrk_p_patch_pre%cells%vertex_blk(jl_c, jb_c, i)
-              jv = idx_1d(jl_v, jb_v)
+              jv = wrk_p_patch_pre%cells%vertex(jc, i)
 
               IF (jv > 0) THEN
                 n_temp_vertices = n_temp_vertices + 1
@@ -2377,7 +2372,8 @@ CONTAINS
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
                               ! the parent grid level (true) or for the target grid level (false) 
 
-    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, nce, jm(1)
+    INTEGER :: i, ii, j, jl, jb, jn, jl_v, jb_v, nc, nn, npt, jd, idp, ncs, &
+      &        nce, jm(1), jv
     INTEGER :: count_physdom(max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom)
@@ -2621,15 +2617,17 @@ CONTAINS
 
           IF (cell_desc(1,nc) >= 0._wp) THEN
             DO i = 1, 3
-              jl_v = wrk_p_patch_pre%cells%vertex_idx(jl,jb,i)
-              jb_v = wrk_p_patch_pre%cells%vertex_blk(jl,jb,i)
+              jv = wrk_p_patch_pre%cells%vertex(j,i)
+              jl_v = idx_no(jv)
+              jb_v = blk_no(jv)
               cell_desc(1,nc) = MAX(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lat)
               cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lon)
             ENDDO
           ELSE
             DO i = 1, 3
-              jl_v = wrk_p_patch_pre%cells%vertex_idx(jl,jb,i)
-              jb_v = wrk_p_patch_pre%cells%vertex_blk(jl,jb,i)
+              jv = wrk_p_patch_pre%cells%vertex(j,i)
+              jl_v = idx_no(jv)
+              jb_v = blk_no(jv)
               cell_desc(1,nc) = MIN(cell_desc(1,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lat)
               cell_desc(2,nc) = MAX(cell_desc(2,nc),wrk_p_patch_pre%verts%vertex(jl_v,jb_v)%lon)
             ENDDO
@@ -3042,12 +3040,8 @@ CONTAINS
       jl = idx_no(cell) ! line index
       decomposition_struct%cell_geo_center(cell)%lat = patch_pre%cells%center(jl,jb)%lat
       decomposition_struct%cell_geo_center(cell)%lon = patch_pre%cells%center(jl,jb)%lon
-      DO i = 1, 3
-        jl_v = patch_pre%cells%vertex_idx(jl,jb,i)
-        jb_v = patch_pre%cells%vertex_blk(jl,jb,i)
-        vertex = idx_1d(jl_v, jb_v)
-        decomposition_struct%cells_vertex(i, cell) = vertex
-      ENDDO
+      decomposition_struct%cells_vertex(1:3, cell) = &
+        patch_pre%cells%vertex(cell,1:3)
     ENDDO
 
     DO vertex = 1, no_of_verts
