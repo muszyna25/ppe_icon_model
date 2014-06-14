@@ -56,7 +56,7 @@ MODULE mo_ocean_testbed_modules
     & destruct_sea_ice,  &
     & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics, ice_budgets
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    & t_sea_ice
+    & t_sea_ice, t_sea_ice_budgets
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
   USE mo_oce_thermodyn,          ONLY: calc_potential_density, calculate_density, &
@@ -82,6 +82,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_initial_conditions, ONLY: fill_tracer_x_height
   USE mo_statistics
   USE mo_ocean_testbed_vertical_diffusion
+  USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
 
   IMPLICIT NONE
   PRIVATE
@@ -263,28 +264,27 @@ CONTAINS
     TYPE(t_ho_params)                                :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
-    TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
+    TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
-    REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: draft, saltBefore, saltAfter
+    REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) &
+      &                                              :: draft, &
+      &                                                 saltBefore, saltAfter, saltBudget
     INTEGER :: jstep, jg, jtrc
     !INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
-    INTEGER :: jstep0 ! start counter for time loop
+    INTEGER :: jstep0
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
     !------------------------------------------------------------------
-    
     patch_2D      => patch_3d%p_patch_2d(1)
-    CALL datetime_to_string(datestring, datetime)
 
-    ! IF (ltimer) CALL timer_start(timer_total)
-    !CALL timer_start(timer_total)
+    CALL datetime_to_string(datestring, datetime)
 
     time_config%sim_time(:) = 0.0_wp
     jstep0 = 0
@@ -310,42 +310,8 @@ CONTAINS
     ! write initial
     !------------------------------------------------------------------
     IF (output_mode%l_nml) THEN
-      ! in general nml output is writen based on the nnew status of the
-      ! prognostics variables. Unfortunately, the initialization has to be written
-      ! to the nold state. That's why the following manual copying is nec.
-      IF (.NOT. is_restart_run()) THEN
-        p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
-        ! copy old tracer values to spot value fields for propper initial timestep
-        ! output
-        IF(no_tracer>=1)THEN
-          p_os(n_dom)%p_diag%t = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
-        ENDIF
-        IF(no_tracer>=2)THEN
-          p_os(n_dom)%p_diag%s = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
-        ENDIF
-        p_os(n_dom)%p_diag%h = p_os(n_dom)%p_prog(nold(1))%h
-        CALL calc_potential_density( patch_3d,                     &
-          & p_os(n_dom)%p_prog(nold(1))%tracer,&
-          & p_os(n_dom)%p_diag%rhopot )
-        CALL calculate_density( patch_3d,                        &
-          & p_os(n_dom)%p_prog(nold(1))%tracer, &
-          & p_os(n_dom)%p_diag%rho )
-
-        CALL update_ocean_statistics(p_os(1),                              &
-          & surface_fluxes,                            &
-          & patch_2D%cells%owned,   &
-          & patch_2D%edges%owned,   &
-          & patch_2D%verts%owned,   &
-          & n_zlev)
-        IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2D%cells%owned)
-
-        CALL write_name_list_output(jstep=jstep0)
-
-        CALL reset_ocean_statistics(p_os(1)%p_acc,surface_fluxes)
-        IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
-      ENDIF
-
-    ENDIF ! output_mode%l_nml
+      CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice,jstep0)
+    ENDIF
     DO jstep = (jstep0+1), (jstep0+nsteps)
     
       p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
@@ -366,11 +332,19 @@ CONTAINS
       ! diagnostics AFTER
       saltAfter =  ice_budgets(patch_2D, p_ice, p_os(n_dom),'AFTER')
 
+      ! compute budget
+      saltBudget = saltAfter - saltBefore
+
       CALL dbg_print('IceBudget: salt diff', &
-      &              saltAfter - saltBefore , &
+      &              saltBudget , &
       &              debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
 
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
+
+      ! add values to output field
+      p_ice%budgets%salt_00(:,:) = saltBudget(:,:)
+
+      CALL dbg_print('IceBudget: salt_00' ,p_ice%budgets%salt_00 ,debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
 
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
@@ -378,9 +352,8 @@ CONTAINS
         &                surface_fluxes,  &
         &                p_ice,      &
         &                jstep, jstep0)
+
     END DO
-    
-    !CALL timer_stop(timer_total)
     
   END SUBROUTINE test_surface_flux
   !-------------------------------------------------------------------------
