@@ -196,7 +196,7 @@ CONTAINS
     ENDIF
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1),v_params, is_restart_run())
+      & ocean_state(1), is_restart_run())
 
     !------------------------------------------------------------------
     SELECT CASE (test_mode)
