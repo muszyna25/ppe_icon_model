@@ -21,65 +21,37 @@
 !!
 MODULE mo_ocean_testbed_modules
   !-------------------------------------------------------------------------
-  USE mo_kind,                   ONLY: wp, sp
+  USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
-  USE mo_model_domain,           ONLY: t_patch, t_patch_3d, t_subset_range, t_patch_vert
+  USE mo_model_domain,           ONLY: t_patch, t_patch_3d
   USE mo_grid_config,            ONLY: n_dom
-  USE mo_grid_subset,            ONLY: get_index_range
-  USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
-  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & diagnostics_level, use_tracer_x_height, k_veloc_v, &
-    & eos_type, i_sea_ice, l_staggered_timestep, gibraltar
-  USE mo_dynamics_config,        ONLY: nold, nnew
-  USE mo_io_config,              ONLY: n_checkpoints
-  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, test_mode
+  USE mo_ocean_nml,              ONLY: n_zlev
+  USE mo_dynamics_config,        ONLY: nold
+  USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode
   USE mo_exception,              ONLY: message, message_text, finish
-  USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
-  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
-    & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
-    & timer_upd_phys, timer_upd_flx
-  USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
-    & calc_normal_velocity_ab,  &
-    & calc_vert_velocity,       &
+  USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
+  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total
+  USE mo_oce_ab_timestepping,    ONLY: &
+!    solve_free_surface_eq_ab, &
+!   & calc_vert_velocity,       &
     & update_time_indices
-  USE mo_oce_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
-    & t_hydro_ocean_prog, t_ocean_tracer
+  USE mo_oce_types,              ONLY: t_hydro_ocean_state
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_oce_bulk,               ONLY: update_surface_flux
-  USE mo_oce_forcing,            ONLY: destruct_ocean_forcing
-  USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
-    & destruct_atmos_fluxes,&
-    & destruct_sea_ice,  &
-    & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics, ice_budgets
+  USE mo_sea_ice,                ONLY: ice_budgets
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    & t_sea_ice, t_sea_ice_budgets
+    & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
-  USE mo_oce_thermodyn,          ONLY: calc_potential_density, calculate_density, &
-    & calc_neutralslope_coeff, calc_neutralslope_coeff_func
-  USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & construct_oce_diagnostics,&
-    & destruct_oce_diagnostics, t_oce_timeseries, &
-    & calc_moc, calc_psi
-  USE mo_var_list,               ONLY: print_var_list
-  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
-  USE mo_mpi,                    ONLY: my_process_is_stdio
+  USE mo_oce_thermodyn,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func
   USE mo_time_config,            ONLY: time_config
-  USE mo_master_control,         ONLY: is_restart_run
   USE mo_statistics
-  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
   USE mo_ocean_output
-  USE mo_oce_diffusion,          ONLY:  tracer_diffusion_vertical_implicit, velocity_diffusion_vertical_implicit
   USE mo_parallel_config,        ONLY: nproma
-  USE mo_math_utility_solvers,   ONLY: apply_triangular_matrix
-  USE mo_ocean_initial_conditions, ONLY: fill_tracer_x_height
   USE mo_statistics
   USE mo_ocean_testbed_vertical_diffusion
   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
@@ -92,18 +64,16 @@ MODULE mo_ocean_testbed_modules
   CHARACTER(len=12)           :: debug_string = 'testbed     '  ! Output of module for 1 line debug
   
   !-------------------------------------------------------------------------
-  INTEGER :: vertical_diffusion_resIterations = 0
 CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE ocean_test_modules( patch_3d, ocean_state, external_data,          &
+  SUBROUTINE ocean_test_modules( patch_3d, ocean_state,  &
     & datetime, surface_fluxes, physics_parameters,             &
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
@@ -116,9 +86,9 @@ CONTAINS
 
     SELECT CASE (test_mode)  !  1 - 99 test ocean modules
       CASE (1)
-        CALL ocean_test_advection( patch_3d, ocean_state, external_data,   &
+        CALL ocean_test_advection( patch_3d, ocean_state, &
           & datetime, surface_fluxes, physics_parameters,             &
-          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+          & ocean_ice,operators_coefficients)
 
       CASE (2)
         CALL test_tracer_diffusion_vertical_implicit( patch_3d, ocean_state, physics_parameters,  &
@@ -129,8 +99,8 @@ CONTAINS
            & operators_coefficients)
 
       CASE (4)
-        CALL test_surface_flux( patch_3d, ocean_state, external_data,   &
-          & datetime, surface_fluxes, physics_parameters,               &
+        CALL test_surface_flux( patch_3d, ocean_state,  &
+          & datetime, surface_fluxes,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
       CASE (5)
@@ -149,31 +119,23 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE ocean_test_advection( patch_3d, ocean_state, external_data,          &
+  SUBROUTINE ocean_test_advection( patch_3d, ocean_state, &
     & datetime, surface_fluxes, physics_parameters,             &
-    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+    & ocean_ice,operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
-    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
-    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
-    INTEGER :: jstep, jg, jtrc
-    INTEGER :: ocean_statistics
+    INTEGER :: jstep, jg
     !LOGICAL                         :: l_outputtime
-    CHARACTER(LEN=32)               :: datestring, plaindatestring
-    TYPE(t_oce_timeseries), POINTER :: oce_ts
+    CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
-    TYPE(t_patch_vert), POINTER :: patch_1d
-    INTEGER, POINTER :: dolic(:,:)
-    REAL(wp), POINTER :: prism_thickness(:,:,:)
     INTEGER :: jstep0 ! start counter for time loop
     
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
@@ -206,7 +168,6 @@ CONTAINS
 !          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
 !          ENDIF
 
-        !CALL calculate_thickness( patch_3d, ocean_state(jg), external_data(jg))
         !CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
         CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
           & physics_parameters,surface_fluxes,&
@@ -252,16 +213,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE test_surface_flux( patch_3d, p_os, external_data, &
-    & datetime, surface_fluxes, physics_parameters,              &
+  SUBROUTINE test_surface_flux( patch_3d, p_os, &
+    & datetime, surface_fluxes,         &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
-    TYPE(t_ho_params)                                :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
@@ -271,12 +230,11 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) &
       &                                              :: draft, &
       &                                                 saltBefore, saltAfter, saltBudget
-    INTEGER :: jstep, jg, jtrc
+    INTEGER :: jstep
     !INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
-    TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER :: jstep0
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &

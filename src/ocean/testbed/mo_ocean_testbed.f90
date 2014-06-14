@@ -24,9 +24,8 @@
 !!
 MODULE mo_ocean_testbed
 
-  USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_model_domain,        ONLY: t_patch, t_patch_3d
+  USE mo_exception,           ONLY: finish
+  USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_datetime,            ONLY: t_datetime
   USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
@@ -80,7 +79,7 @@ CONTAINS
 
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules
-        CALL ocean_test_modules( patch_3d, ocean_state, external_data,   &
+        CALL ocean_test_modules( patch_3d, ocean_state,  &
           & datetime, surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
