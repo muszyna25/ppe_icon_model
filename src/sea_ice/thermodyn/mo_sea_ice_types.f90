@@ -235,7 +235,6 @@ MODULE mo_sea_ice_types
     REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity on cell centre (diagnostic)    [m/s]
       & v(:,:)                   ! Meridional velocity on cell centre (diagn.)   [m/s]
-    TYPE(t_sea_ice_budgets) :: budgets
   END TYPE t_sea_ice_acc
   TYPE t_sea_ice
 
@@ -278,7 +277,8 @@ MODULE mo_sea_ice_types
 
     REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits
 
-    TYPE(t_sea_ice_acc)   :: acc
+    TYPE(t_sea_ice_acc)     :: acc
+    TYPE(t_sea_ice_budgets) :: budgets
 
   END TYPE t_sea_ice
 
