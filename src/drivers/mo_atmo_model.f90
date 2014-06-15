@@ -434,7 +434,7 @@ CONTAINS
 
     CALL configure_dynamics ( n_dom )
 
-    IF (iequations == inh_atmosphere) THEN ! set dimensions of tile-based variables
+    IF (iforcing == inwp) THEN ! set dimensions of tile-based variables
       CALL configure_lnd_nwp()
     ENDIF
 
