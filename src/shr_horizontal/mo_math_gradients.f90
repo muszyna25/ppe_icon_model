@@ -512,7 +512,6 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !DIR$ IVDEP
       DO jk = slev, elev
 #else
-!CDIR UNROLL=3
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -578,7 +577,7 @@ TYPE(t_patch), TARGET, INTENT(in)     :: ptr_patch
 !
 TYPE(t_int_state), TARGET, INTENT(in) :: ptr_int
 
-REAL(wp), INTENT(in) ::  & ! perturbation fields passed from dycore (nproma,2,nlev,nblks_c)
+REAL(vp), INTENT(in) ::  & ! perturbation fields passed from dycore (nproma,2,nlev,nblks_c)
   &  p_ccpr(:,:,:,:)
 
 INTEGER, INTENT(in), OPTIONAL ::  &
@@ -653,7 +652,6 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !DIR$ IVDEP
       DO jk = slev, elev
 #else
-!CDIR UNROLL=3
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -825,7 +823,6 @@ ENDIF
 !DIR$ IVDEP
       DO jk = slev, elev
 #else
-!CDIR UNROLL=3
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -868,7 +865,7 @@ END SUBROUTINE grad_green_gauss_cell_adv
   
   !  cell centered I/O variables
   !
-  REAL(wp), INTENT(in) :: p_ccpr(:,:,:,:) ! perturbation fields passed from dycore (2,nproma,nlev,nblks_c)
+  REAL(vp), INTENT(in) :: p_ccpr(:,:,:,:) ! perturbation fields passed from dycore (2,nproma,nlev,nblks_c)
 
   INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
 
@@ -938,7 +935,6 @@ END SUBROUTINE grad_green_gauss_cell_adv
 !DIR$ IVDEP
         DO jk = slev, elev
 #else
-!CDIR UNROLL=3
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif

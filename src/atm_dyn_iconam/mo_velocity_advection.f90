@@ -33,7 +33,7 @@ MODULE mo_velocity_advection
   USE mo_intp_data_strc,    ONLY: t_int_state
   USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar_ri
   USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
-  USE mo_math_divrot,       ONLY: rot_vertex
+  USE mo_math_divrot,       ONLY: rot_vertex_ri
   USE mo_vertical_grid,     ONLY: nrdmax
   USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
@@ -98,9 +98,13 @@ MODULE mo_velocity_advection
 #ifdef __LOOP_EXCHANGE
     REAL(vp):: z_v_grad_w(p_patch%nlev,nproma,p_patch%nblks_e)
     REAL(vp):: z_w_v(p_patch%nlevp1,nproma,p_patch%nblks_v)
+    REAL(vp):: zeta(p_patch%nlev,nproma,p_patch%nblks_v)
+    REAL(vp):: z_ekinh(p_patch%nlev,nproma,p_patch%nblks_c)
 #else
     REAL(vp):: z_v_grad_w(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(vp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
+    REAL(vp):: zeta(nproma,p_patch%nlev,p_patch%nblks_v)
+    REAL(vp):: z_ekinh(nproma,p_patch%nlev,p_patch%nblks_c)
 #endif
 
     ! Pointers
@@ -171,7 +175,7 @@ MODULE mo_velocity_advection
       p_int%cells_aw_verts, z_w_v, opt_rlend=min_rlvert_int-1)
 
     ! Compute vertical vorticity component at vertices
-    CALL rot_vertex (p_prog%vn, p_patch, p_int, p_diag%omega_z, opt_rlend=min_rlvert_int-1)
+    CALL rot_vertex_ri (p_prog%vn, p_patch, p_int, zeta, opt_rlend=min_rlvert_int-1)
 
 
 !$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk, rl_start_2, rl_end_2, i_startblk_2, i_endblk_2)
@@ -195,7 +199,6 @@ MODULE mo_velocity_advection
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=3
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -303,7 +306,6 @@ MODULE mo_velocity_advection
              p_patch%edges%system_orientation(je,jb) *                                                 &
              (z_w_v(jk,ividx(je,jb,1),ivblk(je,jb,1)) - z_w_v(jk,ividx(je,jb,2),ivblk(je,jb,2))) 
 #else
-!CDIR UNROLL=3
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             z_v_grad_w(je,jk,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
@@ -344,13 +346,12 @@ MODULE mo_velocity_advection
       DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
         DO jk = 1, nlev
+        z_ekinh(jk,jc,jb) =  &
 #else
-!CDIR UNROLL=6
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
+        z_ekinh(jc,jk,jb) =  &
 #endif
-
-        p_diag%e_kinh(jc,jk,jb) =  &
           p_int%e_bln_c_s(jc,1,jb)*z_kin_hor_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
           p_int%e_bln_c_s(jc,2,jb)*z_kin_hor_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
           p_int%e_bln_c_s(jc,3,jb)*z_kin_hor_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
@@ -366,7 +367,6 @@ MODULE mo_velocity_advection
 !DIR$ IVDEP
           DO jk = nflatlev(p_patch%id), nlev
 #else
-!CDIR UNROLL=6
         DO jk = nflatlev(p_patch%id), nlev
           DO jc = i_startidx, i_endidx
 #endif
@@ -396,7 +396,6 @@ MODULE mo_velocity_advection
       z_w_con_c(:,1:nlev) = p_prog%w(:,1:nlev,jb)
       z_w_con_c(:,nlevp1) = 0._wp
 
-!CDIR UNROLL=5
       ! Contravariant vertical velocity on w points and interpolation to full levels
       DO jk = nlev, nflatlev(p_patch%id)+1, -1
 !DIR$ IVDEP
@@ -407,7 +406,6 @@ MODULE mo_velocity_advection
       ENDDO
 
       DO jk = 1, nflatlev(p_patch%id)
-!DIR$ IVDEP
         DO jc = i_startidx, i_endidx
           z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
         ENDDO
@@ -473,7 +471,6 @@ MODULE mo_velocity_advection
             p_int%e_bln_c_s(jc,2,jb)*z_v_grad_w(jk,ieidx(jc,jb,2),ieblk(jc,jb,2)) + &
             p_int%e_bln_c_s(jc,3,jb)*z_v_grad_w(jk,ieidx(jc,jb,3),ieblk(jc,jb,3))
 #else
-!CDIR UNROLL=6
       DO jk = 2, nlev
         DO jc = i_startidx_2, i_endidx_2
           p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)       + &
@@ -533,22 +530,28 @@ MODULE mo_velocity_advection
       DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
         DO jk = 1, nlev
-#else
-!CDIR UNROLL=2
-      DO jk = 1, nlev
-        DO je = i_startidx, i_endidx
-#endif
-
           p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - ( z_kin_hor_e(je,jk,jb) *                        &
            (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
-            p_metrics%coeff_gradekin(je,2,jb)*p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) - &
-            p_metrics%coeff_gradekin(je,1,jb)*p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) + &
+            p_metrics%coeff_gradekin(je,2,jb)*z_ekinh(jk,icidx(je,jb,2),icblk(je,jb,2)) -       &
+            p_metrics%coeff_gradekin(je,1,jb)*z_ekinh(jk,icidx(je,jb,1),icblk(je,jb,1)) +       &
             p_diag%vt(je,jk,jb) * ( p_patch%edges%f_e(je,jb) + 0.5_wp*                          &
-           (p_diag%omega_z(ividx(je,jb,1),jk,ivblk(je,jb,1))   +                                &
-            p_diag%omega_z(ividx(je,jb,2),jk,ivblk(je,jb,2))) ) +                               &
+           (zeta(jk,ividx(je,jb,1),ivblk(je,jb,1)) + zeta(jk,ividx(je,jb,2),ivblk(je,jb,2)))) + &
            (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) +           &
             p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2)))*           &
            (p_diag%vn_ie(je,jk,jb) - p_diag%vn_ie(je,jk+1,jb))/p_metrics%ddqz_z_full_e(je,jk,jb))
+#else
+      DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - ( z_kin_hor_e(je,jk,jb) *                        &
+           (p_metrics%coeff_gradekin(je,1,jb) - p_metrics%coeff_gradekin(je,2,jb)) +            &
+            p_metrics%coeff_gradekin(je,2,jb)*z_ekinh(icidx(je,jb,2),jk,icblk(je,jb,2)) -       &
+            p_metrics%coeff_gradekin(je,1,jb)*z_ekinh(icidx(je,jb,1),jk,icblk(je,jb,1)) +       &
+            p_diag%vt(je,jk,jb) * ( p_patch%edges%f_e(je,jb) + 0.5_wp*                          &
+           (zeta(ividx(je,jb,1),jk,ivblk(je,jb,1)) + zeta(ividx(je,jb,2),jk,ivblk(je,jb,2)))) + &
+           (p_int%c_lin_e(je,1,jb)*z_w_con_c_full(icidx(je,jb,1),jk,icblk(je,jb,1)) +           &
+            p_int%c_lin_e(je,2,jb)*z_w_con_c_full(icidx(je,jb,2),jk,icblk(je,jb,2)))*           &
+           (p_diag%vn_ie(je,jk,jb) - p_diag%vn_ie(je,jk+1,jb))/p_metrics%ddqz_z_full_e(je,jk,jb))
+#endif
 
         ENDDO
       ENDDO
@@ -593,9 +596,11 @@ MODULE mo_velocity_advection
               p_int%geofac_grdiv(je,4,jb)*p_prog%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) +             &
               p_int%geofac_grdiv(je,5,jb)*p_prog%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4)) +             &
               p_patch%edges%system_orientation(je,jb)*p_patch%edges%inv_primal_edge_length(je,jb) * &
-             (p_diag%omega_z(ividx(je,jb,2),jk,ivblk(je,jb,2)) -                                    &
-              p_diag%omega_z(ividx(je,jb,1),jk,ivblk(je,jb,1))) )
-
+#ifdef __LOOP_EXCHANGE
+             (zeta(jk,ividx(je,jb,2),ivblk(je,jb,2)) - zeta(jk,ividx(je,jb,1),ivblk(je,jb,1))) )
+#else
+             (zeta(ividx(je,jb,2),jk,ivblk(je,jb,2)) - zeta(ividx(je,jb,1),jk,ivblk(je,jb,1))) )
+#endif
           ENDDO
         ENDIF
       ENDIF

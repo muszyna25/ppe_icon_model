@@ -120,7 +120,7 @@ PUBLIC :: recon_lsq_cell_cpoor, recon_lsq_cell_cpoor_svd
 PUBLIC :: recon_lsq_cell_c, recon_lsq_cell_c_svd
 PUBLIC :: div, div_avg
 PUBLIC :: div_quad_twoadjcells
-PUBLIC :: rot_vertex
+PUBLIC :: rot_vertex, rot_vertex_ri
 PUBLIC :: rot_vertex_atmos
 
 
@@ -266,7 +266,6 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=4
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -443,7 +442,6 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=4
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -608,7 +606,6 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=4
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -821,7 +818,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=5
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -1037,7 +1033,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=5
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -1254,7 +1249,6 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=5
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -1490,7 +1484,6 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=5
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -1710,7 +1703,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=5
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -1971,7 +1963,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=5
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -2193,7 +2184,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -2217,7 +2207,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=6
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -2345,7 +2334,6 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
         DO jk = slev(ji), elev(ji)
 #else
     DO ji = 1, dim4d
-!CDIR UNROLL=6
       DO jk = slev(ji), elev(ji)
         DO jc = i_startidx, i_endidx
 #endif
@@ -2503,7 +2491,6 @@ DO jb = i_startblk, i_endblk
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=5
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -2526,7 +2513,6 @@ DO jb = i_startblk, i_endblk
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=6
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -2582,9 +2568,6 @@ DO jb = i_startblk, i_endblk
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-#ifdef _URD
-!CDIR UNROLL=_URD
-#endif
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -2610,9 +2593,6 @@ DO jb = i_startblk, i_endblk
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-#ifdef _URD
-!CDIR UNROLL=_URD
-#endif
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
@@ -2743,7 +2723,6 @@ DO jb = i_startblk, i_endblk
   DO je = i_startidx, i_endidx
     DO jk = slev, elev
 #else
-!CDIR UNROLL=3
   DO jk = slev, elev
     DO je = i_startidx, i_endidx
 #endif
@@ -2896,7 +2875,6 @@ END IF
     DO jv = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=6
     DO jk = slev, elev
       DO jv = i_startidx, i_endidx
 #endif
@@ -2923,5 +2901,119 @@ END IF
 
 
 END SUBROUTINE rot_vertex_atmos
+
+!>
+!! Same as above routine, but expects reversed index order (vertical first)
+!! of the output field if __LOOP_EXCHANGE is specified. In addition, the 
+!! output field (vorticity) has single precision if __MIXED_PRECISION is specified
+!!
+!!
+SUBROUTINE rot_vertex_ri( vec_e, ptr_patch, ptr_int, rot_vec, &
+  &                       opt_slev, opt_elev, opt_rlend )
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+
+! Interpolation state
+TYPE(t_int_state), INTENT(in)     :: ptr_int
+!
+!  edge based variable of which rotation is computed
+!
+REAL(wp), INTENT(in) ::  &
+  &  vec_e(:,:,:) ! dim: (nproma,nlev,nblks_e)
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_rlend   ! end value of refin_ctrl flag
+
+!
+!  vertex based variable in which rotation is stored
+!
+REAL(vp), INTENT(inout) ::  &
+  &  rot_vec(:,:,:) ! dim: (nproma,nlev,nblks_v) or (nlev,nproma,nblks_v)
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jv, jk, jb
+
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+INTEGER :: nlen, npromz_v, nblks_v
+
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+!-----------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(vec_e,2)
+END IF
+
+rl_start = 2
+
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlvert
+END IF
+
+
+!
+!  loop through over all patch vertices (and blocks)
+!
+
+  iidx => ptr_patch%verts%edge_idx
+  iblk => ptr_patch%verts%edge_blk
+
+  ! values for the blocking
+  i_startblk = ptr_patch%verts%start_block(rl_start)
+  i_endblk   = ptr_patch%verts%end_block(rl_end)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+    ! calculate rotation, i.e.
+    ! add individual edge contributions to rotation
+    !
+#ifdef __LOOP_EXCHANGE
+    DO jv = i_startidx, i_endidx
+      DO jk = slev, elev
+        rot_vec(jk,jv,jb) =   &
+#else
+    DO jk = slev, elev
+      DO jv = i_startidx, i_endidx
+        rot_vec(jv,jk,jb) =   &
+#endif
+          vec_e(iidx(jv,jb,1),jk,iblk(jv,jb,1)) * ptr_int%geofac_rot(jv,1,jb) + &
+          vec_e(iidx(jv,jb,2),jk,iblk(jv,jb,2)) * ptr_int%geofac_rot(jv,2,jb) + &
+          vec_e(iidx(jv,jb,3),jk,iblk(jv,jb,3)) * ptr_int%geofac_rot(jv,3,jb) + &
+          vec_e(iidx(jv,jb,4),jk,iblk(jv,jb,4)) * ptr_int%geofac_rot(jv,4,jb) + &
+          vec_e(iidx(jv,jb,5),jk,iblk(jv,jb,5)) * ptr_int%geofac_rot(jv,5,jb) + &
+          vec_e(iidx(jv,jb,6),jk,iblk(jv,jb,6)) * ptr_int%geofac_rot(jv,6,jb)
+
+      END DO
+    END DO
+
+  ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+END SUBROUTINE rot_vertex_ri
 
 END MODULE mo_math_divrot

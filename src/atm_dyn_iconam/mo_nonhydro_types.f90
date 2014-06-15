@@ -115,8 +115,6 @@ MODULE mo_nonhydro_types
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
-    &  e_kinh(:,:,:),       & ! horizontal spec. kinetic energy
-                              ! (nproma,nlev,nblks_c)                            [m^2/s^2]
     &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]

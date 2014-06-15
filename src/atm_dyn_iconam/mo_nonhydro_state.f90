@@ -1552,16 +1552,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_chalf, lrestart=.FALSE.  )
 
 
-    ! e_kinh       p_diag%e_kinh(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('horizontal specific kinetic energy', 'm2 s-2',       &
-      &                   'horizontal specific kinetic energy', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 0, 2, 196, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_list, 'e_kinh', p_diag%e_kinh,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, lrestart=.FALSE. )
-
-
     ! theta_v_ic   p_diag%theta_v_ic(nproma,nlevp1,nblks_c)
     !
     cf_desc    = t_cf_var('virtual_potential_temperature_at_half_levels', 'K',&

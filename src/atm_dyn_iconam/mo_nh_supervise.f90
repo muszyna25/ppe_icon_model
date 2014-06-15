@@ -24,6 +24,8 @@ MODULE mo_nh_supervise
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_model_domain,        ONLY: t_patch
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_grid_config,         ONLY: n_dom, l_limited_area, grid_sphere_radius
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
@@ -66,11 +68,12 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-04-30):
   !! - computation of tracer mass error
   !!
-  SUBROUTINE supervise_total_integrals_nh( k_step, patch, nh_state, ntimlev, ntimlev_rcf, l_last_step)
+  SUBROUTINE supervise_total_integrals_nh( k_step, patch, nh_state, int_state, ntimlev, ntimlev_rcf, l_last_step)
 
     INTEGER,                INTENT(in) :: k_step            ! actual time step
     TYPE(t_patch),            INTENT(IN) :: patch(n_dom)    ! Patch
-    TYPE(t_nh_state), TARGET, INTENT(in) :: nh_state(n_dom) ! State
+    TYPE(t_nh_state), TARGET, INTENT(in) :: nh_state(n_dom) ! NH State
+    TYPE(t_int_state),      INTENT(in) :: int_state(n_dom)  ! Interpolation State
     INTEGER,                INTENT(in) :: ntimlev(n_dom)    ! time level
     INTEGER,                INTENT(in) :: ntimlev_rcf(n_dom)! rcf time level
     LOGICAL,                INTENT(IN) :: l_last_step
@@ -147,6 +150,10 @@ CONTAINS
     ! number of vertical levels
     nlev = patch(jg)%nlev
 
+    IF (iforcing <= 1) THEN ! u and v are not diagnosed regularly if physics is turned off
+      CALL rbf_vec_interpol_cell(prog%vn,patch(jg),int_state(jg),diag%u,diag%v)
+    ENDIF
+
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -155,8 +162,8 @@ CONTAINS
       ENDIF
       DO jk = 1, nlev
         DO jc = 1, nlen
-          ptr_ekin(jc,jk,jb) = diag%e_kinh(jc,jk,jb) + 0.25_wp* &
-            (prog%w(jc,jk,jb)**2 + prog%w(jc,jk+1,jb)**2)
+          ptr_ekin(jc,jk,jb) = 0.5_wp*(diag%u(jc,jk,jb)**2 + diag%v(jc,jk,jb)**2) +  &
+            0.25_wp*(prog%w(jc,jk,jb)**2 + prog%w(jc,jk+1,jb)**2)
         ENDDO
       ENDDO
     ENDDO

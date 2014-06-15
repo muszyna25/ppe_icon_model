@@ -30,6 +30,7 @@ MODULE mo_nh_held_suarez_interface
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_intp,                  ONLY: cells2edges_scalar
+  USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_hs_test,               ONLY: held_suarez_forcing_temp, &
@@ -84,6 +85,9 @@ CONTAINS
     REAL(wp) ::   & !< tendency of temp due to HS forcing
       &  ddt_temp (nproma,p_patch%nlev,p_patch%nblks_c)
 
+    REAL(wp) ::   & !< kinetic energy @ cells
+      &  z_ekin(nproma,p_patch%nlev)
+
     REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_ddt_vn
     REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_ddt_exner
 
@@ -109,6 +113,8 @@ CONTAINS
       &                       opt_calc_temp=.TRUE.,               &
       &                       opt_calc_pres=.TRUE. )
 
+    IF (lhs_fric_heat) CALL rbf_vec_interpol_cell(p_nh_prog%vn,p_patch,p_int_state,p_nh_diag%u,p_nh_diag%v)
+
     !-------------------------------------------------------------------------
 
     ptr_ddt_vn    => p_nh_diag%ddt_vn_phy
@@ -132,6 +138,14 @@ CONTAINS
          zsigma_mc(is:ie,jk,jb) = p_nh_diag%pres(is:ie,jk,jb)/p_nh_diag%pres_sfc(is:ie,jb)
        ENDDO
 
+       IF (lhs_fric_heat) THEN
+         DO jk=1,nlev
+           z_ekin(is:ie,jk) = 0.5_wp*(p_nh_diag%u(is:ie,jk,jb)**2+p_nh_diag%v(is:ie,jk,jb)**2)
+         ENDDO
+       ELSE
+         z_ekin(:,:) = 0._wp
+       ENDIF
+
        zlat(is:ie) = p_patch%cells%center(is:ie,jb)%lat
 
        ! last 2 inputs in case of additional computation of frictional heating
@@ -140,8 +154,7 @@ CONTAINS
                                     & zsigma_mc(:,:,jb), zlat(:), &! in
                                     & nlev, nproma, is, ie,       &! in
                                     & ddt_temp(:,:,jb),           &! out
-                                    & p_nh_diag%e_kinh(:,:,jb),   &! optional in
-                                    & lhs_fric_heat)               ! optional in
+                                    & z_ekin(:,:), lhs_fric_heat)  ! optional in
 
        ! the tendency in temp must be transfromed to a tendency in the exner function
        ! For this it is assumed that the density is constant

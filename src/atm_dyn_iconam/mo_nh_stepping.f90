@@ -691,7 +691,7 @@ MODULE mo_nh_stepping
 #ifdef NOMPI
       IF (my_process_is_mpi_all_seq()) &
 #endif
-        CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,  &
+        CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state, p_int_state(1:), &
         &                                  nnow(1:n_dom), nnow_rcf(1:n_dom), jstep == (nsteps+jstep0))
     ENDIF
 
@@ -1804,9 +1804,7 @@ MODULE mo_nh_stepping
       CALL div_avg(p_vn, p_patch(jg), p_int_state(jg),p_int_state(jg)%c_bln_avg,&
                                                           p_nh_state(jg)%diag%div)
 
-      IF (linit) THEN
-        CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
-      ENDIF
+      CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
 
       ! Diagnose relative vorticity on cells
       CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &

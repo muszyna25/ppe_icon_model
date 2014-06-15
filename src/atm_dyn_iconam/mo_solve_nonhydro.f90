@@ -131,8 +131,6 @@ MODULE mo_solve_nonhydro
                 z_mass_fl_div   (nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
                 z_theta_v_fl_div(nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
                 z_dwdz_dd       (nproma,p_patch%nlev,  p_patch%nblks_c), &
-                z_rth_pr      (2,nproma,p_patch%nlev  ,p_patch%nblks_c), &
-                z_exner_ex_pr   (nproma,p_patch%nlevp1,p_patch%nblks_c), & ! nlevp1 is intended here
                 z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_theta_v_v     (nproma,p_patch%nlev  ,p_patch%nblks_v), & ! used for iadv_rhotheta=1 only
                 z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v)    ! used for iadv_rhotheta=1 only
@@ -149,7 +147,9 @@ MODULE mo_solve_nonhydro
                 z_dexner_dz_c (2,nproma,p_patch%nlev,p_patch%nblks_c), &
                 z_vt_ie         (nproma,p_patch%nlev,p_patch%nblks_e), &
                 z_kin_hor_e     (nproma,p_patch%nlev,p_patch%nblks_e), &
+                z_exner_ex_pr (nproma,p_patch%nlevp1,p_patch%nblks_c), & ! nlevp1 is intended here
                 z_gradh_exner   (nproma,p_patch%nlev,p_patch%nblks_e), &
+                z_rth_pr      (2,nproma,p_patch%nlev,p_patch%nblks_c), &
                 z_grad_rth    (4,nproma,p_patch%nlev,p_patch%nblks_c), &
                 z_w_concorr_me  (nproma,p_patch%nlev,p_patch%nblks_e)
 
@@ -417,7 +417,6 @@ MODULE mo_solve_nonhydro
 
       IF (istep == 1) THEN ! to be executed in predictor step only
 
-!CDIR UNROLL=2
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -444,7 +443,6 @@ MODULE mo_solve_nonhydro
           ! Compute contribution of thermal expansion to vertical wind at model top
           ! Isothermal expansion is assumed
           z_thermal_exp(:,jb) = 0._wp
-!CDIR UNROLL=4
           DO jk = 1, nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -465,7 +463,6 @@ MODULE mo_solve_nonhydro
               p_nh%metrics%wgtfacq_c(jc,3,jb)*z_exner_ex_pr(jc,nlev-2,jb)
           ENDDO
 
-!CDIR UNROLL=3
           DO jk = nlev, MAX(2,nflatlev(p_patch%id)), -1
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -507,7 +504,6 @@ MODULE mo_solve_nonhydro
 
         z_theta_v_pr_mc(i_startidx:i_endidx,1) = z_rth_pr(2,i_startidx:i_endidx,1,jb)
 
-!CDIR UNROLL=8
         DO jk = 2, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -553,7 +549,6 @@ MODULE mo_solve_nonhydro
         z_rho_tavg(i_startidx:i_endidx,1) = wgt_nnow_rth*p_nh%prog(nnow)%rho(i_startidx:i_endidx,1,jb) +  &
           wgt_nnew_rth*p_nh%prog(nvar)%rho(i_startidx:i_endidx,1,jb)
 
-!CDIR UNROLL=8
         DO jk = 2, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -631,7 +626,6 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         IF (igradp_method <= 3) THEN
-!CDIR UNROLL=3
           DO jk = nflat_gradp(p_patch%id), nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
@@ -817,7 +811,6 @@ MODULE mo_solve_nonhydro
                   + distv_bary(2) * z_grad_rth(4,ilc0,jk,ibc0)
 
 #else
-!CDIR UNROLL=4
             DO jk = 1, nlev
               DO je = i_startidx, i_endidx
 
@@ -906,7 +899,6 @@ MODULE mo_solve_nonhydro
             z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) + scal_div3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)* &
              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #else
-!CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) + scal_div3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)* &
@@ -947,7 +939,6 @@ MODULE mo_solve_nonhydro
         DO je = i_startidx, i_endidx
           DO jk = 1, nflatlev(p_patch%id)-1
 #else
-!CDIR UNROLL=6
         DO jk = 1, nflatlev(p_patch%id)-1
           DO je = i_startidx, i_endidx
 #endif
@@ -964,7 +955,6 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
             DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
 #else
-!CDIR UNROLL=6
           DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
             DO je = i_startidx, i_endidx
 #endif
@@ -984,7 +974,6 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP, PREFERVECTOR
             DO jk = nflat_gradp(p_patch%id)+1, nlev
 #else
-!CDIR UNROLL=5
           DO jk = nflat_gradp(p_patch%id)+1, nlev
             DO je = i_startidx, i_endidx
 #endif
@@ -1125,7 +1114,6 @@ MODULE mo_solve_nonhydro
                          i_startidx, i_endidx, rl_start, rl_end)
 
       IF ((itime_scheme >= 4) .AND. istep == 2) THEN ! use temporally averaged velocity advection terms
-!CDIR UNROLL=5
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
@@ -1136,7 +1124,6 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
       ELSE
-!CDIR UNROLL=5
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO je = i_startidx, i_endidx
@@ -1160,7 +1147,6 @@ MODULE mo_solve_nonhydro
               + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(jk,iqidx(je,jb,3),iqblk(je,jb,3)) &
               + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(jk,iqidx(je,jb,4),iqblk(je,jb,4))
 #else
-!CDIR UNROLL=3
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)      &
@@ -1352,7 +1338,6 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=3
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -1394,7 +1379,6 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=3
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -1425,7 +1409,6 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=3
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -1602,7 +1585,6 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           DO jk = nflatlev(p_patch%id), nlev
 #else
-!CDIR UNROLL=6
         DO jk = nflatlev(p_patch%id), nlev
           DO jc = i_startidx, i_endidx
 #endif
@@ -1715,7 +1697,6 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=5
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 #endif
@@ -1768,7 +1749,6 @@ MODULE mo_solve_nonhydro
       ! advective terms and gravity-wave terms are treated explicitly
       !
       IF (istep == 2 .AND. (itime_scheme >= 4)) THEN
-!CDIR UNROLL=5
         DO jk = 2, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1787,7 +1767,6 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
       ELSE
-!CDIR UNROLL=5
         DO jk = 2, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -1805,7 +1784,6 @@ MODULE mo_solve_nonhydro
       ENDIF
 
       ! Solver coefficients
-!CDIR UNROLL=3
       DO jk = 1, nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -1819,7 +1797,6 @@ MODULE mo_solve_nonhydro
       ENDDO
 
       z_alpha(:,nlevp1) = 0.0_wp
-!CDIR UNROLL=2
       DO jk = 2, nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -1837,7 +1814,6 @@ MODULE mo_solve_nonhydro
         z_q(jc,2) = -z_c(jc,2)/z_b(jc,2)
       ENDDO
 
-!CDIR UNROLL=4
       DO jk = 3, nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
