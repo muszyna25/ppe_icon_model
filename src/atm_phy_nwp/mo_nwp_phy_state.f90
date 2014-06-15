@@ -315,7 +315,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & isteptype=TSTEP_INSTANT )
 
     ! For graupel scheme 
-    IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 2 ) THEN
+    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
+    CASE (2,4,5)
       
       ! &      diag%graupel_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
@@ -325,9 +326,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d,                                             &
                   & isteptype=TSTEP_INSTANT )
+    END SELECT
 
     !For two moment microphysics
-    ELSE IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4 .OR. atm_phy_nwp_config(k_jg)%inwp_gscp == 5 ) THEN
+    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
+    CASE (4,5)
 
        ! &      diag%ice_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &
@@ -337,14 +340,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, isteptype=TSTEP_INSTANT )
       
-       ! &      diag%graupel_gsp_rate(nproma,nblks_c)
-      cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1', 'gridscale graupel rate', &
-        &                   DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( diag_list, 'graupel_gsp_rate', diag%graupel_gsp_rate,      &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, isteptype=TSTEP_INSTANT )
-
        ! &      diag%hail_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('hail_gsp_rate', 'kg m-2 s-1', 'gridscale hail rate', &
         &                   DATATYPE_FLT32)
@@ -353,7 +348,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                   & ldims=shape2d, isteptype=TSTEP_INSTANT )
 
-    END IF!inwp_gscp==4
+    END SELECT
 
 
     ! &      diag%rain_con_rate(nproma,nblks_c)
@@ -497,9 +492,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & isteptype=TSTEP_ACCUM )
 
 
-    !Surface precipitation variables for two moment microphysics
-    IF ( atm_phy_nwp_config(k_jg)%inwp_gscp == 4   &
-      &  .OR. atm_phy_nwp_config(k_jg)%inwp_gscp == 5 ) THEN
+    !Surface precipitation variables for graupel scheme and two moment microphysics
+    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
+    CASE (2,4,5)
+       ! &      diag%graupel_gsp(nproma,nblks_c)
+      cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
+        &                   DATATYPE_FLT32)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'graupel_gsp', diag%graupel_gsp,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
+                  & ldims=shape2d, in_group=groups("precip_vars"),             &
+                  & isteptype=TSTEP_ACCUM )
+    END SELECT
+
+    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
+    CASE (4,5)
 
        ! &      diag%ice_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp', 'kg m-2', 'gridscale ice', DATATYPE_FLT32)
@@ -509,14 +516,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
                   & isteptype=TSTEP_ACCUM )
       
-       ! &      diag%graupel_gsp(nproma,nblks_c)
-      cf_desc    = t_cf_var('graupel_gsp', 'kg m-2', 'gridscale graupel',      &
-        &                   DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( diag_list, 'graupel_gsp', diag%graupel_gsp,                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, in_group=groups("precip_vars"),             &
-                  & isteptype=TSTEP_ACCUM )
 
        ! &      diag%hail_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('hail_gsp', 'kg m-2', 'gridscale hail', DATATYPE_FLT32)
@@ -526,7 +525,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                   & ldims=shape2d, in_group=groups("precip_vars"),             &
                   & isteptype=TSTEP_ACCUM )
 
-    END IF!inwp_gscp==4
+    END SELECT
 
 
     ! &      diag%tot_prec(nproma,nblks_c)
