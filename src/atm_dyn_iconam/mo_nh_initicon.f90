@@ -25,7 +25,7 @@ MODULE mo_nh_initicon
   USE mo_kind,                ONLY: wp, i8
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqm_max
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
@@ -43,7 +43,7 @@ MODULE mo_nh_initicon
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_DWDANA_INC, MODE_IFSANA, MODE_COMBINED,        &
-    &                               MODE_COSMODE, min_rlcell,                           &
+    &                               MODE_COSMODE, min_rlcell, INWP,                     &
     &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
   USE mo_exception,           ONLY: message, finish, message_text
@@ -263,8 +263,10 @@ MODULE mo_nh_initicon
       ! process IFS atmosphere analysis data
       CALL process_ifsana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
 
-      ! process IFS land/surface analysis data
-      CALL process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
+      IF (iforcing == inwp) THEN
+        ! process IFS land/surface analysis data
+        CALL process_ifsana_sfc (p_patch, p_lnd_state, initicon, ext_data)
+      END IF
 
     CASE(MODE_COMBINED,MODE_COSMODE)
 
