@@ -70,12 +70,13 @@ MODULE mo_diffusion_nml
   LOGICAL :: lhdiff_temp   ! if .TRUE., apply horizontal diffusion to temp.
   LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to horizontal momentum.
   LOGICAL :: lhdiff_w      ! if .TRUE., apply horizontal diffusion to vertical momentum.
+  LOGICAL :: lsmag_3d      ! if .TRUE., compute 3D Smagorinsky diffusion coefficient.
 
   NAMELIST/diffusion_nml/ hdiff_order, k2_klev_max, k2_pres_max,              &
                           hdiff_efdt_ratio, hdiff_min_efdt_ratio,             &
                           hdiff_tv_ratio, hdiff_smag_fac, hdiff_multfac,      &
                           lhdiff_temp, lhdiff_vn, itype_vn_diffu,             &
-                          itype_t_diffu, hdiff_w_efdt_ratio, lhdiff_w
+                          itype_t_diffu, hdiff_w_efdt_ratio, lhdiff_w, lsmag_3d
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -108,6 +109,7 @@ CONTAINS
     lhdiff_temp          = .TRUE.
     lhdiff_vn            = .TRUE.
     lhdiff_w             = .TRUE.
+    lsmag_3d             = .FALSE.
 
     IF (iequations == 3) THEN
       hdiff_order          = 5
@@ -195,6 +197,7 @@ CONTAINS
     diffusion_config(:)% lhdiff_temp          =  lhdiff_temp
     diffusion_config(:)% lhdiff_vn            =  lhdiff_vn
     diffusion_config(:)% lhdiff_w             =  lhdiff_w
+    diffusion_config(:)% lsmag_3d             =  lsmag_3d
     diffusion_config(:)% hdiff_order          =  hdiff_order
     diffusion_config(:)% k2_klev_max          =  k2_klev_max
     diffusion_config(:)% k2_pres_max          =  k2_pres_max

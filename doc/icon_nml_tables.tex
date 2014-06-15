@@ -559,21 +559,23 @@ hdiff\_order&
 I&{4~(hydro)} \\ {5 (NH)}& &
 Order of $\nabla$ operator for diffusion:\\
 -1: no diffusion\\
-2: $\nabla^{2}$ diffusion (not available for NH model on triangles!)\\
-3: Smagorinsky $\nabla^{2}$ diffusion
-(includes frictional heating for the hexagonal model if lhdiff\_temp=.TRUE.) &
-\tabularnewline
-& & & & 4: $\nabla^{4}$ diffusion&
-\tabularnewline
-& & & &
+2: $\nabla^{2}$ diffusion\\
+3: Smagorinsky $\nabla^{2}$ diffusion \\
+4: $\nabla^{4}$ diffusion \\
 5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
-background diffusion as specified via hdiff\_efdt\_ratio&
-\tabularnewline
-& & & & 24 or 42: $\nabla{2}$ diffusion from model top to a certain level
+background diffusion as specified via hdiff\_efdt\_ratio \\
+24 or 42: $\nabla{2}$ diffusion from model top to a certain level
 (cf. k2\_pres\_max and k2\_klev\_max below);
 $\nabla^{4}$ for the lower levels.  &
-24 and 42 currently allowed only in the hydrostatic atm model
-(dynamics\_nml:iequations = 1 or 2).
+Options 2, 24 and 42 are allowed only in the hydrostatic atm model
+(iequations = 1 or 2 in dynamics\_nml).
+\tabularnewline
+
+%\hline
+lsmag\_3d&
+L& .FALSE. & &
+.TRUE.: Use 3D Smagorinsky formulation for computing the horizontal diffusion coefficient (recommended at mesh sizes
+finer than 1 km if the LES turbulence scheme is not used)& hdiff\_order=3 or 5; itype\_vn\_diffu=1
 \tabularnewline
 
 %\hline

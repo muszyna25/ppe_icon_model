@@ -78,6 +78,7 @@ MODULE mo_diffusion_config
     LOGICAL :: lhdiff_temp   ! if .TRUE., apply horizontal diffusion to temp.
     LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to momentum.
     LOGICAL :: lhdiff_w      ! if .TRUE., apply horizontal diffusion to vertical momentum.
+    LOGICAL :: lsmag_3d      ! if .TRUE., compute 3D Smagorinsky diffusion coefficient.
 
     ! variables not from namelist
 

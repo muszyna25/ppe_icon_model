@@ -31,7 +31,7 @@ MODULE mo_nh_diffusion
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_cell
   USE mo_interpol_config,     ONLY: nudge_max_coeff
-  USE mo_intp,                ONLY: edges2cells_vector
+  USE mo_intp,                ONLY: edges2cells_vector, cells2verts_scalar
   USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, iadv_rcf, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_turbdiff_config,     ONLY: turbdiff_config
@@ -47,12 +47,9 @@ MODULE mo_nh_diffusion
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: cvd_o_rd, rd
+  USE mo_physical_constants,  ONLY: cvd_o_rd, rd, grav
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
-#ifdef __MIXED_PRECISION
-  USE mo_exception,           ONLY: finish
-#endif
 
   IMPLICIT NONE
 
@@ -111,9 +108,14 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(p_patch%nlev) :: smag_limit, diff_multfac_smag, enh_smag_fac
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
 
+    ! Additional variables for 3D Smagorinsky coefficient
+    REAL(wp):: z_w_v(nproma,p_patch%nlevp1,p_patch%nblks_v)
+    REAL(wp), DIMENSION(nproma,p_patch%nlevp1) :: z_vn_ie, z_vt_ie
+    REAL(wp), DIMENSION(nproma,p_patch%nlev) :: dvndz, dvtdz, dwdz, dthvdz, dwdn, dwdt, kh_smag3d_e
+
     ! Variables for provisional fix against runaway cooling in local topography depressions
     INTEGER  :: icount(p_patch%nblks_c), iclist(2*nproma,p_patch%nblks_c), iklist(2*nproma,p_patch%nblks_c)
-    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, enh_diffu, thresh_tdiff, z_theta
+    REAL(wp) :: tdlist(2*nproma,p_patch%nblks_c), tdiff, trefdiff, enh_diffu, thresh_tdiff, z_theta, fac2d
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
                                            iecidx, iecblk
@@ -258,7 +260,7 @@ MODULE mo_nh_diffusion
       CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e,  &
                        opt_rlstart=7,opt_nabla2=z_nabla2_e )
 
-    ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 1) THEN
+    ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 1 .AND. .NOT. diffusion_config(jg)%lsmag_3d) THEN
 
       IF (p_test_run) THEN
         u_vert = 0._wp
@@ -281,8 +283,8 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4,&
-!$OMP             dvt_norm,dvt_tang),  ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4, &
+!$OMP            dvt_norm,dvt_tang), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -295,7 +297,6 @@ MODULE mo_nh_diffusion
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -370,6 +371,185 @@ MODULE mo_nh_diffusion
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 1) THEN ! 3D Smagorinsky diffusion
+
+      IF (p_test_run) THEN
+        u_vert = 0._wp
+        v_vert = 0._wp
+        z_w_v  = 0._wp
+      ENDIF
+
+      !  RBF reconstruction of velocity at vertices
+      CALL rbf_vec_interpol_vertex( p_nh_prog%vn, p_patch, p_int, &
+                                    u_vert, v_vert, opt_rlend=min_rlvert_int )
+
+      rl_start = start_bdydiff_e
+      rl_end   = min_rledge_int - 2
+
+      IF (itype_comm == 1 .OR. itype_comm == 3) THEN
+        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+      ENDIF
+      CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, z_w_v, opt_rlend=min_rlvert_int)
+      CALL sync_patch_array(SYNC_V,p_patch,z_w_v)
+      CALL sync_patch_array(SYNC_C,p_patch,p_nh_diag%theta_v_ic)
+
+      fac2d = 0.0625_wp ! Factor of the 2D deformation field which is used as minimum of the 3D def field
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+      i_startblk = p_patch%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4,dvt_norm,dvt_tang, &
+!$OMP            z_vn_ie,z_vt_ie,dvndz,dvtdz,dwdz,dthvdz,dwdn,dwdt,kh_smag3d_e), ICON_OMP_RUNTIME_SCHEDULE
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jk = 2, nlev
+          DO je = i_startidx, i_endidx
+            z_vn_ie(je,jk) = p_nh_metrics%wgtfac_e(je,jk,jb)*p_nh_prog%vn(je,jk,jb) +   &
+             (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb))*p_nh_prog%vn(je,jk-1,jb)
+            z_vt_ie(je,jk) = p_nh_metrics%wgtfac_e(je,jk,jb)*p_nh_diag%vt(je,jk,jb) +   &
+             (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb))*p_nh_diag%vt(je,jk-1,jb)
+          ENDDO
+        ENDDO
+
+        DO je = i_startidx, i_endidx
+          z_vn_ie(je,1) =                                            &
+            p_nh_metrics%wgtfacq1_e(je,1,jb)*p_nh_prog%vn(je,1,jb) + &
+            p_nh_metrics%wgtfacq1_e(je,2,jb)*p_nh_prog%vn(je,2,jb) + &
+            p_nh_metrics%wgtfacq1_e(je,3,jb)*p_nh_prog%vn(je,3,jb)
+          z_vn_ie(je,nlevp1) =                                           &
+            p_nh_metrics%wgtfacq_e(je,1,jb)*p_nh_prog%vn(je,nlev,jb)   + &
+            p_nh_metrics%wgtfacq_e(je,2,jb)*p_nh_prog%vn(je,nlev-1,jb) + &
+            p_nh_metrics%wgtfacq_e(je,3,jb)*p_nh_prog%vn(je,nlev-2,jb)
+          z_vt_ie(je,1) =                                            &
+            p_nh_metrics%wgtfacq1_e(je,1,jb)*p_nh_diag%vt(je,1,jb) + &
+            p_nh_metrics%wgtfacq1_e(je,2,jb)*p_nh_diag%vt(je,2,jb) + &
+            p_nh_metrics%wgtfacq1_e(je,3,jb)*p_nh_diag%vt(je,3,jb)
+          z_vt_ie(je,nlevp1) =                                           &
+            p_nh_metrics%wgtfacq_e(je,1,jb)*p_nh_diag%vt(je,nlev,jb)   + &
+            p_nh_metrics%wgtfacq_e(je,2,jb)*p_nh_diag%vt(je,nlev-1,jb) + &
+            p_nh_metrics%wgtfacq_e(je,3,jb)*p_nh_diag%vt(je,nlev-2,jb)
+        ENDDO
+
+        ! Computation of wind field deformation
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jk = 1, nlev
+#else
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+
+            vn_vert1(je,jk) = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
+                              v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,1)%v2
+
+            vn_vert2(je,jk) = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
+                              v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,2)%v2
+
+            dvt_tang(je,jk) = p_patch%edges%system_orientation(je,jb)* (   &
+                              u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
+                              v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,2)%v2 - &
+                             (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
+                              v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,1)%v2) )
+
+            vn_vert3(je,jk) = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
+                              v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,3)%v2
+
+            vn_vert4(je,jk) = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
+                              v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%primal_normal_vert(je,jb,4)%v2
+
+            dvt_norm(je,jk) = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,4)%v1 + &
+                              v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,4)%v2 - &
+                             (u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,3)%v1 + &
+                              v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                              p_patch%edges%dual_normal_vert(je,jb,3)%v2)
+
+            dvndz(je,jk) = (z_vn_ie(je,jk) - z_vn_ie(je,jk+1)) / p_nh_metrics%ddqz_z_full_e(je,jk,jb)
+            dvtdz(je,jk) = (z_vt_ie(je,jk) - z_vt_ie(je,jk+1)) / p_nh_metrics%ddqz_z_full_e(je,jk,jb)
+
+            dwdz (je,jk) =                                                                     &
+              (p_int%c_lin_e(je,1,jb)*(p_nh_prog%w(iecidx(je,jb,1),jk,  iecblk(je,jb,1)) -     &
+                                       p_nh_prog%w(iecidx(je,jb,1),jk+1,iecblk(je,jb,1)) ) +   &
+               p_int%c_lin_e(je,2,jb)*(p_nh_prog%w(iecidx(je,jb,2),jk,  iecblk(je,jb,2)) -     &
+                                       p_nh_prog%w(iecidx(je,jb,2),jk+1,iecblk(je,jb,2)) ) ) / &
+               p_nh_metrics%ddqz_z_full_e(je,jk,jb)
+
+            dthvdz(je,jk) =                                                                             &
+              (p_int%c_lin_e(je,1,jb)*(p_nh_diag%theta_v_ic(iecidx(je,jb,1),jk,  iecblk(je,jb,1)) -     &
+                                       p_nh_diag%theta_v_ic(iecidx(je,jb,1),jk+1,iecblk(je,jb,1)) ) +   &
+               p_int%c_lin_e(je,2,jb)*(p_nh_diag%theta_v_ic(iecidx(je,jb,2),jk,  iecblk(je,jb,2)) -     &
+                                       p_nh_diag%theta_v_ic(iecidx(je,jb,2),jk+1,iecblk(je,jb,2)) ) ) / &
+               p_nh_metrics%ddqz_z_full_e(je,jk,jb)
+
+            dwdn (je,jk) = p_patch%edges%inv_dual_edge_length(je,jb)* (    &
+              0.5_wp*(p_nh_prog%w(iecidx(je,jb,1),jk,  iecblk(je,jb,1)) +  &
+                      p_nh_prog%w(iecidx(je,jb,1),jk+1,iecblk(je,jb,1))) - &
+              0.5_wp*(p_nh_prog%w(iecidx(je,jb,2),jk,  iecblk(je,jb,2)) +  &
+                      p_nh_prog%w(iecidx(je,jb,2),jk+1,iecblk(je,jb,2)))   )
+
+            dwdt (je,jk) = p_patch%edges%inv_primal_edge_length(je,jb) *                                   &
+                           p_patch%edges%system_orientation(je,jb) * (                                     &
+              0.5_wp*(z_w_v(ividx(je,jb,1),jk,ivblk(je,jb,1))+z_w_v(ividx(je,jb,1),jk+1,ivblk(je,jb,1))) - &
+              0.5_wp*(z_w_v(ividx(je,jb,2),jk,ivblk(je,jb,2))+z_w_v(ividx(je,jb,2),jk+1,ivblk(je,jb,2)))   )
+
+            kh_smag3d_e(je,jk) = 2._wp*(                                                           &
+              ( (vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb) )**2 + &
+              (dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb))**2 + dwdz(je,jk)**2) + &
+              0.5_wp *( (p_patch%edges%inv_primal_edge_length(je,jb) *                             &
+              p_patch%edges%system_orientation(je,jb)*(vn_vert2(je,jk)-vn_vert1(je,jk)) +          &
+              p_patch%edges%inv_vert_vert_length(je,jb)*dvt_norm(je,jk) )**2 +                     &
+              (dvndz(je,jk) + dwdn(je,jk))**2 + (dvtdz(je,jk) + dwdt(je,jk))**2 ) -                &
+              3._wp*grav * dthvdz(je,jk) / (                                                       &
+              p_int%c_lin_e(je,1,jb)*p_nh_prog%theta_v(iecidx(je,jb,1),jk,iecblk(je,jb,1)) +       &
+              p_int%c_lin_e(je,2,jb)*p_nh_prog%theta_v(iecidx(je,jb,2),jk,iecblk(je,jb,2)) )
+
+            ! 2D Smagorinsky diffusion coefficient
+            kh_smag_e(je,jk,jb) = diff_multfac_smag(jk)*SQRT( MAX(kh_smag3d_e(je,jk), fac2d*( &
+              ((vn_vert4(je,jk)-vn_vert3(je,jk))*p_patch%edges%inv_vert_vert_length(je,jb)-   &
+              dvt_tang(je,jk)*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (            &
+              (vn_vert2(je,jk)-vn_vert1(je,jk))*p_patch%edges%system_orientation(je,jb)*      &
+              p_patch%edges%inv_primal_edge_length(je,jb) +                                   &
+              dvt_norm(je,jk)*p_patch%edges%inv_vert_vert_length(je,jb) )**2 ) ) )
+
+            ! The factor of 4 comes from dividing by twice the "correct" length
+            z_nabla2_e(je,jk,jb) = 4._wp * (                                      &
+              (vn_vert4(je,jk) + vn_vert3(je,jk) - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+              *p_patch%edges%inv_vert_vert_length(je,jb)**2 +                     &
+              (vn_vert2(je,jk) + vn_vert1(je,jk) - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+              *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
+
+            ! Subtract part of the fourth-order background diffusion coefficient
+            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
+            ! Limit diffusion coefficient to the theoretical CFL stability threshold
+            kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),smag_limit(jk))
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
     ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn >= 2) THEN
 
       !  RBF reconstruction of velocity at vertices and cells
@@ -410,7 +590,6 @@ MODULE mo_nh_diffusion
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -577,7 +756,6 @@ MODULE mo_nh_diffusion
         DO je = i_startidx, i_endidx
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -758,7 +936,6 @@ MODULE mo_nh_diffusion
         DO jc = i_startidx, i_endidx
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=5
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 #endif
@@ -813,7 +990,6 @@ MODULE mo_nh_diffusion
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=5
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 #endif
@@ -951,7 +1127,6 @@ MODULE mo_nh_diffusion
           DO jc = i_startidx, i_endidx
             DO jk = 1, nlev
 #else
-!CDIR UNROLL=5
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
 #endif
@@ -988,7 +1163,6 @@ MODULE mo_nh_diffusion
 !DIR$ IVDEP
             DO jk = 1, nlev
 #else
-!CDIR UNROLL=6
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
 #endif
@@ -1019,7 +1193,6 @@ MODULE mo_nh_diffusion
           DO jc = i_startidx, i_endidx
             DO jk = 1, nlev
 #else
-!CDIR UNROLL=6
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
 #endif
