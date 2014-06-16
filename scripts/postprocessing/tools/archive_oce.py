@@ -76,7 +76,9 @@ def doExit(value=0):
 """ load the last archiving status ir available """
 def loadLog(options):
   if options['FORCE']:
-    os.remove(LOGFILE)
+    LOG = {}
+    if os.path.exists(LOGFILE):
+      os.remove(LOGFILE)
   if os.path.exists(LOGFILE):
     dbg("Load last status from LOGFILE")
     LOG = json.load(open(LOGFILE))
@@ -179,7 +181,7 @@ def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,procs):
   pool      = multiprocessing.Pool(procs)
   yearFiles = []
   for year,files in filesOfYears.iteritems():
-    yearFile        = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,True,expInfo])
+    yearFile               = pool.apply_async(grepYear,[files,str(year),archdir,forceOutput,True,expInfo])
     yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
     yearFiles.append([year,yearFile,yearMeanFile])
 
@@ -262,7 +264,7 @@ newFiles = set(iFiles) ^ set(processedFiles)
 dbg("New Files found:");dbg(newFiles)
 
 # get the data dir from iFiles for later use
-LOG['dataDir'] = os.path.dirname(iFiles[0])
+LOG['dataDir'] = os.path.abspath(os.path.dirname(iFiles[0]))
 # }}}
 # =======================================================================================
 # DATA SPLITTING {{{ ====================================================================
