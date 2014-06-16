@@ -41,6 +41,7 @@ MODULE mo_nh_stepping
   USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                    ldynamics, ltransport, ntracer, lforcing, iforcing, &
     &                                    msg_level, test_mode, output_mode
+  USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_radiation_config,         ONLY: albedo_type
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -100,6 +101,8 @@ MODULE mo_nh_stepping
   
   USE mo_sync,                     ONLY: sync_patch_array_mult, sync_patch_array, SYNC_C
   USE mo_nh_interface_nwp,         ONLY: nwp_nh_interface
+  USE mo_interface_iconam_echam,   ONLY: interface_iconam_echam
+  USE mo_echam_phy_memory,         ONLY: prm_tend
   USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
@@ -1278,14 +1281,16 @@ MODULE mo_nh_stepping
           IF (ltimer)            CALL timer_stop(timer_nesting)
         ENDIF
 
-        IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
+        IF ( ( iforcing==inwp .OR. iforcing==iecham ) .AND. lstep_adv(jg) ) THEN
        
           ! Determine which physics packages must be called/not called at the current
           ! time step
-          CALL time_ctrl_physics ( dt_phy, lstep_adv, dtadv_loc, jg,  &! in
-            &                      .FALSE.,                           &! in
-            &                      t_elapsed_phy,                     &! inout
-            &                      lcall_phy )                         ! out
+          IF ( iforcing==inwp ) THEN
+            CALL time_ctrl_physics ( dt_phy, lstep_adv, dtadv_loc, jg,  &! in
+              &                      .FALSE.,                           &! in
+              &                      t_elapsed_phy,                     &! inout
+              &                      lcall_phy )                         ! out
+          END IF
 
           IF (msg_level >= 13) THEN
             WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
@@ -1324,30 +1329,48 @@ MODULE mo_nh_stepping
 
           ELSE ! is_les_phy
 
-            ! nwp physics
-            CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
-              &                  lredgrid_phys(jg),                  & !in
-              &                  dtadv_loc,                          & !in
-              &                  t_elapsed_phy(jg,:),                & !in
-              &                  time_config%sim_time(jg),           & !in
-              &                  datetime,                           & !in
-              &                  p_patch(jg)  ,                      & !in
-              &                  p_int_state(jg),                    & !in
-              &                  p_nh_state(jg)%metrics ,            & !in
-              &                  p_patch(jgp),                       & !in
-              &                  ext_data(jg)           ,            & !in
-              &                  p_nh_state(jg)%prog(n_new) ,        & !inout
-              &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
-              &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
-              &                  p_nh_state(jg)%diag ,               & !inout
-              &                  prm_diag  (jg),                     & !inout
-              &                  prm_nwp_tend(jg),                   &
-              &                  p_lnd_state(jg)%diag_lnd,           &
-              &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-              &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
-              &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-              &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-              &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+            SELECT CASE (iforcing)
+
+            CASE (inwp) ! iforcing
+
+              ! nwp physics
+              CALL nwp_nh_interface(lcall_phy(jg,:), .FALSE.,          & !in
+                &                  lredgrid_phys(jg),                  & !in
+                &                  dtadv_loc,                          & !in
+                &                  t_elapsed_phy(jg,:),                & !in
+                &                  time_config%sim_time(jg),           & !in
+                &                  datetime,                           & !in
+                &                  p_patch(jg)  ,                      & !in
+                &                  p_int_state(jg),                    & !in
+                &                  p_nh_state(jg)%metrics ,            & !in
+                &                  p_patch(jgp),                       & !in
+                &                  ext_data(jg)           ,            & !in
+                &                  p_nh_state(jg)%prog(n_new) ,        & !inout
+                &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
+                &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+                &                  p_nh_state(jg)%diag ,               & !inout
+                &                  prm_diag  (jg),                     & !inout
+                &                  prm_nwp_tend(jg),                   &
+                &                  p_lnd_state(jg)%diag_lnd,           &
+                &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+                &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
+                &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+                &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
+                &                  p_nh_state(jg)%prog_list(n_new_rcf) ) !in
+
+            CASE (iecham) ! iforcing
+
+              ! echam physics
+              CALL interface_iconam_echam( dtadv_loc                      ,& !in
+                &                          datetime                       ,& !in
+                &                          p_patch(jg)                    ,& !in
+                &                          p_int_state(jg)                ,& !in
+                &                          p_nh_state(jg)%metrics         ,& !in
+                &                          p_nh_state(jg)%prog(n_new)     ,& !inout
+                &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
+                &                          p_nh_state(jg)%diag            )  !inout
+
+            END SELECT ! iforcing
 
           END IF ! is_les_phy
 
@@ -1704,30 +1727,66 @@ MODULE mo_nh_stepping
   
     ELSE ! is_les_phy
   
-      ! nwp physics, slow physics forcing
-      CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
-        &                  lredgrid_phys(jg),                  & !in
-        &                  dtadv_loc,                          & !in
-        &                  dt_phy(jg,:),                       & !in
-        &                  time_config%sim_time(jg),           & !in
-        &                  datetime,                           & !in
-        &                  p_patch(jg)  ,                      & !in
-        &                  p_int_state(jg),                    & !in
-        &                  p_nh_state(jg)%metrics ,            & !in
-        &                  p_patch(jgp),                       & !in
-        &                  ext_data(jg)           ,            & !in
-        &                  p_nh_state(jg)%prog(n_now) ,        & !inout
-        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-        &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
-        &                  p_nh_state(jg)%diag,                & !inout
-        &                  prm_diag  (jg),                     & !inout
-        &                  prm_nwp_tend(jg)                ,   &
-        &                  p_lnd_state(jg)%diag_lnd,           &
-        &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-        &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-        &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in 
+      SELECT CASE (iforcing)
+
+      CASE (inwp) ! iforcing
+
+        ! nwp physics, slow physics forcing
+        CALL nwp_nh_interface(lcall_phy(jg,:), .TRUE.,           & !in
+          &                  lredgrid_phys(jg),                  & !in
+          &                  dtadv_loc,                          & !in
+          &                  dt_phy(jg,:),                       & !in
+          &                  time_config%sim_time(jg),           & !in
+          &                  datetime,                           & !in
+          &                  p_patch(jg)  ,                      & !in
+          &                  p_int_state(jg),                    & !in
+          &                  p_nh_state(jg)%metrics ,            & !in
+          &                  p_patch(jgp),                       & !in
+          &                  ext_data(jg)           ,            & !in
+          &                  p_nh_state(jg)%prog(n_now) ,        & !inout
+          &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+          &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+          &                  p_nh_state(jg)%diag,                & !inout
+          &                  prm_diag  (jg),                     & !inout
+          &                  prm_nwp_tend(jg)                ,   &
+          &                  p_lnd_state(jg)%diag_lnd,           &
+          &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+          &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+          &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+          &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
+          &                  p_nh_state(jg)%prog_list(n_now_rcf) ) !in 
+
+      CASE (iecham) ! iforcing
+
+        SELECT CASE (echam_phy_config%idcphycpl)
+
+        CASE (1) ! idcphycpl
+
+          ! echam physics, fast physics coupling
+          ! the physics forcing in the dynamical core is zero
+          p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
+          p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
+          prm_tend  (jg)%q(:,:,:,:)                  = 0._wp
+
+        CASE (2) ! idcphycpl
+
+          ! echam physics, slow physics coupling
+          CALL interface_iconam_echam( dtadv_loc                      ,& !in
+            &                          datetime                       ,& !in
+            &                          p_patch(jg)                    ,& !in
+            &                          p_int_state(jg)                ,& !in
+            &                          p_nh_state(jg)%metrics         ,& !in
+            &                          p_nh_state(jg)%prog(n_now)     ,& !inout
+            &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
+            &                          p_nh_state(jg)%diag            )  !inout
+
+        CASE DEFAULT ! idcphycpl
+
+          CALL finish (routine, 'echam_phy_config%idcphycpl /= 1,2 currently not implemented')
+
+        END SELECT ! idcphycpl
+
+      END SELECT ! iforcing
 
     END IF ! is_les_phy
 
