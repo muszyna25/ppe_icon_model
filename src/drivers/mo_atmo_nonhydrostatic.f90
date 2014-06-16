@@ -35,8 +35,9 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                output_mode,          &
   &                                msg_level,            & !    namelist parameter
   &                                lvert_nest, ntracer,  &
-  &                                iqc, iqt
-USE mo_dynamics_config,      ONLY: iequations
+  &                                nlev,                 &
+  &                                iqv, iqc, iqt
+USE mo_dynamics_config,      ONLY: iequations, nnow
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
@@ -70,6 +71,13 @@ USE mo_name_list_output_init, ONLY: init_name_list_output, &
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
+
+! LGS - for the implementation of ECHAM physics in iconam
+USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
+USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
+USE mo_vertical_coord_table,ONLY: vct_a, vct_b!, ceta
+USE mo_nh_testcases_nml,    ONLY: nh_test_name
+
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: action_init
@@ -124,6 +132,8 @@ CONTAINS
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     REAL(wp) :: sim_time
+
+    REAL(wp), ALLOCATABLE :: ceta(:)   ! *full hybrid vertical levels.
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -241,6 +251,28 @@ CONTAINS
     ! CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
     CALL prepare_nh_integration( )
+
+! LGS
+!
+    IF ( iforcing == iecham ) THEN
+      ALLOCATE (ceta(nlev), STAT=ist)
+      IF(ist/=success)THEN
+        CALL finish (TRIM(routine), ' allocation of ceta failed')
+      END IF
+      !! ultimately iconam should not use ceta (only used in configure_echam_convection)
+      !! calling init_vertical_coord_table is a temporary fix.  
+      CALL init_echam_phy( p_patch(1:), nh_test_name, &
+        & nlev, vct_a, vct_b, ceta, time_config%cur_datetime )
+      !! many of the initial conditions for the echam 'field' are set here
+      DO jg = 1,n_dom
+        CALL initcond_echam_phy( jg                                               ,&
+          &                      p_patch(jg)                                      ,&
+          &                      p_nh_state(jg)%diag          % temp  (:,:,:)     ,&
+          &                      p_nh_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv) ,&
+          &                      nh_test_name                                     )
+      END DO
+    END IF
+!---
 
     !
     ! Read restart files (if necessary)
@@ -460,6 +492,10 @@ CONTAINS
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
       CALL destruct_nwp_lnd_state( p_lnd_state )
+    ENDIF
+
+    IF (iforcing == iecham) THEN
+      CALL cleanup_echam_phy
     ENDIF
 
     ! Delete output variable lists
