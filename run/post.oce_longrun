@@ -25,10 +25,13 @@ if [[ ! -f ${iFile} ]]; then
   exit 1
 fi
 
-module load python 
+source /sw/share/Modules/init/bash
+
+module load python/2.7-ve2
+
+export HOME=/scratch/mpi/CC/mh0287/users/$USER
 
 $archiver FILEPATTERN="${EXPNAME}*.nc*" DEBUG=1 TAG='rev' EXP=${EXPNAME} FORCE=1
-
 
 check_error $? "${EXPNAME}"
 
