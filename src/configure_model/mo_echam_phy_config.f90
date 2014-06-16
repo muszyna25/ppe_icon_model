@@ -36,6 +36,10 @@ MODULE mo_echam_phy_config
   !!
   TYPE t_echam_phy_config
 
+    INTEGER  :: idcphycpl   !<  determines the coupling between the dynamical core and the
+                            !   echam phyiscs package
+                            !   1: dynamics and physics update sequentially
+                            !   2: dynamics uses physics forcing for updating
     LOGICAL  :: lrad        !<  .true. for radiation.
     REAL(wp) :: dt_rad      !<  [s] radiation time step
     LOGICAL  :: lvdiff      !<  .true. for vertical diffusion.
@@ -82,6 +86,9 @@ CONTAINS
 #endif
 
     CALL message('','')
+    CALL message(method_name,'dynamics physics coupling:')
+    CALL print_value('    idcphycpl  ',echam_phy_config% idcphycpl)
+    CALL message('','')
     CALL message(method_name,'ECHAM6 physics configuration:')
     CALL print_value('    lrad       ',echam_phy_config% lrad     )
     CALL print_value('    dt_rad     ',echam_phy_config% dt_rad   )
@@ -108,6 +115,11 @@ CONTAINS
 
   END SUBROUTINE configure_echam_phy
   !------------------------------
+  !>
+  !!
+  INTEGER FUNCTION get_idcphycpl()
+    get_idcphycpl = echam_phy_config%idcphycpl
+  END FUNCTION get_idcphycpl
   !>
   !!
   LOGICAL FUNCTION get_lrad()

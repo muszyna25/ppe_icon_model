@@ -40,6 +40,10 @@ MODULE mo_echam_phy_nml
   PRIVATE
   PUBLIC :: read_echam_phy_namelist
 
+  INTEGER  :: idcphycpl  !< determines the coupling between the dynamical core and the
+                         !  phyiscs package
+                         !  1: dynamics and physics update sequentially
+                         !  2: dynamics uses physics forcing for updating
   LOGICAL  :: lrad       !< .true. for radiation.
   REAL(wp) :: dt_rad   !! "-"                     radiation
   LOGICAL  :: lvdiff     !< .true. for vertical diffusion.
@@ -59,7 +63,8 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: lebudget   !< .true. for echam physcics energy budget calculation
 
 
-  NAMELIST /echam_phy_nml/ lrad, dt_rad, lvdiff,    &
+  NAMELIST /echam_phy_nml/ idcphycpl,               &
+    &                      lrad, dt_rad, lvdiff,    &
     &                      lconv, lcond, icover,    &
     &                      lssodrag, lgw_hines,     &
     &                      lmlo, lice, lmeltpond,   &
@@ -80,6 +85,7 @@ CONTAINS
     !------------------------------------------------------------------
     ! 1. Set default values
     !------------------------------------------------------------------
+    idcphycpl = 1         ! 1: dynamics and physics update sequentially
     lrad      = .TRUE.
     dt_rad    = 3600.0_wp ! [s]
     lvdiff    = .TRUE.
@@ -148,6 +154,7 @@ CONTAINS
     !------------------------------------------------------------------
     ! 7. Fill the configuration state
     !------------------------------------------------------------------
+    echam_phy_config% idcphycpl = idcphycpl
     echam_phy_config% lrad      = lrad                                                
     echam_phy_config% dt_rad    = dt_rad
     echam_phy_config% lvdiff    = lvdiff                                              
