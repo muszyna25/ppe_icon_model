@@ -28,9 +28,9 @@ colors='-W2/100/200/100'
 fi
 
 if [ $ifig == $nfig  ] ; then
-args='-M -L -O'
+args='-L -O'
 else
-args='-M -L -O -K'
+args='-L -O -K'
 fi
 
 if [ $plot == 1 -a $ifig == 1 ] ; then
