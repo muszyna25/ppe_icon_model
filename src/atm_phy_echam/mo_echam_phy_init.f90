@@ -33,10 +33,13 @@ MODULE mo_echam_phy_init
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer
+  USE mo_dynamics_config,      ONLY: iequations
+  USE mo_impl_constants,       ONLY: inh_atmosphere
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
                                    & configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
+  USE mo_nhecham_conv_config,  ONLY: config_nhecham_conv
 
   USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
 #ifndef __NO_JSBACH__
@@ -180,8 +183,20 @@ CONTAINS
     ! - allocate echam_conv_config%cevapcu(:) and assign values.
 
     IF (phy_config%lconv) THEN
-      CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
-    END IF
+      IF (iequations == inh_atmosphere) THEN
+        ! ===LGS===
+        ! temporary workaround for implem of echam phy in iconam
+        ! The parameters echam_conv_config%nmctop and echam_conv_config%cevapcu(jk)
+        ! need to be set using the iconam state.
+        ! config_nhecham_conv computes echam_conv_config%nmctop, but not yet
+        ! echam_conv_config%cevapcu(jk)
+        ! currently, if lconv is turned on, an error occurs because cevapcu is
+        ! not allocated
+        CALL config_nhecham_conv(nlev)
+      ELSE ! iequations
+        CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
+      END IF ! iequations
+    END IF ! lconv
 
     ! For surface processes:
     ! nsfc_type, iwtr, etc. are set in this subroutine.
