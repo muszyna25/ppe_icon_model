@@ -275,7 +275,7 @@ cat > NAMELIST_NWP << EOF
  inwp_convection             =                          1         ! convection
  inwp_radiation              =                          1         ! radiation
  inwp_cldcover               =                          1         ! cloud cover scheme for radiation
- inwp_turb                   =                         10         ! vertical diffusion and transfer
+ inwp_turb                   =                          1         ! vertical diffusion and transfer
  inwp_satad                  =                          1         ! saturation adjustment
  inwp_sso                    =                          0         ! subgrid scale orographic drag
  inwp_gwd                    =                          1         ! non-orographic gravity wave drag
