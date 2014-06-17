@@ -277,11 +277,11 @@ cat > NAMELIST_NWP << EOF
  output_filename             =                       'NWP'        ! file name base
  output_grid                 =                      .TRUE.        ! flag whether grid information is added to output.
  !
- ml_varlist                  =  'u', 'v', 'w', 'temp', 'pres','topography_c', 'pres_msl', &
-                                'qv', 'qc', 'qi', 'qr', 'qs', 'tke',                      &
-                                'tkvm', 'tkvh', 'group:pbl_vars',                         &
-                                'group:precip_vars',  'group:additional_precip_vars',     &
-                                'group:land_vars', 'group:land_tile_vars',                &
+ ml_varlist                  =  'u', 'v', 'w', 'temp', 'pres','topography_c', 'pres_msl', 
+                                'qv', 'qc', 'qi', 'qr', 'qs', 'tke',                      
+                                'tkvm', 'tkvh', 'group:pbl_vars',                         
+                                'group:precip_vars',  'group:additional_precip_vars',     
+                                'group:land_vars', 'group:land_tile_vars',                
                                 'group:multisnow_vars'
 /
 
