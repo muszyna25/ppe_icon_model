@@ -208,6 +208,9 @@ def computeYearMean(ifiles):
 
   return yearFiles
 
+""" filter for sorting glob results """
+def mtime(filename):
+  return os.stat(filename).st_mtime
 # }}}
 #=============================================================================== 
 # MAIN =========================================================================
@@ -420,7 +423,7 @@ if not os.path.exists(plotFile):
 # }}}
 # DRAKE FLOW {{{
 # cat all diagnostics together
-diagnosticFiles  = glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"]))
+diagnosticFiles  = sorted(glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"])),key=mtime)
 diagnosticJoined = options['ARCHDIR']+'/'+'_'.join([options['EXP'],"diagnostics.txt"])
 dbg(diagnosticFiles)
 header     = open(diagnosticFiles[0],'r').readline().split(' ')
@@ -452,7 +455,7 @@ ofile = "%s/drake_complete_%s_%s.png"%(options['ARCHDIR'],options['EXP'],options
 if ( not os.path.exists(ofile) or options['FORCE']):
   pylab.title("%s , %s :Drake TF - all %s years"%(options['EXP'],options['TAG'],len(LOG['years'])),fontsize=8)
   pylab.grid()
-  pylab.plot_date(dates, values, linestyle='-',marker='.')  
+  pylab.plot_date(dates, values, linestyle='-',marker=',',linewidth=1.0)  
   pylab.savefig(ofile)
   pylab.clf() 
 # first 10 years
@@ -460,7 +463,7 @@ ofile = "%s/drake_first10Years_%s_%s.png"%(options['ARCHDIR'],options['EXP'],opt
 if ( not os.path.exists(ofile) or options['FORCE']):
   pylab.title("%s , %s :Drake TF - first 10y"%(options['EXP'],options['TAG']),fontsize=8)
   pylab.grid()
-  pylab.plot_date(dates[0:120], values[0:120], linestyle='-',marker='.')  
+  pylab.plot_date(dates[0:120], values[0:120], linestyle='-',marker=',',linewidth=1.0)  
   pylab.savefig(ofile)
   pylab.clf() 
 # first 20 years
@@ -468,7 +471,7 @@ ofile = "%s/drake_first20Years_%s_%s.png"%(options['ARCHDIR'],options['EXP'],opt
 if ( not os.path.exists(ofile) or options['FORCE']):
   pylab.title("%s , %s :Drake TF - first 20y"%(options['EXP'],options['TAG']),fontsize=8)
   pylab.grid()
-  pylab.plot_date(dates[0:240], values[0:240], linestyle='-',marker='.')  
+  pylab.plot_date(dates[0:240], values[0:240], linestyle='-',marker=',',linewidth=1.0)  
   pylab.savefig(ofile)
 # }}}
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
