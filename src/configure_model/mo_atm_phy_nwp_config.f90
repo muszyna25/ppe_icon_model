@@ -291,7 +291,6 @@ CONTAINS
       IF(atm_phy_nwp_config(jg)%inwp_convection>0.AND.atm_phy_nwp_config(jg)%is_les_phy)THEN
         CALL message(TRIM(routine),'Turning off convection for LES!')
         atm_phy_nwp_config(jg)%inwp_convection = 0
-        inwp
       END IF
 
       !SSO should be turned off for LES
