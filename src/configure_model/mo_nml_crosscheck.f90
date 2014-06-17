@@ -814,7 +814,7 @@ CONTAINS
 
     END SELECT
 
-#ifndef __ICON_ART
+#ifdef __ICON_ART
     IF (lart == .TRUE.) THEN
       WRITE(message_text,'(A)') &
           'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART'
