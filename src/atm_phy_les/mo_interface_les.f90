@@ -1017,6 +1017,8 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     !  Gravity waves drag: orographic and non-orographic
+    ! AD(17 June 2014): Although these parameterizations should not be required 
+    ! in LES runs but it has kept for now untill full verifications has been done.
     !-------------------------------------------------------------------------
 
     IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN

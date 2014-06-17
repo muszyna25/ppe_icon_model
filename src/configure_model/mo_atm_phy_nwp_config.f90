@@ -288,11 +288,24 @@ CONTAINS
       END IF 
     
       !convection should be turned off for LES
-      IF(atm_phy_nwp_config(jg)%inwp_convection>0 .AND. &
-         atm_phy_nwp_config(jg)%is_les_phy)THEN
-        CALL finish(TRIM(routine),'Convection can not be used for LES!')
+      IF(atm_phy_nwp_config(jg)%inwp_convection>0.AND.atm_phy_nwp_config(jg)%is_les_phy)THEN
+        CALL message(TRIM(routine),'Turning off convection for LES!')
+        atm_phy_nwp_config(jg)%inwp_convection = 0
+        inwp
       END IF
-    
+
+      !SSO should be turned off for LES
+      IF(atm_phy_nwp_config(jg)%inwp_sso>0.AND.atm_phy_nwp_config(jg)%is_les_phy)THEN
+        CALL message(TRIM(routine),'Turning off SSO scheme for LES!')
+        atm_phy_nwp_config(jg)%inwp_sso = 0
+      END IF
+
+      !GWD should be turned off for LES
+      IF(atm_phy_nwp_config(jg)%inwp_gwd>0.AND.atm_phy_nwp_config(jg)%is_les_phy)THEN
+        CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
+        atm_phy_nwp_config(jg)%inwp_gwd = 0
+      END IF
+  
     END DO
 
     !Configure lateral boundary condition for limited area model
