@@ -25,14 +25,15 @@ MODULE mo_art_reaction_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_art_config,                    ONLY: art_config
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_nonhydro_types,                ONLY: t_nh_diag
+  USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
   USE mo_art_radioactive,               ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio
+  USE mo_art_config,                    ONLY: art_config
 #endif
 
   IMPLICIT NONE
@@ -76,7 +77,7 @@ SUBROUTINE art_reaction_interface( p_patch,p_dtime,p_prog_list,p_diag,p_tracer_n
 #ifdef __ICON_ART
   jg  = p_patch%id
 
-  IF(art_config(jg)%lart) THEN
+  IF(lart) THEN
 
     ! ----------------------------------
     ! --- Radioactive particles

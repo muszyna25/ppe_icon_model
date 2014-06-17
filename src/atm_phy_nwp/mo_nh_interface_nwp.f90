@@ -56,7 +56,7 @@ MODULE mo_nh_interface_nwp
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqtke, iqm_max,    &
-    &                                   msg_level, ltimer, timers_level, nqtendphy
+    &                                   msg_level, ltimer, timers_level, nqtendphy, lart
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp
@@ -529,7 +529,7 @@ CONTAINS
 
     ENDIF
 
-      IF (art_config(jg)%lart) THEN
+      IF (lart) THEN
 
         CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list, &
                   &          pt_diag,                            &
@@ -1701,17 +1701,17 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF(art_config(jg)%lart .AND. art_config(jg)%lart_conv) THEN
+      IF(lart .AND. art_config(jg)%lart_conv) THEN
 ! KL add convective tendency and fix to positive values
-      DO jt=1,art_config(jg)%nconv_tracer  ! ASH
-        DO jk = 1, nlev
+        DO jt=1,art_config(jg)%nconv_tracer  ! ASH
+          DO jk = 1, nlev
 !DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-             pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
-             +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk))
+            DO jc = i_startidx, i_endidx
+              pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk)=MAX(0._wp,pt_prog_rcf%conv_tracer(jb,jt)%ptr(jc,jk) &
+                 +pdtime*prm_nwp_tend%conv_tracer_tend(jb,jt)%ptr(jc,jk))
+            ENDDO
           ENDDO
         ENDDO
-      ENDDO
       ENDIF !lart
 
 !DR additional clipping for qr, qs 

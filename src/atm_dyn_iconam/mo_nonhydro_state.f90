@@ -53,7 +53,7 @@ MODULE mo_nonhydro_state
     &                                iqv, iqc, iqi, iqr, iqs, iqt, iqtvar,      &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
-    &                                iqtke, nqtendphy, ltestcase 
+    &                                iqtke, nqtendphy, ltestcase, lart 
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
@@ -71,7 +71,6 @@ MODULE mo_nonhydro_state
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
   USE mo_gribout_config,       ONLY: gribout_config
-  USE mo_art_config,           ONLY: t_art_config,art_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
@@ -429,7 +428,6 @@ MODULE mo_nonhydro_state
     CHARACTER(len=4) suffix
 
     TYPE(t_advection_config), POINTER :: advconf
-    TYPE(t_art_config), POINTER :: artconf
 
     INTEGER           :: jt
     CHARACTER(LEN=1)  :: ctracer
@@ -444,8 +442,6 @@ MODULE mo_nonhydro_state
 
     ! pointer to advection_config(jg) to save some paperwork
     advconf => advection_config(p_patch%id)
-    ! ART: pointer to art_config(jg) to save some paperwork
-    artconf => art_config(p_patch%id)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -1013,7 +1009,7 @@ MODULE mo_nonhydro_state
         ENDIF
 
         ! art
-        IF (artconf%lart) THEN
+        IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
             &                       p_prog%tracer_ptr,advconf,p_prog=p_prog,                   &
             &                       timelev=timelev,ldims=shape3d_c,tlev_source=1)

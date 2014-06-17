@@ -26,14 +26,15 @@ MODULE mo_art_turbdiff_interface
   USE mo_kind,                          ONLY: wp
   USE mo_parallel_config,               ONLY: nproma
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_art_config,                    ONLY: art_config
   USE mo_exception,                     ONLY: message, message_text, finish
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE src_turbdiff,                     ONLY: modvar
+  USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_surface_value,             ONLY: art_surface_value
+  USE mo_art_config,                    ONLY: art_config
 #endif
 
   IMPLICIT NONE
@@ -100,7 +101,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
 #ifdef __ICON_ART
 
   jg  = p_patch%id
-  IF ( art_config(jg)%lart ) THEN
+  IF ( lart ) THEN
     SELECT CASE(TRIM(defcase))
     
     CASE('setup_ptr')

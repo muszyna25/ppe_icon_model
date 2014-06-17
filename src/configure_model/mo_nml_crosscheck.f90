@@ -50,7 +50,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, dtime_adv
+    &                              output_mode, dtime_adv, lart
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -83,8 +83,6 @@ MODULE mo_nml_crosscheck
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
   USE mo_master_control,     ONLY: is_restart_run, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
-
-  USE mo_art_config,         ONLY: art_config
 
   IMPLICIT NONE
 
@@ -563,7 +561,7 @@ CONTAINS
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
       !            around with different physics schemes. 
-      !            Exception: ICON-ART is active (art_config(jg)%lart = .TRUE.)
+      !            Exception: ICON-ART is active (lart = .TRUE.)
       !
       ! Default settings valid for all microphysics options
       !
@@ -579,7 +577,7 @@ CONTAINS
       iqm_max   = 5     !! end index of water species mixing ratios
       iqt       = 6     !! start index of other tracers not related at all to moisture
       !
-      IF (.NOT. art_config(1)%lart) ntracer = 5  !! total number of tracers
+      IF (.NOT. lart) ntracer = 5  !! total number of tracers
       !
       ! dummy settings
       iqni     = ntracer+100    !! cloud ice number
@@ -609,7 +607,7 @@ CONTAINS
         iqm_max = iqg
         iqt     = iqt + 1
 
-        IF (.NOT. art_config(1)%lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
+        IF (.NOT. lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
 
  
       CASE(3)  ! improved ice nucleation scheme C. Koehler (note: iqm_max does not change!)
@@ -618,7 +616,7 @@ CONTAINS
         iqni_nuc = 7     !! activated ice nuclei  
         iqt     = iqt + 2
 
-        IF (.NOT. art_config(1)%lart) ntracer = ntracer + 2  !! increase total number of tracers by 2
+        IF (.NOT. lart) ntracer = ntracer + 2  !! increase total number of tracers by 2
 
       CASE(4)  ! two-moment scheme 
       
@@ -634,7 +632,7 @@ CONTAINS
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 13    !! start index of other tracers not related at all to moisture
        
-        IF (.NOT. art_config(1)%lart) ntracer = 12
+        IF (.NOT. lart) ntracer = 12
 
       CASE(5)  ! two-moment scheme with prognotic cloud drop number and CCN and IN budgets
       
@@ -654,7 +652,7 @@ CONTAINS
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 17    !! start index of other tracers not related at all to moisture
        
-        IF (.NOT. art_config(1)%lart) ntracer = 16
+        IF (.NOT. lart) ntracer = 16
       END SELECT ! microphysics schemes
 
 
@@ -663,7 +661,7 @@ CONTAINS
         iqtvar = iqt       !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
 
-        IF (.NOT. art_config(1)%lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
+        IF (.NOT. lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
 
         ntiles_lnd = 5     !! EDMF currently only works with 5 land tiles - consistent with TESSEL
                            !! even if the land model is inactive ntiles_lnd should be 5
@@ -676,7 +674,7 @@ CONTAINS
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
 
-          IF (.NOT. art_config(1)%lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
+          IF (.NOT. lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
 
           WRITE(message_text,'(a,i3)') 'Attention: TKE is advected, '//&
                                        'ntracer is increased by 1 to ',ntracer
@@ -693,7 +691,7 @@ CONTAINS
       ! via add_tracer_ref in mo_nonhydro_state.
 
 
-      IF (.NOT. art_config(jg)%lart) THEN
+      IF (.NOT. lart) THEN
         WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
                                      'ntracer is automatically reset to ',ntracer
         CALL message(TRIM(method_name),message_text)
@@ -815,6 +813,14 @@ CONTAINS
       END IF
 
     END SELECT
+
+#ifndef __ICON_ART
+    IF (lart == .TRUE.) THEN
+      WRITE(message_text,'(A)') &
+          'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART'
+        CALL finish( TRIM(method_name),TRIM(message_text))
+    ENDIF
+#endif
 
     IF (ltransport) THEN
     DO jg = 1,n_dom

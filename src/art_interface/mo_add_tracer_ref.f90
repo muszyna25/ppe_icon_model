@@ -35,7 +35,10 @@ MODULE mo_add_tracer_ref
   USE mo_var_metadata,     ONLY: create_tracer_metadata
   
   USE mo_advection_config, ONLY: t_advection_config
+
+#ifdef __ICON_ART
   USE mo_art_config,       ONLY: t_art_config, art_config
+#endif
 
   IMPLICIT NONE
 
@@ -99,6 +102,7 @@ CONTAINS
     TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op        ! post operation (e.g. scale with const. factor or rho)
     REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer! lifetime of a chemical tracer
 
+#ifdef __ICON_ART
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
@@ -194,6 +198,8 @@ CONTAINS
       art_config(jg)%nturb_tracer = art_config(jg)%nturb_tracer + 1
     ENDIF
     ENDIF
+
+#endif
 
   END SUBROUTINE add_var_list_reference_tracer
 

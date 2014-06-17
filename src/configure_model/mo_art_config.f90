@@ -46,10 +46,7 @@ MODULE mo_art_config
   TYPE t_art_config
 
     ! namelist variables
-    ! General
-    LOGICAL :: lart                        !< main switch for using the ART-package
-                                           !< .TRUE.: switch ON
-                                           !< .FALSE.: switch OFF
+
     ! Sea Salt Aerosol
     LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
     

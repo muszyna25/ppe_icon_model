@@ -29,11 +29,11 @@ MODULE mo_art_emission_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_art_config,                    ONLY: art_config
   USE mo_exception,                     ONLY: finish
   USE mo_nonhydro_types,                ONLY: t_nh_diag
   USE mo_ext_data_types,                ONLY: t_external_data
-  USE mo_run_config,                    ONLY: iCS137,iI131,iTE132,          &
+  USE mo_run_config,                    ONLY: lart,                         &
+                                          &   iCS137,iI131,iTE132,          &
                                           &   iZR95,iXE133,iI131g,          &
                                           &   iI131o,iBA140,iRU103
     
@@ -50,6 +50,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_seas,             ONLY: art_emission_seas
   USE mo_art_emission_dust,             ONLY: art_emission_dust
   USE mo_art_chemtracer,                ONLY: art_emiss_chemtracer
+  USE mo_art_config,                    ONLY: art_config
 #endif
 
   IMPLICIT NONE
@@ -87,7 +88,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer
 
   jg  = p_patch%id
      
-  IF (art_config(jg)%lart) THEN
+  IF (lart) THEN
 
     CALL art_air_properties(p_patch,p_art_data(jg))
        

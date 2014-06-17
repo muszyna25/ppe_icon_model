@@ -25,10 +25,9 @@ MODULE mo_art_washout_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_art_config,                    ONLY: art_config
   USE mo_exception,                     ONLY: finish
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
-  USE mo_run_config,                    ONLY: iqr,iqs
+  USE mo_run_config,                    ONLY: lart,iqr,iqs
   USE mo_nonhydro_state,                ONLY: p_nh_state
 
 #ifdef __ICON_ART
@@ -36,6 +35,7 @@ MODULE mo_art_washout_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_volc
+  USE mo_art_config,                    ONLY: art_config
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_clipping,                  ONLY: art_clip_lt
@@ -89,7 +89,7 @@ SUBROUTINE art_washout_interface(            & !>in
 
   jg  = p_patch%id
 
-  IF(art_config(jg)%lart .AND. art_config(jg)%lart_wash) THEN 
+  IF(lart .AND. art_config(jg)%lart_wash) THEN 
       
     CALL art_air_properties(p_patch,p_art_data(jg))
     

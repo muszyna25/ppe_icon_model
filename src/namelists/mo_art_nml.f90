@@ -51,10 +51,6 @@ MODULE mo_art_nml
  END TYPE t_list_volcanoes
 
     TYPE (t_list_volcanoes) :: art_volclist_tot(max_volc_input) !>list of volcanoes
- 
-    LOGICAL :: lart                !< main switch for using the ART-package
-                                   !< .TRUE.: switch ON
-                                   !< .FALSE.: switch OFF
                                    
     LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
     
@@ -90,7 +86,7 @@ MODULE mo_art_nml
 
     LOGICAL :: lart_loss_chemtracer           !< Treatment of chemical loss (TRUE/FALSE)
 
-    NAMELIST/art_nml/ lart, lart_seasalt, lart_dust, lart_volcano, lart_emiss,        &
+    NAMELIST/art_nml/ lart_seasalt, lart_dust, lart_volcano, lart_emiss,        &
    &               lart_conv, lart_wash, lart_rad, lart_cloud,                        &
    &               nart_emis_volcano_update,art_volclist_tot, lart_volclist,          &
    &               volcanofile_path,lart_radioact,lart_decay_radioact,                &
@@ -130,7 +126,6 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lart                = .FALSE.        ! ART-package switched off
     lart_seasalt        = .FALSE.        ! Treatment of sea salt aerosol
     lart_dust           = .FALSE.        ! Treatment of mineral dust aerosol
     lart_volcano        = .FALSE.        ! Treatment of volcanic ash
@@ -213,7 +208,6 @@ CONTAINS
       ENDDO
       nvolc=nvolc-1
     DO jg= 0,max_dom
-      art_config(jg)%lart                     = lart
       art_config(jg)%lart_seasalt             = lart_seasalt
       art_config(jg)%lart_dust                = lart_dust
       art_config(jg)%lart_volcano             = lart_volcano

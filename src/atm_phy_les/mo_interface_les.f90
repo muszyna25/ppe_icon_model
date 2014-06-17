@@ -49,7 +49,7 @@ MODULE mo_interface_les
   USE mo_diffusion_config,   ONLY: diffusion_config
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqm_max,   &
     &                              msg_level, ltimer, timers_level, nqtendphy,  &
-                                   ltransport
+    &                              ltransport, lart
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -73,7 +73,6 @@ MODULE mo_interface_les
      & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
   USE mo_art_reaction_interface, ONLY:art_reaction_interface
-  USE mo_art_config,          ONLY: art_config
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
@@ -533,7 +532,7 @@ CONTAINS
     ENDIF
 
 
-    IF (art_config(jg)%lart) THEN
+    IF (lart) THEN
 
 !      CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
 

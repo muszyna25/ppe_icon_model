@@ -28,7 +28,7 @@ MODULE mo_art_sedi_interface
   USE mo_model_domain,                  ONLY: t_patch
   USE mo_impl_constants,                ONLY: min_rlcell
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
-  USE mo_art_config,                    ONLY: art_config
+  USE mo_run_config,                    ONLY: lart
   USE mo_exception,                     ONLY: finish
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm_cfl
@@ -40,6 +40,7 @@ MODULE mo_art_sedi_interface
                                           &   t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data, UNDEF_INT_ART
   USE mo_art_clipping,                  ONLY: art_clip_lt
+  USE mo_art_config,                    ONLY: art_config
 ! sedimentation and deposition routines
   USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
   USE mo_art_sedi_depo,                 ONLY: art_calc_v_sed_dep
@@ -153,7 +154,7 @@ SUBROUTINE art_sedi_interface( p_patch, &
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
   
-  IF(art_config(jg)%lart) THEN 
+  IF(lart) THEN 
   
     ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
     

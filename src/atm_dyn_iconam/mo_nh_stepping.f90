@@ -40,7 +40,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
   USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                    ldynamics, ltransport, ntracer, lforcing, iforcing, &
-    &                                    msg_level, test_mode, output_mode
+    &                                    msg_level, test_mode, output_mode, lart
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_radiation_config,         ONLY: albedo_type
@@ -118,7 +118,6 @@ MODULE mo_nh_stepping
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
-  USE mo_art_config,               ONLY: art_config
                                    
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sstice, update_ndvi
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
@@ -1205,7 +1204,7 @@ MODULE mo_nh_stepping
 
           IF (lstep_adv(jg)) THEN
 
-            IF (art_config(jg)%lart) THEN
+            IF (lart) THEN
               CALL art_emission_interface(                       &
                 &      ext_data(jg),                             &!in
                 &      p_patch(jg),                              &!in
@@ -1237,7 +1236,7 @@ MODULE mo_nh_stepping
               &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
               &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
-            IF (art_config(jg)%lart) THEN
+            IF (lart) THEN
               CALL art_sedi_interface( p_patch(jg),             &!in
                  &      dtadv_loc,                              &!in
                  &      p_nh_state(jg)%prog_list(n_new_rcf),    &!in

@@ -54,7 +54,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               TASK_COMPUTE_RH, HINTP_TYPE_LONLAT_NNB, &
   &                               iedmf 
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, lart
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom
@@ -85,7 +85,7 @@ USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
 USE mo_advection_config,     ONLY: advection_config
-USE mo_art_config,           ONLY: t_art_config,art_config,nart_tendphy
+USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
@@ -2316,20 +2316,15 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    TYPE(t_art_config), POINTER :: artconf
-
     INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
     INTEGER :: ibits, ktracer, ist
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
-    ! ART: pointer to art_config(jg) to save some paperwork
-    artconf => art_config(k_jg)
-
     shape3d    = (/nproma, klev  , kblks            /)
     shape3dkp1 = (/nproma, klev+1, kblks            /)
 
-    IF (artconf%lart) THEN
+    IF (lart) THEN
      shape4d    = (/nproma, klev  , kblks, nqtendphy+nart_tendphy /)
     ELSE
      shape4d    = (/nproma, klev  , kblks, nqtendphy /)
@@ -2483,7 +2478,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape4d,&
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    IF (artconf%lart) THEN
+    IF (lart) THEN
      ktracer=nqtendphy+nart_tendphy
     ELSE
      ktracer=nqtendphy
@@ -2518,7 +2513,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & ldims=shape3d, lrestart=.FALSE.)
 
         ! art
-        IF (artconf%lart) THEN
+        IF (lart) THEN
           CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list, &
                     & 'ddt_', phy_tend%tracer_turb_ptr,                 &
                     & advection_config(k_jg), phy_tend=phy_tend,        &
@@ -2532,7 +2527,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape4d,&
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    IF (artconf%lart) THEN
+    IF (lart) THEN
      ktracer=nqtendphy+nart_tendphy 
     ELSE
      ktracer=nqtendphy 
@@ -2565,7 +2560,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & ldims=shape3d)
 
         ! art
-        IF (artconf%lart) THEN
+        IF (lart) THEN
           CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list, &
                     & 'ddt_', phy_tend%tracer_conv_ptr,                 &
                     & advection_config(k_jg), phy_tend=phy_tend,        &

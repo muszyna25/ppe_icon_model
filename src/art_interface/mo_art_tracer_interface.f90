@@ -28,10 +28,11 @@ MODULE mo_art_tracer_interface
   USE mo_advection_config,              ONLY: t_advection_config
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_tend
   USE mo_nonhydro_types,                ONLY: t_nh_prog
-  USE mo_art_config,                    ONLY: art_config
+  USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
+  USE mo_art_config,                    ONLY: art_config
 #endif
 
   IMPLICIT NONE
@@ -84,7 +85,7 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
   !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
-  IF (art_config(jg)%lart) THEN
+  IF (lart) THEN
     CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
       
     CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&

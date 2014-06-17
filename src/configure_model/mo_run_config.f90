@@ -31,6 +31,7 @@ MODULE mo_run_config
   PRIVATE
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
+  PUBLIC :: lart
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
@@ -60,6 +61,8 @@ MODULE mo_run_config
 
     LOGICAL :: ltransport      !< Switch on tracer transport
     INTEGER :: ntracer         !< Total number of advected tracers
+
+    LOGICAL :: lart            !< switch for ICON-ART (Treatment of Aerosols and Trace Gases)
 
     LOGICAL :: lvert_nest         !< switch for vertical nesting
     INTEGER :: num_lev  (MAX_DOM) !< number of full levels for each domain
