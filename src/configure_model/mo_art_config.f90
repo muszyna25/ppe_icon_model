@@ -13,6 +13,7 @@
 !! @par Revision History
 !! Initial revision by Daniel Reinert, DWD (2011-12-08)
 !! Modifications by Kristina Lundgren, KIT (2012-07-03)
+!! Modifications by Daniel Rieger,     KIT (2014-17-06)
 !!
 !! @par Copyright and License
 !!
@@ -43,70 +44,42 @@ MODULE mo_art_config
     TYPE(t_geographical_coordinates) :: location !< geographical position
   END TYPE t_volc_list
 
-  TYPE t_art_config
+  TYPE t_art_config ! Namelist variables for ART
 
-    ! namelist variables
+    ! Namelist variables
 
-    ! Sea Salt Aerosol
-    LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
+    ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
+    CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
     
-    ! Mineral Dust Aerosol
-    LOGICAL :: lart_dust           !< Treatment of mineral dust aerosol (TRUE/FALSE)
+    ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
+    LOGICAL :: lart_chem               !< Main switch to enable chemistry
+    INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
     
-    ! Processes
-    LOGICAL :: lart_emiss          !< Emission of aerosol (TRUE/FALSE)
-
-    LOGICAL :: lart_conv           !< Convection of aerosol (TRUE/FALSE)
-
-    LOGICAL :: lart_turb           !< Turbulent diffusion of aerosol (TRUE/FALSE)
-
-    LOGICAL :: lart_wash           !< Washout of aerosol (TRUE/FALSE)
-
-    LOGICAL :: lart_rad            !< Radiative impact of aerosol (TRUE/FALSE)
-
-    LOGICAL :: lart_cloud          !< Cloud aerosol interaction (TRUE/FALSE)
-
-    ! Volcanic Ash Aerosol
-    LOGICAL :: lart_volcano        !< Treatment of volcanic ash (TRUE/FALSE)
-
-    INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
-
-    LOGICAL :: lart_volclist    !< Use list of volcanoes from namelist (TRUE/FALSE)
+    ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
+    LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
+    INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
+    INTEGER :: iart_dust               !< Treatment of mineral dust aerosol
+    INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
+    INTEGER :: iart_fire               !< Treatment of wildfire aerosol
+    INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
+    CHARACTER(LEN=120) :: cart_volcano_file  !< Absolute path + filename of input file for volcanoes
+    INTEGER :: iart_radioact           !< Treatment of radioactive particles
+    CHARACTER(LEN=120) :: cart_radioact_file !< Absolute path + filename of input file for radioactive emissions
+    INTEGER :: iart_pollen             !< Treatment of pollen
     
-   INTEGER                     :: nvolc             !< Number ov volcanoes
-   
-   TYPE(t_volc_list), POINTER  :: volclist(:,:)    !< (idx,blk)
-   
-   CHARACTER (LEN=120) :: volcanofile_path  !< Path of volcano file
-   
-   ! for radioactive tracers
-
-   LOGICAL :: lart_radioact                !< Treatment of radioactive nuclides (TRUE/FALSE)
-
-   LOGICAL :: lart_decay_radioact          !< Treatment of radioactive decay (TRUE/FALSE)   
-   
-   CHARACTER (LEN=120) :: radioactfile_path !< Path of emission file for radiactive nuclides
-   
-   ! for chemical tracers
-
-   LOGICAL :: lart_chemtracer                !< Treatment of chemical tracer (TRUE/FALSE)
-
-   LOGICAL :: lart_loss_chemtracer           !< Treatment of chemical loss (TRUE/FALSE)
-
-   ! general info
-   
-    CHARACTER(LEN=120) :: art_folder
-
-   !For specification of locations.
-
-   INTEGER                     :: nblks,npromz              
-   INTEGER                     :: nconv_tracer     ! number of tracers in convection 
-   INTEGER                     :: nturb_tracer     ! number of tracers in turbulence 
+    ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
+    INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
+    INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
+    INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
+    
+    ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
+    LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
+    INTEGER :: nconv_tracer            !< number of tracers in convection 
+    LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
+    INTEGER :: nturb_tracer            !< number of tracers in turbulence 
 
   END TYPE t_art_config
 
-  !>
-  !!
   TYPE(t_art_config), TARGET :: art_config(0:max_dom)
 
 
@@ -122,15 +95,13 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-12-08)
-  !! Modification by kristina Lundgren, KIT (2012-11-27)
+  !! Modification by Kristina Lundgren, KIT (2012-11-27)
   !
   SUBROUTINE configure_art(jg)
-  !
-    INTEGER, INTENT(IN) :: jg           !< patch 
+    INTEGER, INTENT(IN) :: jg          !< patch 
 
-    !-----------------------------------------------------------------------
-  art_config(jg)%nconv_tracer=0
-  art_config(jg)%nturb_tracer=0
+    art_config(jg)%nconv_tracer=0
+    art_config(jg)%nturb_tracer=0
  
   END SUBROUTINE configure_art
 

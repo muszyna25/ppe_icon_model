@@ -78,31 +78,37 @@ SUBROUTINE art_reaction_interface( p_patch,p_dtime,p_prog_list,p_diag,p_tracer_n
   jg  = p_patch%id
 
   IF(lart) THEN
-
-    ! ----------------------------------
-    ! --- Radioactive particles
-    ! ----------------------------------
-    this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-  
-    DO WHILE(ASSOCIATED(this_mode))
-      ! Select type of mode
-      select type (fields=>this_mode%fields)
-        type is (t_fields_radio)
-          CALL  art_decay_radioact(p_patch,p_dtime,p_tracer_now(:,:,:,fields%itracer),fields%halflife) 
-      end select                  
-      this_mode => this_mode%next_mode
-    END DO
-  
-    NULLIFY(this_mode)
-  
+    IF (art_config(jg)%lart_aerosol) THEN
+      ! ----------------------------------
+      ! --- Radioactive particles
+      ! ----------------------------------
+      this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+    
+      DO WHILE(ASSOCIATED(this_mode))
+        ! Select type of mode
+        select type (fields=>this_mode%fields)
+          type is (t_fields_radio)
+            CALL  art_decay_radioact(p_patch,p_dtime,p_tracer_now(:,:,:,fields%itracer),fields%halflife) 
+        end select                  
+        this_mode => this_mode%next_mode
+      END DO
+    
+      NULLIFY(this_mode)
+      
+    ENDIF !lart_aerosol
+    
     ! ----------------------------------
     ! --- chemical tracer reactions
     ! ----------------------------------
-
-    IF (art_config(jg)%lart_chemtracer) THEN !chemical tracer
-      CALL art_loss_chemtracer(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
-    ENDIF
   
+    IF (art_config(jg)%lart_chem) THEN
+    
+      IF (art_config(jg)%iart_chem_mechanism == 0) THEN
+        CALL art_loss_chemtracer(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
+      ENDIF
+      
+    ENDIF
+
   ENDIF ! lart
 #endif
 

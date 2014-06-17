@@ -89,43 +89,44 @@ SUBROUTINE art_washout_interface(            & !>in
 
   jg  = p_patch%id
 
-  IF(lart .AND. art_config(jg)%lart_wash) THEN 
+  IF(lart) THEN 
+    IF (art_config(jg)%lart_aerosol) THEN
+      CALL art_air_properties(p_patch,p_art_data(jg))
       
-    CALL art_air_properties(p_patch,p_art_data(jg))
+      this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+     
+      DO WHILE(ASSOCIATED(this_mode))
+        ! Select type of mode
+        select type (fields=>this_mode%fields)
+        
+          class is (t_fields_2mom)
+            ! Before washout, the modal parameters have to be calculated
+            call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
+            call art_aerosol_washout(fields,p_patch,dt_phy_jg,prm_diag,p_nh_state(jg), &
+                              &      p_tracer_new,p_rho,p_art_data(jg))
+                              
+          class is (t_fields_volc)
+            call art_washout_volc(p_patch,dt_phy_jg,prm_diag,   &
+                           &      p_tracer_new,p_rho,fields%itracer)
+                           
+          class is (t_fields_radio)
+            call art_washout_radioact(fields,p_patch,dt_phy_jg,prm_diag,  &
+                               &      p_tracer_new,p_rho,p_art_data(jg))
+                               
+          class default
+            call finish('mo_art_washout_interface:art_washout_interface', &
+                 &      'ART: Unknown mode field type')
+        end select
+                                  
+        this_mode => this_mode%next_mode
+      END DO
     
-    this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-   
-    DO WHILE(ASSOCIATED(this_mode))
-      ! Select type of mode
-      select type (fields=>this_mode%fields)
-      
-        class is (t_fields_2mom)
-          ! Before washout, the modal parameters have to be calculated
-          call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
-          call art_aerosol_washout(fields,p_patch,dt_phy_jg,prm_diag,p_nh_state(jg), &
-                            &      p_tracer_new,p_rho,p_art_data(jg))
-                            
-        class is (t_fields_volc)
-          call art_washout_volc(p_patch,dt_phy_jg,prm_diag,   &
-                         &      p_tracer_new,p_rho,fields%itracer)
-                         
-        class is (t_fields_radio)
-          call art_washout_radioact(fields,p_patch,dt_phy_jg,prm_diag,  &
-                             &      p_tracer_new,p_rho,p_art_data(jg))
-                             
-        class default
-          call finish('mo_art_washout_interface:art_washout_interface', &
-               &      'ART: Unknown mode field type')
-      end select
-                                
-      this_mode => this_mode%next_mode
-    END DO
-  
-  ! ----------------------------------
-  ! --- Clip the tracers
-  ! ----------------------------------
-  
-    CALL art_clip_lt(p_tracer_new,0.0_wp)
+      ! ----------------------------------
+      ! --- Clip the tracers
+      ! ----------------------------------
+    
+      CALL art_clip_lt(p_tracer_new,0.0_wp)
+    ENDIF
   ENDIF
 #endif
 

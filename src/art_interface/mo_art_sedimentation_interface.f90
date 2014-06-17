@@ -144,7 +144,7 @@ SUBROUTINE art_sedi_interface( p_patch, &
   
   jg     = p_patch%id
   nlevp1 = p_patch%nlevp1      !< Number of vertical half levels
-  nlev       = p_patch%nlev    !< Number of vertical full levels
+  nlev   = p_patch%nlev    !< Number of vertical full levels
   nblks  = p_patch%nblks_c
   
   !Get all cell enitities, except halos
@@ -154,97 +154,99 @@ SUBROUTINE art_sedi_interface( p_patch, &
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
   
-  IF(lart) THEN 
-  
-    ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
+  IF(lart) THEN
+    IF (art_config(jg)%lart_aerosol) THEN
     
-!drieg: Necessary depending on parameterizations that will be used
-!    CALL art_air_properties(p_patch,p_art_data(jg))
-    this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-   
-    DO WHILE(ASSOCIATED(this_mode))
-      ! Select type of mode
-      select type (fields=>this_mode%fields)
+      ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
       
-        class is (t_fields_2mom)
-          ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
-          call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
-          
-          call art_calc_v_sed_dep(p_patch,p_metrics,p_prog,p_diag,fields,p_rho,p_tracer_new)
-          mflx_contra_vsed => fields%flx_contra_vsed3
-          nflx_contra_vsed => fields%flx_contra_vsed0
-          
-        class is (t_fields_volc)
-          call art_sedi_volc( p_patch,p_metrics,p_rho,            &
-            &              p_diag,                                & 
-            &              fields%diam,fields%rho,                &
-            &              fields%flx_contra_vsed3,               &
-            &              fields%itracer) 
-          mflx_contra_vsed => fields%flx_contra_vsed3
-        class is (t_fields_radio)
-         
-        class default
-          call finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
-            &         'ART: Unknown mode field type')
-      end select
-      
-      ! here the number needs to be accounted for, too
-      do i=0, this_mode%fields%info%njsp !< loop through the tracer mass mixing ratios contained in the mode
-        if (i .NE. 0) then !< get index of mass mixing ratio of the species contained in this_mode
-          jsp = this_mode%fields%info%jsp(i)
-          flx_contra_vsed => mflx_contra_vsed
-        else               !< get index of number mixing ratio of this_mode
-          jsp = this_mode%fields%info%i_number_conc
-          flx_contra_vsed => nflx_contra_vsed
-        endif
+  !drieg: Necessary depending on parameterizations that will be used
+  !    CALL art_air_properties(p_patch,p_art_data(jg))
+      this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+     
+      DO WHILE(ASSOCIATED(this_mode))
+        ! Select type of mode
+        select type (fields=>this_mode%fields)
         
-        if (jsp .NE. UNDEF_INT_ART) then !< for monodisperse tracer, i_number_conc = UNDEF_INT_ART
-        
-          ! ----------------------------------
-          ! --- calculate vertical flux term due to sedimentation
-          ! ----------------------------------
-        
-          CALL upwind_vflux_ppm_cfl(p_patch, p_tracer_new(:,:,:,jsp),           & !< in
-            &                       iubc, flx_contra_vsed, p_dtime,            & !< in! we need here nflx if i = 0
-            &                       lcompute_gt, lcleanup_gt, itype_vlimit,     & !< in
-            &                       p_cellhgt_mc_now, p_rhodz_new, lprint_cfl,  & !< in
-            &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )        !< out
-
-          ! ----------------------------------
-          ! --- update mixing ratio after sedimentation
-          ! ----------------------------------        
-        
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-              &                i_startidx, i_endidx, i_rlstart, i_rlend)
-            DO jk = 1, nlev
-              ! index of bottom half level
-              ikp1 = jk + 1
-              DO jc = i_startidx, i_endidx
-  
-                sedim_update = (p_dtime * (  p_upflux_sed(jc,jk,  jb)   &
-                   &                      - p_upflux_sed(jc,ikp1,jb) )  &
-                   &         / p_rhodz_new(jc,jk,jb))
+          class is (t_fields_2mom)
+            ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
+            call fields%modal_param(p_art_data(jg),p_patch,p_tracer_new)
             
-                p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp) - sedim_update
+            call art_calc_v_sed_dep(p_patch,p_metrics,p_prog,p_diag,fields,p_rho,p_tracer_new)
+            mflx_contra_vsed => fields%flx_contra_vsed3
+            nflx_contra_vsed => fields%flx_contra_vsed0
             
-              END DO!jc
-            END DO !jk
-          END DO !jb
-        endif !jsp .ne. -999
-      end do !i
-      
-      this_mode => this_mode%next_mode
-    END DO
+          class is (t_fields_volc)
+            call art_sedi_volc( p_patch,p_metrics,p_rho,            &
+              &              p_diag,                                & 
+              &              fields%diam,fields%rho,                &
+              &              fields%flx_contra_vsed3,               &
+              &              fields%itracer) 
+            mflx_contra_vsed => fields%flx_contra_vsed3
+          class is (t_fields_radio)
+           
+          class default
+            call finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
+              &         'ART: Unknown mode field type')
+        end select
+        
+        ! here the number needs to be accounted for, too
+        do i=0, this_mode%fields%info%njsp !< loop through the tracer mass mixing ratios contained in the mode
+          if (i .NE. 0) then !< get index of mass mixing ratio of the species contained in this_mode
+            jsp = this_mode%fields%info%jsp(i)
+            flx_contra_vsed => mflx_contra_vsed
+          else               !< get index of number mixing ratio of this_mode
+            jsp = this_mode%fields%info%i_number_conc
+            flx_contra_vsed => nflx_contra_vsed
+          endif
+          
+          if (jsp .NE. UNDEF_INT_ART) then !< for monodisperse tracer, i_number_conc = UNDEF_INT_ART
+          
+            ! ----------------------------------
+            ! --- calculate vertical flux term due to sedimentation
+            ! ----------------------------------
+          
+            CALL upwind_vflux_ppm_cfl(p_patch, p_tracer_new(:,:,:,jsp),           & !< in
+              &                       iubc, flx_contra_vsed, p_dtime,            & !< in! we need here nflx if i = 0
+              &                       lcompute_gt, lcleanup_gt, itype_vlimit,     & !< in
+              &                       p_cellhgt_mc_now, p_rhodz_new, lprint_cfl,  & !< in
+              &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )        !< out
   
-  ! ----------------------------------
-  ! --- Clip the tracers
-  ! ----------------------------------
-
-    CALL art_clip_lt(p_tracer_new,0.0_wp)
+            ! ----------------------------------
+            ! --- update mixing ratio after sedimentation
+            ! ----------------------------------        
+          
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                &                i_startidx, i_endidx, i_rlstart, i_rlend)
+              DO jk = 1, nlev
+                ! index of bottom half level
+                ikp1 = jk + 1
+                DO jc = i_startidx, i_endidx
     
-    DEALLOCATE(p_upflux_sed)
-  ENDIF
+                  sedim_update = (p_dtime * (  p_upflux_sed(jc,jk,  jb)   &
+                     &                      - p_upflux_sed(jc,ikp1,jb) )  &
+                     &         / p_rhodz_new(jc,jk,jb))
+              
+                  p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp) - sedim_update
+              
+                END DO!jc
+              END DO !jk
+            END DO !jb
+          endif !jsp .ne. -999
+        end do !i
+        
+        this_mode => this_mode%next_mode
+      END DO
+    
+    ! ----------------------------------
+    ! --- Clip the tracers
+    ! ----------------------------------
+  
+      CALL art_clip_lt(p_tracer_new,0.0_wp)
+      
+      DEALLOCATE(p_upflux_sed)
+    ENDIF !lart_aerosol
+  ENDIF !lart
 
 #endif
 

@@ -42,62 +42,44 @@ MODULE mo_art_nml
   !----------------------------------!
   ! art_nml namelist variables       !
   !----------------------------------!
-
- TYPE t_list_volcanoes
-    REAL(wp)           :: lat, lon
-    CHARACTER (LEN=20) :: zname
-!    INTEGER            :: nstart
+  
+  ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
+  CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
     
- END TYPE t_list_volcanoes
-
-    TYPE (t_list_volcanoes) :: art_volclist_tot(max_volc_input) !>list of volcanoes
-                                   
-    LOGICAL :: lart_seasalt        !< Treatment of sea salt aerosol (TRUE/FALSE)
+  ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
+  LOGICAL :: lart_chem               !< Main switch to enable chemistry
+  INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
     
-    LOGICAL :: lart_dust           !< Treatment of mineral dust aerosol (TRUE/FALSE)
-
-    LOGICAL :: lart_volcano        !< Treatment of volcanic ash (TRUE/FALSE)
-
-    LOGICAL :: lart_emiss          !< Emission of volcanic ash (TRUE/FALSE)
-
-    LOGICAL :: lart_conv           !< Convection of volcanic ash (TRUE/FALSE)
-
-    LOGICAL :: lart_wash           !< Washout of volcanic ash (TRUE/FALSE)
-
-    LOGICAL :: lart_rad            !< Radiative impact of volcanic ash (TRUE/FALSE)
-
-    LOGICAL :: lart_cloud          !< Cloud volcanic ash interaction (TRUE/FALSE)
-
-    INTEGER :: nart_emis_volcano_update    !< Time interval for reading volcano emission file
-
-    LOGICAL :: lart_volclist  !< Input of Volcano coordinates. TRUE:use nml, FALSE:external data file is used.
-
-    CHARACTER (LEN=120) :: volcanofile_path
+  ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
+  LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
+  INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
+  INTEGER :: iart_dust               !< Treatment of mineral dust aerosol
+  INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
+  INTEGER :: iart_fire               !< Treatment of wildfire aerosol
+  INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
+  CHARACTER(LEN=120) :: cart_volcano_file  !< Absolute path + filename of input file for volcanoes
+  INTEGER :: iart_radioact           !< Treatment of radioactive particles
+  CHARACTER(LEN=120) :: cart_radioact_file !< Absolute path + filename of input file for radioactive emissions
+  INTEGER :: iart_pollen             !< Treatment of pollen
     
-    CHARACTER (LEN=120) :: art_folder
+  ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
+  INTEGER :: iart_aci_warm           !< Nucleation of aerosol to cloud droplets
+  INTEGER :: iart_aci_cold           !< Nucleation of aerosol to cloud ice
+  INTEGER :: iart_ari                !< Direct interaction of aerosol with radiation
+    
+  ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
+  LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
+  LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
-    LOGICAL :: lart_radioact                !< Treatment of volcanic ash (TRUE/FALSE)
-   
-    LOGICAL :: lart_decay_radioact          !< Treatment of volcanic ash (TRUE/FALSE)
-
-    CHARACTER (LEN=120) :: radioactfile_path
-
-    LOGICAL :: lart_chemtracer                !< Treatment of chemical tracer (TRUE/FALSE)
-
-    LOGICAL :: lart_loss_chemtracer           !< Treatment of chemical loss (TRUE/FALSE)
-
-    NAMELIST/art_nml/ lart_seasalt, lart_dust, lart_volcano, lart_emiss,        &
-   &               lart_conv, lart_wash, lart_rad, lart_cloud,                        &
-   &               nart_emis_volcano_update,art_volclist_tot, lart_volclist,          &
-   &               volcanofile_path,lart_radioact,lart_decay_radioact,                &
-   &               radioactfile_path, lart_chemtracer,lart_loss_chemtracer, art_folder
+  NAMELIST/art_nml/ cart_folder, lart_chem, iart_chem_mechanism,                       &
+   &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
+   &                iart_volcano, cart_volcano_file, iart_radioact,                    &
+   &                cart_radioact_file, iart_pollen,                                   &
+   &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
+   &                lart_conv, lart_turb
 
 CONTAINS
-
-
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Read Namelist for ART-package. 
   !!
@@ -108,17 +90,18 @@ CONTAINS
   !!   previous integration (if this is a resumed run)
   !! - reads the user's (new) specifications
   !! - stores the Namelist for restart
-  !! - fills the configuration state (partly)   
+  !! - fills the configuration state (partly)
   !!
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-12-08)
+  !!  by Daniel Rieger,  KIT (2014-17-06)
   !!
   SUBROUTINE read_art_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
-    INTEGER :: jb, jc, nblks, npromz, nvolc, ivolc   
+    INTEGER :: jb, jc, nblks, npromz, ivolc   
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_art_nml: read_art_nml'
     INTEGER :: iunit
@@ -126,34 +109,35 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lart_seasalt        = .FALSE.        ! Treatment of sea salt aerosol
-    lart_dust           = .FALSE.        ! Treatment of mineral dust aerosol
-    lart_volcano        = .FALSE.        ! Treatment of volcanic ash
-    lart_emiss   = .FALSE.        ! Emission of volcanic ash
-    lart_conv   = .FALSE.        ! Convection of volcanic ash
-    lart_wash   = .FALSE.        ! Washout of volcanic ash 
-    lart_rad    = .FALSE.        ! Radiative impact of volcanic ash
-    lart_cloud  = .FALSE.        ! Impact on clouds
-
-    nart_emis_volcano_update= 0          ! Time interval for reading emission file
-    lart_volclist=.FALSE.
-    art_volclist_tot(:)%lon   = -1000._wp     ! Longitude coordinate of each volcano. 
-                                           !-1000 is used for creating the list of volcanoes.  
-    art_volclist_tot(:)%lat   = 0._wp     ! Latitude coordinate of each volcano
-    art_volclist_tot(:)%zname = ""        ! Name of volcanoes
-!   art_volclist_tot(:)%nstart= 1         ! Start time of volcanic eruption
-
-    volcanofile_path          =  "./volcanofile"
-
-    lart_radioact             = .FALSE.    !< Treatment of radioactive nuclides
-    lart_decay_radioact       = .FALSE.    !< Treatment of radioactive decay
-    radioactfile_path         =  "./radioactfile"
-
-    lart_chemtracer           = .FALSE.     !< Treatment of chemical tracer (TRUE/FALSE)
-    lart_loss_chemtracer      = .FALSE.     !< Treatment of chemical loss (TRUE/FALSE)
-
-    art_folder                =  "./art/"
-
+      
+    ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
+    cart_folder         = './art/'
+      
+    ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
+    lart_chem           = .FALSE.
+    iart_chem_mechanism = 0
+      
+    ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
+    lart_aerosol        = .FALSE.
+    iart_seasalt        = 0
+    iart_dust           = 0
+    iart_anthro         = 0
+    iart_fire           = 0
+    iart_volcano        = 0
+    cart_volcano_file   = './volcanofile'
+    iart_radioact       = 0
+    cart_radioact_file  = './radioactfile'
+    iart_pollen         = 0
+      
+    ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
+    iart_aci_warm       = 0
+    iart_aci_cold       = 0
+    iart_ari            = 0
+      
+    ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
+    lart_conv           = .TRUE.
+    lart_turb           = .TRUE.
+    
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -195,60 +179,36 @@ CONTAINS
     ! 5. Fill the configuration state
     !----------------------------------------------------
     
-    ! Determine lenght of volcano list, i.e. number ov volcanoes
-      nvolc=0
-      DO
-        nvolc = nvolc + 1
-        IF (nvolc > max_volc_input) THEN
-          CALL message(TRIM(routine), 'number of volcanos in input file &
-        & exeedes maximum allowed number of 20, please use file input')
-          EXIT           ! maximum number reached.
-        ENDIF
-        IF (art_volclist_tot(nvolc)%lon == -1000._wp) EXIT   ! default value --> this component is not filled. Max. comp. reached.
-      ENDDO
-      nvolc=nvolc-1
     DO jg= 0,max_dom
-      art_config(jg)%lart_seasalt             = lart_seasalt
-      art_config(jg)%lart_dust                = lart_dust
-      art_config(jg)%lart_volcano             = lart_volcano
-      art_config(jg)%lart_emiss               = lart_emiss
-      art_config(jg)%lart_conv                = lart_conv
-      art_config(jg)%lart_wash                = lart_wash
-      art_config(jg)%lart_rad                 = lart_rad
-      art_config(jg)%lart_cloud               = lart_cloud
-      art_config(jg)%nart_emis_volcano_update = nart_emis_volcano_update 
-      art_config(jg)%lart_volclist            = lart_volclist
-      art_config(jg)%nvolc                    = nvolc
-      art_config(jg)%volcanofile_path         = volcanofile_path
-      art_config(jg)%lart_radioact            = lart_radioact
-      art_config(jg)%lart_decay_radioact      = lart_radioact
-      art_config(jg)%radioactfile_path        = radioactfile_path
-      art_config(jg)%lart_chemtracer          = lart_chemtracer
-      art_config(jg)%lart_loss_chemtracer     = lart_loss_chemtracer
-      art_config(jg)%art_folder               = art_folder
+      ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
+      art_config(jg)%cart_folder         = TRIM(cart_folder)
+    
+      ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
+      art_config(jg)%lart_chem           = lart_chem
+      art_config(jg)%iart_chem_mechanism = iart_chem_mechanism
       
-      nblks=nvolc/nproma+1
-      npromz=nvolc-nproma*(nblks-1)
-      art_config(jg)%nblks         = nblks   ! 
-      art_config(jg)%npromz        = npromz  !  
+      ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
+      art_config(jg)%lart_aerosol        = lart_aerosol
+      art_config(jg)%iart_seasalt        = iart_seasalt
+      art_config(jg)%iart_dust           = iart_dust
+      art_config(jg)%iart_anthro         = iart_anthro
+      art_config(jg)%iart_fire           = iart_fire
+      art_config(jg)%iart_volcano        = iart_volcano
+      art_config(jg)%cart_volcano_file   = TRIM(cart_volcano_file)
+      art_config(jg)%iart_radioact       = iart_radioact
+      art_config(jg)%cart_radioact_file  = TRIM(cart_radioact_file)
+      art_config(jg)%iart_pollen         = iart_pollen
+      
+     ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
+      art_config(jg)%iart_aci_warm       = iart_aci_warm
+      art_config(jg)%iart_aci_cold       = iart_aci_cold
+      art_config(jg)%iart_ari            = iart_ari
+      
+      ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
+      art_config(jg)%lart_conv           = lart_conv
+      art_config(jg)%lart_turb           = lart_turb
 
-      ALLOCATE(art_config(jg)%volclist(nproma,nblks))
-
-      jc=0
-      jb=1
-       DO ivolc=1,nvolc
-          jc=jc+1
-          IF (jc>nproma) THEN
-            jc = 1
-            jb = jb + 1
-          ENDIF
-          art_config(jg)%volclist(jc,jb)%zname=art_volclist_tot(ivolc)%zname
-          art_config(jg)%volclist(jc,jb)%location%lat=art_volclist_tot(ivolc)%lat
-          art_config(jg)%volclist(jc,jb)%location%lon=art_volclist_tot(ivolc)%lon
-       ENDDO !nvolc
     ENDDO !jg
-
-
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

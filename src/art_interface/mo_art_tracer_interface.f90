@@ -32,7 +32,6 @@ MODULE mo_art_tracer_interface
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
-  USE mo_art_config,                    ONLY: art_config
 #endif
 
   IMPLICIT NONE

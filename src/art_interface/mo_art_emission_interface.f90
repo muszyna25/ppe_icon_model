@@ -92,81 +92,90 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer
 
     CALL art_air_properties(p_patch,p_art_data(jg))
        
-    this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
-   
-    DO WHILE(ASSOCIATED(this_mode))
-      ! Select type of mode
-      select type (fields=>this_mode%fields)
-        type is (t_fields_2mom)
-          ! Before emissions, the modal parameters have to be calculated
-          call fields%modal_param(p_art_data(jg),p_patch,p_tracer_now)
-          ! Now the according emission routine has to be found
-          select case(TRIM(fields%info%name))
-            case ('seasa')
-              call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('seasb')
-              call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('seasc')
-              call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('dusta')
-              call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('dustb')
-              call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case ('dustc')
-              call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
-            case default
-              call finish('mo_art_emission_interface:art_emission_interface', &
-                   &      'No according emission routine to mode'//TRIM(fields%info%name))
-          end select
-        class is (t_fields_radio)
-          select case(TRIM(fields%info%name))
-            case ('CS137')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iCS137),373)
-            case ('I131')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131),340)
-            case ('TE132')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iTE132),325)
-            case ('ZR95')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iZR95),184)
-            case ('XE133')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iXE133),355)
-            case ('I131g')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131g),870)
-            case ('I131o')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131o),880)
-            case ('BA140')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iBA140),384)
-            case ('RU103')
-              call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iRU103),220)
-            ! And Default...
-            case default
-              call finish('mo_art_emission_interface:art_emission_interface', &
-                   &      'No according emission routine to mode')
-          end select
-        class is (t_fields_volc)
-          ! nothing to do here, see below
-        class default
-          call finish('mo_art_emission_interface:art_emission_interface', &
-               &      'ART: Unknown mode field type')
-      end select
-      this_mode => this_mode%next_mode
-    END DO
-  END IF
-  ! ----------------------------------
-  ! --- volcano emissions
-  ! ----------------------------------
+    IF (art_config(jg)%lart_aerosol) THEN
+       
+      this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+     
+      DO WHILE(ASSOCIATED(this_mode))
+        ! Select type of mode
+        select type (fields=>this_mode%fields)
+          type is (t_fields_2mom)
+            ! Before emissions, the modal parameters have to be calculated
+            call fields%modal_param(p_art_data(jg),p_patch,p_tracer_now)
+            ! Now the according emission routine has to be found
+            select case(TRIM(fields%info%name))
+              case ('seasa')
+                call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
+              case ('seasb')
+                call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
+              case ('seasc')
+                call art_emission_seas(fields,p_patch,p_dtime,p_rho,p_tracer_now)
+              case ('dusta')
+                call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
+              case ('dustb')
+                call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
+              case ('dustc')
+                call art_emission_dust(fields,p_patch,p_dtime,p_rho,p_tracer_now)
+              case default
+                call finish('mo_art_emission_interface:art_emission_interface', &
+                     &      'No according emission routine to mode'//TRIM(fields%info%name))
+            end select
+          class is (t_fields_radio)
+            select case(TRIM(fields%info%name))
+              case ('CS137')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iCS137),373)
+              case ('I131')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131),340)
+              case ('TE132')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iTE132),325)
+              case ('ZR95')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iZR95),184)
+              case ('XE133')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iXE133),355)
+              case ('I131g')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131g),870)
+              case ('I131o')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iI131o),880)
+              case ('BA140')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iBA140),384)
+              case ('RU103')
+                call art_emiss_radioact(p_patch,p_dtime,p_rho,p_tracer_now(:,:,:,iRU103),220)
+              ! And Default...
+              case default
+                call finish('mo_art_emission_interface:art_emission_interface', &
+                     &      'No according emission routine to mode')
+            end select
+          class is (t_fields_volc)
+            ! nothing to do here, see below
+          class default
+            call finish('mo_art_emission_interface:art_emission_interface', &
+                 &      'ART: Unknown mode field type')
+        end select
+        this_mode => this_mode%next_mode
+      ENDDO
   
-  IF (art_config(jg)%lart_volcano) THEN
-    CALL art_organize_emission_volc(p_patch,p_dtime,p_rho,p_tracer_now) 
-  ENDIF
-
-  ! ----------------------------------
-  ! --- emissions of chemical tracer
-  ! ----------------------------------
-
-  IF (art_config(jg)%lart_chemtracer) THEN
-    CALL art_emiss_chemtracer(ext_data,p_patch,p_dtime,p_diag,p_tracer_now)
-  ENDIF
+      ! ----------------------------------
+      ! --- volcano emissions
+      ! ----------------------------------
+    
+      IF (art_config(jg)%iart_volcano == 1) THEN
+        CALL art_organize_emission_volc(p_patch,p_dtime,p_rho,p_tracer_now) 
+      ENDIF
+    ENDIF !lart_aerosol
+    
+    ! ----------------------------------
+    ! --- emissions of chemical tracer
+    ! ----------------------------------
+  
+    IF (art_config(jg)%lart_chem) THEN
+    
+      IF (art_config(jg)%iart_chem_mechanism == 0) THEN
+        CALL art_emiss_chemtracer(ext_data,p_patch,p_dtime,p_diag,p_tracer_now)
+      ENDIF
+      
+    ENDIF
+    
+  ENDIF !lart
        
 #endif
 
