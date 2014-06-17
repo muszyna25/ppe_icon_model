@@ -4104,6 +4104,13 @@ TIMER\_MODE\_WRITE\_FILES=3.
 &
 \tabularnewline
 
+\hline
+lart&
+L & .FALSE.& &
+Main switch which enables the treatment of atmospheric aerosol and trace gases (The ART package of KIT is needed for this purpose)
+&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_run_nml.f90+
@@ -5599,41 +5606,7 @@ Defined and used in: \verb+src/namelists/mo_extpar_nml.f90+
 
 
 \section{External packages}
-%------------------------------------------------------------------------------
-% art_nml:
-%------------------------------------------------------------------------------
-\subsection{art\_nml}
 
-\begin{longtab}
-
-%\hline
-lart&
-L & .FALSE.& &
-main switch for ART-package&
-\tabularnewline
-lemi\_volc&
-L & .FALSE.& &
-Emission of volcanic ash&
-\tabularnewline
-lconv\_tracer&
-L & .FALSE.& &
-Convection of tracers&
-\tabularnewline
-lwash\_tracer&
-L & .FALSE.& &
-Washout of tracers&
-\tabularnewline
-lrad\_volc&
-L & .FALSE.& &
-Radiative impact of volcanic ash&
-\tabularnewline
-lcld\_tracer&
-L & .FALSE.& &
-Impact on clouds&
-\tabularnewline
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_art_nml.f90+
 
 
 \section{Information on vertical level distribution}
