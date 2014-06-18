@@ -216,19 +216,10 @@ doc/technical/icon_flowcontrol.pdf -text
 doc/technical/icon_flowcontrol.tex -text
 doc/technical/icon_grid.pdf -text
 doc/technical/icon_grid.tex -text
-doc/technical/icon_technical.aux -text
-doc/technical/icon_technical.dvi -text
-doc/technical/icon_technical.idx -text
-doc/technical/icon_technical.log -text
-doc/technical/icon_technical.out -text
 doc/technical/icon_technical.pdf -text svneol=unset#unset
 doc/technical/icon_technical.tex -text
-doc/technical/icon_technical.toc -text
 doc/technical/icondoc_fig1.pdf -text svneol=unset#unset
 doc/technical/icondoc_fig2.pdf -text
-doc/technical/notes_remap.pdf -text
-doc/technical/notes_remap.tex -text
-doc/technical/remap_intersect.pdf -text
 doc/technical/transport_arlists.tex -text
 doc/userguide/authorlist.tex -text
 doc/userguide/content/namelist.tex -text
