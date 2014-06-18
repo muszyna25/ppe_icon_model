@@ -2927,6 +2927,16 @@ convection\\
 \tabularnewline
 
 %\hline
+icapdcycl&
+I & 0 &  & Type of CAPE correction to improve diurnal cycle for convection: \\
+0 = none (IFS default prior to autumn 2013) \\
+1 = intermediate testing option \\
+2 = correctoins over land and water now operational at ECMWF \\
+3 = correction over land as in 2 restricted to the tropics, no correction over water (this choice optimizes the NWP skill scores) &
+inwp\_convection = 1
+\tabularnewline
+
+%\hline
 \textbf{inwp\_cldcover}&
 I (max\_ dom)&
 1&
@@ -4555,6 +4565,14 @@ Time smoothing factor within $[0, 1]$ for TKE. In case of $tkesmot=0$, no smooth
 frcsmot &
 R                &     0.0     & 1 &
 Vertical smoothing factor within $[0, 1]$ for TKE forcing terms. In case of $frcmot=0$, no smoothing is active. &
+\tabularnewline
+
+%\hline
+imode\_frcsmot &
+I                &     1     &  &
+1 = apply vertical smoothing (if frcsmot$>$0) uniformly over the globe \\
+2 = restrict vertical smoothing to the tropics (reduces the moist bias in the tropics while avoiding 
+    adverse effects on NWP skill scores in the extratropics) &
 \tabularnewline
 
 %\hline

@@ -114,7 +114,7 @@ done
 
 cat > ${atmo_namelist} << EOF
 &parallel_nml
- nproma         = 1024  ! valid for NEC only; set 8 for CRAY and 16 or 24 for IBM
+ nproma         = 8  ! optimal setting 8 for CRAY; use 16 or 24 for IBM
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
@@ -155,11 +155,12 @@ cat > ${atmo_namelist} << EOF
  inwp_convection = 1
  inwp_radiation  = 1
  inwp_cldcover   = 1
- inwp_turb       = 10
+ inwp_turb       = 1
  inwp_satad      = 1
  inwp_sso        = 1
  inwp_gwd        = 1
  inwp_surface    = 1
+ icapdcycl       = 3 ! apply CAPE modification to improve diurnalcycle over tropical land (optimizes NWP scores)
  latm_above_top  = .false., .true.  ! the second entry refers to the nested domain (if present)
  efdt_min_raylfric = 7200.
  itype_z0         = 2
@@ -175,6 +176,8 @@ cat > ${atmo_namelist} << EOF
  c_diff  = 0.2
  rat_sea = 9.0
  ltkesso = .true.
+ frcsmot = 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
+ imode_frcsmot = 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
 /
 &lnd_nml
  ntiles         = 3      !!! 1 for assimilation cycle and forecast
@@ -182,7 +185,7 @@ cat > ${atmo_namelist} << EOF
  lmulti_snow    = .true. !!! .false. for assimilation cycle and forecast
  itype_heatcond = 2
  idiag_snowfrac = 2
- lsnowtile      = .false.
+ lsnowtile      = .false.  !! later on .true. if GRIB encoding issues are solved
  lseaice        = .true.
  llake          = .true.
  itype_lndtbl   = 3  ! minimizes moist/cold bias in lower tropical troposphere
