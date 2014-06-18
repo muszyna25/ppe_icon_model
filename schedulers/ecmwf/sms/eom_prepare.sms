@@ -27,8 +27,7 @@ module load cdo/1.6.0
 module swap grib_api grib_api/1.11.0
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
-#dwd_grib_api=/home/ms/de/dei4
-export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
+export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.12.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0-12"
 
 case %SIMMODE% in
   1) lgetdata=1        # 0: get no data, 1: get from ecfs
@@ -164,7 +163,7 @@ if [[ $lcatdata = 1 ]] ; then
 #delete variables that give problems (e.g. Param=18.3.2 level=2 not defined at timestep 1)
  #varlist=`echo $varlist | sed "s/2.3.18_sfc//"`
  #varlist=`echo $varlist | sed "s/t_zl//"`
-varlist=`echo $varlist | sed "s/h_ml//"`
+  varlist=`echo $varlist | sed "s/h_ml//"`
   echo $varlist
 
   for var in $varlist ; do
@@ -201,26 +200,26 @@ varlist=`echo $varlist | sed "s/h_ml//"`
     DDm10=`expr ${DD} - 10`        #e.g. 20 (days of 240h verification available)
     cat ${base}*_DOM01_0001_${var}_0.grb   > ${basenameMM}_DOM01_0001_${var}_0.grb
     cat ${base}*_DOM01_0001_${var}_24.grb  > ${basenameMM}_DOM01_0001_${var}_24.grb   
-    cat ${base}*_DOM01_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb
+    cat ${base}*_DOM01_0001_${var}_240.grb > ${basenameMM}_DOM01_0001_${var}_240.grb  || true #10day
 
     cdo timselavg,${DDm1},1,100   ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
     cdo timselavg,${DDm1},0,100   ${basenameMM}_DOM01_0001_${var}_24.grb  ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
-    cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
-    cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb
+    cdo timselavg,${DDm10},10,100 ${basenameMM}_DOM01_0001_${var}_0.grb   ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb    || true #10day
+    cdo timselavg,${DDm10},0,100  ${basenameMM}_DOM01_0001_${var}_240.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb  || true #10day
 
     grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb    out.grb
                       mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
-    grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb   out.grb
-                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
+    grib_set -s stepRange=0      ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb   out.grb  || true #10day
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb            || true #10day
     grib_set -s stepRange=24     ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb   out.grb
                       mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
-    grib_set -s stepRange=240    ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb out.grb
-                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb 
+    grib_set -s stepRange=240    ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb out.grb  || true #10day
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb          || true #10day
 
     grib_set -s date=${YYYYMM}02 ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb    out.grb
                       mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb
-    grib_set -s date=${YYYYMM}11 ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb   out.grb
-                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb
+    grib_set -s date=${YYYYMM}11 ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb   out.grb  || true #10day
+                      mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb            || true #10day
     grib_set -s date=${YYYYMM}01 ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb   out.grb
                       mv out.grb ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb
     grib_set -s date=${YYYYMM}01 ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb out.grb
@@ -231,7 +230,7 @@ varlist=`echo $varlist | sed "s/h_ml//"`
       > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_24_mn2-${DD}.grb
     cat ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn11-${DD}.grb    \
         ${mondir}/${basenameMM}_DOM01_0001_${var}_240_mn11-${DD}.grb  \
-      > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_240_mn11-${DD}.grb
+      > ${mondir}/${basenameMM}_DOM01_0001_${var}_0_240_mn11-${DD}.grb    || true #10day
     \rm -rf \
         ${mondir}/${basenameMM}_DOM01_0001_${var}_0_mn2-${DD}.grb     \
         ${mondir}/${basenameMM}_DOM01_0001_${var}_24_mn2-${DD}.grb    \

@@ -20,34 +20,34 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "070"                #---experiment number---
-set EXPNUM2       "070"                #---experiment number used for score comparison---
+set EXPNUM        "132"                #---experiment number---
+set EXPNUM2       "132"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
-set FIRST_DATE    20130501
-set LAST_DATE     20130501
-set MONTHS        201207               #---months to be run e.g. 201201_201207
+set FIRST_DATE    20131105
+set LAST_DATE     20131105
+set MONTHS        201311               #---months to be run e.g. 201201_201207
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
-set RES           "R02B05"             #---ICON resolution dynamics
-set RESRAD        "R02B04"             #---ICON resolution radiation (requires namelist)
+set RES           "R02B08"             #---ICON resolution dynamics
+set RESRAD        "R02B07"             #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
-set NSTEPS        9600   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000/5760, R2B6-12000
+set NSTEPS       28800   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000/5760, R2B6-12000
 #set NSTEPS       6000   # grey zone 48h: R2B7-3600, R2B8-7200
 
 # simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
 set SIMMODE      2
 
 # no. of ensemble members (dummies here)
-set NENS         10
+set NENS         25   # NENS=25, 25+1(control)
 #set NENS         0   # default for no ensemble run
 #set NMEM         0   # default for no ensemble run
 
 # Processors
-set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
-set ICONTASKSPERNODE 32   #       32         32         32          8
-set ICONTHREADS       2   #        2          2          2          8
+set ICONNODES        64   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R3B7: 32,  R2B8: 64
+set ICONTASKSPERNODE 16   #       32         32         32         16         16
+set ICONTHREADS       4   #        2          2          2          4          4
 
 # -------------------------------------------------
 
@@ -263,7 +263,7 @@ suite $USER
 
         family get
           trigger  setup == complete
-          for set 1 10 ; do
+          for set 0 $NENS ; do
             set tsk `printf %3.3i $set`
 
             family $tsk  
@@ -302,7 +302,7 @@ suite $USER
         trigger (init:YMD gt forecast:YMD) and (forecast:YMD le ( post:YMD + 2 ))
         complete ($ENABLE_FORECAST == 0)
 
-        for set 1 10 ; do
+        for set 0 $NENS ; do
             set tsk `printf %3.3i $set`
             family $tsk
               edit NMEM $tsk
@@ -324,14 +324,14 @@ suite $USER
                 trigger (prepare == complete)
                 complete ($ENABLE_MODEL == 0)
                 on_hpc_parallel
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 06:00:00
                 event model_complete
 	      
               task check_progress
                 trigger  (model == active)
                 complete (model == complete)
                 on_hpc_serial
-                edit SCWALLCLOCKLIMIT 02:00:00
+                edit SCWALLCLOCKLIMIT 06:00:00
                 meter timesteps 0 $NSTEPS $NSTEPS
 
             endfamily
