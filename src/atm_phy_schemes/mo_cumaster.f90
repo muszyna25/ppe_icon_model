@@ -114,7 +114,7 @@ CONTAINS
   !
   SUBROUTINE cumastrn &
   & (  kidia,    kfdia,    klon,     ktdia,    klev,&
-    & ldland,   ptsphy, phy_params,                 &
+    & ldland,   ptsphy, phy_params, capdcfac,       &
     & paer_ss,                                      &
     & pten,     pqen,     puen,     pven, plitot,   &
     & pvervel,  pqhfl,    pahfs,                    &
@@ -322,6 +322,7 @@ CONTAINS
     LOGICAL           ,INTENT(in)    :: ldland(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     TYPE(t_phy_params),INTENT(in)    :: phy_params
+    REAL(KIND=jprb)   ,INTENT(in)    :: capdcfac(klon)
     !KF
     REAL(KIND=jprb)   ,INTENT(in),OPTIONAL :: paer_ss(klon)
     !KF
@@ -866,7 +867,16 @@ CONTAINS
     ! time scale and subcloud contribution to CAPE to be subtracted for better diurnal cycle over land
     DO jl = kidia, kfdia
       zcapdcycl(jl) = 0.0_jprb
-      IF (ldcum(jl) .AND. ktype(jl) == 1) THEN
+      IF (ldcum(jl) .AND. ktype(jl) == 1 .AND. icapdcycl == 3) THEN
+        ikd = idpl(jl)
+        ikb = kcbot(jl)
+        ik  = kctop(jl)
+        ztau(jl) = (pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_jprb+MIN(15.0_jprb,pwmean(jl)))*rg)*phy_params%tau
+        llo1 = (paph(jl,klev+1)-paph(jl,ikd)) < 50.e2_jprb
+        IF (llo1 .AND. ldland(jl)) THEN
+          zcapdcycl(jl) = capdcfac(jl)*zcappbl(jl)*ztau(jl)*phy_params%tau0
+        ENDIF
+      ELSE IF (ldcum(jl) .AND. ktype(jl) == 1) THEN
         ikd = idpl(jl)
         ikb = kcbot(jl)
         ik  = kctop(jl)

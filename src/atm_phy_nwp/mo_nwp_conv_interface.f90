@@ -19,6 +19,11 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 MODULE mo_nwp_conv_interface
 
   USE mo_kind,                 ONLY: wp
@@ -113,24 +118,11 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-
-   ! for EDMF DUALM: turn off Tiedtke shallow convection 
-   !IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
-   !  lmfscv = .FALSE.       ! shallow convection off
-   !ENDIF
-
  
 
 !$OMP PARALLEL
-
-#ifdef __xlC__
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
-!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950)
-#else
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
-!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950),SCHEDULE(guided)
-#endif
+!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950), ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -220,15 +212,13 @@ CONTAINS
           ENDDO
         ENDIF
 
-!#ifdef __BOUNDCHECK
-
 
         IF(art_config(jg)%nconv_tracer > 0) THEN
           CALL cumastrn &
 &           (kidia  = i_startidx            , kfdia  = i_endidx               ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
-&            phy_params = phy_params(jg)                                      ,& !! IN
+&            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
 &            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
@@ -272,7 +262,7 @@ CONTAINS
 &           (kidia  = i_startidx            , kfdia  = i_endidx               ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
-&            phy_params = phy_params(jg)                                      ,& !! IN
+&            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
 &            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN

@@ -39,6 +39,7 @@ MODULE mo_nwp_phy_nml
     &                               config_cldopt_filename => cldopt_filename
 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
+  USE mo_cuparameters,        ONLY: icapdcycl
 
   IMPLICIT NONE
   PRIVATE
@@ -87,7 +88,7 @@ MODULE mo_nwp_phy_nml
     &                    qi0, qc0,                                 &
     &                    ustart_raylfric, efdt_min_raylfric,       &
     &                    latm_above_top, itype_z0, mu_rain,        &
-    &                    mu_snow,                                  &
+    &                    mu_snow, icapdcycl,                       &
     &                    lrtm_filename, cldopt_filename
 
 
@@ -186,6 +187,13 @@ CONTAINS
     efdt_min_raylfric  = 10800._wp
 
     latm_above_top(:)  = .FALSE.  ! no extra layer above model top for radiation computation
+
+    ! CAPE correction to improve diurnal cycle of convection (moved from mo_cuparameters)
+    icapdcycl = 0  ! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
+                   ! 1=    CAPE - surface buoyancy flux (intermediate testing option)
+                   ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
+                   ! 3=    Apply CAPE modification of (2) over land only, with additional restriction to the tropics
+
 
     !------------------------------------------------------------------
     ! 1. If this is a resumed integration, overwrite the defaults above 

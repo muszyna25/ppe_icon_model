@@ -44,7 +44,7 @@ MODULE mo_nwp_turbdiff_interface
   USE mo_run_config,             ONLY: msg_level, iqv, iqc, iqtke
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,  ONLY: kstart_moist
-  USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd, vel_min
+  USE mo_data_turbdiff,          ONLY: get_turbdiff_param, lsflcnd
   USE src_turbdiff,              ONLY: organize_turbdiff, modvar
   USE mo_gme_turbdiff,           ONLY: partura, progimp_turb
 
@@ -239,7 +239,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  ltkeinp=.FALSE., lgz0inp=.FALSE., &
         &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
         &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg,                                & !in
-        &  nprv=1, ntur=1, ntim=1,                                                    & !in
+        &  nprv=1, ntur=1, ntim=1, frcsmotfac=prm_diag%tropics_mask(:,jb),            & !in
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm,                                & !in
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
         &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),           & !in

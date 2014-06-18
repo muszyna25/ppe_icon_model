@@ -1153,13 +1153,14 @@ CONTAINS
     phy_params%tau=1.0_JPRB+rsltn/75E3_JPRB
     phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
-    ! ** CAPE correction to improve diurnal cycle of convection **
-    icapdcycl = 0  ! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
+    ! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
+    ! icapdcycl = 0! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
                    ! 1=    CAPE - surface buoyancy flux (intermediate testing option)
                    ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
+                   ! 3=    Apply CAPE modification of (2) over land only, with additional restriction to the tropics
 
     phy_params%tau0 = 1.0_jprb
-    IF (icapdcycl == 2) phy_params%tau0 = 1.0_jprb/phy_params%tau
+    IF (icapdcycl >= 2) phy_params%tau0 = 1.0_jprb/phy_params%tau
  
     !     LOGICAL SWITCHES
     !     ----------------

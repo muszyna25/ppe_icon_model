@@ -194,7 +194,9 @@ LOGICAL :: &
 INTEGER (KIND=iintegers) :: &
 !
     itype_wcld   =2,       & ! type of water cloud diagnosis
-    itype_synd   =2          ! type of diagnostics of synoptical near surface variables
+    itype_synd   =2,       & ! type of diagnostics of synoptical near surface variables
+    imode_frcsmot = 1        ! mode of vertical smoothing of TKE source terms (in case of frcsmot>0)
+                             ! 1: globally uniform, 2: in the tropics only
 
 ! The given initializations are default settings of the boundary layer
 ! parameters. Some of these initial parameter values may be changed afterwards
@@ -226,6 +228,7 @@ LOGICAL :: &
      imode_turb   = turbdiff_config(jg)%imode_turb
      icldm_turb   = turbdiff_config(jg)%icldm_turb
      itype_sher   = turbdiff_config(jg)%itype_sher
+     imode_frcsmot= turbdiff_config(jg)%imode_frcsmot
 
      ltkesso      = turbdiff_config(jg)%ltkesso
      ltkecon      = turbdiff_config(jg)%ltkecon

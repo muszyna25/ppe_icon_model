@@ -386,6 +386,7 @@ USE mo_data_turbdiff, ONLY : &
     itype_sher,   & ! type of shear production for TKE
     imode_circ,   & ! mode of treating the circulation term
     ilow_dcond,   & ! type of the default condition at the lower boundary
+    imode_frcsmot,& ! if frcsmot>0, apply smoothing of TKE source terms (1) globally or (2) in the tropics only
 !
     ltkesso,      & ! consider SSO-wake turbulence production of TKE
     ltkecon,      & ! consider convective buoyancy production of TKE
@@ -786,7 +787,7 @@ SUBROUTINE organize_turbdiff (lstfnct, lsfluse, &
           edr, tket_sso, tket_conv, tket_hshr, &
           u_tens, v_tens, t_tens, &
           qv_tens, qc_tens, &
-          tketens, &
+          tketens, frcsmotfac, &
           qv_conv, ut_sso, vt_sso, &
 !
           t_2m, qv_2m, td_2m, rh_2m, u_10m, v_10m, &
@@ -1100,6 +1101,13 @@ REAL (KIND=ireals), DIMENSION(:,:), TARGET, OPTIONAL, INTENT(INOUT) :: &
 !
      tketens         ! tendency of q=SQRT(2*TKE)                     ( m/s2)
 
+#ifdef __xlC__
+REAL (KIND=ireals), DIMENSION(ie), TARGET, OPTIONAL, INTENT(IN) :: &
+#else
+REAL (KIND=ireals), DIMENSION(:), TARGET, OPTIONAL, INTENT(IN) :: &
+#endif
+!
+     frcsmotfac         ! factor for vertical smoothing of TKE forcing terms
 #ifdef __xlC__
 REAL (KIND=ireals), DIMENSION(ie,ke), OPTIONAL, INTENT(INOUT) :: &
 #else
@@ -3192,7 +3200,8 @@ SUBROUTINE turbdiff
            can_fields,   &  !canopy fields are present
            ltend(ndiff), &  !calculation of tendencies required
            lsfli(ndiff), &  !surface value input is a flux density instead of a concentration
-           leff_flux        !calculation of effective flux density required
+           leff_flux,    &  !calculation of effective flux density required
+           lcalc_frcsmot    !local control variable if smoothing of TKE source terms needs to be calculated
 
       TYPE (modvar) :: dvar(ndiff)  !model variables to be diffused
 
@@ -3319,6 +3328,19 @@ SUBROUTINE turbdiff
       ELSE
          qctens => qc
       END IF
+
+      ! check if vertical smoothing of TKE source terms is needed
+      IF (frcsmot > z0) THEN
+        IF (.NOT. PRESENT(frcsmotfac)) THEN
+          lcalc_frcsmot = .TRUE.
+        ELSE IF (ANY(frcsmotfac(i_st:i_en) > z0)) THEN
+          lcalc_frcsmot = .TRUE.
+        ELSE
+          lcalc_frcsmot = .FALSE.
+        ENDIF
+      ELSE
+        lcalc_frcsmot = .FALSE.
+      ENDIF
 
 !Achtung: dvar(liq)%sv sollte Null sein!!
 
@@ -4082,7 +4104,7 @@ SUBROUTINE turbdiff
 
       !Optionale vertikale Glaettung des mechanischen Antriebs:
 
-      IF (frcsmot.GT.z0) THEN
+      IF (lcalc_frcsmot) THEN
          DO k=2,kem
             DO i=istartpar,iendpar
                hlp(i,k)=frm(i,k)
@@ -4090,7 +4112,7 @@ SUBROUTINE turbdiff
          END DO
          CALL vert_smooth ( &
               i_st=istartpar, i_en=iendpar, k_tp=1, k_sf=ke1, k_lw=kem, &
-              disc_mom=dicke, cur_tend=hlp ,smo_tend=frm, versmot=frcsmot )
+              disc_mom=dicke, cur_tend=hlp ,smo_tend=frm, vertsmot=frcsmot, smotfac=frcsmotfac )
       END IF
 
 !     Thermischer Antrieb:
@@ -4104,7 +4126,7 @@ SUBROUTINE turbdiff
 
 !     Optionale vertikale Glaettung des thermischen Antriebs:
 
-      IF (frcsmot.GT.z0) THEN
+      IF (lcalc_frcsmot) THEN
          DO k=2,kem
             DO i=istartpar,iendpar
                hlp(i,k)=frh(i,k)
@@ -4112,7 +4134,7 @@ SUBROUTINE turbdiff
          END DO
          CALL vert_smooth ( &
               i_st=istartpar, i_en=iendpar, k_tp=1, k_sf=ke1, k_lw=kem, &
-              disc_mom=dicke, cur_tend=hlp ,smo_tend=frh, versmot=frcsmot )
+              disc_mom=dicke, cur_tend=hlp ,smo_tend=frh, vertsmot=frcsmot, smotfac=frcsmotfac )
       END IF
 
 !     Belegung von tkvh und tkvm mit den stabilitaetsabhaengigen Laengenmassen:
@@ -6916,7 +6938,7 @@ REAL (KIND=ireals), DIMENSION(:,:), POINTER :: &
      END DO
      CALL vert_smooth ( &
           i_st, i_en, k_tp=k_tp, k_sf=k_sf, k_lw=k_lw, &
-          disc_mom=disc_mom, cur_tend=cur_prof, smo_tend=dif_tend, versmot=tndsmot )
+          disc_mom=disc_mom, cur_tend=cur_prof, smo_tend=dif_tend, vertsmot=tndsmot )
   END IF
 
 END SUBROUTINE vert_grad_diff
@@ -7175,7 +7197,7 @@ END SUBROUTINE calc_impl_vert_diff
 !********************************************************************************
 
 SUBROUTINE vert_smooth( i_st, i_en, k_tp, k_sf, k_lw, &
-                        cur_tend, disc_mom, smo_tend, versmot )
+                        cur_tend, disc_mom, smo_tend, vertsmot, smotfac )
 
 INTEGER (KIND=iintegers), INTENT(IN) :: &
 !
@@ -7190,7 +7212,9 @@ REAL (KIND=ireals), INTENT(IN) :: &
    cur_tend(:,:), & !current vertical tendency profile
    disc_mom(:,:), & !discretised momentum (rho*dz/dt) on variable levels
 
-   versmot            !vertical smoothing factor
+   vertsmot            !vertical smoothing factor
+
+REAL (KIND=ireals), INTENT(IN), OPTIONAL ::smotfac(:)
 
 REAL (KIND=ireals), INTENT(OUT) :: &
 !
@@ -7202,42 +7226,46 @@ INTEGER (KIND=iintegers) :: &
 
 REAL (KIND=ireals) :: &
 !
-   remfact          !remaining factor of current level
+   versmot(SIZE(cur_tend,1)), remfact(SIZE(cur_tend,1))  ! smoothing factor and remaining factor of current level
 
 !----------------------------------------------------------------------------
-
-   remfact=z1-versmot
+   IF (imode_frcsmot == 2 .AND. PRESENT(smotfac)) THEN
+     versmot(i_st:i_en) = vertsmot*smotfac(i_st:i_en)
+   ELSE
+     versmot(:) = vertsmot
+   ENDIF
+   remfact(i_st:i_en)=z1-versmot(i_st:i_en)
 
    k=k_tp+1
 
    DO i=i_st,i_en
-      smo_tend(i,k)=remfact* cur_tend(i,k)                     &
-                     +versmot* cur_tend(i,k+1)*disc_mom(i,k+1) &
+      smo_tend(i,k)=remfact(i)* cur_tend(i,k)                     &
+                     +versmot(i)* cur_tend(i,k+1)*disc_mom(i,k+1) &
                                                 /disc_mom(i,k)
    END DO
 
-   remfact=z1-z2*versmot
+   remfact(i_st:i_en)=z1-z2*versmot(i_st:i_en)
 
    DO k=k_tp+2, k_sf-2
 
 !DIR$ IVDEP
       DO i=i_st,i_en
-         smo_tend(i,k)=remfact* cur_tend(i,k)                      &
-                        +versmot*(cur_tend(i,k-1)*disc_mom(i,k-1)  &
+         smo_tend(i,k)=remfact(i)* cur_tend(i,k)                      &
+                        +versmot(i)*(cur_tend(i,k-1)*disc_mom(i,k-1)  &
                                  +cur_tend(i,k+1)*disc_mom(i,k+1)) &
                                                    /disc_mom(i,k)
       END DO
 
    END DO
 
-   remfact=z1-versmot
+   remfact(i_st:i_en)=z1-versmot(i_st:i_en)
 
    k=k_sf-1
 
 !DIR$ IVDEP
    DO i=i_st,i_en
-      smo_tend(i,k)=remfact* cur_tend(i,k)                     &
-                     +versmot* cur_tend(i,k-1)*disc_mom(i,k-1) &
+      smo_tend(i,k)=remfact(i)* cur_tend(i,k)                     &
+                     +versmot(i)* cur_tend(i,k-1)*disc_mom(i,k-1) &
                                                 /disc_mom(i,k)
    END DO
 

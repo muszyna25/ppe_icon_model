@@ -2293,6 +2293,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & ldims=shape2d, lrestart=.FALSE.,                                   &
                 & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
       
+    ! mask field to distinguish between tropics and extratropics (for tuning purposes)
+    cf_desc    = t_cf_var('tropics_mask', '', 'tropics_mask', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'tropics_mask', diag%tropics_mask,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
+                & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE. )
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &
                  'construction of NWP physical fields finished')  

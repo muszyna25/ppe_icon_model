@@ -67,12 +67,12 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_turb        !! turbulence
     INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
     INTEGER  :: itype_z0         !! type of roughness length data
-    REAL(wp) :: dt_conv          !> field element for convection
-    REAL(wp) :: dt_ccov          !! field element for subscale cloud cover
+    REAL(wp) :: dt_conv          !> time step for convection
+    REAL(wp) :: dt_ccov          !! time step for subscale cloud cover
     REAL(wp) :: dt_rad           !! "-"                     radiation
     REAL(wp) :: dt_sso           !! "-"  for subscale orographic gravity waves
     REAL(wp) :: dt_gwd           !! "-"  for subscale gravity waves
-    REAL(wp) :: dt_fastphy       !! field element for fast physics processes
+    REAL(wp) :: dt_fastphy       !! time step for fast physics processes
                                  !! microphysics, saturation adjustment, turbulence, 
                                  !! surface (in addition: update and radheat)
     ! hydci_pp                   

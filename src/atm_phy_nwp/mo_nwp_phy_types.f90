@@ -319,6 +319,7 @@ MODULE mo_nwp_phy_types
                               !< of the standard atmosphere 950hPa level above ground
       &  iww     (:,:)        !< significant weather
 
+    REAL(wp), POINTER :: tropics_mask(:,:) !< mask field that is 1 in the tropics and 0 in the extratropics
 
     LOGICAL, POINTER        &
 #ifdef _CRAYFTN

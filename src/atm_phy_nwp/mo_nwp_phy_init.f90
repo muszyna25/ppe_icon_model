@@ -23,7 +23,7 @@
 MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
-  USE mo_math_constants,      ONLY: pi
+  USE mo_math_constants,      ONLY: pi, rad2deg
   USE mo_physical_constants,  ONLY: grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg, tmelt, &
     &                               dtdz_standardatm, lh_v=>alv
 !   USE mo_math_utilities,      ONLY: sphere_cell_mean_char_length
@@ -257,13 +257,32 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   ! mo_ext_data_state/init_index_lists due to its dependence on p_diag_lnd.
   CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
+
+  ! mask field to distinguish between tropics and extratropics (needed for some tuning measures)
+  !
+  rl_start = 1 ! Initialization should be done for all points
+  rl_end   = min_rlcell
+
+  i_startblk = p_patch%cells%start_blk(rl_start,1)
+  i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+    DO jc = i_startidx,i_endidx
+      zlat = ABS(p_patch%cells%center(jc,jb)%lat*rad2deg)
+      IF (zlat < 25._wp) THEN
+        prm_diag%tropics_mask(jc,jb) = 1._wp
+      ELSE IF (zlat > 30._wp) THEN
+        prm_diag%tropics_mask(jc,jb) = 0._wp
+      ELSE
+        prm_diag%tropics_mask(jc,jb) = (30._wp-zlat)/5._wp
+      ENDIF
+    ENDDO
+  ENDDO
+
   IF (linit_mode) THEN
-
-    rl_start = 1 ! Initialization should be done for all points
-    rl_end   = min_rlcell
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
     DO jb = i_startblk, i_endblk
 
@@ -434,12 +453,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! necessary, because only t_g(nnow_rcf) is written to the restart file
     ! with the following copy statement the ocean points of t_g(nnew_rcf) are 
     ! filled with the correct values.
-    !
-    rl_start = 1 ! Initialization should be done for all points
-    rl_end   = min_rlcell
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
     DO jb = i_startblk, i_endblk
 
