@@ -225,8 +225,13 @@ def setSelection
   ts   = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
   lev  = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
   show = ENV.values_at('VAR','TS','LEV').uniq != [nil]
+  max  = ENV.has_key?('MAX') ? ENV['MAX'].to_f : ''
+  min  = ENV.has_key?('MIN') ? ENV['MIN'].to_f : ''
+  mod  = ENV.has_key?('MOD') ? ENV['MOD']      : 'auto'
+  showgrid  = ENV.has_key?('SHOWGRID') ? true : false
 
-  [var,ts,lev,show]
+
+  [var,ts,lev,show,min,max,mod,showgrid]
 end
 # optional connection command
 def connect(build,command,targetDir=$targetDir[build,false])
@@ -378,23 +383,36 @@ def checkOutputByDir(build,dirA,dirB)
               ),true)
 end
 # plot a plot from output file
-def showPlot(build,exp,var='t',timestep=0,level=0)
+def showPlot(build,exp,var: 't',timestep:  0,level:  0,min: '',max: '',mod: 'auto',showGrid: false)
   call(connect(build,<<-EOS
       cd experiments/#{exp};
-      var=#{var} timestep=#{timestep} level=#{level} ruby -rcdo -riconPlot <<-EOR
+      var=#{var} timestep=#{timestep} level=#{level} min=#{min} max=#{max} mod=#{mod} showGrid=#{showGrid} ruby -rcdo -riconPlot -rjobqueue <<-EOR
       ofiles        = Dir.glob("#{exp}*.nc")
       names         = Cdo.showname(input: ofiles[0])[0].split
       var          = ENV["var"]
       timestep     = ENV["timestep"]
       level        = ENV["level"]
+      min          = ENV["min"]
+      max          = ENV["max"]
+      selMode      = ENV["mod"]
+      showGrid     = ENV["showGrid"]
       plotter      = IconPlot.new()
-      plotter.display = "display"
+      q = JobQueue.new()
+      plotter.display = "sxiv"
       plotter.debug = true
       ofiles.each {|ofile|
         puts "Check file " +ofile
-        plotter.show(plotter.scalarPlot(ofile,ofile,var,mapType: "ortho",timeStep: timestep,levIndex: level))
-        plotter.show(plotter.scalarPlot(ofile,ofile,var,                 timeStep: timestep,levIndex: level))
+        q.push {
+          plotter.show(plotter.scalarPlot(ofile,"NH_"+ofile,var,mapType: "NHps",timeStep: timestep,levIndex: level, selMode: selMode, minVar: min,maxVar: max,showGrid: showGrid))
+        }
+        q.push {
+          plotter.show(plotter.scalarPlot(ofile,"SH_"+ofile,var,mapType: "SHps",timeStep: timestep,levIndex: level, selMode: selMode, minVar: min,maxVar: max,showGrid: showGrid))
+        }
+        q.push {
+          plotter.show(plotter.scalarPlot(ofile,"GLOB_"+ofile,var,                timeStep: timestep,levIndex: level, selMode: selMode, minVar: min,maxVar: max,showGrid: false))
+        }
       }
+      q.run
 EOR
    EOS
   ))
@@ -701,7 +719,7 @@ def doCmpDirs(build,dirA: dirA,dirB: dirB,expA: expA,expB: expB)
   end
 end
 def doCheckExp(build,exp)
-  var,ts,lev,_ = setSelection
+  var,ts,lev,show,min,max,mod,showgrid = setSelection
 
   if ENV.has_key?('CHECK') then
     checks = ENV['CHECK'].split(',')
@@ -711,7 +729,7 @@ def doCheckExp(build,exp)
         checkAcc(build,exp,var)
       when 'plot' then
         var = 't' if '__ALL' == var
-        showPlot(build,exp,var,ts,lev)
+        showPlot(build,exp,var: var,timestep: ts,level: lev,min: min,max: max,mod: mod, showGrid: showgrid)
       when 'diag'
         showOnlineDiag(build,exp)
       when 'var'
