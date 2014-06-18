@@ -16,7 +16,7 @@
 #        taxis_tunit                  =  3  ! output time unit, 3: hours, 2:min, 1:sec
 #        include_last                 = .TRUE.
 #        output_filename              = '${basename}'             ! file name base
-#        ml_varlist                   = 'tot_prec', 'acclhfl_s', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs'
+#        ml_varlist                   = 'tot_prec', 'acclhfl_s', 'aqhfl_s', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs'
 #        output_grid                  = .TRUE.
 #        remap                        = 0                         ! 1: latlon,  0: native grid
 #       /
