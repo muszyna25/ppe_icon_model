@@ -1011,7 +1011,7 @@ MODULE mo_nonhydro_state
         ! art
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
-            &                       p_prog%tracer_ptr,advconf,p_prog=p_prog,                   &
+            &                       ptr_arr=p_prog%tracer_ptr,advconf=advconf,p_prog=p_prog,   &
             &                       timelev=timelev,ldims=shape3d_c,tlev_source=1)
         ENDIF
    
@@ -2072,6 +2072,12 @@ MODULE mo_nonhydro_state
           &           cf_desc, grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
       ENDDO
     ENDIF
+    
+    ! art
+    IF (lart) THEN
+      CALL art_tracer_interface('diag',p_patch%id,p_patch%nblks_c,p_diag_list,' ')
+    ENDIF
+    
 
   END SUBROUTINE new_nh_state_diag_list
 

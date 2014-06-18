@@ -2520,9 +2520,9 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
         ! art
         IF (lart) THEN
-          CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list, &
-                    & 'ddt_', phy_tend%tracer_turb_ptr,                 &
-                    & advection_config(k_jg), phy_tend=phy_tend,        &
+          CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list,  &
+                    & 'ddt_', ptr_arr=phy_tend%tracer_turb_ptr,          &
+                    & advconf=advection_config(k_jg), phy_tend=phy_tend, &
                     & ldims=shape3d, tlev_source=1)
         ENDIF
 
@@ -2567,9 +2567,9 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
         ! art
         IF (lart) THEN
-          CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list, &
-                    & 'ddt_', phy_tend%tracer_conv_ptr,                 &
-                    & advection_config(k_jg), phy_tend=phy_tend,        &
+          CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list,  &
+                    & 'ddt_', ptr_arr=phy_tend%tracer_conv_ptr,          &
+                    & advconf=advection_config(k_jg), phy_tend=phy_tend, &
                     & ldims=shape3d, tlev_source=1)
         ENDIF
 
