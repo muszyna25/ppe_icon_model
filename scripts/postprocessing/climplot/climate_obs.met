@@ -226,7 +226,6 @@ erbe_rms   = [erbe_lw_rms,erbe_lw_rms,erbe_sw_rms,erbe_sw_rms]
 
 sfluxlist  = ["SSH","SLH","SSR","STR","SNET"]
 
-#xmk era40list  = ["2D","2T","SD"]
 era40list  = ["2D","2T","SD"]
 
 #mls_press_list=[316, 261, 215, 178, 147, 121, 100, 83, 68, 56, 46]
@@ -298,7 +297,6 @@ era40_date2=200208
 #
 
 nisccp = count(isccp_par)
-nisccp = 1                 # just tcc for now
 nsflux = count(sfluxlist)
 nera40 = count(era40list)
 nceres = [4,2,4]           # SW missing from Terra...
@@ -999,13 +997,13 @@ for imon = 1 to 1 do
 # NOAA and CLOUDSAT TCIW
 #
    if ltciw = 1 then
-     outfile(dir, 1, 
+       outfile(dir, 1, 
             'tciw_noaa_'&rgstr&'nens'&string(nens)&'_'&datestr&'_nmon'&string(mm_len[imon]),
              filestr&expid, output, lcol)
-             varmaps(expid, yy_start[imon], mm_start[imon], mm_len[imon],
+       varmaps(expid, yy_start[imon], mm_start[imon], mm_len[imon],
              source_file_sfc, nens, res, display_port, lplot_curve,
              ecfsdir&"noaa_iwp/grib/NOAA10_", ".grb", 1, "NOAA 7/11-microns",
-             1, freado, lcol, tcrit, sig_cont, larticle, "tciw", 1)
+             1, freado, lcol, tcrit, sig_cont, larticle, "tciw", 1, model)
    end if
 
    if ltciw = 1 then
@@ -1855,11 +1853,9 @@ function varmaps(expid, yys, mms, nm, source_file_sfc, nens, res, display, lplot
     mod_all = read(
        #type	:	"fc",
        #expver	:	expid,
-        levtype	:	"sfc",
+       #levtype	:	"sfc",
         grid	:	my_grid,
-       #param	:	"503059",
-        param	:	"tqv_dia",
-       #param	:	param,
+        param	:	param,
         source  : 	source_file_sfc
         )
 
@@ -2257,14 +2253,25 @@ function tcc(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,par,f
 
     # fix for ICON, tcc is [1.6.0] or 500046 (mars name, grib_ls -p mars.param)
      if (model = "icon" ) then
+        case par of
+          "tcc":  par_icon =  "500046"
+                  end
+          "lcc":  par_icon =  "500048"
+                  end
+          "mcc":  par_icon =  "500049"
+                  end
+          "hcc":  par_icon =  "500050"
+                  end
+        end case
         mod_all = read(
                #type	:	"fc",
                #expver	:	expid,
-                levtype	:	"sfc",
+               #levtype	:	"sfc",
                 grid	:	my_grid,
-                param	:	"500046",
+                param	:	par_icon,
                 source  :       source_file_sfc
         )
+print('hello1')
       else
         mod_all = read(
                #type	:	"fc",
@@ -2274,7 +2281,15 @@ function tcc(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,par,f
                 param	:	[par],
                 source  :       source_file_sfc
         )
+print('hello2')
       end if
+
+print(source_file_sfc)
+print(model)
+print(par_icon)
+print(par)
+print(mod_all)
+
 
 # mean fields
         #mod_all=100.*mod_all
@@ -4070,15 +4085,30 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
         end if
     end for
 
+    if (model = "icon") then
+      case param of
+        "2t": param = 500011
+              end
+        "2d": param = 500017
+              end
+        "sd": param = 502329
+              end
+      end case
+###ATTENTION: need to add two layers
+    end if
     mod_all = read(
        #type	:	"fc",
        #expver	:	expid,
-        levtype	:	"sfc",
+       #levtype	:	"sfc",
         grid	:	my_grid,
         param	:	param,
         source  :       source_file_sfc,
         grid    :       [2.,2.]
         )
+
+print(source_file_sfc)
+print(param)
+print(mod_all)
 
     mod=mean(mod_all)
     obs=obs_tot/nm

@@ -45,6 +45,7 @@ if (interactive=0) then
   lsigt      = args[13]   # 1=colour 2=black and white plots?
   lcol       = args[14]   # 1=colour 2=black and white plots?
   larticle   = args[15]   # 2=changes titles to a b c
+  model      = args[16]   # model: 'icon' or 'ifs'
 else
 #
 # test only
@@ -64,10 +65,25 @@ else
 end if
 # for the case that the variable names in the model run and in the control run are different
 varidm=varid
-if (varid = "sst") then
- #varidm="wtmp"
-  varidm="3080"
- #shortNameECMF="wtmp"
+if (model = "icon") then
+  case varid of
+     "2t": varidm = 500011  ;   end
+     "2d": varidm = 500017  ;   end
+     "sd": varidm = 502329  ;   end
+     "sst":varidm = 3080    ;   end #wtmp
+     "10u":varidm = 500027  ;   end
+     "10v":varidm = 500029  ;   end
+     "TCC":varidm = 500046  ;   end
+     "LCC":varidm = 500048  ;   end
+     "MCC":varidm = 500049  ;   end
+     "HCC":varidm = 500050  ;   end
+     "":varidm = 50  ;   end
+     "":varidm = 50  ;   end
+     "":varidm = 50  ;   end
+#TCC LCC MCC HCC CP  LSP SSHF SLHF BLH SSR STR TSR TTR 
+#2T  2D  SD  10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  
+#TSRC TTRC TCLW TCIW CAPE
+  end case
 end if
 
 # --- statistic
@@ -100,8 +116,7 @@ dir = getenv("PLOTDATA") & "/"
 file_mod = dir&"mmean_"&expv1&"_"&levtype&"_alldates.grb"
 file_ctr = dir&"mmean_"&expv2&"_"&levtype&"_alldates.grb"
 
-##debug##
-print("this is the file to read")
+print("input files:")
 print(file_mod)
 print(file_ctr)
 
@@ -170,16 +185,16 @@ if vartype = "ins" then
         end
         otherwise: 
 	  var_mod_all = read(
-            levtype	:	levtype,
-            levelist	:       lev,
+           #levtype	:	levtype,
+           #levelist	:       lev,
             param	:	varidm,
             date	:	dates,
             grid	:	[res,res],
             source	:	file_mod
             )
           var_ctr_all = read(
-            levtype	:	levtype,
-            levelist	:       lev,
+           #levtype	:	levtype,
+           #levelist	:       lev,
             param	:	varid,
             date	:	dates,
             grid	:	[res,res],
@@ -191,8 +206,8 @@ if vartype = "ins" then
             var_mod_all=bitmap(var_mod_all,seamask)
             var_ctr_all=bitmap(var_ctr_all,seamask)
           end if
-          units=grib_get_string(var_mod_all,"units")
-          #units=grib_get_string(var_ctr_all,"units")
+          #units=grib_get_string(var_mod_all,"units")
+          units=grib_get_string(var_ctr_all,"units")
           unit=units[1]
 	end 
 	end case
@@ -222,7 +237,6 @@ or varid = "TTR" then
    unit = "[W m<sup>-2</sup>]"
   #unit = "[W/m2]"
 end if
-print(unit)
 if varid = "ssr"
 or varid = "str"
 or varid = "tsr"
@@ -232,7 +246,7 @@ or varid = "slhf" then
    unit = "[W m<sup>-2</sup>]"
   #unit = "[W/m2]"
 end if
-print(unit)
+
 # --- calculate stats
 
 tcrit=-999 # switch stat plot off
