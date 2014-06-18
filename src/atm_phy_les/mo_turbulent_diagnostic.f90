@@ -146,8 +146,8 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     !Get rho at interface levels
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
@@ -157,8 +157,8 @@ CONTAINS
          END DO
        END DO
     END DO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
 
 !======================================================================================
                  !Some vertical profiles
@@ -198,8 +198,8 @@ CONTAINS
      CASE('th') !theta mean
 
        ALLOCATE(thmean(1:nlev))
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
@@ -209,8 +209,8 @@ CONTAINS
          END DO
         END DO
       END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
        CALL levels_horizontal_mean(theta, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
        thmean = outvar(1:nlev)
@@ -240,8 +240,8 @@ CONTAINS
      CASE('wu')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(umean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -251,8 +251,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <wu> after <w> and <u> in the namelist')
        END IF  
@@ -262,8 +262,8 @@ CONTAINS
      CASE('wv')!At full levels
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(vmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -273,8 +273,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <wv> after <w> and <v> in the namelist')
        END IF  
@@ -284,8 +284,8 @@ CONTAINS
      CASE('wth')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(thmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -295,8 +295,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <wth> after <w> and <th> in the namelist')
        END IF  
@@ -307,8 +307,8 @@ CONTAINS
      CASE('wthv')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(thvmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -318,8 +318,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <wthv> after <w> and <thv> in the namelist')
        END IF  
@@ -330,8 +330,8 @@ CONTAINS
      CASE('wqv')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(qvmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -341,8 +341,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <wqv> after <w> and <qv> in the namelist')
        END IF  
@@ -353,8 +353,8 @@ CONTAINS
      CASE('wqc')
 
        IF(ALLOCATED(wmean).AND.ALLOCATED(qcmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -364,8 +364,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <wqc> after <w> and <qc> in the namelist')
        END IF  
@@ -376,8 +376,8 @@ CONTAINS
      CASE('ww')
 
        IF(ALLOCATED(wmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -387,8 +387,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <ww> after <w> in the namelist')
        END IF  
@@ -398,8 +398,8 @@ CONTAINS
      CASE('thth')
 
        IF(ALLOCATED(thmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -409,8 +409,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <thth> after <th> in the namelist')
        END IF  
@@ -420,8 +420,8 @@ CONTAINS
      CASE('qvqv')
 
        IF(ALLOCATED(qvmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -431,8 +431,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <qvqv> after <qv> in the namelist')
        END IF  
@@ -442,8 +442,8 @@ CONTAINS
      CASE('qcqc')
 
        IF(ALLOCATED(qcmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -453,8 +453,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <qcqc> after <qc> in the namelist')
        END IF  
@@ -464,8 +464,8 @@ CONTAINS
      CASE('uu')
 
        IF(ALLOCATED(umean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -475,8 +475,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <uu> after <u> in the namelist')
        END IF  
@@ -486,8 +486,8 @@ CONTAINS
      CASE('vv')
 
        IF(ALLOCATED(vmean))THEN
-!ICON_OMP_PARALLEL 
-!ICON_OMP_DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                              i_startidx, i_endidx, rl_start, rl_end)
@@ -497,8 +497,8 @@ CONTAINS
             END DO
           END DO
         END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
        ELSE
          CALL finish(routine,'put <vv> after <v> in the namelist')
        END IF  
