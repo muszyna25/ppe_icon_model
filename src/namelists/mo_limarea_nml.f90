@@ -54,7 +54,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: iunit
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_limarea_nml:read_limarea_namelist'
 
     !------------------------------------------------------------
     ! Default settings

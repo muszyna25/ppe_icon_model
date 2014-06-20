@@ -2105,7 +2105,6 @@ INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlen, npromz_c, nblks_c
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 LOGICAL :: l2fields
@@ -2278,7 +2277,6 @@ INTEGER :: slev(dim4d), elev(dim4d)     ! vertical start and end level
 INTEGER :: jc, jk, jb, ji
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlen, npromz_c, nblks_c
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
@@ -2802,7 +2800,6 @@ INTEGER :: jv, jk, jb
 
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlen, npromz_v, nblks_v
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
@@ -2943,7 +2940,6 @@ INTEGER :: jv, jk, jb
 
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-INTEGER :: nlen, npromz_v, nblks_v
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 

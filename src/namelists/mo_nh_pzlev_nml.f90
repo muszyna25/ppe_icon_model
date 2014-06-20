@@ -90,9 +90,6 @@ CONTAINS
     REAL(wp) :: p_top      !< top level pressure
     REAL(wp) :: delp       !< pressure increment based on p_bot, p_top, nplev
 
-    CHARACTER(len=*), PARAMETER ::  &
-      &  routine = 'mo_nh_pzlev_nml: read_nh_pzlev_namelist'
-
     !--------------------------------------------------------------
 
     !-----------------------

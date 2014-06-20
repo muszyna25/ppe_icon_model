@@ -306,23 +306,15 @@ MODULE mo_nh_latbc
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
     ! local variables
-    INTEGER                             :: jc,je,jk,jb                ! loop indices
-    INTEGER                             :: nblks_c, nblks_e           ! number of blocks
-    INTEGER                             :: i_startblk, i_endblk
-    INTEGER                             :: i_startidx, i_endidx
     INTEGER                             :: mpi_comm, ist, dimid, no_cells, &
                                            latbc_fileid, no_levels
     LOGICAL                             :: l_exist
-    INTEGER, POINTER                    :: iidx(:,:,:), iblk(:,:,:)
     REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c), &
       &                                    vn, w, rho, theta_v
     INTEGER                             :: tlev
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-
-    iidx           => p_patch%edges%cell_idx
-    iblk           => p_patch%edges%cell_blk
 
     nlev_in = latbc_config%nlev_in
     tlev = read_latbc_tlev
