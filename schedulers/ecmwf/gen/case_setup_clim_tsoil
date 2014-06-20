@@ -111,7 +111,6 @@ cat > icon_master.namelist << EOF
   model_type                  = 1
   model_name                  = "ATMO"
   model_namelist_filename     = "$atmo_namelist"
-  model_restart_info_filename = ""
   model_min_rank              = 1
   model_max_rank              = 65536
   model_inc_rank              = 1
