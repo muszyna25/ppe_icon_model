@@ -447,10 +447,7 @@ CONTAINS
     INTEGER(KIND=jpim) :: jn
     REAL(KIND=jprb), DIMENSION(:,:), ALLOCATABLE :: ztent, ztenq, zsumc
     REAL(KIND=jprb), DIMENSION(:,:,:), ALLOCATABLE :: ztenc
-
-    ! turn off shallow convection dictated by DUALM    
-    LOGICAL :: LSHOFF(KLON) 
-
+    
     !KF to be removed later
     !#include "cuascn.intfb.h"
     !#include "cubasen.intfb.h"
@@ -1087,19 +1084,11 @@ CONTAINS
 
 !                  turn off shallow convection if stratocumulus PBL type
     DO JL=KIDIA,KFDIA
-      LLO2(JL) = .FALSE.
-
-     ! simple shallow off
-     !LSHOFF(JL) = .NOT.LDSHCV(JL) .AND. KTYPE(JL)==2
-
-     ! RN added condition: maintain shallow cumulus starting above lowest level (KLEV)
-      LSHOFF(JL) = .NOT.LDSHCV(JL) .AND. KTYPE(JL)==2 .AND. IDPL(JL)==KLEV
-
-     ! allow Tiedtke shallow if Tiedtke shallow much deeper than DUALM shallow (200hPa) 
-     !LSHOFF(JL) = .NOT.LDSHCV(JL) .AND. KTYPE(JL)==2 .AND. IDPL(JL)==KLEV .AND. &
-     !           & ( pdualm(TOP)  -  paph(jl,kctop(jl)) < 200hPa )   ???
-
-      IF ( LSHOFF(JL) ) THEN
+      LLO2(JL)=.FALSE.
+    !xmk IF((.NOT.LDSHCV(JL) .AND. KTYPE(JL)==2)) THEN
+    !RN added condition: maintain shallow cumulus starting above lowest level (KLEV)
+      IF((.NOT.LDSHCV(JL) .AND. KTYPE(JL)==2 .AND. IDPL(JL)==KLEV)) THEN
+    !xxx
         LLO2(JL)=.TRUE.
         LDCUM(JL)=.FALSE.
       ENDIF
@@ -1527,7 +1516,7 @@ CONTAINS
     !                  NEED TO SET SOME VARIABLES A POSTERIORI TO ZERO
     !                  ---------------------------------------------------
 
-    IF (.NOT.lmfscv .OR. .NOT.lmfpen .OR. LSHOFF(JL)) THEN
+    IF (.NOT.lmfscv .OR. .NOT.lmfpen) THEN
       DO jk=ktdia+1,klev
         DO jl=kidia,kfdia
           IF(llo2(jl).AND.jk>=kctop(jl)-1) THEN
