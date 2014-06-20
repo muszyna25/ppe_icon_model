@@ -1144,9 +1144,9 @@ REAL (KIND=ireals), DIMENSION(:,:), OPTIONAL, INTENT(IN) :: &
      tket_conv       ! TKE-tendency due to convective buoyancy       (m2/s3)
 
 #ifdef __xlC__
-REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(ie), OPTIONAL, INTENT(INOUT) :: &   ! actually INTENT(OUT), but this causes errors with NAG
 #else
-REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(OUT) :: &
+REAL (KIND=ireals), DIMENSION(:), OPTIONAL, INTENT(INOUT) :: &
 #endif
 !
 ! Diagnostic near surface variables:
