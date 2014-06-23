@@ -16,7 +16,7 @@
 %end
 
 # include the header file for remote jobs
-%include <init_job.h> 
+%include <init_ws.h> 
 
 
 # -------------------------------------------------
@@ -42,11 +42,19 @@ timestep=0
 while [[ $timestep -lt %NSTEPS% && $flag -eq 0 ]]
 do
 
-  timestep=`grep 'TIME STEP' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1 | tail -n1 | awk '{print $6}'`
-  if [[ ! -n "$timestep"  || "$timestep" = "initial" ]]
+  timestep1=`ssh cca-log grep 'TIME ' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1.running | tail -n1 | awk '{print $5}'`
+  timestep2=`ssh cca-log grep 'TIME ' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1         | tail -n1 | awk '{print $5}'`
+  if [[ ! -n "$timestep1" ]]         # || "$timestep" = "initial" ]]
  #if [[ "$timestep" = "initial" ]]
   then
-    timestep=0
+    if [[ ! -n "$timestep2" ]]
+    then
+      timestep=0
+    else
+      timestep=$timestep2
+    fi
+  else
+    timestep=$timestep1
   fi
 
   # If new output available: Increment progress meter
@@ -68,4 +76,4 @@ done
 # -------------------------------------------------
 
 # include the "tail" file for remote jobs
-%include <end_job.h>
+%include <end_ws.h>

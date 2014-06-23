@@ -5,7 +5,7 @@
 %end
 
 ## include the standard header file
-%include <init_ecgate_submit.h>
+%include <init_ws_submit.h>
 #=========================================================================
 ##.AUTHOR  Martin Koehler 1. September 2003
 ## Modified  Adrian Tompkins 23 March 2004: flexible 
@@ -132,4 +132,4 @@ if (( $saveplots == 1 )) ; then
 fi
 
 # include the standard "tail" file
-%include <tail.h>
+%include <end_ws.h>

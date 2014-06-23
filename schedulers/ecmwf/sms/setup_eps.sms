@@ -16,7 +16,7 @@
 %end
 
 # include the header file for remote jobs
-%include <head.h> 
+%include <init_ws.h> 
 
 # -------------------------------------------------
 
@@ -39,5 +39,5 @@ mkdir -p %ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%/%NMEM%
 # -------------------------------------------------
 
 # include the "tail" file for remote jobs
-%include <tail.h>
+%include <end_ws.h>
 

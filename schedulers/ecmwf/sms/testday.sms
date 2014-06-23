@@ -18,7 +18,7 @@
 %end
 
 # include the standard header file
-%include <head.h>
+%include <init_ws.h>
 
 # -------------------------------------------------
 
@@ -52,6 +52,7 @@ then
     smsevent time_eom
 fi
 
+ssh cca-log ls -l
 
 ## -------------------------------------------------
 # test for monthly mean runs if current month is selected
@@ -70,4 +71,4 @@ done
 # -------------------------------------------------
 
 # include the standard "tail" file
-%include <tail.h>
+%include <end_ws.h>

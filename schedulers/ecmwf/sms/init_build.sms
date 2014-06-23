@@ -16,19 +16,23 @@
 %end
 
 # include the header file for remote jobs
-%include <init_job.h> 
+%include <init_sc.h> 
 
 # ---------------------------------------------
 
 echo "INIT_BUILD.SMS"
 
-module swap fortran fortran/xlf/14.1.0.3
+#module swap fortran fortran/xlf/14.1.0.3
+module swap cce/8.3.0.186
+#module swap cce/8.2.7.101
 module load subversion
 module swap grib_api grib_api/1.11.0
+module load netcdf
 
-arch=rs6000-ibm-aix
-toolstag=tags/icontools-1.4.0       # recent tag - synchronize with init_cp_binary.sms!
-#toolstag=trunk/icontools           # alternative: choose trunk
+#arch=rs6000-ibm-aix
+arch=x86_64-unknown-linux-gnu
+#toolstag=tags/icontools-1.4.0       # recent tag - synchronize with init_cp_binary.sms!
+toolstag=trunk                       # alternative: choose trunk
 
 
 # Change directory ----------------------------
@@ -38,7 +42,7 @@ cd icon-dev
 
 
 # Run configure script ------------------------
-./configure --with-openmp     # --with-flags=hiopt
+./configure --with-fortran=cray    # --with-openmp     # --with-flags=hiopt
 smsevent configure
 
 
@@ -55,11 +59,21 @@ echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 # Compile dwd_icon_tools for remap_mpi --------
 ssh $WSHOST svn update %ECPERMIII%/dwd_icon_tools
 cd %SCPERMIII%/dwd_icon_tools/${toolstag}/icontools
-gmake -j%SCTOTALTASKS% ibmp7_mpi
+#module swap cce/8.2.2
+module swap cce/8.3.0.186
+gmake clean
+gmake cray_mpi       #-j%SCTOTALTASKS% ibmp7_mpi
+
+#module unload PrgEnv-cray
+#module load PrgEnv-intel
+#module load intel
+#gmake clean
+
+
 echo $toolstag >> %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 
 
 # ---------------------------------------------
 
 # include the "tail" file for remote jobs
-%include <end_job.h>
+%include <end_sc.h>

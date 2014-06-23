@@ -378,7 +378,33 @@ case "$ac_sitename" in
         esac
         ;;
         #-------------------------------------------------------------------
+
 #===============================================
+    ecmwf.int)
+                NETCDFROOT  =${NETCDF_DIR}
+                CC          = cc
+                FC          = ftn
+                make_command="make" "-j" "8"
+                CFLAGS   = "$CFLAGS" -D_ECMWF
+                case "$fortran_compiler" in
+                    intel*)
+                      load_modules    = "PrgEnv-intel/5.0.41" "netcdf" "cray-mpich/6.1.1" "${load_modules}"
+                      CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
+                      STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+                      FFLAGS          = ${FFLAGS}
+                      F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
+                      LIBS            = ${LIBS} -lirng
+                      ;;
+                    cray)
+                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      ;;
+                    default|gcc)
+                      load_modules    = "PrgEnv-gnu/5.1.29" "netcdf" "grib_api" "cray-mpich/6.2.0" "${load_modules}"
+                      FFLAGS          = ${FFLAGS}
+                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      ;;
+                esac
+        ;;
 
 #===============================================
     pa.cluster)

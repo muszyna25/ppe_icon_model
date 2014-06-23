@@ -19,7 +19,7 @@
 
 # include the standard header file
 ############# include <init_ecgate_large.h>
-%include <init_ecgate_submit.h>
+%include <init_ws_submit.h>
 
 # -------------------------------------------------
 
@@ -98,5 +98,5 @@ fi
 # -------------------------------------------------
 
 # include the standard "tail" file
-%include <tail.h>
+%include <end_ws.h>
 

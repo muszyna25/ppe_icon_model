@@ -16,7 +16,7 @@
 %end
 
 # include the header file for remote jobs
-%include <init_job.h> 
+%include <init_sc.h> 
 
 # -------------------------------------------------
 
@@ -43,4 +43,4 @@ ls -lrt ${SSTICEDIR}/*%YYYY%*
 # -------------------------------------------------
 
 # include the "tail" file for remote jobs
-%include <end_job.h>
+%include <end_sc.h>

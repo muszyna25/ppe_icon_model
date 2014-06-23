@@ -16,7 +16,7 @@
 %end
 
 # include the header file for ICON jobs
-%include <init_icon_job.h> 
+%include <init_sc_model.h> 
 
 # -------------------------------------------------
 
@@ -32,7 +32,7 @@ module load python
 module swap grib_api grib_api/1.11.0
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0-12:/usr/local/lib/metaps/lib/grib_api/1.11.0/share/grib_api/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0-15:/usr/local/apps/grib_api/1.11.0/CRAY/82/share/grib_api/definitions"
 
 
 #-----------------------------------------------------------------------------
@@ -133,7 +133,12 @@ if [[ ${debug} = 1 ]] ; then                  # optional totalview debugging (ma
   totalview -searchpath='/perm/ms/de/dei2/icon-dev/src/atm_phy_edmf/,/perm/ms/de/dei2/icon-dev/src/lnd_phy_nwp/,/perm/ms/de/dei2/icon-dev/src/atm_phy_nwp/' \
     poe -a ./icon.exe
 else
-  ./icon.exe
+ #aprun  -N $EC_tasks_per_node -n $EC_total_tasks -j $EC_hyperthreads icon.exe
+  export OMP_NUM_THREADS=$EC_threads_per_task
+  aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $OMP_NUM_THREADS -j $EC_hyperthreads icon.exe
+  # fractional job: 
+  #module load cray-snplauncher
+  #mpiexec -n $EC_total_tasks icon.exe
 fi
 
 echo "job::end"
@@ -147,5 +152,5 @@ smsevent model_complete
 # ---------------------------------------------
 
 # include the "tail" file for remote jobs
-%include <end_job.h>
+%include <end_sc.h>
 

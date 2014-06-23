@@ -16,7 +16,7 @@
 %end
 
 # include the standard header file
-%include <head.h>
+%include <init_ws.h>
 
 # -------------------------------------------------
 
@@ -72,5 +72,5 @@ echo "INIT_SVN.SMS"
 # -------------------------------------------------
 
 # include the standard "tail" file
-%include <tail.h>
+%include <end_ws.h>
 
