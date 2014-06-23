@@ -5,8 +5,6 @@
 #define ICON_OMP_DO $omp do
 #define ICON_OMP_END_DO $omp end do
 #define ICON_OMP_END_DO_NOWAIT $omp end do nowait
-#define ICON_OMP_WORKSHARE $omp parallel workshare
-#define ICON_OMP_END_WORKSHARE $omp end parallel workshare
 #define ICON_OMP $omp
 #define ICON_OMP_PARALLEL_DO $omp parallel do
 #define ICON_OMP_END_PARALLEL_DO $omp end parallel do

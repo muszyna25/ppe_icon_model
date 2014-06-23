@@ -357,7 +357,7 @@ CONTAINS
     LOGICAL :: use_omip_forcing, use_omip_windstress, use_omip_fluxes
 
     !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
-    REAL(wp):: z_flux(nproma,forcing_timescale,p_patch(1)%nblks_c)
+    REAL(wp):: z_flux(nproma,forcing_timescale,p_patch(1)%alloc_cell_blocks)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     CALL message (TRIM(routine), 'start')
@@ -370,7 +370,7 @@ CONTAINS
 
     i_lev       = p_patch(jg)%level
     i_cell_type = p_patch(jg)%cell_type
-
+    z_flux(:,:,:) = 0.0_wp
     IF(my_process_is_stdio()) THEN
       !
       ! bathymetry and lsm are read from the general ICON grid file
@@ -533,12 +533,15 @@ CONTAINS
           & 'Number of forcing timesteps is not equal forcing_timescale specified in namelist - ABORT')
         ENDIF
       ENDIF
+      
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test
       ELSE
         mpi_comm = p_comm_work
       ENDIF
-      CALL p_bcast(no_tst, p_io, mpi_comm)
+      no_tst = forcing_timescale
+      ! write(0,*) "no_tst=", no_tst
+      ! CALL p_bcast(no_tst, p_io, mpi_comm)
 
       !-------------------------------------------------------
       !

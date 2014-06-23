@@ -923,7 +923,9 @@ CONTAINS
 
       CALL allocate_decomp_info(p_patch%cells%decomp_info, &
         &                  p_patch%n_patch_cells, p_patch%n_patch_cells_g, &
-        &                  p_patch%alloc_cell_blocks)
+        &                  p_patch%nblks_c)  ! this size is used for broadcasting,
+                                             ! should not include the local ghost cell
+       !  &                  p_patch%alloc_cell_blocks)
       CALL allocate_decomp_info(p_patch%edges%decomp_info, &
         &                  p_patch%n_patch_edges, p_patch%n_patch_edges_g, &
         &                  p_patch%nblks_e)
@@ -932,7 +934,7 @@ CONTAINS
         &                  p_patch%nblks_v)
 
       CALL init_decomp_info(p_patch%cells%decomp_info, p_patch%npromz_c, &
-        &                   p_patch%alloc_cell_blocks, p_patch%n_patch_cells_g)
+        &                   p_patch%nblks_c, p_patch%n_patch_cells_g)
       CALL init_decomp_info(p_patch%edges%decomp_info, p_patch%npromz_e, &
         &                   p_patch%nblks_e, p_patch%n_patch_edges_g)
       CALL init_decomp_info(p_patch%verts%decomp_info, p_patch%npromz_v, &

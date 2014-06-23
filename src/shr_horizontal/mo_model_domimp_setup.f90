@@ -790,7 +790,7 @@ CONTAINS
         patch%cells%dummy_cell_index = 1 ! we have a whole dummy block, ie alloc_cell_blocks = nblks_c + 1
         IF (patch%alloc_cell_blocks <= patch%nblks_c) &
           & CALL finish(method_name, "alloc_cell_blocks <= nblks_c")
-        patch%cells%decomp_info%halo_level(:,patch%alloc_cell_blocks) = -1
+   !     patch%cells%decomp_info%halo_level(:,patch%alloc_cell_blocks) = -1
       ENDIF
     ELSE
       patch%cells%dummy_cell_block = 0

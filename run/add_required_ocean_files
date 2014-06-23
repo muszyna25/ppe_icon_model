@@ -7,7 +7,9 @@
    # use add_required_file ${in_path_file} ./${new_name} 
    # --------------------------------------------------
    pool_icon_folder=/pool/data/ICON
-   local_grid_folder=${ICON_BASE_PATH}/grids
+   # local_grid_folder=${ICON_BASE_PATH}/grids
+   local_grid_folder=${grids_folder:=${ICON_BASE_PATH}/grids}
+
    # if not defined, get them from the pool
    if [ "x${LOC}" = 'xPOOL' ] ; then
      grids_folder=${pool_icon_folder}/ocean_data/ocean_grid
