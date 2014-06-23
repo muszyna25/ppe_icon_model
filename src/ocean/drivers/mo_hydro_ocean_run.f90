@@ -233,7 +233,7 @@ CONTAINS
 
 
       IF (ltimer) CALL timer_start(timer_upd_phys)
-      CALL update_ho_params(patch_3d, ocean_state(jg), p_sfc_flx, p_phys_param)
+      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, p_ice%concsum, p_phys_param)
       IF (ltimer) CALL timer_stop(timer_upd_phys)
 
       !------------------------------------------------------------------------

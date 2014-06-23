@@ -188,6 +188,8 @@ CONTAINS
 
     CALL check_thicknesses
 
+   IF  (RichardsonDiffusion_threshold < convection_InstabilityThreshold) &
+     CALL finish (method_name, "RichardsonDiffusion_threshold < convection_InstabilityThreshold")
 
   END SUBROUTINE oce_crosscheck
 

@@ -339,7 +339,7 @@ MODULE mo_ocean_nml
 
 
   REAL(wp) :: convection_InstabilityThreshold = -5.0E-8_wp ! used in update_ho_params
-  REAL(wp) :: backgroundDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: RichardsonDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
   
   NAMELIST/ocean_diffusion_nml/&
     &  HORZ_VELOC_DIFF_TYPE        ,    &
@@ -354,25 +354,30 @@ MODULE mo_ocean_nml
     &  MAX_VERT_DIFF_VELOC         ,    &
     &  l_smooth_veloc_diffusion    ,    &
     &  convection_InstabilityThreshold, &
-    &  backgroundDiffusion_threshold
+    &  RichardsonDiffusion_threshold
 
   ! ocean_physics_nml
   ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
-  LOGICAL :: use_convection_parameterization = .TRUE.
   REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background
                                                  ! vertical diffusion ! coeffcient for the velocity. See usage in
                                                  ! mo_oce_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
-  LOGICAL  :: use_constant_mixing     = .FALSE.    ! .TRUE.: the vertical mixing coefficients for velocity and tracer
+  LOGICAL  :: use_constant_mixing   = .FALSE.    ! .TRUE.: the vertical mixing coefficients for velocity and tracer
                                                  ! are kept constant over time and are set to the background values; no convection
-!  LOGICAL  :: l_convection          = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
-!                                                 ! are unchanged in case of instable stratification
-!  LOGICAL  :: l_pp_scheme           = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
+  LOGICAL  :: use_convection        = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
+                                                 ! are unchanged in case of instable stratification
+  LOGICAL  :: use_pp_scheme         = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
                                                  ! are set to the background values in case of stable stratification
-  LOGICAL  :: l_wind_mixing         = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
+  LOGICAL  :: use_wind_mixing       = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
+  LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
+  LOGICAL  :: use_mpiom_pp_form     = .FALSE.    ! .TRUE.: formulation similar to MPIOM
+  REAL(wp) :: lambda_wind           = 0.03_wp    !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
+  REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
+  REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
+
   NAMELIST/ocean_physics_nml/&
     &  CWA                         , &
     &  CWT                         , &
@@ -381,10 +386,17 @@ MODULE mo_ocean_nml
     &  bottom_drag_coeff           , &
     &  i_sea_ice                   , &
     &  use_constant_mixing         , &
-    &  l_wind_mixing               , &
+    &  use_wind_mixing             , &
     &  richardson_tracer           , &
     &  richardson_veloc            , &
-    &  use_convection_parameterization !            , &
+    &  use_convection              , &
+    &  use_mpiom_pp_form           , &
+    &  use_reduced_mixing_under_ice, &
+    &  use_pp_scheme               , &
+    &  lambda_wind                 , &
+    &  wma_diff                    , &
+    &  wma_visc       
+
     ! &                 use_ThermoExpansion_Correction
 
 
@@ -827,6 +839,12 @@ MODULE mo_ocean_nml
 
      IF (forcing_set_runoff_to_zero) THEN
        CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
+     END IF
+
+     ! physics:
+     IF (use_wind_mixing) THEN
+       use_pp_scheme = .TRUE.
+       CALL message(TRIM(routine),'WARNING, use_wind_mixing is .TRUE. - use_pp_scheme is set to .TRUE.')
      END IF
 
 #ifndef __NO_ICON_ATMO__
