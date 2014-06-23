@@ -769,6 +769,7 @@ run/exp.oce_test_numeric -text
 run/exp.oce_test_numeric_noland_ptest -text
 run/exp.oce_test_numeric_r2b5 -text
 run/exp.oce_test_numeric_tracerconservation -text
+run/exp.oce_test_omip_edge -text
 run/exp.oce_test_parallel -text
 run/exp.oce_testbed_read -text
 run/exp.oce_testbed_vertical_diffusion -text
