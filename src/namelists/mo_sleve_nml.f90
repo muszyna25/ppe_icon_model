@@ -24,6 +24,8 @@ MODULE mo_sleve_nml
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_sleve_config       , ONLY: config_min_lay_thckn => min_lay_thckn, &
+    &                               config_max_lay_thckn => max_lay_thckn, &
+    &                               config_htop_thcknlimit => htop_thcknlimit , &
     &                               config_top_height    => top_height   , &
     &                               config_decay_scale_1 => decay_scale_1, &
     &                               config_decay_scale_2 => decay_scale_2, &
@@ -42,23 +44,24 @@ MODULE mo_sleve_nml
   !---------------------------------------------------------------------------
   !
   ! a) Parameters specifying the distrubution of the coordinate surfaces
-  !     (the initializations are a workaround for a NEC compiler bug)
-  REAL(wp):: min_lay_thckn = 1._wp  ! Layer thickness of lowermost level
-  REAL(wp):: stretch_fac   = 1._wp  ! Factor for stretching/squeezing the model layer distribution
-  REAL(wp):: top_height    = 1._wp  ! Height of model top
+  REAL(wp):: min_lay_thckn   ! Layer thickness of lowermost level
+  REAL(wp):: max_lay_thckn   ! Maximum layer thickness below htop_thcknlimit
+  REAL(wp):: htop_thcknlimit ! Height below which the layer thickness must not exceed max_lay_thckn
+  REAL(wp):: stretch_fac     ! Factor for stretching/squeezing the model layer distribution
+  REAL(wp):: top_height      ! Height of model top
 
   ! b) Parameters for SLEVE definition
-  REAL(wp):: decay_scale_1 = 1._wp  ! Decay scale for large-scale topography component
-  REAL(wp):: decay_scale_2 = 1._wp  ! Decay scale for small-scale topography component
-  REAL(wp):: decay_exp     = 1._wp  ! Exponent for decay function
-  REAL(wp):: flat_height   = 1._wp  ! Height above which the coordinate surfaces are exactly flat
-                                    ! (not available in the standard SLEVE definition)
+  REAL(wp):: decay_scale_1    ! Decay scale for large-scale topography component
+  REAL(wp):: decay_scale_2    ! Decay scale for small-scale topography component
+  REAL(wp):: decay_exp        ! Exponent for decay function
+  REAL(wp):: flat_height      ! Height above which the coordinate surfaces are exactly flat
+                              ! (not available in the standard SLEVE definition)
 
   ! c) Parameter for reading in smoothed topography
   LOGICAL :: lread_smt
  
-  NAMELIST /sleve_nml/ min_lay_thckn, top_height, decay_scale_1,           &
-                       decay_scale_2, decay_exp, flat_height, stretch_fac, &
+  NAMELIST /sleve_nml/ min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height,         &
+                       decay_scale_1, decay_scale_2, decay_exp, flat_height, stretch_fac, &
                        lread_smt
 
 CONTAINS
@@ -93,6 +96,8 @@ CONTAINS
     ! a) Parameters determining the distribution of model layers
     !    (if not read in from a table)
     min_lay_thckn   = 50._wp      ! Layer thickness of lowermost layer
+    max_lay_thckn   = 25000._wp   ! Maximum layer thickness below htop_thcknlimit
+    htop_thcknlimit = 15000._wp   ! Height below which the layer thickness must not exceed max_lay_thckn
     top_height      = 23500._wp   ! Height of model top
     stretch_fac     = 1._wp       ! Scaling factor for stretching/squeezing 
                                   ! the model layer distribution
@@ -140,6 +145,8 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
     config_min_lay_thckn = min_lay_thckn
+    config_max_lay_thckn = max_lay_thckn
+    config_htop_thcknlimit = htop_thcknlimit
     config_top_height    = top_height
     config_decay_scale_1 = decay_scale_1
     config_decay_scale_2 = decay_scale_2

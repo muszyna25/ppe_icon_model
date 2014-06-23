@@ -1477,6 +1477,9 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'hdef_ic', p_diag%hdef_ic,                            &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
                   & ldims=shape3d_chalf, lrestart=.FALSE. )
+
+    ELSE ! dummy allocation to satisfy the pathological NAG compiler
+      ALLOCATE(p_diag%div_ic(1,1,1), p_diag%hdef_ic(1,1,1))
     ENDIF
 
     IF (turbdiff_config(p_patch%id)%itype_sher >= 2) THEN
@@ -1495,6 +1498,9 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'dwdy', p_diag%dwdy,                            &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
                   & ldims=shape3d_chalf, lrestart=.FALSE. )
+
+    ELSE ! dummy allocation to satisfy the pathological NAG compiler
+      ALLOCATE(p_diag%dwdx(1,1,1), p_diag%dwdy(1,1,1))
     ENDIF
 
     ! vor          p_diag%vor(nproma,nlev,nblks_c)

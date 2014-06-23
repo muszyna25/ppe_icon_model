@@ -4142,6 +4142,19 @@ determined by top\_height and nlev&
 \tabularnewline
 
 %\hline
+max\_lay\_thckn&
+R& 25000& m&
+Maximum layer thickness below the height given by htop\_thcknlimit (NWP recommendation: 400 m) \\
+{\it Use with caution! Too ambitious settings may result in numerically unstable layer configurations.}&
+\tabularnewline
+
+%\hline
+htop\_thcknlimit&
+R& 15000& m&
+Height below which the layer thickness does not exceed max\_lay\_thckn &
+\tabularnewline
+
+%\hline
 \textbf{top\_height}&
 R& 23500.0& m&
 Height of model top&

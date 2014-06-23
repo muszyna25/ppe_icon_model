@@ -33,8 +33,8 @@ MODULE mo_nh_init_utils
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_vertical_coord_table,  ONLY: vct_a, vct_b, vct, read_vct
   USE mo_nonhydrostatic_config, ONLY: ivctype
-  USE mo_sleve_config,          ONLY: min_lay_thckn, top_height, decay_scale_1, &
-                                      decay_scale_2, decay_exp, flat_height, stretch_fac
+  USE mo_sleve_config,          ONLY: min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height, &
+                                      decay_scale_1, decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_impl_constants,        ONLY: max_dom, SUCCESS, MAX_CHAR_LENGTH, min_rlcell, &
                                       min_rlcell_int, min_rlvert, min_rlvert_int
   USE mo_math_constants,        ONLY: pi
@@ -795,8 +795,8 @@ CONTAINS
     INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
     REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
 
-    REAL(wp) :: z_exp
-    INTEGER  :: jk
+    REAL(wp) :: z_exp, dvct(nlev), zvcta(nlev+1), stretchfac
+    INTEGER  :: jk, jk1, jks, jk2
     INTEGER  :: nlevp1        !< number of full and half levels
 
     ! number of vertical levels
@@ -815,6 +815,45 @@ CONTAINS
           &              REAL(nlev,wp)**stretch_fac))**z_exp
         vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
       ENDDO
+      ! Apply additional limitation on layer thickness in the middle and upper troposphere if the paramter
+      ! max_lay_thckn is specified appropriately
+      IF (max_lay_thckn > 2._wp*min_lay_thckn .AND. max_lay_thckn < 0.5_wp*htop_thcknlimit) THEN
+        jk1 = 0
+        DO jk = 1, nlev
+          dvct(jk) = vct_a(jk) - vct_a(jk+1)
+          IF (dvct(jk) > max_lay_thckn) jk1 = jk ! lowest layer in which the original layer thickness exceeds
+                                                 ! the specified value
+        ENDDO
+        jks = 0
+        jk2 = 0
+        zvcta(nlevp1) = 0._wp
+        DO jk = nlev, 1, -1
+          IF (zvcta(jk+1) < htop_thcknlimit) THEN
+            zvcta(jk) = zvcta(jk+1)+MIN(max_lay_thckn,dvct(jk))
+          ELSE IF (jk2 == 0) THEN
+            jk2 = jk+1
+            jks = MAX(0,jk1-jk2)  ! shift layers from which thicknesses are taken downward in order to prevent sudden jumps
+            zvcta(jk) = zvcta(jk+1)+dvct(jk+jks)
+          ELSE
+            zvcta(jk) = zvcta(jk+1)+dvct(jk+jks)
+          ENDIF
+        ENDDO
+        IF (jks == 0) THEN ! either jk1 < htop_thcknlimit, which means that the thickness limiter has nothing to do,
+                           ! or htop_thcknlimit is larger than the provisional model top;
+          stretchfac = 1   ! in the latter case, the model top height is reset, overriding the top_height parameter
+                           !
+        ELSE               ! stretch remaining model levels such as to retain the original model top height
+          stretchfac = (vct_a(1)-(zvcta(jk2)+REAL(jk2-1,wp)*max_lay_thckn))/&
+                       (zvcta(1)-(zvcta(jk2)+REAL(jk2-1,wp)*max_lay_thckn))
+        ENDIF
+        DO jk = nlev, 1, -1
+          IF (vct_a(jk+1) < htop_thcknlimit) THEN
+            vct_a(jk) = vct_a(jk+1)+MIN(max_lay_thckn,dvct(jk))
+          ELSE
+            vct_a(jk) = vct_a(jk+1)+max_lay_thckn+(dvct(jk+jks)-max_lay_thckn)*stretchfac
+          ENDIF
+        ENDDO
+      ENDIF
     ELSE
      ! Use constant layer thicknesses determined by nlev and top_height
       DO jk = 1, nlevp1
@@ -872,8 +911,8 @@ CONTAINS
 
     CALL message('mo_nh_init_utils: init_sleve_coord', '')
 
-    IF (msg_level >= 15) THEN
-     WRITE(message_text,'(a)') 'Heights of coordinate half levels (m):'
+    IF (msg_level >= 7) THEN
+     WRITE(message_text,'(a)') 'Nominal heights of coordinate half levels (m):'
         CALL message('', TRIM(message_text))
 
       DO jk = 1, nlevp1
