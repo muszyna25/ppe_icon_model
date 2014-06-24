@@ -363,35 +363,33 @@ CONTAINS
 
     advection_config(jg)%miura_h%iadv_min_slev = HUGE(1)
 
-    IF ( ANY(ihadv_tracer(1:ntracer) == MIURA) ) THEN
 
-      ! compute minimum required slev for this group of tracers
-      DO jt=1,ntracer
-        IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
-          advection_config(jg)%miura_h%iadv_min_slev =  &
-            &                  MIN( advection_config(jg)%miura_h%iadv_min_slev, &
-            &                       advection_config(jg)%iadv_slev(jt) )
-        ENDIF
-      ENDDO
+    ! compute minimum required slev for this group of tracers
+    DO jt=1,ntracer
+      IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+        advection_config(jg)%miura_h%iadv_min_slev =  &
+          &                  MIN( advection_config(jg)%miura_h%iadv_min_slev, &
+          &                       advection_config(jg)%iadv_slev(jt) )
+      ENDIF
+    ENDDO
 
-      ! Search for the first tracer jt for which horizontal advection of
-      ! type MIURA has been selected.
-      DO jt=1,ntracer
-        IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
-          lcompute%miura_h(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type MIURA has been selected.
+    DO jt=1,ntracer
+      IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+        lcompute%miura_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
 
-      ! Search for the last tracer jt for which horizontal advection of
-      ! type MIURA has been selected.
-      DO jt=ntracer,1,-1
-        IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
-          lcleanup%miura_h(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
-    END IF
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type MIURA has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
+        lcleanup%miura_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
 
 
     !
