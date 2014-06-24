@@ -891,7 +891,7 @@ CONTAINS
               IF (mean_density_grad_e <  convection_InstabilityThreshold) THEN
                 ! #slo# ensure that pp is active for low values of max_vert_diff_trac
                 !params_oce%a_veloc_v(je,jk,jb) = max_vert_diff_veloc
-                params_oce%a_veloc_v(jc,jk,jb) = MAX(max_vert_diff_veloc,params_oce%a_veloc_v(jc,jk,jb))
+                params_oce%a_veloc_v(je,jk,jb) = MAX(max_vert_diff_veloc,params_oce%a_veloc_v(je,jk,jb))
               ELSE
                   
                 IF (mean_density_grad_e < RichardsonDiffusion_threshold) THEN
