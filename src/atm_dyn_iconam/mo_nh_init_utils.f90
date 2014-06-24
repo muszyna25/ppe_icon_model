@@ -795,7 +795,7 @@ CONTAINS
     INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
     REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
 
-    REAL(wp) :: z_exp, dvct(nlev), zvcta(nlev+1), stretchfac
+    REAL(wp) :: z_exp, dvct(nlev), zvcta(nlev+1), stretchfac, zdvct
     INTEGER  :: jk, jk1, jks, jk2
     INTEGER  :: nlevp1        !< number of full and half levels
 
@@ -853,6 +853,27 @@ CONTAINS
             vct_a(jk) = vct_a(jk+1)+max_lay_thckn+(dvct(jk+jks)-max_lay_thckn)*stretchfac
           ENDIF
         ENDDO
+
+        ! Try to apply additional smoothing on the stretching factor above the constant-thickness layer
+        IF (stretchfac /= 1._wp .AND. jk1 < nlev-3) THEN
+          DO jk = nlev, 1, -1
+            IF (zvcta(jk+1) < htop_thcknlimit) THEN
+              zvcta(jk) = vct_a(jk)
+            ELSE
+              zdvct = MIN(1.025_wp*(vct_a(jk)-vct_a(jk+1)), 1.025_wp*(zvcta(jk1+1)-zvcta(jk1+2))/ &
+                         (zvcta(jk1+2)-zvcta(jk1+3))*(zvcta(jk+1)-zvcta(jk+2)) )
+              zvcta(jk) = MIN(vct_a(jk),zvcta(jk+1)+zdvct)
+            ENDIF
+          ENDDO
+          IF (zvcta(1) == vct_a(1)) THEN
+            vct_a(1:2) = zvcta(1:2)
+            vct_a(jk2+1:nlev) = zvcta(jk2+1:nlev)
+            DO jk = 3, jk2
+              vct_a(jk) = 0.5_wp*(zvcta(jk-1)+zvcta(jk+1))
+            ENDDO
+          ENDIF
+        ENDIF
+
       ENDIF
     ELSE
      ! Use constant layer thicknesses determined by nlev and top_height
@@ -912,11 +933,11 @@ CONTAINS
     CALL message('mo_nh_init_utils: init_sleve_coord', '')
 
     IF (msg_level >= 7) THEN
-     WRITE(message_text,'(a)') 'Nominal heights of coordinate half levels (m):'
+     WRITE(message_text,'(a)') 'Nominal heights of coordinate half levels and layer thicknesses (m):'
         CALL message('', TRIM(message_text))
 
       DO jk = 1, nlevp1
-       WRITE(message_text,'(a,i4,F12.3)') 'jk, vct_a: ',jk, vct_a(jk)
+       WRITE(message_text,'(a,i4,2F12.3)') 'jk, vct_a, dvct: ',jk, vct_a(jk), vct_a(jk)-vct_a(MIN(jk+1,nlevp1))
         CALL message('', TRIM(message_text))
       ENDDO
     ENDIF

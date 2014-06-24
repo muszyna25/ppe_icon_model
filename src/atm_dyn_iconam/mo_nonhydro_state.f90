@@ -1479,7 +1479,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_chalf, lrestart=.FALSE. )
 
     ELSE ! dummy allocation to satisfy the pathological NAG compiler
-      ALLOCATE(p_diag%div_ic(1,1,1), p_diag%hdef_ic(1,1,1))
+      ALLOCATE(p_diag%div_ic(1,1,nblks_c), p_diag%hdef_ic(1,1,nblks_c))
     ENDIF
 
     IF (turbdiff_config(p_patch%id)%itype_sher >= 2) THEN
@@ -1500,7 +1500,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_chalf, lrestart=.FALSE. )
 
     ELSE ! dummy allocation to satisfy the pathological NAG compiler
-      ALLOCATE(p_diag%dwdx(1,1,1), p_diag%dwdy(1,1,1))
+      ALLOCATE(p_diag%dwdx(1,1,nblks_c), p_diag%dwdy(1,1,nblks_c))
     ENDIF
 
     ! vor          p_diag%vor(nproma,nlev,nblks_c)
