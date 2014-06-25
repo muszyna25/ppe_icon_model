@@ -2542,7 +2542,7 @@ CONTAINS
 
           ! Using the center of the cells for geometric subdivision leads
           ! to "toothed" edges of the subdivision area
-          ! Thus we use the minimum lat/lon as subdision criterion.
+          ! Thus we use the minimum lat/lon as subdivision criterion.
 
           IF (cell_desc(1,nc) >= 0._wp) THEN
             DO i = 1, 3

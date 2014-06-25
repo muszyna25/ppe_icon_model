@@ -1212,7 +1212,7 @@ CONTAINS
     cpu_m = (cpu_a+cpu_b-1)/2
 
     ! If the number of CPUs is not even, we have to split the set
-    ! of cells accordingly into to differntly sized halfes
+    ! of cells accordingly into to differently sized halfes
     ! in order to end with an equal number of points on every CPU.
     ! Note that DOUBLE arithmetic is used since the integer size
     ! may be exceeded in this calculation!
