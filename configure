@@ -4039,20 +4039,20 @@ fi
       mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | awk 'NR==1')
       ;;
     *)
-   #  real_path=$(cd $MPIROOT; pwd -P)
-#  #   mod_file=$(find $real_path -name mpi.mod -print -quit)
-   #  mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+      real_path=$(cd $MPIROOT; pwd -P)
+#      mod_file=$(find $real_path -name mpi.mod -print -quit)
+      mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
       ;;
     esac
-   #if test -r $mod_file ; then
-   #   mod_file=${mod_file#$real_path}
-   #   mod_file=${mod_file#$MPIROOT}
-   #   mod_file="\$(MPIROOT)"${mod_file}
-   #   MPI_M_INCLUDE=${MODOPT}${mod_file%/*}
-   #else
-   #   echo "cannot read $mod_file/mpi.mod"
-   #   exit 1
-   #fi
+    if test -r $mod_file ; then
+       mod_file=${mod_file#$real_path}
+       mod_file=${mod_file#$MPIROOT}
+       mod_file="\$(MPIROOT)"${mod_file}
+       MPI_M_INCLUDE=${MODOPT}${mod_file%/*}
+    else
+       echo "cannot read $mod_file/mpi.mod"
+       exit 1
+    fi
     if test "x$MPI_M_INCLUDE" = "x$MPI_I_INCLUDE" ; then
       MPI_INCLUDE="$MPI_M_INCLUDE"
     else
