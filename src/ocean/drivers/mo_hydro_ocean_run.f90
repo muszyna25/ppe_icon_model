@@ -98,8 +98,8 @@ CONTAINS
     LOGICAL, INTENT(in)               :: is_restart
 
     IF (is_restart) THEN
-      ! Prepare ocean_state%p_prog, since it is needed by the dynamical sea ice model
-      IF ( i_sea_ice > 0 .AND. i_ice_dyn == 1 )         &
+      ! Prepare ocean_state%p_prog, since it is needed by the sea ice model (e.g. wind stress computation)
+      IF ( i_sea_ice > 0 )         &
         & CALL calc_scalar_product_veloc_3d( patch_3d,  &
         & ocean_state%p_prog(nnew(1))%vn,             &
         & ocean_state%p_prog(nnew(1))%vn,             &

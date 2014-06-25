@@ -58,7 +58,7 @@ MODULE mo_ocean_model
   USE mo_oce_state,           ONLY:  v_base, &
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-    & construct_patch_3d, destruct_patch_3d, ocean_default_list
+    & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list
   USE mo_ocean_initialization, ONLY: init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_oce_config,  init_patch_3d,   &
     & init_patch_3d, construct_ocean_var_lists
@@ -510,7 +510,7 @@ CONTAINS
     CALL construct_hydro_ocean_state(patch_3d%p_patch_2d, ocean_state)
     ocean_state(1)%operator_coeff => operators_coefficients
 
-    CALL construct_ho_params(patch_3d%p_patch_2d(jg), p_phys_param)
+    CALL construct_ho_params(patch_3d%p_patch_2d(jg), p_phys_param, ocean_restart_list)
 
     !------------------------------------------------------------------
     ! construct ocean initial conditions and forcing
