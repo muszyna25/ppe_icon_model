@@ -224,7 +224,7 @@ def setSelection
   var  = ENV.has_key?('VAR') ? ENV['VAR']      : '__ALL'
   ts   = ENV.has_key?('TS')  ? ENV['TS'].to_i  : 0
   lev  = ENV.has_key?('LEV') ? ENV['LEV'].to_i : 0
-  show = ENV.values_at('VAR','TS','LEV').uniq != [nil]
+  show = ENV.has_key?('SHOW') #ENV.values_at('VAR','TS','LEV').uniq != [nil]
   max  = ENV.has_key?('MAX') ? ENV['MAX'].to_f : ''
   min  = ENV.has_key?('MIN') ? ENV['MIN'].to_f : ''
   mod  = ENV.has_key?('MOD') ? ENV['MOD']      : 'auto'
@@ -485,7 +485,7 @@ def getOceanOnlyfilelist(build)
 
   oceanFiles << Dir.glob("config/*")
 
-  %w[data doc include scripts support create_builds build_all aclocal.m4 configure.ac configure make_my_runscript make_runscripts make_nat-ape-dec_runs Makefile.in externals].each {|item|
+  %w[data doc include scripts support create_builds build_all aclocal.m4 configure.ac configure make_my_runscript make_runscripts Makefile.in externals].each {|item|
     if File.directory?(item) then
       oceanFiles <<  Dir.glob("#{item}/**/*")
     else
@@ -564,6 +564,11 @@ def doSync(build)
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
   end
   call(syncCmd)
+  # create the icon_components file for excluding everything but the ocean
+  call(connect(build,<<-EOS
+               echo "icon_components=NO_ICON_ATMO NO_JSBACH NO_ICON_TESTBED" >> config/icon_components
+               EOS
+              )) if OCEAN_ONLY
 end
 def doCheckoutRev(build,rev,url)
   dir  = $targetDir[build,false,rev]
@@ -604,7 +609,11 @@ def doClean(build)
   call(connect(build,"make clean"))
 end
 def doCleanSync(build)
-  call(connect(build,"rm -rf src support build"))
+  if OCEAN_ONLY then
+    call(connect(build,"rm -rf src support schedulers vertical_coord_tables lapack blas data"))
+  else
+    call(connect(build,"rm -rf src support build"))
+  end
 end
 def doRunExp(build,exp,post=false)
   nprocs = ENV.has_key?('PROCS') ? ENV['PROCS'] : 4
@@ -671,8 +680,8 @@ def doCmpDirs(build,dirA: dirA,dirB: dirB,expA: expA,expB: expB)
       debug="#{ENV.has_key?('DEBUG')}"
       showDiffSelection="#{show}"
       [[ $debug = 'true' ]] && set -x
-      #{joinModelOutput(exp: expA,ifilePattern: "#{dirA}/#{expA}*nc",expTag: expTagA)}
-      #{joinModelOutput(exp: expB,ifilePattern: "#{dirB}/#{expB}*nc",expTag: expTagB)}
+      #{joinModelOutput(exp: expA,ifilePattern: "#{dirA}/#{expA}*nc*",expTag: expTagA)}
+      #{joinModelOutput(exp: expB,ifilePattern: "#{dirB}/#{expB}*nc*",expTag: expTagB)}
       #{diffThese("${joinModelOutput_#{expB}_#{expTagA}}","${joinModelOutput_#{expB}_#{expTagB}}")}
       [[ $showDiffSelection = 'true' ]] && (
           #{selectBy(var,ts,lev)}
