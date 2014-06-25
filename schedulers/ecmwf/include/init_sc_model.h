@@ -1,16 +1,16 @@
 #==========================================================================
-#PBS -l EC_job_name=ICON_%TASK%
-#PBS -q np
 #PBS -S /usr/bin/ksh
+#PBS -l EC_job_name=ICON_%TASK%
 #PBS -o %SMSJOBOUT%
 #PBS -j oe
 #PBS -m n
+#PBS -q np
 #PBS -l walltime=%SCWALLCLOCKLIMIT%
 #PBS -l EC_total_tasks=%ICONTOTALTASKS%
-##PBS -l EC_nodes=32
 #PBS -l EC_threads_per_task=4
 #PBS -l EC_hyperthreads=2
 
+##PBS -l EC_nodes=32
 ##PBS -l EC_tasks_per_node=%ICONTASKSPERNODE%
 ##PBS -l EC_memory_per_task=1550MB
 

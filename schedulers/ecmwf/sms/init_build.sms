@@ -23,8 +23,12 @@
 echo "INIT_BUILD.SMS"
 
 #module swap fortran fortran/xlf/14.1.0.3
-module swap cce/8.3.0.186
-#module swap cce/8.2.7.101
+
+module swap cce/8.3.0.186   # availability of CC compiler?
+module swap PrgEnv-cray/5.1.18
+
+#module swap cce/8.2.7.101  # segmentation fault during compilation
+
 module load subversion
 module swap grib_api grib_api/1.11.0
 module load netcdf
@@ -47,6 +51,7 @@ smsevent configure
 
 
 # Submit ''Make'' -----------------------------
+#gmake clean
 gmake -j%SCTOTALTASKS%
 smsevent make
 

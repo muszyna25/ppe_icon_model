@@ -858,6 +858,7 @@ schedulers/ecmwf/include/init_ecgate_submit.h -text
 schedulers/ecmwf/include/init_icon_job.h -text
 schedulers/ecmwf/include/init_job.h -text
 schedulers/ecmwf/include/init_sc.h -text
+schedulers/ecmwf/include/init_sc_fractional.h -text
 schedulers/ecmwf/include/init_sc_model.h -text
 schedulers/ecmwf/include/init_ws.h -text
 schedulers/ecmwf/include/init_ws_large.h -text

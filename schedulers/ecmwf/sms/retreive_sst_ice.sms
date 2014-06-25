@@ -24,19 +24,15 @@
 SCRIPTDIR=%SCPERM%/icon-dev/scripts
 SSTICEDIR=%SCPERMIII%/icon_input/sstice/%YYYY%
 mkdir -p $SSTICEDIR
-
 TMPDIR="${TEMP}"
-
-
-
 export SSTICEDIR TMPDIR
 
 myyear=%YYYY%
 echo %YYYY%
 echo $myyear
 
-${SCRIPTDIR}/preprocessing/mars4icon_ei_sst %YYYY%
-${SCRIPTDIR}/preprocessing/mars4icon_ei_ci  %YYYY%
+${SCRIPTDIR}/preprocessing/mars4icon_monmean SST %YYYY%
+${SCRIPTDIR}/preprocessing/mars4icon_monmean CI  %YYYY%
 
 
 ls -lrt ${SSTICEDIR}/*%YYYY%*

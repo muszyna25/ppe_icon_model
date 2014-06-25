@@ -4,14 +4,15 @@
 #PBS -o %SMSJOBOUT%
 #PBS -j oe
 #PBS -m n
-#PBS -q ns
+#PBS -q nf
+#PBS -l EC_total_tasks=24
+#PBS -l EC_threads_per_task=1
+#PBS -l EC_hyperthreads=2
 
+##PBS -S /usr/bin/ksh
 ##PBS -l EC_job_name=ICON_%TASK%
-##PBS -q nf
-##PBS -l EC_total_tasks=24
-##PBS -l EC_hyperthreads=2
-##PBS -l EC_threads_per_task=1
 ##PBS -o %SMSJOBOUT%
+##PBS -q ns
 ##PBS -j oe
 ##PBS -m n
 

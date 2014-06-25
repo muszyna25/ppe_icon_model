@@ -136,17 +136,15 @@ hl_varlist="'u','v','temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'
 
 cat > ${atmo_namelist} << EOF
 &parallel_nml
- nproma                       = 16
+ nproma                       = 8           ! optimal setting 8 for CRAY; use 16 or 24 for IBM
  p_test_run                   = .FALSE.
  l_test_openmp                = .FALSE.
- l_log_checks                 = .TRUE.
- num_io_procs                 = 3
+ l_log_checks                 = .FALSE.
+ num_io_procs                 = 1
  itype_comm                   = 1
  iorder_sendrecv              = 1
- use_dp_mpi2io                = .FALSE.     ! output fields gathered in DOUBLE PRECISION 
 /
 &grid_nml
- cell_type                    = 3
  dynamics_grid_filename       = ${dynamics_grid_filename}
  radiation_grid_filename      = ${radiation_grid_filename}
  dynamics_parent_grid_id      = 0
@@ -159,12 +157,7 @@ cat > ${atmo_namelist} << EOF
  zpbl1                        = 500. 
  zpbl2                        = 1000.
  ifs2icon_filename            = '${ifs2icon_filename}'
-/
-&io_nml
- lflux_avg                    = .FALSE.     ! false: accumulated fluxes
- itype_pres_msl               = 3           ! 3: new IFS T and pressure calculation below ground
- itype_rh                     = 2
- lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
+ l_sst_in                     = .true.
 /
 &run_nml
  num_lev                      = 90
@@ -181,6 +174,13 @@ cat > ${atmo_namelist} << EOF
  timers_level                 = 4
  activate_sync_timers         = .FALSE.
  output                       = "nml"
+/
+&io_nml
+ lflux_avg                    = .FALSE.     ! false: accumulated fluxes
+ itype_pres_msl               = 4           ! 3: new IFS T and pressure calculation below ground
+                                            ! 4: IFS method with bug fix for self-consistency between SLP and geopotential
+ itype_rh                     = 1           ! RH w.r.t. water
+ lzaxis_reference             = .FALSE.     ! necessary till the postprocessing handles grib_api 1.11.0
 /
 &nh_pzlev_nml
  nplev             = 25     ! number of p level output (attention: levels in [Pa] and top-down)
@@ -275,6 +275,7 @@ cat > ${atmo_namelist} << EOF
  inwp_sso                     = 1
  inwp_gwd                     = 1
  inwp_surface                 = 1
+ icapdcycl                    = 3 ! apply CAPE modification to improve diurnalcycle over tropical land (optimizes NWP scores)
  itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
  dt_conv                      = ${dtconv}
  dt_sso                       = ${dtconv}
@@ -290,16 +291,19 @@ cat > ${atmo_namelist} << EOF
  c_diff                       = 0.2
  rat_sea                      = 9.0
  ltkesso                      = .true.  ! SSO dissipation energy used in TKE equation
+ frcsmot = 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
+ imode_frcsmot = 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
 /
 &lnd_nml
  ntiles                       = 3
  nlev_snow                    = 2       ! 2 for multi-level snow
  lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
- idiag_snowfrac               = 4
+ idiag_snowfrac               = 2
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
- llake                        = .false.
- itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
+ llake                        = .true.
+ itype_lndtbl                 = 3       ! 2: tuned stomata resistance rsmin
+                                        ! 3: minimizes moist/cold bias in lower tropical troposphere
  itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
  itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
 /
@@ -328,9 +332,7 @@ cat > ${atmo_namelist} << EOF
  divdamp_fac                  = 0.004
  divdamp_order                = 4
  divdamp_type                 = 3
- l_open_ubc                   = .TRUE.
- l_nest_rcf                   = .TRUE.
- l_masscorr_nest              = .TRUE.
+ l_open_ubc                   = .FALSE.
  igradp_method                = 3
  l_zdiffu_t                   = .TRUE.
  thslp_zdiffu                 = 0.02
@@ -358,28 +360,22 @@ cat > ${atmo_namelist} << EOF
  ivadv_tracer                 = 3,3,3,3,3
  itype_hlimit                 = 3,4,4,4,4,0
  ihadv_tracer                 = 52,2,2,2,2,0
+ iadv_tke                     = 1
 /
 &diffusion_nml
  hdiff_order                  = 5
  itype_vn_diffu               = 1
  itype_t_diffu                = 2
- hdiff_efdt_ratio             = 36.0
- hdiff_smag_fac               = 0.015
+ hdiff_efdt_ratio             = 24.0   ! for R2B6; recommendation for R3B7: 30.0
+ hdiff_smag_fac               = 0.025  ! for R2B6; recommendation for R3B7: 0.02
  lhdiff_vn                    = .TRUE.
  lhdiff_temp                  = .TRUE.
- hdiff_multfac                = 1.0
- hdiff_tv_ratio               = 1.0
 /
 &interpol_nml
  nudge_zone_width             = 8
- lsq_high_ord                 = 2
+ lsq_high_ord                 = 3
  l_intp_c2l                   = .TRUE.
  l_mono_c2l                   = .TRUE.
-/
-&gridref_nml
- grf_intmethod_ct             = 2
- grf_tracfbk                  = 2
- denom_diffu_v                = 150.
 /
 &extpar_nml
  itopo                        = 1

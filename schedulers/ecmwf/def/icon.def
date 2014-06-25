@@ -18,7 +18,7 @@
 # 2012-summer: Upgrade to multi-experiment, multi-user,
 #              catch-up-mode, plotting (Martin Koehler)
 # 2012-end:    Switch to C2A (IBM Power7, Martin Koehler and Stefan Koerner)
-# 2014-06:     Switch to CCA (Cray, Martin Koehler
+# 2014-06:     Switch to CCA (Cray, Martin Koehler)
 #
 
 # ---USER SETUP------------------------------------
@@ -42,7 +42,7 @@ set RESRAD        "R02B05"             #---ICON resolution radiation (requires n
 set NSTEPS       12000   # 10d forecast:  R2B5-turbdiff-9600, R2B5-edmf=6000/5760, R2B6-12000
 #set NSTEPS       6000   # grey zone 48h: R2B7-3600, R2B8-7200
 
-# simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year)
+# simulation modes: 1:oper, 2:monthly 10day forecasts, 3:climate (1year), 4:B-matrix
 set SIMMODE      2
 
 # no. of ensemble members (dummies here)
@@ -50,8 +50,8 @@ set SIMMODE      2
 set NENS         0   # default for no ensemble run
 set NMEM         0   # default for no ensemble run
 
-# Processors
-set ICONTOTALTASKS  192   # 12 x nodes (for 2 hyperthreads and 4 openMP threads)
+# Processors: CRAY totaltasks: 12 x nodes (for 2 hyperthreads and 4 openMP threads)
+set ICONTOTALTASKS  192   # R2B5: 96,  R2B6: 192, R2B7: ?,   R2B8: ?
 set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
 set ICONTASKSPERNODE 32   #       32         32         32          8
 set ICONTHREADS       2   #        2          2          2          8
