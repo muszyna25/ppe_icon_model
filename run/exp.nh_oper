@@ -225,8 +225,8 @@ cat > ${atmo_namelist} << EOF
 /
 &sleve_nml
  min_lay_thckn   = 20.
- max_lay_thckn   = 400. ! maximum layer thickness below htop_thcknlimit
-! htop_thcknlimit = 15000.  ! 15 km is the default
+ max_lay_thckn   = 400.   ! maximum layer thickness below htop_thcknlimit
+ htop_thcknlimit = 14000. ! this implies that the upcoming COSMO-EU nest will have 60 levels
  top_height      = 75000.
  stretch_fac     = 0.9
  decay_scale_1   = 4000.
