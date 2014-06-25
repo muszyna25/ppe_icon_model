@@ -21,6 +21,7 @@
 !!
 MODULE mo_art_init_interface
 
+  USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
   USE mo_art_clean_up,                  ONLY: art_clean_up
@@ -44,15 +45,15 @@ SUBROUTINE art_init_interface(n_dom,defcase)
     &  defcase                      !< construction or destruction?
     
 #ifdef __ICON_ART
-    
-  if (TRIM(defcase) == 'construct') then
-    CALL art_init_all_dom(n_dom)
+  if (lart) then
+    if (TRIM(defcase) == 'construct') then
+      CALL art_init_all_dom(n_dom)
+    end if
+      
+    if (TRIM(defcase) == 'destruct') then
+      CALL art_clean_up(n_dom)
+    end if
   end if
-    
-  if (TRIM(defcase) == 'destruct') then
-    CALL art_clean_up(n_dom)
-  end if
-    
 #endif
 
 END SUBROUTINE art_init_interface

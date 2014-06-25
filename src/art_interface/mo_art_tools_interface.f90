@@ -21,6 +21,7 @@
 !!
 
 MODULE mo_art_tools_interface
+  USE mo_run_config,                    ONLY: lart
   USE mo_nonhydro_types,                ONLY: t_nh_state
 #ifdef __ICON_ART
   USE mo_art_unit_conversion,           ONLY: art_massmix2density
@@ -51,11 +52,11 @@ SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
     &  jg                                 !< domain index
   
 #ifdef __ICON_ART
-
-  IF (TRIM(defcase) .EQ. 'unit_conversion') THEN
-    CALL art_massmix2density(p_nh_state,jg)
-  END IF
-
+  IF (lart) THEN
+    IF (TRIM(defcase) .EQ. 'unit_conversion') THEN
+      CALL art_massmix2density(p_nh_state,jg)
+    ENDIF
+  ENDIF
 #endif
     
 END SUBROUTINE art_tools_interface
