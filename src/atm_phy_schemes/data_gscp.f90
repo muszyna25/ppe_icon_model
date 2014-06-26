@@ -132,6 +132,13 @@ REAL(KIND=ireals), PARAMETER :: &
     STOP
 #endif
 
+! Parameters for Segal-Khain parameterization (aerosol-microphysics coupling)
+REAL(KIND=ireals), PARAMETER :: r2_fix    = 0.03_ireals , & ! Parameters for simplified lookup table computation; 
+                                lsigs_fix = 0.3_ireals      ! relevant for r2_lsigs_are_fixed = .TRUE.
+
+LOGICAL,           PARAMETER :: r2_lsigs_are_fixed = .TRUE. , & !
+                                lincloud           = .FALSE.    ! ignore in-cloud nucleation
+
 
 !==============================================================================
 

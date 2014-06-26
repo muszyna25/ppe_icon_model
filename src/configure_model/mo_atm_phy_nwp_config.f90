@@ -46,7 +46,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: configure_atm_phy_nwp
   PUBLIC :: lrtm_filename
   PUBLIC :: cldopt_filename
-  PUBLIC :: ltuning_detrain, ltuning_kessler
+  PUBLIC :: ltuning_detrain, ltuning_kessler, icpl_aero_conv
   PUBLIC :: ltuning_ozone, tune_rhebc_land, tune_rhebc_ocean
   PUBLIC :: tune_gkdrag, tune_gkwake, tune_gfluxlaun
 
@@ -78,8 +78,10 @@ MODULE mo_atm_phy_nwp_config
     ! hydci_pp                   
     REAL(wp) :: mu_rain          !! parameter in gamma distribution for rain
     REAL(wp) :: mu_snow          !! ...for snow
-
     REAL(wp) :: qi0, qc0
+
+    INTEGER  :: icpl_aero_gscp     !! type of aerosol-microphysics coupling
+
     REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
     REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation 
                                    !! coefficient
@@ -114,6 +116,8 @@ MODULE mo_atm_phy_nwp_config
 
   !> NetCDF file with RRTM Cloud Optical Properties for ECHAM6
   CHARACTER(LEN=filename_max) :: cldopt_filename
+
+  INTEGER  :: icpl_aero_conv     !! type of coupling between aerosols and convection scheme
 
   REAL(wp) ::  &                       !> Field of calling-time interval (seconds) for
     &  dt_phy(max_dom,iphysproc_short) !! each domain and phys. process

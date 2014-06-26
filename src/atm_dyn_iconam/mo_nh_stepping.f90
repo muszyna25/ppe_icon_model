@@ -49,7 +49,7 @@ MODULE mo_nh_stepping
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
     &                                    timer_integrate_nh, timer_nh_diagnostics
   USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config
-  USE mo_nwp_phy_init,             ONLY: init_nwp_phy
+  USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
@@ -293,6 +293,11 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
            & phy_params(jg)                         )
+
+      IF (.NOT.is_restart_run()) THEN
+        CALL init_cloud_aero_cpl (datetime, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
+      ENDIF
+
     ENDDO
     IF (.NOT.is_restart_run()) THEN
       ! Compute diagnostic physics fields
@@ -1610,6 +1615,8 @@ MODULE mo_nh_stepping
               & p_lnd_state(jgc)%diag_lnd               ,&
               & ext_data(jgc)                           ,&
               & phy_params(jgc), lnest_start=.TRUE.      )
+
+            CALL init_cloud_aero_cpl (datetime, p_patch(jgc), p_nh_state(jgc)%metrics, ext_data(jgc), prm_diag(jgc))
 
             CALL compute_airmass(p_patch(jgc),                   &
               &                  p_nh_state(jgc)%metrics,        &

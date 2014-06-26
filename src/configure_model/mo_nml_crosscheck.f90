@@ -67,7 +67,7 @@ MODULE mo_nml_crosscheck
   USE mo_diffusion_config,   ONLY: diffusion_config
 
 
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
@@ -485,6 +485,9 @@ CONTAINS
             CALL finish(TRIM(method_name),'irad_aero=6 requires itopo=1')
           ENDIF
 
+          IF ( irad_aero /= 6 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) THEN
+            CALL finish(TRIM(method_name),'aerosol-precipitation coupling requires irad_aero=6')
+          ENDIF
         ELSE
 
           SELECT CASE (irad_o3)

@@ -1324,6 +1324,7 @@ src/atm_phy_schemes/mo_cloud_diag.f90 -text
 src/atm_phy_schemes/mo_convect_tables.f90 -text
 src/atm_phy_schemes/mo_cover_cosmo.f90 -text
 src/atm_phy_schemes/mo_cover_koe.f90 -text
+src/atm_phy_schemes/mo_cpl_aerosol_microphys.f90 -text
 src/atm_phy_schemes/mo_cuascn.f90 -text
 src/atm_phy_schemes/mo_cudescn.f90 -text
 src/atm_phy_schemes/mo_cuflxtends.f90 -text

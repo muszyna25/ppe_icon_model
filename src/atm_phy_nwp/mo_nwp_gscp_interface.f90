@@ -61,6 +61,8 @@ MODULE mo_nwp_gscp_interface
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
+  USE data_gscp,               ONLY: cloud_num
+  USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
 
   IMPLICIT NONE
 
@@ -104,6 +106,8 @@ CONTAINS
 
     INTEGER :: jc,jb,jg               !<block indices
 
+    REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
+
     ! local variables
     !
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -129,19 +133,38 @@ CONTAINS
     END IF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn,qnc,qnc_s) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                i_startidx, i_endidx, rl_start, rl_end)
 
-          !>  prognostic microphysics and precipitation scheme from COSMO
-          !!  NOTE: since microphysics is a fast process it is
-          !!        allowed to do a sequential updating!
+
+        IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 2) THEN
+
+          ! Preparation for coupling of more advanced microphysics schemes (inwp_gscp>=2) with aerosol climatology
+          ! Not yet implemented
+          CALL ncn_from_tau_aerosol_speccnconst (nproma, nlev, i_startidx, i_endidx, kstart_moist(jg), nlev, &
+            p_metrics%z_ifc(:,:,jb), prm_diag%aer_ss(:,jb), prm_diag%aer_su(:,jb), prm_diag%aer_or(:,jb),    &
+            prm_diag%aer_du(:,jb), zncn)
+
+          CALL specccn_segalkhain (nproma, nlev, i_startidx, i_endidx, kstart_moist(jg), nlev, zncn,         &
+            p_prog%w(:,:,jb), p_prog_rcf%tracer(:,:,jb,iqc), p_prog%rho(:,:,jb), p_metrics%z_ifc(:,:,jb), qnc)
+
+        ELSE IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1) THEN
+
+          qnc_s(i_startidx:i_endidx) = prm_diag%cloud_num(i_startidx:i_endidx,jb)
+
+        ELSE
+
+          qnc_s(i_startidx:i_endidx) = cloud_num
+
+        ENDIF
+
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
 
-        CASE(0)  ! no micro physics scheme
+        CASE(0)  ! no microphysics scheme - in this case, this interface should not be called anyway
           
           WRITE(0,*) "                           "
 
@@ -167,6 +190,7 @@ CONTAINS
             & qi     =p_prog_rcf%tracer (:,:,jb,iqi)   ,    & !< inout:  cloud ice
             & qr     =p_prog_rcf%tracer (:,:,jb,iqr)   ,    & !< inout:  rain water
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< inout:  snow
+            & qnc    = qnc_s                           ,    & !< cloud number concentration
             & prr_gsp=prm_diag%rain_gsp_rate (:,jb)    ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%snow_gsp_rate (:,jb)    ,    & !< out: precipitation rate of snow
             & idbg=msg_level/2                         ,    &

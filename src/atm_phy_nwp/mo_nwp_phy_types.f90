@@ -136,6 +136,7 @@ MODULE mo_nwp_phy_types
       &   rain_con0(:,:),      & !! accumulated convective surface rain                  [kg/m2]
       &   snow_con0(:,:),      & !! accumulated convective surface snow                  [kg/m2]
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
+      &   cloud_num(:,:),      & !! 2D cloud droplet number concentration for simple aerosol-cloud coupling [1/m**3]
       &   cape    (:,:),       & !! convective available energy
       &   con_gust(:,:),       & !! convective gusts near surface
       &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
@@ -305,6 +306,18 @@ MODULE mo_nwp_phy_types
       & aerurb  (:,:),      &
       & aerdes  (:,:)
 
+    ! time-interpolated values for Tegen aerosol climatology (needed as state fields for coupling with microphysics and convection)
+    REAL(wp), POINTER       &
+#ifdef _CRAYFTN
+      , CONTIGUOUS          &
+#endif
+      & ::                  &
+      & aer_ss  (:,:),      &
+      & aer_or  (:,:),      &
+      & aer_bc  (:,:),      &
+      & aer_su  (:,:),      &
+      & aer_du  (:,:)
+
     INTEGER, POINTER        &
 #ifdef _CRAYFTN
       , CONTIGUOUS          &
@@ -365,6 +378,7 @@ MODULE mo_nwp_phy_types
       ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
+      ddt_tke_pconv   (:,:,:)  ,& !! TKE tendency from convective prec
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
     !Anurag Dipankar, MPIM (2013-May-31)

@@ -229,6 +229,7 @@ CONTAINS
 &            pgeoh  = p_metrics%geopot_agl_ifc(:,:,jb)                        ,& !! IN
 &            zdph   = p_diag%dpres_mc     (:,:,jb)                            ,& !! IN
 &            zdgeoh = p_metrics%dgeopot_mc(:,:,jb)                            ,& !! IN
+&            pcloudnum = prm_diag%cloud_num(:,jb)                             ,& !! IN
 &            ptent  = z_dtdt                                                  ,& !! INOUT
 &            ptenu  = prm_nwp_tend%ddt_u_pconv     (:,:,jb)                   ,& !! OUT
 &            ptenv  = prm_nwp_tend%ddt_v_pconv     (:,:,jb)                   ,& !! OUT
@@ -251,6 +252,7 @@ CONTAINS
 &            pmflxr =      prm_diag%rain_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
+&            pdtke_con =   prm_nwp_tend%ddt_tke_pconv(:,:,jb)                 ,& !! OUT
 &            pcape  =      prm_diag%cape     (:,jb)                           ,& !! OUT
 &            ktrac  = art_config(jg)%nconv_tracer                             ,& !! IN 
 &            pcen   = p_prog_rcf%conv_tracer(jb,:)                            ,& !! IN 
@@ -273,6 +275,7 @@ CONTAINS
 &            pgeoh  = p_metrics%geopot_agl_ifc(:,:,jb)                        ,& !! IN
 &            zdph   = p_diag%dpres_mc     (:,:,jb)                            ,& !! IN
 &            zdgeoh = p_metrics%dgeopot_mc(:,:,jb)                            ,& !! IN
+&            pcloudnum = prm_diag%cloud_num(:,jb)                             ,& !! IN
 &            ptent  = z_dtdt                                                  ,& !! INOUT
 &            ptenu  = prm_nwp_tend%ddt_u_pconv     (:,:,jb)                   ,& !! OUT
 &            ptenv  = prm_nwp_tend%ddt_v_pconv     (:,:,jb)                   ,& !! OUT
@@ -295,6 +298,7 @@ CONTAINS
 &            pmflxr =      prm_diag%rain_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            pmflxs =      prm_diag%snow_con_rate_3d(:,:,jb)                  ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
+&            pdtke_con =   prm_nwp_tend%ddt_tke_pconv(:,:,jb)                 ,& !! OUT
 &            pcape  =      prm_diag%cape     (:,jb)                           ,& !! OUT
 &            ktrac  = 0                                                        ) !! IN 
         ENDIF

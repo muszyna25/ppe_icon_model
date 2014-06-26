@@ -271,6 +271,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb),                                      & !inout
         &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb),                                     & !in
         &  vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb),                                     & !in
+        &  tket_conv=prm_nwp_tend%ddt_tke_pconv(:,:,jb),                              & !in
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb),                & !in
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 

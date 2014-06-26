@@ -510,7 +510,7 @@ SUBROUTINE hydci_pp_init(idbg)
 #endif
 
 
-  zconst = zkcau / (20.0_ireals*zxstar*cloud_num*cloud_num) &
+  zconst = zkcau / (20.0_ireals*zxstar) &
     * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
   ccsrim = 0.25_ireals*pi*zecs*v0snow*gamma_fct(zv1s+3.0_ireals)
   ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
@@ -601,7 +601,7 @@ SUBROUTINE hydci_pp (             &
   ivstart,ivend, kstart,             & !! optional start/end indicies
   idbg,                              & !! optional debug level
   zdt, dz,                           & !! numerics parameters
-  t,p,rho,qv,qc,qi,qr,qs,            & !! prognostic variables
+  t,p,rho,qv,qc,qi,qr,qs,qnc,        & !! prognostic variables
 #ifdef __ICON__
   !xxx: this should become a module variable, e.g. in a new module mo_data_gscp.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
@@ -710,7 +710,8 @@ SUBROUTINE hydci_pp (             &
   REAL(KIND=ireals), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
 #endif
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
-    prs_gsp                !! precipitation rate of snow, grid-scale        (kg/(m2*s))
+    prs_gsp,             & !! precipitation rate of snow, grid-scale        (kg/(m2*s))
+    qnc                    !! cloud number concentration
 
 #ifdef __xlC__
   ! LL: xlc has trouble optimizing with the assumed shape, define the shape
@@ -1496,7 +1497,7 @@ SUBROUTINE hydci_pp (             &
           ztau   = MAX(ztau,1.E-30_ireals)
           hlp    = EXP(zkphi2*LOG(ztau))
           zphi   = zkphi1 * hlp * (1.0_ireals - hlp)**3
-          zscau  = zconst * qcg*qcg*qcg*qcg &
+          zscau  = zconst * qcg*qcg*qcg*qcg/(qnc(iv)*qnc(iv)) &
             &    * (1.0_ireals + zphi/(1.0_ireals - ztau)**2)
           zphi   = (ztau/(ztau+zkphi3))**4
           zscac  = zkcac * qcg * qrg * zphi !* zrho1o2(iv)
@@ -3004,7 +3005,7 @@ SUBROUTINE hydci_pp_gr (             &
           IF (qcg > 1e-6) THEN
             ztau  = MIN(1.0_ireals-qcg/(qcg+qrg),0.9_ireals)
             zphi  = zkphi1 * ztau**zkphi2 * (1.0_ireals - ztau**zkphi2)**3
-            scau(iv) = zconst * qcg*qcg*qcg*qcg &
+            scau(iv) = zconst * qcg*qcg*qcg*qcg/(cloud_num*cloud_num) &
                       * (1.0_ireals + zphi/(1.0_ireals - ztau)**2)
             zphi      = (ztau/(ztau+zkphi3))**4
             scac(iv) = zkcac * qcg * qrg * zphi

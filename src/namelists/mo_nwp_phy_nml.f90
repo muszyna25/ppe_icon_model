@@ -36,7 +36,8 @@ MODULE mo_nwp_phy_nml
 
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config,                        &
     &                               config_lrtm_filename   => lrtm_filename,   &
-    &                               config_cldopt_filename => cldopt_filename
+    &                               config_cldopt_filename => cldopt_filename, &
+    &                               config_icpl_aero_conv  => icpl_aero_conv
 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_cuparameters,        ONLY: icapdcycl
@@ -65,6 +66,8 @@ MODULE mo_nwp_phy_nml
   INTEGER  :: inwp_surface(max_dom)       !! surface including soil, ocean, ice,lake
 
   INTEGER  :: itype_z0           !! type of roughness length data
+  INTEGER  :: icpl_aero_gscp     !! type of aerosol-microphysics coupling
+  INTEGER  :: icpl_aero_conv     !! type of coupling between aerosols and convection scheme
   REAL(wp) :: qi0, qc0           !! variables for hydci_pp
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
@@ -85,10 +88,10 @@ MODULE mo_nwp_phy_nml
     &                    inwp_gscp, inwp_satad,                    &
     &                    inwp_turb, inwp_surface,                  &
     &                    dt_conv, dt_rad, dt_sso, dt_gwd,          &
-    &                    qi0, qc0,                                 &
+    &                    qi0, qc0, icpl_aero_gscp,                 &
     &                    ustart_raylfric, efdt_min_raylfric,       &
     &                    latm_above_top, itype_z0, mu_rain,        &
-    &                    mu_snow, icapdcycl,                       &
+    &                    mu_snow, icapdcycl, icpl_aero_conv,       &
     &                    lrtm_filename, cldopt_filename
 
 
@@ -194,6 +197,14 @@ CONTAINS
                    ! 2=    CAPE - subcloud CAPE (IFS default starting with cy40r1)
                    ! 3=    Apply CAPE modification of (2) over land only, with additional restriction to the tropics
 
+    ! coupling between aersols and cloud microphysics
+    icpl_aero_gscp = 0  ! 0 = none
+                        ! 1 = simple coupling with aerosol climatology disregarding the dependency of aerosol activation on vertical wind speed
+                        ! 2 = more accurate coupling with aerosol climatology as a function of vertical wind speed
+
+    ! coupling between aersols and convection scheme
+    icpl_aero_conv = 0  ! 0 = none
+                        ! 1 = specify thresholds (QC and cloud thickness) for precip initiation depending on aerosol climatology instead of land-sea mask
 
     !------------------------------------------------------------------
     ! 1. If this is a resumed integration, overwrite the defaults above 
@@ -291,6 +302,9 @@ CONTAINS
         itype_z0 = 1
       ENDIF
 
+      IF (icpl_aero_gscp > 0 .AND. inwp_gscp(jg) /= 1) THEN
+        CALL finish( TRIM(routine), 'Aerosol-microphysics coupling currently available only for inwp_gscp=1')
+      ENDIF
 
       ! Check whether the radiation time step is a multiple of the convection time step.
       ! If not, then adapt the radiation time step. I.e. the radiation time step is rounded up to 
@@ -350,10 +364,12 @@ CONTAINS
       atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
       atm_phy_nwp_config(jg)%mu_rain         = mu_rain
       atm_phy_nwp_config(jg)%mu_snow         = mu_snow
+      atm_phy_nwp_config(jg)%icpl_aero_gscp  = icpl_aero_gscp
     ENDDO
 
     config_lrtm_filename   = TRIM(lrtm_filename)
     config_cldopt_filename = TRIM(cldopt_filename)
+    config_icpl_aero_conv  = icpl_aero_conv
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

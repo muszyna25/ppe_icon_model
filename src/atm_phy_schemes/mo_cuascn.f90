@@ -73,7 +73,7 @@ CONTAINS
     & pten,     pqen,     pqsen,    plitot,&
     & pgeo,     pgeoh,    pap,      paph,&
     & zdph,     zdgeoh,                  &
-    & pvervel,  pwubase,  &
+    & pvervel,  pwubase,  pcloudnum,     &
     & ldland,   ldcum,    ktype,    klab,&
     & ptu,      pqu,      plu,&
     & pmfu,     pmfub,    pentr,    plglac,&
@@ -220,8 +220,8 @@ CONTAINS
 
   
 USE mo_cufunctions       , ONLY: foealfcu
-! GZ, 2013-09-13: tuning to reduce drizzle and reduce moisture bias in tropics
-USE mo_atm_phy_nwp_config, ONLY: ltuning_detrain, ltuning_kessler
+! GZ, 2013-09-13: tuning to reduce drizzle and reduce moisture bias in tropics, and coupling of autoconversion to aerosols
+USE mo_atm_phy_nwp_config, ONLY: ltuning_detrain, ltuning_kessler, icpl_aero_conv
 
 
 INTEGER(KIND=jpim),INTENT(in)    :: klon 
@@ -249,6 +249,7 @@ REAL(KIND=jprb)   ,INTENT(in)    :: zdph(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: ptenq(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(in)    :: pvervel(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(in)    :: pwubase(klon) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pcloudnum(klon) 
 LOGICAL           ,INTENT(in)    :: ldland(klon) 
 LOGICAL           ,INTENT(inout) :: ldcum(klon) 
 INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon) 
@@ -280,7 +281,7 @@ REAL(KIND=jprb) ::     zdmfen(klon),           zdmfde(klon),&
  & zprecip(klon)  
 REAL(KIND=jprb) ::     zdpmean(klon)
 REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon), zptop0(klon)
-REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon)
+REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon), zdnoprc(klon)
 LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3, llo4
 
 INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, ikb, kk
@@ -288,7 +289,7 @@ INTEGER(KIND=jpim) :: jll, jlm, jlx(klon)
 
 REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
  & zbc(klon), zbe, zbuoc, zc, zcbf, zcons2, zd, zdfi, &
- & zdkbuo, zdken, zdnoprc, &
+ & zdkbuo, zdken, &
  & zdt, zfac, zfacbuo, zint, zkedke, zlcrit, &
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
@@ -436,17 +437,38 @@ ENDDO
 !        !KF
 !      ENDDO
 !ELSEIF (.NOT. PRESENT (paer_ss)) THEN
-    IF (ltuning_kessler) THEN
+    IF (icpl_aero_conv == 1) THEN
+      DO jl=kidia,kfdia
+        zdrain(jl)  = 0.25E4_JPRB + 3.75E-5_JPRB * pcloudnum(jl)  ! minimum cloud depth for generating precip: 30-150 hPa ...
+        zdnoprc(jl) = 0.5E-4_JPRB + 8.75E-13_JPRB * pcloudnum(jl) ! autoconversion threshold: 0.065 - 0.35 g/kg ...
+      ENDDO
+      DO jl=kidia,kfdia
+        IF(.NOT. ldland(jl)) THEN
+          zdrain(jl)  = MIN(0.5E4_JPRB,   zdrain(jl) ) ! ... but over water at most 50 hPa
+          zdnoprc(jl) = MIN(1.25e-4_JPRB, zdnoprc(jl)) ! ... but over water at most 0.125 g/kg
+        ENDIF
+      ENDDO
+    ELSE IF (ltuning_kessler) THEN
       DO jl=kidia,kfdia
         IF(ldland(jl)) THEN
-          zdrain(jl)=1.0E4_JPRB  ! minimum cloud depth for generating precip: 100 hPa over land
+          zdrain(jl)  = 1.0E4_JPRB  ! minimum cloud depth for generating precip: 100 hPa over land
+          zdnoprc(jl) = 2.25e-4_JPRB ! autoconversion threshold: 0.225 g/kg over land
         ELSE
-          zdrain(jl)=0.4E4_JPRB  ! minimum cloud depth for generating precip: 40 hPa over water
+          zdrain(jl)  = 0.4E4_JPRB  ! minimum cloud depth for generating precip: 40 hPa over water
+          zdnoprc(jl) = 1.0e-4_JPRB ! autoconversion threshold: 0.1 g/kg over water
         ENDIF
       ENDDO
     ELSE
-      zdrain(:)=-1.0E5_JPRB ! cloud depth criterion deactivated
+      DO jl=kidia,kfdia
+        IF(ldland(jl)) THEN
+          zdnoprc(jl) = 5.e-4_JPRB ! 0.5 g/kg over land
+        ELSE
+          zdnoprc(jl) = 3.e-4_JPRB ! 0.3 g/kg over water
+        ENDIF
+        zdrain(jl)=-1.0E5_JPRB ! cloud depth criterion deactivated
+      ENDDO
     ENDIF
+
 !ENDIF !present aerosol
 !
 ! !KF needed for density correction
@@ -848,28 +870,11 @@ DO jk=klev-1,ktdia+2,-1
 
     DO jl=kidia,kfdia
       IF(llo1(jl)) THEN
-        IF (ltuning_kessler) THEN
-          IF(ldland(jl)) THEN ! Note: the following autoconversion thresholds are only reasonable when 
-                              ! combined with a cloud thickness criterion (zdrain)
-            zdnoprc=2.25e-4_JPRB ! autoconversion threshold: 0.225 g/kg over land
-          ELSE
-            zdnoprc=1.0e-4_JPRB ! autoconversion threshold: 0.1 g/kg over water
-          ENDIF
-        ELSE ! standard implementation: use autoconversion thresholds without cloud depth limit
-          IF(ldland(jl)) THEN
-            zdnoprc=5.e-4_JPRB ! 0.5 g/kg over land
-          ELSE
-            zdnoprc=3.e-4_JPRB ! 0.3 g/kg over water
-          ENDIF
-        ENDIF
-  !      IF(plu(jl,jk) > zdnoprc) THEN
 
         !> KF combine two conditions
-        !!  RECOMMENDED!! apply the aerosol condition to clouddepth
         !
-        ! zdnoprc = zdrain(jl)
         !  
-        IF (plu(jl,jk) > zdnoprc .AND. (zpbase(jl)-MIN(zptop0(jl),paph(jl,jk))) > zdrain(jl)) THEN
+        IF (plu(jl,jk) > zdnoprc(jl) .AND. (zpbase(jl)-MIN(zptop0(jl),paph(jl,jk))) > zdrain(jl)) THEN
         !KF
 
           zwu=MIN(15._jprb,SQRT(2.0_JPRB*MAX(0.1_JPRB,pkineu(jl,jk+1))))
@@ -880,7 +885,7 @@ DO jk=klev-1,ktdia+2,-1
           zdt=MIN(rtbercu-rticecu,MAX(rtber-ptu(jl,jk),0.0_JPRB))
           zcbf=1.0_JPRB+z_cprc2*SQRT(zdt)
           zzco=zprcon*zcbf
-          zlcrit=zdnoprc/zcbf
+          zlcrit=zdnoprc(jl)/zcbf
 
           zdfi=pgeoh(jl,jk)-pgeoh(jl,jk+1)
           !>KF

@@ -47,7 +47,7 @@ MODULE mo_nwp_phy_init
     &                               iqnc, iqnr, iqni, iqns, iqng, iqnh,             &
     &                               inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
-    &                               cldopt_filename
+    &                               cldopt_filename, icpl_aero_conv
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
@@ -68,6 +68,8 @@ MODULE mo_nwp_phy_init
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
     &                               set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng
+  USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
+                                      ncn_from_tau_aerosol_speccnconst
 
   ! convection
   USE mo_cuparameters,        ONLY: sucst,  sucumf,    &
@@ -108,7 +110,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_datetime,            ONLY: iso8601
+  USE mo_datetime,            ONLY: iso8601, t_datetime,  month2hour
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: init_mode
 
@@ -119,7 +121,7 @@ MODULE mo_nwp_phy_init
   PRIVATE
 
 
-  PUBLIC  :: init_nwp_phy
+  PUBLIC  :: init_nwp_phy, init_cloud_aero_cpl
 
 CONTAINS
 
@@ -571,7 +573,9 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     END IF 
   END SELECT
 
-
+  ! Compute lookup tables for aerosol-microphysics coupling
+  IF (jg == 1 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) &
+    CALL lookupcreate_segalkhain()
 
   !------------------------------------------
   !< radiation
@@ -1312,6 +1316,70 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 END SUBROUTINE init_nwp_phy
 
+
+  SUBROUTINE init_cloud_aero_cpl ( datetime, p_patch, p_metrics, ext_data, prm_diag)
+
+
+    TYPE(t_datetime),            INTENT(in) :: datetime
+    TYPE(t_patch),               INTENT(in) :: p_patch
+    TYPE(t_nh_metrics),          INTENT(in) :: p_metrics
+    TYPE(t_external_data),       INTENT(in) :: ext_data
+
+    TYPE(t_nwp_phy_diag),        INTENT(inout) :: prm_diag
+
+
+    INTEGER  :: imo1, imo2
+    INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER  :: jb, jc, jg, nlev
+
+    REAL(wp) :: wgt, zncn(nproma, p_patch%nlev)
+
+    jg = p_patch%id
+    nlev = p_patch%nlev
+
+    IF (irad_aero /= 6) RETURN
+    IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
+
+    CALL month2hour (datetime, imo1, imo2, wgt)
+
+    rl_start = 1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zncn)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jc = i_startidx, i_endidx
+
+        prm_diag%aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+          ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * wgt
+        prm_diag%aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+          ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * wgt
+        prm_diag%aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+          ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * wgt
+        prm_diag%aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+          ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * wgt
+        prm_diag%aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+          ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * wgt
+
+      ENDDO
+
+      CALL ncn_from_tau_aerosol_speccnconst (nproma, nlev, i_startidx, i_endidx, 1, nlev,             &
+        p_metrics%z_ifc(:,:,jb), prm_diag%aer_ss(:,jb), prm_diag%aer_su(:,jb), prm_diag%aer_or(:,jb), &
+        prm_diag%aer_du(:,jb), zncn)
+
+      CALL specccn_segalkhain_simple (nproma, i_startidx, i_endidx, zncn(:,nlev), prm_diag%cloud_num(:,jb))
+
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE init_cloud_aero_cpl
 
 END MODULE mo_nwp_phy_init
 

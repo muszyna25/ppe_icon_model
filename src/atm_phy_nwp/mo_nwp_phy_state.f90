@@ -59,7 +59,9 @@ USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom
 USE mo_linked_list,         ONLY: t_list_element, t_var_list
-USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv
+USE mo_data_turbdiff,       ONLY: ltkecon
+USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
@@ -265,6 +267,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
+    LOGICAL :: lrestart
  
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
@@ -774,7 +777,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
       & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,               &
       & ldims=shape3d, lrestart=.FALSE.,                                      &
       & isteptype=TSTEP_CONSTANT )
-
 
 
     !      diag%tot_cld(nproma,nlev,nblks_c,3)
@@ -1444,40 +1446,96 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
           & ldims=shape2d, lrestart=.FALSE. )
 
 
-
-   ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
-
-        ! &      diag%aersea(nproma,nblks_c)
-        cf_desc    = t_cf_var('aersea', '', '', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'aersea', diag%aersea,                       &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE. ) 
+        IF (irad_aero == 5) THEN ! Old Tanre aerosol climatology taken over from the COSMO model (to be used with inwp_radiation==2)
+          ! &      diag%aersea(nproma,nblks_c)
+          cf_desc    = t_cf_var('aersea', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aersea', diag%aersea,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=.FALSE. ) 
 
         
-        ! &      diag%aerlan(nproma,nblks_c)
-        cf_desc    = t_cf_var('aerlan', '', '', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'aerlan', diag%aerlan,                       &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE. ) 
+          ! &      diag%aerlan(nproma,nblks_c)
+          cf_desc    = t_cf_var('aerlan', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aerlan', diag%aerlan,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=.FALSE. ) 
 
         
-        ! &      diag%aerurb(nproma,nblks_c)
-        cf_desc    = t_cf_var('aerurb', '', '', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'aerurb', diag%aerurb,                       &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE. ) 
+          ! &      diag%aerurb(nproma,nblks_c)
+          cf_desc    = t_cf_var('aerurb', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aerurb', diag%aerurb,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=.FALSE. ) 
 
         
-        ! &      diag%aerdes(nproma,nblks_c)
-        cf_desc    = t_cf_var('aerdes', '', '', DATATYPE_FLT32)
-        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'aerdes', diag%aerdes,                       &
-          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
-          & ldims=shape2d, lrestart=.FALSE. ) 
+          ! &      diag%aerdes(nproma,nblks_c)
+          cf_desc    = t_cf_var('aerdes', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aerdes', diag%aerdes,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=.FALSE. ) 
 
+        ELSE IF (irad_aero == 6) THEN ! Tegen aerosol climatology, time-interpolated values 
+                                      ! (needed as state fields for coupling with microphysics and convection)
+
+          IF (atm_phy_nwp_config(k_jg)%icpl_aero_gscp > 1 .OR. icpl_aero_conv > 1) THEN
+            lrestart = .TRUE.
+          ELSE
+            lrestart = .FALSE.
+          ENDIF
+
+          ! &      diag%aer_ss(nproma,nblks_c)
+          cf_desc    = t_cf_var('aer_ss', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aer_ss', diag%aer_ss,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=lrestart ) 
+
+          ! &      diag%aer_or(nproma,nblks_c)
+          cf_desc    = t_cf_var('aer_or', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aer_or', diag%aer_or,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=lrestart ) 
+
+          ! &      diag%aer_bc(nproma,nblks_c)
+          cf_desc    = t_cf_var('aer_bc', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aer_bc', diag%aer_bc,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=lrestart ) 
+
+          ! &      diag%aer_su(nproma,nblks_c)
+          cf_desc    = t_cf_var('aer_su', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aer_su', diag%aer_su,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=lrestart ) 
+
+          ! &      diag%aer_du(nproma,nblks_c)
+          cf_desc    = t_cf_var('aer_du', '', '', DATATYPE_FLT32)
+          grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'aer_du', diag%aer_du,                       &
+            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+            & ldims=shape2d, lrestart=lrestart ) 
+
+        ENDIF
+
+        IF (irad_aero == 6 .AND. (atm_phy_nwp_config(k_jg)%icpl_aero_gscp == 1 .OR. icpl_aero_conv == 1)) THEN
+          lrestart = .TRUE.
+        ELSE
+          lrestart = .FALSE.
+        ENDIF
+
+        ! &      diag%cloud_num(nproma,nblks_c)
+        cf_desc    = t_cf_var('cloud_num', 'm-3', 'cloud droplet number concentration', DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'cloud_num', diag%cloud_num,                 &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+          & ldims=shape2d, lrestart=lrestart )
 
         !------------------
         !Radiation 3D variables
@@ -2324,6 +2382,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
     INTEGER :: ibits, ktracer, ist
+    LOGICAL :: lrestart
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
@@ -2585,6 +2644,21 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     CALL add_var( phy_tend_list, 'ddt_tke', phy_tend%ddt_tke,             &
                 GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
               & ldims=shape3dkp1 )
+
+    IF (ltkecon) THEN
+      lrestart = .TRUE.
+    ELSE
+      lrestart = .FALSE.
+    ENDIF
+
+    !      phy_tend%ddt_tke_pconv(nproma,nlevp1,nblks)
+    cf_desc    = t_cf_var('ddt_tke_pconv', 'm s-2'          , &
+         &                'TKE tendency from convection scheme', DATATYPE_FLT32)
+    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( phy_tend_list, 'ddt_tke_pconv', phy_tend%ddt_tke_pconv,   &
+                GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
+              & ldims=shape3dkp1, lrestart=lrestart )
+
 
 
    !Anurag Dipankar, MPIM (2013-May-31)

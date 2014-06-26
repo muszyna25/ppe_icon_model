@@ -642,13 +642,9 @@ MODULE mo_nwp_rg_interface
       & zaeqdo   (nproma,pt_patch%nblks_c), zaeqdn,           &
       & zaequo   (nproma,pt_patch%nblks_c), zaequn,           &
       & zaeqlo   (nproma,pt_patch%nblks_c), zaeqln,           &
-      & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn,           &
-      ! for Tegen aerosol
-      & z_aer_ss(nproma,pt_patch%nblks_c), &
-      & z_aer_or(nproma,pt_patch%nblks_c), &
-      & z_aer_bc(nproma,pt_patch%nblks_c), &
-      & z_aer_su(nproma,pt_patch%nblks_c), &
-      & z_aer_du(nproma,pt_patch%nblks_c), zw
+      & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn, zw
+
+
     ! for aerosols:   
     REAL(wp), PARAMETER::                               &
       & zaeops = 0.05_wp,                               &
@@ -791,22 +787,16 @@ MODULE mo_nwp_rg_interface
         
         DO jc = i_startidx,i_endidx
 
-          z_aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+          prm_diag%aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
-          z_aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+          prm_diag%aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
-          z_aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+          prm_diag%aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
-          z_aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+          prm_diag%aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
-          z_aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+          prm_diag%aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
-                    
-!          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
-!          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
-!          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
-!          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
-!          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
           
         ENDDO
 
@@ -834,10 +824,10 @@ MODULE mo_nwp_rg_interface
         DO jc = i_startidx,i_endidx
           zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
           zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
-          zaeqso   (jc,jb) = z_aer_ss(jc,jb)*zvdaes(jc,1)
-          zaeqlo   (jc,jb) = ( z_aer_or(jc,jb)+z_aer_su(jc,jb) )*zvdael(jc,1)
-          zaequo   (jc,jb) = z_aer_bc(jc,jb)              *zvdaeu(jc,1)
-          zaeqdo   (jc,jb) =  z_aer_du(jc,jb)              *zvdaed(jc,1)
+          zaeqso   (jc,jb) = prm_diag%aer_ss(jc,jb)*zvdaes(jc,1)
+          zaeqlo   (jc,jb) = ( prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb) )*zvdael(jc,1)
+          zaequo   (jc,jb) = prm_diag%aer_bc(jc,jb)              *zvdaeu(jc,1)
+          zaeqdo   (jc,jb) =  prm_diag%aer_du(jc,jb)              *zvdaed(jc,1)
           zaetr_top(jc,jb) = 1.0_wp
           zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
         ENDDO
@@ -846,10 +836,10 @@ MODULE mo_nwp_rg_interface
         DO jk = 1,nlev
 !DIR$ IVDEP
           DO jc = i_startidx,i_endidx
-            zaeqsn         =  z_aer_ss(jc,jb)                  * zvdaes(jc,jk+1)
-            zaeqln         = (z_aer_or(jc,jb)+z_aer_su(jc,jb)) * zvdael(jc,jk+1)
-            zaequn         = z_aer_bc(jc,jb)                   * zvdaeu(jc,jk+1)
-            zaeqdn         =  z_aer_du(jc,jb)                  * zvdaed(jc,jk+1)
+            zaeqsn         =  prm_diag%aer_ss(jc,jb)                  * zvdaes(jc,jk+1)
+            zaeqln         = (prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb)) * zvdael(jc,jk+1)
+            zaequn         = prm_diag%aer_bc(jc,jb)                   * zvdaeu(jc,jk+1)
+            zaeqdn         =  prm_diag%aer_du(jc,jb)                  * zvdaed(jc,jk+1)
             zaetr_bot      = zaetr_top(jc,jb) &
               & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
 
@@ -979,22 +969,16 @@ MODULE mo_nwp_rg_interface
 
         DO jc = i_startidx,i_endidx
 
-          z_aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+          prm_diag%aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
-          z_aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+          prm_diag%aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
-          z_aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+          prm_diag%aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
-          z_aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+          prm_diag%aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
-          z_aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+          prm_diag%aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
             & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
-          
-!          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
-!          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
-!          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
-!          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
-!          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
 
         ENDDO
         
@@ -1019,20 +1003,20 @@ MODULE mo_nwp_rg_interface
 
         ! top level
         DO jc = i_startidx,i_endidx
-          zaeqso   (jc,jb) = z_aer_ss(jc,jb)              *zvdaes(jc,1)
-          zaeqlo   (jc,jb) = ( z_aer_or(jc,jb)+z_aer_su(jc,jb) )*zvdael(jc,1)
-          zaequo   (jc,jb) =  z_aer_bc(jc,jb)              *zvdaeu(jc,1)
-          zaeqdo   (jc,jb) =  z_aer_du(jc,jb)              *zvdaed(jc,1)
+          zaeqso   (jc,jb) = prm_diag%aer_ss(jc,jb)              *zvdaes(jc,1)
+          zaeqlo   (jc,jb) = ( prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb) )*zvdael(jc,1)
+          zaequo   (jc,jb) =  prm_diag%aer_bc(jc,jb)              *zvdaeu(jc,1)
+          zaeqdo   (jc,jb) =  prm_diag%aer_du(jc,jb)              *zvdaed(jc,1)
           zaetr_top(jc,jb) = 1.0_wp
         ENDDO
 
         ! loop over layers
         DO jk = 1,nlev
           DO jc = i_startidx,i_endidx
-            zaeqsn         =  z_aer_ss(jc,jb)                   * zvdaes(jc,jk+1)
-            zaeqln         =  (z_aer_or(jc,jb)+z_aer_su(jc,jb)) * zvdael(jc,jk+1)
-            zaequn         =  z_aer_bc(jc,jb)                   * zvdaeu(jc,jk+1)
-            zaeqdn         =  z_aer_du(jc,jb)                   * zvdaed(jc,jk+1)
+            zaeqsn         =  prm_diag%aer_ss(jc,jb)                   * zvdaes(jc,jk+1)
+            zaeqln         =  (prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb)) * zvdael(jc,jk+1)
+            zaequn         =  prm_diag%aer_bc(jc,jb)                   * zvdaeu(jc,jk+1)
+            zaeqdn         =  prm_diag%aer_du(jc,jb)                   * zvdaed(jc,jk+1)
             zaetr_bot      = zaetr_top(jc,jb) &
               & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
 

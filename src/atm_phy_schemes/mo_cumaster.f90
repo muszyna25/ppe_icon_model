@@ -119,7 +119,7 @@ CONTAINS
     & pten,     pqen,     puen,     pven, plitot,   &
     & pvervel,  pqhfl,    pahfs,                    &
     & pap,      paph,     pgeo,     pgeoh,          &
-    & zdph,               zdgeoh,                   &
+    & zdph,               zdgeoh,   pcloudnum,      &
     & ptent,    ptenu,    ptenv,                    &
     & ptenq,    ptenl,    pteni,                    &
     & ptens,                                        &
@@ -129,7 +129,7 @@ CONTAINS
     & pmfu,     pmfd,                               &
     & pmfude_rate,        pmfdde_rate,              &
     & ptu,      pqu,      plu,                      &
-    & pmflxr,   pmflxs,   prain,                    &
+    & pmflxr,   pmflxs,   prain, pdtke_con,         &
     & pcape,                                        &
 !DR    & pcape ,pvddraf,                               &
     & ktrac, pcen, ptenc) 
@@ -219,6 +219,7 @@ CONTAINS
     !                   (NO EVAPORATION IN DOWNDRAFTS)
     !    *PMFU*         MASSFLUX UPDRAFTS                             KG/(M2*S)
     !    *PMFD*         MASSFLUX DOWNDRAFTS                           KG/(M2*S)
+    !    *PDTKE_CON     CONV. BUOYANT TKE-PRODUCTION AT HALF LEVELS   M2/S**3)
     !    *PMFUDE_RATE*  UPDRAFT DETRAINMENT RATE                      KG/(M3*S)
     !    *PMFDDE_RATE*  DOWNDRAFT DETRAINMENT RATE                    KG/(M3*S)
     !    *PCAPE*        CONVECTVE AVAILABLE POTENTIAL ENERGY           J/KG
@@ -345,6 +346,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(in)    :: pcloudnum(klon)
     ! with ktrac=0 this has zero size
 !    REAL(KIND=jprb)   ,INTENT(in), OPTIONAL :: pcen(klon,klev,ktrac)
     TYPE(t_ptr_tracer)   ,INTENT(in), OPTIONAL :: pcen(ktrac)
@@ -372,6 +374,7 @@ CONTAINS
     !REAL(KIND=JPRB)   ,INTENT(OUT)   :: PENTH(KLON,KLEV)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmflxr(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmflxs(klon,klev+1)
+    REAL(KIND=jprb)   ,INTENT(out)   :: pdtke_con(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(out)   :: prain(klon)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfd(klon,klev)
@@ -441,6 +444,9 @@ CONTAINS
     REAL(KIND=jprb) :: zhook_handle
     REAL(KIND=jprb) :: rtice2, rtmix
     
+    ! total convective flux density or dry static energy and vater vapour
+    REAL(KIND=jprb) :: zcvfl_s, zcvfl_q
+
     !*UPG change to operations
     !    LOCALS FOR CONSERVATION CHECK
     LOGICAL :: llconscheck=.FALSE.
@@ -533,6 +539,7 @@ CONTAINS
     idpl    (:)=0
     zcape   (:)=0.0_JPRB
     zheat   (:)=0.0_JPRB
+    pdtke_con(:,:)=0.0_JPRB
 !CDIR END
     
     llddraf(:)= .FALSE.
@@ -744,7 +751,7 @@ CONTAINS
       & pten,     pqen,     pqsen,    plitot,&
       & pgeo,     pgeoh,    pap,      paph,&
       & zdph,     zdgeoh,                  &
-      & pvervel,  zwubase, &
+      & pvervel,  zwubase, pcloudnum,      &
       & ldland,   ldcum,    ktype,    ilab,&
       & ptu,      pqu,      plu,&
       & pmfu,     zmfub,    zentr,    zlglac,&
@@ -1011,7 +1018,7 @@ CONTAINS
         & pten,     pqen,     pqsen,    plitot,&
         & pgeo,     pgeoh,    pap,      paph,&
         & zdph,     zdgeoh,         &
-        & pvervel,  zwubase,  &
+        & pvervel,  zwubase,  pcloudnum,     &
         & ldland,   ldcum,    ktype,    ilab,&
         & ptu,      pqu,      plu,&
         & pmfu,     zmfub,    zentr,    zlglac,&
@@ -1313,6 +1320,27 @@ CONTAINS
       ENDDO
 
     ENDIF
+
+    ! Convective TKE tendency
+    DO jk=ktdia+1,klev
+      DO jl=kidia,kfdia
+        IF ( ldcum(jl) ) THEN
+          zcvfl_s  =  zmfus (jl,jk) + zmfds (jl,jk)
+          zcvfl_q  =  zmfuq (jl,jk) + zmfdq (jl,jk)
+
+          ! MR version; results are nonsense when this tendency is coupled to the turbulence scheme,
+          ! apparently because the turbulent tendencies are too high by several orders of magnitude
+!          pdtke_con(jl,jk) = MAX( 0.0_JPRB, rg*rd/paph(jl,jk) * ( zcvfl_s/rcpd + &
+!                               ztenh(jl,jk)*zcvfl_q*retv/(1.0_JPRB-retv*zqenh(jl,jk)) ) )
+
+          ! version copied directly from the COSMO code - results are basically the same nonsense, which
+          ! is not too surprising as the factors by which the two versions differ are very close to 1
+          pdtke_con(jl,jk) = MAX( 0.0_JPRB, rg*rd/paph(jl,jk) * ( (1.0_JPRB+retv*zqenh(jl,jk))*zcvfl_s/rcpd + &
+                               retv*ztenh(jl,jk)*zcvfl_q ) )
+
+        ENDIF
+      ENDDO    
+    ENDDO
 
     CALL cudtdqn &
       & ( kidia,    kfdia,    klon,   ktdia,    klev,&
