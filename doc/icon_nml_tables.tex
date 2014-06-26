@@ -2915,6 +2915,16 @@ shape parameter in gamma distribution for snow&
 inwp\_gscp$>$0
 \tabularnewline
 
+icpl\_aero\_gscp&
+I&
+0&
+ &
+0: off \\
+1: simple coupling between autoconversion and Tegen aerosol climatology; requires irad\_aero=6 \\
+More advanced options are in preparation&
+currently only for inwp\_gscp = 1
+\tabularnewline
+
 %\hline
 \textbf{inwp\_convection}&
 I (max\_ dom)&
@@ -2934,6 +2944,14 @@ I & 0 &  & Type of CAPE correction to improve diurnal cycle for convection: \\
 2 = correctoins over land and water now operational at ECMWF \\
 3 = correction over land as in 2 restricted to the tropics, no correction over water (this choice optimizes the NWP skill scores) &
 inwp\_convection = 1
+\tabularnewline
+
+icpl\_aero\_conv&
+I&
+0&
+ &
+0: off \\
+1: simple coupling between autoconversion and Tegen aerosol climatology; requires irad\_aero=6 &
 \tabularnewline
 
 %\hline
