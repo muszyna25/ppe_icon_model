@@ -6,7 +6,7 @@
 % empty chapter        chapter finished
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Visualizing data on a non-regular grids is a task on its own, because the number of tools for solving such problem is very limited. NCL is one of them and we chose it as the main tool for ICON. On its website, you can find \href{http://www.ncl.ucar.edu/Applications/icon.shtml}{\tt several examples} of how to write simple plot scripts for ICON data sets. The coordinate information is essential for writing your own plot scripts. ICON output files currently have three different types of them: cells, edges and vertices, e.g. tracers like temperature and salinity and surface elevation are defined on each cell center while the normal velocity is defined on edges.
+Visualizing data on a non-regular grids is a task on its own, because the number of tools for solving such problem is very limited. NCL is one of them and we chose it as the main tool for ICON. You can find several examples of how to write simple plot scripts for ICON data sets on this website: \href{http://www.ncl.ucar.edu/Applications/icon.shtml}{http://www.ncl.ucar.edu/Applications/icon.shtml}. The coordinate information is essential for writing your own plot scripts. ICON output files currently have three different types of them: cells, edges and vertices, e.g. tracers like temperature and salinity and surface elevation are defined on each cell center while the normal velocity is defined on edges.
 
 \section{icon\_plot.ncl}
 
@@ -19,8 +19,8 @@ The script {\tt icon\_plot.ncl} is a single NCL program, which provides multiple
 
 \subsection{Requirements}
 \begin{itemize}
-\item \href{http://www.ncl.ucar.edu}{\tt NCL} 5.2.1 is the minimum version of NCAR's plotting language
-\item \href{https://code.zmaw.de/projects/cdo}{\tt CDO}
+\item NCL 5.2.1 is the minimum version of NCAR's plotting language (\href{http://www.ncl.ucar.edu}{http://www.ncl.ucar.edu})
+\item CDO (\href{https://code.zmaw.de/projects/cdo}{https://code.zmaw.de/projects/cdo})
 \end{itemize}
 
 \subsection{Customization}
@@ -168,7 +168,7 @@ ncl icon_plot.ncl help=True
 %MORE INFORMATION IN REDMINE!!!! (including graphics etc., ask Daniel for access)
 
 \section{ncview/GrADS}
-\href{http://meteora.ucsd.edu/~pierce/ncview_home_page.html}{\tt Ncview} and \href{http://www.iges.org/grads/}{\tt GrADS} can be used after converting icon data sets to a regular grid. This can easily be done with cdo:
+Ncview (\href{http://meteora.ucsd.edu/~pierce/ncview_home_page.html}{http://meteora.ucsd.edu/\~{}pierce/ncview\_home\_page.html}) and GrADS (\href{http://www.iges.org/grads/}{http://www.iges.org/grads/}) can be used after converting icon data sets to a regular grid. This can easily be done with cdo:
 \begin{small}
 \begin{verbatim}
 cdo -P 8 -r remapnn,r180x90 icon.nc regular_icon.nc

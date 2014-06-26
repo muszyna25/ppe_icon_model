@@ -17,7 +17,7 @@ For some components ICON uses external libraries. Therefore you will need some a
 \begin{itemize}
  \item \netcdf : \netcdf is a set of software libraries and self-describing, machine-independent data formats that support the creation, access, and sharing of array-oriented scientific data.\newline
  (Source: \href{http://www.unidata.ucar.edu/software/netcdf/}{http://www.unidata.ucar.edu/software/netcdf/})
- \item GRIB: GRIB (GRIdded Binary) is a format defined by the WMO (World Meteorological Organization). The use of GRIB in ICON is optional. The ECMWF GRIB API is an application program interface accessible from C, FORTRAN and Python programs developed for encoding and decoding WMO FM-92 GRIB edition 1 and edition 2 messages. A useful set of command line tools is also provided to give quick access to GRIB messages. \newline
+ \item GRIB: GRIB (GRIdded Binary) is a format defined by the WMO (World Meteorological Organization). The use of GRIB in ICON is optional. The ECMWF GRIB API is an application program interface accessible from C, FORTRAN and Python programs developed for encoding and decoding WMO FM-92 GRIB edition 1 and edition 2 messages. A useful set of command line tools is also provided to give quick access to GRIB messages. ICON requires GRIB2 format. \newline
  (Source: \href{https://software.ecmwf.int/wiki/display/GRIB/Home}{https://software.ecmwf.int/wiki/display/GRIB/Home})
  \item MPI: MPI is a library specification for message-passing, proposed as a standard by a broadly based committee of vendors, implementors, and users.\newline
  (Source: \href{http://www.mcs.anl.gov/research/projects/mpi/}{http://www.mcs.anl.gov/research/projects/mpi/})
@@ -89,6 +89,10 @@ Input and output modules are stored in \verb+$ICONDIR/src/io+.
 
 The modules for the grid generator, as described in chapter \ref{chap:UG_grid_generation} can be found inside \newline \verb+$ICONDIR/src/grid_generator+.
 
+\subsubsection{support}
+
+Within the \verb+$ICONDIR/support+ directory, the CDI library is stored. 
+
 \subsubsection{vertical\_coord\_table}
 
 Inside the \verb+$ICONDIR/vertical_coord_tables+ directory, information files describing the relation between model layer, pressure and height are stored.
@@ -105,6 +109,7 @@ To ease up the compilation a configure-file is provided which should take over t
 To add a specific compiler or change your compiler flags, you have to enter the \newline \verb+$ICONDIR/config/mh-<OS>+ according to your operating system \verb+<OS>+. For the DWD CRAY, the compiler flags in \verb+mh-linux+ look like the following:
 
 \begin{Verbatim}[frame=single]
+CRAY EXAMPLE: Compiler Flags inside mh-linux
 cray)
     config_compiler=cray
 	CC          = cc
@@ -180,13 +185,7 @@ ICON is parallelized using MPI and OpenMP. You can control the parallelization t
   \end{verbatim}
 \end{small}
 
-By default the options are set to \verb+--with-mpi --without-openmp+. After a successful build, you will find the ICON executable named \verb+control_model+ inside \verb+$ICONDIR/build/<OS>/bin/+.
-
-\begin{Verbatim}[frame=single]
-CRAY EXAMPLE: OpenMP
-The CRAY Fortran compiler command includes automatically OpenMP. 
-Therefore, although using --without-openmp, OpenMP is used.
-\end{Verbatim}
+By default the options are set to \verb+--with-mpi --without-openmp+. After a successful build, you will find the ICON executable named \verb+control_model+ inside \verb+$ICONDIR/build/<OS>/bin/+. The CRAY Fortran compiler is an exception, as the command includes automatically OpenMP. Therefore, although selecting --without-openmp, OpenMP is used.
 
 If you wish to re-configure ICON it is advisable first to clean the old setup by giving:
 
@@ -207,12 +206,13 @@ Some more details on configure options can be found in the help of the configure
 \section{Running the Model (Idealized Cases)}
 \label{chap:UG_running_model_idealized}
 
-To shed light on the functionality and the quality of the dynamical core, setups for two test cases are presented in the following. Additionally, results of these test cases are shown. These tests are classified in short deterministic test cases (typically a simulation period of about 10-30 days) and tests in a climate mode (typically a multi-year period). This section concentrates on the first class, which starts from prescribed initial conditions (ideally provided in analytic form). The simulation results are either compared to analytic solutions (if available) or high-resolution reference solutions. %% http://www-personal.umich.edu/~cjablono/dycore_test_suite.html (access: 07.02.2014, last updated: 2012)
-For testcase details the reader is referred to \cite{Zaengl:2013}. Here only some special setups are described.
+To shed light on the functionality and the quality of the dynamical core, setups for two test cases are presented in the following. Additionally, results of these test cases are shown. These tests are classified in short deterministic test cases (typically a simulation period of about 10-30 days) and tests in a climate mode (typically a multi-year period). This section concentrates on the first class, which starts from prescribed initial conditions (ideally provided in analytic form). The simulation results are either compared to analytic solutions (if available) or high-resolution reference solutions. For a list of available testcases, the reader is referred to the namelist section (\ref{chap:namelists}).
 
 \subsection{Jablonowski-Williamson test}
 
 The Jablonowski-Williamson Test \citep{Jablonowski:2006} is a standard test for dynamical cores in global models and can be run for dry dynamics only - as it is intended for- but full physics can be also tested. 
+
+Input von Daniel Reinert is expected here.
 
 \subsubsection{Setup}
 
@@ -231,32 +231,346 @@ GRID
 The \textbf{Jablonowski-Williamson steady-state test} is based on a zonally symmetric, strongly baroclinic atmosphere. Initially, it is in a hydrostatic and geostrophic balance and therefore should remain stationary if no perturbation is imposed. Grid irregularities can disturb this stationary conditions and hence the test identifies the presence and magnitude of grid imprinting of a numerical model.
 For the \textbf{Jablonowski-Williamson baroclinic wave test}, a weak (and unbalanced) perturbation disturbs the initial wind. This test highlights the diffusivity (or effective resolution) of a dynamical core and the presence of phase speed errors in the advection of poorly resolved structures.
 
-\subsection{Mountain Rossby wave}
+\subsection{Mountain induced Rossby waves}
 
-In order to test the model dynamics in dry stage but with real or any complex topography one can choose the mountain rossby wave test and select different types of topography.
+In order to test the model dynamics in dry stage but with real or any complex topography one can choose the mountain induced Rossby wave test case and select different types of topography.
 
-\subsubsection{Setup}
 
- By setting this, you might want to have the turbulence scheme switched on while the rest of physics is switched OFF. Simulating dry physics means to set the tracer fields to zero. The transport is not necessary but should be switched off via the transport namelist, so the resulting namelist setting for this case is:
-\begin{itemize}
-\item \verb+testcase_nml+
- \begin{itemize}
-  \item  \verb+nh_test_name  = 'mrw_nh'+
- \end{itemize}
-\end{itemize}
-As an extreme case the user can examine the flow over very steep mountains, by using a flow of an isothermal atmosphere with 
-$U = 20  \rm \, m \, s^{-1}$ over a circular Gaussian mountain
-\begin{align}
-h(x,y) = h_m \exp \left( - \frac{x^2 + y^2}{a^2} \right)
-\end{align}
-with $a = 2000\,\mathrm{m}$ and $h_m = 4000\,\mathrm{m}$ and $7000\,\mathrm{m}$, respectively. 
-This configuration produces slope angles of 59$^\circ$ and 71$^\circ$. However, \cite{Zaengl:2013} recommend  to avoid slope angles close to or even above 70$^\circ$ in scientific applications.
+
+The following runfile gives an example how to perform such an idealized simulation.
+
+\begin{landscape}
+
+\begin{Verbatim}[frame=single]
+NAMELIST EXAMPLE for a moutain induced Rossby waves
+
+#! /bin/ksh
+# ----------------------------------------------------------------------------
+#PBS -q xc_normal
+#PBS -l select=4:ompthreads=4
+#PBS -l place=scatter
+#PBS -l walltime=01:00:00
+#PBS -j oe
+#PBS -W umask=022
+# ----------------------------------------------------------------------------
+# ============================================================================
+#
+# Cray batch script for the ICON model
+#
+# Initializes the Jablonowski Williamson test case with a 
+# mountain instead of the wind perturbation.
+#
+# Platform: Cray XC30
+#           xce.dwd.de
+#
+# 05/2014 : F. Prill, DWD
+#
+# ----------------------------------------------------------------------------
+# ============================================================================
+
+
+set -x
+
+# OpenMP settings
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+# MPI: use DMAPP for off-node data movement
+export MPICH_RMA_OVER_DMAPP=1
+# disable core dumps
+export RLIMIT_CORE=0
+export ATP_MAX_CORES=0
+
+
+# ----------------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------------
+
+# directory with input grids:
+GRIDDIR=/e/uhome/gzaengl/icon-dev/experiments/GRF_R2B4N6M
+
+# base directory for ICON sources and binary:
+ICONDIR=${PBS_O_WORKDIR}/../../
+
+# absolute path to directory with plenty of space:
+EXPDIR=/e/uhome/dreinert/icon/experiments/exp15_mrw
+
+# path to model binary, including the executable:
+MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/control_model
+
+
+# ----------------------------------------------------------------------------
+# copy input data: grids, external parameters
+# ----------------------------------------------------------------------------
+
+# the directory for the experiment will be created, if not already there
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+cd ${EXPDIR}
+
+ln -sf ${GRIDDIR}/iconR2B03_DOM00.nc iconR2B03_DOM00.nc
+ln -sf ${GRIDDIR}/iconR2B04_DOM01.nc iconR2B04_DOM01.nc
+
+# files needed for radiation
+ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc .
+ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
+
+
+# ----------------------------------------------------------------------------
+# grid namelist settings
+# ----------------------------------------------------------------------------
+
+# the grid parameters
+atmo_dyn_grids="iconR2B04_DOM01.nc"
+atmo_rad_grids="iconR2B03_DOM00.nc"
+
+# reconstruct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+
+
+# ----------------------------------------------------------------------------
+# create ICON master namelist
+# ----------------------------------------------------------------------------
+
+cat > icon_master.namelist << EOF
+
+! master_nml: ----------------------------------------------------------------
+&master_nml
+ lrestart                   =                      .FALSE.        ! .TRUE.=current experiment is resumed
+/
+
+! master_model_nml: repeated for each model ----------------------------------
+&master_model_nml
+ model_type                  =                          1         ! identifies which component to run (atmosphere,ocean,...)
+ model_name                  =                      "ATMO"	  ! character string for naming this component.
+ model_namelist_filename     =              "NAMELIST_NWP"	  ! file name containing the model namelists
+ model_min_rank              =                          1	  ! start MPI rank for this model
+ model_max_rank              =                      65536	  ! end MPI rank for this model
+ model_inc_rank              =                          1         ! stride of MPI ranks
+/
+
+! time_nml: specification of date and time------------------------------------
+&time_nml
+ ini_datetime_string         =      "2011-01-01T00:00:00Z"        ! initial date and time of the simulation
+/
+
+EOF
+
+
+# ----------------------------------------------------------------------------
+# model namelists
+# ----------------------------------------------------------------------------
+# For a complete list see doc/Namelist_overview.pdf
+
+cat > NAMELIST_NWP << EOF
+
+! diffusion_nml: horizontal (numerical) diffusion ----------------------------
+&diffusion_nml
+ hdiff_order                 =                          5         ! order of nabla operator for diffusion
+ itype_vn_diffu              =                          1	  ! reconstruction method used for Smagorinsky diffusion
+ itype_t_diffu               =                          2	  ! discretization of temperature diffusion
+ hdiff_efdt_ratio            =                         36.0	  ! ratio of e-folding time to time step 
+ hdiff_smag_fac              =                          0.015	  ! scaling factor for Smagorinsky diffusion
+ lhdiff_vn                   =                      .TRUE.	  ! diffusion on the horizontal wind field
+ lhdiff_temp                 =                      .TRUE.	  ! diffusion on the temperature field
+/
+
+! dynamics_nml: dynamical core -----------------------------------------------
+&dynamics_nml
+ iequations                  =                          3	  ! type of equations and prognostic variables
+ idiv_method                 =                          1	  ! method for divergence computation
+ divavg_cntrwgt              =                          0.50	  ! weight of central cell for divergence averaging
+ lcoriolis                   =                      .TRUE.	  ! Coriolis force
+/
+
+! extpar_nml: external data --------------------------------------------------
+&extpar_nml
+ extpar_filename             =                         ""         ! filename of external parameter input file
+ itopo                       =                          0         ! topography (0:analytical)
+/
+
+! grid_nml: horizontal grid --------------------------------------------------
+&grid_nml
+ dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
+ radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
+ dynamics_parent_grid_id     =              0, 1, 2, 1, 4         ! array of the indexes of the parent grid filenames
+ lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
+ lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
+ ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
+/
+
+! gridref_nml: grid refinement and nesting -----------------------------------
+&gridref_nml
+ grf_intmethod_e             =                          6         ! interpolation method for grid refinement
+ grf_scalfbk                 =                          2	  ! feedback method for dynamical scalar variables
+ grf_tracfbk                 =                          2	  ! feedback method for tracer variables
+ denom_diffu_v               =                        150.0	  ! Deniminator for lateral boundary diffusion of velocity
+/
+
+! io_nml: general switches for model I/O -------------------------------------
+&io_nml
+ dt_diag                     =                      21600.0       ! diagnostic integral output interval
+ dt_checkpoint               =                    5760000.0       ! time interval for writing restart files.
+ itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
+/
+
+! nh_testcase_nml: idealized testcase specification --------------------------
+&nh_testcase_nml
+ nh_test_name                =                    'mrw_nh'        ! testcase selection
+ u0_mrw                      =                       20.0         ! initial u-component of the wind velocity
+ mount_height_mrw            =                     2000.0         ! maximum mountain height 
+ mount_half_width            =                  1500000.0	      ! half width of mountain
+ mount_longctr_mrw_deg       =                       90.0         ! longitude of the center of the mountain
+ mount_latctr_mrw_deg        =                       30.0         ! latitude of the center of the mountain
+/
+
+! nonhydrostatic_nml: nonhydrostatic model -----------------------------------
+&nonhydrostatic_nml
+ ivctype                     =                          2	  ! type of vertical coordinate
+ vwind_offctr                =                          0.2	  ! off-centering in vertical wind solver
+ damp_height                 =                      50000.0	  ! height at which Rayleigh damping of vertical wind starts
+ rayleigh_coeff              =                          0.10	  ! Rayleigh damping coefficient
+ iadv_rcf                    =                          5	  ! calling frequency for transport/diffusion/physics
+ lhdiff_rcf                  =                      .TRUE.	  ! .TRUE.=compute diffusion only at advection time steps
+/
+
+! output_nml: specifies an output stream --------------------------------------
+&output_nml
+ filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                         =                         -1         ! write all domains
+ output_bounds               =       0., 10000000., 21600.        ! output: start, end, increment
+ steps_per_file              =                          2         ! number of output steps in one output file
+ mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+ include_last                =                      .TRUE.        ! flag whether to include the last time step
+ output_filename             =                       'NWP'        ! file name base
+ output_grid                 =                      .TRUE.        ! flag whether grid information is added to output.
+ !
+ ml_varlist                  =  'u', 'v', 'w', 'temp', 'pres','topography_c', 'vor'
+/
+
+! parallel_nml: MPI parallelization -------------------------------------------
+&parallel_nml
+ nproma                      =                          8         ! loop chunk length
+ p_test_run                  =                     .FALSE.	  ! .TRUE. means verification run for MPI parallelization
+ num_io_procs                =                          1	  ! number of I/O processors
+ num_restart_procs           =                          0	  ! number of restart processors
+ iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
+/
+
+! run_nml: general switches ---------------------------------------------------
+&run_nml
+ ltestcase                   =                      .TRUE.	  ! idealized testcase runs
+ num_lev                     =                         90         ! number of full levels (atm.) for each domain
+ lvert_nest                  =                      .TRUE.        ! vertical nesting
+ nsteps                      =                       1000         ! number of time steps of this run
+ dtime                       =                        288         ! timestep in seconds
+ ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
+ ltransport                  =                      .FALSE.	  ! compute large-scale tracer transport
+ ntracer                     =                          0	  ! number of advected tracers
+ iforcing                    =                          0	  ! forcing of dynamics and transport by parameterized processes
+ msg_level                   =                          7	  ! controls how much printout is written during runtime
+ ltimer                      =                     .FALSE.	  ! timer for monitoring the runtime of specific routines
+ output                      =                       "nml"        ! main switch for enabling/disabling components of the model output
+/
+
+! sleve_nml: vertical level specification -------------------------------------
+&sleve_nml
+ min_lay_thckn               =                         20.0       ! layer thickness of lowermost layer
+ top_height                  =                      75000.0	  ! height of model top
+ stretch_fac                 =                          0.9	  ! stretching factor to vary distribution of model levels
+ decay_scale_1               =                       4000.0	  ! decay scale of large-scale topography component
+ decay_scale_2               =                       2500.0	  ! decay scale of small-scale topography component
+ decay_exp                   =                          1.2	  ! exponent of decay function
+ flat_height                 =                      16000.0       ! height above which the coordinate surfaces are flat
+/
+
+EOF
+
+
+# ----------------------------------------------------------------------------
+# run the model!
+# ----------------------------------------------------------------------------
+
+cp -p $MODEL icon
+
+# "aprun" command:
+# -n xx   : number of MPI tasks
+# -N xx   : number of MPI tasks/node
+# -d  x   : number of threads/MPI task
+# -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
+# -m 3g   : 3G memory/task
+
+aprun  -n 40 -N 10 -j 2 -d 4 -m 3g icon
+
+\end{Verbatim}
+
+\end{landscape}
+
+\subsubsection{Initial conditions}
+
+Applying this run file the topography shown in Fig. \ref{fig:mountain} is used.
+
+\begin{figure}[h!]%
+\centering
+\includegraphics[width=0.95\linewidth]{pictures/surface-small.png}
+\caption{Topography of the test case}\label{fig:mountain}
+\end{figure}
+
+The v-component of the wind speed is is initialized with zero at all grid points, the initial conditions for the u-component are shown in Fig. \ref{fig:u-initial}.
+
+\begin{figure}[h!]%
+\centering
+\includegraphics[width=0.95\linewidth]{pictures/u-initial-small.png}
+\caption{Spatial distribution of the initialized u-component at 700 hPa}\label{fig:u-initial}
+\end{figure}
+
+
+This results in the spatial distribution of the initialized 
+vorticity shown in Fig. \ref{fig:vorticity-initial}.
+
+\begin{figure}[h!]%
+\centering
+\includegraphics[width=0.95\linewidth]{pictures/vorticity-initial-small.png}
+\caption{Spatial distribution of the initial conditions of the vorticity at 700 hPa}\label{fig:vorticity-initial}
+\end{figure}
+
+\subsubsection{Results after 16 days}
+
+
+
+The u-component after sixteen days of simulation at 700 hPa is shown in Fig. \ref{fig:u-16}.
+
+\begin{figure}[h!]%
+\centering
+\includegraphics[width=0.95\linewidth]{pictures/u-day-16-small.png}
+\caption{Spatial distribution of u-component after 16 days of simulation at 700 hPa}\label{fig:u-16}
+\end{figure}
+
+
+The spatial distribution of the initialized 
+vorticity shown in Fig. \ref{fig:vorticity-16}.
+
+\begin{figure}[h!]%
+\centering
+\includegraphics[width=0.95\linewidth]{pictures/vorticity-d16-small.png}
+\caption{Spatial distribution of the vorticity after 16 days o simulation at 700 hPa}\label{fig:vorticity-16}
+\end{figure}
+
+
+
+
 
 \subsubsection{Input Data}
 
-GRID
+With the exception of the grid file no further input files are necessary. 
 
-\subsubsection{Results}
 
 
 
@@ -552,15 +866,16 @@ and use the job submission command, which depends on your machine:
 A list of grid files has been pre-built for the ICON model together with the corresponding reduced radiation grids and the external parameters.
 
 \begin{enumerate}
+
+\item Every 24h the contents of the primary storage directory are mirrored to DWD's HPC.
+\item Every 24h the contents of the primary storage directory are mirrored to a public web site:
+\href{http://icon-downloads.zmaw.de}{http://icon-downloads.zmaw.de}.
 \item The \textbf{primary storage} location for ICON grids is
 \begin{small}
  \begin{verbatim}
   blizzard:/pool/data/ICON/grids/public 
  \end{verbatim}
 \end{small}
-\item Every 24h the contents of the primary storage directory are mirrored to DWD's HPC.
-\item Every 24h the contents of the primary storage directory are mirrored to a public web site:
-\href{http://icon-downloads.zmaw.de}{http://icon-downloads.zmaw.de}.
 \end{enumerate}
 
 Each grid file consists of a NetCDF file and a GPG signature file\\ 
@@ -666,6 +981,121 @@ This \lq table file\rq\ is located under
 
 \section{Grid Generation}
 \label{chap:UG_grid_generation}
+
+\textbf{Baustelle Grid generation}
+
+\begin{Verbatim}[frame=single]
+
+
+#! /bin/ksh
+#---------------------------------------------------------------------
+#PBS -q xc_normal
+#PBS -l select=1:ompthreads=20
+#PBS -l walltime=01:00:00
+#PBS -j oe
+# ----------------------------------------------------------------------
+# Basic CRAY batch script for the ICON model
+#
+# Platform: xct.dwd.de
+#
+# 06-07/2013 : F. Prill, DWD
+# ----------------------------------------------------------------------
+
+set -x
+
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+
+# export OMP_NUM_THREADS=4
+# export ATP_ENABLED=1
+
+# ----------------------------------------------------------------------
+# path definitions
+# ----------------------------------------------------------------------
+
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n ${PBS_O_WORKDIR} ]] ; then
+  cd ${PBS_O_WORKDIR}
+fi
+
+# determine base directory
+dir=$(pwd -P)
+basedir=${dir%/*}
+
+EXP="gridgen"    # experiment identifier
+EDIR="GRF_R2B4N5L_papgrf"  # working directory
+GDIR="GRIDR2" # grid directory
+
+# absolute path to directory with plenty of space:
+EXPDIR=$basedir/experiments/${EDIR}
+# absolute path to directory where the graph generator output is located:
+GRIDDIR=$basedir/experiments/${GDIR}
+
+# suffix of grid files which specifies optimization type
+# (without optimization leave empty)
+OPTFIX=spr0.90
+
+# absolute path to model binary, including the executable
+MODEL=$basedir/build/x86_64-unknown-linux-gnu/bin/grid_command
+
+if [ ! -d $EXPDIR ]; then
+    mkdir -p $EXPDIR
+fi
+
+# ----------------------------------------------------------------------
+# copy input data: grids, external parameters
+# ----------------------------------------------------------------------
+
+cd $GRIDDIR
+
+# if optimization suffix is given, create symbolic links to grid files
+if [ -n $OPTFIX ] ; then
+   for gridfile in `ls -1 icon*grid_${OPTFIX}.nc`; do
+      slname=${gridfile%_${OPTFIX}.nc}.nc
+#      if [ ! -a  ${slname} ] ; then
+         ln -sf $GRIDDIR/${gridfile} $EXPDIR/${slname}
+#      fi
+   done
+fi
+
+
+cd $EXPDIR
+
+cat > NAMELIST_GRIDREF << EOF
+&gridref_ini 
+  grid_root  = 2
+  start_lev  = 4
+  n_dom      = 2
+  n_phys_dom = 2
+  parent_id  = 1,
+  l_circ     = .false.
+  l_rotate   = .false.
+  l_plot     = .true.
+  center_lon =  130.,
+  center_lat =  52.5,
+  hwidth_lon =  25.,
+  hwidth_lon =  100.,
+  hwidth_lat =  20.,
+  bdy_indexing_depth = 14
+  write_hierarchy = 1
+/
+EOF
+
+cp -p NAMELIST_GRIDREF NAMELIST_GRIDREF_$EXP
+#
+echo global_grid_refine null > command.grid
+
+# ----------------------------------------------------------------------
+# run the model!
+# ----------------------------------------------------------------------
+
+time aprun -n 1 -N 1 -j 1 -d 20 -m 30g $MODEL
+# time $MODEL
+
+
+\end{Verbatim}
+
 \subsection{ICON atmosphere grids}
 
 The ICON horizontal spherical grid is based on the projection of the icosahedron on the sphere. This is a 2-dimensional grid, representing the earth's surface. For defining the vertical discretization see the Experiments section. The ICON grids need to be created, stored as \netcdf~ files, and consequently used by the ICON model. Alternatively, already stored grids maybe used.

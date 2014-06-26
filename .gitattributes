@@ -233,11 +233,17 @@ doc/userguide/icon_user_guide.tex -text
 doc/userguide/icon_user_guide_bib.bib -text
 doc/userguide/pictures/contour_plot.png -text
 doc/userguide/pictures/dwdlogo.png -text
+doc/userguide/pictures/geopotential_d16.png -text
 doc/userguide/pictures/kitlogo.jpg -text
 doc/userguide/pictures/mpilogo.pdf -text
 doc/userguide/pictures/overlay_plot.png -text
+doc/userguide/pictures/surface-small.png -text
+doc/userguide/pictures/u-day-16-small.png -text
+doc/userguide/pictures/u-initial-small.png -text
 doc/userguide/pictures/vector_plot.png -text
 doc/userguide/pictures/vertsection_plot.png -text
+doc/userguide/pictures/vorticity-d16-small.png -text
+doc/userguide/pictures/vorticity-initial-small.png -text
 doc/userguide/style/chicago_lmdocu.bst -text
 doc/userguide/style/icon_docu_style.cls -text
 doc/userguide/style/pageformatting_toc.tex -text
