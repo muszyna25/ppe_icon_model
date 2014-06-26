@@ -241,6 +241,10 @@ check_accept_script()
          *nat_jww_nwp_mpiomp*)
             [[ $param == "test" ]] && accepted_script="false"
          ;;
+         # has problems with multiple openmp threads
+         *test_oce_numeric_noland_ptest*)
+            [[ $param == "test" ]] && accepted_script="false"
+         ;;
          esac
        fi
      ;;
