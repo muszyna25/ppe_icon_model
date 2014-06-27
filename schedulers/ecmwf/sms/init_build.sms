@@ -22,12 +22,15 @@
 
 echo "INIT_BUILD.SMS"
 
+#---IBM
 #module swap fortran fortran/xlf/14.1.0.3
 
-module swap cce/8.3.0.186   # availability of CC compiler?
-module swap PrgEnv-cray/5.1.18
+#---CRAY 8.2.7.101
+#module swap cce/8.2.7.101           # segmentation fault during compilation and run?
 
-#module swap cce/8.2.7.101  # segmentation fault during compilation
+#---CRAY 8.3.0.186 (make clean if switching compilers)
+module swap cce/8.3.0.186            # availability of CC compiler?
+module swap PrgEnv-cray/5.1.18
 
 module load subversion
 module swap grib_api grib_api/1.11.0
@@ -46,7 +49,7 @@ cd icon-dev
 
 
 # Run configure script ------------------------
-./configure --with-fortran=cray    # --with-openmp     # --with-flags=hiopt
+./configure --with-fortran=cray      # --with-openmp     # --with-flags=hiopt
 smsevent configure
 
 
@@ -64,8 +67,8 @@ echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 # Compile dwd_icon_tools for remap_mpi --------
 ssh $WSHOST svn update %ECPERMIII%/dwd_icon_tools
 cd %SCPERMIII%/dwd_icon_tools/${toolstag}/icontools
-#module swap cce/8.2.2
-module swap cce/8.3.0.186
+module swap cce/8.2.2
+#module swap cce/8.3.0.186  # segmentation fauls during compilation
 gmake clean
 gmake cray_mpi       #-j%SCTOTALTASKS% ibmp7_mpi
 
