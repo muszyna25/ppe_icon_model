@@ -45,8 +45,8 @@ ml_file=${1}
 module load cdo
 LANG=''          # for math with 1.0 not 1,0
 
-set -A date     `cdo infov ${ml_file} | grep tqv | awk '{print $3}'`
-set -A time     `cdo infov ${ml_file} | grep tqv | awk '{print $4}'`
+set -A date     `cdo infov ${ml_file} | grep -w "tqv" | awk '{print $3}'`
+set -A time     `cdo infov ${ml_file} | grep -w "tqv" | awk '{print $4}'`
 set -A lhf      `cdo output -fldmean -selname,acclhfl_s  ${ml_file}`
 set -A qfl      `cdo output -fldmean -selname,aqhfl_s    ${ml_file}`
 set -A tot_prec `cdo output -fldmean -selname,tot_prec   ${ml_file}`   
