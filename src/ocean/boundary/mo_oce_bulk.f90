@@ -111,7 +111,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-!<Optimize_Used>
+  !<Optimize_Used>
   SUBROUTINE update_surface_flux(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, jstep, datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
