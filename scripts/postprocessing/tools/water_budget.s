@@ -16,7 +16,7 @@
 #        taxis_tunit                  =  3  ! output time unit, 3: hours, 2:min, 1:sec
 #        include_last                 = .TRUE.
 #        output_filename              = '${basename}'             ! file name base
-#        ml_varlist                   = 'tot_prec', 'acclhfl_s', 'aqhfl_s', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs'
+#        ml_varlist                   = 'tot_prec', 'acclhfl_s', 'accqhfl_s', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs'
 #        output_grid                  = .TRUE.
 #        remap                        = 0                         ! 1: latlon,  0: native grid
 #       /
@@ -48,7 +48,7 @@ LANG=''          # for math with 1.0 not 1,0
 set -A date     `cdo infov ${ml_file} | grep -w "tqv" | awk '{print $3}'`
 set -A time     `cdo infov ${ml_file} | grep -w "tqv" | awk '{print $4}'`
 set -A lhf      `cdo output -fldmean -selname,acclhfl_s  ${ml_file}`
-set -A qfl      `cdo output -fldmean -selname,aqhfl_s    ${ml_file}`
+set -A qfl      `cdo output -fldmean -selname,accqhfl_s  ${ml_file}`
 set -A tot_prec `cdo output -fldmean -selname,tot_prec   ${ml_file}`   
 set -A tqv      `cdo output -fldmean -selname,tqv        ${ml_file}`   
 set -A tql      `cdo output -fldmean -selname,tqc        ${ml_file}`
