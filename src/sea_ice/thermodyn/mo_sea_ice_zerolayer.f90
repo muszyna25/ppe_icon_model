@@ -243,7 +243,7 @@ CONTAINS
                                    ! water equiv. solid precipitation rate [m/s] DIMENSION (ie,je)
 
    !!Local variables
-    REAL(wp), DIMENSION (nproma,ice%kice, p_patch%nblks_c) ::         &
+    REAL(wp), DIMENSION (nproma,ice%kice, p_patch%alloc_cell_blocks) ::         &
       & zHeatOceI,   & ! Oceanic heat flux                                  [W/m^2]
       & Tfw,         & ! Ocean freezing temperature [C]
       & Q_surplus   ! energy surplus during ice growth
@@ -278,8 +278,8 @@ CONTAINS
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
     END IF
     
-    DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO k=1,ice%kice
         DO jc = i_startidx_c,i_endidx_c
           IF (ice%hi(jc,k,jb) > 0._wp) THEN

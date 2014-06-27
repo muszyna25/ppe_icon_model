@@ -2125,7 +2125,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     rhoair(:,:) = 0._wp
-    DO jb = 1,p_patch%alloc_cell_blocks
+    DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c,i_endidx_c
 
