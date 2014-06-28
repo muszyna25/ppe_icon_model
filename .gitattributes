@@ -1119,6 +1119,7 @@ scripts/postprocessing/tools/spectra_vordiv.ncl -text
 scripts/postprocessing/tools/spectra_vordiv_plmean_tmean_res_comp.ncl -text
 scripts/postprocessing/tools/splitHemisphere.rb -text
 scripts/postprocessing/tools/tsrhoplot.sh -text
+scripts/postprocessing/tools/water_budget.ncl -text
 scripts/postprocessing/tools/water_budget.s -text
 scripts/postprocessing/tools/xsec.py -text
 scripts/preprocessing/README_MARS4ICON.TXT -text
