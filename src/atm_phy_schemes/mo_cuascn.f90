@@ -444,7 +444,7 @@ ENDDO
       ENDDO
       DO jl=kidia,kfdia
         IF(.NOT. ldland(jl)) THEN
-          zdrain(jl)  = MIN(0.5E4_JPRB,   zdrain(jl) ) ! ... but over water at most 50 hPa
+          zdrain(jl)  = MIN(0.4E4_JPRB,   zdrain(jl) ) ! ... but over water at most 40 hPa
           zdnoprc(jl) = MIN(1.25e-4_JPRB, zdnoprc(jl)) ! ... but over water at most 0.125 g/kg
         ENDIF
       ENDDO
