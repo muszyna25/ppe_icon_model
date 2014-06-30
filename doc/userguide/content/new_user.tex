@@ -95,7 +95,7 @@ Within the \verb+$ICONDIR/support+ directory, the CDI library is stored.
 
 \subsubsection{vertical\_coord\_table}
 
-Inside the \verb+$ICONDIR/vertical_coord_tables+ directory, information files describing the relation between model layer, pressure and height are stored.
+Inside the \verb+$ICONDIR/vertical_coord_tables+ directory, information files describing the relation between model layer and height are stored.
 
 \section{Configuration and Compilation}
 \label{chap:UG_config_compil}
@@ -110,7 +110,7 @@ To add a specific compiler or change your compiler flags, you have to enter the 
 
 \begin{Verbatim}[frame=single]
 CRAY EXAMPLE: Compiler Flags inside mh-linux
-cray)
+
     config_compiler=cray
 	CC          = cc
     FC          = ftn
@@ -233,289 +233,41 @@ For the \textbf{Jablonowski-Williamson baroclinic wave test}, a weak (and unbala
 
 \subsection{Mountain induced Rossby waves}
 
-In order to test the model dynamics in dry stage but with real or any complex topography one can choose the mountain induced Rossby wave test case and select different types of topography.
+In order to test the model dynamics in dry stage but with real or any complex topography one can choose the mountain induced Rossby wave test case and select different types of topography.The following namelist parameters give an example how to perform such an idealized simulation.
 
-
-
-The following runfile gives an example how to perform such an idealized simulation.
-
-\begin{landscape}
 
 \begin{Verbatim}[frame=single]
-NAMELIST EXAMPLE for a moutain induced Rossby waves
-
-#! /bin/ksh
-# ----------------------------------------------------------------------------
-#PBS -q xc_normal
-#PBS -l select=4:ompthreads=4
-#PBS -l place=scatter
-#PBS -l walltime=01:00:00
-#PBS -j oe
-#PBS -W umask=022
-# ----------------------------------------------------------------------------
-# ============================================================================
-#
-# Cray batch script for the ICON model
-#
-# Initializes the Jablonowski Williamson test case with a 
-# mountain instead of the wind perturbation.
-#
-# Platform: Cray XC30
-#           xce.dwd.de
-#
-# 05/2014 : F. Prill, DWD
-#
-# ----------------------------------------------------------------------------
-# ============================================================================
-
-
-set -x
-
-# OpenMP settings
-export OMP_SCHEDULE="static"
-export OMP_DYNAMIC="false"
-# MPI: use DMAPP for off-node data movement
-export MPICH_RMA_OVER_DMAPP=1
-# disable core dumps
-export RLIMIT_CORE=0
-export ATP_MAX_CORES=0
-
-
-# ----------------------------------------------------------------------------
-# path definitions
-# ----------------------------------------------------------------------------
-
-# directory with input grids:
-GRIDDIR=/e/uhome/gzaengl/icon-dev/experiments/GRF_R2B4N6M
-
-# base directory for ICON sources and binary:
-ICONDIR=${PBS_O_WORKDIR}/../../
-
-# absolute path to directory with plenty of space:
-EXPDIR=/e/uhome/dreinert/icon/experiments/exp15_mrw
-
-# path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/control_model
-
-
-# ----------------------------------------------------------------------------
-# copy input data: grids, external parameters
-# ----------------------------------------------------------------------------
-
-# the directory for the experiment will be created, if not already there
-if [ ! -d $EXPDIR ]; then
-    mkdir -p $EXPDIR
-fi
-cd ${EXPDIR}
-
-ln -sf ${GRIDDIR}/iconR2B03_DOM00.nc iconR2B03_DOM00.nc
-ln -sf ${GRIDDIR}/iconR2B04_DOM01.nc iconR2B04_DOM01.nc
-
-# files needed for radiation
-ln -sf ${ICONDIR}/data/ECHAM6_CldOptProps.nc .
-ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
-
-
-# ----------------------------------------------------------------------------
-# grid namelist settings
-# ----------------------------------------------------------------------------
-
-# the grid parameters
-atmo_dyn_grids="iconR2B04_DOM01.nc"
-atmo_rad_grids="iconR2B03_DOM00.nc"
-
-# reconstruct the grid parameters in namelist form
-dynamics_grid_filename=""
-for gridfile in ${atmo_dyn_grids}; do
-  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
-done
-radiation_grid_filename=""
-for gridfile in ${atmo_rad_grids}; do
-  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
-done
-
-
-# ----------------------------------------------------------------------------
-# create ICON master namelist
-# ----------------------------------------------------------------------------
-
-cat > icon_master.namelist << EOF
-
-! master_nml: ----------------------------------------------------------------
-&master_nml
- lrestart                   =                      .FALSE.        ! .TRUE.=current experiment is resumed
-/
-
-! master_model_nml: repeated for each model ----------------------------------
-&master_model_nml
- model_type                  =                          1         ! identifies which component to run (atmosphere,ocean,...)
- model_name                  =                      "ATMO"	  ! character string for naming this component.
- model_namelist_filename     =              "NAMELIST_NWP"	  ! file name containing the model namelists
- model_min_rank              =                          1	  ! start MPI rank for this model
- model_max_rank              =                      65536	  ! end MPI rank for this model
- model_inc_rank              =                          1         ! stride of MPI ranks
-/
-
-! time_nml: specification of date and time------------------------------------
-&time_nml
- ini_datetime_string         =      "2011-01-01T00:00:00Z"        ! initial date and time of the simulation
-/
-
-EOF
-
-
-# ----------------------------------------------------------------------------
-# model namelists
-# ----------------------------------------------------------------------------
-# For a complete list see doc/Namelist_overview.pdf
-
-cat > NAMELIST_NWP << EOF
-
-! diffusion_nml: horizontal (numerical) diffusion ----------------------------
-&diffusion_nml
- hdiff_order                 =                          5         ! order of nabla operator for diffusion
- itype_vn_diffu              =                          1	  ! reconstruction method used for Smagorinsky diffusion
- itype_t_diffu               =                          2	  ! discretization of temperature diffusion
- hdiff_efdt_ratio            =                         36.0	  ! ratio of e-folding time to time step 
- hdiff_smag_fac              =                          0.015	  ! scaling factor for Smagorinsky diffusion
- lhdiff_vn                   =                      .TRUE.	  ! diffusion on the horizontal wind field
- lhdiff_temp                 =                      .TRUE.	  ! diffusion on the temperature field
-/
-
-! dynamics_nml: dynamical core -----------------------------------------------
-&dynamics_nml
- iequations                  =                          3	  ! type of equations and prognostic variables
- idiv_method                 =                          1	  ! method for divergence computation
- divavg_cntrwgt              =                          0.50	  ! weight of central cell for divergence averaging
- lcoriolis                   =                      .TRUE.	  ! Coriolis force
-/
-
-! extpar_nml: external data --------------------------------------------------
-&extpar_nml
- extpar_filename             =                         ""         ! filename of external parameter input file
- itopo                       =                          0         ! topography (0:analytical)
-/
-
-! grid_nml: horizontal grid --------------------------------------------------
-&grid_nml
- dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
- radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
- dynamics_parent_grid_id     =              0, 1, 2, 1, 4         ! array of the indexes of the parent grid filenames
- lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
- lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
- ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
-/
-
-! gridref_nml: grid refinement and nesting -----------------------------------
-&gridref_nml
- grf_intmethod_e             =                          6         ! interpolation method for grid refinement
- grf_scalfbk                 =                          2	  ! feedback method for dynamical scalar variables
- grf_tracfbk                 =                          2	  ! feedback method for tracer variables
- denom_diffu_v               =                        150.0	  ! Deniminator for lateral boundary diffusion of velocity
-/
-
-! io_nml: general switches for model I/O -------------------------------------
-&io_nml
- dt_diag                     =                      21600.0       ! diagnostic integral output interval
- dt_checkpoint               =                    5760000.0       ! time interval for writing restart files.
- itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
-/
-
-! nh_testcase_nml: idealized testcase specification --------------------------
+NAMELIST EXAMPLE for moutain induced Rossby waves
+! nh_testcase_nml: idealized testcase specification 
 &nh_testcase_nml
- nh_test_name                =                    'mrw_nh'        ! testcase selection
- u0_mrw                      =                       20.0         ! initial u-component of the wind velocity
- mount_height_mrw            =                     2000.0         ! maximum mountain height 
- mount_half_width            =                  1500000.0	      ! half width of mountain
- mount_longctr_mrw_deg       =                       90.0         ! longitude of the center of the mountain
- mount_latctr_mrw_deg        =                       30.0         ! latitude of the center of the mountain
+ nh_test_name           = 'mrw_nh' ! testcase selection
+ u0_mrw                 = 20.0     ! initial u-component 
+ mount_height_mrw       = 2000.0   ! maximum mountain height 
+ mount_half_width       = 1.5e06   ! half width of mountain
+ mount_longctr_mrw_deg  = 90.0     ! longitude: center of the mountain
+ mount_latctr_mrw_deg   = 30.0     ! latitude : center of the mountain
 /
-
-! nonhydrostatic_nml: nonhydrostatic model -----------------------------------
-&nonhydrostatic_nml
- ivctype                     =                          2	  ! type of vertical coordinate
- vwind_offctr                =                          0.2	  ! off-centering in vertical wind solver
- damp_height                 =                      50000.0	  ! height at which Rayleigh damping of vertical wind starts
- rayleigh_coeff              =                          0.10	  ! Rayleigh damping coefficient
- iadv_rcf                    =                          5	  ! calling frequency for transport/diffusion/physics
- lhdiff_rcf                  =                      .TRUE.	  ! .TRUE.=compute diffusion only at advection time steps
-/
-
-! output_nml: specifies an output stream --------------------------------------
-&output_nml
- filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
- dom                         =                         -1         ! write all domains
- output_bounds               =       0., 10000000., 21600.        ! output: start, end, increment
- steps_per_file              =                          2         ! number of output steps in one output file
- mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
- include_last                =                      .TRUE.        ! flag whether to include the last time step
- output_filename             =                       'NWP'        ! file name base
- output_grid                 =                      .TRUE.        ! flag whether grid information is added to output.
- !
- ml_varlist                  =  'u', 'v', 'w', 'temp', 'pres','topography_c', 'vor'
-/
-
-! parallel_nml: MPI parallelization -------------------------------------------
-&parallel_nml
- nproma                      =                          8         ! loop chunk length
- p_test_run                  =                     .FALSE.	  ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          1	  ! number of I/O processors
- num_restart_procs           =                          0	  ! number of restart processors
- iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
-/
-
-! run_nml: general switches ---------------------------------------------------
+! run_nml: general switches 
 &run_nml
- ltestcase                   =                      .TRUE.	  ! idealized testcase runs
- num_lev                     =                         90         ! number of full levels (atm.) for each domain
- lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                       1000         ! number of time steps of this run
- dtime                       =                        288         ! timestep in seconds
- ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
- ltransport                  =                      .FALSE.	  ! compute large-scale tracer transport
- ntracer                     =                          0	  ! number of advected tracers
- iforcing                    =                          0	  ! forcing of dynamics and transport by parameterized processes
- msg_level                   =                          7	  ! controls how much printout is written during runtime
- ltimer                      =                     .FALSE.	  ! timer for monitoring the runtime of specific routines
- output                      =                       "nml"        ! main switch for enabling/disabling components of the model output
-/
-
-! sleve_nml: vertical level specification -------------------------------------
-&sleve_nml
- min_lay_thckn               =                         20.0       ! layer thickness of lowermost layer
- top_height                  =                      75000.0	  ! height of model top
- stretch_fac                 =                          0.9	  ! stretching factor to vary distribution of model levels
- decay_scale_1               =                       4000.0	  ! decay scale of large-scale topography component
- decay_scale_2               =                       2500.0	  ! decay scale of small-scale topography component
- decay_exp                   =                          1.2	  ! exponent of decay function
- flat_height                 =                      16000.0       ! height above which the coordinate surfaces are flat
-/
-
-EOF
-
-
-# ----------------------------------------------------------------------------
-# run the model!
-# ----------------------------------------------------------------------------
-
-cp -p $MODEL icon
-
-# "aprun" command:
-# -n xx   : number of MPI tasks
-# -N xx   : number of MPI tasks/node
-# -d  x   : number of threads/MPI task
-# -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
-# -m 3g   : 3G memory/task
-
-aprun  -n 40 -N 10 -j 2 -d 4 -m 3g icon
+ ltestcase  = .TRUE.  ! idealized testcase runs
+ num_lev    = 90      ! number of full levels (atm.) for each domain
+ lvert_nest = .TRUE.  ! vertical nesting
+ nsteps     = 1000    ! number of time steps of this run
+ dtime      = 288     ! timestep in seconds
+ ldynamics  = .TRUE.  ! compute adiabatic dynamic tendencies
+ ltransport = .FALSE. ! compute large-scale tracer transport
+ ntracer    = 0       ! number of advected tracers
+ iforcing   = 0       ! forcing by parameterized processes
+ msg_level  = 7       ! controls  printout during runtime
+ ltimer     = .FALSE. !monitoring the runtime of specific routines
+ output     = "nml"   ! main switch for components of the model output
 
 \end{Verbatim}
 
-\end{landscape}
 
 \subsubsection{Initial conditions}
 
-Applying this run file the topography shown in Fig. \ref{fig:mountain} is used.
+Applying this namelist parameters the topography shown in Fig. \ref{fig:mountain} is used.
 
 \begin{figure}[h!]%
 \centering
@@ -527,25 +279,17 @@ The v-component of the wind speed is is initialized with zero at all grid points
 
 \begin{figure}[h!]%
 \centering
-\includegraphics[width=0.95\linewidth]{pictures/u-initial-small.png}
+\includegraphics[width=0.95\linewidth]{pictures/u_initial_v2-small.png}
 \caption{Spatial distribution of the initialized u-component at 700 hPa}\label{fig:u-initial}
 \end{figure}
 
 
-This results in the spatial distribution of the initialized 
-vorticity shown in Fig. \ref{fig:vorticity-initial}.
-
-\begin{figure}[h!]%
-\centering
-\includegraphics[width=0.95\linewidth]{pictures/vorticity-initial-small.png}
-\caption{Spatial distribution of the initial conditions of the vorticity at 700 hPa}\label{fig:vorticity-initial}
-\end{figure}
 
 \subsubsection{Results after 16 days}
 
 
 
-The u-component after sixteen days of simulation at 700 hPa is shown in Fig. \ref{fig:u-16}.
+The u-component after sixteen days of simulation at 700 hPa is shown in Fig. \ref{fig:u-16}, the corresponding v-component is shown in Fig. \ref{fig:v-16}, and Fig. \ref{fig:vorticity-16} shows the vorticiy.
 
 \begin{figure}[h!]%
 \centering
@@ -554,13 +298,17 @@ The u-component after sixteen days of simulation at 700 hPa is shown in Fig. \re
 \end{figure}
 
 
-The spatial distribution of the initialized 
-vorticity shown in Fig. \ref{fig:vorticity-16}.
+\begin{figure}[h!]%
+\centering
+\includegraphics[width=0.95\linewidth]{pictures/v_day_16-small.png}
+\caption{Spatial distribution of v-component after 16 days of simulation at 700 hPa}\label{fig:v-16}
+\end{figure}
+
 
 \begin{figure}[h!]%
 \centering
-\includegraphics[width=0.95\linewidth]{pictures/vorticity-d16-small.png}
-\caption{Spatial distribution of the vorticity after 16 days o simulation at 700 hPa}\label{fig:vorticity-16}
+\includegraphics[width=0.95\linewidth]{pictures/vorticity_16-o.png}
+\caption{Spatial distribution of the vorticity after 16 days of simulation at 700 hPa}\label{fig:vorticity-16}
 \end{figure}
 
 
@@ -686,7 +434,7 @@ CRAY EXAMPLE: Namelists
 \begin{Verbatim}[frame=single]
 CRAY EXAMPLE: Submitting a job
 aprun                                    \
-  -n <<INSERT: MPI Tasks>>            \
+  -n <<INSERT: Total number of MPI Tasks>>            \
   -N <<INSERT: MPI Tasks/Node>>       \
   <<INSERT: Hyperthreading e.g. 2 -> 20 physical -> 40 "virtual" cores>> \
   -d <<INSERT: Threads/MPI Task>>     \
@@ -799,18 +547,16 @@ Note:- \verb+dt_restart+ and \verb+dt_checkpoint+ have to be selected carefully.
  
 
 
-\subsubsection*{Asynchronous in- and  output:} 
+\subsubsection*{Asynchronous restart:} 
 
-It is highly recommended that the asynchronous in- and output option of ICON is applied. In short this option reserves a number of processors for in- and output only.  While reading and writing the remaining processors continuously carry out calculations. Otherwise they would have to wait until in- or output is finished. The corresponding namelist parameter is:
+The restart can be handled by separated processors. The number of restart processors can be chosen by the user. The corresponding namelist parameter is:
 
 \begin{verbatim}
 &parallel_nml
 num_restart_procs = n
 \end{verbatim} 
 
-n is the number of processors used for in- and output. 
-
-Note: n=1 is the most efficient selection.
+n is the number of processors used for restart.
 
 
 \subsection{Make Runscript Environment}\label{sec:make_runscript}
@@ -867,15 +613,15 @@ A list of grid files has been pre-built for the ICON model together with the cor
 
 \begin{enumerate}
 
-\item Every 24h the contents of the primary storage directory are mirrored to DWD's HPC.
-\item Every 24h the contents of the primary storage directory are mirrored to a public web site:
-\href{http://icon-downloads.zmaw.de}{http://icon-downloads.zmaw.de}.
 \item The \textbf{primary storage} location for ICON grids is
 \begin{small}
  \begin{verbatim}
   blizzard:/pool/data/ICON/grids/public 
  \end{verbatim}
 \end{small}
+\item Every 24h the contents of the primary storage directory are mirrored to DWD's HPC.
+\item Every 24h the contents of the primary storage directory are mirrored to a public web site:
+\href{http://icon-downloads.zmaw.de}{http://icon-downloads.zmaw.de}.
 \end{enumerate}
 
 Each grid file consists of a NetCDF file and a GPG signature file\\ 
@@ -905,7 +651,6 @@ where the name components are as follows:
                                      (radiation/reduced)
  icon _ extpar _ 0002 _	  03   07 _	G                   .nc
                                      (global)         
-                 ...      ...  ...
  \end{verbatim}
 \end{small}
 
@@ -982,258 +727,159 @@ This \lq table file\rq\ is located under
 \section{Grid Generation}
 \label{chap:UG_grid_generation}
 
-\textbf{Baustelle Grid generation}
+\subsection{ICON atmosphere grids}
+
+The ICON horizontal spherical grid is based on the projection of the icosahedron on the sphere. This is a 2-dimensional grid, representing the earth's surface. The ICON grids need to be created, stored as \netcdf~ files, and consequently used by the ICON model. Alternatively, already stored grids may be used.
+
+The initial icosahedron grid is refined by \textless n\textgreater -secting the edges, and further refinement is obtained by iteratively bisecting the created edges. The grid produced at the \textless k\textgreater refining iteration is named "R\textless n\textgreater B\textless k\textgreater", and the corresponding \netcdf -file is \verb+"iconR<n>B<k>-grid.nc"+. The grid files, after their creation, are located in the \verb+./grids+ folder. For more detailed information about horizontal ICON grids the reader is referred to the ICON technical documentation.
+
+Examples of grids are in \verb+./grids+. More information can be found in: \\ 
+\verb+$ICONDIR/doc/technical/icon_grid.pdf+.
+
+
+The example given below shows the namelist parameters for generating a global R2B6 grid.
 
 \begin{Verbatim}[frame=single]
-
-
-#! /bin/ksh
-#---------------------------------------------------------------------
-#PBS -q xc_normal
-#PBS -l select=1:ompthreads=20
-#PBS -l walltime=01:00:00
-#PBS -j oe
-# ----------------------------------------------------------------------
-# Basic CRAY batch script for the ICON model
+EXAMPLE Grid Generation of a R2B6 grid
+#!/bin/ksh
+#--------------------------------------
+# Creation of atmosphere grids for ICON
+#----------------------------------------
+# ICON grid generator namelist parameters
 #
-# Platform: xct.dwd.de
+# For a complete list see Namelist_overview and Namelist_overview.pdf
 #
-# 06-07/2013 : F. Prill, DWD
-# ----------------------------------------------------------------------
+# nroot       =  Number of sections into which the edges of the original 
+#                icosahedron are divided in the initial refinement step.
+#                (icosahedron = "grid -1" --> "nroot" grid = grid "0")
+#                
+# grid_levels =  Number of refinement steps applying edge bisection,
+#                follows the initial "nroot" refinement step.
+#                (grid "0" --> grid "1" --> ... --> grid "grid_levels")
+#
+# itype_optimize grid optimization method applied from grid level 1 onward.
+#                i | optimization    | suffix fo grid output file
+#                ------------------------------------------------
+#                0 | none            | noo
+#                1 | Heikes Randall  | hro
+#                4 | spring dynamics | spr
+#
+# beta_spring = Tuning parameter for spring dynamics to be chosen in the 
+#               range [0.9,1.1]. Weights the target length between the
+#               grid points.
+#
+#----------------------
+# First generate graphs
+R=2    # nroot (the first dissection will be a bisection)
+B=6    # highest grid level to reach (number of consequent bisections)
+maxlev_optim=6  # highest grid level to apply optimizations
 
-set -x
+cat > NAMELIST_GRAPH << EOF
+&graph_ini 
+  nroot       = ${R}
+  grid_levels = ${B}
+/
+EOF
 
-export OMP_SCHEDULE="static"
-export OMP_DYNAMIC="false"
+echo global_graph_generator null > $commandFile
+${start} ${run_commmand}
+check_error $? "global_graph_generator"
 
-# export OMP_NUM_THREADS=4
-# export ATP_ENABLED=1
+#------------------------------------------------------
+# Generate grids using the spring dynamics optimization
+cat > NAMELIST_GRID << EOF
+&grid_ini
+  nroot       = ${R}
+  grid_levels = ${B}
+/
+&grid_options
+  itype_optimize = 4     ! 1 = Heikes-Randall, 4 = spring dynamics
+  maxlev_optim = $maxlev_optim       ! the maximum level to optimize
+/
+EOF
+\end{Verbatim}
 
-# ----------------------------------------------------------------------
-# path definitions
-# ----------------------------------------------------------------------
+ICON gives the possibility to nest subdomain within a parent grid. The example below gives the namelist parameters for generating a nested grid (patch). The root bisection of the patch in this example starts with the fourth level of the bisections of the global model.
 
-# for PBS change to directory where job was submitted
-# (without this job is started in HOME)
-if [[ -n ${PBS_O_WORKDIR} ]] ; then
-  cd ${PBS_O_WORKDIR}
-fi
-
-# determine base directory
-dir=$(pwd -P)
-basedir=${dir%/*}
-
-EXP="gridgen"    # experiment identifier
-EDIR="GRF_R2B4N5L_papgrf"  # working directory
-GDIR="GRIDR2" # grid directory
-
-# absolute path to directory with plenty of space:
-EXPDIR=$basedir/experiments/${EDIR}
-# absolute path to directory where the graph generator output is located:
-GRIDDIR=$basedir/experiments/${GDIR}
-
+\begin{Verbatim}[frame=single]
+EXAMPLE Nested grid based on the global grid described before. 
+#----------------------------------
+# Next the patches will be created.
+# If the pathes are not needed then uncomment the next exit command
+#
+#exit
+#-------------------------------
+#
+# ICON prepare_gridref namelist
+#
+# Parameter overview:
+#
+# grid_root: Number of root bisections
+#
+# start_lev: Grid level of global domain
+#
+# n_dom:     Total number of model domains (including the global one)
+#
+# parent_id: List of parent domain ID's (starts at first nested domain,
+#            which has ID=2)
+#
+# l_circ:    true = circular subdomains, false = 
+#            rectangular (lat/lon) subdomains
+#
+# l_rotate:  true: rotate center point into equator in case of l_circ=false
+#            this yields truly rectangular subdomains, whereas subdomains
+#            are conical otherwise because of the convergence of meridians
+#
+# NOTE:      For subdomains crossing a pole, either l_circ=true 
+#            or l_rotate=true is required
+#
+# l_plot:    true: Generates GMT files for domain configuration
+#
+# NOTE:      The following parameters have to be specified for each nested
+#            domain!
+#
+# radius:    radius (deg) of nested domains  (for l_circ=true)
+#
+# center_lon: Center longitude of nested domains
+#
+# center_lon: Center latitude of nested domains
+#
+# hwidth_lon: half-width longitude of nested domains (for l_circ=false)
+#
+# hwidth_lat: half-width latitude of nested domains (for l_circ=false)
+#
+#-------------------------------------------------------
 # suffix of grid files which specifies optimization type
 # (without optimization leave empty)
-OPTFIX=spr0.90
-
-# absolute path to model binary, including the executable
-MODEL=$basedir/build/x86_64-unknown-linux-gnu/bin/grid_command
-
-if [ ! -d $EXPDIR ]; then
-    mkdir -p $EXPDIR
-fi
-
-# ----------------------------------------------------------------------
-# copy input data: grids, external parameters
-# ----------------------------------------------------------------------
-
-cd $GRIDDIR
-
-# if optimization suffix is given, create symbolic links to grid files
-if [ -n $OPTFIX ] ; then
-   for gridfile in `ls -1 icon*grid_${OPTFIX}.nc`; do
-      slname=${gridfile%_${OPTFIX}.nc}.nc
-#      if [ ! -a  ${slname} ] ; then
-         ln -sf $GRIDDIR/${gridfile} $EXPDIR/${slname}
-#      fi
-   done
-fi
-
-
-cd $EXPDIR
-
+#OPTFIX=spr0.90_M4
+# NOTE: _M4 means that maxlev_optim = 4 has to be set in the grid generator
+# maxlev_optim is not needed for Heikes-Randall optimization
+#
+#-------------------------------------
+# Create plots of domain configuration
+PLOTS=.false.
+#
 cat > NAMELIST_GRIDREF << EOF
 &gridref_ini 
   grid_root  = 2
   start_lev  = 4
   n_dom      = 2
-  n_phys_dom = 2
   parent_id  = 1,
-  l_circ     = .false.
-  l_rotate   = .false.
+  l_circ     = .true.
+  l_rotate   = .true.
   l_plot     = .true.
-  center_lon =  130.,
-  center_lat =  52.5,
-  hwidth_lon =  25.,
-  hwidth_lon =  100.,
-  hwidth_lat =  20.,
+  radius     =  30.,
+  center_lon =  -90.,
+  center_lat =  40.,
+  hwidth_lon =  55.,
+  hwidth_lat =  55.,
   bdy_indexing_depth = 14
-  write_hierarchy = 1
 /
 EOF
-
-cp -p NAMELIST_GRIDREF NAMELIST_GRIDREF_$EXP
-#
-echo global_grid_refine null > command.grid
-
-# ----------------------------------------------------------------------
-# run the model!
-# ----------------------------------------------------------------------
-
-time aprun -n 1 -N 1 -j 1 -d 20 -m 30g $MODEL
-# time $MODEL
-
-
 \end{Verbatim}
 
-\subsection{ICON atmosphere grids}
-
-The ICON horizontal spherical grid is based on the projection of the icosahedron on the sphere. This is a 2-dimensional grid, representing the earth's surface. For defining the vertical discretization see the Experiments section. The ICON grids need to be created, stored as \netcdf~ files, and consequently used by the ICON model. Alternatively, already stored grids maybe used.
-
-The initial icosahedron grid is refined by \textless n\textgreater -secting the edges, and further refinement is obtained by iteratively bisecting the created edges. The grid produced at the \textless k\textgreater refining iteration is named "R\textless n\textgreater B\textless k\textgreater", and the corresponding \netcdf -file is \verb+"iconR<n>B<k>-grid.nc"+. The grid files, after their creation, are located in the ./grids folder.
-
-Examples of grids are in Grids. More information can be found in\\ 
-\verb+$ICONDIR/doc/technical/icon_grid.pdf+
-
-\subsection{Creating atmosphere grids}
-
-The descriptor file for creating the atmosphere grids is \verb+./run/grid.create_atmo_grids+. It generates 5 levels of icon grids using spring dynamics and symmetry optimizations. In addition it creates an hierarchy of three nested grids for the \verb+exp.nat_jww_nwp_mpiomp+ experiment (source: \verb+$ICONDIR/run/exp.nat_jww_nwp_mpiomp+).
-
-For creating the run script \verb+$ICONDIR/run/grid.create_atmo_grids.run+, give
-
-\begin{small}
-  \begin{verbatim}
-   ./make_runscripts
-  \end{verbatim}
-\end{small}
-
-To submit it, go to \verb+$ICONDIR/run+ and give
-
-\begin{small}
-  \begin{verbatim}
-   [<submit>] grid.create_atmo_grids.run 
-  \end{verbatim}
-\end{small}
-
-See chapter \ref{chap:UG_running_model} how to generate run scripts for more information on creating and running scripts.
-
-After running the \verb+grid.create_atmo_grids.run+, the \netcdf -grid-files will be located in the \verb+$ICONDIR/grids+ folder.
-
-\textbf{Note} that the grid generator is only OpenMP parallelized and not MPI parallelized.
 
 
-%\subsection{Creating ocean grids}
-%
-%The descriptor file for creating the ocean grids is \verb+$ICONDIR/run/grid.create_ocean_grids+. It generates four ocean grids for specific experiments. These are enabled through the parameters in the beginning of the descriptor:
-%\begin{small}
-%  \begin{verbatim}
-%   \#-----------------------------------------------------------------------------
-%   create_basin=".true." 
-%   create_aqua_planet=".true." 
-%   create_etopo40_flat=".true." 
-%   create_etopo40_planet=".true." 
-%   \#-----------------------------------------------------------------------------
-%  \end{verbatim}
-%\end{small}
-%
-%
-%The ocean grids are created based on topography (etopo40), geometric constrains (basin), or aqua planet (aqua\_planet). You should not modify this descriptor unless you are familiar with the details of the ocean grid generation.
-%After running the \verb+grid.create_ocean_grids.run+, which is the same procedure as shown for atmosphere grids, the \netcdf~ grid files will be located in the \verb+$ICONDIR/grids/+ folder.
-
-
-\subsection{Atmosphere grid generation parameters}
-
-In the beginning of the descriptor file \verb+$ICONDIR/run/grid.create_atmo_grids+ the basic atmosphere grid generation parameters are defined:
-
-\begin{small}
-  \begin{verbatim}
-#-----------------------------------------------------------------------------
-# if make_patches="true", the hierarchy of nested patches
-#   iconR2B03_DOM00.nc, iconR2B04_DOM01.nc, iconR2B05_DOM02.nc
-#   will be created
-make_patches="true" 
-
-# define number of levels (bisections) to create
-no_of_levels=5
-
-#define optimization
-use_spring_optimization="true"          
-use_symmetry_optimization="true" 
-start_optimize=2
-end_optimize=$no_of_levels
-
-# define refinement method
-refinement_method=1     # 1=edge bisection, 2=dual centers
-#-----------------------------------------------------------------------------
-  \end{verbatim}
-\end{small}
-
-
-The script variable \verb+no_of_levels+ defines the number of bisecting iterations (after the initial bisection), and determines the horizontal resolution. It is set to \verb+no_of_level=5+, giving in the highest resolution the triangular grid R2B05 of 81920 triangles, with a mean distance of 70\,km between triangle circumcenters, where scalars are defined. You may increase the resolution by increasing the \verb+no_of_levels+.
-
-%\subsection{Ocean grid generation parameters}
-%
-%In the script \verb+$ICONDIR/run/grid.create_ocean_grids+ the basic ocean grid generation parameters are defined.
-%
-%There are 4 methods within this script to create an ocean grid file, which can be switched on/off independently:
-%
-%\begin{small}
-%  \begin{verbatim}
-%\#-----------------------------------------------------------------------------
-%create_aqua_planet=".true." 
-%create_etopo40_flat=".true." 
-%create_etopo40_planet=".true." 
-%create_basin=".true." 
-%\#-----------------------------------------------------------------------------
-%  \end{verbatim}
-%\end{small}
-%
-%\begin{itemize}
-% \item[] Aqua planet (no land) for ocean alone or coupled model integrations
-% \item[] Create a land-sea-mask and a flat bottom bathymetry (depth \$SEADEPTH)
-% \item[] Create a land-sea-mask including an ocean bathymetry interpolated from the ETOPO bathymetry with 40 minutes resolution min\_sea\_depth=\$LSMDEPTH gives the value to decide whether a point is land or sea
-% \item[] Create special geometric conditions (basins, channels)
-%\end{itemize}
-%
-%For example a bathymetry for a circumpolar channel with flat bottom uses the following parameters:
-%
-%\begin{small}
-%  \begin{verbatim}
-% # grid parameters
-%  R=2                   # nroot: bisectional refinement
-%  B=4                   # no. of bisections applied for the global grid
-%  REFINE_ITERATIONS=3   # no. of refinements after smoothing ocean boundary
-%                        #  - resolution for smoothing is ((B-REFINE_ITERATIONS)) 
-%                        # optimize_ocean_grids=".true." 
-%
-%  #bathymetry parameters
-%  SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
-%  INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
-%  # topography file
-%  TOPFILE=""            # no topography file used for the basin
-%  #conditions
-%  no_of_conditions=1    # use parameter for new Stommel basin (see below)
-%  patch_shape=1         # 1=orthogonal, 2= circle 
-%  rectangle_xradious=180.0   # circumpolar (360 deg)
-%  rectangle_yradious=15.0    #  30 deg meridional extent
-%
-%  # output grid name
-%  OCEGRID=iconR\$RB0\${B}-ocean_chan-45N.nc   #  zonal circumpolar channel
-%  \end{verbatim}
-%\end{small}
-%
-%Generated grids are located at the \verb+$ICONDIR/grids/+ directory
-	
 \subsection{Information contained in grid files}
 
 The ICON grids are treated as a general unstructured grid, so the grid \netcdf -files contain the full information of the location and the connectivity of all the grid entities (cells, edges and vertices). The grid nesting hierarchy information is also included.
@@ -1281,9 +927,6 @@ or
   \end{verbatim}
 \end{small}
 
-
-More details on the grid fields can be found \href{https://code.zmaw.de/projects/icon/repository/entry/trunk/icon-1.3.00/doc/technical/icon\_grid.pdf} {\tt here}.\\
-
 \subsection{Viewing/plotting grids}
 
 In order to plot an icon grid you should ensure that \verb+ncl-6.0+ and \verb+cdo-1.5.4+ is available on your machine. Then go to the \verb+$ICONDIR/grids/+ folder and give:
@@ -1314,5 +957,4 @@ A PDF-file with a plot of the iconR2B04\_DOM01 and iconR2B05\_DOM02 grids will a
 \newpage
 \subsection*{Discussion}
 %This section is for discussion only. Please add your notes, your name and date.
-Document last edited by \textit{S Gruber} on \textit{08-01-2014}
-Document last edited by \textit{B Vogel} on \textit{27-05-2014}.
+Document last edited by \textit{B Vogel} on \textit{27-06-2014}.

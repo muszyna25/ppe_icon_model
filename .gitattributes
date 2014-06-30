@@ -240,10 +240,13 @@ doc/userguide/pictures/overlay_plot.png -text
 doc/userguide/pictures/surface-small.png -text
 doc/userguide/pictures/u-day-16-small.png -text
 doc/userguide/pictures/u-initial-small.png -text
+doc/userguide/pictures/u_initial_v2-small.png -text
+doc/userguide/pictures/v_day_16-small.png -text
 doc/userguide/pictures/vector_plot.png -text
 doc/userguide/pictures/vertsection_plot.png -text
 doc/userguide/pictures/vorticity-d16-small.png -text
 doc/userguide/pictures/vorticity-initial-small.png -text
+doc/userguide/pictures/vorticity_16-o.png -text
 doc/userguide/style/chicago_lmdocu.bst -text
 doc/userguide/style/icon_docu_style.cls -text
 doc/userguide/style/pageformatting_toc.tex -text

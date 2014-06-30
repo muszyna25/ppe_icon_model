@@ -13,13 +13,12 @@ In general the user has to specify six individual quantities to generate output 
 \item{The time interval between two model outputs.}
 \item{The name of the output file.}
 \item{The name of the variable.}
-\item{The procedure (eg. single variable, or a variable group).}
 \item{The type of the vertical output grid (e.g. pressure levels or model levels).}
 \item{The type of the horizontal output grid (e.g. ICON grid or geographical coordinates).}
 \end{enumerate}
 
 ICON offers the possibility to write groups of variables. 
-In the following we will present two examples to demonstrate the options the user has to prescribe these quantities. A detailed description of all namelist parameters available to organize the output is described  in \verb+output_nml+ in the namelist section.
+In the following we will present two examples to demonstrate the options the user has to prescribe these quantities. A detailed description of all namelist parameters available to organize the output is described  in \verb+io_nml+ in the namelist section.
 
 \subsubsection{Example 1}
 
@@ -27,7 +26,7 @@ We will begin with an individual variable which is written in NETCDF format on p
 
 \begin{Verbatim}[frame=single]
 NAMELIST EXAMPLE
-&output_nml
+&io_nml
  filetype                  =  4   ! output format: 2=GRIB2, 4=NETCDFv2
  dom                       =  1   ! write output for domain 1
  output_bounds             =  0., 1.E7, 3600. ! start, end, interval in s.
@@ -43,42 +42,10 @@ NAMELIST EXAMPLE
 
 
 
-\subsubsection{Variable groups}
-Next we explain the meaning of variable groups.
-Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
-sets of common variables can be added to the output:
-\begin{tabbing}
-\hspace*{0.4\textwidth} \= \kill
-\texttt{group:all}                     \>      output of all variables (caution: do not combine with \underline{mixed} vertical interpolation) \\
-\texttt{group:atmo\_ml\_vars}          \>      basic atmospheric variables on model levels                          \\
-\texttt{group:atmo\_pl\_vars}          \>      same set as atmo\_ml\_vars, but except pres\\
-\texttt{group:atmo\_zl\_vars}          \>      same set as atmo\_ml\_vars, but expect height\\
-\texttt{group:nh\_prog\_vars}          \>      additional prognostic variables of the nonhydrostatic model          \\
-\texttt{group:atmo\_derived\_vars}     \>      derived atmospheric variables                                        \\
-\texttt{group:rad\_vars}               \>                                                                           \\
-\texttt{group:precip\_vars}            \>                                                                           \\
-\texttt{group:cloud\_diag}             \>                                                                           \\
-\texttt{group:pbl\_vars}               \>                                                                           \\
-\texttt{group:phys\_tendencies}        \>                                                                           \\
-\texttt{group:land\_vars}              \>                                                                           \\
-\texttt{group:multisnow\_vars}         \>     tile-averaged variables
-\end{tabbing}
-
-
-
-      There exists a special syntax which allows to remove variables from the output list, e.\,g.\ if
-      these undesired variables were contained in a previously selected group.\\
-      Typing \texttt{"-\textnormal{<varname>}"} (for example \texttt{"-temp"}) removes the
-      variable from the union set of group variables and other selected variables.
-      Note that typos are not detected but that the corresponding variable is
-      simply not removed!
-
-
-
 
 \subsubsection{Example 2}
 
-The flexibility of the options ICON offers is demonstrated in another example. Now we apply an alternative to define the runtime of ICON, write several variables, at the same time, in one data set, on pressure levels, and on the original horizontal grid of ICON. In addition the example below shows the options when several model domains run at the same time and we want to produce output for all model domains.
+The flexibility of the options ICON offers is demonstrated in another example. Now we apply an alternative to define the runtime of ICON, write several variables, at the same time, in one data set, on model levels, and on the original horizontal grid of ICON. In addition the example below shows the options when several model domains run at the same time and we want to produce output for all model domains.
 
 \begin{Verbatim}[frame=single]
 NAMELIST EXAMPLE
@@ -95,6 +62,19 @@ NAMELIST EXAMPLE
   output_grid      = .TRUE. ! Output on the ICON horizontal grid
 \end{Verbatim}
 
+\subsubsection{Variable groups}
+Next we explain the meaning of variable groups.
+Using the \texttt{"group:"} keyword for the namelist parameters \texttt{ml\_varlist}, \texttt{hl\_varlist}, \texttt{pl\_varlist},
+sets of common variables can be added to the output.
+
+
+There exists a special syntax which allows to remove variables from the output list, e.\,g.\ if
+these undesired variables were contained in a previously selected group.\\
+Typing \texttt{"-<varname>"} (for example \texttt{"-temp"}) removes the
+variable from the union set of group variables and other selected variables.Note that typos are not detected but that the corresponding variable is simply not removed!
+
+
+
 \subsubsection{How to find variable names and contents of variable groups}
 
 Finding the correct names of the variables you may want to write to a data set is not an easy task and you should be aware of some pitfalls. We will help you to avoid the most obvious ones. First of all users that have already experience with the COSMO model should know that the names of the atmospheric variables in ICON are \textbf{not identical}. 
@@ -107,7 +87,7 @@ atm_phy_nwp/mo_nwp_phy_state.f90
 lnd_phy_nwp/mo_nwp_lnd_state.f90
 \end{Verbatim}
 
-Now you may want to use the option of writing groups of variables and of course you may want to now which variable belong to which group.
+Now you may want to use the option of writing groups of variables and of course you may want to know which variable belongs to which group.
 Keep in mind that there is an option mentioned before to remove variables from the output of a group of variables.
 
 The following table gives overview on the allocation of variables to individual variable groups. If you want to translate the Fortran variables to the physical or mathematical ones again have a look to the Fortran files listed above.
@@ -151,7 +131,7 @@ t_bot_lk
 c_t_lk
 t_b1_lk
 h_b1_lk
-gv_s
+qv_s
 w_i
 w_so_ice
 w_snow
@@ -206,7 +186,7 @@ vor
 ******************************
 	land_vars
 t_g
-gv_s
+qv_s
 w_i
 w_p
 w_s
@@ -243,7 +223,7 @@ gz0
 t_g
 t_ice
 h_ice
-gv_s
+qv_s
 fr_seaice
 w_i
 w_so
@@ -257,7 +237,7 @@ freshsnow
 t_g
 t_ice
 h_ice
-gv_s
+qv_s
 w_i
 w_so
 t_snow
@@ -274,7 +254,7 @@ t_bot_lk
 c_t_lk 
 t_b1_lk  
 h_b1_lk 
-gv_s
+qv_s
 ******************************
 	land_tile_vars
 t_g_t
@@ -293,7 +273,7 @@ wtot_snow_t
 wliq_snow_t
 rho_snow_mult_t
 dzh_snow_t
-gv_s_t
+qv_s_t
 h_snow_t
 snowfrac_t
 snowfrac_lc_t
@@ -340,7 +320,7 @@ ghfl_s
 tcm
 tch
 t_2m 
-gv_2m
+qv_2m
 td_2m  
 u_10m  
 v_10m 
@@ -402,20 +382,7 @@ In GRIB2, a variable is uniquely defined by the following set of metadata:
  \item \textit{typeOfFirstfixedSurface} and \textit{typeOfSecondFixedSurface} (see GRIB2 code table 4.5)
  \item \textit{stepType} (instant, accum, avg, max, min, diff, rms, sd, cov, \dots)
 \end{itemize}
-A documentation of the official WMO GRIB2 code tables can be found on the website of WMO \href{http://www.wmo.int/pages/prog/www/WMOCodes/WMO306_vI2/LatestVERSION/WMO306_vI2_GRIB2_CodeFlag_en.pdf} {\tt here}.\\
-In the following, \textit{typeOfFirstFixedSurface} and \textit{typeOfSecondFixedSurface} will be abbreviated by \textit{Lev-Typ~1/2}. The available output fields are listed in tabular form.
-
-
-\subsubsection*{Asynchronous in- and  output:} 
-
-It is highly recommended that the asynchronous in- and output option of ICON is applied. In short this option reserves a number of processors for in- and output only.  While reading and writing the remaining processors continuously carry out calculations. Otherwise they would have to wait until in- or output is finished. The corresponding namelist parameter is:
-
-\begin{verbatim}
-&parallel_nml
-num_io_procs = n
-\end{verbatim} 
-
-n is the number of processors used for in- and output. 
+A documentation of the official WMO GRIB2 code tables can be found on the website of WMO: \\ \href{http://www.wmo.int/pages/prog/www/WMOCodes/WMO306_vI2/LatestVERSION/WMO306_vI2_GRIB2_CodeFlag_en.pdf} {http://www.wmo.int/pages/prog/www/WMOCodes/ \\ WMO306\_vI2/LatestVERSION/WMO306\_vI2\_GRIB2\_CodeFlag\_en.pdf}.\\
 
 
 
@@ -433,7 +400,7 @@ See, for example, \texttt{http://en.wikipedia.org/wiki/ISO\_8601} for details an
 \color{red}NOTE: as the mtime library underlaying the output driver
   currently has some restrictions concerning the specification of durations:\begin{enumerate}
 \item Any number \texttt{n} in \texttt{PnYnMnDTnHnMnS} must have two digits. For instance use \texttt{"PT06H"} instead of \texttt{"PT6H"}
-\item In a duration string \texttt{PnyearYnmonMndayDTnhrHnminMnsecS} the numbers \texttt{nxyz} must not pass the carry over number to the next larger time unit: 0<=nmon<=12, 0<=nhr<=23, 0<=nmin<=59, 0<=nsec<=59.999. For instance use \texttt{"P01D"} instead of \texttt{"PT24H"}, or \texttt{"PT01M"} instead of \texttt{"PT60S"}.
+\item In a duration string \texttt{PnyearYnmonMndayDTnhrHnminMnsecS} the numbers \texttt{nxyz} must not pass the carry over number to the next larger time unit: 0$<$=nmon$<$=12, 0$<$=nhr$<$=23, 0$<$=nmin$<$=59, 0$<$=nsec$<$=59.999. For instance use \texttt{"PT01D"} instead of \texttt{"PT24H"}, or \texttt{"PT01M"} instead of \texttt{"PT60S"}.
 \end{enumerate}
 
 Soon the formatting problem will be resolved and the valid number ranges will be enlarged.
@@ -468,14 +435,26 @@ p_diag\%extra_2d(jc,jb,1)= yxz(jc,jb)
 \end{small}
 
 
+\subsubsection*{Asynchronous output:}
+It is highly recommended that the asynchronous output option of ICON is applied. In short
+this option reserves a number of processors for output only. While writing the remaining
+processors continuously carry out calculations. Otherwise they would have to wait until
+output is finished. The corresponding namelist parameter is:
+
+\begin{verbatim}
+&parallel_nml
+num_io_procs = n
+\end{verbatim}
+
+n is the number of processors used for output.
 
 \newpage
 \subsection*{Discussion}
 %This sction is for discussion only. Please add your notes, your name and date.
-Document last edited by \textit{\krauti} on \textit{29.11.2013}
-Document last edited by \textit{S Gruber} on \textit{08-01-2014}
-Document last edited by \textit{B Vogel} on \textit{27-05-2014}
-.
+Document last edited by \textit{\krauti} on \textit{29.11.2013}\\
+Document last edited by \textit{S Gruber} on \textit{08-01-2014}\\
+Document last edited by \textit{B Vogel} on \textit{27-05-2014}\\
+Document last edited by \textit{B Vogel} on \textit{30-06-2014}\\
 
 
 
