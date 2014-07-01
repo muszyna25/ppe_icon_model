@@ -1,5 +1,7 @@
 !----------------------------------
-#include "dsl_definitions.inc"
+!#include "dsl_definitions.inc"
+#define GENERAL_3D DIMENSION(:,:,:)
+#define LEVELS_POSITION 2
 #include "omp_definitions.inc"
 !>
 !! A collection of MPI communication tools
