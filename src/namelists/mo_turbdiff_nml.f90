@@ -160,6 +160,7 @@ CONTAINS
       turbdiff_config(jg)%itype_sher   = itype_sher
       turbdiff_config(jg)%imode_frcsmot= imode_frcsmot
       turbdiff_config(jg)%ltkesso      = ltkesso
+      turbdiff_config(jg)%ltkeshs      = ltkeshs
       turbdiff_config(jg)%ltkecon      = ltkecon
       turbdiff_config(jg)%lexpcor      = lexpcor
       turbdiff_config(jg)%ltmpcor      = ltmpcor
