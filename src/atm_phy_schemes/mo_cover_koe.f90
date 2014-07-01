@@ -32,7 +32,8 @@ MODULE mo_cover_koe
 
   USE mo_physical_constants, ONLY: rdv    , & !! r_d / r_v
                                    rv     , & !! Rv
-                                   tmelt      !! melting temperature of ice/snow
+                                   tmelt  , & !! melting temperature of ice/snow
+                                   grav       !! gravitational acceleration
 
   USE mo_convect_tables,     ONLY: c1es   , & !! constants for computing the sat. vapour
                                    c3les  , & !! pressure over water (l) and ice (i)
@@ -113,7 +114,7 @@ INTEGER(KIND=i4), INTENT(IN) ::  &
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & pp               , & ! full pressure                                 (  Pa )
-  & pgeo             , & ! geopotential                                  (m2/s2)
+  & pgeo             , & ! geopotential (above ground)                   (m2/s2)
   & rho                  ! density                                       (kg/m3)
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
@@ -170,10 +171,10 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid, &
-  & vap_pres
+  & vap_pres, zaux
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
-  zqlsat , zqisat
+  zqlsat , zqisat, zagl_lim
 
 !! Local parameters:
 !! -----------------
@@ -225,6 +226,8 @@ DO jk = kstart,klev
     ! specific humidity at saturation over water (zqlsat) and ice (zqisat)
     zqlsat (jl,jk) = fgqs ( fgew(tt(jl,jk)), vap_pres, pp(jl,jk) )
     zqisat (jl,jk) = fgqs ( fgee(tt(jl,jk)), vap_pres, pp(jl,jk) )
+    ! limit on box width near the surface, reaches 0.05 at 500 m AGL
+    zagl_lim(jl,jk) = MAX(0.01_wp, 1.e-4_wp*pgeo(jl,jk)/grav)
   ENDDO
 ENDDO
 
@@ -258,15 +261,17 @@ CASE( 1 )
 
 ! stratiform cloud
 !  liquid cloud
-     !assumed box distribution, width 0.2 qlsat, saturation above qlsat
-      deltaq = box_liq * zqlsat(jl,jk)                                      ! box width = 2*deltaq
+     ! quadratic increase of cloud cover from 0 to 1 between RH = 85% and 105%;
+     ! diagnosed cloud water is proportional to clcov**2
+      deltaq = MIN(box_liq, zagl_lim(jl,jk)) * zqlsat(jl,jk)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
-      ELSE 
-        cc_turb_liq(jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )   / (2._wp*deltaq)
+      ELSE
+        zaux = qv(jl,jk) + qc(jl,jk) + 3._wp*deltaq - zqlsat(jl,jk)
+        cc_turb_liq(jl,jk) = SIGN((zaux/(4._wp*deltaq))**2,zaux)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )**2/ (4._wp*deltaq)
+          qc_turb  (jl,jk) = zaux**4 / (256._wp*deltaq**3)
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF
@@ -277,16 +282,17 @@ CASE( 1 )
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi(jl,jk) > zcldlim ) THEN
        !deltaq     = min( box_ice * zqisat(jl,jk), 10._wp * qi(jl,jk) )     ! box width = 2*deltaq
-        deltaq     = box_ice * zqisat(jl,jk)                                ! box width = 2*deltaq
-        qisat_grid = max( qv(jl,jk), zqisat(jl,jk) )                        ! qsat grid-scale
+        deltaq     = MIN(box_ice, zagl_lim(jl,jk)) * zqisat(jl,jk)           ! box width = 2*deltaq
+        qisat_grid = MAX( qv(jl,jk), zqisat(jl,jk) )                        ! qsat grid-scale
        !qisat_grid = zqisat(jl,jk)                                          ! qsat grid-scale
         IF ( ( qv(jl,jk) + qi(jl,jk) - deltaq) > qisat_grid ) THEN
           cc_turb_ice(jl,jk) = 1.0_wp
           qi_turb    (jl,jk) = qv(jl,jk) + qi(jl,jk) - qisat_grid
         ELSE
-          cc_turb_ice(jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )   / (2._wp*deltaq)
+          zaux = qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid
+          cc_turb_ice(jl,jk) = zaux / (2._wp*deltaq)
           IF ( cc_turb_ice(jl,jk) > 0.0_wp ) THEN
-            qi_turb  (jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )**2/ (4._wp*deltaq)
+            qi_turb  (jl,jk) = zaux**2 / (4._wp*deltaq)
           ELSE
             qi_turb  (jl,jk) = 0.0_wp
           ENDIF
