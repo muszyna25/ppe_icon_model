@@ -18,7 +18,6 @@
 %end
 
 # include the standard header file
-############# include <init_ecgate_large.h>
 %include <init_ws_submit.h>
 
 # -------------------------------------------------
@@ -82,6 +81,7 @@ if [[ $lmetview = 1 ]] ; then
     export TAILFILE='_0_'${STEP}'_mn'${DAYS_FC_P1}'-'${DAYS_MONTH}'.grb'
    #./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS %RES% %SUITE%_%EXPNUM%
     ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR 1         %RES% %SUITE%_%EXPNUM%
+    wait 1
 %nopp
     awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end

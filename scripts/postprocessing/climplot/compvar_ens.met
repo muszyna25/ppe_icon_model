@@ -67,18 +67,30 @@ end if
 varidm=varid
 if (model = "icon") then
   case varid of
-     "2t": varidm = 500011  ;   end
-     "2d": varidm = 500017  ;   end
-     "sd": varidm = 502329  ;   end
-     "sst":varidm = 3080    ;   end #wtmp
-     "10u":varidm = 500027  ;   end
-     "10v":varidm = 500029  ;   end
-     "TCC":varidm = 500046  ;   end
-     "LCC":varidm = 500048  ;   end
-     "MCC":varidm = 500049  ;   end
-     "HCC":varidm = 500050  ;   end
-     "":varidm = 50  ;   end
-     "":varidm = 50  ;   end
+     "2T"  : varidm = 500011  ;   end
+     "2D"  : varidm = 500017  ;   end
+     "SD"  : varidm = 502329  ;   end
+     "SSTK": varidm = 500475  ;   end # ICON: T_SEA
+     "SKT" : varidm = 500010  ;   end # ICON: T_G
+     "10SI": varidm = 500025  ;   end
+     "10U" : varidm = 500027  ;   end
+     "10V" : varidm = 500029  ;   end
+     "TCC" : varidm = 500046  ;   end #500046 (metview4/examine/Namespace/mars)
+     "LCC" : varidm = 500098  ;   end #500048
+     "MCC" : varidm = 502342  ;   end #500049
+     "HCC" : varidm = 502341  ;   end #500050
+     "SSHF": varidm = 502320  ;   end
+     "SLHF": varidm = 502319  ;   end
+     "BLH" : varidm = 50  ;   end
+     "TTR" : varidm = 502323  ;   end
+     "TSR" : varidm = 502327  ;   end
+     "STR" : varidm = 502322  ;   end
+     "SSR" : varidm = 502321  ;   end
+     "TCWV": varidm = 500038  ;   end
+     "TCLW": varidm = 500051  ;   end
+     "TCIW": varidm = 500040  ;   end
+     "T"   : varidm = 500014  ;   end
+     "CAPE": varidm = 50  ;   end
      "":varidm = 50  ;   end
 #TCC LCC MCC HCC CP  LSP SSHF SLHF BLH SSR STR TSR TTR 
 #2T  2D  SD  10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  
@@ -100,10 +112,14 @@ gl_area = [90,-180,-90,180]
 
 # --- special_sets of vars
 
-spec_par_tp=["CP","LSP"]
+spec_par_tp      =["CP","LSP"]
+spec_par_tp_icon =[500041]          #["TOT_PREC"]
+spec_par_cp      =[500137,500134]   #["RAIN_CON","SNOW_CON"]   #ICON
+spec_par_lsp     =[500052,500053]   #["RAIN_GSP","SNOW_GSP"]   #ICON
+spec_par_tcw_icon=[500038,500051,500040]
 spec_par_surfradn=["SSR","STR"]
-spec_par_topradn=["SSR","STR"]
-spec_par_surfnet=["SSR","STR","SLHF","SSHF"]
+spec_par_topradn =["SSR","STR"]
+spec_par_surfnet =["SSR","STR","SLHF","SSHF"]
 
 
 # --- directory
@@ -166,8 +182,8 @@ if vartype = "ins" then
 
         case varid of 
         "TP": 
-           var_ctr_all=multiget(spec_par_tp,expv22,levtype,lev,dates,res,file_ctr)
-           var_mod_all=multiget(spec_par_tp,expv1, levtype,lev,dates,res,file_mod)
+           var_ctr_all=multiget(spec_par_tp     ,expv22,levtype,lev,dates,res,file_ctr)
+           var_mod_all=multiget(spec_par_tp_icon,expv1, levtype,lev,dates,res,file_mod)
   	   unit = "[mm d<sup>-1</sup>]"
   	  #unit = "[mm/day]"
         end
@@ -183,10 +199,30 @@ if vartype = "ins" then
            unit = "[W m<sup>-2</sup>]"
           #unit = "[W/m2]"
         end
+        "CP": 
+           var_ctr_all=multiget("CP"       ,expv22,levtype,lev,dates,res,file_ctr)
+           var_mod_all=multiget(spec_par_cp,expv1, levtype,lev,dates,res,file_mod)
+  	   unit = "[mm d<sup>-1</sup>]"
+        end
+        "LSP": 
+           var_ctr_all=multiget("LSP"       ,expv22,levtype,lev,dates,res,file_ctr)
+           var_mod_all=multiget(spec_par_lsp,expv1, levtype,lev,dates,res,file_mod)
+  	   unit = "[mm d<sup>-1</sup>]"
+        end
+        "TCW": 
+           var_ctr_all=multiget("TCW"            ,expv22,levtype,lev,dates,res,file_ctr)
+           var_mod_all=multiget(spec_par_tcw_icon,expv1, levtype,lev,dates,res,file_mod)
+  	   unit = "[mm d<sup>-1</sup>]"
+        end
         otherwise: 
+          if  lev = 0  then
+            lev0=''
+          else
+            lev0=lev
+          end if
 	  var_mod_all = read(
            #levtype	:	levtype,
-           #levelist	:       lev,
+            levelist	:       lev0,
             param	:	varidm,
             date	:	dates,
             grid	:	[res,res],
@@ -194,7 +230,7 @@ if vartype = "ins" then
             )
           var_ctr_all = read(
            #levtype	:	levtype,
-           #levelist	:       lev,
+            levelist	:       lev0,
             param	:	varid,
             date	:	dates,
             grid	:	[res,res],
@@ -246,6 +282,7 @@ or varid = "slhf" then
    unit = "[W m<sup>-2</sup>]"
   #unit = "[W/m2]"
 end if
+
 
 # --- calculate stats
 
@@ -496,7 +533,6 @@ if varid = "10U" or varid = "10V" then
   maxlevelpos = 2.0
   minlevelpos = 0.2
   intlevelpos = 0.2
-print (" I am here")
 end if
 
 if varid = "10SI" then
@@ -506,7 +542,6 @@ if varid = "10SI" then
   maxlevelpos = 2.0
   minlevelpos = 0.2
   intlevelpos = 0.2
-print (" I am here")
 end if
 
 
@@ -761,12 +796,12 @@ function multiget(list,expver,levtype,lev,dates,res,file)
   for i=1 to count(list) do 
 
 	 fld = read(
-		class	:	"rd",
-		type	:	"fc",
-		expver	:	expver,
-		levtype	:	levtype,
-                levelist:       lev,
-		repres	:	"gg",
+               #class	:	"rd",
+	       #type	:	"fc",
+	       #expver	:	expver,
+	       #levtype	:	levtype,
+               #levelist:       lev,
+	       #repres	:	"gg",
 		param	:	list[i],
 		date	:	dates,
 		grid	:	[res,res],

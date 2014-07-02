@@ -55,81 +55,81 @@ for nl=1 to count(lev) do
     u_exp1 = read(
 	       #type	:	"fc",
 	       #expver	:	expid,
-		levelist	:lev[nl],
+		levelist:       lev[nl],
 		param	:	["u"],
 		date	:	start_dates,
 		grid	:	grid,
-                source  : dir&"mmean_"&expid&"_pl_alldates.grb"
+                source  :       dir&"mmean_"&expid&"_pl_alldates.grb"
 		)
     v_exp1 = read(
 	       #type	:	"fc",
 	       #expver	:	expid,
-		levelist	:lev[nl],
+		levelist:       lev[nl],
 		param	:	["v"],
 		date	:	start_dates,
 		grid	:	grid,
-                source  : dir&"mmean_"&expid&"_pl_alldates.grb"
+                source  :       dir&"mmean_"&expid&"_pl_alldates.grb"
 		)
     u_era40 = read(
-		levelist	:lev[nl],
+		levelist:       lev[nl],
 		param	:	["u"],
 		grid	:	grid,
-                source  : dir&"mmean_ERA40_pl_alldates.grb"
+                source  :       dir&"mmean_ERA40_pl_alldates.grb"
 		)
     v_era40 = read(
-		levelist	:lev[nl],
+		levelist:       lev[nl],
 		param	:	["v"],
 		grid	:	grid,
-                source  : dir&"mmean_ERA40_pl_alldates.grb"
+                source  :       dir&"mmean_ERA40_pl_alldates.grb"
 		)
 
-       u_exp1_m=mean(u_exp1)
-       v_exp1_m=mean(v_exp1)
-       uv_exp1_m=u_exp1_m&v_exp1_m
+    u_exp1_m=mean(u_exp1)
+    v_exp1_m=mean(v_exp1)
+    uv_exp1_m=u_exp1_m&v_exp1_m
 
-       u_era40_m=mean(u_era40)
-       v_era40_m=mean(v_era40)
-       uv_era40_m=u_era40_m&v_era40_m
+    u_era40_m=mean(u_era40)
+    v_era40_m=mean(v_era40)
+    uv_era40_m=u_era40_m&v_era40_m
 
 # --- wind error
 
-      err=uv_exp1_m-uv_era40_m
-      rmserr=rms(err)
+    err=uv_exp1_m-uv_era40_m
+    rmserr=rms(err)
 
 #----------------------------------------------------------------------------------------------------
 # Plotting  Zones: Tropics, NH, SH
 
-     precision(5)
+    precision(5)
 
-     nzall=1
-     if lev[nl] <=700 then
-        nzall=NZONES
-     end if
-     for nzon=1 to nzall do
+    nzall=1
+    if lev[nl] <=700 then
+      nzall=NZONES
+    end if
+    for nzon=1 to nzall do
 
-        tzon="tropics"
-        areaer=[-20,-180,20,180]
-        if nzon=2 then
-           tzon="nh"
-           areaer=[20,-180,90,180]
-        else if nzon=3 then
-           tzon="sh"
-           areaer=[-90,-180,-20,180]
-        end if
-        rmsint=integrate(rmserr,areaer)
+      tzon="tropics"
+      areaer=[-20,-180,20,180]
+      if nzon=2 then
+         tzon="nh"
+         areaer=[20,-180,90,180]
+      else if nzon=3 then
+         tzon="sh"
+         areaer=[-90,-180,-20,180]
+      end if
+      rmsint=integrate(rmserr,areaer)
 
 #----------------------------
 # Specifying Filenames:
 
-        filename='winds_'&expid&'_era40_pl'&lev[nl]&'_'&tzon&'_nens'&nens&'_'&string(yymm)&'_nmon'&string(nmon)
-	filename=dir&filename
+      filename='winds_'&expid&'_era40_pl'&lev[nl]&'_'&tzon&'_nens'&nens&'_'&string(yymm)&'_nmon'&string(nmon)
+      filename=dir&filename
 
-    	File   = ps_output(  OUTPUT_NAME : filename  )
+      File   = ps_output(  OUTPUT_NAME : filename  )
 
-        mode=runmode() 
-        if mode = 'batch' or mode = 'execute' then  
-           setoutput(File)  
-        end if  
+      mode=runmode() 
+      if mode = 'batch' or mode = 'execute' then  
+         setoutput(File)  
+      end if  
 
 #----------------------------
 
@@ -312,12 +312,13 @@ for nl=1 to count(lev) do
          plot (display_window[1],uv_exp1_m, arrows,     text_1, legend)
          plot (display_window[2],uv_era40_m,arrows,     text_2, legend)
          plot (display_window[3],err,       arrows_diff,text_3, legend)
-
-      end for   # Plotting different geograph areas
-
-###end for  # Plotting different seasons
+    end for   # Plotting different geograph areas
 
 end for # Plotting different pressure levels
+
+print("finished with plotting at time:")
+shell("date")
+
 
 #----------------------------------------------------------------------------------------------------
 # Function to build the layout.

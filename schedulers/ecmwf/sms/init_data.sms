@@ -150,6 +150,7 @@ cat >> NAMELIST_PREPICON << EOF
 EOF
 
 fi
+
 cat >> NAMELIST_PREPICON << EOF
 &input_field_nml  ! vertical velocity
  inputname      = "OMEGA" 
@@ -370,4 +371,3 @@ ls -l ${IFS_FILENAME_NC}
 
 # include the "tail" file for remote jobs
 %include <end_sc.h>
-

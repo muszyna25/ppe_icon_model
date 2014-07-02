@@ -51,7 +51,7 @@ set NENS         0   # default for no ensemble run
 set NMEM         0   # default for no ensemble run
 
 # Processors: CRAY totaltasks: 12 x nodes (for 2 hyperthreads and 4 openMP threads)
-set ICONTOTALTASKS  192   # R2B5: 96,  R2B6: 192, R2B7: ?,   R2B8: ?
+set ICONTOTALTASKS  384   # R2B5: 192, R2B6: 384, R2B7: ?,   R2B8: ?
 set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
 set ICONTASKSPERNODE 32   #       32         32         32          8
 set ICONTHREADS       2   #        2          2          2          8
@@ -298,6 +298,7 @@ suite $USER
             trigger (get_data == complete) and (build == complete)
             complete ($ENABLE_INIT_DATA == 0) or (testday==complete) and not (testday:time_domonth)
             on_hpc_parallel
+            edit ICONTOTALTASKS 6
             edit SCJOBTYPE    parallel
             edit SCJOBCLASS   np
             edit SCTOTALTASKS 24
@@ -349,7 +350,7 @@ suite $USER
             trigger  (model == active)
             complete (model == complete) or (testday==complete) and not (testday:time_domonth)
             on_ecgate_submit
-            edit SMSOUT           ${SCLOGDIR}
+            edit SMSOUT ${SCLOGDIR}
             edit SCWALLCLOCKLIMIT 02:00:00
             meter timesteps 0 $NSTEPS $NSTEPS
 

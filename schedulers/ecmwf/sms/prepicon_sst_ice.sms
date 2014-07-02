@@ -16,9 +16,10 @@
 %end
 
 # include the header file for remote jobs
-%include <init_sc.h> 
+%include <init_sc_model.h> 
 
 # -------------------------------------------------
+
 
 echo "PREPICON_SST_ICE.SMS"
 
@@ -40,9 +41,9 @@ cd ${SSTICEDIR}
 #rm CI*nc
 # Important: ==================================
 # export the DWD GRIB short names:
-#dwd_grib_api=/home/ms/de/dwd/grib_api
-dwd_grib_api=/home/ms/de/dei4
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions"
+dwd_grib_api=/home/ms/de/dwd/grib_api
+#dwd_grib_api=/home/ms/de/dei4
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/apps/grib_api/1.11.0/CRAY/82/share/grib_api/definitions"
 # =============================================
 
 ICON_GRIDFILE="icon_grid_%RES%_G.nc"
@@ -67,6 +68,7 @@ export OMP_DYNAMIC="false"
 export NC_BLOCKSIZE=128mb
 
 export F_PROGINF=DETAIL
+
 # -------------------------------------------------
 
 
@@ -76,6 +78,7 @@ cp -p ${outbasedir}/bin/iconremap_mpi .
 month_list="01 02 03 04 05 06 07 08 09 10 11 12"
 for month in ${month_list}
 do
+
 
 # ------------------------------
 # write ICON namelist parameters
@@ -91,24 +94,19 @@ IFS_FILENAME_NC="${SSTICEDIR}/SST_%YYYY%_${month}_%RES%_DOM01.nc"
 if [[ ! -f ${IFS_FILENAME_NC} ]] ; then
 
 cat > NAMELIST_PREPICON << EOF
-!&parallel_nml
-! nproma                       = 10
-!/
-!&prepicon_nml
-! i_oper_mode                  = 4
-!/
 ! interpolation regular grid-> ICON
 &remap_nml
- in_grid_filename             = "${IFS_FILENAME_GRB}"
- in_filename                  = "${IFS_FILENAME_GRB}"
- in_type                      = 1
- out_grid_filename            = "${ICON_GRIDFILE}"
- out_filename                 = "${IFS_FILENAME_NC}"	
- out_type                     = 2
- s_maxsize                    = 500000
- l_have3dbuffer               = .false.
+ in_grid_filename  = "${IFS_FILENAME_GRB}"
+ in_filename       = "${IFS_FILENAME_GRB}"
+ in_type           = 1
+ out_grid_filename = "${ICON_GRIDFILE}"
+ out_filename      = "${IFS_FILENAME_NC}"	
+ out_type          = 2
+ s_maxsize         = 500000
+ l_have3dbuffer    = .false.
  out_filetype      = 4
- !rbf_vec_scale     = 0.01
+ rbf_scale_uv2vec  = 0.05            !use ONLY for R2B5!!!!
+!rbf_vec_scale     = 0.01
 /
 &input_field_nml  ! SST
  inputname      = "SST"         
@@ -126,7 +124,6 @@ export USE_SIGNAL_HANDLING=yes
 #./prep_icon
  ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 #echo "job::end"
-
 
 fi
 
@@ -185,6 +182,7 @@ rm  ./iconremap_mpi
 
 ls -lrt ${SSTICEDIR}/*
 # -------------------------------------------------
+
 
 # include the "tail" file for remote jobs
 %include <end_sc.h>

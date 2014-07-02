@@ -130,7 +130,8 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'u_10m','v_10m', 'sp_10m', 't_2m', 'td_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t',
 't_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc',
-'dzh_snow'"
+'dzh_snow', 'cape'"
+#'z_pbl'
 
 pl_varlist="'u','v','w','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'"      
 hl_varlist="'u','v',    'temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'"   

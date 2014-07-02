@@ -46,7 +46,7 @@ ifs2icon_filename=ifs2icon_${res}_DOM01.nc
 
 ln -sf $GRIDDIR/icon_grid_*_${res}_G.nc     ${atmo_dyn_grids}
 ln -sf $GRIDDIR/icon_grid_*_${resrad}_R.nc  ${atmo_rad_grids}
-ln -sf $EXTPARDIR/icon_extpar_*_${res}_G.nc ${extpar_filename}
+ln -sf $EXTPARDIR/icon_extpar_*_${res}_G*.nc ${extpar_filename}
 ln -sf $IFS2ICONDIR/${ifs2icon_filename}    ${ifs2icon_filename}
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .

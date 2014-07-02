@@ -44,9 +44,6 @@ set RES           "R02B05"             #---ICON resolution dynamics
 set RESRAD        "R02B04"             #---ICON resolution radiation (requires namelist)
 
 # no. of time steps (10x86400s/72s)
-#set NSTEPS       12000  # R2B6 10d
-#set NSTEPS       4800   # grey zone 48h: R2B7-4800, R2B8-9600
-#set NSTEPS       2880
 set NSTEPS      393600   # 410*86400s/90s
 set FCLENGTH     9840    # 410*24 hours
 #set NSTEPS      128640   # 134*86400s/90s
@@ -63,7 +60,7 @@ set NENS         0   # default for no ensemble run
 set NMEM         0   # default for no ensemble run
 
 # Processors: CRAY totaltasks: 12 x nodes (for 2 hyperthreads and 4 openMP threads)
-set ICONTOTALTASKS  192   # R2B5: 192, R2B6: 192, R2B7: ?,   R2B8: ?
+set ICONTOTALTASKS  384   # R2B5: 192, R2B6: 384, R2B7: ?,   R2B8: ?
 set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
 set ICONTASKSPERNODE 32   #       32         32         32          8
 set ICONTHREADS       2   #        2          2          2          8
@@ -191,8 +188,10 @@ suite $USER
     set ENABLE_POST_SEAS          1
     set     ENABLE_SEAS_MEAN      1
     set     ENABLE_CLIMPLOT       1
+    set     ENABLE_PLOT_WAVFREQ   0    # not yet implemented
+    set     ENABLE_PLOTVDSPECTRA  0    # not yet implemented
     set     ENABLE_PLOT_OBS_1     1
-    set     ENABLE_PLOT_OBS_2     1
+    set     ENABLE_PLOT_OBS_2     0    # not yet implemented (radiation)
     set     ENABLE_PLOT_OBS_3     1
     set     ENABLE_PLOT_OBS_4     1
     set     ENABLE_PLOT_OBS_5     1
@@ -333,6 +332,7 @@ suite $USER
             trigger (get_data == complete) and (build == complete)
             complete ($ENABLE_INIT_DATA == 0) or (testday==complete) and not (testday:time_domonth)
             on_hpc_parallel
+            edit ICONTOTALTASKS 6
             edit SCJOBTYPE    parallel
             edit SCJOBCLASS   np
             edit SCTOTALTASKS 32
@@ -408,6 +408,7 @@ suite $USER
                 trigger  (model == active)
                 complete ($ENABLE_CHECK == 0 ) or (model == complete) 
                 on_ecgate_submit
+                edit SMSOUT ${SCLOGDIR}
                 edit SCWALLCLOCKLIMIT 05:00:00
                 meter timesteps 0 $NSTEPS $NSTEPS
 
@@ -467,9 +468,11 @@ suite $USER
            task plot_wavfreq
              trigger getmeans==complete
              on_ecgate_submit
+             complete ($ENABLE_PLOT_WAVFREQ == 0)
            task plot_vdspectra
              trigger getmeans==complete
              on_ecgate_submit
+             complete ($ENABLE_PLOTVDSPECTRA == 0) 
            family plot_obs
              trigger (getmeans == complete)
              task plot_obs_1

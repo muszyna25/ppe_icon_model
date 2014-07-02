@@ -20,7 +20,7 @@
 echo "SEASONAL_MEAN.SMS" 
 
 module load python
-module load cdo/1.6.0
+module load cdo
 module swap grib_api grib_api/1.11.0
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
@@ -33,6 +33,10 @@ lcpdata=0
 ldeldata=0
 lseldate=0
 lsel2D=0
+
+lseasmean=1
+lmonthmean=0
+lyearmean=1
 
 case %SIMMODE% in
   1) lcpdata=1        # pre-operations     
@@ -143,6 +147,7 @@ fi
 #-----------------------------------------------------------------------------
 # Split seasons ("S") and months ("M")
 
+%nopp
 if [[ $lsplitdata = 1 ]] ; then
 
   for file in `ls grb_data/*.grb` ; do
@@ -173,7 +178,10 @@ if [[ $lsplitdata = 1 ]] ; then
       mv ${mfile} ${mfile%%.g2}.grb
     fi
   done
+
 fi
+%end
+
 
 #-----------------------------------------------------------------------------
 # Calculate seasonal means and standard deviation
@@ -202,6 +210,9 @@ for mean in ${means[*]} ; do
       esac
 
       for file in ${files[*]} ; do
+%nopp
+        file_grb=${file%%.grb}
+%end
         NAME=`cdo showname ${file}`
         NAME=${NAME#" "}                   #remove the leading blank 
         nsteps=`cdo ntime ${file}`
@@ -212,31 +223,31 @@ for mean in ${means[*]} ; do
             cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb
             #cdo setunit,'"Kg m**-2 d**-1"' out.grb out2.grb
             case $mean in
-              year) cdo divc,${numdays} out.grb ${file%%.grb}_Y_mean.grb ;;
-              seas) cdo divc,${numdays} out.grb ${file%%.grb}_mean.grb   ;;
-              mon)  cdo divc,${numdays} out.grb ${file%%.grb}_mean.grb   ;; 
+              year) cdo divc,${numdays} out.grb ${file_grb}_Y_mean.grb ;;
+              seas) cdo divc,${numdays} out.grb ${file_grb}_mean.grb   ;;
+              mon)  cdo divc,${numdays} out.grb ${file_grb}_mean.grb   ;; 
             esac
             rm -f out.grb 
             ;;
           ttr|nswrf|ssr|str|sshf|slhf)
             numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
             numsec=$(echo "scale=9; ${numdays} * 86400 " | bc)
-            cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb ;; 
+            cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb
             #cdo setunit,'"W m**-2"' out.grb out2.grb
             case $mean in
-              year) cdo divc,${numsec} out.grb ${file%%.grb}_Y_mean.grb ;;
-              seas) cdo divc,${numsec} out.grb ${file%%.grb}_mean.grb   ;;
-              mon)  cdo divc,${numsec} out.grb ${file%%.grb}_mean.grb   ;; 
+              year) cdo divc,${numsec} out.grb ${file_grb}_Y_mean.grb ;;
+              seas) cdo divc,${numsec} out.grb ${file_grb}_mean.grb   ;;
+              mon)  cdo divc,${numsec} out.grb ${file_grb}_mean.grb   ;; 
             esac
             rm -f out.grb
             ;;
           *)
             case $mean in
-              year) cdo timmean  ${file} ${file%%.grb}_Y_mean.grb ;;
-              seas) cdo seasmean ${file} ${file%%.grb}_mean.grb   ;;
-              mon)  cdo seasmean ${file} ${file%%.grb}_mean.grb   ;; 
+              year) cdo timmean  ${file} ${file_grb}_Y_mean.grb ;;
+              seas) cdo seasmean ${file} ${file_grb}_mean.grb   ;;
+              mon)  cdo seasmean ${file} ${file_grb}_mean.grb   ;; 
             esac
-            #cdo seasstd ${file} ${file%%.grb}_std.grb
+            #cdo seasstd ${file} ${file_grb}_std.grb
             ;;
         esac
         i=`expr ${i} \+ 1`
@@ -249,11 +260,13 @@ for mean in ${means[*]} ; do
           mon)  catlist=`ls grb_data/*${levt}*M*${period}*mean.grb` ;; 
         esac
         set -A clist ${catlist}
+%nopp
         case $mean in
           year) myfile=${clist[0]%%_Y_mean.grb}.grb ;;
           seas) myfile=${clist[0]%%_mean.grb}.grb   ;;
           mon)  myfile=${clist[0]%%_mean.grb}.grb   ;; 
         esac
+%end
         cdo -O merge ${catlist} grb_data/outfile.grb
         nmon=`cdo nmon $myfile `
         mons=`cdo showmon  $myfile `
@@ -275,6 +288,7 @@ for mean in ${means[*]} ; do
     done # levt
   done # period
 done # mean
+
 
 #-----------------------------------------------------------------------------
 # move data to ecgate
