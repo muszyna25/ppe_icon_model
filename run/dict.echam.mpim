@@ -90,7 +90,11 @@
   diss_sso           prm_dissipation_sso
 #
   sh_vdiff           prm_sh_vdiff
+  qv_vdiff           prm_qv_vdiff
   ch_concloud        prm_ch_concloud
+  con_dtrl           prm_con_dtrl
+  con_dtri           prm_con_dtri
+  con_iteqv          prm_con_iteqv
 #
 # tendencies from the ECHAM6 physics with prefix 'prm_tend'
 # ---------------------------------------------------
