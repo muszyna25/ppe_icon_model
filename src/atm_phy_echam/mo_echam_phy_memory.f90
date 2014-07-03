@@ -221,11 +221,17 @@ MODULE mo_echam_phy_memory
       & alb    (:,  :),     &!< surface background albedo
       & seaice (:,  :)       !< sea ice as read in from amip input
 
-    ! Energy budget related variables
+    ! Energy and moisture budget related diagnostic variables
     REAL(wp),POINTER :: &
       & sh_vdiff (:,  :),   &!< sensible heat flux of vdiff
-      & ch_concloud (:,  :)  !< condensational heating, convection, large 
-                             !< scale clouds
+      & qv_vdiff (:,  :),   &!< qv flux of vdiff
+      & ch_concloud (:,  :),&!< condensational heating, convection, large scale clouds
+      & con_dtrl (:,  :),   &!< detrainment of liquid from convection
+      & con_dtri (:,  :),   &!< detrainment of ice from convection 
+      & con_iteqv (:,  :),  &!< v. int. tendency of water vapor within convection
+      & cld_dtrl (:,  :),   &!< entrainment of liquid from convection to cloud
+      & cld_dtri (:,  :),   &!< entrainment of ice from convection to cloud
+      & cld_iteq (:,  :)    !< v. int. tendency of qv,qc, and qi within cloud
 
     ! orography
     REAL(wp),POINTER :: &
@@ -371,10 +377,10 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE :: v_stress_tile_ptr(:)
 
 !!$    ! Variables for debugging
-!!$    REAL(wp),POINTER :: &
+    REAL(wp),POINTER :: &
 !!$      ! 2d arrays
-!!$      & debug_2d_1(:,:),    &!< 2d variable for debug purposes
-!!$      & debug_2d_2(:,:),    &!< 2d variable for debug purposes
+      & debug_2d_1(:,:),    &!< 2d variable for debug purposes
+      & debug_2d_2(:,:),    &!< 2d variable for debug purposes
 !!$      & debug_2d_3(:,:),    &!< 2d variable for debug purposes
 !!$      & debug_2d_4(:,:),    &!< 2d variable for debug purposes
 !!$      & debug_2d_5(:,:),    &!< 2d variable for debug purposes
@@ -382,14 +388,20 @@ MODULE mo_echam_phy_memory
 !!$      & debug_2d_7(:,:),    &!< 2d variable for debug purposes
 !!$      & debug_2d_8(:,:),    &!< 2d variable for debug purposes
 !!$      ! 3d arrays
-!!$      & debug_3d_1(:,:,:),  &!< 3d variable for debug purposes
-!!$      & debug_3d_2(:,:,:),  &!< 3d variable for debug purposes
-!!$      & debug_3d_3(:,:,:),  &!< 3d variable for debug purposes
-!!$      & debug_3d_4(:,:,:),  &!< 3d variable for debug purposes
-!!$      & debug_3d_5(:,:,:),  &!< 3d variable for debug purposes
-!!$      & debug_3d_6(:,:,:),  &!< 3d variable for debug purposes
-!!$      & debug_3d_7(:,:,:),  &!< 3d variable for debug purposes
-!!$      & debug_3d_8(:,:,:)    !< 3d variable for debug purposes
+      & debug_3d_1(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_2(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_2b(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_2c(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_3(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_4(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_5(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_6(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_7(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_8(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_9(:,:,:),  &!< 3d variable for debug purposes
+      & debug_3d_10(:,:,:), &!< 3d variable for debug purposes
+      & debug_3d_11(:,:,:), &!< 3d variable for debug purposes
+      & debug_3d_12(:,:,:)   !< 3d variable for debug purposes
 
   END TYPE t_echam_phy_field
 
@@ -1271,6 +1283,34 @@ CONTAINS
        grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
        CALL add_var( field_list, prefix//'ch_concloud', field%ch_concloud,       &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('con_dtrl','?', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, prefix//'con_dtrl', field%con_dtrl,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('con_dtri','?', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, prefix//'con_dtri', field%con_dtri,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('con_iteqv','?', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, prefix//'con_iteqv', field%con_iteqv,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('qv_vdiff','kg/m^2/s', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, prefix//'qv_vdiff', field%qv_vdiff,             &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('cld_dtrl','?', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, 'cld_dtrl', field%cld_dtrl,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('cld_dtri','?', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, 'cld_dtri', field%cld_dtri,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+       cf_desc    = t_cf_var('cld_iteq','?', '', DATATYPE_FLT32)
+       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( field_list, 'cld_iteq', field%cld_iteq,       &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     !---------------------------
     ! Orographic wave drag diagnostics
@@ -1805,6 +1845,142 @@ CONTAINS
                   & t_grib2_var(255,255,255, ibits, GRID_REFERENCE, GRID_CELL),     &
                   & ldims=shape2d )
     END DO
+
+    !-----------------------------------------
+    ! fields for debugging 
+    !-----------------------------------------
+
+    CALL add_var( field_list, '2D_var1', field%debug_2d_1,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('stress', '?', '2D debug var 1',                     &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, '2D_var2', field%debug_2d_2,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('stress', '?', '2D debug var 2',                     &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'ptm1', field%debug_3d_1,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 1',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'pqm1', field%debug_3d_2,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'pqm1',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'pxlm1', field%debug_3d_2b,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'pxlm1',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'pxim1', field%debug_3d_2c,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'pxim1',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'ptte', field%debug_3d_3,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 3',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'pqte', field%debug_3d_4,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 4',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'ztp1', field%debug_3d_5,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 5',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'zqp1', field%debug_3d_6,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 6',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'zqsat', field%debug_3d_7,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 7',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, 'pverv', field%debug_3d_8,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 8',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    !CALL add_var( field_list, prefix//'3D_var9', field%debug_3d_9,              &
+    CALL add_var( field_list, 'paphp1', field%debug_3d_9,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 9',                        &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    !CALL add_var( field_list, prefix//'3D_var10', field%debug_3d_10,            &
+    CALL add_var( field_list, 'papp1', field%debug_3d_10,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 10',                       &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    !CALL add_var( field_list, prefix//'3D_var11', field%debug_3d_11,            &
+    CALL add_var( field_list, 'pgeo', field%debug_3d_11,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 11',                       &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
+    CALL add_var( field_list, '3D_var12', field%debug_3d_12,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                & t_cf_var('stress', '?', 'debug var 12',                       &
+                &          DATATYPE_FLT32),                                     &
+                & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shape3d,                                                &
+                & lrestart = .FALSE.) 
+
 
   END SUBROUTINE new_echam_phy_field_list
   !-------------

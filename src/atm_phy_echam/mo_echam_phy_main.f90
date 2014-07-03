@@ -65,6 +65,7 @@ MODULE mo_echam_phy_main
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
 
   IMPLICIT NONE
   PRIVATE
@@ -191,6 +192,10 @@ CONTAINS
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
     LOGICAL  :: lland, lglac
+
+    CHARACTER(len=12)  :: str_module = 'e_phy_main'        ! Output of module for 1 line debug
+    INTEGER            :: idt_src               ! Determines level of detail for 1 line debug
+    idt_src=4
 
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
@@ -1109,7 +1114,8 @@ CONTAINS
                    & field%   thvvar(:,:,jb),         &! out, for the next step
                    & field%   thvsig(:,  jb),         &! out, for "cucall"
                    & field%      tke(:,:,jb),         &! out
-                   & field%   sh_vdiff(:,  jb)        )! out, for energy diagnostic
+                   & field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
+                   & field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
 
 !    ! TIME FILTER FOR TURBULENT KINETIC ENERGY
 !
@@ -1305,6 +1311,9 @@ CONTAINS
         &          zqtec,                     &! inout
 !        &          tend% x_dtr(:,:,jb),       &! inout  xtec
         &          field% ch_concloud(:,jb),  &! inout condensational heat
+        &          field% con_dtrl(:,jb),     &! inout detrained liquid
+        &          field% con_dtri(:,jb),     &! inout detrained ice
+        &          field% con_iteqv(:,jb),    &! inout v. int. tend of water vapor within conv
         &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
         &          tend% xi_dtr(:,:,jb),      &! inout  xteci
         &          field% rsfc(:,jb),         &! out
@@ -1349,22 +1358,28 @@ CONTAINS
         field% rsfl(:,jb) = 0._wp
         field% ssfl(:,jb) = 0._wp
 
+  CALL dbg_print('xl_dtr',tend%xl_dtr,str_module,idt_src,in_subset=p_patch(1)%cells%owned)
+  CALL dbg_print('xi_dtr',tend%xi_dtr,str_module,idt_src,in_subset=p_patch(1)%cells%owned)
+
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
-          &        pdtime, psteplen,         &! in
-          &        field% presi_old(:,:,jb), &! in
-          &        field% presm_old(:,:,jb), &! in
+          &        pdtime, psteplen,          &! in
+          &        field% presi_old(:,:,jb),  &! in
+          &        field% presm_old(:,:,jb),  &! in
 !          &        field% presm_new(:,:,jb), &! in
-          &        field% temp (:,:,jb),     &! in. tm1
-          &        field%   tv (:,:,jb),     &! in. ztvm1
-          &        field% geom (:,:,jb),     &! in. geom1
-          &        field% omega(:,:,jb),     &! in. vervel
-          &        field% acdnc(:,:,jb),     &! in. acdnc
-          &        field% q(:,:,jb,iqv),     &! in.  qm1
-          &        field% q(:,:,jb,iqc),     &! in. xlm1
-          &        field% q(:,:,jb,iqi),     &! in. xim1
-          &        zcair(:,:),               &! in
+          &        field% temp (:,:,jb),      &! in. tm1
+          &        field%   tv (:,:,jb),      &! in. ztvm1
+          &        field% geom (:,:,jb),      &! in. geom1
+          &        field% omega(:,:,jb),      &! in. vervel
+          &        field% acdnc(:,:,jb),      &! in. acdnc
+          &        field% q(:,:,jb,iqv),      &! in.  qm1
+          &        field% q(:,:,jb,iqc),      &! in. xlm1
+          &        field% q(:,:,jb,iqi),      &! in. xim1
+          &        zcair(:,:),                &! in
           &        invb,                      &! in (from "cover")
-          &        field% ch_concloud(:,jb), &! inout condens. heat
+          &        field% ch_concloud(:,jb),  &! inout condens. heat
+          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
+          &        field% cld_dtri(:,jb),     &! inout detrained ice
+          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
           &        zqtec,                     &! inout (there is a clip inside)
 !          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
           &         tend% xl_dtr(:,:,jb),     &! inout  xtecl

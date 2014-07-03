@@ -752,7 +752,7 @@ CONTAINS
                              & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
                              & pxtte_vdf, pxvarprod, pz0m,           &! out
                              & ptke, pthvvar, pthvsig, pvmixtau,     &
-                             & psh_vdiff                              )! out
+                             & psh_vdiff,pqv_vdiff                   )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr, idx_ice
@@ -817,6 +817,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pthvsig (kbdim)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvmixtau(kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: psh_vdiff(kbdim)  !OUT
+    REAL(wp),INTENT(INOUT) :: pqv_vdiff(kbdim)  !OUT
 
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew
@@ -977,9 +978,15 @@ CONTAINS
     END DO
     IF ( get_lebudget() ) THEN
       psh_vdiff(1:kproma) = 0._wp
+      pqv_vdiff(1:kproma) = 0._wp
       DO jk=itop,klev
+        ! compute heat budget diagnostic
         psh_vdiff(1:kproma) = psh_vdiff(1:kproma) + pdelpm1(1:kproma,jk)*rgrav* &
-        & (bb(1:kproma,jk,ih) + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk) + zdis(1:kproma,jk)) * zrdt
+        & (bb(1:kproma,jk,ih) + (tpfac3 - 1._wp)*pcptgz(1:kproma,jk)) * zrdt
+        ! compute moisture budget diagnostic
+        ! ? zdis appears to be dissipation, probably we don't need this for qv??
+        pqv_vdiff(1:kproma) = pqv_vdiff(1:kproma) + pdelpm1(1:kproma,jk)*rgrav* &
+        & (bb(1:kproma,jk,iqv) + (tpfac3 - 1._wp)*pqm1(1:kproma,jk)) * zrdt
       END DO
     END IF
     !-------------------------------------------------------------

@@ -530,8 +530,8 @@ SUBROUTINE cudtdq(kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
                   pdpmel,   prfl,     psfl,                            &
                   pcpen,    palvsh,   pqtec,    pqude,                 &
                   prsfc,    pssfc,                                     &
-                  pch_concloud,                                        &
-                  pxtecl,   pxteci,                                    &
+                  pch_concloud, pcon_dtrl, pcon_dtri,                  &
+                  pxtecl,   pxteci, pcon_iqte,                         &
                   ptte_cnv, pqte_cnv, pxtte_cnv                        )
 !
 !
@@ -548,9 +548,13 @@ SUBROUTINE cudtdq(kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
 !
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
 INTEGER, INTENT (IN) :: krow
-REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim)
+! pch_concloud, pcon_dtrl, and pcon_dtri track the convective heating and 
+! the detrained liquid and ice. All these are only for diag purposes
+REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim), pcon_dtrl(kbdim), pcon_dtri(kbdim)
+REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim) ! integrated qv tendency
 REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+REAL(wp) :: zqte_cnv(kbdim,klev) 
 LOGICAL  llo1
 !
 REAL(wp) :: ptte(kbdim,klev),        pqte(kbdim,klev),                 &
@@ -567,7 +571,8 @@ REAL(wp) :: pdpmel(kbdim,klev),      psfl(kbdim)
 REAL(wp) :: pcpen(kbdim,klev),       palvsh(kbdim,klev)
 LOGICAL  :: ldcum(kbdim)
 !
-REAL(wp) :: zmelt(kbdim), zcpten(kbdim,klev)
+REAL(wp) :: zmelt(kbdim), zcpten(kbdim,klev) 
+REAL(wp) :: zteci(kbdim,klev), ztecl(kbdim,klev)
 REAL(wp) :: zsheat(kbdim)
 REAL(wp) :: pxtte(kbdim,klev,ktrac), pmfuxt(kbdim,klev,ktrac),         &
             pmfdxt(kbdim,klev,ktrac)
@@ -599,7 +604,14 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
 210 END DO
 !
   pch_concloud(1:kproma)=0._wp
+  pcon_dtrl(1:kproma)=0._wp
+  pcon_dtri(1:kproma)=0._wp
+  pcon_iqte(1:kproma)=0._wp
   zcpten(1:kproma,ktopm2:klev)=0._wp
+  zqte_cnv(1:kproma,ktopm2:klev)=0._wp
+! why aren't these zeroed for all levels?!
+  zteci(1:kproma,ktopm2:klev)=0._wp
+  ztecl(1:kproma,ktopm2:klev)=0._wp
 
   DO 250 jk=ktopm2,klev
 !
@@ -626,11 +638,13 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                                    plude(jl,jk)-                       &
                                   (pdmfup(jl,jk)+pdmfdp(jl,jk)))
               pqte(jl,jk)=pqte(jl,jk)+zdqdt
-              pqte_cnv(jl,jk)=zdqdt
+              zqte_cnv(jl,jk)=zdqdt
               pxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-                        &
                             paphp1(jl,jk)))*plude(jl,jk)
               pxteci(jl,jk)=MERGE(0.0_wp,pxtec(jl,jk),llo1)
+              zteci(jl,jk)=pxteci(jl,jk)
               pxtecl(jl,jk)=MERGE(pxtec(jl,jk),0.0_wp,llo1)
+              ztecl(jl,jk)=pxtecl(jl,jk)
               pqtec(jl,jk)=(grav/(paphp1(jl,jk+1)-                        &
                             paphp1(jl,jk)))*pqude(jl,jk)
               zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
@@ -671,11 +685,13 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                         (pmfuq(jl,jk)+pmfdq(jl,jk)+plude(jl,jk)+       &
                         (pmful(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
               pqte(jl,jk)=pqte(jl,jk)+zdqdt
-              pqte_cnv(jl,jk)=zdqdt
+              zqte_cnv(jl,jk)=zdqdt
               pxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))         &
                            *plude(jl,jk)
               pxteci(jl,jk)=MERGE(0.0_wp,pxtec(jl,jk),llo1)
+              zteci(jl,jk)=pxteci(jl,jk)
               pxtecl(jl,jk)=MERGE(pxtec(jl,jk),0.0_wp,llo1)
+              ztecl(jl,jk)=pxtecl(jl,jk)
               pqtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))         &
                            *pqude(jl,jk)
               zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
@@ -712,6 +728,7 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
      pssfc(jl)=psfl(jl)
 310 END DO
 
+! diagnostic computations
   DO jk=ktopm2,klev
     DO jl=1,kproma
       pch_concloud(jl)=pch_concloud(jl)+ &
@@ -720,6 +737,20 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
   END DO
   DO jl=1,kproma
      pch_concloud(jl)=pch_concloud(jl)-(alv*prsfc(jl)+als*pssfc(jl))
+  END DO
+! do we need to account for the surface, or for the top 2 layers? 
+  DO jk=ktopm2,klev
+    DO jl=1,kproma 
+      ! water vapor 
+      pcon_iqte(jl)=pcon_iqte(jl)+   &
+      &   zqte_cnv(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+      ! detrained liquid water
+      pcon_dtrl(jl)=pcon_dtrl(jl)+ &
+      &   ztecl(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+      ! detrained ice
+      pcon_dtri(jl)=pcon_dtri(jl)+ &
+      &   zteci(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+    END DO
   END DO
 !
 ! calculate and store convective accumulated precipitation (mm)

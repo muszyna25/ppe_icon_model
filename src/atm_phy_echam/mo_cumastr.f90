@@ -27,6 +27,7 @@ MODULE mo_cumastr
   USE mo_cuascent,           ONLY: cuasc, cuasct
   USE mo_cudescent,          ONLY: cudlfs, cuddraf
   USE mo_cufluxdts,          ONLY: cuflx, cudtdq, cududv
+  USE mo_echam_phy_memory,   ONLY: t_echam_phy_field, prm_field
 
   IMPLICIT NONE
 
@@ -55,7 +56,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
                      ptte,     pvom,     pvol,                       &! inout
                      pqte,     pxtte,                                &! inout
                      pqtec,                                          &! inout
-                     pch_concloud,                                   &! inout
+                     pch_concloud, pcon_dtrl, pcon_dtri,             &! inout
+                     pcon_iqte,                                      &! inout
                      pxtecl,   pxteci,                               &
                      prsfc,    pssfc,                                &! out
                      ptopmax,                                        &! inout
@@ -113,7 +115,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
   REAL(wp)::  pxlm1(kbdim,klev),        pxim1(kbdim,klev),             &
               pxlte(kbdim,klev),        pxite(kbdim,klev)
   
-  REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim)
+  REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim), pcon_dtrl(kbdim), pcon_dtri(kbdim)
+  REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim)
   REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                               
   REAL(wp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
   REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
@@ -139,6 +142,10 @@ SUBROUTINE cucall(   iconv,                                          &! in
   !  Local scalars: 
   REAL(wp):: ztmst, zxlp1, zxip1
   INTEGER :: ilevmin, jk, jl, jt
+
+  TYPE(t_echam_phy_field),   POINTER :: field
+
+  field  => prm_field(1)
 
   !  Executable statements 
 
@@ -185,6 +192,29 @@ SUBROUTINE cucall(   iconv,                                          &! in
      zrain(jl)=0._wp
      locum(jl)=.FALSE.
 130 END DO
+
+! temporary fields for debugging.  
+  DO jk=1,klev
+     DO jl=1,kproma
+        field%debug_3d_1(jl,jk,krow)=ptm1(jl,jk)        
+        field%debug_3d_2(jl,jk,krow)=pqm1(jl,jk)        
+        field%debug_3d_2b(jl,jk,krow)=pxlm1(jl,jk)        
+        field%debug_3d_2c(jl,jk,krow)=pxim1(jl,jk)        
+        field%debug_3d_3(jl,jk,krow)=ptte(jl,jk)        
+        field%debug_3d_4(jl,jk,krow)=pqte(jl,jk)        
+        field%debug_3d_5(jl,jk,krow)=ztp1(jl,jk)        
+        field%debug_3d_6(jl,jk,krow)=zqp1(jl,jk)        
+        field%debug_3d_7(jl,jk,krow)=zqsat(jl,jk)        
+        field%debug_3d_8(jl,jk,krow)=pverv(jl,jk)        
+        field%debug_3d_9(jl,jk,krow)=paphp1(jl,jk)        
+        field%debug_3d_10(jl,jk,krow)=papp1(jl,jk)        
+        field%debug_3d_11(jl,jk,krow)=pgeo(jl,jk)    
+     END DO
+  END DO
+  DO jl=1,kproma
+     field%debug_2d_1(jl,krow)=pqhfla(jl)   
+     field%debug_2d_2(jl,krow)=pthvsig(jl)        
+  END DO
 !
 !
 !-----------------------------------------------------------------------
@@ -207,7 +237,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
-                  pch_concloud,                                        &
+                  pch_concloud, pcon_dtrl, pcon_dtri,                  &
+                  pcon_iqte,                                           &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
                   zmfu,     zmfd,     zrain,    pthvsig,               &
@@ -226,7 +257,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
-                  pch_concloud,                                        &
+                  pch_concloud, pcon_dtrl, pcon_dtri,                  &
+                  pcon_iqte,                                           &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
                   zmfu,     zmfd,     zrain,    pthvsig,               &
@@ -245,7 +277,8 @@ SUBROUTINE cucall(   iconv,                                          &! in
                   ptte,     pqte,     pvom,     pvol,                  &
                   prsfc,    pssfc,    pxtec,                           &
                   pqtec,    zqude,    zcpq,     zcq,                   &
-                  pch_concloud,                                        &
+                  pch_concloud, pcon_dtrl, pcon_dtri,                  &
+                  pcon_iqte,                                           &
                   locum,    ktype,    icbot,    ictop,                 &
                   ztu,      zqu,      zlu,      zlude,                 &
                   zmfu,     zmfd,     zrain,    pthvsig,               &
@@ -302,7 +335,7 @@ SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
            ptte,     pqte,     pvom,     pvol,                          &
            prsfc,    pssfc,    pxtec,                                   &
            pqtec,    pqude,    zcpen,    zcen,                          &
-           pch_concloud,                                                &
+           pch_concloud, pcon_dtrl, pcon_dtri, pcon_iqte,               &
            ldcum,    ktype,    kcbot,    kctop,                         &
            ptu,      pqu,      plu,      plude,                         &
            pmfu,     pmfd,     prain,    pthvsig,                       &
@@ -397,9 +430,11 @@ INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 REAL(wp),INTENT(IN)  :: cevapcu(:), time_step_len
 INTEGER, INTENT(IN)  :: nmctop
 REAL(wp),INTENT(INOUT):: pch_concloud(kbdim)
+REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim), pxtte_cnv(kbdim,klev,ktrac)  
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -1057,8 +1092,8 @@ INTRINSIC MIN, MAX
               zdpmel,   zrfl,     zsfl,                                &
               zcen,     zalvsh,   pqtec,    pqude,                     &
               prsfc,    pssfc,                                         &
-              pch_concloud,                                            &
-              pxtecl,   pxteci,                                        &
+              pch_concloud, pcon_dtrl, pcon_dtri,                      &
+              pxtecl,   pxteci, pcon_iqte,                             &
               ptte_cnv, pqte_cnv, pxtte_cnv                        )
 !
 !-----------------------------------------------------------------------
@@ -1097,7 +1132,7 @@ SUBROUTINE cumastrt( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            ptte,     pqte,     pvom,     pvol,                         &
            prsfc,    pssfc,    pxtec,                                  &
            pqtec,    pqude,    zcpen,    zcen,                         &
-           pch_concloud,                                               &
+           pch_concloud, pcon_dtrl, pcon_dtri, pcon_iqte,              &
            ldcum,    ktype,    kcbot,    kctop,                        &
            ptu,      pqu,      plu,      plude,                        &
            pmfu,     pmfd,     prain,    pthvsig,                      &
@@ -1192,9 +1227,11 @@ INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 REAL(wp),INTENT(IN)  :: cevapcu(:), time_step_len
 INTEGER, INTENT(IN)  :: nmctop
 REAL(wp),INTENT(INOUT):: pch_concloud(kbdim)
+REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim), pxtte_cnv(kbdim,klev,ktrac)  
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -1592,8 +1629,8 @@ INTRINSIC MIN, MAX
               zdpmel,   zrfl,     zsfl,                                &
               zcen,     zalvsh,   pqtec,    pqude,                     &
               prsfc,    pssfc,                                         &
-              pch_concloud,                                            &
-              pxtecl,   pxteci,                                        &
+              pch_concloud, pcon_dtrl, pcon_dtri,                      &
+              pxtecl,   pxteci, pcon_iqte,                             &
               ptte_cnv, pqte_cnv, pxtte_cnv                            )
 !
 !---------------------------------------------------------------------
@@ -1630,7 +1667,7 @@ SUBROUTINE cumastrh( kproma, kbdim, klev, klevp1, klevm1, ilab,        &
            ptte,     pqte,     pvom,     pvol,                         &
            prsfc,    pssfc,    pxtec,                                  &
            pqtec,    pqude,    zcpen,    zcen,                         &
-           pch_concloud,                                               &
+           pch_concloud, pcon_dtrl, pcon_dtri, pcon_iqte,              &
            ldcum,    ktype,    kcbot,    kctop,                        &
            ptu,      pqu,      plu,      plude,                        &
            pmfu,     pmfd,     prain,    pthvsig,                      &
@@ -1725,9 +1762,11 @@ INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 REAL(wp),INTENT(IN)  :: cevapcu(:), time_step_len
 INTEGER, INTENT(IN)  :: nmctop
 REAL(wp),INTENT(INOUT):: pch_concloud(kbdim)
+REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim), pxtte_cnv(kbdim,klev,ktrac)  
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -2175,8 +2214,8 @@ INTRINSIC MIN, MAX
               zdpmel,   zrfl,     zsfl,                                &
               zcen,     zalvsh,   pqtec,    pqude,                     &
               prsfc,    pssfc,                                         &
-              pch_concloud,                                            &
-              pxtecl,   pxteci,                                        &
+              pch_concloud, pcon_dtrl, pcon_dtri,                      &
+              pxtecl,   pxteci, pcon_iqte,                             &
               ptte_cnv, pqte_cnv, pxtte_cnv                            )
 !
 !-----------------------------------------------------------------------

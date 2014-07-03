@@ -86,7 +86,7 @@ CONTAINS
 !>
 !!
 !!
-SUBROUTINE cloud (         kproma,     kbdim,    ktdia                           &
+SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
                          , klev,       klevp1                                    &
                          , pdelta_time, ptime_step_len                           &
 !                         , icover                                                &
@@ -107,7 +107,7 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
 !                         , pxtm1  (tracer)                                       &
 ! - INPUT/OUTPUT 2D .
                          , pch_concloud                                          &
-! - INPUT/OUTPUT 2D .
+                         , pcld_etrl,  pcld_etri, pcld_iteq                      &
                          , pqtec,      pxtecl,   pxteci                          &
 !                         , pxvar,      pxskew                                    &
                          , ptte                                                  &
@@ -158,7 +158,9 @@ SUBROUTINE cloud (         kproma,     kbdim,    ktdia                          
       & pxlvi    (kbdim)          ,&!< vertically integrated cloud liquid water, accumulated
       & pxivi    (kbdim)          ,&!< vertically integrated cloud ice, accumulated
  !     & paprs    (kbdim)            !< snowfall, accumulated
-      & pch_concloud(kbdim)         !< condensational heating of convection and large scale clouds
+      & pch_concloud(kbdim)       ,&!< condensational heating of convection and large scale clouds
+      & pcld_etrl(kbdim), pcld_etri(kbdim),& !< entrained liquid and ice from convection
+      & pcld_iteq(kbdim)            !< vert. integrated tend of qv,ql, and qc
   REAL(wp), INTENT(INOUT) ::       &
       & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water        (n)
       & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice                 (n)
@@ -304,8 +306,16 @@ icover = 1
     pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)
     pxite_prc(1:kproma,:)   = pxite(1:kproma,:)
 !
-!
-!
+! Diagnostic: write entrained liquid water and ice to output vars.
+pcld_etrl=0._wp
+pcld_etri=0._wp
+DO jk=1,klev
+  DO jl=1,kproma
+    pcld_etrl(jl) = pcld_etrl(jl) + pxtecl(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav ! entrained liquid water
+    pcld_etri(jl) = pcld_etri(jl) + pxteci(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav ! entr ice
+  END DO
+END DO
+
 ! Executable statements
 !
 #ifdef _PROFILE
@@ -1684,6 +1694,14 @@ icover = 1
      pxivi(jl) = zxivi(jl)!+zdtime*zxivi(jl)
      pch_concloud(jl) = pch_concloud(jl)+zclten(jl)-(alv*prsfl(jl)+als*pssfl(jl))
 934 END DO
+
+! Diagnostic: calculate vert int of ddt(qv+qi+qc) and write to output var.
+pcld_iteq=0._wp
+DO jk=1,klev
+  DO jl=1,kproma
+    pcld_iteq(jl) = pcld_iteq(jl) + (pqte(jl,jk)+pxlte(jl,jk)+pxite(jl,jk))*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
+  END DO
+END DO
   !
 #ifdef _PROFILE
     CALL trace_stop ('cloud_loop_9', 19)
