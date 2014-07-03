@@ -172,6 +172,7 @@ CONTAINS
         ssi_radt(:) = ssi_rce(:)
         ! solar constant (W/m2)
         tsi_radt    = SUM(ssi_radt(:))
+        tsi         = tsi_radt
       ENDIF
       CALL setup_srtm
       CALL lrtm_setup('rrtmg_lw.nc')
