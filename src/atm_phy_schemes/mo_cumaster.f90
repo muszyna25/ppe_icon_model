@@ -1285,6 +1285,19 @@ CONTAINS
     ENDIF
     !*UPG change to operations
 
+    ! Calculation of kinetic energy production by the convective buoyant heat flux:
+    DO jk=ktdia+1,klev
+      DO jl=kidia,kfdia
+        IF ( ldcum(jl) ) THEN
+          zcvfl_s  =  zmfus (jl,jk) + zmfds (jl,jk)
+          zcvfl_q  =  zmfuq (jl,jk) + zmfdq (jl,jk)
+
+          pdtke_con(jl,jk) = MAX( 0.0_JPRB, rg*rd/paph(jl,jk) * ( (1.0_JPRB+retv*zqenh(jl,jk))*zcvfl_s/rcpd + &
+                                                                  retv*ztenh(jl,jk)*zcvfl_q ) )
+        ENDIF
+      ENDDO
+    ENDDO
+
     !----------------------------------------------------------------------
 
     !*    8.0          UPDATE TENDENCIES FOR T AND Q IN SUBROUTINE CUDTDQ
@@ -1320,27 +1333,6 @@ CONTAINS
       ENDDO
 
     ENDIF
-
-    ! Convective TKE tendency
-    DO jk=ktdia+1,klev
-      DO jl=kidia,kfdia
-        IF ( ldcum(jl) ) THEN
-          zcvfl_s  =  zmfus (jl,jk) + zmfds (jl,jk)
-          zcvfl_q  =  zmfuq (jl,jk) + zmfdq (jl,jk)
-
-          ! MR version; results are nonsense when this tendency is coupled to the turbulence scheme,
-          ! apparently because the turbulent tendencies are too high by several orders of magnitude
-!          pdtke_con(jl,jk) = MAX( 0.0_JPRB, rg*rd/paph(jl,jk) * ( zcvfl_s/rcpd + &
-!                               ztenh(jl,jk)*zcvfl_q*retv/(1.0_JPRB-retv*zqenh(jl,jk)) ) )
-
-          ! version copied directly from the COSMO code - results are basically the same nonsense, which
-          ! is not too surprising as the factors by which the two versions differ are very close to 1
-          pdtke_con(jl,jk) = MAX( 0.0_JPRB, rg*rd/paph(jl,jk) * ( (1.0_JPRB+retv*zqenh(jl,jk))*zcvfl_s/rcpd + &
-                               retv*ztenh(jl,jk)*zcvfl_q ) )
-
-        ENDIF
-      ENDDO    
-    ENDDO
 
     CALL cudtdqn &
       & ( kidia,    kfdia,    klon,   ktdia,    klev,&

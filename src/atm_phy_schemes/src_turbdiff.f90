@@ -3925,7 +3925,8 @@ SUBROUTINE turbdiff
          !Include 3D-shear correction by the vertical wind (employing incomressibility):
          DO k=2,kem
             DO i=istartpar,iendpar
-               frm(i,k)=MAX( (vari(i,k,u_m)+dwdx(i,k))**2+(vari(i,k,v_m)+dwdy(i,k))**2+z3*hdiv(i,k)**2, fc_min)
+               frm(i,k)=MAX( (vari(i,k,u_m)+dwdx(i,k))**2+(vari(i,k,v_m)+dwdy(i,k))**2 &
+                                                         +z3*hdiv(i,k)**2, fc_min)
             END DO
          END DO
       ELSE   
@@ -3957,7 +3958,7 @@ SUBROUTINE turbdiff
             fakt=z1/(z2*b_2)**2; len=a_hshr*akt*z1d2*l_hori
             DO k=2,kem 
                DO i=istartpar,iendpar
-                  wert=ABS(fakt*hdiv(i,k))
+                  wert=fakt*hdiv(i,k)
                   frh(i,k)=len*(SQRT(wert**2+hdef2(i,k))-wert) !strain velocity of the sep. hor. shear mode
                   hlp(i,k)=(frh(i,k))**3/len                   !additional TKE-source by related shear
                END DO
