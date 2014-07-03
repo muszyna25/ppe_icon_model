@@ -1563,11 +1563,12 @@ CONTAINS
     REAL(wp) :: zbeta, zdend, zdenr, zdent
     REAL(wp) :: zg, zg3, zgamma4, zgt
     REAL(wp) :: zr1, zr2, zr3, zr4, zr5, zrk2, zrkg, zrm1, zrp, zrp1, zrpp
-    REAL(wp) :: zsr3, zt1, zt2, zt3, zt4, zt5
+    REAL(wp) :: zsr3, zt1, zt2, zt3 ! , zt4, zt5
     REAL(wp) :: zw, zwcrit
-    REAL(wp) :: ztemp, zzz
+    REAL(wp) :: ztemp, zzz, zeps, zaux
     !------------------------------------------------------------------
 
+    zeps = 1.e-20_wp
 
     zsr3=SQRT(3._wp)
     zwcrit=0.9995_wp
@@ -1799,16 +1800,19 @@ CONTAINS
           zt1  = zrp1 * (za1 + zrk(ic) * zgamma4)
           zt2  = zrm1 * (za1 - zrk(ic) * zgamma4)
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
-          zt4  = zr4
-          zt5  = zr5
+          ! zt4  = zr4
+          ! zt5  = zr5
           zbeta = - zr5 / zr4
 
           ! collimated beam
 
-          zdenr = zr4*zep1(ic) + zr5*zem1(ic)
+          ! GZ, 2014-07-03: provisional fix for potential division by zero
+          zaux = zr4*zep1(ic) + zr5*zem1(ic)
+          zdenr = SIGN(MAX(zeps,ABS(zaux)),zaux)
           pref(ic,jk) = zw  * (zr1*zep1(ic) - zr2*zem1(ic) - zr3*zem2(ic)) / zdenr
 
-          zdent = zt4*zep1(ic) + zt5*zem1(ic)
+          ! zdent = zt4*zep1(ic) + zt5*zem1(ic)
+          zdent = zdenr
           ptra(ic,jk) = zem2(ic) * &
             & (1._wp - zw  * (zt1*zep1(ic) - zt2*zem1(ic) - zt3*zep2(ic)) / zdent)
 
@@ -1847,16 +1851,19 @@ CONTAINS
           zt1  = zrp1 * (za1 + zrk(jc) * zgamma4)
           zt2  = zrm1 * (za1 - zrk(jc) * zgamma4)
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
-          zt4  = zr4
-          zt5  = zr5
+          ! zt4  = zr4
+          ! zt5  = zr5
           zbeta = - zr5 / zr4
 
           ! collimated beam
 
-          zdenr = zr4*zep1(jc) + zr5*zem1(jc)
+          ! GZ, 2014-07-03: provisional fix for potential division by zero
+          zaux  = zr4*zep1(jc) + zr5*zem1(jc)
+          zdenr = SIGN(MAX(zeps,ABS(zaux)),zaux)
           pref(ic,jk) = zw  * (zr1*zep1(jc) - zr2*zem1(jc) - zr3*zem2(jc)) / zdenr
 
-          zdent = zt4*zep1(jc) + zt5*zem1(jc)
+          ! zdent  = zt4*zep1(jc) + zt5*zem1(jc)
+          zdent = zdenr
           ptra(ic,jk) = zem2(jc) * &
             & (1._wp - zw  * (zt1*zep1(jc) - zt2*zem1(jc) - zt3*zep2(jc)) / zdent)
 
