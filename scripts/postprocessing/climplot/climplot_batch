@@ -505,10 +505,10 @@ EOF
   fi
 
 # fix to set centre=98 for pressure level data
-  mv  ${PLOTDATA}/mmean_${EXPVER2}_pl_alldates.grb  ${PLOTDATA}/mmean_${EXPVER2}_pl_alldates_centre78.grb
-   grib_set -s centre=98 ${PLOTDATA}/mmean_${EXPVER2}_pl_alldates_centre78.grb \
-                         ${PLOTDATA}/mmean_${EXPVER2}_pl_alldates.grb 
-  
+  mv  ${PLOTDATA}/mmean_${EXPVER}_pl_alldates.grb  ${PLOTDATA}/mmean_${EXPVER}_pl_alldates_centre78.grb
+   grib_set -s centre=98 ${PLOTDATA}/mmean_${EXPVER}_pl_alldates_centre78.grb \
+                         ${PLOTDATA}/mmean_${EXPVER}_pl_alldates.grb 
+
 fi
 
 

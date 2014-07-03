@@ -81,7 +81,6 @@ if (model = "icon") then
      "HCC" : varidm = 502341  ;   end #500050
      "SSHF": varidm = 502320  ;   end
      "SLHF": varidm = 502319  ;   end
-     "BLH" : varidm = 50  ;   end
      "TTR" : varidm = 502323  ;   end
      "TSR" : varidm = 502327  ;   end
      "STR" : varidm = 502322  ;   end
@@ -90,8 +89,9 @@ if (model = "icon") then
      "TCLW": varidm = 500051  ;   end
      "TCIW": varidm = 500040  ;   end
      "T"   : varidm = 500014  ;   end
-     "CAPE": varidm = 50  ;   end
-     "":varidm = 50  ;   end
+     "CAPE": varidm = 500183  ;   end
+     "BLH" : varidm = 50  ;   end
+     ""    : varidm = 50  ;   end
 #TCC LCC MCC HCC CP  LSP SSHF SLHF BLH SSR STR TSR TTR 
 #2T  2D  SD  10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  
 #TSRC TTRC TCLW TCIW CAPE

@@ -34,7 +34,6 @@ if [[ %NENS% -gt 0 ]]
   else TXTENS=''
 fi
 
-
 # grid directory
 GRIDDIR=%SCPERM%/icon_input/grids
 # ifsdir for IFS initial condition
@@ -47,7 +46,6 @@ basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%${TXTENS}
 mkdir -p ${IFSDATADIR}
 cd ${IFSDATADIR}
 
-#module load grib_api
 # Important: ==================================
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
@@ -58,10 +56,8 @@ export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/
 IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"
 ifs_res=`ls ${IFS_FILENAME_GRB} | awk -F '_' '{print $3}'`
 IFS_FILENAME_GRB="ifs_oper_${ifs_res}_%YMD%%INIHOUR%.grb"
-
 IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
 ICON_GRIDFILE="icon_grid_%RES%_G.nc"
-
 ln -sf ${GRIDDIR}/icon_grid_*_%RES%_G.nc ${ICON_GRIDFILE}
 
 #set +x
@@ -345,7 +341,7 @@ if [ -f ${IFSDATADIR2}/${IFS_FILENAME_NC}  -a  %EXPNUM% -ne %EXPNUM2% ] ; then
 else
   cp -p ${outbasedir}/bin/iconremap_mpi .
   export USE_SIGNAL_HANDLING=yes
- #./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
+# ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 
 # "aprun" command:
 # -n xx   : number of MPI tasks

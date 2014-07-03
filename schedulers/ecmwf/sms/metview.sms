@@ -71,8 +71,9 @@ if [[ $lmetview = 1 ]] ; then
  #VERHOUR=`echo $VERDATEHOUR | cut -c9-10`
  #./many.error.s $VERDATE $VERHOUR %YMD% %INIHOUR% 1 %RES% %EXPNUM%
 
+  sleep 1
 %nopp
-awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
+  awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end
   echo "work:"
   cat met.job.${nstart}

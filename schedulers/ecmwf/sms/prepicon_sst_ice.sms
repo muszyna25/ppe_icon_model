@@ -39,6 +39,7 @@ mkdir -p ${SSTICEDIR}
 cd ${SSTICEDIR}
 #rm SST*nc
 #rm CI*nc
+
 # Important: ==================================
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
@@ -115,15 +116,12 @@ cat > NAMELIST_PREPICON << EOF
 ! type_of_layer  = "surface" 
 /
 EOF
+
 # -------------------------------------------------
 
-
-
-#echo "job::start"
-export USE_SIGNAL_HANDLING=yes
-#./prep_icon
- ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
-#echo "job::end"
+  export USE_SIGNAL_HANDLING=yes
+# ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
+  aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 
 fi
 
@@ -167,13 +165,9 @@ cat > NAMELIST_PREPICON << EOF
 EOF
 # -------------------------------------------------
 
-
-
-#echo "job::start"
-export USE_SIGNAL_HANDLING=yes
-#./prep_icon
- ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
-#echo "job::end"
+  export USE_SIGNAL_HANDLING=yes
+# ./iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
+  aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $EC_threads_per_task -j $EC_hyperthreads iconremap_mpi --remap_nml=NAMELIST_PREPICON -vv
 
 fi
 
