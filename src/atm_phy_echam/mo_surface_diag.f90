@@ -33,7 +33,7 @@ CONTAINS
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & pfrc, pcfh_tile, pfac_sfc,            &! in
                            & pcptv_tile, ptsfc_tile, pqsat_tile,   &! in
-                           & pca, pcs, bb,                         &! in
+                           & pca, pcs, bb_btm,                     &! in
                            & plhflx_gbm, pshflx_gbm,               &! out
                            & pevap_gbm,                            &! out
                            & plhflx_tile, pshflx_tile,             &! out
@@ -56,7 +56,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pca       (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pcs       (kbdim,ksfc_type)
 
-    REAL(wp),INTENT(IN) :: bb(kbdim,klev,ih:iqv)
+    REAL(wp),INTENT(IN) :: bb_btm(kbdim,ksfc_type,ih:iqv)
 
     REAL(wp),INTENT(INOUT) :: plhflx_gbm(kbdim)  ! OUT
     REAL(wp),INTENT(INOUT) :: pshflx_gbm(kbdim)  ! OUT
@@ -116,8 +116,10 @@ CONTAINS
       ! model level (i.e., the full level right above surface).
       ! (Formula translated from ECHAM. Question: why using the blended
       ! humidity, not the value on individual surface?)
+      ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
+      ! quantity used.
 
-      zdqv(1:kproma) =   bb(1:kproma,klev,iqv)*pca(1:kproma,jsfc)          &
+      zdqv(1:kproma) =   bb_btm(1:kproma,jsfc,iqv)*pca(1:kproma,jsfc)          &
                      & - tpfac2*pqsat_tile(1:kproma,jsfc)*pcs(1:kproma,jsfc)
 
       ! Moisture flux ( = evaporation). Formula:
@@ -182,23 +184,16 @@ CONTAINS
       ! Vertical gradient of dry static energy.
       ! (Formula translated from ECHAM. Question: why using the blended
       ! dry static energy, not the value on individual surface?)
+      ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
+      ! quantity used.
 
-        zdcptv(1:kproma) = bb(1:kproma,klev,ih) - tpfac2*pcptv_tile(1:kproma,jsfc)
+        zdcptv(1:kproma) = bb_btm(1:kproma,jsfc,ih) - tpfac2*pcptv_tile(1:kproma,jsfc)
 
       ! Flux of dry static energy
 
         pshflx_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
                                    & *pcfh_tile(1:kproma,jsfc)  &
                                    & *zdcptv(1:kproma)
-
-      ! Subtract contribution from latent heat
-      !  CpTv = CpT(1+vtmpc2*qv)
-      !  => CpT = CpTv - CpT*vtmpc2*qv
-      ! Question: second term is nonlinear?!
-
-        pshflx_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc)       &
-                                   & - ptsfc_tile(1:kproma,jsfc)*cpd   &
-                                   &  *pevap_tile(1:kproma,jsfc)*vtmpc2
 
       ! KF: For the Sea-ice model!
       ! attempt to made a first guess of temperature tendency for SHF

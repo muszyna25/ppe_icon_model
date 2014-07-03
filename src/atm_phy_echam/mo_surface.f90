@@ -366,7 +366,7 @@ CONTAINS
     wgt_sum(1:kproma) = 0._wp    ! sum of weights
 
     DO jsfc = 1,ksfc_type
-           wgt(1:kproma) = pfrc(1:kproma,jsfc)*pcfh_tile(1:kproma,jsfc)*pfac_sfc(1:kproma)
+           wgt(1:kproma) = pfrc(1:kproma,jsfc)
        wgt_sum(1:kproma) = wgt_sum(1:kproma) + wgt(1:kproma)
         se_sum(1:kproma) = se_sum(1:kproma) + bb_btm(1:kproma,jsfc,ih ) * wgt(1:kproma)
         qv_sum(1:kproma) = qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) * wgt(1:kproma)
@@ -430,7 +430,7 @@ CONTAINS
                       & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                       & pfrc, pcfh_tile, pfac_sfc,            &! in
                       & pcpt_tile, ptsfc_tile, pqsat_tile,    &! in
-                      & zca, zcs, bb(:,:,ih:iqv),             &! in
+                      & zca, zcs, bb_btm(:,:,ih:iqv),         &! in
                       & plhflx_gbm, pshflx_gbm,               &! out
                       & pevap_gbm,                            &! out
                       & plhflx_tile, pshflx_tile,             &! inout
