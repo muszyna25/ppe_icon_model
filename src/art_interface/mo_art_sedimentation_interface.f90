@@ -26,7 +26,8 @@ MODULE mo_art_sedi_interface
   USE mo_kind,                          ONLY: wp
   USE mo_parallel_config,               ONLY: nproma
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_impl_constants,                ONLY: min_rlcell
+  USE mo_impl_constants,                ONLY: min_rlcell_int
+  USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
   USE mo_run_config,                    ONLY: lart
   USE mo_exception,                     ONLY: finish
@@ -149,8 +150,8 @@ SUBROUTINE art_sedi_interface( p_patch, &
   
   !Get all cell enitities, except halos
   i_nchdom  = MAX(1,p_patch%n_childdom)
-  i_rlstart = 1  !is always one
-  i_rlend   = min_rlcell
+  i_rlstart = grf_bdywidth_c+1
+  i_rlend   = min_rlcell_int
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
   
