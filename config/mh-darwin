@@ -42,7 +42,7 @@ config_compiler=gcc
 load_modules=""
 
 MPIROOT     = /opt/local
-MPI_LIB     = -lmpichf90 -lpmpich -lmpich -lopa -lmpl -lpthread
+MPI_LIB     = -lmpichf90 -lmpich -lpmpi -lopa -lmpl -lpthread
 
 ZLIBROOT    = /opt/local
 SZIPROOT    = /opt/local
