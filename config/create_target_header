@@ -345,7 +345,7 @@ set_run_target_blizzard()
 # @ job_name     = $job_name
 # @ output       = $job_log_name.o
 # @ error        = \$(output)
-# @ notification = error
+# @ notification = ${use_notification:-error}
 # @ $account
 # @ queue
 export MEMORY_AFFINITY=MCM
