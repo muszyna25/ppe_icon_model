@@ -703,6 +703,7 @@ MODULE mo_nh_diffusion
         ENDDO
 
         DO jk = 2, nlev ! levels 1 and nlevp1 are unused
+!DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
             p_nh_diag%div_ic(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb)*div(jc,jk) + &
@@ -906,6 +907,7 @@ MODULE mo_nh_diffusion
                            i_startidx, i_endidx, start_bdydiff_e, grf_bdywidth_e)
 
         DO jk = 1, nlev
+!DIR$ IVDEP
           p_nh_prog%vn(i_startidx:i_endidx,jk,jb) =   &
             p_nh_prog%vn(i_startidx:i_endidx,jk,jb) + &
             z_nabla2_e(i_startidx:i_endidx,jk,jb) * &
