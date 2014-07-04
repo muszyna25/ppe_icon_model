@@ -224,9 +224,10 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'tauu_wtr', 'tauu_ice', 'tauu_lnd',
                     'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'ch_concloud', 'con_iteqv', 'con_dtri', 
-                    'con_dtrl', 'cld_iteq', 'cld_dtri','cld_dtrl',
-                    'qv_vdiff'
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtri', 'con_dtrl', 'con_iteqv',
+                    'cld_dtri', 'cld_dtrl', 'cld_iteq'
 /
 EOF
 fi
