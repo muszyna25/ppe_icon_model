@@ -470,8 +470,8 @@ if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 1
  reg_def_mode     = 1
- reg_lon_def      = ${reg_lon_def_rmb}
  reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
@@ -497,8 +497,8 @@ if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 1
  reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def}
- reg_lon_def      = ${reg_lon_def}
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
