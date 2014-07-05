@@ -243,6 +243,7 @@ add_required_file $INDATA/r2b4_amip/lnd/bc_land_sso.nc                       ./
 # dictionary for variable names
 # -----------------------------
 dict_file="dict.${EXPNAME}"
+rm -f ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                                ./
 
 #--------------------------------------------------------------------------------------------------
