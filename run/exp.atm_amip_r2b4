@@ -38,11 +38,10 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
   end_date="1989-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
-restart_days=10  
-(( dt_checkpoint = restart_days * day))
-(( dt_restart    = restart_days * day))
+(( dt_checkpoint =  30 * day))
+(( dt_restart    = 360 * day))
 #
-file_interval="P10D"
+file_interval="P30D"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
@@ -310,16 +309,6 @@ EOF
 # Define output files
 # -------------------
 #
-# remapping to be used
-remap=1                         # 0=no, 1=yes
-if [[ $remap == 1 ]]; then
-   remapflag="_rmb"
-else
-   remapflag=""
-fi
-reg_lat_def=$reg_lat_def_rmb
-reg_lon_def=$reg_lon_def_rmb
-
 # output_<xyz>=yes : output file, no file for any other value
 
 output_atm_dyn=yes
@@ -331,12 +320,24 @@ if [[ "$output_atm_dyn" == "yes" ]]; then
   fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_dyn${remapflag}"
+ output_filename  = "${EXPNAME}_atm_dyn"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = ${remap}
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'ta','ua','va','hus','clw','cli','rho','dpres_mc','z_mc','pfull','ps','psl'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_dyn_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
  reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def}
- reg_lon_def      = ${reg_lon_def}
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
@@ -359,12 +360,44 @@ if [[ "$output_atm_phy" == "yes" ]]; then
   fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy${remapflag}"
+ output_filename  = "${EXPNAME}_atm_phy"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = ${remap}
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'cosmu0'  , 'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
+                    'sic'     , 'sit'     , 'alb'     ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'tauu'    , 'tauv'    ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtrl', 'con_dtri', 'con_iteqv',
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
+                    'prm_rintop', 'prm_rtype', 'prm_topmax'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_phy_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
  reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def}
- reg_lon_def      = ${reg_lon_def}
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
@@ -405,12 +438,12 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
   fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy_tend_temp${remapflag}"
+ output_filename  = "${EXPNAME}_atm_phy_tend_temp_rmb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = ${remap}
+ remap            = 1
  reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def}
- reg_lon_def      = ${reg_lon_def}
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
@@ -432,12 +465,12 @@ if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
   fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy_tend_wind${remapflag}"
+ output_filename  = "${EXPNAME}_atm_phy_tend_wind_rmb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = ${remap}
+ remap            = 1
  reg_def_mode     = 1
- reg_lon_def      = ${reg_lon_def}
- reg_lat_def      = ${reg_lat_def}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ reg_lat_def      = ${reg_lat_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
@@ -459,9 +492,9 @@ if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
   fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy_tend_trac${remapflag}"
+ output_filename  = "${EXPNAME}_atm_phy_tend_trac_rmb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = ${remap}
+ remap            = 1
  reg_def_mode     = 1
  reg_lat_def      = ${reg_lat_def}
  reg_lon_def      = ${reg_lon_def}
@@ -481,12 +514,34 @@ output_lnd_phy=yes
 if [[ "$output_lnd_phy" == "yes" ]]; then
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_lnd_phy${remapflag}"
+ output_filename  = "${EXPNAME}_lnd_phy"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = ${remap}
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
+                    'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
+                    'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
+                    'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
+                    'swrad_srf_down', 'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
+                    'evapotrans', 'sensible_hflx', 'latent_hflx' 
+                    'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
+                    't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
+                    'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_phy_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
  reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def}
- reg_lon_def      = ${reg_lon_def}
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
