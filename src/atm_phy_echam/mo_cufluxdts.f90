@@ -554,7 +554,6 @@ REAL(wp),INTENT(INOUT) :: pch_concloud(kbdim), pcon_dtrl(kbdim), pcon_dtri(kbdim
 REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim) ! integrated qv tendency
 REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
-REAL(wp) :: zqte_cnv(kbdim,klev) 
 LOGICAL  llo1
 !
 REAL(wp) :: ptte(kbdim,klev),        pqte(kbdim,klev),                 &
@@ -572,7 +571,6 @@ REAL(wp) :: pcpen(kbdim,klev),       palvsh(kbdim,klev)
 LOGICAL  :: ldcum(kbdim)
 !
 REAL(wp) :: zmelt(kbdim), zcpten(kbdim,klev) 
-REAL(wp) :: zteci(kbdim,klev), ztecl(kbdim,klev)
 REAL(wp) :: zsheat(kbdim)
 REAL(wp) :: pxtte(kbdim,klev,ktrac), pmfuxt(kbdim,klev,ktrac),         &
             pmfdxt(kbdim,klev,ktrac)
@@ -608,10 +606,6 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
   pcon_dtri(1:kproma)=0._wp
   pcon_iqte(1:kproma)=0._wp
   zcpten(1:kproma,ktopm2:klev)=0._wp
-  zqte_cnv(1:kproma,ktopm2:klev)=0._wp
-! why aren't these zeroed for all levels?!
-  zteci(1:kproma,ktopm2:klev)=0._wp
-  ztecl(1:kproma,ktopm2:klev)=0._wp
 
   DO 250 jk=ktopm2,klev
 !
@@ -638,13 +632,11 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                                    plude(jl,jk)-                       &
                                   (pdmfup(jl,jk)+pdmfdp(jl,jk)))
               pqte(jl,jk)=pqte(jl,jk)+zdqdt
-              zqte_cnv(jl,jk)=zdqdt
+              pqte_cnv(jl,jk)=zdqdt
               pxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-                        &
                             paphp1(jl,jk)))*plude(jl,jk)
               pxteci(jl,jk)=MERGE(0.0_wp,pxtec(jl,jk),llo1)
-              zteci(jl,jk)=pxteci(jl,jk)
               pxtecl(jl,jk)=MERGE(pxtec(jl,jk),0.0_wp,llo1)
-              ztecl(jl,jk)=pxtecl(jl,jk)
               pqtec(jl,jk)=(grav/(paphp1(jl,jk+1)-                        &
                             paphp1(jl,jk)))*pqude(jl,jk)
               zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
@@ -685,13 +677,11 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
                         (pmfuq(jl,jk)+pmfdq(jl,jk)+plude(jl,jk)+       &
                         (pmful(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
               pqte(jl,jk)=pqte(jl,jk)+zdqdt
-              zqte_cnv(jl,jk)=zdqdt
+              pqte_cnv(jl,jk)=zdqdt
               pxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))         &
                            *plude(jl,jk)
               pxteci(jl,jk)=MERGE(0.0_wp,pxtec(jl,jk),llo1)
-              zteci(jl,jk)=pxteci(jl,jk)
               pxtecl(jl,jk)=MERGE(pxtec(jl,jk),0.0_wp,llo1)
-              ztecl(jl,jk)=pxtecl(jl,jk)
               pqtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))         &
                            *pqude(jl,jk)
               zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
@@ -743,13 +733,13 @@ REAL(wp) :: zdiagt, zalv, zdtdt, zdqdt, zdxtdt
     DO jl=1,kproma 
       ! water vapor 
       pcon_iqte(jl)=pcon_iqte(jl)+   &
-      &   zqte_cnv(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+      &   pqte_cnv(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
       ! detrained liquid water
       pcon_dtrl(jl)=pcon_dtrl(jl)+ &
-      &   ztecl(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+      &   pxtecl(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
       ! detrained ice
       pcon_dtri(jl)=pcon_dtri(jl)+ &
-      &   zteci(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+      &   pxteci(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
     END DO
   END DO
 !

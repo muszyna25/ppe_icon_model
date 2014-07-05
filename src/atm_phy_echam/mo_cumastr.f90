@@ -434,7 +434,7 @@ REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -1231,7 +1231,7 @@ REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -1766,7 +1766,7 @@ REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
 REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
 REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)                               
 REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)         
-REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim), pxtte_cnv(kbdim,klev,ktrac)  
+REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)  
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
