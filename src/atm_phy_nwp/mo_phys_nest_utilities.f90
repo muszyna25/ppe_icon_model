@@ -1002,22 +1002,25 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
       lwflx_up_sfc(jc3,jb3) = z_aux3d(jc3,6,jb3) + dlwem_o_dtg(jc)* (tsfc(jc3,jb3) - tsfc_backintp(jc3,jb3))
       lwflx_up_sfc(jc4,jb4) = z_aux3d(jc4,6,jb4) + dlwem_o_dtg(jc)* (tsfc(jc4,jb4) - tsfc_backintp(jc4,jb4))
 
-      trsol_up_toa(jc1,jb1) = MAX(z_aux3d(jc1,7,jb1) + dtrans_o_dalb_all(jc,1)* &
+      ! The downscaling corrections for the upward fluxes assume that the downward radiation is unaffected by
+      ! the surface albedo, so that the correction on upward radiation is the same as on net radiation 
+      ! except for the sign because the convention is that upward fluxes are upward-positive
+      trsol_up_toa(jc1,jb1) = MAX(z_aux3d(jc1,7,jb1) - dtrans_o_dalb_all(jc,1)* &
           ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), 0._wp)
-      trsol_up_toa(jc2,jb2) = MAX(z_aux3d(jc2,7,jb2) + dtrans_o_dalb_all(jc,1)* &
+      trsol_up_toa(jc2,jb2) = MAX(z_aux3d(jc2,7,jb2) - dtrans_o_dalb_all(jc,1)* &
           ( albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), 0._wp)
-      trsol_up_toa(jc3,jb3) = MAX(z_aux3d(jc3,7,jb3) + dtrans_o_dalb_all(jc,1)* &
+      trsol_up_toa(jc3,jb3) = MAX(z_aux3d(jc3,7,jb3) - dtrans_o_dalb_all(jc,1)* &
           ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), 0._wp)
-      trsol_up_toa(jc4,jb4) = MAX(z_aux3d(jc4,7,jb4) + dtrans_o_dalb_all(jc,1)* &
+      trsol_up_toa(jc4,jb4) = MAX(z_aux3d(jc4,7,jb4) - dtrans_o_dalb_all(jc,1)* &
           ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), 0._wp)
 
-      trsol_up_sfc(jc1,jb1) = MAX(z_aux3d(jc1,8,jb1) + dtrans_o_dalb_all(jc,nlevp1)* &
+      trsol_up_sfc(jc1,jb1) = MAX(z_aux3d(jc1,8,jb1) - dtrans_o_dalb_all(jc,nlevp1)* &
           ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), 0._wp)
-      trsol_up_sfc(jc2,jb2) = MAX(z_aux3d(jc2,8,jb2) + dtrans_o_dalb_all(jc,nlevp1)* &
+      trsol_up_sfc(jc2,jb2) = MAX(z_aux3d(jc2,8,jb2) - dtrans_o_dalb_all(jc,nlevp1)* &
           ( albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), 0._wp)
-      trsol_up_sfc(jc3,jb3) = MAX(z_aux3d(jc3,8,jb3) + dtrans_o_dalb_all(jc,nlevp1)* &
+      trsol_up_sfc(jc3,jb3) = MAX(z_aux3d(jc3,8,jb3) - dtrans_o_dalb_all(jc,nlevp1)* &
           ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), 0._wp)
-      trsol_up_sfc(jc4,jb4) = MAX(z_aux3d(jc4,8,jb4) + dtrans_o_dalb_all(jc,nlevp1)* &
+      trsol_up_sfc(jc4,jb4) = MAX(z_aux3d(jc4,8,jb4) - dtrans_o_dalb_all(jc,nlevp1)* &
           ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), 0._wp)
 
       ! Note: the downward diffuse radiation must not undergo a correction based on the surface albedo!
@@ -1026,6 +1029,12 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
       trsol_dn_sfc_diff(jc2,jb2) = MAX(z_aux3d(jc2,9,jb2), 0._wp)
       trsol_dn_sfc_diff(jc3,jb3) = MAX(z_aux3d(jc3,9,jb3), 0._wp)
       trsol_dn_sfc_diff(jc4,jb4) = MAX(z_aux3d(jc4,9,jb4), 0._wp)
+
+      ! Ensure that the diffuse downward radiation does not exceed the total radiation
+      trsol_dn_sfc_diff(jc1,jb1) = MIN(trsol_dn_sfc_diff(jc1,jb1),trsolall(jc1,nlevp1,jb1)/(1._wp-albdif(jc1,jb1)))
+      trsol_dn_sfc_diff(jc2,jb2) = MIN(trsol_dn_sfc_diff(jc2,jb2),trsolall(jc2,nlevp1,jb2)/(1._wp-albdif(jc2,jb2)))
+      trsol_dn_sfc_diff(jc3,jb3) = MIN(trsol_dn_sfc_diff(jc3,jb3),trsolall(jc3,nlevp1,jb3)/(1._wp-albdif(jc3,jb3)))
+      trsol_dn_sfc_diff(jc4,jb4) = MIN(trsol_dn_sfc_diff(jc4,jb4),trsolall(jc4,nlevp1,jb4)/(1._wp-albdif(jc4,jb4)))
     ENDDO
 
   ENDDO
