@@ -964,6 +964,8 @@ END SUBROUTINE message
 !   Implicit solution of thermal and hydraulic equations
 !
     zakb           , & ! utility variable
+    zakb1          , & ! utility variable
+    zakb2          , & ! utility variable
     zzz            , & ! utility variable
     z1dgam1        , & ! utility variable
     zredm          , & ! utility variable
@@ -1617,6 +1619,7 @@ END SUBROUTINE message
     DO kso = 1, ke_soil
         DO i = istarts, iends
             zalam(i,kso) = zalam(i,kso) + zalamtmp(i,kso)
+            hzalam(i,kso) = zalam(i,kso)
         ENDDO
     ENDDO
   
@@ -3452,7 +3455,7 @@ ELSE   IF (itype_interception == 2) THEN
     DO i = istarts, iends
 !      IF (llandmask(i)) THEN  ! for landpoints only
         IF (zwsnew(i).GT.zepsi) THEN
-           zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
+           zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+hzalam(i,1)*zdzms(1))/ &
                        (-zhm_snow(i,ke_snow)+zdzms(1)) * &
                        (ztsnow_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
                        +zdzms(1)))*zf_snow(i)
@@ -3622,11 +3625,10 @@ ENDIF
     DO i = istarts, iends
       IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._ireals) THEN
         ! for heat conductivity: zalam is now 3D
-!write(0,*) 'sn_frac',i,zf_snow(i),sn_frac(i)
-!write(0,*) 'zakb',i,kso,zalam(i,kso),zroc(i,kso)
-        zakb = zalam(i,kso)/zroc(i,kso)
-        zaga(i,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso))
-        zagc(i,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso+1))
+        zakb1 = zalam(i,kso-1)/zroc(i,kso)
+        zakb2 = zalam(i,kso  )/zroc(i,kso)
+        zaga(i,kso) = -zalfa*zdt*zakb1/(zdzhs(kso)*zdzms(kso))
+        zagc(i,kso) = -zalfa*zdt*zakb2/(zdzhs(kso)*zdzms(kso+1))
         zagb(i,kso) = 1._ireals - zaga(i,kso) - zagc(i,kso)
         zagd(i,kso) = t_so_now(i,kso) +                                     &
                (1._ireals - zalfa)*( - zaga(i,kso)/zalfa*t_so_now(i,kso-1)+ &
@@ -3640,9 +3642,10 @@ ENDIF
 !    IF (.NOT. lmulti_snow .OR. (zf_snow(i) < 1._ireals .AND. zwsnew(i).GT.zepsi)) THEN
     IF (.NOT. lmulti_snow .OR. sn_frac(i) < 1._ireals) THEN
       ! for heat conductivity: zalam is now 3D: here we need layer 1
-      zakb = zalam(i,1)/zroc(i,1)
-      zaga(i,1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(1))
-      zagc(i,1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(2))
+      zakb1 = hzalam(i,1)/zroc(i,1)
+      zakb2 =  zalam(i,1)/zroc(i,1)
+      zaga(i,1) = -zalfa*zdt*zakb1/(zdzhs(1)*zdzms(1))
+      zagc(i,1) = -zalfa*zdt*zakb2/(zdzhs(1)*zdzms(2))
       zagb(i,1) = 1._ireals - zaga(i,1) - zagc(i,1)
       zagd(i,1) = t_so_now(i,1) + (1._ireals - zalfa)* (                 &
                       - zaga(i,1)/zalfa * t_s_now(i) +                     &
@@ -3653,7 +3656,7 @@ ENDIF
       zagc(i,0) = -zalfa
       ! EM: In the case of multi-layer snow model, zfor_s(i) does not include the heat conductivity flux 
       ! between soil and snow (zgsb). It will be accounted for at the next semi-step, see below.
-      zagd(i,0)    = zdzms(1) * zfor_s(i)/zalam(i,1)+(1._ireals-zalfa)* &
+      zagd(i,0)    = zdzms(1) * zfor_s(i)/hzalam(i,1)+(1._ireals-zalfa)* &
                       (t_so_now(i,1) - t_s_now(i))
       zaga(i,ke_soil+1) = 0.0_ireals
       zagb(i,ke_soil+1) = 1.0_ireals
@@ -3736,7 +3739,8 @@ ENDIF
         zakb = zalas_mult(i,ke_snow)/zrocs(i)
 !        zaga(i,ke_snow) = -zalfa*zdt*zakb/(zdzh_snow(i,ke_snow)*zdzm_snow(i,ke_snow))
         zaga(i,ke_snow) = -zalfa*zdt*zakb/(zdzh_snow(i,ke_snow)*zdzm_snow(i,ke_snow))
-        zakb = (zalas_mult(i,ke_snow)/zrocs(i)*(-zhm_snow(i,ke_snow))+zalam(i,1)/zroc(i,1)*zmls(1))/(zmls(1)-zhm_snow(i,ke_snow))
+        zakb = (zalas_mult(i,ke_snow)/zrocs(i)*(-zhm_snow(i,ke_snow))+hzalam(i,1)/ &
+                zroc(i,1)*zmls(1))/(zmls(1)-zhm_snow(i,ke_snow))
         zagc(i,ke_snow) = -zalfa*zdt*zakb/(zdzh_snow(i,ke_snow)*(zmls(1)-zhm_snow(i,ke_snow)))
         zagb(i,ke_snow) = 1.0_ireals - zaga(i,ke_snow) - zagc(i,ke_snow)
         zagd(i,ke_snow) = ztsnow_mult(i,ke_snow) + &
@@ -3745,9 +3749,10 @@ ENDIF
           &     zagc(i,ke_snow)/zalfa*t_so_now(i,1)  )
 
         ! Uppermost soil layer, special treatment
-        zakb = (zalas_mult(i,ke_snow)/zrocs(i)*(-zhm_snow(i,ke_snow))+zalam(i,1)/zroc(i,1)*zmls(1))/(zmls(1)-zhm_snow(i,ke_snow))
+        zakb = (zalas_mult(i,ke_snow)/zrocs(i)*(-zhm_snow(i,ke_snow))+     &
+                hzalam(i,1)/zroc(i,1)*zmls(1))/(zmls(1)-zhm_snow(i,ke_snow))
         zaga(i,ke_snow+1) = -zalfa*zdt*zakb/(zdzhs(1)*(zmls(1)-zhm_snow(i,ke_snow)))
-        zakb = zalam(i,1)/zroc(i,1)
+        zakb = hzalam(i,1)/zroc(i,1)
         zagc(i,ke_snow+1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(2))
         zagb(i,ke_snow+1) = 1._ireals - zaga(i,ke_snow+1) - zagc(i,ke_snow+1)
         zagd(i,ke_snow+1) = t_so_now(i,1) + &
@@ -3785,9 +3790,10 @@ ENDIF
       DO i = istarts, iends
         IF (sn_frac(i) > 0._ireals) THEN
           kso = ksn - ke_snow
-          zakb = zalam(i,kso)/zroc(i,kso)
-          zaga(i,ksn) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso))
-          zagc(i,ksn) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso+1))
+          zakb1 = zalam(i,kso-1)/zroc(i,kso)
+          zakb2 = zalam(i,kso  )/zroc(i,kso)
+          zaga(i,ksn) = -zalfa*zdt*zakb1/(zdzhs(kso)*zdzms(kso))
+          zagc(i,ksn) = -zalfa*zdt*zakb2/(zdzhs(kso)*zdzms(kso+1))
           zagb(i,ksn) = 1._ireals - zaga(i,ksn) - zagc(i,ksn)
           zagd(i,ksn) = t_so_now(i,kso) + &
             &    (1._ireals - zalfa)*( - zaga(i,ksn)/zalfa*t_so_now(i,kso-1) +  &
@@ -3842,7 +3848,7 @@ ENDIF
   
     DO i = istarts, iends
         IF (sn_frac(i) > 0._ireals) THEN
-        zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+zalam(i,1)*zdzms(1))/ &
+        zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+hzalam(i,1)*zdzms(1))/ &
                   (-zhm_snow(i,ke_snow)+zdzms(1)) * &
                   (ztsnown_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
                   +zdzms(1)))*zf_snow(i)
@@ -4496,9 +4502,10 @@ ENDIF
           i=melt_list(ic)
 !        IF (llandmask(i)) THEN          ! land-points only
           ! for heat conductivity: zalam is now 3D
-          zakb = zalam(i,kso)/zroc(i,kso)
-          zaga(i,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso))
-          zagc(i,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso+1))
+          zakb1 = zalam(i,kso-1)/zroc(i,kso)
+          zakb2 = zalam(i,kso  )/zroc(i,kso)
+          zaga(i,kso) = -zalfa*zdt*zakb1/(zdzhs(kso)*zdzms(kso))
+          zagc(i,kso) = -zalfa*zdt*zakb2/(zdzhs(kso)*zdzms(kso+1))
           zagb(i,kso) = 1._ireals - zaga(i,kso) - zagc(i,kso)
           zagd(i,kso) = t_so_new(i,kso) +                                     &    ! distribute heat in (*)
                  (1._ireals - zalfa)*( - zaga(i,kso)/zalfa*t_so_new(i,kso-1)+ &
@@ -4514,9 +4521,10 @@ ENDIF
         i=melt_list(ic)
 !    IF (llandmask(i)) THEN          ! land-points only
       ! for heat conductivity: zalam is now 3D: here we need layer 1
-      zakb = zalam(i,1)/zroc(i,1)
-      zaga(i,  1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(1))
-      zagc(i,  1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(2))
+      zakb1 = hzalam(i,1)/zroc(i,1)
+      zakb2 =  zalam(i,1)/zroc(i,1)
+      zaga(i,  1) = -zalfa*zdt*zakb1/(zdzhs(1)*zdzms(1))
+      zagc(i,  1) = -zalfa*zdt*zakb2/(zdzhs(1)*zdzms(2))
       zagb(i,  1) = 1._ireals - zaga(i,1) - zagc(i,1)
       zagd(i,  1) = t_so_new(i,1) + (1._ireals - zalfa)* (                 &
                       - zaga(i,1)/zalfa * t_s_new(i) +                     &
@@ -4525,7 +4533,7 @@ ENDIF
       zaga(i,0)    = 0.0_ireals
       zagb(i,0)    = zalfa
       zagc(i,0)    = -zalfa
-      zagd(i,0)    = zdzms(1) * zfor_s(i)/zalam(i,1)+(1._ireals-zalfa)* &
+      zagd(i,0)    = zdzms(1) * zfor_s(i)/hzalam(i,1)+(1._ireals-zalfa)* &
                       (t_so_new(i,1) - t_s_new(i))
       zaga(i,ke_soil+1) = 0.0_ireals
       zagb(i,ke_soil+1) = 1.0_ireals
