@@ -59,10 +59,12 @@ MODULE mo_nwp_gscp_interface
   USE gscp_hydci_pp,           ONLY: hydci_pp, hydci_pp_gr
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
-  USE mo_mcrph_sb,             ONLY: two_moment_mcrph
+  USE mo_mcrph_sb,             ONLY: two_moment_mcrph, &
+       &                             set_qnr,set_qni,set_qns,set_qng
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE data_gscp,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
+  USE mo_grid_config,          ONLY: l_limited_area
 
   IMPLICIT NONE
 
@@ -97,14 +99,14 @@ CONTAINS
     ! Local array bounds:
 
     INTEGER :: nlev, nlevp1            !< number of full levels !CK<
-    INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !< blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
+    INTEGER :: i_rlstart, i_rlend
 
     ! Local scalars:
 
-    INTEGER :: jc,jb,jg               !<block indices
+    INTEGER :: jc,jb,jg,jk               !<block indices
 
     REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
 
@@ -119,12 +121,56 @@ CONTAINS
     ! domain ID
     jg = p_patch%id
 
-    ! exclude boundary interpolation zone of nested domains
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
+    ! boundary conditions for number densities
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+    CASE(4,5)
+
+       ! Update lateral boundaries of nested domains
+       IF (l_limited_area &
+            & .OR. (jg > 1 .and. atm_phy_nwp_config(jg)%inwp_gscp .ne. atm_phy_nwp_config(jg-1)%inwp_gscp)) THEN
+
+          i_rlstart  = 1
+          i_rlend    = grf_bdywidth_c
+
+          i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+          i_endblk   = p_patch%cells%end_blk(i_rlend,1)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+          DO jb = i_startblk, i_endblk
+
+             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                  i_startidx, i_endidx, i_rlstart, i_rlend)
+             
+             DO jk = 1, nlev
+                DO jc = i_startidx, i_endidx
+                   IF (p_prog_rcf%tracer(jc,jk,jb,iqnr) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqr) > 0.0_wp) &
+                        & p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr))
+                   IF (p_prog_rcf%tracer(jc,jk,jb,iqni) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqi) > 0.0_wp) &
+                        & p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi))
+                   IF (p_prog_rcf%tracer(jc,jk,jb,iqns) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqs) > 0.0_wp) &
+                        & p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs))
+                   IF (p_prog_rcf%tracer(jc,jk,jb,iqng) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqg) > 0.0_wp) &
+                        & p_prog_rcf%tracer(jc,jk,jb,iqng) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqg))
+!                   IF (p_prog_rcf%tracer(jc,jk,jb,iqnh) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqh) > 0.0_wp) &
+!                        & p_prog_rcf%tracer(jc,jk,jb,iqnh) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqh))                   
+                ENDDO
+             ENDDO
+          ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+       ENDIF
+    CASE DEFAULT
+       ! Nothing to do for other schemes
+    END SELECT
+
+    ! exclude boundary interpolation zone of nested domains
+    i_rlstart = grf_bdywidth_c+1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
     ! Some run time diagnostics (can also be used for other schemes)
     IF (msg_level>10 .AND. &
@@ -137,7 +183,7 @@ CONTAINS
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, rl_start, rl_end)
+          &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
 
         IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 2) THEN

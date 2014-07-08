@@ -1178,8 +1178,12 @@ CONTAINS
 
 
     ! Local variables
-    REAL(wp) :: qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax
-    REAL(wp) :: qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin
+    REAL(wp), DIMENSION(p_patch%nblks_c) ::                                              &
+         & qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax,  &
+         & qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin
+    REAL(wp) ::                                                                          &
+         & qvmaxi, qcmaxi, qrmaxi, qimaxi, qsmaxi, qhmaxi, qgmaxi, tmaxi, wmaxi, qncmaxi, qnimaxi,  &
+         & qvmini, qcmini, qrmini, qimini, qsmini, qhmini, qgmini, tmini, wmini, qncmini, qnimini
 
     ! loop indices
     INTEGER :: jc,jk,jb,jg
@@ -1238,33 +1242,33 @@ CONTAINS
 
       DO jk = 1, nlev
          DO jc = i_startidx, i_endidx
-            wmax  = MAX(wmax, p_prog%w(jc,jk,jb))
-            wmin  = MIN(wmin, p_prog%w(jc,jk,jb))
-            tmax  = MAX(tmax, p_diag%temp(jc,jk,jb))
-            tmin  = MIN(tmin, p_diag%temp(jc,jk,jb))
-            qvmax = MAX(qvmax,p_prog_rcf%tracer(jc,jk,jb,iqv))
-            qvmin = MIN(qvmin,p_prog_rcf%tracer(jc,jk,jb,iqv))
-            qcmax = MAX(qcmax,p_prog_rcf%tracer(jc,jk,jb,iqc))
-            qcmin = MIN(qcmin,p_prog_rcf%tracer(jc,jk,jb,iqc))
-            qrmax = MAX(qrmax,p_prog_rcf%tracer(jc,jk,jb,iqr))
-            qrmin = MIN(qrmin,p_prog_rcf%tracer(jc,jk,jb,iqr))
-            qimax = MAX(qimax,p_prog_rcf%tracer(jc,jk,jb,iqi))
-            qimin = MIN(qimin,p_prog_rcf%tracer(jc,jk,jb,iqi))
-            qsmax = MAX(qsmax,p_prog_rcf%tracer(jc,jk,jb,iqs))
-            qsmin = MIN(qsmin,p_prog_rcf%tracer(jc,jk,jb,iqs))
+            wmax(jb)  = MAX(wmax(jb), p_prog%w(jc,jk,jb))
+            wmin(jb)  = MIN(wmin(jb), p_prog%w(jc,jk,jb))
+            tmax(jb)  = MAX(tmax(jb), p_diag%temp(jc,jk,jb))
+            tmin(jb)  = MIN(tmin(jb), p_diag%temp(jc,jk,jb))
+            qvmax(jb) = MAX(qvmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqv))
+            qvmin(jb) = MIN(qvmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqv))
+            qcmax(jb) = MAX(qcmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqc))
+            qcmin(jb) = MIN(qcmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqc))
+            qrmax(jb) = MAX(qrmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqr))
+            qrmin(jb) = MIN(qrmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqr))
+            qimax(jb) = MAX(qimax(jb),p_prog_rcf%tracer(jc,jk,jb,iqi))
+            qimin(jb) = MIN(qimin(jb),p_prog_rcf%tracer(jc,jk,jb,iqi))
+            qsmax(jb) = MAX(qsmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqs))
+            qsmin(jb) = MIN(qsmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqs))
             
             IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
                  & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
-               qgmax = MAX(qgmax,p_prog_rcf%tracer(jc,jk,jb,iqg))
-               qgmin = MIN(qgmin,p_prog_rcf%tracer(jc,jk,jb,iqg))
-               qhmax = MAX(qhmax,p_prog_rcf%tracer(jc,jk,jb,iqh))
-               qhmin = MIN(qhmin,p_prog_rcf%tracer(jc,jk,jb,iqh))
+               qgmax(jb) = MAX(qgmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
+               qgmin(jb) = MIN(qgmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
+               qhmax(jb) = MAX(qhmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
+               qhmin(jb) = MIN(qhmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
-               qncmax = MAX(qncmax,p_prog_rcf%tracer(jc,jk,jb,iqnc))
-               qncmin = MIN(qncmin,p_prog_rcf%tracer(jc,jk,jb,iqnc))
-               qnimax = MAX(qnimax,p_prog_rcf%tracer(jc,jk,jb,iqni))
-               qnimin = MIN(qnimin,p_prog_rcf%tracer(jc,jk,jb,iqni))
+               qncmax(jb) = MAX(qncmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqnc))
+               qncmin(jb) = MIN(qncmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqnc))
+               qnimax(jb) = MAX(qnimax(jb),p_prog_rcf%tracer(jc,jk,jb,iqni))
+               qnimin(jb) = MIN(qnimin(jb),p_prog_rcf%tracer(jc,jk,jb,iqni))
             END IF
          ENDDO
       ENDDO
@@ -1273,33 +1277,62 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    ! Take maximum/minimum over all PEs
-    wmax  = global_max(wmax)
-    wmin  = global_min(wmin)
-    tmax  = global_max(tmax)
-    tmin  = global_min(tmin)
-    qvmax = global_max(qvmax)
-    qvmin = global_min(qvmin)
-    qcmax = global_max(qcmax)
-    qcmin = global_min(qcmin)
-    qrmax = global_max(qrmax)
-    qrmin = global_min(qrmin)
-    qimax = global_max(qimax)
-    qimin = global_min(qimin)
-    qsmax = global_max(qsmax)
-    qsmin = global_min(qsmin)
+    ! Take maximum/minimum over blocks
+    wmaxi = MAXVAL(wmax(i_startblk:i_endblk))
+    wmini = MAXVAL(wmin(i_startblk:i_endblk))
+    tmaxi  = MAXVAL(tmax(i_startblk:i_endblk))
+    tmini  = MINVAL(tmin(i_startblk:i_endblk))
+    qvmaxi = MAXVAL(qvmax(i_startblk:i_endblk))
+    qvmini = MINVAL(qvmin(i_startblk:i_endblk))
+    qcmaxi = MAXVAL(qcmax(i_startblk:i_endblk))
+    qcmini = MINVAL(qcmin(i_startblk:i_endblk))
+    qrmaxi = MAXVAL(qrmax(i_startblk:i_endblk))
+    qrmini = MINVAL(qrmin(i_startblk:i_endblk))
+    qimaxi = MAXVAL(qimax(i_startblk:i_endblk))
+    qimini = MINVAL(qimin(i_startblk:i_endblk))
+    qsmaxi = MAXVAL(qsmax(i_startblk:i_endblk))
+    qsmini = MINVAL(qsmin(i_startblk:i_endblk))
     IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
          & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
-       qgmax = global_max(qgmax)
-       qgmin = global_min(qgmin)
-       qhmax = global_max(qhmax)
-       qhmin = global_min(qhmin)
+       qgmaxi = MAXVAL(qgmax(i_startblk:i_endblk))
+       qgmini = MINVAL(qgmin(i_startblk:i_endblk))
+       qhmaxi = MAXVAL(qhmax(i_startblk:i_endblk))
+       qhmini = MINVAL(qhmin(i_startblk:i_endblk))
     END IF
     IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
-       qncmax = global_max(qncmax)
-       qncmin = global_min(qncmin)
-       qnimax = global_max(qnimax)
-       qnimin = global_min(qnimin)
+       qncmaxi = MAXVAL(qncmax(i_startblk:i_endblk))
+       qncmini = MINVAL(qncmin(i_startblk:i_endblk))
+       qnimaxi = MAXVAL(qnimax(i_startblk:i_endblk))
+       qnimini = MINVAL(qnimin(i_startblk:i_endblk))
+    END IF
+
+    ! Take maximum/minimum over all PEs
+    wmaxi  = global_max(wmaxi)
+    wmini  = global_min(wmini)
+    tmaxi  = global_max(tmaxi)
+    tmini  = global_min(tmini)
+    qvmaxi = global_max(qvmaxi)
+    qvmini = global_min(qvmini)
+    qcmaxi = global_max(qcmaxi)
+    qcmini = global_min(qcmini)
+    qrmaxi = global_max(qrmaxi)
+    qrmini = global_min(qrmini)
+    qimaxi = global_max(qimaxi)
+    qimini = global_min(qimini)
+    qsmaxi = global_max(qsmaxi)
+    qsmini = global_min(qsmini)
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
+         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+       qgmaxi = global_max(qgmaxi)
+       qgmini = global_min(qgmini)
+       qhmaxi = global_max(qhmaxi)
+       qhmini = global_min(qhmini)
+    END IF
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+       qncmaxi = global_max(qncmaxi)
+       qncmini = global_min(qncmini)
+       qnimaxi = global_max(qnimaxi)
+       qnimini = global_min(qnimini)
     END IF
 
     ! Standard output
@@ -1307,23 +1340,23 @@ CONTAINS
     CASE(1)
        WRITE(message_text,'(A10,8A11)')   '  var: ', 'w','qv','qc','qr','qi','qs'
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,8E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax
+       WRITE(message_text,'(A10,8E11.3)') '  max: ', wmaxi,qvmaxi,qcmaxi,qrmaxi,qimaxi,qsmaxi
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,8E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin
+       WRITE(message_text,'(A10,8E11.3)') '  min: ', wmini,qvmini,qcmini,qrmini,qimini,qsmini
        CALL message("",TRIM(message_text))
     CASE(4)
        WRITE(message_text,'(A10,9A11)')   '  var: ', 'w','qv','qc','qr','qi','qs','qg','qh','temp'
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,9E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,tmax
+       WRITE(message_text,'(A10,9E11.3)') '  max: ', wmaxi,qvmaxi,qcmaxi,qrmaxi,qimaxi,qsmaxi,qgmaxi,qhmaxi,tmaxi
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,9E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin,tmin
+       WRITE(message_text,'(A10,9E11.3)') '  min: ', wmini,qvmini,qcmini,qrmini,qimini,qsmini,qgmini,qhmini,tmini
        CALL message("",TRIM(message_text))
     CASE(5)
        WRITE(message_text,'(A10,10A11)')   '  var: ', 'w','qv','qc','qr','qi','qs','qg','qh','qnc','qni'
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,10E11.3)') '  max: ', wmax,qvmax,qcmax,qrmax,qimax,qsmax,qgmax,qhmax,qncmax,qnimax
+       WRITE(message_text,'(A10,10E11.3)') '  max: ', wmaxi,qvmaxi,qcmaxi,qrmaxi,qimaxi,qsmaxi,qgmaxi,qhmaxi,qncmaxi,qnimaxi
        CALL message("",TRIM(message_text))
-       WRITE(message_text,'(A10,10E11.3)') '  min: ', wmin,qvmin,qcmin,qrmin,qimin,qsmin,qgmin,qhmin,qncmin,qnimin
+       WRITE(message_text,'(A10,10E11.3)') '  min: ', wmini,qvmini,qcmini,qrmini,qimini,qsmini,qgmini,qhmini,qncmini,qnimini
        CALL message("",TRIM(message_text))       
     CASE DEFAULT       
           CALL finish('nwp_diag_output_minmax_micro', 'Cloud microphysics scheme not yet known in diagnostics.')

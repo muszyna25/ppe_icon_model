@@ -35,7 +35,7 @@ MODULE mo_nh_nest_utilities
   USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
   USE mo_dynamics_config,     ONLY: nnow, nsav1, nnow_rcf
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iforcing
+  USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iqi, iqs, iforcing
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf
@@ -1461,8 +1461,10 @@ CONTAINS
             p_diag%grf_tend_tracer(jc,jk,jb,iqv) = wfac_old*p_latbc_old%qv(jc,jk,jb) + &
               wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
             ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid
-            ! runaway effects
-            IF (p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp) THEN
+            ! runaway effects (now including qi and qs for ice clouds)
+            IF (p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp          &
+                 & .OR. p_prog_rcf%tracer(jc,jk,jb,iqi) > 1.e-10_wp  &
+                 & .OR. p_prog_rcf%tracer(jc,jk,jb,iqs) > 1.e-10_wp) THEN
               p_diag%grf_tend_tracer(jc,jk,jb,iqv) = MIN(0._wp,p_diag%grf_tend_tracer(jc,jk,jb,iqv))
             ENDIF
           ENDDO
