@@ -59,6 +59,7 @@ echo "usage: ${COMMAND} [-e] [-h] [-m $MOD_ARG] [-o yes|no] [-r <reference model
 echo '-e : experiment:'
 echo '     r2b4_amip (hydrostatic amip experiment) (default)'
 echo '     mtest_nat_rce_cbl_120km_nwp (non-hydrostatic, radiative-convective equilibrium, nwp physics, torus grid'
+echo '     atm_amip_r2b4 (non-hydrostatic AMIP experiment)'
 echo '-f : '"'yes'"': force make_runscripts even if runscripts exist'
 echo '     '"'no'"': perform make_runscripts only if no runscripts are available (default)'
 echo '-h : display help'
@@ -101,7 +102,7 @@ for TYPE in $TYPES; do
     cdo remapdis,${RESOL} diff_${DEXP2}-${DEXP1}_${TYPE}.nc diff_${DEXP2}-${DEXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
   else
     if [ -f "${REMAP_FILE}" ]; then
-      cdo remap,${RESOL},${REMAP_FILE} diff_${DEXP2}-${DEXP1}_${TYPE}.nc diff_${DEXP2}-${DEXP1}_${TYPE}_${RESOL}.nc 1> /dev/null 2> /dev/null
+      cdo remap,${RESOL},${REMAP_FILE} diff_${DEXP2}-${DEXP1}_${TYPE}.nc diff_${DEXP2}-${DEXP1}_${TYPE}_${RESOL}.nc > /dev/null 2> /dev/null
     fi
   fi
   if [ -f test$$.dat ]; then
@@ -172,7 +173,7 @@ MODES="b u r n m o ur un um uo rn rm ro nm no mo urn urm uro unm uno umo rnm rno
 while getopts ":e:f:hm:o:r:" OPT; do
 case $OPT in
  e  ) EXPERIMENT=$OPTARG
-      if [ "$EXPERIMENT" != 'r2b4_amip' -a "$EXPERIMENT" != 'mtest_nat_rce_cbl_120km_nwp' ]; then
+      if [ "$EXPERIMENT" != 'r2b4_amip' -a "$EXPERIMENT" != 'mtest_nat_rce_cbl_120km_nwp' -a "$EXPERIMENT" != 'atm_amip_r2b4' ]; then
       print_usage $0
       exit 1
       fi
@@ -231,6 +232,13 @@ if [ "${EXPERIMENT}" == 'mtest_nat_rce_cbl_120km_nwp' ]; then
   RESOL='r320x20'
   REMAP_FILE=''
   RESTART_DATE='20080801T003000Z'
+fi
+if [ "${EXPERIMENT}" == 'atm_amip_r2b4' ]; then
+  TYPES='lnd_phy_rmb_ml atm_phy_tend_wind_rmb_ml atm_phy_tend_trac_rmb_ml atm_dyn_rmb_hl atm_dyn_rmb_ml atm_phy_rmb_ml atm_phy_tend_temp_rmb_ml'
+  DATES='19790101T004000Z 19790101T005000Z 19790101T010000Z'
+  RESOL='t63grid'
+  REMAP_FILE='/pool/data/ICON/grids/private/r2b4_amip/remapdis_r2b4_amip_cell_t63grid.nc'
+  RESTART_DATE='19790101T003000Z'
 fi
 echo $MD
 print_mode $MD
