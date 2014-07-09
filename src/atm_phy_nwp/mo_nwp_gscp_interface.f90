@@ -109,6 +109,8 @@ CONTAINS
     INTEGER :: jc,jb,jg,jk               !<block indices
 
     REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
+    LOGICAL  :: l_nest_other_micro
+    LOGICAL  :: ltwomoment
 
     ! local variables
     !
@@ -117,22 +119,35 @@ CONTAINS
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1 !CK<
-    
+
     ! domain ID
     jg = p_patch%id
 
+    ! logical for SB two-moment scheme
+    ltwomoment = ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 )
+
     ! boundary conditions for number densities
+    IF (jg > 1) THEN
+       IF (atm_phy_nwp_config(jg)%inwp_gscp .ne. atm_phy_nwp_config(jg-1)%inwp_gscp) THEN
+          l_nest_other_micro = .true.
+       ELSE
+          l_nest_other_micro = .false.
+       END IF
+    ELSE
+      l_nest_other_micro = .false. 
+    END IF
 
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
     CASE(4,5)
 
        ! Update lateral boundaries of nested domains
-       IF (l_limited_area &
-            & .OR. (jg > 1 .and. atm_phy_nwp_config(jg)%inwp_gscp .ne. atm_phy_nwp_config(jg-1)%inwp_gscp)) THEN
+       IF (l_limited_area .OR. l_nest_other_micro) THEN
+
+          IF (msg_level > 10) &
+               & CALL message('mo_nwp_gscp_interface: ',"lateral boundaries for number densities")
 
           i_rlstart  = 1
           i_rlend    = grf_bdywidth_c
-
           i_startblk = p_patch%cells%start_blk(i_rlstart,1)
           i_endblk   = p_patch%cells%end_blk(i_rlend,1)
 
@@ -145,22 +160,19 @@ CONTAINS
              
              DO jk = 1, nlev
                 DO jc = i_startidx, i_endidx
-                   IF (p_prog_rcf%tracer(jc,jk,jb,iqnr) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqr) > 0.0_wp) &
-                        & p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr))
-                   IF (p_prog_rcf%tracer(jc,jk,jb,iqni) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqi) > 0.0_wp) &
-                        & p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi))
-                   IF (p_prog_rcf%tracer(jc,jk,jb,iqns) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqs) > 0.0_wp) &
-                        & p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs))
-                   IF (p_prog_rcf%tracer(jc,jk,jb,iqng) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqg) > 0.0_wp) &
-                        & p_prog_rcf%tracer(jc,jk,jb,iqng) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqg))
-!                   IF (p_prog_rcf%tracer(jc,jk,jb,iqnh) == 0.0_wp .AND. p_prog_rcf%tracer(jc,jk,jb,iqh) > 0.0_wp) &
-!                        & p_prog_rcf%tracer(jc,jk,jb,iqnh) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqh))                   
+                   p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr))
+                   p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi))
+                   p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs))
+                   p_prog_rcf%tracer(jc,jk,jb,iqng) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqg))
+!                  p_prog_rcf%tracer(jc,jk,jb,iqnh) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqh))                   
                 ENDDO
              ENDDO
           ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
        ENDIF
+    CASE (3)
+       ! do something for QNI in case of gscp=3
     CASE DEFAULT
        ! Nothing to do for other schemes
     END SELECT
@@ -173,8 +185,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
     ! Some run time diagnostics (can also be used for other schemes)
-    IF (msg_level>10 .AND. &
-         & ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 )) THEN
+    IF (msg_level>10 .AND. ltwomoment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
@@ -477,8 +488,7 @@ CONTAINS
 !$OMP END PARALLEL
  
     ! Some more run time diagnostics (can also be used for other schemes)
-    IF (msg_level>10 .AND. &
-         & ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 )) THEN
+    IF (msg_level>10 .AND. ltwomoment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
