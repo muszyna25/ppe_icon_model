@@ -123,7 +123,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
-  USE mo_initicon_config,          ONLY: init_mode
+  USE mo_initicon_config,          ONLY: init_mode, dt_shift
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
   USE mo_nh_latbc,                 ONLY: prepare_latbc_data , read_latbc_data, &
@@ -259,6 +259,7 @@ MODULE mo_nh_stepping
     CALL diag_for_output_dyn (linit=.FALSE.)
   ELSE
     CALL diag_for_output_dyn (linit=.TRUE.)
+    IF (dt_shift < 0._wp) time_config%sim_time(:) = dt_shift
   ENDIF
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
   DO jg=1, n_dom
@@ -326,7 +327,7 @@ MODULE mo_nh_stepping
   !------------------------------------------------------------------
   !  get and write out some of the initial values
   !------------------------------------------------------------------
-  IF (.NOT.is_restart_run()) THEN
+  IF (.NOT.is_restart_run() .AND. time_config%sim_time(1) >= 0._wp) THEN
 
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
@@ -415,7 +416,7 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: nsoil(n_dom), nsnow, i
   REAL(wp)                             :: elapsed_time_global
-  INTEGER                              :: jstep0 ! start counter for time loop
+  INTEGER                              :: jstep0, jstep_shift ! start counter for time loop
   INTEGER, ALLOCATABLE                 :: output_jfile(:)
 
 !!$  INTEGER omp_get_num_threads
@@ -451,6 +452,16 @@ MODULE mo_nh_stepping
   ! MPI communication from now on. 
   IF (test_mode > 0) iorder_sendrecv = 0
 
+  IF (dt_shift < 0._wp) THEN
+    jstep_shift = NINT(dt_shift/dtime)
+    WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
+    CALL message(TRIM(routine),message_text)
+    CALL add_time(dt_shift,0,0,0,datetime)
+    atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
+  ELSE
+    jstep_shift = 0
+  ENDIF
+
   datetime_old = datetime
 
   IF (use_async_restart_output) THEN
@@ -464,23 +475,26 @@ MODULE mo_nh_stepping
     CALL get_restart_attribute("jstep", jstep0)
   END IF
 
-  TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
+  TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
 
     CALL add_time(dtime,0,0,0,datetime)
 
     ! store state of output files for restarting purposes
-    IF (output_mode%l_nml) THEN
+    IF (output_mode%l_nml .AND. jstep>=0 ) THEN
       DO i=1,SIZE(output_file)
         output_jfile(i) = get_current_jfile(output_file(i)%out_event)
       END DO
     ENDIF
+
+    ! turn on calculation of averaged and accumulated quantities at the first regular time step
+    IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
     IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
     IF (msg_level > 2) THEN
-      lprint_timestep = MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8
+      lprint_timestep = ABS(MOD(jstep,iadv_rcf)) == 1 .OR. msg_level >= 8
     ELSE
       lprint_timestep = MOD(jstep,100) == 0
     ENDIF
@@ -549,36 +563,36 @@ MODULE mo_nh_stepping
 ! end SST and sea ice fraction update
 
     ! Print control output for maximum horizontal and vertical wind speed
-    IF (msg_level >= 5 .AND. MOD(jstep,iadv_rcf) == 1 .OR. msg_level >= 8) THEN 
+    IF (msg_level >= 5 .AND. ABS(MOD(jstep,iadv_rcf)) == 1 .OR. msg_level >= 8) THEN 
       CALL print_maxwinds(p_patch(1), p_nh_state(1)%prog(nnow(1))%vn, p_nh_state(1)%prog(nnow(1))%w)
     ENDIF
 
     ! Store first old exner pressure
     ! (to prepare some kind of divergence damping, or to account for
     ! physically based 'implicit weights' in forward backward time stepping)
-    IF (jstep == (jstep0+1) .AND. .NOT. is_restart_run()) THEN
 !$OMP PARALLEL PRIVATE(jg)
-      DO jg = 1, n_dom
+    DO jg = 1, n_dom
+      IF (linit_dyn(jg)) THEN
 !$OMP WORKSHARE
-        p_nh_state(jg)%diag%exner_old(:,:,:)=&
-        & p_nh_state(jg)%prog(nnow(1))%exner(:,:,:)
+        p_nh_state(jg)%diag%exner_old(:,:,:) = p_nh_state(jg)%prog(nnow(1))%exner(:,:,:)
 !$OMP END WORKSHARE
-      ENDDO
+      ENDIF
+    ENDDO
 !$OMP END PARALLEL
-    ENDIF
+
 
 
     !--------------------------------------------------------------------------
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    l_nml_output   = output_mode%l_nml   .AND. &
+    l_nml_output   = output_mode%l_nml   .AND. jstep >= 0 .AND. &
       &              ((jstep==(nsteps+jstep0)) .OR. &
       &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
       &                  istime4name_list_output(jstep))))
     ! "l_outputtime", "l_diagtime": global flags used by other subroutines
     l_outputtime   = l_nml_output
-    l_diagtime     = (.NOT. output_mode%l_none) .AND. &
+    l_diagtime     = (.NOT. output_mode%l_none) .AND. jstep >= 0 .AND. &
       & ((jstep == (jstep0+1)) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==(nsteps+jstep0)))
 
     ! Computation of diagnostic quantities may also be necessary for
@@ -589,7 +603,7 @@ MODULE mo_nh_stepping
         &          meteogram_is_sample_step(meteogram_output_config(jg), jstep,&
         &          jstep_adv(1)%ntsteps, iadv_rcf)
     END DO
-    l_compute_diagnostic_quants = l_compute_diagnostic_quants .AND. &
+    l_compute_diagnostic_quants = jstep >= 0 .AND. l_compute_diagnostic_quants .AND. &
       &                           .NOT. output_mode%l_none
     
     ! This serves to ensure that postprocessing is executed both immediately after
@@ -613,7 +627,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(datetime, 1, jstep, dtime, dtime_adv, 1)
+    CALL integrate_nh(datetime, 1, jstep-jstep_shift, dtime, dtime_adv, 1)
 
     ldom_active(1:n_dom) = ldom_active(1:n_dom) .OR. p_patch(1:n_dom)%ldom_active
 
@@ -688,10 +702,10 @@ MODULE mo_nh_stepping
     ! - in the very last time step (jstep==nsteps)
 
     kstep = jstep-jstep0
-    l_supervise_total_integrals =(lstep_adv(1) .AND. (kstep <= iadv_rcf)) .OR. &
-      &                           (MOD(jstep,n_diag) == 0)                .OR. &
-      &                           (kstep==nsteps)                         .AND.&
-      &                           (output_mode%l_totint)
+    l_supervise_total_integrals =((lstep_adv(1) .AND. (kstep <= iadv_rcf)) .OR. &
+      &                           (MOD(jstep,n_diag) == 0)                 .OR. &
+      &                           (kstep==nsteps))                         .AND.&
+      &                           (jstep > 0 .AND. output_mode%l_totint)
     IF (kstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
     IF (l_supervise_total_integrals) THEN
@@ -716,7 +730,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (is_checkpoint_time(jstep,n_checkpoint) .AND. .NOT. output_mode%l_none) THEN
+    IF (is_checkpoint_time(jstep,n_checkpoint) .AND. jstep > 0 .AND. .NOT. output_mode%l_none) THEN
       lwrite_checkpoint = .TRUE.
     ENDIF
 
@@ -1090,7 +1104,7 @@ MODULE mo_nh_stepping
         ENDIF
 
         IF (init_mode == MODE_DWDANA_INC) THEN ! incremental analysis mode
-          CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc, dt_loc, lclean_mflx)
+          CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc-dt_shift, dt_loc, lclean_mflx)
         ENDIF
 
         IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN

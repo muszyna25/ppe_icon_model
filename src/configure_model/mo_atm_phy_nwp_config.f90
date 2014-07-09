@@ -93,6 +93,7 @@ MODULE mo_atm_phy_nwp_config
     LOGICAL :: lproc_on(iphysproc) !> contains information about status of 
                                    !! corresponding physical process
                                    !! ON: TRUE; OFF: FALSE
+    LOGICAL :: lcalc_acc_avg       ! TRUE: calculate accumulated and averaged quantities
     
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise

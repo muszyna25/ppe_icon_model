@@ -407,8 +407,9 @@ CONTAINS
         !!
         !-------------------------------------------------------------------------
       
-        SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-        CASE(4,5)
+        IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
+          SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
+          CASE(4,5)
 
 !DIR$ IVDEP
            DO jc =  i_startidx, i_endidx
@@ -430,7 +431,7 @@ CONTAINS
                    &                                     + prm_diag%graupel_gsp_rate (jc,jb) )
            ENDDO
 
-        CASE(2)
+          CASE(2)
 
 !DIR$ IVDEP
            DO jc =  i_startidx, i_endidx
@@ -449,12 +450,12 @@ CONTAINS
    &                                 * ( prm_diag%rain_gsp_rate (jc,jb)   &
    &                                 +   prm_diag%snow_gsp_rate (jc,jb)   &
    &                                 +   prm_diag%graupel_gsp_rate (jc,jb) )
-          ENDDO
+           ENDDO
 
-        CASE DEFAULT
+          CASE DEFAULT
 
 !DIR$ IVDEP
-          DO jc =  i_startidx, i_endidx
+           DO jc =  i_startidx, i_endidx
 
             prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)         & 
    &                                 + tcall_gscp_jg                    &
@@ -466,9 +467,10 @@ CONTAINS
    &                                 +  tcall_gscp_jg                   &
    &                                 * ( prm_diag%rain_gsp_rate (jc,jb) &
    &                                 +   prm_diag%snow_gsp_rate (jc,jb) )
-          ENDDO
+           ENDDO
 
-        END SELECT
+          END SELECT
+        ENDIF
 
       ENDDO
 !$OMP END DO NOWAIT

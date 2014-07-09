@@ -1632,7 +1632,6 @@ CONTAINS
                         & pt_diag,                       & !inout
                         & prm_diag                       ) !inout
 
-
     IF (ltimer) CALL timer_stop(timer_physics)
 
 
@@ -1733,25 +1732,28 @@ CONTAINS
         ENDDO
       ENDDO
 
-!DIR$ IVDEP
-      prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
-        &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
-        &                                  + pdtime                                     &
-        &                                  * prm_diag%rain_con_rate(i_startidx:i_endidx,jb)
-!DIR$ IVDEP
-      prm_diag%snow_con(i_startidx:i_endidx,jb) =                                       &
-        &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)    &
-        &                                  + pdtime                                     &
-        &                                  * prm_diag%snow_con_rate(i_startidx:i_endidx,jb)
+      IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
 
-      !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
 !DIR$ IVDEP
-      prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                       &
-        &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)        &
-        &                              +  pdtime                                        &
-        &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
-        &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
+        prm_diag%rain_con(i_startidx:i_endidx,jb) =                                       &
+          &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)    &
+          &                                  + pdtime                                     &
+          &                                  * prm_diag%rain_con_rate(i_startidx:i_endidx,jb)
+!DIR$ IVDEP
+        prm_diag%snow_con(i_startidx:i_endidx,jb) =                                       &
+          &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)    &
+          &                                  + pdtime                                     &
+          &                                  * prm_diag%snow_con_rate(i_startidx:i_endidx,jb)
 
+        !for grid scale part: see mo_nwp_gscp_interface/nwp_microphysics
+!DIR$ IVDEP
+        prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                       &
+          &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)        &
+          &                              +  pdtime                                        &
+          &                              * (prm_diag%rain_con_rate(i_startidx:i_endidx,jb)&
+          &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
+
+      ENDIF
 
       ! add analysis increments from data assimilation to qv
       !

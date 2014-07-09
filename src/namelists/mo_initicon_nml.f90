@@ -41,6 +41,7 @@ MODULE mo_initicon_nml
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
     & config_filetype           => filetype,          &
     & config_dt_iau             => dt_iau,            &
+    & config_dt_shift           => dt_shift,          &
     & config_type_iau_wgt       => type_iau_wgt,      &
     & config_ana_varlist        => ana_varlist,       &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
@@ -73,6 +74,8 @@ MODULE mo_initicon_nml
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
                             ! Only required for init_mode=MODE_DWDANA_INC
+  REAL(wp) :: dt_shift      ! Allows IAU runs to start earlier than the nominal simulation start date without showing up in the output metadata
+
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
@@ -104,7 +107,7 @@ MODULE mo_initicon_nml
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
                           ifs2icon_filename, dwdfg_filename,                &
-                          dwdana_filename, filetype, dt_iau,                &
+                          dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
                           rho_incr_filter_wgt
   
@@ -146,6 +149,7 @@ CONTAINS
                             ! false: start ICON from first guess file (no analysis) 
   filetype    = -1          ! "-1": undefined
   dt_iau      = 10800._wp   ! 3-hour interval for IAU
+  dt_shift    = 0._wp       ! do not shift actual simulation start backward
   rho_incr_filter_wgt = 0._wp ! density increment filtering turned off
   type_iau_wgt= 1           ! Top-hat weighting function
   ana_varlist = ''          ! list of mandatory analysis fields. This list can include a subset 
@@ -236,6 +240,7 @@ CONTAINS
   config_l_coarse2fine_mode = l_coarse2fine_mode
   config_filetype           = filetype
   config_dt_iau             = dt_iau
+  config_dt_shift           = dt_shift
   config_type_iau_wgt       = type_iau_wgt
   config_ana_varlist        = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file

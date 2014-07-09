@@ -30,6 +30,7 @@ MODULE mo_initicon_config
 
   PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
+  PUBLIC :: dt_shift
   PUBLIC :: type_iau_wgt
   PUBLIC :: l_sst_in
   PUBLIC :: lread_ana     
@@ -68,6 +69,8 @@ MODULE mo_initicon_config
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
                             ! Only required for init_mode=MODE_DWDANA_INC
+  REAL(wp) :: dt_shift      ! Allows IAU runs to start earlier than the nominal simulation start date without showing up in the output metadata
+
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
