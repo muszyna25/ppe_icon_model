@@ -29,7 +29,7 @@ MODULE mo_oce_forcing
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
-    & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,             &
+    & basin_center_lat, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno, &
     & init_oce_relax, type_3dimRelax_Salt, type_3dimRelax_Temp,                     &
     & type_surfRelax_Salt, type_surfRelax_Temp,                                     &
     & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,               &
@@ -767,6 +767,8 @@ CONTAINS
         CALL cells_zonal_and_meridional_periodic_constant_amplitude_cosin(subset, mask, threshold, windstress, amplitude)
       CASE(111)
         CALL Wolfe_Cessi_TestCase(subset, mask, threshold, windstress, amplitude)
+      CASE(112)       ! basin setup, zonally changed for Abernathey test case
+        CALL basin_zonal_zeroOutside(subset,mask,threshold,windstress,amplitude,length)
       END SELECT
     END SELECT
 
@@ -795,6 +797,34 @@ CONTAINS
     field_2d(:,:) = MERGE(amplitude * COS(zonal_waveno*pi*(lat(:,:)-length)/length),0.0_wp,mask(:,:) <= threshold)
 
   END SUBROUTINE basin_zonal
+
+  SUBROUTINE basin_zonal_zeroOutside(subset, mask, threshold, field_2d, amplitude, center_opt, length_opt, zonal_waveno_opt)
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    INTEGER,  INTENT(IN)             :: mask(:,:)
+    INTEGER, INTENT(IN)              :: threshold
+    REAL(wp),INTENT(INOUT)           :: field_2d(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+    REAL(wp), INTENT(IN) , OPTIONAL  :: center_opt,length_opt,zonal_waveno_opt
+
+    REAL(wp) :: center, length, zonal_waveno
+    REAL(wp) :: lat(nproma,subset%patch%alloc_cell_blocks), lon(nproma,subset%patch%alloc_cell_blocks)
+
+    center = basin_center_lat * deg2rad
+    length = basin_height_deg * deg2rad
+    zonal_waveno = forcing_windstress_zonal_waveno
+
+    CALL assign_if_present(center,center_opt)
+    CALL assign_if_present(length,length_opt)
+    CALL assign_if_present(zonal_waveno,zonal_waveno_opt)
+
+    lat(:,:) = subset%patch%cells%center(:,:)%lat
+    lon(:,:) = subset%patch%cells%center(:,:)%lon
+
+    field_2d(:,:) = MERGE(amplitude * COS(zonal_waveno*pi*(lat(:,:)-center)/length),0.0_wp,mask(:,:) <= threshold)
+    field_2d(:,:) = MERGE(field_2d(:,:),0.0_wp, lat(:,:) > center-0.5_wp*length)
+    field_2d(:,:) = MERGE(field_2d(:,:),0.0_wp, lat(:,:) < center+0.5_wp*length)
+
+  END SUBROUTINE basin_zonal_zeroOutside
 
   SUBROUTINE basin_meridional(subset, mask, threshold, field_2d, amplitude,length_opt,meridional_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
