@@ -1602,6 +1602,13 @@ Time interval during which an incremental analysis update (IAU) is performed &
 init\_mode=5
 \tabularnewline
 
+dt\_shift&
+R & 0 & s &
+Time by which the actual model start time is shifted ahead of the nominal date.
+Must be NEGATIVE, usually $- 0.5$ dt\_iau. &
+init\_mode=5
+\tabularnewline
+
 rho\_incr\_filter\_wgt &
 R & 0 & s &
 Vertical filtering weight on density increments &
