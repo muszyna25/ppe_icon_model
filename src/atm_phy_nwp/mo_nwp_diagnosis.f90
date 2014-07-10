@@ -116,10 +116,12 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
 
+    REAL(wp):: rhodz(nproma,pt_patch%nlev)   ! rho times delta z
     REAL(wp):: z_help, r_sim_time
     REAL(wp):: t_wgt                   !< weight for running time average
 
-    INTEGER :: jc,jk,jb,jg      !block index
+    INTEGER :: jc,jk,jb,jg      ! block index
+    INTEGER :: jt               ! tracer loop index
     INTEGER :: jk_max
     INTEGER :: kstart_moist
     INTEGER :: ih_clch, ih_clcm
@@ -346,22 +348,32 @@ CONTAINS
     ! Vertical integrals are computed for all mass concentrations.
     ! Number concentrations are skipped.
     !
-!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_help) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jt,jc,jk,jb,i_startidx,i_endidx,rhodz) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
-      pt_diag%tracer_vi(i_startidx:i_endidx,jb,1:iqm_max) = 0.0_wp
+      ! pre-computation of rho * \Delta z
       DO jk = kstart_moist, nlev
         DO jc = i_startidx, i_endidx 
-
-          z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
-          pt_diag%tracer_vi(jc, jb,1:iqm_max) = pt_diag%tracer_vi(jc, jb,1:iqm_max)   &
-            &                       + z_help * pt_prog_rcf%tracer(jc,jk,jb,1:iqm_max) 
-
+          rhodz(jc,jk) = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
         ENDDO
       ENDDO
+
+      DO jt = 1, iqm_max
+        pt_diag%tracer_vi(i_startidx:i_endidx,jb,jt) = 0.0_wp
+
+        DO jk = kstart_moist, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx 
+
+            pt_diag%tracer_vi(jc,jb,jt) = pt_diag%tracer_vi(jc,jb,jt)   &
+              &                + rhodz(jc,jk) * pt_prog_rcf%tracer(jc,jk,jb,jt) 
+
+          ENDDO  ! jc
+        ENDDO  ! jk
+      ENDDO  ! jt
 
     ENDDO ! nblks   
 !$OMP END DO
@@ -433,15 +445,26 @@ CONTAINS
           prm_diag%clct_avg(jc,jb) = time_avg(prm_diag%clct_avg(jc,jb), &
             &                                 prm_diag%clct    (jc,jb), &
             &                                 t_wgt)
+        ENDDO  ! jc
 
-          ! time averaged TQV, TQC, TQI, TQR, TQS  
-          pt_diag%tracer_vi_avg(jc,jb,1:iqm_max) = (1._wp - t_wgt)*pt_diag%tracer_vi_avg(jc,jb,1:iqm_max) &
-            &                              + t_wgt * pt_diag%tracer_vi(jc,jb,1:iqm_max)
+        ! time averaged tracer vertical integrals (mass concentrations only)  
+        DO jt = 1, iqm_max
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            pt_diag%tracer_vi_avg(jc,jb,jt) = (1._wp - t_wgt)*pt_diag%tracer_vi_avg(jc,jb,jt) &
+              &                              + t_wgt * pt_diag%tracer_vi(jc,jb,jt)
+          ENDDO  ! jc
+        ENDDO  ! jt
 
-          ! time averaged TQV_DIA, TQC_DIA, TQI_DIA
-          prm_diag%tot_cld_vi_avg(jc,jb,1:3) = (1._wp - t_wgt)*prm_diag%tot_cld_vi_avg(jc,jb,1:3) &
-            &                                + t_wgt * prm_diag%tot_cld_vi(jc,jb,1:3)
-        ENDDO
+       ! time averaged TQV_DIA, TQC_DIA, TQI_DIA
+       DO jt = 1, 3
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          prm_diag%tot_cld_vi_avg(jc,jb,jt) = (1._wp - t_wgt)*prm_diag%tot_cld_vi_avg(jc,jb,jt) &
+            &                                + t_wgt * prm_diag%tot_cld_vi(jc,jb,jt)
+         ENDDO
+       ENDDO  ! jt
+
 
         !Add more precip vars in case of two moment microphysics
         IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
