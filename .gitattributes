@@ -769,6 +769,7 @@ run/exp.nh_weisman_klemp -text
 run/exp.oce_4dwd -text
 run/exp.oce_AquaAtlanticBox_0079km -text
 run/exp.oce_Earth_10km_zonalWind_TemperatureRelax -text
+run/exp.oce_SmallBoxACC_0080km -text
 run/exp.oce_aqpl -text
 run/exp.oce_channel -text
 run/exp.oce_default -text
