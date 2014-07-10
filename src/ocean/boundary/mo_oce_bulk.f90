@@ -430,7 +430,7 @@ CONTAINS
       atmos_fluxes%topBoundCond_windStress_v(:,:) = atmos_fluxes%stress_yw(:,:)
      
       !  - no temperature relaxation
-      type_surfRelax_Temp = 0   !  hack
+      type_surfRelax_Temp = 0   !  hack - for OMIP-type only
 
       !  - apply net surface heat flux in W/m2
       DO jb = all_cells%start_block, all_cells%end_block

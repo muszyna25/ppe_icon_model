@@ -32,10 +32,12 @@ MODULE mo_ocean_initial_conditions
   USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf! , SItodBar, rho_ref
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, i_sea_ice,     &
-    & basin_center_lat, basin_center_lon, discretization_scheme,           &
-    & basin_height_deg,  basin_width_deg,  use_file_initialConditions,         &
+  USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, i_sea_ice,            &
+    & basin_center_lat, basin_center_lon, basin_height_deg,  basin_width_deg,         &
     & initial_temperature_bottom, initial_temperature_top, initial_temperature_shift, &
+    & initial_temperature_north, initial_temperature_south,                           &
+    & initial_temperature_scale_depth,                                                &
+    & discretization_scheme, use_file_initialConditions,                              &
     & initial_salinity_top, initial_salinity_bottom, &
     & use_tracer_x_height, topography_type, topography_height_reference, &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
@@ -548,6 +550,13 @@ CONTAINS
       CALL temperature_smoothAPE_LinearLevels(patch_3d, ocean_temperature)
 
     !------------------------------
+    CASE (214)
+      CALL SST_LinearMeridional(patch_3d, ocean_temperature)
+      !  exponential temperature profile following Abernathey et al., 2011
+      CALL varyTracerVerticallyExponentially(patch_3d, ocean_temperature, initial_temperature_bottom, &
+        &                                    initial_temperature_scale_depth)
+
+    !------------------------------
     CASE (401)
       ! assign from adhoc array values
       IF(n_zlev==4)THEN
@@ -690,7 +699,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -730,7 +739,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -782,7 +791,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -816,7 +825,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -851,7 +860,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
@@ -996,7 +1005,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg
 
@@ -1042,7 +1051,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg
 
@@ -1086,7 +1095,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg
 
@@ -1127,7 +1136,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, z_temp_max
 
@@ -1167,7 +1176,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg
     REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
@@ -1229,7 +1238,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg
     REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
@@ -1291,7 +1300,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
@@ -1330,7 +1339,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp) :: temperature_difference, poleLat, waveNo
 
@@ -1386,7 +1395,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp) :: temperature_difference, poleLat, waveNo
 
@@ -1398,6 +1407,7 @@ CONTAINS
     all_cells => patch_2d%cells%ALL
 
     temperature_difference = initial_temperature_top - initial_temperature_bottom
+    ! #slo#: Caution, there is a mixture of forcing and initialization!
     poleLat = ABS(forcing_temperature_poleLat * deg2rad)
     waveNo = pi_2 / poleLat
 
@@ -1433,6 +1443,50 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE SST_LinearMeridional(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: temperature_difference, basin_northBoundary, basin_southBoundary, lat_diff
+    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':SST_LinearMeridional'
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(method_name), ' using meridional gradient over basin height')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+ !  CALL assign_if_present(length,length_opt)
+
+    lat(:,:) = patch_2d%cells%center(:,:)%lat
+
+    ocean_temperature(:,:,:) = initial_temperature_south
+
+    temperature_difference = initial_temperature_north - initial_temperature_south
+    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
+    lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        jk=1
+        ocean_temperature(jc,jk,jb) = initial_temperature_north - temperature_difference*((basin_northBoundary-lat(jc,jb))/lat_diff)
+        ocean_temperature(jc,jk,jb) = MERGE(ocean_temperature(jc,jk,jb), initial_temperature_north, lat(jc,jb)<basin_northBoundary)
+        ocean_temperature(jc,jk,jb) = MERGE(ocean_temperature(jc,jk,jb), initial_temperature_south, lat(jc,jb)>basin_southBoundary)
+      END DO
+    END DO
+
+  END SUBROUTINE SST_LinearMeridional
+
+  !-------------------------------------------------------------------------------
 !  SUBROUTINE tracer_VerticallyLinearly_IncludeLand(patch_3d, ocean_tracer, top_value, bottom_value)
 !    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
 !    REAL(wp), TARGET :: ocean_tracer(:,:,:)
@@ -1441,7 +1495,7 @@ CONTAINS
 !    TYPE(t_patch),POINTER   :: patch_2d
 !    TYPE(t_subset_range), POINTER :: all_cells
 !
-!    INTEGER :: jb, jc, je, jk
+!    INTEGER :: jb, jc, jk
 !    INTEGER :: start_cell_index, end_cell_index
 !    REAL(wp) :: linear_increase
 !
@@ -1490,7 +1544,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_VerticallyLinearly'
@@ -1525,7 +1579,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp) :: linear_increase
 
@@ -1565,7 +1619,7 @@ CONTAINS
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp) :: linear_increase
 
@@ -1590,6 +1644,53 @@ CONTAINS
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
+  !!  exponential temperature profile following Abernathey et al., 2011
+!<Optimize:inUse>
+  SUBROUTINE varyTracerVerticallyExponentially(patch_3d, ocean_tracer, bottom_value, scale_depth)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: bottom_value
+    REAL(wp), INTENT(in) :: scale_depth
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: bottom_depth, temperature_difference, exp_neghoverH, exp_negzoverH
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    bottom_depth = patch_3d%p_patch_1d(1)%zlev_m(n_zlev)      !  below H is T=T_bot
+    exp_neghoverH = exp((-1.0_wp)*bottom_depth/scale_depth)   !  constant: 1-e**(-H/h)
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        temperature_difference = ocean_tracer(jc,1,jb) - bottom_value
+
+        DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+          exp_negzoverH = exp((-1.0_wp)*patch_3d%p_patch_1d(1)%zlev_m(jk)/scale_depth)
+          ocean_tracer(jc,jk,jb) = bottom_value + &
+            &  temperature_difference*(exp_negzoverH - exp_neghoverH) / (1.0_wp - exp_neghoverH)
+     !      &   EXP((-1.0_wp)*bottom_depth/scale_depth) /                          &
+     !      &   (1.0_wp - exp((-1.0_wp)*bottom_depth/scale_depth)))
+     !      &  (EXP((-1.0_wp)*patch_3d%p_patch_1d(1)%del_zlev_i(jk)/scale_depth) - &
+     !      &   EXP((-1.0_wp)*bottom_depth/scale_depth) /                          &
+     !      &   (1.0_wp - exp((-1.0_wp)*bottom_depth/scale_depth)))
+        END DO
+
+      END DO
+    END DO
+
+  END SUBROUTINE varyTracerVerticallyExponentially
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
   SUBROUTINE temperature_CollapsingDensityFront_WeakGrad(patch_3d, ocean_temperature)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
@@ -1598,7 +1699,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg, z_tmp
     REAL(wp):: z_ldiff, z_ltrop, z_lpol
@@ -1689,7 +1790,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     REAL(wp):: lat_deg, lon_deg, z_tmp
     REAL(wp):: z_ldiff, z_ltrop, z_lpol
@@ -1763,7 +1864,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan, lat_deg, lon_deg
@@ -1816,7 +1917,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
     REAL(wp):: distan
@@ -1882,7 +1983,7 @@ CONTAINS
     TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER :: jb, jc, je, jk
+    INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_BasinWithVerticalWall'

@@ -491,6 +491,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: initial_temperature_top     = 16.0_wp    ! reference temperature used for initialization in testcase 46
   REAL(wp) :: initial_temperature_bottom  = 16.0_wp    ! reference temperature used for initialization in testcase 46
   REAL(wp) :: initial_temperature_shift   =  0.0_wp    ! temperature used for adding meridional temperature gradient
+  REAL(wp) :: initial_temperature_north   =  5.0_wp    ! reference temperature used for initialization Atlantic channel
+  REAL(wp) :: initial_temperature_south   =  0.0_wp    ! reference temperature used for initialization Atlantic channel
+  REAL(wp) :: initial_temperature_scale_depth = 1000.0_wp ! reference scale depth used for initialization Atlantic channel
   REAL(wp) :: initial_salinity_top        = 35.0_wp    ! reference salinity used for initialization in testcase 46
   REAL(wp) :: initial_salinity_bottom     = 35.0_wp    ! reference salinity used for initialization in testcase 46
   !  INTEGER  :: scatter_levels(10)       = 0          ! levels for possible scattering of the constant tracer fields
@@ -513,6 +516,8 @@ MODULE mo_ocean_nml
     & initial_temperature_bottom , &
     & initial_temperature_top    , &
     & initial_temperature_shift  , &
+    & initial_temperature_north  , &
+    & initial_temperature_south  , &
     & initial_salinity_top       , &
     & initial_salinity_bottom    , &
     & initial_salinity_type      , &
