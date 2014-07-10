@@ -1170,7 +1170,7 @@ CONTAINS
     INTEGER  :: nlev, nlevp1             !< number of full and half levels
 
     ! JF: for treatment of sedimentation
-    INTEGER  :: elev                     !< vertical end level
+    INTEGER  :: elev, elev_lim           !< vertical end level
     LOGICAL  :: llbc_adv                 !< apply lower boundary condition?
     INTEGER  :: ik                       !< = MIN(jk,nlev)
 
@@ -1317,6 +1317,7 @@ CONTAINS
     ELSE
       elev = nlev
     END IF
+    elev_lim = nlev
 
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
@@ -1674,12 +1675,12 @@ CONTAINS
         ! semi-monotonic (sm) limiter
         CALL v_ppm_slimiter_sm( p_cc(:,:,jb), z_face(:,:,jb),           & !in
           &                   z_face_up(:,:,jb), z_face_low(:,:,jb),    & !inout
-          &                   i_startidx, i_endidx, slev, elev          ) !in
+          &                   i_startidx, i_endidx, slev, elev_lim      ) !in
       ELSE IF (p_itype_vlimit == islopel_vm) THEN
         ! monotonic (mo) limiter
         CALL v_ppm_slimiter_mo( p_cc(:,:,jb), z_face(:,:,jb), z_slope(:,:,jb), & !in
           &                   z_face_up(:,:,jb), z_face_low(:,:,jb),           & !inout
-          &                   i_startidx, i_endidx, slev, elev                 ) !in
+          &                   i_startidx, i_endidx, slev, elev_lim             ) !in
       ENDIF
 
 
