@@ -336,7 +336,7 @@ CONTAINS
         END SELECT
 
       ENDDO ! nblks
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     END IF !cloud cover
 
