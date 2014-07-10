@@ -1222,6 +1222,9 @@ CONTAINS
     REAL(wp), PARAMETER :: k_1  = 6.00e+2_wp   !..Parameter for Phi
     REAL(wp), PARAMETER :: k_2  = 0.68e+0_wp   !..Parameter fof Phi
     REAL(wp), PARAMETER :: eps  = 1.00e-25_wp
+!$omp threadprivate (firstcall)
+!$omp threadprivate (k_au)
+!$omp threadprivate (k_sc)
 
     IF (isdebug) THEN
       WRITE(txt,*) "autoconversionSB" ; CALL message(routine,TRIM(txt)) 
@@ -1493,8 +1496,10 @@ CONTAINS
     REAL(wp)            :: mue,d_m,gamma_eva,lam,d_vtp,gfak
     REAL(wp)            :: aa,bb,cc,mm
     REAL(wp), SAVE      :: a_q,b_q 
-
     REAL(wp), PARAMETER :: D_br = 1.1e-3_wp
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_q)
+!$omp threadprivate (b_q)
 
     aa = rain_coeffs%alfa
     bb = rain_coeffs%beta
@@ -1608,8 +1613,11 @@ CONTAINS
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,f_v,e_d
-    REAL(wp), SAVE      :: c_g       
-    REAL(wp), SAVE      :: a_f,b_f   
+    REAL(wp), SAVE      :: a_f,b_f,c_g  
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_f)
+!$omp threadprivate (b_f)
+!$omp threadprivate (c_g)
 
     IF (firstcall.NE.1) THEN
       a_f = vent_coeff_a(graupel,1)
@@ -1673,6 +1681,10 @@ CONTAINS
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,f_v,e_d
     REAL(wp), SAVE      :: c_h        
     REAL(wp), SAVE      :: a_f,b_f    
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_f)
+!$omp threadprivate (b_f)
+!$omp threadprivate (c_h)
 
     IF (firstcall.NE.1) THEN
       a_f = vent_coeff_a(hail,1)
@@ -1734,6 +1746,10 @@ CONTAINS
     REAL(wp)            :: q_s,n_s,x_s,d_s,v_s,f_v,e_d
     REAL(wp), SAVE      :: c_s       
     REAL(wp), SAVE      :: a_f,b_f   
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_f)
+!$omp threadprivate (b_f)
+!$omp threadprivate (c_s)
 
     IF (firstcall.NE.1) THEN
       a_f = vent_coeff_a(snow,1)
@@ -1795,6 +1811,8 @@ CONTAINS
     REAL(wp)            :: fr_q,fr_n,T_a,q_c,x_c,n_c,j_hom,T_c
     REAL(wp), SAVE      :: coeff_z
     INTEGER,  SAVE      :: firstcall
+!$omp threadprivate (firstcall)
+!$omp threadprivate (coeff_z)
 
     IF (firstcall.NE.1) THEN
        firstcall = 1
@@ -2235,6 +2253,10 @@ CONTAINS
       REAL(wp)            :: q_i,n_i,x_i,d_i,v_i,f_v
       REAL(wp), SAVE      :: c_i        ! coeff for capacity
       REAL(wp), SAVE      :: a_f,b_f    ! coeffs for ventilation
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_f)
+!$omp threadprivate (b_f)
+!$omp threadprivate (c_i)
 
       IF (firstcall.NE.1) THEN
          c_i = 1.0 / ice%cap
@@ -2283,6 +2305,10 @@ CONTAINS
      REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,f_v
      REAL(wp), SAVE      :: c_g           
      REAL(wp), SAVE      :: a_f,b_f
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_f)
+!$omp threadprivate (b_f)
+!$omp threadprivate (c_g)
      
      IF (firstcall.NE.1) THEN
         c_g = 1.0 / graupel%cap
@@ -2330,6 +2356,10 @@ CONTAINS
       REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,f_v
       REAL(wp), SAVE      :: c_h               
       REAL(wp), SAVE      :: a_f,b_f 
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_f)
+!$omp threadprivate (b_f)
+!$omp threadprivate (c_h)
 
       IF (firstcall.NE.1) THEN
          c_h = 1.0 / hail%cap
@@ -2377,6 +2407,10 @@ CONTAINS
       REAL(wp), SAVE      :: a_f,b_f 
       INTEGER             :: i,k
       INTEGER, SAVE       :: firstcall
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_f)
+!$omp threadprivate (b_f)
+!$omp threadprivate (c_s)
 
       IF (firstcall.NE.1) THEN
         c_s = 1.0 / snow%cap
@@ -2429,17 +2463,21 @@ CONTAINS
     !                                                                              *
     ! incomplete gamma functions are implemented as look-up tables                 *
     !*******************************************************************************
+
     INTEGER             :: i,k
+    REAL(wp)            :: fr_q,fr_n,T_a,q_r,x_r,n_r,j_het,               &
+         &                 fr_q_i,fr_n_i,fr_q_g,fr_n_g,fr_q_h,fr_n_h,n_0, &
+         &                 lam,xmax_ice,xmax_gr,fr_q_tmp,fr_n_tmp
+
+    REAL(wp), PARAMETER :: a_HET = 6.5d-1      ! Data of Barklie and Gokhale (PK S.350)
+    REAL(wp), PARAMETER :: b_HET = 2.0d+2      !         Barklie and Gokhale (PK S.350)
+    REAL(wp), PARAMETER :: eps = 1e-15_wp      ! for clipping
+    LOGICAL,  PARAMETER :: lclipping = .true.   
+
     INTEGER, SAVE       :: firstcall
-    REAL(wp)            :: fr_q,fr_n,T_a,q_r,x_r,n_r,j_het, &
-         &  fr_q_i,fr_n_i,fr_q_g,fr_n_g,fr_q_h,fr_n_h,n_0,lam,xmax_ice,xmax_gr,fr_q_tmp,fr_n_tmp
-    REAL(wp), PARAMETER :: a_HET = 6.5d-1 ! Data of Barklie and Gokhale (PK S.350)
-    REAL(wp), PARAMETER :: b_HET = 2.0d+2 !         Barklie and Gokhale (PK S.350)
-
-    REAL(wp), SAVE             :: coeff_z
-
-    LOGICAL, PARAMETER         :: lclipping = .true.   
-    REAL(wp), PARAMETER        :: eps = 1e-15_wp      ! for clipping
+    REAL(wp), SAVE      :: coeff_z
+!$omp threadprivate (firstcall)
+!$omp threadprivate (coeff_z)
 
     IF (firstcall.NE.1) THEN
       firstcall = 1
@@ -2570,8 +2608,8 @@ CONTAINS
              ELSE
                 ! mit Hagelklasse, gefrierender Regen wird Eis, Graupel oder Hagel
                 q_snow(i,k) = q_snow(i,k)  + fr_q_i
-                n_snow(i,k) = n_snow(i,k)  + fr_n_i
-                !q_ice(i,k) = q_ice(i,k)  + fr_q_i
+                n_snow(i,k) = n_snow(i,k)  + fr_n_i   ! put this into snow 
+                !q_ice(i,k) = q_ice(i,k)  + fr_q_i    ! ... or into ice?
                 !n_ice(i,k) = n_ice(i,k)  + fr_n_i
                 q_graupel(i,k) = q_graupel(i,k)  + fr_q_g
                 n_graupel(i,k) = n_graupel(i,k)  + fr_n_g
@@ -2609,6 +2647,11 @@ CONTAINS
     REAL(wp)            :: theta_q_11,theta_q_12,theta_q_22
     REAL(wp),SAVE       :: delta_n,delta_q
     REAL(wp),SAVE       :: theta_n,theta_q
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n)
+!$omp threadprivate (delta_q)
+!$omp threadprivate (theta_n)
+!$omp threadprivate (theta_q)
 
     IF (isdebug) THEN
       WRITE(txt,*) "ice_selfcollection " ; CALL message(routine,TRIM(txt)) 
@@ -2714,6 +2757,9 @@ CONTAINS
     REAL(wp)            :: theta_n_11,theta_n_12
     REAL(wp),SAVE       :: delta_n
     REAL(wp),SAVE       :: theta_n
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n)
+!$omp threadprivate (theta_n)
 
     IF (isdebug) THEN
       WRITE(txt,*) "snow_selfcollection " ; CALL message(routine,TRIM(txt)) 
@@ -2782,6 +2828,9 @@ CONTAINS
     REAL(wp)            :: melt,melt_v,melt_h,melt_n,melt_q
     REAL(wp)            :: fh_q,fv_q
     REAL(wp), SAVE      :: a_vent,b_vent
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_vent)
+!$omp threadprivate (b_vent)
 
     IF (isdebug) THEN
       WRITE(txt,*) "snow_melting " ; CALL message(routine,TRIM(txt))
@@ -2871,6 +2920,19 @@ CONTAINS
     REAL(wp), SAVE      :: delta_q_gg,delta_q_gs,delta_q_ss
     REAL(wp), SAVE      :: theta_n_gg,theta_n_gs,theta_n_ss
     REAL(wp), SAVE      :: theta_q_gg,theta_q_gs,theta_q_ss
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_gg)
+!$omp threadprivate (delta_n_gs)
+!$omp threadprivate (delta_n_ss)
+!$omp threadprivate (delta_q_gg)
+!$omp threadprivate (delta_q_gs)
+!$omp threadprivate (delta_q_ss)
+!$omp threadprivate (theta_n_gg)
+!$omp threadprivate (theta_n_gs)
+!$omp threadprivate (theta_n_ss)
+!$omp threadprivate (theta_q_gg)
+!$omp threadprivate (theta_q_gs)
+!$omp threadprivate (theta_q_ss)
 
     IF (isdebug) THEN
       WRITE(txt,*) "graupel_snow_collection" ; CALL message(routine,TRIM(txt))
@@ -2968,6 +3030,19 @@ CONTAINS
     REAL(wp), SAVE      :: delta_q_hh,delta_q_hs,delta_q_ss
     REAL(wp), SAVE      :: theta_n_hh,theta_n_hs,theta_n_ss
     REAL(wp), SAVE      :: theta_q_hh,theta_q_hs,theta_q_ss
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_hh)
+!$omp threadprivate (delta_n_hs)
+!$omp threadprivate (delta_n_ss)
+!$omp threadprivate (delta_q_hh)
+!$omp threadprivate (delta_q_hs)
+!$omp threadprivate (delta_q_ss)
+!$omp threadprivate (theta_n_hh)
+!$omp threadprivate (theta_n_hs)
+!$omp threadprivate (theta_n_ss)
+!$omp threadprivate (theta_q_hh)
+!$omp threadprivate (theta_q_hs)
+!$omp threadprivate (theta_q_ss)
 
     IF (isdebug) THEN
       WRITE(txt,*) "hail_snow_collection" ; CALL message(routine,TRIM(txt))
@@ -3065,6 +3140,19 @@ CONTAINS
     REAL(wp), SAVE      :: delta_q_gg,delta_q_gi,delta_q_ii
     REAL(wp), SAVE      :: theta_n_gg,theta_n_gi,theta_n_ii
     REAL(wp), SAVE      :: theta_q_gg,theta_q_gi,theta_q_ii
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_gg)
+!$omp threadprivate (delta_n_gi)
+!$omp threadprivate (delta_n_ii)
+!$omp threadprivate (delta_q_gg)
+!$omp threadprivate (delta_q_gi)
+!$omp threadprivate (delta_q_ii)
+!$omp threadprivate (theta_n_gg)
+!$omp threadprivate (theta_n_gi)
+!$omp threadprivate (theta_n_ii)
+!$omp threadprivate (theta_q_gg)
+!$omp threadprivate (theta_q_gi)
+!$omp threadprivate (theta_q_ii)
 
     IF (isdebug) THEN
       WRITE(txt,*) " graupel_ice_collection" ; CALL message(routine,TRIM(txt))
@@ -3167,6 +3255,19 @@ CONTAINS
     REAL(wp), SAVE      :: delta_q_hh,delta_q_hi,delta_q_ii
     REAL(wp), SAVE      :: theta_n_hh,theta_n_hi,theta_n_ii
     REAL(wp), SAVE      :: theta_q_hh,theta_q_hi,theta_q_ii
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_hh)
+!$omp threadprivate (delta_n_hi)
+!$omp threadprivate (delta_n_ii)
+!$omp threadprivate (delta_q_hh)
+!$omp threadprivate (delta_q_hi)
+!$omp threadprivate (delta_q_ii)
+!$omp threadprivate (theta_n_hh)
+!$omp threadprivate (theta_n_hi)
+!$omp threadprivate (theta_n_ii)
+!$omp threadprivate (theta_q_hh)
+!$omp threadprivate (theta_q_hi)
+!$omp threadprivate (theta_q_ii)
 
     IF (isdebug) THEN
       WRITE(txt,*) "hail_ice_collection" ; CALL message(routine,TRIM(txt))
@@ -3261,6 +3362,19 @@ CONTAINS
     REAL(wp), SAVE      :: delta_q_ss,delta_q_si,delta_q_ii
     REAL(wp), SAVE      :: theta_n_ss,theta_n_si,theta_n_ii
     REAL(wp), SAVE      :: theta_q_ss,theta_q_si,theta_q_ii
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_ss)
+!$omp threadprivate (delta_n_si)
+!$omp threadprivate (delta_n_ii)
+!$omp threadprivate (delta_q_ss)
+!$omp threadprivate (delta_q_si)
+!$omp threadprivate (delta_q_ii)
+!$omp threadprivate (theta_n_ss)
+!$omp threadprivate (theta_n_si)
+!$omp threadprivate (theta_n_ii)
+!$omp threadprivate (theta_q_ss)
+!$omp threadprivate (theta_q_si)
+!$omp threadprivate (theta_q_ii)
 
     IF (isdebug) THEN
       WRITE(txt,*) "snow_ice_collection" ; CALL message(routine,TRIM(txt))
@@ -3354,6 +3468,8 @@ CONTAINS
     REAL(wp)            :: theta_n_11,theta_n_12
     REAL(wp)            :: delta_n, theta_n
     REAL(wp),SAVE       :: coll_n
+!$omp threadprivate (firstcall)
+!$omp threadprivate (coll_n)
 
     IF (isdebug) THEN
       WRITE(txt,*) "graupel_selfcollection" ; CALL message(routine,TRIM(txt)) 
@@ -3465,11 +3581,24 @@ CONTAINS
     REAL(wp)            :: melt_n,melt_q,e_coll_q
     REAL(wp)            :: shed_n,shed_q,x_shed
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
+    REAL(wp)            :: const1,const2,const3,const4
     REAL(wp), SAVE      :: delta_n_gg,delta_n_gc,delta_n_cc
     REAL(wp), SAVE      :: delta_q_gg,delta_q_gc,delta_q_cc
     REAL(wp), SAVE      :: theta_n_gg,theta_n_gc,theta_n_cc
     REAL(wp), SAVE      :: theta_q_gg,theta_q_gc,theta_q_cc
-    REAL(wp)            :: const1,const2,const3,const4
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_gg)
+!$omp threadprivate (delta_n_gc)
+!$omp threadprivate (delta_n_cc)
+!$omp threadprivate (delta_q_gg)
+!$omp threadprivate (delta_q_gc)
+!$omp threadprivate (delta_q_cc)
+!$omp threadprivate (theta_n_gg)
+!$omp threadprivate (theta_n_gc)
+!$omp threadprivate (theta_n_cc)
+!$omp threadprivate (theta_q_gg)
+!$omp threadprivate (theta_q_gc)
+!$omp threadprivate (theta_q_cc)
 
     IF (isdebug) THEN
        WRITE(txt,*) "graupel_cloud_riming" ; CALL message(routine,TRIM(txt)) 
@@ -3619,11 +3748,24 @@ CONTAINS
     REAL(wp)            :: melt_n,melt_q,e_coll_q
     REAL(wp)            :: shed_n,shed_q,x_shed
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
+    REAL(wp)            :: const1,const2,const3,const4
     REAL(wp), SAVE      :: delta_n_hh,delta_n_hc,delta_n_cc
     REAL(wp), SAVE      :: delta_q_hh,delta_q_hc,delta_q_cc
     REAL(wp), SAVE      :: theta_n_hh,theta_n_hc,theta_n_cc
     REAL(wp), SAVE      :: theta_q_hh,theta_q_hc,theta_q_cc
-    REAL(wp)            :: const1,const2,const3,const4
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_hh)
+!$omp threadprivate (delta_n_hc)
+!$omp threadprivate (delta_n_cc)
+!$omp threadprivate (delta_q_hh)
+!$omp threadprivate (delta_q_hc)
+!$omp threadprivate (delta_q_cc)
+!$omp threadprivate (theta_n_hh)
+!$omp threadprivate (theta_n_hc)
+!$omp threadprivate (theta_n_cc)
+!$omp threadprivate (theta_q_hh)
+!$omp threadprivate (theta_q_hc)
+!$omp threadprivate (theta_q_cc)
 
     IF (isdebug) THEN
        WRITE(txt,*) " hail_cloud_riming" ; CALL message(routine,TRIM(txt)) 
@@ -3772,11 +3914,11 @@ CONTAINS
     REAL(wp)            :: q_r,n_r,x_r,d_r,v_r,x_shed
     REAL(wp)            :: rime_n,rime_q,melt_n,melt_q,shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
+    REAL(wp)            :: const3,const4
     REAL(wp), SAVE      :: delta_n_gg,delta_n_gr,delta_n_rr
     REAL(wp), SAVE      :: delta_q_gg,delta_q_gr,delta_q_rg,delta_q_rr
     REAL(wp), SAVE      :: theta_n_gg,theta_n_gr,theta_n_rr
     REAL(wp), SAVE      :: theta_q_gg,theta_q_gr,theta_q_rg,theta_q_rr
-    REAL(wp)            :: const3,const4
 !$omp threadprivate (firstcall)
 !$omp threadprivate (delta_n_gg)
 !$omp threadprivate (delta_n_gr)
@@ -3941,11 +4083,11 @@ CONTAINS
     REAL(wp)            :: q_r,n_r,x_r,d_r,v_r,x_shed
     REAL(wp)            :: rime_n,rime_q,melt_n,melt_q,shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
+    REAL(wp)            :: const3,const4
     REAL(wp), SAVE      :: delta_n_hh,delta_n_hr,delta_n_rr
     REAL(wp), SAVE      :: delta_q_hh,delta_q_hr,delta_q_rr
     REAL(wp), SAVE      :: theta_n_hh,theta_n_hr,theta_n_rr
     REAL(wp), SAVE      :: theta_q_hh,theta_q_hr,theta_q_rr
-    REAL(wp)            :: const3,const4
 !$omp threadprivate (firstcall)
 !$omp threadprivate (delta_n_hh)
 !$omp threadprivate (delta_n_hr)
@@ -5230,19 +5372,17 @@ CONTAINS
     ! Locale Variablen 
     INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
     INTEGER            :: i_lsigs, i_R2
-    REAL(wp)   :: n_c,q_c,rho_a
-    REAL(wp)   :: nuc_n, nuc_q
-    REAL(wp)   :: Ncn, wcb
-    REAL(wp)   :: tab_Ncn(n_ncn),                 & ! look-up-table for Ncn 
+    INTEGER            :: i,k,nuc_typ
+    REAL(wp)           :: n_c,q_c,rho_a
+    REAL(wp)           :: nuc_n, nuc_q
+    REAL(wp)           :: Ncn, wcb
+    REAL(wp)           :: tab_Ncn(n_ncn),         & ! look-up-table for Ncn 
                           tab_R2(n_r2),           & ! look-up_tbale for R2
                           tab_lsigs(n_lsigs),     & ! look-up-table for log(sigma_s)
                           tab_wcb(n_wcb),         & ! look-up-table for w at cloud base
                           tab_Ndrop(n_wcb,n_ncn), & ! number of cloud droplets in look_up-Table
                           tab_Ndrop_i(n_wcb)        ! number of cloud droplets in look_up-Table, 
                                                     !           interpolated with respect to Ncn
-
-    INTEGER            :: i,k,nuc_typ
-
     nuc_typ = nuc_c_typ
 
     tab_R2  = (/0.02d0, 0.03d0, 0.04d0/)     ! in 10^(-6) m

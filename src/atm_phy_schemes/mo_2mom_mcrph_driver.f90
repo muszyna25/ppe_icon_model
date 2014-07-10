@@ -981,29 +981,6 @@ CONTAINS
 
 !===========================================================================================
 
-  SUBROUTINE two_moment_mcrph_init_old()
-     
-    INTEGER :: unitnr
-
-#ifdef TWOMOM
-
-    CALL init_2mom_scheme(cloud_type)
-
-    unitnr = 11
-    CALL init_dmin_wetgrowth('dmin_wetgrowth_lookup.dat', unitnr)
-
-    CALL init_dmin_wg_gr_ltab_equi(&
-         'dmin_wetgrowth_lookup.dat', &
-         unitnr, 61, ltabdminwgg)
-
-    CALL message ("", " finished init_dmin_wetgrowth")
-
-#endif
-
-  END SUBROUTINE two_moment_mcrph_init_old
-
-!===========================================================================================
-
   SUBROUTINE two_moment_mcrph_init(N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
 
     INTEGER, INTENT(IN) :: msg_level
@@ -1018,13 +995,10 @@ CONTAINS
 
     IF (msg_level>5) CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme")
 
-
     unitnr = 11
     CALL init_dmin_wetgrowth('dmin_wetgrowth_lookup.dat', unitnr)
 
-    CALL init_dmin_wg_gr_ltab_equi(&
-         'dmin_wetgrowth_lookup.dat', &
-         unitnr, 61, ltabdminwgg)
+    CALL init_dmin_wg_gr_ltab_equi('dmin_wetgrowth_lookup.dat', unitnr, 61, ltabdminwgg)
 
     IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth")
 
