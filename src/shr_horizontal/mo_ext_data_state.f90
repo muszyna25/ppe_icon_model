@@ -81,7 +81,7 @@ MODULE mo_ext_data_state
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_netcdf_read,        ONLY: read_netcdf_data, nf
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
-  USE mo_datetime,           ONLY: t_datetime, month2hour
+  USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,                         &
     &                              GRID_CELL, ZA_SURFACE,                          &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
@@ -90,7 +90,7 @@ MODULE mo_ext_data_state
     &                              read_cdi_3d
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
-
+  USE mo_initicon_config,    ONLY: dt_shift
   USE mo_master_control,     ONLY: is_restart_run
 
   IMPLICIT NONE
@@ -292,6 +292,7 @@ CONTAINS
         ! 
         IF (.NOT. is_restart_run()) THEN
           datetime     = time_config%ini_datetime
+          IF (dt_shift < 0) CALL add_time(dt_shift,0,0,0,datetime)
         ELSE
           datetime     = time_config%cur_datetime
         END IF  ! is_restart_run

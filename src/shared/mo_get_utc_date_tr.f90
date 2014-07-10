@@ -98,6 +98,10 @@ CONTAINS
     idd = time_config%ini_datetime%day 
     ihh = time_config%ini_datetime%hour
     
+    ! to add minutes and seconds of start date
+    zim = REAL(time_config%ini_datetime%minute,wp)
+    zis = time_config%ini_datetime%second
+
     IF     (itype_calendar == 0) THEN
       month (2)    = 28 + ileap (iyy)
       monthsum(1) =  0
@@ -113,8 +117,7 @@ CONTAINS
 
     ! Determine how many hours have passed in this year
     iyyhours = (idd*24) + monthsum(imm)*24 + (ihh-24)
-    iyyhours = iyyhours +                                           &
-      INT (NINT (p_sim_time, i8)/3600_i8)
+    iyyhours = iyyhours + INT (NINT (p_sim_time + zim*60._wp + zis, i8)/3600_i8)
 
     ! Take turning of the year into account
     IF     (itype_calendar == 0) THEN
@@ -178,10 +181,6 @@ CONTAINS
     immhours = iyyhours - monthsum(imonth)*24
     iday     = immhours/24 + 1
     ihour    = MOD(immhours,24)
-
-    ! to add minutes and seconds of start date
-    zim = REAL(time_config%ini_datetime%minute,wp)
-    zis = time_config%ini_datetime%second
     
     zseconds = ( p_sim_time + zim*60._wp + zis )/ 3600.0_wp
     acthour  = REAL (ihour, wp) +                          &

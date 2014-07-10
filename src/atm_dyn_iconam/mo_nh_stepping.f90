@@ -259,7 +259,10 @@ MODULE mo_nh_stepping
     CALL diag_for_output_dyn (linit=.FALSE.)
   ELSE
     CALL diag_for_output_dyn (linit=.TRUE.)
-    IF (dt_shift < 0._wp) time_config%sim_time(:) = dt_shift
+    IF (dt_shift < 0._wp) THEN
+      time_config%sim_time(:) = dt_shift
+      CALL add_time(dt_shift,0,0,0,datetime)
+    ENDIF
   ENDIF
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
   DO jg=1, n_dom
@@ -456,7 +459,6 @@ MODULE mo_nh_stepping
     jstep_shift = NINT(dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
     CALL message(TRIM(routine),message_text)
-    CALL add_time(dt_shift,0,0,0,datetime)
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
   ELSE
     jstep_shift = 0
