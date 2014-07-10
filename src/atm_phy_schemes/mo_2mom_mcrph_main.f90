@@ -290,7 +290,7 @@ MODULE mo_2mom_mcrph_main
        &    ttstep = 2,               & ! increment for temperature in look-up table
        &    ssstep = 1                  ! increment for ice supersaturation in look-up table
 
-  REAL(wp), DIMENSION(0:100,0:100), SAVE :: &
+  REAL(wp), DIMENSION(0:100,0:100)  :: &
        &    afrac_dust, &  ! look-up table of activated fraction of dust particles acting as ice nuclei
        &    afrac_soot, &  ! ... of soot particles
        &    afrac_orga     ! ... of organic material
@@ -303,7 +303,6 @@ MODULE mo_2mom_mcrph_main
   TYPE(gamlookuptable) :: rain_ltable1, rain_ltable2, rain_ltable3
   REAL(wp)             :: rain_nm1, rain_nm2, rain_nm3, rain_g1, rain_g2
   REAL(wp)             :: graupel_nm1, graupel_nm2, graupel_g1, graupel_g2
-
 
   ! Size thresholds for partioning of freezing rain in the hail scheme:
   ! Raindrops smaller than D_rainfrz_ig freeze into cloud ice, 
