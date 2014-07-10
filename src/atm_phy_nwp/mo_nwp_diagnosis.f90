@@ -41,7 +41,8 @@ MODULE mo_nwp_diagnosis
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
                                    iqni, iqni_nuc, iqg, iqh, iqnr, iqns,&
-                                   iqng, iqnh, iqnc, inccn, ininpot, ininact    
+                                   iqng, iqnh, iqnc, inccn, ininpot, ininact, &
+                                   iqm_max    
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
@@ -341,21 +342,23 @@ CONTAINS
 
 
 
- !! Calculate vertically integrated values of the grid-scale tracers q1, q2, q3, q4 and q5
- 
+    ! Calculate vertically integrated values of the grid-scale tracers 
+    ! Vertical integrals are computed for all mass concentrations.
+    ! Number concentrations are skipped.
+    !
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,z_help) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
-      pt_diag%tracer_vi(i_startidx:i_endidx,jb,1:5) = 0.0_wp
+      pt_diag%tracer_vi(i_startidx:i_endidx,jb,1:iqm_max) = 0.0_wp
       DO jk = kstart_moist, nlev
         DO jc = i_startidx, i_endidx 
 
           z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
-          pt_diag%tracer_vi(jc, jb,1:5) = pt_diag%tracer_vi(jc, jb,1:5)    + &
-                                 z_help * pt_prog_rcf%tracer(jc,jk,jb,1:5) 
+          pt_diag%tracer_vi(jc, jb,1:iqm_max) = pt_diag%tracer_vi(jc, jb,1:iqm_max)   &
+            &                       + z_help * pt_prog_rcf%tracer(jc,jk,jb,1:iqm_max) 
 
         ENDDO
       ENDDO
@@ -432,8 +435,8 @@ CONTAINS
             &                                 t_wgt)
 
           ! time averaged TQV, TQC, TQI, TQR, TQS  
-          pt_diag%tracer_vi_avg(jc,jb,1:5) = (1._wp - t_wgt)*pt_diag%tracer_vi_avg(jc,jb,1:5) &
-            &                              + t_wgt * pt_diag%tracer_vi(jc,jb,1:5)
+          pt_diag%tracer_vi_avg(jc,jb,1:iqm_max) = (1._wp - t_wgt)*pt_diag%tracer_vi_avg(jc,jb,1:iqm_max) &
+            &                              + t_wgt * pt_diag%tracer_vi(jc,jb,1:iqm_max)
 
           ! time averaged TQV_DIA, TQC_DIA, TQI_DIA
           prm_diag%tot_cld_vi_avg(jc,jb,1:3) = (1._wp - t_wgt)*prm_diag%tot_cld_vi_avg(jc,jb,1:3) &

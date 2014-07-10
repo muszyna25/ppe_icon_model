@@ -1182,8 +1182,7 @@ MODULE mo_nonhydro_state
       &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
       &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
       &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4),&
-      &        shape3d_c5(3), shape3d_ubcp(3), shape3d_ubcc(3),    &
-      &        shape3d_ubcp1(3)
+      &        shape3d_ubcp(3), shape3d_ubcc(3), shape3d_ubcp1(3)
  
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
@@ -1229,7 +1228,6 @@ MODULE mo_nonhydro_state
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
     shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
-    shape3d_c5    = (/nproma, nblks_c, 5          /)
     shape3d_ubcp  = (/nproma, nblks_c, iadv_rcf+2 /)
     shape3d_ubcp1 = (/nproma, nblks_c, iadv_rcf+1 /)
     shape3d_ubcc  = (/nproma, nblks_c, 2  /)
@@ -1909,16 +1907,16 @@ MODULE mo_nonhydro_state
       ENDDO
 
 
-      ! Q1-Q5 vertical integral, tracer_vi(nproma,nblks_c,5)
+      ! Vertical integrals of mass-related tracers,  tracer_vi(nproma,nblks_c,iqm_max)
       cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                  &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c5, lrestart=.FALSE., loutput=.FALSE.,         &
-                  & lcontainer=.TRUE.)
+                  & ldims=(/nproma, nblks_c, iqm_max/), lrestart=.FALSE.,        &
+                  & loutput=.FALSE., lcontainer=.TRUE.)
 
 
-      ALLOCATE(p_diag%tracer_vi_ptr(5))
+      ALLOCATE(p_diag%tracer_vi_ptr(iqm_max))
 
       ! iqv, iqc, iqi, iqr, iqs potentially unknown. Thus, explicit indexing is used.
       !
@@ -1968,14 +1966,37 @@ MODULE mo_nonhydro_state
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
 
+      IF ( ANY((/4,5/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+        !
+        ! Q6 vertical integral: tqg(nproma,nblks_c)
+        cf_desc    = t_cf_var('tqg', 'kg m-2', 'total_column_integrated_graupel',  &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 0, 1, 74, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqs',                             &
+                    & p_diag%tracer_vi_ptr(6)%p_2d,                                &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! tracer_vi_avg(nproma,nblks_c,5), only Q1, Q2, Q3
+
+        ! Q7 vertical integral: tqh(nproma,nblks_c)
+        cf_desc    = t_cf_var('tqh', 'kg m-2', 'total_column_integrated_hail',     &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 0, 1, 72, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqh',                             &
+                    & p_diag%tracer_vi_ptr(7)%p_2d,                                &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+      ENDIF  ! inqp_gscp= 4 or 5
+
+
+
+      ! tracer_vi_avg(nproma,nblks_c,iqm_max)
       cf_desc    = t_cf_var('tracer_vi_avg', '', 'tracer_vi_avg', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,          &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape3d_c5, lrestart=.FALSE., loutput=.FALSE.,         &
-                  & lcontainer=.TRUE.)
+                  & ldims=(/nproma, nblks_c, iqm_max/), lrestart=.FALSE.,        &
+                  & loutput=.FALSE., lcontainer=.TRUE.)
 
       ! Note: so far, only the first 3 entries are referenced
       ALLOCATE(p_diag%tracer_vi_avg_ptr(nqtendphy))
@@ -1986,7 +2007,9 @@ MODULE mo_nonhydro_state
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
           &           cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE. )
       ENDDO
-    ENDIF
+
+
+    ENDIF  !  ntracer >0
 
 
     IF (init_mode == MODE_DWDANA_INC) THEN
