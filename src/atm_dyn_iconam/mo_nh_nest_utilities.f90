@@ -1461,7 +1461,7 @@ CONTAINS
             p_diag%grf_tend_tracer(jc,jk,jb,iqv) = wfac_old*p_latbc_old%qv(jc,jk,jb) + &
               wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
             ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid
-            ! runaway effects (now including qi and qs for ice clouds)
+            ! runaway effects 
             IF (p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp) THEN
                p_diag%grf_tend_tracer(jc,jk,jb,iqv) = MIN(0._wp,p_diag%grf_tend_tracer(jc,jk,jb,iqv))
             ENDIF

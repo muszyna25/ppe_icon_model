@@ -297,6 +297,14 @@ MODULE mo_2mom_mcrph_main
 
   INCLUDE 'phillips_nucleation_2010.incf'
 
+  ! Look up tables for graupel_hail_conv_wet_gamlook and rain_freeze_gamlook
+
+  TYPE(gamlookuptable) :: graupel_ltable1, graupel_ltable2
+  TYPE(gamlookuptable) :: rain_ltable1, rain_ltable2, rain_ltable3
+  REAL(wp)             :: rain_nm1, rain_nm2, rain_nm3, rain_g1, rain_g2
+  REAL(wp)             :: graupel_nm1, graupel_nm2, graupel_g1, graupel_g2
+
+
   ! Size thresholds for partioning of freezing rain in the hail scheme:
   ! Raindrops smaller than D_rainfrz_ig freeze into cloud ice, 
   ! drops between D_rainfrz_ig and D_rainfrz_gh freeze to graupel, and the
@@ -597,6 +605,24 @@ CONTAINS
     call init_sedi_vel(snow,snow_coeffs)
     call init_sedi_vel(graupel,graupel_coeffs)
     call init_sedi_vel(hail,hail_coeffs)
+
+    ! look-up table and parameters for rain_freeze_gamlook
+    rain_nm1 = (rain%nu+1.0)/rain%mu
+    rain_nm2 = (rain%nu+2.0)/rain%mu
+    rain_nm3 = (rain%nu+3.0)/rain%mu
+    CALL incgfct_lower_lookupcreate(rain_nm1, rain_ltable1, nlookup, nlookuphr_dummy)
+    CALL incgfct_lower_lookupcreate(rain_nm2, rain_ltable2, nlookup, nlookuphr_dummy)
+    CALL incgfct_lower_lookupcreate(rain_nm3, rain_ltable3, nlookup, nlookuphr_dummy)      
+    rain_g1 = rain_ltable1%igf(rain_ltable1%n) ! ordinary gamma function of nm1 is the last value in table 1    
+    rain_g2 = rain_ltable2%igf(rain_ltable2%n) ! ordinary gamma function of nm2 is the last value in table 2
+
+    ! table and parameters for graupel_hail_conv_wet_gamlook
+    graupel_nm1 = (graupel%nu+1.0)/graupel%mu
+    graupel_nm2 = (graupel%nu+2.0)/graupel%mu
+    CALL incgfct_lower_lookupcreate(graupel_nm1, graupel_ltable1, nlookup, nlookuphr_dummy)
+    CALL incgfct_lower_lookupcreate(graupel_nm2, graupel_ltable2, nlookup, nlookuphr_dummy)     
+    graupel_g1 = graupel_ltable1%igf(graupel_ltable1%n) ! ordinary gamma function of nm1 is the last value in table 1
+    graupel_g2 = graupel_ltable2%igf(graupel_ltable2%n) ! ordinary gamma function of nm2 is the last value in table 2
 
     ! other options for mue-D-relation of raindrops (for sensitivity studies)
     IF (mu_Dm_rain_typ.EQ.0) THEN
@@ -2411,8 +2437,6 @@ CONTAINS
     REAL(wp), PARAMETER :: b_HET = 2.0d+2 !         Barklie and Gokhale (PK S.350)
 
     REAL(wp), SAVE             :: coeff_z
-    REAL(wp), SAVE             :: nm1, nm2, nm3, g1, g2
-    TYPE(gamlookuptable), SAVE :: ltable1, ltable2, ltable3
 
     LOGICAL, PARAMETER         :: lclipping = .true.   
     REAL(wp), PARAMETER        :: eps = 1e-15_wp      ! for clipping
@@ -2420,14 +2444,6 @@ CONTAINS
     IF (firstcall.NE.1) THEN
       firstcall = 1
       coeff_z = moment_gamma(rain,2)  ! coeff for 2nd moment 
-      nm1 = (rain%nu+1.0)/rain%mu
-      nm2 = (rain%nu+2.0)/rain%mu
-      nm3 = (rain%nu+3.0)/rain%mu
-      CALL incgfct_lower_lookupcreate(nm1, ltable1, nlookup, nlookuphr_dummy)
-      CALL incgfct_lower_lookupcreate(nm2, ltable2, nlookup, nlookuphr_dummy)
-      CALL incgfct_lower_lookupcreate(nm3, ltable3, nlookup, nlookuphr_dummy)      
-      g1 = ltable1%igf(ltable1%n) ! ordinary gamma function of nm1 is the last value in the lookup table 1:      
-      g2 = ltable2%igf(ltable2%n) ! ordinary gamma function of nm2 is the last value in the lookup table 2:
       IF (isdebug) THEN
         WRITE(txt,*) "rain_freeze_gamlook:" ; CALL message(routine,TRIM(txt)) 
         WRITE(txt,'(A,D10.3)') "    coeff_z= ",coeff_z ; CALL message(routine,TRIM(txt))
@@ -2475,12 +2491,12 @@ CONTAINS
                    ! oder dem Graupel oder Hagel. Hierzu erfolgt eine partielle Integration des Spektrums von 0
                    ! bis zu einer ersten Trennmasse xmax_ice (--> Eis), von dort bis zu xmax_gr (--> Graupel)
                    ! und von xmax_gr bis unendlich (--> Hagel).
-                   lam = exp( log( g1/g2*x_r) * (-rain%mu) )
-                   n_0 = rain%mu * n_r * lam**(nm1) / g1            
-                   fr_n_i = n_0/(rain%mu*lam**(nm1)) * incgfct_lower_lookup(lam*xmax_ice,ltable1)
-                   fr_q_i = n_0/(rain%mu*lam**(nm2)) * incgfct_lower_lookup(lam*xmax_ice,ltable2)
-                   fr_n_g = n_0/(rain%mu*lam**(nm1)) * incgfct_lower_lookup(lam*xmax_gr, ltable1)
-                   fr_q_g = n_0/(rain%mu*lam**(nm2)) * incgfct_lower_lookup(lam*xmax_gr, ltable2)
+                   lam = exp( log( rain_g1/rain_g2*x_r) * (-rain%mu) )
+                   n_0 = rain%mu * n_r * lam**(rain_nm1) / rain_g1            
+                   fr_n_i = n_0/(rain%mu*lam**(rain_nm1)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable1)
+                   fr_q_i = n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable2)
+                   fr_n_g = n_0/(rain%mu*lam**(rain_nm1)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable1)
+                   fr_q_g = n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable2)
                    
                    fr_n_h = fr_n - fr_n_g
                    fr_q_h = fr_q - fr_q_g
@@ -2501,12 +2517,12 @@ CONTAINS
                       fr_n  = j_het * q_r
                       fr_q  = j_het * q_r * x_r * coeff_z
                       
-                      lam = ( g1 / g2 * x_r)**(-rain%mu)
-                      n_0 = rain%mu * n_r * lam**(nm1) / g1
-                      fr_n_i = j_het * n_0/(rain%mu*lam**(nm2)) * incgfct_lower_lookup(lam*xmax_ice,ltable2)
-                      fr_q_i = j_het * n_0/(rain%mu*lam**(nm3)) * incgfct_lower_lookup(lam*xmax_ice,ltable3)
-                      fr_n_g = j_het * n_0/(rain%mu*lam**(nm2)) * incgfct_lower_lookup(lam*xmax_gr, ltable2)
-                      fr_q_g = j_het * n_0/(rain%mu*lam**(nm3)) * incgfct_lower_lookup(lam*xmax_gr, ltable3)
+                      lam = ( rain_g1 / rain_g2 * x_r)**(-rain%mu)
+                      n_0 = rain%mu * n_r * lam**(rain_nm1) / rain_g1
+                      fr_n_i = j_het * n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable2)
+                      fr_q_i = j_het * n_0/(rain%mu*lam**(rain_nm3)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable3)
+                      fr_n_g = j_het * n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable2)
+                      fr_q_g = j_het * n_0/(rain%mu*lam**(rain_nm3)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable3)
                       
                       fr_n_h = fr_n - fr_n_g
                       fr_q_h = fr_q - fr_q_g
@@ -3761,6 +3777,19 @@ CONTAINS
     REAL(wp), SAVE      :: theta_n_gg,theta_n_gr,theta_n_rr
     REAL(wp), SAVE      :: theta_q_gg,theta_q_gr,theta_q_rg,theta_q_rr
     REAL(wp)            :: const3,const4
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_gg)
+!$omp threadprivate (delta_n_gr)
+!$omp threadprivate (delta_n_rr)
+!$omp threadprivate (delta_q_gg)
+!$omp threadprivate (delta_q_gr)
+!$omp threadprivate (delta_q_rr)
+!$omp threadprivate (theta_n_gg)
+!$omp threadprivate (theta_n_gr)
+!$omp threadprivate (theta_n_rr)
+!$omp threadprivate (theta_q_gg)
+!$omp threadprivate (theta_q_gr)
+!$omp threadprivate (theta_q_rr)
 
     IF (isdebug) THEN
        WRITE(txt,*) " graupel_rain_riming" ; CALL message(routine,TRIM(txt)) 
@@ -3917,6 +3946,19 @@ CONTAINS
     REAL(wp), SAVE      :: theta_n_hh,theta_n_hr,theta_n_rr
     REAL(wp), SAVE      :: theta_q_hh,theta_q_hr,theta_q_rr
     REAL(wp)            :: const3,const4
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_hh)
+!$omp threadprivate (delta_n_hr)
+!$omp threadprivate (delta_n_rr)
+!$omp threadprivate (delta_q_hh)
+!$omp threadprivate (delta_q_hr)
+!$omp threadprivate (delta_q_rr)
+!$omp threadprivate (theta_n_hh)
+!$omp threadprivate (theta_n_hr)
+!$omp threadprivate (theta_n_rr)
+!$omp threadprivate (theta_q_hh)
+!$omp threadprivate (theta_q_hr)
+!$omp threadprivate (theta_q_rr)
 
     IF (firstcall.NE.1) THEN
       delta_n_hh = coll_delta_11(hail,rain,0)
@@ -4070,6 +4112,9 @@ CONTAINS
     REAL(wp)            :: melt,melt_v,melt_h,melt_n,melt_q
     REAL(wp)            :: fh_q,fv_q
     REAL(wp), SAVE      :: a_vent,b_vent
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_vent)
+!$omp threadprivate (b_vent)
 
     IF (firstcall.NE.1) THEN
       a_vent = vent_coeff_a(graupel,1)
@@ -4143,6 +4188,9 @@ CONTAINS
     REAL(wp)            :: melt,melt_v,melt_h,melt_n,melt_q
     REAL(wp)            :: fh_q,fv_q
     REAL(wp), SAVE      :: a_vent,b_vent
+!$omp threadprivate (firstcall)
+!$omp threadprivate (a_vent)
+!$omp threadprivate (b_vent)
 
     IF (firstcall.NE.1) THEN
       a_vent = vent_coeff_a(hail,1)
@@ -4208,29 +4256,12 @@ CONTAINS
     !  by Uli Blahak                                                               *
     !*******************************************************************************
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a, p_a, d_trenn, qw_a, qi_a, N_0, lam, xmin
     REAL(wp)            :: q_g,n_g,x_g,d_g
     REAL(wp)            :: q_c,q_r
     REAL(wp)            :: conv_n,conv_q
 
-    TYPE(gamlookuptable), SAVE :: ltable1, ltable2
-    REAL(wp), SAVE             :: nm1, nm2, g1, g2
-
-    IF (firstcall.NE.1) THEN
-      firstcall = 1
-      nm1 = (graupel%nu+1.0)/graupel%mu
-      nm2 = (graupel%nu+2.0)/graupel%mu
-      CALL incgfct_lower_lookupcreate(nm1, ltable1, nlookup, nlookuphr_dummy)
-      CALL incgfct_lower_lookupcreate(nm2, ltable2, nlookup, nlookuphr_dummy)     
-      g1 = ltable1%igf(ltable1%n) ! ordinary gamma function of nm1 is the last value in lookup table 1      
-      g2 = ltable2%igf(ltable2%n) ! ordinary gamma function of nm2 is the last value in lookup table 2
-      IF (isdebug) THEN
-        WRITE(txt,*) "graupel_hail_conv_wet_gamlook" ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,ES12.5)') "(nug+1.0)/mug :    ", nm1  ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,ES12.5)') "(nug+2.0)/mug :    ", nm2  ; CALL message(routine,TRIM(txt))
-      ENDIF
-    ELSE IF (isdebug) THEN
+    IF (isdebug) THEN
       WRITE(txt,*) "graupel_hail_conv_wet_gamlook" ; CALL message(routine,TRIM(txt)) 
     ENDIF
 
@@ -4263,12 +4294,12 @@ CONTAINS
 
                xmin = exp(log(d_trenn/graupel%a_geo)*(1.0_wp/graupel%b_geo))
                
-               lam  = exp(log(g2/(g1*x_g))*(graupel%mu))
+               lam  = exp(log(graupel_g2/(graupel_g1*x_g))*(graupel%mu))
                xmin = exp(log(xmin)*graupel%mu)
-               n_0  = graupel%mu * n_g * exp(log(lam)*nm1) / g1
+               n_0  = graupel%mu * n_g * exp(log(lam)*graupel_nm1) / graupel_g1
 
-               conv_n = n_0 / (graupel%mu * exp(log(lam)*nm1)) * incgfct_upper_lookup(lam*xmin, ltable1)
-               conv_q = n_0 / (graupel%mu * exp(log(lam)*nm2)) * incgfct_upper_lookup(lam*xmin, ltable2)
+               conv_n = n_0 / (graupel%mu * exp(log(lam)*graupel_nm1)) * incgfct_upper_lookup(lam*xmin,graupel_ltable1)
+               conv_q = n_0 / (graupel%mu * exp(log(lam)*graupel_nm2)) * incgfct_upper_lookup(lam*xmin,graupel_ltable2)
                
                conv_n = MIN(conv_n,n_g)
                conv_q = MIN(conv_q,q_g)
@@ -4513,6 +4544,19 @@ CONTAINS
       REAL(wp), SAVE      :: theta_n_ii,theta_n_ic,theta_n_cc
       REAL(wp), SAVE      :: theta_q_ii,theta_q_ic,theta_q_cc
       REAL(wp)            :: const1
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_ii)
+!$omp threadprivate (delta_n_ic)
+!$omp threadprivate (delta_n_cc)
+!$omp threadprivate (delta_q_ii)
+!$omp threadprivate (delta_q_ic)
+!$omp threadprivate (delta_q_cc)
+!$omp threadprivate (theta_n_ii)
+!$omp threadprivate (theta_n_ic)
+!$omp threadprivate (theta_n_cc)
+!$omp threadprivate (theta_q_ii)
+!$omp threadprivate (theta_q_ic)
+!$omp threadprivate (theta_q_cc)
 
       IF (isdebug) THEN
          WRITE(txt,*) "ice_cloud_riming" ; CALL message(routine,TRIM(txt)) 
@@ -4955,7 +4999,20 @@ CONTAINS
      REAL(wp), SAVE      :: delta_q_ss,delta_q_sr,delta_q_rs,delta_q_rr
      REAL(wp), SAVE      :: theta_n_ss,theta_n_sr,theta_n_rr
      REAL(wp), SAVE      :: theta_q_ss,theta_q_sr,theta_q_rs,theta_q_rr
-     
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_ss)
+!$omp threadprivate (delta_n_sr)
+!$omp threadprivate (delta_n_rr)
+!$omp threadprivate (delta_q_ss)
+!$omp threadprivate (delta_q_sr)
+!$omp threadprivate (delta_q_rr)
+!$omp threadprivate (theta_n_ss)
+!$omp threadprivate (theta_n_sr)
+!$omp threadprivate (theta_n_rr)
+!$omp threadprivate (theta_q_ss)
+!$omp threadprivate (theta_q_sr)
+!$omp threadprivate (theta_q_rr)
+
      IF (isdebug) THEN
         WRITE(txt,*) "snow_rain_riming" ; CALL message(routine,TRIM(txt))
      END IF
@@ -5060,7 +5117,20 @@ CONTAINS
      REAL(wp), SAVE      :: delta_q_ss,delta_q_sc,delta_q_cc
      REAL(wp), SAVE      :: theta_n_ss,theta_n_sc,theta_n_cc
      REAL(wp), SAVE      :: theta_q_ss,theta_q_sc,theta_q_cc
-     
+!$omp threadprivate (firstcall)
+!$omp threadprivate (delta_n_ss)
+!$omp threadprivate (delta_n_sc)
+!$omp threadprivate (delta_n_cc)
+!$omp threadprivate (delta_q_ss)
+!$omp threadprivate (delta_q_sc)
+!$omp threadprivate (delta_q_cc)
+!$omp threadprivate (theta_n_ss)
+!$omp threadprivate (theta_n_sc)
+!$omp threadprivate (theta_n_cc)
+!$omp threadprivate (theta_q_ss)
+!$omp threadprivate (theta_q_sc)
+!$omp threadprivate (theta_q_cc)
+
      IF (isdebug) THEN
         WRITE(txt,*) "snow_cloud_riming " ; CALL message(routine,TRIM(txt))
      END IF
@@ -5695,7 +5765,6 @@ CONTAINS
     RETURN
 
   END SUBROUTINE sedi_icon_rain
-
 
   SUBROUTINE sedi_icon_sphere (ptype,pcoeffs,qp,np,precrate,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
