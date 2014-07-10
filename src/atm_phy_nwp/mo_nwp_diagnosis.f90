@@ -50,6 +50,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog, t_lnd_prog
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_advection_config,   ONLY: advection_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
@@ -355,7 +356,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
       ! pre-computation of rho * \Delta z
-      DO jk = kstart_moist, nlev
+      DO jk = 1, nlev
         DO jc = i_startidx, i_endidx 
           rhodz(jc,jk) = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
         ENDDO
@@ -364,7 +365,8 @@ CONTAINS
       DO jt = 1, iqm_max
         pt_diag%tracer_vi(i_startidx:i_endidx,jb,jt) = 0.0_wp
 
-        DO jk = kstart_moist, nlev
+        DO jk = advection_config(jg)%iadv_slev(jt), nlev
+
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx 
 
