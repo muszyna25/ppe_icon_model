@@ -53,7 +53,7 @@ MODULE mo_nh_torus_exp
   USE mo_les_config,          ONLY: les_config
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_vert_utilities,      ONLY: vert_intp_linear_1d
+  USE mo_les_utilities,      ONLY: vert_intp_linear_1d
 
   IMPLICIT NONE
   
