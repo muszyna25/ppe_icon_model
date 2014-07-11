@@ -1976,7 +1976,7 @@ MODULE mo_nonhydro_state
         cf_desc    = t_cf_var('tqg', 'kg m-2', 'total_column_integrated_graupel',  &
           &          DATATYPE_FLT32)
         grib2_desc = t_grib2_var( 0, 1, 74, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_ref( p_diag_list, 'tracer_vi', 'tqs',                             &
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqg',                             &
                     & p_diag%tracer_vi_ptr(6)%p_2d,                                &
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                     & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
