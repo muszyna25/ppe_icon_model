@@ -4,8 +4,8 @@
 # compared to a control for climate runs.
 # output:    3 panels - exp,ctrl,diff
 #
-# run as:    export PLOTDATA =/scratch/ms/de/deia/icon/dei2/118/seasonal
-#            metview4_old -b compvar_ens.met ecff eawi BLH 0 ins 19870501 2 avg
+# run as:    export PLOTDATA=/scratch/ms/de/deia/icon/dei2/118/seasonal
+#            metview4_new -b compvar_ens.met deia_004 fycq 20000801/20000802/20000803/20000804 200009 12 24 LSP 0 sfc ins avg 2.0 2 1 1 icon
 #
 # attention: requires global environment variable DATA (dir)
 #
@@ -70,7 +70,7 @@ if (model = "icon") then
      "2T"  : varidm = 500011  ;   end
      "2D"  : varidm = 500017  ;   end
      "SD"  : varidm = 502329  ;   end
-     "SSTK": varidm = 500475  ;   end # ICON: T_SEA
+     "SST" : varidm = 500475  ;   end # ICON: T_SEA
      "SKT" : varidm = 500010  ;   end # ICON: T_G
      "10SI": varidm = 500025  ;   end
      "10U" : varidm = 500027  ;   end
@@ -88,13 +88,12 @@ if (model = "icon") then
      "TCWV": varidm = 500038  ;   end
      "TCLW": varidm = 500051  ;   end
      "TCIW": varidm = 500040  ;   end
+     "TP"  : varidm = 500041  ;   end
      "T"   : varidm = 500014  ;   end
+     "Z"   : varidm = 500006  ;   end
      "CAPE": varidm = 500183  ;   end
-     "BLH" : varidm = 50  ;   end
-     ""    : varidm = 50  ;   end
-#TCC LCC MCC HCC CP  LSP SSHF SLHF BLH SSR STR TSR TTR 
-#2T  2D  SD  10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  
-#TSRC TTRC TCLW TCIW CAPE
+    #"BLH" : varidm = 50  ;   end
+      otherwise : print("Set ICON parameters!!!") ;  end
   end case
 end if
 
@@ -172,16 +171,17 @@ if vartype = "ins" then
 
 # --- retrieve
 
-        if expv2 = "ERA40" then
-          expv22 = 1
-        else
-          expv22 = expv2
-        end if
+      if expv2 = "ERA40" then
+        expv22 = 1
+      else
+        expv22 = expv2
+      end if
 
 # --- special treatment for "total precip"
 
-        case varid of 
+      case varid of 
         "TP": 
+          #res=2.5   # fix for metview/emos porblem (no interpolation on IFS precip data!)
            var_ctr_all=multiget(spec_par_tp     ,expv22,levtype,lev,dates,res,file_ctr)
            var_mod_all=multiget(spec_par_tp_icon,expv1, levtype,lev,dates,res,file_mod)
   	   unit = "[mm d<sup>-1</sup>]"
@@ -236,26 +236,53 @@ if vartype = "ins" then
             grid	:	[res,res],
             source	:	file_ctr
             )
-          if (varid = "sst") then
+
+          if (varid = "SD") then
+            if (search(expv1,'_') > 0) then                    # test for ICON run
+              nsnowlev    = count(var_mod_all) / count(dates)  #multi-layer snow in ICON)
+              var_mod_all = mean(var_mod_all) * nsnowlev              
+            end if
+            if (search(expv2,'_') > 0) then                    # test for ICON run
+              nsnowlev    = count(var_ctr_all) / count(dates)  #multi-layer snow in ICON)
+              var_ctr_all = mean(var_ctr_all) * nsnowlev              
+            end if
+          end if
+
+          if (varid = "SST") then
             seapoints=(var_mod_all[1]>260.) # and var_mod_all[1]<250)  
             seamask=bitmap(seapoints,0)
             var_mod_all=bitmap(var_mod_all,seamask)
             var_ctr_all=bitmap(var_ctr_all,seamask)
           end if
+
+          if (varid = "TCC" or varid = "HCC" or varid = "MCC" or varid = "LCC" ) then
+            if (search(expv1,'_') > 0) then     # test for ICON run
+              var_mod_all = var_mod_all / 100.0
+            end if
+            if (search(expv2,'_') > 0) then     # test for ICON run
+              var_ctr_all = var_ctr_all / 100.0
+            end if
+          end if
+
           #units=grib_get_string(var_mod_all,"units")
           units=grib_get_string(var_ctr_all,"units")
           unit=units[1]
 	end 
-	end case
+      end case
 end if
+
 
 # --- special units for precipitation
 
 if varid = "CP"  or varid = 143
 or varid = "LSP" or varid = 142 
 or varid = "TP"  or varid = 228 then
-        var_mod_all = var_mod_all * 86400 * 1000
-        var_ctr_all = var_ctr_all * 86400 * 1000
+         if (search(expv1,'_') < 0) then     # test for IFS run
+           var_mod_all = var_mod_all * 86400 * 1000
+         end if
+         if (search(expv2,'_') < 0) then     # test for IFS run
+           var_ctr_all = var_ctr_all * 86400 * 1000
+         end if
         unit = "[mm d<sup>-1</sup>]"
        #unit = "[mm/day]"
 end if
@@ -480,7 +507,7 @@ if varid = "2D" then
 end if
 
 if varid = "SD" then
-  varid = 141
+ #varid = 141
   maxlevelvar = 50
   minlevelvar = 0
   intlevelvar = 5
@@ -635,19 +662,8 @@ sig_cont = pcont(
 # Text and Legend
 #######################################################################
 
-if varid = 80 or varid = 81 or varid = 82 or varid = 83 or varid = 84 or varid = 85 or 
-                 varid = 86 or varid = 87 or varid = 88 or varid = 89 or varid = 90 or 
-                 varid = 91 or varid = 92 or varid = 93 or varid = 94 or varid = 95 or 
-                 varid = 96 or varid = 97 or varid = 98 or varid = 99 or varid = 100 or 
-                 varid = 101 or varid = 102 or varid = 103 or varid = 104 or varid = 105 or 
-                 varid = 106 or varid = 107 or varid = 108 or varid = 109 or varid = 110 or 
-                 varid = 111 or varid = 112 or varid = 113 or varid = 114 or varid = 115 or 
-                 varid = 116 or varid = 117 or varid = 118 or varid = 119 or varid = 120 then
-  varname = varid     # extra variables
-else
 #xmk  varname = "!PARAM!"
-  varname = varid
-end if
+varname = varid
 if levtype = "ml" then
   varname = varid&"_L"&lev
 end if
@@ -804,7 +820,7 @@ function multiget(list,expver,levtype,lev,dates,res,file)
 	       #repres	:	"gg",
 		param	:	list[i],
 		date	:	dates,
-		grid	:	[res,res],
+	        grid	:	[res,res],
                 source	:	file
 		)
         if i=1 then 

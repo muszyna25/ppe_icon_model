@@ -93,6 +93,19 @@ case levtype of
      end 
 end case
 
+# for tendencies use diff-type contours (zero=white)
+if   varname = 'ttendcds' or varname = 'qtendcds' or varname = 'utendcds' or varname = 'vtendcds'
+  or varname = 'ttendts'  or varname = 'qtendt'   or varname = 'utendts'  or varname = 'vtendts'
+  or varname = 'ttends'   or varname = 'utends'   or varname = 'vtends'
+  or varname = 'ewgd'     or varname = 'nsgd'
+  or varname = 'ttendsw'  or varname = 'ttendlw'
+then
+  tend = 1
+else
+  tend = 0
+end if
+
+
 if ndays > 1  then
   nd_txt1 = '_n'&ndays
   nd_txt2 = ' '&ndays&' days'
@@ -483,7 +496,7 @@ end if
 display_window = build_layout()
 
 
-if stat = 'diff' then
+if stat = 'diff'  or  tend = 1 then
   plot ( display_window[1], text, var_zonal,            cont, legend )
  #plot ( display_window[1], text, zonal_view, var_data, cont, legend )
 else

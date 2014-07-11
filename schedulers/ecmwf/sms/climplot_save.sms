@@ -82,20 +82,8 @@ if (( $saveplots == 1 )) ; then
                                         # workaround for long lists
     fi
 
-    # save the plots:
- ##   if [[ $FSFAMILY = "/climplot" ]] ; then   # for external plotting add tag to name
- ##    if (( $locnumber == -99 )) ; then
- ##               # date of today (e.g. 20020807)
- ##       tag=.${OWNER}.${today}                   # (USERID.DATE)
- ##       exp2="-"${VERFEXP2}
- ##     else 
- ##       tag=''
- ##       exp2=''
- ##     fi
- ##   else
-      tag=''
-      exp2=''
- ##   fi
+    tag=''
+    exp2=''
     tar -cvf plots_${exp}${exp2}${tag}.ps.tar `ls | grep .*${exp}.*ps$`
     gzip -f  plots_${exp}${exp2}${tag}.ps.tar
    # Ecp -o   plots_${exp}${exp2}${tag}.ps.tar.gz ec:${FSROOT}/${exp}
@@ -108,14 +96,13 @@ if (( $saveplots == 1 )) ; then
 # ectrans plots to mkoehler@DWD
 
 %nopp
-  for metfile in `ls zon_*.ps` `ls clim_*trmm*.ps` ; do
-   convert -rotate 90 -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
-  done
- #for obsd in gpcp hoap ssmi xiearkin ciwc quikscat isccp modis ; do
   for metfile in `ls clim_*.ps` `ls diffmap_*.ps` ; do
     convert -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
- #done 
   done
+  for metfile in `ls zon_*.ps clim_*trmm*.ps` ; do
+    convert -rotate 90 -density 250 -resize 35% ${metfile} ${metfile%.ps}.png || true 
+  done
+ #for obsd in gpcp hoap ssmi xiearkin ciwc quikscat isccp modis ; do
 %end
 
 

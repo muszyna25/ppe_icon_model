@@ -41,6 +41,7 @@
   stat       = x[9]    # statistic ("avg" or "std")
   res        = x[10]   # lat/lon resolution for plots
   eratext    = x[11]   # ERA title in plots ERA40 or ERAI
+  model      = x[12]   # "icon" or "ifs"
 
   grid=[res,res]
   ERATEXT=eratext
@@ -94,27 +95,25 @@
     p_min        = 1
    # ... variables available on pressure levels by default
     if plot_modus  = "Average Difference" then
-      #param      = ["T" ,"R","U","V","W"  ,"Q" ]
-      #cint_param = [0.5 ,2  ,1  ,0.2,0.002,0.2 ]
-      #cmin_param = cint_param
-      #cmax_param = [10  ,30 ,10 ,2  ,0.05 ,2   ]
-      #scale      = [1   ,1  ,1  ,1  ,1    ,1000]
-      param      = ["T" ,"U","V" ]  #,"Q" ]
-      cint_param = [0.5 ,1  ,0.2 ]  #,0.2 ]
-      cmin_param = cint_param
-      cmax_param = [10  ,10 ,2 ]  # ,2   ]
-      scale      = [1   ,1  ,1  ]  #,1000]
+      if exid[1] = "ERA40" then
+       param      = ["T" ,"R","U","V" ,"Q" ,"CC","CLWC" ,"CIWC" ] #"W"  
+        cint_param = [0.5 ,2  ,1  ,0.2,0.2 ,5   ,5      ,1      ] #0.002
+        cmin_param = cint_param 				      
+        cmax_param = [10  ,30 ,10 ,2  ,2   ,100 ,60     ,20     ] #0.05 
+        scale      = [1   ,1  ,1  ,1  ,1000,100 ,1000000,1000000] #1    
+      else
+        param      = ["T" ,"R","U","V","Q" ,"CC","CLWC" ,"CIWC" ] 
+        cint_param = [0.5 ,2  ,1  ,0.2,0.2 ,5   ,5      ,1      ] 
+        cmin_param = cint_param		                         
+        cmax_param = [10  ,30 ,10 ,2  ,2   ,100 ,60     ,20     ] 
+        scale      = [1   ,1  ,1  ,1  ,1000,100 ,1000000,1000000]
+      end if
     else
-      #param      = ["T" ,"R","U","V","W"  ,"Q" ,"CC","CLWC","CIWC"]
-      #cint_param = [2   ,5  ,2  ,0.5,0.005,1    ,5   ,5      ,1   ]
-      #cmin_param = [220 ,5  ,2  ,0.5,0.005,1    ,5   ,5      ,1   ]
-      #cmax_param = [300 ,100,40 ,5  ,0.1  ,20  ,100 ,60     ,20   ]
-      #scale      = [1   ,1  ,1  ,1  ,1    ,1000,100 ,1000000,1000000]
-      param      = ["T" ,"U","V"]
-      cint_param = [2   ,2  ,0.5   ]
-      cmin_param = [220 ,2  ,0.5  ]
-      cmax_param = [300 ,40 ,5    ]
-      scale      = [1   ,1  ,1 ]
+      param      = ["T" ,"R","U","V","Q" ,"CC","CLWC" ,"CIWC" ] #"W"   
+      cint_param = [2   ,5  ,2  ,0.5,1   ,5   ,5      ,1      ] #0.005 
+      cmin_param = [220 ,5  ,2  ,0.5,1   ,5   ,5      ,1      ] #0.005 
+      cmax_param = [300 ,100,40 ,5  ,20  ,100 ,60     ,20     ] #0.1   
+      scale      = [1   ,1  ,1  ,1  ,1000,100 ,1000000,1000000]	#1    
     end if
 
   else  #ml
@@ -129,15 +128,15 @@
 
     if plot_modus  = "Average Difference" then
       param      = ["T" ,"U","V","W"  ,"Q" ,"CC","CLWC" ,"CIWC" ,"CRWC" ,"CSWC" ]
-      cint_param = [0.5 ,1  ,0.2,0.002,0.1 ,1   ,1      ,0.5  ,0.5  ,0.5  ]
+      cint_param = [0.5 ,1  ,0.2,0.002,0.1 ,1   ,1      ,0.5    ,0.5    ,0.5    ]
       cmin_param = cint_param
-      cmax_param = [10  ,10 ,2  ,0.05 ,1   ,20  ,10     ,5    ,5   ,5     ]
+      cmax_param = [10  ,10 ,2  ,0.05 ,1   ,20  ,10     ,5      ,5      ,5      ]
       scale      = [1   ,1  ,1  ,1    ,1000,100 ,1000000,1000000,1000000,1000000]
     else
-      param      = ["T" ,"U","V","W"  ,"Q" ,"CC","CLWC" ,"CIWC" ,"CRWC" ,"CSWC"]
-      cint_param = [2   ,2  ,0.5,0.005,1   ,5   ,5      ,1      ,0.5    ,2   ]
-      cmin_param = [220 ,2  ,0.5,0.005,1   ,5   ,5      ,1      ,0.5    ,2   ]
-      cmax_param = [300 ,40 ,5  ,0.1  ,20  ,100 ,60     ,20     ,10     ,30  ]
+      param      = ["T" ,"U","V","W"  ,"Q" ,"CC","CLWC" ,"CIWC" ,"CRWC" ,"CSWC" ]
+      cint_param = [2   ,2  ,0.5,0.005,1   ,5   ,5      ,1      ,0.5    ,2      ]
+      cmin_param = [220 ,2  ,0.5,0.005,1   ,5   ,5      ,1      ,0.5    ,2      ]
+      cmax_param = [300 ,40 ,5  ,0.1  ,20  ,100 ,60     ,20     ,10     ,30     ]
       scale      = [1   ,1  ,1  ,1    ,1000,100 ,1000000,1000000,1000000,1000000]
     end if
 
@@ -319,6 +318,22 @@
     ps_filenamelog_2=""&wrkdir&"zon_"&exid[1]            &"_"&statname&"_"&param[iparam]&
                   "_"&lev_type&"log_nens"&string(nens)&"_"&yymm_start&"_nmon"&mm_len
 
+# --- switch to parameter numbers when using DWD grib definitions 
+#     (e.g. /home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12)
+
+    #          ICON parameter          IFS or ERA40 parameter
+    case param[iparam] of
+      "T"       : para_icon = "500014"  ; para_ifs = "130.128"  ;  end
+      "Q"       : para_icon = "503055"  ; para_ifs = "133.128"  ;  end
+      "CLWC"    : para_icon = "503056"  ; para_ifs = "246.128"  ;  end
+      "CIWC"    : para_icon = "503057"  ; para_ifs = "247.128"  ;  end
+      "CC"      : para_icon = "500098"  ; para_ifs = "248.128"  ;  end
+      "R"       : para_icon = "500037"  ; para_ifs = "157.128"  ;  end
+      "U"       : para_icon = "500028"  ; para_ifs = "131.128"  ;  end
+      "V"       : para_icon = "500030"  ; para_ifs = "132.128"  ;  end
+      otherwise : stop("ERROR: Set ICON and IFS parameters!!!") ;  end
+    end case
+
     
 # --- metview settings for output (PS ONLY!)
 
@@ -353,13 +368,21 @@
 
 # --- read data and determine average for control
 
+    if search(exid[1],'_') > 0 then 
+      parameter = para_icon
+    else
+      parameter = para_ifs
+    end if
     control = read(
       source    :  control_filename,
-      levtype   :  lev_type,
+     #levtype   :  lev_type,
       levelist  :  levels,
-      parameter :  param[iparam],
+      parameter :  parameter,
       grid      :  grid
     )
+    if search(exid[1],'_') > 0  and  param[iparam] = "CC" then   # test for ICON run
+      control = control / 100.0
+    end if
 
 # --- read data headers (GRIB); dimensions are needed
 
@@ -390,14 +413,22 @@
 
 # --- read data and determine average for forecast
 
+    if search(exid[2],'_') > 0 then 
+      parameter = para_icon
+    else
+      parameter = para_ifs
+    end if
     forecast=read(
       source   :  forecast_filename,
       levtype  :  lev_type,
       levelist :  levels,
-      parameter:  param[iparam],
-      grid: grid
+      parameter:  parameter,
+      grid     :  grid
     )
-   
+    if search(exid[2],'_') > 0  and  param[iparam] = "CC" then    # test for ICON run
+      forecast = forecast / 100.0
+    end if
+
 # --- read data headers (GRIB); dimensions are needed
 
     nlon_for= grib_get_long(forecast[1],"Ni")
@@ -417,14 +448,8 @@
     end if
 
 # --- calculate difference
-    diff = avg_for-avg_con
-    print(avg_for," ",avg_con)
-    print(diff)
 
-    if ( param[iparam] = "T" ) then
-     print(avg_con)
-     print(avg_for)
-    end if
+    diff = avg_for-avg_con
 
 # --- title definitions
 
@@ -489,6 +514,7 @@
     	legend_title		       :    "off" )
 
 # --- plot
+
     Display_Window=layout(lev_type,p_scale,p_min,p_max)
 
     avg_data = xs_average(  
@@ -507,9 +533,7 @@
                 plot (Display_Window[1], title, diff_data, shade,                      legend, avg_data, contours_simple_bg)
                 end
              'Fancy Contour Shading':
-                print("plotting")
                 plot (Display_Window[1], title, diff_data, contours_neg, contours_pos, legend, avg_data, contours_simple_bg)
-                print("plotted")
                 end
              'Contour Levels':
                 plot (Display_Window[1], title, diff_data, red, blue,                  legend, avg_data, contours_simple_bg)
@@ -541,7 +565,6 @@
             Display_Window=layout(lev_type,"logarithmic",p_min,p_max)
             plot (Display_Window[1], title, avg_con, shade2,                    legend)
          end if
-
 
        end
     end when
@@ -620,4 +643,4 @@ function layout(lev_type,p_scale,p_min,p_max)
     return Display_Window 
 end layout
 
-  include "avgtime.f90"
+include "avgtime.f90"

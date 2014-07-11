@@ -100,35 +100,29 @@ fi
 
 # --- metview troubleshooting
 
-
 #metview=metview4_old
 #metview=metview4_dev
 metview=metview4_new
 
-if [[ $TASK = "plot_2d" || $TASK = "plot_obs_1" || $TASK = "plot_obs_3" || $TASK = "plot_obs_4" || $TASK = "plot_obs_5" ||  $TASK = "plot_obs_7" ]] ; then
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
+if [[ $TASK = "plot_2d" || $TASK = "plot_zon" || $TASK = "plot_obs_1" || $TASK = "plot_obs_3" || $TASK = "plot_obs_4" || $TASK = "plot_obs_5" ||  $TASK = "plot_obs_7" ||  $TASK = "plot_obs_10" ]] ; then
+  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/home/ms/de/deia/grib_api/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
 else
   export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
 fi
-#export METVIEW_EXTRA_GRIB_DEFINITION_PATH="/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions"
-#export METVIEW_EXTRA_GRIB_DEFINITION_PATH="/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions"
-#export METVIEW_EXTRA_GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions:/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12"
-#export METVIEW_EXTRA_GRIB_DEFINITION_PATH="/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12"
-#export METVIEW_EXTRA_GRIB_DEFINITION_PATH="/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-15"
-#export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
-#export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions:/home/ms/de/dwd/grib_api/definitions.edzw-1.11.0-12
-
 
 #pgi_path="/usr/local/apps/nag/22/LP64"
 #NAGLIB="-libnag.a"
 #export MACRO_EXTRA_LIBS="-L$pgi_path/lib"
 #export MACRO_EXTRA_F90_FLAGS=-Mfixed
 #export GRIB_GRIBEX_MODE_ON=1
-# export MACRO_EXTRA_LIBS="$MACRO_EXTRA_LIBS $NAGLIB"
-# use 32bit version of NAGLIB for metview3
+#export MACRO_EXTRA_LIBS="$MACRO_EXTRA_LIBS $NAGLIB"
+#use 32bit version of NAGLIB for metview3
 #NAGPATH="/usr/local/apps/nag/21/ILP32/lib"
 #export MACRO_EXTRA_F90_FLAGS="-L$NAGPATH -lnag_nag -rpath $NAGPATH" 
 export MACRO_EXTRA_LIBS="-L/usr/local/apps/nag/22/LP64/lib -lnag"
+
+#for interpolation of precipitation fields within metview - small values unit [m/s] not [mm/day]
+export PRECIPITATION_THRESHOLD=0
 
 # needed for some data files that have non-standard GRIB headers
 export GRIBEX_CHECK='OFF'    # (climate_obs.met)
@@ -258,7 +252,6 @@ if [[ $TASK = "getmeans" ]] ; then
     mm_len1=${mm_len[${iperiod}]}
     mm_len2=${mm_len1}
     iniyearmonth2=$iniyearmonth
-   # if [[ $mm_len2 > 12 ]]; then
     if [[ $mm_len2 -gt 12 ]]; then
       mm_len2="[12,$mm_len2]*"
       yy2a=$(print $inidates[i] |cut -c1-4)
@@ -267,7 +260,6 @@ if [[ $TASK = "getmeans" ]] ; then
       iniyearmonth2="[$yy2b,$yy2a]*$mm2"
     fi
     mm_len1=${mm_len2}
-#  for inidate in ${inidates[*]} ; do      
     if [[ ${NUMBER} = -99 ]] ; then
       if [[ ${FCRANGE} = -99 ]] ; then
         MNFILE=mmean_${EXPVER}_*_ini${inidates[i]}_mon${iniyearmonth}_n${mm_len1}.grb
@@ -284,12 +276,12 @@ if [[ $TASK = "getmeans" ]] ; then
         MNFILE2=mmean_${EXPVER2}_*_ini${inidates[i]}_mem${num[i]}_mon${iniyearmonth2}_n${mm_len2}]}.grb
         ECSUBDIR=${inidates[i]}/
     fi
-   # ${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER}/${ECSUBDIR}${MNFILE} ${PLOTDATA}
+   #${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER}/${ECSUBDIR}${MNFILE} ${PLOTDATA}
     ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR_SEAS}/${MNFILE} ${PLOTDATA}
     if [[ $DOPLOTDIFF = 1 ]] ; then                                 # *=sfc pl ml
       echo " -- "
       ${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER2}/${ECSUBDIR}${MNFILE2} ${PLOTDATA}
-   #   ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR_SEAS}/${MNFILE2} ${PLOTDATA}
+   #  ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR_SEAS}/${MNFILE2} ${PLOTDATA}
     fi
     i=i+1
   done
@@ -312,9 +304,9 @@ if [[ $TASK = "getmeans" ]] ; then
 # --- read ERA 40 data (time=00/06/12/18)
 #############################################################
 
- if [[ $LCLIM = 1 ]] ; then
-      cat > mars.requestclim << EOF
-      retrieve,
+      if [[ $LCLIM = 1 ]] ; then
+        cat > mars.requestclim << EOF
+         retrieve,
             stream=mnth,
             time=$INITIMAN,
             levtype=sfc,
@@ -325,7 +317,7 @@ if [[ $TASK = "getmeans" ]] ; then
             type=cl,
             grid=${res}/${res},
             target="${PLOTDATA}/mmean_ERA40_sfc_climate_ini${yearmonthera}01_mon${yearmonthera}.grb"
-      retrieve,
+         retrieve,
             levelist=1/2/3/5/7/10/20/30/50/70/100/150/200/250/300/400/500/600/700/775/850/925/1000,
            # levelist=1/2/3/5/7/10/20/30/50/70/100/150/200/250/300/400/500/600/700/775/800/850/900/925/950/1000,
             stream=mnth,
@@ -339,10 +331,10 @@ if [[ $TASK = "getmeans" ]] ; then
             grid=${res}/${res},
             target="${PLOTDATA}/mmean_ERA40_pl_climate_ini${yearmonthera}01_mon${yearmonthera}.grb"
 EOF
-      if [[ $NLEV = 60 ]] ; then
-        if [[ $LMLDIF != 0 || $LZONNOML = 0 || $LDCYCLE != 0  ]]; then
-        cat >> mars.requestclim << EOF
-        retrieve,
+        if [[ $NLEV = 60 ]] ; then
+         if [[ $LMLDIF != 0 || $LZONNOML = 0 || $LDCYCLE != 0  ]]; then
+          cat >> mars.requestclim << EOF
+           retrieve,
             levelist=1/TO/60,
             stream=mnth,
             time=$INITIMAN,
@@ -355,12 +347,12 @@ EOF
             grid=${res}/${res},
             target="${PLOTDATA}/mmean_ERA40_ml_climate_ini${yearmonthera}01_mon${yearmonthera}.grb"
 EOF
+         fi
         fi
+        mars mars.requestclim
       fi
-      mars mars.requestclim
-  fi
 
-        cat > mars.requestan << EOF
+      cat > mars.requestan << EOF
         retrieve,
             stream=mnth,
             time=$INITIMAN,
@@ -379,7 +371,7 @@ EOF
             time=$INITIMAN,
             levtype=pl,
             expver=$expan,
-            param=Z/T/R/U/V/W/Q,
+            param=Z/T/R/U/V/W/Q/CC/CLWC/CIWC,
             class=$CLASSAN,
             date=${yearmonthera}01,
             type=an,
@@ -403,8 +395,8 @@ EOF
             target="${PLOTDATA}/mmean_ERA40_ml_ini${yearmonthera}01_mon${yearmonthera}.grb"
 EOF
        fi
-     fi
-        mars mars.requestan
+      fi
+      mars mars.requestan
 
 ###########################################################
 # --- combine ERA data (cat)
@@ -505,9 +497,9 @@ EOF
   fi
 
 # fix to set centre=98 for pressure level data
-  mv  ${PLOTDATA}/mmean_${EXPVER}_pl_alldates.grb  ${PLOTDATA}/mmean_${EXPVER}_pl_alldates_centre78.grb
-   grib_set -s centre=98 ${PLOTDATA}/mmean_${EXPVER}_pl_alldates_centre78.grb \
-                         ${PLOTDATA}/mmean_${EXPVER}_pl_alldates.grb 
+#  mv  ${PLOTDATA}/mmean_${EXPVER}_pl_alldates.grb  ${PLOTDATA}/mmean_${EXPVER}_pl_alldates_centre78.grb
+#   grib_set -s centre=98 ${PLOTDATA}/mmean_${EXPVER}_pl_alldates_centre78.grb \
+#                         ${PLOTDATA}/mmean_${EXPVER}_pl_alldates.grb 
 
 fi
 
@@ -527,7 +519,7 @@ if [[ $TASK = "plot_2d" ]] ; then
 
 # --- variables and types (instantaneous or accumulated)
 #     (SHORT LIST, 48)
-#   set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF BLH SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  TSRC TTRC TCLW TCIW CAPE
+#   set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF BLH SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SST  SKT TCW TCWV T   T   T   T   T    T   T   T  TSRC TTRC TCLW TCIW CAPE
 #   set -A TYPE    ins ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins  ins ins ins ins  ins  ins  ins  ins  ins
 #   set -A NEXP     2   2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2    2   2   2   2    2    2    2    2    2
 #   set -A LEV      0   0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0   0    0   0   0  925 850 700 500 300  200 100 50   0    0    0    0    0    0
@@ -536,26 +528,12 @@ if [[ $TASK = "plot_2d" ]] ; then
 
 # missing: BLH, TSRC, TTRC, optional: z500, sp
 
-    set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SSTK SKT TCW TCWV T   T   T   T   T    T   T   T  TCLW TCIW CAPE
-    set -A TYPE    ins ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins  ins ins ins ins  ins  ins 
-    set -A NEXP     2   2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2    2   2   2   2    2    2  
-    set -A LEV      0   0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0    0   0   0  925 850 700 500 300  200 100 50   0    0    0  
-    set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc  sfc sfc sfc pl  pl  pl  pl  pl   pl  pl  pl  sfc  sfc  sfc 
-    set -A STAT    avg avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg  avg avg avg avg avg avg avg avg  avg avg avg avg  avg  avg 
-
-   # set -A VARS     T  TCC  T   T   T   T    T   T   T  TCLW TCIW 
-   # set -A TYPE    ins ins ins ins ins ins  ins ins ins ins  ins  
-   # set -A NEXP     2   2   2   2   2   2    2   2   2   2    2   
-   # set -A LEV     925  0  850 700 500 300  200 100 50   0    0   
-   # set -A LEVTYPE pl  sfc pl  pl  pl  pl   pl  pl  pl  sfc  sfc  
-   # set -A STAT    avg avg avg avg avg avg  avg avg avg avg  avg  
-
-   # set -A VARS   2t  10u 10v z slhf sshf ssr str sst # sp
-   # set -A TYPE    ins  ins ins ins ins ins ins ins ins # ins
-   # set -A NEXP     2  2  2  2 2 2 2 2 2 # 2
-   # set -A LEV      0  0  0  500 0 0 0 0 0 # 0
-   # set -A LEVTYPE sfc sfc sfc pl sfc  sfc sfc sfc sfc # sfc
-   # set -A STAT    avg avg avg avg avg avg avg avg avg # avg
+    set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SST  SKT TCW TCWV Z  T   T   T   T   T    T   T   T  TCLW TCIW CAPE
+    set -A TYPE    ins ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins ins  ins ins ins ins  ins  ins 
+    set -A NEXP     2   2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2   2    2   2   2   2    2    2  
+    set -A LEV      0   0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0    0   0   0  500 925 850 700 500 300  200 100 50   0    0    0  
+    set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc  sfc sfc sfc pl  pl  pl  pl  pl  pl   pl  pl  pl  sfc  sfc  sfc 
+    set -A STAT    avg avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg  avg avg avg avg avg avg avg avg avg  avg avg avg avg  avg  avg 
 
 # --- loop over variables
 
@@ -813,11 +791,11 @@ if [[ $TASK = "plot_zon" ]] ; then
 
       $metview -b zondia_seas_icon_batch.met ${EXP2[${iplot}]} ${EXP1[${iplot}]} \
         ${inidates[0]} ${nens} ${iniyearmonth} ${mm_len[${iperiod}]} \
-        ${LEVTYPE[${iplot}]} ${NLEV} avg ${res} ${eratext} 
+        ${LEVTYPE[${iplot}]} ${NLEV} avg ${res} ${eratext} ${model}
 
      #$metview -b zondia_seas_icon_batch.met ${EXP2[${iplot}]} ${EXP1[${iplot}]} \
      #  ${inidates[0]} ${nens} ${iniyearmonth} ${mm_len[${iperiod}]} \
-     #  ${LEVTYPE[${iplot}]} ${NLEV} std ${res} ${eratext}
+     #  ${LEVTYPE[${iplot}]} ${NLEV} std ${res} ${eratext} ${model}
 
       let iplot=iplot+1
     done  # end of loop over zonal plots

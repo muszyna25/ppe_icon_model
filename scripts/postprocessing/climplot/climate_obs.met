@@ -780,9 +780,9 @@ for imon = 1 to 1 do
                        lcol,tcrit,sig_cont,larticle,model)
               else
                  era40sn(expid,yy_start[imon],mm_start[imon],mm_len[imon],
-                         source_file_sfc,nens,res,era40list[iera40],display_port,lplot_curve,
-                         "ERA40",lclim,era40_date1,era40_date2,dir,eratext,
-                         lcol,tcrit,sig_cont,larticle,model)
+                       source_file_sfc,nens,res,era40list[iera40],display_port,lplot_curve,
+                       "ERA40",lclim,era40_date1,era40_date2,dir,eratext,
+                       lcol,tcrit,sig_cont,larticle,model)
               end if 
            end for
         end if
@@ -2944,21 +2944,21 @@ end ciwc
 
 function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lclim,ecfsdir,freado,lcol,tcrit,sig_cont,larticle,rms,model)
 
-     cmin=0
-     cmax=12
-     cint=1
+    cmin=0
+    cmax=12
+    cint=1
 
-     cdmin=0.5
-     cdmax=5
-     cdint=0.5
+    cdmin=0.5
+    cdmax=5
+    cdint=0.5
 
-     conts=set_cont_all(lcol,cmin,cmax,cint,cdmin,cdmax,cdint,'blue','red','yellow','red','magenta','green',-1.e21,1.e21)
-     cont=conts[1]
-     diff_cont_pos=conts[2]
-     diff_cont_neg=conts[3]
+    conts=set_cont_all(lcol,cmin,cmax,cint,cdmin,cdmax,cdint,'blue','red','yellow','red','magenta','green',-1.e21,1.e21)
+    cont=conts[1]
+    diff_cont_pos=conts[2]
+    diff_cont_neg=conts[3]
 
 
-     cont_nodata = pcont(
+    cont_nodata = pcont(
 			legend	                :	"on",
 			contour_min_level	:	-1000,
 			contour_max_level	:	-900,
@@ -2987,7 +2987,7 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
     mm=mms
     yy=yys
 
-	for im=1 to nm do
+    for im=1 to nm do
 
 		datever1=yy*10000+(mm)*100+01
 		datever2=yy*10000+(mm+1)*100+01
@@ -3048,39 +3048,39 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
 			obsw_tot=obsw
 		end if
 
-        mm=mm+1
-        if (mm>12) then
-          mm=1
-          yy=yy+1
-        end if
-	end for
+                mm=mm+1
+                if (mm>12) then
+                  mm=1
+                  yy=yy+1
+                end if
+    end for
 
-        if (model = "icon" ) then
-          param_u  = "500027"
-          param_v  = "500029"
-        else
-          param_u  = "10U"
-          param_v  = "10V"
-        end if
+    if (model = "icon" ) then
+      param_u  = "500027"
+      param_v  = "500029"
+    else
+      param_u  = "10U"
+      param_v  = "10V"
+    end if
 
-	modu = read(
-	      #	type	:	"fc",
-	      #	expver	:	expid,
-	      #	levtype	:	"sfc",
-	       	area	:	my_area,
-	       	grid	:	my_grid,
-	        param	:	param_u,
-                source  :       source_file
-					)
+    modu = read(
+          #type	   :	"fc",
+          #expver  :	expid,
+          #levtype :	"sfc",
+           area	   :	my_area,
+           grid	   :	my_grid,
+           param   :	param_u,
+           source  :    source_file
+    				)
 
-	modv = read(
-	      #	type	:	"fc",
-	      #	expver	:	expid,
-	      # levtype	:	"sfc",
-	        area	:	my_area,
-	        grid	:	my_grid,
-	        param	:	param_v,
-                source  :       source_file
+    modv = read(
+          #type    :	"fc",
+          #expver  :	expid,
+          #levtype :	"sfc",
+           area	   :	my_area,
+           grid	   :	my_grid,
+           param   :	param_v,
+           source  :    source_file
 					)
 
     modw_all=sqrt(modu*modu+modv*modv)
@@ -3128,18 +3128,18 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
 
 # global integrals
 
-	precision(3)
-
-	mn_mod = integrate(modw)
-	mn_obs = integrate(obsw)
-	mn_mod_50 = integrate(modw,[50,-180,-50,180])
-	mn_obs_50 = integrate(obsw,[50,-180,-50,180])
-	err_50 = integrate(diffw,[50,-180,-50,180])
-	rms_50 = sqrt(integrate(diffw*diffw,[50,-180,-50,180]))
-
-	# define text
-	datever1=yys*10000+mms*100+01
-	vdat1=date(datever1)
+    precision(3)
+    
+    mn_mod = integrate(modw)
+    mn_obs = integrate(obsw)
+    mn_mod_50 = integrate(modw,[50,-180,-50,180])
+    mn_obs_50 = integrate(obsw,[50,-180,-50,180])
+    err_50 = integrate(diffw,[50,-180,-50,180])
+    rms_50 = sqrt(integrate(diffw*diffw,[50,-180,-50,180]))
+    
+    # define text
+    datever1=yys*10000+mms*100+01
+    vdat1=date(datever1)
 
 #
 # define the date string
@@ -3208,9 +3208,10 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
       plot(display[3],diffw,diff_cont_neg,diff_cont_pos,ptext3,legend,sig,sig_cont)
     end if
 
-    plot(display[1],mod ,arrows     ,ptext1,legend)
-    plot(display[2],obs ,arrows     ,ptext2,legend)
-    plot(display[3],diff,arrows_diff,ptext3,legend)
+     # trick to make ICON model winds technically appear like ECMWF winds for arrows
+     plot(display[1],obs+mod-obs ,arrows     ,ptext1,legend)  # metview doesn't recognize ICON uv
+     plot(display[2],obs         ,arrows     ,ptext2,legend)
+     plot(display[3],obs+diff-obs,arrows_diff,ptext3,legend)
 
 # now do the curve plots
 
@@ -4070,7 +4071,7 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
             grid    : [2.,2.]
             )
         end if
-        print (" number of fields ",count(obs))
+        print ("read obs: number of fields ",count(obs))
         obs=mean(obs) # average over times...
 
 # process field
@@ -4090,21 +4091,19 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
 
     if (model = "icon") then
       case param of
-        "2t": param = 500011
-              end
-        "2d": param = 500017
-              end
-        "sd": param = 502329
-              end
+        "2T": param_mod = 500011  ;  end
+        "2D": param_mod = 500017  ;  end
+        "SD": param_mod = 502329  ;  end  ###ATTENTION: multiple layers
       end case
-###ATTENTION: need to add two layers
+    else
+      param_mod = param
     end if
     mod_all = read(
        #type	:	"fc",
        #expver	:	expid,
        #levtype	:	"sfc",
         grid	:	my_grid,
-        param	:	param,
+        param	:	param_mod,
         source  :       source_file_sfc,
         grid    :       [2.,2.]
         )
@@ -4229,7 +4228,7 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
         end if
 
         print (" number of fields ",count(obs))
-		obs=mean(obs) # average over times...
+        obs=mean(obs) # average over times...
 
 # process field
 
@@ -4247,7 +4246,9 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
     end for
 
     if (model = "icon") then
-      param = 502329   # snow depth "SD"
+      param_mod = 502329   # snow depth "SD"
+    else
+      param_mod = param
     end if
 
     mod_all_lev1 = read(
@@ -4256,7 +4257,7 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
      #levtype	:	"sfc",
       levelist  :       1,
       grid	:	my_grid,
-      param	:	param,
+      param	:	param_mod,
       source    :       source_file_sfc
      )
     mod_all = read(
@@ -4264,12 +4265,12 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
      #expver	:	expid,
      #levtype	:	"sfc",
       grid	:	my_grid,
-      param	:	param,
+      param	:	param_mod,
       source    :       source_file_sfc
      )
 
     if (model = "icon") then
-      nsnowlev = count(mod_all) / count(mod_all_lev1)
+      nsnowlev = count(mod_all) / count(mod_all_lev1)   #multi-layer snow in ICON)
       print("snow levels: ", nsnowlev)
       mod      = 100 * mean(mod_all) * nsnowlev
     else

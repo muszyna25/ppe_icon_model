@@ -124,7 +124,7 @@ done
 # output variables
 
 ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl', 
-'o3','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia', 
+'o3','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia',
 'clct','clch','clcm','clcl', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
 'u_10m','v_10m', 'sp_10m', 't_2m', 'td_2m',
@@ -133,7 +133,7 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'dzh_snow', 'cape'"
 #'z_pbl'
 
-pl_varlist="'u','v','w','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'"      
+pl_varlist="'u','v','w','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','rh'"      
 hl_varlist="'u','v',    'temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia'"   
 
 # ---

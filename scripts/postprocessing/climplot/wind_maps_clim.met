@@ -308,10 +308,10 @@ for nl=1 to count(lev) do
            	legend_text_colour	       :    "black"
                 )
        
-         display_window = build_layout(nzon)
-         plot (display_window[1],uv_exp1_m, arrows,     text_1, legend)
-         plot (display_window[2],uv_era40_m,arrows,     text_2, legend)
-         plot (display_window[3],err,       arrows_diff,text_3, legend)
+      display_window = build_layout(nzon)
+      plot (display_window[1],uv_exp1_m, arrows,     text_1, legend)
+      plot (display_window[2],uv_era40_m,arrows,     text_2, legend)
+      plot (display_window[3],err,       arrows_diff,text_3, legend)
     end for   # Plotting different geograph areas
 
 end for # Plotting different pressure levels
