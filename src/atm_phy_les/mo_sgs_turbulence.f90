@@ -57,7 +57,7 @@ MODULE mo_sgs_turbulence
                                     idx_sgs_qv_flx, idx_sgs_qc_flx,   &
                                     idx_sgs_u_flx, idx_sgs_v_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
-  USE mo_grid_config,         ONLY: l_limited_area
+  USE mo_les_utilities,       ONLY: brunt_vaisala_freq
 
   IMPLICIT NONE
 
@@ -90,9 +90,9 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
-  SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics, p_patch, &
-                                     p_int, p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd,&
-                                     prm_diag, prm_nwp_tend, dt)
+  SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+                                     p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
+                                     p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog     !< single nh prognostic state
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog_rcf !< rcf nh prognostic state 
@@ -107,8 +107,7 @@ MODULE mo_sgs_turbulence
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
 
-    REAL(wp), ALLOCATABLE :: theta(:,:,:), thetav(:,:,:)
-    REAL(wp) :: visc_sfc_c(nproma,1,p_patch%nblks_c)
+    REAL(wp), ALLOCATABLE :: theta(:,:,:)
 
     INTEGER :: nlev, nlevp1
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -137,7 +136,6 @@ MODULE mo_sgs_turbulence
               visc_smag_ie(nproma,nlevp1,p_patch%nblks_e),   &                              
               diff_smag_e(nproma,nlev,p_patch%nblks_e),      &
               theta(nproma,nlev,p_patch%nblks_c),            &
-              thetav(nproma,nlev,p_patch%nblks_c),           &
               DIV_c(nproma,nlev,p_patch%nblks_c),            &
               rho_e(nproma,nlev,p_patch%nblks_e)             &
              )
@@ -147,12 +145,8 @@ MODULE mo_sgs_turbulence
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
     END IF
 
-    !Convert temperature/tempv to potential/thetav temperature: all routines within 
-    !use theta and thetav. Using prog theta_v was creating issue with sync_patch_array
-    !that could have been solved by doing the below calculation on halo points only if 
-    !all procs are MPI and NOT for serial runs. Refer to the part in mo_interface_les
-    !where prog vars are updated on halo points in the end only if
-    !my_process_is_mpi_all_parallel()  is TRUE
+    !Convert temperature to potential temperature: all routines within 
+    !use theta. 
 
     rl_start   = 1
     rl_end     = min_rlcell
@@ -167,9 +161,6 @@ MODULE mo_sgs_turbulence
        DO jc = i_startidx, i_endidx
          theta(jc,1:nlev,jb)  = p_nh_diag%temp(jc,1:nlev,jb) / &
                                 p_nh_prog%exner(jc,1:nlev,jb)
-
-         thetav(jc,1:nlev,jb) = p_nh_diag%tempv(jc,1:nlev,jb) / &
-                                p_nh_prog%exner(jc,1:nlev,jb)
        END DO
     END DO
 !$OMP END DO NOWAIT
@@ -177,10 +168,14 @@ MODULE mo_sgs_turbulence
 
     CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
-                            p_nh_prog%tracer(:,:,:,iqv), visc_sfc_c(:,1,:))
+                            p_nh_prog%tracer(:,:,:,iqv))
 
-    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
-                           thetav, visc_sfc_c)
+    !Calculate Brunt Vaisala Frequency and store in prm_diag%buoyancy_prod
+    CALL brunt_vaisala_freq(p_patch, p_nh_metrics, p_prog_lnd_new%t_g,              &
+                            p_nh_diag%pres_sfc, theta, p_nh_prog%tracer(:,:,:,iqc), &
+                            p_nh_prog%rho, p_nh_diag%temp, prm_diag%buoyancy_prod)
+
+    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
 
     CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                                prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
@@ -212,7 +207,7 @@ MODULE mo_sgs_turbulence
 
     
     DEALLOCATE(u_vert, v_vert, w_vert, w_ie, visc_smag_v, visc_smag_ie, diff_smag_e, &
-               theta, thetav, visc_smag_c, rho_e, DIV_c)
+               theta, visc_smag_c, rho_e, DIV_c)
 
 
   END SUBROUTINE drive_subgrid_diffusion
@@ -241,7 +236,7 @@ MODULE mo_sgs_turbulence
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-20)
   SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
-                               prm_diag, thetav, visc_sfc_c)
+                               prm_diag)
 
     TYPE(t_patch),     INTENT(in),TARGET :: p_patch    !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
@@ -249,18 +244,15 @@ MODULE mo_sgs_turbulence
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
-    REAL(wp),          INTENT(inout)     :: thetav(:,:,:) !< atm phys vars
-    REAL(wp),          INTENT(in)        :: visc_sfc_c(:,:,:) !< apparent visc at surface
 
     ! local variables
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: div_of_stress, visc_smag_e, &
-                                               vn_ie, vt_ie, thetav_e, thetav_ie
+                                               vn_ie, vt_ie, brunt_vais_e
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
-    REAL(wp) :: w_full_c2, w_full_v1, w_full_v2, brunt_vaisala_frq
+    REAL(wp) :: w_full_c2, w_full_v1, w_full_v2
     REAL(wp) :: D_11, D_12, D_13, D_22, D_23, D_33, z1, z2
     REAL(wp), POINTER :: diff_smag_ic(:,:,:)
-    REAL(wp) :: visc_sfc_e(nproma,1,p_patch%nblks_e)
 
     INTEGER  :: nlev, nlevp1             !< number of full levels
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
@@ -270,7 +262,7 @@ MODULE mo_sgs_turbulence
 
     !--------------------------------------------------------------------------
 
-    IF (msg_level >= 15) &
+    IF (msg_level >= 18) &
          CALL message(TRIM(inmodule), 'smagorinsky_model')
 
     jg = p_patch%id
@@ -284,8 +276,7 @@ MODULE mo_sgs_turbulence
     ALLOCATE( vn_ie(nproma,nlevp1,p_patch%nblks_e),        &
               vt_ie(nproma,nlevp1,p_patch%nblks_e),        &
               visc_smag_e(nproma,nlev,p_patch%nblks_e),    &
-              thetav_e(nproma,nlev,p_patch%nblks_e),       &
-              thetav_ie(nproma,nlevp1,p_patch%nblks_e),    &
+              brunt_vais_e(nproma,nlev,p_patch%nblks_e),   &
               div_of_stress(nproma,nlev,p_patch%nblks_e)   &
             )
 
@@ -509,49 +500,20 @@ MODULE mo_sgs_turbulence
     !3) Classical Smagorinsky model with stability correction due to Lilly 1962
     !--------------------------------------------------------------------------
 
-    ! 3(a)Calculate thetav at interface edges for gradient Richardson number and 
-    ! some additional interpolations. 
+    ! 3(a)Calculate Brunt Vaisala Freq at the edges for gradient Richardson number
+    !     and also rho 
     
-    CALL cells2edges_scalar(thetav, p_patch, p_int%c_lin_e, thetav_e,  &
+    CALL cells2edges_scalar(prm_diag%buoyancy_prod, p_patch, p_int%c_lin_e, brunt_vais_e, &
                             opt_rlstart=4, opt_rlend=min_rledge_int)
  
-    rl_start = 4
-    rl_end   = min_rledge_int
-
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-    DO jb = i_startblk,i_endblk
-       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
-                          i_startidx, i_endidx, rl_start, rl_end)
-       DO jk = 2 , nlev
-         DO je = i_startidx, i_endidx
-           thetav_ie(je,jk,jb) = p_nh_metrics%wgtfac_e(je,jk,jb) * thetav_e(je,jk,jb) +       &
-                                (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * thetav_e(je,jk-1,jb) 
-         END DO
-       END DO
-      DO je = i_startidx, i_endidx
-          thetav_ie(je,1,jb) = p_nh_metrics%wgtfacq1_e(je,1,jb)*thetav_e(je,1,jb) + &
-                               p_nh_metrics%wgtfacq1_e(je,2,jb)*thetav_e(je,2,jb) + &
-                               p_nh_metrics%wgtfacq1_e(je,3,jb)*thetav_e(je,3,jb)
-      END DO
-    END DO
-!$OMP END DO
-!$OMP END PARALLEL
-
     CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, rho_e, &
-                            opt_rlstart=4, opt_rlend=min_rledge_int)
-
-    CALL cells2edges_scalar(visc_sfc_c, p_patch, p_int%c_lin_e, visc_sfc_e, &
                             opt_rlstart=4, opt_rlend=min_rledge_int)
 
     !3(b) Calculate stability corrected turbulent viscosity
     !MP = Mechanical prod term calculated above
     !visc = mixing_length_sq * SQRT(MP/2) * SQRT(1-Ri/Pr) where 
-    !Ri = (g/thetav)*d_thetav_dz/(MP/2), where Brunt_vaisala_freq (byncy prod term/kh) 
-    !   = (g/thetav)*d_thetav_dz. 
+    !Ri = (g/theta)*d_theta_dz/(MP/2), where Brunt_vaisala_freq (byncy prod term/kh) 
+    !   = (g/theta)*d_theta_dz. 
     !After simplification: visc = mixing_length_sq * SQRT[ MP/2 - (Brunt_vaisala_frq/Pr) ]
 
     rl_start = 4
@@ -565,35 +527,14 @@ MODULE mo_sgs_turbulence
     DO jb = i_startblk,i_endblk
        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
                           i_startidx, i_endidx, rl_start, rl_end)
-       DO jk = 1 , nlev-1
+       DO jk = 1 , nlev
          DO je = i_startidx, i_endidx
-
-           prm_diag%buoyancy_prod(je,jk,jb) = grav*(thetav_ie(je,jk,jb)-thetav_ie(je,jk+1,jb))* &
-                               p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)/thetav_e(je,jk,jb)
-
            visc_smag_e(je,jk,jb) = rho_e(je,jk,jb) *                 &
                MAX( 0._wp, p_nh_metrics%mixing_length_sq(je,jk,jb) * &
                SQRT(MAX(0._wp, prm_diag%mech_prod(je,jk,jb)*0.5_wp - &
-                               les_config(jg)%rturb_prandtl*prm_diag%buoyancy_prod(je,jk,jb))) ) 
-
+                        les_config(jg)%rturb_prandtl*brunt_vais_e(je,jk,jb))) ) 
          END DO
        END DO
-    END DO
-!$OMP END DO
-
-    !Now use the apparent viscosity at the surface calculated from mo_surface_les
-    !to estimate the viscosity at the first model level. 
-
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,z1,z2)
-    DO jb = i_startblk,i_endblk
-       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,       &
-                          i_startidx, i_endidx, rl_start, rl_end)
-         DO je = i_startidx, i_endidx
-           z1 = p_nh_metrics%inv_ddqz_z_full_e(je,nlev,jb) * 2._wp
-           z2 = p_nh_metrics%inv_ddqz_z_half_e(je,nlev,jb) 
-           visc_smag_e(je,nlev,jb) = (z1*visc_sfc_e(je,1,jb) + &
-                                      z2*visc_smag_e(je,nlev-1,jb))/(z1+z2) 
-         END DO
     END DO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -652,7 +593,7 @@ MODULE mo_sgs_turbulence
        DO jk = 2 , nlev
          DO je = i_startidx, i_endidx
            visc_smag_ie(je,jk,jb) = p_nh_metrics%wgtfac_e(je,jk,jb) * visc_smag_e(je,jk,jb) + &
-                       (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * visc_smag_e(je,jk-1,jb)          
+                        (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * visc_smag_e(je,jk-1,jb) 
          END DO
        END DO     
     END DO      
@@ -697,7 +638,7 @@ MODULE mo_sgs_turbulence
        DO jk = 2 , nlev
          DO jc = i_startidx, i_endidx
            diff_smag_ic(jc,jk,jb) = ( p_nh_metrics%wgtfac_c(jc,jk,jb)*visc_smag_c(jc,jk,jb) + &
-                                  (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*visc_smag_c(jc,jk-1,jb) &
+                              (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*visc_smag_c(jc,jk-1,jb) &
                                   ) * les_config(jg)%rturb_prandtl   
          END DO
        END DO     
@@ -727,7 +668,7 @@ MODULE mo_sgs_turbulence
 !$OMP END PARALLEL
 
     !DEALLOCATE variables
-    DEALLOCATE( div_of_stress, visc_smag_e, vn_ie, vt_ie, thetav_e, thetav_ie )
+    DEALLOCATE( div_of_stress, visc_smag_e, vn_ie, vt_ie, brunt_vais_e )
   
   END SUBROUTINE smagorinsky_model
   !-------------------------------------------------------------------------------------
@@ -777,7 +718,7 @@ MODULE mo_sgs_turbulence
     INTEGER :: jk, jkp1, jb, je, jcn, jbn, jvn, jc
     INTEGER :: nlev, jg, nlevp1
 
-    IF (msg_level >= 15) &
+    IF (msg_level >= 18) &
          CALL message(TRIM(inmodule), 'diffuse_hori_velocity')
 
     !patch id
@@ -1274,7 +1215,7 @@ MODULE mo_sgs_turbulence
     INTEGER :: jk, jkp1, jb, je, jkm1, jc, jcn, jbn, jvn
     INTEGER  :: nlev              
 
-    IF (msg_level >= 15) &
+    IF (msg_level >= 18) &
          CALL message(TRIM(inmodule), 'diffuse_vert_velocity')
 
     !patch id
@@ -1640,7 +1581,7 @@ MODULE mo_sgs_turbulence
     INTEGER :: jk, jb, je, jc, jg
     INTEGER  :: nlev, nlevp1              
 
-    IF (msg_level >= 15) &
+    IF (msg_level >= 18) &
          CALL message(TRIM(inmodule), 'diffuse_scalar')
 
     !patch id

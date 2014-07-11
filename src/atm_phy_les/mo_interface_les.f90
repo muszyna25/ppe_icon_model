@@ -342,7 +342,6 @@ CONTAINS
       IF (msg_level >= 15) CALL message(TRIM(routine), 'satad')
       IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
 
-      ! exclude boundary interpolation zone of nested domains
       rl_start = 1
       rl_end   = min_rlcell
 

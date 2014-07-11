@@ -35,7 +35,7 @@ MODULE mo_ls_forcing
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_vert_utilities
+  USE mo_les_utilities
   USE mo_ls_forcing_nml
   USE mo_physical_constants,  ONLY: rd, cpd, alv, cvd
 

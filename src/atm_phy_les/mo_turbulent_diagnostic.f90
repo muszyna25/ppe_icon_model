@@ -145,7 +145,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !Get rho at interface levels
+    !Get w at full levels
 !$OMP PARALLEL 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
@@ -515,8 +515,8 @@ CONTAINS
 
      CASE('bynprd')
        !Buoyancy production term
-       CALL levels_horizontal_mean(prm_diag%buoyancy_prod, p_patch%edges%primal_edge_length, &
-                                   p_patch%edges%owned, outvar(1:nlev))
+       CALL levels_horizontal_mean(prm_diag%buoyancy_prod, p_patch%cells%area, &
+                                   p_patch%cells%owned, outvar(1:nlev))
 
      CASE('mechprd')
        !Mechanical production term: prm_diag%mech_prod / 2

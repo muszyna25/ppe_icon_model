@@ -2243,15 +2243,15 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
         & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
         & ldims=shape2d, lrestart=.FALSE. )
 
-      ! &      diag%buoyancy_prod(nproma,nlev,nblks_e)
+      ! &      diag%buoyancy_prod(nproma,nlev,nblks_c)
       cf_desc    = t_cf_var('buoaycny_prod', 'm**2/s**3', 'buoayancy production term in TKE Eq', &
            &                DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'buoyancy_prod', diag%buoyancy_prod,             &
         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,               &
-        & ldims=shape3d_e, lrestart=.FALSE. )                                   
+        & ldims=shape3d, lrestart=.FALSE. )                                   
 
-      ! &      diag%buoyancy_prod(nproma,nlev,nblks_e)
+      ! &      diag%mech_prod(nproma,nlev,nblks_e)
       cf_desc    = t_cf_var('mech_prod', 'm**2/s**3', 'mechanical production term in TKE Eq', &
            &                DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
