@@ -177,8 +177,8 @@ SUBROUTINE art_sedi_interface( p_patch, &
             nflx_contra_vsed => fields%flx_contra_vsed0
             
           class is (t_fields_volc)
-            call art_sedi_volc( p_patch,p_metrics,p_rho,            &
-              &              p_diag,                                & 
+            call art_sedi_volc( p_patch,p_metrics,p_prog,           &
+              &              p_rho, p_diag,                         & 
               &              fields%diam,fields%rho,                &
               &              fields%flx_contra_vsed3,               &
               &              fields%itracer) 
