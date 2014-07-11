@@ -1947,26 +1947,30 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
-      ! Q4 vertical integral: tqr(nproma,nblks_c)
-      cf_desc    = t_cf_var('tqr', 'kg m-2', 'total_column_integrated_rain',     &
-        &          DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 0, 1, 45, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tqr',                             &
-                  & p_diag%tracer_vi_ptr(4)%p_2d,                                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                  & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+      IF ( iqm_max >= 4 ) THEN
+        ! Q4 vertical integral: tqr(nproma,nblks_c)
+        cf_desc    = t_cf_var('tqr', 'kg m-2', 'total_column_integrated_rain',     &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 0, 1, 45, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqr',                             &
+                    & p_diag%tracer_vi_ptr(4)%p_2d,                                &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+      ENDIF ! iqm_max >= 4
 
-      ! Q5 vertical integral: tqs(nproma,nblks_c)
-      cf_desc    = t_cf_var('tqs', 'kg m-2', 'total_column_integrated_snow',     &
-        &          DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 0, 1, 46, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_ref( p_diag_list, 'tracer_vi', 'tqs',                             &
-                  & p_diag%tracer_vi_ptr(5)%p_2d,                                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                  & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+      IF ( iqm_max >= 5 ) THEN
+        ! Q5 vertical integral: tqs(nproma,nblks_c)
+        cf_desc    = t_cf_var('tqs', 'kg m-2', 'total_column_integrated_snow',     &
+          &          DATATYPE_FLT32)
+        grib2_desc = t_grib2_var( 0, 1, 46, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tqs',                             &
+                    & p_diag%tracer_vi_ptr(5)%p_2d,                                &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+       ENDIF  ! iqm_max >= 5
 
 
-      IF ( ANY((/4,5/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+      IF ( ANY((/2,4,5/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
         !
         ! Q6 vertical integral: tqg(nproma,nblks_c)
         cf_desc    = t_cf_var('tqg', 'kg m-2', 'total_column_integrated_graupel',  &
@@ -1978,14 +1982,18 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
 
-        ! Q7 vertical integral: tqh(nproma,nblks_c)
-        cf_desc    = t_cf_var('tqh', 'kg m-2', 'total_column_integrated_hail',     &
-          &          DATATYPE_FLT32)
-        grib2_desc = t_grib2_var( 0, 1, 72, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_ref( p_diag_list, 'tracer_vi', 'tqh',                             &
-                    & p_diag%tracer_vi_ptr(7)%p_2d,                                &
-                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                    & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+        ! Note that hail is only taken into account by schemes 4 and 5
+        !
+        IF ( ANY((/4,5/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+          ! Q7 vertical integral: tqh(nproma,nblks_c)
+          cf_desc    = t_cf_var('tqh', 'kg m-2', 'total_column_integrated_hail',     &
+            &          DATATYPE_FLT32)
+          grib2_desc = t_grib2_var( 0, 1, 72, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_ref( p_diag_list, 'tracer_vi', 'tqh',                             &
+                      & p_diag%tracer_vi_ptr(7)%p_2d,                                &
+                      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                      & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
+         ENDIF
       ENDIF  ! inqp_gscp= 4 or 5
 
 
