@@ -459,6 +459,7 @@ CONTAINS
         zrho_snow_old(:) = 0.0_ireals
         zicount1(:)      = 0
         zicount2(:)      = 0
+        sum_weight(:)    = 0. 
         DO ksn = 1, ke_snow
           DO i = istarts, iends
             zw_snow_old(i) = zw_snow_old(i) + wtot_snow_now(i,ksn)
@@ -496,14 +497,14 @@ CONTAINS
                   dzh_snow_now(i,ksn) = MIN(8._ireals*max_toplaydepth, (w_snow_now(i)-wtot_snow_now(i,1)) &
                       &                 /REAL(ke_snow-1,ireals)*rho_w/rho_snow_mult_now(i,ksn) )
                 ELSE
-                  dzh_snow_now(i,ksn) = (w_snow_now(i)-wtot_snow_now(i,k))/REAL(ke_snow-k,ireals) &
+                  dzh_snow_now(i,ksn) = (w_snow_now(i)-sum_weight(i))/REAL(ke_snow-k,ireals) &
                       &                 *rho_w/rho_snow_mult_now(i,ksn)
                 ENDIF
               ENDIF
               wtot_snow_now    (i,ksn) = dzh_snow_now(i,ksn)*rho_snow_mult_now(i,ksn)/rho_w
+              sum_weight(i) = sum_weight(i) + wtot_snow_now(i,ksn)
               wliq_snow_now    (i,ksn) = 0.0_ireals
             END IF
-            t_snow_mult_now(i,ksn) = t_snow_now(i)
           END DO
         END DO
         DO i = istarts, iends
@@ -560,10 +561,20 @@ CONTAINS
 !   Initialization of the local array of the grid in snow
 !   -----------------------------------------------------
     IF(lmulti_snow) THEN
+      sum_weight(:)    = 0.0_ireals 
       DO i = istarts, iends
         h_snow(i) = 0.0_ireals
         DO ksn = 1,ke_snow
           h_snow(i) = h_snow(i) + dzh_snow_now(i,ksn)
+        END DO
+      END DO
+      DO ksn = 1,ke_snow
+        DO i = istarts, iends
+          IF(h_snow(i) > 0.0_ireals) THEN
+            t_snow_mult_now(i,ksn) = t_snow_now(i) + &
+              (t_s_now(i)-t_snow_now(i))*(sum_weight(i)+dzh_snow_now(i,ksn)*0.5)/h_snow(i)
+            sum_weight(i) = sum_weight(i) + dzh_snow_now(i,ksn)
+          END IF
         END DO
       END DO
     ELSE

@@ -821,7 +821,7 @@ END SUBROUTINE message
     zcounter(ie), &
     ze_rad(ie)  , &
     zswitch(ie) , &
-    tmp_num        , &
+    tmp_num(ie) , &
     sum_weight(ie)      , &
     t_new  (ie,ke_snow) , &
     rho_new(ie,ke_snow) , &
@@ -1375,6 +1375,7 @@ END SUBROUTINE message
 
 
   DO i = istarts, iends
+
     mstyp       = soiltyp_subs(i)        ! soil type
     m_styp(i) = mstyp                     ! array for soil type
     IF (mstyp >= 3) THEN
@@ -3474,16 +3475,17 @@ ELSE   IF (itype_interception == 2) THEN
 !em>
 
         IF(zwsnew(i) .GT. zepsi) THEN
-          zrnet_snow = sobs(i) * (1.0_ireals - EXP(-zextinct(i,1)*zdzm_snow(i,1))) &
-                       + zthsnw(i)
+          IF(zextinct(i,1).gt.0.0_ireals) THEN
+            zrnet_snow = zthsnw(i)
+          ELSE
+            zrnet_snow = sobs(i) + zthsnw(i)
+          END IF 
         ELSE
           zrnet_snow = sobs(i) + zthsnw(i)
         END IF
         zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow_mult(i,1))
         zlhfl_snow(i) = lh_s*zversn(i)   
-!DR start
         zqhfl_snow(i) = zversn(i)   
-!DR end
         zfor_snow_mult(i)  = (zrnet_snow + zshfl_snow(i) + zlhfl_snow(i) + lh_f*zrr(i))*zf_snow(i)
 
 !      END IF          ! land-points only
@@ -3710,8 +3712,8 @@ ENDIF
     DO i = istarts, iends
       IF (sn_frac(i) > 0._ireals) THEN
         ! Uppermost snow layer, Neumann boundary condition
-        zrocs(i) = wliq_snow_now(i,1)/wtot_snow_now(i,1)*chc_w*rho_w + &
-              (wtot_snow_now(i,1)-wliq_snow_now(i,1))/wtot_snow_now(i,1)*chc_i*rho_i
+        zrocs(i) = (wliq_snow_now(i,1)/wtot_snow_now(i,1)*chc_w + &
+              (wtot_snow_now(i,1)-wliq_snow_now(i,1))/wtot_snow_now(i,1)*chc_i)*rho_snow_mult_now(i,1)
         zakb      = zalas_mult(i,1)/zrocs(i)
         zaga(i,1) = -zalfa*zdt*zakb/(zdzh_snow(i,1)*zdzm_snow(i,1))
         zagc(i,1) = -zalfa*zdt*zakb/(zdzh_snow(i,1)*zdzm_snow(i,2))
@@ -3733,11 +3735,10 @@ ENDIF
         zagd(i,ke_snow + ke_soil+1) = t_so_now(i,ke_soil+1)
 
         ! Lowermost snow layer, special treatment
-        zrocs(i) = wliq_snow_now(i,ke_snow)/wtot_snow_now(i,ke_snow)*chc_w*rho_w +  &
+        zrocs(i) = (wliq_snow_now(i,ke_snow)/wtot_snow_now(i,ke_snow)*chc_w +  &
           & (wtot_snow_now(i,ke_snow)-wliq_snow_now(i,ke_snow))/                    &
-          & wtot_snow_now(i,ke_snow)*chc_i*rho_i
+          & wtot_snow_now(i,ke_snow)*chc_i)*rho_snow_mult_now(i,ke_snow)
         zakb = zalas_mult(i,ke_snow)/zrocs(i)
-!        zaga(i,ke_snow) = -zalfa*zdt*zakb/(zdzh_snow(i,ke_snow)*zdzm_snow(i,ke_snow))
         zaga(i,ke_snow) = -zalfa*zdt*zakb/(zdzh_snow(i,ke_snow)*zdzm_snow(i,ke_snow))
         zakb = (zalas_mult(i,ke_snow)/zrocs(i)*(-zhm_snow(i,ke_snow))+hzalam(i,1)/ &
                 zroc(i,1)*zmls(1))/(zmls(1)-zhm_snow(i,ke_snow))
@@ -3766,15 +3767,13 @@ ENDIF
     DO ksn = 2, ke_snow-1
       DO i = istarts, iends
         IF (sn_frac(i) > 0._ireals) THEN
-          zrocs(i) = wliq_snow_now(i,ksn)/wtot_snow_now(i,ksn)*chc_w*rho_w + &
+          zrocs(i) = (wliq_snow_now(i,ksn)/wtot_snow_now(i,ksn)*chc_w + &
             & (wtot_snow_now(i,ksn)-wliq_snow_now(i,ksn))/ &
-            & wtot_snow_now(i,ksn)*chc_i*rho_i
+            & wtot_snow_now(i,ksn)*chc_i)*rho_snow_mult_now(i,ksn)
           zakb = zalas_mult(i,ksn)/zrocs(i)
-!          zaga(i,ksn) = -zalfa*zdt*zakb/(zdzh_snow(i,ksn)*zdzm_snow(i,ksn))
           zaga(i,ksn) = -zalfa*zdt*zakb/(zdzh_snow(i,ksn)*zdzm_snow(i,ksn))
           zakb = (zalas_mult(i,ksn)/zrocs(i)*zdzm_snow(i,ksn)+zalas_mult(i,ksn+1)/zrocs(i)*zdzm_snow(i,ksn+1))/ &
                  (zdzm_snow(i,ksn)+zdzm_snow(i,ksn+1))
-!          zagc(i,ksn) = -zalfa*zdt*zakb/(zdzh_snow(i,ksn)*zdzm_snow(i,ksn+1))
           zagc(i,ksn) = -zalfa*zdt*zakb/(zdzh_snow(i,ksn)*zdzm_snow(i,ksn+1))
           zagb(i,ksn) = 1._ireals - zaga(i,ksn) - zagc(i,ksn)
           zagd(i,ksn) = ztsnow_mult(i,ksn) + &
@@ -3809,8 +3808,6 @@ ENDIF
           zzz = 1._ireals/(zagb(i,kso) - zaga(i,kso)*zagc(i,kso-1))
           zagc(i,kso) = zagc(i,kso) * zzz
           zagd(i,kso) = (zagd(i,kso) - zaga(i,kso)*zagd(i,kso-1)) * zzz
-!IF(kso-ke_snow==1) write(0,*) 'Back substitution zagc', zagc(i,kso) , zzz
-!IF(kso-ke_snow==1) write(0,*) 'Back substitution zagd', zagd(i,kso) , zaga(i,kso),zagd(i,kso-1)
         END IF
       END DO
     END DO                ! snow + soil layers
@@ -3831,7 +3828,6 @@ ENDIF
         IF (sn_frac(i) > 0._ireals) THEN
           zage(i,kso) = zagd(i,kso) - zagc(i,kso)*zage(i,kso+1)
           t_so_snow_new(i,kso-ke_snow) = zage(i,kso)
-!IF(kso-ke_snow==1) write(0,*) 'Back substitution', zagd(i,kso) , zagc(i,kso),zage(i,kso+1)
         END IF
       END DO
     END DO                ! soil layers
@@ -3846,42 +3842,43 @@ ENDIF
       END DO
     END DO                ! snow layers
   
+!in case of thin snowpack (less than zswitch), apply single-layer snow model 
     DO i = istarts, iends
-        IF (sn_frac(i) > 0._ireals) THEN
+      IF (sn_frac(i) > 0._ireals) THEN
         zgsb(i) = ((zalas_mult(i,ke_snow)*(-zhm_snow(i,ke_snow))+hzalam(i,1)*zdzms(1))/ &
                   (-zhm_snow(i,ke_snow)+zdzms(1)) * &
                   (ztsnown_mult(i,ke_snow) - t_so_now(i,1))/(-zhm_snow(i,ke_snow) &
                   +zdzms(1)))*zf_snow(i)
-          zrocs(i) = wliq_snow_now(i,1)/wtot_snow_now(i,1)*chc_w*rho_w + &
-            (wtot_snow_now(i,1)-wliq_snow_now(i,1))/wtot_snow_now(i,1)*chc_i*rho_i
-          zswitch(i) = (-zfor_snow_mult(i)+zgsb(i))/50./zrocs(i)*zdt*ke_snow
-          zswitch(i) = MAX(zswitch(i),1.E-03_ireals)
-  
-          IF(zwsnew(i) .LT. zswitch(i)) THEN
-  
-            ztsnow(i) = (ztsnow_mult(i,1)*zdzh_snow(i,1) &
-            &+ ztsnow_mult(i,2)*zdzh_snow(i,2)) / &
-                          (zdzh_snow(i,1) + zdzh_snow(i,2))
-            ztsn  (i) = t_so_now(i,1)
-            tmp_num = ztsnow(i) + zdt*2._ireals*(zfor_snow_mult(i) - zgsb(i))  &
+        zrocs(i) = (wliq_snow_now(i,1)/wtot_snow_now(i,1)*chc_w + &
+          (wtot_snow_now(i,1)-wliq_snow_now(i,1))/wtot_snow_now(i,1)*chc_i)*rho_snow_mult_now(i,1)
+        zswitch(i) = (-zfor_snow_mult(i)+zgsb(i))/50./zrocs(i)*zdt*ke_snow
+        zswitch(i) = MAX(zswitch(i),1.E-03_ireals)
+      ELSE
+        zswitch(i) = 0.0_ireals
+      END IF
+    END DO
+    DO i = istarts, iends
+      IF(zwsnew(i) .LT. zswitch(i) .AND. sn_frac(i) > 0._ireals) THEN
+        ztsn  (i) = t_so_now(i,1)
+        tmp_num(i) = ztsnow_mult(i,1) + zdt*2._ireals*(zfor_snow_mult(i) - zgsb(i))  &
                            /zrocs(i)/(zswitch(i)/rho_snow_mult_now(i,1)*rho_w) &
                            &- ( ztsn(i) - zts(i) )
-            zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_mult_now(i,1)/rho_i))
+        zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_mult_now(i,1)/rho_i))
   
-            ztsnow_im    = - zrhoch(i) * (cp_d + zdqvtsnow(i) * lh_s)       &
-                                         - zalas/(zdzh_snow(i,1) + zdzh_snow(i,2))
-            zfak  = MAX(zepsi,1.0_ireals - zdt*zalfa*ztsnow_im/zrocs(i)/(zdzh_snow(i,1) &
-            &+ zdzh_snow(i,2)))
-            tmp_num = ztsnow(i) + (tmp_num-ztsnow(i))/zfak
-  
-!            ztsnown_mult(i,1) = tmp_num
-!            ztsnown_mult(i,2) = tmp_num
+        ztsnow_im    = - zrhoch(i) * (cp_d + zdqvtsnow(i) * lh_s) - zalas/h_snow_now(i)
+        zfak  = MAX(zepsi,1.0_ireals - zdt*zalfa*ztsnow_im/zrocs(i)/h_snow_now(i))
+        tmp_num(i) = ztsnow_mult(i,1) + (tmp_num(i)-ztsnow_mult(i,1))/zfak
+      END IF
+    END DO
+    DO ksn = 1, ke_snow
+      DO i = istarts, iends
+        IF(sn_frac(i) > 0._ireals) THEN
+          IF(zwsnew(i) .LT. zswitch(i)) THEN
+!            ztsnown_mult(i,ksn) = tmp_num(i)
           END IF
-  
           ztsnown_mult(i,0) = ztsnown_mult(i,1)
-        ELSE
-          zswitch(i) = 0.0_ireals
         END IF
+      END DO
     END DO
   
     DO ksn = 1, ke_snow
@@ -3919,8 +3916,6 @@ ENDIF
     DO kso = 1, ke_soil+1
       DO i = istarts, iends
         t_so_new(i,kso) = t_so_snow_new(i,kso)*sn_frac(i) + t_so_free_new(i,kso)*(1._ireals - sn_frac(i))
-!IF(kso==1) 
-!write(0,*) i,kso,sn_frac(i),t_so_snow_new(i,kso),t_so_free_new(i,kso)
       END DO
     END DO
   ELSE
@@ -4193,17 +4188,12 @@ ENDIF
               IF(zextinct(i,ksn).eq.0.0_ireals) THEN
                 ze_in = ze_out(i)
               ELSE
-                IF(ksn.eq.ke_snow) THEN
-                  ze_in = ze_out(i) + (ze_rad(i) - zcounter(i))
-                ELSEIF(ksn.eq.1) then
-                  ze_in = ze_rad(i) * (EXP (-zextinct(i,1)*zdzm_snow(i,1)) &
-                    &     - EXP (-zextinct(i,1)*zdzh_snow(i,1)))
-                  zcounter(i) = ze_rad(i) * (1._ireals-EXP(-zextinct(i,1)*zdzh_snow(i,1)))
+                IF(ksn.eq.ke_snow) THEN     ! all the rest of radiation is absorbed by the lowermost snow layer
+                  ze_in = ze_out(i) + ze_rad(i)
                 ELSE
-                  ze_in = ze_out(i) + (ze_rad(i) - zcounter(i))  &
-                    &     -(ze_rad(i) - zcounter(i))*EXP(-zextinct(i,ksn)*zdzh_snow(i,ksn))
-                  zcounter(i) = ze_rad(i)-(ze_rad(i)-zcounter(i)) &
-                    &             * EXP(-zextinct(i,ksn)*zdzh_snow(i,ksn))
+                  zcounter(i) = EXP (-zextinct(i,ksn)*zdzh_snow(i,ksn))
+                  ze_in = ze_out(i) + ze_rad(i) * (1._ireals - zcounter(i))
+                  ze_rad(i) = ze_rad(i) * zcounter(i)
                 END IF
               END IF
     
@@ -4887,7 +4877,15 @@ ENDIF
         ELSE !JH
           rho_snow_new(i) = 250._ireals ! workaround need to be inspected!!
         END IF
-        t_snow_new(i) = t_snow_mult_new (i,1)
+        IF(w_snow_new(i) > zepsi) THEN 
+          ! linear extrapolation from t_snow_mult_new(i,2) and t_snow_mult_new(i,1) to t_snow_mult_new(i,0)
+          t_snow_mult_new(i,0) = (t_snow_mult_new(i,1)*(2._ireals*dzh_snow_new(i,1)+dzh_snow_new(i,2))- &
+                                t_snow_mult_new(i,2)*dzh_snow_new(i,1))/(dzh_snow_new(i,1)+dzh_snow_new(i,2))
+          ! limiter to prevent unphysical values and/or numerical instabilities
+          t_snow_mult_new(i,0) = MIN(273.15_ireals,t_snow_mult_new(i,0),t_snow_mult_new(i,1)+5.0_ireals)
+          t_snow_mult_new(i,0) = MAX(t_snow_mult_new(i,0),t_snow_mult_new(i,1)-5.0_ireals)
+        END IF
+        t_snow_new(i) = t_snow_mult_new (i,0)
 !      END IF          ! land-points only
     END DO
 
