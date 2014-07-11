@@ -17,6 +17,8 @@
 # dict names         "add_var" name
 # ---------------------------------
 #
+  ps                 pres_sfc
+  psl                pres_msl
   ta                 temp
   hus                qv
   clw                qc
@@ -24,10 +26,12 @@
 #
   ua                 u
   va                 v
+  wa                 w
+  wap                omega
 #
+  zfull              z_mc
   pfull              pres
-  ps                 pres_sfc
-  psl                pres_msl
+  gpfull             geopot
 
 # variables from the external data (no prefix)
 # --------------------------------------------
