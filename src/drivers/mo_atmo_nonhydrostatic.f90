@@ -420,6 +420,17 @@ CONTAINS
       CALL init_name_list_output(sim_step_info)
     END IF
 
+    ! Determine if temporally averaged vertically integrated moisture quantities need to be computed
+    IF (iforcing == inwp) THEN
+      atm_phy_nwp_config(1:n_dom)%lcalc_moist_integral_avg = &
+        is_variable_in_output(first_output_name_list, var_name="clct_avg")        .OR. &
+        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg01") .OR. &
+        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg02") .OR. &
+        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
+        is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
+        is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
+        is_variable_in_output(first_output_name_list, var_name="avg_qi") 
+    ENDIF
 
     !----------------------!
     !  Initialize actions  !

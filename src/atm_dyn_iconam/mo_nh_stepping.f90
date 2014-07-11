@@ -316,6 +316,7 @@ MODULE mo_nh_stepping
           &                      ih_clch(jg), ih_clcm(jg),               & !in
           &                      p_patch(jg),                            & !in
           &                      p_nh_state(jg)%metrics,                 & !in
+          &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
           &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
           &                      p_nh_state(jg)%diag,                    & !in
           &                      p_lnd_state(jg)%diag_lnd,               & !in
@@ -646,6 +647,7 @@ MODULE mo_nh_stepping
             &                      ih_clch(jg), ih_clcm(jg),               & !in
             &                      p_patch(jg),                            & !in
             &                      p_nh_state(jg)%metrics,                 & !in
+            &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
             &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
             &                      p_nh_state(jg)%diag,                    & !in
             &                      p_lnd_state(jg)%diag_lnd,               & !in

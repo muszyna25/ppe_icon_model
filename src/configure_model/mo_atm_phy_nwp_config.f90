@@ -94,6 +94,8 @@ MODULE mo_atm_phy_nwp_config
                                    !! corresponding physical process
                                    !! ON: TRUE; OFF: FALSE
     LOGICAL :: lcalc_acc_avg       ! TRUE: calculate accumulated and averaged quantities
+
+    LOGICAL :: lcalc_moist_integral_avg ! TRUE: calculate temporally averaged vertical integrals of moisture fields
     
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise

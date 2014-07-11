@@ -105,49 +105,36 @@ CONTAINS
     TYPE(t_nh_diag),    INTENT(INOUT):: pt_diag     !<the diagnostic variables
     TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog     !<the prognostic variables
     TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with
-                                                         !< red. calling frequency for tracers!
+                                                    !< red. calling frequency for tracers!
     TYPE(t_nh_metrics), INTENT(in)   :: p_metrics
 
     TYPE(t_nwp_phy_diag), INTENT(inout):: prm_diag
 
+    INTEGER,           INTENT(IN)  :: kstart_moist
+    INTEGER,           INTENT(IN)  :: ih_clch, ih_clcm
+
     ! Local
-    INTEGER :: nlev, nlevp1            !< number of full levels
+    INTEGER :: nlev                    !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
 
-    REAL(wp):: rhodz(nproma,pt_patch%nlev)   ! rho times delta z
-    REAL(wp):: z_help, r_sim_time
+    REAL(wp):: r_sim_time
     REAL(wp):: t_wgt                   !< weight for running time average
 
     INTEGER :: jc,jk,jb,jg      ! block index
     INTEGER :: jt               ! tracer loop index
     INTEGER :: jk_max
-    INTEGER :: kstart_moist
-    INTEGER :: ih_clch, ih_clcm
 
-
-    REAL(wp):: clearsky(nproma)
     REAL(wp):: d_theta_dz, d_theta_dz_max
-    REAL(wp):: ccmax, ccran, alpha
 
-
-    REAL(wp), PARAMETER :: eps_clc = 1.e-7_wp
-
-    INTEGER,  PARAMETER :: i_overlap = 1       ! 1: maximum-random overlap
-                                               ! 2: generalized overlap (Hogan, Illingworth, 2000) 
-    REAL(wp), PARAMETER :: zdecorr = 2000.0_wp ! decorrelation length scale del(z0) 
 
   !-----------------------------------------------------------------
 
-
-    i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
     ! number of vertical levels
     nlev   = pt_patch%nlev
-    nlevp1 = pt_patch%nlevp1    
 
     ! Inverse of simulation time
     r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
@@ -160,12 +147,416 @@ CONTAINS
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
+    
+
+    ! Calculate vertical integrals of moisture quantities and cloud cover if 
+    ! averages of these variables are requested for output
+    IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN
+      CALL calc_moist_integrals(pt_patch, p_metrics,        & !in
+                              & pt_prog, pt_prog_rcf,       & !in
+                              & kstart_moist,               & !in
+                              & ih_clch, ih_clcm,           & !in
+                              & pt_diag, prm_diag           ) !inout
+    ENDIF
+
+    ! Calculation of average/accumulated values since model start
+    !
+    ! Compute
+    !
+    ! wind
+    !-----------
+    ! - maximum gust (including convective contribution)
+    !
+    ! cloud/rain
+    !-----------
+    ! - time averaged precipitation rates (total, grid-scale, convective)
+    ! - time averaged total cloud cover
+    ! - time averaged TQV, TQC, TQI, TQR, TQS
+    ! - time averaged TQV_DIA, TQC_DIA, TQI_DIA
+    !
+    ! turbulent fluxes
+    !-----------------
+    ! - surface latent heat flux
+    ! - surface latent heat flux from bare soil 
+    ! - surface sensible heat flux
+    ! - surface moisture flux
+    ! - surface u/v-momentum flux
+    !
+    ! radiative fluxes
+    !------------------
+    ! - top net solar radiation
+    ! - top down solar radiation
+    ! - top net thermal radiation
+    ! - surface net solar radiation
+    ! - surface net thermal radiation
+
+!$OMP PARALLEL
+    IF ( p_sim_time > 1.e-6_wp) THEN
+
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+
+          ! maximum 10m gust, including convective contribution
+          ! (reset is done on a regular basis in reset_action)
+          prm_diag%gust10(jc,jb) = MAX(prm_diag%gust10(jc,jb),                       &
+            &                    prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb) )
+
+          ! time averaged total precipitation rate
+          prm_diag%tot_prec_rate_avg(jc,jb) = prm_diag%tot_prec(jc,jb) &
+            &                               * r_sim_time
+
+          ! time averaged grid scale precipitation rate
+          prm_diag%gsp_prec_rate_avg(jc,jb) = (prm_diag%rain_gsp(jc,jb) &
+            &                               + prm_diag%snow_gsp(jc,jb)) &
+            &                               * r_sim_time
+
+          ! time averaged convective precipitation rate
+          prm_diag%con_prec_rate_avg(jc,jb) = (prm_diag%rain_con(jc,jb) & 
+            &                               + prm_diag%snow_con(jc,jb)) &
+            &                               * r_sim_time
+        ENDDO  ! jc
+
+        !Add more precip vars in case of two moment microphysics
+        IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+         
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            prm_diag%gsp_prec_rate_avg(jc,jb) = prm_diag%gsp_prec_rate_avg(jc,jb) + &
+              &                               ( prm_diag%ice_gsp(jc,jb)  +    &
+              &                                 prm_diag%hail_gsp(jc,jb) +    &
+              &                                 prm_diag%graupel_gsp(jc,jb) ) &
+              &                               * r_sim_time
+          END DO
+
+        END IF ! inwp_gscp==4
+        
+
+        IF (atm_phy_nwp_config(jg)%lcalc_moist_integral_avg) THEN
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            ! time averaged total cloud cover
+            prm_diag%clct_avg(jc,jb) = time_avg(prm_diag%clct_avg(jc,jb), &
+              &                                 prm_diag%clct    (jc,jb), &
+              &                                 t_wgt)
+          ENDDO  ! jc
+
+          ! time averaged tracer vertical integrals (mass concentrations only)  
+          DO jt = 1, iqm_max
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              pt_diag%tracer_vi_avg(jc,jb,jt) = (1._wp - t_wgt)*pt_diag%tracer_vi_avg(jc,jb,jt) &
+                &                              + t_wgt * pt_diag%tracer_vi(jc,jb,jt)
+            ENDDO  ! jc
+          ENDDO  ! jt
+
+         ! time averaged TQV_DIA, TQC_DIA, TQI_DIA
+         DO jt = 1, 3
+!DIR$ IVDEP
+           DO jc = i_startidx, i_endidx
+             prm_diag%tot_cld_vi_avg(jc,jb,jt) = (1._wp - t_wgt)*prm_diag%tot_cld_vi_avg(jc,jb,jt) &
+               &                                + t_wgt * prm_diag%tot_cld_vi(jc,jb,jt)
+            ENDDO
+          ENDDO  ! jt
+        ENDIF
+
+        IF (lflux_avg) THEN
+
+          IF (lcall_phy_jg(itturb)) THEN
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              ! ATTENTION:
+              ! the sign, in the output all fluxes must be positive downwards
+
+              ! time averaged surface latent heat flux
+              prm_diag%alhfl_s(jc,jb) = time_avg(prm_diag%alhfl_s(jc,jb), &
+                &                                prm_diag%lhfl_s (jc,jb), & 
+                &                                t_wgt) 
+
+              ! time averaged surface latent heat flux from bare soil
+              prm_diag%alhfl_bs(jc,jb)= time_avg(prm_diag%alhfl_bs(jc,jb),& 
+                &                                prm_diag%lhfl_bs (jc,jb),& 
+                &                                t_wgt)
+
+              ! time averaged surface sensible heat flux
+              prm_diag%ashfl_s(jc,jb) = time_avg(prm_diag%ashfl_s(jc,jb), & 
+                &                                prm_diag%shfl_s (jc,jb), & 
+                &                                t_wgt)
+
+              ! time averaged surface moisture flux
+              prm_diag%aqhfl_s(jc,jb) = time_avg(prm_diag%aqhfl_s(jc,jb), & 
+                &                                prm_diag%qhfl_s (jc,jb), & 
+                &                                t_wgt )
+
+              ! time averaged surface u-momentum flux
+              prm_diag%aumfl_s(jc,jb) = time_avg(prm_diag%aumfl_s(jc,jb), &
+                &                                prm_diag%umfl_s (jc,jb), &
+                &                                t_wgt )
+
+              ! time averaged surface v-momentum flux
+              prm_diag%avmfl_s(jc,jb) = time_avg(prm_diag%avmfl_s(jc,jb), &
+                &                                prm_diag%vmfl_s (jc,jb), &
+                &                                t_wgt )
+
+            ENDDO  ! jc
+            DO jk = 1, nlev_soil
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+              prm_diag%alhfl_pl(jc,jk,jb) = time_avg(prm_diag%alhfl_pl(jc,jk,jb), &
+                &                                    prm_diag%lhfl_pl (jc,jk,jb), &
+                &                                    t_wgt)
+              ENDDO  ! jc
+            ENDDO  ! jk
+
+          ENDIF  ! inwp_turb > 0
+
+
+          IF ( lcall_phy_jg(itradheat) ) THEN
+            !sum up for averaged fluxes
+            !T.R.: this is not correct for output after 1st timestep,
+            !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
+            !leading to wrong averaging.
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+
+              ! time averaged shortwave net flux at surface
+              prm_diag%swflxsfc_a(jc,jb) = time_avg(prm_diag%swflxsfc_a(jc,jb), &
+                &                                   prm_diag%swflxsfc  (jc,jb), &
+                &                                   t_wgt)
+
+              ! time averaged longwave net flux at surface
+              prm_diag%lwflxsfc_a(jc,jb) = time_avg(prm_diag%lwflxsfc_a(jc,jb), &
+                &                                   prm_diag%lwflxsfc  (jc,jb), &
+                &                                   t_wgt)
+
+              ! time averaged shortwave net flux at TOA
+              prm_diag%swflxtoa_a(jc,jb) = time_avg(prm_diag%swflxtoa_a(jc,jb), &
+                &                                   prm_diag%swflxtoa  (jc,jb), &
+                &                                   t_wgt)
+
+              ! time averaged longwave net flux at TOA
+              prm_diag%lwflxtoa_a(jc,jb) = time_avg(prm_diag%lwflxtoa_a(jc,jb), &
+                &                                   prm_diag%lwflxall(jc,1,jb), &
+                &                                   t_wgt)
+
+              ! time averaged top down solar radiation
+              prm_diag%asod_t    (jc,jb) = time_avg(prm_diag%asod_t    (jc,jb), &
+                &                                   prm_diag%flxdwswtoa(jc,jb), &
+                &                                   t_wgt)
+
+            ENDDO
+
+          ENDIF  ! lcall_phy_jg(itradheat)
+
+        ELSEIF (.NOT. lflux_avg) THEN
+
+
+          IF (lcall_phy_jg(itturb)) THEN
+
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              ! ATTENTION:
+              ! the sign, in the output all fluxes must be positive downwards
+
+              ! accumulated surface latent heat flux
+              prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
+                                 &  + prm_diag%lhfl_s(jc,jb)           & 
+                                 &  * dt_phy_jg(itfastphy) 
+
+              ! accumulated surface latent heat flux from bare soil
+              prm_diag%alhfl_bs(jc,jb) =  prm_diag%alhfl_bs(jc,jb)     &
+                                 &  + prm_diag%lhfl_bs(jc,jb)          & 
+                                 &  * dt_phy_jg(itfastphy) 
+
+              ! accumulated surface sensible heat flux
+              prm_diag%ashfl_s(jc,jb) =  prm_diag%ashfl_s(jc,jb)       &
+                                 &  + prm_diag%shfl_s(jc,jb)           & 
+                                 &  * dt_phy_jg(itfastphy) 
+
+              ! accumulated surface moisture flux
+              prm_diag%aqhfl_s(jc,jb) =  prm_diag%aqhfl_s(jc,jb)       &
+                                 &  + prm_diag%qhfl_s(jc,jb)           & 
+                                 &  * dt_phy_jg(itfastphy)
+
+              ! accumulated surface u-momentum flux
+              prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)        &
+                                &   + prm_diag%umfl_s(jc,jb)           &
+                                &   * dt_phy_jg(itfastphy)
+
+              ! accumulated surface v-momentum flux
+              prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)        &
+                                &   + prm_diag%vmfl_s(jc,jb)           &
+                                &   * dt_phy_jg(itfastphy)
+
+            ENDDO
+            DO jk = 1, nlev_soil
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+                prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
+                                 &  + prm_diag%lhfl_pl(jc,jk,jb)          & 
+                                 &  * dt_phy_jg(itfastphy) 
+              ENDDO  ! jc
+            ENDDO  ! jk
+          ENDIF  ! inwp_turb > 0
+
+
+          IF ( lcall_phy_jg(itradheat) ) THEN
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+
+              ! accumulated shortwave net flux at surface
+              prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb) &
+                                   &   + prm_diag%swflxsfc(jc,jb)     &
+                                   &   * dt_phy_jg(itfastphy)
+
+              ! accumulated longwave net flux at surface
+              prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb) &
+                                   &   + prm_diag%lwflxsfc(jc,jb)     &
+                                   &   * dt_phy_jg(itfastphy)
+
+              ! accumulated shortwave net flux at TOA
+              prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb) &
+                                   &   + prm_diag%swflxtoa(jc,jb)     &
+                                   &   * dt_phy_jg(itfastphy)
+
+              ! accumulated longwave net flux at TOA
+              prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb) &
+                                   &   + prm_diag%lwflxall(jc,1,jb)   &
+                                   &   * dt_phy_jg(itfastphy)
+
+              ! accumulated top down solar radiation
+              prm_diag%asod_t    (jc,jb) = prm_diag%asod_t(jc,jb)     &
+                                   &   + prm_diag%flxdwswtoa(jc,jb)   &
+                                   &   * dt_phy_jg(itfastphy)
+            END DO
+          ENDIF  ! lcall_phy_jg(itradheat)
+
+        ENDIF  ! lflux_avg
+
+      ENDDO ! nblks
+!$OMP END DO NOWAIT
+
+    END IF  ! p_sim_time
+
+
+
+!  Calculation of average/accumulated u and v has been moved here from nwp_interface. 
+!  Thus there is no need anymore for a LES-specific code. (Daniel Reinert, Jan 2014)
+!  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
+!  -soon all these LES diagnostics have to be moved to different module.
+
+    IF( atm_phy_nwp_config(jg)%is_les_phy )THEN
+
+!     !2D Boundary layer height
+!     Switch to a more general formulation applicable for stable case as well (AD,2013-11-16)
+       
+
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,d_theta_dz,jk_max,d_theta_dz_max) ICON_OMP_DEFAULT_SCHEDULE
+          DO jb = i_startblk, i_endblk
+            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+              & i_startidx, i_endidx, rl_start, rl_end)
+            DO jc = i_startidx, i_endidx           
+              d_theta_dz_max = -1.0_wp
+              jk_max = -1
+              DO jk = 5 , nlev-1
+                d_theta_dz  = (pt_diag%temp(jc,jk-1,jb)/pt_prog%exner(jc,jk-1,jb) - &
+                      pt_diag%temp(jc,jk,jb)/pt_prog%exner(jc,jk,jb))*p_metrics%inv_ddqz_z_half(jc,jk,jb) 
+
+                IF(d_theta_dz > d_theta_dz_max)THEN
+                  jk_max = jk
+                  d_theta_dz_max = d_theta_dz
+                END IF
+
+              END DO !jk
+
+              prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk_max,jb)
+
+            ENDDO
+          ENDDO ! jb
+!$OMP END DO
+
+    END IF !is_les_phy
+
+!$OMP END PARALLEL  
+
+
+  END SUBROUTINE nwp_statistics
+
+
+  !>
+  !! Computation of vertical integrals of moisture and cloud cover
+  !!
+  !!
+  !! @par Revision History
+  !! Separated from module nwp_statistics by Guenther Zaengl, DWD (2014-07-11)
+  !! Includes calculation of high-, mid-, and low-level cloud cover, height
+  !! of base and top of convection  by Helmut Frank, DWD (2013-01-17)
+  !! Add height of 0 deg C level    by Helmut Frank, DWD (2013-03-11)
+  !!
+  !!
+  SUBROUTINE calc_moist_integrals(pt_patch, p_metrics,        & !in
+                                & pt_prog, pt_prog_rcf,       & !in
+                                & kstart_moist,               & !in
+                                & ih_clch, ih_clcm,           & !in
+                                & pt_diag, prm_diag           ) !inout
+
+
+    TYPE(t_patch),      INTENT(IN)   :: pt_patch    !<grid/patch info.
+    TYPE(t_nh_diag),    INTENT(INOUT):: pt_diag     !<the diagnostic variables
+    TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog),    INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with red. calling frequency for tracers!)
+    TYPE(t_nh_metrics), INTENT(in)   :: p_metrics
+    TYPE(t_nwp_phy_diag), INTENT(inout):: prm_diag
+
+    INTEGER,           INTENT(IN)  :: kstart_moist
+    INTEGER,           INTENT(IN)  :: ih_clch, ih_clcm
+
+    ! Local
+    INTEGER :: nlev                    !< number of full levels
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+
+    REAL(wp):: rhodz(nproma,pt_patch%nlev)   ! rho times delta z
+    REAL(wp):: z_help
+
+    INTEGER :: jc,jk,jb,jg      ! block index
+    INTEGER :: jt               ! tracer loop index
+
+    REAL(wp):: clearsky(nproma)
+    REAL(wp):: ccmax, ccran, alpha
+
+
+    REAL(wp), PARAMETER :: eps_clc = 1.e-7_wp
+
+    INTEGER,  PARAMETER :: i_overlap = 1       ! 1: maximum-random overlap
+                                               ! 2: generalized overlap (Hogan, Illingworth, 2000) 
+    REAL(wp), PARAMETER :: zdecorr = 2000.0_wp ! decorrelation length scale del(z0) 
+
+  !-----------------------------------------------------------------
+
+    jg        = pt_patch%id
+
+    ! number of vertical levels
+    nlev   = pt_patch%nlev
+
+    ! exclude nest boundary interpolation zone
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
     
 
 !$OMP PARALLEL
-    IF ( lcall_phy_jg(itccov) ) THEN
+    IF ( atm_phy_nwp_config(jg)%lproc_on(itccov) ) THEN
 
 !$OMP DO PRIVATE(jc,jk,jb,z_help,i_startidx,i_endidx,clearsky,ccmax,ccran,alpha) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -379,334 +770,9 @@ CONTAINS
 
     ENDDO ! nblks   
 !$OMP END DO
-
-
-
-    ! Calculation of average/accumulated values since model start
-    !
-    ! Compute
-    !
-    ! wind
-    !-----------
-    ! - maximum gust (including convective contribution)
-    !
-    ! cloud/rain
-    !-----------
-    ! - time averaged precipitation rates (total, grid-scale, convective)
-    ! - time averaged total cloud cover
-    ! - time averaged TQV, TQC, TQI, TQR, TQS
-    ! - time averaged TQV_DIA, TQC_DIA, TQI_DIA
-    !
-    ! turbulent fluxes
-    !-----------------
-    ! - surface latent heat flux
-    ! - surface latent heat flux from bare soil 
-    ! - surface sensible heat flux
-    ! - surface moisture flux
-    ! - surface u/v-momentum flux
-    !
-    ! radiative fluxes
-    !------------------
-    ! - top net solar radiation
-    ! - top down solar radiation
-    ! - top net thermal radiation
-    ! - surface net solar radiation
-    ! - surface net thermal radiation
-
-    IF ( p_sim_time > 1.e-6_wp) THEN
-
-!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk, i_endblk
-        !
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
-
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-
-          ! maximum 10m gust, including convective contribution
-          ! (reset is done on a regular basis in reset_action)
-          prm_diag%gust10(jc,jb) = MAX(prm_diag%gust10(jc,jb),                       &
-            &                    prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb) )
-
-          ! time averaged total precipitation rate
-          prm_diag%tot_prec_rate_avg(jc,jb) = prm_diag%tot_prec(jc,jb) &
-            &                               * r_sim_time
-
-          ! time averaged grid scale precipitation rate
-          prm_diag%gsp_prec_rate_avg(jc,jb) = (prm_diag%rain_gsp(jc,jb) &
-            &                               + prm_diag%snow_gsp(jc,jb)) &
-            &                               * r_sim_time
-
-          ! time averaged convective precipitation rate
-          prm_diag%con_prec_rate_avg(jc,jb) = (prm_diag%rain_con(jc,jb) & 
-            &                               + prm_diag%snow_con(jc,jb)) &
-            &                               * r_sim_time
-
-          ! time averaged total cloud cover
-          prm_diag%clct_avg(jc,jb) = time_avg(prm_diag%clct_avg(jc,jb), &
-            &                                 prm_diag%clct    (jc,jb), &
-            &                                 t_wgt)
-        ENDDO  ! jc
-
-        ! time averaged tracer vertical integrals (mass concentrations only)  
-        DO jt = 1, iqm_max
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            pt_diag%tracer_vi_avg(jc,jb,jt) = (1._wp - t_wgt)*pt_diag%tracer_vi_avg(jc,jb,jt) &
-              &                              + t_wgt * pt_diag%tracer_vi(jc,jb,jt)
-          ENDDO  ! jc
-        ENDDO  ! jt
-
-       ! time averaged TQV_DIA, TQC_DIA, TQI_DIA
-       DO jt = 1, 3
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          prm_diag%tot_cld_vi_avg(jc,jb,jt) = (1._wp - t_wgt)*prm_diag%tot_cld_vi_avg(jc,jb,jt) &
-            &                                + t_wgt * prm_diag%tot_cld_vi(jc,jb,jt)
-         ENDDO
-       ENDDO  ! jt
-
-
-        !Add more precip vars in case of two moment microphysics
-        IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
-         
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            prm_diag%gsp_prec_rate_avg(jc,jb) = prm_diag%gsp_prec_rate_avg(jc,jb) + &
-              &                               ( prm_diag%ice_gsp(jc,jb)  +    &
-              &                                 prm_diag%hail_gsp(jc,jb) +    &
-              &                                 prm_diag%graupel_gsp(jc,jb) ) &
-              &                               * r_sim_time
-          END DO
-
-        END IF!IF inwp_gscp==4
-        
-
-        IF (lflux_avg) THEN
-
-          IF (lcall_phy_jg(itturb)) THEN
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              ! ATTENTION:
-              ! the sign, in the output all fluxes must be positive downwards
-
-              ! time averaged surface latent heat flux
-              prm_diag%alhfl_s(jc,jb) = time_avg(prm_diag%alhfl_s(jc,jb), &
-                &                                prm_diag%lhfl_s (jc,jb), & 
-                &                                t_wgt) 
-
-              ! time averaged surface latent heat flux from bare soil
-              prm_diag%alhfl_bs(jc,jb)= time_avg(prm_diag%alhfl_bs(jc,jb),& 
-                &                                prm_diag%lhfl_bs (jc,jb),& 
-                &                                t_wgt)
-
-              ! time averaged surface sensible heat flux
-              prm_diag%ashfl_s(jc,jb) = time_avg(prm_diag%ashfl_s(jc,jb), & 
-                &                                prm_diag%shfl_s (jc,jb), & 
-                &                                t_wgt)
-
-              ! time averaged surface moisture flux
-              prm_diag%aqhfl_s(jc,jb) = time_avg(prm_diag%aqhfl_s(jc,jb), & 
-                &                                prm_diag%qhfl_s (jc,jb), & 
-                &                                t_wgt )
-
-              ! time averaged surface u-momentum flux
-              prm_diag%aumfl_s(jc,jb) = time_avg(prm_diag%aumfl_s(jc,jb), &
-                &                                prm_diag%umfl_s (jc,jb), &
-                &                                t_wgt )
-
-              ! time averaged surface v-momentum flux
-              prm_diag%avmfl_s(jc,jb) = time_avg(prm_diag%avmfl_s(jc,jb), &
-                &                                prm_diag%vmfl_s (jc,jb), &
-                &                                t_wgt )
-
-            ENDDO  ! jc
-            DO jk = 1, nlev_soil
-!DIR$ IVDEP
-              DO jc = i_startidx, i_endidx
-              prm_diag%alhfl_pl(jc,jk,jb) = time_avg(prm_diag%alhfl_pl(jc,jk,jb), &
-                &                                    prm_diag%lhfl_pl (jc,jk,jb), &
-                &                                    t_wgt)
-              ENDDO  ! jc
-            ENDDO  ! jk
-
-          ENDIF  ! inwp_turb > 0
-
-
-          IF ( lcall_phy_jg(itradheat) ) THEN
-            !sum up for averaged fluxes
-            !T.R.: this is not correct for output after 1st timestep,
-            !e.g. dt_phy_jg(itradheat) may then be greater than p_sim_time
-            !leading to wrong averaging.
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-
-              ! time averaged shortwave net flux at surface
-              prm_diag%swflxsfc_a(jc,jb) = time_avg(prm_diag%swflxsfc_a(jc,jb), &
-                &                                   prm_diag%swflxsfc  (jc,jb), &
-                &                                   t_wgt)
-
-              ! time averaged longwave net flux at surface
-              prm_diag%lwflxsfc_a(jc,jb) = time_avg(prm_diag%lwflxsfc_a(jc,jb), &
-                &                                   prm_diag%lwflxsfc  (jc,jb), &
-                &                                   t_wgt)
-
-              ! time averaged shortwave net flux at TOA
-              prm_diag%swflxtoa_a(jc,jb) = time_avg(prm_diag%swflxtoa_a(jc,jb), &
-                &                                   prm_diag%swflxtoa  (jc,jb), &
-                &                                   t_wgt)
-
-              ! time averaged longwave net flux at TOA
-              prm_diag%lwflxtoa_a(jc,jb) = time_avg(prm_diag%lwflxtoa_a(jc,jb), &
-                &                                   prm_diag%lwflxall(jc,1,jb), &
-                &                                   t_wgt)
-
-              ! time averaged top down solar radiation
-              prm_diag%asod_t    (jc,jb) = time_avg(prm_diag%asod_t    (jc,jb), &
-                &                                   prm_diag%flxdwswtoa(jc,jb), &
-                &                                   t_wgt)
-
-            ENDDO
-
-          ENDIF  ! lcall_phy_jg(itradheat)
-
-        ELSEIF (.NOT. lflux_avg) THEN
-
-
-          IF (lcall_phy_jg(itturb)) THEN
-
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              ! ATTENTION:
-              ! the sign, in the output all fluxes must be positive downwards
-
-              ! accumulated surface latent heat flux
-              prm_diag%alhfl_s(jc,jb) =  prm_diag%alhfl_s(jc,jb)       &
-                                 &  + prm_diag%lhfl_s(jc,jb)           & 
-                                 &  * dt_phy_jg(itfastphy) 
-
-              ! accumulated surface latent heat flux from bare soil
-              prm_diag%alhfl_bs(jc,jb) =  prm_diag%alhfl_bs(jc,jb)     &
-                                 &  + prm_diag%lhfl_bs(jc,jb)          & 
-                                 &  * dt_phy_jg(itfastphy) 
-
-              ! accumulated surface sensible heat flux
-              prm_diag%ashfl_s(jc,jb) =  prm_diag%ashfl_s(jc,jb)       &
-                                 &  + prm_diag%shfl_s(jc,jb)           & 
-                                 &  * dt_phy_jg(itfastphy) 
-
-              ! accumulated surface moisture flux
-              prm_diag%aqhfl_s(jc,jb) =  prm_diag%aqhfl_s(jc,jb)       &
-                                 &  + prm_diag%qhfl_s(jc,jb)           & 
-                                 &  * dt_phy_jg(itfastphy)
-
-              ! accumulated surface u-momentum flux
-              prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)        &
-                                &   + prm_diag%umfl_s(jc,jb)           &
-                                &   * dt_phy_jg(itfastphy)
-
-              ! accumulated surface v-momentum flux
-              prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)        &
-                                &   + prm_diag%vmfl_s(jc,jb)           &
-                                &   * dt_phy_jg(itfastphy)
-
-            ENDDO
-            DO jk = 1, nlev_soil
-!DIR$ IVDEP
-              DO jc = i_startidx, i_endidx
-                prm_diag%alhfl_pl(jc,jk,jb) =  prm_diag%alhfl_pl(jc,jk,jb)&
-                                 &  + prm_diag%lhfl_pl(jc,jk,jb)          & 
-                                 &  * dt_phy_jg(itfastphy) 
-              ENDDO  ! jc
-            ENDDO  ! jk
-          ENDIF  ! inwp_turb > 0
-
-
-          IF ( lcall_phy_jg(itradheat) ) THEN
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-
-              ! accumulated shortwave net flux at surface
-              prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb) &
-                                   &   + prm_diag%swflxsfc(jc,jb)     &
-                                   &   * dt_phy_jg(itfastphy)
-
-              ! accumulated longwave net flux at surface
-              prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb) &
-                                   &   + prm_diag%lwflxsfc(jc,jb)     &
-                                   &   * dt_phy_jg(itfastphy)
-
-              ! accumulated shortwave net flux at TOA
-              prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb) &
-                                   &   + prm_diag%swflxtoa(jc,jb)     &
-                                   &   * dt_phy_jg(itfastphy)
-
-              ! accumulated longwave net flux at TOA
-              prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb) &
-                                   &   + prm_diag%lwflxall(jc,1,jb)   &
-                                   &   * dt_phy_jg(itfastphy)
-
-              ! accumulated top down solar radiation
-              prm_diag%asod_t    (jc,jb) = prm_diag%asod_t(jc,jb)     &
-                                   &   + prm_diag%flxdwswtoa(jc,jb)   &
-                                   &   * dt_phy_jg(itfastphy)
-            END DO
-          ENDIF  ! lcall_phy_jg(itradheat)
-
-        ENDIF  ! lflux_avg
-
-      ENDDO ! nblks
-!$OMP END DO NOWAIT
-
-    END IF  ! p_sim_time
-
-
-
-
-
-!  Calculation of average/accumulated u and v has been moved here from nwp_interface. 
-!  Thus there is no need anymore for a LES-specific code. (Daniel Reinert, Jan 2014)
-!  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
-!  -soon all these LES diagnostics have to be moved to different module.
-
-    IF( atm_phy_nwp_config(jg)%is_les_phy )THEN
-
-!     !2D Boundary layer height
-!     Switch to a more general formulation applicable for stable case as well (AD,2013-11-16)
-       
-
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,d_theta_dz,jk_max,d_theta_dz_max) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-              & i_startidx, i_endidx, rl_start, rl_end)
-            DO jc = i_startidx, i_endidx           
-              d_theta_dz_max = -1.0_wp
-              jk_max = -1
-              DO jk = 5 , nlev-1
-                d_theta_dz  = (pt_diag%temp(jc,jk-1,jb)/pt_prog%exner(jc,jk-1,jb) - &
-                      pt_diag%temp(jc,jk,jb)/pt_prog%exner(jc,jk,jb))*p_metrics%inv_ddqz_z_half(jc,jk,jb) 
-
-                IF(d_theta_dz > d_theta_dz_max)THEN
-                  jk_max = jk
-                  d_theta_dz_max = d_theta_dz
-                END IF
-
-              END DO !jk
-
-              prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk_max,jb)
-
-            ENDDO
-          ENDDO ! jb
-!$OMP END DO
-
-    END IF !is_les_phy
-
 !$OMP END PARALLEL  
 
-
-  END SUBROUTINE nwp_statistics
-
+  END SUBROUTINE calc_moist_integrals
 
 
 
@@ -737,7 +803,7 @@ CONTAINS
   SUBROUTINE nwp_diag_for_output(kstart_moist,            & !in
                             & ih_clch, ih_clcm,           & !in
                             & pt_patch, p_metrics,        & !in
-                            & pt_prog_rcf,                & !in
+                            & pt_prog, pt_prog_rcf,       & !in
                             & pt_diag,                    & !in
                             & lnd_diag,                   & !in
                             & p_prog_lnd_now,             & !in
@@ -748,11 +814,12 @@ CONTAINS
     INTEGER,         INTENT(IN)   :: ih_clch, ih_clcm
 
     TYPE(t_patch),   INTENT(IN)   :: pt_patch    !<grid/patch info.
+    TYPE(t_nh_prog), INTENT(IN)   :: pt_prog     !<the prognostic variables 
     TYPE(t_nh_prog), INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with
                                                  !< red. calling frequency for tracers!
     TYPE(t_nh_metrics)  ,INTENT(IN) :: p_metrics
 
-    TYPE(t_nh_diag),     INTENT(IN)   :: pt_diag     ! the diagnostic variables
+    TYPE(t_nh_diag),     INTENT(INOUT):: pt_diag     ! the diagnostic variables
     TYPE(t_lnd_diag),    INTENT(IN)   :: lnd_diag    ! land diag state
     TYPE(t_lnd_prog),    INTENT(IN)   :: p_prog_lnd_now ! land prognostic state (now)
     TYPE(t_wtr_prog),    INTENT(INOUT):: p_prog_wtr_now ! water prognostic state (now)
@@ -804,6 +871,12 @@ CONTAINS
     CALL date_to_time(ww_datetime(jg))
     dhour_ww = (time_config%cur_datetime%calday  - ww_datetime(jg)%calday + &
                 time_config%cur_datetime%caltime - ww_datetime(jg)%caltime)*24._wp
+
+    CALL calc_moist_integrals(pt_patch, p_metrics,        & !in
+                            & pt_prog, pt_prog_rcf,       & !in
+                            & kstart_moist,               & !in
+                            & ih_clch, ih_clcm,           & !in
+                            & pt_diag, prm_diag           ) !inout
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
