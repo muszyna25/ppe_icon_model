@@ -2044,9 +2044,6 @@ CONTAINS
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
-!DR: TODO: why doesnt this information propagate down to the fields (additional call of
-!vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5) seems to be necessary. Please re-check
-    CALL vlistDefTable(of%cdiVlistID,5)
 
 
     ! 3. add horizontal grid descriptions

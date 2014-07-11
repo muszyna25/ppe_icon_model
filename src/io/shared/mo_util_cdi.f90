@@ -446,8 +446,8 @@ CONTAINS
 
     ! Load correct tables and activate section 2
     !
-    ! set tablesVersion=5
-    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 5)
+    ! set tablesVersion=11
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 11)
     ! Initialize section 2
     CALL vlistDefVarIntKey(vlistID, varID, "grib2LocalSectionPresent", 1)
     !
