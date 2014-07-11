@@ -129,7 +129,7 @@ cat > ${ocean_namelist} << EOF
   iforc_oce = 11
   forcing_windstress_u_type        = 112   ! 112: following Abernathey (2011)
   forcing_windstress_v_type        = 0
-  forcing_windStress_u_amplitude   = 0.1
+  forcing_windStress_u_amplitude   = 0.2
   forcing_windstress_zonal_waveno  = 1.0
   forcing_smooth_steps             = 1     ! increase forcing to max within steps
   type_surfRelax_Temp              = 3     ! 3: relaxation=initialization temperature
@@ -137,7 +137,7 @@ cat > ${ocean_namelist} << EOF
 ! relax_temperature_min            = 0.0   ! poleward temperature
 ! forcing_temperature_poleLat      = 45.0  ! location of poleward minimum relaxation and init temperature
   init_oce_relax                   = 2     ! 2: do not read relaxation data
-  para_surfRelax_Temp              = 0.3
+  para_surfRelax_Temp              = 0.23  ! time scale of surface relaxation in months (7 days: 7/30=0.23)
 /                                  
 &ocean_initialConditions_nml       
   initial_salinity_type            = 200    !  horizontally homogeneous
