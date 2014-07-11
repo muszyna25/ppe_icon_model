@@ -102,7 +102,8 @@ cat > ${ocean_namelist} << EOF
 ! FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
 ! FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
-  threshold_min_T       = -1.5   ! abort due to temperature minimum threshold
+  threshold_min_T       = -1.0   ! abort due to temperature minimum threshold
+  threshold_max_T       =  6.0   ! abort due to temperature maximum threshold
 /
 &ocean_diffusion_nml
   HORZ_VELOC_DIFF_TYPE = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
@@ -111,8 +112,6 @@ cat > ${ocean_namelist} << EOF
   MAX_VERT_DIFF_VELOC  =    0.0   ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h         =  200.0   ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v         = 1.0E-5   ! [m/s]  vertical background diffusion coefficient for temperature
-  k_sal_h              =  200.0   ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v              = 1.0E-5   ! [m/s]  vertical background diffusion coefficient for salinity
   MAX_VERT_DIFF_TRAC   = 0.1      ! max vertical tracer diffusion for convection used in case of instability
   !convection_InstabilityThreshold = -1.0e-11 ! default: -5.0e-8
 /
@@ -132,11 +131,11 @@ cat > ${ocean_namelist} << EOF
   forcing_windStress_u_amplitude   = 0.2
   forcing_windstress_zonal_waveno  = 1.0
   forcing_smooth_steps             = 1     ! increase forcing to max within steps
+  init_oce_relax                   = 2     ! 2: do not read relaxation data
   type_surfRelax_Temp              = 3     ! 3: relaxation=initialization temperature
 ! relax_temperature_max            = 0.0   ! equator temperature
 ! relax_temperature_min            = 0.0   ! poleward temperature
 ! forcing_temperature_poleLat      = 45.0  ! location of poleward minimum relaxation and init temperature
-  init_oce_relax                   = 2     ! 2: do not read relaxation data
   para_surfRelax_Temp              = 0.23  ! time scale of surface relaxation in months (7 days: 7/30=0.23)
 /                                  
 &ocean_initialConditions_nml       

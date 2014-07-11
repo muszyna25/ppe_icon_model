@@ -54,6 +54,7 @@ cat > ${ocean_namelist} << EOF
  output      = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output     = 2
+ debug_check_level    = 6
  msg_timestamp        = .FALSE.
 /
 &output_nml
@@ -100,7 +101,8 @@ cat > ${ocean_namelist} << EOF
 ! FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
 ! FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
-  threshold_min_T       = -1.5   ! abort due to temperature minimum threshold
+  threshold_min_T       = -1.0   ! abort due to temperature minimum threshold
+  threshold_min_T       = 17.0   ! abort due to temperature maximum threshold
 /
 &ocean_diffusion_nml
   HORZ_VELOC_DIFF_TYPE = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
