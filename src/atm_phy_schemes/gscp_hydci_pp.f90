@@ -772,6 +772,7 @@ SUBROUTINE hydci_pp (             &
     iv_start     ,    & !> start index for horizontal direction
     iv_end       ,    & !! end index for horizontal direction
     k_start      ,    & !! model level where computations start
+    km1          ,    & !! k-1
     izdebug             !! debug level
 
   REAL    (KIND=ireals   ) ::  &
@@ -1088,6 +1089,7 @@ SUBROUTINE hydci_pp (             &
 
   loop_over_levels: DO  k = k_start, ke
 
+    km1 = MAX(k_start,k-1)
 
 #ifdef __COSMO__
     IF ( ldiabf_lh ) THEN
@@ -1478,7 +1480,7 @@ SUBROUTINE hydci_pp (             &
       qrg  =   qr(iv,k)
       qvg  =   qv(iv,k)
       qcg  =   qc(iv,k)
-      qcgk_1 = qc(iv,k-1) 
+      qcgk_1 = qc(iv,km1) 
       qig  =   qi(iv,k)
       tg   =    t(iv,k)
       ppg  =    p(iv,k)
@@ -2173,6 +2175,7 @@ SUBROUTINE hydci_pp_gr (             &
     iv_start     ,    & !> start index for horizontal direction
     iv_end       ,    & !! end index for horizontal direction
     k_start      ,    & !! model level where computations start
+    km1          ,    & !! k-1
     izdebug             !! debug level
 
   REAL    (KIND=ireals   ), PARAMETER ::  &
@@ -2529,6 +2532,7 @@ SUBROUTINE hydci_pp_gr (             &
 
   loop_over_levels: DO  k = k_start, ke
 
+    km1 = MAX(k_start,k-1)
 
 #ifdef __COSMO__
     IF ( ldiabf_lh ) THEN
@@ -2986,7 +2990,7 @@ SUBROUTINE hydci_pp_gr (             &
       qrg  =   qr(iv,k)
       qcg  =   qc(iv,k)
       qig  =   qi(iv,k)    
-      qcgk_1 = qc(iv,k-1) 
+      qcgk_1 = qc(iv,km1) 
       tg   =    t(iv,k)
       ppg  =    p(iv,k)
       rhog =  rho(iv,k)
