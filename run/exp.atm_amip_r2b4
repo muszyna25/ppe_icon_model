@@ -38,8 +38,8 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
   end_date="1989-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
-(( dt_checkpoint =  30 * day))
-(( dt_restart    = 360 * day))
+(( dt_checkpoint = 300 * day))
+(( dt_restart    = 900 * day))
 #
 file_interval="P30D"
 
@@ -119,7 +119,7 @@ cat > ${atmo_namelist} << EOF
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
  lmlo             = .FALSE.
- lice             = .FALSE.
+ lice             = .TRUE.
  lmeltpond        = .FALSE.
  llandsurf        = .FALSE.
  ljsbach          = .TRUE.
@@ -295,14 +295,9 @@ reg_lon_def_tri=0.,1.125,358.875
 #
 cat >> ${atmo_namelist} << EOF
 &nh_pzlev_nml
- nplev            = 25          ! number of pressure levels (plevels in [Pa] and top-down)
- plevels          = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
-                    30000,40000,50000,60000,70000,80000,85000,90000,92500,95000,100000
- nzlev            = 25          ! number of height levels (zlevels in [m] and top-down)
- zlevels          = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
-                    10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
- nilev            = 14          ! number of isentropic levels (ilevels in [K] and top-down)
- ilevels          = 320, 360, 400, 440, 480, 520, 560, 600, 700, 800, 900, 1000, 1100, 1200
+ nplev            = 28          ! number of pressure levels (plevels in [Pa] and top-down)
+ plevels          = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
+                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
 EOF
 
@@ -310,18 +305,17 @@ EOF
 # Define output files
 # -------------------
 #
-# output_<xyz>=yes : output file, no file for any other value
+# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-output_atm_dyn=yes
+output_dyn=yes
 #
-if [[ "$output_atm_dyn" == "yes" ]]; then
-  if [[ "$dict_iconam_mpim" != "yes" ]]; then
-    cat dict.iconam.mpim >> ${dict_file}
-    dict_iconam_mpim="yes"
-  fi
+if [[ "$output_dyn" == "yes" ]]; then
+  #
+  cat dict.iconam.mpim >> ${dict_file}
+  #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_dyn"
+ output_filename  = "${EXPNAME}_dyn_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
@@ -330,10 +324,10 @@ if [[ "$output_atm_dyn" == "yes" ]]; then
  output_interval  = "PT06H"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','hus','clw','cli','rho','dpres_mc','z_mc','pfull','ps','psl'
+ ml_varlist       = 'ps','psl'
 /
 &output_nml
- output_filename  = "${EXPNAME}_atm_dyn_rmb"
+ output_filename  = "${EXPNAME}_dyn_2d_rmb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 1
  reg_def_mode     = 1
@@ -345,23 +339,47 @@ if [[ "$output_atm_dyn" == "yes" ]]; then
  output_interval  = "PT06H"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','hus','clw','cli','rho','dpres_mc','z_mc','pfull','ps','psl'
- pl_varlist       = 'ta','ua','va','hus','clw','cli'
- hl_varlist       = 'ta','ua','va','hus','clw','cli'
+ ml_varlist       = 'ps','psl'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_dyn_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_dyn_3d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
 /
 EOF
 fi
 
-output_atm_phy=yes
+output_phy=yes
 #
-if [[ "$output_atm_phy" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
+if [[ "$output_phy" == "yes" ]]; then
+  #
+  cat dict.echam.mpim >> ${dict_file}
+  #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy"
+ output_filename  = "${EXPNAME}_phy_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
@@ -393,7 +411,7 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'prm_rintop', 'prm_rtype', 'prm_topmax'
 /
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy_rmb"
+ output_filename  = "${EXPNAME}_phy_2d_rmb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 1
  reg_def_mode     = 1
@@ -427,19 +445,25 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'cld_dtrl', 'cld_dtri', 'cld_iteq',
                     'prm_rintop', 'prm_rtype', 'prm_topmax'
 /
-EOF
-fi
-
-output_atm_phy_tend_temp=yes
-#
-if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
-  cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy_tend_temp_rmb"
+ output_filename  = "${EXPNAME}_phy_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'hur'
+!                    'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld',
+!                    'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso',
+!                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
+!                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
+!                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_phy_3d_rmb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 1
  reg_def_mode     = 1
@@ -451,71 +475,24 @@ if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
  output_interval  = "PT06H"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld'
-                    'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso'
+ pl_varlist       = 'hur'
+!                    'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld',
+!                    'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso',
+!                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
+!                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
+!                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
 /
 EOF
 fi
 
-output_atm_phy_tend_wind=yes
-#
-if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_phy_tend_wind_rmb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
- include_last     = .FALSE.
- ml_varlist       = 'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso'
-                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso'
-/
-EOF
-fi
 
-output_atm_phy_tend_trac=yes
+output_lnd=yes
 #
-if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
+if [[ "$output_lnd" == "yes" ]]; then
+  #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_phy_tend_trac_rmb"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT06H"                          ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
- include_last     = .FALSE.
- ml_varlist       = 'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
-/
-EOF
-fi
-
-output_lnd_phy=yes
-#
-if [[ "$output_lnd_phy" == "yes" ]]; then
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd_phy"
+ output_filename  = "${EXPNAME}_lnd"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
@@ -537,7 +514,7 @@ if [[ "$output_lnd_phy" == "yes" ]]; then
                     'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
 /
 &output_nml
- output_filename  = "${EXPNAME}_lnd_phy_rmb"
+ output_filename  = "${EXPNAME}_lnd_rmb"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 1
  reg_def_mode     = 1
