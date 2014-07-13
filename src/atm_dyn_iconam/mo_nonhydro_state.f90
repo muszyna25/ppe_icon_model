@@ -2313,6 +2313,9 @@ MODULE mo_nonhydro_state
     CALL add_var( p_metrics_list, 'z_mc', p_metrics%z_mc,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c,                                              &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &    vert_intp_type=vintp_types("P","Z","I"),                   &
+                &    vert_intp_method=VINTP_METHOD_LIN ),                       &
                 & isteptype=TSTEP_CONSTANT )
 
 #ifndef __MIXED_PRECISION
