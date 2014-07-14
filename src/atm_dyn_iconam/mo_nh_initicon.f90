@@ -1107,6 +1107,10 @@ MODULE mo_nh_initicon
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
+          ! remove W_SO from default list and replace it by SMI
+          CALL difference (grp_vars_fg_default, ngrp_vars_fg_default, (/'w_so'/), 1)
+          CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default, (/'smi'/) , 1)
+
           ! initialize grp_vars_fg which will be the group that controls the reading stuff
           !
           ! initialize grp_vars_fg with grp_vars_fg_default
@@ -2479,9 +2483,19 @@ MODULE mo_nh_initicon
 
 
      ! multi layer fields 
+        !
+        ! Note that either w_so OR smi is written to w_so_t. Which on is required depends 
+        ! on the initialization mode. The check of grp_vars_fg takes care of this. In case 
+        ! that smi is read, it is lateron converted to w_so (see smi_to_sm_mass)
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
         CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so',                     &
           &                p_patch(jg)%n_patch_cells_g,                                &
+          &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
+          &                nlev_soil, my_ptr3d,                                        &
+          &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
+
+        CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'smi',                     &
+          &                p_patch(jg)%n_patch_cells_g,                               &
           &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,     &
           &                nlev_soil, my_ptr3d,                                        &
           &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
