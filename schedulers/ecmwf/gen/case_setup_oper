@@ -342,6 +342,8 @@ cat > ${atmo_namelist} << EOF
 /
 &sleve_nml
  min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)
+ max_lay_thckn                = 400.        ! maximum layer thickness below htop_thcknlimit
+ htop_thcknlimit              = 14000.
  top_height                   = 75000.
  stretch_fac                  = 0.9
  decay_scale_1                = 4000.
