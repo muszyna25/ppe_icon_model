@@ -36,7 +36,11 @@
 MODULE mo_echam_phy_memory
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,           & 
+    &                               VINTP_METHOD_UV,                    &
+    &                               VINTP_METHOD_QV, VINTP_METHOD_PRES, &
+    &                               VINTP_METHOD_LIN,                   &
+    &                               VINTP_METHOD_LIN_NLEVP1
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
@@ -49,6 +53,10 @@ MODULE mo_echam_phy_memory
     &                               add_var, add_ref,          &
     &                               new_var_list,              &
     &                               delete_var_list
+  USE mo_var_metadata,        ONLY: create_tracer_metadata,      &
+    &                               create_vert_interp_metadata, &
+    &                               create_hor_interp_metadata,  &
+    &                               groups, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var
   USE mo_cdi_constants,       ONLY: GRID_REFERENCE,                    &
@@ -1145,7 +1153,9 @@ CONTAINS
     cf_desc    = t_cf_var('relative_humidity', '', 'relative humidity', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'r', field%relhum,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,            &
+                & vert_interp=create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I"), &
+                &                                          vert_intp_method=VINTP_METHOD_LIN )     )
 
     cf_desc    = t_cf_var('RSFL', 'kg m-2 s-1',    &
                & 'instantaneous large-scale precipitation flux (water)', DATATYPE_FLT32)
