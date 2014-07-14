@@ -167,8 +167,8 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('3d_rel: AdvTracT forc', p_os%p_aux%forc_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('3d_rel: AdvTracT data', p_os%p_aux%data_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_relax: AdvTracT forc', p_os%p_aux%forc_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('3d_relax: AdvTracT data', p_os%p_aux%data_3dimRelax_Temp, str_module,idt_src, in_subset=cells_in_domain)
     idt_src=2  ! output print level (1-5, fix)
     z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
     CALL dbg_print('3d_relax: AdvTracT trac', z_c, str_module,idt_src, in_subset=cells_in_domain)

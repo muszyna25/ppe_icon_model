@@ -1273,7 +1273,6 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    s_top => p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
 
     IF (tracer_no == 1) THEN  ! surface temperature relaxation
@@ -1330,6 +1329,8 @@ CONTAINS
       ! i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity S if S is saltier than relaxation data S*)
       ! note that the freshwater flux is opposite in sign to F_S, see below,
       ! i.e. fwf >0 for  S-S* >0 (i.e. increasing freshwater flux to decrease salinity)
+
+      s_top => p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -1399,10 +1400,7 @@ CONTAINS
     all_cells => p_patch%cells%all
 
     t_top =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
-
     t_top_old(:,:) = t_top(:,:)
-    s_top_old(:,:) = s_top(:,:)
 
 
     ! add relaxation term to temperature tracer
@@ -1429,11 +1427,13 @@ CONTAINS
     ! add relaxation term to salinity tracer
     ELSE IF (tracer_no == 2) THEN
 
+      s_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      s_top_old(:,:) = s_top(:,:)
+
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-            s_top_old(jc,jb) = s_top(jc,jb)
             s_top(jc,jb)     = s_top_old(jc,jb) + atmos_fluxes%SaltFlux_Relax(jc,jb)*dtime
           ENDIF
         END DO
