@@ -162,7 +162,7 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
       &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%data_3dimRelax_Temp(:,:,:))
 
     ! add relaxation term to new temperature
-    p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) - &
+    p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) + &
       &                                    p_os%p_aux%forc_3dimRelax_Temp(:,:,:) * dtime
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -181,7 +181,6 @@ SUBROUTINE advect_tracer_ab(p_patch_3D, p_os, p_param, p_sfc_flx,p_op_coeff, tim
   !    when using the sign convention
   !      dS/dt = Operators + F_S
   !    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data)
-  !    note that freshwater flux is positive to decrease salinity, i.e. freshening water
   !  - discretized:
   !    tracer = tracer - 1/(para_3dimRelax_Temp[months]) * (tracer(1)-data_3dimRelax_Temp)
   IF (no_tracer==2 .AND. type_3dimRelax_Salt >0) THEN
