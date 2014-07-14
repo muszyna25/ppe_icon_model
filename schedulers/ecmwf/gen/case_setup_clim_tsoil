@@ -314,7 +314,7 @@ cat > ${atmo_namelist} << EOF
 /
 &lnd_nml
  ntiles                       = 3
- nlev_snow                    = 2
+ nlev_snow                    = 3
  lmulti_snow                  = .true.
  idiag_snowfrac               = 3
  lsnowtile                    = .false.

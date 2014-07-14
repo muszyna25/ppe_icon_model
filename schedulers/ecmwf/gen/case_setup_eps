@@ -265,7 +265,7 @@ cat > ${atmo_namelist} << EOF
 /
 &lnd_nml
  ntiles                       = 3
- nlev_snow                    = 2       ! 2 for multi-level snow
+ nlev_snow                    = 3       ! 2 for multi-level snow
  lmulti_snow                  = .TRUE.  ! true: multi-level snow, false: single-level snow
  idiag_snowfrac               = 3
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
