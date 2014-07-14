@@ -588,7 +588,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
                 & initval_r=0._wp, resetval_r=0._wp,                           &
-                & action_list=actions(new_action(ACTION_RESET,'PT06H')) )
+                & action_list=actions(new_action(ACTION_RESET,'PT03H')) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
