@@ -191,6 +191,9 @@ CONTAINS
     ! - top net thermal radiation
     ! - surface net solar radiation
     ! - surface net thermal radiation
+    ! - surface shortwave diffuse downward radiation
+    ! - surface shortwave diffuse upward radiation
+    ! - surface shortwave direct downward radiation
 
 !$OMP PARALLEL
     IF ( p_sim_time > 1.e-6_wp) THEN
@@ -331,6 +334,18 @@ CONTAINS
                 &                                   prm_diag%swflxsfc  (jc,jb), &
                 &                                   t_wgt)
 
+              ! time averaged shortwave diffuse downward flux at surface
+              prm_diag%asodifd_s (jc,jb) = time_avg(prm_diag%asodifd_s        (jc,jb), &
+                &                                   prm_diag%swflx_dn_sfc_diff(jc,jb), &
+                &                                   t_wgt)
+
+              ! time averaged shortwave diffuse upward flux at surface
+              prm_diag%asodifu_s (jc,jb) = time_avg(prm_diag%asodifu_s   (jc,jb), &
+                &           prm_diag%albdif(jc,jb)/(1._wp-prm_diag%albdif(jc,jb)) &
+                &                                 * prm_diag%swflxsfc    (jc,jb), &
+                &                                   t_wgt)
+
+
               ! time averaged longwave net flux at surface
               prm_diag%lwflxsfc_a(jc,jb) = time_avg(prm_diag%lwflxsfc_a(jc,jb), &
                 &                                   prm_diag%lwflxsfc  (jc,jb), &
@@ -352,6 +367,15 @@ CONTAINS
                 &                                   t_wgt)
 
             ENDDO
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              ! time averaged shortwave direct downward flux at surface
+              ! enforce positiv values
+              prm_diag%asodird_s (jc,jb) = prm_diag%swflxsfc_a(jc,jb)   &
+                &                        - prm_diag%asodifd_s (jc,jb)   &
+                &                        + prm_diag%asodifu_s (jc,jb)
+            ENDDO
+
 
           ENDIF  ! lcall_phy_jg(itradheat)
 
@@ -413,8 +437,19 @@ CONTAINS
 
               ! accumulated shortwave net flux at surface
               prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb) &
-                                   &   + prm_diag%swflxsfc(jc,jb)     &
-                                   &   * dt_phy_jg(itfastphy)
+             &                         + prm_diag%swflxsfc(jc,jb)     &
+             &                         * dt_phy_jg(itfastphy)
+
+              ! accumulated shortwave diffuse downward flux at surface
+              prm_diag%asodifd_s (jc,jb) = prm_diag%asodifd_s        (jc,jb)  &
+             &                           + prm_diag%swflx_dn_sfc_diff(jc,jb)  &
+             &                           * dt_phy_jg(itfastphy)
+
+              ! accumulated shortwave diffuse upward flux at surface
+              prm_diag%asodifu_s (jc,jb) = prm_diag%asodifu_s   (jc,jb)  &
+             &         + prm_diag%albdif(jc,jb)/(1._wp-prm_diag%albdif(jc,jb)) &
+             &                           * prm_diag%swflxsfc    (jc,jb)   &
+             &                           * dt_phy_jg(itfastphy)
 
               ! accumulated longwave net flux at surface
               prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb) &
@@ -435,6 +470,14 @@ CONTAINS
               prm_diag%asod_t    (jc,jb) = prm_diag%asod_t(jc,jb)     &
                                    &   + prm_diag%flxdwswtoa(jc,jb)   &
                                    &   * dt_phy_jg(itfastphy)
+            END DO
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              ! accumulated shortwave direct downward flux at surface
+              ! enforce positiv values
+              prm_diag%asodird_s (jc,jb) = prm_diag%swflxsfc_a(jc,jb) &
+                &                        - prm_diag%asodifd_s (jc,jb) &
+                &                        + prm_diag%asodifu_s (jc,jb)
             END DO
           ENDIF  ! lcall_phy_jg(itradheat)
 
