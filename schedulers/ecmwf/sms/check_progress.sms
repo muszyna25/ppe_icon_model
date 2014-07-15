@@ -44,18 +44,20 @@ do
 
   timestep1=`ssh cca-log grep 'TIME[[:blank:]]STEP' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1.running | tail -n1 | awk '{print $NF}'`
   timestep2=`ssh cca-log grep 'TIME[[:blank:]]STEP' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1         | tail -n1 | awk '{print $NF}'`
-  if [[ ! -n "$timestep1" ]]         # || "$timestep" = "initial" ]]
- #if [[ "$timestep" = "initial" ]]
-  then
-    if [[ ! -n "$timestep2" ]]
-    then
-      timestep=0
-    else
-      timestep=$timestep2
-    fi
-  else
+
+  if [[ "$timestep1" =~ ^[0-9]+$ ]] ; then
     timestep=$timestep1
+  else
+    if [[ "$timestep2" =~ ^[0-9]+$ ]] ; then
+      timestep=$timestep2
+    else
+      timestep=0
+    fi
   fi
+
+  #if [ "$timestep1" -eq "$timestep1" 2>/dev/null && "$timestep1" -ne "" ]
+  #if [[ ! -n "$timestep1" ]] 
+  #if [[ "$timestep" = "initial" ]]
 
   # If new output available: Increment progress meter
   smsmeter timesteps $timestep
