@@ -1,23 +1,16 @@
 \documentclass[a4paper,twoside,10pt]{book}
 
-\usepackage{a4,amssymb,amsxtra,alltt}
 \usepackage[english]{babel}
 \usepackage{float}
 \usepackage[utf8]{inputenc}
-\usepackage{graphics,graphicx}
-\usepackage{amsmath,amsbsy,bm}
+\usepackage{amsmath}
 \usepackage{fancyhdr}
 \usepackage{geometry}
 \usepackage{amsthm}        %--- Theorem-Package
-% \usepackage{pdftricks}    %--- for drawing arrows, frames, etc in Latex
-% \begin{psinputs}
-\usepackage{pstricks}      %--- for drawing arrows, frames etc in Latex
 
 \usepackage{pgfplots,pgfplotstable}
 \usepackage{colortbl}
 
-
-% \end{psinputs}
 \usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
 % --- but without toc itself [nottoc] 
 \usepackage[round,sort,comma,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
@@ -26,27 +19,33 @@
 % style=mylong3colheader %--- see glossaries Documentation for a list of available styles
 % ]{glossaries}  %--- use the glossary package
 \geometry{a4paper,textwidth=15.8cm,textheight=23.0cm,twoside,rmargin=0.96in} %--- Variation Randbereiche
-\usepackage{epsfig}
 \usepackage{caption}
 \usepackage{subcaption}  %--- simplifies putting pictures side by side
-\usepackage{layout}      %--- overview about boundaries and widths
-                         % usage: write \layout somewhere in the document
-\usepackage{longtable, lscape}
-\usepackage{setspace}
+\usepackage{longtable}
+%\usepackage{setspace}
 \usepackage{multirow}
 \usepackage{tabularx}
-\usepackage{colortbl}
 \usepackage{booktabs}    % to give tables a more professional look
 \usepackage{rotating}    % rotate column labels
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{hyperref}    % ability to create hyperlinks within the document
 \usepackage{vhistory}
-\usepackage{array}
 \usepackage{tikz}
 \usepackage{xargs}
 \usepackage{xstring}
-\usepackage{enumitem} 
+\usepackage{enumitem}
+\usepackage[strict]{changepage} % for adjustwidth environment
+\usepackage{framed}
+\usepackage{array}
+
+% \usepackage{setspace}
+% \usepackage{pdftricks}   %--- for drawing arrows, frames, etc in Latex
+% \usepackage{pstricks}    %--- for drawing arrows, frames etc in Latex
+% \usepackage{layout}      %--- overview about boundaries and widths
+                           % usage: write \layout somewhere in the document
+
+
 
 % left-aligned fixed-width table column
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
@@ -141,6 +140,34 @@
   }%
 }%
 
+
+
+
+% environment derived from framed.sty: see leftbar environment definition
+\definecolor{formalshade}{rgb}{0.95,0.95,1}
+\definecolor{darkblue}{rgb}{0.,0.,0.6}
+
+\newenvironment{note}{%
+  \def\FrameCommand{%
+    \hspace{1pt}%
+    {\color{darkblue}\vrule width 2pt}%
+    {\color{formalshade}\vrule width 4pt}%
+    \colorbox{formalshade}%
+  }%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}%
+  \noindent\hspace{-4.55pt}% disable indenting first paragraph
+  \begin{adjustwidth}{}{7pt}%
+%  \vspace{-2pt}\vspace{-2pt}%
+}
+{%
+  %\vspace{2pt}%
+  \end{adjustwidth}\endMakeFramed%
+}
+
+
+%\parskip0.4ex plus0.2ex minus0.3ex
+\setlength{\parskip}{0.2cm plus0.1cm minus0.1cm}
+\setlength{\parindent}{0.0em}
 
 \includeonly{./title_toc,
              ./versionhistory,

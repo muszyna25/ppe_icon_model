@@ -42,6 +42,7 @@ fields is provided in Section \ref{sec_outfields}.
 \textbf{W}                              &  $\mathrm{m/s}$             &  vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$ (3D field)\\
 \textbf{DEN}                            &  $\mathrm{kg/m^{3}}$        &  density of moist air (3D field) \\
 \textbf{TKE}                            &  $\mathrm{m^{2}/s^{2}}$     &  Turbulent kinetic energy (3D field) \\
+\textbf{DTKE\_CON}                      &  $\mathrm{m^{2}/s^{3}}$     &  Buoyancy-production of TKE due to sub grid scale convection (3D field) \\
 \textbf{HSURF}                          &  $\mathrm{m}$               &  Geometric Height of the earths surface above sea level (2D field) \\
 \textbf{HHL}                            &  $\mathrm{m}$               &  Geometric Height of model half levels above sea level (3D field) \\
 \textbf{CLON,CLAT}                      &  $\mathrm{deg}$             &  Geographical longitude/latitude of native grid triangle cell center \\
@@ -57,9 +58,9 @@ fields is provided in Section \ref{sec_outfields}.
 \section{Available output fields}\label{sec_outfields}
 
 ICON output is available on two distinct horizontal grids: The native triangular grid with an average resolution of $13\,\mathrm{km}$, and a regular latitude-longitude grid with 
-a resolution of $\Delta \lambda = \Delta \Phi=3/16^{\circ}$. On the native grid most output fields are defined on triangle cell centers, except for \emph{VN}, which 
+a resolution of $\Delta \lambda = \Delta \Phi=0.25^{\circ}$. On the native grid most output fields are defined on triangle cell centers, except for \emph{VN}, which 
 is defined on cell edges. On the lat-lon grid, all fields are defined on cell centers. A single 2D GRIB2 field on the native and regular lat-lon grid contains 
-$2949120$ and $1843200$ grid points, respectively. 
+$2949120$ and $1036800$ grid points, respectively. 
 
 For details regarding the available fields, please see the tables below. Note that the vertical rule in the leftmost column always indicates, whether the field is 
 only available on the native grid ($\,$\markRed$\,$), on the lat-lon grid($\,$\markBlue$\,$), or on both grids($\,$\markRed\markBlue$\,$). 
@@ -118,7 +119,8 @@ only available on the native grid ($\,$\markRed$\,$), on the lat-lon grid($\,$\m
 \groups[tri][] & QR                         &  \textcolor{red}{Rain mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    24                      &                 150/150                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
 \groups[tri][] & QS                         &  \textcolor{red}{Snow mixing ratio}\footnotemark[2]                                        &               0                                   &                     1                       &                    25                      &                 150/150                         &                      inst                   &        $\mathrm{kg\,kg^{-1}}$ \\
 \groups[tri][] & CLC                        &  Cloud cover                                                                               &               0                                   &                     6                       &                    22                      &                 150/150                         &                      inst                   &        $\mathrm{\%}$ \\
-\groups[tri][] & TKE                        &  Turbulent kinetic energy                                                                  &               0                                   &                     19                      &                    11                      &                 150/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$ \\                                             
+\groups[tri][] & TKE                        &  Turbulent kinetic energy                                                                  &               0                                   &                     19                      &                    11                      &                 150/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$ \\
+\groups[tri][] & DTKE\_CON                  &  Buoyancy-production of TKE due to sub grid scale convection                               &               0                                   &                     19                      &                    219                     &                 150/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-3}}$ \\                                  
   \bottomrule
  \end{tabular}
 \end{table}
@@ -140,12 +142,12 @@ pressure levels (as compared to GME) are highlighted in red. Note that now all $
 &\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
 \groups[][ll] & FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
+\groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0                                   &                     2                       &                    8                       &                 100/--                          &                      inst                   &        $\mathrm{Pa\,s^{-1}}$  \\
+\groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$          \\
+\groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
 \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
 \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
 \groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-\groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0                                   &                     2                       &                    8                       &                 100/--                          &                      inst                   &        $\mathrm{Pa\,s^{-1}}$  \\
-\groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
-\groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$ \\
   \bottomrule
  \end{tabular}
 \end{table}
@@ -256,7 +258,7 @@ condition is assumed between levels $0$ and $1$, meaning that temperatures at th
 ($0.5\,\mathrm{cm}$). Temperatures are prognosed for levels $1$ to $7$. At the lowermost level ($1458\,\mathrm{cm}$) the temperature is fixed to the climatological 
 average $2\,\mathrm{m}$-temperature.
 
-Soil moisture $\mathrm{W\_SO}$ is prognosed for layers $1$ to $6$. In the two lowermost layers $\mathrm{W\_SO}$ is time constant.
+Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowermost layers \texttt{W\_SO} is time constant.
 
 \begin{table}
 \center
@@ -308,12 +310,40 @@ description of the available output fields.
 %\end{description}
 
 
-\subsection{Soil and surface products}
+\subsection{Cloud products}
 % uses package enumitem
 %\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
 \begin{description}[leftmargin=3.0cm,style=sameline]
-  \item [HBAS\_CON] Height of the convective cloud base in m above msl. $\mathrm{HBAS\_CON}$ is initialized with $-500\,\mathrm{m}$ at points where no convection is diagnosed.
+  \item [HBAS\_CON] Height of the convective cloud base in m above msl. $\mathrm{HBAS\_CON}$ is initialized with $-500\,\mathrm{m}$ 
+                    at points where no convection is diagnosed.
   \item [HTOP\_CON] Same, but for cloud top.
 \end{description}
+
+
+\subsection{Near surface products}
+% uses package enumitem
+%\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
+\begin{description}[leftmargin=3.0cm,style=sameline]
+  \item [TMIN\_2M]  Minimum temperature at $2\,\mathrm{m}$ above ground, computed over $3$-hourly intervals. 
+  \item [TMAX\_2M]  Same, but for maximum $2\,\mathrm{m}$ temperature.
+  \item [VMAX\_10M] Maximum wind gust at $10\,\mathrm{m}$ above ground, computed over $3$-hourly intervals. It is diagnosed 
+                    from the turbulence state in the atmospheric boundary layer. In the presence of deep convection, it 
+                    contains an additional contribution due to convective gusts.
+\end{description}
+
+
+\subsubsection{General comment on statistically processed fields}
+
+In GRIB2, the overall time interval over which a statistical process (like averaging, computation of maximum/minimum) has taken place is 
+encoded as follows:
+
+The beginning of the overall time interval is defined by \texttt{referenceTime + forecastTime}, whereas the end of the 
+overall time interval is given by \texttt{referenceTime + forecastTime + lengthOfTimeRange}.
+
+\begin{note}%
+\textbf{Note:} Fields for which the beginning of the time interval differs from \texttt{referenceTime} are currently 
+encoded incorrectly. The begining of the time interval is erroneously set to \texttt{referenceTime}. I.e.\ this is currently the case 
+for \texttt{TMAX\_2M}, \texttt{TMIN\_2M}, \texttt{VMAX\_10M}.
+\end{note}
 
 %\subsection{Atmospheric products}
