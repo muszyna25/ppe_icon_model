@@ -102,7 +102,7 @@ cat > ${ocean_namelist} << EOF
 ! FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
   threshold_min_T       = -1.0   ! abort due to temperature minimum threshold
-  threshold_min_T       = 17.0   ! abort due to temperature maximum threshold
+  threshold_max_T       = 17.0   ! abort due to temperature maximum threshold
 /
 &ocean_diffusion_nml
   HORZ_VELOC_DIFF_TYPE = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
