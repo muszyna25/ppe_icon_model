@@ -606,7 +606,8 @@ MODULE mo_nh_initicon
 
     ! read DWD first guess and analysis for surface/land
     ! 
-    CALL read_dwdana_sfc(p_patch, prm_diag, p_lnd_state)
+    CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state)
+    CALL read_dwdana_sfc(p_patch, p_lnd_state)
 
 
     ! get SST from first soil level t_so (for sea and lake points)
@@ -2278,19 +2279,20 @@ MODULE mo_nh_initicon
 
 
   !>
-  !! Read DWD first guess and analysis (land/surface only)
+  !! Read DWD first guess (land/surface only)
   !!
-  !! Read DWD first guess and analysis for land/surface.
+  !! Read DWD first guess for land/surface.
   !! First guess is read for:
   !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow, 
   !! rho_snow, w_so, w_so_ice, t_so, gz0
   !!
-  !! If available, 
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
+  !! Modifications by Daniel Reinert, DWD (2014-07-16)
+  !! - split off reading of FG fields
   !!
-  SUBROUTINE read_dwdana_sfc (p_patch, prm_diag, p_lnd_state)
+  SUBROUTINE read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
@@ -2298,15 +2300,19 @@ MODULE mo_nh_initicon
 
     INTEGER :: jg, jt, jb, jc, i_endidx
 
-    INTEGER :: ngrp_vars_fg, ngrp_vars_ana
+    INTEGER :: ngrp_vars_fg
     REAL(wp), POINTER :: my_ptr2d(:,:)
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_dwdana_sfc'
+      routine = 'mo_nh_initicon:read_dwdfg_sfc'
 
     !-------------------------------------------------------------------------
 
+
+    !----------------------------------------!
+    ! read in DWD First Guess (surface)      !
+    !----------------------------------------!
 
     DO jg = 1, n_dom
 
@@ -2316,19 +2322,12 @@ MODULE mo_nh_initicon
 
       ! save some paperwork
       ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
-      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
-      !-----------------------------------!
-      ! Read in DWD first guess (surface) !
-      !-----------------------------------!
 
       IF(p_pe == p_io ) THEN 
         CALL message (TRIM(routine), 'read sfc_FG fields from '//TRIM(dwdfg_file(jg)))
       ENDIF  ! p_io
 
-      !----------------------------------------!
-      ! read in DWD First Guess (surface)      !
-      !----------------------------------------!
 
       ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
       IF (init_mode /= MODE_COSMODE) THEN
@@ -2484,8 +2483,8 @@ MODULE mo_nh_initicon
 
      ! multi layer fields 
         !
-        ! Note that either w_so OR smi is written to w_so_t. Which on is required depends 
-        ! on the initialization mode. The check of grp_vars_fg takes care of this. In case 
+        ! Note that either w_so OR smi is written to w_so_t. Which one is required depends 
+        ! on the initialization mode. Checking grp_vars_fg takes care of this. In case 
         ! that smi is read, it is lateron converted to w_so (see smi_to_sm_mass)
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
         CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so',                     &
@@ -2575,6 +2574,51 @@ MODULE mo_nh_initicon
     ENDDO ! loop over model domains
 
 
+    ! Only required, when starting from GME soil (so far, W_SO=SMI*1000 in GME input file)
+    ! Also note, that the domain-loop is missing
+    IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+      DO jg = 1, n_dom
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        DO jt=1, ntiles_total
+          CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
+        ENDDO
+      ENDDO
+    END IF
+
+  END SUBROUTINE read_dwdfg_sfc
+
+
+
+  !>
+  !! Read DWD analysis (land/surface only)
+  !!
+  !! Read DWD analysis for land/surface.
+  !! Analysis is read for:
+  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow, 
+  !! rho_snow, w_so, w_so_ice, t_so, gz0
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-18)
+  !! Modifications by Daniel Reinert, DWD (2014-07-16)
+  !! - split off reading of ANA fields
+  !!
+  SUBROUTINE read_dwdana_sfc (p_patch, p_lnd_state)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
+
+    INTEGER :: jg, jt
+    INTEGER :: ngrp_vars_ana
+
+    REAL(wp), POINTER :: my_ptr2d(:,:)
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:read_dwdana_sfc'
+
+    !-------------------------------------------------------------------------
+
 
     !----------------------------------------!
     ! read in DWD analysis (surface)         !
@@ -2587,7 +2631,6 @@ MODULE mo_nh_initicon
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       ! save some paperwork
-      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
 
@@ -2682,18 +2725,6 @@ MODULE mo_nh_initicon
 
     ENDDO ! loop over model domains
 
-
-
-    ! Only required, when starting from GME soil (so far, W_SO=SMI*1000 in GME input file)
-    ! Also note, that the domain-loop is missing
-    IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-      DO jg = 1, n_dom
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        DO jt=1, ntiles_total
-          CALL smi_to_sm_mass(p_patch(jg), p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt))
-        ENDDO
-      ENDDO
-    END IF
 
   END SUBROUTINE read_dwdana_sfc
 
