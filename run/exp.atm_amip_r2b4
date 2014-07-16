@@ -352,6 +352,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
+ pl_varlist       = 'ta','zg'
 /
 &output_nml
  output_filename  = "${EXPNAME}_dyn_3d_rmb"
