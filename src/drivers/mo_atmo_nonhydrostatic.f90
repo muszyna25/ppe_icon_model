@@ -455,14 +455,18 @@ CONTAINS
 
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working
-    IF(atm_phy_nwp_config(1)%is_les_phy .AND. is_restart_run()) &
-      CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
-                             time_config%sim_time(1), ldelete=.FALSE.)
+    !Only for Torus runs with single domain
+    IF(atm_phy_nwp_config(1)%is_les_phy)THEN
+      atm_phy_nwp_config(1)%lcalc_moist_integral_avg = .TRUE.
 
-    IF(atm_phy_nwp_config(1)%is_les_phy .AND. .NOT.is_restart_run()) &
-      CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
-                             time_config%sim_time(1), ldelete=.TRUE.)
+      IF(is_restart_run()) &
+        CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
+                               time_config%sim_time(1), ldelete=.FALSE.)
 
+      IF(.NOT.is_restart_run()) &
+        CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
+                               time_config%sim_time(1), ldelete=.TRUE.)
+    END IF
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
