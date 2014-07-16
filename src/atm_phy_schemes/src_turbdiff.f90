@@ -3063,7 +3063,7 @@ SUBROUTINE turbdiff
 !
 !     sonstiges:
 !
-           x1,x2,x3, tkvcorr
+           x1,x2,x3,x4, tkvcorr
 
       REAL (KIND=ireals) :: flukon33, flukon43, flukon53, &
                             flukon34, flukon44, flukon54, flukon55, &
@@ -4301,7 +4301,8 @@ SUBROUTINE turbdiff
             x1 = z1d2*(hhl(i,k-1)-hhl(i,k+1))
             x2 = MAX( 1.e-6_ireals, ((u(i,k-1)-u(i,k))**2+(v(i,k-1)-v(i,k))**2)/x1**2 )          ! |du/dz|**2
             x3 = MAX( 1.e-5_ireals, grav/(z1d2*(t(i,k-1)+t(i,k)))*((t(i,k-1)-t(i,k))/x1+tet_g) ) !       N**2
-            tkvcorr = MIN( 2.5_ireals, MAX( 0.01_ireals, SQRT(x2/x3) ) )
+            x4 = MIN( 1._ireals, 0.25_ireals+7.5e-3_ireals*(hhl(i,k)-hhl(i,ke1)) )               ! low-level reduction factor
+            tkvcorr = MIN( 2.5_ireals, MAX( 0.01_ireals, x4*SQRT(x2/x3) ) )
 
             tkvh(i,k)=MAX( con_h, tkhmin*tkvcorr, tkvh(i,k)*tke(i,k,ntur) )
             tkvm(i,k)=MAX( con_m, tkmmin*tkvcorr, tkvm(i,k)*tke(i,k,ntur) )

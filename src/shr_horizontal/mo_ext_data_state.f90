@@ -1893,7 +1893,7 @@ CONTAINS
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined                                  
 
-! Even more tuned version of gcv2009 by Guenther Zaengl (will be subject to further changes - do not use for production!!!)
+! Even more tuned version of gcv2009 by Guenther Zaengl (appears to produce the smallest temperature biases)
  DATA lu_gcv2009_v3 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 190.0_wp,  -1.0_wp, 1._wp, & ! irrigated croplands                           
                    &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 170.0_wp,  -1.0_wp, 1._wp, & ! rainfed croplands                             
                    &   0.25_wp,  0.8_wp,  3.0_wp, 0.5_wp, 160.0_wp,  -1.0_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
@@ -1913,7 +1913,7 @@ CONTAINS
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  -1.0_wp,-1._wp, & ! closed forest or shrubland permanently flooded
                    &   0.05_wp,  0.8_wp,  2.0_wp, 0.7_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! closed to open grassland regularly flooded    
                    &   1.00_wp,  0.2_wp,  1.6_wp, 0.2_wp, 300.0_wp,  -1.0_wp,-1._wp, & ! artificial surfaces                           
-                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.05_wp, 300.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
+                   &   0.05_wp,  0.05_wp, 0.6_wp,0.05_wp, 300.0_wp,  -1.0_wp, 1._wp, & ! bare areas                                    
                    &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies                                  
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp,-1._wp, & ! permanent snow and ice                        
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined                                  
@@ -2107,7 +2107,7 @@ CONTAINS
           ELSE IF (ext_data(jg)%atm%z0_lcc(ilu) >= 0.1) THEN
             ext_data(jg)%atm%z0_lcc_min(ilu) = 0.3_wp*ext_data(jg)%atm%z0_lcc(ilu) ! 30% for nominal roughness lengths > 10 cm
           ELSE
-            ext_data(jg)%atm%z0_lcc_min(ilu) = MAX(0.005_wp, 0.1_wp*ext_data(jg)%atm%z0_lcc(ilu)) ! 10% otherwise, but at least 5 mm
+            ext_data(jg)%atm%z0_lcc_min(ilu) = 0.1_wp*ext_data(jg)%atm%z0_lcc(ilu) ! 10% otherwise
           ENDIF
         ENDDO
 
