@@ -983,11 +983,18 @@ MODULE mo_nh_testcases
       nlev   = p_patch(1)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
-                      
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", w_perturb, nlev-3, nlev ) 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", th_perturb, nlev-3, nlev ) 
+ 
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=w_perturb )   
+
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )   
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
