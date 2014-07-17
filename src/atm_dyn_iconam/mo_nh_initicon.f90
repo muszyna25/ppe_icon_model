@@ -35,7 +35,7 @@ MODULE mo_nh_initicon
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_nh_initicon_types,   ONLY: t_initicon_state
+  USE mo_nh_initicon_types,   ONLY: t_initicon_state, t_pi_atm 
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, nlevsoil_in, l_sst_in,  &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               generate_filename, rho_incr_filter_wgt,             &
@@ -179,6 +179,7 @@ MODULE mo_nh_initicon
 
     initicon(:)%atm_in%linitialized  = .FALSE.
     initicon(:)%sfc_in%linitialized  = .FALSE.
+    initicon(:)%atm%linitialized     = .FALSE.
     initicon(:)%atm_inc%linitialized = .FALSE.
 
     ! Allocate memory for init_icon state
@@ -564,7 +565,7 @@ MODULE mo_nh_initicon
     ! read DWD first guess and analysis from DA for atmosphere
     ! 
     CALL read_dwdfg_atm (p_patch, p_nh_state)
-    CALL read_dwdinc_atm(p_patch)
+    CALL read_dwdana_atm(p_patch, p_nh_state)
 
 
     ! Compute DA increments in terms of the NH set 
@@ -2063,11 +2064,14 @@ MODULE mo_nh_initicon
 
 
   !>
-  !! Read full DA-analysis fields (atmosphere only)
+  !! Read DA-analysis fields (atmosphere only)
   !!
-  !! Read full DA-analysis fields (atmosphere only)
-  !! DA output is read for T, p, u, v, 
-  !! qv, qc, qi, qr, qs.
+  !! Depending on the initialization mode, either ful fields or increments 
+  !! are read (atmosphere only):
+  !! MODE_DWDANA: The following full fields are read, if available
+  !!              u, v, t, p, qv
+  !! MODE_DWDANA_INC: The following increments are read, if available
+  !!              u, v, t, p, qv
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -2085,7 +2089,8 @@ MODULE mo_nh_initicon
 
     INTEGER :: ngrp_vars_ana
 
-    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_pi_atm), POINTER :: my_ptr
+    REAL(wp),       POINTER :: my_ptr3d(:,:,:)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_nh_initicon:read_dwdana_atm'
@@ -2098,12 +2103,12 @@ MODULE mo_nh_initicon
 
     DO jg = 1, n_dom
 
-      ! number of vertical full and half levels
-      nlev   = p_patch(jg)%nlev
-
       ! Skip reading the atmospheric input data if a model domain 
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      ! number of vertical full and half levels
+      nlev   = p_patch(jg)%nlev
 
       ! save some paperwork
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
@@ -2114,40 +2119,61 @@ MODULE mo_nh_initicon
       ENDIF  ! p_io
 
 
+      ! Depending on the initialization mode chosen (incremental vs. non-incremental) 
+      ! input fields are stored in different locations.
+      IF (init_mode == MODE_DWDANA_INC) THEN
+        my_ptr => initicon(jg)%atm_inc
+      ELSE
+        my_ptr => initicon(jg)%atm
+      ENDIF
+
+
       ! start reading DA output (atmosphere only)
       ! The dynamical variables temp, pres, u and v, which need further processing,
-      ! are stored in initicon(jg)%atm. The moisture variables, which can be taken
-      ! over directly from the Analysis, are written to the NH prognostic state
+      ! are either stored in initicon(jg)%atm or initicon(jg)%atm_inc, depending on whether 
+      ! IAU is used or not. The moisture variables, which can be taken over directly from 
+      ! the Analysis, are written to the NH prognostic state
       !
-      my_ptr3d => initicon(jg)%atm%temp
+      my_ptr3d => my_ptr%temp
       CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,  &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana))
 
-      my_ptr3d => initicon(jg)%atm%pres
+
+      my_ptr3d => my_ptr%pres
       CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,  &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-      my_ptr3d => initicon(jg)%atm%u
+
+      my_ptr3d => my_ptr%u
       CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,     &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-      my_ptr3d => initicon(jg)%atm%v
+
+      my_ptr3d => my_ptr%v
       CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,     &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
+
+
+      IF (init_mode == MODE_DWDANA_INC) THEN
+        my_ptr3d => my_ptr%qv
+      ELSE
+        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
+      ENDIF
+
       CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,    &
         &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
         &                  nlev, my_ptr3d,                                                       &
         &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
+
 
       ! For the time being identical to qc from FG => usually read from FG
       my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
@@ -2181,100 +2207,10 @@ MODULE mo_nh_initicon
           &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
       END IF
 
+
     ENDDO ! loop over model domains
 
   END SUBROUTINE read_dwdana_atm
-
-
-
-
-  !>
-  !! Read DA-analysis increments (atmosphere only)
-  !!
-  !! Read DA-analysis increments (atmosphere only)
-  !! for T, p, u, v, qv
-  !! !! Maybe read_dwdanainc_atm and read_dwdana_atm could be 
-  !! unified !!
-  !!
-  !! @par Revision History
-  !! Initial version by Daniel Reinert, DWD(2014-01-28)
-  !!
-  SUBROUTINE read_dwdinc_atm (p_patch)
-
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-
-    INTEGER :: jg
-    INTEGER :: nlev
-
-    INTEGER ::ngrp_vars_ana
-
-    REAL(wp), POINTER :: my_ptr3d(:,:,:)
-
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_dwdanainc_atm'
-
-    !-------------------------------------------------------------------------
-
-    !---------------------------------------------------!
-    ! read in DWD analysis increments (atmosphere)      !
-    !---------------------------------------------------!
-
-    DO jg = 1, n_dom
-
-      ! number of vertical full and half levels
-      nlev   = p_patch(jg)%nlev
-
-      ! Skip reading the atmospheric input data if a model domain 
-      ! is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
-      ! save some paperwork
-      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
-
-
-      IF( lread_ana .AND. p_pe == p_io ) THEN 
-        CALL message (TRIM(routine), 'read atm_ANAINC fields from '//TRIM(dwdana_file(jg)))
-      ENDIF  ! p_io
-
-
-      ! start reading DA increments (atmosphere only)
-      ! The increments temp, pres, u, v and qv which need further processing,
-      ! are stored in initicon(jg)%atm_inc.
-      !
-      my_ptr3d => initicon(jg)%atm_inc%temp
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'temp', p_patch(jg)%n_patch_cells_g,  &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana))
-
-      my_ptr3d => initicon(jg)%atm_inc%pres
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'pres', p_patch(jg)%n_patch_cells_g,  &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
-
-      my_ptr3d => initicon(jg)%atm_inc%u
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'u', p_patch(jg)%n_patch_cells_g,     &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
-
-      my_ptr3d => initicon(jg)%atm_inc%v
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'v', p_patch(jg)%n_patch_cells_g,     &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
-
-      my_ptr3d => initicon(jg)%atm_inc%qv
-      CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'qv', p_patch(jg)%n_patch_cells_g,    &
-        &                  p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,   &
-        &                  nlev, my_ptr3d,                                                       &
-        &                  opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
-
-    ENDDO ! loop over model domains
-
-  END SUBROUTINE read_dwdinc_atm
-
 
 
 
@@ -4091,20 +4027,25 @@ MODULE mo_nh_initicon
                initicon(jg)%grp_vars_ana_default(100)  )
 
       ! Allocate atmospheric output data
-      ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
-               initicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%w         (nproma,nlevp1,nblks_c), &
-               initicon(jg)%atm%temp      (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%exner     (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%pres      (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%rho       (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%theta_v   (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%qv        (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%qc        (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%qi        (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%qr        (nproma,nlev  ,nblks_c), &
-               initicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
+      IF ( ANY((/MODE_IFSANA, MODE_DWDANA/)==init_mode) ) THEN
+        ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
+                 initicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%w         (nproma,nlevp1,nblks_c), &
+                 initicon(jg)%atm%temp      (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%exner     (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%pres      (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%rho       (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%theta_v   (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%qv        (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%qc        (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%qi        (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%qr        (nproma,nlev  ,nblks_c), &
+                 initicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
+
+        initicon(jg)%atm%linitialized = .TRUE.
+      ENDIF
+
 
       ! Allocate surface output data
       ALLOCATE(initicon(jg)%sfc%tskin    (nproma,nblks_c             ), &
@@ -4243,20 +4184,22 @@ MODULE mo_nh_initicon
                  initicon(jg)%grp_vars_ana_default )
 
       ! atmospheric output data
-      DEALLOCATE(initicon(jg)%atm%vn,      &
-                 initicon(jg)%atm%u,       &
-                 initicon(jg)%atm%v,       &
-                 initicon(jg)%atm%w,       &
-                 initicon(jg)%atm%temp,    &
-                 initicon(jg)%atm%exner,   &
-                 initicon(jg)%atm%pres,    &  
-                 initicon(jg)%atm%rho,     &
-                 initicon(jg)%atm%theta_v, &
-                 initicon(jg)%atm%qv,      &
-                 initicon(jg)%atm%qc,      &
-                 initicon(jg)%atm%qi,      &
-                 initicon(jg)%atm%qr,      &
-                 initicon(jg)%atm%qs       )
+      IF (initicon(jg)%atm%linitialized) THEN
+        DEALLOCATE(initicon(jg)%atm%vn,      &
+                   initicon(jg)%atm%u,       &
+                   initicon(jg)%atm%v,       &
+                   initicon(jg)%atm%w,       &
+                   initicon(jg)%atm%temp,    &
+                   initicon(jg)%atm%exner,   &
+                   initicon(jg)%atm%pres,    &  
+                   initicon(jg)%atm%rho,     &
+                   initicon(jg)%atm%theta_v, &
+                   initicon(jg)%atm%qv,      &
+                   initicon(jg)%atm%qc,      &
+                   initicon(jg)%atm%qi,      &
+                   initicon(jg)%atm%qr,      &
+                   initicon(jg)%atm%qs       )
+      ENDIF
 
 
       ! surface output data
