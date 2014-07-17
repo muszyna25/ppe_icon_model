@@ -60,12 +60,11 @@ CONTAINS
 !!
 SUBROUTINE art_sedi_interface( p_patch, &
            &                   p_dtime, &
-           &                   p_prog_list, p_prog, &
+           &                   p_prog,  &
            &                   p_metrics, p_rho, p_diag, &
            &                   p_tracer_new, &
-           &                   p_cellhgt_mc_now, p_rhodz_new, &
-           &                   lprint_cfl, &
-           &                   opt_topflx_tra )
+           &                   p_dz, &
+           &                   lprint_cfl )
 !! Interface for ART routines for calculation of
 !! sedimentation and deposition velocities
 !!
@@ -78,9 +77,6 @@ SUBROUTINE art_sedi_interface( p_patch, &
     &  p_patch                            !< patch on which computation is performed
   REAL(wp), INTENT(IN)              :: &
     &  p_dtime
-
-  TYPE(t_var_list),INTENT(IN)       :: &  
-    &  p_prog_list                        !< current prognostic state list
   TYPE(t_nh_prog), INTENT(IN)       :: &  
     &  p_prog                             !< current prognostic state
   TYPE(t_nh_metrics), INTENT(IN)    :: &
@@ -92,15 +88,12 @@ SUBROUTINE art_sedi_interface( p_patch, &
   REAL(wp), INTENT(INOUT)           :: &
     &  p_tracer_new(:,:,:,:)              !< tracer mixing ratio [kg/kg]
   REAL(wp), INTENT(IN)              :: &      
-    &  p_cellhgt_mc_now(:,:,:)            !< cell height defined at full levels for
-  REAL(wp), INTENT(IN)              :: &
-    &  p_rhodz_new(:,:,:)                 !< density weighted cell depth (\rho*(z_half(top)-z_half(bottom)) at full levels and time step n+1 [kg/m**2]
+    &  p_dz(:,:,:)                        !< cell height defined at full levels
   LOGICAL, INTENT(IN)               :: &               
     &  lprint_cfl                         !< determines if vertical CFL number shall be printed in upwind_vflux_ppm_cfl
-  REAL(wp), INTENT(IN), OPTIONAL    :: &     
-    &  opt_topflx_tra(:,:,:)              !< vertical tracer flux at upper boundary [kg/m**2/s]
   REAL(wp), ALLOCATABLE             :: &  
-    &  p_upflux_sed(:,:,:)                !< upwind flux at half levels due to sedimentation
+    &  p_upflux_sed(:,:,:),            &  !< upwind flux at half levels due to sedimentation
+    &  rhodz_new(:,:,:)                   !< density * height of full layer
     
   REAL(wp),POINTER                  :: &
     &  mflx_contra_vsed(:,:,:),        &
@@ -159,6 +152,18 @@ SUBROUTINE art_sedi_interface( p_patch, &
     IF (art_config(jg)%lart_aerosol) THEN
     
       ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
+      ALLOCATE(rhodz_new(nproma,nlev,nblks))
+      
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+          &                i_startidx, i_endidx, i_rlstart, i_rlend)
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            rhodz_new(jc,jk,jb) = p_rho(jc,jk,jb) * p_dz(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDDO
+      
       
   !drieg: Necessary depending on parameterizations that will be used
   !    CALL art_air_properties(p_patch,p_art_data(jg))
@@ -207,9 +212,9 @@ SUBROUTINE art_sedi_interface( p_patch, &
             ! ----------------------------------
           
             CALL upwind_vflux_ppm_cfl(p_patch, p_tracer_new(:,:,:,jsp),           & !< in
-              &                       iubc, flx_contra_vsed, p_dtime,            & !< in! we need here nflx if i = 0
+              &                       iubc, flx_contra_vsed, p_dtime,             & !< in! we need here nflx if i = 0
               &                       lcompute_gt, lcleanup_gt, itype_vlimit,     & !< in
-              &                       p_cellhgt_mc_now, p_rhodz_new, lprint_cfl,  & !< in
+              &                       p_dz, rhodz_new, lprint_cfl,                & !< in
               &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )        !< out
   
             ! ----------------------------------
@@ -226,7 +231,7 @@ SUBROUTINE art_sedi_interface( p_patch, &
     
                   sedim_update = (p_dtime * (  p_upflux_sed(jc,jk,  jb)   &
                      &                      - p_upflux_sed(jc,ikp1,jb) )  &
-                     &         / p_rhodz_new(jc,jk,jb))
+                     &         / rhodz_new(jc,jk,jb))
               
                   p_tracer_new(jc,jk,jb,jsp) =   p_tracer_new(jc,jk,jb,jsp) - sedim_update
               

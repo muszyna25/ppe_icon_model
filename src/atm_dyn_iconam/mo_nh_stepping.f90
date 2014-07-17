@@ -833,7 +833,7 @@ MODULE mo_nh_stepping
     ! Local variables
 
     ! Time levels
-    INTEGER :: n_now_grf, n_now, n_new, n_save, n_temp
+    INTEGER :: n_now_grf, n_now, n_new, n_save, n_temp, n_sedi
     INTEGER :: n_now_rcf, n_new_rcf         ! accounts for reduced calling frequencies (rcf)
 
     INTEGER :: jstep, jgp, jgc, jn
@@ -1259,20 +1259,7 @@ MODULE mo_nh_stepping
               &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
               &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
-            IF (lart) THEN
-              CALL art_sedi_interface( p_patch(jg),             &!in
-                 &      dtadv_loc,                              &!in
-                 &      p_nh_state(jg)%prog_list(n_new_rcf),    &!in
-                 &      p_nh_state(jg)%prog(n_new_rcf),         &!in              
-                 &      p_nh_state(jg)%metrics,                 &!in
-                 &      p_nh_state(jg)%prog(n_new)%rho,         &!in
-                 &      p_nh_state(jg)%diag,                    &!in
-                 &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
-                 &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
-                 &      p_nh_state(jg)%diag%airmass_new,        &!in
-                 &      .TRUE.,                                 &!print CFL number
-                 &      opt_topflx_tra=prep_adv(jg)%topflx_tra)  !in
-            ENDIF
+
                  
 !            IF (  iforcing==inwp .AND. inwp_turb == icosmo) THEN
 !              !> KF preliminary relabeling of TKE as long as there is no advection for it
@@ -1281,7 +1268,23 @@ MODULE mo_nh_stepping
 
 
           ENDIF  !lstep_adv
-
+          IF (lart) THEN
+            IF (lstep_adv(jg)) THEN
+              n_sedi = n_new_rcf
+            ELSE
+              n_sedi = n_now_rcf
+            ENDIF
+            
+            CALL art_sedi_interface( p_patch(jg),             &!in
+               &      dt_loc,                                 &!in
+               &      p_nh_state(jg)%prog(n_sedi),            &!in              
+               &      p_nh_state(jg)%metrics,                 &!in
+               &      p_nh_state(jg)%prog(n_new)%rho,         &!in
+               &      p_nh_state(jg)%diag,                    &!in
+               &      p_nh_state(jg)%prog(n_sedi)%tracer,     &!inout
+               &      p_nh_state(jg)%metrics%ddqz_z_full,     &!in
+               &      .TRUE.)                                  !print CFL number
+          ENDIF ! lart
         ENDIF !ltransport
 
 #ifdef MESSY
