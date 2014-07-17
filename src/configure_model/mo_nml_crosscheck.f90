@@ -84,6 +84,8 @@ MODULE mo_nml_crosscheck
   USE mo_master_control,     ONLY: is_restart_run, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
 
+  USE mo_art_config,         ONLY: art_config
+
   IMPLICIT NONE
 
 !  PRIVATE
@@ -564,7 +566,6 @@ CONTAINS
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
       !            around with different physics schemes. 
-      !            Exception: ICON-ART is active (lart = .TRUE.)
       !
       ! Default settings valid for all microphysics options
       !
@@ -580,7 +581,7 @@ CONTAINS
       iqm_max   = 5     !! end index of water species mixing ratios
       iqt       = 6     !! start index of other tracers not related at all to moisture
       !
-      IF (.NOT. lart) ntracer = 5  !! total number of tracers
+      ntracer   = 5     !! total number of tracers
       !
       ! dummy settings
       iqni     = ntracer+100    !! cloud ice number
@@ -610,7 +611,7 @@ CONTAINS
         iqm_max = iqg
         iqt     = iqt + 1
 
-        IF (.NOT. lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
+        ntracer = ntracer + 1  !! increase total number of tracers by 1
 
  
       CASE(3)  ! improved ice nucleation scheme C. Koehler (note: iqm_max does not change!)
@@ -619,7 +620,7 @@ CONTAINS
         iqni_nuc = 7     !! activated ice nuclei  
         iqt     = iqt + 2
 
-        IF (.NOT. lart) ntracer = ntracer + 2  !! increase total number of tracers by 2
+        ntracer = ntracer + 2  !! increase total number of tracers by 2
 
       CASE(4)  ! two-moment scheme 
       
@@ -635,7 +636,7 @@ CONTAINS
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 13    !! start index of other tracers not related at all to moisture
        
-        IF (.NOT. lart) ntracer = 12
+        ntracer = 12
 
       CASE(5)  ! two-moment scheme with prognotic cloud drop number and CCN and IN budgets
       
@@ -655,7 +656,8 @@ CONTAINS
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 17    !! start index of other tracers not related at all to moisture
        
-        IF (.NOT. lart) ntracer = 16
+        ntracer = 16
+
       END SELECT ! microphysics schemes
 
 
@@ -664,7 +666,7 @@ CONTAINS
         iqtvar = iqt       !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
 
-        IF (.NOT. lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
+        ntracer = ntracer + 1  !! increase total number of tracers by 1
 
         ntiles_lnd = 5     !! EDMF currently only works with 5 land tiles - consistent with TESSEL
                            !! even if the land model is inactive ntiles_lnd should be 5
@@ -677,7 +679,7 @@ CONTAINS
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
 
-          IF (.NOT. lart) ntracer = ntracer + 1  !! increase total number of tracers by 1
+          ntracer = ntracer + 1  !! increase total number of tracers by 1
 
           WRITE(message_text,'(a,i3)') 'Attention: TKE is advected, '//&
                                        'ntracer is increased by 1 to ',ntracer
@@ -689,15 +691,22 @@ CONTAINS
         ENDIF
       ENDIF
 
-
       ! Note: Indices for additional tracers are assigned automatically
       ! via add_tracer_ref in mo_nonhydro_state.
 
+      WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
+                                   'ntracer is automatically reset to ',ntracer
+      CALL message(TRIM(method_name),message_text)
 
-      IF (.NOT. lart) THEN
-        WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
-                                     'ntracer is automatically reset to ',ntracer
+      IF (lart) THEN
+        
+        ntracer = ntracer + art_config(jg)%iart_ntracer
+        
+        WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
+                                     'ntracer is increased by ',art_config(jg)%iart_ntracer, &
+                                     ' to ',ntracer
         CALL message(TRIM(method_name),message_text)
+
       ENDIF
 
       ! set the nclass_gscp variable for land-surface scheme to number of hydrometeor mixing ratios

@@ -50,6 +50,7 @@ MODULE mo_art_config
 
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
+    INTEGER :: iart_ntracer            !< number of transported ART tracers
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
@@ -76,7 +77,7 @@ MODULE mo_art_config
     LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
     INTEGER :: nconv_tracer            !< number of tracers in convection 
     LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
-    INTEGER :: nturb_tracer            !< number of tracers in turbulence 
+    INTEGER :: nturb_tracer            !< number of tracers in turbulence
 
   END TYPE t_art_config
 
