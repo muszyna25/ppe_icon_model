@@ -45,6 +45,7 @@ MODULE mo_art_sedi_interface
 ! sedimentation and deposition routines
   USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
   USE mo_art_sedi_depo,                 ONLY: art_calc_v_sed_dep
+  USE mo_art_radioactive,               ONLY: art_drydepo_radioact
 #endif
 
   IMPLICIT NONE
@@ -189,7 +190,12 @@ SUBROUTINE art_sedi_interface( p_patch, &
               &              fields%itracer) 
             mflx_contra_vsed => fields%flx_contra_vsed3
           class is (t_fields_radio)
-           
+            ! Sedimentation velocity is zero for radioact. tracers
+            fields%flx_contra_vsed3(:,:,:) = 0.0_wp
+            mflx_contra_vsed => fields%flx_contra_vsed3
+            ! However, a deposition velocity is required
+            call art_drydepo_radioact( p_patch,p_prog,           &
+              &              fields%itracer) 
           class default
             call finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
               &         'ART: Unknown mode field type')
