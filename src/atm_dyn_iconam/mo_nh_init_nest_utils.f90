@@ -27,6 +27,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_model_domain,          ONLY: t_patch, p_patch, p_patch_local_parent
   USE mo_nonhydro_types,        ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nonhydro_state,        ONLY: p_nh_state
+  USE mo_nh_initicon_types,     ONLY: t_initicon_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer, iforcing
@@ -68,7 +69,7 @@ MODULE mo_nh_init_nest_utils
 
   REAL(wp), PARAMETER :: rd_o_cvd = 1._wp / cvd_o_rd
 
-  PUBLIC :: initialize_nest, topo_blending_and_fbk
+  PUBLIC :: initialize_nest, topo_blending_and_fbk, interpolate_increments
 
   CONTAINS
   !-------------
@@ -752,6 +753,110 @@ MODULE mo_nh_init_nest_utils
 
   END SUBROUTINE initialize_nest
 
+
+  !-------------
+  !>
+  !! SUBROUTINE interpolate_increments
+  !!
+  !! Driver routine for interpolating data assimilation increments from a parent domain to a child domain
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2014-07-16)
+  !!
+  !!
+  SUBROUTINE interpolate_increments(initicon, jg, jgc)
+
+    TYPE(t_initicon_state), TARGET, INTENT(INOUT) :: initicon(:)
+
+    INTEGER, INTENT(IN) :: jg   ! parent (source) domain ID
+    INTEGER, INTENT(IN) :: jgc  ! child  (target) domain ID
+
+    ! local pointers
+
+    TYPE(t_patch),         POINTER  :: p_pp, p_pc
+    TYPE(t_gridref_state), POINTER  :: p_grf
+    TYPE(t_int_state),     POINTER  :: p_int
+
+    ! Local arrays for variables living on the local parent grid in the MPI case.
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: vn_lp, temp_lp, pres_lp, qv_lp
+
+    INTEGER :: i_chidx
+    INTEGER :: nlev_p, nshift
+
+    LOGICAL :: l_parallel
+
+    p_pp           => p_patch_local_parent(jgc)
+    p_pc           => p_patch(jgc)
+    p_grf          => p_grf_state_local_parent(jgc)
+    p_int          => p_int_state_local_parent(jgc)
+
+
+    i_chidx  = p_pc%parent_child_index
+
+    ! number of full levels of parent domain
+    nlev_p   = p_patch(jg)%nlev
+
+    ! shift between upper model boundaries
+    nshift = p_pc%nshift
+
+    IF (msg_level >= 7) THEN
+      WRITE(message_text,'(a,i2,a,i2)') 'Interpolation of DA increments, domain ',jg,' =>',jgc
+      CALL message('interpolate_increments',message_text)
+    ENDIF
+
+    ALLOCATE(vn_lp   (nproma, nlev_p, p_pp%nblks_e),  &
+             temp_lp (nproma, nlev_p, p_pp%nblks_c),  &
+             pres_lp (nproma, nlev_p, p_pp%nblks_c),  &
+             qv_lp   (nproma, nlev_p, p_pp%nblks_c)   )
+
+    ! Parent-to-child interpolation of atmospheric increments
+    ! Note: it is assumed that the increments for u and v have been converted into an increment
+    ! for vn before entering this routine.
+    !
+    ! Step 1: boundary interpolation
+    !
+    CALL interpol2_vec_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
+      initicon(jg)%atm_inc%vn,        initicon(jgc)%atm_inc%vn                    )
+
+    CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 3, &
+      initicon(jg)%atm_inc%temp,      initicon(jgc)%atm_inc%temp,                 &
+      initicon(jg)%atm_inc%pres,      initicon(jgc)%atm_inc%pres,                 &
+      initicon(jg)%atm_inc%qv,        initicon(jgc)%atm_inc%qv                    )
+
+    ! Step 2: Interpolation of fields in the model interior
+
+    ! Step 2a: Copy prognostic variables from parent grid to fields on local parent grid
+    ! (trivial without MPI parallelization, but communication call needed for MPI)
+
+    CALL exchange_data(p_pp%comm_pat_glb_to_loc_e, RECV=vn_lp, SEND=initicon(jg)%atm_inc%vn)
+
+    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 3, 3*nlev_p,         &
+      &                     RECV1=temp_lp, SEND1=initicon(jg)%atm_inc%temp,  &
+      &                     RECV2=pres_lp, SEND2=initicon(jg)%atm_inc%pres,  &
+      &                     RECV3=qv_lp,   SEND3=initicon(jg)%atm_inc%qv     )
+
+    ! Step 2b: Synchronize variables on local parent grids. Note that the sync routines cannot be used in this case
+    IF (l_parallel) THEN
+      CALL exchange_data(p_pp%comm_pat_e, vn_lp)
+      CALL exchange_data_mult(p_pp%comm_pat_c, 3, 3*nlev_p,            &
+                              recv1=temp_lp, recv2=pres_lp, recv3=qv_lp)
+    ENDIF
+
+    ! Step 2c: Perform interpolation from local parent to child grid
+    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grf_state(jgc), &
+                               i_chidx, nshift, 1, vn_lp, initicon(jgc)%atm_inc%vn       )
+    CALL sync_patch_array(SYNC_E,p_pc,initicon(jgc)%atm_inc%vn)
+
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 3, 1, &
+                                f3din1=temp_lp, f3dout1=initicon(jgc)%atm_inc%temp,       &
+                                f3din2=pres_lp, f3dout2=initicon(jgc)%atm_inc%pres,       &
+                                f3din3=qv_lp,   f3dout3=initicon(jgc)%atm_inc%qv          )
+    CALL sync_patch_array_mult(SYNC_C,p_pc,3,initicon(jgc)%atm_inc%temp,initicon(jgc)%atm_inc%pres,  &
+                               initicon(jgc)%atm_inc%qv)
+
+
+  END SUBROUTINE interpolate_increments
 
 
   RECURSIVE SUBROUTINE topo_blending_and_fbk(jg)
