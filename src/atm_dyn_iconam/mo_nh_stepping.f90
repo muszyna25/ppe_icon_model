@@ -85,7 +85,7 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inwp, iecham, itturb, itgscp, itsfc, ippm_v,              &
-    &                                    MODE_DWDANA, MODE_DWDANA_INC, MODIS !, icosmo
+    &                                    MODE_DWDANA_INC, MODIS !, icosmo
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -497,7 +497,7 @@ MODULE mo_nh_stepping
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
     IF (msg_level > 2) THEN
-      lprint_timestep = ABS(MOD(jstep,iadv_rcf)) == 1 .OR. msg_level >= 8
+      lprint_timestep = MOD(jstep-jstep_shift,iadv_rcf) == 1 .OR. msg_level >= 8
     ELSE
       lprint_timestep = MOD(jstep,100) == 0
     ENDIF
@@ -566,7 +566,7 @@ MODULE mo_nh_stepping
 ! end SST and sea ice fraction update
 
     ! Print control output for maximum horizontal and vertical wind speed
-    IF (msg_level >= 5 .AND. ABS(MOD(jstep,iadv_rcf)) == 1 .OR. msg_level >= 8) THEN 
+    IF (msg_level >= 5 .AND. MOD(jstep-jstep_shift,iadv_rcf) == 1 .OR. msg_level >= 8) THEN 
       CALL print_maxwinds(p_patch(1), p_nh_state(1)%prog(nnow(1))%vn, p_nh_state(1)%prog(nnow(1))%w)
     ENDIF
 
@@ -619,7 +619,7 @@ MODULE mo_nh_stepping
     IF (divdamp_order==24 .AND. .NOT. is_restart_run()) THEN
       elapsed_time_global = REAL(jstep,wp)*dtime
       IF (elapsed_time_global <= 7200._wp+REAL(iadv_rcf,wp)*dtime .AND.  &
-          MOD(jstep,iadv_rcf) == 1  .AND. .NOT. ltestcase) THEN
+          MOD(jstep-jstep_shift,iadv_rcf) == 1  .AND. .NOT. ltestcase) THEN
         CALL update_spinup_damping(elapsed_time_global)
       ENDIF
     ELSE IF (divdamp_order==24) THEN
@@ -1167,7 +1167,7 @@ MODULE mo_nh_stepping
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done
         IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
-            init_mode /= MODE_DWDANA) THEN
+            init_mode /= MODE_DWDANA_INC) THEN
           CALL diffusion(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .TRUE.)
         ENDIF
@@ -2003,28 +2003,20 @@ MODULE mo_nh_stepping
   SUBROUTINE update_spinup_damping(elapsed_time)
 
     REAL(wp), INTENT(IN) :: elapsed_time
-    INTEGER :: jg
-    REAL(wp) :: min_vwind_impl_wgt, time1, time2
+    INTEGER  :: jg
+    REAL(wp) :: time1, time2
 
     time1 = 1800._wp  ! enhanced damping during the first half hour of integration
     time2 = 7200._wp  ! linear decrease of enhanced damping until time2
 
     IF (elapsed_time <= time1) THEN ! apply slightly super-implicit weights
-      min_vwind_impl_wgt = 1.1_wp
       divdamp_fac_o2 = 8._wp*divdamp_fac
     ELSE IF (elapsed_time <= time2) THEN ! linearly decrease minimum weights to 0.5
-      min_vwind_impl_wgt = 0.5_wp + 0.6_wp*(time2-elapsed_time)/(time2-time1)
       divdamp_fac_o2 = 8._wp*divdamp_fac*(time2-elapsed_time)/(time2-time1)
     ELSE
-      min_vwind_impl_wgt = 0.5_wp
       divdamp_fac_o2 = 0._wp
     ENDIF
 
-    DO jg = 1, n_dom
-      p_nh_state(jg)%metrics%vwind_impl_wgt(:,:) = MAX(min_vwind_impl_wgt, &
-        p_nh_state(jg)%metrics%vwind_impl_wgt_sv(:,:))
-      p_nh_state(jg)%metrics%vwind_expl_wgt(:,:) = 1._wp-p_nh_state(jg)%metrics%vwind_impl_wgt(:,:)
-    ENDDO
 
   END SUBROUTINE update_spinup_damping
 

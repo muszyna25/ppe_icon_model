@@ -2484,17 +2484,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c )
 
 
-    ! Implicit weight in vertical wind solver - save array
-    ! vwind_impl_wgt_sv  p_metrics%vwind_impl_wgt_sv(nproma,nblks_c)
-    !
-    cf_desc    = t_cf_var('Implicit_weight_in_vertical_wind_solver - save array', '-',       &
-      &                   'Implicit weight in vertical wind solver - save array', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_metrics_list, 'vwind_impl_wgt_sv', p_metrics%vwind_impl_wgt_sv,   &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
-                & ldims=shape2d_c )
-
-
       ! If the __MIXED_PRECISION flag is set, the single precision fields use a direct ALLOCATE
 #ifndef __MIXED_PRECISION
       ! weighting factor for interpolation from full to half levels

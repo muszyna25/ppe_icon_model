@@ -213,7 +213,6 @@ MODULE mo_nonhydro_types
      enhfac_diffu(:)     , & ! Enhancement factor for nabla4 background diffusion
      vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
-     vwind_impl_wgt_sv(:,:),& ! save array for the above coefficient field (nproma,nblks_c)
      !
      ! c) Fields for the reference atmosphere
      !
