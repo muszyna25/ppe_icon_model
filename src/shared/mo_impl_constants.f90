@@ -473,6 +473,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MODE_COMBINED    = 3
   INTEGER, PARAMETER :: MODE_COSMODE     = 4
   INTEGER, PARAMETER :: MODE_DWDANA_INC  = 5
+  INTEGER, PARAMETER :: MODE_IAU         = 6
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks

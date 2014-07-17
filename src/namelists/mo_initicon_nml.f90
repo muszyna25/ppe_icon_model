@@ -22,9 +22,10 @@ MODULE mo_initicon_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,  &
-    &                              max_var_ml, MODE_IFSANA, MODE_DWDANA, &
-    &                              MODE_DWDANA_INC, MODE_COMBINED, MODE_COSMODE
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
+    &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
+    &                              MODE_DWDANA_INC, MODE_IAU, MODE_COMBINED, &
+    &                              MODE_COSMODE
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -73,15 +74,15 @@ MODULE mo_initicon_nml
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
-                            ! Only required for init_mode=MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_DWDANA_INC, MODE_IAU
   REAL(wp) :: dt_shift      ! Allows IAU runs to start earlier than the nominal simulation start date without showing up in the output metadata
 
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
-                            ! Only required for init_mode=MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_DWDANA_INC, MODE_IAU
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_DWDANA_INC
+                                   ! Only applicable for init_mode=MODE_DWDANA_INC, MODE_IAU
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
@@ -129,7 +130,7 @@ CONTAINS
 
   !local variable
   INTEGER :: i_status
-  INTEGER :: z_go_init(5)   ! for consistency check
+  INTEGER :: z_go_init(6)   ! for consistency check
   INTEGER :: iunit
 
   CHARACTER(len=*), PARAMETER ::  &
@@ -190,15 +191,15 @@ CONTAINS
   ! 4.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED,MODE_COSMODE/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
-      &  'Invalid initialization mode. Must be init_mode=1, 2, 3, 4, or 5')
+      &  'Invalid initialization mode. Must be init_mode=1, 2, 3, 4, 5 or 6')
   ENDIF
 
   ! Check whether a NetCDF<=>GRIB2 Map File is needed, and if so, whether 
   ! it is provided
-  IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED/)==init_mode)) THEN
+  IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED/)==init_mode)) THEN
     ! NetCDF<=>GRIB2 Map File required
     IF(ana_varnames_map_file == ' ') THEN
     CALL finish( TRIM(routine),                         &

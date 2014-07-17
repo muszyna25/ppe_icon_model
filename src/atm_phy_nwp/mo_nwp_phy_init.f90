@@ -37,7 +37,7 @@ MODULE mo_nwp_phy_init
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
-    &                               MODE_COMBINED, MODE_IFSANA, MODE_DWDANA, icosmo,&
+    &                               MODE_COMBINED, MODE_IFSANA, icosmo,             &
     &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
     &                               MODE_COSMODE
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -1174,7 +1174,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
         ltkeinp_loc = .FALSE.  ! initialize TKE field
         lgz0inp_loc = .FALSE.  ! initialize gz0 field (water points only)
 
-      ELSE  ! init_mode=MODE_DWDANA, MODE_DWDANA_INC
+      ELSE  ! init_mode=MODE_DWDANA, MODE_DWDANA_INC, MODE_IAU
         !
         ! TKE and gz0 are not re-initialized, but re-used from the first guess
         !

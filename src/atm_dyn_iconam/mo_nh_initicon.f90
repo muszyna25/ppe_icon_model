@@ -42,8 +42,8 @@ MODULE mo_nh_initicon
     &                               nml_filetype => filetype,                           &
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
-    &                               MODE_DWDANA_INC, MODE_IFSANA, MODE_COMBINED,        &
-    &                               MODE_COSMODE, min_rlcell, INWP,                     &
+    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
+    &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,      &
     &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: tf_salt, rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd
   USE mo_exception,           ONLY: message, finish, message_text
@@ -213,7 +213,7 @@ MODULE mo_nh_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
 
@@ -246,7 +246,7 @@ MODULE mo_nh_initicon
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
-    CASE (MODE_DWDANA_INC)
+    CASE (MODE_DWDANA_INC, MODE_IAU)
 
       CALL message(TRIM(routine),'MODE_DWDANA_INC: perform initialization with '// &
         &                        ' incremental analysis update')
@@ -337,11 +337,11 @@ MODULE mo_nh_initicon
 
     ! close first guess and analysis files
     ! 
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
 
-    DEALLOCATE (initicon,filetype_fg, filetype_ana, fileID_fg, fileID_ana, stat=ist)
+    DEALLOCATE (initicon, filetype_fg, filetype_ana, fileID_fg, fileID_ana, stat=ist)
     IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
 
     ! splitting of sea-points list into open water and sea-ice points could be placed 
@@ -1096,6 +1096,29 @@ MODULE mo_nh_initicon
             ngrp_vars_ana = 0
           ENDIF
 
+        CASE(MODE_IAU)
+          ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
+          !
+          grp_name ='mode_iau_fg_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
+          !
+          grp_name ='mode_iau_ana_in' 
+          CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
+            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
+
+          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
+          ! the reading stuff
+          !
+          ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
+          !
+          grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
+          grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
+          ngrp_vars_fg  = ngrp_vars_fg_default
+          ngrp_vars_ana = ngrp_vars_ana_default
+
         CASE(MODE_COMBINED,MODE_COSMODE)
 
           IF (init_mode == MODE_COMBINED) THEN
@@ -1344,7 +1367,7 @@ MODULE mo_nh_initicon
       WRITE(message_text,'(a,i2)') 'INIT_MODE ', init_mode
       CALL message(message_text, 'Required input fields: Source of FG and ANA fields')
       CALL init_bool_table(bool_table)
-      IF (init_mode == MODE_DWDANA_INC) THEN
+      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
         ana_default_txt = "ANA_inc (default)"
         ana_this_txt    = "ANA_inc (this run)"
       ELSE
@@ -2121,7 +2144,7 @@ MODULE mo_nh_initicon
 
       ! Depending on the initialization mode chosen (incremental vs. non-incremental) 
       ! input fields are stored in different locations.
-      IF (init_mode == MODE_DWDANA_INC) THEN
+      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
         my_ptr => initicon(jg)%atm_inc
       ELSE
         my_ptr => initicon(jg)%atm
@@ -2163,7 +2186,7 @@ MODULE mo_nh_initicon
 
 
 
-      IF (init_mode == MODE_DWDANA_INC) THEN
+      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
         my_ptr3d => my_ptr%qv
       ELSE
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
@@ -4060,7 +4083,7 @@ MODULE mo_nh_initicon
                initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
                initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
 
-      IF (init_mode == MODE_DWDANA_INC) THEN
+      IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
         ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &

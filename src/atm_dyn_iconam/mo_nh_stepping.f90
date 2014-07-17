@@ -85,7 +85,7 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inwp, iecham, itturb, itgscp, itsfc, ippm_v,              &
-    &                                    MODE_DWDANA_INC, MODIS !, icosmo
+    &                                    MODE_DWDANA_INC, MODE_IAU, MODIS !, icosmo
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -1107,7 +1107,7 @@ MODULE mo_nh_stepping
                                          p_nh_state(jg)%diag)
         ENDIF
 
-        IF (init_mode == MODE_DWDANA_INC) THEN ! incremental analysis mode
+        IF ( ANY((/MODE_DWDANA_INC,MODE_IAU/)==init_mode) ) THEN ! incremental analysis mode
           CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc-dt_shift, dt_loc, lclean_mflx)
         ENDIF
 
@@ -1167,7 +1167,7 @@ MODULE mo_nh_stepping
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done
         IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
-            init_mode /= MODE_DWDANA_INC) THEN
+            init_mode /= MODE_DWDANA_INC .AND. init_mode /= MODE_IAU) THEN
           CALL diffusion(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc, .TRUE.)
         ENDIF
