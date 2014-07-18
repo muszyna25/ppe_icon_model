@@ -777,18 +777,22 @@ MODULE mo_nh_testcases
     CALL message(TRIM(routine),'End setup APE_nh test')
 
   CASE ('APEc_nh')
-     ! Initial conditions are the same as for the 'JWw-Moist' case
-     !
-     CALL init_nh_state_prog_isoRest( 300._wp, 100000._wp, &
-          & p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%diag )
-     !
-     CALL message(TRIM(routine),'Initial state used in &
-          & APEc_nh test: isothermal state at rest')
-     !
-     p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
 
-     ! is this the same for the hydro and nh cores?
-     ext_data(jg)%atm%topography_c = 0._wp
+    DO jg = 1, n_dom
+      ! Initial conditions are the same as for the 'JWw-Moist' case
+      !
+      CALL init_nh_state_prog_isoRest( 300._wp, 100000._wp, &
+           & p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%diag )
+      !
+      CALL message(TRIM(routine),'Initial state used in &
+           & APEc_nh test: isothermal state at rest')
+      !
+      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
+
+      ! is this the same for the hydro and nh cores?
+      ext_data(jg)%atm%topography_c = 0._wp
+
+    ENDDO  ! jg
 
   CASE ('wk82')
 
