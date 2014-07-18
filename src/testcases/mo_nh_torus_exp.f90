@@ -33,7 +33,7 @@ MODULE mo_nh_torus_exp
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, rv, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
      &                              tmelt,grav, alv
-  USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl
+  USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl, psfc_cbl
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi, pi2, rad2deg
@@ -53,7 +53,7 @@ MODULE mo_nh_torus_exp
   USE mo_les_config,          ONLY: les_config
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_les_utilities,      ONLY: vert_intp_linear_1d
+  USE mo_les_utilities,       ONLY: vert_intp_linear_1d
 
   IMPLICIT NONE
   
@@ -64,7 +64,7 @@ MODULE mo_nh_torus_exp
   PUBLIC :: init_nh_state_gate
 
   !DEFINED PARAMETERS (Stevens 2007 JAS) for init_nh_state_cbl:
-  REAL(wp), PARAMETER :: zp0     = p0ref      !< surface pressure
+  REAL(wp), PARAMETER :: zp0     = p0ref !< surface pressure
   REAL(wp), PARAMETER :: zh0     = 0._wp      !< height (m) above which temperature increases
   REAL(wp), PARAMETER :: lambda  = 1500._wp   !moist height from Stevens(2007)
   REAL(wp), PARAMETER :: dtdz_st = 0.04_wp    !< theta lapse rate in stratosphere (T>0!)
@@ -115,7 +115,8 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
 
-    REAL(wp) :: rho_sfc, z_help(1:nproma), zvn1, zvn2, zu, zv, zt00, zh00
+    REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
+    REAL(wp) :: zvn1, zvn2, zu, zv, zt00, zh00
     INTEGER  :: jc,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                  !< number of full and half levels
@@ -136,15 +137,8 @@ MODULE mo_nh_torus_exp
     !patch id
     jg = ptr_patch%id
 
-    !Set some reference density
-    IF(les_config(jg)%isrfc_type==1)THEN
-      rho_sfc = zp0 / (rd * les_config(jg)%sst)
-    ELSE
-      rho_sfc = zp0 / (rd * th_cbl(1) )
-    END IF
-
     ! init surface pressure
-    ptr_nh_diag%pres_sfc(:,:) = zp0
+    ptr_nh_diag%pres_sfc(:,:) = psfc_cbl
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
@@ -160,7 +154,7 @@ MODULE mo_nh_torus_exp
       !Tracers
       IF(.NOT.les_config(jg)%is_dry_cbl)THEN
         DO jk = 1, nlev
-          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = rh_sfc * spec_humi(sat_pres_water(th_cbl(1)),zp0) * &
+          ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = rh_sfc * spec_humi(sat_pres_water(th_cbl(1)),psfc_cbl) * &
                     EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
         END DO
       END IF
@@ -185,17 +179,19 @@ MODULE mo_nh_torus_exp
            0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
       END DO
 
-      !Get hydrostatic pressure and exner at lowest level
-      ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
-
-      !Get exner at other levels
-      DO jk = nlev-1, 1, -1
-         z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
-                                     ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
-   
-         ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
-            &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
+      !Get hydrostatic exner at the surface using surface pressure 
+      z_exner_h(1:nlen,nlevp1) = (psfc_cbl/p0ref)**rd_o_cpd
+ 
+      !Get exner at full levels starting from exner at surface
+      DO jk = nlev, 1, -1
+         !exner at next half level after surface
+         z_exner_h(1:nlen,jk) = z_exner_h(1:nlen,jk+1) - grav/cpd *     &
+                                ptr_metrics%ddqz_z_full(1:nlen,jk,jb)/ &
+                                ptr_nh_prog%theta_v(1:nlen,jk,jb)
+        
+         !exner at main levels
+         ptr_nh_prog%exner(1:nlen,jk,jb) = 0.5_wp * &
+                                     (z_exner_h(1:nlen,jk)+z_exner_h(1:nlen,jk+1))
       END DO
 
       !IF ( jb == 1 ) THEN
