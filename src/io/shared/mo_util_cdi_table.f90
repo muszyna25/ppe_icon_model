@@ -51,7 +51,6 @@ MODULE mo_util_cdi_table
   INTEGER, PARAMETER :: EXP_ID            = 15 
   INTEGER, PARAMETER :: GRID_ID           = 16
   INTEGER, PARAMETER :: NGRIDREF          = 17
-  INTEGER, PARAMETER :: GEN_PROC          = 18
 
   CHARACTER(LEN=*), PARAMETER :: DELIMITER     = ' | '
 
@@ -81,7 +80,7 @@ CONTAINS
   SUBROUTINE setup_table_output(table)
     TYPE (t_table), INTENT(INOUT) :: table
 
-    table%n_columns = 13
+    table%n_columns = 12
     !                           title      column ID        width
     table%column( 1) = t_column("name",    GRIB2_SHORTNAME,  10)
     table%column( 2) = t_column("triple",  GRIB2_TRIPLE,     11)
@@ -95,7 +94,6 @@ CONTAINS
     table%column(10) = t_column("expid",   EXP_ID,            5)
     table%column(11) = t_column("grid",    GRID_ID,           5)
     table%column(12) = t_column("rgrid",   NGRIDREF,          5)
-    table%column(13) = t_column("genProg", GEN_PROC,          6)
   END SUBROUTINE setup_table_output
 
 
@@ -113,8 +111,7 @@ CONTAINS
     INTEGER :: param, number, category, discipline, &
       &        zaxisID, nlev, iexp_id, ilevtyp,     &
       &        iruntype, irunclass, ingridused,     &
-      &        ingridref, gridID, taxisID,          &
-      &        igenproc
+      &        ingridref, gridID, taxisID
     INTEGER :: vdate, vtime, ftime,                 &
       &        hour, minute, second,                &
       &        year, month, day
@@ -170,7 +167,7 @@ CONTAINS
       WRITE (get_table_entry, "(i"//trim(wdth)//")") ilevtyp
       !
     CASE(RUN_TYPE)
-      iruntype = vlistInqVarIntKey(vlistID, ivar, "typeOfGeneratingProcess")
+      iruntype = vlistInqVarTypeOfGeneratingProcess(vlistID, ivar)
       WRITE (get_table_entry, "(i"//trim(wdth)//")") iruntype
       !
     CASE(TIME_VVMM)
@@ -201,10 +198,6 @@ CONTAINS
       gridID = vlistInqVarGrid(vlistID, ivar)
       ingridref = gridInqPosition(gridID)
       WRITE (get_table_entry, "(i"//trim(wdth)//")") ingridref
-      !
-    CASE(GEN_PROC)
-      igenproc = vlistInqVarTypeOfGeneratingProcess(vlistID, ivar)
-      WRITE (get_table_entry, "(i"//trim(wdth)//")") igenproc
       !
     CASE DEFAULT
       CALL finish(routine, "Internal error: Unknown table column!")
