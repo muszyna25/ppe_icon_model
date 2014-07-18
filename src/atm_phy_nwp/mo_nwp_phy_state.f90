@@ -1321,113 +1321,82 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
           & isteptype=a_steptype, in_group=groups("rad_vars"))
 
 
-! Preparations for additional radiation output
-!!$        ! &       diag%asou_t(nproma,nblks)
-!!$        WRITE(name,'(A,A5)') TRIM(prefix),"sou_t"
-!!$        WRITE(long_name,'(A30,A4,A18)') "Top up solar radiation ", meaning, &
-!!$                                      &" since model start"
-!!$        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 4, 8, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, TRIM(name), diag%asou_t,                    &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,             &
-!!$          & ldims=shape2d,                                                   &
-!!$          & isteptype=a_steptype, in_group=groups("rad_vars"))
-!!$
-!!$
-!!$        ! &       diag%asod_s(nproma,nblks)
-!!$        WRITE(name,'(A,A5)') TRIM(prefix),"sod_s"
-!!$        WRITE(long_name,'(A30,A4,A18)') "Surface down solar radiation ", meaning, &
-!!$                                      &" since model start"
-!!$        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 4, 7, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, TRIM(name), diag%asod_s,                    &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-!!$          & ldims=shape2d,                                                   &
-!!$          & isteptype=a_steptype, in_group=groups("rad_vars"))
-!!$
-!!$
-!!$        ! &       diag%asou_s(nproma,nblks)
-!!$        WRITE(name,'(A,A5)') TRIM(prefix),"sou_s"
-!!$        WRITE(long_name,'(A30,A4,A18)') "Surface up solar radiation ", meaning, &
-!!$                                      &" since model start"
-!!$        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 4, 8, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, TRIM(name), diag%asou_s,                    &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-!!$          & ldims=shape2d,                                                   &
-!!$          & isteptype=a_steptype, in_group=groups("rad_vars"))
-!!$
-!!$
-!!$
-!!$        ! &       diag%athd_s(nproma,nblks)
-!!$        WRITE(name,'(A,A5)') TRIM(prefix),"thd_s"
-!!$        WRITE(long_name,'(A30,A4,A18)') "Surface down thermal radiation ", meaning, &
-!!$                                      &" since model start"
-!!$        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 5, 3, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, TRIM(name), diag%athd_s,                    &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-!!$          & ldims=shape2d,                                                   &
-!!$          & isteptype=a_steptype, in_group=groups("rad_vars"))
-!!$
-!!$
-!!$
-!!$        ! &       diag%athu_s(nproma,nblks)
-!!$        WRITE(name,'(A,A5)') TRIM(prefix),"thu_s"
-!!$        WRITE(long_name,'(A30,A4,A18)') "Surface up thermal radiation ", meaning, &
-!!$                                      &" since model start"
-!!$        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-!!$             &                DATATYPE_FLT32)
-!!$        grib2_desc = t_grib2_var(0, 5, 4, ibits, GRID_REFERENCE, GRID_CELL)
-!!$        CALL add_var( diag_list, TRIM(name), diag%athu_s,                    &
-!!$          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-!!$          & ldims=shape2d,                                                   &
-!!$          & isteptype=a_steptype, in_group=groups("rad_vars"))
-!!$
-!!$
-           ! &       diag%asodird_s(nproma,nblks)
-           WRITE(name,'(A,A8)') TRIM(prefix),"sodird_s"
-           WRITE(long_name,'(A30,A4,A18)') "Surface down solar direct rad. ", meaning, &
-                                         &" since model start"
-           cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-                &                DATATYPE_FLT32)
-           grib2_desc = t_grib2_var(0, 4, 198, ibits, GRID_REFERENCE, GRID_CELL)
-           CALL add_var( diag_list, TRIM(name), diag%asodird_s,                 &
-             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-             & ldims=shape2d,                                                   &
-             & isteptype=a_steptype, in_group=groups("rad_vars"))
-   
-   
-           ! &       diag%asodifd_s(nproma,nblks)
-           WRITE(name,'(A,A8)') TRIM(prefix),"sodifd_s"
-           WRITE(long_name,'(A30,A4,A18)') "Surface down solar diff. rad. ", meaning, &
-                                         &" since model start"
-           cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-                &                DATATYPE_FLT32)
-           grib2_desc = t_grib2_var(0, 4, 199, ibits, GRID_REFERENCE, GRID_CELL)
-           CALL add_var( diag_list, TRIM(name), diag%asodifd_s,                 &
-             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-             & ldims=shape2d,                                                   &
-             & isteptype=a_steptype, in_group=groups("rad_vars"))
-   
-   
-           ! &       diag%asodifu_s(nproma,nblks)
-           WRITE(name,'(A,A8)') TRIM(prefix),"sodifu_s"
-           WRITE(long_name,'(A30,A4,A18)') "Surface up solar diff. rad. ", meaning, &
-                                         &" since model start"
-           cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
-                &                DATATYPE_FLT32)
-           grib2_desc = t_grib2_var(0, 4, 8, ibits, GRID_REFERENCE, GRID_CELL)
-           CALL add_var( diag_list, TRIM(name), diag%asodifu_s,                 &
-             & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
-             & ldims=shape2d,                                                   &
-             & isteptype=a_steptype, in_group=groups("rad_vars"))
+        ! &       diag%asou_t(nproma,nblks)
+        WRITE(name,'(A,A5)') TRIM(prefix),"sou_t"
+        WRITE(long_name,'(A30,A4,A18)') "Top up solar radiation ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 4, 8, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%asou_t,                    &
+          & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,             &
+          & ldims=shape2d,                                                   &
+          & isteptype=a_steptype, in_group=groups("rad_vars"))
 
 
+        ! &       diag%athd_s(nproma,nblks)
+        WRITE(name,'(A,A5)') TRIM(prefix),"thd_s"
+        WRITE(long_name,'(A30,A4,A18)') "Surface down thermal radiation ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 5, 3, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%athd_s,                    &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+          & ldims=shape2d,                                                   &
+          & isteptype=a_steptype, in_group=groups("rad_vars"))
+
+
+        ! &       diag%athu_s(nproma,nblks)
+        WRITE(name,'(A,A5)') TRIM(prefix),"thu_s"
+        WRITE(long_name,'(A30,A4,A18)') "Surface up thermal radiation ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 5, 4, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%athu_s,                    &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+          & ldims=shape2d,                                                   &
+          & isteptype=a_steptype, in_group=groups("rad_vars"))
+
+
+        ! &       diag%asodird_s(nproma,nblks)
+        WRITE(name,'(A,A8)') TRIM(prefix),"sodird_s"
+        WRITE(long_name,'(A30,A4,A18)') "Surface down solar direct rad. ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 4, 198, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%asodird_s,                 &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+          & ldims=shape2d,                                                   &
+          & isteptype=a_steptype, in_group=groups("rad_vars"))
+   
+   
+        ! &       diag%asodifd_s(nproma,nblks)
+        WRITE(name,'(A,A8)') TRIM(prefix),"sodifd_s"
+        WRITE(long_name,'(A30,A4,A18)') "Surface down solar diff. rad. ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 4, 199, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%asodifd_s,                 &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+          & ldims=shape2d,                                                   &
+          & isteptype=a_steptype, in_group=groups("rad_vars"))
+   
+   
+        ! &       diag%asodifu_s(nproma,nblks)
+        WRITE(name,'(A,A8)') TRIM(prefix),"sodifu_s"
+        WRITE(long_name,'(A30,A4,A18)') "Surface up solar diff. rad. ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+             &                DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 4, 8, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%asodifu_s,                 &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+          & ldims=shape2d,                                                   &
+          & isteptype=a_steptype, in_group=groups("rad_vars"))
 
 
         ! &      diag%vio3(nproma,nblks_c)

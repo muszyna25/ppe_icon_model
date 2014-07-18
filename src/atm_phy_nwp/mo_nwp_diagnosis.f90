@@ -351,6 +351,14 @@ CONTAINS
                 &                                   prm_diag%lwflxsfc  (jc,jb), &
                 &                                   t_wgt)
 
+              ! time averaged longwave upward flux at surface
+              prm_diag%athu_s    (jc,jb) = time_avg(prm_diag%athu_s      (jc,jb), &
+                &                                   prm_diag%lwflx_up_sfc(jc,jb), &
+                &                                   t_wgt)
+
+              ! time averaged longwave downward flux at surface
+              prm_diag%athd_s(jc,jb) = prm_diag%lwflxsfc_a(jc,jb) + prm_diag%athu_s(jc,jb)
+
               ! time averaged shortwave net flux at TOA
               prm_diag%swflxtoa_a(jc,jb) = time_avg(prm_diag%swflxtoa_a(jc,jb), &
                 &                                   prm_diag%swflxtoa  (jc,jb), &
@@ -366,14 +374,13 @@ CONTAINS
                 &                                   prm_diag%flxdwswtoa(jc,jb), &
                 &                                   t_wgt)
 
-            ENDDO
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
+              ! time averaged solar upward flux at TOA
+              prm_diag%asou_t(jc,jb) = prm_diag%asod_t(jc,jb) - prm_diag%swflxtoa_a(jc,jb)
+
               ! time averaged shortwave direct downward flux at surface
-              ! enforce positiv values
-              prm_diag%asodird_s (jc,jb) = prm_diag%swflxsfc_a(jc,jb)   &
-                &                        - prm_diag%asodifd_s (jc,jb)   &
-                &                        + prm_diag%asodifu_s (jc,jb)
+              prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
+                &                        -            prm_diag%asodifd_s (jc,jb) &
+                &                        +            prm_diag%asodifu_s (jc,jb) )
             ENDDO
 
 
@@ -466,18 +473,26 @@ CONTAINS
                                    &   + prm_diag%lwflxall(jc,1,jb)   &
                                    &   * dt_phy_jg(itfastphy)
 
+              ! accumulated longwave upward flux at surface
+              prm_diag%athu_s    (jc,jb) = prm_diag%athu_s(jc,jb) &
+                &                  + prm_diag%lwflx_up_sfc(jc,jb) &
+                                   &   * dt_phy_jg(itfastphy)
+
+              ! accumulated longwave downward flux at surface
+              prm_diag%athd_s(jc,jb) = prm_diag%lwflxsfc_a(jc,jb) + prm_diag%athu_s(jc,jb)
+
               ! accumulated top down solar radiation
               prm_diag%asod_t    (jc,jb) = prm_diag%asod_t(jc,jb)     &
                                    &   + prm_diag%flxdwswtoa(jc,jb)   &
                                    &   * dt_phy_jg(itfastphy)
-            END DO
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
+
+              ! accumulated solar upward flux at TOA
+              prm_diag%asou_t(jc,jb) = prm_diag%asod_t(jc,jb) - prm_diag%swflxtoa_a(jc,jb)
+
               ! accumulated shortwave direct downward flux at surface
-              ! enforce positiv values
-              prm_diag%asodird_s (jc,jb) = prm_diag%swflxsfc_a(jc,jb) &
-                &                        - prm_diag%asodifd_s (jc,jb) &
-                &                        + prm_diag%asodifu_s (jc,jb)
+              prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
+                &                        -            prm_diag%asodifd_s (jc,jb) &
+                &                        +            prm_diag%asodifu_s (jc,jb) )
             END DO
           ENDIF  ! lcall_phy_jg(itradheat)
 

@@ -1863,7 +1863,8 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   TYPE(t_lnd_diag),             POINTER :: ptr_ldiagc ! child level land diag state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p=21    ! Number of 2D phyiscs fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p1=49   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p2=17   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=12   ! Number of 2D land state fields
 
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk
@@ -1871,14 +1872,16 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   LOGICAL :: lsfc_interp
 
   ! Temporary storage to do boundary interpolation for all 2D fields in one step
-  REAL(wp) :: z_aux3dp_p(nproma,nfields_p,p_patch(jg)%nblks_c),         &  ! 2D physics diag fields
-    &         z_aux3dp_c(nproma,nfields_p,p_patch(jgc)%nblks_c),        &
+  REAL(wp) :: z_aux3dp1_p(nproma,nfields_p1,p_patch(jg)%nblks_c),       &  ! 2D pos. def. physics diag fields
+    &         z_aux3dp1_c(nproma,nfields_p1,p_patch(jgc)%nblks_c),      &
+    &         z_aux3dp2_p(nproma,nfields_p2,p_patch(jg)%nblks_c),       &  ! 2D physics diag fields
+    &         z_aux3dp2_c(nproma,nfields_p2,p_patch(jgc)%nblks_c),      &
     &         z_aux3dl2_p(nproma,nfields_l2,p_patch(jg)%nblks_c),       &  ! 2D land state fields
     &         z_aux3dl2_c(nproma,nfields_l2,p_patch(jgc)%nblks_c),      &
     &         z_aux3dso_p(nproma,3*nlev_soil,p_patch(jg)%nblks_c),      &  ! 3D land state fields for soil
     &         z_aux3dso_c(nproma,3*nlev_soil,p_patch(jgc)%nblks_c),     &
     &         z_aux3dsn_p(nproma,5*nlev_snow,p_patch(jg)%nblks_c),      &  ! 3D land state fields for multi-layer snow
-    &         z_aux3dsn_c(nproma,5*nlev_snow,p_patch(jgc)%nblks_c)         ! (used if lmulti_snow = ture))
+    &         z_aux3dsn_c(nproma,5*nlev_snow,p_patch(jgc)%nblks_c)         ! (used if lmulti_snow = true))
 
   ! set pointers
   ptr_pp  => p_patch(jg)
@@ -1898,7 +1901,8 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   ENDIF
 
   IF (p_test_run) THEN
-     z_aux3dp_p(:,:,:) = 0._wp
+     z_aux3dp1_p(:,:,:) = 0._wp
+     z_aux3dp2_p(:,:,:) = 0._wp
      z_aux3dl2_p(:,:,:) = 0._wp
      z_aux3dso_p(:,:,:) = 0._wp
      z_aux3dsn_p(:,:,:) = 0._wp
@@ -1915,27 +1919,71 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
 
     DO jc = i_startidx, i_endidx
-      z_aux3dp_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
-      z_aux3dp_p(jc,2,jb) = prm_diag(jg)%rain_gsp(jc,jb)
-      z_aux3dp_p(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
-      z_aux3dp_p(jc,4,jb) = prm_diag(jg)%rain_con(jc,jb)
-      z_aux3dp_p(jc,5,jb) = prm_diag(jg)%snow_con(jc,jb)
-      z_aux3dp_p(jc,6,jb) = prm_diag(jg)%rain_gsp_rate(jc,jb)
-      z_aux3dp_p(jc,7,jb) = prm_diag(jg)%snow_gsp_rate(jc,jb)
-      z_aux3dp_p(jc,8,jb) = prm_diag(jg)%rain_con_rate(jc,jb)
-      z_aux3dp_p(jc,9,jb) = prm_diag(jg)%snow_con_rate(jc,jb)
-      z_aux3dp_p(jc,10,jb) = prm_diag(jg)%gz0(jc,jb)
-      z_aux3dp_p(jc,11,jb) = prm_diag(jg)%tcm(jc,jb)
-      z_aux3dp_p(jc,12,jb) = prm_diag(jg)%tch(jc,jb)
-      z_aux3dp_p(jc,13,jb) = prm_diag(jg)%tfm(jc,jb)
-      z_aux3dp_p(jc,14,jb) = prm_diag(jg)%tfh(jc,jb)
-      z_aux3dp_p(jc,15,jb) = prm_diag(jg)%tfv(jc,jb)
-      z_aux3dp_p(jc,16,jb) = prm_diag(jg)%t_2m(jc,jb)
-      z_aux3dp_p(jc,17,jb) = prm_diag(jg)%qv_2m(jc,jb)
-      z_aux3dp_p(jc,18,jb) = prm_diag(jg)%td_2m(jc,jb)
-      z_aux3dp_p(jc,19,jb) = prm_diag(jg)%rh_2m(jc,jb)
-      z_aux3dp_p(jc,20,jb) = prm_diag(jg)%u_10m(jc,jb)
-      z_aux3dp_p(jc,21,jb) = prm_diag(jg)%v_10m(jc,jb)
+      z_aux3dp1_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
+      z_aux3dp1_p(jc,2,jb) = prm_diag(jg)%rain_gsp(jc,jb)
+      z_aux3dp1_p(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
+      z_aux3dp1_p(jc,4,jb) = prm_diag(jg)%rain_con(jc,jb)
+      z_aux3dp1_p(jc,5,jb) = prm_diag(jg)%snow_con(jc,jb)
+      z_aux3dp1_p(jc,6,jb) = prm_diag(jg)%rain_gsp_rate(jc,jb)
+      z_aux3dp1_p(jc,7,jb) = prm_diag(jg)%snow_gsp_rate(jc,jb)
+      z_aux3dp1_p(jc,8,jb) = prm_diag(jg)%rain_con_rate(jc,jb)
+      z_aux3dp1_p(jc,9,jb) = prm_diag(jg)%snow_con_rate(jc,jb)
+      z_aux3dp1_p(jc,10,jb) = prm_diag(jg)%gz0(jc,jb)
+      z_aux3dp1_p(jc,11,jb) = prm_diag(jg)%tcm(jc,jb)
+      z_aux3dp1_p(jc,12,jb) = prm_diag(jg)%tch(jc,jb)
+      z_aux3dp1_p(jc,13,jb) = prm_diag(jg)%tfm(jc,jb)
+      z_aux3dp1_p(jc,14,jb) = prm_diag(jg)%tfh(jc,jb)
+      z_aux3dp1_p(jc,15,jb) = prm_diag(jg)%tfv(jc,jb)
+      z_aux3dp1_p(jc,16,jb) = prm_diag(jg)%t_2m(jc,jb)
+      z_aux3dp1_p(jc,17,jb) = prm_diag(jg)%qv_2m(jc,jb)
+      z_aux3dp1_p(jc,18,jb) = prm_diag(jg)%td_2m(jc,jb)
+      z_aux3dp1_p(jc,19,jb) = prm_diag(jg)%rh_2m(jc,jb)
+      z_aux3dp1_p(jc,20,jb) = prm_diag(jg)%gust10(jc,jb)
+      z_aux3dp1_p(jc,21,jb) = prm_diag(jg)%sp_10m(jc,jb)
+      z_aux3dp1_p(jc,22,jb) = prm_diag(jg)%swflxsfc(jc,jb)
+      z_aux3dp1_p(jc,23,jb) = prm_diag(jg)%swflx_dn_sfc_diff(jc,jb)
+      z_aux3dp1_p(jc,24,jb) = prm_diag(jg)%lwflx_up_sfc(jc,jb)
+      z_aux3dp1_p(jc,25,jb) = prm_diag(jg)%swflxtoa(jc,jb)
+      z_aux3dp1_p(jc,26,jb) = prm_diag(jg)%flxdwswtoa(jc,jb)
+      z_aux3dp1_p(jc,27,jb) = prm_diag(jg)%swflxsfc_a(jc,jb)
+      z_aux3dp1_p(jc,28,jb) = prm_diag(jg)%asodifd_s(jc,jb)
+      z_aux3dp1_p(jc,29,jb) = prm_diag(jg)%asodifu_s(jc,jb)
+      z_aux3dp1_p(jc,30,jb) = prm_diag(jg)%athu_s(jc,jb)
+      z_aux3dp1_p(jc,31,jb) = prm_diag(jg)%athd_s(jc,jb)
+      z_aux3dp1_p(jc,32,jb) = prm_diag(jg)%swflxtoa_a(jc,jb)
+      z_aux3dp1_p(jc,33,jb) = prm_diag(jg)%asod_t(jc,jb)
+      z_aux3dp1_p(jc,34,jb) = prm_diag(jg)%asou_t(jc,jb)
+      z_aux3dp1_p(jc,35,jb) = prm_diag(jg)%asodird_s(jc,jb)
+      z_aux3dp1_p(jc,36,jb) = prm_diag(jg)%hbas_con(jc,jb)
+      z_aux3dp1_p(jc,37,jb) = prm_diag(jg)%htop_con(jc,jb)
+      z_aux3dp1_p(jc,38,jb) = prm_diag(jg)%htop_dc(jc,jb)
+      z_aux3dp1_p(jc,39,jb) = prm_diag(jg)%hzerocl(jc,jb)
+      z_aux3dp1_p(jc,40,jb) = prm_diag(jg)%clcl(jc,jb)
+      z_aux3dp1_p(jc,41,jb) = prm_diag(jg)%clcm(jc,jb)
+      z_aux3dp1_p(jc,42,jb) = prm_diag(jg)%clch(jc,jb)
+      z_aux3dp1_p(jc,43,jb) = prm_diag(jg)%clct(jc,jb)
+      z_aux3dp1_p(jc,44,jb) = prm_diag(jg)%cape(jc,jb)
+      z_aux3dp1_p(jc,45:47,jb) = prm_diag(jg)%tot_cld_vi(jc,jb,1:3)
+      z_aux3dp1_p(jc,48,jb) = prm_diag(jg)%swflx_up_toa(jc,jb)
+      z_aux3dp1_p(jc,49,jb) = prm_diag(jg)%swflx_up_sfc(jc,jb)
+
+      z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
+      z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
+      z_aux3dp2_p(jc,3,jb) = prm_diag(jg)%lhfl_s(jc,jb)
+      z_aux3dp2_p(jc,4,jb) = prm_diag(jg)%lhfl_bs(jc,jb)
+      z_aux3dp2_p(jc,5,jb) = prm_diag(jg)%shfl_s(jc,jb)
+      z_aux3dp2_p(jc,6,jb) = prm_diag(jg)%qhfl_s(jc,jb)
+      z_aux3dp2_p(jc,7,jb) = prm_diag(jg)%umfl_s(jc,jb)
+      z_aux3dp2_p(jc,8,jb) = prm_diag(jg)%vmfl_s(jc,jb)
+      z_aux3dp2_p(jc,9,jb) = prm_diag(jg)%alhfl_s(jc,jb)
+      z_aux3dp2_p(jc,10,jb) = prm_diag(jg)%alhfl_bs(jc,jb)
+      z_aux3dp2_p(jc,11,jb) = prm_diag(jg)%ashfl_s(jc,jb)
+      z_aux3dp2_p(jc,12,jb) = prm_diag(jg)%aqhfl_s(jc,jb)
+      z_aux3dp2_p(jc,13,jb) = prm_diag(jg)%aumfl_s(jc,jb)
+      z_aux3dp2_p(jc,14,jb) = prm_diag(jg)%avmfl_s(jc,jb)
+      z_aux3dp2_p(jc,15,jb) = prm_diag(jg)%lwflxsfc(jc,jb)
+      z_aux3dp2_p(jc,16,jb) = prm_diag(jg)%lwflxsfc_a(jc,jb)
+      z_aux3dp2_p(jc,17,jb) = prm_diag(jg)%lwflxtoa_a(jc,jb)
     ENDDO
 
     IF (lsfc_interp) THEN
@@ -1987,21 +2035,22 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
     ! Halo update is needed before interpolation
     IF (lsfc_interp .AND. lmulti_snow) THEN
 
-      CALL sync_patch_array_mult(SYNC_C,ptr_pp,4,z_aux3dp_p,z_aux3dl2_p,z_aux3dso_p,z_aux3dsn_p)
-      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 4, z_aux3dp_p, z_aux3dp_c,     &
+      CALL sync_patch_array_mult(SYNC_C,ptr_pp,5,z_aux3dp1_p,z_aux3dp2_p,z_aux3dl2_p,z_aux3dso_p,z_aux3dsn_p)
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 5, z_aux3dp1_p, z_aux3dp1_c, z_aux3dp2_p, z_aux3dp2_c,&
         z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c, z_aux3dsn_p, z_aux3dsn_c, &
-        llimit_nneg=(/.TRUE.,.TRUE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
+        llimit_nneg=(/.TRUE.,.FALSE.,.TRUE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
 
     ELSE IF (lsfc_interp) THEN
 
-      CALL sync_patch_array_mult(SYNC_C,ptr_pp,3,z_aux3dp_p,z_aux3dl2_p,z_aux3dso_p)
-      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 3, z_aux3dp_p, z_aux3dp_c, &
+      CALL sync_patch_array_mult(SYNC_C,ptr_pp,4,z_aux3dp1_p,z_aux3dp2_p,z_aux3dl2_p,z_aux3dso_p)
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 4, z_aux3dp1_p, z_aux3dp1_c, z_aux3dp2_p, z_aux3dp2_c,&
         z_aux3dl2_p, z_aux3dl2_c, z_aux3dso_p, z_aux3dso_c,                       &
-        llimit_nneg=(/.TRUE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
+        llimit_nneg=(/.TRUE.,.FALSE.,.TRUE.,.TRUE./), lnoshift=.TRUE.)
 
     ELSE
-      CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3dp_p)
-      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 1, z_aux3dp_p, z_aux3dp_c, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
+      CALL sync_patch_array_mult(SYNC_C,ptr_pp,2,z_aux3dp1_p,z_aux3dp2_p)
+      CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 2, z_aux3dp1_p, z_aux3dp1_c, z_aux3dp2_p, z_aux3dp2_c, &
+        llimit_nneg=(/.TRUE.,.FALSE./), lnoshift=.TRUE.)
 
     ENDIF
 
@@ -2022,27 +2071,71 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
                        i_startidx, i_endidx, 1, grf_bdywidth_c)
 
     DO jc = i_startidx, i_endidx
-      prm_diag(jgc)%tot_prec(jc,jb)       = z_aux3dp_c(jc,1,jb)
-      prm_diag(jgc)%rain_gsp(jc,jb)       = z_aux3dp_c(jc,2,jb)
-      prm_diag(jgc)%snow_gsp(jc,jb)       = z_aux3dp_c(jc,3,jb)
-      prm_diag(jgc)%rain_con(jc,jb)       = z_aux3dp_c(jc,4,jb)
-      prm_diag(jgc)%snow_con(jc,jb)       = z_aux3dp_c(jc,5,jb)
-      prm_diag(jgc)%rain_gsp_rate(jc,jb)  = z_aux3dp_c(jc,6,jb)
-      prm_diag(jgc)%snow_gsp_rate(jc,jb)  = z_aux3dp_c(jc,7,jb)
-      prm_diag(jgc)%rain_con_rate(jc,jb)  = z_aux3dp_c(jc,8,jb)
-      prm_diag(jgc)%snow_con_rate(jc,jb)  = z_aux3dp_c(jc,9,jb)
-      prm_diag(jgc)%gz0(jc,jb)            = z_aux3dp_c(jc,10,jb)
-      prm_diag(jgc)%tcm(jc,jb)            = z_aux3dp_c(jc,11,jb)
-      prm_diag(jgc)%tch(jc,jb)            = z_aux3dp_c(jc,12,jb)
-      prm_diag(jgc)%tfm(jc,jb)            = z_aux3dp_c(jc,13,jb)
-      prm_diag(jgc)%tfh(jc,jb)            = z_aux3dp_c(jc,14,jb)
-      prm_diag(jgc)%tfv(jc,jb)            = z_aux3dp_c(jc,15,jb)
-      prm_diag(jgc)%t_2m(jc,jb)           = z_aux3dp_c(jc,16,jb)
-      prm_diag(jgc)%qv_2m(jc,jb)          = z_aux3dp_c(jc,17,jb)
-      prm_diag(jgc)%td_2m(jc,jb)          = z_aux3dp_c(jc,18,jb)
-      prm_diag(jgc)%rh_2m(jc,jb)          = z_aux3dp_c(jc,19,jb)
-      prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp_c(jc,20,jb)
-      prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp_c(jc,21,jb)
+      prm_diag(jgc)%tot_prec(jc,jb)       = z_aux3dp1_c(jc,1,jb)
+      prm_diag(jgc)%rain_gsp(jc,jb)       = z_aux3dp1_c(jc,2,jb)
+      prm_diag(jgc)%snow_gsp(jc,jb)       = z_aux3dp1_c(jc,3,jb)
+      prm_diag(jgc)%rain_con(jc,jb)       = z_aux3dp1_c(jc,4,jb)
+      prm_diag(jgc)%snow_con(jc,jb)       = z_aux3dp1_c(jc,5,jb)
+      prm_diag(jgc)%rain_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,6,jb)
+      prm_diag(jgc)%snow_gsp_rate(jc,jb)  = z_aux3dp1_c(jc,7,jb)
+      prm_diag(jgc)%rain_con_rate(jc,jb)  = z_aux3dp1_c(jc,8,jb)
+      prm_diag(jgc)%snow_con_rate(jc,jb)  = z_aux3dp1_c(jc,9,jb)
+      prm_diag(jgc)%gz0(jc,jb)            = z_aux3dp1_c(jc,10,jb)
+      prm_diag(jgc)%tcm(jc,jb)            = z_aux3dp1_c(jc,11,jb)
+      prm_diag(jgc)%tch(jc,jb)            = z_aux3dp1_c(jc,12,jb)
+      prm_diag(jgc)%tfm(jc,jb)            = z_aux3dp1_c(jc,13,jb)
+      prm_diag(jgc)%tfh(jc,jb)            = z_aux3dp1_c(jc,14,jb)
+      prm_diag(jgc)%tfv(jc,jb)            = z_aux3dp1_c(jc,15,jb)
+      prm_diag(jgc)%t_2m(jc,jb)           = z_aux3dp1_c(jc,16,jb)
+      prm_diag(jgc)%qv_2m(jc,jb)          = z_aux3dp1_c(jc,17,jb)
+      prm_diag(jgc)%td_2m(jc,jb)          = z_aux3dp1_c(jc,18,jb)
+      prm_diag(jgc)%rh_2m(jc,jb)          = z_aux3dp1_c(jc,19,jb)
+      prm_diag(jgc)%gust10(jc,jb)         = z_aux3dp1_c(jc,20,jb)
+      prm_diag(jgc)%sp_10m(jc,jb)         = z_aux3dp1_c(jc,21,jb)
+      prm_diag(jgc)%swflxsfc(jc,jb)       = z_aux3dp1_c(jc,22,jb)
+      prm_diag(jgc)%swflx_dn_sfc_diff(jc,jb) = z_aux3dp1_c(jc,23,jb)
+      prm_diag(jgc)%lwflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,24,jb)
+      prm_diag(jgc)%swflxtoa(jc,jb)       = z_aux3dp1_c(jc,25,jb)
+      prm_diag(jgc)%flxdwswtoa(jc,jb)     = z_aux3dp1_c(jc,26,jb)
+      prm_diag(jgc)%swflxsfc_a(jc,jb)     = z_aux3dp1_c(jc,27,jb)
+      prm_diag(jgc)%asodifd_s(jc,jb)      = z_aux3dp1_c(jc,28,jb)
+      prm_diag(jgc)%asodifu_s(jc,jb)      = z_aux3dp1_c(jc,29,jb)
+      prm_diag(jgc)%athu_s(jc,jb)         = z_aux3dp1_c(jc,30,jb)
+      prm_diag(jgc)%athd_s(jc,jb)         = z_aux3dp1_c(jc,31,jb)
+      prm_diag(jgc)%swflxtoa_a(jc,jb)     = z_aux3dp1_c(jc,32,jb)
+      prm_diag(jgc)%asod_t(jc,jb)         = z_aux3dp1_c(jc,33,jb)
+      prm_diag(jgc)%asou_t(jc,jb)         = z_aux3dp1_c(jc,34,jb)
+      prm_diag(jgc)%asodird_s(jc,jb)      = z_aux3dp1_c(jc,35,jb)
+      prm_diag(jgc)%hbas_con(jc,jb)       = z_aux3dp1_c(jc,36,jb)
+      prm_diag(jgc)%htop_con(jc,jb)       = z_aux3dp1_c(jc,37,jb)
+      prm_diag(jgc)%htop_dc(jc,jb)        = z_aux3dp1_c(jc,38,jb)
+      prm_diag(jgc)%hzerocl(jc,jb)        = z_aux3dp1_c(jc,39,jb)
+      prm_diag(jgc)%clcl(jc,jb)           = z_aux3dp1_c(jc,40,jb)
+      prm_diag(jgc)%clcm(jc,jb)           = z_aux3dp1_c(jc,41,jb)
+      prm_diag(jgc)%clch(jc,jb)           = z_aux3dp1_c(jc,42,jb)
+      prm_diag(jgc)%clct(jc,jb)           = z_aux3dp1_c(jc,43,jb)
+      prm_diag(jgc)%cape(jc,jb)           = z_aux3dp1_c(jc,44,jb)
+      prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,45:47,jb)
+      prm_diag(jgc)%swflx_up_toa(jc,jb)   = z_aux3dp1_c(jc,48,jb)
+      prm_diag(jgc)%swflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,49,jb)
+
+      prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
+      prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)
+      prm_diag(jgc)%lhfl_s(jc,jb)         = z_aux3dp2_c(jc,3,jb)
+      prm_diag(jgc)%lhfl_bs(jc,jb)        = z_aux3dp2_c(jc,4,jb)
+      prm_diag(jgc)%shfl_s(jc,jb)         = z_aux3dp2_c(jc,5,jb)
+      prm_diag(jgc)%qhfl_s(jc,jb)         = z_aux3dp2_c(jc,6,jb)
+      prm_diag(jgc)%umfl_s(jc,jb)         = z_aux3dp2_c(jc,7,jb)
+      prm_diag(jgc)%vmfl_s(jc,jb)         = z_aux3dp2_c(jc,8,jb)
+      prm_diag(jgc)%alhfl_s(jc,jb)        = z_aux3dp2_c(jc,9,jb)
+      prm_diag(jgc)%alhfl_bs(jc,jb)       = z_aux3dp2_c(jc,19,jb)
+      prm_diag(jgc)%ashfl_s(jc,jb)        = z_aux3dp2_c(jc,11,jb)
+      prm_diag(jgc)%aqhfl_s(jc,jb)        = z_aux3dp2_c(jc,12,jb)
+      prm_diag(jgc)%aumfl_s(jc,jb)        = z_aux3dp2_c(jc,13,jb)
+      prm_diag(jgc)%avmfl_s(jc,jb)        = z_aux3dp2_c(jc,14,jb)
+      prm_diag(jgc)%lwflxsfc(jc,jb)       = z_aux3dp2_c(jc,15,jb)
+      prm_diag(jgc)%lwflxsfc_a(jc,jb)     = z_aux3dp2_c(jc,16,jb)
+      prm_diag(jgc)%lwflxtoa_a(jc,jb)     = z_aux3dp2_c(jc,17,jb)
     ENDDO
 
     IF (lsfc_interp) THEN
