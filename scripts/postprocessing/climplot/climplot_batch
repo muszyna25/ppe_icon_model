@@ -104,8 +104,10 @@ fi
 #metview=metview4_dev
 metview=metview4_new
 
+deia_grib_api=/home/ms/de/deia/grib_api # inlcudes fix add back in the MARS definitions for level reading
+                                        # this will be fixed in 1.12.3 by Gramalla
 if [[ $TASK = "plot_2d" || $TASK = "plot_zon" || $TASK = "plot_obs_1" || $TASK = "plot_obs_3" || $TASK = "plot_obs_4" || $TASK = "plot_obs_5" ||  $TASK = "plot_obs_7" ||  $TASK = "plot_obs_10" ]] ; then
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/home/ms/de/deia/grib_api/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
+  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=${deia_grib_api}/definitions.edzw-1.11.0-12:/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
 else
   export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.11.0/share/grib_api/definitions
 fi

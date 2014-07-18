@@ -52,7 +52,7 @@ export nstart
 
 if [[ $lmetview = 1 ]] ; then
 
-  sleep $ndiff  # avoid simulaneous copying
+  sleep $nstart  # avoid simulaneous copying
   \cp -f ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error . || true
   export PLOTDIR='metplots'
   export DATAFILE='grb_data/%SUITE%_%EXPNUM%_'
@@ -82,7 +82,6 @@ if [[ $lmetview = 1 ]] ; then
     export TAILFILE='_0_'${STEP}'_mn'${DAYS_FC_P1}'-'${DAYS_MONTH}'.grb'
    #./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR $DAYS_ENS %RES% %SUITE%_%EXPNUM%
     ./many.error.s ${YYYYMM}01 %INIHOUR% $VERDATE $VERHOUR 1         %RES% %SUITE%_%EXPNUM%
-    wait 1
 %nopp
     awk 'NR%'${ndiff}'=='${nstart} met.job.all.${nstart} > met.job.${nstart}
 %end
