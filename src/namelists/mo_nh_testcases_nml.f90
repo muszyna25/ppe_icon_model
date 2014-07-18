@@ -65,7 +65,7 @@ MODULE mo_nh_testcases_nml
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
-    &       th_cbl 
+    &       th_cbl, psfc_cbl
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
@@ -93,6 +93,7 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
   REAL(wp) :: v_cbl(2)   !v_cbl(1) = constant, v_cbl(2) = gradient
   REAL(wp) :: th_cbl(2)  !th_cbl(1) = constant,th_cbl(2) = gradient
+  REAL(wp) :: psfc_cbl
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
@@ -120,8 +121,9 @@ MODULE mo_nh_testcases_nml
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
-                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb                  
-
+                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,    &
+                            psfc_cbl
+                      
 
   CONTAINS
 !-------------------------------------------------------------------------
@@ -261,6 +263,7 @@ MODULE mo_nh_testcases_nml
     v_cbl(1:2) = 0._wp 
     th_cbl(1)  = 290._wp
     th_cbl(2)  = 0.006_wp
+    psfc_cbl   = 102000._wp
     w_perturb  = 0.05_wp    
     th_perturb = 0.2_wp    
 
