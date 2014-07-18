@@ -34,6 +34,7 @@ dzh_snow            H_SNOW_M
 w_i                 W_I
 w_so                W_SO
 w_so_ice            W_SO_ICE
+smi                 SMI
 t_so                T_SO
 gz0                 Z0
 t_mnw_lk            T_MNW_LK
