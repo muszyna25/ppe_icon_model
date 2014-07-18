@@ -607,7 +607,7 @@ CONTAINS
     INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 2!10000
 
     TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, mtime_restart, &
-      &                         sim_end, mtime_dom_start, run_start
+      &                         sim_end, mtime_dom_start, mtime_dom_end, run_start
     TYPE(timedelta), POINTER :: delta, delta_1day
     INTEGER                  :: ierrstat, i, n_event_steps, iadd_days
     LOGICAL                  :: l_active, l_append_step
@@ -647,6 +647,13 @@ CONTAINS
     ! "dom_start_time" and "dom_end_time". Therefore, we must create
     ! a corresponding event.
     mtime_dom_start => newDatetime(TRIM(sim_step_info%dom_start_time))
+    mtime_dom_end   => newDatetime(TRIM(sim_step_info%dom_end_time)) ! this carries the domain-specific namelist value "end_time"
+
+    ! To avoid further case discriminations, sim_end is set to the minimum of the simulation end time
+    ! and the time at which a nested domain is turned off
+    IF (sim_end > mtime_dom_end) THEN
+      sim_end => newDatetime(TRIM(sim_step_info%dom_end_time))
+    ENDIF
 
     ! Compute the end time wrt. "dt_restart": It might be that the
     ! simulation end is limited by this parameter
