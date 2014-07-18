@@ -51,6 +51,7 @@ MODULE mo_util_cdi_table
   INTEGER, PARAMETER :: EXP_ID            = 15 
   INTEGER, PARAMETER :: GRID_ID           = 16
   INTEGER, PARAMETER :: NGRIDREF          = 17
+  INTEGER, PARAMETER :: GEN_PROC          = 18
 
   CHARACTER(LEN=*), PARAMETER :: DELIMITER     = ' | '
 
@@ -80,12 +81,12 @@ CONTAINS
   SUBROUTINE setup_table_output(table)
     TYPE (t_table), INTENT(INOUT) :: table
 
-    table%n_columns = 12
+    table%n_columns = 13
     !                           title      column ID        width
     table%column( 1) = t_column("name",    GRIB2_SHORTNAME,  10)
     table%column( 2) = t_column("triple",  GRIB2_TRIPLE,     11)
-    table%column( 3) = t_column("date",    VALIDITY_DATE,    10)
-    table%column( 4) = t_column("time",    VALIDITY_TIME,     8)
+    table%column( 3) = t_column("Vdate",   VALIDITY_DATE,    10)
+    table%column( 4) = t_column("Vtime",   VALIDITY_TIME,     8)
     table%column( 5) = t_column("lvt",     LEVEL_TYPE,        3)
     table%column( 6) = t_column("runtype", RUN_TYPE,          7)
     table%column( 7) = t_column("vvmm",    TIME_VVMM,         4)
@@ -94,6 +95,7 @@ CONTAINS
     table%column(10) = t_column("expid",   EXP_ID,            5)
     table%column(11) = t_column("grid",    GRID_ID,           5)
     table%column(12) = t_column("rgrid",   NGRIDREF,          5)
+    table%column(13) = t_column("genProg", GEN_PROC,          6)
   END SUBROUTINE setup_table_output
 
 
@@ -111,7 +113,11 @@ CONTAINS
     INTEGER :: param, number, category, discipline, &
       &        zaxisID, nlev, iexp_id, ilevtyp,     &
       &        iruntype, irunclass, ingridused,     &
-      &        ingridref, gridID
+      &        ingridref, gridID, taxisID,          &
+      &        igenproc
+    INTEGER :: vdate, vtime, ftime,                 &
+      &        hour, minute, second,                &
+      &        year, month, day
 
     if (column%width > MAX_COLUMN_LEN) &
       &  CALL finish(routine, "Internal error: Column width exceeds maximum length!")
@@ -148,12 +154,16 @@ CONTAINS
       WRITE (get_table_entry, "(i3.1,a1,i3.1,a1,i3.1)") discipline,".",category,".",number
       !
     CASE(VALIDITY_DATE)
-      ! NOT YET IMPLEMENTED!
-      get_table_entry = "n/a"
+      taxisID = vlistInqTaxis(vlistID)
+      vdate   = taxisInqVdate(taxisID)
+      CALL cdiDecodeDate(vdate, year, month, day)
+      WRITE(get_table_entry, "(i4,a1,i2.2,a1,i2.2)") year,"-",month,"-",day
       !
     CASE(VALIDITY_TIME)
-      ! NOT YET IMPLEMENTED!
-      get_table_entry = "n/a"
+      taxisID = vlistInqTaxis(vlistID)
+      vtime   = taxisInqVtime(taxisID)
+      CALL cdiDecodeTime(vtime, hour, minute, second)
+      WRITE(get_table_entry, "(i2,a1,i2.2,a1,i2.2)") hour,":",minute,":",second
       !
     CASE(LEVEL_TYPE)
       ilevtyp = vlistInqVarIntKey(vlistID, ivar, "typeOfFirstFixedSurface")
@@ -164,8 +174,10 @@ CONTAINS
       WRITE (get_table_entry, "(i"//trim(wdth)//")") iruntype
       !
     CASE(TIME_VVMM)
-      ! NOT YET IMPLEMENTED!
-      get_table_entry = "n/a"
+      taxisID = vlistInqTaxis(vlistID)
+      ftime   = taxisInqFtime(taxisID)
+      CALL cdiDecodeTime(ftime, hour, minute, second)
+      WRITE(get_table_entry, "(i2,a1,i2.2,a1,i2.2)") hour,":",minute,":",second
       !
     CASE(NUM_LEVELS)
       zaxisID = vlistInqVarZaxis(vlistID, ivar)
@@ -189,6 +201,10 @@ CONTAINS
       gridID = vlistInqVarGrid(vlistID, ivar)
       ingridref = gridInqPosition(gridID)
       WRITE (get_table_entry, "(i"//trim(wdth)//")") ingridref
+      !
+    CASE(GEN_PROC)
+      igenproc = vlistInqVarTypeOfGeneratingProcess(vlistID, ivar)
+      WRITE (get_table_entry, "(i"//trim(wdth)//")") igenproc
       !
     CASE DEFAULT
       CALL finish(routine, "Internal error: Unknown table column!")
