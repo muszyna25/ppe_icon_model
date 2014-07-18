@@ -137,7 +137,9 @@ MODULE mo_nh_stepping
   USE mo_action,                   ONLY: reset_action
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output
-                                   
+  USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
+                                         write_vertical_profiles, write_time_series
+                                  
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -345,6 +347,24 @@ MODULE mo_nh_stepping
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
     END IF
+
+    !AD: Also output special diagnostics for LES on torus
+     IF(atm_phy_nwp_config(1)%is_les_phy)THEN
+       CALL calculate_turbulent_diagnostics(                      &
+                              & p_patch(1),                       & !in
+                              & p_nh_state(1)%prog(nnow(1)),      &
+                              & p_nh_state(1)%prog(nnow_rcf(1)),  & !in
+                              & p_nh_state(1)%diag,                   & !in
+                              & p_lnd_state(1)%prog_lnd(nnow_rcf(1)), &
+                              & p_lnd_state(1)%diag_lnd,              &  
+                              & prm_diag(1)                )     !inout
+  
+        !write out time series
+        CALL write_time_series(prm_diag(1)%turb_diag_0dvar, time_config%sim_time(1))
+        CALL write_vertical_profiles(prm_diag(1)%turb_diag_1dvar, time_config%sim_time(1), 1)
+        prm_diag(1)%turb_diag_1dvar = 0._wp
+      END IF   
+
 
 #ifdef MESSY
     ! MESSy initial output
