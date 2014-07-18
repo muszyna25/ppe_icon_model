@@ -986,10 +986,6 @@ MODULE mo_nonhydro_state
         ENDIF ! inwp_turb == iedmf
 
 
-        ! Note that explicit referencing is used here (ref_idx=iqtke), instead of 
-        ! default implicit referencing via the internal counter ncontained. Thus, 
-        ! from this point on, implicit referencing should be avoided. I.e. the next 
-        ! internal reference will not point to iqtke+1 !!    
         IF ( advection_config(p_patch%id)%iadv_tke > 0 ) THEN
           cf_desc    = t_cf_var('tke_mc', 'm s-1',         &
             &          'turbulent velocity scale (at full levels)', DATATYPE_FLT32)
@@ -998,7 +994,6 @@ MODULE mo_nonhydro_state
                     & TRIM(vname_prefix)//'tke_mc'//suffix, p_prog%tracer_ptr(iqtke)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
                     & cf_desc, grib2_desc,                                           &
-                    & ref_idx = iqtke,                                               &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(),                          &
@@ -1009,6 +1004,7 @@ MODULE mo_nonhydro_state
                     &             l_pd_limit=.FALSE.,                                &
                     &             lower_limit=0._wp  )  )
         ENDIF
+
 
         ! art
         IF (lart) THEN
