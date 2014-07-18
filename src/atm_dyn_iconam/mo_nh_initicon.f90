@@ -31,7 +31,7 @@ MODULE mo_nh_initicon
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
@@ -180,7 +180,9 @@ MODULE mo_nh_initicon
     initicon(:)%atm_in%linitialized  = .FALSE.
     initicon(:)%sfc_in%linitialized  = .FALSE.
     initicon(:)%atm%linitialized     = .FALSE.
+    initicon(:)%sfc%linitialized     = .FALSE.
     initicon(:)%atm_inc%linitialized = .FALSE.
+    initicon(:)%sfc_inc%linitialized = .FALSE.
 
     ! Allocate memory for init_icon state
     CALL allocate_initicon (p_patch, initicon)
@@ -246,7 +248,7 @@ MODULE mo_nh_initicon
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
-    CASE (MODE_DWDANA_INC, MODE_IAU)
+    CASE (MODE_DWDANA_INC)
 
       CALL message(TRIM(routine),'MODE_DWDANA_INC: perform initialization with '// &
         &                        ' incremental analysis update')
@@ -256,6 +258,17 @@ MODULE mo_nh_initicon
 
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    CASE (MODE_IAU)
+
+      CALL message(TRIM(routine),'MODE_IAU: perform initialization with '// &
+        &                        ' incremental analysis update')
+
+      ! process DWD atmosphere analysis increments
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+
+      ! process DWD land/surface analysis (increments)
+      CALL process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
     CASE(MODE_IFSANA)   ! read in IFS analysis
 
@@ -616,6 +629,49 @@ MODULE mo_nh_initicon
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
 
   END SUBROUTINE process_dwdana_sfc
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_dwdanainc_sfc
+  !! Initialization routine of icon:
+  !! - Reads DWD first guess (land/surface only). Data are directly
+  !!   written to the prognostic model variables
+  !! - reads DWD analysis fields and analysis increments (land/surface only). 
+  !!   Increments are written to intermediate initicon variables and 
+  !!   lateron (create_iau_sfc) added in one go.
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-07-18)
+  !!
+  !!
+  SUBROUTINE process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
+    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
+
+
+
+!-------------------------------------------------------------------------
+
+
+    ! read DWD first guess and analysis for surface/land
+    ! 
+    CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state)
+    CALL read_dwdana_sfc(p_patch, p_lnd_state)
+
+
+    ! Add increments to time-shifted first guess in one go.
+    CALL create_iau_sfc (p_patch, p_lnd_state, ext_data)
+
+    ! get SST from first soil level t_so (for sea and lake points)
+    ! perform consistency checks
+    CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+
+  END SUBROUTINE process_dwdanainc_sfc
 
 
 
@@ -2675,7 +2731,11 @@ MODULE mo_nh_initicon
         &                opt_checkgroup=initicon(jg)%grp_vars_ana(1:ngrp_vars_ana) )
 
       ! w_so
-      my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
+      IF (init_mode == MODE_IAU) THEN
+        my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
+      ELSE
+        my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(:,:,:,jt)
+      ENDIF
       CALL read_data_3d (filetype_ana(jg), fileID_ana(jg), 'w_so',                  &
         &                p_patch(jg)%n_patch_cells_g,                               &
         &                p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info%glb_index,    &
@@ -3495,6 +3555,126 @@ MODULE mo_nh_initicon
 
   !-------------------------------------------------------------------------
   !>
+  !! SUBROUTINE create_iau_sfc 
+  !!
+  !! Add increments to time-shifted first guess in one go.
+  !! Increments are added for: 
+  !! W_SO, H_SNOW, W_SNOW, FRESHSNW
+  !!
+  !! Additioanl sanity checks are performed for 
+  !! W_SO 
+  !!
+  !! @par Revision History
+  !! Initial version by D. Reinert, DWD (2014-07-17)
+  !!
+  !!
+  !-------------------------------------------------------------------------
+  SUBROUTINE create_iau_sfc (p_patch, p_lnd_state, ext_data)
+
+    TYPE(t_patch)             ,INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET ,INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data)     ,INTENT(IN)    :: ext_data(:)
+
+    INTEGER :: jg, jb, jt, jk, jc, ic    ! loop indices
+    INTEGER :: nblks_c                   ! number of blocks
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startidx, i_endidx
+
+    LOGICAL :: lerr                      ! error flag
+
+    TYPE(t_lnd_prog), POINTER :: lnd_prog_now      ! shortcut to prognostic land state
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = 'mo_nh_initicon:create_iau_sfc'
+  !-------------------------------------------------------------------------
+
+    DO jg = 1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      nblks_c   = p_patch(jg)%nblks_c
+      rl_start  = 1
+      rl_end    = min_rlcell
+
+      ! save some paperwork
+      lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jt,jk,jc,jc,i_startidx,i_endidx,lerr)
+      DO jb = 1, nblks_c
+
+        ! (re)-initialize error flag
+        lerr=.FALSE.
+
+        CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        ! add W_SO increment to first guess and perform some sanity checks in terms of realistic 
+        ! maximum/minimum values
+        ! 
+        DO jt = 1, ntiles_total
+
+          DO jk = 1, nlev_soil
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+              lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt)  &
+                 &                              + initicon(jg)%sfc_inc%w_so(jc,jk,jb)
+
+              ! Safety limits:  min=air dryness point, max=pore volume
+              SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
+
+                CASE(3)  !sand
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.364_wp,                                   &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.012_wp) &
+                  &                                )
+                CASE(4)  !sandyloam
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.445_wp,                                   &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.03_wp)  &
+                  &                                )
+                CASE(5)  !loam
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.455_wp,                                   &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.035_wp) &
+                  &                                )
+                CASE(6)  !clayloam
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.475_wp,                                   &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.06_wp)  &
+                  &                                )
+                CASE(7)  !clay
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.507_wp,                                   &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.065_wp) &
+                  &                                )
+                CASE(8)  !peat
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.863_wp,                                   &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.098_wp) &
+                  &                                )          
+                CASE(9,10)!sea water, sea ice
+                ! ERROR landpoint has soiltype sea water or sea ice
+                lerr = .TRUE.
+              END SELECT
+
+            ENDDO  ! ic
+          ENDDO  ! jk
+
+        ENDDO  ! jt
+
+        IF (lerr) THEN
+          CALL finish(routine, "Landpoint has invalid soiltype (sea water or sea ice)")
+        ENDIF
+
+      ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+    ENDDO  ! jg
+
+  END SUBROUTINE create_iau_sfc
+
+
+  !-------------------------------------------------------------------------
+  !>
   !! SUBROUTINE create_dwdana_sfc 
   !!
   !! Required input: patch, lnd_state
@@ -4071,18 +4251,24 @@ MODULE mo_nh_initicon
 
 
       ! Allocate surface output data
-      ALLOCATE(initicon(jg)%sfc%tskin    (nproma,nblks_c             ), &
-               initicon(jg)%sfc%sst      (nproma,nblks_c             ), &
-               initicon(jg)%sfc%tsnow    (nproma,nblks_c             ), &
-               initicon(jg)%sfc%snowalb  (nproma,nblks_c             ), &
-               initicon(jg)%sfc%snowweq  (nproma,nblks_c             ), &
-               initicon(jg)%sfc%snowdens (nproma,nblks_c             ), &
-               initicon(jg)%sfc%skinres  (nproma,nblks_c             ), &
-               initicon(jg)%sfc%ls_mask  (nproma,nblks_c             ), &
-               initicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
-               initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
-               initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
+      IF ( init_mode == MODE_IFSANA ) THEN
+        ALLOCATE(initicon(jg)%sfc%tskin    (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%sst      (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%tsnow    (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%snowalb  (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%snowweq  (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%snowdens (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%skinres  (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%ls_mask  (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%seaice   (nproma,nblks_c             ), &
+                 initicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil ), &
+                 initicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil)     )
 
+        initicon(jg)%sfc%linitialized = .TRUE.
+      ENDIF
+
+
+      ! atmospheric assimilation increments
       IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
         ALLOCATE(initicon(jg)%atm_inc%temp (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
@@ -4092,6 +4278,14 @@ MODULE mo_nh_initicon
       
         initicon(jg)%atm_inc%linitialized = .TRUE.
       ENDIF
+
+      ! surface assimilation increments
+      IF ( (init_mode == MODE_IAU) ) THEN
+        ALLOCATE(initicon(jg)%sfc_inc%w_so (nproma,nlev_soil,nblks_c ) )
+
+        initicon(jg)%sfc_inc%linitialized = .TRUE.
+      ENDIF
+
 
     ENDDO ! loop over model domains
 
@@ -4226,17 +4420,19 @@ MODULE mo_nh_initicon
 
 
       ! surface output data
-      DEALLOCATE(initicon(jg)%sfc%tskin,    &
-                 initicon(jg)%sfc%sst,      &
-                 initicon(jg)%sfc%tsnow,    &
-                 initicon(jg)%sfc%snowalb,  &
-                 initicon(jg)%sfc%snowweq,  &
-                 initicon(jg)%sfc%snowdens, &
-                 initicon(jg)%sfc%skinres,  &
-                 initicon(jg)%sfc%ls_mask,  &
-                 initicon(jg)%sfc%seaice,   &
-                 initicon(jg)%sfc%tsoil,    &
-                 initicon(jg)%sfc%wsoil     )
+      IF (initicon(jg)%sfc%linitialized) THEN
+        DEALLOCATE(initicon(jg)%sfc%tskin,    &
+                   initicon(jg)%sfc%sst,      &
+                   initicon(jg)%sfc%tsnow,    &
+                   initicon(jg)%sfc%snowalb,  &
+                   initicon(jg)%sfc%snowweq,  &
+                   initicon(jg)%sfc%snowdens, &
+                   initicon(jg)%sfc%skinres,  &
+                   initicon(jg)%sfc%ls_mask,  &
+                   initicon(jg)%sfc%seaice,   &
+                   initicon(jg)%sfc%tsoil,    &
+                   initicon(jg)%sfc%wsoil     )
+      ENDIF
 
 
       ! atmospheric assimilation increments
@@ -4247,6 +4443,13 @@ MODULE mo_nh_initicon
                    initicon(jg)%atm_inc%v   ,    &
                    initicon(jg)%atm_inc%qv       )
       ENDIF
+
+
+      ! surface assimilation increments
+      IF ( initicon(jg)%sfc_inc%linitialized ) THEN
+        DEALLOCATE(initicon(jg)%sfc_inc%w_so )
+      ENDIF
+
 
     ENDDO ! loop over model domains
 

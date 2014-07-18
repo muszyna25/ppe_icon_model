@@ -1164,7 +1164,8 @@ MODULE mo_nwp_lnd_state
          & ldims=(/nproma,nlev_soil,kblks/),                                     &
          & lrestart=.FALSE., loutput=.TRUE.,                                     &
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_ana_in",      &
-         &                 "mode_iau_ana_in","mode_combined_in","mode_cosmode_in"),&
+         &                 "mode_iau_ana_in","mode_iau_ana_in",                  &
+         &                 "mode_combined_in","mode_cosmode_in"),                &
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
     ! & p_diag_lnd%w_so_ice(nproma,nlev_soil,nblks_c)

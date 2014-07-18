@@ -84,9 +84,14 @@ MODULE mo_nh_initicon_types
   !
   TYPE :: t_pi_sfc
 
+    ! Flag. True, if this data structure has been allocated
+    LOGICAL :: linitialized
+
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, sst,  snowalb, snowweq, snowdens, &
                                               skinres, ls_mask, seaice
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
+
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: w_so
 
   END TYPE t_pi_sfc
 
@@ -107,9 +112,10 @@ MODULE mo_nh_initicon_types
 
     TYPE (t_pi_atm_in)     :: atm_in
     TYPE (t_pi_sfc_in)     :: sfc_in
-    TYPE (t_pi_atm)        :: atm_inc
     TYPE (t_pi_atm)        :: atm
+    TYPE (t_pi_atm)        :: atm_inc
     TYPE (t_pi_sfc)        :: sfc
+    TYPE (t_pi_sfc)        :: sfc_inc
 
   END TYPE t_initicon_state
  
