@@ -26,7 +26,6 @@ MODULE mo_phys_nest_utilities
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
 USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent, p_patch
-USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, &
                                   p_grf_state, p_grf_state_local_parent
@@ -1136,7 +1135,7 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
-  INTEGER :: nshift, nst
+  INTEGER :: nshift
   REAL(wp) :: z_help_pres_ratio, z_rho_1
 
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
@@ -1173,9 +1172,6 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
   iblk => p_gcp%child_blk
 
   p_fbkwgt => p_grf%fbk_wgt_bln
-
-  ! layer shift w.r.t. global grid (> 0 in case of vertical nesting)
-  nst = p_patch(jg)%nshift_total
   
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (jgp == 0) THEN
@@ -1543,7 +1539,7 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac2, lwfac1, lwfac2
 
   REAL(wp), DIMENSION(nproma,p_patch(jg)%nlevp1) :: intclw, intcli,     &
-    dtrans_o_dalb_all, dlwflxall_o_dtg, pfacswc, pfacswa
+    dtrans_o_dalb_all, dlwflxall_o_dtg
 
   
   ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
@@ -1553,7 +1549,7 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   TYPE(t_patch),      POINTER     :: p_pp
 
   ! Indices
-  INTEGER :: i_chidx, i_nchdom, nblks_c_lp
+  INTEGER :: i_chidx, nblks_c_lp
   INTEGER :: jb, jk, jk1, jc, i_startblk, i_endblk, i_startidx, i_endidx
   INTEGER :: jc1, jc2, jc3, jc4, jb1, jb2, jb3, jb4
   
@@ -1589,7 +1585,6 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   p_gcp => p_patch_local_parent(jg)%cells
   p_pp  => p_patch_local_parent(jg)
 
-  i_nchdom = MAX(1,p_patch(jg)%n_childdom)
   i_chidx  = p_patch(jg)%parent_child_index
 
   nblks_c_lp = p_pp%nblks_c
@@ -1717,8 +1712,8 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,pfacswc,pfacswa,     &
-!$OMP            dlwem_o_dtg,swfac2,lwfac1,lwfac2,dtrans_o_dalb_all,            &
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,                   &
+!$OMP            dlwem_o_dtg,swfac2,lwfac1,lwfac2,dtrans_o_dalb_all,                          &
 !$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3, &
 !$OMP jb4) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
@@ -1729,8 +1724,6 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
     tqv(:)            = 0._wp
     intclw(:,nlevp1)  = 0._wp
     intcli(:,nlevp1)  = 0._wp
-    pfacswc(:,nlevp1) = 1._wp
-    pfacswa(:,nlevp1) = 1._wp
     pres_ifc(:,1,jb)     = 0._wp
     pres_ifc(:,nlevp1_rg,jb) = zrg_aux3d(:,ipsfc,jb)
     
@@ -1743,10 +1736,6 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
         tqv(jc)       = tqv(jc)+p_tot_cld(jc,jk1,jb,iqv)*dpresg
         intclw(jc,jk) = intclw(jc,jk+1)+p_tot_cld(jc,jk1,jb,iqc)*dpresg
         intcli(jc,jk) = intcli(jc,jk+1)+p_tot_cld(jc,jk1,jb,iqi)*dpresg
-        pfacswc(jc,jk)= 1._wp-0.08_wp*(pres_ifc(jc,nlevp1_rg,jb)-pres_ifc(jc,jk1,jb))/&
-                        pres_ifc(jc,nlevp1_rg,jb)
-        pfacswa(jc,jk)= 1._wp-0.16_wp*(pres_ifc(jc,nlevp1_rg,jb)-pres_ifc(jc,jk1,jb))/&
-                        pres_ifc(jc,nlevp1_rg,jb)
       ENDDO
     ENDDO
 
@@ -2128,7 +2117,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%umfl_s(jc,jb)         = z_aux3dp2_c(jc,7,jb)
       prm_diag(jgc)%vmfl_s(jc,jb)         = z_aux3dp2_c(jc,8,jb)
       prm_diag(jgc)%alhfl_s(jc,jb)        = z_aux3dp2_c(jc,9,jb)
-      prm_diag(jgc)%alhfl_bs(jc,jb)       = z_aux3dp2_c(jc,19,jb)
+      prm_diag(jgc)%alhfl_bs(jc,jb)       = z_aux3dp2_c(jc,10,jb)
       prm_diag(jgc)%ashfl_s(jc,jb)        = z_aux3dp2_c(jc,11,jb)
       prm_diag(jgc)%aqhfl_s(jc,jb)        = z_aux3dp2_c(jc,12,jb)
       prm_diag(jgc)%aumfl_s(jc,jb)        = z_aux3dp2_c(jc,13,jb)

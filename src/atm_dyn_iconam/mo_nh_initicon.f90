@@ -3601,7 +3601,7 @@ MODULE mo_nh_initicon
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,jc,jc,i_startidx,i_endidx,lerr)
+!$OMP DO PRIVATE(jb,jt,jk,jc,i_startidx,i_endidx,lerr)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
