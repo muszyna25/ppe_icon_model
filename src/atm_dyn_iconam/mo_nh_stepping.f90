@@ -307,7 +307,7 @@ MODULE mo_nh_stepping
     ENDDO
     IF (.NOT.is_restart_run()) THEN
       ! Compute diagnostic physics fields
-      CALL diag_for_output_phys
+      CALL aggr_landvars
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
       CALL init_slowphysics (datetime, 1, dtime, dtime_adv, time_config%sim_time)
 
@@ -326,6 +326,8 @@ MODULE mo_nh_stepping
           &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
           &                      prm_diag(jg)                            ) !inout
       ENDDO
+
+      CALL fill_nestlatbc_phys
 
     ENDIF
   ENDIF  ! iforcing == inwp
@@ -658,7 +660,7 @@ MODULE mo_nh_stepping
     IF (l_compute_diagnostic_quants) THEN
       CALL diag_for_output_dyn ( linit=.FALSE.)
       IF (iforcing == inwp) THEN
-        CALL diag_for_output_phys
+        CALL aggr_landvars
 
         DO jg=1, n_dom
           IF (.NOT. ldom_active(jg)) CYCLE
@@ -675,6 +677,9 @@ MODULE mo_nh_stepping
             &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
             &                      prm_diag(jg)                            ) !inout
         ENDDO
+
+        CALL fill_nestlatbc_phys
+
       ENDIF  ! iforcing == inwp
 
 
@@ -1953,21 +1958,16 @@ MODULE mo_nh_stepping
 
   !-------------------------------------------------------------------------
   !>
-  !! Diagnostic computations for output - physics fields
+  !! Wrapper for computation of aggregated land variables
   !!
-  !! This routine encapsulates calls to diagnostic computations required at output
-  !! times only
   !!
   !! @par Revision History
-  !! Developed by Guenther Zaengl, DWD (2013-01-04)
+  !! Developed by Guenther Zaengl, DWD (2014-07-21)
   !!
-  SUBROUTINE diag_for_output_phys
-
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_nh_stepping:diag_for_output_phys'
+  SUBROUTINE aggr_landvars
 
     ! Local variables
-    INTEGER :: jg, jgc, jn ! loop indices
+    INTEGER :: jg ! loop indices
 
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
@@ -1982,6 +1982,25 @@ MODULE mo_nh_stepping
       ENDIF
 
     ENDDO ! jg-loop
+
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
+
+  END SUBROUTINE aggr_landvars
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Fills nest boundary cells for physics fields
+  !!
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD (2014-07-21)
+  !!
+  SUBROUTINE fill_nestlatbc_phys
+
+    ! Local variables
+    INTEGER :: jg, jgc, jn ! loop indices
+
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
     ! Fill boundaries of nested domains
     DO jg = n_dom, 1, -1
@@ -2008,7 +2027,8 @@ MODULE mo_nh_stepping
 
     IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
 
-  END SUBROUTINE diag_for_output_phys
+  END SUBROUTINE fill_nestlatbc_phys
+
 
   !-------------------------------------------------------------------------
   !>

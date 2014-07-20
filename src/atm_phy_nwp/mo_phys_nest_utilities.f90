@@ -1839,6 +1839,7 @@ END SUBROUTINE downscale_rad_output_rg
 SUBROUTINE interpol_phys_grf (jg,jgc,jn)
 
   USE mo_nwp_phy_state,      ONLY: prm_diag
+  USE mo_nonhydro_state,     ONLY: p_nh_state
 
   ! Input:
   INTEGER, INTENT(in) :: jg,jgc,jn
@@ -1852,7 +1853,7 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
   TYPE(t_lnd_diag),             POINTER :: ptr_ldiagc ! child level land diag state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p1=49   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p1=56   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_p2=17   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=12   ! Number of 2D land state fields
 
@@ -1897,15 +1898,15 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
      z_aux3dsn_p(:,:,:) = 0._wp
   ENDIF
 
-  i_startblk = ptr_pp%cells%start_blk(1,1)
-  i_endblk   = ptr_pp%nblks_c
+  i_startblk = ptr_pp%cells%start_block(grf_bdywidth_c+1)
+  i_endblk   = ptr_pp%cells%end_block(min_rlcell_int)
 
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
-    CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
+    CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
 
     DO jc = i_startidx, i_endidx
       z_aux3dp1_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
@@ -1952,9 +1953,12 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       z_aux3dp1_p(jc,42,jb) = prm_diag(jg)%clch(jc,jb)
       z_aux3dp1_p(jc,43,jb) = prm_diag(jg)%clct(jc,jb)
       z_aux3dp1_p(jc,44,jb) = prm_diag(jg)%cape(jc,jb)
-      z_aux3dp1_p(jc,45:47,jb) = prm_diag(jg)%tot_cld_vi(jc,jb,1:3)
-      z_aux3dp1_p(jc,48,jb) = prm_diag(jg)%swflx_up_toa(jc,jb)
-      z_aux3dp1_p(jc,49,jb) = prm_diag(jg)%swflx_up_sfc(jc,jb)
+      z_aux3dp1_p(jc,45,jb) = prm_diag(jg)%swflx_up_toa(jc,jb)
+      z_aux3dp1_p(jc,46,jb) = prm_diag(jg)%swflx_up_sfc(jc,jb)
+      z_aux3dp1_p(jc,47,jb) = prm_diag(jg)%tmax_2m(jc,jb)
+      z_aux3dp1_p(jc,48,jb) = prm_diag(jg)%tmin_2m(jc,jb)
+      z_aux3dp1_p(jc,49:51,jb) = prm_diag(jg)%tot_cld_vi(jc,jb,1:3)
+      z_aux3dp1_p(jc,52:56,jb) = p_nh_state(jg)%diag%tracer_vi(jc,jb,1:5)
 
       z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
       z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
@@ -2104,9 +2108,12 @@ SUBROUTINE interpol_phys_grf (jg,jgc,jn)
       prm_diag(jgc)%clch(jc,jb)           = z_aux3dp1_c(jc,42,jb)
       prm_diag(jgc)%clct(jc,jb)           = z_aux3dp1_c(jc,43,jb)
       prm_diag(jgc)%cape(jc,jb)           = z_aux3dp1_c(jc,44,jb)
-      prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,45:47,jb)
-      prm_diag(jgc)%swflx_up_toa(jc,jb)   = z_aux3dp1_c(jc,48,jb)
-      prm_diag(jgc)%swflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,49,jb)
+      prm_diag(jgc)%swflx_up_toa(jc,jb)   = z_aux3dp1_c(jc,45,jb)
+      prm_diag(jgc)%swflx_up_sfc(jc,jb)   = z_aux3dp1_c(jc,46,jb)
+      prm_diag(jgc)%tmax_2m(jc,jb)        = z_aux3dp1_c(jc,47,jb)
+      prm_diag(jgc)%tmin_2m(jc,jb)        = z_aux3dp1_c(jc,48,jb)
+      prm_diag(jgc)%tot_cld_vi(jc,jb,1:3) = z_aux3dp1_c(jc,49:51,jb)
+      p_nh_state(jgc)%diag%tracer_vi(jc,jb,1:5) = z_aux3dp1_c(jc,52:56,jb)
 
       prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
       prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)
@@ -2229,9 +2236,8 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
   i_startblk = ptr_pp%cells%start_blk(1,1)
   i_endblk   = ptr_pp%nblks_c
 
-  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
@@ -2244,8 +2250,8 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
       z_aux3d_p(jc,4,jb) = prm_diagp%albnirdif(jc,jb)
     ENDDO
   ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
     CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
@@ -2260,9 +2266,8 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
   ! Note: prognostic land fields are set on both time levels to safely avoid
   ! errors when radiation calls for parent and child grids are not properly 
   ! synchronized
-  ! OpenMP section commented because the DO loop does almost no work (overhead larger than benefit)
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
@@ -2277,8 +2282,8 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
       prm_diagc%albnirdif(jc,jb)   = z_aux3d_c(jc,4,jb)
     ENDDO
   ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
 END SUBROUTINE interpol_rrg_grf
 
