@@ -918,8 +918,11 @@ MODULE mo_nh_initicon
         &               glb_index, nlevs, var_out, opt_tileidx)
 
       ! Perform inverse post_op on input field, if necessary
-      !    
-      CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+      !  
+      ! SMI is skipped manually, since it is not contained in any of the ICON variable 
+      ! lists, and is thus not handled correctly by the following routine. 
+      IF( TRIM(mapped_name)/='smi' ) &
+       CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
 
     ENDIF  ! lread
 
@@ -4231,7 +4234,7 @@ MODULE mo_nh_initicon
                initicon(jg)%grp_vars_ana_default(100)  )
 
       ! Allocate atmospheric output data
-      IF ( ANY((/MODE_IFSANA, MODE_DWDANA/)==init_mode) ) THEN
+      IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE/)==init_mode) ) THEN
         ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
                  initicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
                  initicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
