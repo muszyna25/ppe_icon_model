@@ -456,7 +456,7 @@ CONTAINS
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working
     !Only for Torus runs with single domain
-    IF(atm_phy_nwp_config(1)%is_les_phy)THEN
+    IF(atm_phy_nwp_config(1)%is_les_phy .AND. is_plane_torus)THEN
       atm_phy_nwp_config(1)%lcalc_moist_integral_avg = .TRUE.
 
       IF(is_restart_run()) &

@@ -138,7 +138,8 @@ MODULE mo_nh_stepping
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
-                                         write_vertical_profiles, write_time_series
+                                         write_vertical_profiles, write_time_series, &
+                                         sampl_freq_step
                                   
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -351,7 +352,7 @@ MODULE mo_nh_stepping
     END IF
 
     !AD: Also output special diagnostics for LES on torus
-     IF(atm_phy_nwp_config(1)%is_les_phy)THEN
+     IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN
        CALL calculate_turbulent_diagnostics(                      &
                               & p_patch(1),                       & !in
                               & p_nh_state(1)%prog(nnow(1)),      &
