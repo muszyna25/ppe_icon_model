@@ -48,6 +48,7 @@ MODULE mo_read_interface
   USE mo_netcdf_read,      ONLY: netcdf_open_input, netcdf_close, &
     & netcdf_read_0D_real, netcdf_read_1D, netcdf_read_2D_time, netcdf_read_3D_time, &
     & netcdf_read_onCells_2D, netcdf_read_onCells_2D_extdim, netcdf_read_onCells_3D_extdim
+  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data
 
 
   !-------------------------------------------------------------------------
@@ -79,6 +80,12 @@ MODULE mo_read_interface
     TYPE(t_patch), POINTER :: patch ! the patch associated with the stream
   END TYPE t_stream_id
   !--------------------------------------------------------
+
+  TYPE t_read_info
+    TYPE(t_distrib_read_data) :: dist_read_info
+    INTEGER :: n_g
+    INTEGER, POINTER :: glb_index(:)
+  END TYPE t_read_info
 
   INTERFACE read_0D_real
     MODULE PROCEDURE read_REAL_0D_filename
