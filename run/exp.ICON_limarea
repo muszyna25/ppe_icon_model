@@ -36,8 +36,8 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2013-04-01T00:00:00Z" 
-end_date="2013-05-01T00:00:00Z"
+start_date="2013-04-09T00:00:00Z" 
+end_date="2013-04-09T06:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -64,19 +64,20 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 LAMDATA=/pool/data/ICON/ICON-DE
 #
 grids_folder='/pool/data/ICON/ICON-DE/GRIDS'
-atmo_dyn_grids='icon_grid_hdcp2_germany_680km-diam_1250m.nc'
+gridname=hdcp2_nestgermany_776km_diam_1250m
+atmo_dyn_grids="${gridname}.nc"
 #
 #LATBC PATH
 LATBC_PATH=$LAMDATA/NUDG_germany/1250/
 #
 #EXT DATA
 ext_data_path=$LAMDATA/EXTPAR
-add_link_file $ext_data_path/extpar_hdcp2_germany_680km-diam_1250m.nc extpar_icon_grid_hdcp2_germany_680km-diam_1250m.nc 
+add_link_file $ext_data_path/extpar_${gridname}.nc  extpar_${gridname}.nc
 
 #INITIAL DATA
-init_data_path=$LAMDATA/INIT_germany/1250
-add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040100.nc ifs2icon_R2B11_DOM01.nc
-add_link_file $init_data_path/prephdcp2_germany_680km-diam_1250m_2013040100.nc dwdFG_R2B11_DOM01.nc
+init_data_path=$LAMDATA/INIT_germany
+add_link_file $init_data_path/1250/init_${gridname}_2013040900.nc ifs2icon_R2B11_DOM01.nc
+add_link_file $init_data_path/1250/init_${gridname}_2013040900.nc dwdFG_R2B11_DOM01.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -129,7 +130,7 @@ cat > ${atmo_namelist} << EOF
  dtime_latbc     = 10800.
  nlev_latbc      = ${nlev}
  latbc_path      = '${LATBC_PATH}'
- latbc_filename  = 'prep1250miconR2B11_DOM01_<y><m><d><h>.nc'
+ latbc_filename  = 'latbc_${gridname}_<y><m><d><h>.nc'
 ! latbc_ifs_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
 ! latbc_icon_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
 ! latbc_dwdana_filename  = '<path>gaf<y><m><d><h>.grb'
@@ -227,55 +228,50 @@ lsq_high_ord      = 2
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
  lkeep_in_sync    = .true.
 /
+!&output_nml
+! output_start     = "${start_date}"
+! output_end       = "${end_date}"
+! output_interval  = "PT01H"
+! file_interval    = "P01D"
+! include_last     = .TRUE.
+! output_filename  = '${EXPNAME}_ll'
+! ml_varlist       = 'w','pres','pres_sfc','u','v','temp','theta_v','qv','qc','qr','tkvh',
+!                     'umfl_s','lhfl_s','shfl_s','clc','t_g'
+! remap            = 1
+! reg_lon_def      =  6.,0.01,15.
+! reg_lat_def      = 48.,0.01, 53.
+! output_grid      = .TRUE.
+!/
 &output_nml
- filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT01H"
  file_interval    = "P01D"
  include_last     = .TRUE.
- output_filename  = '${EXPNAME}_ll'
- ml_varlist       = 'w','pres','pres_sfc','u','v','temp','topography_c','theta_v','z_mc','z_ifc','qv','tkvh',
-                     'umfl_s','clc','t_g'
- remap            = 1
- reg_lon_def      =  6.,0.01,15.
- reg_lat_def      = 48.,0.01, 53.
+ output_filename  = '${EXPNAME}'
+ ml_varlist       = 'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'theta_v','rho','exner',
+                     'qv','qc','qr','group:pbl_vars','gz0','group:phys_tendencies',
+                     'group:rad_vars','vn','umfl_s','vmfl_s'
  output_grid      = .TRUE.
 /
-!&output_nml
-! filename_format  = "<output_filename>_<datetime2>"
-! output_start     = "${start_date}"
-! output_end       = "${end_date}"
-! output_interval  = "PT03H"
-! file_interval    = "P01D"
-! include_last     = .TRUE.
-! output_filename  = '${EXPNAME}'
-! ml_varlist       = 'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'topography_c','theta_v', 
-!                     'z_mc','z_ifc','t_g','group:pbl_vars','gz0','tke','tkvh','group:phys_tendencies',
-!                      'qv','vn','umfl_s','vmfl_s'
-! output_grid      = .TRUE.
-!/
-!&output_nml
-! filename_format  = "<output_filename>_<datetime2>"
-! output_start     = "${start_date}"
-! output_end       = "${end_date}"
-! output_interval  = "PT15M"
-! file_interval    = "P01D"
-! include_last     = .TRUE.
-! output_filename  = 'radar'
-! ml_varlist       = 'z_radar_850','tot_prec'
-! output_grid      = .TRUE.
-!/
 &output_nml
- filename_format  = "<output_filename>_<datetime2>"
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT01H"
+ output_interval  = "PT30M"
  file_interval    = "P01D"
  include_last     = .TRUE.
- output_filename  = 'precip'
- ml_varlist       = 'tot_qv_dia','tot_qc_dia','tot_qi_dia','tqv','tqc','tqi','w','qr','qs','clc','pres',
-                     'pres_sfc','temp','group:rad_vars'
+ output_filename  = 'cloud_diag'
+ ml_varlist       = 'group:cloud_diag','group:additional_precip_vars','group:precip_vars'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT10M"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'land_vars'
+ ml_varlist       = 'group:land_vars','t_s','t_seasfc','group:snow_vars'
  output_grid      = .TRUE.
 /
 &extpar_nml
