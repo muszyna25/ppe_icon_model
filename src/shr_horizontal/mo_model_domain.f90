@@ -325,8 +325,6 @@ MODULE mo_model_domain
     ! indices of child triangles:
     ! index2=1,4
     INTEGER, ALLOCATABLE :: child(:,:)
-    ! domain ID of child triangles:
-    INTEGER, ALLOCATABLE :: child_id(:)
     ! physical domain ID of triangles
     ! (may differ from the "normal" domain ID in case of domain merging):
     INTEGER, ALLOCATABLE :: phys_id(:)
@@ -577,8 +575,6 @@ MODULE mo_model_domain
     ! indices of child edges:
     ! index2=1,4
     INTEGER, ALLOCATABLE :: child(:,:)
-    ! domain ID of child edges:
-    INTEGER, ALLOCATABLE :: child_id(:)
 
     ! indices of adjacent cells:
     ! index2=1,2

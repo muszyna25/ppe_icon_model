@@ -974,14 +974,12 @@ CONTAINS
         idx_no(wrk_p_patch_pre%cells%child(jg,1:4))
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = &
         blk_no(wrk_p_patch_pre%cells%child(jg,1:4))
-      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_pre%cells%child_id(jg)
 
       wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges( &
         wrk_p_patch%cells%decomp_info%glb_index(j))
       wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jg)%lat
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jg)%lon
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jg)
-      wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_pre%cells%child_id(jg)
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows
@@ -1013,7 +1011,6 @@ CONTAINS
       wrk_p_patch%edges%parent_blk(jl,jb)    = blk_no(jpg)
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
-      wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jg)
 
       wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jg)
     ENDDO

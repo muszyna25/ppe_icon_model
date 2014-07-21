@@ -1206,27 +1206,6 @@ CONTAINS
       ! patch_pre%cells%child(:,:)
       CALL nf(nf_inq_varid(ncid, 'child_cell_index', varid))
       CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%child(:,:)))
-      ! patch_pre%cells%child_id(:,:)
-      CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
-      CALL nf(nf_get_var_int(ncid, varid, patch_pre%cells%child_id(:)))
-
-      ! Preparation: In limited-area mode, check if child domain ID's read
-      ! from the grid files need to be shifted
-      IF (ig == 1 .AND. l_limited_area .AND. patch_pre%n_childdom>0) THEN
-        ! domain ID of first nested domain should be 2
-!        ishift_child_id = patch_pre%cells%child_id(start_idx_c(grf_bdyintp_start_c,1),1) - 2
-        ishift_child_id = MINVAL(patch_pre%cells%child_id(:),MASK=patch_pre%cells%child_id(:)>0) - 2
-        WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
-        CALL message ('', TRIM(message_text))
-      ENDIF
-
-      IF(ishift_child_id /= 0 .AND. patch_pre%n_childdom>0) THEN
- !       DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch_pre%n_childdom)
- !         patch_pre%cells%child_id(jc) = patch_pre%cells%child_id(jc) - ishift_child_id
- !       ENDDO
-        WHERE (patch_pre%cells%child_id(:) > 0) patch_pre%cells%child_id(:) = &
-          patch_pre%cells%child_id(:) - ishift_child_id
-      ENDIF
 
     ELSE
       CALL message ('read_patch',&
@@ -1250,16 +1229,6 @@ CONTAINS
     IF(ANY(patch_pre%edges%child(:,1:4)<0)) THEN
       CALL finish (TRIM(method_name), &
         & 'negative child edge indices detected - patch files are too old')
-    ENDIF
-
-    ! patch_pre%edges%child_id(:)
-    CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
-    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%child_id(:)))
-
-    IF(ishift_child_id /= 0 .AND. patch_pre%n_childdom>0) THEN
-      WHERE (patch_pre%edges%child_id(:) > 0) &
-        patch_pre%edges%child_id(:) = &
-          patch_pre%edges%child_id(:) - ishift_child_id
     ENDIF
 
     ! patch_pre%edges%refin_ctrl(:)
@@ -1456,6 +1425,42 @@ CONTAINS
     ENDIF
 #endif
 
+    !------------------------------------------
+    ! nesting/lateral boundary indexes
+    IF (max_cell_connectivity == 3) THEN ! triangular grid
+
+      ! patch%cells%child_id(:,:)
+      CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+
+      ! Preparation: In limited-area mode, check if child domain ID's read
+      ! from the grid files need to be shifted
+      IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
+        ! domain ID of first nested domain should be 2
+!        ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
+        ishift_child_id = MINVAL(array_c_int(:,1),MASK=array_c_int(:,1)>0) - 2
+        WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
+        CALL message ('', TRIM(message_text))
+      ENDIF
+
+      IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
+ !       DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,patch%n_childdom)
+ !         array_c_int(jc, 1) = array_c_int(jc, 1) - ishift_child_id
+ !       ENDDO
+        WHERE (array_c_int(:,1) > 0) &
+          array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
+      ENDIF
+
+    ELSE
+      CALL message ('read_remaining_patch',&
+        & 'nesting incompatible with non-triangular grid')
+    ENDIF
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index,  &
+        &              p_p%cells%child_id(:,:) )
+    ENDDO
+
     CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
     ! 'phys_cell_id' seems not to be set for patch 0 and 1, it is always ig in this case
@@ -1490,6 +1495,19 @@ CONTAINS
         & p_p%cells%area(:,:) )
     ENDDO
 
+    ! p_p%edges%child_id(:)
+    CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+
+    IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
+      WHERE (array_e_int(:,1) > 0) &
+        array_e_int(:,1) = array_e_int(:,1) - ishift_child_id
+    ENDIF
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(patch, id_lp, ip)
+      CALL divide_int(array_e_int(:,1), p_p%n_patch_edges, &
+        &             p_p%edges%decomp_info%glb_index, p_p%edges%child_id(:,:))
+    ENDDO
 
     ! p_p%edges%phys_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))

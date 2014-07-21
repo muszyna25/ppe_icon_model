@@ -625,7 +625,6 @@ CONTAINS
     ALLOCATE( p_patch_pre%cells%num_edges(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%parent(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%child(p_patch_pre%n_patch_cells_g,4) )
-    ALLOCATE( p_patch_pre%cells%child_id(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%neighbor(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%edge(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
@@ -640,7 +639,6 @@ CONTAINS
     !
     ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%child(p_patch_pre%n_patch_edges_g,4) )
-    ALLOCATE( p_patch_pre%edges%child_id(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%refin_ctrl(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%cell(p_patch_pre%n_patch_edges_g,2) )
     ALLOCATE( p_patch_pre%edges%start(min_rledge:max_rledge) )
@@ -660,7 +658,6 @@ CONTAINS
     p_patch_pre%cells%num_edges = 0
     p_patch_pre%cells%parent = 0
     p_patch_pre%cells%child = 0
-    p_patch_pre%cells%child_id = 0
     p_patch_pre%cells%phys_id = 0
     p_patch_pre%cells%neighbor = 0
     p_patch_pre%cells%edge = 0
@@ -673,7 +670,6 @@ CONTAINS
 
     p_patch_pre%edges%parent = 0
     p_patch_pre%edges%child = 0
-    p_patch_pre%edges%child_id = 0
     p_patch_pre%edges%cell = 0
     p_patch_pre%edges%refin_ctrl = 0
     p_patch_pre%edges%start = 0
@@ -781,7 +777,6 @@ CONTAINS
     DEALLOCATE( p_patch_pre%cells%num_edges )
     DEALLOCATE( p_patch_pre%cells%parent )
     DEALLOCATE( p_patch_pre%cells%child )
-    DEALLOCATE( p_patch_pre%cells%child_id )
     DEALLOCATE( p_patch_pre%cells%neighbor )
     DEALLOCATE( p_patch_pre%cells%edge )
     DEALLOCATE( p_patch_pre%cells%vertex )
@@ -794,7 +789,6 @@ CONTAINS
     !
     DEALLOCATE( p_patch_pre%edges%parent )
     DEALLOCATE( p_patch_pre%edges%child )
-    DEALLOCATE( p_patch_pre%edges%child_id )
     DEALLOCATE( p_patch_pre%edges%cell )
     DEALLOCATE( p_patch_pre%edges%refin_ctrl )
     DEALLOCATE( p_patch_pre%edges%start )
