@@ -96,8 +96,7 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
-                                   t_pre_grid_edges, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info
@@ -113,7 +112,6 @@ MODULE mo_model_domimp_patches
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level
   USE mo_master_control,     ONLY: my_process_is_ocean
-  USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_e
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
