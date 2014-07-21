@@ -198,10 +198,6 @@ CONTAINS
       ! Set communication patterns for gathering on proc 0
       CALL set_comm_pat_gather(patch(jg))
 
-      CALL set_owner_mask(patch(jg)%cells%decomp_info)
-      CALL set_owner_mask(patch(jg)%verts%decomp_info)
-      CALL set_owner_mask(patch(jg)%edges%decomp_info)
-
       IF(jg == n_dom_start) THEN
         ! parent_idx/blk is set to 0 since it just doesn't exist,
         patch(jg)%cells%parent_idx = 0
@@ -235,10 +231,6 @@ CONTAINS
 
         CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
           &                   patch(jg)%parent_child_index)
-
-        CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
-        CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
-        CALL set_owner_mask(p_patch_local_parent(jg)%edges%decomp_info)
       ENDIF
 
     ENDDO
@@ -273,25 +265,6 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE finalize_decomposition
-
-  !-----------------------------------------------------------------------------
-  !>
-  !! Sets the owner mask
-  SUBROUTINE set_owner_mask(decomp_info)
-
-    TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
-
-    INTEGER :: j, jb, jl
-
-    decomp_info%owner_mask = .false.
-
-    DO j = 1, SIZE(decomp_info%glb_index)
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-      decomp_info%owner_mask(jl,jb) = decomp_info%owner_local(j) == p_pe_work
-    ENDDO
-  END SUBROUTINE set_owner_mask
 
   !-------------------------------------------------------------------------------------------------
   !>

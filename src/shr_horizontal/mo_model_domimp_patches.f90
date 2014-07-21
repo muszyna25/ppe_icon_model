@@ -98,7 +98,9 @@ MODULE mo_model_domimp_patches
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
                                    t_pre_grid_edges, p_patch_local_parent
-  USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_valid_local_index
+  USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
+    &                              get_valid_local_index, &
+    &                              t_grid_domain_decomp_info
   USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domimp_setup, ONLY: init_quad_twoadjcells, init_coriolis, &
     & set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
@@ -125,6 +127,7 @@ MODULE mo_model_domimp_patches
   USE mo_math_constants,     ONLY: pi
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
+  USE mo_mpi,                ONLY: p_pe_work
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
@@ -435,6 +438,17 @@ CONTAINS
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp )
     ENDDO
 
+    DO jg = n_dom_start, n_dom
+      CALL set_owner_mask(patch(jg)%cells%decomp_info)
+      CALL set_owner_mask(patch(jg)%verts%decomp_info)
+      CALL set_owner_mask(patch(jg)%edges%decomp_info)
+      IF (jg > n_dom_start) THEN
+        CALL set_owner_mask(p_patch_local_parent(jg)%cells%decomp_info)
+        CALL set_owner_mask(p_patch_local_parent(jg)%verts%decomp_info)
+        CALL set_owner_mask(p_patch_local_parent(jg)%edges%decomp_info)
+      END IF
+    ENDDO
+
     ! rescale grids
     DO jg = n_dom_start, n_dom
       CALL rescale_grid( patch(jg), grid_length_rescale_factor  )
@@ -480,6 +494,25 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE complete_patches
+
+  !-----------------------------------------------------------------------------
+  !>
+  !! Sets the owner mask
+  SUBROUTINE set_owner_mask(decomp_info)
+
+    TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
+
+    INTEGER :: j, jb, jl
+
+    decomp_info%owner_mask = .false.
+
+    DO j = 1, SIZE(decomp_info%glb_index)
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+      decomp_info%owner_mask(jl,jb) = decomp_info%owner_local(j) == p_pe_work
+    ENDDO
+  END SUBROUTINE set_owner_mask
   !-------------------------------------------------------------------------
 
 
