@@ -137,11 +137,11 @@ CONTAINS
     nold(1) = 1
     nnew(1) = 1
     !---------------------------------------------------------------------
-    stream_id = openInputFile(fileName, read_netcdf_broadcast_method, &
-      &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
+    stream_id = openInputFile(fileName, patch_2d, read_netcdf_broadcast_method)
 
     CALL read_3D_time(                        &
       & stream_id=stream_id,                  &
+      & location=onCells,                     &
       & variable_name="t_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
@@ -151,6 +151,7 @@ CONTAINS
 
     CALL read_3D_time(                        &
       & stream_id=stream_id,                  &
+      & location=onCells,                     &
       & variable_name="s_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
@@ -160,6 +161,7 @@ CONTAINS
 
     CALL read_2D_time(                        &
       & stream_id=stream_id,                  &
+      & location=onCells,                     &
       & variable_name="h_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &

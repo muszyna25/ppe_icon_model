@@ -62,11 +62,11 @@ CONTAINS
 
 
     !---------------------------------------------------------------------
-    stream_id = openInputFile(initialState_InputFileName, &
-      &                       read_netcdf_broadcast_method, &
-      &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
+    stream_id = openInputFile(initialState_InputFileName, patch_2d, &
+      &                       read_netcdf_broadcast_method)
 
-    CALL read_3D_time( stream_id=stream_id, variable_name="T", return_pointer=T )
+    CALL read_3D_time( stream_id=stream_id, location=onCells, &
+      &                variable_name="T", return_pointer=T )
 
     CALL closeFile(stream_id)
 
@@ -81,11 +81,11 @@ CONTAINS
       & write_array=T,                             &
       & patch=patch_2d )
 
-    stream_id = openInputFile(OutputFileName, read_netcdf_broadcast_method, &
-      &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
+    stream_id = openInputFile(OutputFileName, patch_2d, &
+      &                       read_netcdf_broadcast_method)
 
-    CALL read_3D_time( stream_id=stream_id, variable_name="T", &
-      &                return_pointer=T_check )
+    CALL read_3D_time( stream_id=stream_id, location=onCells, &
+      &                variable_name="T", return_pointer=T_check )
     IF ( MAXVAL(ABS(T - T_check )) > 0.0_wp ) &
       CALL finish(method_name, "Check failed")
 

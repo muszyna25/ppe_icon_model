@@ -40,7 +40,8 @@ MODULE mo_read_interface
     &                            netcdf_read_3D_extdim, netcdf_read_0D_real, &
     &                            netcdf_read_1D, netcdf_read_2D_time, &
     &                            netcdf_read_3D_time
-  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data
+  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open
+  USE mo_model_domain, ONLY: t_patch
 
 
   !-------------------------------------------------------------------------
@@ -60,19 +61,30 @@ MODULE mo_read_interface
   PUBLIC :: read_2D_extdim
   PUBLIC :: read_3D_extdim
 
-  !--------------------------------------------------------
-  TYPE t_stream_id
-    INTEGER  :: file_id             ! netcdf file id, or similar
-    INTEGER  :: return_status       ! the latest operation return status
-    INTEGER  :: input_method        ! read_netcdf_broadcast_method,
-                                    ! read_netcdf_distribute_method, etc
+  PUBLIC :: onCells, onVertices, onEdges
 
+  !--------------------------------------------------------
+
+  INTEGER, PARAMETER :: onCells = 1
+  INTEGER, PARAMETER :: onVertices = 2
+  INTEGER, PARAMETER :: onEdges = 3
+
+  TYPE t_read_info
     ! data required for read_netcdf_distribute_method
     TYPE(t_distrib_read_data), POINTER :: dist_read_info
 
     ! data required for read_netcdf_broadcast_method
     INTEGER :: n_g
     INTEGER, POINTER :: glb_index(:)
+  END TYPE
+
+  TYPE t_stream_id
+    INTEGER  :: file_id             ! netcdf file id, or similar
+    INTEGER  :: return_status       ! the latest operation return status
+    INTEGER  :: input_method        ! read_netcdf_broadcast_method,
+                                    ! read_netcdf_distribute_method, etc
+
+    TYPE(t_read_info) :: read_info(3)
   END TYPE t_stream_id
   !--------------------------------------------------------
 
@@ -205,10 +217,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE read_dist_REAL_2D_streamid(stream_id, variable_name, fill_array, &
-    &                              return_pointer)
+  SUBROUTINE read_dist_REAL_2D_streamid(stream_id, location, variable_name, &
+    &                                   fill_array, return_pointer)
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:)
     define_return_pointer        :: return_pointer(:,:)
@@ -220,8 +233,9 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => netcdf_read_2D(stream_id%file_id, variable_name, &
-        &                           fill_array, stream_id%n_g, &
-        &                           stream_id%glb_index)
+        &                           fill_array, &
+        &                           stream_id%read_info(location)%n_g, &
+        &                           stream_id%read_info(location)%glb_index)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
@@ -237,19 +251,22 @@ CONTAINS
   !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  SUBROUTINE read_dist_REAL_2D_time_streamid(stream_id, variable_name, &
-    &                                        fill_array, return_pointer, &
-    &                                        start_timestep, end_timestep)
+  SUBROUTINE read_dist_REAL_2D_time_streamid(stream_id, location, &
+    &                                        variable_name, fill_array, &
+    &                                        return_pointer, start_timestep, &
+    &                                        end_timestep)
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target   :: fill_array(:,:,:)
     define_return_pointer        :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
     CALL read_dist_REAL_2D_1extdim_streamid(&
-      & stream_id=stream_id, variable_name=variable_name, fill_array=fill_array, &
-      & return_pointer=return_pointer, start_extdim=start_timestep, &
-      & end_extdim=end_timestep, extdim_name="time" )
+      & stream_id=stream_id, location=location, variable_name=variable_name, &
+      & fill_array=fill_array, return_pointer=return_pointer, &
+      & start_extdim=start_timestep, end_extdim=end_timestep, &
+      & extdim_name="time" )
 
   END SUBROUTINE read_dist_REAL_2D_time_streamid
   !-------------------------------------------------------------------------
@@ -260,12 +277,13 @@ CONTAINS
   !      c-style(ncdump): O3(time, n) fortran-style: O3(n, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  SUBROUTINE read_dist_REAL_2D_1extdim_streamid(stream_id, variable_name, &
-    &                                           fill_array, return_pointer, &
-    &                                           start_extdim, end_extdim, &
-    &                                           extdim_name )
+  SUBROUTINE read_dist_REAL_2D_1extdim_streamid(stream_id, location, &
+    &                                           variable_name, fill_array, &
+    &                                           return_pointer, start_extdim, &
+    &                                           end_extdim, extdim_name )
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:)
     define_return_pointer        :: return_pointer(:,:,:)
@@ -280,7 +298,8 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
          & netcdf_read_2D_extdim(stream_id%file_id, variable_name, fill_array, &
-         & stream_id%n_g, stream_id%glb_index, start_extdim, end_extdim, &
+         & stream_id%read_info(location)%n_g, &
+         & stream_id%read_info(location)%glb_index, start_extdim, end_extdim, &
          & extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -297,12 +316,13 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, n) fortran-style: O3(n, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  SUBROUTINE read_dist_REAL_3D_time_streamid(stream_id, variable_name, &
-    &                                        fill_array, return_pointer, &
-    &                                        start_timestep, end_timestep, &
-    &                                        levelsDimName)
+  SUBROUTINE read_dist_REAL_3D_time_streamid(stream_id, location, &
+    &                                        variable_name, fill_array, &
+    &                                        return_pointer, start_timestep, &
+    &                                        end_timestep, levelsDimName)
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target            :: fill_array(:,:,:,:)
     define_return_pointer        :: return_pointer(:,:,:,:)
@@ -311,6 +331,7 @@ CONTAINS
 
     CALL read_dist_REAL_3D_1extdim_streamid( &
       & stream_id=stream_id,                 &
+      & location=location,                   &
       & variable_name=variable_name,         &
       & fill_array=fill_array,               &
       & return_pointer=return_pointer,       &
@@ -328,12 +349,14 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, n) fortran-style: O3(n, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  SUBROUTINE read_dist_REAL_3D_1extdim_streamid(stream_id, variable_name, &
-    &                                           fill_array, return_pointer, &
-    &                                           start_extdim, end_extdim, &
-    &                                           levelsDimName, extdim_name )
+  SUBROUTINE read_dist_REAL_3D_1extdim_streamid(stream_id, location, &
+    &                                           variable_name, fill_array, &
+    &                                           return_pointer, start_extdim, &
+    &                                           end_extdim, levelsDimName, &
+    &                                           extdim_name )
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    INTEGER, INTENT(IN)          :: location
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:,:)
     define_return_pointer        :: return_pointer(:,:,:,:)
@@ -348,7 +371,8 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
          & netcdf_read_3D_extdim(stream_id%file_id, variable_name, &
-         & fill_array, stream_id%n_g, stream_id%glb_index, &
+         & fill_array, stream_id%read_info(location)%n_g, &
+         & stream_id%read_info(location)%glb_index, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -362,35 +386,65 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, input_method, n_g, &
-    &                                           glb_index, dist_read_info)
+  TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, patch, input_method)
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER, INTENT(IN) :: input_method
-
-    TYPE(t_distrib_read_data), OPTIONAL, POINTER :: dist_read_info
-    INTEGER, OPTIONAL, INTENT(IN) :: n_g
-    INTEGER, OPTIONAL, POINTER :: glb_index(:)
+    TYPE(t_patch), INTENT(INOUT) :: patch
+    INTEGER, OPTIONAL, INTENT(IN) :: input_method
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:openInputFile_dist'
 
-    openInputFile_dist%input_method = input_method
+    IF (PRESENT(input_method)) THEN
+      openInputFile_dist%input_method = input_method
+    ELSE
+      openInputFile_dist%input_method = default_read_method
+    END IF
 
     SELECT CASE(openInputFile_dist%input_method)
     CASE (read_netcdf_broadcast_method)
-      IF ((.NOT. PRESENT(n_g)) .OR. (.NOT. PRESENT(glb_index))) &
-        CALL finish(method_name, &
-          &         "input method read_netcdf_broadcast_method: " // &
-          &         "n_g or glb_index is missing")
+
       openInputFile_dist%file_id = netcdf_open_input(filename)
-      openInputFile_dist%n_g = n_g
-      openInputFile_dist%glb_index = glb_index
+
+      openInputFile_dist%read_info(onCells)%n_g = patch%n_patch_cells_g
+      openInputFile_dist%read_info(onCells)%glb_index = &
+        patch%cells%decomp_info%glb_index
+      NULLIFY(openInputFile_dist%read_info(onCells)%dist_read_info)
+
+      openInputFile_dist%read_info(onEdges)%n_g = patch%n_patch_edges_g
+      openInputFile_dist%read_info(onEdges)%glb_index = &
+        patch%edges%decomp_info%glb_index
+      NULLIFY(openInputFile_dist%read_info(onEdges)%dist_read_info)
+
+      openInputFile_dist%read_info(onVertices)%n_g = patch%n_patch_verts_g
+      openInputFile_dist%read_info(onVertices)%glb_index = &
+        patch%verts%decomp_info%glb_index
+      NULLIFY(openInputFile_dist%read_info(onVertices)%dist_read_info)
+
     CASE (read_netcdf_distribute_method)
-      IF (.NOT. PRESENT(dist_read_info)) &
-        CALL finish(method_name, &
-          &         "input method read_netcdf_distribute_method: " // &
-          &         "dist_read_info is missing")
-      openInputFile_dist%dist_read_info = dist_read_info
+
+      CALL finish(method_name, "read_netcdf_distribute_method input_method" // &
+        &         "not yet supported")
+
+      openInputFile_dist%file_id = distrib_nf_open(TRIM(filename))
+
+      ! this is not yet part of t_patch
+      ! openInputFile_dist%read_info(onCells)%dist_read_info = &
+      !  patch%cells%dist_read_info
+      openInputFile_dist%read_info(onCells)%n_g = -1
+      NULLIFY(openInputFile_dist%read_info(onCells)%glb_index)
+
+      ! this is not yet part of t_patch
+      ! openInputFile_dist%read_info(onVertices)%dist_read_info = &
+      !  patch%verts%dist_read_info
+      openInputFile_dist%read_info(onVertices)%n_g = -1
+      NULLIFY(openInputFile_dist%read_info(onVertices)%glb_index)
+
+      ! this is not yet part of t_patch
+      ! openInputFile_dist%read_info(onEdges)%dist_read_info = &
+      !  patch%edges%dist_read_info
+      openInputFile_dist%read_info(onEdges)%n_g = -1
+      NULLIFY(openInputFile_dist%read_info(onEdges)%glb_index)
+
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT

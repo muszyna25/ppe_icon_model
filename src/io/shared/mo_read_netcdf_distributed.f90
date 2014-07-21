@@ -220,11 +220,9 @@ CONTAINS
   
   !-------------------------------------------------------------------------
   
-  SUBROUTINE distrib_nf_open(path, omode, ncid)
+  INTEGER FUNCTION distrib_nf_open(path)
     
     CHARACTER(LEN=*), INTENT(in) :: path
-    INTEGER, INTENT(in) :: omode
-    INTEGER, INTENT(out) :: ncid
     
     INTEGER :: n_io_processes, io_process_stride
     
@@ -232,12 +230,12 @@ CONTAINS
     io_process_stride = (p_n_work + n_io_processes - 1) / n_io_processes
     
     IF (MOD(p_pe_work, io_process_stride) == 0) THEN
-      CALL nf(nf_open(path, omode, ncid))
+      CALL nf(nf_open(path, nf_nowrite, distrib_nf_open))
     ELSE
-      ncid = -1
+      distrib_nf_open = -1
     END IF
     
-  END SUBROUTINE distrib_nf_open
+  END FUNCTION distrib_nf_open
   
   !-------------------------------------------------------------------------
   
