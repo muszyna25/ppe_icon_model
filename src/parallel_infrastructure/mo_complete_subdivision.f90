@@ -198,24 +198,7 @@ CONTAINS
       ! Set communication patterns for gathering on proc 0
       CALL set_comm_pat_gather(patch(jg))
 
-      IF(jg == n_dom_start) THEN
-        ! parent_idx/blk is set to 0 since it just doesn't exist,
-        patch(jg)%cells%parent_idx = 0
-        patch(jg)%cells%parent_blk = 0
-        patch(jg)%edges%parent_idx = 0
-        patch(jg)%edges%parent_blk = 0
-
-        ! For parallel runs, child_idx/blk is set to 0 since it makes
-        ! sense only on the local parent
-        IF (.NOT. my_process_is_mpi_parallel() .OR. &
-            is_ocean_decomposition) THEN
-          patch(jg)%cells%child_idx  = 0
-          patch(jg)%cells%child_blk  = 0
-          patch(jg)%edges%child_idx  = 0
-          patch(jg)%edges%child_blk  = 0
-        END IF
-
-      ELSE
+      IF (jg > n_dom_start) THEN
 
         ! Note: The following call is deprecated and will be removed.
         !
@@ -226,8 +209,6 @@ CONTAINS
 
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
         CALL set_comm_pat_gather(p_patch_local_parent(jg))
-
-        CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg))
 
         CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
           &                   patch(jg)%parent_child_index)
@@ -444,155 +425,6 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE remap_patch_indices
-
-  !-------------------------------------------------------------------------------------------------
-  !
-  !> Sets parent_idx/blk in child and child_idx/blk in parent patches.
-
-  SUBROUTINE set_parent_child_relations(p_pp, p_pc)
-
-    TYPE(t_patch), INTENT(INOUT) :: p_pp   !> divided local parent patch
-    TYPE(t_patch), INTENT(INOUT) :: p_pc   !> divided child patch
-
-    INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g
-
-    ! Before this call, parent_idx/parent_blk and child_idx/child_blk still point to the global values.
-    ! This is changed here.
-
-    ! Attention:
-    ! Only inner cells/edges get a valid child index,
-    ! indexes for boundary cells/edges are not set.
-    ! Therefore when these indexes are used, the code must assure that they are
-    ! used only for inner cells/edges!
-    ! The main reason for this is that - depending on the number of ghost rows -
-    ! there are cells/edges in the parent boundary with missing childs (n_ghost_rows==1)
-
-    ! Set child indices in parent ...
-
-    ! ... cells
-
-    DO j = 1, p_pp%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      IF(p_pp%cells%decomp_info%decomp_domain(jl,jb)>0) THEN
-        p_pp%cells%child_idx(jl,jb,:) = 0
-        p_pp%cells%child_blk(jl,jb,:) = 0
-        CYCLE
-      ENDIF
-
-      DO i= 1, 4
-        jc_g = idx_1d(p_pp%cells%child_idx(jl,jb,i),p_pp%cells%child_blk(jl,jb,i))
-        IF(jc_g<1 .OR. jc_g>p_pc%n_patch_cells_g) &
-          & CALL finish('set_parent_child_relations','Invalid cell child index in global parent')
-        jc = get_local_index(p_pc%cells%decomp_info%glb2loc_index, jc_g)
-        IF(jc <= 0) &
-          & CALL finish('set_parent_child_relations','cell child index outside child domain')
-        p_pp%cells%child_blk(jl,jb,i) = blk_no(jc)
-        p_pp%cells%child_idx(jl,jb,i) = idx_no(jc)
-      ENDDO
-
-    ENDDO
-
-    ! ... edges
-
-    DO j = 1, p_pp%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      IF(p_pp%edges%decomp_info%decomp_domain(jl,jb)>1) THEN
-        p_pp%edges%child_idx(jl,jb,:) = 0
-        p_pp%edges%child_blk(jl,jb,:) = 0
-        CYCLE ! only inner edges get a valid parent index
-      ENDIF
-
-      DO i= 1, 4
-
-        IF(i==4 .AND. p_pp%edges%refin_ctrl(jl,jb) == -1) THEN
-          p_pp%edges%child_blk(jl,jb,i) = blk_no(0)
-          p_pp%edges%child_idx(jl,jb,i) = idx_no(0)
-          CYCLE
-        ENDIF
-
-        jc_g = idx_1d(p_pp%edges%child_idx(jl,jb,i),p_pp%edges%child_blk(jl,jb,i))
-        jc = get_valid_local_index(p_pc%edges%decomp_info%glb2loc_index, &
-          &                        jc_g, .TRUE.)
-        IF(jc == 0) &
-          & CALL finish('set_parent_child_relations','edge child index outside child domain')
-        p_pp%edges%child_blk(jl,jb,i) = blk_no(jc)
-        p_pp%edges%child_idx(jl,jb,i) = SIGN(idx_no(jc),jc_g)
-      ENDDO
-
-      p_pp%edges%child_id(jl,jb) = p_pc%id
-
-    ENDDO
-
-    ! Set parent indices in child ...
-
-    ! ... cells
-
-    DO j = 1, p_pc%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jp_g = idx_1d(p_pc%cells%parent_idx(jl,jb),p_pc%cells%parent_blk(jl,jb))
-      IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
-        & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
-
-      jp = get_local_index(p_pp%cells%decomp_info%glb2loc_index, jp_g)
-      IF(jp <= 0) THEN
-        p_pc%cells%parent_blk(jl,jb) = 0
-        p_pc%cells%parent_idx(jl,jb) = 0
-      ELSE
-        p_pc%cells%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%cells%parent_idx(jl,jb) = idx_no(jp)
-      ENDIF
-
-    ENDDO
-
-    ! ... edges
-
-    DO j = 1, p_pc%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jp_g = idx_1d(p_pc%edges%parent_idx(jl,jb),p_pc%edges%parent_blk(jl,jb))
-      IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
-        & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
-
-      jp = get_local_index(p_pp%edges%decomp_info%glb2loc_index, jp_g)
-      IF(jp <= 0) THEN
-        p_pc%edges%parent_blk(jl,jb) = 0
-        p_pc%edges%parent_idx(jl,jb) = 0
-      ELSE
-        p_pc%edges%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%edges%parent_idx(jl,jb) = idx_no(jp)
-      ENDIF
-
-    ENDDO
-
-    ! Although this is not really necessary, we set the child index in child
-    ! and the parent index in parent to 0 since these have no significance
-    ! in the parallel code (and must not be used as they are).
-
-    IF (my_process_is_mpi_parallel()) THEN
-      p_pc%cells%child_idx  = 0
-      p_pc%cells%child_blk  = 0
-      p_pp%cells%parent_idx = 0
-      p_pp%cells%parent_blk = 0
-
-      p_pc%edges%child_idx  = 0
-      p_pc%edges%child_blk  = 0
-      p_pp%edges%parent_idx = 0
-      p_pp%edges%parent_blk = 0
-    END IF
-
-  END SUBROUTINE set_parent_child_relations
-
 
   !-------------------------------------------------------------------------------------------------
   !> Sets the communication patterns for boundary exchange

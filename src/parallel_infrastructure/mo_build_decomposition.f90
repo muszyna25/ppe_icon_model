@@ -86,7 +86,7 @@ CONTAINS
     CALL complete_parallel_setup(p_patch, is_ocean_decomposition)
 
     ! Complete information which is not yet read or calculated
-    CALL complete_patches( p_patch )
+    CALL complete_patches( p_patch, is_ocean_decomposition )
           
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
