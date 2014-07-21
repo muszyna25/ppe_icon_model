@@ -321,8 +321,6 @@ MODULE mo_model_domain
 
     ! index of parent triangle:
     INTEGER, ALLOCATABLE :: parent(:)
-    ! parent child index, number of current cell in parent's child_idx/child_blk:
-    INTEGER, ALLOCATABLE :: pc_idx(:)
 
     ! indices of child triangles:
     ! index2=1,4
@@ -575,8 +573,6 @@ MODULE mo_model_domain
 
     ! index of parent edge:
     INTEGER, ALLOCATABLE :: parent(:)
-    ! parent child index, number of current edge in parent's child:
-    INTEGER, ALLOCATABLE :: pc_idx(:)
 
     ! indices of child edges:
     ! index2=1,4

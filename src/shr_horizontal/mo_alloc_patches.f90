@@ -624,7 +624,6 @@ CONTAINS
     !
     ALLOCATE( p_patch_pre%cells%num_edges(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%parent(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%pc_idx(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%child(p_patch_pre%n_patch_cells_g,4) )
     ALLOCATE( p_patch_pre%cells%child_id(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
@@ -640,7 +639,6 @@ CONTAINS
     ! !grid edges
     !
     ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
-    ALLOCATE( p_patch_pre%edges%pc_idx(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%child(p_patch_pre%n_patch_edges_g,4) )
     ALLOCATE( p_patch_pre%edges%child_id(p_patch_pre%n_patch_edges_g) )
     ALLOCATE( p_patch_pre%edges%refin_ctrl(p_patch_pre%n_patch_edges_g) )
@@ -661,7 +659,6 @@ CONTAINS
 
     p_patch_pre%cells%num_edges = 0
     p_patch_pre%cells%parent = 0
-    p_patch_pre%cells%pc_idx = 0
     p_patch_pre%cells%child = 0
     p_patch_pre%cells%child_id = 0
     p_patch_pre%cells%phys_id = 0
@@ -675,7 +672,6 @@ CONTAINS
     p_patch_pre%cells%end = 0
 
     p_patch_pre%edges%parent = 0
-    p_patch_pre%edges%pc_idx = 0
     p_patch_pre%edges%child = 0
     p_patch_pre%edges%child_id = 0
     p_patch_pre%edges%cell = 0
@@ -784,7 +780,6 @@ CONTAINS
     !
     DEALLOCATE( p_patch_pre%cells%num_edges )
     DEALLOCATE( p_patch_pre%cells%parent )
-    DEALLOCATE( p_patch_pre%cells%pc_idx )
     DEALLOCATE( p_patch_pre%cells%child )
     DEALLOCATE( p_patch_pre%cells%child_id )
     DEALLOCATE( p_patch_pre%cells%neighbor )
@@ -798,7 +793,6 @@ CONTAINS
     ! !grid edges
     !
     DEALLOCATE( p_patch_pre%edges%parent )
-    DEALLOCATE( p_patch_pre%edges%pc_idx )
     DEALLOCATE( p_patch_pre%edges%child )
     DEALLOCATE( p_patch_pre%edges%child_id )
     DEALLOCATE( p_patch_pre%edges%cell )

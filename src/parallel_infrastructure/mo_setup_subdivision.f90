@@ -309,6 +309,13 @@ CONTAINS
         ! CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), cell_owner_p, 1, .FALSE., p_pe_work)
         CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), cell_owner_p, 1, &
           & order_type_of_halos,  p_pe_work)
+
+        CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp))
+        IF (jgp > n_dom_start) THEN
+
+          CALL set_pc_idx(p_patch_local_parent(jg), &
+            &             p_patch_pre(p_patch_local_parent(jg)%parent_id))
+        END IF
       ENDIF
 
       DEALLOCATE(cell_owner)
@@ -320,6 +327,78 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       CALL deallocate_pre_patch( p_patch_pre(jg) )
     ENDDO
+
+  CONTAINS
+!-------------------------------------------------------------------------
+  !>
+  !! This method_name sets the parent-child-index for cells and edges
+  !!
+  !! @par Revision History
+  !! Developed  by Rainer Johanni, Dec 2011
+  !!
+    SUBROUTINE set_pc_idx(patch, parent_patch_pre)
+
+      TYPE(t_patch), TARGET, INTENT(inout) :: patch
+      TYPE(t_pre_patch), TARGET, INTENT(inout) :: parent_patch_pre
+
+    ! local variables
+
+    INTEGER :: jg, jb, jl, nlen, ip
+
+    !-----------------------------------------------------------------------
+
+    patch%cells%pc_idx(:,:) = 0
+    patch%edges%pc_idx(:,:) = 0
+
+    DO jb = 1, patch%nblks_c
+
+      IF (jb /= patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch%npromz_c
+      ENDIF
+
+      DO jl = 1, nlen
+
+        ip = idx_1d(patch%cells%parent_idx(jl,jb), &
+                    patch%cells%parent_blk(jl,jb))
+        jg = patch%cells%decomp_info%glb_index(idx_1d(jl, jb))
+
+        IF(parent_patch_pre%cells%child(ip,1) == jg ) patch%cells%pc_idx(jl,jb) = 1
+        IF(parent_patch_pre%cells%child(ip,2) == jg ) patch%cells%pc_idx(jl,jb) = 2
+        IF(parent_patch_pre%cells%child(ip,3) == jg ) patch%cells%pc_idx(jl,jb) = 3
+        IF(parent_patch_pre%cells%child(ip,4) == jg ) patch%cells%pc_idx(jl,jb) = 4
+!          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+
+      ENDDO
+
+    ENDDO
+
+    DO jb = 1, patch%nblks_e
+
+      IF (jb /= patch%nblks_e) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch%npromz_e
+      ENDIF
+
+      DO jl = 1, nlen
+
+        ip = idx_1d(patch%edges%parent_idx(jl,jb), &
+                    patch%edges%parent_blk(jl,jb))
+        jg = patch%edges%decomp_info%glb_index(idx_1d(jl, jb))
+
+        IF(parent_patch_pre%edges%child(ip,1) == jg ) patch%edges%pc_idx(jl,jb) = 1
+        IF(parent_patch_pre%edges%child(ip,2) == jg ) patch%edges%pc_idx(jl,jb) = 2
+        IF(parent_patch_pre%edges%child(ip,3) == jg ) patch%edges%pc_idx(jl,jb) = 3
+        IF(parent_patch_pre%edges%child(ip,4) == jg ) patch%edges%pc_idx(jl,jb) = 4
+!          IF(patch%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
+
+      ENDDO
+
+    ENDDO
+
+  END SUBROUTINE set_pc_idx
 
   END SUBROUTINE decompose_domain
 
@@ -891,7 +970,6 @@ CONTAINS
 
       wrk_p_patch%cells%parent_idx(jl,jb)  = idx_no(jc_p)
       wrk_p_patch%cells%parent_blk(jl,jb)  = blk_no(jc_p)
-      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_pre%cells%pc_idx(jg)
       wrk_p_patch%cells%child_idx(jl,jb,1:4) = &
         idx_no(wrk_p_patch_pre%cells%child(jg,1:4))
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = &
@@ -933,7 +1011,6 @@ CONTAINS
 
       wrk_p_patch%edges%parent_idx(jl,jb)    = idx_no(jpg)
       wrk_p_patch%edges%parent_blk(jl,jb)    = blk_no(jpg)
-      wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_pre%edges%pc_idx(jg)
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
       wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_pre%edges%child_id(jg)

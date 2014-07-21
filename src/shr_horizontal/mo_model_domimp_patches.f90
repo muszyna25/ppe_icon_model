@@ -388,8 +388,6 @@ CONTAINS
 
     ENDDO grid_level_loop
 
-    CALL set_pc_idx(patch_pre)
-
   END SUBROUTINE import_pre_patches
   !-------------------------------------------------------------------------
 
@@ -860,60 +858,6 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE set_missing_geometry_info
-
-  !-------------------------------------------------------------------------
-  !>
-  !! This method_name sets the parent-child-index for cells and edges
-  !!
-  !! @par Revision History
-  !! Developed  by Rainer Johanni, Dec 2011
-  !!
-  SUBROUTINE set_pc_idx(patch_pre)
-
-    TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch_pre(n_dom_start:)
-
-    ! local variables
-
-    INTEGER :: jg, jgp, ip, j
-
-    !-----------------------------------------------------------------------
-
-    DO jg = n_dom_start+1, n_dom
-
-      jgp = patch_pre(jg)%parent_id
-
-      patch_pre(jg)%cells%pc_idx(:) = 0
-      patch_pre(jg)%edges%pc_idx(:) = 0
-
-      DO j = 1, patch_pre(jg)%n_patch_cells_g
-
-        ip = patch_pre(jg)%cells%parent(j)
-
-        IF(patch_pre(jgp)%cells%child(ip,1)==j) patch_pre(jg)%cells%pc_idx(j) = 1
-        IF(patch_pre(jgp)%cells%child(ip,2)==j) patch_pre(jg)%cells%pc_idx(j) = 2
-        IF(patch_pre(jgp)%cells%child(ip,3)==j) patch_pre(jg)%cells%pc_idx(j) = 3
-        IF(patch_pre(jgp)%cells%child(ip,4)==j) patch_pre(jg)%cells%pc_idx(j) = 4
-!          IF(patch_pre(jg)%cells%pc_idx(j)== 0) CALL finish('set_pc_idx','cells%pc_idx')
-
-      ENDDO
-
-      DO j = 1, patch_pre(jg)%n_patch_edges_g
-
-        ip = patch_pre(jg)%edges%parent(j)
-
-        IF(patch_pre(jgp)%edges%child(ip,1)==j) patch_pre(jg)%edges%pc_idx(j) = 1
-        IF(patch_pre(jgp)%edges%child(ip,2)==j) patch_pre(jg)%edges%pc_idx(j) = 2
-        IF(patch_pre(jgp)%edges%child(ip,3)==j) patch_pre(jg)%edges%pc_idx(j) = 3
-        IF(patch_pre(jgp)%edges%child(ip,4)==j) patch_pre(jg)%edges%pc_idx(j) = 4
-!          IF(patch_pre(jg)%edges%pc_idx(j) == 0) CALL finish('set_pc_idx','edges%pc_idx')
-
-      ENDDO
-
-    ENDDO
-
-  END SUBROUTINE set_pc_idx
-  !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   !>
