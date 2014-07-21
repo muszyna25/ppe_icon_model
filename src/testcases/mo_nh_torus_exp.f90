@@ -32,8 +32,9 @@ MODULE mo_nh_torus_exp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell, SUCCESS
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, rv, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
-     &                              tmelt,grav, alv
-  USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl, psfc_cbl
+     &                              tmelt,grav, alv, vtmpc1
+  USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl, psfc_cbl, &
+                                    pseudo_rhos
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi, pi2, rad2deg
@@ -116,7 +117,7 @@ MODULE mo_nh_torus_exp
       &  ptr_nh_ref
 
     REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
-    REAL(wp) :: zvn1, zvn2, zu, zv, zt00, zh00
+    REAL(wp) :: zvn1, zvn2, zu, zv, zt00, zh00, ex_sfc
     INTEGER  :: jc,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
     INTEGER  :: nlev, nlevp1                  !< number of full and half levels
@@ -139,7 +140,16 @@ MODULE mo_nh_torus_exp
 
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = psfc_cbl
+    ex_sfc   = (psfc_cbl/p0ref)**rd_o_cpd
 
+    ! Pseudo surface density
+    IF(.NOT.les_config(jg)%is_dry_cbl)THEN
+     pseudo_rhos = psfc_cbl/( rd *  &
+       (th_cbl(1)*ex_sfc*(1._wp+vtmpc1*rh_sfc*spec_humi(sat_pres_water(th_cbl(1)),psfc_cbl))) ) 
+    ELSE
+     pseudo_rhos = psfc_cbl / (rd * th_cbl(1) * ex_sfc)
+    END IF
+ 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
 
@@ -156,6 +166,7 @@ MODULE mo_nh_torus_exp
         DO jk = 1, nlev
           ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = rh_sfc * spec_humi(sat_pres_water(th_cbl(1)),psfc_cbl) * &
                     EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/lambda)
+
         END DO
       END IF
 
@@ -180,7 +191,7 @@ MODULE mo_nh_torus_exp
       END DO
 
       !Get hydrostatic exner at the surface using surface pressure 
-      z_exner_h(1:nlen,nlevp1) = (psfc_cbl/p0ref)**rd_o_cpd
+      z_exner_h(1:nlen,nlevp1) = ex_sfc
  
       !Get exner at full levels starting from exner at surface
       DO jk = nlev, 1, -1

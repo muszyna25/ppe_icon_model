@@ -65,7 +65,7 @@ MODULE mo_nh_testcases_nml
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
-    &       th_cbl, psfc_cbl
+    &       th_cbl, psfc_cbl, pseudo_rhos
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
@@ -94,6 +94,7 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: v_cbl(2)   !v_cbl(1) = constant, v_cbl(2) = gradient
   REAL(wp) :: th_cbl(2)  !th_cbl(1) = constant,th_cbl(2) = gradient
   REAL(wp) :: psfc_cbl
+  REAL(wp) :: pseudo_rhos
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
