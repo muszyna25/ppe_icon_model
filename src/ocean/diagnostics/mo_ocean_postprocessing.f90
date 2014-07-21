@@ -119,11 +119,12 @@ CONTAINS
     REAL(wp), POINTER :: tracers(:,:,:,:)
     REAL(wp) :: meanRho, meanH
 
-    INTEGER :: return_status, stream_id
 !    INTEGER :: idx, level, block
 !    INTEGER :: start_index, end_index
 !    TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch),POINTER            :: patch_2d
+
+    TYPE(t_stream_id) :: stream_id
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_postprocessing:ocean_postprocess_conservation"
 
@@ -133,36 +134,37 @@ CONTAINS
     nold(1) = 1
     nnew(1) = 1
     !---------------------------------------------------------------------
+    stream_id = openInputFile(fileName)
+
     CALL read_onCells_3D_time(                &
-      & filename=fileName,                    &
+      & stream_id=stream_id,                  &
       & variable_name="t_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
       & return_pointer=T,                     &
-      & patch=patch_2d,                       &
-      & return_status=return_status )
+      & patch=patch_2d )
 
     tracers(:,:,:,1) = T(:,:,:,1)
 
     CALL read_onCells_3D_time(                &
-      & filename=fileName,                    &
+      & stream_id=stream_id,                  &
       & variable_name="s_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
       & return_pointer=S,                     &
-      & patch=patch_2d,                       &
-      & return_status=return_status )
+      & patch=patch_2d )
 
     tracers(:,:,:,2) = S(:,:,:,1)
 
     CALL read_onCells_2D_time(                &
-      & filename=fileName,                    &
+      & stream_id=stream_id,                  &
       & variable_name="h_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
       & return_pointer=h,                     &
-      & patch=patch_2d,                       &
-      & return_status=return_status )
+      & patch=patch_2d )
+
+    CALL closeFile(stream_id)
 
     ocean_state%p_prog(1)%h(:,:) = h(:,:,1)
 

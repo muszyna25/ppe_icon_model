@@ -46,40 +46,54 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)    :: patch_3d
 
     REAL(wp), POINTER :: T(:,:,:,:), T_check(:,:,:,:)   ! is (nproma, levels, blocks, time )
-    INTEGER :: levels, lnwl_size, return_status, stream_id
+    INTEGER :: levels, lnwl_size, return_status
     TYPE(t_patch),POINTER            :: patch_2d
     CHARACTER(filename_max) :: OutputFileName   !< file name for reading in
+
+    TYPE(t_stream_id) :: stream_id
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_testbed_read:ocean_test_read"
 
     CALL message(method_name,   initialState_InputFileName)
     patch_2d => patch_3d%p_patch_2d(1)
+
+
     !---------------------------------------------------------------------
+    stream_id = openInputFile(initialState_InputFileName)
+
     CALL read_onCells_3D_time(                &
-      & filename=initialState_InputFileName,  &
+      & stream_id=stream_id,                  &
       & variable_name="T",                    &
       & return_pointer=T,                     &
-      & patch=patch_2d,                       &
-      & return_status=return_status )
+      & patch=patch_2d )
+
+    CALL closeFile(stream_id)
 
     !---------------------------------------------------------------------
     ! check
+
     OutputFileName="testOut.nc"
     CALL message(method_name,   OutputFileName)
     return_status = netcdf_write_oncells_3d_time(  &
-      & filename=OutputFileName,                   &
+      & filename=OutputFileName,                  &
       & variable_name="T",                         &
       & write_array=T,                             &
       & patch=patch_2d)
+
+    stream_id = openInputFile(OutputFileName)
+
     CALL read_onCells_3D_time(                &
-      & filename=OutputFileName,              &
+      & stream_id=stream_id,                  &
       & variable_name="T",                    &
       & return_pointer=T_check,               &
-      & patch=patch_2d,                       &
-      & return_status=return_status )
+      & patch=patch_2d )
     IF ( MAXVAL(ABS(T - T_check )) > 0.0_wp ) &
       CALL finish(method_name, "Check failed")
+
+    CALL closeFile(stream_id)
     !---------------------------------------------------------------------
+    
+
     DEALLOCATE(T)
     DEALLOCATE(T_check)
 

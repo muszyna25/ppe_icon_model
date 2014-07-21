@@ -88,12 +88,10 @@ MODULE mo_read_interface
   END TYPE t_read_info
 
   INTERFACE read_0D_real
-    MODULE PROCEDURE read_REAL_0D_filename
     MODULE PROCEDURE read_REAL_0D_streamid
   END INTERFACE read_0D_real
 
   INTERFACE read_1D
-    MODULE PROCEDURE read_REAL_1D_filename
     MODULE PROCEDURE read_REAL_1D_streamid
   END INTERFACE read_1D
 
@@ -106,27 +104,22 @@ MODULE mo_read_interface
   END INTERFACE read_3D_time
 
   INTERFACE read_onCells_2D
-    MODULE PROCEDURE read_REAL_onCells_2D_filename
     MODULE PROCEDURE read_REAL_onCells_2D_streamid
   END INTERFACE read_onCells_2D
 
   INTERFACE read_onCells_2D_time
-    MODULE PROCEDURE read_REAL_onCells_2D_time_filename
     MODULE PROCEDURE read_REAL_onCells_2D_time_streamid
   END INTERFACE read_onCells_2D_time
 
   INTERFACE read_onCells_2D_extdim
-    MODULE PROCEDURE read_REAL_onCells_2D_1extdim_filename
     MODULE PROCEDURE read_REAL_onCells_2D_1extdim_streamid
   END INTERFACE read_onCells_2D_extdim
 
   INTERFACE read_onCells_3D_time
-    MODULE PROCEDURE read_REAL_onCells_3D_time_filename
     MODULE PROCEDURE read_REAL_onCells_3D_time_streamid
   END INTERFACE read_onCells_3D_time
 
   INTERFACE read_onCells_3D_extdim
-    MODULE PROCEDURE read_REAL_onCells_3D_1extdim_filename
     MODULE PROCEDURE read_REAL_onCells_3D_1extdim_streamid
   END INTERFACE read_onCells_3D_extdim
 
@@ -140,185 +133,6 @@ MODULE mo_read_interface
 
 CONTAINS
 
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE read_REAL_1D_filename(filename, variable_name, fill_array, return_pointer, input_method, return_status)
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target           :: fill_array(:)
-    define_return_pointer        :: return_pointer(:)
-    INTEGER, OPTIONAL :: input_method
-    INTEGER, OPTIONAL :: return_status
-
-    TYPE(t_stream_id) :: stream_id
-   ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_filename'
-
-
-    stream_id = openInputFile(filename, input_method)
-    CALL read_REAL_1D_streamid( &
-      & stream_id=stream_id, variable_name=variable_name, fill_array=fill_array, return_pointer=return_pointer)
-    CALL closeFile(stream_id)
-
-  END SUBROUTINE read_REAL_1D_filename
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE read_REAL_onCells_2D_filename(filename, variable_name, fill_array, return_pointer, patch, input_method, return_status)
-
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target           :: fill_array(:,:)
-    define_return_pointer        :: return_pointer(:,:)
-    TYPE(t_patch), TARGET        :: patch
-    INTEGER, OPTIONAL :: input_method
-    INTEGER, OPTIONAL :: return_status
-
-    TYPE(t_stream_id) :: stream_id
-    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_filename'
-
-    stream_id = openInputFile(filename, input_method)
-    CALL read_REAL_onCells_2D_streamid( &
-      & stream_id=stream_id, variable_name=variable_name, fill_array=fill_array, return_pointer=return_pointer, patch=patch)
-    CALL closeFile(stream_id)
-                              
-  END SUBROUTINE read_REAL_onCells_2D_filename
-  !-------------------------------------------------------------------------
-  
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE read_REAL_onCells_2D_time_filename(filename, variable_name, fill_array, return_pointer, patch, &
-    & start_timestep, end_timestep, input_method, return_status )
-
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target   :: fill_array(:,:,:)
-    define_return_pointer        :: return_pointer(:,:,:)
-    TYPE(t_patch), TARGET        :: patch
-    INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
-    INTEGER, OPTIONAL :: input_method
-    INTEGER, OPTIONAL :: return_status
-
-    TYPE(t_stream_id) :: stream_id
-    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_time_filename'
-
-    stream_id = openInputFile(filename, input_method)
-    CALL read_REAL_onCells_2D_time_streamid(stream_id=stream_id, variable_name=variable_name, &
-      & fill_array=fill_array, return_pointer=return_pointer, patch=patch, &
-      & start_timestep=start_timestep, end_timestep=end_timestep)
-    CALL closeFile(stream_id)
-
-  END SUBROUTINE read_REAL_onCells_2D_time_filename
-  !-------------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE read_REAL_onCells_2D_1extdim_filename(filename, variable_name, fill_array, return_pointer, patch, &
-    & start_extdim, end_extdim, extdim_name, input_method, return_status )
-
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target           :: fill_array(:,:,:)
-    define_return_pointer        :: return_pointer(:,:,:)
-    TYPE(t_patch), TARGET        :: patch
-    INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
-    INTEGER, OPTIONAL :: input_method
-    INTEGER, OPTIONAL :: return_status
-
-    TYPE(t_stream_id) :: stream_id
-    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_1extdim_filename'
-
-    stream_id = openInputFile(filename, input_method)
-    CALL read_REAL_onCells_2D_1extdim_streamid(stream_id=stream_id, variable_name=variable_name, &
-      & fill_array=fill_array, return_pointer=return_pointer, patch=patch, &
-      & start_extdim=start_extdim, end_extdim=end_extdim, extdim_name=extdim_name )
-    CALL closeFile(stream_id)
-
-  END SUBROUTINE read_REAL_onCells_2D_1extdim_filename
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE read_REAL_onCells_3D_time_filename(filename, variable_name, fill_array, return_pointer, patch, &
-    & start_timestep, end_timestep, levelsDimName, input_method, return_status )
-
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target           :: fill_array(:,:,:,:)
-    define_return_pointer        :: return_pointer(:,:,:,:)
-    TYPE(t_patch), TARGET        :: patch
-    INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
-    INTEGER, OPTIONAL :: input_method
-    INTEGER, OPTIONAL :: return_status
-
-    TYPE(t_stream_id) :: stream_id
-    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_3D_time_filename'
-
-    stream_id = openInputFile(filename, input_method)
-    CALL read_REAL_onCells_3D_time_streamid( &
-      & stream_id=stream_id,                     &
-      & variable_name=variable_name,             &
-      & fill_array=fill_array,                   &
-      & return_pointer=return_pointer,           &
-      & patch=patch,                             &
-      & levelsDimName=levelsDimName,             &
-      & start_timestep=start_timestep,  end_timestep=end_timestep)
-    CALL closeFile(stream_id)
-
-  END SUBROUTINE read_REAL_onCells_3D_time_filename
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE read_REAL_onCells_3D_1extdim_filename(filename, variable_name, fill_array, return_pointer, patch, &
-    & start_extdim, end_extdim, levelsDimName, extdim_name, input_method, return_status )
-
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target           :: fill_array(:,:,:,:)
-    define_return_pointer        :: return_pointer(:,:,:,:)
-    TYPE(t_patch), TARGET        :: patch
-    INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
-    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
-    INTEGER, OPTIONAL :: input_method
-    INTEGER, OPTIONAL :: return_status
-
-    TYPE(t_stream_id) :: stream_id
-    ! CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_3D_1extdim_filename'
-
-    stream_id = openInputFile(filename, input_method)
-    CALL read_REAL_onCells_3D_1extdim_streamid(    &
-      & stream_id=stream_id,                      &
-      & variable_name=variable_name,              &
-      & fill_array=fill_array,                    &
-      & return_pointer=return_pointer,           &
-      & patch=patch,                              &
-      & start_extdim=start_extdim,  end_extdim=end_extdim, &
-      & levelsDimName=levelsDimName,              &
-      & extdim_name=extdim_name)
-    CALL closeFile(stream_id)
-
-  END SUBROUTINE read_REAL_onCells_3D_1extdim_filename
-  !-------------------------------------------------------------------------
-  FUNCTION read_REAL_0D_filename(filename, variable_name, return_status)
-
-    REAL(wp)  :: read_REAL_0D_filename
-
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    INTEGER, OPTIONAL :: return_status
-
-    TYPE(t_stream_id) :: stream_id
-
-    stream_id = openInputFile(filename, input_method=read_netcdf_broadcast_method)
-    read_REAL_0D_filename = read_0D_real(stream_id, variable_name, return_status)
-    CALL closeFile(stream_id)
-
-  END FUNCTION read_REAL_0D_filename
   !-------------------------------------------------------------------------
   !>
   FUNCTION read_REAL_0D_streamid(stream_id, variable_name, return_status)
