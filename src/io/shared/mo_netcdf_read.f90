@@ -31,8 +31,8 @@
 MODULE mo_netcdf_read
 
   USE mo_kind
-  USE mo_scatter,            ONLY: scatter_cells_2D, scatter_cells_2D_time, &
-    &                              scatter_cells_3D_time, broadcast_array
+  USE mo_scatter,            ONLY: scatter_array, scatter_time_array, &
+    &                              broadcast_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success, max_char_length
@@ -681,7 +681,8 @@ CONTAINS
       netcdf_read_REAL_ONCELLS_2D_fileid(:,:) = 0.0_wp
     ENDIF
 
-    CALL scatter_cells_2D(tmp_array, netcdf_read_REAL_ONCELLS_2D_fileid, patch)
+    CALL scatter_array(tmp_array, netcdf_read_REAL_ONCELLS_2D_fileid, &
+      &                patch%cells%decomp_info%glb_index)
 
     DEALLOCATE(tmp_array)
 
@@ -827,7 +828,8 @@ CONTAINS
       CALL nf(nf_get_vara_double(file_id, varid, start_read_index, count_read_index, tmp_array(:,:)), variable_name)
     ENDIF
 
-    CALL scatter_cells_2D_time(tmp_array, netcdf_read_REAL_ONCELLS_2D_1extdim_fileid, patch)
+    CALL scatter_time_array(tmp_array, netcdf_read_REAL_ONCELLS_2D_1extdim_fileid, &
+      &                     patch%cells%decomp_info%glb_index)
 
     DEALLOCATE(tmp_array)
 
@@ -996,7 +998,8 @@ CONTAINS
     ENDIF
 
 
-    CALL scatter_cells_3D_time(tmp_array, netcdf_read_REAL_ONCELLS_3D_1extdim_fileid, patch)
+    CALL scatter_array(tmp_array, netcdf_read_REAL_ONCELLS_3D_1extdim_fileid, &
+      &                patch%cells%decomp_info%glb_index)
 
     DEALLOCATE(tmp_array)
 

@@ -76,7 +76,7 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_int,                 &
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
-  USE mo_scatter,               ONLY: scatter_cells, scatter_edges, scatter_vertices
+  USE mo_scatter,               ONLY: scatter_array
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
   USE mo_run_config,            ONLY: ltimer, restart_filename
@@ -1756,7 +1756,8 @@ CONTAINS
       &                                iret, istat, key, vgrid, gdims(5), nindex,   &
       &                                nmiss, nvars, root_pe
     CHARACTER(len=8)               :: model_type
-    REAL(wp), POINTER              :: r5d(:,:,:,:,:), rptr2d(:,:), rptr3d(:,:,:)
+    REAL(wp), POINTER              :: r2d(:,:), rptr2d(:,:), rptr3d(:,:,:)
+    INTEGER, POINTER               :: glb_index(:)
 
     ! rank of broadcast root PE
     root_pe = 0
@@ -1846,7 +1847,7 @@ CONTAINS
               ! allocate temporary global array on output processor
               ! and gather field from other processors
               !
-              NULLIFY(r5d)
+              NULLIFY(r2d)
               NULLIFY(rptr2d)
               NULLIFY(rptr3d)
               !
@@ -1864,16 +1865,16 @@ CONTAINS
               CALL p_bcast(ic, root_pe, comm=p_comm_work)
               CALL p_bcast(il, root_pe, comm=p_comm_work)
               !
-              gdims(:) = (/ ic, il, 1, 1, 1 /)
               !
               IF (my_process_is_mpi_workroot()) THEN
-                ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
+                ALLOCATE(r2d(ic,il),STAT=istat)
                 IF (istat /= 0) THEN
-                  CALL finish('','allocation of r5d failed ...')
+                  CALL finish('','allocation of r2d failed ...')
                 ENDIF
-                CALL streamReadVar(fileID, varID, r5d, nmiss)
+                CALL streamReadVar(fileID, varID, r2d, nmiss)
               ELSE
-                ALLOCATE(r5d(gdims(1),1,gdims(3),gdims(4),gdims(5)),STAT=istat)
+                ! TODO: why is the second dimension 1
+                ALLOCATE(r2d(ic,1),STAT=istat)
               ENDIF
               CALL p_barrier(comm=p_comm_work)
               !
@@ -1887,34 +1888,41 @@ CONTAINS
               CASE (GRID_UNSTRUCTURED_CELL)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                  CALL scatter_cells(r5d, rptr2d, p_patch=p_patch)
+                  CALL scatter_array(r2d(:,1), rptr2d, &
+                    &                p_patch%cells%decomp_info%glb_index)
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                  CALL scatter_cells(r5d, rptr3d, p_patch=p_patch)
+                  CALL scatter_array(r2d, rptr3d, &
+                    &                p_patch%cells%decomp_info%glb_index)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_VERT)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                  CALL scatter_vertices(r5d, rptr2d, p_patch=p_patch)
+                  CALL scatter_array(r2d(:,1), rptr2d, &
+                    &                p_patch%verts%decomp_info%glb_index)
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                  CALL scatter_vertices(r5d, rptr3d, p_patch=p_patch)
+                  CALL scatter_array(r2d, rptr3d, &
+                    &                p_patch%verts%decomp_info%glb_index)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_EDGE)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                  CALL scatter_edges(r5d, rptr2d, p_patch=p_patch)
+                  CALL scatter_array(r2d(:,1), rptr2d, &
+                    &                p_patch%edges%decomp_info%glb_index)
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                  CALL scatter_edges(r5d, rptr3d, p_patch=p_patch)
+                  CALL scatter_array(r2d, rptr3d, &
+                    &                p_patch%edges%decomp_info%glb_index)
                 ENDIF
               CASE default
                 CALL finish('out_stream','unknown grid type')
               END SELECT
+
               !
               ! deallocate temporary global arrays
               !
-              IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
+              IF (ASSOCIATED (r2d)) DEALLOCATE (r2d)
               !
               IF (my_process_is_mpi_workroot()) THEN
                 WRITE (0,*) ' ... read ',TRIM(element%field%info%name)

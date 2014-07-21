@@ -23,7 +23,7 @@ MODULE mo_amip_bc
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
-  USE mo_scatter,            ONLY: scatter_cells_2D_time
+  USE mo_scatter,            ONLY: scatter_time_array
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
   USE mo_datetime,           ONLY: t_datetime, add_time, date_to_time, idaylen, rdaylen
@@ -92,7 +92,7 @@ CONTAINS
 
     ! local
     IF (.NOT. ASSOCIATED(sst)) ALLOCATE (sst(nproma, p_patch%nblks_c, 0:13))
-    CALL scatter_cells_2D_time(zin, sst, p_patch)
+    CALL scatter_time_array(zin, sst, p_patch%cells%decomp_info%glb_index)
 
     IF (my_process_is_mpi_workroot()) THEN
 
@@ -113,7 +113,7 @@ CONTAINS
 
     ! local
     IF (.NOT. ASSOCIATED(sic)) ALLOCATE (sic(nproma, p_patch%nblks_c, 0:13))
-    CALL scatter_cells_2D_time(zin, sic, p_patch)
+    CALL scatter_time_array(zin, sic, p_patch%cells%decomp_info%glb_index)
     
     IF (ASSOCIATED(zin)) DEALLOCATE(zin)
     

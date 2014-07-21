@@ -23,7 +23,6 @@ MODULE mo_scatter
   !
   USE mo_kind,          ONLY: wp
   USE mo_communication, ONLY: idx_no, blk_no
-  USE mo_model_domain,  ONLY: t_patch
   USE mo_mpi,           ONLY: process_mpi_root_id, p_bcast, p_comm_work, &
                               my_process_is_mpi_seq, my_process_is_mpi_workroot
   !
@@ -33,15 +32,24 @@ MODULE mo_scatter
   !
   PUBLIC :: broadcast_array
   !
-  PUBLIC :: scatter_cells
-  PUBLIC :: scatter_cells_2D
-  PUBLIC :: scatter_cells_2D_time
-  PUBLIC :: scatter_cells_3D_time
-  PUBLIC :: scatter_edges
-  PUBLIC :: scatter_vertices
+  PUBLIC :: scatter_array, scatter_time_array
   !
   !------------------------------------------------------------------------------------------------
   !
+
+  INTERFACE scatter_array
+    MODULE PROCEDURE scatter_array_r2d
+    MODULE PROCEDURE scatter_array_r3d
+    MODULE PROCEDURE scatter_array_r4d
+    MODULE PROCEDURE scatter_array_i2d
+    MODULE PROCEDURE scatter_array_i3d
+    MODULE PROCEDURE scatter_array_l2d
+    MODULE PROCEDURE scatter_array_l3d
+  END INTERFACE scatter_array
+
+  INTERFACE scatter_time_array
+    MODULE PROCEDURE scatter_array_r2d_time
+  END INTERFACE scatter_time_array
 
   INTERFACE broadcast_array
     MODULE PROCEDURE broadcast_real_array_1D
@@ -51,44 +59,6 @@ MODULE mo_scatter
     MODULE PROCEDURE broadcast_int_array_1D
   END INTERFACE broadcast_array
 
-  INTERFACE scatter_cells_2D
-    MODULE PROCEDURE scatter_real_cells_2D_noblocks_2blocks
-  END INTERFACE scatter_cells_2D
-
-  INTERFACE scatter_cells_2D_time
-    MODULE PROCEDURE scatter_real_cells_2D_time_noblocks_2blocks
-  END INTERFACE scatter_cells_2D_time
-
-  INTERFACE scatter_cells_3D_time
-    MODULE PROCEDURE scatter_real_cells_3D_time_noblocks_2blocks
-  END INTERFACE scatter_cells_3D_time
-
-  INTERFACE scatter_cells
-    MODULE PROCEDURE scatter_cells_r2d
-    MODULE PROCEDURE scatter_cells_r3d
-    MODULE PROCEDURE scatter_cells_i2d
-    MODULE PROCEDURE scatter_cells_i3d
-    MODULE PROCEDURE scatter_cells_l2d
-    MODULE PROCEDURE scatter_cells_l3d
-  END INTERFACE scatter_cells
-  !
-  INTERFACE scatter_edges
-    MODULE PROCEDURE scatter_edges_r2d
-    MODULE PROCEDURE scatter_edges_r3d
-    MODULE PROCEDURE scatter_edges_i2d
-    MODULE PROCEDURE scatter_edges_i3d
-    MODULE PROCEDURE scatter_edges_l2d
-    MODULE PROCEDURE scatter_edges_l3d
-  END INTERFACE scatter_edges
-  !
-  INTERFACE scatter_vertices
-    MODULE PROCEDURE scatter_vertices_r2d
-    MODULE PROCEDURE scatter_vertices_r3d
-    MODULE PROCEDURE scatter_vertices_i2d
-    MODULE PROCEDURE scatter_vertices_i3d
-    MODULE PROCEDURE scatter_vertices_l2d
-    MODULE PROCEDURE scatter_vertices_l3d
-  END INTERFACE scatter_vertices
   !------------------------------------------------------------------------------------------------
   !
   INTERFACE reorder
@@ -123,61 +93,10 @@ CONTAINS
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
 #endif
   END SUBROUTINE broadcast_int_array_1D
-  !--------------------------------------------------------------------------------------
 
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE scatter_real_cells_2D_time_noblocks_2blocks(in_array, out_array, p_patch)
-    REAL(wp), POINTER                   :: in_array(:,:)
-    REAL(wp), POINTER                   :: out_array(:,:,:)
-    TYPE(t_patch), INTENT(in)           :: p_patch
-
-!    WRITE(0,*) "LBOUND(in_array,2)= ", LBOUND(in_array,2)
-!    WRITE(0,*) "UBOUND(in_array,2)= ", UBOUND(in_array,2)
-!    WRITE(0,*) "LBOUND(out_array,3)= ", LBOUND(out_array,3)
-!    WRITE(0,*) "UBOUND(out_array,3)= ", UBOUND(out_array,3)
-    CALL scatter_array_r2d_time(in_array, out_array, p_patch%cells%decomp_info%glb_index)
-
-  END SUBROUTINE scatter_real_cells_2D_time_noblocks_2blocks
-  !--------------------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE scatter_real_cells_3D_time_noblocks_2blocks(in_array, out_array, p_patch)
-    REAL(wp), POINTER                   :: in_array(:,:,:)
-    REAL(wp), POINTER                   :: out_array(:,:,:,:)
-    TYPE(t_patch), INTENT(in)           :: p_patch
-
-!    WRITE(0,*) "LBOUND(in_array,3)= ", LBOUND(in_array,3)
-!    WRITE(0,*) "UBOUND(in_array,3)= ", UBOUND(in_array,3)
-!    WRITE(0,*) "LBOUND(out_array,4)= ", LBOUND(out_array,4)
-!    WRITE(0,*) "UBOUND(out_array,4)= ", UBOUND(out_array,4)
-    CALL scatter_array_r4d(in_array, out_array, p_patch%cells%decomp_info%glb_index)
-
-  END SUBROUTINE scatter_real_cells_3D_time_noblocks_2blocks
-  !--------------------------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE scatter_real_cells_2D_noblocks_2blocks(in_array, out_array, p_patch)
-    REAL(wp), POINTER                   :: in_array(:)
-    REAL(wp), POINTER                   :: out_array(:,:)
-    TYPE(t_patch), INTENT(in)           :: p_patch
-
-    IF (my_process_is_mpi_seq()) THEN
-      CALL reorder(in_array, out_array)
-#ifndef NOMPI
-    ELSE
-      CALL scatter_array_r2d(in_array, out_array, p_patch%cells%decomp_info%glb_index)
-#endif
-    ENDIF
-
-  END SUBROUTINE scatter_real_cells_2D_noblocks_2blocks
-  !
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
-
   !--------------------------------------------------------------------------------------
   !>
   SUBROUTINE scatter_array_r3d (in_array, out_array, global_index)
@@ -187,6 +106,9 @@ CONTAINS
 
     INTEGER :: j, jl, jb, jk, jk1
 
+#ifdef NOMPI
+    CALL reorder(in_array, out_array)
+#else
     out_array(:,:,:) = 0.0_wp
 
     DO jk = 1, SIZE(out_array,2)
@@ -203,7 +125,7 @@ CONTAINS
         out_array(jl,jk,jb) = in_array(global_index(j),jk1)
       ENDDO
     ENDDO
-    !
+#endif
   END SUBROUTINE scatter_array_r3d
   !--------------------------------------------------------------------------------------
 
@@ -308,251 +230,6 @@ CONTAINS
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
 #endif
   END SUBROUTINE broadcast_real_array_4D
-  !--------------------------------------------------------------------------------------
-
-
-  !--------------------------------------------------------------------------------------
-  !>
-  SUBROUTINE scatter_cells_r2d(in_array, out_array, p_patch)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:)
-    TYPE(t_patch),              INTENT(in) :: p_patch
-    REAL(wp), POINTER :: r1d(:)
-    r1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(r1d, out_array)
-#else
-    CALL scatter_array_r2d(r1d, out_array, p_patch%cells%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_cells_r2d
-  !
-  SUBROUTINE scatter_cells_r3d(in_array, out_array, p_patch)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),              INTENT(in) :: p_patch
-    REAL(wp), POINTER :: r2d(:,:)
-    r2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(r2d, out_array)
-#else
-    CALL scatter_array_r3d(r2d, out_array, p_patch%cells%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_cells_r3d
-  !
-  SUBROUTINE scatter_edges_r2d(in_array, out_array, p_patch)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:)
-    TYPE(t_patch),              INTENT(in) :: p_patch
-    REAL(wp), POINTER :: r1d(:)
-    r1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(r1d, out_array)
-#else
-    CALL scatter_array_r2d(r1d, out_array, p_patch%edges%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_edges_r2d
-  !
-  SUBROUTINE scatter_edges_r3d(in_array, out_array, p_patch)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),              INTENT(in) :: p_patch
-    REAL(wp), POINTER :: r2d(:,:)
-    r2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(r2d, out_array)
-#else
-    CALL scatter_array_r3d(r2d, out_array, p_patch%edges%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_edges_r3d
-  !
-  SUBROUTINE scatter_vertices_r2d(in_array, out_array, p_patch)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:)
-    TYPE(t_patch),              INTENT(in) :: p_patch
-    REAL(wp), POINTER :: r1d(:)
-    r1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(r1d, out_array)
-#else
-    CALL scatter_array_r2d(r1d, out_array, p_patch%verts%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_vertices_r2d
-  !
-  SUBROUTINE scatter_vertices_r3d(in_array, out_array, p_patch)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),              INTENT(in) :: p_patch
-    REAL(wp), POINTER :: r2d(:,:)
-    r2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(r2d, out_array)
-#else
-    CALL scatter_array_r3d(r2d, out_array, p_patch%verts%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_vertices_r3d
-  !
-  !================================================================================================
-  ! INTEGER SECTION -------------------------------------------------------------------------------
-  !
-  SUBROUTINE scatter_cells_i2d(in_array, out_array, p_patch)
-    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
-    INTEGER, POINTER                      :: out_array(:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    INTEGER, POINTER :: i1d(:)
-    i1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(i1d, out_array)
-#else
-    CALL scatter_array_i2d(i1d, out_array, p_patch%cells%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_cells_i2d
-  !
-  SUBROUTINE scatter_cells_i3d(in_array, out_array, p_patch)
-    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
-    INTEGER, POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    INTEGER, POINTER :: i2d(:,:)
-    i2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(i2d, out_array)
-#else
-    CALL scatter_array_i3d(i2d, out_array, p_patch%cells%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_cells_i3d
-  !
-  SUBROUTINE scatter_edges_i2d(in_array, out_array, p_patch)
-    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
-    INTEGER, POINTER                      :: out_array(:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    INTEGER, POINTER :: i1d(:)
-    i1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(i1d, out_array)
-#else
-    CALL scatter_array_i2d(i1d, out_array, p_patch%edges%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_edges_i2d
-  !
-  SUBROUTINE scatter_edges_i3d(in_array, out_array, p_patch)
-    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
-    INTEGER, POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    INTEGER, POINTER :: i2d(:,:)
-    i2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(i2d, out_array)
-#else
-    CALL scatter_array_i3d(i2d, out_array, p_patch%edges%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_edges_i3d
-  !
-  SUBROUTINE scatter_vertices_i2d(in_array, out_array, p_patch)
-    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
-    INTEGER, POINTER                      :: out_array(:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    INTEGER, POINTER :: i1d(:)
-    i1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(i1d, out_array)
-#else
-    CALL scatter_array_i2d(i1d, out_array, p_patch%verts%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_vertices_i2d
-  !
-  SUBROUTINE scatter_vertices_i3d(in_array, out_array, p_patch)
-    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
-    INTEGER, POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    INTEGER, POINTER :: i2d(:,:)
-    i2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(i2d, out_array)
-#else
-    CALL scatter_array_i3d(i2d, out_array, p_patch%verts%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_vertices_i3d
-  !
-  !================================================================================================
-  ! LOGICAL SECTION -------------------------------------------------------------------------------
-  !
-  SUBROUTINE scatter_cells_l2d(in_array, out_array, p_patch)
-    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
-    LOGICAL, POINTER                      :: out_array(:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    LOGICAL, POINTER :: l1d(:)
-    l1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(l1d, out_array)
-#else
-    CALL scatter_array_l2d(l1d, out_array, p_patch%cells%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_cells_l2d
-  !
-  SUBROUTINE scatter_cells_l3d(in_array, out_array, p_patch)
-    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
-    LOGICAL, POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    LOGICAL, POINTER :: l2d(:,:)
-    l2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(l2d, out_array)
-#else
-    CALL scatter_array_l3d(l2d, out_array, p_patch%cells%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_cells_l3d
-  !
-  SUBROUTINE scatter_edges_l2d(in_array, out_array, p_patch)
-    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
-    LOGICAL, POINTER                      :: out_array(:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    LOGICAL, POINTER :: l1d(:)
-    l1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(l1d, out_array)
-#else
-    CALL scatter_array_l2d(l1d, out_array, p_patch%edges%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_edges_l2d
-  !
-  SUBROUTINE scatter_edges_l3d(in_array, out_array, p_patch)
-    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
-    LOGICAL, POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    LOGICAL, POINTER :: l2d(:,:)
-    l2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(l2d, out_array)
-#else
-    CALL scatter_array_l3d(l2d, out_array, p_patch%edges%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_edges_l3d
-  !
-  SUBROUTINE scatter_vertices_l2d(in_array, out_array, p_patch)
-    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
-    LOGICAL, POINTER                      :: out_array(:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    LOGICAL, POINTER :: l1d(:)
-    l1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(l1d, out_array)
-#else
-    CALL scatter_array_l2d(l1d, out_array, p_patch%verts%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_vertices_l2d
-  !
-  SUBROUTINE scatter_vertices_l3d(in_array, out_array, p_patch)
-    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
-    LOGICAL, POINTER                      :: out_array(:,:,:)
-    TYPE(t_patch),             INTENT(in) :: p_patch
-    LOGICAL, POINTER :: l2d(:,:)
-    l2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(l2d, out_array)
-#else
-    CALL scatter_array_l3d(l2d, out_array, p_patch%verts%decomp_info%glb_index)
-#endif
-  END SUBROUTINE scatter_vertices_l3d
-  !--------------------------------------------------------------------------------------
   !-----------------------------------------------------------------
   !>
   SUBROUTINE reorder_backward_r3d(in, out)
@@ -591,7 +268,6 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-#ifndef NOMPI
   !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
@@ -601,17 +277,18 @@ CONTAINS
     INTEGER,  INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb
-    !
+
+#ifdef NOMPI
+    CALL reorder(in_array, out_array)
+#else
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
-    !
     out_array(:,:) = 0.0_wp
-    !
     DO j = 1, SIZE(global_index)
       jb = blk_no(j)
       jl = idx_no(j)
       out_array(jl,jb) = in_array(global_index(j))
     ENDDO
-    !
+#endif
   END SUBROUTINE scatter_array_r2d
   !
 
@@ -624,7 +301,9 @@ CONTAINS
     INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb
-    !
+#ifdef NOMPI
+    CALL reorder(in_array, out_array)
+#else
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:) = 0
@@ -634,7 +313,7 @@ CONTAINS
       jl = idx_no(j)
       out_array(jl,jb) = in_array(global_index(j))
     ENDDO
-    !
+#endif
   END SUBROUTINE scatter_array_i2d
   !
   SUBROUTINE scatter_array_i3d (in_array, out_array, global_index)
@@ -643,7 +322,9 @@ CONTAINS
     INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb, jk
-    !
+#ifdef NOMPI
+    CALL reorder(in_array, out_array)
+#else
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:,:) = 0
@@ -655,7 +336,7 @@ CONTAINS
         out_array(jl,jk,jb) = in_array(global_index(j),jk)
       ENDDO
     ENDDO
-    !
+#endif
   END SUBROUTINE scatter_array_i3d
   !
   !================================================================================================
@@ -667,7 +348,9 @@ CONTAINS
     INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb
-    !
+#ifdef NOMPI
+    CALL reorder(in_array, out_array)
+#else
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:) = .FALSE.
@@ -677,7 +360,7 @@ CONTAINS
       jl = idx_no(j)
       out_array(jl,jb) = in_array(global_index(j))
     ENDDO
-    !
+#endif
   END SUBROUTINE scatter_array_l2d
   !
   SUBROUTINE scatter_array_l3d (in_array, out_array, global_index)
@@ -686,7 +369,9 @@ CONTAINS
     INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb, jk
-    !
+#ifdef NOMPI
+    CALL reorder(in_array, out_array)
+#else
     CALL p_bcast(in_array, process_mpi_root_id, p_comm_work)
     !
     out_array(:,:,:) = .FALSE.
@@ -698,10 +383,9 @@ CONTAINS
         out_array(jl,jk,jb) = in_array(global_index(j),jk)
       ENDDO
     ENDDO
-    !
+#endif
   END SUBROUTINE scatter_array_l3d
   !
-#endif
   !------------------------------------------------------------------------------------------------
   !
   !================================================================================================ 
