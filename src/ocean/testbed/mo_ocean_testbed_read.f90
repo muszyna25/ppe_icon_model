@@ -23,6 +23,7 @@ MODULE mo_ocean_testbed_read
   USE mo_ocean_nml
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   USE mo_io_units,            ONLY: filename_max
+  USE mo_io_config,           ONLY:  read_netcdf_broadcast_method
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_read_interface
@@ -62,6 +63,7 @@ CONTAINS
 
     !---------------------------------------------------------------------
     stream_id = openInputFile(initialState_InputFileName, &
+      &                       read_netcdf_broadcast_method, &
       &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
 
     CALL read_3D_time( stream_id=stream_id, variable_name="T", return_pointer=T )
@@ -79,7 +81,7 @@ CONTAINS
       & write_array=T,                             &
       & patch=patch_2d )
 
-    stream_id = openInputFile(OutputFileName, &
+    stream_id = openInputFile(OutputFileName, read_netcdf_broadcast_method, &
       &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
 
     CALL read_3D_time( stream_id=stream_id, variable_name="T", &

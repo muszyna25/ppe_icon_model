@@ -21,6 +21,7 @@ MODULE mo_ocean_postprocessing
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_io_units,            ONLY: filename_max
   USE mo_run_config,          ONLY: test_mode
+  USE mo_io_config,           ONLY: read_netcdf_broadcast_method
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_grid_config,         ONLY: n_dom
@@ -136,8 +137,8 @@ CONTAINS
     nold(1) = 1
     nnew(1) = 1
     !---------------------------------------------------------------------
-    stream_id = openInputFile(fileName, n_g=patch_2d%n_patch_cells, &
-      &                       glb_index=glb_index)
+    stream_id = openInputFile(fileName, read_netcdf_broadcast_method, &
+      &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
 
     CALL read_3D_time(                        &
       & stream_id=stream_id,                  &

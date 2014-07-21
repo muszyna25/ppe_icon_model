@@ -76,6 +76,16 @@ MODULE mo_read_interface
   END TYPE t_stream_id
   !--------------------------------------------------------
 
+  INTERFACE openInputFile
+    MODULE PROCEDURE openInputFile_dist
+    MODULE PROCEDURE openInputFile_bcast
+  END INTERFACE openInputFile
+
+  INTERFACE closeFile
+    MODULE PROCEDURE closeFile_dist
+    MODULE PROCEDURE closeFile_bcast
+  END INTERFACE closeFile
+
   INTERFACE read_0D_real
     MODULE PROCEDURE read_bcast_REAL_0D_streamid
   END INTERFACE read_0D_real
@@ -352,52 +362,62 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile(filename, input_method, n_g, &
-    &                                      glb_index, dist_read_info)
+  TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, input_method, n_g, &
+    &                                           glb_index, dist_read_info)
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER, OPTIONAL, INTENT(IN) :: input_method
+    INTEGER, INTENT(IN) :: input_method
 
     TYPE(t_distrib_read_data), OPTIONAL, POINTER :: dist_read_info
     INTEGER, OPTIONAL, INTENT(IN) :: n_g
     INTEGER, OPTIONAL, POINTER :: glb_index(:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_interface:openInputFile'
+      'mo_read_interface:openInputFile_dist'
 
-    IF (present(input_method)) THEN
-      openInputFile%input_method = input_method
-    ELSE
-      openInputFile%input_method = default_read_method
-    ENDIF
+    openInputFile_dist%input_method = input_method
 
-    SELECT CASE(openInputFile%input_method)
+    SELECT CASE(openInputFile_dist%input_method)
     CASE (read_netcdf_broadcast_method)
       IF ((.NOT. PRESENT(n_g)) .OR. (.NOT. PRESENT(glb_index))) &
         CALL finish(method_name, &
           &         "input method read_netcdf_broadcast_method: " // &
           &         "n_g or glb_index is missing")
-      openInputFile%file_id = netcdf_open_input(filename)
-      openInputFile%n_g = n_g
-      openInputFile%glb_index = glb_index
+      openInputFile_dist%file_id = netcdf_open_input(filename)
+      openInputFile_dist%n_g = n_g
+      openInputFile_dist%glb_index = glb_index
     CASE (read_netcdf_distribute_method)
       IF (.NOT. PRESENT(dist_read_info)) &
         CALL finish(method_name, &
           &         "input method read_netcdf_distribute_method: " // &
           &         "dist_read_info is missing")
-      openInputFile%dist_read_info = dist_read_info
+      openInputFile_dist%dist_read_info = dist_read_info
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END FUNCTION openInputFile
+  END FUNCTION openInputFile_dist
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  INTEGER FUNCTION openInputFile_bcast(filename)
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:openInputFile_bcast'
+
+    openInputFile_bcast = netcdf_open_input(filename)
+
+  END FUNCTION openInputFile_bcast
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE closeFile(stream_id)
+  SUBROUTINE closeFile_dist(stream_id)
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:closeFile'
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:closeFile_dist'
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
@@ -407,7 +427,21 @@ CONTAINS
       CALL finish(method_name, "unknown input_method")
     END SELECT
 
-  END SUBROUTINE closeFile
+  END SUBROUTINE closeFile_dist
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE closeFile_bcast(file_id, return_status)
+    INTEGER, INTENT(IN) :: file_id
+    INTEGER, OPTIONAL, INTENT(OUT) :: return_status
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_interface:closeFile_bcast'
+
+    return_status = netcdf_close(file_id)
+
+  END SUBROUTINE closeFile_bcast
+
 
 END MODULE mo_read_interface
