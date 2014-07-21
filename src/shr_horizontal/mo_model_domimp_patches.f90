@@ -126,6 +126,7 @@ MODULE mo_model_domimp_patches
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel
+  USE mo_complete_subdivision, ONLY: complete_parallel_setup
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
@@ -407,6 +408,7 @@ CONTAINS
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
 
+
     DO jg = n_dom_start, n_dom
 
       ! Allocate and preset remaining arrays in patch
@@ -423,6 +425,9 @@ CONTAINS
       IF (jg > n_dom_start)  CALL fill_grid_subsets( p_patch_local_parent(jg) )
     ENDDO
 
+    ! we read in the remaining data before generating the communication patterns
+    ! because some data that is read in by allocate_remaining_patch is required
+    ! by complete_parallel_setup
     DO jg = n_dom_start, n_dom
       n_lp = 0 ! Number of local parents on the same level
       ! Assemble a list of local parents living on the same level as the current patch
@@ -436,6 +441,12 @@ CONTAINS
       ! Get all patch information not read by read_pre_patch
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp )
     ENDDO
+
+    ! setup communication patterns (also done in sequential runs)
+    ! (the communication patterns have to be generated before parent_idx/blk and
+    !  child_idx/blk are transformed from global to local indices (in
+    !  set_parent_child_relations))
+    CALL complete_parallel_setup(patch, is_ocean_decomposition)
 
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom

@@ -13,7 +13,7 @@
 !!
 MODULE mo_build_decomposition
 
-  USE mo_complete_subdivision, ONLY: complete_parallel_setup, finalize_decomposition,            &
+  USE mo_complete_subdivision, ONLY: finalize_decomposition, &
     &                                copy_processor_splitting
   USE mo_setup_subdivision,    ONLY: decompose_domain
   USE mo_sync,                 ONLY: disable_sync_checks, enable_sync_checks,                    &
@@ -81,9 +81,6 @@ CONTAINS
     ! use internal domain decomposition algorithm
     CALL decompose_domain(p_patch, p_patch_pre)
     DEALLOCATE(p_patch_pre)
-
-    ! setup communication patterns (also done in sequential runs)
-    CALL complete_parallel_setup(p_patch, is_ocean_decomposition)
 
     ! Complete information which is not yet read or calculated
     CALL complete_patches( p_patch, is_ocean_decomposition )
