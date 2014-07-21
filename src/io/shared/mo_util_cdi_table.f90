@@ -17,9 +17,14 @@
 !!
 MODULE mo_util_cdi_table
 
-  USE mo_impl_constants, ONLY : MAX_CHAR_LENGTH
-  USE mo_util_string,    ONLY : int2string
-  USE mo_exception,      ONLY : finish
+  USE mo_impl_constants,   ONLY : MAX_CHAR_LENGTH
+  USE mo_util_string,      ONLY : int2string
+  USE mo_exception,        ONLY : finish
+  USE mtime,               ONLY : newDatetime, newTimedelta, datetime, timedelta, &
+    &                             timedeltaToString, max_timedelta_str_len,       &
+    &                             max_datetime_str_len, deallocateDatetime,       &
+    &                             deallocateTimedelta
+  USE mo_mtime_extensions, ONLY : getTimeDeltaFromDateTime
 
 
   IMPLICIT NONE
@@ -87,8 +92,8 @@ CONTAINS
     table%column( 3) = t_column("Vdate",   VALIDITY_DATE,    10)
     table%column( 4) = t_column("Vtime",   VALIDITY_TIME,     8)
     table%column( 5) = t_column("lvt",     LEVEL_TYPE,        3)
-    table%column( 6) = t_column("runtype", RUN_TYPE,          7)
-    table%column( 7) = t_column("vvmm",    TIME_VVMM,         4)
+    table%column( 6) = t_column("runtyp",  RUN_TYPE,          6)
+    table%column( 7) = t_column("vvmm",    TIME_VVMM,         6)
     table%column( 8) = t_column("nlv",     NUM_LEVELS,        3)
     table%column( 9) = t_column("clas",    RUN_CLASS,         4)
     table%column(10) = t_column("expid",   EXP_ID,            5)
@@ -112,9 +117,13 @@ CONTAINS
       &        zaxisID, nlev, iexp_id, ilevtyp,     &
       &        iruntype, irunclass, ingridused,     &
       &        ingridref, gridID, taxisID
-    INTEGER :: vdate, vtime, ftime,                 &
+    INTEGER :: vdate, vtime, rdate, rtime,          &
       &        hour, minute, second,                &
       &        year, month, day
+    TYPE(datetime),  POINTER :: mtime_vdatetime, mtime_rdatetime
+    TYPE(timedelta), POINTER :: forecast_time
+    CHARACTER(len=max_timedelta_str_len)  :: forecast_time_string
+    CHARACTER(len=max_datetime_str_len) :: mtime_vdatetime_str, mtime_rdatetime_str
 
     if (column%width > MAX_COLUMN_LEN) &
       &  CALL finish(routine, "Internal error: Column width exceeds maximum length!")
@@ -172,9 +181,33 @@ CONTAINS
       !
     CASE(TIME_VVMM)
       taxisID = vlistInqTaxis(vlistID)
-      ftime   = taxisInqFtime(taxisID)
-      CALL cdiDecodeTime(ftime, hour, minute, second)
-      WRITE(get_table_entry, "(i2,a1,i2.2,a1,i2.2)") hour,":",minute,":",second
+      ! get vdate and vtime
+      vdate   = taxisInqVdate(taxisID)
+      vtime   = taxisInqVtime(taxisID)
+      CALL cdiDecodeTime(vdate, year, month, day)
+      CALL cdiDecodeTime(vtime, hour, minute, second)
+      mtime_vdatetime => newDatetime(year, month , day,  &
+        &                            hour, minute, second, ims=0)
+      ! get rdate and rtime
+      rdate   = taxisInqRdate(taxisID)
+      rtime   = taxisInqRtime(taxisID)
+      CALL cdiDecodeTime(rdate, year, month, day)
+      CALL cdiDecodeTime(rtime, hour, minute, second)
+      mtime_rdatetime => newDatetime(year, month , day,  &
+        &                            hour, minute, second, ims=0)
+
+      ! this 'initialization' is necessary, in order to correctly deal with 
+      ! timedelta=0.
+      forecast_time =>newTimedelta("PT00H")
+      ! compute forecastTime
+      CALL getTimeDeltaFromDateTime(mtime_vdatetime, mtime_rdatetime, forecast_time)
+      CALL timedeltaToString(forecast_time, forecast_time_string)
+
+      get_table_entry = TRIM(forecast_time_string)
+      !
+      CALL deallocateDatetime(mtime_vdatetime)
+      CALL deallocateDatetime(mtime_rdatetime)
+      CALL deallocateTimedelta(forecast_time)
       !
     CASE(NUM_LEVELS)
       zaxisID = vlistInqVarZaxis(vlistID, ivar)

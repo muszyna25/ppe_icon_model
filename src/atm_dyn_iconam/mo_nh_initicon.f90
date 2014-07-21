@@ -1021,6 +1021,7 @@ MODULE mo_nh_initicon
   !! Both groups are based on two of a bunch of available ICON-internal output groups, depending on 
   !! which input mode is used
   !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
+  !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
   !! groups for MODE_COMBINED: mode_combined_in
   !! groups for MODE_COSMODE : mode_cosmode_in
   !!
@@ -4282,6 +4283,13 @@ MODULE mo_nh_initicon
       ! surface assimilation increments
       IF ( (init_mode == MODE_IAU) ) THEN
         ALLOCATE(initicon(jg)%sfc_inc%w_so (nproma,nlev_soil,nblks_c ) )
+
+
+        ! initialize with 0, since some increments are only read 
+        ! for specific times
+!$OMP PARALLEL WORKSHARE
+        initicon(jg)%sfc_inc%w_so(:,:,:) = 0._wp
+!$OMP END PARALLEL WORKSHARE
 
         initicon(jg)%sfc_inc%linitialized = .TRUE.
       ENDIF
