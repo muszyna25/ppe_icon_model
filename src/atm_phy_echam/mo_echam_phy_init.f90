@@ -265,7 +265,7 @@ CONTAINS
            return_pointer => netcdf_read_2D(       &
              & file_id       = stream_id,                  &
              & variable_name ='land',                      &
-             & fill_array    = prm_field(jg)% lsmask(:,:), &
+             & fill_array    = prm_field(jg)%lsmask(:,:),  &
              & n_g           = p_patch(jg)%n_patch_cells_g,&
              & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
            return_pointer => netcdf_read_2D(       &
