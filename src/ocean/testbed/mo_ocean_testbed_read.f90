@@ -64,10 +64,7 @@ CONTAINS
     stream_id = openInputFile(initialState_InputFileName, &
       &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
 
-    CALL read_onCells_3D_time(                &
-      & stream_id=stream_id,                  &
-      & variable_name="T",                    &
-      & return_pointer=T )
+    CALL read_3D_time( stream_id=stream_id, variable_name="T", return_pointer=T )
 
     CALL closeFile(stream_id)
 
@@ -85,10 +82,8 @@ CONTAINS
     stream_id = openInputFile(OutputFileName, &
       &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
 
-    CALL read_onCells_3D_time(                &
-      & stream_id=stream_id,                  &
-      & variable_name="T",                    &
-      & return_pointer=T_check )
+    CALL read_3D_time( stream_id=stream_id, variable_name="T", &
+      &                return_pointer=T_check )
     IF ( MAXVAL(ABS(T - T_check )) > 0.0_wp ) &
       CALL finish(method_name, "Check failed")
 

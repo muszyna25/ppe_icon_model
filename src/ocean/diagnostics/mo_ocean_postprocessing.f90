@@ -139,7 +139,7 @@ CONTAINS
     stream_id = openInputFile(fileName, n_g=patch_2d%n_patch_cells, &
       &                       glb_index=glb_index)
 
-    CALL read_onCells_3D_time(                &
+    CALL read_3D_time(                        &
       & stream_id=stream_id,                  &
       & variable_name="t_acc",                &
       & start_timestep=timeIndex,             &
@@ -148,7 +148,7 @@ CONTAINS
 
     tracers(:,:,:,1) = T(:,:,:,1)
 
-    CALL read_onCells_3D_time(                &
+    CALL read_3D_time(                        &
       & stream_id=stream_id,                  &
       & variable_name="s_acc",                &
       & start_timestep=timeIndex,             &
@@ -157,7 +157,7 @@ CONTAINS
 
     tracers(:,:,:,2) = S(:,:,:,1)
 
-    CALL read_onCells_2D_time(                &
+    CALL read_2D_time(                        &
       & stream_id=stream_id,                  &
       & variable_name="h_acc",                &
       & start_timestep=timeIndex,             &
