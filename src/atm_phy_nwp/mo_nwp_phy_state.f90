@@ -258,7 +258,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shape3dsubs(3), shape3dsubsw(3)
-    INTEGER :: shape3dkp1(3), shape3d_e(3)
+    INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist
     CHARACTER(len=NF_MAX_NAME) :: long_name
@@ -276,9 +276,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     shape3dkp1   = (/nproma, klevp1,   kblks            /)
     shape3dsubs  = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw = (/nproma, kblks,    ntiles_total+ntiles_water /)
-
-    !For LES turbulence
-    shape3d_e    = (/nproma, klev,     kblks_e           /)
 
     ! Register a field list and apply default settings
 
@@ -2212,21 +2209,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
         & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
         & ldims=shape2d, lrestart=.FALSE. )
 
-      ! &      diag%buoyancy_prod(nproma,nlev,nblks_c)
+      ! &      diag%buoyancy_prod(nproma,nlev+1,nblks_c)
       cf_desc    = t_cf_var('buoaycny_prod', 'm**2/s**3', 'buoayancy production term in TKE Eq', &
            &                DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'buoyancy_prod', diag%buoyancy_prod,             &
         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,               &
-        & ldims=shape3d, lrestart=.FALSE. )                                   
+        & ldims=shape3dkp1, lrestart=.FALSE. )                                   
 
-      ! &      diag%mech_prod(nproma,nlev,nblks_e)
+      ! &      diag%mech_prod(nproma,nlev+1,nblks_c)
       cf_desc    = t_cf_var('mech_prod', 'm**2/s**3', 'mechanical production term in TKE Eq', &
            &                DATATYPE_FLT32)
-      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'mech_prod', diag%mech_prod,                     &
         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,               &
-        & ldims=shape3d_e, lrestart=.FALSE. )                                   
+        & ldims=shape3dkp1, lrestart=.FALSE. )                                   
 
       !1D and 0D diagnostic variables that can not be part of add_var
       ALLOCATE( diag%turb_diag_1dvar(klevp1,SIZE(turb_profile_list,1)),  &

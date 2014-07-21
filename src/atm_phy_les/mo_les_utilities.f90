@@ -208,62 +208,57 @@ MODULE mo_les_utilities
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2014-July-07)
-  SUBROUTINE brunt_vaisala_freq(p_patch, p_metrics, t_g, pres_sfc, theta, qc, rho, &
+  SUBROUTINE brunt_vaisala_freq(p_patch, p_metrics, theta, qc, rho_ic, &
                                 temp, bru_vais)
 
     TYPE(t_patch),     INTENT(in), TARGET :: p_patch
     TYPE(t_nh_metrics),INTENT(in), TARGET :: p_metrics 
-    REAL(wp), DIMENSION(:,:,:), INTENT(in):: theta, qc, rho, temp
-    REAL(wp), DIMENSION(:,:),   INTENT(in):: t_g, pres_sfc
+    REAL(wp), DIMENSION(:,:,:), INTENT(in):: theta, qc, rho_ic, temp
     REAL(wp), INTENT(OUT)                 :: bru_vais(:,:,:)
 
     REAL(wp) :: theta_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
-    REAL(wp) :: term1, qs
+    REAL(wp) :: term1, qs, temp_ic
     INTEGER  :: i_startblk, i_endblk, rl_start, rl_end
     INTEGER  :: i_endidx, i_startidx, nlev, nlevp1, i_nchdom
     INTEGER  :: jk, jc, jb
 
-    !To be calculated at all cells at full levels
+    !To be calculated at all cells at interface levels, except top/bottom 
+    !boundaries
 
     nlev      = p_patch%nlev
     nlevp1    = nlev+1
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
-    rl_start   = 1
-    rl_end     = min_rlcell_int-2
+    rl_start   = 2
+    rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     CALL vert_intp_full2half_cell_3d(p_patch, p_metrics, theta, theta_ic, rl_start, rl_end)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, qs, term1) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,temp_ic,qs,term1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
-
-      DO jc = i_startidx , i_endidx
-        theta_ic(jc,nlevp1,jb) = t_g(jc,jb) * EXP(rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref))
-      
-        !bru_vais(jc,nlev,jb) = grav * ( 0.375_wp*theta(jc,nlev,jb) + 0.75_wp*theta(jc,nlev-1,jb)- &
-        !                                0.125_wp*theta(jc,nlev-2,jb) - theta_ic(jc,nlevp1,jb) ) * &
-        !                                p_metrics%inv_ddqz_z_full(jc,jk,jb)/theta(jc,nlev,jb)    
-      END DO
-
-      DO jk = 1 , nlev
+      DO jk = 2 , nlev
         DO jc = i_startidx , i_endidx
  
-          bru_vais(jc,jk,jb) = grav * ( theta_ic(jc,jk,jb) - theta_ic(jc,jk+1,jb) ) * &
-                               p_metrics%inv_ddqz_z_full(jc,jk,jb)/theta(jc,jk,jb)    
+          bru_vais(jc,jk,jb) = grav * ( theta(jc,jk-1,jb) - theta(jc,jk,jb) ) * &
+                               p_metrics%inv_ddqz_z_half(jc,jk,jb)/theta_ic(jc,jk,jb)    
 
           !Now for saturated case
-          IF(qc(jc,jk,jb) > 0._wp)THEN 
+          IF(qc(jc,jk,jb) > 0._wp .AND. qc(jc,jk-1,jb) > 0._wp)THEN 
 
-            qs    = qsat_rho(temp(jc,jk,jb),rho(jc,jk,jb))  
-            term1 = 1._wp + alv*qs/(rd*temp(jc,jk,jb))
+            temp_ic = p_metrics%wgtfac_c(jc,jk,jb) * temp(jc,jk,jb) + &
+                    (1._wp-p_metrics%wgtfac_c(jc,jk,jb)) * temp(jc,jk-1,jb)
+
+            qs    = qsat_rho(temp_ic,rho_ic(jc,jk,jb))  
+
+            term1 = 1._wp + alv*qs/(rd*temp_ic)
 
             bru_vais(jc,jk,jb) = ( bru_vais(jc,jk,jb) + grav**2 * rcpd * ( term1 / &
-                    (1._wp + 0.067_wp*alvdcp*qs) - 1._wp )/temp(jc,jk,jb) ) * term1 
+                    (1._wp + 0.067_wp*alvdcp*qs) - 1._wp )/temp_ic ) * term1 
 
           END IF
 

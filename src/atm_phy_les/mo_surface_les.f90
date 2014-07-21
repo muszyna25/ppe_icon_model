@@ -52,7 +52,7 @@ MODULE mo_surface_les
   USE mo_util_phys,           ONLY: nwp_dyn_gust
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_nh_testcases_nml,    ONLY: th_cbl  
+  USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl, pseudo_rhos
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 
   IMPLICIT NONE
@@ -120,7 +120,7 @@ MODULE mo_surface_les
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp), POINTER :: pres_sfc(:,:)
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
-    REAL(wp) :: RIB, zh, tcn_mom, tcn_heat
+    REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, p_sfc, t_sfc, ex_sfc
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
@@ -169,18 +169,22 @@ MODULE mo_surface_les
  
     !Prescribed latent/sensible heat fluxes: get ustar and surface temperature / moisture
     !Ideally, one should do an iteration to get ustar corresponding to given fluxes
+
+    !Fixed surface pressure to be comparable to incompressible LES models. Pseudo density
+    !(constant in time) that is used here is fixed to the initial value so that the flux 
+    !is fixed in density units. 
     CASE(2)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,mwind,z_mc,RIB, &
-!$OMP            ustar,obukhov_length,theta_sfc,rhos),ICON_OMP_RUNTIME_SCHEDULE
+!$OMP            ustar,obukhov_length,theta_sfc),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
          DO jc = i_startidx, i_endidx
 
             !Surface exner
-            exner = EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
+            exner = EXP( rd_o_cpd*LOG(psfc_cbl/p0ref) )
 
             !Roughness length
             zrough = prm_diag%gz0(jc,jb) * rgrav
@@ -223,14 +227,10 @@ MODULE mo_surface_les
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
             !Get surface fluxes
-            !rho at surface: no qc at suface
-            rhos   =  pres_sfc(jc,jb)/( rd * &
-                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
-
-            prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
-            prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
-            prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%u(jc,jk,jb) / mwind
-            prm_diag%vmfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%v(jc,jk,jb) / mwind
+            prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * pseudo_rhos * cpd
+            prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * pseudo_rhos * alv
+            prm_diag%umfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%u(jc,jk,jb) / mwind
+            prm_diag%vmfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
          END DO  
       END DO
@@ -239,10 +239,12 @@ MODULE mo_surface_les
 
     !Prescribed buoyancy flux and transfer coefficient at surface to get a uniform SST (Stevens 2007 JAS)
     !It uses fixed transfer coefficient and assumes that q_s is saturated
-    !It assumes that surface temperature is same as theta at surface
+    !Fixed surface pressure to be comparable to incompressible LES models. Pseudo density
+    !(constant in time) that is used here is fixed to the initial value so that the flux 
+    !is fixed in density units. 
     CASE(3)
 
-      !Get mean theta and qv at first model level. 
+      !Get mean theta and qv at first model level and surface pressure
 
       var(:,:) = theta(:,jk,:)
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
@@ -252,39 +254,46 @@ MODULE mo_surface_les
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       qv_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
+      ex_sfc  = 1._wp !EXP( rd_o_cpd*LOG(psfc_cbl/p0ref) )
+
       !Iterate to get surface temperature given buoyancy flux:following UCLA-LES
 
       !Note that t_g(:,:) is uniform so the first index is used below
       rl    = grf_bdywidth_c+1
       isblk = p_patch%cells%start_blk(rl,1)
       isidx = p_patch%cells%start_idx(rl,1)
-      theta_sfc = p_prog_lnd_now%t_g(isidx,isblk)
+       
+      t_sfc     = p_prog_lnd_now%t_g(isidx,isblk) 
+      theta_sfc = t_sfc / ex_sfc       
       
       diff = 1._wp
       itr = 0 
       DO WHILE (diff > 1._wp-6 .AND. itr < 10)
          bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                 theta_nlev*(spec_humi(sat_pres_water(theta_sfc),p0ref)-    &
-                 qv_nlev) )*grav/th_cbl(1)
+                 theta_nlev*(spec_humi(sat_pres_water(t_sfc),psfc_cbl)- &
+                 qv_nlev) )*grav/theta_nlev
 
          theta_sfc1 = theta_sfc + 0.1_wp 
+         t_sfc      = theta_sfc1 * ex_sfc
 
          bflx2 = les_config(jg)%tran_coeff*( (theta_sfc1-theta_nlev)+vtmpc1* &
-                 theta_nlev*(spec_humi(sat_pres_water(theta_sfc1),p0ref)-    &
-                 qv_nlev) )*grav/th_cbl(1)
+                 theta_nlev*(spec_humi(sat_pres_water(t_sfc),psfc_cbl)- &
+                 qv_nlev) )*grav/theta_nlev
 
          theta_sfc = theta_sfc1 + 0.1_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
-
+         t_sfc     = theta_sfc * ex_sfc
+         
          diff = ABS(1._wp - theta_sfc/theta_sfc1)
          itr = itr + 1         
       END DO               
        
+
       !WRITE(message_text,'(i4,f14.6,f14.7)')itr,diff,bflx2
       !CALL message('FINAL ITR, RESID, AND BFLX:',message_text )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,z_mc,mwind,RIB,ustar, &
-!$OMP            obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP            obukhov_length),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -314,21 +323,17 @@ MODULE mo_surface_les
             END IF
 
             !Surface temperature
-            p_prog_lnd_new%t_g(jc,jb) = theta_sfc
+            p_prog_lnd_new%t_g(jc,jb) = t_sfc
 
             !Get surface qv 
-            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),p0ref)
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),psfc_cbl)
 
-            !Get surface fluxes
-            rhos   =  p0ref/( rd * &
-                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
-
-            prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff* &
+            prm_diag%shfl_s(jc,jb) = pseudo_rhos*cpd*les_config(jg)%tran_coeff* &
                                      (theta_sfc-theta(jc,jk,jb))
-            prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff* &
+            prm_diag%lhfl_s(jc,jb) = pseudo_rhos*alv*les_config(jg)%tran_coeff* &
                                      (p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
-            prm_diag%umfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%u(jc,jk,jb) / mwind
-            prm_diag%vmfl_s(jc,jb)  = ustar**2  * rhos * p_nh_diag%v(jc,jk,jb) / mwind
+            prm_diag%umfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%u(jc,jk,jb) / mwind
+            prm_diag%vmfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
          END DO  
       END DO
@@ -432,8 +437,7 @@ MODULE mo_surface_les
   END SELECT 
 
 
-  !Sync is required for mom fluxes and t_g
-  CALL sync_patch_array(SYNC_C, p_patch, p_prog_lnd_new%t_g)
+  !Sync is required for mom fluxes 
   CALL sync_patch_array(SYNC_C, p_patch, prm_diag%umfl_s)
   CALL sync_patch_array(SYNC_C, p_patch, prm_diag%vmfl_s)
 

@@ -43,7 +43,7 @@ MODULE mo_vertical_grid
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
-  USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg
+  USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar, verts2edges_scalar
@@ -1884,8 +1884,7 @@ MODULE mo_vertical_grid
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
 
-    REAL(wp)  :: z_me(nproma,p_patch%nlev,p_patch%nblks_e), les_filter, &
-                 z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), max_dz
+    REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), max_dz
     
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
     INTEGER :: nlev, nlevp1, i_startblk
@@ -1897,22 +1896,8 @@ MODULE mo_vertical_grid
     nblks_e   = p_patch%nblks_e
     npromz_e  = p_patch%npromz_e
 
-    IF (p_test_run) THEN
-!$OMP PARALLEL WORKSHARE
-        z_me(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
-    ENDIF
-
-    !First get height above ground level
-    CALL cells2edges_scalar(p_nh%metrics%geopot_agl, p_patch, p_int%c_lin_e, z_me, &
-                            opt_rlend=min_rledge_int)     
-    CALL sync_patch_array(SYNC_E, p_patch, z_me)
-
-    !divide by gravity to get z
-    z_me = z_me / grav  
-
     !Use the  triangle area to decide the les filter. 
-    max_dz = MAXVAL(p_nh%metrics%ddqz_z_full_e(:,nlev,:))
+    max_dz = MAXVAL(p_nh%metrics%ddqz_z_full(:,nlev,:))
     max_dz = global_max(max_dz) 
     les_filter = les_config(1)%smag_constant*(max_dz*p_patch%geometry_info%mean_cell_area)**0.33333_wp
 
@@ -1930,15 +1915,12 @@ MODULE mo_vertical_grid
        DO je = i_startidx, i_endidx
          p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
-         
-         p_nh%metrics%mixing_length_sq(je,jk,jb) = (les_filter*z_me(je,jk,jb))**2    &
-                      / ((les_filter/akt)**2+z_me(je,jk,jb)**2)
        END DO
       END DO
     END DO 
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,nlen,z_mc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -1947,6 +1929,11 @@ MODULE mo_vertical_grid
       ENDIF     
        DO jk = 1 , nlevp1 
         DO jc = 1 , nlen
+         z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
+
+         p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
+                      / ((les_filter/akt)**2+z_mc**2)
+
          p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
        END DO
       END DO

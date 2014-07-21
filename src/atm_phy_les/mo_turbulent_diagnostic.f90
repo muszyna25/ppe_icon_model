@@ -516,12 +516,12 @@ CONTAINS
      CASE('bynprd')
        !Buoyancy production term
        CALL levels_horizontal_mean(prm_diag%buoyancy_prod, p_patch%cells%area, &
-                                   p_patch%cells%owned, outvar(1:nlev))
+                                   p_patch%cells%owned, outvar(1:nlevp1))
 
      CASE('mechprd')
        !Mechanical production term: prm_diag%mech_prod / 2
-       CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%edges%primal_edge_length,  &
-                                   p_patch%edges%owned, outvar(1:nlev))
+       CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%cells%area,  &
+                                   p_patch%cells%owned, outvar(1:nlevp1))
        outvar = outvar * 0.5_wp          
  
      CASE DEFAULT !In case calculations are performed somewhere else
@@ -818,9 +818,11 @@ CONTAINS
      CASE('bynprd') 
        longname = 'Buoyancy production divided by eddy diffusivity.'
        unit     = '1/s2'
+       is_at_full_level(n) = .FALSE.
      CASE('mechprd') 
        longname = 'Mechanical production divided by eddy viscosity.'
        unit     = '1/s2'
+       is_at_full_level(n) = .FALSE.
      CASE DEFAULT 
          CALL finish(routine,'This variable does not exist!')
      END SELECT

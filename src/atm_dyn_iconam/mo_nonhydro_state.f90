@@ -2885,14 +2885,14 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 
 
-      ! mixing_length_sq  p_metrics%mixing_length_sq(nproma,nlev,nblks_e)
+      ! mixing_length_sq  p_metrics%mixing_length_sq(nproma,nlevp1,nblks_c)
       !
       cf_desc    = t_cf_var('mixing_length_sq', 'm2','square of mixing length for Smagorinsky model', &
                              DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+      grib2_desc = t_grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'mixing_length_sq', p_metrics%mixing_length_sq,  &
                   & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,          &
-                  & ldims=shape3d_e,                                                 &
+                  & ldims=shape3d_chalf,                                             &
                   & isteptype=TSTEP_CONSTANT )
 
 
