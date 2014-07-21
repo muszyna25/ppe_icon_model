@@ -123,6 +123,7 @@ CONTAINS
 !    INTEGER :: start_index, end_index
 !    TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch),POINTER            :: patch_2d
+    INTEGER, POINTER                 :: glb_index(:)
 
     TYPE(t_stream_id) :: stream_id
 
@@ -131,18 +132,19 @@ CONTAINS
     ! CALL message(method_name,   initialState_InputFileName)
     patch_2d => patch_3d%p_patch_2d(1)
     tracers => ocean_state%p_prog(1)%tracer(:,:,:,:)
+    glb_index => patch_2d%cells%decomp_info%glb_index
     nold(1) = 1
     nnew(1) = 1
     !---------------------------------------------------------------------
-    stream_id = openInputFile(fileName)
+    stream_id = openInputFile(fileName, n_g=patch_2d%n_patch_cells, &
+      &                       glb_index=glb_index)
 
     CALL read_onCells_3D_time(                &
       & stream_id=stream_id,                  &
       & variable_name="t_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
-      & return_pointer=T,                     &
-      & patch=patch_2d )
+      & return_pointer=T )
 
     tracers(:,:,:,1) = T(:,:,:,1)
 
@@ -151,8 +153,7 @@ CONTAINS
       & variable_name="s_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
-      & return_pointer=S,                     &
-      & patch=patch_2d )
+      & return_pointer=S )
 
     tracers(:,:,:,2) = S(:,:,:,1)
 
@@ -161,8 +162,7 @@ CONTAINS
       & variable_name="h_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
-      & return_pointer=h,                     &
-      & patch=patch_2d )
+      & return_pointer=h )
 
     CALL closeFile(stream_id)
 

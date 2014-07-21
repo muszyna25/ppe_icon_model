@@ -30,7 +30,6 @@
 MODULE mo_read_interface
 
   USE mo_kind
-  USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success, max_char_length
   USE mo_parallel_config,    ONLY: nproma
@@ -72,20 +71,18 @@ MODULE mo_read_interface
 
   !--------------------------------------------------------
   TYPE t_stream_id
-    INTEGER  :: stream_id           ! future use
     INTEGER  :: file_id             ! netcdf file id, or similar
     INTEGER  :: return_status       ! the latest operation return status
-    INTEGER  :: current_state       ! the state of the stream, opened, prefetching, etc. future use
     INTEGER  :: input_method        ! read_netcdf_broadcast_method, read_netcdf_distribute_method, etc
-    TYPE(t_patch), POINTER :: patch ! the patch associated with the stream
-  END TYPE t_stream_id
-  !--------------------------------------------------------
 
-  TYPE t_read_info
-    TYPE(t_distrib_read_data) :: dist_read_info
+    ! data required for read_netcdf_distribute_method
+    TYPE(t_distrib_read_data), POINTER :: dist_read_info
+
+    ! data required for read_netcdf_broadcast_method
     INTEGER :: n_g
     INTEGER, POINTER :: glb_index(:)
-  END TYPE t_read_info
+  END TYPE t_stream_id
+  !--------------------------------------------------------
 
   INTERFACE read_0D_real
     MODULE PROCEDURE read_REAL_0D_streamid
@@ -230,13 +227,13 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE read_REAL_onCells_2D_streamid(stream_id, variable_name, fill_array, return_pointer, patch)
+  SUBROUTINE read_REAL_onCells_2D_streamid(stream_id, variable_name, &
+    &                                      fill_array, return_pointer)
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:)
     define_return_pointer        :: return_pointer(:,:)
-    TYPE(t_patch), TARGET        :: patch
 
     REAL(wp), POINTER            :: tmp_pointer(:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:read_REAL_onCells_2D_streamid'
@@ -244,8 +241,8 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => netcdf_read_2D(stream_id%file_id, variable_name, &
-        &                           fill_array, patch%n_patch_cells_g, &
-        &                           patch%cells%decomp_info%glb_index)
+        &                           fill_array, stream_id%n_g, &
+        &                           stream_id%glb_index)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
@@ -262,19 +259,19 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  SUBROUTINE read_REAL_onCells_2D_time_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
-    & start_timestep, end_timestep)
+  SUBROUTINE read_REAL_onCells_2D_time_streamid(stream_id, variable_name, &
+    &                                           fill_array, return_pointer,  &
+    &                                           start_timestep, end_timestep)
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target   :: fill_array(:,:,:)
     define_return_pointer        :: return_pointer(:,:,:)
-    TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
 
     CALL read_REAL_onCells_2D_1extdim_streamid(&
       & stream_id=stream_id, variable_name=variable_name, fill_array=fill_array, &
-      & return_pointer=return_pointer, patch=patch, &
-      & start_extdim=start_timestep, end_extdim=end_timestep, extdim_name="time" )
+      & return_pointer=return_pointer, start_extdim=start_timestep, &
+      & end_extdim=end_timestep, extdim_name="time" )
 
   END SUBROUTINE read_REAL_onCells_2D_time_streamid
   !-------------------------------------------------------------------------
@@ -285,14 +282,15 @@ CONTAINS
   !      c-style(ncdump): O3(time, ncells) fortran-style: O3(ncells, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
-  SUBROUTINE read_REAL_onCells_2D_1extdim_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
-    & start_extdim, end_extdim, extdim_name )
+  SUBROUTINE read_REAL_onCells_2D_1extdim_streamid(stream_id, variable_name, &
+    &                                              fill_array, return_pointer, &
+    &                                              start_extdim, end_extdim, &
+    &                                              extdim_name )
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:)
     define_return_pointer        :: return_pointer(:,:,:)
-    TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
 
@@ -303,8 +301,8 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
          & netcdf_read_2D_extdim(stream_id%file_id, variable_name, fill_array, &
-         & patch%n_patch_cells_g, patch%cells%decomp_info%glb_index, &
-         & start_extdim, end_extdim, extdim_name )
+         & stream_id%n_g, stream_id%glb_index, start_extdim, end_extdim, &
+         & extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
@@ -321,14 +319,15 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  SUBROUTINE read_REAL_onCells_3D_time_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
-    & start_timestep, end_timestep, levelsDimName)
+  SUBROUTINE read_REAL_onCells_3D_time_streamid(stream_id, variable_name, &
+    &                                           fill_array, return_pointer, &
+    &                                           start_timestep, end_timestep, &
+    &                                           levelsDimName)
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target            :: fill_array(:,:,:,:)
     define_return_pointer        :: return_pointer(:,:,:,:)
-    TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
 
@@ -337,7 +336,6 @@ CONTAINS
       & variable_name=variable_name,            &
       & fill_array=fill_array,                  &
       & return_pointer=return_pointer,          &
-      & patch=patch,                            &
       & start_extdim=start_timestep,  end_extdim=end_timestep, &
       & levelsDimName=levelsDimName,          &
       & extdim_name="time")
@@ -351,14 +349,14 @@ CONTAINS
   !      c-style(ncdump): O3(time, levels, ncells) fortran-style: O3(ncells, levels, time)
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
-  SUBROUTINE read_REAL_onCells_3D_1extdim_streamid(stream_id, variable_name, fill_array, return_pointer, patch, &
-    & start_extdim, end_extdim, levelsDimName, extdim_name )
+  SUBROUTINE read_REAL_onCells_3D_1extdim_streamid(stream_id, variable_name, &
+    & fill_array, return_pointer, start_extdim, end_extdim, levelsDimName, &
+    & extdim_name )
 
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     CHARACTER(LEN=*), INTENT(IN) :: variable_name
     define_fill_target           :: fill_array(:,:,:,:)
     define_return_pointer        :: return_pointer(:,:,:,:)
-    TYPE(t_patch), TARGET        :: patch
     INTEGER, INTENT(in), OPTIONAL:: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name, levelsDimName
 
@@ -369,7 +367,7 @@ CONTAINS
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
          & netcdf_read_3D_extdim(stream_id%file_id, variable_name, &
-         & fill_array, patch%n_patch_cells_g, patch%cells%decomp_info%glb_index, &
+         & fill_array, stream_id%n_g, stream_id%glb_index, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -384,9 +382,15 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  TYPE(t_stream_id) FUNCTION openInputFile(filename, input_method)
+  TYPE(t_stream_id) FUNCTION openInputFile(filename, input_method, n_g, &
+    &                                      glb_index, dist_read_info)
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
+
+    TYPE(t_distrib_read_data), OPTIONAL, POINTER :: dist_read_info
+    INTEGER, OPTIONAL, INTENT(IN) :: n_g
+    INTEGER, OPTIONAL, POINTER :: glb_index(:)
+
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_read_interface:openInputFile'
 
     IF (present(input_method)) THEN
@@ -397,12 +401,19 @@ CONTAINS
 
     SELECT CASE(openInputFile%input_method)
     CASE (read_netcdf_broadcast_method)
+      IF ((.NOT. PRESENT(n_g)) .OR. (.NOT. PRESENT(glb_index))) &
+        CALL finish(method_name, "input method read_netcdf_broadcast_method: n_g or glb_index is missing")
       openInputFile%file_id = netcdf_open_input(filename)
+      openInputFile%n_g = n_g
+      openInputFile%glb_index = glb_index
     CASE (read_netcdf_distribute_method)
+      IF (.NOT. PRESENT(dist_read_info)) &
+        CALL finish(method_name, "input method read_netcdf_distribute_method: dist_read_info is missing")
+      openInputFile%dist_read_info = dist_read_info
     CASE default
       CALL finish(method_name, "unknown input_method")
     END SELECT
-    
+
   END FUNCTION openInputFile
   !-------------------------------------------------------------------------
 

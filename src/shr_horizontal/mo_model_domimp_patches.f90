@@ -130,6 +130,7 @@ MODULE mo_model_domimp_patches
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
+  USE mo_read_interface,     ONLY: openInputFile, closeFile, t_stream_id
 
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -1368,6 +1369,8 @@ CONTAINS
     INTEGER :: return_status
 
     TYPE(t_patch), POINTER :: p_p, patch0
+
+    TYPE(t_stream_id) :: stream_id
 
 !    REAL(wp), POINTER :: tmp_check_array(:,:)
 !    REAL(wp) :: max_diff

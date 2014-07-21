@@ -48,6 +48,7 @@ CONTAINS
     REAL(wp), POINTER :: T(:,:,:,:), T_check(:,:,:,:)   ! is (nproma, levels, blocks, time )
     INTEGER :: levels, lnwl_size, return_status
     TYPE(t_patch),POINTER            :: patch_2d
+    INTEGER, POINTER                 :: glb_index(:)
     CHARACTER(filename_max) :: OutputFileName   !< file name for reading in
 
     TYPE(t_stream_id) :: stream_id
@@ -56,16 +57,17 @@ CONTAINS
 
     CALL message(method_name,   initialState_InputFileName)
     patch_2d => patch_3d%p_patch_2d(1)
+    glb_index => patch_2d%cells%decomp_info%glb_index
 
 
     !---------------------------------------------------------------------
-    stream_id = openInputFile(initialState_InputFileName)
+    stream_id = openInputFile(initialState_InputFileName, &
+      &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
 
     CALL read_onCells_3D_time(                &
       & stream_id=stream_id,                  &
       & variable_name="T",                    &
-      & return_pointer=T,                     &
-      & patch=patch_2d )
+      & return_pointer=T )
 
     CALL closeFile(stream_id)
 
@@ -78,15 +80,15 @@ CONTAINS
       & filename=OutputFileName,                  &
       & variable_name="T",                         &
       & write_array=T,                             &
-      & patch=patch_2d)
+      & patch=patch_2d )
 
-    stream_id = openInputFile(OutputFileName)
+    stream_id = openInputFile(OutputFileName, &
+      &                       n_g=patch_2d%n_patch_cells, glb_index=glb_index)
 
     CALL read_onCells_3D_time(                &
       & stream_id=stream_id,                  &
       & variable_name="T",                    &
-      & return_pointer=T_check,               &
-      & patch=patch_2d )
+      & return_pointer=T_check )
     IF ( MAXVAL(ABS(T - T_check )) > 0.0_wp ) &
       CALL finish(method_name, "Check failed")
 
