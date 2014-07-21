@@ -83,38 +83,42 @@ CONTAINS
     !-----------------------------------------------------
     ! example with non-allocated arrays
     ! mote that allocation time dim will be 1:12, as in the file
-    aod => netcdf_read_oncells_3D_time( &
+    aod => netcdf_read_3D_time( &
       & file_id       = stream_id,      &
       & variable_name = "aod",          &
       & levelsdim_name = "lnwl",        & ! optional, just for checking
-      & patch         = patch)
+      & n_g = patch%n_patch_cells_g,    &
+      & glb_index = patch%cells%decomp_info%glb_index)
 
     !-----------------------------------------------------
     ! example with allocated arrays, time dim is 0:13
     lnwl_size = SIZE(lnwl_array, 1)
     ALLOCATE(asy(nproma, lnwl_size, patch%nblks_c, 0:13 ))
     ! read previous month, should be filled form the previous read though
-    return_pointer => netcdf_read_oncells_3D_time( &
+    return_pointer => netcdf_read_3D_time( &
       & filename       = testfile_3D_time(1),      &
       & variable_name  = "asy",                    &
       & fill_array     = asy(:,:,:,0:0),           &
-      & patch          = patch,                    &
+      & n_g = patch%n_patch_cells_g,               &
+      & glb_index = patch%cells%decomp_info%glb_index, &
       & levelsdim_name = "lnwl",                   & ! optional, just for checking
       & start_timestep = 12,                       &
       & end_timestep   = 12)
     ! read current year
-    return_pointer => netcdf_read_oncells_3D_time( &
+    return_pointer => netcdf_read_3D_time( &
       & file_id        = stream_id,                &
       & variable_name  = "asy",                    &
       & fill_array     = asy(:,:,:,1:12),          &
-      & patch          = patch,                    &
+      & n_g = patch%n_patch_cells_g,               &
+      & glb_index = patch%cells%decomp_info%glb_index, &
       & levelsdim_name = "lnwl")                    ! optional, just for checking
     ! read next month
-    return_pointer => netcdf_read_oncells_3D_time( &
+    return_pointer => netcdf_read_3D_time( &
       & filename       = testfile_3D_time(1),      &
       & variable_name  = "asy",                    &
       & fill_array     = asy(:,:,:,13:13),         &
-      & patch          = patch,                    &
+      & n_g = patch%n_patch_cells_g,               &
+      & glb_index = patch%cells%decomp_info%glb_index, &
       & start_timestep = 1,                        &
       & end_timestep   = 1)
 
@@ -127,11 +131,12 @@ CONTAINS
     ALLOCATE(z_aer_fine_mo(nproma, levels, patch%nblks_c, 0:13 ))
     ! read previous month, should be filled form the previous read though
     ! read current year
-    return_pointer => netcdf_read_oncells_3D_time(  &
+    return_pointer => netcdf_read_3D_time(  &
       & file_id        = stream_id,                 &
       & variable_name  = "z_aer_fine_mo",           &
       & fill_array     = z_aer_fine_mo(:,:,:,1:12), &
-      & patch          = patch,                     &
+      & n_g = patch%n_patch_cells_g,                &
+      & glb_index = patch%cells%decomp_info%glb_index, &
       & levelsdim_name = "lev")                    ! optional, just for checking
 
     !---------------------------------------------------------------------
@@ -177,10 +182,11 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! will read all timesteps in the file
-    fill_2D_time_array => netcdf_read_oncells_2D_time(   &
+    fill_2D_time_array => netcdf_read_2D_time(   &
       & filename=testfile_2D_time(1),              &
       & variable_name=TRIM(testfile_2D_time(2)),   &
-      & patch=patch)
+      & n_g = patch%n_patch_cells_g,               &
+      & glb_index = patch%cells%decomp_info%glb_index)
 
     ! here the fill_2D_time_array is allocated and filled
     ! write the sst array to output ONLY for comparing
@@ -192,23 +198,26 @@ CONTAINS
     ! Example of reading selective timesteps with explicit shape
     ! say 13 months
     ALLOCATE(fill_2D_time_array(nproma, patch%nblks_c, 0:13 ))
-    point_2D_time => netcdf_read_oncells_2D_time(   &
+    point_2D_time => netcdf_read_2D_time(   &
       & filename=testfile_2D_time(1),               &
       & variable_name=TRIM(testfile_2D_time(2)),    &
       & fill_array=fill_2D_time_array(:,:,0:),      &
-      & patch=patch,                                &
+      & n_g = patch%n_patch_cells_g,                &
+      & glb_index = patch%cells%decomp_info%glb_index, &
       & start_timestep=12, end_timestep=12)
-    point_2D_time => netcdf_read_oncells_2D_time(   &
+    point_2D_time => netcdf_read_2D_time(   &
       & filename=testfile_2D_time(1),               &
       & variable_name=TRIM(testfile_2D_time(2)),    &
       & fill_array=fill_2D_time_array(:,:,1:),      &
-      & patch=patch,                                &
+      & n_g = patch%n_patch_cells_g,                &
+      & glb_index = patch%cells%decomp_info%glb_index, &
       & start_timestep=1,  end_timestep=12)
-    point_2D_time => netcdf_read_oncells_2D_time(   &
+    point_2D_time => netcdf_read_2D_time(   &
       & filename=testfile_2D_time(1),               &
       & variable_name=TRIM(testfile_2D_time(2)),    &
       & fill_array=fill_2D_time_array(:,:,13:),     &
-      & patch=patch,                                &
+      & n_g = patch%n_patch_cells_g,                &
+      & glb_index = patch%cells%decomp_info%glb_index, &
       & start_timestep=1, end_timestep=1)
     ! write(0,*) "shape of ", TRIM(testfile_2D_time(2)), ":", SHAPE(fill_2D_time_array)
     !---------------------------------------------------------------------
@@ -221,10 +230,11 @@ CONTAINS
     !---------------------------------------------------------------------
     ! test O3
     CALL message(method_name,   testfile_3D_time(1))
-    fill_3D_time_array => netcdf_read_oncells_3D_time(   &
+    fill_3D_time_array => netcdf_read_3D_time(   &
       & filename=testfile_3D_time(1),              &
       & variable_name=TRIM(testfile_3D_time(2)),   &
-      & patch=patch)
+      & n_g = patch%n_patch_cells_g,               &
+      & glb_index = patch%cells%decomp_info%glb_index)
     !---------------------------------------------------------------------
     ! write the o3 array to output for comparing
     CALL message(method_name,   "write testfile_3D_time(1)")

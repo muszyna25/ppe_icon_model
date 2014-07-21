@@ -47,7 +47,7 @@ MODULE mo_read_interface
 
   USE mo_netcdf_read,      ONLY: netcdf_open_input, netcdf_close, &
     & netcdf_read_0D_real, netcdf_read_1D, netcdf_read_2D_time, netcdf_read_3D_time, &
-    & netcdf_read_onCells_2D, netcdf_read_onCells_2D_extdim, netcdf_read_onCells_3D_extdim
+    & netcdf_read_2D, netcdf_read_2D_extdim, netcdf_read_3D_extdim
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data
 
 
@@ -429,7 +429,9 @@ CONTAINS
 
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
-      tmp_pointer => netcdf_read_onCells_2D(stream_id%file_id, variable_name, fill_array, patch)
+      tmp_pointer => netcdf_read_2D(stream_id%file_id, variable_name, &
+        &                           fill_array, patch%n_patch_cells_g, &
+        &                           patch%cells%decomp_info%glb_index)
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
     CASE default
@@ -486,7 +488,8 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
-         & netcdf_read_onCells_2D_extdim(stream_id%file_id, variable_name, fill_array, patch, &
+         & netcdf_read_2D_extdim(stream_id%file_id, variable_name, fill_array, &
+         & patch%n_patch_cells_g, patch%cells%decomp_info%glb_index, &
          & start_extdim, end_extdim, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
@@ -551,7 +554,8 @@ CONTAINS
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
-         & netcdf_read_onCells_3D_extdim(stream_id%file_id, variable_name, fill_array, patch, &
+         & netcdf_read_3D_extdim(stream_id%file_id, variable_name, &
+         & fill_array, patch%n_patch_cells_g, patch%cells%decomp_info%glb_index, &
          & start_extdim, end_extdim, levelsDimName, extdim_name )
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
     CASE (read_netcdf_distribute_method)
