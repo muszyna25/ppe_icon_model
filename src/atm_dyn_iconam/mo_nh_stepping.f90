@@ -503,6 +503,15 @@ MODULE mo_nh_stepping
 
   TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
 
+    ! Check if a nested domain needs to be turned off
+    DO jg=2, n_dom
+      IF (p_patch(jg)%ldom_active .AND. time_config%sim_time(1) >= end_time(jg)) THEN
+        p_patch(jg)%ldom_active = .FALSE.
+        WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jg,' stopped at time ',time_config%sim_time(jg)
+        CALL message('perform_nh_timeloop', TRIM(message_text))
+      ENDIF
+    ENDDO
+
     CALL add_time(dtime,0,0,0,datetime)
 
     ! store state of output files for restarting purposes
@@ -1612,18 +1621,12 @@ MODULE mo_nh_stepping
         ENDIF
       ENDIF
 
-      ! Check if nested domains have to activated or deactivated
+      ! Check if nested domains have to activated
       IF (lstep_adv(jg) .AND. p_patch(jg)%n_childdom > 0) THEN
 
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
           jgc = p_patch(jg)%child_id(jn)
-
-          IF (p_patch(jgc)%ldom_active .AND. time_config%sim_time(jg) >= end_time(jgc)) THEN
-            p_patch(jgc)%ldom_active = .FALSE.
-            WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' stopped at time ',time_config%sim_time(jg)
-            CALL message('integrate_nh', TRIM(message_text))
-          ENDIF
 
           IF (.NOT. p_patch(jgc)%ldom_active .AND. time_config%sim_time(jg) >= start_time(jgc) .AND. &
               time_config%sim_time(jg) < end_time(jgc)) THEN
