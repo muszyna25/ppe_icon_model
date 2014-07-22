@@ -714,6 +714,7 @@ run/dict.icoham.mpim -text
 run/dict.iconam.mpim -text
 run/dict.output.dwd -text
 run/exec.iconrun -text
+run/exp.ICOLES_nestgrid -text
 run/exp.ICON_limarea -text
 run/exp.atm_amip_r2b4 -text
 run/exp.atm_amip_r2b4_test -text
