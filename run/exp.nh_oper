@@ -120,7 +120,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks   = .false.
  num_io_procs   = 1   ! up to one PE per output stream is possible
  itype_comm     = 1
- iorder_sendrecv = 1  ! set 3 for CRAY (slightly faster)
+ iorder_sendrecv = 3  ! best value for CRAY (slightly faster than option 1)
 /
 &grid_nml
  dynamics_grid_filename  = ${dynamics_grid_filename}
@@ -137,7 +137,7 @@ cat > ${atmo_namelist} << EOF
  l_sst_in    = .true.
 /
 &run_nml
- num_lev        = 90, 54
+ num_lev        = 90, 60
  lvert_nest     = .true.       ! use vertical nesting if a nest is active
  nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
  dtime          = ${dtime}     ! timestep in seconds
@@ -164,10 +164,14 @@ cat > ${atmo_namelist} << EOF
  latm_above_top  = .false., .true.  ! the second entry refers to the nested domain (if present)
  efdt_min_raylfric = 7200.
  itype_z0         = 2
+ icapdcycl        = 3
+ icpl_aero_conv   = 1
+ icpl_aero_gscp   = 1
  ! resolution-dependent settings - please choose the appropriate one
  ! dt_rad    = 2160. (R2B6) / 1440. (R3B7) ** should be an integer multiple of dt_conv **
  ! dt_conv   = 720. (R2B6) / 360. (R3B7)
  ! dt_sso    = 1440. (R2B6) / 720. (R3B7)
+ ! dt_gwd    = 1440. (R2B6) / 720. (R3B7)
 /
 &turbdiff_nml
  tkhmin  = 0.75  ! new default since rev. 16527
@@ -181,7 +185,7 @@ cat > ${atmo_namelist} << EOF
 /
 &lnd_nml
  ntiles         = 3      !!! 1 for assimilation cycle and forecast
- nlev_snow      = 2      !!! 1 for assimilation cycle and forecast
+ nlev_snow      = 3      !!! 1 for assimilation cycle and forecast
  lmulti_snow    = .true. !!! .false. for assimilation cycle and forecast
  itype_heatcond = 2
  idiag_snowfrac = 2
