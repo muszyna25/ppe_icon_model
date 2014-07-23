@@ -335,10 +335,6 @@ src/io/*.settings
 src/io/.cproject
 src/io/.project
 src/io/icon-dev
-src/lnd_phy_jsbach/*.settings
-src/lnd_phy_jsbach/.cproject
-src/lnd_phy_jsbach/.project
-src/lnd_phy_jsbach/icon-dev
 src/lnd_phy_nwp/*.settings
 src/lnd_phy_nwp/.cproject
 src/lnd_phy_nwp/.project
