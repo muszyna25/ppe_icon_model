@@ -1405,7 +1405,6 @@ src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_les_config.f90 -text
 src/configure_model/mo_limarea_config.f90 -text
-src/configure_model/mo_lnd_jsbach_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text
 src/configure_model/mo_name_list_output_config.f90 -text

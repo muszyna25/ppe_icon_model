@@ -54,7 +54,6 @@ MODULE mo_nh_stepping
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE mo_ext_data_state,           ONLY: ext_data, interpol_monthly_mean
-  USE mo_lnd_jsbach_config,        ONLY: lnd_jsbach_config
   USE mo_extpar_config,            ONLY: itopo
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch
@@ -441,7 +440,7 @@ MODULE mo_nh_stepping
   TYPE(t_simulation_status)            :: simulation_status
   TYPE(t_datetime)                     :: datetime_old
 
-  INTEGER                              :: nsoil(n_dom), nsnow, i
+  INTEGER                              :: i
   REAL(wp)                             :: elapsed_time_global
   INTEGER                              :: jstep0, jstep_shift ! start counter for time loop
   INTEGER, ALLOCATABLE                 :: output_jfile(:)
@@ -456,24 +455,6 @@ MODULE mo_nh_stepping
   ! allocate temporary variable for restarting purposes
   ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
   IF (ierr /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed!')
-
-  ! Prepare number of soil/snow layers for TERRA/JSBACH to be used for restart file creation below.
-  ! AD: Initialize with 0 to avoid errors with certain compilers
-  nsoil(:) = 0
-  nsnow    = 0
-  IF (iforcing == inwp) THEN
-    DO jg=1,n_dom
-      nsoil(jg) = nlev_soil
-      nsnow     = nlev_snow
-    END DO
-  ELSE IF (iforcing == iecham) THEN
-    IF (allocated(lnd_jsbach_config)) THEN
-      DO jg=1,n_dom
-        nsoil(jg) = lnd_jsbach_config(jg)%nsoil
-      END DO
-    END IF
-    nsnow = 0
-  END IF
 
   ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
   ! MPI communication from now on. 
@@ -784,8 +765,8 @@ MODULE mo_nh_stepping
             & opt_sim_time               = time_config%sim_time(jg),   &
             & opt_jstep_adv_ntstep       = jstep_adv(jg)%ntsteps,      &
             & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-            & opt_depth_lnd              = nsoil(jg),                  &
-            & opt_nlev_snow              = nsnow,                      &
+            & opt_depth_lnd              = nlev_soil,                  &
+            & opt_nlev_snow              = nlev_snow,                  &
             & opt_ndom                   = n_dom,                      &
             & opt_output_jfile           = output_jfile )
         ENDDO
@@ -801,8 +782,8 @@ MODULE mo_nh_stepping
                                   & opt_sim_time               = time_config%sim_time(jg),   &
                                   & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                   & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                  & opt_depth_lnd              = nsoil(jg),                  &
-                                  & opt_nlev_snow              = nsnow,                      &
+                                  & opt_depth_lnd              = nlev_soil,                  &
+                                  & opt_nlev_snow              = nlev_snow,                  &
                                   & opt_ndom                   = n_dom,                      &
                                   & opt_output_jfile           = output_jfile )
         END DO

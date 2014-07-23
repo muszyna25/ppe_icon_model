@@ -22,7 +22,8 @@ MODULE mo_var_list
        &                         TIME_VARIABLE,                     &
        &                         TSTEP_INSTANT,                     &
        &                         GRID_UNSTRUCTURED_CELL,            &
-       &                         GRID_REGULAR_LONLAT
+       &                         GRID_REGULAR_LONLAT,               &
+       &                         CDI_UNDEFID
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
@@ -590,11 +591,11 @@ CONTAINS
     !
     this_info%tlev_source         = 0
     !
-    this_info%cdiVarID            = -1
-    this_info%cdiVarID_2          = -1
-    this_info%cdiGridID           = -1
-    this_info%cdiZaxisID          = -1
-    this_info%cdiDataType         = -1
+    this_info%cdiVarID            = CDI_UNDEFID
+    this_info%cdiVarID_2          = CDI_UNDEFID
+    this_info%cdiGridID           = CDI_UNDEFID
+    this_info%cdiZaxisID          = CDI_UNDEFID
+    this_info%cdiDataType         = CDI_UNDEFID
     !
     this_info%tracer              = create_tracer_metadata()
     this_info%vert_interp         = create_vert_interp_metadata()

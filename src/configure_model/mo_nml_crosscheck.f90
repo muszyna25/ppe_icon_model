@@ -954,12 +954,22 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   SUBROUTINE land_crosscheck
 
-#ifdef __NO_JSBACH__
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:land_crosscheck'
+
+#ifdef __NO_JSBACH__
     IF (echam_phy_config% ljsbach) THEN
       CALL finish(method_name, "This version was compiled without jsbach. Compile with __JSBACH__, or set ljsbach=.FALSE.")
     ENDIF
     echam_phy_config% ljsbach   = .FALSE.     
+#else
+    IF (echam_phy_config% ljsbach) THEN
+      IF (num_restart_procs > 0) THEN
+        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous restart. Set num_restart_procs=0 !")
+      END IF
+      IF (num_io_procs > 0) THEN
+        CALL finish(method_name, "JSBACH currently doesn't work with asynchronous IO. Set num_io_procs=0 !")
+      END IF
+    END IF
 #endif
 
   END SUBROUTINE land_crosscheck

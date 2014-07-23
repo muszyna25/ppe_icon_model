@@ -996,55 +996,56 @@ CONTAINS
       END SELECT
 
       !
-      ! set z axis ID
+      ! set z axis ID (only if cdiZaxisID is not already set)
       !
-      SELECT CASE (info%vgrid)
-      CASE (ZA_SURFACE)
-        info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
-      CASE (ZA_HYBRID)
-        info%cdiZaxisID =  this_list%p%cdiFullZaxisID
-      CASE (ZA_HYBRID_HALF)
-        info%cdiZaxisID =  this_list%p%cdiHalfZaxisID
-      CASE (ZA_DEPTH_BELOW_LAND)
-        info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
-      CASE (ZA_DEPTH_BELOW_LAND_P1)
-        info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
-      CASE (ZA_DEPTH_RUNOFF_S)
-        info%cdiZaxisID =  this_list%p%cdiDepthRunoff_sZaxisID
-      CASE (ZA_DEPTH_RUNOFF_G)
-        info%cdiZaxisID =  this_list%p%cdiDepthRunoff_gZaxisID
-      CASE (ZA_SNOW)
-        info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
-      CASE (ZA_SNOW_HALF)
-        info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
-      CASE (ZA_TOA)
-        info%cdiZaxisID =  this_list%p%cdiToaZaxisID
-      CASE (ZA_HEIGHT_2M)
-        info%cdiZaxisID =  this_list%p%cdiH2mZaxisID
-      CASE (ZA_HEIGHT_10M)
-        info%cdiZaxisID =  this_list%p%cdiH10mZaxisID
-      CASE (ZA_LAKE_BOTTOM)
-        info%cdiZaxisID =  this_list%p%cdiLakeBottomZaxisID
-      CASE (ZA_LAKE_BOTTOM_HALF)
-        info%cdiZaxisID =  this_list%p%cdiLakeHalfBottomZaxisID
-      CASE (ZA_MIX_LAYER)
-        info%cdiZaxisID =  this_list%p%cdiLakeMixLayerZaxisID
-      CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
-        info%cdiZaxisID =  this_list%p%cdiLakeHalfSedBottomTwZaxisID
-      !
-      ! ocean
-      !
-      CASE (ZA_DEPTH_BELOW_SEA)
-        info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
-      CASE (ZA_DEPTH_BELOW_SEA_HALF)
-        info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
-      CASE (ZA_GENERIC_ICE)
-        info%cdiZaxisID =  this_list%p%cdiIceGenericZaxisID
-      END SELECT
+      IF (info%cdiZaxisID < 0) THEN
+        SELECT CASE (info%vgrid)
+        CASE (ZA_SURFACE)
+          info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
+        CASE (ZA_HYBRID)
+          info%cdiZaxisID =  this_list%p%cdiFullZaxisID
+        CASE (ZA_HYBRID_HALF)
+          info%cdiZaxisID =  this_list%p%cdiHalfZaxisID
+        CASE (ZA_DEPTH_BELOW_LAND)
+          info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
+        CASE (ZA_DEPTH_BELOW_LAND_P1)
+          info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
+        CASE (ZA_DEPTH_RUNOFF_S)
+          info%cdiZaxisID =  this_list%p%cdiDepthRunoff_sZaxisID
+        CASE (ZA_DEPTH_RUNOFF_G)
+          info%cdiZaxisID =  this_list%p%cdiDepthRunoff_gZaxisID
+        CASE (ZA_SNOW)
+          info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
+        CASE (ZA_SNOW_HALF)
+          info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
+        CASE (ZA_TOA)
+          info%cdiZaxisID =  this_list%p%cdiToaZaxisID
+        CASE (ZA_HEIGHT_2M)
+          info%cdiZaxisID =  this_list%p%cdiH2mZaxisID
+        CASE (ZA_HEIGHT_10M)
+          info%cdiZaxisID =  this_list%p%cdiH10mZaxisID
+        CASE (ZA_LAKE_BOTTOM)
+          info%cdiZaxisID =  this_list%p%cdiLakeBottomZaxisID
+        CASE (ZA_LAKE_BOTTOM_HALF)
+          info%cdiZaxisID =  this_list%p%cdiLakeHalfBottomZaxisID
+        CASE (ZA_MIX_LAYER)
+          info%cdiZaxisID =  this_list%p%cdiLakeMixLayerZaxisID
+        CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
+          info%cdiZaxisID =  this_list%p%cdiLakeHalfSedBottomTwZaxisID
+        !
+        ! ocean
+        !
+        CASE (ZA_DEPTH_BELOW_SEA)
+          info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
+        CASE (ZA_DEPTH_BELOW_SEA_HALF)
+          info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
+        CASE (ZA_GENERIC_ICE)
+          info%cdiZaxisID =  this_list%p%cdiIceGenericZaxisID
+        END SELECT
+      END IF
 
       gridID  = info%cdiGridID
       zaxisID = info%cdiZaxisID
-
 
       !
       IF ( gridID  == -1 ) THEN

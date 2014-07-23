@@ -605,6 +605,10 @@ CONTAINS
   
           ! link this new variable to the lon-lat grid:
           new_element%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
+
+          ! link this new variable to the (optionally existing) cdiZaxis of the original field
+          ! (in this case, info%vgrid in add_var above is by-passed):
+          new_element%field%info%cdiZaxisID = info%cdiZaxisID
             
           !-- create and add post-processing task
           task => pp_task_insert(DEFAULT_PRIORITY4)

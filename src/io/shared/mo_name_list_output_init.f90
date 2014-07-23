@@ -141,7 +141,6 @@ MODULE mo_name_list_output_init
 #endif
 
 #ifndef __NO_ICON_ATMO__
-  USE mo_lnd_jsbach_config,                 ONLY: lnd_jsbach_config
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
   USE mo_vertical_coord_table,              ONLY: vct
@@ -2000,7 +1999,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
     INTEGER                         :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
       &                                i_dom, ll_dim(2), gridtype, idate, itime
-    INTEGER                         :: nsoil_jsbach ! JSBACH number of soil layers
     REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:), p_lonlat(:)
     REAL(dp), ALLOCATABLE           :: levels(:), lbounds(:), ubounds(:)
     TYPE(t_lon_lat_data), POINTER   :: lonlat
@@ -2375,37 +2373,19 @@ CONTAINS
 
       !(DEPTH_BELOW_LAND_LAYER)
       !
-      IF (ALLOCATED(lnd_jsbach_config)) THEN     ! For JSBACH
-        nsoil_jsbach = lnd_jsbach_config(i_dom)%nsoil
-        of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, nsoil_jsbach)
-        ALLOCATE(levels(nsoil_jsbach), lbounds(nsoil_jsbach), ubounds(nsoil_jsbach))
-        levels = 0._dp
-        levels(1) = REAL(1000._wp * lnd_jsbach_config(i_dom)%zlev_soil(1), dp)
-        DO k = 2,nsoil_jsbach
-          levels(k) = levels(k-1) + REAL(1000._wp * lnd_jsbach_config(i_dom)%zlev_soil(k), dp)
-        END DO
-        lbounds(1) = 0._dp  ! surface
-        DO k = 2,nsoil_jsbach
-          lbounds(k) = REAL((levels(k-1) + (levels(k-1) - lbounds(k-1))), dp)
-        END DO
-        DO k = 1,nsoil_jsbach
-          ubounds(k) = REAL((levels(k) + (levels(k) - lbounds(k))), dp)
-        END DO
-      ELSE                                       ! For TERRA
-        of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
-        ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
-        lbounds(1) = 0._dp   ! surface
-        DO k = 2, znlev_soil
-          lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
-        ENDDO
-        DO k = 1, znlev_soil
-          ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
-          levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
-        ENDDO
-        ubounds(:) = ubounds(:) * 1000._dp        ! in mm
-        lbounds(:) = lbounds(:) * 1000._dp        ! in mm
+      of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
+      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
+      lbounds(1) = 0._dp   ! surface
+      DO k = 2, znlev_soil
+        lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
+      ENDDO
+      DO k = 1, znlev_soil
+        ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
+        levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
+      ENDDO
+      ubounds(:) = ubounds(:) * 1000._dp        ! in mm
+      lbounds(:) = lbounds(:) * 1000._dp        ! in mm
 
-      END IF
       CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
       CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2
       CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF
@@ -2743,7 +2723,8 @@ CONTAINS
       !
       ! set z axis ID
       !
-      zaxisID = of%cdiZaxisID(info%vgrid)
+      IF (info%cdiZaxisID == CDI_UNDEFID) info%cdiZaxisID = of%cdiZaxisID(info%vgrid)
+      zaxisID = info%cdiZaxisID
       IF (zaxisID /= CDI_UNDEFID) THEN
 
 !DR *********** FOR TESTING *************
@@ -2759,10 +2740,10 @@ CONTAINS
           ELSE IF (zaxisID == of%cdiZaxisID(ZA_hybrid_half_hhl)) THEN
             zaxisID = of%cdiZaxisID(ZA_reference_half_hhl)
           ENDIF
+          info%cdiZaxisID = zaxisID
         ENDIF
 !DR*********WILL BE REMOVED SOON**********
 
-        info%cdiZaxisID = zaxisID
       ELSE
         WRITE (message_text,'(a,i3,a,i3)') &
              &  'Zaxis Nr.: ',info%vgrid,' not defined. zaxisID= ',zaxisID

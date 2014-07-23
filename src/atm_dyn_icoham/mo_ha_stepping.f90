@@ -41,7 +41,6 @@ MODULE mo_ha_stepping
                                   & ltestcase, output_mode
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-  USE mo_lnd_jsbach_config,   ONLY: lnd_jsbach_config
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -381,35 +380,19 @@ CONTAINS
     IF (is_checkpoint_time(jstep,n_checkpoint,(nsteps+jstep0))) THEN
 
       IF (use_async_restart_output) THEN
-        IF (phy_config%ljsbach) THEN
-          DO jg = 1, n_dom
-            CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
-                                      & opt_pvct = vct,                    &
-                                      & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
-          ENDDO
-        ELSE
-          DO jg = 1, n_dom
-            CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
-                                      & opt_pvct = vct)
-          ENDDO
-        END IF
+        DO jg = 1, n_dom
+          CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
+                                    & opt_pvct = vct)
+        ENDDO
 
         ! call asynchronous restart
         CALL write_async_restart (datetime, jstep)
 
       ELSE
-        IF (phy_config%ljsbach) THEN
-          DO jg = 1, n_dom
-            CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jstep, "atm", vct,                            &
-                                    & opt_depth_lnd = lnd_jsbach_config(jg)%nsoil )
-          END DO
-        ELSE
-          DO jg = 1, n_dom
-            CALL create_restart_file( p_patch(jg), datetime,                        &
-                                    & jstep, "atm", vct )
-          END DO
-        ENDIF
+        DO jg = 1, n_dom
+          CALL create_restart_file( p_patch(jg), datetime,                        &
+                                  & jstep, "atm", vct )
+        END DO
       END IF
     END IF
 

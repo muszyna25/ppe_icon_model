@@ -41,7 +41,6 @@ MODULE mo_echam_phy_init
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
   USE mo_nhecham_conv_config,  ONLY: config_nhecham_conv
 
-  USE mo_lnd_jsbach_config,    ONLY: lnd_jsbach_config, configure_lnd_jsbach
 #ifndef __NO_JSBACH__
   USE mo_master_control,       ONLY: master_namelist_filename
   USE mo_jsb_base,             ONLY: jsbach_init_base => init_base
@@ -389,15 +388,11 @@ CONTAINS
 
 #ifndef __NO_JSBACH__
     IF (phy_config%ljsbach) THEN
-      CALL configure_lnd_jsbach
       ! Do basic initialization of JSBACH
       CALL jsbach_init_base(master_namelist_filename)
       ! Now continue initialization of JSBACH for the different grids
-      ! Get back the soil levels (needed to setup the zaxes in vlist and name_list_output for CDI)
       DO jg=1,ndomain
-        CALL jsbach_init_model( jg, p_patch(jg),                            & !< in
-          & lnd_jsbach_config(jg)%nsoil,  lnd_jsbach_config(jg)%zlev_soil,  & !< out
-          & lnd_jsbach_config(jg)%ntsoil, lnd_jsbach_config(jg)%ztlev_soil)   !< out
+        CALL jsbach_init_model( jg, p_patch(jg))                             !< in
       END DO
     END IF
 #endif
