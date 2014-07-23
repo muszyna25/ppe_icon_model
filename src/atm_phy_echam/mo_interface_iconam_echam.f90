@@ -484,7 +484,6 @@ CONTAINS
 !!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
 
         DO jk = 1,nlev
-
           DO je = jes,jee
 
             jcn  =   patch%edges%cell_idx(je,jb,1)
@@ -502,6 +501,7 @@ CONTAINS
 
           END DO ! je
         END DO ! jk
+
       END DO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -514,13 +514,19 @@ CONTAINS
       jbe   = patch%nblks_e
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,je,jes,jee) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,jbe
+        CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
+!!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
+
         DO jk = 1,nlev
           DO je = jes,jee
+
             pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
+
           END DO ! je
         END DO ! jk
+
       END DO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -576,7 +582,7 @@ CONTAINS
 
       ! Loop over cells
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
@@ -643,7 +649,7 @@ CONTAINS
 
       ! Loop over cells
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
@@ -656,7 +662,8 @@ CONTAINS
             !
             ! The temperature forcing needs to be converted to an exner forcing, 
             ! which depends on the forcings in temperature and water tracers.
-            z_ddt_qsum =   prm_tend(jg)%q(jc,jk,jb,iqc) + prm_tend(jg)%q(jc,jk,jb,iqi) 
+            z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
+            z_ddt_qsum = prm_tend(jg)%q(jc,jk,jb,iqc)         + prm_tend(jg)%q(jc,jk,jb,iqi) 
             !
             pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
               &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
