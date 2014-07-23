@@ -799,7 +799,7 @@ CONTAINS
         jsfc = idx_lnd  ! land
         DO jl = 1,kproma
           IF ( pri_sfc(jl,jsfc) <= 0._wp ) THEN
-            zucf  = 1._wp/(1._wp+z3bc*zchn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + pgeom1_b(jl)/(grav*pz0m(jl,jsfc)))))
+            zucf  = 1._wp/(1._wp+z3bc*zcdn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + pgeom1_b(jl)/(grav*pz0m(jl,jsfc)))))
             zucfh = 1._wp/(1._wp+z3bc*zchn(jl,jsfc)*SQRT(ABS(pri_sfc(jl,jsfc))*(1._wp + pgeom1_b(jl)/(grav*paz0lh(jl)))))
             pcfm_sfc(jl,jsfc) = zcfnc (jl,jsfc)/(1._wp-z2b*pri_sfc(jl,jsfc)*zucf)
             pcfh_sfc(jl,jsfc) = zcfnch(jl,jsfc)*(1._wp-z3b*pri_sfc(jl,jsfc)*zucfh)
