@@ -362,6 +362,8 @@ CONTAINS
            &                         prm_field(jg)%tsurfw(:,:), &
            &                         prm_field(jg)%siced(:,:), &
            &                         prm_field(jg)%lsmask(:,:))
+        prm_field(jg)%tsurfl(:,:) = prm_field(jg)%tsurfw(:,:)
+        prm_field(jg)%tsurfi(:,:) = prm_field(jg)%tsurfw(:,:)
         prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
 ! TODO: ME preliminary setting for ice
         prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsurfw(:,:)
