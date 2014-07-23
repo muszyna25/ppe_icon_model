@@ -41,7 +41,7 @@ base_folder=$(pwd)
 input_folder=run
 #==============================================================================
 # Define run parameters
-   exp_name="r2b4_amip"
+   exp_name="ICON_limarea"
 
 # Define how many nodes to use 
   no_of_nodes=4
@@ -74,7 +74,7 @@ $make_runscript                  \
   in_folder=$input_folder        \
   in_script=exp.${exp_name}      \
   in_script=exec.iconrun         \
-  out_script=exp.${exp_name}_debug013.run \
+  out_script=exp.${exp_name}.run \
   EXPNAME=${exp_name}            \
   nproma=$nproma                 \
   no_of_nodes=$no_of_nodes       \
