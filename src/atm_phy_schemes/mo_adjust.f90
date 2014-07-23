@@ -84,7 +84,7 @@ MODULE mo_adjust
  CONTAINS
 
    SUBROUTINE satur ( kidia , kfdia , klon, ktdia  , klev,&
-     & paprsf, pt    , pqsat , kflag)
+     & paprsf, pt, pqv, pqsat , kflag)
      !>
      !! Description:
 
@@ -115,6 +115,7 @@ MODULE mo_adjust
 
      !!      *PAPRSF*        PRESSURE ON FULL LEVELS                      PA
      !!      *PT*            TEMPERATURE AT T-DT                          K
+     !!      *PQV*           specific humidity AT T-DT                          K
 
      !!       INPUT PARAMETERS (INTEGER):
 
@@ -150,6 +151,7 @@ MODULE mo_adjust
      INTEGER(KIND=jpim),INTENT(in)    :: ktdia
      REAL(KIND=jprb)   ,INTENT(in)    :: paprsf(klon,klev)
      REAL(KIND=jprb)   ,INTENT(in)    :: pt(klon,klev)
+     REAL(KIND=jprb)   ,INTENT(in)    :: pqv(klon,klev)
      REAL(KIND=jprb)   ,INTENT(inout) :: pqsat(klon,klev)
      INTEGER(KIND=jpim),INTENT(in)    :: kflag
      INTEGER(KIND=jpim) :: jk, jl, jlen
@@ -195,7 +197,7 @@ MODULE mo_adjust
            IF (zqs > zqmax) THEN
              zqs=zqmax
            ENDIF
-           zcor = 1.0_JPRB/(1.0_JPRB-retv*zqs)
+           zcor = 1.0_JPRB/(1.0_JPRB-retv*pqv(jl,jk))
            pqsat(jl,jk)=zqs*zcor
          ENDDO
        ENDDO
@@ -211,7 +213,9 @@ MODULE mo_adjust
              ENDIF
              zqs  = zew/paprsf(jl,jk)
              zqs  = MIN(zqmax,zqs)
-             zcor = 1.0_JPRB/(1.0_JPRB-retv*zqs)
+             ! Modification, GZ (2014-07-23): define qv_sat as qv/RH, implying that the qv_sat in the 
+             ! denominator needs to be replaced with qv
+             zcor = 1.0_JPRB/(1.0_JPRB-retv*pqv(jl,jk))
              pqsat(jl,jk)=zqs*zcor
            ENDDO
          ENDDO
@@ -237,7 +241,7 @@ MODULE mo_adjust
              !!      ZCOR = _ONE_/(_ONE_-RETV*ZQS)
              !       PQSAT(JL,JK)=ZQS/(_ONE_-RETV*ZQS)
              zqs  = MIN(zqmax*paprsf(jl,jk),zew)
-             pqsat(jl,jk)=zqs/(paprsf(jl,jk)-retv*zqs)
+             pqsat(jl,jk)=zqs/(paprsf(jl,jk)-retv*pqv(jl,jk))
            ENDDO
          ENDDO
 

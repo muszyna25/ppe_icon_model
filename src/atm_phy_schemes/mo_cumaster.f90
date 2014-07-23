@@ -476,7 +476,7 @@ CONTAINS
     pqsen(:,:)=pqen(:,:)
 
     CALL satur (kidia, kfdia, klon, phy_params%kcon2, klev,&
-      & pap,    pten,  pqsen, 1  )
+      & pap,    pten, pqen, pqsen, 1  )
 
  
     !*UPG
