@@ -194,7 +194,7 @@ INDATA=/pool/data/ICON/input/r0002
 add_required_file $INDATA/../../setup/prepiconR2B04_DOM01_ERA_INT_AMIP.nc    ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-add_required_file ${INDATA}/r2b4/ic_land_soil_1976.nc                        ./ic_land_soil.nc
+add_required_file ${INDATA}/r2b4_amip/lnd/ic_land_soil_1976.nc               ./ic_land_soil.nc
 
 # boundary conditions
 #
@@ -234,10 +234,10 @@ add_required_file $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./b
 add_required_file $INDATA/global/sun/bc_solar_irradiance_14band_1849-2399.nc ./bc_ssi.nc
 #
 # - land parameters
-add_required_file ${INDATA}/r2b4/bc_land_frac_1976.nc                        ./bc_land_frac.nc
-add_required_file ${INDATA}/r2b4/bc_land_phys_1976.nc                        ./bc_land_phys.nc
-add_required_file ${INDATA}/r2b4/bc_land_soil_1976.nc                        ./bc_land_soil.nc
-add_required_file ${INDATA}/r2b4/bc_land_sso_1976.nc                         ./bc_land_sso.nc
+add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_frac_1976.nc               ./bc_land_frac.nc
+add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_phys_1976.nc               ./bc_land_phys.nc
+add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_soil_1976.nc               ./bc_land_soil.nc
+add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_sso_1976.nc                ./bc_land_sso.nc
 
 # dictionary for variable names
 # -----------------------------
