@@ -1295,7 +1295,7 @@ CONTAINS
     ENDIF
 
     ! maximum number of lists
-    nlist_max = advection_config(jg)%ivcfl_max - 1
+    nlist_max = advection_config(jg)%ivcfl_max
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
