@@ -213,11 +213,11 @@ CONTAINS
 
       ! Read all global attributs in the restart file and store them in a buffer.
 
+      IF (idom > 1) INQUIRE(file=TRIM(rst_filename), exist=lexists)
       IF (my_process_is_mpi_workroot()) THEN
         WRITE(0,*) "streamOpenRead ", TRIM(rst_filename)
         ! note: we have opened the file for domain 1 already
         IF (idom > 1) THEN
-          INQUIRE(file=TRIM(rst_filename), exist=lexists)
           IF (lexists) THEN
             fileID  = streamOpenRead(rst_filename)
             vlistID = streamInqVlist(fileID)
