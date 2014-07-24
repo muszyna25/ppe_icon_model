@@ -595,7 +595,7 @@ CONTAINS
     this_info%cdiVarID_2          = CDI_UNDEFID
     this_info%cdiGridID           = CDI_UNDEFID
     this_info%cdiZaxisID          = CDI_UNDEFID
-    this_info%cdiDataType         = CDI_UNDEFID
+    this_info%cdiDataType         = CDI_UNDEFID 
     !
     this_info%tracer              = create_tracer_metadata()
     this_info%vert_interp         = create_vert_interp_metadata()
@@ -3490,13 +3490,20 @@ CONTAINS
   !
   ! print current memory table 
   !
-  SUBROUTINE print_var_list (this_list)
+  SUBROUTINE print_var_list (this_list, lshort)
     TYPE(t_var_list),  INTENT(in) :: this_list ! list
+    LOGICAL, OPTIONAL :: lshort
     !
     TYPE(t_list_element), POINTER :: this_list_element
     CHARACTER(len=32) :: dimension_text, dtext
     INTEGER :: i, igrp, ivintp_type
-   
+    LOGICAL :: localShort = .FALSE. 
+    CHARACTER(len=4) :: localMode = '----'    
+
+    IF (PRESENT(lshort)) THEN
+      localShort = lshort
+    ENDIF
+
     CALL message('','')
     CALL message('','')
     CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')    
@@ -3506,6 +3513,42 @@ CONTAINS
     !
     DO WHILE (ASSOCIATED(this_list_element))
       ! 
+      IF (lshort) THEN
+
+        IF (this_list_element%field%info%name /= '' .AND. &
+             .NOT. this_list_element%field%info%lcontainer) THEN
+          IF (this_list_element%field%info%lrestart) localMode(1:1) = 'r'
+          IF (this_list_element%field%info%lcontained) localMode(2:2) = 't'         
+          SELECT CASE (this_list_element%field%info%isteptype)
+          CASE (1)
+            localMode(3:3) = 'i'
+          CASE (2)
+            localMode(3:3) = 'm'
+          CASE (3)
+            localMode(3:3) = 'a'
+          END SELECT
+          SELECT CASE (this_list_element%field%info%hgrid)
+          CASE (1)
+            localMode(4:4) = 'c'
+          CASE (2)
+            localMode(4:4) = 'v'
+          CASE (3)
+            localMode(4:4) = 'e'
+          END SELECT
+          
+          WRITE(message_text, '(a4,3i4,a16,a48)') localMode,                                 &
+               &                              this_list_element%field%info%grib2%discipline, &
+               &                              this_list_element%field%info%grib2%category,   &
+               &                              this_list_element%field%info%grib2%number,     &
+               &                              TRIM(this_list_element%field%info%name),       &
+               &                              TRIM(this_list_element%field%info%cf%standard_name)
+          CALL message('', message_text)
+          
+          localMode = '----'
+        ENDIF
+
+      ELSE
+
       IF (this_list_element%field%info%name /= '' .AND. &
            .NOT. this_list_element%field%info%lcontainer) THEN
         !
@@ -3548,8 +3591,7 @@ CONTAINS
              TRIM(this_list_element%field%info%cf%units)
         CALL message('', message_text)
         !
-!DR Due to problems with insufficient record length on SX9 
-        WRITE (0, * ) &
+        WRITE (message_text,'(a)') &
              'CF convention long name                     : ', &
              TRIM(this_list_element%field%info%cf%long_name)
         !
@@ -3714,6 +3756,7 @@ CONTAINS
         CALL message('', '')
       ENDIF
 
+      ENDIF
       !
       ! select next element in linked list 
       !

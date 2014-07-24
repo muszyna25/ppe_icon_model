@@ -139,6 +139,7 @@ MODULE mo_nh_stepping
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
                                          write_vertical_profiles, write_time_series, &
                                          sampl_freq_step
+  USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list 
                                   
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -459,7 +460,7 @@ MODULE mo_nh_stepping
   ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
   ! MPI communication from now on. 
   IF (test_mode > 0) iorder_sendrecv = 0
-
+  
   IF (dt_shift < 0._wp) THEN
     jstep_shift = NINT(dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
@@ -468,20 +469,33 @@ MODULE mo_nh_stepping
   ELSE
     jstep_shift = 0
   ENDIF
-
+  
   datetime_old = datetime
-
+  
   IF (use_async_restart_output) THEN
     CALL prepare_async_restart(opt_t_elapsed_phy_size = SIZE(t_elapsed_phy, 2), &
-      &                        opt_lcall_phy_size     = SIZE(lcall_phy, 2))
+         &                     opt_lcall_phy_size     = SIZE(lcall_phy, 2))
   ENDIF
-
+  
   jstep0 = 0
   IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
     CALL get_restart_attribute("jstep", jstep0)
   END IF
-
+  
+  ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
+  IF  (.NOT. ltestcase) THEN
+    IF (msg_level >= 13) THEN
+      DO i = 1, nvar_lists
+        IF (msg_level >= 20) THEN
+          CALL print_var_list(var_lists(i), lshort=.FALSE.)
+        ELSE
+          CALL print_var_list(var_lists(i), lshort=.TRUE.)
+        ENDIF
+      ENDDO
+    ENDIF
+  ENDIF
+  
   TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
 
     ! Check if a nested domain needs to be turned off

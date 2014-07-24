@@ -33,7 +33,6 @@ USE mo_run_config,           ONLY: dtime, dtime_adv,     & !    namelist paramet
   &                                ltestcase,            &
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
-  &                                msg_level,            & !    namelist parameter
   &                                lvert_nest, ntracer,  &
   &                                nlev,                 &
   &                                iqv, iqc, iqt
@@ -438,20 +437,6 @@ CONTAINS
     !
     ! assign variables to existing actions
     CALL action_init()
-
-
-    ! for debug purpose: print var lists
-    IF ( msg_level >=20 .AND. my_process_is_stdio() .AND. .NOT. ltestcase) THEN
-      CALL print_var_list (p_nh_state(1)%prog_list(1))
-      CALL print_var_list (p_nh_state(1)%diag_list)
-      CALL print_var_list (p_nh_state(1)%metrics_list)
-      CALL print_var_list (prm_nwp_diag_list(1))
-      CALL print_var_list (prm_nwp_tend_list(1))
-      CALL print_var_list (p_lnd_state(1)%lnd_prog_nwp_list(1))
-      CALL print_var_list (p_lnd_state(1)%lnd_diag_nwp_list)
-      CALL print_var_list (ext_data(1)%atm_list)
-      CALL print_var_list (ext_data(1)%atm_td_list)
-    ENDIF
 
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working

@@ -15,10 +15,10 @@ set -eu
 #__________________________________________________________________________________________________
 # select Fortran compiler:
 #
-#fortran_compiler=gcc
+fortran_compiler=gcc
 #fortran_compiler=intel
 #fortran_compiler=nag
-fortran_compiler=cray
+#fortran_compiler=cray
 #fortran_compiler=pgi
 #fortran_compiler=ibm
 #__________________________________________________________________________________________________
@@ -186,7 +186,7 @@ case $fortran_compiler in
 	fc_version=$($FC --version | awk 'NR==1')
 	;;
     nag)
-	CFORTRAN_DEF="-DNAGf90Fortran"
+	CFORTRAN_DEmoreF="-DNAGf90Fortran"
 	FC=nagfor
 	FC_CPP="-fpp"
         FC_LANG="-f2003"
@@ -317,7 +317,7 @@ case $site in
     lrz.de)
 	blueln "   Site: lrz.de"
 	;;
-    zmaw.de|mpimet.mpg.de)
+    *.zmaw.de|mpimet.mpg.de)
 	blueln "   Site: zmaw.de/mpimet.mpg.de"
 	case $fortran_compiler in
 	    default|gcc)
@@ -380,7 +380,7 @@ then
     greenln "      Fortran : ${fc_version}"
     greenln "      C       : ${cc_version}"
     echo
-    greenln "   Use environment:"
+    greenln "  Use environment:"
     echo
     greenln "      CC         : $CC"
     greenln "      CFLAGS     : $CFLAGS"
@@ -394,7 +394,12 @@ then
     CC=$CC CFLAGS=$CFLAGS \
     FC=$FC F77FLAGS=$F77FLAGS FFLAGS=$FFLAGS \
     NETCDFFROOT=$NETCDFFROOT NETCDFROOT=$NETCDFROOT \
-    cmake $(pwd)
+
+    cwd=$(pwd -P)
+
+    cd ../build
+
+    cmake $cwd
 
 else
 
