@@ -49,6 +49,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
+  USE mo_sync,                ONLY: SYNC_C, sync_patch_array
 
  
   IMPLICIT NONE
@@ -113,7 +114,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)  :: var3df, var3dh, theta, w_mc
     REAL(wp), ALLOCATABLE, DIMENSION(:)   :: &
               umean, vmean, thmean, qvmean, qcmean, wmean, outvar, thvmean
-    REAL(wp) :: outvar0d
+    REAL(wp) :: outvar0d, w_loc, th_loc, wth_loc
 
     ! Local array bounds:
 
@@ -123,7 +124,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     INTEGER :: jc,jk,jb,jg             !block index
-    INTEGER :: nvar, n
+    INTEGER :: nvar, n, ilc1, ibc1, ilc2, ibc2, ilc3, ibc3
     CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:calculate_turbulent_diagnostics'
 
     IF(msg_level>18) & 
@@ -141,7 +142,7 @@ CONTAINS
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
     rl_start   = grf_bdywidth_c+1
-    rl_end     = min_rlcell_int
+    rl_end     = min_rlcell_int-1  !for wthsfs
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
@@ -160,6 +161,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+    rl_end     = min_rlcell_int !for diagnostics
 !======================================================================================
                  !Some vertical profiles
 !======================================================================================
@@ -523,6 +525,40 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
        outvar = outvar * 0.5_wp          
+
+     CASE('wthsfs')!subfilter scale flux: see Erlebacher et al. 1992
+
+      CALL sync_patch_array(SYNC_C, p_patch, theta)
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3, &
+!$OMP            w_loc,th_loc,wth_loc)
+      DO jb = i_startblk,i_endblk
+         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end)
+         DO jk = 1 , nlev
+           DO jc = i_startidx, i_endidx
+             ilc1 = p_patch%cells%neighbor_idx(jc,jb,1)
+             ibc1 = p_patch%cells%neighbor_blk(jc,jb,1)
+             ilc2 = p_patch%cells%neighbor_idx(jc,jb,2)
+             ibc2 = p_patch%cells%neighbor_blk(jc,jb,2)
+             ilc3 = p_patch%cells%neighbor_idx(jc,jb,3)
+             ibc3 = p_patch%cells%neighbor_blk(jc,jb,3)
+           
+             !Use averaging over neighboring cells to mimic test filter twice the grid size
+             w_loc  = 0.25_wp*(w_mc(jc,jk,jb)+w_mc(ilc1,jk,ibc1)+w_mc(ilc2,jk,ibc2)+w_mc(ilc3,jk,ibc3))
+             th_loc = 0.25_wp*(theta(jc,jk,jb)+theta(ilc1,jk,ibc1)+theta(ilc2,jk,ibc2)+theta(ilc3,jk,ibc3))
+             wth_loc= 0.25_wp*(w_mc(jc,jk,jb)*theta(jc,jk,jb)+w_mc(ilc1,jk,ibc1)*theta(ilc1,jk,ibc1)+ &
+                          w_mc(ilc2,jk,ibc2)*theta(ilc2,jk,ibc2)+w_mc(ilc3,jk,ibc3)*theta(ilc3,jk,ibc3))
+        
+             var3df(jc,jk,jb) = (wth_loc - w_loc*th_loc)*p_prog%rho(jc,jk,jb) 
+           END DO
+         END DO
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+       CALL levels_horizontal_mean(var3df, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlev))
+       outvar = outvar * cpd
  
      CASE DEFAULT !In case calculations are performed somewhere else
       
@@ -823,6 +859,9 @@ CONTAINS
        longname = 'Mechanical production divided by eddy viscosity.'
        unit     = '1/s2'
        is_at_full_level(n) = .FALSE.
+     CASE('wthsfs') 
+       longname = 'sub-filter scale flux'
+       unit     = 'W/m2'
      CASE DEFAULT 
          CALL finish(routine,'This variable does not exist!')
      END SELECT
