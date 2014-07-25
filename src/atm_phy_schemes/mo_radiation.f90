@@ -52,8 +52,7 @@ MODULE mo_radiation
   USE mo_math_constants,       ONLY: pi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
-    &                                stbo,  vpp_ch4, vpp_n2o,         &
-    &                                cpd, cpv, cvd, cvv
+    &                                stbo,  vpp_ch4, vpp_n2o
 
   USE mo_datetime,             ONLY: rdaylen
 
@@ -61,17 +60,13 @@ MODULE mo_radiation
     &                                irad_co2,   mmr_co2,     &
     &                                irad_ch4,   mmr_ch4,     &
     &                                irad_n2o,   mmr_n2o,     &
-!    &                                irad_o3,                 &
     &                                irad_o2,    mmr_o2,      &
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
     &                                lrad_aero_diag,          &
-    &                                ighg, izenith
+    &                                izenith
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
-
-!!$  USE mo_greenhouse_gases,     ONLY: ghg_co2mmr, ghg_mmr_ch4, ghg_n2ommr, ghg_cfcvmr
-!!$  USE mo_o3clim,               ONLY: o3clim
 
   USE mo_newcld_optics,        ONLY: newcld_optics
   USE mo_aero_kinne,           ONLY: set_aop_kinne
@@ -85,11 +80,7 @@ MODULE mo_radiation
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_timer,                ONLY: timer_radiation, timer_start, timer_stop
 
-  USE mo_mpi,                  ONLY: work_mpi_barrier
-
   USE mo_echam_phy_memory,     ONLY: prm_field
-
-!!$  USE mo_radiation_forcing,    ONLY: prepare_forcing
 
   IMPLICIT NONE
 
@@ -100,7 +91,6 @@ MODULE mo_radiation
 
   ! --- radiative transfer parameters
   !
-!  REAL(wp), PARAMETER :: cemiss = 0.996_wp  !< LW Emissivity Factor
   REAL(wp), PARAMETER :: diff   = 1.66_wp   !< LW Diffusivity Factor
 
 CONTAINS
@@ -516,13 +506,10 @@ CONTAINS
     & ,tk_sfc            ,z_mc            ,pp_hl            ,pp_fl         &
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
-!!$ & ,pgeom1                                                              &
     & ,cdnc              ,cld_frc                                          &
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
     ! output
     & ,cld_cvr                                                             &
-!!$ & ,nir_sfc           ,nir_dff_sfc     ,vis_sfc          ,vis_dff_sfc   &
-!!$ & ,dpar_sfc          ,par_dff_sfc                                      &
     & ,emter_clr         ,trsol_clr       ,emter_all        ,trsol_all     &
     & ,opt_halo_cosmu0  )
 
@@ -556,7 +543,6 @@ CONTAINS
       &  qm_vap(kbdim,klev), & !< Water vapor mixing ratio
       &  qm_liq(kbdim,klev), & !< Liquid water mixing ratio
       &  qm_ice(kbdim,klev), & !< Ice water mixing ratio
-!!$      &  pgeom1(:,:),        & !< geopotential above ground
       &  cdnc(kbdim,klev),   & !< Cloud drop number concentration
       &  cld_frc(kbdim,klev),& !< Cloud fraction
       &  zaeq1(kbdim,klev) , & !< aerosol continental
@@ -573,12 +559,6 @@ CONTAINS
     !
     REAL(wp), INTENT(inout) ::      &
       &  cld_cvr(kbdim),          & !< Cloud cover in a column
-!!$      &  nir_sfc(:),           & !< SW Near Infrared
-!!$      &  nir_dff_sfc(:),       & !< Near-Infrared diffuse fraction of SW NIR
-!!$      &  vis_sfc(:),           & !< SW Visible (250-680 nm)
-!!$      &  vis_dff_sfc(:),       & !< Near-Infrared diffuse fraction of SW vis
-!!$      &  dpar_sfc(:),          & !< surf. PAR downw.
-!!$      &  par_dff_sfc(:),       & !< fraction of diffuse PAR
       &  emter_clr(kbdim,klevp1), & !< Surface terrestrial emissivity
       &  trsol_clr(kbdim,klevp1), & !< Surface solar transmissivity
       &  emter_all(kbdim,klevp1), & !< Terrestrial emissivity
@@ -592,7 +572,6 @@ CONTAINS
     &    cos_mu0_mod(kbdim)           !< modified cos(zenith angle)
 
     REAL(wp) ::                     &
-!!$      &  ppd_hl(kbdim,klev),        & !< pressure diff between half levels [Pa]
       &  pp_sfc(kbdim),             & !< surface pressure [Pa}
       &  tk_hl(kbdim,klevp1),       & !< Tempeature at half levels [Pa]
       &  xq_vap(kbdim,klev),        & !< Water vapor mixing ratio
@@ -606,7 +585,6 @@ CONTAINS
       &  xm_n2o(kbdim,klev),        & !< Nitrous Oxide mixing ratio
       &  xm_cfc11(kbdim,klev),      & !< CFC 11 mixing ratio
       &  xm_cfc12(kbdim,klev),      & !< CFC 12 mixing ratio
-!!$      &  toa_solar_irr(kbdim),      & !< TOA solar irradiance
       &  flx_uplw_sfc(kbdim),       & !< Srfc upward lw flux  [Wm2]
       &  flx_upsw_sfc(kbdim),       & !< Srfc upward sw flux  [Wm2]
       &  flx_uplw_clr_sfc(kbdim),   & !< Srfc upward lw flux (clear sky) [Wm2]
@@ -615,11 +593,6 @@ CONTAINS
       &  flx_dnsw(kbdim,klevp1),    & !< Net dwnwrd SW flux [Wm2]
       &  flx_dnlw_clr(kbdim,klevp1),& !< Net dn LW flux (clear sky) [Wm2]
       &  flx_dnsw_clr(kbdim,klevp1)   !< Net dn SW flux (clear sky) [Wm2]
-!!$      &  flx_dnsw_clr(kbdim,klevp1),& !< Net dn SW flux (clear sky) [Wm2]
-!!$      &  dvis_sfc(kbdim)              !< surface downward visible flux
-
-!!$    ! for debugging
-!!$    REAL(wp) :: rloland(kbdim) ,rloglac(kbdim)
 
     LOGICAL :: l_halo_cosmu0
 
@@ -666,7 +639,6 @@ CONTAINS
     ! --- Pressure (surface and distance between half levels)
     !
     pp_sfc(1:jce)        = pp_hl(1:jce,klevp1)
-!!$    ppd_hl(1:jce,1:klev) = pp_hl(1:jce,2:klev+1)-pp_hl(1:jce,1:klev)
     !
     ! --- temperature at half levels
     !
@@ -744,25 +716,16 @@ CONTAINS
       &                              mmr_gas = vmr_cfc12 )
 #endif
     !
-!    ozon: SELECT CASE (irad_o3)
-!    CASE (0)
-!      qm_o3(1:jce,:) = 0.0_wp
-!    CASE (6)
-!    CASE default
-!      CALL finish('radiation','o3: this "irad_o3" is not supported')
-!    END SELECT ozon
 
     ! 2.0 Call interface to radiation solver
     ! --------------------------------------
     !
     CALL rrtm_interface(                                                    &
       ! input
-!!$   & irad_aero                                                          ,&
       & jg              ,jb                                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0_mod                                                        ,&
-!!$   & pgeom1                                                             ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
       & emis_rad        ,z_mc                                              ,&
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
@@ -776,22 +739,6 @@ CONTAINS
       ! output
       & flx_dnlw        ,flx_dnsw        ,flx_dnlw_clr    ,flx_dnsw_clr    ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc )
-!!$      & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc,&
-!!$      & toa_solar_irr   ,nir_sfc         ,nir_dff_sfc                      ,&
-!!$      & vis_sfc         ,vis_dff_sfc     ,dvis_sfc        ,dpar_sfc        ,&
-!!$      & par_dff_sfc                                                         )
-
-!!$    ! debug rrtmout
-!!$    ! -------------
-!!$    prm_field(jg)% debug_2d_1(:,jb) = flx_uplw_sfc(:)
-!!$    prm_field(jg)% debug_2d_2(:,jb) = flx_upsw_sfc(:)
-!!$    prm_field(jg)% debug_2d_3(:,jb) = flx_uplw_clr_sfc(:)
-!!$    prm_field(jg)% debug_2d_4(:,jb) = flx_upsw_clr_sfc(:)
-!!$    !
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = flx_dnlw(:,1:klev)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = flx_dnsw(:,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = flx_dnlw_clr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = flx_dnsw_clr(:,1:klev)
 
     !
     ! 3.0 Diagnostics
@@ -801,11 +748,6 @@ CONTAINS
     emter_all (1:jce,1:klevp1) = flx_dnlw (1:jce,1:klevp1)
     trsol_all (1:jce,1:klevp1) = flx_dnsw (1:jce,1:klevp1)                           &
       &                          / SPREAD(cos_mu0_mod(1:jce)*tsi_radt,2,klevp1)
-    !
-!!$    ! --- fluxes for JSBACH
-!!$    nir_sfc  (1:jce) = nir_sfc  (1:jce) / cos_mu0_mod (1:jce)
-!!$    vis_sfc  (1:jce) = vis_sfc  (1:jce) / cos_mu0_mod (1:jce)
-!!$    dpar_sfc (1:jce) = dpar_sfc (1:jce) / cos_mu0_mod (1:jce)
     !
     ! --- Clear sky fluxes
     emter_clr(1:jce,1:klevp1) = flx_dnlw_clr(1:jce,1:klevp1)
@@ -1159,14 +1101,12 @@ CONTAINS
 
   SUBROUTINE rrtm_interface(                                              &
     ! input
-!!$ & irad_aero                                                          ,&
     & jg              ,jb                                                ,&
     & jce             ,kbdim           ,klev                             ,&
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
     & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
     & emis_rad        ,z_mc                                              ,&
-!!$ & pgeom1                                                             ,&
     & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
     & tk_hl           ,tk_sfc          ,xm_vap                           ,&
     & xm_liq          ,xm_ice                                            ,&
@@ -1179,13 +1119,8 @@ CONTAINS
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
     & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
     & flx_dnsw_diff_sfc, flx_upsw_toa                                     )
-!!$    & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
-!!$    & sw_irr_toa      ,nir_sfc         ,nir_dff_sfc                      ,&
-!!$    & vis_sfc         ,vis_dff_sfc     ,dvis_sfc        ,dpar_sfc        ,&
-!!$    & par_dff_sfc                                                         )
 
     INTEGER,INTENT(in)  ::                &
-!!$      &  irad_aero,                       & !< aerosol control
       &  jg,                              & !< domain index
       &  jb,                              & !< block index
       &  jce,                             & !< number of columns
@@ -1204,7 +1139,6 @@ CONTAINS
       &  alb_vis_dif(kbdim),              & !< surface albedo for vis range and dif light
       &  alb_nir_dif(kbdim),              & !< surface albedo for NIR range and dif light
       &  emis_rad(kbdim),                 & !< longwave surface emissivity
-!!$   &  pgeom1(kbdim,klev),              & !< geopotential above ground
       &  z_mc(kbdim,klev),                & !< height at full levels [m]
       &  pp_fl(kbdim,klev),               & !< full level pressure in Pa
       &  pp_hl(kbdim,klev+1),             & !< half level pressure in Pa
@@ -1240,15 +1174,6 @@ CONTAINS
       &  flx_upsw_sfc(kbdim),             & !< sfc SW upward flux,
       &  flx_uplw_sfc_clr(kbdim),         & !< clrsky sfc LW upward flux,
       &  flx_upsw_sfc_clr(kbdim)            !< clrsky sfc SW upward flux,
-!!$      &  flx_upsw_sfc_clr(kbdim),         & !< clrsky sfc SW upward flux,
-!!$      &  sw_irr_toa(kbdim),               & !< top of atmosphere solar irradiation
-!!$      &  nir_sfc(kbdim),                  & !< net surface NIR flux
-!!$      &  nir_dff_sfc(kbdim),              & !< fraction of diffuse NIR
-!!$      &  vis_sfc(kbdim),                  & !< net surface visible flux
-!!$      &  vis_dff_sfc(kbdim),              & !< fraction of diffuse visible
-!!$      &  dvis_sfc(kbdim),                 & !< surf. visible downward
-!!$      &  dpar_sfc(kbdim),                 & !< surf. PAR downw.
-!!$      &  par_dff_sfc(kbdim)                 !< fraction of diffuse PAR
 
     REAL(wp), INTENT(out), OPTIONAL ::    &
       &  flx_dnsw_diff_sfc(kbdim),        & !< sfc SW diffuse downward flux,
@@ -1261,14 +1186,6 @@ CONTAINS
       &  zsemiss(kbdim,jpband),           & !< LW surface emissivity by band
       &  ppd_hl(kbdim,klev),              & !< pressure thickness in Pa
       &  pm_sfc(kbdim),                   & !< surface pressure in hPa
-!!$      &  dnir_sfc(kbdim),                 & !< surf. NIR downw.
-!!$      &  unir_toa(kbdim),                 & !< top NIR upw.
-!!$      &  uvis_toa(kbdim),                 & !< top vis. upw.
-!!$      &  dnir_sfc_cld(kbdim),             & !< surf. NIR downw. cloudy sky
-!!$      &  dvis_sfc_cld(kbdim),             & !< surf. vis. downw. cloudy sky
-!!$      &  unir_toa_cld(kbdim),             & !< top NIR upw. cloudy sky
-!!$      &  uvis_toa_cld(kbdim),             & !< top vis. upw. cloudy sky
-!!$      &  zsudu(kbdim),                    & !< direct beam SW
       &  amm,                             & !< molecular weight of moist air
       &  delta,                           & !< pressure thickness
       &  zscratch                           !< scratch array
@@ -1312,8 +1229,6 @@ CONTAINS
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
 
     CHARACTER(LEN=3)     :: c_irad_aero
-!!$    ! for debugging
-!!$    REAL(wp) :: rloland(kbdim) ,rloglac(kbdim)
 
     !
     ! 1.0 Constituent properties
@@ -1419,11 +1334,6 @@ CONTAINS
 
     SELECT CASE (irad_aero)
     CASE (0,2)
-!       write(0,*) "kbdim,klev,jpband:",kbdim,klev,jpband
-!       CALL work_mpi_barrier()
-!       write(0,*) "shape(aer_tau_lw_vr):",shape(aer_tau_lw_vr)
-!       CALL work_mpi_barrier()
- 
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
@@ -1520,27 +1430,12 @@ CONTAINS
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
     END IF
 
-!!$    ! debug newcldin
-!!$    ! --------------
-!!$    DO jl = 1, jce
-!!$      IF (laland(jl)) THEN
-!!$        rloland(jl) = 1.0_wp
-!!$      ELSE
-!!$        rloland(jl) = 0.0_wp
-!!$      END IF
-!!$      IF (laglac(jl)) THEN
-!!$        rloglac(jl) = 1.0_wp
-!!$      ELSE
-!!$        rloglac(jl) = 0.0_wp
-!!$      END IF
-!!$    END DO
 
-
-      CALL newcld_optics(                                                       &
-        & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
-        & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
-        & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
-        & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
+    CALL newcld_optics(                                                       &
+      & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
+      & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
+      & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
+      & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
 
 
     !
@@ -1568,11 +1463,6 @@ CONTAINS
       !    output
       &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
       &    flx_dnsw_diff_sfc                                                  )
-!!$      &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr   ,&
-!!$      &    dnir_sfc        ,dvis_sfc        ,unir_toa        ,uvis_toa       ,&
-!!$      &    dnir_sfc_cld    ,dvis_sfc_cld    ,unir_toa_cld    ,uvis_toa_cld   ,&
-!!$      &    zsudu           ,nir_sfc         ,nir_dff_sfc     ,vis_sfc        ,&
-!!$      &    vis_dff_sfc     ,dpar_sfc        ,par_dff_sfc)
 
 
     ! 5.0 Post Processing
