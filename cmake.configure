@@ -186,7 +186,7 @@ case $fortran_compiler in
 	fc_version=$($FC --version | awk 'NR==1')
 	;;
     nag)
-	CFORTRAN_DEmoreF="-DNAGf90Fortran"
+	CFORTRAN_DEF="-DNAGf90Fortran"
 	FC=nagfor
 	FC_CPP="-fpp"
         FC_LANG="-f2003"
