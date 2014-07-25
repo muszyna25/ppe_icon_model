@@ -130,7 +130,6 @@ CONTAINS
     INTEGER :: iyear, iyearm, iyearp
 
     CHARACTER(len=32)  :: cdate
-    CHARACTER(len=256) :: ccfc
 
     ! interpolation in time
 
