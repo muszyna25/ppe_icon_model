@@ -181,7 +181,7 @@ foreach $dir ( @directories ) {
 
     @target_all = ();
     while ( my ($key, $value) = each(%target_programs) ) {
-	push @target_all, $key;
+	push @target_all, "../bin/$key";
     }
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
@@ -223,16 +223,16 @@ foreach $dir ( @directories ) {
 	}
 
     } else {
-	print MAKEFILE ".PHONY: version.c\n\n";
-	print MAKEFILE "version.c:\n";
+	print MAKEFILE ".PHONY: create_version_c\n\n";
+	print MAKEFILE "create_version_c:\n";
 	print MAKEFILE "\t../../../config/pvcs.pl --srcdir ../../..\n\n";
 	print MAKEFILE "version.o: version.c\n\n";
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
 	    $okey =~ s/ *$/.o/;	
 	    print MAKEFILE "$okey: $value\n";
-	    print MAKEFILE "$key: $okey \$(OBJS) version.o\n";
-	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o ../bin/\$@ \$< \$(OBJS) version.o \$(LIBS)\n";
+	    print MAKEFILE "../bin/$key: $okey \$(OBJS) version.o\n";
+	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o \$@ \$< \$(OBJS) version.o \$(LIBS)\n";
 	}
     }
     

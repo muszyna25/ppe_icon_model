@@ -50,9 +50,13 @@ source code. The file is suitable for being linked into the executable.
 
 use strict;
 use warnings;
+use constant { true => 1, false => 0 };
 
 use Getopt::Long;
 use Pod::Usage;
+use File::Temp;
+use File::Compare;
+use File::Copy;
 
 my $srcdir = '';
 my $help = 0;
@@ -101,7 +105,20 @@ if ( -d $srcdir."/.svn" ) {
     $revision = "Unknown";
 }
 
-open my $version_c, ">", "version.c" or die "$0: open version.c: $!";
+my $need_to_compare = false;
+my $version_c;
+my $fname;
+
+if ( -e "version.c") {
+    $need_to_compare = true;
+    print "version.c exists, create temporary file ...\n";
+    $version_c = File::Temp->new(UNLINK => false);
+    $fname = $version_c->filename;
+    print "    temp file: $fname\n";
+} else {
+    open $version_c, ">", "version.c" or die "$0: open version.c: $!";
+}
+
 print $version_c "#ifdef __xlc__\n";
 print $version_c "#pragma comment(user,\"$remote_url,$branch,$revision\")\n";
 print $version_c "#endif\n";
@@ -156,6 +173,18 @@ print $version_c "\n";
 print $version_c "  return;\n";
 print $version_c "}\n";
 print $version_c "\n";
+
 close $version_c;
+
+if ($need_to_compare) {
+    print "Need to compare $fname and version.c ...\n";
+    if (compare($fname, "version.c") == 0) {
+        print " unlink $fname ... \n";
+        unlink $fname;
+    } else {
+        move($fname, "version.c") or die "Copy failed: $!";
+        print " move $fname to version.c ...\n";
+    }
+}
 
 exit 0;
