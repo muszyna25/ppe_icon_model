@@ -37,14 +37,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2013-04-09T00:00:00Z" 
-end_date="2013-04-09T06:00:00Z"
+end_date="2013-04-10T00:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=2
-dt_checkpoint=`expr 12 \* 3600 `  # write restart file every 12 hours
+dt_checkpoint=`expr 6 \* 3600 `  # write restart file every 12 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -96,7 +96,7 @@ cat > ${atmo_namelist} << EOF
 &grid_nml
  cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
- lredgrid_phys     = .false.,.false.
+ lredgrid_phys     = .false.
  lfeedback         = .false.
  l_limited_area    = .true.
 / 
@@ -131,31 +131,26 @@ cat > ${atmo_namelist} << EOF
  nlev_latbc      = ${nlev}
  latbc_path      = '${LATBC_PATH}'
  latbc_filename  = 'latbc_${gridname}_<y><m><d><h>.nc'
-! latbc_ifs_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
-! latbc_icon_filename  = '<path>prepiconR<nroot>B<jlev>_DOM01_<y><m><d><h>.nc'
-! latbc_dwdana_filename  = '<path>gaf<y><m><d><h>.grb'
-! latbc_dwdfg_filename  = '<path>gif<y><m><d><h>.grb'
 /
 &diffusion_nml
  hdiff_order      = 5
  hdiff_efdt_ratio = 17.5
  hdiff_smag_fac   = 0.05
  lhdiff_vn        = .TRUE.
- lhdiff_w         = .TRUE.
  lhdiff_temp      = .TRUE.
  itype_t_diffu    = 2
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 1
+inwp_gscp       = 4
 inwp_convection = 0
 inwp_radiation  = 1
-inwp_cldcover   = 5
+inwp_cldcover   = 1
 inwp_turb       = 5
 inwp_satad      = 1
 inwp_surface    = 1
-latm_above_top  = .true.,.true.
+latm_above_top  = .true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
 dt_rad           = 900.
@@ -186,13 +181,6 @@ itype_lndtbl   =  2
 &interpol_nml
 nudge_zone_width  = 8  !-1 create nudge zone in grid
 lsq_high_ord      = 2
-/
-&gridref_nml
- grf_intmethod_e  = 6
- grf_tracfbk      = 2
- denom_diffu_v    = 150.
- l_mass_consvcorr = .true. 
- l_density_nudging = .true.
 /
 &nonhydrostatic_nml
  iadv_rhotheta    =  2
@@ -267,7 +255,7 @@ lsq_high_ord      = 2
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT10M"
+ output_interval  = "PT30M"
  file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'land_vars'
