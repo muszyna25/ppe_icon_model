@@ -190,6 +190,11 @@ CONTAINS
       END IF
       !
       ! stratospheric aerosol optical properties
+      IF (irad_aero == 14) THEN
+        CALL read_aero_stenchikov(datetime%year, patch)
+      END IF
+      !
+      ! tropospheric and stratospheric aerosol optical properties
       IF (irad_aero == 15) THEN
         CALL read_aero_kinne     (datetime%year, patch)
         CALL read_aero_stenchikov(datetime%year, patch)
