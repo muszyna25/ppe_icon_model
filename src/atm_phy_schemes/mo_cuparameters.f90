@@ -351,7 +351,7 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rcpecons
   REAL(KIND=jprb) :: rcucov
   REAL(KIND=jprb) :: rtaumel
-  REAL(KIND=jprb) :: rhebc
+  ! REAL(KIND=jprb) :: rhebc
   REAL(KIND=jprb) :: ruvper
 
   LOGICAL :: lmfpen
@@ -438,7 +438,7 @@ MODULE mo_cuparameters
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
           & entrdd   ,& ! njkt1                    ,&
         ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
-          & rcucov   ,rcpecons ,rtaumel  ,rhebc    ,&
+          & rcucov   ,rcpecons ,rtaumel  ,& ! rhebc    ,&
           & rmfdeps, icapdcycl
   !yoephli
   PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2
@@ -1036,7 +1036,7 @@ CONTAINS
 
     INTEGER(KIND=jpim) :: jlev
     !INTEGER(KIND=JPIM) :: myrank,ierr,size
-    REAL(KIND=jprb) :: zhook_handle
+    REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean
     !-----------------------------------------------------------------------
     IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
 
@@ -1127,9 +1127,24 @@ CONTAINS
     rcucov=0.05_JPRB
     rcpecons=5.44E-4_JPRB/rg
     rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
-    rhebc=0.8_JPRB
-
-    !     NEXT VALUE IS RELATIVE SATURATION IN DOWNDRAFRS
+    ! rhebc=0.8_JPRB
+    zrhebc_land  = 0.7_JPRB ! original IFS value: 0.7
+    zrhebc_ocean = 0.8_JPRB ! original IFS value: 0.9
+    !
+    ! resolution-dependent setting of rhebc for mesh sizes below 12.5 km
+    phy_params%rhebc_land  = zrhebc_land
+    phy_params%rhebc_ocean = zrhebc_ocean
+    !
+    IF (rsltn < 12.5E3_JPRB) THEN
+      phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
+      phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(12.5E3_JPRB/rsltn)/LOG(12.5_JPRB)
+      !
+      ! no one should use the convection scheme at resolutions finer than 1 km, but to be safe...
+      phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
+      phy_params%rhebc_ocean = MIN(1._JPRB, phy_params%rhebc_ocean)
+    ENDIF
+    !
+    !     NEXT VALUE IS RELATIVE SATURATION IN DOWNDRAFTS
     !     BUT IS NO LONGER USED ( FORMULATION IMPLIES SATURATION)
     !     -------------------------------------------------------
 
@@ -1150,7 +1165,7 @@ CONTAINS
     !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
 
     !phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
-    phy_params%tau=1.0_JPRB+rsltn/75E3_JPRB
+    phy_params%tau=1.0_JPRB+rsltn/75.E3_JPRB
     phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
     ! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
@@ -1253,9 +1268,10 @@ CONTAINS
     !WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
     WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
     CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-    CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU')
+    CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE')
     !WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-    WRITE(message_text,'(4x,l6,l6,l6,E12.5)')lmfmid,lmfdd,lmfdudv,phy_params%tau
+    WRITE(message_text,'(4x,l6,l6,l6,3F8.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+      phy_params%rhebc_land,phy_params%rhebc_ocean
     CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
     !ENDDO

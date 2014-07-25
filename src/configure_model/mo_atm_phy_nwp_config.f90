@@ -47,7 +47,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: lrtm_filename
   PUBLIC :: cldopt_filename
   PUBLIC :: ltuning_detrain, ltuning_kessler, icpl_aero_conv
-  PUBLIC :: ltuning_ozone, tune_rhebc_land, tune_rhebc_ocean
+  PUBLIC :: ltuning_ozone
   PUBLIC :: tune_gkdrag, tune_gkwake, tune_gfluxlaun
 
   !!--------------------------------------------------------------------------
@@ -133,8 +133,6 @@ MODULE mo_atm_phy_nwp_config
   ! GZ, 2013-09-13: tuning to reduce drizzle and reduce moisture bias in tropics
   LOGICAL,  PARAMETER :: ltuning_detrain  = .TRUE.
   LOGICAL,  PARAMETER :: ltuning_kessler  = .TRUE.
-  REAL(wp), PARAMETER :: tune_rhebc_land  = 0.7_wp  !default: 0.7
-  REAL(wp), PARAMETER :: tune_rhebc_ocean = 0.8_wp  !default: 0.9
 
   ! ozone:
   ! MK, 2014-01: increase ozone by maximum 50% at 15km decreasing linearly

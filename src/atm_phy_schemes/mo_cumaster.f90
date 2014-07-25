@@ -1144,7 +1144,7 @@ CONTAINS
 
     CALL cuflxn &
       & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%mfcfl, &
-      & ptsphy,&
+      & phy_params%rhebc_land, phy_params%rhebc_ocean, ptsphy,          &
       & pten,     pqen,     pqsen,    ztenh,    zqenh,&
       & paph,     pap,      pgeoh,    ldland,   ldcum,&
       & kcbot,    kctop,    idtop,    itopm2,&

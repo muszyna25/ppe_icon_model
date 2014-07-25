@@ -52,9 +52,7 @@ MODULE mo_cuflxtends
     &                        rmfsoltq,  rmfsoluv                    ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
-    &                        lhook,   dr_hook, rcvd
-  USE mo_atm_phy_nwp_config, ONLY: tune_rhebc_land, tune_rhebc_ocean
-  
+    &                        lhook,   dr_hook, rcvd  
   
   USE mo_cufunctions, ONLY: foelhmcu, foeewmcu, foealfcu, &
     & foeewl,   foeewi
@@ -77,7 +75,7 @@ CONTAINS
   !OPTIONS XOPT(HSFUN)
   SUBROUTINE cuflxn &
     & (  kidia,    kfdia,    klon,   ktdia,   klev, rmfcfl, &
-    & ptsphy,&
+    & rhebc_land, rhebc_ocean, ptsphy,                      &
     & pten,     pqen,     pqsen,    ptenh,    pqenh,&
     & paph,     pap,      pgeoh,    ldland,   ldcum,&
     & kcbot,    kctop,    kdtop,    ktopm2,&
@@ -196,6 +194,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: ktdia
     REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
+    REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land, rhebc_ocean
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqsen(klon,klev)
@@ -263,11 +262,11 @@ CONTAINS
       IF(ldland(jl)) THEN
         !!zrhebc(jl)=rhebc
         !!zrhebc(jl)=0.7_jprb
-        zrhebc(jl) = tune_rhebc_land
+        zrhebc(jl) = rhebc_land
       ELSE
         !!zrhebc(jl)=rhebc
         !!zrhebc(jl)=0.9_jprb
-        zrhebc(jl) = tune_rhebc_ocean
+        zrhebc(jl) = rhebc_ocean
       ENDIF
     ENDDO
     !!TO GET IDENTICAL RESULTS FOR DIFFERENT NPROMA FORCE KTOPM2 TO 2
