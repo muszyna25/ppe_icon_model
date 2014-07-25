@@ -183,8 +183,8 @@ MODULE mo_velocity_advection
       rl_start = 5
       rl_end = min_rledge_int - 2
 
-      i_startblk = p_patch%edges%start_blk(rl_start)
-      i_endblk   = p_patch%edges%end_blk(rl_end)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
