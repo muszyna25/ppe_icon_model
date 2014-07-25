@@ -19,9 +19,8 @@ author_list="Marco Giorgetta, MPIM"
 
 # (1) Variables provided by the scripting mechanism
 
-# EXPNAME                       = name of exp. in 'exp.<name of exp.>'
+# EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
-# thisdir                       = equals here to the run/
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 # second, minute, hour, day     = length of these intervals in [s]
 
@@ -35,11 +34,11 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1989-01-01T00:00:00Z"        # ISO-format date+time
+  end_date="2009-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
-(( dt_checkpoint = 300 * day))
-(( dt_restart    = 900 * day))
+(( dt_checkpoint =  360 * day))
+(( dt_restart    = 1800 * day))
 #
 file_interval="P30D"
 
@@ -84,7 +83,7 @@ cat > ${atmo_namelist} << EOF
  iequations       = 3           ! 3: ICONAM dynamics
 /
 &nonhydrostatic_nml
- iadv_rcf         = 5           ! dt_adv/dtime
+ iadv_rcf         = 10          ! dt_adv/dtime
  damp_height      = 50000.      ! [m]
  rayleigh_coeff   = 0.10
  vwind_offctr     = 0.2
@@ -112,7 +111,7 @@ cat > ${atmo_namelist} << EOF
 /
 &echam_phy_nml
  lrad             = .TRUE.
- dt_rad           =  3600.      ! [s] radiation time step
+ dt_rad           =  7200.      ! [s] radiation time step
  lvdiff           = .TRUE.
  lconv            = .TRUE.
  lcond            = .TRUE.
@@ -128,18 +127,19 @@ cat > ${atmo_namelist} << EOF
  lamip            = .TRUE.
 /
 &radiation_nml
- irad_h2o         = 1           ! prognostic vapor, liquid and ice
- irad_co2         = 2           ! constant co2 vmr
- irad_ch4         = 0           ! switch off ch4
- irad_n2o         = 0           ! switch off n2o
- irad_o3          = 8           ! 8: ozone for AMIP experiment
- irad_o2          = 0           ! switch off o2
- irad_cfc11       = 0           ! switch off cfc11
- irad_cfc12       = 0           ! switch off cfc12
- irad_aero        = 0           ! switch off aerosols
- ighg             = 1           ! select CMIP5 standard greenhouse gas scenario (as in ECHAM6 AMIP) 
- izenith          = 4           ! seasonal and diurnal cycle
- isolrad          = 1           ! transient solar irradiance (at 1 AE)
+ irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
+ irad_co2         = 2           ! 2: horizontally and vertically constant
+ irad_ch4         = 3           ! 3: horizontally constant vertical profile
+ irad_n2o         = 3           ! 3: horizontally constant vertical profile
+ irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o2          = 2           ! 2: horizontally and vertically constant
+ irad_cfc11       = 2           ! 2: horizontally and vertically constant
+ irad_cfc12       = 2           ! 2: horizontally and vertically constant
+ irad_aero        = 0           ! 0: not used
+ lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
+ ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
+ izenith          = 4           ! 4: seasonal and diurnal cycle
+ isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &echam_conv_nml
 /
@@ -178,72 +178,82 @@ EOF
 
 # model files
 #
-add_required_file ${basedir}/data/rrtmg_lw.nc           ./
-add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc ./
+add_link_file ${basedir}/data/rrtmg_lw.nc                         ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc               ./
 
 # namelist files
 #
-add_required_file ${thisdir}/${atmo_namelist} ./
-add_required_file ${thisdir}/${lnd_namelist}  ./
+add_required_file ${basedir}/run/${atmo_namelist}                 ./
+add_required_file ${basedir}/run/${lnd_namelist}                  ./
+
+# dictionary file for output variable names
+#
+dict_file="dict.${EXPNAME}"
+rm -f ${dict_file}
+add_required_file ${basedir}/run/${dict_file}                     ./
 
 # initial conditions
 #
 INDATA=/pool/data/ICON/input/r0002
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-add_required_file $INDATA/../../setup/prepiconR2B04_DOM01_ERA_INT_AMIP.nc    ./ifs2icon_R2B04_DOM01.nc
+datadir=$INDATA/../../setup
+add_link_file $datadir/prepiconR2B04_DOM01_ERA_INT_AMIP.nc        ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-add_required_file ${INDATA}/r2b4_amip/lnd/ic_land_soil_1976.nc               ./ic_land_soil.nc
+datadir=$INDATA/r2b4_amip/lnd
+add_link_file ${datadir}/ic_land_soil_1976.nc                     ./ic_land_soil.nc
 
 # boundary conditions
 #
 # - well mixed greenhouse gases
-add_required_file $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc        ./bc_greenhouse_gases.nc
+datadir=$INDATA/global/atm
+add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc           ./bc_greenhouse_gases.nc
 #
 # - ozone
 year=1978
 while [[ $year -le 1990 ]]
 do
-  ozone_file=bc_ozone_cmip5_${year}.nc
-  add_required_file $INDATA/r2b4_amip/atm/bc_ozone_cmip5/${ozone_file}       ./ozone${year}.nc
- (( year = year+1 ))
+  datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                ./ozone${year}.nc
+  (( year = year+1 ))
 done
 #
 # - tropospheric aerosol
-##year=1978
-##while [[ $year -le 1990 ]]
-##do
-##  add_required_file $INDATA/r2b4_amip/atm/bc_aeropt_kinne/bc_..._${year}.nc  ./...${year}.nc
-## (( year = year+1 ))
-##done
+year=1978
+while [[ $year -le 1990 ]]
+do
+  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc            ./aero_coarse_lw_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc            ./aero_coarse_sw_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc    ./aero_fine_sw_${year}.nc
+  (( year = year+1 ))
+done
 #
 # - stratospheric aerosol
-##year=1978
-##while [[ $year -le 1990 ]]
-##do
-##  add_required_file $INDATA/r2b4_amip/atm/bc_.../bc_..._${year}.nc         ./...${year}.nc
-## (( year = year+1 ))
-##done
+year=1978
+while [[ $year -le 1990 ]]
+do
+  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_sato
+  add_link_file $datadir/bc_aeropt_sato_lw_b16_sw_b14_${year}.nc  ./sato${year}.nc
+  (( year = year+1 ))
+done
 #
 # - sst and sic
-add_required_file $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc            ./bc_sic.nc
-add_required_file $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./bc_sst.nc
+datadir=$INDATA/r2b4_amip/oce
+add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                  ./bc_sic.nc
+add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                  ./bc_sst.nc
 #
 # - ssi and tsi
-add_required_file $INDATA/global/sun/bc_solar_irradiance_14band_1849-2399.nc ./bc_ssi.nc
+datadir=$INDATA/global/sun
+add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc    ./bc_ssi.nc
 #
 # - land parameters
-add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_frac_1976.nc               ./bc_land_frac.nc
-add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_phys_1976.nc               ./bc_land_phys.nc
-add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_soil_1976.nc               ./bc_land_soil.nc
-add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_sso_1976.nc                ./bc_land_sso.nc
-
-# dictionary for variable names
-# -----------------------------
-dict_file="dict.${EXPNAME}"
-rm -f ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                                ./
+datadir=$INDATA/r2b4_amip/lnd
+add_link_file $datadir/bc_land_frac_1976.nc                       ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1976.nc                       ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                       ./bc_land_soil.nc
+add_link_file $datadir/bc_land_sso_1976.nc                        ./bc_land_sso.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -351,7 +361,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
- pl_varlist       = 'ta','zg'
+ pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
 /
 &output_nml
  output_filename  = "${EXPNAME}_dyn_3d_rmb"
@@ -456,8 +466,9 @@ if [[ "$output_phy" == "yes" ]]; then
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'hur'
-!                    'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld',
-!                    'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso',
+                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
+                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
+                    'tend_temp_gwh', 'tend_temp_sso',
 !                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
 !                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
 !                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
@@ -476,11 +487,52 @@ if [[ "$output_phy" == "yes" ]]; then
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  pl_varlist       = 'hur'
-!                    'tend_temp', 'tend_temp_radlw', 'tend_temp_radsw', 'tend_temp_cld',
-!                    'tend_temp_cnv', 'tend_temp_vdf', 'tend_temp_gwh', 'tend_temp_sso',
+                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
+                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
+                    'tend_temp_gwh', 'tend_temp_sso',
 !                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
 !                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
 !                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+/
+EOF
+fi
+
+
+output_aer=no # needs lrad_aero_diag=.TRUE. in radiation_nml
+#
+if [[ "$output_aer" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_aer_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
+                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
+                    'prm_aer_aod_9731'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_aer_3d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT06H"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
+                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
+                    'prm_aer_aod_9731'
 /
 EOF
 fi
