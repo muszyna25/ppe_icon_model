@@ -35,7 +35,7 @@ MODULE mo_nh_initicon
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_nh_initicon_types,   ONLY: t_initicon_state, t_pi_atm 
+  USE mo_nh_initicon_types,   ONLY: t_initicon_state, t_pi_atm
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, nlevsoil_in, l_sst_in,  &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               generate_filename, rho_incr_filter_wgt,             &
@@ -80,7 +80,8 @@ MODULE mo_nh_initicon
     &                               vlistNvars, streamInqVlist,                       &
     &                               streamOpenRead, cdiInqMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
-  USE mo_util_cdi_table,      ONLY: print_cdi_summary
+  USE mo_util_cdi_table,      ONLY: print_cdi_summary, t_inventory_list, t_inventory_element, &
+    &                               new_inventory_list, delete_inventory_list 
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
     &                               t_bool_table
   USE mo_flake,               ONLY: flake_coldinit
@@ -132,6 +133,10 @@ MODULE mo_nh_initicon
   ! GRIB2 shortnames or NetCDF var names.
   TYPE (t_dictionary) :: ana_varnames_dict
 
+  ! linked lists for storing CDI file inventory info
+  ! separate lists for analysis and first guess fields
+  TYPE(t_inventory_list), TARGET, SAVE :: inventory_list_fg(max_dom)
+  TYPE(t_inventory_list), TARGET, SAVE :: inventory_list_ana(max_dom)
 
   ! in COSMODE mode, we copy z3d field from initicon (to be removed)
   PUBLIC :: init_icon
@@ -348,7 +353,7 @@ MODULE mo_nh_initicon
     CALL deallocate_ifs_sfc (initicon)
 
 
-    ! close first guess and analysis files
+    ! close first guess and analysis files and corresponding inventory lists
     ! 
     IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
@@ -383,6 +388,7 @@ MODULE mo_nh_initicon
     INTEGER :: jg, vlistID, jlev, mpi_comm
     INTEGER(KIND=i8) :: flen_fg, flen_ana                     ! filesize in bytes
     LOGICAL :: l_exist
+
 
     CALL cdiDefMissval(cdimissval) 
     fileID_fg(:)  = -1
@@ -423,7 +429,13 @@ MODULE mo_nh_initicon
         ENDIF
 
         vlistID = streamInqVlist(fileID_fg(jg))
-        CALL print_cdi_summary(vlistID)
+
+        ! create new inventory list (linked list) for first guess input
+        CALL new_inventory_list(inventory_list_fg(jg))
+
+        ! print inventory and store in linked list
+        CALL print_cdi_summary(vlistID, opt_dstlist=inventory_list_fg(jg))
+
       END DO
 
       ! analysis ("_ana")
@@ -459,7 +471,13 @@ MODULE mo_nh_initicon
           ENDIF
 
           vlistID = streamInqVlist(fileID_ana(jg))
-          CALL print_cdi_summary(vlistID)
+
+          ! create new inventory list (linked list) for analysis input
+          CALL new_inventory_list(inventory_list_ana(jg))
+
+          ! print inventory and store in linked list
+          CALL print_cdi_summary(vlistID, opt_dstlist=inventory_list_ana(jg))
+
         END DO
       ENDIF  ! lread_ana
     END IF  ! p_pe == p_io
@@ -495,12 +513,14 @@ MODULE mo_nh_initicon
       DO jg=1,n_dom
         IF (fileID_fg(jg) == -1) CYCLE
         CALL streamClose(fileID_fg(jg))
+        CALL delete_inventory_list(inventory_list_fg(jg))
       END DO
       ! analysis ("_ana")
       IF (lread_ana) THEN
         DO jg=1,n_dom
           IF (fileID_ana(jg) == -1) CYCLE
             CALL streamClose(fileID_ana(jg))
+            CALL delete_inventory_list(inventory_list_ana(jg))
         END DO
       ENDIF
     END IF

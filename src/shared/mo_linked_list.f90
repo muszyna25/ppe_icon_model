@@ -115,7 +115,7 @@ CONTAINS
   !-----------------------------------------------------------------------------
   !
   ! initialize a variable of type var_list with default values and
-  ! nullify anchor to linked lisat
+  ! nullify anchor to linked list
   !
   SUBROUTINE new_list(this_list)
     TYPE(t_var_list), INTENT(inout) :: this_list

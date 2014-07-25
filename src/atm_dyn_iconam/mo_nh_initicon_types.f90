@@ -27,6 +27,7 @@ MODULE mo_nh_initicon_types
 
   USE mo_kind,                 ONLY: wp
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
+  USE mtime,                   ONLY: datetime, timedelta
 
   IMPLICIT NONE
   PRIVATE
@@ -39,7 +40,6 @@ MODULE mo_nh_initicon_types
   PUBLIC :: t_pi_sfc_in
   PUBLIC :: t_pi_atm
   PUBLIC :: t_pi_sfc
-
 
 
   ! atmospheric input variables
