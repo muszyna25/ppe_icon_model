@@ -1476,16 +1476,24 @@ CONTAINS
         ENDDO
       ENDDO
     CASE (13)
-      aer_tau_lw_vr(:,:,:) = 0.0_wp
-      aer_tau_sw_vr(:,:,:) = 0.0_wp
-      aer_piz_sw_vr(:,:,:) = 1.0_wp
-      aer_cg_sw_vr(:,:,:)  = 0.0_wp
       CALL set_aop_kinne( jg,                                        &
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
+    CASE (14)
+      ! set zero aerosol before adding Stenchikov aerosols
+      aer_tau_lw_vr(:,:,:) = 0.0_wp
+      aer_tau_sw_vr(:,:,:) = 0.0_wp
+      aer_piz_sw_vr(:,:,:) = 1.0_wp
+      aer_cg_sw_vr(:,:,:)  = 0.0_wp
+      CALL add_aop_stenchikov( jg,                                   &
+        & jce              ,kbdim                 ,klev             ,&
+        & jb               ,jpband                ,jpsw             ,&
+        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+        & tk_fl )
     CASE (15)
       CALL set_aop_kinne( jg,                                        &
         & jce              ,kbdim                 ,klev             ,&
