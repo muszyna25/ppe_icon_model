@@ -111,10 +111,8 @@ my $fname;
 
 if ( -e "version.c") {
     $need_to_compare = true;
-    print "version.c exists, create temporary file ...\n";
     $version_c = File::Temp->new(UNLINK => false);
     $fname = $version_c->filename;
-    print "    temp file: $fname\n";
 } else {
     open $version_c, ">", "version.c" or die "$0: open version.c: $!";
 }

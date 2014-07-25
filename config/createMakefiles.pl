@@ -193,7 +193,7 @@ foreach $dir ( @directories ) {
 	    print MAKEFILE "\$(LIB): ../lib/lib\$(LIB).a\n";
 	}
     } else {
-	print MAKEFILE "all: \$(OBJS) ";
+	print MAKEFILE "all: create_version_c \$(OBJS) ";
 	&PrintWords (13, 0, @target_all);
     }
     print MAKEFILE "\n\n";
