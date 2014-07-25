@@ -177,13 +177,10 @@ print $version_c "\n";
 close $version_c;
 
 if ($need_to_compare) {
-    print "Need to compare $fname and version.c ...\n";
     if (compare($fname, "version.c") == 0) {
-        print " unlink $fname ... \n";
         unlink $fname;
     } else {
         move($fname, "version.c") or die "Copy failed: $!";
-        print " move $fname to version.c ...\n";
     }
 }
 
