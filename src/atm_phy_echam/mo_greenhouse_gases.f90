@@ -33,20 +33,18 @@ MODULE mo_greenhouse_gases
   USE mo_read_netcdf_parallel, ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                             p_nf_inq_varid, p_nf_get_var_double, p_nf_close, &
        &                             nf_read, nf_noerr, nf_strerror
-
-  ! scaling of co2 concentration not implemented yet
-  ! USE mo_radiation_parameters, ONLY: fco2
+  USE mo_radiation_config,     ONLY: vmr_co2, vmr_ch4, vmr_n2o, vmr_cfc11, vmr_cfc12, &
+       &                             mmr_co2, mmr_ch4, mmr_n2o
 
   IMPLICIT NONE
 
   PRIVATE
 
   PUBLIC :: read_ghg_bc
-  PUBLIC :: ghg_time_interpolation, co2_time_interpolation
+  PUBLIC :: ghg_time_interpolation
   PUBLIC :: cleanup_greenhouse_gases
 
   PUBLIC :: ghg_no_cfc
-  PUBLIC :: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr
 
   PUBLIC :: ghg_file_read
 
@@ -54,7 +52,6 @@ MODULE mo_greenhouse_gases
   CHARACTER(len=*), PARAMETER :: ghg_cfc_names(ghg_no_cfc) = (/ "CFC_11", "CFC_12" /)
 
   REAL(wp) :: ghg_base_year
-  REAL(wp) :: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr(ghg_no_cfc)
 
   INTEGER :: ghg_no_years
 
@@ -129,12 +126,10 @@ CONTAINS
 
     REAL(wp) :: zsecref, zsecnow
     REAL(wp) :: zw1, zw2
-    REAL(wp) :: zco2int, zch4int, zn2oint
-    REAL(wp) :: zcfc(ghg_no_cfc)
 
     INTEGER :: iyear, iyearm, iyearp
 
-    CHARACTER(len=32)  :: cdate, cformat
+    CHARACTER(len=32)  :: cdate
     CHARACTER(len=256) :: ccfc
 
     ! interpolation in time
@@ -151,87 +146,42 @@ CONTAINS
       zw1 = zsecnow/zsecref + 0.5_wp
       zw2 = 1.0_wp - zw1
 
-      zco2int = zw1*ghg_co2(iyear)+zw2*ghg_co2(iyearm)
-      zch4int = zw1*ghg_ch4(iyear)+zw2*ghg_ch4(iyearm)
-      zn2oint = zw1*ghg_n2o(iyear)+zw2*ghg_n2o(iyearm)
-      zcfc(:) = zw1*ghg_cfc(iyear,:)+zw2*ghg_cfc(iyearm,:)
+      vmr_co2   = 1.0e-06_wp * ( zw1*ghg_co2(iyear)   + zw2*ghg_co2(iyearm)   )
+      vmr_ch4   = 1.0e-09_wp * ( zw1*ghg_ch4(iyear)   + zw2*ghg_ch4(iyearm)   )
+      vmr_n2o   = 1.0e-09_wp * ( zw1*ghg_n2o(iyear)   + zw2*ghg_n2o(iyearm)   )
+      vmr_cfc11 = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,1) + zw2*ghg_cfc(iyearm,1) )
+      vmr_cfc12 = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,2) + zw2*ghg_cfc(iyearm,2) )
 
     ELSE                                    ! second half of year
 
       zw2= zsecnow/zsecref - 0.5_wp
       zw1= 1.0_wp - zw2
 
-      zco2int = zw1*ghg_co2(iyear)+zw2*ghg_co2(iyearp)
-      zch4int = zw1*ghg_ch4(iyear)+zw2*ghg_ch4(iyearp)
-      zn2oint = zw1*ghg_n2o(iyear)+zw2*ghg_n2o(iyearp)
-      zcfc(:) = zw1*ghg_cfc(iyear,:)+zw2*ghg_cfc(iyearp,:)
+      vmr_co2   = 1.0e-06_wp * ( zw1*ghg_co2(iyear)   + zw2*ghg_co2(iyearp)   )
+      vmr_ch4   = 1.0e-09_wp * ( zw1*ghg_ch4(iyear)   + zw2*ghg_ch4(iyearp)   )
+      vmr_n2o   = 1.0e-09_wp * ( zw1*ghg_n2o(iyear)   + zw2*ghg_n2o(iyearp)   )
+      vmr_cfc11 = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,1) + zw2*ghg_cfc(iyearp,1) )
+      vmr_cfc12 = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,2) + zw2*ghg_cfc(iyearp,2) )
 
     END IF
 
-    ! IF (ABS(fco2-1.0_wp) > EPSILON(1.0_wp)) zco2int = fco2 * zco2int
+    ! IF (ABS(fco2-1.0_wp) > EPSILON(1.0_wp)) vmr_co2 = fco2 * vmr_co2
 
     WRITE(cdate,'(i6,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,f9.6,a)') &
-         &      radiation_date%year, '-', radiation_date%month, '-', radiation_date%day, 'T', &
+         &      radiation_date%year, '-', radiation_date%month , '-', radiation_date%day   ,'T', &
          &      radiation_date%hour, ':', radiation_date%minute, ':', radiation_date%second,'Z'
-    WRITE(cformat,'(a,i0,a)') '(a,', ghg_no_cfc, 'f7.2)'
-    WRITE(ccfc,cformat) ' CFC = ', zcfc(1:ghg_no_cfc)
-    WRITE (message_text,'(a,a,a,f9.4,a,f8.2,a,f8.3,a)') &
-         'Greenhouse gas concentrations ', TRIM(cdate), ' CO2 = ', zco2int, &
-         ' CH4 = ', zch4int,' N2O = ', zn2oint, TRIM(ccfc)
+    WRITE (message_text,'(a,a,a,e15.6,a,e15.6,a,f6.3,a)') &
+         'Greenhouse gas vol.mixing ratios ', TRIM(cdate), ' CO2 = ', vmr_co2, &
+         ' CH4 = ', vmr_ch4,' N2O = ', vmr_n2o,' CFC11 = ', vmr_cfc11,' CFC12 = ', vmr_cfc12
     CALL message('', TRIM(message_text))
 
-    ! convert to mass mixing ratio
+    ! convert CO2, CH4 and N2O from volume to mass mixing ratio
 
-    ghg_co2mmr = zco2int * 1.0e-06_wp * amco2/amd 
-    ghg_ch4mmr = zch4int * 1.0e-09_wp * amch4/amd
-    ghg_n2ommr = zn2oint * 1.0e-09_wp * amn2o/amd
-
-    ! scale CFCs only, keep the volume mixing ratio 
-
-    ghg_cfcvmr(:) = zcfc(:) * 1.0e-12_wp
+    mmr_co2 = vmr_co2 * amco2/amd 
+    mmr_ch4 = vmr_ch4 * amch4/amd
+    mmr_n2o = vmr_n2o * amn2o/amd
 
   END SUBROUTINE ghg_time_interpolation
-
-  FUNCTION co2_time_interpolation(current_date) RESULT(co2mmr)
-    REAL(wp) :: co2mmr
-    TYPE(t_datetime), INTENT(in) :: current_date 
-
-    REAL(wp) :: zsecref, zsecnow
-    REAL(wp) :: zw1, zw2
-    REAL(wp) :: zco2int
-
-    INTEGER :: iyear, iyearm, iyearp
-    
-    ! interpolation in time
-
-    zsecref = REAL(current_date%yealen * idaylen, wp)
-    zsecnow = REAL(((current_date%yeaday - 1) * idaylen), wp) + current_date%second
-
-    iyear =  current_date%year - INT(ghg_base_year) + 1   ! set right index to access in ghg fields
-    iyearm = iyear - 1
-    iyearp = iyear + 1
-
-    IF (current_date%month <= 6) THEN      ! first half of year
-
-      zw1 = zsecnow/zsecref + 0.5_wp
-      zw2 = 1.0_wp - zw1
-
-      zco2int = zw1*ghg_co2(iyear)+zw2*ghg_co2(iyearm)
-
-    ELSE                                   ! second half of year
-
-      zw2= zsecnow/zsecref - 0.5_wp
-      zw1= 1.0_wp - zw2
-
-      zco2int = zw1*ghg_co2(iyear)+zw2*ghg_co2(iyearp)
-
-    END IF
-
-    ! convert to mass mixing ratio
-
-    co2mmr = zco2int * 1.0e-06_wp * amco2/amd 
-
-  END FUNCTION co2_time_interpolation
 
   SUBROUTINE cleanup_greenhouse_gases
     IF (ALLOCATED(ghg_years)) DEALLOCATE(ghg_years)
