@@ -174,10 +174,9 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
      nlevp1 = p_patch(jg)%nlevp1
      
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
-     
-     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, p_patch(jg)%nblks_e, &
-                               & TRIM(listname), prm_nwp_diag_list(jg), prm_diag(jg), &
-                               & l_rh(jg))
+
+     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, TRIM(listname),   &
+       &                         prm_nwp_diag_list(jg), prm_diag(jg), l_rh(jg))
      !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
      CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
@@ -237,10 +236,10 @@ SUBROUTINE destruct_nwp_phy_state
 END SUBROUTINE destruct_nwp_phy_state
 
      !
-SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
+SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                      & listname, diag_list, diag, l_rh)
 
-    INTEGER,INTENT(IN) :: klev, klevp1, kblks, kblks_e, k_jg !< dimension sizes
+    INTEGER,INTENT(IN) :: klev, klevp1, kblks, k_jg !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN)     :: listname
     CHARACTER(len=max_char_length)  :: vname_prefix
@@ -257,7 +256,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, kblks_e,  &
     TYPE(t_cf_var)    ::    cf_desc, new_cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d(3), shapesfc(3), shape3dsubs(3), shape3dsubsw(3)
+    INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), shape3dsubsw(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist

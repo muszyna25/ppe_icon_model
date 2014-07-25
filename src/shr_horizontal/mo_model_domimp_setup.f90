@@ -774,7 +774,6 @@ CONTAINS
   SUBROUTINE fill_grid_subsets(patch)
     TYPE(t_patch), TARGET :: patch
 
-    INTEGER :: idx
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_setup:fill_grid_subsets'
 
     !--------------------------------------------------------------------------------

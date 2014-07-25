@@ -190,8 +190,6 @@ CONTAINS
     REAL(wp) :: zfrice_thrhld       ! fraction threshold for creating a sea-ice grid point
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
-    REAL(wp), PARAMETER :: h_ice_coldstart = 1.0_wp   ! sea-ice thickness for cold start [m]
-
   !-------------------------------------------------------------------------
 
 

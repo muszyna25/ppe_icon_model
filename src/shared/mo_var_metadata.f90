@@ -311,7 +311,7 @@ CONTAINS
     IF ( PRESENT(lifetime_tracer) ) THEN
       tracer_meta%lifetime_tracer = lifetime_tracer
     ELSE
-      tracer_meta%lifetime_tracer = -999       ! lifetime of a chemical tracer
+      tracer_meta%lifetime_tracer = -999._wp   ! lifetime of a chemical tracer
     ENDIF
 
   END FUNCTION create_tracer_metadata

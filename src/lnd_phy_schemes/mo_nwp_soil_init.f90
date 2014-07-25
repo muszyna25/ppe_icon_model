@@ -459,7 +459,7 @@ CONTAINS
         zrho_snow_old(:) = 0.0_ireals
         zicount1(:)      = 0
         zicount2(:)      = 0
-        sum_weight(:)    = 0. 
+        sum_weight(:)    = 0.0_ireals 
         DO ksn = 1, ke_snow
           DO i = istarts, iends
             zw_snow_old(i) = zw_snow_old(i) + wtot_snow_now(i,ksn)

@@ -161,7 +161,6 @@ CONTAINS
     TYPE(datetime),  POINTER :: mtime_vdatetime, mtime_rdatetime
     TYPE(timedelta), POINTER :: forecast_time
     CHARACTER(len=max_timedelta_str_len) :: forecast_time_string
-    CHARACTER(len=max_datetime_str_len)  :: mtime_vdatetime_str, mtime_rdatetime_str
 
     if (column%width > MAX_COLUMN_LEN) &
       &  CALL finish(routine, "Internal error: Column width exceeds maximum length!")

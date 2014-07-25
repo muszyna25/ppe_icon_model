@@ -2155,7 +2155,7 @@ END SUBROUTINE message
                IF (zw_fr(i,1)> zfcap(i,1)) THEN
                   zalpha = 1.0_ireals
                ELSE
-                  zalpha = 0.5_ireals * (1 - COS ( 0.5_ireals * pi * &
+                  zalpha = 0.5_ireals * (1.0_ireals - COS ( 0.5_ireals * pi * &
                            (zw_fr(i,1) - zadp(i,1)) / ( zfcap(i,1) - zadp(i,1)) ) )
                ENDIF
                z2iw   = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
@@ -3300,7 +3300,7 @@ ELSE   IF (itype_interception == 2) THEN
 
           END IF
         END IF
-        h_snow_now(i) = 0.
+        h_snow_now(i) = 0.0_ireals
         sum_weight(i) = 0.0_ireals
 !      END IF          ! land-points only
     END DO
@@ -3577,8 +3577,8 @@ ELSE   IF (itype_interception == 2) THEN
 IF (msg_level >= 19) THEN
   DO i = istarts, iends
   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_s(i) )  >  500.0  .OR. & 
-         ABS( zlhfl_s(i) )  > 2000.0 ) THEN
+    IF ( ABS( zshfl_s(i) )  >  500.0_ireals  .OR. & 
+         ABS( zlhfl_s(i) )  > 2000.0_ireals ) THEN
       write(*,*) 'hello mo_soil_ml 2: ', zshfl_s(i), zrhoch(i),zth_low(i),t(i),zts(i), &
         '  ...LHF...  ',                 zlhfl_s(i), zts_pm(i),zverbo(i),zf_snow(i),qv(i),qv_s(i), &
         '  ...CH,CM...  ', tch(i), tcm(i), &
@@ -4029,8 +4029,8 @@ ENDIF
 IF (msg_level >= 19) THEN
   DO i = istarts, iends
   IF (soiltyp_subs(i) == 1) THEN  !1=glacier and Greenland
-    IF ( ABS( zshfl_snow(i) )  >  500.0  .OR. & 
-         ABS( zlhfl_snow(i) )  > 2000.0 ) THEN
+    IF ( ABS( zshfl_snow(i) )  >  500.0_ireals  .OR. & 
+         ABS( zlhfl_snow(i) )  > 2000.0_ireals ) THEN
       write(*,*) 'soil: ', zshfl_snow(i), zlhfl_snow(i), '....', &
         zth_low(i), ztsnow(i), '....', &
         zwsnow(i), zrr(i), zrs(i), zdwsndt(i) 
