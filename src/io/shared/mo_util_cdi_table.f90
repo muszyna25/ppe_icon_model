@@ -308,8 +308,8 @@ CONTAINS
     CHARACTER(LEN=MAX_COLUMN_LEN) :: entry_str
     CHARACTER(LEN=64)             :: format_str
 
-    INTEGER                       :: ist
     TYPE(t_inventory_element), POINTER  :: current_list_element =>NULL()
+    TYPE(t_inventory_element), POINTER  :: new_list_element =>NULL()
 
     dst = 0
     IF (PRESENT(opt_dstfile)) dst = opt_dstfile
@@ -337,15 +337,19 @@ CONTAINS
       ! create new list element
       !
       IF (PRESENT(opt_dstlist)) THEN
-        IF (.NOT. ASSOCIATED(current_list_element)) THEN
-          IF (.NOT. ASSOCIATED(opt_dstlist%p%first_list_element)) THEN
-            CALL create_inventory_list_element(opt_dstlist, opt_dstlist%p%first_list_element)
-          ENDIF
-          current_list_element => opt_dstlist%p%first_list_element
-        ELSE
-          CALL create_inventory_list_element(opt_dstlist, current_list_element%next_list_element)
-          current_list_element => current_list_element%next_list_element
-        ENDIF
+        ! create new list element and append
+        CALL append_inventory_list_element(opt_dstlist, new_list_element)
+        current_list_element => new_list_element
+
+!!$        IF (.NOT. ASSOCIATED(current_list_element)) THEN
+!!$          IF (.NOT. ASSOCIATED(opt_dstlist%p%first_list_element)) THEN
+!!$            CALL create_inventory_list_element(opt_dstlist, opt_dstlist%p%first_list_element)
+!!$          ENDIF
+!!$          current_list_element => opt_dstlist%p%first_list_element
+!!$        ELSE
+!!$          CALL create_inventory_list_element(opt_dstlist, current_list_element%next_list_element)
+!!$          current_list_element => current_list_element%next_list_element
+!!$        ENDIF
       ENDIF
 
       DO icol = 1, table%n_columns
@@ -414,45 +418,46 @@ CONTAINS
   END SUBROUTINE create_inventory_list_element
 
 
-!!$  !-------------
-!!$  !>
-!!$  !! SUBROUTINE append_inventory_list_element
-!!$  !! Append additional element to inventory list
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! Initial version by Daniel Reinert, DWD(2014-07-25)
-!!$  !!
-!!$  !!
-!!$  SUBROUTINE append_inventory_list_element(this_list, new_list_element)
-!!$    !
-!!$    TYPE(t_inventory_list), INTENT(INOUT)    :: this_list
-!!$    TYPE(t_inventory_element), POINTER, INTENT(INOUT) :: new_list_element
-!!$
-!!$    TYPE(t_inventory_element), POINTER :: current_list_element
-!!$    !------------------------------------------------------------
-!!$
-!!$    !
-!!$    ! insert as first element if list is empty
-!!$    !
-!!$    IF (.NOT. ASSOCIATED(this_list%p%first_list_element)) THEN
-!!$      CALL create_inventory_list_element(this_list, this_list%p%first_list_element)
-!!$      new_list_element => this_list%p%first_list_element
-!!$      RETURN
-!!$    ENDIF
-!!$    !
-!!$    ! loop over list elements to find position
-!!$    !
-!!$    current_list_element => this_list%p%first_list_element
-!!$    DO WHILE (ASSOCIATED(current_list_element%next_list_element)) 
-!!$      current_list_element => current_list_element%next_list_element
-!!$    ENDDO
-!!$    !
-!!$    ! insert element
-!!$    !
-!!$    CALL create_inventory_list_element (this_list, new_list_element)
-!!$    current_list_element%next_list_element => new_list_element
-!!$
-!!$  END SUBROUTINE append_inventory_list_element
+  !-------------
+  !>
+  !! SUBROUTINE append_inventory_list_element
+  !! Append additional element to inventory list
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-07-25)
+  !!
+  !!
+  SUBROUTINE append_inventory_list_element(this_list, new_list_element)
+    !
+    TYPE(t_inventory_list),             INTENT(INOUT) :: this_list
+    TYPE(t_inventory_element), POINTER, INTENT(INOUT) :: new_list_element
+
+    TYPE(t_inventory_element), POINTER :: current_list_element
+    !------------------------------------------------------------
+
+    !
+    ! insert as first element if list is empty
+    !
+    IF (.NOT. ASSOCIATED(this_list%p%first_list_element)) THEN
+      CALL create_inventory_list_element(this_list, this_list%p%first_list_element)
+      new_list_element => this_list%p%first_list_element
+      RETURN
+    ENDIF
+    !
+    ! loop over list elements to find position
+    !
+    current_list_element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(current_list_element%next_list_element)) 
+      current_list_element => current_list_element%next_list_element
+    ENDDO
+    !
+    ! insert element
+    !
+    CALL create_inventory_list_element (this_list, new_list_element)
+    new_list_element%next_list_element => current_list_element%next_list_element
+    current_list_element%next_list_element => new_list_element
+
+  END SUBROUTINE append_inventory_list_element
 
 
   !-------------

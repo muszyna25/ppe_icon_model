@@ -227,7 +227,7 @@ MODULE mo_nh_initicon
       ! Generate lists of fields that must be read from FG/ANA files
       !
       DO jg = 1, n_dom
-        CALL create_input_groups(                                    &
+        CALL create_input_groups(jg,                                 &
           &   initicon(jg)%grp_vars_fg,  initicon(jg)%ngrp_vars_fg,  &
           &   initicon(jg)%grp_vars_ana, initicon(jg)%ngrp_vars_ana, &
           &   initicon(jg)%grp_vars_fg_default , initicon(jg)%ngrp_vars_fg_default,  &
@@ -1067,11 +1067,12 @@ MODULE mo_nh_initicon
   !! Initial version by Daniel Reinert, DWD(2013-07-08)
   !!
   !!
-  SUBROUTINE create_input_groups(grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
+  SUBROUTINE create_input_groups(jg, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
     &                            grp_vars_fg_default, ngrp_vars_fg_default,              &
     &                            grp_vars_ana_default, ngrp_vars_ana_default,            &
     &                            init_mode)
 
+    INTEGER                   , INTENT(IN)    :: jg               ! domain ID
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg_default(:)   ! default vars fg-file
@@ -1085,12 +1086,9 @@ MODULE mo_nh_initicon
     ! local variables
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(100)           ! ana-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(100)            ! fg-file inventory group
-    INTEGER :: nfile_totvars                                      ! total number of fields in file
-    INTEGER :: ngrp_vars_anafile                                  ! number of sfc fields in ana-file
-    INTEGER :: ngrp_vars_fgfile                                   ! number of sfc fields in fg-file
     CHARACTER(LEN=VARNAME_LEN) :: grp_name                        ! group name
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: varname                     ! variable name
-    INTEGER :: vlistID, varID, ivar, mpi_comm
+    INTEGER :: ivar, mpi_comm
     INTEGER :: index, is_one_of
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:create_input_groups'
@@ -1112,6 +1110,8 @@ MODULE mo_nh_initicon
     LOGICAL :: lmiss_ana                    ! True, if there are missing mandatory analysis fields
     LOGICAL :: lmiss_fg                     ! True, if there are missing mandatory first guess fields
 
+    INTEGER :: nelement                     ! element counter
+    TYPE(t_inventory_element), POINTER :: current_element  ! pointer to linked list element
     !-------------------------------------------------------------------------
 
     IF(p_pe == p_io) THEN
@@ -1260,60 +1260,49 @@ MODULE mo_nh_initicon
       ! 3: Generate file inventory lists for FG- and ANA-files
       !========================================================
 
-      ! get ANA-file inventory list (surface fields, only)
+      ! get ANA-file varnames from inventory list (surface fields, only)
       !
-      ! get vlistID
       IF (lread_ana) THEN  ! skip, when starting from first guess, only
-        vlistID = streamInqVlist(fileID_ana(1))
-        ! get total number of fields in analysis file
-        nfile_totvars     = vlistNvars(vlistID)
-        ! counter
-        ngrp_vars_anafile = 0
-
-        DO varID= 0,(nfile_totvars-1)
-
-          ! increase counter
-          ngrp_vars_anafile = ngrp_vars_anafile + 1
-
-          ! get variable name
-          CALL vlistInqVarName(vlistID, varID, varname)
-
+        nelement = 0
+        current_element => inventory_list_ana(jg)%p%first_list_element
+        DO WHILE (ASSOCIATED(current_element))
+          nelement = nelement + 1
+          !
           ! In case of GRIB2 translate GRIB2 varname to netcdf varname and add to group
           IF (filetype_ana(1) == FILETYPE_GRB2) THEN
             ! GRIB2 -> Netcdf
-            grp_vars_anafile(ngrp_vars_anafile) = TRIM(dict_get(ana_varnames_dict, varname, default=varname, linverse=.TRUE.))
-          ELSE IF (filetype_ana(1) == FILETYPE_NC2) THEN
-            grp_vars_anafile(ngrp_vars_anafile) = varname
+            grp_vars_anafile(nelement) = TRIM(dict_get(ana_varnames_dict,          &
+              &                          TRIM(current_element%field%name),         &
+              &                          default=TRIM(current_element%field%name), &
+              &                          linverse=.TRUE.))
+          ELSE IF (filetype_fg(1) == FILETYPE_NC2) THEN
+            grp_vars_anafile(nelement) = TRIM(current_element%field%name)
           ENDIF
+
+          current_element => current_element%next_list_element
         ENDDO
       ENDIF
 
 
-
-      ! get FG-file inventory list (surface fields, only)
+      ! get FG-file varnames from inventory list
       !
-      ! get vlistID
-      vlistID = streamInqVlist(fileID_fg(1))
-      ! get total number of fields in FG file
-      nfile_totvars    = vlistNvars(vlistID)
-      ! counter
-      ngrp_vars_fgfile = 0
-
-      DO varID= 0,(nfile_totvars-1)
-
-        ! increase counter
-        ngrp_vars_fgfile = ngrp_vars_fgfile + 1
-
-        ! get variable name
-        CALL vlistInqVarName(vlistID, varID, varname)
-
+      nelement = 0
+      current_element => inventory_list_fg(jg)%p%first_list_element
+      DO WHILE (ASSOCIATED(current_element))
+        nelement = nelement + 1
+        !
         ! In case of GRIB2 translate GRIB2 varname to netcdf varname and add to group
         IF (filetype_fg(1) == FILETYPE_GRB2) THEN
           ! GRIB2 -> Netcdf
-          grp_vars_fgfile(ngrp_vars_fgfile) = TRIM(dict_get(ana_varnames_dict, varname, default=varname, linverse=.TRUE.))
+          grp_vars_fgfile(nelement) = TRIM(dict_get(ana_varnames_dict,          &
+            &                         TRIM(current_element%field%name),         &
+            &                         default=TRIM(current_element%field%name), &
+            &                         linverse=.TRUE.))
         ELSE IF (filetype_fg(1) == FILETYPE_NC2) THEN
-          grp_vars_fgfile(ngrp_vars_fgfile) = varname
+          grp_vars_fgfile(nelement) = TRIM(current_element%field%name)
         ENDIF
+
+        current_element => current_element%next_list_element
       ENDDO
 
 
