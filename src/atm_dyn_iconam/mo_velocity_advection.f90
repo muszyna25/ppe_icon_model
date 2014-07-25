@@ -86,7 +86,7 @@ MODULE mo_velocity_advection
 
     ! Local variables
     INTEGER :: jb, jk, jc, je
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_startblk_2, i_endblk_2, i_startidx_2, i_endidx_2
     INTEGER :: rl_start, rl_end, rl_start_2, rl_end_2
     ! The data type vp (variable precision) is by default the same as wp but reduces
@@ -162,8 +162,6 @@ MODULE mo_velocity_advection
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
 
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-
     ! Limit on vertical CFL number for applying extra diffusion
     cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
 
@@ -185,8 +183,8 @@ MODULE mo_velocity_advection
       rl_start = 5
       rl_end = min_rledge_int - 2
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_blk(rl_start)
+      i_endblk   = p_patch%edges%end_blk(rl_end)
 
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -284,8 +282,8 @@ MODULE mo_velocity_advection
     rl_start = 7
     rl_end = min_rledge_int - 1
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
     IF (.NOT. lvn_only) THEN
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -325,14 +323,14 @@ MODULE mo_velocity_advection
     rl_start = 4
     rl_end = min_rlcell_int - 1
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     rl_start_2 = grf_bdywidth_c+1
     rl_end_2   = min_rlcell_int
 
-    i_startblk_2 = p_patch%cells%start_blk(rl_start_2,1)
-    i_endblk_2   = p_patch%cells%end_blk(rl_end_2,i_nchdom)
+    i_startblk_2 = p_patch%cells%start_block(rl_start_2)
+    i_endblk_2   = p_patch%cells%end_block(rl_end_2)
 
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
 !$OMP            z_w_concorr_mc, ic, icount, iclist, iklist, difcoef) ICON_OMP_DEFAULT_SCHEDULE
@@ -515,8 +513,8 @@ MODULE mo_velocity_advection
     rl_start = grf_bdywidth_e+1
     rl_end = min_rledge_int
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, ie, w_con_e, ielist, iklist, icount, &
 !$OMP            difcoef) ICON_OMP_DEFAULT_SCHEDULE

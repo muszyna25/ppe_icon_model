@@ -79,7 +79,7 @@ MODULE mo_nh_diagnose_pres_temp
 
     INTEGER  :: jb,jk,jc,jt,jg
     INTEGER  :: nlev, nlevp1              !< number of full levels
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend
     INTEGER  :: slev, slev_moist
 
@@ -124,9 +124,6 @@ MODULE mo_nh_diagnose_pres_temp
       slev = 1
     ENDIF
 
-    ! number of child domains
-    i_nchdom = MAX(1,pt_patch%n_childdom)
-
     ! number of vertical levels
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1
@@ -138,8 +135,8 @@ MODULE mo_nh_diagnose_pres_temp
     ! start index for moisture variables other than QV
     slev_moist = MAX(kstart_moist(jg),slev)
 
-    i_startblk = pt_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = pt_patch%cells%end_blk(i_rlend,i_nchdom)
+    i_startblk = pt_patch%cells%start_block(i_rlstart)
+    i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jt, jc, dz1, dz2, dz3, z_qsum) ICON_OMP_DEFAULT_SCHEDULE

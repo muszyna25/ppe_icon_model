@@ -87,7 +87,7 @@ MODULE mo_nh_diffusion
     REAL(vp), DIMENSION(nproma,p_patch%nlev) :: z_nabla4_e2
 
     REAL(wp):: diff_multfac_vn(p_patch%nlev), diff_multfac_w, diff_multfac_n2w(p_patch%nlev)
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, je, ic, ishift
     INTEGER :: nlev, nlevp1              !< number of full and half levels
@@ -171,8 +171,6 @@ MODULE mo_nh_diffusion
     ieblk => p_patch%cells%edge_blk
 
     rd_o_cvd = 1._wp/cvd_o_rd
-
-    i_nchdom   = MAX(1,p_patch%n_childdom)
 
     diffu_type  = diffusion_config(jg)%hdiff_order
     discr_vn    = diffusion_config(jg)%itype_vn_diffu
@@ -280,8 +278,8 @@ MODULE mo_nh_diffusion
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4, &
 !$OMP            dvt_norm,dvt_tang), ICON_OMP_RUNTIME_SCHEDULE
@@ -397,8 +395,8 @@ MODULE mo_nh_diffusion
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_vert3,vn_vert4,dvt_norm,dvt_tang, &
 !$OMP            z_vn_ie,z_vt_ie,dvndz,dvtdz,dwdz,dthvdz,dwdn,dwdt,kh_smag3d_e), ICON_OMP_RUNTIME_SCHEDULE
@@ -573,8 +571,8 @@ MODULE mo_nh_diffusion
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 1
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_cell1,vn_cell2,&
 !$OMP             dvt_norm,dvt_tang), ICON_OMP_RUNTIME_SCHEDULE
@@ -674,8 +672,8 @@ MODULE mo_nh_diffusion
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,kh_c,div), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
@@ -743,8 +741,8 @@ MODULE mo_nh_diffusion
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm,z_nabla4_e2), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
@@ -836,8 +834,8 @@ MODULE mo_nh_diffusion
     rl_start = grf_bdywidth_e+1
     rl_end   = min_rledge_int
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
     IF (diffu_type == 3) THEN ! Only Smagorinsky diffusion
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
@@ -897,8 +895,8 @@ MODULE mo_nh_diffusion
     IF (l_limited_area .OR. jg > 1) THEN
 
       ! Lateral boundary diffusion for vn
-      i_startblk = p_patch%edges%start_blk(start_bdydiff_e,1)
-      i_endblk   = p_patch%edges%end_blk(grf_bdywidth_e,1)
+      i_startblk = p_patch%edges%start_block(start_bdydiff_e)
+      i_endblk   = p_patch%edges%end_block(grf_bdywidth_e)
 
 !$OMP DO PRIVATE(jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
@@ -925,8 +923,8 @@ MODULE mo_nh_diffusion
       rl_start = grf_bdywidth_c
       rl_end   = min_rlcell_int-1
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
@@ -978,8 +976,8 @@ MODULE mo_nh_diffusion
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
@@ -1051,8 +1049,8 @@ MODULE mo_nh_diffusion
       rl_start = grf_bdywidth_c
       rl_end   = min_rlcell_int-1
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx,ic,tdiff,trefdiff), ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
@@ -1115,8 +1113,8 @@ MODULE mo_nh_diffusion
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
 
-        i_startblk = p_patch%cells%start_blk(rl_start,1)
-        i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch%cells%start_block(rl_start)
+        i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
@@ -1150,8 +1148,8 @@ MODULE mo_nh_diffusion
         rl_start = grf_bdywidth_e
         rl_end   = min_rledge_int - 1
 
-        i_startblk = p_patch%edges%start_blk(rl_start,1)
-        i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch%edges%start_block(rl_start)
+        i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk
@@ -1181,8 +1179,8 @@ MODULE mo_nh_diffusion
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
 
-        i_startblk = p_patch%cells%start_blk(rl_start,1)
-        i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = p_patch%cells%start_block(rl_start)
+        i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
         DO jb = i_startblk,i_endblk

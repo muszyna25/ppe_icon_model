@@ -103,7 +103,7 @@ MODULE mo_vertical_grid
     INTEGER :: nlev, nlevp1              !< number of full levels
 
     ! Note: the present way of setting up coordinate surfaces will not work for vertical refinement
-    INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk, i_nchdom, icount_total
+    INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk, icount_total
     INTEGER :: ica(max_dom)
 
     REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,    &
@@ -130,8 +130,6 @@ MODULE mo_vertical_grid
       npromz_e  = p_patch(jg)%npromz_e
       nblks_v   = p_patch(jg)%nblks_v
       npromz_v  = p_patch(jg)%npromz_v
-
-      i_nchdom   = MAX(1,p_patch(jg)%n_childdom)
 
       ! number of vertical levels
       nlev   = p_patch(jg)%nlev
@@ -260,7 +258,7 @@ MODULE mo_vertical_grid
       CALL cells2verts_scalar(p_nh(jg)%metrics%z_ifc, p_patch(jg), p_int(jg)%cells_aw_verts, z_ifv)
 
       ! Start index for slope computations
-      i_startblk = p_patch(jg)%edges%start_blk(2,1)
+      i_startblk = p_patch(jg)%edges%start_block(2)
 
       z_ddxt_z_half = 0._wp
       z_ddxn_z_half = 0._wp
@@ -414,7 +412,7 @@ MODULE mo_vertical_grid
       iidx => p_patch(jg)%cells%edge_idx
       iblk => p_patch(jg)%cells%edge_blk
 
-      i_startblk = p_patch(jg)%cells%start_blk(2,1)
+      i_startblk = p_patch(jg)%cells%start_block(2)
 
 
       ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c) )
@@ -959,7 +957,7 @@ MODULE mo_vertical_grid
 
       CALL sync_patch_array(SYNC_E,p_patch(jg),z_me)
 
-      i_startblk = p_patch(jg)%edges%start_blk(2,1)
+      i_startblk = p_patch(jg)%edges%start_block(2)
 
       ! Reference fields on edges
 !$OMP PARALLEL
@@ -1274,7 +1272,7 @@ MODULE mo_vertical_grid
 
       IF (igradp_method == 3 .OR. igradp_method == 5) THEN
 
-        i_startblk = p_patch(jg)%edges%start_blk(grf_bdywidth_e+1,1)
+        i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e+1)
 
         ALLOCATE(imask(nproma,nlev,p_patch(jg)%nblks_e),icount(p_patch(jg)%nblks_e), &
                  z_shift(nproma,nlev,p_patch(jg)%nblks_e) )
@@ -1607,7 +1605,7 @@ MODULE mo_vertical_grid
     iblk => p_patch%cells%neighbor_blk
 
     ! Apply cell averaging to slope and height difference fields
-    i_startblk = p_patch%cells%start_blk(2,1)
+    i_startblk = p_patch%cells%start_block(2)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -1635,7 +1633,7 @@ MODULE mo_vertical_grid
 !$OMP END PARALLEL
 
     ! Horizontal index list for truly horizontal diffusion
-    i_startblk = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
+    i_startblk = p_patch%cells%start_block(grf_bdywidth_c+1)
 
     ! Attention: this loop is not suitable for OpenMP parallelization
     DO jb = i_startblk,nblks_c
@@ -1906,7 +1904,7 @@ MODULE mo_vertical_grid
       CALL message(TRIM(routine),message_text)
     END IF
      
-    i_startblk = p_patch%edges%start_blk(2,1)
+    i_startblk = p_patch%edges%start_block(2)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,nblks_e

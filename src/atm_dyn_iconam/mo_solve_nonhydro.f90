@@ -121,7 +121,7 @@ MODULE mo_solve_nonhydro
     ! Local variables
     INTEGER  :: jb, jk, jc, je
     INTEGER  :: nlev, nlevp1              !< number of full levels
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, ishift
+    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, ishift
     INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift
     INTEGER  :: ic, ie, ilc0, ibc0, ikp1, ikp2
 
@@ -344,8 +344,6 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
-    i_nchdom   = MAX(1,p_patch%n_childdom)
-
     DO istep = 1, 2
 
       IF (istep == 1) THEN ! predictor step
@@ -398,8 +396,8 @@ MODULE mo_solve_nonhydro
       rl_end = min_rlcell_int
     ENDIF
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     ! initialize nest boundary points of z_rth_pr with zero
     IF (istep == 1 .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
@@ -649,8 +647,8 @@ MODULE mo_solve_nonhydro
       rl_start = min_rlcell_int - 2
       rl_end   = min_rlcell_int - 2
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -728,8 +726,8 @@ MODULE mo_solve_nonhydro
       IF (iadv_rhotheta <= 2) THEN
 
         ! Initialize halo edges with zero in order to avoid access of uninitialized array elements
-        i_startblk = p_patch%edges%start_blk(min_rledge_int-2,i_nchdom)
-        i_endblk   = p_patch%edges%end_blk  (min_rledge_int-3,i_nchdom)
+        i_startblk = p_patch%edges%start_block(min_rledge_int-2)
+        i_endblk   = p_patch%edges%end_block  (min_rledge_int-3)
 
 !$OMP WORKSHARE
         z_rho_e    (:,:,i_startblk:i_endblk) = 0._wp
@@ -739,8 +737,8 @@ MODULE mo_solve_nonhydro
         rl_start = 7
         rl_end   = min_rledge_int-1
 
-        i_startblk = p_patch%edges%start_blk(rl_start,1)
-        i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
+        i_startblk = p_patch%edges%start_block(rl_start)
+        i_endblk   = p_patch%edges%end_block  (rl_end)
 
         ! initialize also nest boundary points with zero
         IF (p_patch%id > 1 .OR. l_limited_area) THEN
@@ -883,8 +881,8 @@ MODULE mo_solve_nonhydro
       rl_start = 7
       rl_end   = min_rledge_int-2
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block  (rl_end)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -916,8 +914,8 @@ MODULE mo_solve_nonhydro
     rl_start = grf_bdywidth_e + 1   ! boundary update follows below
     rl_end   = min_rledge_int
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
     IF (istep == 1) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2,ikp1,ikp2) ICON_OMP_DEFAULT_SCHEDULE
@@ -1246,8 +1244,8 @@ MODULE mo_solve_nonhydro
       rl_start = 1
       rl_end   = grf_bdywidth_e
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,1)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
@@ -1322,8 +1320,8 @@ MODULE mo_solve_nonhydro
     rl_start = 5
     rl_end   = min_rledge_int - 2
 
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%edges%start_block(rl_start)
+    i_endblk   = p_patch%edges%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -1570,8 +1568,8 @@ MODULE mo_solve_nonhydro
       rl_start = 3
       rl_end = min_rlcell_int - 1
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_concorr_mc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -1622,12 +1620,12 @@ MODULE mo_solve_nonhydro
       rl_start = 7
       rl_end = min_rledge_int - 3
 
-      i_startblk = p_patch%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block(rl_end)
 
       IF (p_patch%id > 1 .OR. l_limited_area) THEN
 !$OMP WORKSHARE
-        z_theta_v_fl_e(:,:,p_patch%edges%start_blk(5,1):i_startblk) = 0._wp
+        z_theta_v_fl_e(:,:,p_patch%edges%start_block(5):i_startblk) = 0._wp
 !$OMP END WORKSHARE
       ENDIF
 
@@ -1673,8 +1671,8 @@ MODULE mo_solve_nonhydro
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     IF (l_vert_nested) THEN
       jk_start = 2
@@ -2082,8 +2080,8 @@ MODULE mo_solve_nonhydro
       rl_start = 1
       rl_end   = grf_bdywidth_c
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,1)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -2262,8 +2260,8 @@ MODULE mo_solve_nonhydro
       rl_start = 1
       rl_end   = grf_bdywidth_c
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,1)
+      i_startblk = p_patch%cells%start_block(rl_start)
+      i_endblk   = p_patch%cells%end_block(rl_end)
 
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -2294,8 +2292,8 @@ MODULE mo_solve_nonhydro
     rl_start = min_rlcell_int - 1
     rl_end   = min_rlcell
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
