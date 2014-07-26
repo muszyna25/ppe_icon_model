@@ -166,12 +166,13 @@ CONTAINS
 
     ! IF (ABS(fco2-1.0_wp) > EPSILON(1.0_wp)) vmr_co2 = fco2 * vmr_co2
 
-    WRITE(cdate,'(i6,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,f9.6,a)') &
-         &      radiation_date%year, '-', radiation_date%month , '-', radiation_date%day   ,'T', &
-         &      radiation_date%hour, ':', radiation_date%minute, ':', radiation_date%second,'Z'
-    WRITE (message_text,'(a,a,a,e15.6,a,e15.6,a,f6.3,a)') &
-         'Greenhouse gas vol.mixing ratios ', TRIM(cdate), ' CO2 = ', vmr_co2, &
-         ' CH4 = ', vmr_ch4,' N2O = ', vmr_n2o,' CFC11 = ', vmr_cfc11,' CFC12 = ', vmr_cfc12
+    WRITE (cdate,'( i6,a,i2.2,a,i2.2,a, i2.2,a,i2.2,a,f9.6,a )')                         &
+      &   radiation_date%year,'-', radiation_date%month ,'-', radiation_date%day   ,'T', &
+      &   radiation_date%hour,':', radiation_date%minute,':', radiation_date%second,'Z'
+    WRITE (message_text,'(a,a, a,e15.6, a,e15.6, a,e15.6, a,e15.6, a,e15.6)') &
+      &   'Greenhouse gas vol.mixing ratios ', TRIM(cdate),                   &
+      &   ' CO2 = ', vmr_co2, ' CH4 = ', vmr_ch4,' N2O = ', vmr_n2o,          &
+      &   ' CFC11 = ', vmr_cfc11,' CFC12 = ', vmr_cfc12
     CALL message('', TRIM(message_text))
 
     ! convert CO2, CH4 and N2O from volume to mass mixing ratio
