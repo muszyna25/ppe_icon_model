@@ -57,8 +57,8 @@ for MOD in $MODES; do
 done 
 echo "usage: ${COMMAND} [-e] [-h] [-m $MOD_ARG] [-o yes|no] [-r <reference model path>]" 
 echo '-e : experiment:'
-echo '     atm_amip_r2b4 (non-hydrostatic AMIP experiment) (default)'
-echo '     r2b4_amip     (hydrostatic AMIP experiment)'
+echo '     atm_amip    (AMIP experiment) (default)'
+echo '     atm_amip_hs (AMIP experiment, hydrostatic dynamical core)'
 echo '     mtest_nat_rce_cbl_120km_nwp (non-hydrostatic, radiative-convective equilibrium, nwp physics, torus grid'
 echo '-f : '"'yes'"': force make_runscripts even if runscripts exist'
 echo '     '"'no'"': perform make_runscripts only if no runscripts are available (default)'
@@ -159,7 +159,7 @@ fi
 #################### main script ########################################
 SCRIPT_DIR=`pwd`
 MODEL_DIR=${SCRIPT_DIR}/../
-EXPERIMENT='atm_amip_r2b4'
+EXPERIMENT='atm_amip'
 FORCE_MRS='no'
 MD='rnmo'  #MD is equal to MODE but abbreviated test-mode names
 REFERENCE=''
@@ -173,7 +173,7 @@ MODES="b u r n m o ur un um uo rn rm ro nm no mo urn urm uro unm uno umo rnm rno
 while getopts ":e:f:hm:o:r:" OPT; do
 case $OPT in
  e  ) EXPERIMENT=$OPTARG
-      if [ "$EXPERIMENT" != 'r2b4_amip' -a "$EXPERIMENT" != 'mtest_nat_rce_cbl_120km_nwp' -a "$EXPERIMENT" != 'atm_amip_r2b4' ]; then
+      if [ "$EXPERIMENT" != 'atm_amip' -a "$EXPERIMENT" != 'atm_amip_hs' -a "$EXPERIMENT" != 'mtest_nat_rce_cbl_120km_nwp' ]; then
       print_usage $0
       exit 1
       fi
@@ -219,7 +219,14 @@ case $OPT in
       ;;
 esac
 done
-if [ "${EXPERIMENT}" == 'r2b4_amip' ]; then
+if [ "${EXPERIMENT}" == 'atm_amip' ]; then
+  TYPES='dyn_2d_ml dyn_2d_rmb_ml dyn_3d_ml dyn_3d_pl dyn_3d_rmb_pl lnd_ml lnd_rmb_ml phy_2d_ml phy_2d_rmb_ml phy_3d_ml phy_3d_rmb_pl'
+  DATES='19790101T004000Z 19790101T005000Z 19790101T010000Z'
+  RESOL='t63grid'
+  REMAP_FILE='/pool/data/ICON/grids/private/r2b4_amip/remapdis_r2b4_amip_cell_t63grid.nc'
+  RESTART_DATE='19790101T003000Z'
+fi
+if [ "${EXPERIMENT}" == 'atm_amip_hs' ]; then
   TYPES='atm_phy atm_dyn lnd_phy'
   DATES='19780101T004000Z 19780101T004500Z 19780101T005000Z 19780101T005500Z 19780101T010000Z'
   RESOL='t63grid'
@@ -232,13 +239,6 @@ if [ "${EXPERIMENT}" == 'mtest_nat_rce_cbl_120km_nwp' ]; then
   RESOL='r320x20'
   REMAP_FILE=''
   RESTART_DATE='20080801T003000Z'
-fi
-if [ "${EXPERIMENT}" == 'atm_amip_r2b4' ]; then
-  TYPES='dyn_2d_ml dyn_2d_rmb_ml dyn_3d_ml dyn_3d_pl dyn_3d_rmb_pl lnd_ml lnd_rmb_ml phy_2d_ml phy_2d_rmb_ml phy_3d_ml phy_3d_rmb_pl'
-  DATES='19790101T004000Z 19790101T005000Z 19790101T010000Z'
-  RESOL='t63grid'
-  REMAP_FILE='/pool/data/ICON/grids/private/r2b4_amip/remapdis_r2b4_amip_cell_t63grid.nc'
-  RESTART_DATE='19790101T003000Z'
 fi
 echo $MD
 print_mode $MD
