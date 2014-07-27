@@ -5814,8 +5814,8 @@ CONTAINS
        END DO
     END DO
 
-    v_n_sedi(:,kte-1) = v_n_sedi(:,kte)   ! untere Randbedingung fuer Fallgeschw.
-    v_q_sedi(:,kte-1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
+    v_n_sedi(:,kte+1) = v_n_sedi(:,kte)   ! untere Randbedingung fuer Fallgeschw.
+    v_q_sedi(:,kte+1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
 
     DO k = kts+1,kte
 
