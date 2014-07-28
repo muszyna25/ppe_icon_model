@@ -81,7 +81,7 @@ MODULE mo_global_grid_generator
   !            Almut Gassmann
   !
   !-------------------------------------------------------------------------
-  USE mo_exception, ONLY: message, message_text, open_log
+  USE mo_exception, ONLY: message, message_text, open_log, finish
   USE mo_topology,  ONLY: init_topology_graph,  init_topology_grid, &
     & generate_tree,          &
     & generate_graph,         &
@@ -94,7 +94,9 @@ MODULE mo_global_grid_generator
   USE mo_grid_levels
   USE mo_io_grid
   USE mo_gridref
-  
+  USE mo_util_uuid,  ONLY: t_uuid, uuid_generate, uuid_unparse, uuid_string_length
+  USE mo_impl_constants, ONLY: max_dom
+
   IMPLICIT NONE
   
   PRIVATE
@@ -217,7 +219,7 @@ CONTAINS
     
     CHARACTER(LEN=filename_max) :: filename
     
-    INTEGER :: i, ilev, idom, ip, iplev, ic, in, iclev, istartlev, n_dom_start
+    INTEGER :: i, ilev, idom, ip, iplev, ic, in, iclev, istartlev, n_dom_start, id
     
     TYPE(t_patch), POINTER :: p_patch=>NULL()
     TYPE(t_patch), POINTER :: pc_patch=>NULL() ! for child level
@@ -226,7 +228,11 @@ CONTAINS
     TYPE(t_cell_list),POINTER :: parent_cell_list=>NULL()
     
     TYPE(t_patch), TARGET :: global_parent
-    
+
+    TYPE(t_uuid)                      :: uuid
+    CHARACTER(len=uuid_string_length) :: uuid_grid(0:max_dom), uuid_parent(0:max_dom), &
+                                         uuid_child(0:max_dom,5)
+
     LOGICAL :: child_exist, parent_exist
     
     CALL message ('', '')
@@ -257,8 +263,13 @@ CONTAINS
     DO ilev = istartlev, end_lev
       
       WRITE(filename,'(a,i0,a,i2.2,a)')'iconR', grid_root, 'B', ilev, '-grid.nc'
-      
-      CALL input_grid(grid_on_level(ilev), filename)
+
+      id = ilev+1-start_lev
+      IF (lcopy_uuid(MAX(1,id))) THEN
+        CALL input_grid(grid_on_level(ilev), filename, uuid_grid(id) )
+      ELSE
+        CALL input_grid(grid_on_level(ilev), filename)
+      ENDIF
       
       ! Initialize refin_ctrl marker field
       grid_on_level(ilev)%cells%refin_ctrl(:) = 0
@@ -326,7 +337,12 @@ CONTAINS
       ELSE
         parent_exist = .FALSE.
       ENDIF
-      
+
+      IF (n_childdom(idom) > 5) THEN
+        WRITE(message_text,'(a)')  'At most 5 child domains per parent grid are admitted'
+        CALL message ('', TRIM(message_text))
+      ENDIF
+
       IF (n_childdom(idom) > 0) THEN
         DO in = 1, n_childdom(idom)
           ic = child_id(idom,in)
@@ -355,6 +371,36 @@ CONTAINS
       CALL create_global_parent_domain(p_patch, global_parent, grid_on_level(start_lev-1))
     ENDIF
     
+    ! Generate uuid's where needed
+    DO idom = n_dom_start, n_dom
+      IF (.NOT. lcopy_uuid(MAX(1,idom))) THEN
+        CALL uuid_generate(uuid)
+        CALL uuid_unparse(uuid, uuid_grid(idom))
+      ENDIF
+      IF (idom==1 .AND. n_dom_start==0) THEN
+        uuid_child(0,1)  = uuid_grid(1)
+        uuid_child(0,2:) = ''
+        uuid_parent(1)   = uuid_grid(0)
+        uuid_parent(0)   = uuid_grid(0)
+      ELSE IF (idom==1) THEN
+        uuid_parent(1)   = uuid_grid(1)
+      ENDIF
+    ENDDO
+
+    ! Map uuid's between parent and child grids
+    DO idom = n_dom, 1, -1
+      IF (n_childdom(idom) > 0) THEN
+        DO in = 1, n_childdom(idom)
+          ic = child_id(idom,in)
+          uuid_child(idom,in) = uuid_grid(ic)
+          uuid_parent(ic)  = uuid_grid(idom)
+        ENDDO
+          uuid_child(idom,n_childdom(idom)+1:) = ''
+      ELSE
+        uuid_child(idom,:) = ''
+      ENDIF
+    ENDDO
+
     DO idom = n_dom_start, n_dom
       
       IF (idom==0) THEN
@@ -368,7 +414,7 @@ CONTAINS
         CALL plot_local_domains(p_patch,grid_on_level(ilev))
       ENDIF
       
-      CALL write_patch(p_patch)
+      CALL write_patch(p_patch, uuid_grid(idom), uuid_parent(idom), uuid_child(idom,:))
       
     ENDDO
     

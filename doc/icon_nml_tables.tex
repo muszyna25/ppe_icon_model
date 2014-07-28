@@ -329,13 +329,29 @@ Rotates center point into the equator in case of l\_circ = .FALSE. & lcirc=.FALS
 \tabularnewline
 
 %\hline
-\textbf{write\_hierarchy}&
+write\_hierarchy&
 I&
 1&
 &
 0: Output only computational grids \\
 1: Output in addition parent grid of global model domain (required for computing physics on a reduced grid) \\
 2: Output all grids back to level 0 (required for hierarchical search algorithms) &
+\tabularnewline
+
+%\hline
+lsep\_gridref\_info&
+L&
+.FALSE.&
+&
+.TRUE.: write fields describing parent-child connectivities into separate grid files &
+\tabularnewline
+
+%\hline
+lcopy\_uuid&
+L(n\_dom)&
+.FALSE.&
+&
+.TRUE.: keep uuids of input grids &
 \tabularnewline
 
 %\hline

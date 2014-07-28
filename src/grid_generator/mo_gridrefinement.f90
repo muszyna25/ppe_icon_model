@@ -69,8 +69,7 @@ MODULE mo_gridref
        &                           max_rlvert, min_rledge, max_rledge,    &
        &                           min_rlcell_int, min_rlvert_int,        &
        &                           min_rledge_int, max_dom, max_phys_dom
-  USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
-       &                           uuid_unparse, uuid_string_length
+  USE mo_util_uuid,          ONLY: uuid_string_length
 
   IMPLICIT NONE
 
@@ -102,13 +101,13 @@ MODULE mo_gridref
   PUBLIC ptr_phys_cell_list, ptr_phys_parent_cell_list, ptr_phys_inv_cell_list, &
     & ptr_phys_inv_parent_cell_list
   PUBLIC grid_level, n_childdom, parent_grid_id, child_id, max_childdom, &
-    & end_lev, l_plot, write_hierarchy
+    & end_lev, l_plot, write_hierarchy, lcopy_uuid
 
   ! Namelist variables
   INTEGER :: grid_root, start_lev, n_dom, parent_id(max_phys_dom-1), &
     & bdy_indexing_depth, logical_id(max_phys_dom-1), n_phys_dom, write_hierarchy
     
-  LOGICAL :: l_circ, l_rotate, l_plot
+  LOGICAL :: l_circ, l_rotate, l_plot, lsep_gridref_info, lcopy_uuid(max_dom)
   REAL(wp), DIMENSION(max_phys_dom-1) :: radius, center_lon, center_lat, &
     & hwidth_lon, hwidth_lat
 
@@ -242,16 +241,17 @@ CONTAINS
       & bdy_indexing_depth_d, n_phys_dom_d, write_hierarchy_d, logical_id_d(max_phys_dom-1)
     REAL(wp), DIMENSION(max_phys_dom-1) :: radius_d, center_lon_d, center_lat_d, &
       & hwidth_lon_d, hwidth_lat_d
-    LOGICAL :: l_circ_d, l_rotate_d, l_plot_d
+    LOGICAL :: l_circ_d, l_rotate_d, l_plot_d, lsep_gridref_info_d, lcopy_uuid_d(max_dom)
     INTEGER :: i, j
     !--------------------------------------------------------------------
     !BOC
     !
     ! initialize with grid parameters from files
     !
-    NAMELIST /gridref_ini/ grid_root, start_lev, n_dom, parent_id, l_plot,   &
-      & l_circ, l_rotate, radius, center_lon, center_lat, n_phys_dom,        &
-      & hwidth_lon, hwidth_lat, write_hierarchy, bdy_indexing_depth, logical_id
+    NAMELIST /gridref_ini/ grid_root, start_lev, n_dom, parent_id, l_plot,       &
+      & l_circ, l_rotate, radius, center_lon, center_lat, n_phys_dom,            &
+      & hwidth_lon, hwidth_lat, write_hierarchy, bdy_indexing_depth, logical_id, &
+      & lsep_gridref_info, lcopy_uuid
     NAMELIST /gridref_metadata/ number_of_grid_used, centre, subcentre, outname_style ! , &
 !      & annotate_level
 
@@ -272,6 +272,9 @@ CONTAINS
     l_circ     = .false.
     l_rotate   = .false.
     l_plot     = .false.
+    lcopy_uuid = .false.
+
+    lsep_gridref_info = .false.
 
     bdy_indexing_depth = 12
     write_hierarchy    = 1
@@ -299,6 +302,7 @@ CONTAINS
     l_plot_d     = l_plot
     l_circ_d     = l_circ
     l_rotate_d   = l_rotate
+    lcopy_uuid_d = lcopy_uuid
     radius_d     = radius
     center_lat_d = center_lat
     center_lon_d = center_lon
@@ -306,6 +310,7 @@ CONTAINS
     hwidth_lon_d = hwidth_lon
     bdy_indexing_depth_d = bdy_indexing_depth
     write_hierarchy_d    = write_hierarchy
+    lsep_gridref_info_d  = lsep_gridref_info
 
     ! Set logical_id and n_phys_dom temporarily back to -1 in order to check
     ! if they are specified in the namelist
@@ -441,11 +446,16 @@ CONTAINS
     CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') 'l_rotate',l_rotate, l_rotate_d
     CALL message ('', message_text)
+    WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') 'lcopy_uuid (global)',lcopy_uuid(1), lcopy_uuid_d(1)
+    CALL message ('', message_text)
+
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'bdy_indexing_depth', &
                                                          bdy_indexing_depth, bdy_indexing_depth_d
     CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'write_hierarchy', &
                                                          write_hierarchy, write_hierarchy_d
+    CALL message ('', message_text)
+    WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') 'lsep_gridref_info',lsep_gridref_info, lsep_gridref_info_d
     CALL message ('', message_text)
 
     DO i = 2, n_phys_dom
@@ -464,6 +474,9 @@ CONTAINS
       CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') &
         & 'logical_id',logical_id(j), logical_id_d(j)
+      CALL message ('', message_text)
+      WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') &
+        & 'lcopy_uuid',lcopy_uuid(j), lcopy_uuid_d(j)
       CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4,t60,a3)') &
         & 'radius', radius(j), radius_d(j)
@@ -2129,7 +2142,7 @@ CONTAINS
   ! !IROUTINE: write_patch
   !
   ! !SUBROUTINE INTERFACE:
-  SUBROUTINE write_patch(p)
+  SUBROUTINE write_patch(p, uuid_grid, uuid_parent, uuid_child)
     !
     ! !DESCRIPTION:
     !
@@ -2138,10 +2151,13 @@ CONTAINS
     ! !REVISION HISTORY:
     !  Guenther Zaengl, DWD, October 2008
     !  USES:
-    TYPE(t_patch), POINTER :: p
+    TYPE(t_patch), POINTER, INTENT(INOUT) :: p
+
+    CHARACTER(len=uuid_string_length), INTENT(IN) :: uuid_grid, uuid_parent, uuid_child(:)
 
     !---local variables
-    CHARACTER(LEN=filename_max) :: filename
+    CHARACTER(LEN=filename_max) :: filename, filename_grfinfo
+    CHARACTER(LEN=1) :: child_id
 
     TYPE(t_grid), POINTER :: g =>null()
     INTEGER :: i, j, i_lev
@@ -2189,9 +2205,6 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE :: zv2d(:,:), zv2dx(:,:), zv2dy(:,:)
 
-    TYPE(t_uuid) :: uuid
-    CHARACTER(len=uuid_string_length) :: uuid_string
-
     REAL(wp) :: swap(4)
     INTEGER :: str_idx, end_idx
     INTEGER :: current_number_of_grid_used
@@ -2199,11 +2212,6 @@ CONTAINS
     !EOP
     !-------------------------------------------------------------------------
     !BOC
-
-    !-------------------------------------------------------------------------
-    ! get unique grid file identifier for GRIB2 and updated CF-Convention
-    CALL uuid_generate(uuid)
-    CALL uuid_unparse(uuid, uuid_string)
 
     g=>p%pgrid
 
@@ -2227,7 +2235,10 @@ CONTAINS
     IF ( outname_style==1 ) THEN   ! Default naming convention
       WRITE(filename,'(a,i0,2(a,i2.2),a)') &
         & 'iconR', grid_root, 'B', p%level, '_DOM', dom_id, '.nc'
-
+      IF (lsep_gridref_info) THEN ! generate separate files for information on parent-child connectivities
+      WRITE(filename_grfinfo,'(a,i0,2(a,i2.2),a)') &
+        & 'iconR', grid_root, 'B', p%level, '_DOM', dom_id, '-grfinfo.nc'
+      ENDIF
     ELSE                           ! DWD naming convention
       IF (dom_id==0) THEN
         WRITE(filename,'(a,i4.4,2(a,i2.2),a)') &
@@ -2237,7 +2248,19 @@ CONTAINS
           & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_G.nc'
       ELSE
         WRITE(filename,'(a,i4.4,3(a,i2.2),a)') &
-          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_G', dom_id, '.nc'
+          & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_N', dom_id, '.nc'
+      ENDIF
+      IF (lsep_gridref_info) THEN ! generate separate files for information on parent-child connectivities
+        IF (dom_id==0) THEN
+          WRITE(filename_grfinfo,'(a,i4.4,2(a,i2.2),a)') &
+            & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_R-grfinfo.nc'
+        ELSE IF (dom_id==1) THEN
+          WRITE(filename_grfinfo,'(a,i4.4,2(a,i2.2),a)') &
+            & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_G-grfinfo.nc'
+        ELSE
+          WRITE(filename_grfinfo,'(a,i4.4,3(a,i2.2),a)') &
+            & 'icon_grid_', current_number_of_grid_used, '_R', grid_root, 'B', p%level, '_N', dom_id, '-grfinfo.nc'
+        ENDIF
       ENDIF
     ENDIF
 
@@ -2245,28 +2268,124 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Write ICON grid file: ', TRIM(filename)
     CALL message ('', message_text)
 
-#ifdef __SX__
-    command_line = ''
-    DO i = 0, iargc()
-      CALL getarg(i, arg_str)
-      command_line = TRIM(command_line)//TRIM(arg_str)
-    ENDDO
-    command_line_len = LEN_TRIM(command_line)
-#else
+
     CALL GET_COMMAND(command_line, command_line_len, istat)
-#endif
+
     CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
     CALL nf(nf_create(TRIM(filename), nf_clobber, ncid))
     CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
 
-    ! Global attributes
+    ! Set global attributes
     !
+    CALL set_global_attributes(.FALSE.)
+
+    ! Set dimensions
+    !
+    CALL set_dimensions()
+
+    ! Grid variables
+    !
+    ! Define variables for basic grid and geometry information
+    !
+    CALL define_standard_variables()
+
+    ! Define variables for parent-child connectivity information
+    !
+    IF (.NOT. lsep_gridref_info) CALL define_connectivity_variables()
+
+    ! end of definition part
+    !
+    CALL nf(nf_enddef(ncid))
+
+    ! Write variables for basic grid and geometry information
+    !
+    CALL write_standard_variables()
+
+    ! Write variables for parent-child connectivity information
+    !
+    IF (.NOT. lsep_gridref_info) CALL write_connectivity_variables()
+
+    ! close file
+    CALL nf(nf_close(ncid))
+
+    ! Generate separate file with connectivity info if requested
+    IF (lsep_gridref_info) THEN
+
+      WRITE(message_text,'(a,a)') 'Write ICON grid connectivity file: ', TRIM(filename_grfinfo)
+      CALL message ('', message_text)
+
+      CALL nf(nf_create(TRIM(filename_grfinfo), nf_clobber, ncid))
+      CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
+
+      ! Set global attributes
+      !
+      CALL set_global_attributes(.TRUE.)
+
+      ! Set dimensions
+      !
+      CALL set_dimensions()
+
+      ! Define variables for parent-child connectivity information
+      !
+      CALL define_connectivity_variables()
+
+      CALL nf(nf_enddef(ncid))
+
+      ! Write variables for parent-child connectivity information
+      !
+      CALL write_connectivity_variables()
+
+      ! close file
+      CALL nf(nf_close(ncid))
+
+    ENDIF
+
+    IF (current_number_of_grid_used /= 0) THEN
+      CALL dump_grid_table_xml_metadata(TRIM(filename),current_number_of_grid_used)
+    ENDIF
+
+   !------------------------------------------------------------------------
+    write(*,*) '---',TRIM(filename), '---'
+    str_idx=LBOUND(p%verts%start_idx, 1)
+    end_idx=str_idx+SIZE(p%verts%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'verts%start_idx, end:', i, p%verts%start_idx(i,1), p%verts%end_idx(i,1)
+    ENDDO
+
+    str_idx=LBOUND(p%edges%start_idx, 1)
+    end_idx=str_idx+SIZE(p%edges%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'edges%start_idx, end:', i, p%edges%start_idx(i,1), p%edges%end_idx(i,1)
+    ENDDO
+
+    str_idx=LBOUND(p%cells%start_idx, 1)
+    end_idx=str_idx+SIZE(p%cells%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'cells%start_idx, end:', i, p%cells%start_idx(i,1), p%cells%end_idx(i,1)
+    ENDDO
+    write(*,*) '-------------------'
+    
+  CONTAINS
+
+  SUBROUTINE set_global_attributes(lwrite_pcc)
+
+    LOGICAL, INTENT(IN) :: lwrite_pcc
+    INTEGER :: i
+
     CALL nf(nf_put_att_text    (ncid, nf_global, 'title', 21, 'ICON grid description'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'history', command_line_len, command_line))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'institution', 59, &
       & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'source', 10, 'icon-dev'))
-    CALL nf(nf_put_att_text    (ncid, nf_global, 'uuidOfHGrid' , uuid_string_length, TRIM(uuid_string)))
+    CALL nf(nf_put_att_text    (ncid, nf_global, 'uuidOfHGrid' , uuid_string_length, TRIM(uuid_grid)))
+
+    IF (lwrite_pcc) THEN
+      CALL nf(nf_put_att_text    (ncid, nf_global, 'uuidOfParHGrid' , uuid_string_length, TRIM(uuid_parent)))
+      DO i=1,5
+        WRITE(child_id,'(i1)') i
+        CALL nf(nf_put_att_text    (ncid, nf_global, 'uuidOfChiHGrid_'//child_id , uuid_string_length, TRIM(uuid_child(i))))
+      ENDDO
+    ENDIF
 
     IF (current_number_of_grid_used == 0) THEN
       CALL message('','number_of_grid_used is 0 and cannot be added to the ICON master grid table')
@@ -2292,8 +2411,11 @@ CONTAINS
     CALL nf(nf_put_att_int     (ncid, nf_global, 'parent_grid_ID', nf_int, 1, parent_dom_id))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'max_childdom', nf_int, 1, max_childdom))
 
-    ! Dimensions
-    !
+  END SUBROUTINE set_global_attributes
+
+
+  SUBROUTINE set_dimensions
+
     CALL nf(nf_def_dim(ncid, 'cell',   i_nc, dim_ncell))
     CALL nf(nf_def_dim(ncid, 'vertex', i_nv, dim_nvertex))
     CALL nf(nf_def_dim(ncid, 'edge',   i_ne, dim_nedge))
@@ -2314,12 +2436,10 @@ CONTAINS
     dim_list = max_rlvert-min_rlvert+1
     CALL nf(nf_def_dim(ncid, 'vert_grf',dim_list, dim_vert_refine))
 
-    ! Grid variables
-    !
-    !---------------------------------------------------------------------
-    !
-    ! public grid information
-    !
+  END SUBROUTINE set_dimensions
+
+
+  SUBROUTINE define_standard_variables
     ! cell part:
     !
     CALL nf(nf_def_var(ncid, 'clon', nf_double, 1, dim_ncell, varid_clon))
@@ -2563,23 +2683,10 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid24, 'long_name', 10, 'cell index'))
     CALL nf(nf_put_att_text(ncid, varid24, 'cdi', 6, 'ignore'))
     !
-    CALL nf(nf_def_var(ncid, 'parent_cell_index', nf_int, 1, dim_ncell, varid25))
-    CALL nf(nf_put_att_text(ncid, varid25, 'long_name', 17, 'parent cell index'))
-    CALL nf(nf_put_att_text(ncid, varid25, 'cdi', 6, 'ignore'))
-    !
     dimids = (/ dim_ncell, dim_nvertex_per_cell /)
     CALL nf(nf_def_var(ncid, 'neighbor_cell_index', nf_int, 2, dimids, varid26))
     CALL nf(nf_put_att_text(ncid, varid26, 'long_name', 19, 'cell neighbor index'))
     CALL nf(nf_put_att_text(ncid, varid26, 'cdi', 6, 'ignore'))
-    !
-    dimids = (/ dim_ncell, dim_nchilds_per_cell /)
-    CALL nf(nf_def_var(ncid, 'child_cell_index', nf_int, 2, dimids, varid27))
-    CALL nf(nf_put_att_text(ncid, varid27, 'long_name', 16, 'child cell index'))
-    CALL nf(nf_put_att_text(ncid, varid27, 'cdi', 6, 'ignore'))
-    !
-    CALL nf(nf_def_var(ncid, 'child_cell_id', nf_int, 1, dim_ncell, varid41))
-    CALL nf(nf_put_att_text(ncid, varid41, 'long_name', 23, 'domain ID of child cell'))
-    CALL nf(nf_put_att_text(ncid, varid41, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'edge_index', nf_int, 1, dim_nedge, varid28))
     CALL nf(nf_put_att_text(ncid, varid28, 'long_name', 10, 'edge index'))
@@ -2597,8 +2704,25 @@ CONTAINS
     CALL nf(nf_def_var(ncid, 'edge_system_orientation', nf_int, 1, dim_nedge, varid31))
     CALL nf(nf_put_att_text(ncid, varid31, 'long_name', 23, 'edge system orientation'))
     CALL nf(nf_put_att_text(ncid, varid31, 'cdi', 6, 'ignore'))
+
+  END SUBROUTINE define_standard_variables
+
+
+  SUBROUTINE define_connectivity_variables
     !
-    ! Variables added for mesh refinement
+    !
+    CALL nf(nf_def_var(ncid, 'parent_cell_index', nf_int, 1, dim_ncell, varid25))
+    CALL nf(nf_put_att_text(ncid, varid25, 'long_name', 17, 'parent cell index'))
+    CALL nf(nf_put_att_text(ncid, varid25, 'cdi', 6, 'ignore'))
+    !
+    dimids = (/ dim_ncell, dim_nchilds_per_cell /)
+    CALL nf(nf_def_var(ncid, 'child_cell_index', nf_int, 2, dimids, varid27))
+    CALL nf(nf_put_att_text(ncid, varid27, 'long_name', 16, 'child cell index'))
+    CALL nf(nf_put_att_text(ncid, varid27, 'cdi', 6, 'ignore'))
+    !
+    CALL nf(nf_def_var(ncid, 'child_cell_id', nf_int, 1, dim_ncell, varid41))
+    CALL nf(nf_put_att_text(ncid, varid41, 'long_name', 23, 'domain ID of child cell'))
+    CALL nf(nf_put_att_text(ncid, varid41, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'refin_c_ctrl', nf_int, 1, dim_ncell, varid32))
     CALL nf(nf_put_att_text(ncid, varid32, 'long_name', 33, 'refinement control flag for cells'))
@@ -2684,8 +2808,11 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid50, 'long_name', 26, 'physical domain ID of edge'))
     CALL nf(nf_put_att_text(ncid, varid50, 'cdi', 6, 'ignore'))
     !
+  END SUBROUTINE define_connectivity_variables
 
-    CALL nf(nf_enddef(ncid))
+
+
+  SUBROUTINE write_standard_variables
     !
     !--------------------------------------------------------------------------------------
     !
@@ -2870,16 +2997,19 @@ CONTAINS
     CALL nf(nf_put_var_double(ncid, varid22, p%edges%dual_normal(:)%v2) )
     CALL nf(nf_put_var_int   (ncid, varid23, p%cells%edge_orientation))
     CALL nf(nf_put_var_int   (ncid, varid24, p%cells%idx))
-    CALL nf(nf_put_var_int   (ncid, varid25, p%cells%parent_index))
     CALL nf(nf_put_var_int   (ncid, varid26, p%cells%neighbor_index))
-    CALL nf(nf_put_var_int   (ncid, varid27, p%cells%child_index))
-    CALL nf(nf_put_var_int   (ncid, varid41, p%cells%child_id))
     CALL nf(nf_put_var_int   (ncid, varid28, p%edges%idx))
     CALL nf(nf_put_var_int   (ncid, varid29, p%verts%idx))
     CALL nf(nf_put_var_int   (ncid, varid30, p%verts%edge_orientation))
     CALL nf(nf_put_var_int   (ncid, varid31, p%edges%system_orientation))
 
-    ! Variables added for mesh refinement
+  END SUBROUTINE write_standard_variables
+
+  SUBROUTINE write_connectivity_variables
+
+    CALL nf(nf_put_var_int   (ncid, varid25, p%cells%parent_index))
+    CALL nf(nf_put_var_int   (ncid, varid27, p%cells%child_index))
+    CALL nf(nf_put_var_int   (ncid, varid41, p%cells%child_id))
     CALL nf(nf_put_var_int   (ncid, varid38, p%edges%parent_index))
     CALL nf(nf_put_var_int   (ncid, varid39, p%edges%child_index))
     CALL nf(nf_put_var_int   (ncid, varid42, p%edges%child_id))
@@ -2898,36 +3028,8 @@ CONTAINS
     CALL nf(nf_put_var_int   (ncid, varid49, p%cells%phys_id))
     CALL nf(nf_put_var_int   (ncid, varid50, p%edges%phys_id))
 
-    !
-    !--------------------------------------------------------------------------------------
+  END SUBROUTINE write_connectivity_variables
 
-    CALL nf(nf_close(ncid))
-
-    IF (current_number_of_grid_used /= 0) THEN
-      CALL dump_grid_table_xml_metadata(TRIM(filename),current_number_of_grid_used)
-    ENDIF
-
-   !------------------------------------------------------------------------
-    write(*,*) '---',TRIM(filename), '---'
-    str_idx=LBOUND(p%verts%start_idx, 1)
-    end_idx=str_idx+SIZE(p%verts%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'verts%start_idx, end:', i, p%verts%start_idx(i,1), p%verts%end_idx(i,1)
-    ENDDO
-
-    str_idx=LBOUND(p%edges%start_idx, 1)
-    end_idx=str_idx+SIZE(p%edges%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'edges%start_idx, end:', i, p%edges%start_idx(i,1), p%edges%end_idx(i,1)
-    ENDDO
-
-    str_idx=LBOUND(p%cells%start_idx, 1)
-    end_idx=str_idx+SIZE(p%cells%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'cells%start_idx, end:', i, p%cells%start_idx(i,1), p%cells%end_idx(i,1)
-    ENDDO
-    write(*,*) '-------------------'
-    
 
   END SUBROUTINE write_patch
 

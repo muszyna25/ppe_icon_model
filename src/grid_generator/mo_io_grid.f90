@@ -91,10 +91,11 @@ CONTAINS
   !!   Developed and tested by L.Bonaventura  and T. Heinze (2004-05).
   !!   netCDF version by L. Kornblueh (2008-04)
   !!
-  SUBROUTINE input_grid(gg, input)
+  SUBROUTINE input_grid(gg, input, uuid_string)
     !
     TYPE(t_grid),                INTENT(inout) :: gg
     CHARACTER(len=filename_max), INTENT(in)    :: input
+    CHARACTER(len=uuid_string_length), OPTIONAL, INTENT(OUT) :: uuid_string
 
     INTEGER :: i_nc, i_ne, i_nv
     INTEGER :: ncid, dimid, varid
@@ -105,6 +106,9 @@ CONTAINS
     CALL nf(nf_open(TRIM(input), nf_nowrite, ncid))
 
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', gg%level))
+    IF (PRESENT(uuid_string)) THEN
+      CALL nf(nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string))
+    ENDIF
 
     CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, gg%ncells))
