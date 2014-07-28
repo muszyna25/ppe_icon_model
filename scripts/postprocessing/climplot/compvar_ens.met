@@ -113,8 +113,8 @@ gl_area = [90,-180,-90,180]
 
 spec_par_tp      =["CP","LSP"]
 spec_par_tp_icon =[500041]          #["TOT_PREC"]
-spec_par_cp      =[500137,500134]   #["RAIN_CON","SNOW_CON"]   #ICON
-spec_par_lsp     =[500052,500053]   #["RAIN_GSP","SNOW_GSP"]   #ICON
+spec_par_cp      =[500137,500052]   #["RAIN_CON","SNOW_CON"]   #ICON
+spec_par_lsp     =[500134,500053]   #["RAIN_GSP","SNOW_GSP"]   #ICON
 spec_par_tcw_icon=[500038,500051,500040]
 spec_par_surfradn=["SSR","STR"]
 spec_par_topradn =["SSR","STR"]
