@@ -35,7 +35,8 @@ MODULE mo_name_list_output_init
     &                                             max_dom, SUCCESS,                               &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
     &                                             MAX_TIME_LEVELS, max_levels, vname_len,         &
-    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS
+    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,              &
+    &                                             MAX_TIME_INTERVALS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
@@ -248,7 +249,7 @@ CONTAINS
     INTEGER                               :: reg_def_mode
     REAL(wp)                              :: north_pole(2)
 
-    REAL(wp)                              :: output_bounds(3)
+    REAL(wp)                              :: output_bounds(3*MAX_TIME_INTERVALS)
     INTEGER                               :: output_time_unit
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start, &
       &                                      output_end,   &
@@ -348,9 +349,9 @@ CONTAINS
       reg_lat_def(:)           = 0._wp
       reg_def_mode             = 0
       north_pole(:)            = (/ 0._wp, 90._wp /)
-      output_start             = ' '
-      output_end               = ' '
-      output_interval          = ' '
+      output_start(:)          = ' '
+      output_end(:)            = ' '
+      output_interval(:)       = ' '
       output_bounds(:)         = -1._wp
       output_time_unit         = 1
       ready_file               = DEFAULT_EVENT_NAME
@@ -505,10 +506,10 @@ CONTAINS
       p_onl%i_levels                 = i_levels
       p_onl%remap                    = remap
       p_onl%lonlat_id                = -1
-      p_onl%output_start             = output_start
-      p_onl%output_end               = output_end
-      p_onl%output_interval          = output_interval
-      p_onl%additional_days          = 0
+      p_onl%output_start(:)          = output_start
+      p_onl%output_end(:)            = output_end
+      p_onl%output_interval(:)       = output_interval
+      p_onl%additional_days(:)       = 0
       p_onl%output_bounds(:)         = output_bounds(:)
       p_onl%ready_file               = ready_file
       p_onl%lonlat_id                = lonlat_id
@@ -748,9 +749,10 @@ CONTAINS
     INTEGER                              :: nremaining_io_procs            !< no. of non-placed I/O ranks
     INTEGER                              :: remaining_io_procs(MAX_NUM_IO_PROCS) !< non-placed I/O ranks
 
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start,     &
-      &                                     output_interval
-    INTEGER                              :: additional_days
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start(MAX_TIME_INTERVALS),     &
+      &                                     output_interval(MAX_TIME_INTERVALS)
+    INTEGER                              :: idx, istart, iintvl,  nintvls,        &
+      &                                     additional_days(MAX_TIME_INTERVALS)
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
 
@@ -991,52 +993,63 @@ CONTAINS
     ! to the simulation start (in seconds) and the latter define the
     ! output events by setting ISO8601-conforming date-time strings.
     !
-    ! If the user has set a value for "output_bounds", we compute the
+    ! If the user has set values for "output_bounds", we compute the
     ! "output_start" / "output_end" / "output_interval" from this
     ! info:
     p_onl => first_output_name_list
     DO
       IF(.NOT.ASSOCIATED(p_onl))  EXIT
 
-      IF (p_onl%output_bounds(1) > -1._wp) THEN
-        CALL get_datetime_string(p_onl%output_start, sim_step_info%sim_start, INT(p_onl%output_bounds(1)))
-        CALL get_datetime_string(p_onl%output_end,   sim_step_info%sim_start, INT(p_onl%output_bounds(2)))
-        CALL get_duration_string(INT(p_onl%output_bounds(3)), p_onl%output_interval, p_onl%additional_days)
+      ! there may be multiple "output_bounds" intervals, consider all:        
+      DO idx=1,MAX_TIME_INTERVALS
+        istart = (idx-1)*3
+        IF (p_onl%output_bounds(istart+1) == -1._wp) CYCLE
+        
+        CALL get_datetime_string(p_onl%output_start(idx), &
+          &                      sim_step_info%sim_start, INT(p_onl%output_bounds(istart+1)))
+        CALL get_datetime_string(p_onl%output_end(idx),   &
+          &                      sim_step_info%sim_start, INT(p_onl%output_bounds(istart+2)))
+        CALL get_duration_string(INT(p_onl%output_bounds(istart+3)), p_onl%output_interval(idx), &
+          &                      p_onl%additional_days(idx))
         IF (my_process_is_stdio()) THEN
-          IF (p_onl%additional_days == 0) THEN
-            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start), " / ", &
-              &                                      TRIM(p_onl%output_end),   " / ", &
-              &                                      TRIM(p_onl%output_interval)
+          IF (p_onl%additional_days(idx) == 0) THEN
+            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
+              &                                      TRIM(p_onl%output_end(idx)),   " / ", &
+              &                                      TRIM(p_onl%output_interval(idx))
           ELSE
-            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start), " / ", &
-              &                                      TRIM(p_onl%output_end),   " / ", &
-              &                                      TRIM(p_onl%output_interval), " + ", &
-              &                                      p_onl%additional_days, " days"
+            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
+              &                                      TRIM(p_onl%output_end(idx)),   " / ", &
+              &                                      TRIM(p_onl%output_interval(idx)), " + ", &
+              &                                      p_onl%additional_days(idx), " days"
           END IF
         END IF
-      END IF
+      END DO
 
       !--- consistency check: do not allow output intervals < dtime*iadv_rcf:
-      IF (p_onl%additional_days == 0) THEN
-        ! compare start date and end date: if these are equal, then
-        ! the interval does not matter and must not be checked.
-        mtime_datetime_start => newDatetime(p_onl%output_start)
-        mtime_datetime_end   => newDatetime(p_onl%output_end)
-        IF (mtime_datetime_end > mtime_datetime_start) THEN
-          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval))
-          CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
-            &                      lower_bound_str, idummy)
-          IF (idummy > 0)  CALL finish(routine, "Internal error: get_duration_string")
-          mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
-          IF (mtime_output_interval < mtime_lower_bound) THEN
-            CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval)//" < dtime*iadv_rcf !")
+
+      ! there may be multiple "output_bounds" intervals, consider all:        
+      DO idx=1,MAX_TIME_INTERVALS
+        IF (p_onl%additional_days(idx) == 0) THEN
+          ! compare start date and end date: if these are equal, then
+          ! the interval does not matter and must not be checked.
+          mtime_datetime_start => newDatetime(p_onl%output_start(idx))
+          mtime_datetime_end   => newDatetime(p_onl%output_end(idx))
+          IF (mtime_datetime_end > mtime_datetime_start) THEN
+            mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
+            CALL get_duration_string(INT(sim_step_info%dtime*sim_step_info%iadv_rcf), &
+              &                      lower_bound_str, idummy)
+            IF (idummy > 0)  CALL finish(routine, "Internal error: get_duration_string")
+            mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
+            IF (mtime_output_interval < mtime_lower_bound) THEN
+              CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime*iadv_rcf !")
+            END IF
+            CALL deallocateTimedelta(mtime_output_interval)
+            CALL deallocateTimedelta(mtime_lower_bound)
           END IF
-          CALL deallocateTimedelta(mtime_output_interval)
-          CALL deallocateTimedelta(mtime_lower_bound)
+          CALL deallocateDatetime(mtime_datetime_start)
+          CALL deallocateDatetime(mtime_datetime_end)
         END IF
-        CALL deallocateDatetime(mtime_datetime_start)
-        CALL deallocateDatetime(mtime_datetime_end)
-      END IF
+      END DO
 
       p_onl => p_onl%next
     ENDDO
@@ -1089,7 +1102,10 @@ CONTAINS
     output_file(:)%cdiFileID  = CDI_UNDEFID ! i.e. not opened
     output_file(:)%cdiVlistId = CDI_UNDEFID ! i.e. not defined
 
+
+    ! --------------------------------------------------------------------------------------
     ! Loop over all output namelists, set up the output_file struct for all associated files
+    ! --------------------------------------------------------------------------------------
 
     p_onl => first_output_name_list
     ifile = 0
@@ -1135,68 +1151,68 @@ CONTAINS
           ! Split one namelist into concurrent, alternating files:
           DO ifile_partition = 1,npartitions
 
-            ifile = ifile+1
-            p_of => output_file(ifile)
+              ifile = ifile+1
+              p_of => output_file(ifile)
 
-            SELECT CASE(i_typ)
-            CASE(1); p_of%ilev_type = level_type_ml
-            CASE(2); p_of%ilev_type = level_type_pl
-            CASE(3); p_of%ilev_type = level_type_hl
-            CASE(4); p_of%ilev_type = level_type_il
-            END SELECT
+              SELECT CASE(i_typ)
+              CASE(1); p_of%ilev_type = level_type_ml
+              CASE(2); p_of%ilev_type = level_type_pl
+              CASE(3); p_of%ilev_type = level_type_hl
+              CASE(4); p_of%ilev_type = level_type_il
+              END SELECT
 
-            ! Fill data members of "t_output_file" data structures
-            p_of%filename_pref   = TRIM(p_onl%output_filename)
-            p_of%phys_patch_id   = idom
-            p_of%log_patch_id    = patch_info(idom)%log_patch_id
-            p_of%output_type     = p_onl%filetype
-            p_of%name_list       => p_onl
-            p_of%remap           = p_onl%remap
-            p_of%cdiCellGridID   = CDI_UNDEFID
-            p_of%cdiEdgeGridID   = CDI_UNDEFID
-            p_of%cdiVertGridID   = CDI_UNDEFID
-            p_of%cdiLonLatGridID = CDI_UNDEFID
-            p_of%cdiTaxisID      = CDI_UNDEFID
-            p_of%cdiZaxisID(:)   = CDI_UNDEFID
-            p_of%cdiVlistID      = CDI_UNDEFID
+              ! Fill data members of "t_output_file" data structures
+              p_of%filename_pref   = TRIM(p_onl%output_filename)
+              p_of%phys_patch_id   = idom
+              p_of%log_patch_id    = patch_info(idom)%log_patch_id
+              p_of%output_type     = p_onl%filetype
+              p_of%name_list       => p_onl
+              p_of%remap           = p_onl%remap
+              p_of%cdiCellGridID   = CDI_UNDEFID
+              p_of%cdiEdgeGridID   = CDI_UNDEFID
+              p_of%cdiVertGridID   = CDI_UNDEFID
+              p_of%cdiLonLatGridID = CDI_UNDEFID
+              p_of%cdiTaxisID      = CDI_UNDEFID
+              p_of%cdiZaxisID(:)   = CDI_UNDEFID
+              p_of%cdiVlistID      = CDI_UNDEFID
 
-            p_of%npartitions     = npartitions
-            p_of%ifile_partition = ifile_partition
+              p_of%npartitions     = npartitions
+              p_of%ifile_partition = ifile_partition
+              
+              ! (optional:) explicitly specified I/O rank
+              p_of%io_proc_id      = -1 ! undefined MPI rank
+              p_of%pe_placement    = pe_placement(ifile_partition)
 
-            ! (optional:) explicitly specified I/O rank
-            p_of%io_proc_id      = -1 ! undefined MPI rank
-            p_of%pe_placement    = pe_placement(ifile_partition)
+              ! Select all var_lists which belong to current logical domain and i_typ
+              nvl = 0
+              DO j = 1, nvar_lists
+                
+                IF(.NOT. var_lists(j)%p%loutput) CYCLE
+                ! patch_id in var_lists always corresponds to the LOGICAL domain
+                IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
+                
+                IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
+                
+                nvl = nvl + 1
+                vl_list(nvl) = j
+                
+              ENDDO
 
-            ! Select all var_lists which belong to current logical domain and i_typ
-            nvl = 0
-            DO j = 1, nvar_lists
-
-              IF(.NOT. var_lists(j)%p%loutput) CYCLE
-              ! patch_id in var_lists always corresponds to the LOGICAL domain
-              IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
-
-              IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
-
-              nvl = nvl + 1
-              vl_list(nvl) = j
-
-            ENDDO
-
-            SELECT CASE(i_typ)
-            CASE(1)
-              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
-            CASE(2)
-              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
-            CASE(3)
-              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
-            CASE(4)
-              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
-            END SELECT
-
+              SELECT CASE(i_typ)
+              CASE(1)
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
+              CASE(2)
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
+              CASE(3)
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
+              CASE(4)
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
+              END SELECT
+         
           END DO ! ifile_partition
-
+            
         ENDDO ! i_typ
-
+          
       ENDDO LOOP_DOM ! i=1,ndom
 
       p_onl => p_onl%next
@@ -1353,7 +1369,11 @@ CONTAINS
       ! the beginning of the timestep. Output is written at the end of the
       ! timestep
       IF (is_restart_run() .AND. my_process_is_ocean()) THEN
-        CALL get_datetime_string(p_onl%output_start, time_config%cur_datetime, opt_td_string=p_onl%output_interval)
+        IF (p_onl%output_start(2) /= ' ') &
+          CALL finish(routine, "Not implemented for ocean model!")
+        CALL get_datetime_string(p_onl%output_start(1), &
+          &                      time_config%cur_datetime,                &
+          &                      opt_td_string=p_onl%output_interval(1))
       ENDIF
 
       include_last    = p_onl%include_last
@@ -1365,34 +1385,45 @@ CONTAINS
       ! concurrent, alternating files:
       !
       IF (p_of%npartitions > 1) THEN
-        mtime_interval => newTimedelta(output_interval)
-        mtime_datetime => newDatetime(output_start)
-        !
-        ! - The start_date gets an offset of
-        !         "(ifile_partition - 1) * output_interval"
-        DO ifile=1,(p_of%ifile_partition-1)
-          mtime_datetime = mtime_datetime + mtime_interval
+        ! count the number of different time intervals for this event (usually 1)
+        nintvls = 0
+        DO
+          IF (TRIM(output_start(nintvls+1)) == '') EXIT
+          nintvls = nintvls + 1
+          IF (nintvls == MAX_TIME_INTERVALS) EXIT
         END DO
-        CALL datetimeToString(mtime_datetime, output_start)
-        ! - The output_interval is replaced by "
-        !         "npartitions * output_interval"
-        total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
-        total_ms = total_ms + additional_days*86400000
-        total_ms = total_ms * p_of%npartitions
-        CALL get_duration_string(INT(total_ms/1000), output_interval, additional_days)
-        IF (p_of%ifile_partition == 1) THEN
-          WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", output_interval
-          CALL message(routine, message_text)
-        END IF
-        ! - The "include_last" flag is set to .FALSE.
-        include_last                  = .FALSE.
-        ! - The "steps_per_file" counter is set to 1
-        fname_metadata%steps_per_file = 1        
-        ! - The "steps_per_file_inclfirst" flag is set to .FALSE.
-        fname_metadata%steps_per_file_inclfirst = .FALSE.
-        !
-        CALL deallocateTimedelta(mtime_interval)
-        CALL deallocateDatetime(mtime_datetime)
+    
+        DO iintvl=1,nintvls
+          mtime_interval => newTimedelta(output_interval(iintvl))
+          mtime_datetime => newDatetime(output_start(iintvl))
+          !
+          ! - The start_date gets an offset of
+          !         "(ifile_partition - 1) * output_interval"
+          DO ifile=1,(p_of%ifile_partition-1)
+            mtime_datetime = mtime_datetime + mtime_interval
+          END DO
+          CALL datetimeToString(mtime_datetime, output_start(iintvl))
+          ! - The output_interval is replaced by "
+          !         "npartitions * output_interval"
+          total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
+          total_ms = total_ms + additional_days(iintvl)*86400000
+          total_ms = total_ms * p_of%npartitions
+          CALL get_duration_string(INT(total_ms/1000), output_interval(iintvl), additional_days(iintvl))
+          IF (p_of%ifile_partition == 1) THEN
+            WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", &
+              &                         output_interval(iintvl)
+            CALL message(routine, message_text)
+          END IF
+          ! - The "include_last" flag is set to .FALSE.
+          include_last                  = .FALSE.
+          ! - The "steps_per_file" counter is set to 1
+          fname_metadata%steps_per_file = 1        
+          ! - The "steps_per_file_inclfirst" flag is set to .FALSE.
+          fname_metadata%steps_per_file_inclfirst = .FALSE.
+          !
+          CALL deallocateTimedelta(mtime_interval)
+          CALL deallocateDatetime(mtime_datetime)
+        END DO ! iintvl
       END IF
 
       ! ------------------------------------------------------------------------------------------
@@ -1486,17 +1517,17 @@ CONTAINS
   SUBROUTINE add_varlist_to_output_file(p_of, vl_list, varlist)
 
     TYPE (t_output_file), INTENT(INOUT) :: p_of
-    INTEGER, INTENT(IN) :: vl_list(:)
-    CHARACTER(LEN=*), INTENT(IN) :: varlist(:)
-
-    INTEGER :: ivar, i, iv, tl, grid_of, grid_var
-    LOGICAL :: found
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_desc), TARGET  ::  var_desc   !< variable descriptor
-    TYPE(t_var_desc), POINTER ::  p_var_desc               !< variable descriptor (pointer)
-    TYPE(t_cf_var), POINTER        :: this_cf
-
+    INTEGER,              INTENT(IN)    :: vl_list(:)
+    CHARACTER(LEN=*),     INTENT(IN)    :: varlist(:)
+    ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
+    INTEGER                       :: ivar, i, iv, tl, grid_of, grid_var
+    LOGICAL                       :: found
+    TYPE(t_list_element), POINTER :: element
+    TYPE(t_var_desc),     TARGET  :: var_desc   !< variable descriptor
+    TYPE(t_var_desc),     POINTER :: p_var_desc               !< variable descriptor (pointer)
+    TYPE(t_cf_var),       POINTER :: this_cf
+
 
     ! Get the number of variables in varlist
     DO ivar = 1, SIZE(varlist)

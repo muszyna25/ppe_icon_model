@@ -25,7 +25,8 @@ MODULE mo_name_list_output_types
   USE mo_kind,                  ONLY: wp, i8, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, vname_len,                         &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
-    &                                 MAX_TIME_LEVELS, max_levels, MAX_NUM_IO_PROCS
+    &                                 MAX_TIME_LEVELS, max_levels, MAX_NUM_IO_PROCS,   &
+    &                                 MAX_TIME_INTERVALS
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
@@ -232,19 +233,19 @@ MODULE mo_name_list_output_types
     !  events relative to the simulation start (in seconds) and the
     !  latter define the output events by setting ISO8601-conforming
     !  date-time strings.
-    REAL(wp)                              :: output_bounds(3)
+    REAL(wp)                              :: output_bounds(3*MAX_TIME_INTERVALS)
 
     !> Output event steps happen at regular intervals. These are given
     !  by an interval size and the time stamps for begin and end.
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start,     &
-      &                                      output_end,       &
-      &                                      output_interval
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start(MAX_TIME_INTERVALS),     &
+      &                                      output_end(MAX_TIME_INTERVALS),       &
+      &                                      output_interval(MAX_TIME_INTERVALS)
 
     !> Additional days to be added to the output interval. This
     !  namelist parameter is required when the output interval has
     !  been provided as a number of seconds, e.g. which is so large
     !  that it cannot be converted into a valid ISO duration string.
-    INTEGER :: additional_days
+    INTEGER :: additional_days(MAX_TIME_INTERVALS)
 
     !> ready filename prefix (=output event name)
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file
@@ -343,6 +344,7 @@ MODULE mo_name_list_output_types
     !> alternating files:
     INTEGER                               :: npartitions                      !< total no. of stream partitions
     INTEGER                               :: ifile_partition                  !< this file's partition index
+
   END TYPE t_fname_metadata
 
 
@@ -390,6 +392,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiTimeIndex
     INTEGER                               :: cdiInstID                        !< output generating institute
     INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
+
   END TYPE t_output_file
 
   ! "all_events": The root I/O MPI rank "ROOT_OUTEVENT" asks all
