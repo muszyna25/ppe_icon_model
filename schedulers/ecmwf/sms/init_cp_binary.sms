@@ -40,7 +40,7 @@ cp %SCPERMIII%/dwd_icon_tools/${toolstag}/icontools/iconremap_mpi ${SETDIRTMP}
 
 
 # Use executable from $USER
-#cp %SCPERM%/icon-dev/build/${arch}/bin/control_model                  ${SETDIRTMP}
+#cp %SCPERM%/icon-dev/build/${arch}/bin/control_model              ${SETDIRTMP}
 
 
 # -------------------------------------------------

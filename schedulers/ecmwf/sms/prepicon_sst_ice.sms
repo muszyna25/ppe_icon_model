@@ -9,7 +9,7 @@
   Initial implementation: P. Ripodas, DWD (2013-01)
 
   Corresponding author:
-    P Ripodas, DWD, mailto:maria-pilar.ripodas@dwd.de
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
 
   Task objectives:
   - interpolate to icon grid the retrieved SST and CI monthly means from MARS ERA interim 
@@ -19,7 +19,6 @@
 %include <init_sc_model.h> 
 
 # -------------------------------------------------
-
 
 echo "PREPICON_SST_ICE.SMS"
 
@@ -163,6 +162,7 @@ cat > NAMELIST_PREPICON << EOF
 ! type_of_layer  = "surface" 
 /
 EOF
+
 # -------------------------------------------------
 
   export USE_SIGNAL_HANDLING=yes
@@ -175,6 +175,7 @@ done
 rm  ./iconremap_mpi
 
 ls -lrt ${SSTICEDIR}/*
+
 # -------------------------------------------------
 
 

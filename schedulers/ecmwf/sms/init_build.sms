@@ -18,7 +18,7 @@
 # include the header file for remote jobs
 %include <init_sc.h> 
 
-# ---------------------------------------------
+# -------------------------------------------------
 
 echo "INIT_BUILD.SMS"
 

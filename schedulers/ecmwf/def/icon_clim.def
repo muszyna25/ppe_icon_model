@@ -24,8 +24,8 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "004"                #---experiment number---
-set EXPNUM2       "118"                #---experiment number used for score comparison---
+set EXPNUM        "158"                #---experiment number---
+set EXPNUM2       "155"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20000801
 set LAST_DATE     20000804
@@ -33,7 +33,6 @@ set DATE_LIST     "2000080100 2000080206 2000080312 2000080418"
 set HOUR_LIST     "00 06 12 18"
 set TIME_LIST     "2000080100/2000080206/2000080312/2000080418"
 set FIRST_DATE_S  2000-09-01T00:00:00  # First date to save in the output
-#set LAST_DATE_S  2001-11-30T12:00:00  # Last date to save in the output
 set LAST_DATE_S   2001-08-31T18:00:00  # Last date to save in the output
 set FIRST_SSTICE_YEAR 2000             # First and last year for which we neeed the external SST
 set LAST_SSTICE_YEAR  2002             #  and CI external files 
@@ -361,6 +360,7 @@ suite $USER
          task prepicon_sst_ice
             trigger retreive_sst_ice==complete
             on_hpc_parallel
+            edit ICONTOTALTASKS 6
             edit SCJOBTYPE    parallel
             edit SCJOBCLASS   np
             edit SCTOTALTASKS 4
