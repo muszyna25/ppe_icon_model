@@ -126,7 +126,7 @@ cat > ${atmo_namelist} << EOF
  dynamics_grid_filename  = ${dynamics_grid_filename}
  radiation_grid_filename = ${radiation_grid_filename}
  dynamics_parent_grid_id = 0,1
- lredgrid_phys           = .true.
+ lredgrid_phys           = .true.,.true.
  lfeedback               = .true.
  ifeedback_type          = 2
 /
@@ -216,7 +216,7 @@ cat > ${atmo_namelist} << EOF
  rayleigh_coeff = 0.10
  iadv_rcf       = 5
  lhdiff_rcf     = .true.
- divdamp_order  = 24    ! use 4 with incremental analysis update in forecast run; for data assimilation runs, '2' provides extra-strong filtering of gravity waves 
+ divdamp_order  = 24    ! for data assimilation runs, '2' provides extra-strong filtering of gravity waves 
  divdamp_type   = 3     !!! optional: 2 for assimilation cycle if very strong gravity-wave filtering is desired
  divdamp_fac    = 0.004 ! for R2B6; recommendation for R3B7: 0.003; use 0.032 in combination with divdamp_order=2 for data assimilation runs
  l_open_ubc     = .false.
@@ -249,7 +249,7 @@ cat > ${atmo_namelist} << EOF
  ivadv_tracer  = 3,3,3,3,3
  itype_hlimit  = 3,4,4,4,4
  ihadv_tracer  = 52,2,2,2,2
- iadv_tke      = 1
+ iadv_tke      = 0
 /
 &diffusion_nml
  hdiff_order      = 5
