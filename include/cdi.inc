@@ -575,6 +575,13 @@
 !                                    (INTEGER         streamID)
       EXTERNAL        streamInqNvars
 
+      INTEGER         gribapiLibraryVersion
+!                                    (INTEGER         major_version,
+!                                     INTEGER         minor_version,
+!                                     INTEGER         revision_version)
+      EXTERNAL        gribapiLibraryVersion
+
+
 !
 !  STREAM var I/O routines
 !

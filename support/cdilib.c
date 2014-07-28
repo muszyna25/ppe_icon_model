@@ -2665,7 +2665,8 @@ double calculate_pfactor(const double* spectralField, long fieldTruncation, long
 #define  GRIB2_GTYPE_GME                 100  /*  hexagonal GME grid                                   */
 #define  GRIB2_GTYPE_UNSTRUCTURED        101  /*  General Unstructured Grid                            */
 
-const char *gribapiLibraryVersion(void);
+void gribapiLibraryVersion(int* major_version, int* minor_version, int* revision_version);
+const char *gribapiLibraryVersionString(void);
 void gribContainersNew(stream_t * streamptr);
 void gribContainersDelete(stream_t * streamptr);
 void *gribHandleNew(int editionNumber);
@@ -28628,7 +28629,7 @@ void cdiPrintVersion(void)
   fprintf(stderr, " CGRIBEX library version : %s\n", cgribexLibraryVersion());
 #endif
 #if  defined  (HAVE_LIBGRIB_API)
-  fprintf(stderr, "GRIB_API library version : %s\n", gribapiLibraryVersion());
+  fprintf(stderr, "GRIB_API library version : %s\n", gribapiLibraryVersionString());
 #endif
 #if  defined  (HAVE_LIBNETCDF)
   fprintf(stderr, "  netCDF library version : %s\n", cdfLibraryVersion());
@@ -59422,25 +59423,32 @@ cgribexLibraryVersion(void)
 #define XSTRING(x)	#x
 #define STRING(x)	XSTRING(x)
 
-static char gribapi_libvers[64] = "";
-
-const char *gribapiLibraryVersion(void)
+void gribapiLibraryVersion(int* major_version, int* minor_version, int* revision_version)
 {
 #if  defined  (HAVE_LIBGRIB_API)
   long version = grib_get_api_version();
+
+  (*major_version)    = version/10000;
+  (*minor_version)    = (version-(*major_version)*10000)/100;
+  (*revision_version) = (version-(*major_version)*10000-(*minor_version)*100);
+#endif
+}
+
+static char gribapi_libvers[64] = "";
+
+const char *gribapiLibraryVersionString(void)
+{
+#if  defined  (HAVE_LIBGRIB_API)
   int major_version, minor_version, revision_version;
 
-  major_version    = version/10000;
-  minor_version    = (version-major_version*10000)/100;
-  revision_version = (version-major_version*10000-minor_version*100);
-
+  gribapiLibraryVersion(&major_version, &minor_version, &revision_version);
+ 
   sprintf(gribapi_libvers, "%d.%d.%d",
 	  major_version, minor_version, revision_version);
 #endif
 
   return (gribapi_libvers);
 }
-
 
 void gribContainersNew(stream_t * streamptr)
 {
@@ -63768,6 +63776,9 @@ FCALLSCFUN1 (STRING, streamFilename, STREAMFILENAME, streamfilename, INT)
 FCALLSCFUN1 (STRING, streamFilesuffix, STREAMFILESUFFIX, streamfilesuffix, INT)
 FCALLSCFUN1 (INT, streamNtsteps, STREAMNTSTEPS, streamntsteps, INT)
 FCALLSCFUN1 (INT, streamInqNvars, STREAMINQNVARS, streaminqnvars, INT)
+
+/* query GRIB API version */
+FCALLSCSUB3 (gribapiLibraryVersion, GRIBAPILIBRARYVERSION, gribapilibraryversion, PINT, PINT, PINT)
 
 /*  STREAM var I/O routines  */
 
