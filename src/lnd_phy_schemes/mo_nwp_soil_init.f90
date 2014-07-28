@@ -239,7 +239,7 @@ CONTAINS
     wl_new (ie,ke_snow) , &
     z_old  (ie,ke_snow) , & 
     dz_old (ie,ke_snow) , &
-    weight 
+    weight, wso_ice_tolerance, wso_ice_equil, rwso_ice_tolerance
 
   LOGICAL :: l_redist(ie)
 
@@ -257,8 +257,6 @@ CONTAINS
 !  parameterisation or a Penman-Monteith-type version of evaporation
 !  and transpiration which can be used alternatively.
 !------------------------------------------------------------------------------
-
-
 
 !------------------------------------------------------------------------------
 ! Section I.1: Initializations
@@ -319,7 +317,9 @@ CONTAINS
 
   ENDDO
  
-
+  ! Tolerances for the allowed deviation of w_so_ice from its equilibrium value
+  wso_ice_tolerance  = 1.05_ireals ! 5% deviation allowed
+  rwso_ice_tolerance = 1._ireals/wso_ice_tolerance
 
 
 ! For ntstep=0 : Some preparations
@@ -615,6 +615,25 @@ CONTAINS
         h_snow(i)    = h_snow_fg(i) + h_snow_incr(i) ! h_snow now carries the updated snow depth
       ENDDO
     ENDIF
+
+    ! Ensure that w_so_ice stays within 5% of its equilibrium value
+    ! In addition, it must not exceed w_so
+    IF(lmelt .AND. lmelt_var) THEN
+      DO kso   = 1,ke_soil+1
+        DO i = istarts, iends
+          IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
+            zaa     = g*zpsis(i)/lh_f
+            zw_m(i) = zporv(i)*zdzhs(kso)
+            zw_m(i) = zw_m(i) * ((t_so_now(i,kso)-t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
+            wso_ice_equil = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
+            w_so_ice_now(i,kso) = MIN(w_so_ice_now(i,kso),  wso_ice_tolerance*wso_ice_equil, w_so_now(i,kso))
+            w_so_ice_now(i,kso) = MAX(w_so_ice_now(i,kso), rwso_ice_tolerance*wso_ice_equil)
+          ELSE ! ensure that w_so_ice is zero
+            w_so_ice_now(i,kso) = 0.0_ireals
+          END IF
+        END DO
+      END DO
+    END IF
 
     ! For the single-layer snow case, the prognostic variables now need to be updated. This requires appropriate
     ! assumptions about the new snow density
