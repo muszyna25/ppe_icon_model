@@ -1359,15 +1359,6 @@ MODULE mo_nh_initicon
         ENDDO
       ENDIF  ! lread_ana  
 
-      ! abort
-      !
-      IF (lmiss_ana) THEN
-        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_ana)// &
-          &                       ' mandatory, but not found in ANA-file.'
-        CALL finish(routine, TRIM(message_text))
-      ENDIF
-
-
 
 
       ! Check, whether the FG-file inventory group contains all fields which are needed for a 
@@ -1388,17 +1379,12 @@ MODULE mo_nh_initicon
               CYCLE
             ENDIF
           ENDIF
+
+          ! remove missing field from first guess input-group grp_vars_fg
+          CALL difference(grp_vars_fg, ngrp_vars_fg, grp_vars_fg(ivar:ivar), 1)
         ENDIF
       ENDDO
 
-      ! abort
-      !
-      IF (lmiss_fg) THEN
-
-        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_fg)// &
-          &                       ' missing in FG-input file.'
-        CALL finish(routine, TRIM(message_text))
-      ENDIF  
 
 
 
@@ -1448,6 +1434,25 @@ MODULE mo_nh_initicon
       CALL add_column(bool_table, TRIM(ana_default_txt),grp_vars_ana_default_grib2, ngrp_vars_ana_default)
       CALL add_column(bool_table, TRIM(ana_this_txt)   ,grp_vars_ana_grib2,         ngrp_vars_ana)
       CALL print_bool_table(bool_table)
+
+
+      !
+      ! abort, if any mandatory first guess or analysis field is missing
+      !
+      IF (lmiss_ana) THEN
+        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_ana)// &
+          &                       ' mandatory, but not found in ANA-file.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
+      !
+      IF (lmiss_fg) THEN
+
+        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_fg)// &
+          &                       ' missing in FG-input file.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF  
+
+
     ENDIF  ! p_pe == p_io
 
 
