@@ -3288,10 +3288,11 @@ I&2& &
 
 %\hline
  \textbf{output\_bounds} &
-R(3)&None& &
+R($k \ast$ 3)&None& &
  Post-processing times: start, end, increment.
  We choose  the advection time step matching or following the 
  requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
+ Multiple triples are possible in order to define multiple starts/ends/intervals.
  See namelist parameters \texttt{output\_start}, \texttt{output\_end}, \texttt{output\_interval}
  for an alternative specification of output events.
 &
@@ -3328,29 +3329,32 @@ L&.FALSE.& &
 
 %\hline
  \textbf{output\_start }&
-C&\'' \''& &
+C(:)&\'' \''& &
  ISO8601 time stamp for begin of output.
  An example for this time stamp format is given below.
+ More than one value is possible in order to define multiple start/end/interval triples.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
 
 %\hline
 \textbf{output\_end }&
-C&\'' \''& &
+C(:)&\'' \''& &
  ISO8601 time stamp for end of output.
  An example for this time stamp format is given below.
+ More than one value is possible in order to define multiple start/end/interval triples.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
 
 %\hline
 \textbf{output\_interval} &
-C&\'' \''& &
+C(:)&\'' \''& &
  ISO8601 time stamp for repeating output intervals.
  We choose  the advection time step matching or following the 
  requested output time, therefore we require \texttt{output\_bounds(3) < dtime*iadv\_rcf}.
  An example for this time stamp format is given below.
+ More than one value is possible in order to define multiple start/end/interval triples.
  See namelist parameter \texttt{output\_bounds} for an alternative specification of output events.
 &
 \tabularnewline
