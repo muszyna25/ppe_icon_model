@@ -1689,6 +1689,18 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
            &                       i_startidx, i_endidx, rl_start, rl_end)
 
+      ! add analysis increments from data assimilation to qv
+      !
+      IF (is_iau_active) THEN
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv)  &
+              &                              + iau_wgt_adv * pt_diag%qv_incr(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
+
 ! KF fix to positive values
       DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -1754,18 +1766,6 @@ CONTAINS
           &                              +  prm_diag%snow_con_rate(i_startidx:i_endidx,jb))
 
       ENDIF
-
-      ! add analysis increments from data assimilation to qv
-      !
-      IF (is_iau_active) THEN
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv)  &
-              &                              + iau_wgt_adv * pt_diag%qv_incr(jc,jk,jb)
-          ENDDO
-        ENDDO
-      ENDIF
-
 
 
       IF(is_ls_forcing)THEN
