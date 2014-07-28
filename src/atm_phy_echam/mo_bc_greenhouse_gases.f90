@@ -4,7 +4,7 @@
 !! This is  a clone of the respective ECHAM routine
 !!
 !! Time series of various greenhouse gases are read from
-!! file greenhouse_gases.nc (CO2, CH4, N2O, and CFC's).
+!! file bc_greenhouse_gases.nc (CO2, CH4, N2O, and CFC's).
 !! Provides interpolation in time and conversion from volume mixing ratio 
 !! to mass mixing ratio of CO2, CH4, and N2O - not for CFC's!
 !!
@@ -24,7 +24,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-MODULE mo_greenhouse_gases
+MODULE mo_bc_greenhouse_gases
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message, message_text
@@ -40,13 +40,13 @@ MODULE mo_greenhouse_gases
 
   PRIVATE
 
-  PUBLIC :: read_ghg_bc
-  PUBLIC :: ghg_time_interpolation
+  PUBLIC :: read_bc_greenhouse_gases
+  PUBLIC :: bc_greenhouse_gases_time_interpolation
   PUBLIC :: cleanup_greenhouse_gases
 
   PUBLIC :: ghg_no_cfc
 
-  PUBLIC :: ghg_file_read
+  PUBLIC :: bc_greenhouse_gases_file_read
 
   INTEGER, PARAMETER :: ghg_no_cfc = 2
   CHARACTER(len=*), PARAMETER :: ghg_cfc_names(ghg_no_cfc) = (/ "CFC_11", "CFC_12" /)
@@ -61,18 +61,18 @@ MODULE mo_greenhouse_gases
   REAL(wp), ALLOCATABLE :: ghg_n2o(:)
   REAL(wp), ALLOCATABLE :: ghg_cfc(:,:)
 
-  LOGICAL, SAVE :: ghg_file_read = .FALSE.
+  LOGICAL, SAVE :: bc_greenhouse_gases_file_read = .FALSE.
 
 CONTAINS
 
-  SUBROUTINE read_ghg_bc(ighg)
+  SUBROUTINE read_bc_greenhouse_gases(ighg)
 
     INTEGER, INTENT(in) :: ighg
 
     INTEGER :: ncid, ndimid, nvarid
     INTEGER :: i
 
-    IF (ghg_file_read) THEN
+    IF (bc_greenhouse_gases_file_read) THEN
       CALL message('','Greenhouse gases already read ...')
       RETURN
     ENDIF
@@ -112,15 +112,15 @@ CONTAINS
       CALL nf_check(p_nf_get_var_double (ncid, nvarid, ghg_cfc(:,i)))
     ENDDO
       
-    ghg_file_read = .TRUE.
+    bc_greenhouse_gases_file_read = .TRUE.
 
     CALL nf_check(p_nf_close(ncid))
 
     ghg_base_year = ghg_years(1)
     
-  END SUBROUTINE read_ghg_bc
+  END SUBROUTINE read_bc_greenhouse_gases
   
-  SUBROUTINE ghg_time_interpolation(radiation_date)
+  SUBROUTINE bc_greenhouse_gases_time_interpolation(radiation_date)
 
     TYPE(t_datetime), INTENT(in) :: radiation_date 
 
@@ -181,7 +181,7 @@ CONTAINS
     mmr_ch4 = vmr_ch4 * amch4/amd
     mmr_n2o = vmr_n2o * amn2o/amd
 
-  END SUBROUTINE ghg_time_interpolation
+  END SUBROUTINE bc_greenhouse_gases_time_interpolation
 
   SUBROUTINE cleanup_greenhouse_gases
     IF (ALLOCATED(ghg_years)) DEALLOCATE(ghg_years)
@@ -194,8 +194,8 @@ CONTAINS
   SUBROUTINE nf_check(iret)
     INTEGER, INTENT(in) :: iret
     IF (iret /= nf_noerr) THEN
-      CALL finish('mo_greenhouse_gases', nf_strerror(iret))
+      CALL finish('mo_bc_greenhouse_gases', nf_strerror(iret))
     ENDIF
   END SUBROUTINE nf_check
 
-END MODULE mo_greenhouse_gases
+END MODULE mo_bc_greenhouse_gases

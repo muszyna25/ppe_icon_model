@@ -215,29 +215,29 @@ year=1978
 while [[ $year -le 1990 ]]
 do
   datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
-  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                ./ozone${year}.nc
+  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
 #
-# - tropospheric aerosol
-year=1978
-while [[ $year -le 1990 ]]
-do
-  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
-  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc            ./aero_coarse_lw_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc            ./aero_coarse_sw_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc    ./aero_fine_sw_${year}.nc
-  (( year = year+1 ))
-done
+### - tropospheric aerosol
+##year=1978
+##while [[ $year -le 1990 ]]
+##do
+##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc            ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc            ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc    ./
+##  (( year = year+1 ))
+##done
 #
-# - stratospheric aerosol
-year=1978
-while [[ $year -le 1990 ]]
-do
-  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_sato
-  add_link_file $datadir/bc_aeropt_sato_lw_b16_sw_b14_${year}.nc  ./sato${year}.nc
-  (( year = year+1 ))
-done
+### - stratospheric aerosol
+##year=1978
+##while [[ $year -le 1990 ]]
+##do
+##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+##  add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./
+##  (( year = year+1 ))
+##done
 #
 # - sst and sic
 datadir=$INDATA/r2b4_amip/oce
@@ -246,7 +246,7 @@ add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                  ./bc_sst.nc
 #
 # - ssi and tsi
 datadir=$INDATA/global/sun
-add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc    ./bc_ssi.nc
+add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc    ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
 datadir=$INDATA/r2b4_amip/lnd

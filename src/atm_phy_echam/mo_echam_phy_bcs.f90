@@ -31,21 +31,24 @@ MODULE mo_echam_phy_bcs
   USE mo_echam_phy_config           ,ONLY: echam_phy_config
   USE mo_radiation_config           ,ONLY: ighg, isolrad, tsi, tsi_radt, ssi_radt, irad_o3, irad_aero
 
-  USE mo_greenhouse_gases           ,ONLY: ghg_time_interpolation
-
-  USE mo_amip_bc                    ,ONLY: get_current_amip_bc_year, read_amip_bc, amip_time_weights, amip_time_interpolation
   USE mo_icoham_sfc_indices         ,ONLY: iwtr
 
   USE mo_time_interpolation         ,ONLY: time_weights_limm
   USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
 
-  USE mo_solar_irradiance           ,ONLY: read_ssi_bc, ssi_time_interpolation
-
   USE mo_impl_constants             ,ONLY: io3_amip
-  USE mo_o3                         ,ONLY: read_amip_o3
 
-  USE mo_aero_kinne                 ,ONLY: read_aero_kinne
-  USE mo_aero_stenchikov            ,ONLY: read_aero_stenchikov
+  USE mo_time_interpolation         ,ONLY: time_weights_limm
+  USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
+
+  USE mo_bc_greenhouse_gases        ,ONLY: bc_greenhouse_gases_time_interpolation
+  USE mo_amip_bc                    ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, & ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"
+    &                                      bc_sst_sic_time_weights, bc_sst_sic_time_interpolation
+  USE mo_bc_solar_irradiance        ,ONLY: read_bc_solar_irradiance, ssi_time_interpolation
+
+  USE mo_bc_ozone                   ,ONLY: read_bc_ozone
+  USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
+  USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
 
   USE mo_echam_phy_memory           ,ONLY: prm_field
 
@@ -132,14 +135,14 @@ CONTAINS
     ! SST is needed for turbulent vertical fluxes and for radiation.
     !
     IF (echam_phy_config%lamip) THEN
-      IF (datetime%year /= get_current_amip_bc_year()) THEN
-        CALL read_amip_bc(datetime%year, patch)
+      IF (datetime%year /= get_current_bc_sst_sic_year()) THEN
+        CALL read_bc_sst_sic(datetime%year, patch)
       END IF
-      CALL amip_time_weights(datetime)
-      CALL amip_time_interpolation( prm_field(jg)%seaice(:,:) ,&
-        &                           prm_field(jg)%tsurfw(:,:) ,&
-        &                           prm_field(jg)%siced(:,:)  ,&
-        &                           prm_field(jg)%lsmask(:,:) )
+      CALL bc_sst_sic_time_weights(datetime)
+      CALL bc_sst_sic_time_interpolation( prm_field(jg)%seaice(:,:) ,&
+        &                                 prm_field(jg)%tsurfw(:,:) ,&
+        &                                 prm_field(jg)%siced(:,:)  ,&
+        &                                 prm_field(jg)%lsmask(:,:) )
 
       prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)
 
@@ -156,7 +159,7 @@ CONTAINS
 
     ! total solar irradiation at the mean sun earth distance
     IF (isolrad==1) THEN
-      CALL read_ssi_bc(datetime%year,.FALSE.)
+      CALL read_bc_solar_irradiance(datetime%year,.FALSE.)
       CALL ssi_time_interpolation(wi_limm,.FALSE.,tsi)
     END IF
 
@@ -170,34 +173,34 @@ CONTAINS
       !
       ! total and spectral solar irradiation at the mean sun earth distance
       IF (isolrad==1) THEN
-        CALL read_ssi_bc(datetime%year,.TRUE.)
+        CALL read_bc_solar_irradiance(datetime%year,.TRUE.)
         CALL ssi_time_interpolation(wi_limm_radt,.TRUE.,tsi_radt,ssi_radt)
       END IF
       !
       ! greenhouse gas concentrations, assumed constant in horizontal dimensions
       IF (ighg > 0) THEN
-        CALL ghg_time_interpolation(datetime)
+        CALL bc_greenhouse_gases_time_interpolation(datetime)
       END IF
       !
       ! ozone concentration
       IF (irad_o3 == io3_amip) THEN
-        CALL read_amip_o3(datetime%year, patch)
+        CALL read_bc_ozone(datetime%year, patch)
       END IF
       !
       ! tropospheric aerosol optical properties
       IF (irad_aero == 13) THEN
-        CALL read_aero_kinne(datetime%year, patch)
+        CALL read_bc_aeropt_kinne(datetime%year, patch)
       END IF
       !
       ! stratospheric aerosol optical properties
       IF (irad_aero == 14) THEN
-        CALL read_aero_stenchikov(datetime%year, patch)
+        CALL read_bc_aeropt_stenchikov(datetime%year)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (irad_aero == 15) THEN
-        CALL read_aero_kinne     (datetime%year, patch)
-        CALL read_aero_stenchikov(datetime%year, patch)
+        CALL read_bc_aeropt_kinne     (datetime%year, patch)
+        CALL read_bc_aeropt_stenchikov(datetime%year)
       END IF
       !
     END IF ! ltrig_rad

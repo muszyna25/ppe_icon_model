@@ -1,6 +1,8 @@
 !>
-!! @brief Subroutine read_amip_o3 reads ozone from files for the AMIP 
-!! experiment. The routine is called from mo_echam_phy_interface.f90.
+!! @brief Subroutine read_bc_ozone reads monthly ozone
+!! concentrations from yearly files. The ozone concentrations are
+!! used as boundary conditions for the radiative forcing of the
+!! atmosphereAMIP. The routine is called from mo_echam_phy_interface.f90.
 !!
 !! @author Sebastian Rast, MPI-M
 !!
@@ -15,12 +17,11 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_o3
+MODULE mo_bc_ozone
 
   USE mo_kind,                     ONLY: wp
   USE mo_model_domain,             ONLY: t_patch
-  USE mo_parallel_config,          ONLY: nproma, p_test_run
-  USE mo_run_config,               ONLY: nlev
+  USE mo_parallel_config,          ONLY: p_test_run
   USE mo_netcdf_read,              ONLY: nf, netcdf_read_3D_time
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
@@ -32,7 +33,7 @@ MODULE mo_o3
   INTEGER, SAVE                     :: pre_year=-999999                  ! Variable to check if it is time to read
 
   PUBLIC                            :: o3_plev, plev_half_o3, plev_full_o3, nplev_o3
-  PUBLIC                            :: read_amip_o3
+  PUBLIC                            :: read_bc_ozone
 
   REAL(wp), ALLOCATABLE             :: o3_plev(:,:,:,:)                  ! Ozone at pressure levels
   REAL(wp), ALLOCATABLE             :: plev_half_o3(:), plev_full_o3(:)  ! Pressure levels in ozone file
@@ -42,13 +43,14 @@ MODULE mo_o3
 
 CONTAINS
 
-  SUBROUTINE read_amip_o3(year, p_patch)
+  SUBROUTINE read_bc_ozone(year, p_patch)
 
-    INTEGER, INTENT(in)               :: year
+    INTEGER      , INTENT(in)         :: year
     TYPE(t_patch), INTENT(in)         :: p_patch
-    CHARACTER(len=12)                 :: fname
+
+    CHARACTER(len=16)                 :: fname
     CHARACTER(len=4)                  :: cyear
-    CHARACTER(len=18)                 :: subprog_name
+    CHARACTER(len=25)                 :: subprog_name
     INTEGER                           :: ncid, varid, mpi_comm
     REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)
 
@@ -57,7 +59,7 @@ CONTAINS
       IF (ALLOCATED(o3_plev)) THEN
         o3_plev(:,:,:,0:1)=o3_plev(:,:,:,12:13)
         write(cyear,'(i4)') year
-        fname='ozone'//TRIM(cyear)//'.nc'
+        fname='bc_ozone_'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
         zo3_plev=>netcdf_read_3D_time(filename=fname,variable_name='O3', &
                   n_g=p_patch%n_patch_cells_g, &
@@ -65,7 +67,7 @@ CONTAINS
                   start_timestep=2,end_timestep=12)
         o3_plev(:,:,:,2:12)=vmr2mmr_o3*zo3_plev(:,:,:,1:11)
         write(cyear,'(i4)') year+1
-        fname='ozone'//TRIM(cyear)//'.nc'
+        fname='bc_ozone_'//TRIM(cyear)//'.nc'
         zo3_plev=>netcdf_read_3D_time(filename=fname,variable_name='O3', &
                   n_g=p_patch%n_patch_cells_g, &
                   glb_index=p_patch%cells%decomp_info%glb_index, &
@@ -73,7 +75,7 @@ CONTAINS
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
       ELSE
         write(cyear,'(i4)') year
-        fname='ozone'//TRIM(cyear)//'.nc'
+        fname='bc_ozone_'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
         zo3_plev=>netcdf_read_3D_time(filename=fname,variable_name='O3', &
                   n_g=p_patch%n_patch_cells_g, &
@@ -81,14 +83,14 @@ CONTAINS
         ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
         o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
         write(cyear,'(i4)') year-1
-        fname='ozone'//TRIM(cyear)//'.nc'
+        fname='bc_ozone_'//TRIM(cyear)//'.nc'
         zo3_plev=>netcdf_read_3D_time(filename=fname,variable_name='O3', &
                   n_g=p_patch%n_patch_cells_g, &
                   glb_index=p_patch%cells%decomp_info%glb_index, &
                   start_timestep=12,end_timestep=12)
         o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
         write(cyear,'(i4)') year+1
-        fname='ozone'//TRIM(cyear)//'.nc'
+        fname='bc_ozone_'//TRIM(cyear)//'.nc'
         zo3_plev=>netcdf_read_3D_time(filename=fname,variable_name='O3', &
                   n_g=p_patch%n_patch_cells_g, &
                   glb_index=p_patch%cells%decomp_info%glb_index, &
@@ -96,7 +98,7 @@ CONTAINS
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)       
       END IF
 
-      subprog_name='mo_o3:read_amip_o3'
+      subprog_name='mo_bc_ozone:read_bc_ozone'
       nplev_o3=SIZE(o3_plev,2)
 
       IF(ALLOCATED(plev_full_o3)) DEALLOCATE(plev_full_o3)
@@ -129,7 +131,7 @@ CONTAINS
 
     END IF
 
-  END SUBROUTINE read_amip_o3
+  END SUBROUTINE read_bc_ozone
 
   !>
   !! Subroutine to calculate interpolation indices and weights
@@ -141,4 +143,4 @@ CONTAINS
   !! @par Revision History
   !! Rewritten after echam6 by J.S. Rast, MPI-M Hamburg (2013-07-31)
   !!
-END MODULE mo_o3
+END MODULE mo_bc_ozone

@@ -69,8 +69,8 @@ MODULE mo_radiation
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
-  USE mo_aero_kinne,           ONLY: set_aop_kinne
-  USE mo_aero_stenchikov,      ONLY: add_aop_stenchikov
+  USE mo_bc_aeropt_kinne,      ONLY: set_bc_aeropt_kinne
+  USE mo_bc_aeropt_stenchikov, ONLY: add_bc_aeropt_stenchikov
 
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
   USE mo_lrtm,                 ONLY: lrtm
@@ -1386,7 +1386,7 @@ CONTAINS
         ENDDO
       ENDDO
     CASE (13)
-      CALL set_aop_kinne( jg,                                        &
+      CALL set_bc_aeropt_kinne( jg,                                  &
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
@@ -1398,25 +1398,25 @@ CONTAINS
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_aop_stenchikov( jg,                                   &
-        & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl )
-    CASE (15)
-      CALL set_aop_kinne( jg,                                        &
+      CALL add_bc_aeropt_stenchikov( jg,                             &
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
-      CALL add_aop_stenchikov( jg,                                   &
+    CASE (15)
+      CALL set_bc_aeropt_kinne( jg,                                  &
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl )
+        & tk_fl                                                      )
+      CALL add_bc_aeropt_stenchikov( jg,                             &
+        & jce              ,kbdim                 ,klev             ,&
+        & jb               ,jpband                ,jpsw             ,&
+        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
+        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
+        & tk_fl                                                      )
     CASE DEFAULT
       WRITE (c_irad_aero,'(i3)') irad_aero
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &

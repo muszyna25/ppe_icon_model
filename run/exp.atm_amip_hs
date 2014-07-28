@@ -377,7 +377,7 @@ add_required_file $INDATA/global/atm/bc_greenhouse_rcp45_1765-2500.nc        ./b
 year=1977
 while [[ $year -le 2009 ]]
 do
-  add_required_file $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc  ./ozone${year}.nc
+  add_required_file $INDATA/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_${year}.nc  ./bc_ozone_${year}.nc
  (( year = year+1 ))
 done
 
@@ -386,7 +386,7 @@ add_required_file $INDATA/r2b4_amip/oce/bc_sic_pcmdi_1870-2010.nc            ./b
 add_required_file $INDATA/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc            ./bc_sst.nc
 
 # - ssi and tsi
-add_required_file $INDATA/global/sun/bc_solar_irradiance_14band_1849-2399.nc ./bc_ssi.nc
+add_required_file $INDATA/global/sun/bc_solar_irradiance_14band_1849-2399.nc ./bc_solar_irradiance_sw_b14.nc
 
 # - land parameters
 add_required_file ${INDATA}/r2b4_amip/lnd/bc_land_frac_1976.nc               ./bc_land_frac.nc

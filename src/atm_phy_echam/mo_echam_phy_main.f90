@@ -35,7 +35,7 @@ MODULE mo_echam_phy_main
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
-  USE mo_o3,                  ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
+  USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config

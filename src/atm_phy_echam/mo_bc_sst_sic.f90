@@ -6,7 +6,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !>
-!! Preliminary read and time interpolation routine for AMIP SST and sea ice data
+!! Preliminary read and time interpolation routine for monthly SST and sea ice data
 !! 
 !! This is  a clone of the respective ECHAM routine
 !!
@@ -18,7 +18,7 @@
 !!
 !! TODO: ctfreez in echam = 271.38, this is 271.45 K
 !
-MODULE mo_amip_bc
+MODULE mo_amip_bc ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"
   
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish, message, message_text
@@ -48,12 +48,11 @@ MODULE mo_amip_bc
   INTEGER :: nmw1, nmw2
 
   REAL(dp):: wgtd1, wgtd2
-  INTEGER :: ndw1, ndw2
 
-  PUBLIC :: read_amip_bc
-  PUBLIC :: amip_time_weights
-  PUBLIC :: amip_time_interpolation
-  PUBLIC :: get_current_amip_bc_year
+  PUBLIC :: read_bc_sst_sic
+  PUBLIC :: bc_sst_sic_time_weights
+  PUBLIC :: bc_sst_sic_time_interpolation
+  PUBLIC :: get_current_bc_sst_sic_year
 
   PUBLIC :: wgt1, wgt2, nmw1, nmw2
 
@@ -61,7 +60,7 @@ MODULE mo_amip_bc
 
 CONTAINS
   
-  SUBROUTINE read_amip_bc(year, p_patch)
+  SUBROUTINE read_bc_sst_sic(year, p_patch)
 
     INTEGER,       INTENT(in) :: year
     TYPE(t_patch), INTENT(in) :: p_patch
@@ -76,16 +75,16 @@ CONTAINS
     IF (my_process_is_mpi_workroot()) THEN
    
       WRITE(message_text,'(a,a,a,i0)') &
-           'Read AMIP SST from ', sst_fn, ' for ', year
+           'Read SST from ', sst_fn, ' for ', year
       CALL message('',message_text)
       
       INQUIRE (file=sst_fn, exist=lexist)
       IF (lexist) THEN
-        CALL read_amip_data(sst_fn, year, zin)
+        CALL read_sst_sic_data(sst_fn, year, zin)
       ELSE
         WRITE (message_text,*) 'Could not open file ',sst_fn
         CALL message('',message_text)
-        CALL finish ('mo_amip_bc:read_amip_bc', 'run terminated.')
+        CALL finish ('mo_bc_sst_sic:read_bc_sst_sic', 'run terminated.')
       ENDIF
 
     ENDIF
@@ -97,16 +96,16 @@ CONTAINS
     IF (my_process_is_mpi_workroot()) THEN
 
       WRITE(message_text,'(a,a,a,i0)') &
-           'Read AMIP sea ice from ', sic_fn, ' for ', year
+           'Read sea ice from ', sic_fn, ' for ', year
       CALL message('',message_text)
       
       INQUIRE (file=sic_fn, exist=lexist)
       IF (lexist) THEN
-        CALL read_amip_data(sic_fn, year, zin)
+        CALL read_sst_sic_data(sic_fn, year, zin)
       ELSE
         WRITE (message_text,*) 'Could not open file ', sic_fn
         CALL message('',message_text)
-        CALL finish ('mo_amip_bc:read_amip_bc', 'run terminated.')
+        CALL finish ('mo_bc_sst_sic:read_bc_sst_sic', 'run terminated.')
       ENDIF
       
     ENDIF
@@ -119,9 +118,9 @@ CONTAINS
     
     current_year = year
 
-  END SUBROUTINE read_amip_bc
+  END SUBROUTINE read_bc_sst_sic
   
-  SUBROUTINE read_amip_data(fn, y, zin)
+  SUBROUTINE read_sst_sic_data(fn, y, zin)
     
     CHARACTER(len=*), INTENT(in) :: fn
     INTEGER, INTENT(in) :: y
@@ -142,7 +141,7 @@ CONTAINS
     streamID = streamOpenRead(fn)
     IF ( streamID < 0 ) THEN
       WRITE(message_text,*) cdiStringError(streamID)
-      CALL finish('mo_amip_bc:read_amip_data', message_text)
+      CALL finish('mo_bc_sst_sic:read_sst_sic_data', message_text)
     END IF
     
     vlistID = streamInqVlist(streamID)
@@ -163,19 +162,13 @@ CONTAINS
       vmonth = (vdate/100)-vyear*100
       IF (vyear == ym1 .AND. vmonth == 12) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
-!write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
-!     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
         zin(:,0) = buffer(:)
       ELSE IF (vyear == y) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
         zin(:,vmonth) = buffer(:)
-!write(0,'(1x,a,3f25.10)') 'LK; read amip data debug: ', &
-!     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
       ELSE IF (vyear == yp1 .AND. vmonth == 1) THEN
         CALL streamReadVarslice(streamID, varID, 0, buffer, nmiss)
         zin(:,13) = buffer(:)
-!write(0,'(1x,a,3f25.10)') 'LK: read amip data debug: ', &
-!     minval(buffer), sum(buffer)/ngridsize, maxval(buffer)
         EXIT
       ENDIF
       tsID = tsID+1
@@ -185,13 +178,13 @@ CONTAINS
     
     DEALLOCATE(buffer)
 
-  END SUBROUTINE read_amip_data
+  END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE amip_time_weights(current_date)
+  SUBROUTINE bc_sst_sic_time_weights(current_date)
 
     TYPE(t_datetime), INTENT(in) :: current_date 
 
-    ! calculates weighting factores for AMIP sst and sea ice
+    ! calculates weighting factores for monthly sst and sea ice
 
     TYPE(t_datetime) :: next_date
 
@@ -216,7 +209,7 @@ CONTAINS
     mn = next_date%minute
     se = INT(next_date%second)
 
-    ! month index for AMIP data  (0..13)
+    ! month index for sst and sic data  (0..13)
     imp1 = mo+1
     imm1 = mo-1
       
@@ -269,8 +262,6 @@ CONTAINS
       
     ! weighting factors for first/second half of day
       
-    ndw1   = 2
-      
     zsec = REAL(next_date%second, dp)
     zdh   = 12.0_dp*3600.0_dp
     zdhm1 = zdh
@@ -278,16 +269,14 @@ CONTAINS
     IF( zsec <= zdh ) THEN                     ! first part of day
       wgtd1  = (zdhm1+zsec)/(zdhm1+zdh)
       wgtd2  = 1.0_dp-wgtd1
-      ndw2   = 1
     ELSE                                       ! second part of day
       wgtd2  = (zsec-zdh)/(zdh+zdhp1)
       wgtd1  = 1.0_dp-wgtd2
-      ndw2   = 3
     ENDIF
     
-  END SUBROUTINE amip_time_weights
+  END SUBROUTINE bc_sst_sic_time_weights
 
-  SUBROUTINE amip_time_interpolation(seaice, tsw, siced, slf)
+  SUBROUTINE bc_sst_sic_time_interpolation(seaice, tsw, siced, slf)
     REAL(dp), INTENT(out) :: seaice(:,:) 
     REAL(dp), INTENT(out) :: siced(:,:) 
     REAL(dp), INTENT(out) :: tsw(:,:) 
@@ -322,14 +311,14 @@ CONTAINS
       tsw(:,:) = zts(:,:)
     ENDWHERE
 
-    CALL message('','Interpolated AMIP SST and sea ice.')
+    CALL message('','Interpolated sea surface temperature and sea ice cover.')
 
-  END SUBROUTINE amip_time_interpolation
+  END SUBROUTINE bc_sst_sic_time_interpolation
 
-  FUNCTION get_current_amip_bc_year() RESULT(this_year)
+  FUNCTION get_current_bc_sst_sic_year() RESULT(this_year)
     INTEGER :: this_year
     this_year = current_year
     RETURN
-  END FUNCTION get_current_amip_bc_year
+  END FUNCTION get_current_bc_sst_sic_year
 
-END MODULE mo_amip_bc
+END MODULE mo_amip_bc ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"

@@ -79,8 +79,6 @@ MODULE mo_echam_phy_init
   USE mo_loopindices,          ONLY: get_indices_c
 
   ! atmospheric state
-  USE mo_icoham_dyn_types,     ONLY: t_hydro_atm
-  USE mo_eta_coord_diag,       ONLY: half_level_pressure, full_level_pressure
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
                                    & prm_field, t_echam_phy_field, &
                                    & prm_tend,  t_echam_phy_tend
@@ -92,8 +90,9 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-  USE mo_amip_bc,              ONLY: read_amip_bc, amip_time_weights, amip_time_interpolation
-  USE mo_greenhouse_gases,     ONLY: read_ghg_bc, ghg_time_interpolation, ghg_file_read
+  USE mo_amip_bc,              ONLY: read_bc_sst_sic, bc_sst_sic_time_weights, bc_sst_sic_time_interpolation ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"
+  USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
+    &                                bc_greenhouse_gases_file_read
 
   IMPLICIT NONE
 
@@ -350,17 +349,17 @@ CONTAINS
 
       ! add interpolation of greenhouse gases here, only if radiation is going to be calculated
       IF (ighg > 0) THEN
-        IF (.NOT. ghg_file_read) CALL read_ghg_bc(ighg)
-        CALL ghg_time_interpolation(current_date)
+        IF (.NOT. bc_greenhouse_gases_file_read) CALL read_bc_greenhouse_gases(ighg)
+        CALL bc_greenhouse_gases_time_interpolation(current_date)
       ENDIF
-      CALL read_amip_bc(current_date%year, p_patch(1))
-      CALL amip_time_weights(current_date)
+      CALL read_bc_sst_sic(current_date%year, p_patch(1))
+      CALL bc_sst_sic_time_weights(current_date)
       DO jg= 1,ndomain
-        CALL amip_time_interpolation(prm_field(jg)%seaice(:,:), &
-!           &                        prm_field(jg)%tsfc_tile(:,:,:), &
-           &                         prm_field(jg)%tsurfw(:,:), &
-           &                         prm_field(jg)%siced(:,:), &
-           &                         prm_field(jg)%lsmask(:,:))
+        CALL bc_sst_sic_time_interpolation(prm_field(jg)%seaice(:,:), &
+!           &                               prm_field(jg)%tsfc_tile(:,:,:), &
+           &                               prm_field(jg)%tsurfw(:,:), &
+           &                               prm_field(jg)%siced(:,:), &
+           &                               prm_field(jg)%lsmask(:,:))
         prm_field(jg)%tsurfl(:,:) = prm_field(jg)%tsurfw(:,:)
         prm_field(jg)%tsurfi(:,:) = prm_field(jg)%tsurfw(:,:)
         prm_field(jg)%tsfc_tile(:,:,iwtr) = prm_field(jg)%tsurfw(:,:)

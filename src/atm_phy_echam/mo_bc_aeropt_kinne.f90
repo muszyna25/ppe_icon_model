@@ -1,5 +1,6 @@
 !>
-!! @brief Read and apply optical properties of aerosol climatology by S. Kinne
+!! @brief Read and apply monthly aerosol optical properties of S. Kinne
+!! from yearly files.
 !!
 !! @author J.S. Rast (MPI-M)
 !!
@@ -14,7 +15,7 @@
 !! headers of the routines.
 !!
 
-MODULE mo_aero_kinne
+MODULE mo_bc_aeropt_kinne
 
   USE mo_kind,                 ONLY: wp
   USE mo_model_domain,         ONLY: t_patch
@@ -23,7 +24,7 @@ MODULE mo_aero_kinne
   USE mo_srtm_config,          ONLY: nbndsw=>jpsw
   USE mo_exception,            ONLY: finish
   USE mo_netcdf_read,          ONLY: netcdf_open_input, netcdf_close, &
-    & netcdf_read_3d_time, netcdf_read_0D_real
+    &                                netcdf_read_3d_time, netcdf_read_0D_real
   USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
   USE mo_physical_constants,   ONLY: grav, rgrav, rd
   USE mo_echam_phy_memory,     ONLY: prm_field
@@ -31,8 +32,7 @@ MODULE mo_aero_kinne
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC                           :: read_aero_kinne, &
-                                   &  set_aop_kinne 
+  PUBLIC                           :: read_bc_aeropt_kinne, set_bc_aeropt_kinne 
 
   REAL(wp), TARGET, ALLOCATABLE    :: aod_c_s(:,:,:,:), aod_f_s(:,:,:,:), &
                                       ssa_c_s(:,:,:,:), ssa_f_s(:,:,:,:), &
@@ -46,13 +46,12 @@ MODULE mo_aero_kinne
   INTEGER, PARAMETER               :: lev_clim=40, nmonths=12
   REAL(wp)                         :: dz_clim
   REAL(wp)                         :: rdz_clim
-  LOGICAL                          :: laero_set=.false.
 
 CONTAINS
   !>
-  !! SUBROUTINE su_aero_kinne -- sets up the memory for fields in which
+  !! SUBROUTINE su_bc_aeropt_kinne -- sets up the memory for fields in which
   !! the aerosol optical properties are stored when needed
-SUBROUTINE su_aero_kinne(p_patch)
+SUBROUTINE su_bc_aeropt_kinne(p_patch)
 
   TYPE(t_patch), INTENT(in)       :: p_patch
 
@@ -84,12 +83,12 @@ SUBROUTINE su_aero_kinne(p_patch)
   asy_c_f(:,:,:,:)=0._wp
   z_km_aer_c_mo(:,:,:,:)=0._wp
   z_km_aer_f_mo(:,:,:,:)=0._wp
-END SUBROUTINE su_aero_kinne
+END SUBROUTINE su_bc_aeropt_kinne
 
-  !> SUBROUTINE shift_months_aero_kinne -- shifts December of current year into imonth=0 and 
+  !> SUBROUTINE shift_months_bc_aeropt_kinne -- shifts December of current year into imonth=0 and 
   !! January of the following year into imonth=1 (these months do not need to be read again.
 
-SUBROUTINE shift_months_aero_kinne
+SUBROUTINE shift_months_bc_aeropt_kinne
 
   aod_c_s(:,:,:,0:1)=aod_c_s(:,:,:,12:13)
   aod_f_s(:,:,:,0:1)=aod_f_s(:,:,:,12:13)
@@ -101,51 +100,46 @@ SUBROUTINE shift_months_aero_kinne
   ssa_c_f(:,:,:,0:1)=ssa_c_f(:,:,:,12:13)
   asy_c_f(:,:,:,0:1)=asy_c_f(:,:,:,12:13)
   
-END SUBROUTINE shift_months_aero_kinne
+END SUBROUTINE shift_months_bc_aeropt_kinne
 
-  !> SUBROUTINE read_aero_kinne -- read the aerosol optical properties 
+  !> SUBROUTINE read_bc_aeropt_kinne -- read the aerosol optical properties 
   !! of the Kinne aerosols
 
-SUBROUTINE read_aero_kinne(year, p_patch)
+SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
   
   INTEGER, INTENT(in)           :: year
   TYPE(t_patch), INTENT(in)     :: p_patch
 
   !LOCAL VARIABLES
-  INTEGER                       :: icurrentyear, inextyear
   INTEGER                       :: imonthb, imonthe
-  INTEGER                       :: zyrm1, zyr, zyrp1
-  LOGICAL                       :: lnewyear
-  CHARACTER(len=20)             :: cfname_base,cyr
-  CHARACTER(len=25)             :: cfname
 
   IF (year > pre_year) THEN
     IF (ALLOCATED(aod_c_s)) THEN
-      CALL shift_months_aero_kinne
+      CALL shift_months_bc_aeropt_kinne
       imonthb=2
       imonthe=13
     ELSE
-      CALL su_aero_kinne(p_patch)
+      CALL su_bc_aeropt_kinne(p_patch)
       imonthb=0
       imonthe=13
     ENDIF
-    CALL read_months_aero_kinne ( &
-                     'aod',            'ssa',            'asy',              'z_aer_coarse_mo',  &
-                     'delta_z',        'lnwl',           'lev',              imonthb,            &
-                     imonthe,          year,             'aero_coarse_sw',   p_patch             )
-    CALL read_months_aero_kinne ( &
-                     'aod',            'ssa',            'asy',              'z_aer_coarse_mo',  &
-                     'delta_z',        'lnwl',           'lev',              imonthb,            &
-                     imonthe,          year,             'aero_coarse_lw',   p_patch             )
-    CALL read_months_aero_kinne ( &
-                     'aod',            'ssa',            'asy',              'z_aer_fine_mo',    &
-                     'delta_z',        'lnwl',           'lev',              imonthb,            &
-                     imonthe,          year,             'aero_fine_sw',     p_patch             )
+    CALL read_months_bc_aeropt_kinne ( &
+                     'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
+                     'delta_z',        'lnwl',   'lev',                        imonthb,            &
+                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_coa', p_patch             )
+    CALL read_months_bc_aeropt_kinne ( &
+                     'aod',            'ssa',    'asy',                        'z_aer_coarse_mo',  &
+                     'delta_z',        'lnwl',   'lev',                        imonthb,            &
+                     imonthe,          year,     'bc_aeropt_kinne_lw_b16_coa', p_patch             )
+    CALL read_months_bc_aeropt_kinne ( &
+                     'aod',            'ssa',    'asy',                        'z_aer_fine_mo',    &
+                     'delta_z',        'lnwl',   'lev',                        imonthb,            &
+                     imonthe,          year,     'bc_aeropt_kinne_sw_b14_fin', p_patch             )
     rdz_clim=1._wp/dz_clim
   END IF    
-END SUBROUTINE read_aero_kinne
+END SUBROUTINE read_bc_aeropt_kinne
 !-------------------------------------------------------------------------
-!> SUBROUTINE set_aop_kinne
+!> SUBROUTINE set_bc_aeropt_kinne
 !! set aerosol optical properties for all wave length bands (solar and IR)
 !! in the case of the climatology of optical properties compiled by S.Kinne.
 !! The height profile is taken into account.
@@ -153,7 +147,7 @@ END SUBROUTINE read_aero_kinne
 !! !REVISION HISTORY:
 !! original source by J.S. Rast (2009-11-03) for echam6
 !! adapted to icon by J.S. Rast (2013-08-28)
-SUBROUTINE set_aop_kinne ( jg,                                            &
+SUBROUTINE set_bc_aeropt_kinne ( jg,                                      &
           & kproma,                 kbdim,              klev,             &
           & krow,                   nb_lw,              nb_sw,            &
           & paer_tau_lw_vr,         paer_tau_sw_vr,     paer_piz_sw_vr,   &
@@ -318,19 +312,18 @@ SUBROUTINE set_aop_kinne ( jg,                                            &
      END WHERE
   ENDDO
 !  WRITE(0,*) paer_tau_sw_vr(1:kproma,1,5)
-END SUBROUTINE set_aop_kinne
+END SUBROUTINE set_bc_aeropt_kinne
 !-------------------------------------------------------------------------
 ! 
-!> SUBROUTINE read_months_aero_kinne -- reads optical aerosol parameters from file containing
+!> SUBROUTINE read_months_bc_aeropt_kinne -- reads optical aerosol parameters from file containing
 !! aod, ssa, asy, aer_ex (altitude dependent extinction), dz_clim (layer 
 !! thickness in meters), lev_clim (number of levels), and (optional) surface 
 !! altitude in meters.
 !!
-SUBROUTINE read_months_aero_kinne ( &
+SUBROUTINE read_months_bc_aeropt_kinne ( &
   caod,             cssa,             casy,               caer_ex,         &
   cdz_clim,         cwldim,           clevdim,            imnthb,          &
-  imnthe,           iyear,            cfname,             p_patch,         &
-  casl             )
+  imnthe,           iyear,            cfname,             p_patch          )
 !
   CHARACTER(len=*), INTENT(in)   :: caod,    &! name of variable containing optical depth of column
                                     cssa,    &! name of variable containing single scattering albedo 
@@ -346,7 +339,6 @@ SUBROUTINE read_months_aero_kinne ( &
                                           ! of subsequent year is read
   CHARACTER(len=*), INTENT(in)   :: cfname   ! file name containing variables
   TYPE(t_patch), INTENT(in)      :: p_patch
-  CHARACTER(len=*), INTENT(in), OPTIONAL     :: casl ! name of variable containing altitude of layer centres
 
   INTEGER                        :: ifile_id, kmonthb, kmonthe, kreturn, ilen_cfname
   REAL(wp), POINTER              :: zvar(:,:,:,:)
@@ -355,25 +347,25 @@ SUBROUTINE read_months_aero_kinne ( &
   CHARACTER(LEN=512)             :: cfnameyear,cyear
 
   IF (imnthb < 0 .OR. imnthe < imnthb .OR. imnthe > 13 ) THEN
-    CALL finish ('read_months_aero_kinne in mo_aero_kinne', &
+    CALL finish ('read_months_bc_aeropt_kinne in mo_bc_aeropt_kinne', &
                  'months to be read outside valid range 0<=imnthb<=imnthe<=13, '// &
                  'imnthb='//TRIM(ADJUSTL(cimnthb))//', imnthe='//TRIM(ADJUSTL(cimnthe))) 
   END IF
   ilen_cfname=LEN_TRIM(cfname)
-  IF (cfname(1:ilen_cfname) == 'aero_coarse_sw') THEN
+  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_coa') THEN
     zaod=>aod_c_s
     zssa=>ssa_c_s
     zasy=>asy_c_s
     zaer_ex=>z_km_aer_c_mo
   END IF
-  IF (cfname(1:ilen_cfname) == 'aero_coarse_lw') THEN
+  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_lw_b16_coa') THEN
     zaod=>aod_c_f
     zssa=>ssa_c_f
     zasy=>asy_c_f
     zaer_ex=>z_km_aer_c_mo ! for the coarse mode, the altitude distribution is wavelength independent and
                            ! therefore for solar and long wave spectrum the same
   END IF
-  IF (cfname(1:ilen_cfname) == 'aero_fine_sw') THEN
+  IF (cfname(1:ilen_cfname) == 'bc_aeropt_kinne_sw_b14_fin') THEN
     zaod=>aod_f_s
     zssa=>ssa_f_s
     zasy=>asy_f_s
@@ -390,7 +382,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=12, &
                                 end_timestep=12 )
     CALL shape_check_fields(SHAPE(zaod(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zaod(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=cssa, &
@@ -399,7 +391,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=12, &                
                                 end_timestep=12 )
     CALL shape_check_fields(SHAPE(zssa(:,:,:,0:0)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zssa(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=casy, &
@@ -408,7 +400,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=12, &
                                 end_timestep=12 )
     CALL shape_check_fields(SHAPE(zasy(:,:,:,0:0)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zasy(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=caer_ex, &
@@ -417,7 +409,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=clevdim, start_timestep=12, &
                                 end_timestep=12 )
     CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,0:0)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_aero_kinne','mo_aero_kinne')
+                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zaer_ex(:,:,:,0)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     kreturn=netcdf_close(ifile_id)
@@ -435,7 +427,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=kmonthb, &           
                                 end_timestep=kmonthe )
     CALL shape_check_fields(SHAPE(zaod(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zaod(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=cssa, &
@@ -444,7 +436,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=kmonthb, &
                                 end_timestep=kmonthe )
     CALL shape_check_fields(SHAPE(zssa(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zssa(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=casy, &
@@ -453,7 +445,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=kmonthb, &
                                 end_timestep=kmonthe )
     CALL shape_check_fields(SHAPE(zasy(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zasy(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=caer_ex, &
@@ -462,7 +454,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=clevdim, start_timestep=kmonthb, &
                                 end_timestep=kmonthe )
     CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,kmonthb:kmonthe)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_aero_kinne','mo_aero_kinne')
+                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zaer_ex(:,:,:,kmonthb:kmonthe)=zvar
     DEALLOCATE(zvar)
     kreturn=netcdf_close(ifile_id)
@@ -478,7 +470,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=1, &
                                 end_timestep=1 )
     CALL shape_check_fields(SHAPE(zaod(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caod, &
-                                  'read_months_aero_kinne','mo_aero_kinne')    
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')    
     zaod(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=cssa, &
@@ -487,7 +479,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=1, &
                                 end_timestep=1 )
     CALL shape_check_fields(SHAPE(zssa(:,:,:,13:13)),SHAPE(zvar),cfnameyear,cssa, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zssa(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=casy, &
@@ -496,7 +488,7 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=cwldim, start_timestep=1, &
                                 end_timestep=1 )
     CALL shape_check_fields(SHAPE(zasy(:,:,:,13:13)),SHAPE(zvar),cfnameyear,casy, &
-                                  'read_months_aero_kinne','mo_aero_kinne')
+                                  'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zasy(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     zvar=>netcdf_read_3d_time ( file_id=ifile_id, variable_name=caer_ex, &
@@ -505,13 +497,13 @@ SUBROUTINE read_months_aero_kinne ( &
                                 levelsdim_name=clevdim, start_timestep=1, &
                                 end_timestep=1 )
     CALL shape_check_fields(SHAPE(zaer_ex(:,:,:,13:13)),SHAPE(zvar),cfnameyear,caer_ex, &
-                                 'read_months_aero_kinne','mo_aero_kinne')
+                                 'read_months_bc_aeropt_kinne','mo_bc_aeropt_kinne')
     zaer_ex(:,:,:,13)=zvar(:,:,:,1)
     DEALLOCATE(zvar)
     dz_clim = netcdf_read_0D_real (file_id=ifile_id, variable_name=cdz_clim)
     kreturn=netcdf_close(ifile_id)
   END IF
-  END SUBROUTINE read_months_aero_kinne
+  END SUBROUTINE read_months_bc_aeropt_kinne
 !-------------------------------------------------------------------------
 ! 
 !> SUBROUTINE size_check_zerofields -- checks the shape of the shape of the 
@@ -540,4 +532,4 @@ SUBROUTINE read_months_aero_kinne ( &
       END IF
     END DO
   END SUBROUTINE shape_check_fields
-END MODULE mo_aero_kinne
+END MODULE mo_bc_aeropt_kinne

@@ -16,16 +16,14 @@
 !! headers of the routines.
 !!
 
-MODULE mo_aero_stenchikov
+MODULE mo_bc_aeropt_stenchikov
 
   USE mo_kind,                   ONLY: wp
-  USE mo_model_domain,           ONLY: t_patch
-  USE mo_parallel_config,        ONLY: nproma
   USE mo_lrtm_par,               ONLY: nbndlw
   USE mo_srtm_config,            ONLY: nbndsw=>jpsw
   USE mo_exception,              ONLY: finish
   USE mo_netcdf_read,            ONLY: netcdf_open_input, netcdf_close, &
-    & netcdf_read_2d_time, netcdf_read_3d_time, netcdf_read_1d
+    &                                  netcdf_read_3d_time, netcdf_read_2d_time, netcdf_read_1d
   USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
@@ -34,7 +32,7 @@ MODULE mo_aero_stenchikov
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC                           :: read_aero_stenchikov, add_aop_stenchikov
+  PUBLIC                           :: read_bc_aeropt_stenchikov, add_bc_aeropt_stenchikov
 
   INTERFACE reorder_stenchikov
     MODULE PROCEDURE reorder_stenchikov_2d
@@ -50,17 +48,16 @@ MODULE mo_aero_stenchikov
                                       ext_v_t(:,:,:,:), & ! volcanic EXT therm
                                       p_lim_clim(:),    & ! limit lev press. data
                                       r_lat_clim(:)       ! latitudes
-  REAL(wp)                         :: r_lat_shift, r_lat_max, r_rdeltalat
+  REAL(wp)                         :: r_lat_shift, r_rdeltalat
   INTEGER, SAVE                    :: inm2_time_interpolation=-999999
   INTEGER, PARAMETER               :: lev_clim=40, lat_clim=90, nmonths=2
   REAL(wp), PARAMETER              :: rdog=rd*rgrav
-  LOGICAL                          :: laero_set=.false.
 
 CONTAINS
   !>
   !! SUBROUTINE su_aero_kinne -- sets up the memory for fields in which
   !! the aerosol optical properties are stored when needed
-SUBROUTINE su_aero_stenchikov
+SUBROUTINE su_bc_aeropt_stenchikov
 
 ! allocate memory for optical properties
 
@@ -83,11 +80,11 @@ SUBROUTINE su_aero_stenchikov
   ext_v_t(:,:,:,:)=0._wp
   ssa_v_t(:,:,:,:)=0._wp
   p_lim_clim(lev_clim+1)=0._wp
-END SUBROUTINE su_aero_stenchikov
+END SUBROUTINE su_bc_aeropt_stenchikov
 
-  !> SUBROUTINE shift_months_aero_stenchikov -- shifts months in order to read a new one.
+  !> SUBROUTINE shift_months_bc_aeropt_stenchikov -- shifts months in order to read a new one.
 
-SUBROUTINE shift_months_aero_stenchikov
+SUBROUTINE shift_months_bc_aeropt_stenchikov
 
   aod_v_s(:,:,1)=aod_v_s(:,:,2)
   ext_v_s(:,:,:,1)=ext_v_s(:,:,:,2)
@@ -97,26 +94,21 @@ SUBROUTINE shift_months_aero_stenchikov
   ext_v_t(:,:,:,1)=ext_v_t(:,:,:,2)
   ssa_v_t(:,:,:,1)=ssa_v_t(:,:,:,2)
   
-END SUBROUTINE shift_months_aero_stenchikov
+END SUBROUTINE shift_months_bc_aeropt_stenchikov
 
-  !> SUBROUTINE read_aero_stenchikov -- read the aerosol optical properties 
+  !> SUBROUTINE read_bc_aeropt_stenchikov -- read the aerosol optical properties 
   !! of the volcanic (Stratospheric) Stenchikov aerosols
 
-SUBROUTINE read_aero_stenchikov(kyear, p_patch)
+SUBROUTINE read_bc_aeropt_stenchikov(kyear)
   
   INTEGER, INTENT(in)           :: kyear
-  TYPE(t_patch), INTENT(in)     :: p_patch
 
   !LOCAL VARIABLES
   INTEGER                       :: imonth(2), iyear(2), nmonths, imonths
-!!$  INTEGER                       :: zyrm1, zyr, zyrp1
-!!$  LOGICAL                       :: lnewyear
-  CHARACTER(len=20)             :: cfname_base,cyr
-  CHARACTER(len=25)             :: cfname
 
   IF (wi%inm2 == inm2_time_interpolation) RETURN
   IF (ALLOCATED(aod_v_s)) THEN
-    CALL shift_months_aero_stenchikov
+    CALL shift_months_bc_aeropt_stenchikov
     imonth(1)=wi%inm2
     iyear(1)=kyear
     IF (imonth(1) == 13 ) THEN
@@ -127,7 +119,7 @@ SUBROUTINE read_aero_stenchikov(kyear, p_patch)
     iyear(2)=iyear(1)
     nmonths=1
   ELSE
-    CALL su_aero_stenchikov
+    CALL su_bc_aeropt_stenchikov
     imonth(1)=wi%inm1
     imonth(2)=wi%inm2
     iyear(1)=kyear
@@ -144,14 +136,13 @@ SUBROUTINE read_aero_stenchikov(kyear, p_patch)
   ENDIF
   inm2_time_interpolation=wi%inm2
   DO imonths=1,nmonths
-  CALL read_months_aero_stenchikov ( &
-                     'tautl',            'exts',            'omega',              'asym',  &
-                     'levels',           'longitude',       'latitude',           'levels',&
-                     imonth(imonths),    iyear(imonths),    imonths                        )
+  CALL read_months_bc_aeropt_stenchikov ( &
+                     'longitude',       'latitude',           'levels',&
+                     imonth(imonths),    iyear(imonths),    imonths    )
   END DO
-END SUBROUTINE read_aero_stenchikov
+END SUBROUTINE read_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
-!> SUBROUTINE add_aop_stenchikov
+!> SUBROUTINE add_bc_aeropt_stenchikov
 
 !! add aerosol optical properties for all wave length bands (solar and IR)
 !! in the case of volcanic aerosols of Stenchikov
@@ -160,7 +151,7 @@ END SUBROUTINE read_aero_stenchikov
 !! !REVISION HISTORY:
 !! original source by J.S. Rast (2010-02-19)
 !! adapted to icon by J.S. Rast (2013-09-18)
-SUBROUTINE add_aop_stenchikov ( jg,                                       &
+SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       &
           & kproma,                 kbdim,              klev,             &
           & krow,                   nb_lw,              nb_sw,            &
           & paer_tau_lw_vr,         paer_tau_sw_vr,     paer_piz_sw_vr,   &
@@ -204,7 +195,6 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
   REAL(wp), DIMENSION(kbdim,klev,nb_lw) :: zext_t, zomg_t
   REAL(wp), DIMENSION(kbdim,nb_lw)      :: zaod_t, zext_t_int, zfact_t 
   REAL(wp)                              :: p_lat_shift, p_rdeltalat
-  INTEGER                               :: n_lat
   INTEGER                               :: jc
 
 ! It is assumed that the pressure levels of the climatology do not change with time but
@@ -222,7 +212,6 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
        & tk_fl(1:kproma,1:klev)/pp_fl(1:kproma,1:klev)*rdog
   p_lat_shift=r_lat_shift
   p_rdeltalat=r_rdeltalat
-  n_lat=lat_clim
   CALL latitude_weights_li(jg                                                   &
                         & ,kproma              ,kbdim            ,krow          &
                         & ,wgt1_lat            ,wgt2_lat         ,inmw1_lat     &
@@ -382,7 +371,7 @@ SUBROUTINE add_aop_stenchikov ( jg,                                       &
      ENDDO
   END DO  
 
-END SUBROUTINE add_aop_stenchikov
+END SUBROUTINE add_bc_aeropt_stenchikov
 
 !-------------------------------------------------------------------------
 ! 
@@ -432,7 +421,7 @@ END SUBROUTINE pressure_index
 
 !-------------------------------------------------------------------------
 ! 
-!> SUBROUTINE read_months_aero_stenchikov -- reads optical aerosol parameters from 
+!> SUBROUTINE read_months_bc_aeropt_stenchikov -- reads optical aerosol parameters from 
 !    original file containing the following quantities (attention: longitude means wavelengths!)
 !!   tautl: monthly average of zonal mean total aod for all wavelengths tautl(time, latitude, longitude) 
 !!   exts: extinction for each level corresp. to tautl in 1/m: exts(time, levels, latitude, longitude) 
@@ -440,19 +429,11 @@ END SUBROUTINE pressure_index
 !!   asymm: asymmetry fractor corresp. to tautl: asymm(time, levels, latitude, longitude)
 !!   levels: non-equidistant pressure levels corresp. to exts, omega, asymm: levels(levels).
 !!     Only the mid-point pressures are given.
-  SUBROUTINE read_months_aero_stenchikov ( &
-    caod,             cext,             cssa,               casy,            &
-    clevels,          cwave_dim,        clat_dim,           clev_dim,        &
-    kmonth,           kyear,            ktime_step                           )
+  SUBROUTINE read_months_bc_aeropt_stenchikov ( &
+    cwave_dim,        clat_dim,           clev_dim,        &
+    kmonth,           kyear,            ktime_step         )
 !
-  CHARACTER(len=*), INTENT(in)   :: caod,       &! name of variable containing optical depth of column
-                                    cext,       &! name of variable containing level dependent extinction 
-                                    cssa,       &! name of variable containing level dependent 
-                                                 ! single scattering albedo
-                                    casy,       &! name of variable containing level dependent 
-                                                 ! asymmetry factor
-                                    clevels,    &! mid point pressure of levels (not equidistant)
-                                    cwave_dim,  &! name of wavelength dimension
+  CHARACTER(len=*), INTENT(in)   :: cwave_dim,  &! name of wavelength dimension
                                     clat_dim,   &! name of latitude dimension
                                     clev_dim     ! name of level dimension
   INTEGER, INTENT(in)            :: kmonth       ! number of month to be read
@@ -463,7 +444,6 @@ END SUBROUTINE pressure_index
   CHARACTER(len=32)              :: ckmonth,ckyear,ci_length,cj_length
   CHARACTER(len=256)             :: cdim_names(4)
 
-!!$  TYPE(t_patch), INTENT(in)      :: p_patch
 !!$  CHARACTER(len=*), INTENT(in), OPTIONAL     :: casl ! name of variable containing altitude of layer centres
 
   INTEGER                        :: ifile_id, kreturn
@@ -475,12 +455,12 @@ END SUBROUTINE pressure_index
 
   IF (kmonth < 1 .OR. kmonth > 12 ) THEN
     WRITE(ckmonth,*) kmonth
-    CALL finish ('read_months_aero_stenchikov in mo_aero_stenchikov', &
+    CALL finish ('read_months_bc_aeropt_stenchikov in mo_bc_aeropt_stenchikov', &
                  'month to be read outside valid range 1<=kmonth<=12, '// &
                  'kmonth='//TRIM(ADJUSTL(ckmonth))) 
   END IF
   WRITE(ckyear,*) kyear
-  cfname='sato'//TRIM(ADJUSTL(ckyear))//'.nc'
+  cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
   ifile_id=netcdf_open_input(cfname)
   cdim_names(1)=cwave_dim
   cdim_names(2)=clat_dim
@@ -507,7 +487,7 @@ END SUBROUTINE pressure_index
   IF (SIZE(zlat)/=lat_clim) THEN
     WRITE(ci_length,*) SIZE(zlat)
     WRITE(cj_length,*) lat_clim
-    CALL finish ('read_months_aero_stenchikov of mo_aero_stenchikov','lat_clim= '// &
+    CALL finish ('read_months_bc_aeropt_stenchikov of mo_bc_aeropt_stenchikov','lat_clim= '// &
                  TRIM(ADJUSTL(cj_length))//' expected but found '//TRIM(ADJUSTL(ci_length))// &
                  ' elements.')
   END IF
@@ -515,11 +495,10 @@ END SUBROUTINE pressure_index
   r_lat_clim(0)=0.0_wp
   r_lat_clim(lat_clim+1)=-pi_2
   r_lat_shift=r_lat_clim(1)                      ! this is the value at the N-pole (so +89)
-  r_lat_max=r_lat_clim(lat_clim)               ! this is the value at the S-pole (so -89)
   r_rdeltalat=ABS(1.0_wp/(r_lat_clim(2)-r_lat_clim(1)))
   DEALLOCATE(zpmid,zlat,zvar2d,zvar3d)
   kreturn=netcdf_close(ifile_id)
-  END SUBROUTINE read_months_aero_stenchikov
+  END SUBROUTINE read_months_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
 ! 
 !> SUBROUTINE reorder_stenchikov -- reorder dimensions and distribute on
@@ -538,7 +517,7 @@ END SUBROUTINE pressure_index
       var_solar => aod_v_s(:,:,time_step)
       var_thermal => aod_v_t(:,:,time_step)
     CASE DEFAULT 
-      CALL finish('reorder_stenchikov_2d of mo_aero_stenchikov', &
+      CALL finish('reorder_stenchikov_2d of mo_bc_aeropt_stenchikov', &
                   'Variable '//TRIM(ADJUSTL(cvar))//' unknown')
     END SELECT
     ! attention: the indices of var_solar and var_thermal are (1:nbnd{sw,lw},1:lat_clim+2)
@@ -577,7 +556,7 @@ END SUBROUTINE pressure_index
       var_solar => asy_v_s(:,:,:,time_step)
       IF (ASSOCIATED(var_thermal)) NULLIFY(var_thermal)
     CASE DEFAULT 
-      CALL finish('reorder_stenchikov_2d of mo_aero_stenchikov', &
+      CALL finish('reorder_stenchikov_2d of mo_bc_aeropt_stenchikov', &
                   'Variable '//TRIM(ADJUSTL(cvar))//' unknown')
     END SELECT
     ! attention: the indices of var_solar and var_thermal are (1:nbnd{sw,lw},1:lev_clim,1:lat_clim+2)
@@ -622,4 +601,4 @@ END SUBROUTINE pressure_index
 !-------------------------------------------------------------------------
 ! 
 
-END MODULE mo_aero_stenchikov
+END MODULE mo_bc_aeropt_stenchikov
