@@ -45,7 +45,7 @@ MODULE mo_name_list_output_init
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
-  USE mo_util_uuid,                         ONLY: t_uuid, uuid2char, uuid_data_length
+  USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: toupper, t_keyword_list, associate_keyword,     &
     &                                             with_keywords, insert_group,                    &
@@ -71,7 +71,7 @@ MODULE mo_name_list_output_init
     &                                             first_output_name_list,                         &
     &                                             add_var_desc
   USE mo_time_config,                       ONLY: time_config
-  USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
+  USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_dynamics_config,                   ONLY: iequations
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &

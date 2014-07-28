@@ -20,6 +20,7 @@ MODULE mo_util_cdi_table
   USE mo_impl_constants,   ONLY : MAX_CHAR_LENGTH
   USE mo_util_string,      ONLY : int2string
   USE mo_exception,        ONLY : finish
+  USE mo_util_uuid,        ONLY : t_uuid, char2uuid, uuid_unparse, uuid_string_length
   USE mtime,               ONLY : newDatetime, newTimedelta, datetime, timedelta, &
     &                             timedeltaToString, max_timedelta_str_len,       &
     &                             max_datetime_str_len, deallocateDatetime,       &
@@ -61,6 +62,8 @@ MODULE mo_util_cdi_table
   INTEGER, PARAMETER :: EXP_ID            = 15 
   INTEGER, PARAMETER :: GRID_ID           = 16
   INTEGER, PARAMETER :: NGRIDREF          = 17
+  INTEGER, PARAMETER :: H_UUID            = 18
+  INTEGER, PARAMETER :: V_UUID            = 19
 
   CHARACTER(LEN=*), PARAMETER :: DELIMITER     = ' | '
 
@@ -74,12 +77,13 @@ MODULE mo_util_cdi_table
   TYPE t_column
     CHARACTER(LEN=MAX_TITLE_LEN) :: title
     INTEGER                      :: id, width
+    LOGICAL                      :: lprint 
   END TYPE t_column
 
   !> Type definition for a complete table
   TYPE t_table
     INTEGER                      :: n_columns
-    TYPE (t_column)              :: column(MAX_TABLE_COLUMNS) 
+    TYPE (t_column)              :: column(MAX_TABLE_COLUMNS)
   END TYPE t_table
 
 
@@ -97,6 +101,8 @@ MODULE mo_util_cdi_table
     INTEGER                       :: gridInReference          ! GRIB2 numberOfGridInReference
     INTEGER                       :: typeOfGeneratingProcess  ! GRIB2 typeOfGeneratingProcess
     INTEGER                       :: typeOfFirstFixedSurface  ! typeOfFirstFixedSurface
+    TYPE(t_uuid)                  :: uuidOfHGrid              ! horizontal grid UUID
+    TYPE(t_uuid)                  :: uuidOfVGrid              ! vertical grid UUID
   END TYPE t_var_inventory_element
 
   TYPE t_inventory_element
@@ -120,20 +126,22 @@ CONTAINS
   SUBROUTINE setup_table_output(table)
     TYPE (t_table), INTENT(INOUT) :: table
 
-    table%n_columns = 12
-    !                           title      column ID        width
-    table%column( 1) = t_column("name",    GRIB2_SHORTNAME,  10)
-    table%column( 2) = t_column("triple",  GRIB2_TRIPLE,     11)
-    table%column( 3) = t_column("Vdate",   VALIDITY_DATE,    10)
-    table%column( 4) = t_column("Vtime",   VALIDITY_TIME,     8)
-    table%column( 5) = t_column("lvt",     LEVEL_TYPE,        3)
-    table%column( 6) = t_column("runtyp",  RUN_TYPE,          6)
-    table%column( 7) = t_column("vvmm",    TIME_VVMM,         6)
-    table%column( 8) = t_column("nlv",     NUM_LEVELS,        3)
-    table%column( 9) = t_column("clas",    RUN_CLASS,         4)
-    table%column(10) = t_column("expid",   EXP_ID,            5)
-    table%column(11) = t_column("grid",    GRID_ID,           5)
-    table%column(12) = t_column("rgrid",   NGRIDREF,          5)
+    table%n_columns = 14
+    !                           title            column ID        width   print
+    table%column( 1) = t_column("name",          GRIB2_SHORTNAME,  10,    .TRUE. )
+    table%column( 2) = t_column("triple",        GRIB2_TRIPLE,     11,    .TRUE. )
+    table%column( 3) = t_column("Vdate",         VALIDITY_DATE,    10,    .TRUE. )
+    table%column( 4) = t_column("Vtime",         VALIDITY_TIME,     8,    .TRUE. )
+    table%column( 5) = t_column("lvt",           LEVEL_TYPE,        3,    .TRUE. )
+    table%column( 6) = t_column("runtyp",        RUN_TYPE,          6,    .TRUE. )
+    table%column( 7) = t_column("vvmm",          TIME_VVMM,         6,    .TRUE. )
+    table%column( 8) = t_column("nlv",           NUM_LEVELS,        3,    .TRUE. )
+    table%column( 9) = t_column("clas",          RUN_CLASS,         4,    .TRUE. )
+    table%column(10) = t_column("expid",         EXP_ID,            5,    .TRUE. )
+    table%column(11) = t_column("grid",          GRID_ID,           5,    .TRUE. )
+    table%column(12) = t_column("rgrid",         NGRIDREF,          5,    .TRUE. )
+    table%column(13) = t_column("uuidOfHGrid",   H_UUID,           11,    .FALSE.)
+    table%column(14) = t_column("uuidOfVGrid",   V_UUID,           11,    .FALSE.)
   END SUBROUTINE setup_table_output
 
 
@@ -158,6 +166,9 @@ CONTAINS
     INTEGER :: vdate, vtime, rdate, rtime,          &
       &        hour, minute, second,                &
       &        year, month, day
+    TYPE(t_uuid)             :: uuidOfHGrid, uuidOfVGrid
+    CHARACTER(len=1)         :: uuid_string(16)
+    CHARACTER(len=uuid_string_length) :: uuid_unparsed
     TYPE(datetime),  POINTER :: mtime_vdatetime, mtime_rdatetime
     TYPE(timedelta), POINTER :: forecast_time
     CHARACTER(len=max_timedelta_str_len) :: forecast_time_string
@@ -283,6 +294,23 @@ CONTAINS
       ingridref = gridInqPosition(gridID)
       WRITE (entry_str, "(i"//trim(wdth)//")") ingridref
       !
+    CASE(H_UUID)
+      gridID = vlistInqVarGrid(vlistID, ivar)
+      CALL gridInqUUID(gridID, uuid_string)
+      CALL char2uuid(uuid_string, uuidOfHGrid)      ! Char array to uuid of type t_uuid
+      CALL uuid_unparse(uuidOfHGrid, uuid_unparsed) ! uuid of type t_uuid to character string
+      entry_str = TRIM(uuid_unparsed)
+      IF (PRESENT(opt_list_element)) opt_list_element%field%uuidOfHGrid = uuidOfHGrid
+      !
+    CASE(V_UUID)
+      !
+      zaxisID = vlistInqVarZaxis(vlistID, ivar)
+      CALL zaxisInqUUID(zaxisID, uuid_string)
+      CALL char2uuid(uuid_string, uuidOfVGrid)      ! Char array to uuid of type t_uuid
+      CALL uuid_unparse(uuidOfVGrid, uuid_unparsed) ! uuid of type t_uuid to character string
+      entry_str = TRIM(uuid_unparsed)
+      IF (PRESENT(opt_list_element)) opt_list_element%field%uuidOfVGrid = uuidOfVGrid
+      !
     CASE DEFAULT
       CALL finish(routine, "Internal error: Unknown table column!")
     END SELECT
@@ -320,6 +348,7 @@ CONTAINS
     WRITE (dst,*) "" ! new line
     line_len = 0
     DO icol = 1, table%n_columns
+      IF (.NOT. table%column(icol)%lprint) CYCLE
       title_str = table%column(icol)%title
       width = table%column(icol)%width
       format_str = "(a"//TRIM(int2string(width))//',a)'
@@ -339,16 +368,6 @@ CONTAINS
         ! create new list element and append
         CALL append_inventory_list_element(opt_dstlist, new_list_element)
         current_list_element => new_list_element
-
-!!$        IF (.NOT. ASSOCIATED(current_list_element)) THEN
-!!$          IF (.NOT. ASSOCIATED(opt_dstlist%p%first_list_element)) THEN
-!!$            CALL create_inventory_list_element(opt_dstlist, opt_dstlist%p%first_list_element)
-!!$          ENDIF
-!!$          current_list_element => opt_dstlist%p%first_list_element
-!!$        ELSE
-!!$          CALL create_inventory_list_element(opt_dstlist, current_list_element%next_list_element)
-!!$          current_list_element => current_list_element%next_list_element
-!!$        ENDIF
       ENDIF
 
       DO icol = 1, table%n_columns
@@ -358,7 +377,9 @@ CONTAINS
           &                  opt_list_element=current_list_element ) ! inout
 
         format_str = "(a"//TRIM(int2string(table%column(icol)%width))//',a'//")"
-        WRITE (dst,TRIM(format_str), advance='no') entry_str, DELIMITER
+        IF (table%column(icol)%lprint) THEN
+          WRITE (dst,TRIM(format_str), advance='no') entry_str, DELIMITER
+        ENDIF
       END DO
 
       WRITE (dst,*) "" ! new line
