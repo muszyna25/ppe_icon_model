@@ -21,11 +21,13 @@ MODULE mo_util_cdi_table
   USE mo_util_string,      ONLY : int2string
   USE mo_exception,        ONLY : finish
   USE mo_util_uuid,        ONLY : t_uuid, char2uuid, uuid_unparse, uuid_string_length
+  USE mo_util_hash,        ONLY : util_hashword
   USE mtime,               ONLY : newDatetime, newTimedelta, datetime, timedelta, &
     &                             timedeltaToString, max_timedelta_str_len,       &
     &                             max_datetime_str_len, deallocateDatetime,       &
     &                             deallocateTimedelta
   USE mo_mtime_extensions, ONLY : getTimeDeltaFromDateTime
+  USE mo_dictionary,       ONLY : t_dictionary, dict_get
 
 
   IMPLICIT NONE
@@ -34,7 +36,9 @@ MODULE mo_util_cdi_table
   PRIVATE
   PUBLIC  :: print_cdi_summary
   PUBLIC  :: new_inventory_list
+  PUBLIC  :: complete_inventory_list
   PUBLIC  :: delete_inventory_list
+  PUBLIC  :: find_inventory_list_element
 
   PUBLIC  :: t_inventory_list
   PUBLIC  :: t_inventory_element
@@ -89,6 +93,7 @@ MODULE mo_util_cdi_table
 
   TYPE t_var_inventory_element
     CHARACTER(len=128)            :: name                     ! variable name
+    INTEGER                       :: key                      ! hash value of name (for fast search)
     INTEGER                       :: discipline               ! GRIB2 discipline
     INTEGER                       :: category                 ! GRIB2 category
     INTEGER                       :: number                   ! GRIB2 number
@@ -112,6 +117,7 @@ MODULE mo_util_cdi_table
 
   TYPE t_inventory_list_intrinsic
     INTEGER                            :: list_elements      ! allocated elements
+    INTEGER                            :: filetype           ! CDI filetypeID
     TYPE(t_inventory_element), POINTER :: first_list_element ! reference to first 
   END TYPE t_inventory_list_intrinsic
   
@@ -388,6 +394,7 @@ CONTAINS
   END SUBROUTINE print_cdi_summary
 
 
+
   !-------------
   !>
   !! SUBROUTINE new_inventory_list
@@ -406,8 +413,10 @@ CONTAINS
     ALLOCATE(this_list%p)
 
     this_list%p%list_elements       = 0
+    this_list%p%filetype            = -999
     this_list%p%first_list_element  => NULL()
   END SUBROUTINE new_inventory_list
+
 
 
   !-------------
@@ -436,6 +445,7 @@ CONTAINS
     current_list_element%next_list_element => NULL()
     
   END SUBROUTINE create_inventory_list_element
+
 
 
   !-------------
@@ -480,6 +490,51 @@ CONTAINS
   END SUBROUTINE append_inventory_list_element
 
 
+
+  !-------------
+  !>
+  !! SUBROUTINE complete_inventory_list
+  !! Names are translated into internal names, in case that GRIB2 fields 
+  !! are read in. In addition, a hash value is created for those names 
+  !! for search speed up.
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-07-28)
+  !!
+  !!
+  SUBROUTINE complete_inventory_list(filetype, dict, this_list)
+    INTEGER,                INTENT(IN)    :: filetype    ! CDI filetype ID
+    TYPE(t_dictionary),     INTENT(IN)    :: dict        ! dictionary
+    TYPE(t_inventory_list), INTENT(INOUT) :: this_list
+    TYPE(t_inventory_element), POINTER    :: current_element
+
+    ! store information on filetype
+    this_list%p%filetype = filetype
+
+    current_element => this_list%p%first_list_element
+
+    DO WHILE (ASSOCIATED(current_element))
+      ! In case of GRIB2 translate GRIB2 varname to netcdf varname and add to group
+      IF (this_list%p%filetype == FILETYPE_GRB2) THEN
+        ! GRIB2 -> Netcdf
+        !
+        current_element%field%name = TRIM(dict_get(dict,                       &
+          &                          TRIM(current_element%field%name),         &
+          &                          default=TRIM(current_element%field%name), &
+          &                          linverse=.TRUE.))
+      ENDIF
+      !
+      ! create hash value
+      current_element%field%key = util_hashword(current_element%field%name, &
+        &                         LEN_TRIM(current_element%field%name), 0)
+
+      current_element => current_element%next_list_element
+    ENDDO
+
+  END SUBROUTINE complete_inventory_list
+
+
+
   !-------------
   !>
   !! SUBROUTINE delete_inventory_list
@@ -502,6 +557,7 @@ CONTAINS
       DEALLOCATE(this_list%p)
     ENDIF
   END SUBROUTINE delete_inventory_list
+
 
 
   !-------------
@@ -532,6 +588,41 @@ CONTAINS
      END DO
 
   END SUBROUTINE delete_inventory_list_elements
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE find_inventory_list_element
+  !! Find element with matching name 
+  !!
+  !! @par Revision History
+  !! Initial version by Luis Kornblueh, MPI (2011-??-??)
+  !! - Modification by Daniel Reinert, DWD  (2014-07-28)
+  !!   Adapted to inventory lists
+  !!
+  !!
+  FUNCTION find_inventory_list_element (this_list, name) RESULT(this_list_element)
+    !
+    TYPE(t_inventory_list),   INTENT(in) :: this_list
+    CHARACTER(len=*),         INTENT(in) :: name
+    !  
+    TYPE(t_inventory_element), POINTER :: this_list_element
+    INTEGER :: key
+    !
+    key = util_hashword(name, LEN_TRIM(name), 0)
+    !
+    this_list_element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(this_list_element))
+      IF (key == this_list_element%field%key) THEN
+        RETURN
+      ENDIF
+      this_list_element => this_list_element%next_list_element
+    ENDDO
+    !
+    NULLIFY (this_list_element)
+    !
+  END FUNCTION find_inventory_list_element
 
 
 END MODULE mo_util_cdi_table

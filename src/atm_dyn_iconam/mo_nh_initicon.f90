@@ -81,7 +81,7 @@ MODULE mo_nh_initicon
     &                               streamOpenRead, cdiInqMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, t_inventory_list, t_inventory_element, &
-    &                               new_inventory_list, delete_inventory_list 
+    &                               new_inventory_list, delete_inventory_list, complete_inventory_list
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
     &                               t_bool_table
   USE mo_flake,               ONLY: flake_coldinit
@@ -435,6 +435,7 @@ MODULE mo_nh_initicon
 
         ! print inventory and store in linked list
         CALL print_cdi_summary(vlistID, opt_dstlist=inventory_list_fg(jg))
+        CALL complete_inventory_list(filetype_fg(jg), ana_varnames_dict, inventory_list_fg(jg) )
 
       END DO
 
@@ -477,6 +478,7 @@ MODULE mo_nh_initicon
 
           ! print inventory and store in linked list
           CALL print_cdi_summary(vlistID, opt_dstlist=inventory_list_ana(jg))
+          CALL complete_inventory_list(filetype_ana(jg), ana_varnames_dict, inventory_list_ana(jg) )
 
         END DO
       ENDIF  ! lread_ana
@@ -1261,47 +1263,29 @@ MODULE mo_nh_initicon
       !========================================================
 
       ! get ANA-file varnames from inventory list (surface fields, only)
+      ! Translation to internal names has already been performed in
+      ! complete_inventory_list
       !
       IF (lread_ana) THEN  ! skip, when starting from first guess, only
         nelement = 0
         current_element => inventory_list_ana(jg)%p%first_list_element
         DO WHILE (ASSOCIATED(current_element))
           nelement = nelement + 1
-          !
-          ! In case of GRIB2 translate GRIB2 varname to netcdf varname and add to group
-          IF (filetype_ana(1) == FILETYPE_GRB2) THEN
-            ! GRIB2 -> Netcdf
-            grp_vars_anafile(nelement) = TRIM(dict_get(ana_varnames_dict,          &
-              &                          TRIM(current_element%field%name),         &
-              &                          default=TRIM(current_element%field%name), &
-              &                          linverse=.TRUE.))
-          ELSE IF (filetype_fg(1) == FILETYPE_NC2) THEN
-            grp_vars_anafile(nelement) = TRIM(current_element%field%name)
-          ENDIF
-
+          grp_vars_anafile(nelement) = TRIM(current_element%field%name)
           current_element => current_element%next_list_element
         ENDDO
       ENDIF
 
 
       ! get FG-file varnames from inventory list
+      ! Translation to internal names has already been performed in
+      ! complete_inventory_list
       !
       nelement = 0
       current_element => inventory_list_fg(jg)%p%first_list_element
       DO WHILE (ASSOCIATED(current_element))
         nelement = nelement + 1
-        !
-        ! In case of GRIB2 translate GRIB2 varname to netcdf varname and add to group
-        IF (filetype_fg(1) == FILETYPE_GRB2) THEN
-          ! GRIB2 -> Netcdf
-          grp_vars_fgfile(nelement) = TRIM(dict_get(ana_varnames_dict,          &
-            &                         TRIM(current_element%field%name),         &
-            &                         default=TRIM(current_element%field%name), &
-            &                         linverse=.TRUE.))
-        ELSE IF (filetype_fg(1) == FILETYPE_NC2) THEN
-          grp_vars_fgfile(nelement) = TRIM(current_element%field%name)
-        ENDIF
-
+        grp_vars_fgfile(nelement) = TRIM(current_element%field%name)
         current_element => current_element%next_list_element
       ENDDO
 
