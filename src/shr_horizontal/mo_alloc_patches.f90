@@ -38,7 +38,7 @@ MODULE mo_alloc_patches
   USE mo_parallel_config,    ONLY: nproma
   USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-    & radiation_grid_filename, lplane
+    & radiation_grid_filename, lplane, lsep_grfinfo
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_mpi,                ONLY: my_process_is_mpi_seq
@@ -69,7 +69,7 @@ CONTAINS
 
     TYPE(t_pre_patch), TARGET, INTENT(inout) :: p_patch_pre(n_dom_start:)
 
-    INTEGER :: jg
+    INTEGER :: jg, iind
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     !-----------------------------------------------------------------------
@@ -81,7 +81,9 @@ CONTAINS
       ELSE
         p_patch_pre(jg)%grid_filename = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
       ENDIF
-      !     write(0,*) jg, "grid_filename:",TRIM(p_patch_pre(jg)%grid_filename)
+      iind = INDEX(TRIM(p_patch_pre(jg)%grid_filename),'.nc')
+      p_patch_pre(jg)%grid_filename_grfinfo = p_patch_pre(jg)%grid_filename(1:iind-1)//"-grfinfo.nc"
+
     ENDDO
 
   END SUBROUTINE set_patches_grid_filename

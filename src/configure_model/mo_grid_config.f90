@@ -41,7 +41,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PUBLIC :: init_grid_configuration, get_grid_rescale_factor
   PUBLIC :: max_rad_dom
-  PUBLIC :: nroot, start_lev, n_dom, lfeedback,       &
+  PUBLIC :: nroot, start_lev, n_dom, lfeedback, lsep_grfinfo,      &
     &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
@@ -84,7 +84,8 @@ INCLUDE 'netcdf.inc'
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
   LOGICAL  :: l_limited_area
-
+  LOGICAL  :: lsep_grfinfo             ! If .true., read fields related to grid refinement from separate 
+                                       ! grid files
   LOGICAL  :: use_duplicated_connectivity  = .true.  ! if true, the zero connectivity is replaced by the last non-zero value
   LOGICAL  :: use_dummy_cell_closure = .false.  ! if true then create a dummy cell and connect it to cells and edges with no neigbor
    

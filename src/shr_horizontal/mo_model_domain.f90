@@ -722,7 +722,7 @@ MODULE mo_model_domain
     !
     ! !  level in grid hierarchy on which patch lives
     !
-    CHARACTER(LEN=filename_max) :: grid_filename
+    CHARACTER(LEN=filename_max) :: grid_filename, grid_filename_grfinfo
     !
     ! uuid of grid
     TYPE(t_uuid) :: grid_uuid
@@ -917,7 +917,7 @@ MODULE mo_model_domain
     !
     ! !  level in grid hierarchy on which patch lives
     !
-    CHARACTER(LEN=filename_max) :: grid_filename
+    CHARACTER(LEN=filename_max) :: grid_filename, grid_filename_grfinfo
     !
     ! uuid of grid
     TYPE(t_uuid) :: grid_uuid

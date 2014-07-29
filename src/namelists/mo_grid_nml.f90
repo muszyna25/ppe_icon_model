@@ -44,6 +44,7 @@ MODULE mo_grid_nml
     & config_l_limited_area               => l_limited_area,                &
     & config_patch_weight                 => patch_weight,                  &
     & config_lredgrid_phys                => lredgrid_phys,                 &
+    & config_lsep_grfinfo                 => lsep_grfinfo,                  &
     & config_dynamics_grid_filename       => dynamics_grid_filename,        &
     & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,       &
     & config_radiation_grid_filename      => radiation_grid_filename,       &
@@ -96,7 +97,8 @@ MODULE mo_grid_nml
     REAL(wp)   :: end_time(max_dom)        ! time at which execution of a (nested) model domain terminates
     LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
     LOGICAL    :: l_limited_area            
-
+    LOGICAL    :: lsep_grfinfo             ! If .true., read fields related to grid refinement from separate 
+                                           ! grid files
     LOGICAL    :: use_duplicated_connectivity ! if true, the zero connectivity is replaced by the last non-zero value
     LOGICAL    :: use_dummy_cell_closure ! if true then create a dummy cell and connect it to cells and edges with no neigbor
 
@@ -124,7 +126,7 @@ MODULE mo_grid_nml
 
     NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
       &  lplane, is_plane_torus, corio_lat, l_limited_area,        &
-      &  grid_rescale_factor,                                      &
+      &  grid_rescale_factor, lsep_grfinfo,                        &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename, dynamics_radiation_grid_link,    &
@@ -162,6 +164,7 @@ MODULE mo_grid_nml
     lplane         = .FALSE.
     is_plane_torus = .FALSE.
     l_limited_area = .FALSE.
+    lsep_grfinfo   = .FALSE.
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
     lredgrid_phys = .FALSE.
@@ -234,6 +237,7 @@ MODULE mo_grid_nml
     config_l_limited_area    = l_limited_area
     config_patch_weight      = patch_weight
     config_lredgrid_phys     = lredgrid_phys
+    config_lsep_grfinfo      = lsep_grfinfo
     config_use_duplicated_connectivity = use_duplicated_connectivity
     config_use_dummy_cell_closure      = use_dummy_cell_closure
     config_dynamics_grid_filename  = dynamics_grid_filename
