@@ -1,16 +1,5 @@
 !>
-!! @page pagecontrolmodelf901 ICON Master Program
-!!
-!!
-!! @author
-!!     Leonidas Linardakis, Luis KOrnblueh
-!!     (MPI-M)
-!!
-!! @date 2013-06-04
-!!
-
-!>
-!! This is the master progam of the ICON model.
+!! This is the master program of the ICON model.
 !!
 !!
 !! @par Revision History
@@ -24,7 +13,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-PROGRAM control_model
+PROGRAM icon
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
@@ -41,13 +30,13 @@ PROGRAM control_model
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
-  USE mo_master_control,      ONLY: init_master_control,  &
-    & get_my_namelist_filename, get_my_process_type,      &
-    & testbed_process,  atmo_process, ocean_process!, radiation_process
+  USE mo_master_control,      ONLY: init_master_control,                                &
+    &                               get_my_namelist_filename, get_my_process_type,      &
+    &                               testbed_process,  atmo_process, ocean_process
   USE mo_time_config,         ONLY: restart_experiment
   USE mo_util_signal
-  USE mo_util_vcs,            ONLY: util_repository_url, &
-       &                            util_branch_name,    &
+  USE mo_util_vcs,            ONLY: util_repository_url,                                &
+       &                            util_branch_name,                                   &
        &                            util_revision_key
 
 #ifndef __NO_ICON_OCEAN__
@@ -72,31 +61,25 @@ PROGRAM control_model
 
   IMPLICIT NONE
 
-  INTEGER    :: master_control_status
-  
-  INTEGER    :: my_process_component
-
+  INTEGER                     :: master_control_status, my_process_component, nlen
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
-
-  CHARACTER(len=256) :: repository = ''
-  CHARACTER(len=256) :: branch = ''
-  CHARACTER(len=256) :: revision = ''
-  
-  INTEGER :: nlen
+  CHARACTER(len=256)          :: repository = ''
+  CHARACTER(len=256)          :: branch = ''
+  CHARACTER(len=256)          :: revision = ''
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
-  TYPE(ieee_status_type) :: saved_fpscr
-  LOGICAL :: halting_mode,  current_flags(size(ieee_all))
-  REAL(wp) :: r
+  TYPE(ieee_status_type)      :: saved_fpscr
+  LOGICAL                     :: halting_mode,  current_flags(size(ieee_all))
+  REAL(wp)                    :: r
 #endif
 #endif
 
 #if defined (__xlC__)
-  INTEGER :: core_dump_flag
-  INTEGER :: signals(1)
-  INTEGER :: iret
+  INTEGER                     :: core_dump_flag
+  INTEGER                     :: signals(1)
+  INTEGER                     :: iret
 #endif
 
 !--------------------------------------------------------------------
@@ -232,4 +215,4 @@ PROGRAM control_model
 #endif
 #endif
 
-END PROGRAM control_model
+END PROGRAM icon
