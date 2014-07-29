@@ -190,7 +190,7 @@ PROGRAM icon
 #endif
 
   CASE default
-    CALL finish("control_model","my_process_component is unkown")
+    CALL finish("icon","my_process_component is unkown")
     
   END SELECT
       

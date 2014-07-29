@@ -239,7 +239,7 @@ fi
 #
 #  get model
 #
-export MODEL=${bindir}/control_model
+export MODEL=${bindir}/icon
 #
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"

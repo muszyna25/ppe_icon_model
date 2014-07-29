@@ -88,13 +88,13 @@ all:
 	    fi ; \
 	    cd $$back ; \
 	  done 
-control:
+model:
 	@for DIR in $(OBJDIRS) ;\
 	  do LASTDIR=$$DIR ;\
 	done ;\
 	back=`pwd` ;\
 	cd $$LASTDIR ;\
-	$(MAKE) control_model  ;\
+	$(MAKE) icon  ;\
 	cd $$back
 
 one:
