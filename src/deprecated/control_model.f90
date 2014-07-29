@@ -156,6 +156,34 @@ PROGRAM control_model
 #endif
 
   !-------------------------------------------------------------------
+  ! PRINT "DEPRECTATED" WARNING
+  !-------------------------------------------------------------------
+  IF (my_process_is_global_root()) THEN
+
+    WRITE (0,*) "  -----------------------------------------------"
+    WRITE (0,*) "    ___  ___ ___ ___ ___ ___   _ _____ ___ ___   "
+    WRITE (0,*) "   |   \| __| _ \ _ \ __/ __| /_\_   _| __|   \  "
+    WRITE (0,*) "   | |) | _||  _/   / _| (__ / _ \| | | _|| |) | "
+    WRITE (0,*) "   |___/|___|_| |_|_\___\___/_/ \_\_| |___|___/  "
+    WRITE (0,*) "                                                 "
+    WRITE (0,*) "  -----------------------------------------------"
+    WRITE (0,*) "                                                 "
+    WRITE (0,*) "       ICON'S MAIN PROGRAM HAS BEEN RENAMED!     "
+    WRITE (0,*) "                                                 "
+    WRITE (0,*) "             control_model  ->  icon             "
+    WRITE (0,*) "                                                 "
+    WRITE (0,*) "     PLEASE CHANGE YOUR RUN SCRIPT ACCORDINGLY.  "
+    WRITE (0,*) "                                                 "
+    WRITE (0,*) "     In future versions the control_model        "
+    WRITE (0,*) "     executable will be REMOVED!                 "
+    WRITE (0,*) "                      	                          "
+    WRITE (0,*) "  -----------------------------------------------"
+
+  END IF
+  !-------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------
   ! Print VCS version
   IF (my_process_is_global_root()) THEN
 
