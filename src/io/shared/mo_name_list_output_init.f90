@@ -2284,6 +2284,10 @@ CONTAINS
       CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
       !
       ! UUID not yet available - write dummy UUID
+      !
+      ! TODO: replace by "vgrid_buffer(p_patch%id)%uuid(:)"
+      !       remove variable "uuidOfVGrid_string"
+
       CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference), uuidOfVGrid_string ) !uuidOfVGrid
       DEALLOCATE(lbounds, ubounds, levels)
 

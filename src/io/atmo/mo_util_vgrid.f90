@@ -186,6 +186,16 @@ CONTAINS
             CALL write_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), "vgrid_DOM"//TRIM(int2string(jg, "(i2.2)"))//".nc")
           END DO
         ENDIF
+
+        ! set dummy UUID for vertical grid which has been generated
+        ! on-the-fly:
+
+        ! IF (my_process_is_mpi_workroot()) THEN
+        !   ! fill UUID with zero-bytes  
+        !   vgrid_buffer(p_patch%id)%uuid(:) = ACHAR(0)
+        ! end if
+        ! CALL p_bcast(vgrid_buffer(p_patch%id)%uuid, p_io, p_comm_work)
+
       ELSE
 
         !--- The user has provided an external vertical grid file; we read its
@@ -200,7 +210,7 @@ CONTAINS
 
         END DO
 
-      END IF
+      END IF 
     END IF
 
   END SUBROUTINE construct_vertical_grid
@@ -331,6 +341,12 @@ CONTAINS
   !!
   !! Output of this subroutine are:
   !!   vct_a, vct_b, vgrid_buffer%z_ifc
+  !!
+  !! TODO:
+  !!  - compare horizontal UUID contained in the vertical grid file
+  !!    with the UUID of the horizontal grid file.
+  !!
+  !!  - read-in of vertical grid UUID
   !!
   SUBROUTINE read_vgrid_file(p_patch, vct_a, vct_b, nflat, filename)
     TYPE(t_patch),          INTENT(IN)    :: p_patch
