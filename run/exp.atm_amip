@@ -178,19 +178,19 @@ EOF
 
 # model files
 #
-add_link_file ${basedir}/data/rrtmg_lw.nc                         ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc               ./
+add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
 #
-add_required_file ${basedir}/run/${atmo_namelist}                 ./
-add_required_file ${basedir}/run/${lnd_namelist}                  ./
+add_required_file ${basedir}/run/${atmo_namelist}                       ./
+add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 rm -f ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                     ./
+add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
@@ -198,24 +198,24 @@ INDATA=/pool/data/ICON/input/r0002
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=$INDATA/../../setup
-add_link_file $datadir/prepiconR2B04_DOM01_ERA_INT_AMIP.nc        ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/prepiconR2B04_DOM01_ERA_INT_AMIP.nc              ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
 datadir=$INDATA/r2b4_amip/lnd
-add_link_file ${datadir}/ic_land_soil_1976.nc                     ./ic_land_soil.nc
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
 # - well mixed greenhouse gases
 datadir=$INDATA/global/atm
-add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc           ./bc_greenhouse_gases.nc
+add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
 year=1978
 while [[ $year -le 1990 ]]
 do
   datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
-  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                ./bc_ozone_${year}.nc
+  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
 #
@@ -224,9 +224,9 @@ done
 ##while [[ $year -le 1990 ]]
 ##do
 ##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
-##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc            ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc            ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc    ./
+##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc          ./
 ##  (( year = year+1 ))
 ##done
 #
@@ -241,19 +241,19 @@ done
 #
 # - sst and sic
 datadir=$INDATA/r2b4_amip/oce
-add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                  ./bc_sic.nc
-add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                  ./bc_sst.nc
+add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
+add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
 #
 # - ssi and tsi
 datadir=$INDATA/global/sun
-add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc    ./bc_solar_irradiance_sw_b14.nc
+add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
 datadir=$INDATA/r2b4_amip/lnd
-add_link_file $datadir/bc_land_frac_1976.nc                       ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_1976.nc                       ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_1976.nc                       ./bc_land_soil.nc
-add_link_file $datadir/bc_land_sso_1976.nc                        ./bc_land_sso.nc
+add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -531,6 +531,9 @@ if [[ "$output_aer" == "yes" ]]; then
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
+                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
+                    'prm_aer_aod_9731'
+ pl_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
                     'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
                     'prm_aer_aod_9731'
 /

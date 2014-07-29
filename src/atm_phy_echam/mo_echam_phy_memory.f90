@@ -36,10 +36,9 @@
 MODULE mo_echam_phy_memory
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,           & 
-    &                               VINTP_METHOD_UV,                    &
-    &                               VINTP_METHOD_QV, VINTP_METHOD_PRES, &
-    &                               VINTP_METHOD_LIN,                   &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,  & 
+    &                               VINTP_METHOD_PRES,         &
+    &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
@@ -53,10 +52,7 @@ MODULE mo_echam_phy_memory
     &                               add_var, add_ref,          &
     &                               new_var_list,              &
     &                               delete_var_list
-  USE mo_var_metadata,        ONLY: create_tracer_metadata,      &
-    &                               create_vert_interp_metadata, &
-    &                               create_hor_interp_metadata,  &
-    &                               groups, vintp_types
+  USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var
   USE mo_cdi_constants,       ONLY: GRID_REFERENCE,                    &
@@ -64,7 +60,7 @@ MODULE mo_echam_phy_memory
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE,        &
     &                               DATATYPE_PACK16, DATATYPE_PACK24,  &
-    &                               DATATYPE_FLT32, FILETYPE_NC2,      &
+    &                               DATATYPE_FLT32,                    &
     &                               TSTEP_INSTANT, TSTEP_AVG
   USE mo_sea_ice_nml,         ONLY: kice
 
@@ -647,38 +643,54 @@ CONTAINS
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'u', field%u,                             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp = &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
     ! &       field% v         (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'v', field%v,                             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp = &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
     ! &       field% vor       (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vorticity', 's-1', 'relative vorticity', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 12, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'vo', field%vor,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! &       field% temp      (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('temperature', 'K', 'temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'t', field%temp,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! &       field% tv        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'vtemp', field%tv,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! OZONE 
     ! &       field% o3        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('ozone', 'g/g', 'ozone mixing ratio', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'o3', field%o3,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! aerosol optical properties
     ! at 533 nm
@@ -687,45 +699,67 @@ CONTAINS
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_aod_533', field%aer_aod_533,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d )
+                & ldims=shape3d,                                               &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &   vert_intp_type=vintp_types("P","Z","I"),                   &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
     cf_desc    = t_cf_var('aer_ssa_533','-',                                   &
                 & 'aerosol single scattering albedo at 533 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_ssa_533', field%aer_ssa_533,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d )
+                & ldims=shape3d,                                               &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &   vert_intp_type=vintp_types("P","Z","I"),                   &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
     cf_desc    = t_cf_var('aer_asy_533','-',                                   &
                 & 'aerosol asymmetry factor at 533 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_asy_533', field%aer_asy_533,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d )
+                & ldims=shape3d,                                               &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &   vert_intp_type=vintp_types("P","Z","I"),                   &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
     ! at 2325 nm
     cf_desc    = t_cf_var('aer_aod_2325','-',                                  &
                 & 'aerosol optical depth at 2325 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_aod_2325', field%aer_aod_2325,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d )
+                & ldims=shape3d,                                               &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &   vert_intp_type=vintp_types("P","Z","I"),                   &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
     cf_desc    = t_cf_var('aer_ssa_2325','-',                                  &
                 & 'aerosol single scattering albedo at 2325 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_ssa_2325', field%aer_ssa_2325,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d )
+                & ldims=shape3d,                                               &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &   vert_intp_type=vintp_types("P","Z","I"),                   &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
     cf_desc    = t_cf_var('aer_asy_2325','-',                                  &
                 & 'aerosol asymmetry factor at 2325 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_asy_2325', field%aer_asy_2325,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d )
+                & ldims=shape3d,                                               &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &   vert_intp_type=vintp_types("P","Z","I"),                   &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
     ! at 9731 nm
     cf_desc    = t_cf_var('aer_aod_9731','-',                                  &
                 & 'effective aerosol optical depth at 9731 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aer_aod_9731', field%aer_aod_9731,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d )
+                & ldims=shape3d,                                               &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &   vert_intp_type=vintp_types("P","Z","I"),                   &
+                &   vert_intp_method=VINTP_METHOD_LIN ) )
+
     ! &       field% q         (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'q', field%q,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
@@ -741,39 +775,65 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
                   & t_cf_var('q_'//ctracer_list(jtrc:jtrc), 'kg kg-1', '', DATATYPE_FLT32), &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
-                  & ldims=(/kproma,klev,kblks/))                                        
+                  & ldims=(/kproma,klev,kblks/),                                 &
+                  & vert_interp=create_vert_interp_metadata(                     &
+                  &             vert_intp_type=vintp_types("P","Z","I"),         & 
+                  &             vert_intp_method=VINTP_METHOD_LIN,               &
+                  &             l_loglin=.FALSE.,                                &
+                  &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+                  &             lower_limit=0._wp ) )
     END DO                                                                                
 
     ! &       field% qx        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'qx', field%qx,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( field_list, prefix//'qx', field%qx,                               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                          &
+                &             vert_intp_type=vintp_types("P","Z","I"),              & 
+                &             vert_intp_method=VINTP_METHOD_LIN,                    &
+                &             l_loglin=.FALSE.,                                     &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                &
+                &             lower_limit=0._wp  ) )
 
     ! &       field% omega     (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'omega', field%omega,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                       &
+                &             vert_intp_type=vintp_types("P","Z","I"),           &
+                &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                &             l_loglin=.FALSE., l_extrapol=.FALSE.) )
 
     ! &       field% geom      (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential above surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ghm', field%geom,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN,                &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.) )
 
     ! &       field% presm_old (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'presm_old', field%presm_old,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("Z","I"),              &
+                &             vert_intp_method=VINTP_METHOD_PRES ) )
 
     ! &       field% presm_new (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'presm_new', field%presm_new,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("Z","I"),              &
+                &             vert_intp_method=VINTP_METHOD_PRES ) )
 
 
     !-- Variables defined at layer interfaces --
@@ -781,19 +841,31 @@ CONTAINS
     cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential above surface', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ghi', field%geoi,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,   &
+                & ldims=shape3d_layer_interfaces,                                &
+                & vert_interp=create_vert_interp_metadata(                       &
+                &   vert_intp_type=vintp_types("P","Z","I"),                     &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     ! &       field% presi_old (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'presi_old', field%presi_old,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces,                               &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("Z","I"),                        &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     ! &       field% presi_new (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'presi_new', field%presi_new,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces  )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces,                               &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("Z","I"),                        &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     !------------------
     ! Radiation
@@ -1091,25 +1163,41 @@ CONTAINS
     cf_desc    = t_cf_var('emterclr', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'emterclr', field%emterclr,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces,                               &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     ! &       field% emterall  (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('emterall', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'emterall', field%emterall,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces,                               &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     ! &       field% trsolclr  (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('trsolclr', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'trsolclr', field%trsolclr,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces,                               &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     ! &       field% trsolall  (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('trsolall', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'trsolall', field%trsolall,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_layer_interfaces )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces,                               &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
 
     !-------------------------
@@ -1118,7 +1206,13 @@ CONTAINS
     cf_desc    = t_cf_var('ACLC', 'm2 m-2', 'cloud area fraction, instantaneous', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0,6,1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aclc', field%aclc,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &             vert_intp_type=vintp_types("P","Z","I"),                   &
+                &             vert_intp_method=VINTP_METHOD_LIN,                         &
+                &             l_loglin=.FALSE.,                                          &
+                &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                    &
+                &             lower_limit=0._wp ) )
 
     cf_desc    = t_cf_var('ACLCOV', 'm2 m-2', &
                & 'total cloud cover', DATATYPE_FLT32)
@@ -1134,28 +1228,49 @@ CONTAINS
     cf_desc    = t_cf_var('acdnc', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'acdnc', field%acdnc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &             vert_intp_type=vintp_types("P","Z","I"),                   &
+                &             vert_intp_method=VINTP_METHOD_LIN,                         &
+                &             l_loglin=.FALSE.,                                          &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                     &
+                &             lower_limit=0._wp ) )
 
     ! &       field% xvar   (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('variance_of_total_water', '', 'subgrid variance of total water', &
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'xvar', field%xvar,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &             vert_intp_type=vintp_types("P","Z","I"),                   &
+                &             vert_intp_method=VINTP_METHOD_LIN,                         &
+                &             l_loglin=.FALSE.,                                          &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                     &
+                &             lower_limit=0._wp ) )
 
     ! &       field% xskew  (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('skewness_of_total_water', '', 'skewness of total water', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'xskew', field%xskew,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &             vert_intp_type=vintp_types("P","Z","I"),                   &
+                &             vert_intp_method=VINTP_METHOD_LIN,                         &
+                &             l_loglin=.FALSE.,                                          &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE. ) )
 
     ! &       field% relhum (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('relative_humidity', '', 'relative humidity', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 1, 1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'r', field%relhum,                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,            &
-                & vert_interp=create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I"), &
-                &                                          vert_intp_method=VINTP_METHOD_LIN )     )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &             vert_intp_type=vintp_types("P","Z","I"),                   &
+                &             vert_intp_method=VINTP_METHOD_LIN,                         &
+                &             l_loglin=.FALSE.,                                          &
+                &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,                     &
+                &             lower_limit=0._wp ) )
 
     cf_desc    = t_cf_var('RSFL', 'kg m-2 s-1',    &
                & 'instantaneous large-scale precipitation flux (water)', DATATYPE_FLT32)
@@ -1273,7 +1388,13 @@ CONTAINS
          &                DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'tke', field%tke,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &             vert_intp_type=vintp_types("P","Z","I"),                   &
+                &             vert_intp_method=VINTP_METHOD_LIN,                         &
+                &             l_loglin=.FALSE.,                                          &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                     &
+                &             lower_limit=0._wp ) )
 
     ! &       field% thvsig (nproma,       nblks), &
     cf_desc    = t_cf_var('thvsig', 'K', '', DATATYPE_FLT32)
@@ -2034,56 +2155,92 @@ CONTAINS
     ! &       tend% temp      (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp', tend%temp,                    &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp', tend%temp,                                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_phy', tend%temp_phy,            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_phy', tend%temp_phy,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_radsw(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_radsw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_radsw', tend%temp_radsw,        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_radsw', tend%temp_radsw,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_radlw(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_radlw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_radlw', tend%temp_radlw,        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_radlw', tend%temp_radlw,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_cld  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_cloud', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_cld', tend%temp_cld,            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_cld', tend%temp_cld,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_cnv  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_convective', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_cnv', tend%temp_cnv,            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_cnv', tend%temp_cnv,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_vdf  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_turbulent', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_vdf', tend%temp_vdf,            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_vdf', tend%temp_vdf,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_gwh  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_Hines_gw', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_gwh', tend%temp_gwh,            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_gwh', tend%temp_gwh,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend% temp_sso  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_sso', 'K s-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'temp_sso', tend%temp_sso,            &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'temp_sso', tend%temp_sso,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     !------------------------------
     ! U-wind tendencies
@@ -2091,38 +2248,62 @@ CONTAINS
     ! &       tend%    u      (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'u', tend%u,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'u', tend%u,                                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    u_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_phy', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'u_phy', tend%u_phy,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'u_phy', tend%u_phy,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    u_cnv  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_convective', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'u_cnv', tend%u_cnv,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'u_cnv', tend%u_cnv,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    u_vdf  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_turbulent', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'u_vdf', tend%u_vdf,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'u_vdf', tend%u_vdf,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    u_gwh  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_Hines_gw', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'u_gwh', tend%u_gwh,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'u_gwh', tend%u_gwh,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    u_sso  (nproma,nlev,nblks),          &   
     cf_desc    = t_cf_var('u_wind_tendency_sso', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'u_sso', tend%u_sso,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'u_sso', tend%u_sso,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     !------------------------------
     ! V-wind tendencies
@@ -2130,38 +2311,62 @@ CONTAINS
     ! &       tend%    v      (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'v', tend%v,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'v', tend%v,                                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    v_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_phy', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'v_phy', tend%v_phy,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'v_phy', tend%v_phy,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    v_cnv  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'v_cnv', tend%v_cnv,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'v_cnv', tend%v_cnv,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    v_vdf  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_turbulent', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'v_vdf', tend%v_vdf,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'v_vdf', tend%v_vdf,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    v_gwh  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_Hines_gw', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'v_gwh', tend%v_gwh,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'v_gwh', tend%v_gwh,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       tend%    v_sso  (nproma,nlev,nblks),          &              
     cf_desc    = t_cf_var('v_wind_tendency_sso', 'm s-2', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'v_sso', tend%v_sso,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'v_sso', tend%v_sso,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     !------------------------------
     ! Detrainment
@@ -2170,14 +2375,22 @@ CONTAINS
     ! &       tend%    xl_dtr  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('liquid_detrain_rate', 's-1', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, prefix//'xl_dtr', tend%xl_dtr,                  &
-    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( tend_list, prefix//'xl_dtr', tend%xl_dtr,                              &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
    ! &       tend%    xi_dtr  (nproma,nlev,nblks),          &
    cf_desc    = t_cf_var('ice_detrain_rate', 's-1', '', DATATYPE_FLT32)
    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-   CALL add_var( tend_list, prefix//'xi_dtr', tend%xi_dtr,                  &
-   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+   CALL add_var( tend_list, prefix//'xi_dtr', tend%xi_dtr,                               &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & vert_interp=create_vert_interp_metadata(                               &
+                &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                &   l_extrapol=.FALSE. ) )
 
     !-------------------
     ! Tracer tendencies
@@ -2239,7 +2452,10 @@ CONTAINS
                   & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc), 's-1', '',         &
                   &          DATATYPE_FLT32),                                      &       
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),  &       
-                  & ldims=(/kproma,klev,kblks/))                                        
+                  & ldims=(/kproma,klev,kblks/),                                   &
+                  & vert_interp=create_vert_interp_metadata(                       &
+                  &             vert_intp_type=vintp_types("P","Z","I"),           & 
+                  &             vert_intp_method=VINTP_METHOD_LIN ) )
                                                                                           
       CALL add_ref( tend_list, prefix//'q_phy',                                           &       
                   & prefix//'q'//ctracer_list(jtrc:jtrc)//'_phy', tend%q_phy_ptr(jtrc)%p, &       
@@ -2247,7 +2463,10 @@ CONTAINS
                   & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc)//'_phy', 's-1', '',        &
                   &          DATATYPE_FLT32),                                             &       
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &       
-                  & ldims=(/kproma,klev,kblks/))                                        
+                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  & 
+                  &             vert_intp_method=VINTP_METHOD_LIN ) )                                        
                                                                                           
       CALL add_ref( tend_list, prefix//'q_cld',                                           &       
                   & prefix//'q'//ctracer_list(jtrc:jtrc)//'_cld', tend%q_cld_ptr(jtrc)%p, &       
@@ -2255,7 +2474,10 @@ CONTAINS
                   & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc)//'_cld', 's-1', '',        &
                   &          DATATYPE_FLT32),                                             &       
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &       
-                  & ldims=(/kproma,klev,kblks/))                                        
+                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  & 
+                  &             vert_intp_method=VINTP_METHOD_LIN ) )                                        
 
       CALL add_ref( tend_list, prefix//'q_cnv',                                           &       
                   & prefix//'q'//ctracer_list(jtrc:jtrc)//'_cnv', tend%q_cnv_ptr(jtrc)%p, &
@@ -2263,7 +2485,10 @@ CONTAINS
                   & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc)//'_cnv', 's-1', '',        &
                   &          DATATYPE_FLT32),                                             &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &
-                  & ldims=(/kproma,klev,kblks/))                                        
+                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  & 
+                  &             vert_intp_method=VINTP_METHOD_LIN ) )                                        
 
       CALL add_ref( tend_list, prefix//'q_vdf',                                           &
                   & prefix//'q'//ctracer_list(jtrc:jtrc)//'_vdf', tend%q_vdf_ptr(jtrc)%p, &
@@ -2271,7 +2496,10 @@ CONTAINS
                   & t_cf_var('tend_q'//ctracer_list(jtrc:jtrc)//'_vdf', 's-1', '',        & 
                   &          DATATYPE_FLT32),                                             &
                   & t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &
-                  & ldims=(/kproma,klev,kblks/))                                        
+                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  & 
+                  &             vert_intp_method=VINTP_METHOD_LIN ) )                                        
     END DO                                                                                
 
   END SUBROUTINE new_echam_phy_tend_list
