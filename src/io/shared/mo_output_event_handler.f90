@@ -560,17 +560,17 @@ CONTAINS
   FUNCTION new_output_event(name, i_pe, i_tag, begin_str, end_str, intvl_str, additional_days, &
     &                       l_output_last, sim_step_info, fname_metadata, fct_time2simstep,    &
     &                       fct_generate_filenames) RESULT(p_event)
-    TYPE(t_output_event),   POINTER :: p_event
-    CHARACTER(LEN=*),       INTENT(IN)  :: name                 !< output event name
-    INTEGER,                INTENT(IN)  :: i_pe                 !< rank of participating PE
-    INTEGER,                INTENT(IN)  :: i_tag                !< tag, e.g. for MPI isend/irecv messages
-    CHARACTER(len=*),       INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
-    CHARACTER(len=*),       INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
-    CHARACTER(len=*),       INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
-    INTEGER,                INTENT(IN)  :: additional_days(MAX_TIME_INTERVALS)  !< add days to interval
-    LOGICAL,                INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),  INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata), INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
+    TYPE(t_output_event),                POINTER :: p_event
+    CHARACTER(LEN=*),                    INTENT(IN)  :: name                 !< output event name
+    INTEGER,                             INTENT(IN)  :: i_pe                 !< rank of participating PE
+    INTEGER,                             INTENT(IN)  :: i_tag                !< tag, e.g. for MPI isend/irecv messages
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
+    INTEGER,                             INTENT(IN)  :: additional_days(MAX_TIME_INTERVALS)  !< add days to interval
+    LOGICAL,                             INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
+    TYPE(t_sim_step_info),               INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
+    TYPE(t_fname_metadata),              INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
 
     !> As an argument of this function, the user must provide a
     !  conversion "time stamp -> simulation step"
@@ -578,11 +578,11 @@ CONTAINS
       SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
         &                         result_steps, result_exactdate)
         USE mo_output_event_types, ONLY: t_sim_step_info
-        INTEGER,              INTENT(IN)    :: nstrings             !< no. of string to convert
-        CHARACTER(len=*),     INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
-        TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
-        INTEGER,              INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
+        INTEGER,               INTENT(IN)    :: nstrings             !< no. of string to convert
+        CHARACTER(len=*),      INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
+        TYPE(t_sim_step_info), INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
+        INTEGER,               INTENT(INOUT) :: result_steps(:)      !< resulting step indices
+        CHARACTER(LEN=*),      INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
     END INTERFACE
 
@@ -594,11 +594,11 @@ CONTAINS
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
-        INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
-        CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
-        INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
-        TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
-        TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+        INTEGER,                 INTENT(IN)    :: nstrings           !< no. of string to convert
+        CHARACTER(len=*),        INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+        INTEGER,                 INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
+        TYPE(t_sim_step_info),   INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
+        TYPE(t_fname_metadata),  INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
       END FUNCTION fct_generate_filenames
     END INTERFACE
@@ -835,17 +835,17 @@ CONTAINS
   FUNCTION new_parallel_output_event(name, begin_str, end_str, intvl_str, additional_days,              &
     &                                l_output_last, sim_step_info, fname_metadata, fct_time2simstep,    &
     &                                fct_generate_filenames, local_event_no, icomm) RESULT(p_event)
-    TYPE(t_par_output_event),   POINTER :: p_event
-    CHARACTER(LEN=*),       INTENT(IN)  :: name                 !< output event name
-    CHARACTER(len=*),       INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
-    CHARACTER(len=*),       INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
-    CHARACTER(len=*),       INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
-    INTEGER,                INTENT(IN)  :: additional_days(MAX_TIME_INTERVALS)  !< add days to interval
-    LOGICAL,                INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),  INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata), INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                INTENT(IN)  :: local_event_no       !< local index of this event on local PE
-    INTEGER,                INTENT(IN)  :: icomm                !< MPI communicator
+    TYPE(t_par_output_event),                POINTER :: p_event
+    CHARACTER(LEN=*),                    INTENT(IN)  :: name                 !< output event name
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
+    INTEGER,                             INTENT(IN)  :: additional_days(MAX_TIME_INTERVALS)  !< add days to interval
+    LOGICAL,                             INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
+    TYPE(t_sim_step_info),               INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
+    TYPE(t_fname_metadata),              INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
+    INTEGER,                             INTENT(IN)  :: local_event_no       !< local index of this event on local PE
+    INTEGER,                             INTENT(IN)  :: icomm                !< MPI communicator
 
 
     !> As an argument of this function, the user must provide a
@@ -854,11 +854,11 @@ CONTAINS
       SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
         &                         result_steps, result_exactdate)
         USE mo_output_event_types, ONLY: t_sim_step_info
-        INTEGER,              INTENT(IN)    :: nstrings             !< no. of string to convert
-        CHARACTER(len=*),     INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
-        TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
-        INTEGER,              INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
+        INTEGER,                   INTENT(IN)    :: nstrings             !< no. of string to convert
+        CHARACTER(len=*),          INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
+        TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
+        INTEGER,                   INTENT(INOUT) :: result_steps(:)      !< resulting step indices
+        CHARACTER(LEN=*),          INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
     END INTERFACE
 
@@ -870,11 +870,11 @@ CONTAINS
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
-        INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
-        CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
-        INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
-        TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
-        TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+        INTEGER,                   INTENT(IN)    :: nstrings           !< no. of string to convert
+        CHARACTER(len=*),          INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+        INTEGER,                   INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
+        TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
+        TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
       END FUNCTION fct_generate_filenames
     END INTERFACE
@@ -992,11 +992,11 @@ CONTAINS
       SUBROUTINE fct_time2simstep(nstrings, date_string, sim_step_info, &
         &                         result_steps, result_exactdate)
         USE mo_output_event_types, ONLY: t_sim_step_info
-        INTEGER,              INTENT(IN)    :: nstrings             !< no. of string to convert
-        CHARACTER(len=*),     INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
-        TYPE(t_sim_step_info),INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
-        INTEGER,              INTENT(INOUT) :: result_steps(:)      !< resulting step indices
-        CHARACTER(LEN=*),     INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
+        INTEGER,                  INTENT(IN)    :: nstrings             !< no. of string to convert
+        CHARACTER(len=*),         INTENT(IN)    :: date_string(:)       !< array of ISO 8601 time stamp strings
+        TYPE(t_sim_step_info),    INTENT(IN)    :: sim_step_info        !< definitions: time step size, etc.
+        INTEGER,                  INTENT(INOUT) :: result_steps(:)      !< resulting step indices
+        CHARACTER(LEN=*),         INTENT(INOUT) :: result_exactdate(:)  !< resulting (exact) time step strings
       END SUBROUTINE fct_time2simstep
     END INTERFACE
 
@@ -1008,11 +1008,11 @@ CONTAINS
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
-        INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
-        CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
-        INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
-        TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
-        TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+        INTEGER,                   INTENT(IN)    :: nstrings           !< no. of string to convert
+        CHARACTER(len=*),          INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
+        INTEGER,                   INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
+        TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
+        TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
         TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
       END FUNCTION fct_generate_filenames
     END INTERFACE
@@ -1721,17 +1721,17 @@ CONTAINS
   !
   SUBROUTINE send_event_data(name, begin_str, end_str, intvl_str, additional_days, l_output_last, &
     &                        sim_step_info, fname_metadata, i_tag, icomm, dst_rank)
-    CHARACTER(LEN=*),       INTENT(IN)  :: name                 !< output event name
-    CHARACTER(len=*),       INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
-    CHARACTER(len=*),       INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
-    CHARACTER(len=*),       INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
-    INTEGER,                INTENT(IN)  :: additional_days(MAX_TIME_INTERVALS)      !< add days to interval
-    LOGICAL,                INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),  INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata), INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                INTENT(IN)  :: i_tag                !< this event's MPI tag
-    INTEGER,                INTENT(IN)  :: icomm                !< MPI communicator
-    INTEGER,                INTENT(IN)  :: dst_rank             !< MPI destination rank
+    CHARACTER(LEN=*),                    INTENT(IN)  :: name                 !< output event name
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: begin_str(MAX_TIME_INTERVALS)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: end_str(MAX_TIME_INTERVALS)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(IN)  :: intvl_str(MAX_TIME_INTERVALS)
+    INTEGER,                             INTENT(IN)  :: additional_days(MAX_TIME_INTERVALS)      !< add days to interval
+    LOGICAL,                             INTENT(IN)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
+    TYPE(t_sim_step_info),               INTENT(IN)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
+    TYPE(t_fname_metadata),              INTENT(IN)  :: fname_metadata       !< additional meta-data for generating output filename
+    INTEGER,                             INTENT(IN)  :: i_tag                !< this event's MPI tag
+    INTEGER,                             INTENT(IN)  :: icomm                !< MPI communicator
+    INTEGER,                             INTENT(IN)  :: dst_rank             !< MPI destination rank
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::send_event_data"
     INTEGER :: nitems, ierrstat, position
@@ -1808,14 +1808,14 @@ CONTAINS
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: begin_str(MAX_TIME_INTERVALS)
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: end_str(MAX_TIME_INTERVALS)
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: intvl_str(MAX_TIME_INTERVALS)
-    INTEGER,                INTENT(INOUT)  :: additional_days(MAX_TIME_INTERVALS)  !< add days to interval
-    LOGICAL,                INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),  INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata), INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                INTENT(INOUT)  :: i_tag                !< this event's MPI tag
-    INTEGER,                INTENT(IN)     :: icomm                !< MPI communicator
-    INTEGER,                INTENT(IN)     :: isrc                 !< MPI rank of the sending PE
-    INTEGER,                INTENT(IN)     :: isendrecv_tag        !< MPI tag for this messages isend/irecv communication
+    INTEGER,                               INTENT(INOUT)  :: additional_days(MAX_TIME_INTERVALS)  !< add days to interval
+    LOGICAL,                               INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
+    TYPE(t_sim_step_info),                 INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
+    TYPE(t_fname_metadata),                INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
+    INTEGER,                               INTENT(INOUT)  :: i_tag                !< this event's MPI tag
+    INTEGER,                               INTENT(IN)     :: icomm                !< MPI communicator
+    INTEGER,                               INTENT(IN)     :: isrc                 !< MPI rank of the sending PE
+    INTEGER,                               INTENT(IN)     :: isendrecv_tag        !< MPI tag for this messages isend/irecv communication
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::receive_event_data"
     INTEGER :: nitems, ierrstat, position, i
@@ -1869,14 +1869,14 @@ CONTAINS
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: begin_str(MAX_TIME_INTERVALS)
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: end_str(MAX_TIME_INTERVALS)
     CHARACTER(len=MAX_DATETIME_STR_LEN)  , INTENT(INOUT) :: intvl_str(MAX_TIME_INTERVALS)
-    INTEGER,                INTENT(INOUT)  :: additional_days(MAX_TIME_INTERVALS)      !< add days to interval
-    LOGICAL,                INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
-    TYPE(t_sim_step_info),  INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
-    TYPE(t_fname_metadata), INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
-    INTEGER,                INTENT(INOUT)  :: i_tag                !< this event's MPI tag
-    INTEGER,                INTENT(IN)     :: icomm                !< MPI communicator
-    INTEGER,                INTENT(IN)     :: iroot                !< MPI broadcast root rank
-    LOGICAL,                INTENT(IN)     :: l_no_end_message     !< Flag. .FALSE. if "end message" shall be broadcasted
+    INTEGER,                               INTENT(INOUT)  :: additional_days(MAX_TIME_INTERVALS)      !< add days to interval
+    LOGICAL,                               INTENT(INOUT)  :: l_output_last        !< Flag. If .TRUE. the last step is always written
+    TYPE(t_sim_step_info),                 INTENT(INOUT)  :: sim_step_info        !< definitions for conversion "time stamp -> simulation step"
+    TYPE(t_fname_metadata),                INTENT(INOUT)  :: fname_metadata       !< additional meta-data for generating output filename
+    INTEGER,                               INTENT(INOUT)  :: i_tag                !< this event's MPI tag
+    INTEGER,                               INTENT(IN)     :: icomm                !< MPI communicator
+    INTEGER,                               INTENT(IN)     :: iroot                !< MPI broadcast root rank
+    LOGICAL,                               INTENT(IN)     :: l_no_end_message     !< Flag. .FALSE. if "end message" shall be broadcasted
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::broadcast_event_data"
     INTEGER :: nitems, ierrstat, position, this_pe, i
