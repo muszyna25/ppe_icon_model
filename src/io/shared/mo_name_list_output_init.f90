@@ -1028,8 +1028,10 @@ CONTAINS
       !--- consistency check: do not allow output intervals < dtime*iadv_rcf:
 
       ! there may be multiple "output_bounds" intervals, consider all:        
-      DO idx=1,MAX_TIME_INTERVALS
+      INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
         IF (p_onl%additional_days(idx) == 0) THEN
+          IF (TRIM(p_onl%output_start(idx)) == '') CYCLE INTVL_LOOP
+
           ! compare start date and end date: if these are equal, then
           ! the interval does not matter and must not be checked.
           mtime_datetime_start => newDatetime(p_onl%output_start(idx))
@@ -1049,7 +1051,7 @@ CONTAINS
           CALL deallocateDatetime(mtime_datetime_start)
           CALL deallocateDatetime(mtime_datetime_end)
         END IF
-      END DO
+      END DO INTVL_LOOP
 
       p_onl => p_onl%next
     ENDDO
@@ -1369,7 +1371,7 @@ CONTAINS
       ! the beginning of the timestep. Output is written at the end of the
       ! timestep
       IF (is_restart_run() .AND. my_process_is_ocean()) THEN
-        IF (p_onl%output_start(2) /= ' ') &
+        IF (TRIM(p_onl%output_start(2)) /= '') &
           CALL finish(routine, "Not implemented for ocean model!")
         CALL get_datetime_string(p_onl%output_start(1), &
           &                      time_config%cur_datetime,                &
