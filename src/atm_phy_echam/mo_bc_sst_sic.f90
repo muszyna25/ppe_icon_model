@@ -18,7 +18,7 @@
 !!
 !! TODO: ctfreez in echam = 271.38, this is 271.45 K
 !
-MODULE mo_amip_bc ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"
+MODULE mo_bc_sst_sic
   
   USE mo_kind,               ONLY: dp
   USE mo_exception,          ONLY: finish, message, message_text
@@ -321,4 +321,4 @@ CONTAINS
     RETURN
   END FUNCTION get_current_bc_sst_sic_year
 
-END MODULE mo_amip_bc ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"
+END MODULE mo_bc_sst_sic

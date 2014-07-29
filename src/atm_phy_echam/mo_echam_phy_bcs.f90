@@ -42,7 +42,7 @@ MODULE mo_echam_phy_bcs
   USE mo_time_interpolation_weights ,ONLY: wi_limm, wi_limm_radt
 
   USE mo_bc_greenhouse_gases        ,ONLY: bc_greenhouse_gases_time_interpolation
-  USE mo_amip_bc                    ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, & ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"
+  USE mo_bc_sst_sic                 ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, &
     &                                      bc_sst_sic_time_weights, bc_sst_sic_time_interpolation
   USE mo_bc_solar_irradiance        ,ONLY: read_bc_solar_irradiance, ssi_time_interpolation
 

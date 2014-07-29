@@ -90,7 +90,7 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-  USE mo_amip_bc,              ONLY: read_bc_sst_sic, bc_sst_sic_time_weights, bc_sst_sic_time_interpolation ! <-- change "mo_amip_bc" to "mo_bc_sst_sic"
+  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_weights, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
 
