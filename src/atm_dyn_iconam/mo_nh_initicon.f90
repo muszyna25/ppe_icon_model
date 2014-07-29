@@ -81,9 +81,11 @@ MODULE mo_nh_initicon
     &                               streamOpenRead, cdiInqMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, t_inventory_list, t_inventory_element, &
-    &                               new_inventory_list, delete_inventory_list, complete_inventory_list
+    &                               new_inventory_list, delete_inventory_list, complete_inventory_list, &
+    &                               find_inventory_list_element
   USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
     &                               t_bool_table
+  USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_io_util,             ONLY: get_filetype
 
@@ -227,7 +229,7 @@ MODULE mo_nh_initicon
       ! Generate lists of fields that must be read from FG/ANA files
       !
       DO jg = 1, n_dom
-        CALL create_input_groups(jg,                                 &
+        CALL create_input_groups(p_patch(jg),                        &
           &   initicon(jg)%grp_vars_fg,  initicon(jg)%ngrp_vars_fg,  &
           &   initicon(jg)%grp_vars_ana, initicon(jg)%ngrp_vars_ana, &
           &   initicon(jg)%grp_vars_fg_default , initicon(jg)%ngrp_vars_fg_default,  &
@@ -1069,12 +1071,12 @@ MODULE mo_nh_initicon
   !! Initial version by Daniel Reinert, DWD(2013-07-08)
   !!
   !!
-  SUBROUTINE create_input_groups(jg, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
+  SUBROUTINE create_input_groups(p_patch, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
     &                            grp_vars_fg_default, ngrp_vars_fg_default,              &
     &                            grp_vars_ana_default, ngrp_vars_ana_default,            &
     &                            init_mode)
 
-    INTEGER                   , INTENT(IN)    :: jg               ! domain ID
+    TYPE(t_patch)             , INTENT(IN)    :: p_patch          ! current patch
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg_default(:)   ! default vars fg-file
@@ -1086,6 +1088,7 @@ MODULE mo_nh_initicon
     INTEGER                   , INTENT(IN)    :: init_mode        ! initialization mode
 
     ! local variables
+    INTEGER                    :: jg                              ! patch id
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(100)           ! ana-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(100)            ! fg-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_name                        ! group name
@@ -1120,6 +1123,7 @@ MODULE mo_nh_initicon
 
 
       ! Initialization
+      jg = p_patch%id
       lmiss_ana = .FALSE.
       lmiss_fg  = .FALSE.
       nvars_ana_mandatory = 0
@@ -1437,6 +1441,12 @@ MODULE mo_nh_initicon
       ENDIF  
 
 
+
+      ! additional input field sanity checks
+      !
+      CALL check_input_validity(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
+        &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
+
     ENDIF  ! p_pe == p_io
 
 
@@ -1451,6 +1461,72 @@ MODULE mo_nh_initicon
     CALL p_bcast(ngrp_vars_ana,p_io, mpi_comm)
 
   END SUBROUTINE create_input_groups
+
+
+  !>
+  !! Check validity of input fields
+  !!
+  !! Check validity of input fields. So far, the following checks are performed:
+  !! - Comparison of uuidOfHgrid: The uuidOfHGrid of the input fields must 
+  !!   match the uuidOfHgrid of the horizontal grid file. 
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-07-28)
+  !!
+  SUBROUTINE check_input_validity(p_patch, inventory_list_fg, inventory_list_ana, &
+    &                             grp_vars_fg, grp_vars_ana, ngrp_vars_fg,        &
+    &                             ngrp_vars_ana)
+
+    TYPE(t_patch)                , INTENT(IN) :: p_patch
+    TYPE(t_inventory_list)       , INTENT(IN) :: inventory_list_fg
+    TYPE(t_inventory_list)       , INTENT(IN) :: inventory_list_ana
+    CHARACTER(LEN=VARNAME_LEN)   , INTENT(IN) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
+    CHARACTER(LEN=VARNAME_LEN)   , INTENT(IN) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
+    INTEGER                      , INTENT(IN) :: ngrp_vars_fg     ! number of fields in grp_vars_fg
+    INTEGER                      , INTENT(IN) :: ngrp_vars_ana    ! number of fields in grp_vars_ana
+
+    ! local
+    TYPE(t_inventory_element), POINTER  :: this_list_element => NULL()
+    INTEGER :: ivar                     ! loop counter
+    LOGICAL :: lmatch
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:check_input_validity'
+  !-------------------------------------------------------------------
+
+
+    ! Loop over all required input fields and check, whether the uuidOfHGrid matches.
+    ! This is done separately for the analysis- and first guess fields.
+    DO ivar = 1,ngrp_vars_fg
+      ! find matching list element
+      this_list_element => find_inventory_list_element (inventory_list_fg, &
+        &                                              TRIM(grp_vars_fg(ivar)) )
+      !
+      ! compare uuidOfHGrid
+      lmatch = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
+
+      IF (.NOT. lmatch) THEN
+        WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for first guess field '&
+          &                       //TRIM(grp_vars_fg(ivar))//'.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
+    ENDDO
+
+    DO ivar = 1,ngrp_vars_ana
+      ! find matching list element
+      this_list_element => find_inventory_list_element (inventory_list_ana, &
+        &                                              TRIM(grp_vars_ana(ivar)) )
+      !
+      ! compare uuidOfHGrid
+      lmatch = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
+
+      IF (.NOT. lmatch) THEN
+        WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for analysis field '&
+          &                       //TRIM(grp_vars_ana(ivar))//'.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
+    ENDDO
+
+  END SUBROUTINE check_input_validity
+
 
 
   !>
