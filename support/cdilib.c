@@ -44823,7 +44823,7 @@ void define_all_grids(stream_t *streamptr, int vlistID, ncdim_t *ncdims, int nva
 /* define all input zaxes */
 static
 void define_all_zaxes(stream_t *streamptr, int vlistID, ncdim_t *ncdims, int nvars, ncvar_t *ncvars,
-		      size_t vctsize, double *vct)
+		      size_t vctsize, double *vct, char *uuidOfVGrid)
 {
   int ncvarid, ncvarid2;
   int i, ilev, ndims;
@@ -44942,6 +44942,10 @@ void define_all_zaxes(stream_t *streamptr, int vlistID, ncdim_t *ncdims, int nva
 
       	  ncvars[ncvarid].zaxisID = varDefZaxis(vlistID, zaxisType, (int) zsize, zvar, with_bounds, lbounds, ubounds,
 						vctsize, vct, pname, plongname, punits, zprec, 1, 0);
+
+	  if ( uuidOfVGrid[0] != 0 ) {
+            zaxisDefUUID(ncvars[ncvarid].zaxisID, uuidOfVGrid);
+	  }
 
           if ( positive > 0 ) zaxisDefPositive(ncvars[ncvarid].zaxisID, positive);
 
@@ -45282,7 +45286,7 @@ void define_all_vars(stream_t *streamptr, int vlistID, int instID, int modelID, 
 
 static
 void scan_global_attributes(int fileID, int vlistID, stream_t *streamptr, int ngatts,
-                            int *instID, int *modelID, int *ucla_les, char *uuidOfHGrid, char *gridfile, int *number_of_grid_used)
+                            int *instID, int *modelID, int *ucla_les, char *uuidOfHGrid, char *uuidOfVGrid, char *gridfile, int *number_of_grid_used)
 {
   nc_type xtype;
   size_t attlen;
@@ -45343,6 +45347,11 @@ void scan_global_attributes(int fileID, int vlistID, stream_t *streamptr, int ng
                   attstring[36] = 0;
                   str2uuid(attstring, uuidOfHGrid);
                   //   printf("uuid: %d %s\n", attlen, attstring);
+		}
+	      else if ( strcmp(attname, "uuidOfVGrid") == 0 && attlen == 36 )
+		{
+                  attstring[36] = 0;
+                  str2uuid(attstring, uuidOfVGrid);
 		}
 	      else
 		{
@@ -45421,10 +45430,12 @@ int cdfInqContents(stream_t *streamptr)
   int format = 0;
   int ucla_les = FALSE;
   char uuidOfHGrid[17];
+  char uuidOfVGrid[17];
   char gridfile[8912];
   int number_of_grid_used = UNDEFID;
 
   uuidOfHGrid[0] = 0;
+  uuidOfVGrid[0] = 0;
   gridfile[0] = 0;
 
   vlistID = streamptr->vlistID;
@@ -45495,7 +45506,7 @@ int cdfInqContents(stream_t *streamptr)
     }
 
   /* scan global attributes */
-  scan_global_attributes(fileID, vlistID, streamptr, ngatts, &instID, &modelID, &ucla_les, uuidOfHGrid, gridfile, &number_of_grid_used);
+  scan_global_attributes(fileID, vlistID, streamptr, ngatts, &instID, &modelID, &ucla_les, uuidOfHGrid, uuidOfVGrid, gridfile, &number_of_grid_used);
 
   /* find time dim */
   if ( unlimdimid >= 0 )
@@ -45813,7 +45824,7 @@ int cdfInqContents(stream_t *streamptr)
 
 
   /* define all zaxes */
-  define_all_zaxes(streamptr, vlistID, ncdims, nvars, ncvars, vctsize, vct);
+  define_all_zaxes(streamptr, vlistID, ncdims, nvars, ncvars, vctsize, vct, uuidOfVGrid);
 
 
   if ( vct ) free(vct);

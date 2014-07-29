@@ -136,6 +136,7 @@ MODULE mo_name_list_output_init
     &                                             copy_grid_info, bcast_grid_info,                &
     &                                             deallocate_all_grid_info,                       &
     &                                             GRID_INFO_NONE, GRID_INFO_FILE, GRID_INFO_BCAST
+  USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m
@@ -2038,7 +2039,6 @@ CONTAINS
     LOGICAL                         :: lwrite_pzlev
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
-    CHARACTER(len=1)                :: uuidOfVGrid_string(16)
     REAL(wp)                        :: pi_180
     INTEGER                         :: max_cell_connectivity
 
@@ -2283,12 +2283,9 @@ CONTAINS
       ! Define number of half levels for z-axis 
       CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
       !
-      ! UUID not yet available - write dummy UUID
+      ! Write vertical grid UUID
       !
-      ! TODO: replace by "vgrid_buffer(p_patch%id)%uuid(:)"
-      !       remove variable "uuidOfVGrid_string"
-
-      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference), uuidOfVGrid_string ) !uuidOfVGrid
+      CALL zaxisDefUUID (of%cdiZaxisID(ZA_reference), vgrid_buffer(of%phys_patch_id)%uuid ) !uuidOfVGrid
       DEALLOCATE(lbounds, ubounds, levels)
 
 
@@ -2307,8 +2304,9 @@ CONTAINS
       ! Define number of half levels for z-axis 
       CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
       !
-      ! UUID not yet available - write dummy UUID
-      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half), uuidOfVGrid_string ) !uuidOfVGrid
+      ! Write vertical grid UUID
+      !
+      CALL zaxisDefUUID (of%cdiZaxisID(ZA_reference_half), vgrid_buffer(of%phys_patch_id)%uuid ) !uuidOfVGrid
       DEALLOCATE(levels)
 
 
@@ -2331,8 +2329,9 @@ CONTAINS
       ! Define number of half levels for z-axis 
       CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half_hhl),nlevp1)
       !
-      ! UUID not yet available - write dummy UUID
-      CALL zaxisDefUUID     (of%cdiZaxisID(ZA_reference_half_hhl), uuidOfVGrid_string ) !uuidOfVGrid
+      ! Write vertical grid UUID
+      !
+      CALL zaxisDefUUID (of%cdiZaxisID(ZA_reference_half_hhl), vgrid_buffer(of%phys_patch_id)%uuid ) !uuidOfVGrid
       DEALLOCATE(lbounds, ubounds, levels)
 
 
@@ -3031,6 +3030,11 @@ CONTAINS
     CHARACTER(LEN=256)            :: var_list_name
     INTEGER                       :: idom
 
+!DR Test
+    INTEGER :: nvgrid, ivgrid
+
+
+
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
 
@@ -3167,6 +3171,22 @@ CONTAINS
     DO idom = 1, n_dom_out
       CALL p_bcast(gribout_config(idom)%generatingCenter,    bcast_root, p_comm_work_2_io)
       CALL p_bcast(gribout_config(idom)%generatingSubcenter, bcast_root, p_comm_work_2_io)
+    ENDDO
+
+    ! allocate vgrid_buffer on asynchronous output PEs, for storing 
+    ! the vertical grid UUID
+    !
+    ! get buffer size and broadcast
+    nvgrid = SIZE(vgrid_buffer)
+    CALL p_bcast(nvgrid, bcast_root, p_comm_work_2_io)
+    !
+    ! allocate on asynchronous PEs
+    IF(my_process_is_io()) THEN
+      ALLOCATE(vgrid_buffer(nvgrid))
+    ENDIF
+    ! broadcast
+    DO ivgrid = 1,nvgrid 
+      CALL p_bcast(vgrid_buffer(ivgrid)%uuid, bcast_root, p_comm_work_2_io)
     ENDDO
 
     !-----------------------------------------------------------------------------------------------

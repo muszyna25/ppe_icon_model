@@ -17,7 +17,7 @@ MODULE mo_util_vgrid
 
   USE mo_cdi_constants          ! We need all
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_exception,                         ONLY: finish, message
+  USE mo_exception,                         ONLY: finish, message, message_text
   !
   USE mo_dynamics_config,                   ONLY: iequations
   USE mo_grid_config,                       ONLY: n_dom, vertical_grid_filename, create_vgrid
@@ -25,14 +25,14 @@ MODULE mo_util_vgrid
   USE mo_nonhydrostatic_config,             ONLY: ivctype
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_gribout_config,                    ONLY: gribout_config
-  USE mo_run_config,                        ONLY: number_of_grid_used
+  USE mo_run_config,                        ONLY: number_of_grid_used, msg_level
   !
   USE mo_impl_constants,                    ONLY: ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                             ishallow_water, SUCCESS
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
-  USE mo_intp_data_strc,                    ONLY: t_int_state
   USE mo_ext_data_state,                    ONLY: ext_data, init_ext_data, destruct_ext_data
+  USE mo_intp_data_strc,                    ONLY: t_int_state
   USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table, vct_a, vct_b, vct
   USE mo_nh_init_utils,                     ONLY: init_hybrid_coord, init_sleve_coord,                  &
     &                                             init_vert_coord, compute_smooth_topo,                 &
@@ -40,12 +40,12 @@ MODULE mo_util_vgrid
   USE mo_nh_init_nest_utils,                ONLY: topo_blending_and_fbk
   USE mo_communication,                     ONLY: exchange_data
   USE mo_util_string,                       ONLY: int2string
-  USE mo_util_uuid,                         ONLY: uuid_generate, t_uuid, uuid2char
+  USE mo_util_uuid,                         ONLY: uuid_generate, t_uuid, uuid2char, char2uuid,          &
+    &                                             OPERATOR(==), uuid_unparse, uuid_string_length
   USE mo_util_cdi,                          ONLY: get_cdi_varID, read_cdi_3d
   USE mo_mpi,                               ONLY: my_process_is_mpi_workroot,                           &
     &                                             p_comm_work, p_bcast, p_io
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
-
 
   IMPLICIT NONE
 
@@ -182,19 +182,26 @@ CONTAINS
         !--- If the user did not provide an external vertical grid
         !--- file, this file will be created:
         IF (create_vgrid) THEN
+          ! Note that the UUID is generated in write_vgrid_file
           DO jg = 1,n_dom
             CALL write_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), "vgrid_DOM"//TRIM(int2string(jg, "(i2.2)"))//".nc")
           END DO
-        ENDIF
+        ELSE
 
-        ! set dummy UUID for vertical grid which has been generated
-        ! on-the-fly:
-
-        ! IF (my_process_is_mpi_workroot()) THEN
-        !   ! fill UUID with zero-bytes  
-        !   vgrid_buffer(p_patch%id)%uuid(:) = ACHAR(0)
-        ! end if
-        ! CALL p_bcast(vgrid_buffer(p_patch%id)%uuid, p_io, p_comm_work)
+          ! If the vertical grid is created on the fly and not stored for later use, 
+          ! a vertical grid UUID is rather useless. Thus, only a dummy UUID 
+          ! is created and written to the output data files:
+          !
+          IF (my_process_is_mpi_workroot()) THEN
+             DO jg = 1,n_dom
+               ! fill UUID with zero-bytes  
+               vgrid_buffer(jg)%uuid(:) = ACHAR(0)
+             ENDDO
+          END IF
+          DO jg = 1,n_dom
+            CALL p_bcast(vgrid_buffer(jg)%uuid, p_io, p_comm_work)
+          ENDDO
+        ENDIF  ! create_vgrid
 
       ELSE
 
@@ -342,11 +349,6 @@ CONTAINS
   !! Output of this subroutine are:
   !!   vct_a, vct_b, vgrid_buffer%z_ifc
   !!
-  !! TODO:
-  !!  - compare horizontal UUID contained in the vertical grid file
-  !!    with the UUID of the horizontal grid file.
-  !!
-  !!  - read-in of vertical grid UUID
   !!
   SUBROUTINE read_vgrid_file(p_patch, vct_a, vct_b, nflat, filename)
     TYPE(t_patch),          INTENT(IN)    :: p_patch
@@ -355,13 +357,21 @@ CONTAINS
     INTEGER,                INTENT(INOUT) :: nflat
     CHARACTER(LEN=*),       INTENT(IN)    :: filename
     ! local variables
-    CHARACTER(*), PARAMETER    :: routine = modname//"::read_vgrid_file"
-    LOGICAL                    :: lexists
-    INTEGER                    :: cdiFileID, cdiVarID_vct_a, cdiVarID_vct_b,       &
-      &                           nlevp1, nmiss, iret, cdiVlistID, cdiGridID,      &
-      &                           cdiVarID_z_ifc, cdiZaxisID
-    TYPE(t_uuid)               :: uuid
-    CHARACTER(len=1)           :: iret_uuid(16), uuid_string(16)
+    CHARACTER(*), PARAMETER  :: routine = "read_vgrid_file"
+    LOGICAL                  :: lexists
+    INTEGER                  :: cdiFileID, cdiVarID_vct_a, cdiVarID_vct_b,       &
+      &                         nlevp1, nmiss, iret, cdiVlistID, cdiGridID,      &
+      &                         cdiVarID_z_ifc, cdiZaxisID
+    CHARACTER(len=1)         :: vfile_uuidOfHGrid_string(16) ! uuidOfHGrid contained in the
+                                                             ! vertical grid file
+    TYPE(t_uuid)             :: vfile_uuidOfHGrid            ! same, but converted to TYPE(t_uuid)
+    LOGICAL                  :: lmatch                       ! check matching of uuid's
+
+    CHARACTER(len=uuid_string_length) :: uuid_unparsed
+    TYPE(t_uuid)             :: vgrid_uuid
+
+
+
 
     CALL message(routine, "read vertical grid description file.")
 
@@ -380,19 +390,45 @@ CONTAINS
       cdiVlistID         = streamInqVlist(cdiFileID)
       iret               = vlistInqAttInt(cdiVlistID, CDI_GLOBAL, "nflat", 1, nflat)
 
-      !--- get UUID for horizontal grid
+      !--- get UUID for horizontal grid contained in vertical grid file
       cdiVarID_z_ifc     = get_cdi_varID(cdiFileID, "z_ifc")
       cdiGridID          = vlistInqVarGrid(cdiVlistID, cdiVarID_z_ifc)
-      ! TODO
-      !      iret_uuid          = gridInqUUID(cdiGridID, uuid%data)
-      CALL uuid2char(p_patch%grid_uuid, uuid_string)
-      ! IF (ANY(uuid_string /= iret_uuid)) THEN
-      !   CALL finish(routine, "UUIDOfHGrid: Horizontal and vertical grid file do not match!")
-      ! END IF
+      CALL gridInqUUID(cdiGridID, vfile_uuidOfHGrid_string)
+      CALL char2uuid(vfile_uuidOfHGrid_string, vfile_uuidOfHGrid)
+
+      ! compare horizontal UUID contained in the vertical grid file with the 
+      ! UUID of the horizontal grid file
+      lmatch = (p_patch%grid_uuid == vfile_uuidOfHGrid)
+      IF (.NOT. lmatch) THEN
+        WRITE(message_text,'(a)') 'uuidOfHGrid: Horizontal and vertical grid ', &
+          &                       'file do not match!'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
 
       !--- get UUID for vertical grid
       cdiZaxisID = vlistInqVarZaxis(cdiVlistID, cdiVarID_z_ifc)
-      ! vgrid_buffer(p_patch%id)%uuid = zaxisInqUUID(cdiZaxisID, uuid%data)
+      CALL zaxisInqUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid)
+
+
+
+      IF (msg_level > 10) THEN
+        ! vertical UUID
+        CALL char2uuid(vgrid_buffer(p_patch%id)%uuid, vgrid_uuid)
+        CALL uuid_unparse(vgrid_uuid, uuid_unparsed)
+        WRITE(message_text,'(a,a)') 'uuidOfVGrid from vert. grid file:', TRIM(uuid_unparsed)
+        CALL message(TRIM(routine), TRIM(message_text))
+
+        ! vertical grid horizontal UUID
+        CALL uuid_unparse(vfile_uuidOfHGrid, uuid_unparsed)
+        WRITE(message_text,'(a,a)') 'uuidOfHGrid from vert. grid file:', TRIM(uuid_unparsed)
+        CALL message(TRIM(routine), TRIM(message_text))
+
+        ! horizontal UUID
+        CALL uuid_unparse(p_patch%grid_uuid, uuid_unparsed)
+        WRITE(message_text,'(a,a)') 'uuidOfHGrid from hor. grid file:', TRIM(uuid_unparsed)
+        CALL message(TRIM(routine), TRIM(message_text))
+      ENDIF
+
     END IF
 
     ! broadcast data: 
