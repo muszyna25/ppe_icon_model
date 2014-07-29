@@ -251,9 +251,9 @@ CONTAINS
 
     REAL(wp)                              :: output_bounds(3*MAX_TIME_INTERVALS)
     INTEGER                               :: output_time_unit
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start, &
-      &                                      output_end,   &
-      &                                      output_interval
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start(MAX_TIME_INTERVALS), &
+      &                                      output_end(MAX_TIME_INTERVALS),   &
+      &                                      output_interval(MAX_TIME_INTERVALS)
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file  !< ready filename prefix (=output event name)
 
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
@@ -506,7 +506,7 @@ CONTAINS
       p_onl%i_levels                 = i_levels
       p_onl%remap                    = remap
       p_onl%lonlat_id                = -1
-      p_onl%output_start(:)          = output_start
+      p_onl%output_start(:)          = output_start(:)
       p_onl%output_end(:)            = output_end
       p_onl%output_interval(:)       = output_interval
       p_onl%additional_days(:)       = 0
@@ -1372,7 +1372,7 @@ CONTAINS
       ! timestep
       IF (is_restart_run() .AND. my_process_is_ocean()) THEN
         IF (TRIM(p_onl%output_start(2)) /= '') &
-          CALL finish(routine, "Not implemented for ocean model!")
+          CALL finish(routine, "Not implemented for ocean model with restart!")
         CALL get_datetime_string(p_onl%output_start(1), &
           &                      time_config%cur_datetime,                &
           &                      opt_td_string=p_onl%output_interval(1))
