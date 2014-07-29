@@ -22,39 +22,55 @@
 
 echo "INIT_BUILD.SMS"
 
-#---IBM
-#module swap fortran fortran/xlf/14.1.0.3
+# Change directory --------------------------------
+cd %SCPERMIII%
+ls -lrt
+cd icon-dev
 
-#---CRAY 8.2.7.101
-#module swap cce/8.2.7.101           # segmentation fault during compilation and run?
+# Compiler setup and configure --------------------
 
-#---CRAY 8.3.0.186 (make clean if switching compilers)
-module swap cce/8.3.0.186            # availability of CC compiler?
-module swap PrgEnv-cray/5.1.18
-
-module load subversion
-module swap grib_api grib_api/1.11.0
-module load netcdf
+compiler='cray'    # 'cray' or 'gcc' or 'intel'
 
 #arch=rs6000-ibm-aix
 arch=x86_64-unknown-linux-gnu
 #toolstag=tags/icontools-1.4.0       # recent tag - synchronize with init_cp_binary.sms!
 toolstag=trunk                       # alternative: choose trunk
 
+case ${compiler} in
+  cray)
+    #---IBM
+    #module swap fortran fortran/xlf/14.1.0.3
+    
+    #---CRAY 8.2.7.101
+    #module swap cce/8.2.7.101           # segmentation fault during compilation and run?
+    
+    #---CRAY 8.3.0.186 (make clean if switching compilers)
+    module swap cce/8.3.0.186            # availability of CC compiler?
+    module swap PrgEnv-cray/5.1.18
+    
+    module load subversion
+    module swap grib_api grib_api/1.11.0
+    module load netcdf
+    
+    
+    ./configure --with-fortran=cray      # --with-openmp     # --with-flags=hiopt
+    ;;
+  gcc)
+    module swap PrgEnv-cray PrgEnv-gnu
+    module load netcdf
+    ./configure
+    ;;
+  intel)
+    module swap PrgEnv-cray PrgEnv-intel
+    module load netcdf
+    ./configure --with-fortran=intel  
+esac
 
-# Change directory ----------------------------
-cd %SCPERMIII%
-ls -lrt
-cd icon-dev
-
-
-# Run configure script ------------------------
-./configure --with-fortran=cray      # --with-openmp     # --with-flags=hiopt
 smsevent configure
 
 
-# Submit ''Make'' -----------------------------
-#gmake clean
+# Submit ''Make'' ---------------------------------
+gmake clean    # distclean
 gmake -j%SCTOTALTASKS%
 smsevent make
 
@@ -64,24 +80,27 @@ revision=`ssh $WSHOST svn info %ECPERMIII%/icon-dev | grep Revision | awk '{prin
 echo $revision > %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 
 
-# Compile dwd_icon_tools for remap_mpi --------
+# Compile dwd_icon_tools for remap_mpi ------------
 ssh $WSHOST svn update %ECPERMIII%/dwd_icon_tools
 cd %SCPERMIII%/dwd_icon_tools/${toolstag}/icontools
-module swap cce/8.2.2
-#module swap cce/8.3.0.186  # segmentation fauls during compilation
-gmake clean
-gmake cray_mpi       #-j%SCTOTALTASKS% ibmp7_mpi
-
-#module unload PrgEnv-cray
-#module load PrgEnv-intel
-#module load intel
-#gmake clean
-
+case ${compiler} in
+  cray)
+    module swap cce/8.2.2
+   #module swap cce/8.3.0.186  # segmentation fauls during compilation
+    gmake clean
+    gmake cray_mpi       #-j%SCTOTALTASKS% ibmp7_mpi
+    ;;
+  intel)
+    module swap PrgEnv-cray PrgEnv-intel
+    gmake clean
+    gmake
+    ;;
+esac
 
 echo $toolstag >> %SCPERMIII%/icon-dev/build/${arch}/bin/icon_rev.txt
 
 
-# ---------------------------------------------
+# -------------------------------------------------
 
 # include the "tail" file for remote jobs
 %include <end_sc.h>

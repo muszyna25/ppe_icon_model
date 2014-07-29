@@ -384,6 +384,7 @@ case "$ac_sitename" in
                 NETCDFROOT  =${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
+                F77         = ftn
                 make_command="make" "-j" "8"
                 CFLAGS   = "$CFLAGS" -D_ECMWF
                 case "$fortran_compiler" in
@@ -399,7 +400,7 @@ case "$ac_sitename" in
                       LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
                       ;;
                     default|gcc)
-                      load_modules    = "PrgEnv-gnu/5.1.29" "netcdf" "grib_api" "cray-mpich/6.2.0" "${load_modules}"
+                     #load_modules    = "PrgEnv-gnu/5.1.29" "netcdf" "grib_api" "cray-mpich/6.2.0" "${load_modules}"
                       FFLAGS          = ${FFLAGS}
                       LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
                       ;;
