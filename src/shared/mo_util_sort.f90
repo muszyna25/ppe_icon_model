@@ -1,3 +1,8 @@
+!! Module containing basic sorting algorithms (required until
+!! a Fortran STL has been invented).
+!!
+!! Initial revision: F. Prill, DWD (10/2012)
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -5,10 +10,6 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-!! Module containing basic sorting algorithms (required until
-!! a Fortran STL has been invented).
-!!
-!! Initial revision: F. Prill, DWD (10/2012)
 !!
 MODULE mo_util_sort
 
@@ -39,6 +40,8 @@ CONTAINS
   ! --------------------------------------------------------------------
   !> Simple recursive implementation of Hoare's QuickSort algorithm
   !  for a 1D array of REAL values.
+  ! 
+  !  Ordering after the sorting process: smallest...largest.
   !
   RECURSIVE SUBROUTINE quicksort_real(a, permutation, l_in, r_in)
     REAL(wp), INTENT(INOUT)           :: a(:)           !< array for in-situ sorting
@@ -116,6 +119,8 @@ CONTAINS
   ! --------------------------------------------------------------------
   !> Simple recursive implementation of Hoare's QuickSort algorithm
   !  for a 1D array of INTEGER values.
+  ! 
+  !  Ordering after the sorting process: smallest...largest.
   !
   RECURSIVE SUBROUTINE quicksort_int(a, permutation, l_in, r_in)
     INTEGER,  INTENT(INOUT)           :: a(:)           !< array for in-situ sorting

@@ -27,6 +27,7 @@ MODULE mo_nh_pzlev_config
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom
   USE mo_exception,          ONLY: finish
+  USE mo_util_sort,          ONLY: quicksort
 
   IMPLICIT NONE
   PUBLIC
@@ -89,7 +90,7 @@ CONTAINS
 
     ! Local variables
     INTEGER :: ist
-    INTEGER :: nlen
+    INTEGER :: nlen, nlev
     INTEGER :: z_nplev, z_nzlev, z_nilev
     INTEGER :: jb, jk           ! loop indices
     !-----------------------------------------------------------------------
@@ -108,6 +109,21 @@ CONTAINS
         &      'allocation of p3d, z3d, i3d failed' )
     ENDIF
 
+    ! level ordering: zlevels, plevels, ilevels must be ordered from
+    ! TOA to bottom:
+    !
+    ! pressure levels:
+    nlev = nh_pzlev_config(jg)%nplev
+    CALL quicksort(nh_pzlev_config(jg)%plevels(1:nlev))
+    !
+    ! height levels
+    nlev = nh_pzlev_config(jg)%nzlev
+    CALL quicksort(nh_pzlev_config(jg)%zlevels(1:nlev))
+    nh_pzlev_config(jg)%zlevels(1:nlev) = nh_pzlev_config(jg)%zlevels(nlev:1:-1)
+    ! isentropic levels
+    nlev = nh_pzlev_config(jg)%nilev
+    CALL quicksort(nh_pzlev_config(jg)%ilevels(1:nlev))
+    nh_pzlev_config(jg)%ilevels(1:nlev) = nh_pzlev_config(jg)%ilevels(nlev:1:-1)
 
     ! Fill z3d field of pressure-level data and pressure field of 
     ! height-level data

@@ -85,7 +85,6 @@
     USE mo_var_metadata,        ONLY: create_hor_interp_metadata
     USE mo_linked_list,         ONLY: t_list_element
     USE mo_sync,                ONLY: SYNC_C, sync_idx, sync_patch_array
-    USE mo_util_sort,           ONLY: quicksort
     USE mo_alloc_patches,       ONLY: deallocate_glb2loc_index_lookup
     USE mo_rbf_errana,          ONLY: estimate_rbf_parameter
 
