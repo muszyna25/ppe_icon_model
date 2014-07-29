@@ -164,7 +164,6 @@ cat > ${atmo_namelist} << EOF
  latm_above_top  = .false., .true.  ! the second entry refers to the nested domain (if present)
  efdt_min_raylfric = 7200.
  itype_z0         = 2
- icapdcycl        = 3
  icpl_aero_conv   = 1
  icpl_aero_gscp   = 1
  ! resolution-dependent settings - please choose the appropriate one
