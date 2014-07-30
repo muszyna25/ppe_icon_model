@@ -63,34 +63,52 @@
 !! In general, available settings are
 !!
 !!  vert_intp_type      : vertical interpolation type, one or more of 
-!!                        mo_var_metadata_types::VINTP_TYPE_LIST
+!!                        mo_var_metadata_types::VINTP_TYPE_LIST. 
+!!                        Default: no vertical interpolation
 !!
 !!  vert_intp_method    : vertical interpolation algorithms, listed in mo_impl_constants, and
 !!                        defined in module mo_nh_vert_interp:
 !!
-!!                         VINTP_METHOD_UV          : vertical interpolation and extrapolation of horizontal 
-!!                                                    wind components, performs cubic interpolation where 
-!!                                                    possible, turning to linear interpolation close to the 
-!!                                                    surface with boundary-layer treatment
-!!                         VINTP_METHOD_LIN         : linear vertical interpolation 
-!!                         VINTP_METHOD_QV          : vertical interpolation of specific humidity,
-!!                                                    performs cubic interpolation where possible, 
-!!                                                    turning to linear interpolation close to the surface
-!!                         VINTP_METHOD_PRES        : vertical interpolation of pressure, piecewise 
-!!                                                    analytical integration of the hydrostatic equation
-!!                         VINTP_METHOD_LIN_NLEVP1  : linear interpolation for half level fields
+!!                         VINTP_METHOD_LIN (default) : linear vertical interpolation 
+!!                         VINTP_METHOD_UV            : vertical interpolation and extrapolation of horizontal 
+!!                                                      wind components, performs cubic interpolation where 
+!!                                                      possible, turning to linear interpolation close to the 
+!!                                                      surface with boundary-layer treatment
+!!                         VINTP_METHOD_QV            : vertical interpolation of specific humidity,
+!!                                                      performs cubic interpolation where possible, 
+!!                                                      turning to linear interpolation close to the surface
+!!                         VINTP_METHOD_PRES          : vertical interpolation of pressure, piecewise 
+!!                                                      analytical integration of the hydrostatic equation
+!!                         VINTP_METHOD_LIN_NLEVP1    : linear interpolation for half level fields
 !!
 !!  Tuning parameters for the interpolation algorithms:
 !!
 !!     l_hires_intp             : mode for interpolation to (much) finer grid (VINTP_METHOD_UV)
+!!                                Default: .FALSE.
 !!     l_restore_fricred        : subtract/restore frictional reduction of wind speed (VINTP_METHOD_UV)
-!!     l_loglin                 : setting l_loglin=.TRUE. activates logarithmic interpolation (VINTP_METHOD_LIN)
-!!     l_extrapol               : switch for use of downward extrapolation (VINTP_METHOD_LIN)
+!!                                Default: .FALSE.
+!!     l_loglin                 : setting l_loglin=.TRUE. activates logarithmic interpolation
+!!                                (only for VINTP_METHOD_LIN)
+!!                                Default: .FALSE.
 !!     l_satlimit               : limit input field to water saturation (VINTP_METHOD_QV)
+!!                                Default: .FALSE.
 !!     l_restore_pbldev         : restore PBL deviation of QV from extrapolated profile (VINTP_METHOD_QV)
-!!     l_pd_limit               : switch for use of positive definite limiter (VINTP_METHOD_LIN)
-!!     lower_limit              : limiter value to avoid negative or unreasonably small values 
-!!                                (VINTP_METHOD_LIN, VINTP_METHOD_QV)
+!!                                Default: .FALSE.
+!!
+!!     l_pd_limit               : Switch for use of positive definite limiter (VINTP_METHOD_LIN)
+!!                                Default: .FALSE.
+!!     lower_limit              : Limiter value to avoid negative or unreasonably small values 
+!!                                (VINTP_METHOD_LIN, VINTP_METHOD_QV). For the linear interpolation method,
+!!                                the "lower_limit" is used only in combination with "l_pd_limit". Default is 0.
+!!
+!!     l_extrapol               : Switch for use of downward extrapolation (only for VINTP_METHOD_LIN)
+!!                                where the gradient between height "zpbl1" and "zpbl2" is used
+!!                                (see mo_initicon_config). If "l_extrapol==.FALSE.", then for all levels
+!!                                below the lowermost input level we use the values from the lowermost input 
+!!                                level.
+!!                                Default: .TRUE.
+!!                                Note: Logarithmic computation is not used for extrapolation because
+!!                                      it would be numerically unstable.
 !!
 !! ===================================================================
 !!
