@@ -85,7 +85,7 @@ MODULE mo_atmo_model
     &                                   destruct_icon_communication
   ! Vertical grid
   USE mo_vertical_coord_table,    ONLY: apzero, vct_a, vct_b, vct, allocate_vct_atmo
-  USE mo_nh_init_utils,           ONLY: nflatlev, nflat
+  USE mo_nh_init_utils,           ONLY: nflatlev
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics
@@ -461,7 +461,7 @@ CONTAINS
       CALL init_nh_testtopo(p_patch(1:), ext_data)   ! set analytic topography
     ENDIF
     CALL construct_vertical_grid(p_patch(1:), p_int_state(1:), ext_data, &
-      &                          vct_a, vct_b, vct, nflatlev, nflat)
+      &                          vct_a, vct_b, vct, nflatlev)
 
 
     !---------------------------------------------------------------------

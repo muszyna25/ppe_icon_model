@@ -31,7 +31,7 @@ MODULE mo_util_vgrid
     &                                             ishallow_water, SUCCESS
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
-  USE mo_ext_data_state,                    ONLY: ext_data, init_ext_data, destruct_ext_data
+  USE mo_ext_data_state,                    ONLY: ext_data
   USE mo_intp_data_strc,                    ONLY: t_int_state
   USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table, vct_a, vct_b, vct
   USE mo_nh_init_utils,                     ONLY: init_hybrid_coord, init_sleve_coord,                  &
@@ -55,7 +55,6 @@ MODULE mo_util_vgrid
   ! PUBLIC :: ...
   ! subroutines
   PUBLIC :: construct_vertical_grid
-  PUBLIC :: vgrid_buffer
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_vgrid'
 
@@ -71,7 +70,7 @@ CONTAINS
   !        levels with domain 1.
   !
   SUBROUTINE construct_vertical_grid(p_patch, p_int_state, ext_data, &
-    &                                vct_a, vct_b, vct, nflatlev, nflat)
+    &                                vct_a, vct_b, vct, nflatlev)
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)          ! (1,..., n_dom)
@@ -79,11 +78,10 @@ CONTAINS
     REAL(wp),               INTENT(INOUT) :: vct_b(:)             ! param. B of the vertical coordinate
     REAL(wp),               INTENT(INOUT) :: vct  (:)             ! param. A and B of the vertical coordinate
     INTEGER,                INTENT(INOUT) :: nflatlev(:)
-    INTEGER,                INTENT(INOUT) :: nflat
 
     ! local variables
     CHARACTER(*), PARAMETER   :: routine = modname//"::construct_vertical_grid"
-    INTEGER                   :: nlevp1, nblks_v, nblks_c, jg, error_status
+    INTEGER                   :: nlevp1, nblks_c, jg, error_status
     REAL(wp), ALLOCATABLE     :: topography_smt(:,:)
 
     !--- Initialize vertical coordinate table vct_a, vct_b (grid stretching)
