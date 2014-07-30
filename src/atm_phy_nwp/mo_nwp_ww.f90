@@ -104,13 +104,13 @@ CONTAINS
 
 !   The following values are calculated as height difference between the height of the pressure level
 !   and the height of 1000 hPa for a US standard atmosphere; h_1000hPa=110.88 m
-    REAL(wp), PARAMETER :: h_500hPa = 5463.56    ! height of 500 hPa level
-    REAL(wp), PARAMETER :: h_700hPa = 2091.30    ! height of 700 hPa level
-    REAL(wp), PARAMETER :: h_850hPa = 1346.42    ! height of 850 hPa level
-    REAL(wp), PARAMETER :: h_950hPa =  429.46    ! height of 950 hPa level
+    REAL(wp), PARAMETER :: h_500hPa = 5463.56_wp    ! height of 500 hPa level
+    REAL(wp), PARAMETER :: h_700hPa = 2091.30_wp    ! height of 700 hPa level
+    REAL(wp), PARAMETER :: h_850hPa = 1346.42_wp    ! height of 850 hPa level
+    REAL(wp), PARAMETER :: h_950hPa =  429.46_wp    ! height of 950 hPa level
 !   The followin heights are used to calculate a fox index
-    REAL(wp), PARAMETER :: hfog_temp = 877.62   ! h(900 hPa)-h(1000 hPa)
-    REAL(wp), PARAMETER :: hfog_wind = 298.74   ! h(965 hPa)-h(1000 hPa)
+    REAL(wp), PARAMETER :: hfog_temp = 877.62_wp   ! h(900 hPa)-h(1000 hPa)
+    REAL(wp), PARAMETER :: hfog_wind = 298.74_wp   ! h(965 hPa)-h(1000 hPa)
 
     INTEGER             :: jk, jk1
 
@@ -542,7 +542,7 @@ CPRECIP: IF ( rkdiff > rldiff) THEN
       REAL(wp), INTENT(OUT)::  rko                         ! KO-Index
 !-----------------------------------------------------------------------
 !
-      REAL(wp), PARAMETER :: qvmin = 1.e-12               ! minimum value for specific humidity
+      REAL(wp), PARAMETER :: qvmin = 1.e-12_wp            ! minimum value for specific humidity
       REAL(wp)            :: ta950, ta850, ta700, ta500   ! equivalent potential temperature
 !
   
