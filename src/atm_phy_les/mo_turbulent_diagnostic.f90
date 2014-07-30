@@ -70,13 +70,96 @@ MODULE mo_turbulent_diagnostic
 
   PRIVATE
 
-
+  
+  PUBLIC  :: les_cloud_diag
   PUBLIC  :: calculate_turbulent_diagnostics, write_vertical_profiles, write_time_series
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
   PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
   PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx, idx_sgs_u_flx, idx_sgs_v_flx
 
 CONTAINS
+
+  !> AD: 28 July 2014- more diag yet to be added
+  !!
+  !! <Calculates cloud diagnostics for LES runs when convective parameterization is off>
+  !!
+  !! <Describe the purpose of the subroutine and its algorithm(s).>
+  !! <Include any applicable external references inline as module::procedure,>
+  !! <external_procedure(), or by using @see.>
+  !! <Don't forget references to literature.>
+  !!
+  !! @par Revision History
+  !!
+  SUBROUTINE les_cloud_diag(p_patch, p_prog_rcf, kstart_moist, prm_diag)     
+                            
+    !>
+    ! !INPUT PARAMETERS:
+    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
+    TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
+    INTEGER                , INTENT(in)   :: kstart_moist
+    TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
+
+    REAL(wp), PARAMETER :: qc_min = 1.e-8_wp
+    REAL(wp) :: qc_jk, qc_jkp1, qc_jkm1
+    LOGICAL :: lfound_top, lfound_base
+    INTEGER :: nlev
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
+    INTEGER :: jc,jk,jb                !block index
+
+    nlev      = p_patch%nlev 
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+
+    rl_start   = grf_bdywidth_c+1
+    rl_end     = min_rlcell_int-1  
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+    !Cloud base and cloud height: get the model levels only
+    !rest of the calulations are performed in mo_nwp_diag
+    !using the variables hbas_con/htop_con designed for convective
+    !parametrization
+
+    prm_diag%locum(:,:) = .FALSE.
+    lfound_top          = .FALSE.
+    lfound_base         = .FALSE.
+
+    DO jb = i_startblk,i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, rl_end)
+       DO jc = i_startidx, i_endidx
+
+         !cloud top- full level
+         DO jk = kstart_moist, nlev
+           qc_jk   = p_prog_rcf%tracer(jc,jk,jb,iqc)
+           qc_jkp1 = p_prog_rcf%tracer(jc,jk+1,jb,iqc)
+ 
+           IF(qc_jk<qc_min.AND.qc_jkp1>qc_min.AND..NOT.lfound_top)THEN
+             prm_diag%mtop_con(jc,jb) = jk
+             lfound_top               = .TRUE.
+           END IF
+         END DO  
+
+         !cloud base- half level
+         DO jk = nlev, kstart_moist,-1
+           qc_jk   = p_prog_rcf%tracer(jc,jk,jb,iqc)
+           qc_jkm1 = p_prog_rcf%tracer(jc,jk-1,jb,iqc)
+
+           IF(qc_jk<qc_min.AND.qc_jkm1>qc_min.AND..NOT.lfound_base)THEN
+             prm_diag%mtop_con(jc,jb) = jk
+             prm_diag%locum(jc,jb)    = .TRUE.
+             lfound_base              = .TRUE.
+           END IF
+         END DO
+
+       END DO
+    END DO
+
+
+  END SUBROUTINE les_cloud_diag
+
 
   !>
   !! <Calculates 1D and 0D turbulent diagnostics>

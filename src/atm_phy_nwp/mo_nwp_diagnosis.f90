@@ -944,8 +944,9 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
 
-      IF (atm_phy_nwp_config(jg)%lproc_on(itconv)) THEN  ! convection parameterization switched on
-
+      IF (atm_phy_nwp_config(jg)%lproc_on(itconv) .OR. &
+          atm_phy_nwp_config(jg)%is_les_phy) THEN  ! convection parameterization switched on
+                                                   ! or LES physics (to avoid duplication of codes) 
         !
         ! height of convection base and top, hbas_con, htop_con
         ! 
@@ -1001,7 +1002,7 @@ CONTAINS
           END IF
         ENDDO
 
-      END IF !convection parameterization switched on
+      END IF !convection parameterization or LES switched on
 
 
       !
