@@ -133,7 +133,7 @@ CONTAINS
   ! Fills data structure with default values (unless set otherwise).
   FUNCTION create_vert_interp_metadata(vert_intp_type, vert_intp_method,                     &
     &  l_hires_intp, l_restore_fricred, l_loglin, l_extrapol, l_satlimit, l_restore_pbldev,  &
-    &  l_pd_limit, l_restore_sfcinv, l_hires_corr, lower_limit, extrapol_dist)               &
+    &  l_pd_limit, lower_limit)               &
     RESULT(vert_interp_meta)
 
     TYPE(t_vert_interp_meta) :: vert_interp_meta    
@@ -144,9 +144,9 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL      :: &
       &  l_hires_intp, l_restore_fricred, l_loglin, &
       &  l_extrapol, l_satlimit, l_restore_pbldev,  &
-      &  l_pd_limit, l_restore_sfcinv, l_hires_corr
+      &  l_pd_limit
     REAL(wp), INTENT(IN), OPTIONAL     :: &
-      &  lower_limit, extrapol_dist
+      &  lower_limit
 
     ! set default values
     vert_interp_meta%vert_intp_type(:) = .FALSE.
@@ -158,10 +158,7 @@ CONTAINS
     vert_interp_meta%l_satlimit        = .FALSE.
     vert_interp_meta%l_restore_pbldev  = .FALSE.
     vert_interp_meta%l_pd_limit        = .FALSE.
-    vert_interp_meta%l_restore_sfcinv  = .FALSE.
-    vert_interp_meta%l_hires_corr      = .FALSE.
     vert_interp_meta%lower_limit       = 0._wp
-    vert_interp_meta%extrapol_dist     = 500._wp
     ! supersede with user definitions
     CALL assign_if_present(vert_interp_meta%vert_intp_type     , vert_intp_type    )
     CALL assign_if_present(vert_interp_meta%vert_intp_method   , vert_intp_method  )
@@ -172,10 +169,7 @@ CONTAINS
     CALL assign_if_present(vert_interp_meta%l_satlimit         , l_satlimit        )
     CALL assign_if_present(vert_interp_meta%l_restore_pbldev   , l_restore_pbldev  )
     CALL assign_if_present(vert_interp_meta%l_pd_limit         , l_pd_limit        )
-    CALL assign_if_present(vert_interp_meta%l_restore_sfcinv   , l_restore_sfcinv  )
-    CALL assign_if_present(vert_interp_meta%l_hires_corr       , l_hires_corr      )
     CALL assign_if_present(vert_interp_meta%lower_limit        , lower_limit       )
-    CALL assign_if_present(vert_interp_meta%extrapol_dist      , extrapol_dist     )
 
   END FUNCTION create_vert_interp_metadata
 

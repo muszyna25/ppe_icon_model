@@ -555,7 +555,7 @@ CONTAINS
     LOGICAL                            :: &
       &  l_hires_intp, l_restore_fricred, l_loglin, &
       &  l_extrapol, l_satlimit, l_restore_pbldev,  &
-      &  l_pd_limit, l_restore_sfcinv, l_hires_corr
+      &  l_pd_limit
     REAL(wp)                           :: &
       &  lower_limit, extrapol_dist
     TYPE (t_vcoeff_lin), POINTER       :: &
@@ -631,8 +631,6 @@ CONTAINS
     l_satlimit        = pzlev_flags%l_satlimit        
     l_restore_pbldev  = pzlev_flags%l_restore_pbldev  
     l_pd_limit        = pzlev_flags%l_pd_limit
-    l_restore_sfcinv  = pzlev_flags%l_restore_sfcinv 
-    l_hires_corr      = pzlev_flags%l_hires_corr     
     lower_limit       = pzlev_flags%lower_limit       
     extrapol_dist     = pzlev_flags%extrapol_dist    
 
