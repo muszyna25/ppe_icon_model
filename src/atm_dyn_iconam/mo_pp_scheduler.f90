@@ -6,6 +6,7 @@
 !option! -O nomove
 !>
 !! Scheduler for internal post-processing.
+!! ===================================================================
 !!
 !! This module manages a "job queue" for internal post-processing
 !! tasks on the compute PEs.
@@ -14,7 +15,7 @@
 !! fields constitutes such a task. Allocating and computing only those
 !! fields which are required for output (or as intermediate results)
 !! can save memory and computing time. 
-
+!!
 !! Jobs are processed according to user-defined priority levels. In
 !! principle, all tasks with the same job priority could be processed
 !! simultaneously (with OpenMP).
@@ -34,6 +35,64 @@
 !! horizontal interpolation            DEFAULT_PRIORITY4
 !! z/p/i interpolation clean-up        LOW_PRIORITY
 !!
+!!
+!! ===================================================================
+!!
+!! DETAILS: Vertical interpolation of output variables
+!! ---------------------------------------------------
+!!
+!! Vertical interpolation is one of the internal post-processing tasks
+!! in ICON (see the table above for other post-processing tasks).
+!! Vertical interpolation of a variable is enabled/disabled simply by
+!! adding the variable's name to the corresponding namelist parameter
+!! ("pl_varlist", "hl_varlist", "il_varlist").
+!!
+!! Vertical interpolation of a field is only possible if the necessary
+!! meta-data, e.g. the interpolation method, has been defined in the
+!! "add_var" call for this variable. A typical example would be
+!!
+!!    CALL add_var( p_prog_list, 'rho', p_prog%rho,  &
+!!      ...
+!!      vert_interp=create_vert_interp_metadata(                     &
+!!                    vert_intp_type=vintp_types("P","Z","I"),       &
+!!                    vert_intp_method=VINTP_METHOD_LIN ) )
+!!
+!! In this example, vertical interpolation is enabled for p-, z- and
+!! i-level interpolation, using a linear interpolation method.
+!!
+!! In general, available settings are
+!!
+!!  vert_intp_type      : vertical interpolation type, one or more of 
+!!                        mo_var_metadata_types::VINTP_TYPE_LIST
+!!
+!!  vert_intp_method    : vertical interpolation algorithms, listed in mo_impl_constants, and
+!!                        defined in module mo_nh_vert_interp:
+!!
+!!                         VINTP_METHOD_UV          : vertical interpolation and extrapolation of horizontal 
+!!                                                    wind components, performs cubic interpolation where 
+!!                                                    possible, turning to linear interpolation close to the 
+!!                                                    surface with boundary-layer treatment
+!!                         VINTP_METHOD_LIN         : linear vertical interpolation 
+!!                         VINTP_METHOD_QV          : vertical interpolation of specific humidity,
+!!                                                    performs cubic interpolation where possible, 
+!!                                                    turning to linear interpolation close to the surface
+!!                         VINTP_METHOD_PRES        : vertical interpolation of pressure, piecewise 
+!!                                                    analytical integration of the hydrostatic equation
+!!                         VINTP_METHOD_LIN_NLEVP1  : linear interpolation for half level fields
+!!
+!!  Tuning parameters for the interpolation algorithms:
+!!
+!!     l_hires_intp             : mode for interpolation to (much) finer grid (VINTP_METHOD_UV)
+!!     l_restore_fricred        : subtract/restore frictional reduction of wind speed (VINTP_METHOD_UV)
+!!     l_loglin                 : setting l_loglin=.TRUE. activates logarithmic interpolation (VINTP_METHOD_LIN)
+!!     l_extrapol               : switch for use of downward extrapolation (VINTP_METHOD_LIN)
+!!     l_satlimit               : limit input field to water saturation (VINTP_METHOD_QV)
+!!     l_restore_pbldev         : restore PBL deviation of QV from extrapolated profile (VINTP_METHOD_QV)
+!!     l_pd_limit               : switch for use of positive definite limiter (VINTP_METHOD_LIN)
+!!     lower_limit              : limiter value to avoid negative or unreasonably small values 
+!!                                (VINTP_METHOD_LIN, VINTP_METHOD_QV)
+!!
+!! ===================================================================
 !!
 !! @author F. Prill, DWD
 !!
