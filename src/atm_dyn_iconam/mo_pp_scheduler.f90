@@ -81,7 +81,8 @@
 !!                                                      analytical integration of the hydrostatic equation
 !!                         VINTP_METHOD_LIN_NLEVP1    : linear interpolation for half level fields
 !!
-!!  Tuning parameters for the interpolation algorithms:
+!!  Tuning parameters for the interpolation algorithms
+!!  (defaults are defined in mo_var_metadata::create_vert_interp_metadata)
 !!
 !!     l_hires_intp             : mode for interpolation to (much) finer grid (VINTP_METHOD_UV)
 !!                                Default: .FALSE.
