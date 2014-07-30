@@ -49,14 +49,6 @@ PROGRAM icon
 
 #ifndef __NO_ICON_ATMO__
   USE mo_atmo_model,          ONLY: atmo_model
-!   USE mo_radiation_model,     ONLY: radiation_model
-#endif
-
-#ifdef MESSY
-  USE messy_main_constants_mem, ONLY: modver
-  USE messy_main_compilerinfo_mem, ONLY: compiler_version, compiler_call &
-    &   , compiler_flags                                                 &
-    &   , compiler_cppdefs, compiler_includes
 #endif
 
   IMPLICIT NONE
@@ -167,17 +159,12 @@ PROGRAM icon
   my_namelist_filename = get_my_namelist_filename()
   my_process_component = get_my_process_type()
 
-!   write(0,*) 'control model. my_process_component=',my_process_component
-  
   SELECT CASE (my_process_component)
 
 #ifndef __NO_ICON_ATMO__
   CASE (atmo_process)
     CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
 #endif
-
-!   CASE (radiation_process)
-!     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
 
 #ifndef __NO_ICON_TESTBED__
   CASE (testbed_process)
