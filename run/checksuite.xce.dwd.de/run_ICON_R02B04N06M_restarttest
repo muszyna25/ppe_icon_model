@@ -53,7 +53,7 @@ ICONDIR=${PBS_O_WORKDIR}/../../
 EXPDIR=$TMPDIR/../experiments/exp14
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/control_model
+MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
 
 
 # ----------------------------------------------------------------------------
