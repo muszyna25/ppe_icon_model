@@ -221,10 +221,10 @@ esac
 done
 if [ "${EXPERIMENT}" == 'atm_amip' ]; then
   TYPES='dyn_2d_ml dyn_2d_rmb_ml dyn_3d_ml dyn_3d_pl dyn_3d_rmb_pl lnd_ml lnd_rmb_ml phy_2d_ml phy_2d_rmb_ml phy_3d_ml phy_3d_rmb_pl'
-  DATES='19790101T004000Z 19790101T005000Z 19790101T010000Z'
+  DATES='19790101T012000Z 19790101T014000Z 19790101T020000Z'
   RESOL='t63grid'
   REMAP_FILE='/pool/data/ICON/grids/private/r2b4_amip/remapdis_r2b4_amip_cell_t63grid.nc'
-  RESTART_DATE='19790101T003000Z'
+  RESTART_DATE='19790101T010000Z'
 fi
 if [ "${EXPERIMENT}" == 'atm_amip_hs' ]; then
   TYPES='atm_phy atm_dyn lnd_phy'

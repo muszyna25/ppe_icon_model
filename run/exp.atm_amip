@@ -212,7 +212,7 @@ add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_gre
 #
 # - ozone
 year=1978
-while [[ $year -le 1990 ]]
+while [[ $year -le 2009 ]]
 do
   datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
@@ -221,7 +221,7 @@ done
 #
 ### - tropospheric aerosol
 ##year=1978
-##while [[ $year -le 1990 ]]
+##while [[ $year -le 2009 ]]
 ##do
 ##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
 ##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
@@ -232,7 +232,7 @@ done
 #
 ### - stratospheric aerosol
 ##year=1978
-##while [[ $year -le 1990 ]]
+##while [[ $year -le 2009 ]]
 ##do
 ##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 ##  add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./
