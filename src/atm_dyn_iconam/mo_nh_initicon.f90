@@ -2593,7 +2593,8 @@ MODULE mo_nh_initicon
           &                opt_checkgroup=initicon(jg)%grp_vars_fg(1:ngrp_vars_fg) )
 
 
-        ! so far w_so_ice is re-initialized in terra_multlay_init
+        ! Skipped in MODE_COMBINED and in MODE_COSMODE. In that case, w_so_ice 
+        ! is re-diagnosed in terra_multlay_init
         my_ptr3d => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_ice_t(:,:,:,jt)
         CALL read_data_3d (filetype_fg(jg), fileID_fg(jg), 'w_so_ice',                 &
           &                p_patch(jg)%n_patch_cells_g,                                &
@@ -2667,8 +2668,8 @@ MODULE mo_nh_initicon
     ENDDO ! loop over model domains
 
 
-    ! Only required, when starting from GME soil (so far, W_SO=SMI*1000 in GME input file)
-    ! Also note, that the domain-loop is missing
+    ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+    ! SMI stored in w_so_t must be converted to w_so
     IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -3804,7 +3805,7 @@ MODULE mo_nh_initicon
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data(jg)%atm%sp_count(jb)
            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  & ! nproma.nlev_soil+1,nblks,ntiles_total
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  & ! nproma,nlev_soil+1,nblks,ntiles_total
                                     & p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,1,jb,1) 
         END DO
 !CDIR NODEP,VOVERTAKE,VOB

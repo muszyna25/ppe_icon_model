@@ -345,7 +345,7 @@ CONTAINS
       ! (re)-initialize error flag
       lerr = .FALSE.
 
-      ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
+      ! Conversion of soil moisture index SMI into TERRA soil moisture [m]
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
       !   safety: min=air dryness point, max=pore volume
       DO jk = 1, nlev_soil-1
