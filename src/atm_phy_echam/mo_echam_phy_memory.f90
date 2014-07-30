@@ -702,7 +702,8 @@ CONTAINS
                 & ldims=shape3d,                                               &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
-                &   vert_intp_method=VINTP_METHOD_LIN ) )
+                &   vert_intp_method=VINTP_METHOD_LIN,                         &
+                &   l_extrapol=.FALSE. ) )
     cf_desc    = t_cf_var('aer_ssa_533','-',                                   &
                 & 'aerosol single scattering albedo at 533 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -711,7 +712,8 @@ CONTAINS
                 & ldims=shape3d,                                               &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
-                &   vert_intp_method=VINTP_METHOD_LIN ) )
+                &   vert_intp_method=VINTP_METHOD_LIN,                         &
+                &   l_extrapol=.FALSE. ) )
     cf_desc    = t_cf_var('aer_asy_533','-',                                   &
                 & 'aerosol asymmetry factor at 533 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -730,7 +732,8 @@ CONTAINS
                 & ldims=shape3d,                                               &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
-                &   vert_intp_method=VINTP_METHOD_LIN ) )
+                &   vert_intp_method=VINTP_METHOD_LIN,                         &
+                &   l_extrapol=.FALSE. ) )
     cf_desc    = t_cf_var('aer_ssa_2325','-',                                  &
                 & 'aerosol single scattering albedo at 2325 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -739,7 +742,8 @@ CONTAINS
                 & ldims=shape3d,                                               &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
-                &   vert_intp_method=VINTP_METHOD_LIN ) )
+                &   vert_intp_method=VINTP_METHOD_LIN,                         &
+                &   l_extrapol=.FALSE. ) )
     cf_desc    = t_cf_var('aer_asy_2325','-',                                  &
                 & 'aerosol asymmetry factor at 2325 nm', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -748,7 +752,8 @@ CONTAINS
                 & ldims=shape3d,                                               &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
-                &   vert_intp_method=VINTP_METHOD_LIN ) )
+                &   vert_intp_method=VINTP_METHOD_LIN,                         &
+                &   l_extrapol=.FALSE. ) )
     ! at 9731 nm
     cf_desc    = t_cf_var('aer_aod_9731','-',                                  &
                 & 'effective aerosol optical depth at 9731 nm', DATATYPE_FLT32)
@@ -758,7 +763,8 @@ CONTAINS
                 & ldims=shape3d,                                               &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
-                &   vert_intp_method=VINTP_METHOD_LIN ) )
+                &   vert_intp_method=VINTP_METHOD_LIN,                         &
+                &   l_extrapol=.FALSE. ) )
 
     ! &       field% q         (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'q', field%q,                            &
