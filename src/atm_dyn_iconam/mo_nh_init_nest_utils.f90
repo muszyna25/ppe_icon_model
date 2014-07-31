@@ -786,6 +786,14 @@ MODULE mo_nh_init_nest_utils
 
     LOGICAL :: l_parallel
 
+
+    IF (.NOT. my_process_is_mpi_parallel()) THEN
+      l_parallel = .FALSE.
+    ELSE
+      l_parallel = .TRUE.
+    ENDIF
+
+
     p_pp           => p_patch_local_parent(jgc)
     p_pc           => p_patch(jgc)
     p_grf          => p_grf_state_local_parent(jgc)
