@@ -282,7 +282,7 @@ case "$ac_sitename" in
                       NETCDFROOT = $software_tree/netcdf-4.1.3-static-pgi14
                       MPIROOT    = $software_tree/mpilib/openmpi-1.6.5-static-pgi14
                       MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                      load_modules="gcc/4.7.2" "pgi/14.1" "${load_modules}"
+                      load_modules="gcc/4.7.2" "pgi/14.7" "${load_modules}"
                       ;;
                     intel)
                       NETCDFROOT  = $software_tree/netcdf-4.1.3-static-intel13
@@ -354,7 +354,7 @@ case "$ac_sitename" in
                          NETCDFROOT  = $SOFTWARE_TREE/netcdf-4.1.3-static-pgi14
                          MPIROOT     = $SOFTWARE_TREE/mpilib/openmpi-1.6.5-static-pgi14
                          MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                         load_modules= "gcc/4.7.2" "pgi/14.1" "${load_modules}"
+                         load_modules= "gcc/4.7.2" "pgi/14.7" "${load_modules}"
                          ;;
                       intel)
                          NETCDFROOT  = $SOFTWARE_TREE/netcdf-4.1.3-static-intel13
