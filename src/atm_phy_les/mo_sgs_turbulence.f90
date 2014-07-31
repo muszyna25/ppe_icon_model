@@ -523,7 +523,9 @@ MODULE mo_sgs_turbulence
 
     !--------------------------------------------------------------------------
     !3) Classical Smagorinsky model with stability correction due to Lilly 1962
-    !   at interface cell centers
+    !   at interface cell centers. At this point buoyancy_prod contains Brunt Vaisala 
+    !   Frequency and mech_prod is twice the actual mechanical production term. These 
+    !   are only converted to proper terms during output. 
     !--------------------------------------------------------------------------
     !MP = Mechanical prod term calculated above
     !visc = mixing_length_sq * SQRT(MP/2) * SQRT(1-Ri/Pr) where 

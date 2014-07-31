@@ -100,14 +100,13 @@ CONTAINS
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     REAL(wp), PARAMETER :: qc_min = 1.e-8_wp
-    REAL(wp) :: qc_jk, qc_jkp1, qc_jkm1
     LOGICAL :: lfound_top, lfound_base
     INTEGER :: nlev
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
-    INTEGER :: jc,jk,jb,jk_end         !block index
+    INTEGER :: jc,jk,jb                !block index
 
     nlev      = p_patch%nlev 
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -123,41 +122,37 @@ CONTAINS
     !parametrization
 
     prm_diag%locum(:,:) = .FALSE.
-    lfound_top          = .FALSE.
-    lfound_base         = .FALSE.
 
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jc = i_startidx, i_endidx
 
          !cloud top- full level
-         DO jk = kstart_moist, nlev
-           jk_end = MIN(jk+1,nlev)
-           qc_jk   = p_prog_rcf%tracer(jc,jk,jb,iqc)
-           qc_jkp1 = p_prog_rcf%tracer(jc,jk_end,jb,iqc)
- 
-           IF(qc_jk<qc_min.AND.qc_jkp1>qc_min.AND..NOT.lfound_top)THEN
+         DO jk = kstart_moist, nlev-1
+           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
+                  p_prog_rcf%tracer(jc,jk+1,jb,iqc)>qc_min)THEN
              prm_diag%mtop_con(jc,jb) = jk
-             lfound_top               = .TRUE.
+             EXIT
            END IF
          END DO  
 
          !cloud base- half level
-         DO jk = nlev, kstart_moist,-1
-           jk_end = MAX(jk-1,kstart_moist)
-           qc_jk   = p_prog_rcf%tracer(jc,jk,jb,iqc)
-           qc_jkm1 = p_prog_rcf%tracer(jc,jk_end,jb,iqc)
-
-           IF(qc_jk<qc_min.AND.qc_jkm1>qc_min.AND..NOT.lfound_base)THEN
-             prm_diag%mtop_con(jc,jb) = jk
+         DO jk = nlev, kstart_moist+1,-1
+           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
+                  p_prog_rcf%tracer(jc,jk-1,jb,iqc)>qc_min)THEN
+             prm_diag%mbas_con(jc,jb) = jk       
              prm_diag%locum(jc,jb)    = .TRUE.
-             lfound_base              = .TRUE.
+             EXIT
            END IF
          END DO
 
        END DO
     END DO
+!$OMP END DO
+!$OMP END PARALLEL 
 
 
   END SUBROUTINE les_cloud_diag
@@ -601,9 +596,26 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%tkvm, p_patch%cells%area, p_patch%cells%owned, outvar(1:nlevp1))
 
      CASE('bynprd')
-       !Buoyancy production term
-       CALL levels_horizontal_mean(prm_diag%buoyancy_prod, p_patch%cells%area, &
-                                   p_patch%cells%owned, outvar(1:nlevp1))
+       !Buoyancy production term = prm_diag%buoyancy_prod * kh
+!$OMP PARALLEL 
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx)
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+          DO jk = 2 , nlev
+            DO jc = i_startidx, i_endidx
+             var3dh(jc,jk,jb) = prm_diag%buoyancy_prod(jc,jk,jb) * prm_diag%tkvh(jc,jk,jb) 
+            END DO
+          END DO
+          DO jc = i_startidx, i_endidx
+           var3dh(jc,1,jb)      = var3dh(jc,2,jb)
+           var3dh(jc,nlevp1,jb) = var3dh(jc,nlev,jb)
+          END DO
+        END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+       CALL levels_horizontal_mean(var3dh,p_patch%cells%area,p_patch%cells%owned,outvar(1:nlevp1))
 
      CASE('mechprd')
        !Mechanical production term: prm_diag%mech_prod / 2

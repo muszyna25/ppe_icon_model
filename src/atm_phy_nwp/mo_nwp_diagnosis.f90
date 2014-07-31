@@ -126,7 +126,7 @@ CONTAINS
     INTEGER :: jt               ! tracer loop index
     INTEGER :: jk_max
 
-    REAL(wp):: d_theta_dz, d_theta_dz_max
+    REAL(wp):: ri_no
 
 
   !-----------------------------------------------------------------
@@ -505,36 +505,34 @@ CONTAINS
 
 
 
-!  Calculation of average/accumulated u and v has been moved here from nwp_interface. 
-!  Thus there is no need anymore for a LES-specific code. (Daniel Reinert, Jan 2014)
 !  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
-!  -soon all these LES diagnostics have to be moved to different module.
 
     IF( atm_phy_nwp_config(jg)%is_les_phy )THEN
 
-!     !2D Boundary layer height
-!     Switch to a more general formulation applicable for stable case as well (AD,2013-11-16)
-       
-
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,d_theta_dz,jk_max,d_theta_dz_max) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ri_no,jk_max) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
             CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
               & i_startidx, i_endidx, rl_start, rl_end)
             DO jc = i_startidx, i_endidx           
-              d_theta_dz_max = -1.0_wp
-              jk_max = -1
-              DO jk = 5 , nlev-1
-                d_theta_dz  = (pt_diag%temp(jc,jk-1,jb)/pt_prog%exner(jc,jk-1,jb) - &
-                      pt_diag%temp(jc,jk,jb)/pt_prog%exner(jc,jk,jb))*p_metrics%inv_ddqz_z_half(jc,jk,jb) 
 
-                IF(d_theta_dz > d_theta_dz_max)THEN
+              jk_max = -1   
+              DO jk = nlev-1, kstart_moist, -1
+
+                ri_no = 2._wp * prm_diag%buoyancy_prod(jc,jk,jb) / &
+                        prm_diag%mech_prod(jc,jk,jb)
+
+                IF(ri_no > 0.25_wp)THEN
                   jk_max = jk
-                  d_theta_dz_max = d_theta_dz
+                  EXIT
                 END IF
 
               END DO !jk
 
-              prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk_max,jb)
+              IF(jk_max/=-1)THEN
+                prm_diag%z_pbl(jc,jb) = p_metrics%z_ifc(jc,jk_max,jb)
+              ELSE
+                prm_diag%z_pbl(jc,jb) = -999._wp
+              END IF    
 
             ENDDO
           ENDDO ! jb
