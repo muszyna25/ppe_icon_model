@@ -854,7 +854,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'t_ice'//suffix, p_prog_wtr%t_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d,                                                      &
-         & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_ana_in", &
+         & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in", &
          &                 "mode_combined_in","mode_cosmode_in") )   
 
 
@@ -867,7 +867,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'h_ice'//suffix, p_prog_wtr%h_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d,                                                      &
-         & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_ana_in", &
+         & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in", &
          &                 "mode_combined_in","mode_cosmode_in") )   
 
 
@@ -1274,7 +1274,7 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                    &
          & in_group=groups("land_vars", "snow_vars","dwd_fg_sfc_vars",         &
-         &                 "mode_dwd_ana_in","mode_iau_ana_in","mode_combined_in",&
+         &                 "mode_dwd_ana_in","mode_iau_fg_in","mode_combined_in",&
          &                 "mode_cosmode_in") )
 
 
@@ -1286,7 +1286,7 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                    &
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",     &
-         &                 "mode_iau_fg_in","mode_combined_in","mode_cosmode_in"), &
+         &                 "mode_iau_ana_in","mode_combined_in","mode_cosmode_in"), &
          & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
 
 
@@ -1297,7 +1297,7 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,             &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
          & in_group=groups("land_vars", "snow_vars","dwd_fg_sfc_vars",           &
-         &                 "mode_dwd_fg_in","mode_iau_fg_in","mode_combined_in", &
+         &                 "mode_dwd_fg_in","mode_iau_ana_in","mode_combined_in",&
          &                 "mode_cosmode_in") )
 
 
