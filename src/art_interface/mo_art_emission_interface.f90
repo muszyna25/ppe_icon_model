@@ -48,7 +48,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_volc,             ONLY: art_organize_emission_volc
   USE mo_art_radioactive,               ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_emission_seas
-  USE mo_art_emission_dust,             ONLY: art_emission_dust
+  USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_chemtracer,                ONLY: art_emiss_chemtracer
   USE mo_art_config,                    ONLY: art_config
 #endif
@@ -91,6 +91,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer
   IF (lart) THEN
 
     CALL art_air_properties(p_patch,p_art_data(jg))
+       
+    IF (art_config(jg)%iart_dust == 1) THEN
+      CALL art_prepare_emission_dust(p_patch,p_rho,p_tracer_now)
+    ENDIF
+       
        
     IF (art_config(jg)%lart_aerosol) THEN
        
