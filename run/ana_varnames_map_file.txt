@@ -32,6 +32,7 @@ wtot_snow           W_SNOW_M
 wliq_snow           WLIQ_SNOW_M
 dzh_snow            H_SNOW_M
 w_i                 W_I
+w_so                W_SO
 w_so_ice            W_SO_ICE
 smi                 SMI
 t_so                T_SO
