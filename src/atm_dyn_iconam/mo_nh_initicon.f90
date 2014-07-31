@@ -39,7 +39,7 @@ MODULE mo_nh_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in, nlevsoil_in, l_sst_in,  &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               generate_filename, rho_incr_filter_wgt,             &
-    &                               nml_filetype => filetype,                           &
+    &                               nml_filetype => filetype, timeshift,                &
     &                               ana_varlist, ana_varnames_map_file, lread_ana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
@@ -88,6 +88,9 @@ MODULE mo_nh_initicon
   USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_io_util,             ONLY: get_filetype
+  USE mo_time_config,         ONLY: time_config
+  USE mtime,                  ONLY: newDatetime, datetime, operator(==), operator(+), &
+    &                               deallocateDatetime
 
   IMPLICIT NONE
 
@@ -1488,42 +1491,102 @@ MODULE mo_nh_initicon
     ! local
     TYPE(t_inventory_element), POINTER  :: this_list_element => NULL()
     INTEGER :: ivar                     ! loop counter
-    LOGICAL :: lmatch
+    LOGICAL :: lmatch_uuid
+    LOGICAL :: lmatch_vtime
+
+    TYPE(datetime),  POINTER :: mtime_inidatetime  ! INI-datetime in mtime format
+    TYPE(datetime) :: start_datetime               ! true start date (includes timeshift)
+    !
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:check_input_validity'
+
   !-------------------------------------------------------------------
 
 
-    ! Loop over all required input fields and check, whether the uuidOfHGrid matches.
+    ! initialization
+    !
+    lmatch_uuid  = .FALSE. 
+    lmatch_vtime = .FALSE.
+
+    ! get ini-datetime in mtime-format
+    mtime_inidatetime => newDatetime(time_config%ini_datetime%year,       &
+      &                              time_config%ini_datetime%month,      &
+      &                              time_config%ini_datetime%day,        &
+      &                              time_config%ini_datetime%hour,       &
+      &                              time_config%ini_datetime%minute,     &
+      &                              INT(time_config%ini_datetime%second),&
+      &                              ims=0)
+
+    ! add timeshift to INI-datetime to get true starting time
+    start_datetime = mtime_inidatetime + timeshift%mtime_shift
+
+
+
+    ! Loop over all required input fields and perform some sanity checks.
     ! This is done separately for the analysis- and first guess fields.
+
+    !
+    ! First guess
+    !
     DO ivar = 1,ngrp_vars_fg
       ! find matching list element
       this_list_element => find_inventory_list_element (inventory_list_fg, &
         &                                              TRIM(grp_vars_fg(ivar)) )
-      !
-      ! compare uuidOfHGrid
-      lmatch = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
 
-      IF (.NOT. lmatch) THEN
+
+      !************************!
+      !  Check uuidOfHGrid     !
+      !************************!
+      lmatch_uuid = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
+
+      IF (.NOT. lmatch_uuid) THEN
         WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for first guess field '&
           &                       //TRIM(grp_vars_fg(ivar))//'.'
         CALL finish(routine, TRIM(message_text))
       ENDIF
+
+
+      !**************************************!
+      !  Check Validity time of first guess  !
+      !**************************************!
+
+      ! check correctnes of validity-time
+      lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
+
+      ! write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
+      ! write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
+
+      IF (.NOT. lmatch_vtime) THEN
+        WRITE(message_text,'(a)') 'Non-matching validity datetime for first guess field '&
+          &                       //TRIM(grp_vars_fg(ivar))//'.'
+        CALL finish(routine, TRIM(message_text))
+      ENDIF
+
     ENDDO
 
+
+    !
+    ! Analysis (increments)
+    !
     DO ivar = 1,ngrp_vars_ana
       ! find matching list element
       this_list_element => find_inventory_list_element (inventory_list_ana, &
         &                                              TRIM(grp_vars_ana(ivar)) )
-      !
-      ! compare uuidOfHGrid
-      lmatch = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
 
-      IF (.NOT. lmatch) THEN
+      !************************!
+      !  Check uuidOfHGrid     !
+      !************************!
+      lmatch_uuid = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
+
+      IF (.NOT. lmatch_uuid) THEN
         WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for analysis field '&
           &                       //TRIM(grp_vars_ana(ivar))//'.'
         CALL finish(routine, TRIM(message_text))
       ENDIF
     ENDDO
+
+
+    ! cleanup
+    CALL deallocateDatetime(mtime_inidatetime)
 
   END SUBROUTINE check_input_validity
 

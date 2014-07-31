@@ -42,7 +42,7 @@ MODULE mo_initicon_nml
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
     & config_filetype           => filetype,          &
     & config_dt_iau             => dt_iau,            &
-    & config_dt_shift           => dt_shift,          &
+    & config_timeshift          => timeshift,         &
     & config_type_iau_wgt       => type_iau_wgt,      &
     & config_ana_varlist        => ana_varlist,       &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
@@ -241,7 +241,7 @@ CONTAINS
   config_l_coarse2fine_mode = l_coarse2fine_mode
   config_filetype           = filetype
   config_dt_iau             = dt_iau
-  config_dt_shift           = dt_shift
+  config_timeshift%dt_shift = dt_shift
   config_type_iau_wgt       = type_iau_wgt
   config_ana_varlist        = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file

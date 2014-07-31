@@ -90,7 +90,7 @@ MODULE mo_ext_data_state
     &                              read_cdi_3d
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
-  USE mo_initicon_config,    ONLY: dt_shift
+  USE mo_initicon_config,    ONLY: timeshift
   USE mo_master_control,     ONLY: is_restart_run
 
   IMPLICIT NONE
@@ -292,7 +292,7 @@ CONTAINS
         ! 
         IF (.NOT. is_restart_run()) THEN
           datetime     = time_config%ini_datetime
-          IF (dt_shift < 0) CALL add_time(dt_shift,0,0,0,datetime)
+          IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,datetime)
         ELSE
           datetime     = time_config%cur_datetime
         END IF  ! is_restart_run

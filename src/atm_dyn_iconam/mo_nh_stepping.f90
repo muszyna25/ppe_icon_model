@@ -122,7 +122,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
-  USE mo_initicon_config,          ONLY: init_mode, dt_shift
+  USE mo_initicon_config,          ONLY: init_mode, timeshift
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
   USE mo_nh_latbc,                 ONLY: prepare_latbc_data , read_latbc_data, &
@@ -262,9 +262,9 @@ MODULE mo_nh_stepping
     CALL diag_for_output_dyn (linit=.FALSE.)
   ELSE
     CALL diag_for_output_dyn (linit=.TRUE.)
-    IF (dt_shift < 0._wp) THEN
-      time_config%sim_time(:) = dt_shift
-      CALL add_time(dt_shift,0,0,0,datetime)
+    IF (timeshift%dt_shift < 0._wp) THEN
+      time_config%sim_time(:) = timeshift%dt_shift
+      CALL add_time(timeshift%dt_shift,0,0,0,datetime)
     ENDIF
   ENDIF
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
@@ -461,8 +461,8 @@ MODULE mo_nh_stepping
   ! MPI communication from now on. 
   IF (test_mode > 0) iorder_sendrecv = 0
   
-  IF (dt_shift < 0._wp) THEN
-    jstep_shift = NINT(dt_shift/dtime)
+  IF (timeshift%dt_shift < 0._wp) THEN
+    jstep_shift = NINT(timeshift%dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
     CALL message(TRIM(routine),message_text)
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
@@ -1138,7 +1138,7 @@ MODULE mo_nh_stepping
         ENDIF
 
         IF ( ANY((/MODE_DWDANA_INC,MODE_IAU/)==init_mode) ) THEN ! incremental analysis mode
-          CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc-dt_shift, dt_loc, lclean_mflx)
+          CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc-timeshift%dt_shift, dt_loc, lclean_mflx)
         ENDIF
 
         IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN

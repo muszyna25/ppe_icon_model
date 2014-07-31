@@ -22,16 +22,19 @@ MODULE mo_initicon_config
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
     &                              MODE_DWDANA_INC, MODE_IAU
+  USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
+    &                              max_timedelta_str_len
+  USE mo_mtime_extensions,   ONLY: getPTStringFromMS
 
   IMPLICIT NONE
 
   PRIVATE 
 
+
   PUBLIC :: configure_initicon
 
   PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
-  PUBLIC :: dt_shift
   PUBLIC :: type_iau_wgt
   PUBLIC :: l_sst_in
   PUBLIC :: lread_ana     
@@ -47,8 +50,13 @@ MODULE mo_initicon_config
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
   PUBLIC :: rho_incr_filter_wgt
+  PUBLIC :: t_timeshift
+  PUBLIC :: timeshift
 
-
+  TYPE t_timeshift
+    REAL(wp)                 :: dt_shift
+    TYPE(timedelta)          :: mtime_shift
+  END TYPE t_timeshift
 
   ! ----------------------------------------------------------------------------
   ! 1.0 Namelist variables for the init_icon preprocessing program
@@ -70,7 +78,9 @@ MODULE mo_initicon_config
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
                             ! Only required for init_mode=MODE_DWDANA_INC, MODE_IAU
-  REAL(wp) :: dt_shift      ! Allows IAU runs to start earlier than the nominal simulation start date without showing up in the output metadata
+
+  TYPE(t_timeshift) :: &    ! Allows IAU runs to start earlier than the nominal simulation start date 
+    &  timeshift            ! without showing up in the output metadata
 
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
@@ -127,6 +137,8 @@ CONTAINS
   !!
   SUBROUTINE configure_initicon
   !
+    CHARACTER(len=max_timedelta_str_len) :: PTshift
+    TYPE(timedelta), POINTER             :: mtime_shift_local
     !-----------------------------------------------------------------------
 
 
@@ -138,6 +150,27 @@ CONTAINS
     ELSE
       init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
     ENDIF
+
+
+    !
+    ! transform timeshift to mtime-format
+    !
+    CALL getPTStringFromMS(INT(timeshift%dt_shift * 1000._wp), PTshift)
+
+    !******************************************************* 
+    ! can be removed, as soon, as this issue is fixed in libmtime(timedeltaToString)
+    IF (TRIM(PTshift)=="-P00.000S") THEN
+      PTshift = "-PT00.000S"
+    ELSE IF (TRIM(PTshift)=="+P00.000S") THEN
+      PTshift = "+PT00.000S"
+    ENDIF 
+    !********************************************************
+
+    mtime_shift_local => newTimedelta(TRIM(PTshift))
+    timeshift%mtime_shift = mtime_shift_local
+
+    ! cleanup
+    CALL deallocateTimedelta(mtime_shift_local)
 
   END SUBROUTINE configure_initicon
 
