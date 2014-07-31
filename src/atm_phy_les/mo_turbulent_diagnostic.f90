@@ -107,7 +107,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
-    INTEGER :: jc,jk,jb                !block index
+    INTEGER :: jc,jk,jb,jk_end         !block index
 
     nlev      = p_patch%nlev 
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -133,8 +133,9 @@ CONTAINS
 
          !cloud top- full level
          DO jk = kstart_moist, nlev
+           jk_end = MIN(jk+1,nlev)
            qc_jk   = p_prog_rcf%tracer(jc,jk,jb,iqc)
-           qc_jkp1 = p_prog_rcf%tracer(jc,jk+1,jb,iqc)
+           qc_jkp1 = p_prog_rcf%tracer(jc,jk_end,jb,iqc)
  
            IF(qc_jk<qc_min.AND.qc_jkp1>qc_min.AND..NOT.lfound_top)THEN
              prm_diag%mtop_con(jc,jb) = jk
@@ -144,8 +145,9 @@ CONTAINS
 
          !cloud base- half level
          DO jk = nlev, kstart_moist,-1
+           jk_end = MAX(jk-1,kstart_moist)
            qc_jk   = p_prog_rcf%tracer(jc,jk,jb,iqc)
-           qc_jkm1 = p_prog_rcf%tracer(jc,jk-1,jb,iqc)
+           qc_jkm1 = p_prog_rcf%tracer(jc,jk_end,jb,iqc)
 
            IF(qc_jk<qc_min.AND.qc_jkm1>qc_min.AND..NOT.lfound_base)THEN
              prm_diag%mtop_con(jc,jb) = jk
