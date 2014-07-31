@@ -517,7 +517,7 @@ CONTAINS
 
     !Close LES diag files
     DO jg = 1 , n_dom
-     IF(atm_phy_nwp_config(jg)%is_les_phy) &
+     IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
        CALL close_les_turbulent_output(jg)
     END DO
 
