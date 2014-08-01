@@ -136,6 +136,7 @@ SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
                      'delta_z',        'lnwl',   'lev',                        imonthb,            &
                      imonthe,          year,     'bc_aeropt_kinne_sw_b14_fin', p_patch             )
     rdz_clim=1._wp/dz_clim
+    pre_year=year
   END IF    
 END SUBROUTINE read_bc_aeropt_kinne
 !-------------------------------------------------------------------------
