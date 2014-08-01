@@ -948,8 +948,8 @@ MODULE mo_nh_initicon
       !  
       ! SMI is skipped manually, since it is not contained in any of the ICON variable 
       ! lists, and is thus not handled correctly by the following routine. 
-      IF( TRIM(mapped_name)/='smi' ) &
-       CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
+      IF( TRIM(mapped_name)/='smi' .AND. TRIM(mapped_name)/='SMI') &
+        CALL initicon_inverse_post_op(varname, mapped_name, optvar_out3D=var_out)
 
     ENDIF  ! lread
 
@@ -991,7 +991,6 @@ MODULE mo_nh_initicon
     ENDIF
 
 
-
     ! get metadata information for field to be read
     info => NULL()
     DO i = 1,nvar_lists
@@ -1020,7 +1019,7 @@ MODULE mo_nh_initicon
     ENDDO
 
     IF (.NOT.ASSOCIATED(info)) THEN
-      WRITE (message_text,'(a,a)') TRIM(varname), 'not found'
+      WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
       CALL message('',message_text)
       CALL finish(routine, 'Varname does not match any of the ICON variable names')
     ENDIF
@@ -4372,7 +4371,7 @@ MODULE mo_nh_initicon
                initicon(jg)%grp_vars_ana_default(100)  )
 
       ! Allocate atmospheric output data
-      IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE/)==init_mode) ) THEN
+      IF ( ANY((/MODE_IFSANA, MODE_DWDANA, MODE_COSMODE, MODE_COMBINED/)==init_mode) ) THEN
         ALLOCATE(initicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
                  initicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
                  initicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
