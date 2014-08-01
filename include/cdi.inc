@@ -4,7 +4,7 @@
 !
 ! Author:
 ! -------
-! Uwe Schulzweida, MPI-MET, Hamburg,   February 2014
+! Uwe Schulzweida, MPI-MET, Hamburg,   July 2014
 !
 
       INTEGER    CDI_MAX_NAME          
@@ -507,6 +507,9 @@
 !                                    (INTEGER         streamID)
       EXTERNAL        streamInqVlist
 
+!
+!  PIO:
+!
       INTEGER         streamInqVlistIDorig
 !                                    (INTEGER         streamID)
       EXTERNAL        streamInqVlistIDorig
@@ -529,14 +532,14 @@
 !                                     INTEGER         comptype)
       EXTERNAL        streamDefCompType
 
+      INTEGER         streamInqCompType
+!                                    (INTEGER         streamID)
+      EXTERNAL        streamInqCompType
+
 !                     streamDefCompLevel
 !                                    (INTEGER         streamID,
 !                                     INTEGER         complevel)
       EXTERNAL        streamDefCompLevel
-
-      INTEGER         streamInqCompType
-!                                    (INTEGER         streamID)
-      EXTERNAL        streamInqCompType
 
       INTEGER         streamInqCompLevel
 !                                    (INTEGER         streamID)
@@ -547,17 +550,14 @@
 !                                     INTEGER         tsID)
       EXTERNAL        streamDefTimestep
 
-!
-!  query currently set timestep id
-!
-      INTEGER         streamInqCurTimestepID
-!                                    (INTEGER         streamID)
-      EXTERNAL        streamInqCurTimestepID
-
       INTEGER         streamInqTimestep
 !                                    (INTEGER         streamID,
 !                                     INTEGER         tsID)
       EXTERNAL        streamInqTimestep
+
+      INTEGER         streamInqCurTimestepID
+!                                    (INTEGER         streamID)
+      EXTERNAL        streamInqCurTimestepID
 
       CHARACTER(80)   streamFilename
 !                                    (INTEGER         streamID)
@@ -581,17 +581,9 @@
 !                                     INTEGER         revision_version)
       EXTERNAL        gribapiLibraryVersion
 
-
 !
 !  STREAM var I/O routines
 !
-!                     streamReadVar
-!                                    (INTEGER         streamID,
-!                                     INTEGER         varID,
-!                                     DOUBLEPRECISION data_vec,
-!                                     INTEGER         nmiss)
-      EXTERNAL        streamReadVar
-
 !                     streamWriteVar
 !                                    (INTEGER         streamID,
 !                                     INTEGER         varID,
@@ -606,13 +598,19 @@
 !                                     INTEGER         nmiss)
       EXTERNAL        streamWriteVarF
 
-!                     streamReadVarSlice
+!                     streamReadVar
 !                                    (INTEGER         streamID,
 !                                     INTEGER         varID,
-!                                     INTEGER         levelID,
 !                                     DOUBLEPRECISION data_vec,
 !                                     INTEGER         nmiss)
-      EXTERNAL        streamReadVarSlice
+      EXTERNAL        streamReadVar
+
+!                     streamReadVarF
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID,
+!                                     REAL            data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamReadVarF
 
 !                     streamWriteVarSlice
 !                                    (INTEGER         streamID,
@@ -630,6 +628,22 @@
 !                                     INTEGER         nmiss)
       EXTERNAL        streamWriteVarSliceF
 
+!                     streamReadVarSlice
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID,
+!                                     INTEGER         levelID,
+!                                     DOUBLEPRECISION data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamReadVarSlice
+
+!                     streamReadVarSliceF
+!                                    (INTEGER         streamID,
+!                                     INTEGER         varID,
+!                                     INTEGER         levelID,
+!                                     REAL            data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamReadVarSliceF
+
 !                     streamWriteVarChunk
 !                                    (INTEGER         streamID,
 !                                     INTEGER         varID,
@@ -641,23 +655,17 @@
 !
 !  STREAM record I/O routines
 !
-!                     streamInqRecord
-!                                    (INTEGER         streamID,
-!                                     INTEGER         varID,
-!                                     INTEGER         levelID)
-      EXTERNAL        streamInqRecord
-
 !                     streamDefRecord
 !                                    (INTEGER         streamID,
 !                                     INTEGER         varID,
 !                                     INTEGER         levelID)
       EXTERNAL        streamDefRecord
 
-!                     streamReadRecord
+!                     streamInqRecord
 !                                    (INTEGER         streamID,
-!                                     DOUBLEPRECISION data_vec,
-!                                     INTEGER         nmiss)
-      EXTERNAL        streamReadRecord
+!                                     INTEGER         varID,
+!                                     INTEGER         levelID)
+      EXTERNAL        streamInqRecord
 
 !                     streamWriteRecord
 !                                    (INTEGER         streamID,
@@ -670,6 +678,12 @@
 !                                     REAL            data_vec,
 !                                     INTEGER         nmiss)
       EXTERNAL        streamWriteRecordF
+
+!                     streamReadRecord
+!                                    (INTEGER         streamID,
+!                                     DOUBLEPRECISION data_vec,
+!                                     INTEGER         nmiss)
+      EXTERNAL        streamReadRecord
 
 !                     streamCopyRecord
 !                                    (INTEGER         streamIDdest,
@@ -879,16 +893,16 @@
 !                                     INTEGER         code)
       EXTERNAL        vlistInqVarID
 
-      INTEGER         vlistInqVarTsteptype
-!                                    (INTEGER         vlistID,
-!                                     INTEGER         varID)
-      EXTERNAL        vlistInqVarTsteptype
-
 !                     vlistDefVarTsteptype
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
 !                                     INTEGER         tsteptype)
       EXTERNAL        vlistDefVarTsteptype
+
+      INTEGER         vlistInqVarTsteptype
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID)
+      EXTERNAL        vlistInqVarTsteptype
 
 !                     vlistDefVarCompType
 !                                    (INTEGER         vlistID,
@@ -1130,6 +1144,17 @@
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarTypeOfGeneratingProcess
+
+!                     vlistDefVarProductDefinitionTemplate
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     INTEGER         productDefinitionTemplate)
+      EXTERNAL        vlistDefVarProductDefinitionTemplate
+
+      INTEGER         vlistInqVarProductDefinitionTemplate
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID)
+      EXTERNAL        vlistInqVarProductDefinitionTemplate
 
       INTEGER         vlistInqVarSize
 !                                    (INTEGER         vlistID,
@@ -1430,70 +1455,70 @@
 !                                     CHARACTER*(*)   xname)
       EXTERNAL        gridDefXname
 
-!                     gridDefXlongname
-!                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   xlongname)
-      EXTERNAL        gridDefXlongname
-
-!                     gridDefXunits
-!                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   xunits)
-      EXTERNAL        gridDefXunits
-
-!                     gridDefYname
-!                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   yname)
-      EXTERNAL        gridDefYname
-
-!                     gridDefYlongname
-!                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   ylongname)
-      EXTERNAL        gridDefYlongname
-
-!                     gridDefYunits
-!                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   yunits)
-      EXTERNAL        gridDefYunits
-
 !                     gridInqXname
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   xname)
       EXTERNAL        gridInqXname
+
+!                     gridDefXlongname
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   xlongname)
+      EXTERNAL        gridDefXlongname
 
 !                     gridInqXlongname
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   xlongname)
       EXTERNAL        gridInqXlongname
 
-!                     gridInqXstdname
+!                     gridDefXunits
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   xstdname)
-      EXTERNAL        gridInqXstdname
+!                                     CHARACTER*(*)   xunits)
+      EXTERNAL        gridDefXunits
 
 !                     gridInqXunits
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   xunits)
       EXTERNAL        gridInqXunits
 
+!                     gridDefYname
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   yname)
+      EXTERNAL        gridDefYname
+
 !                     gridInqYname
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   yname)
       EXTERNAL        gridInqYname
+
+!                     gridDefYlongname
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   ylongname)
+      EXTERNAL        gridDefYlongname
 
 !                     gridInqYlongname
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   ylongname)
       EXTERNAL        gridInqYlongname
 
-!                     gridInqYstdname
+!                     gridDefYunits
 !                                    (INTEGER         gridID,
-!                                     CHARACTER*(*)   ystdname)
-      EXTERNAL        gridInqYstdname
+!                                     CHARACTER*(*)   yunits)
+      EXTERNAL        gridDefYunits
 
 !                     gridInqYunits
 !                                    (INTEGER         gridID,
 !                                     CHARACTER*(*)   yunits)
       EXTERNAL        gridInqYunits
+
+!                     gridInqXstdname
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   xstdname)
+      EXTERNAL        gridInqXstdname
+
+!                     gridInqYstdname
+!                                    (INTEGER         gridID,
+!                                     CHARACTER*(*)   ystdname)
+      EXTERNAL        gridInqYstdname
 
 !                     gridDefPrec
 !                                    (INTEGER         gridID,
@@ -1530,80 +1555,80 @@
 !                                    (INTEGER         gridID)
       EXTERNAL        gridIsRotated
 
-      DOUBLEPRECISION gridInqXpole
-!                                    (INTEGER         gridID)
-      EXTERNAL        gridInqXpole
-
 !                     gridDefXpole
 !                                    (INTEGER         gridID,
 !                                     DOUBLEPRECISION xpole)
       EXTERNAL        gridDefXpole
 
-      DOUBLEPRECISION gridInqYpole
+      DOUBLEPRECISION gridInqXpole
 !                                    (INTEGER         gridID)
-      EXTERNAL        gridInqYpole
+      EXTERNAL        gridInqXpole
 
 !                     gridDefYpole
 !                                    (INTEGER         gridID,
 !                                     DOUBLEPRECISION ypole)
       EXTERNAL        gridDefYpole
 
-      DOUBLEPRECISION gridInqAngle
+      DOUBLEPRECISION gridInqYpole
 !                                    (INTEGER         gridID)
-      EXTERNAL        gridInqAngle
+      EXTERNAL        gridInqYpole
 
 !                     gridDefAngle
 !                                    (INTEGER         gridID,
 !                                     DOUBLEPRECISION angle)
       EXTERNAL        gridDefAngle
 
-!                     gridDefTrunc
-!                                    (INTEGER         gridID,
-!                                     INTEGER         trunc)
-      EXTERNAL        gridDefTrunc
+      DOUBLEPRECISION gridInqAngle
+!                                    (INTEGER         gridID)
+      EXTERNAL        gridInqAngle
 
       INTEGER         gridInqTrunc
 !                                    (INTEGER         gridID)
       EXTERNAL        gridInqTrunc
 
+!                     gridDefTrunc
+!                                    (INTEGER         gridID,
+!                                     INTEGER         trunc)
+      EXTERNAL        gridDefTrunc
+
 !
 !  Hexagonal GME grid
 !
-      INTEGER         gridInqGMEnd
-!                                    (INTEGER         gridID)
-      EXTERNAL        gridInqGMEnd
-
 !                     gridDefGMEnd
 !                                    (INTEGER         gridID,
 !                                     INTEGER         nd)
       EXTERNAL        gridDefGMEnd
 
-      INTEGER         gridInqGMEni
+      INTEGER         gridInqGMEnd
 !                                    (INTEGER         gridID)
-      EXTERNAL        gridInqGMEni
+      EXTERNAL        gridInqGMEnd
 
 !                     gridDefGMEni
 !                                    (INTEGER         gridID,
 !                                     INTEGER         ni)
       EXTERNAL        gridDefGMEni
 
-      INTEGER         gridInqGMEni2
+      INTEGER         gridInqGMEni
 !                                    (INTEGER         gridID)
-      EXTERNAL        gridInqGMEni2
+      EXTERNAL        gridInqGMEni
 
 !                     gridDefGMEni2
 !                                    (INTEGER         gridID,
 !                                     INTEGER         ni2)
       EXTERNAL        gridDefGMEni2
 
-      INTEGER         gridInqGMEni3
+      INTEGER         gridInqGMEni2
 !                                    (INTEGER         gridID)
-      EXTERNAL        gridInqGMEni3
+      EXTERNAL        gridInqGMEni2
 
 !                     gridDefGMEni3
 !                                    (INTEGER         gridID,
 !                                     INTEGER         ni3)
       EXTERNAL        gridDefGMEni3
+
+      INTEGER         gridInqGMEni3
+!                                    (INTEGER         gridID)
+      EXTERNAL        gridInqGMEni3
 
 !
 !  Reference of an unstructured grid
@@ -1873,35 +1898,35 @@
 !                                     CHARACTER*(*)   name)
       EXTERNAL        zaxisDefName
 
-!                     zaxisDefLongname
-!                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   longname)
-      EXTERNAL        zaxisDefLongname
-
-!                     zaxisDefUnits
-!                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   units)
-      EXTERNAL        zaxisDefUnits
-
 !                     zaxisInqName
 !                                    (INTEGER         zaxisID,
 !                                     CHARACTER*(*)   name)
       EXTERNAL        zaxisInqName
+
+!                     zaxisDefLongname
+!                                    (INTEGER         zaxisID,
+!                                     CHARACTER*(*)   longname)
+      EXTERNAL        zaxisDefLongname
 
 !                     zaxisInqLongname
 !                                    (INTEGER         zaxisID,
 !                                     CHARACTER*(*)   longname)
       EXTERNAL        zaxisInqLongname
 
-!                     zaxisInqStdname
+!                     zaxisDefUnits
 !                                    (INTEGER         zaxisID,
-!                                     CHARACTER*(*)   stdname)
-      EXTERNAL        zaxisInqStdname
+!                                     CHARACTER*(*)   units)
+      EXTERNAL        zaxisDefUnits
 
 !                     zaxisInqUnits
 !                                    (INTEGER         zaxisID,
 !                                     CHARACTER*(*)   units)
       EXTERNAL        zaxisInqUnits
+
+!                     zaxisInqStdname
+!                                    (INTEGER         zaxisID,
+!                                     CHARACTER*(*)   stdname)
+      EXTERNAL        zaxisInqStdname
 
 !                     zaxisDefPrec
 !                                    (INTEGER         zaxisID,
@@ -1945,45 +1970,45 @@
 !                                    (INTEGER         zaxisID)
       EXTERNAL        zaxisInqVctSize
 
+!                     zaxisDefLbounds
+!                                    (INTEGER         zaxisID,
+!                                     DOUBLEPRECISION lbounds_vec)
+      EXTERNAL        zaxisDefLbounds
+
       INTEGER         zaxisInqLbounds
 !                                    (INTEGER         zaxisID,
 !                                     DOUBLEPRECISION lbounds_vec)
       EXTERNAL        zaxisInqLbounds
-
-      INTEGER         zaxisInqUbounds
-!                                    (INTEGER         zaxisID,
-!                                     DOUBLEPRECISION ubounds_vec)
-      EXTERNAL        zaxisInqUbounds
-
-      INTEGER         zaxisInqWeights
-!                                    (INTEGER         zaxisID,
-!                                     DOUBLEPRECISION weights_vec)
-      EXTERNAL        zaxisInqWeights
 
       DOUBLEPRECISION zaxisInqLbound
 !                                    (INTEGER         zaxisID,
 !                                     INTEGER         index)
       EXTERNAL        zaxisInqLbound
 
-      DOUBLEPRECISION zaxisInqUbound
-!                                    (INTEGER         zaxisID,
-!                                     INTEGER         index)
-      EXTERNAL        zaxisInqUbound
-
-!                     zaxisDefLbounds
-!                                    (INTEGER         zaxisID,
-!                                     DOUBLEPRECISION lbounds_vec)
-      EXTERNAL        zaxisDefLbounds
-
 !                     zaxisDefUbounds
 !                                    (INTEGER         zaxisID,
 !                                     DOUBLEPRECISION ubounds_vec)
       EXTERNAL        zaxisDefUbounds
 
+      INTEGER         zaxisInqUbounds
+!                                    (INTEGER         zaxisID,
+!                                     DOUBLEPRECISION ubounds_vec)
+      EXTERNAL        zaxisInqUbounds
+
+      DOUBLEPRECISION zaxisInqUbound
+!                                    (INTEGER         zaxisID,
+!                                     INTEGER         index)
+      EXTERNAL        zaxisInqUbound
+
 !                     zaxisDefWeights
 !                                    (INTEGER         zaxisID,
 !                                     DOUBLEPRECISION weights_vec)
       EXTERNAL        zaxisDefWeights
+
+      INTEGER         zaxisInqWeights
+!                                    (INTEGER         zaxisID,
+!                                     DOUBLEPRECISION weights_vec)
+      EXTERNAL        zaxisInqWeights
 
 !                     zaxisChangeType
 !                                    (INTEGER         zaxisID,
@@ -2025,6 +2050,14 @@
 !                                     INTEGER         time)
       EXTERNAL        taxisDefVtime
 
+      INTEGER         taxisInqVdate
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqVdate
+
+      INTEGER         taxisInqVtime
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqVtime
+
 !                     taxisDefRdate
 !                                    (INTEGER         taxisID,
 !                                     INTEGER         date)
@@ -2035,6 +2068,14 @@
 !                                     INTEGER         time)
       EXTERNAL        taxisDefRtime
 
+      INTEGER         taxisInqRdate
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqRdate
+
+      INTEGER         taxisInqRtime
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqRtime
+
 !                     taxisDefFdate
 !                                    (INTEGER         taxisID,
 !                                     INTEGER         date)
@@ -2044,6 +2085,14 @@
 !                                    (INTEGER         taxisID,
 !                                     INTEGER         time)
       EXTERNAL        taxisDefFtime
+
+      INTEGER         taxisInqFdate
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqFdate
+
+      INTEGER         taxisInqFtime
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqFtime
 
       INTEGER         taxisHasBounds
 !                                    (INTEGER         taxisID)
@@ -2082,10 +2131,36 @@
 !                                     INTEGER         calendar)
       EXTERNAL        taxisDefCalendar
 
+      INTEGER         taxisInqCalendar
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqCalendar
+
 !                     taxisDefTunit
 !                                    (INTEGER         taxisID,
 !                                     INTEGER         tunit)
       EXTERNAL        taxisDefTunit
+
+      INTEGER         taxisInqTunit
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqTunit
+
+!                     taxisDefForecastTunit
+!                                    (INTEGER         taxisID,
+!                                     INTEGER         tunit)
+      EXTERNAL        taxisDefForecastTunit
+
+      INTEGER         taxisInqForecastTunit
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqForecastTunit
+
+!                     taxisDefForecastPeriod
+!                                    (INTEGER         taxisID,
+!                                     DOUBLEPRECISION fc_period)
+      EXTERNAL        taxisDefForecastPeriod
+
+      DOUBLEPRECISION taxisInqForecastPeriod
+!                                    (INTEGER         taxisID)
+      EXTERNAL        taxisInqForecastPeriod
 
 !                     taxisDefNumavg
 !                                    (INTEGER         taxisID,
@@ -2095,38 +2170,6 @@
       INTEGER         taxisInqType
 !                                    (INTEGER         taxisID)
       EXTERNAL        taxisInqType
-
-      INTEGER         taxisInqVdate
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqVdate
-
-      INTEGER         taxisInqVtime
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqVtime
-
-      INTEGER         taxisInqRdate
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqRdate
-
-      INTEGER         taxisInqRtime
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqRtime
-
-      INTEGER         taxisInqFdate
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqFdate
-
-      INTEGER         taxisInqFtime
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqFtime
-
-      INTEGER         taxisInqCalendar
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqCalendar
-
-      INTEGER         taxisInqTunit
-!                                    (INTEGER         taxisID)
-      EXTERNAL        taxisInqTunit
 
       INTEGER         taxisInqNumavg
 !                                    (INTEGER         taxisID)
