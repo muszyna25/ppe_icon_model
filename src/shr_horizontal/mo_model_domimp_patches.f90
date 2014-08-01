@@ -1071,7 +1071,7 @@ CONTAINS
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
 
-    CALL nf(nf_get_att_int(ncid, nf_global, 'parent_grid_ID', iparent_id))
+    CALL nf(nf_get_att_int(ncid_grf, nf_global, 'parent_grid_ID', iparent_id))
     IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'parent ID attribute:', iparent_id,', namelist value:',ipar_id
@@ -1081,7 +1081,7 @@ CONTAINS
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
 
-    CALL nf(nf_get_att_int(ncid, nf_global, 'max_childdom', i_max_childdom))
+    CALL nf(nf_get_att_int(ncid_grf, nf_global, 'max_childdom', i_max_childdom))
     IF (i_max_childdom /= max_childdom) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'max_childdom attribute:', i_max_childdom,', namelist value:',max_childdom
