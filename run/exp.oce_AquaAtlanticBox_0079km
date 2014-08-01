@@ -124,7 +124,7 @@ cat > ${ocean_namelist} << EOF
   ! use_constant_mixing  = .true.
   bottom_drag_coeff  = 2.5E-3
   use_mpiom_pp_form  = .true.
-  use_wind_mixing    = .true.
+  use_wind_mixing    = .false.
 /
 &ocean_forcing_nml
   iforc_oce = 11
@@ -132,7 +132,7 @@ cat > ${ocean_namelist} << EOF
   forcing_windstress_v_type      = 0
   forcing_windStress_u_amplitude = 0.1
   forcing_smooth_steps           = 1     ! increase forcing to max within steps
-  forcing_windspeed_type         = 102   ! 102:  calculate wind speed from wind stress
+! forcing_windspeed_type         = 102   ! 102:  calculate wind speed from wind stress
 ! forcing_windspeed_amplitude    = 1.0   ! default: 1.0
   type_surfRelax_Temp            = 3     ! 3: relaxation=initialization temperature
   relax_temperature_max          = 16.0  ! equator temperature
