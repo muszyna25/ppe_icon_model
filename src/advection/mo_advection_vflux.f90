@@ -1139,13 +1139,13 @@ CONTAINS
                                   !< .FALSE. i.e. output flux across the edge
 
     REAL(wp) :: &                 !< face values of transported field
-      &  z_face(nproma,p_patch%nlevp1,p_patch%nblks_c)
+      &  z_face(nproma,p_patch%nlevp1)
 
     REAL(wp) :: &                 !< face value (upper face)
-      &  z_face_up(nproma,p_patch%nlev,p_patch%nblks_c)
+      &  z_face_up(nproma,p_patch%nlev)
 
     REAL(wp) :: &                 !< face value (lower face)
-      &  z_face_low(nproma,p_patch%nlev,p_patch%nblks_c)
+      &  z_face_low(nproma,p_patch%nlev)
 
     REAL(wp) :: &                 !< integer fluxes for w>0 (weta<0)
       &  z_iflx_p(nproma,p_patch%nlevp1)
@@ -1154,7 +1154,7 @@ CONTAINS
       &  z_iflx_m(nproma,p_patch%nlevp1)
 
     REAL(wp) :: &                 !< monotonized slope
-      &  z_slope(nproma,p_patch%nlev,p_patch%nblks_c)
+      &  z_slope(nproma,p_patch%nlev)
 
     REAL(wp) :: z_slope_u, z_slope_l     !< one-sided slopes
 
@@ -1211,11 +1211,7 @@ CONTAINS
     INTEGER  :: jg                       !< patch ID
 
     REAL(wp) ::   &                      !< high order flux
-      &  z_flx_frac_high(nproma,p_patch%nlevp1,p_patch%nblks_c)
-
-!DR    REAL(wp)  ::   &                     !< low order flux (will be necessary if 
-!DR      &  z_flx_frac_low(nproma,p_patch%nlevp1,p_patch%nblks_c) 
-!DR                                         !< we implement the FCT version
+      &  z_flx_frac_high(nproma,p_patch%nlevp1)
 
     REAL(wp) ::   &                      !< maximum vertical Courant number
       &  max_cfl(nproma,p_patch%nlevp1)
@@ -1355,11 +1351,11 @@ CONTAINS
 
 !$OMP PARALLEL
 
-!$OMP DO PRIVATE(jb,jk,jc,ik,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m,    &
-!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,             &
-!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2,nlist,ji_p,&
-!$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12, &
-!$OMP            z_lext_1,z_lext_2) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,ik,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m,        &
+!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,                 &
+!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2,nlist,ji_p,    &
+!$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,     &
+!$OMP            z_lext_1,z_lext_2,z_slope,z_face,z_face_up,z_face_low,z_flx_frac_high) ICON_OMP_GUIDED_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -1560,7 +1556,7 @@ CONTAINS
     ! 2. Compute monotonized slope
     !
 
-      z_slope(i_startidx:i_endidx,slev,jb) = 0._wp
+      z_slope(i_startidx:i_endidx,slev) = 0._wp
 
       DO jk = slevp1, nlev
 
@@ -1575,7 +1571,7 @@ CONTAINS
           z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
           z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
 
-          z_slope(jc,jk,jb) = ( p_cellhgt_mc_now(jc,jk,jb)                             &
+          z_slope(jc,jk) = ( p_cellhgt_mc_now(jc,jk,jb)                                &
             &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)            &
             &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                       &
             &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
@@ -1585,11 +1581,11 @@ CONTAINS
             &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
             &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb)) )
 
-          z_slope(jc,jk,jb) = SIGN(                                            &
-            &  MIN( ABS(z_slope(jc,jk,jb)), ABS(z_slope_u), ABS(z_slope_l) ),  &
-            &    z_slope(jc,jk,jb))
+          z_slope(jc,jk) = SIGN(                                            &
+            &  MIN( ABS(z_slope(jc,jk)), ABS(z_slope_u), ABS(z_slope_l) ),  &
+            &    z_slope(jc,jk))
 
-          IF ((z_slope_u * z_slope_l) <= 0._wp)  z_slope(jc,jk,jb) = 0._wp
+          IF ((z_slope_u * z_slope_l) <= 0._wp)  z_slope(jc,jk) = 0._wp
            
         END DO
 
@@ -1611,21 +1607,21 @@ CONTAINS
       !
       DO jc = i_startidx, i_endidx
 
-        z_face(jc,slevp1,jb) = p_cc(jc,slev,jb)*(1._wp - (p_cellhgt_mc_now(jc,slev,jb)&
+        z_face(jc,slevp1) = p_cc(jc,slev,jb)*(1._wp - (p_cellhgt_mc_now(jc,slev,jb)   &
           &       / p_cellhgt_mc_now(jc,slevp1,jb))) + (p_cellhgt_mc_now(jc,slev,jb)  &
           &       /(p_cellhgt_mc_now(jc,slev,jb) + p_cellhgt_mc_now(jc,slevp1,jb)))   &
           &       * ((p_cellhgt_mc_now(jc,slev,jb) / p_cellhgt_mc_now(jc,slevp1,jb))  &
           &       * p_cc(jc,slev,jb) + p_cc(jc,slevp1,jb))
 
-        z_face(jc,nlev,jb) = p_cc(jc,nlev-1,jb)*( 1._wp                               &
+        z_face(jc,nlev) = p_cc(jc,nlev-1,jb)*( 1._wp                                  &
           &       - (p_cellhgt_mc_now(jc,nlev-1,jb) / p_cellhgt_mc_now(jc,nlev,jb)))  &
           &       + (p_cellhgt_mc_now(jc,nlev-1,jb)/(p_cellhgt_mc_now(jc,nlev-1,jb)   &
           &       + p_cellhgt_mc_now(jc,nlev,jb))) * ((p_cellhgt_mc_now(jc,nlev-1,jb) &
           &       / p_cellhgt_mc_now(jc,nlev,jb)) * p_cc(jc,nlev-1,jb)                &
           &       + p_cc(jc,nlev,jb))
 
-        z_face(jc,slev,jb)   = p_cc(jc,slev,jb)
-        z_face(jc,nlevp1,jb) = p_cc(jc,nlev,jb)
+        z_face(jc,slev)   = p_cc(jc,slev,jb)
+        z_face(jc,nlevp1) = p_cc(jc,nlev,jb)
 
       ENDDO
 
@@ -1640,7 +1636,7 @@ CONTAINS
 
         DO jc = i_startidx, i_endidx
 
-          z_face(jc,ikp1,jb) = p_cc(jc,jk,jb) + (p_cellhgt_mc_now(jc,jk,jb)           &
+          z_face(jc,ikp1) = p_cc(jc,jk,jb) + (p_cellhgt_mc_now(jc,jk,jb)              &
             &  / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb)))         &
             &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                  &
             &  + (1._wp/(p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)    &
@@ -1652,10 +1648,10 @@ CONTAINS
             &  - (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb))        &
             &  / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb)) )  &
             &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) - p_cellhgt_mc_now(jc,jk,jb)     &
-            &  * z_slope(jc,ikp1,jb) * (p_cellhgt_mc_now(jc,ikm1,jb)                  &
+            &  * z_slope(jc,ikp1) * (p_cellhgt_mc_now(jc,ikm1,jb)                     &
             &  + p_cellhgt_mc_now(jc,jk,jb)) / (2._wp*p_cellhgt_mc_now(jc,jk,jb)      &
             &  + p_cellhgt_mc_now(jc,ikp1,jb)) + p_cellhgt_mc_now(jc,ikp1,jb)         &
-            &  * z_slope(jc,jk,jb) * (p_cellhgt_mc_now(jc,ikp1,jb)                    &
+            &  * z_slope(jc,jk) * (p_cellhgt_mc_now(jc,ikp1,jb)                       &
             &  + p_cellhgt_mc_now(jc,ikp2,jb)) / (p_cellhgt_mc_now(jc,jk,jb)          &
             &  + 2._wp*p_cellhgt_mc_now(jc,ikp1,jb)) )
 
@@ -1673,14 +1669,14 @@ CONTAINS
       !
       IF (p_itype_vlimit == islopel_vsm) THEN
         ! semi-monotonic (sm) limiter
-        CALL v_ppm_slimiter_sm( p_cc(:,:,jb), z_face(:,:,jb),           & !in
-          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),    & !inout
-          &                   i_startidx, i_endidx, slev, elev_lim      ) !in
+        CALL v_ppm_slimiter_sm( p_cc(:,:,jb), z_face(:,:),          & !in
+          &                   z_face_up(:,:), z_face_low(:,:),      & !inout
+          &                   i_startidx, i_endidx, slev, elev_lim  ) !in
       ELSE IF (p_itype_vlimit == islopel_vm) THEN
         ! monotonic (mo) limiter
-        CALL v_ppm_slimiter_mo( p_cc(:,:,jb), z_face(:,:,jb), z_slope(:,:,jb), & !in
-          &                   z_face_up(:,:,jb), z_face_low(:,:,jb),           & !inout
-          &                   i_startidx, i_endidx, slev, elev_lim             ) !in
+        CALL v_ppm_slimiter_mo( p_cc(:,:,jb), z_face(:,:), z_slope(:,:), & !in
+          &                   z_face_up(:,:), z_face_low(:,:),           & !inout
+          &                   i_startidx, i_endidx, slev, elev_lim       ) !in
       ENDIF
 
 
@@ -1690,8 +1686,8 @@ CONTAINS
         DO jk = slev, nlev
           ! index of bottom half level
           ikp1 = jk + 1
-          z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)
-          z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)
+          z_face_up(i_startidx:i_endidx,jk)  = z_face(i_startidx:i_endidx,jk)
+          z_face_low(i_startidx:i_endidx,jk) = z_face(i_startidx:i_endidx,ikp1)
         ENDDO
 
       ENDIF
@@ -1723,9 +1719,9 @@ CONTAINS
           ! note that the second coeff_grid factor in front of z_delta_p 
           ! is obsolete due to a compensating (-) sign emerging from the 
           ! computation of z_delta_p.
-          z_delta_m = z_face_up(jc,ikm1,jb) - z_face_low(jc,ikm1,jb)
+          z_delta_m = z_face_up(jc,ikm1) - z_face_low(jc,ikm1)
           z_a11     = p_cc(jc,ikm1,jb)                                  &
-            &       - 0.5_wp * (z_face_low(jc,ikm1,jb) + z_face_up(jc,ikm1,jb))
+            &       - 0.5_wp * (z_face_low(jc,ikm1) + z_face_up(jc,ikm1))
 
           z_lext_1(jc,jk) = p_cc(jc,ikm1,jb)                            &
             &  - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb))) &
@@ -1738,9 +1734,9 @@ CONTAINS
           ! note that the second coeff_grid factor in front of z_delta_p 
           ! is obsolete due to a compensating (-) sign emerging from the 
           ! computation of z_delta_p.
-          z_delta_p = z_face_up(jc,ik,jb) - z_face_low(jc,ik,jb)
+          z_delta_p = z_face_up(jc,ik) - z_face_low(jc,ik)
           z_a12     = p_cc(jc,ik,jb)                                    &
-            &       - 0.5_wp * (z_face_low(jc,ik,jb) + z_face_up(jc,ik,jb))
+            &       - 0.5_wp * (z_face_low(jc,ik) + z_face_up(jc,ik))
 
           z_lext_2(jc,ik) = p_cc(jc,ik,jb)                              &
             &  + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,ik,jb))) &
@@ -1822,15 +1818,15 @@ CONTAINS
             ! note that the second coeff_grid factor in front of z_delta_p 
             ! is obsolete due to a compensating (-) sign emerging from the 
             ! computation of z_delta_p.
-            z_delta_p = z_face_up(jc,jk_int_p(jc,jk,jb),jb)                &
-              &         - z_face_low(jc,jk_int_p(jc,jk,jb),jb)
-            z_a12     = p_cc(jc,jk_int_p(jc,jk,jb),jb)                     &
-              &         - 0.5_wp * (z_face_low(jc,jk_int_p(jc,jk,jb),jb)   &
-              &         + z_face_up(jc,jk_int_p(jc,jk,jb),jb))
+            z_delta_p = z_face_up(jc,jk_int_p(jc,jk,jb))                &
+              &         - z_face_low(jc,jk_int_p(jc,jk,jb))
+            z_a12     = p_cc(jc,jk_int_p(jc,jk,jb),jb)                 &
+              &         - 0.5_wp * (z_face_low(jc,jk_int_p(jc,jk,jb))   &
+              &         + z_face_up(jc,jk_int_p(jc,jk,jb)))
 
 
             ! fractional high order flux   
-            z_flx_frac_high(jc,jk,jb) = ( - coeff_grid                              &
+            z_flx_frac_high(jc,jk) = ( - coeff_grid                                 &
               &         * p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)                  &
               &         * z_cflfrac_p(jc,jk,jb) *( p_cc(jc,jk_int_p(jc,jk,jb),jb)   &
               &         + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb)))    &
@@ -1839,7 +1835,7 @@ CONTAINS
               &         / p_dtime
 
             ! full flux (integer- plus high order fractional flux)
-            p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)/p_dtime + z_flx_frac_high(jc,jk,jb)
+            p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)/p_dtime + z_flx_frac_high(jc,jk)
 
           ENDDO
         ENDIF
@@ -1900,15 +1896,15 @@ CONTAINS
             ! note that the second coeff_grid factor in front of z_delta_p 
             ! is obsolete due to a compensating (-) sign emerging from the 
             ! computation of z_delta_p.
-            z_delta_m = z_face_up(jc,jk_int_m(jc,jk,jb),jb)                &
-              &         - z_face_low(jc,jk_int_m(jc,jk,jb),jb)
-            z_a11     = p_cc(jc,jk_int_m(jc,jk,jb),jb)                     &
-              &         - 0.5_wp * (z_face_low(jc,jk_int_m(jc,jk,jb),jb)   &
-              &         + z_face_up(jc,jk_int_m(jc,jk,jb),jb))
+            z_delta_m = z_face_up(jc,jk_int_m(jc,jk,jb))                &
+              &         - z_face_low(jc,jk_int_m(jc,jk,jb))
+            z_a11     = p_cc(jc,jk_int_m(jc,jk,jb),jb)                  &
+              &         - 0.5_wp * (z_face_low(jc,jk_int_m(jc,jk,jb))   &
+              &         + z_face_up(jc,jk_int_m(jc,jk,jb)))
 
 
             ! fractional high order flux           
-            z_flx_frac_high(jc,jk,jb)= ( coeff_grid                                 &
+            z_flx_frac_high(jc,jk)= ( coeff_grid                                    &
               &         * p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)                  &
               &         * z_cflfrac_m(jc,jk,jb) * ( p_cc(jc,jk_int_m(jc,jk,jb),jb)  &
               &         - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb)))    &
@@ -1917,7 +1913,7 @@ CONTAINS
               &         / p_dtime
 
             ! full flux (integer- plus fractional flux)
-            p_upflux(jc,jk,jb) = z_iflx_m(jc,jk)/p_dtime + z_flx_frac_high(jc,jk,jb)
+            p_upflux(jc,jk,jb) = z_iflx_m(jc,jk)/p_dtime + z_flx_frac_high(jc,jk)
 
           ENDDO
         ENDIF
