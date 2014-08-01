@@ -440,6 +440,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: forcing_windStress_v_amplitude       = 1.0_wp
   REAL(wp) :: forcing_center                       = 0.0_wp
   INTEGER  :: forcing_smooth_steps                 = 1
+  INTEGER  :: forcing_windspeed_type               = 0
+  REAL(WP) :: forcing_windspeed_amplitude          = 1.0_wp
   REAL(wp) :: relax_temperature_min                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
@@ -463,6 +465,8 @@ MODULE mo_ocean_nml
 #else
     &                 forcing_windstress_zonalWavePhase   , &
 #endif
+    &                 forcing_windspeed_type              , &
+    &                 forcing_windspeed_amplitude         , &
     &                 iforc_oce                           , &
     &                 init_oce_relax                      , &
     &                 type_surfRelax_Salt                 , &

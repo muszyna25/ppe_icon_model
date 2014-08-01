@@ -28,19 +28,21 @@ MODULE mo_oce_forcing
   USE mo_io_units,            ONLY: filename_max
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: basin_height_deg, basin_width_deg, no_tracer,   &
-    & basin_center_lat, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno, &
-    & init_oce_relax, type_3dimRelax_Salt, type_3dimRelax_Temp,                     &
-    & type_surfRelax_Salt, type_surfRelax_Temp,                                     &
-    & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,               &
-    & forcing_windstress_u_type, forcing_windstress_v_type,    &
-#ifdef __SX__
-    & forcing_windstress_zonalWavePhas,                        &
-#else
-    & forcing_windstress_zonalWavePhase,                       &
+  USE mo_ocean_nml,           ONLY: no_tracer,                                &
+    & basin_height_deg, basin_width_deg, basin_center_lat,                    &
+    & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,       &
+    & init_oce_relax, type_3dimRelax_Salt, type_3dimRelax_Temp,               &
+    & type_surfRelax_Salt, type_surfRelax_Temp,                               &
+    & forcing_windStress_u_amplitude, forcing_windStress_v_amplitude,         &
+    & forcing_windstress_u_type, forcing_windstress_v_type,                   &
+    & forcing_windspeed_type, forcing_windspeed_amplitude,                    &
+    & relax_temperature_min, relax_temperature_max,                           &
+#ifdef __SX__                                                                
+    & forcing_windstress_zonalWavePhas,                                       &
+#else                                                                        
+    & forcing_windstress_zonalWavePhase,                                      &
 #endif
-    & relax_temperature_min, relax_temperature_max,            &
-    & forcing_temperature_poleLat
+    & forcing_temperature_poleLat                                         
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_exception,           ONLY: finish, message, message_text
@@ -91,11 +93,11 @@ CONTAINS
     TYPE(t_var_list),INTENT(INOUT) :: var_list
 
     ! Local variables
-    INTEGER                        :: alloc_cell_blocks, ist, jtrc, i
-    CHARACTER(len=max_char_length) :: oce_tracer_names(no_tracer),&
-    &                                 oce_tracer_units(no_tracer),&
-    &                                 oce_tracer_longnames(no_tracer)
-    INTEGER                        :: oce_tracer_codes(no_tracer)
+    INTEGER                        :: alloc_cell_blocks, ist
+    ! CHARACTER(len=max_char_length) :: oce_tracer_names(no_tracer),&
+    ! &                                 oce_tracer_units(no_tracer),&
+    ! &                                 oce_tracer_longnames(no_tracer)
+    ! INTEGER                        :: oce_tracer_codes(no_tracer)
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:construct_ocean_forcing'
 
@@ -651,22 +653,33 @@ CONTAINS
   END SUBROUTINE init_ho_relaxation
   !-------------------------------------------------------------------------
 !<Optimize_Used>
-  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, atmos_fluxes)
+  SUBROUTINE init_ocean_forcing(patch_2d, patch_3d, ocean_state, atmos_fluxes, fu10)
     !
     TYPE(t_patch),TARGET, INTENT(in)        :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_atmos_fluxes)                    :: atmos_fluxes
+    REAL(wp), INTENT(INOUT)                 :: fu10(:,:)      !  windspeed: p_as%fu10
 
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: all_cells, owned_cells
 
-    all_cells => patch_3d%p_patch_2d(1)%cells%All
+      all_cells => patch_3d%p_patch_2d(1)%cells%All
+    owned_cells => patch_3d%p_patch_2d(1)%cells%owned
 
-    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, atmos_fluxes%topBoundCond_windStress_u,&
+    CALL set_windstress_u(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, atmos_fluxes%topBoundCond_windStress_u, &
       & forcing_windStress_u_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
 
-    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, atmos_fluxes%topBoundCond_windStress_v,&
+    CALL set_windstress_v(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, atmos_fluxes%topBoundCond_windStress_v, &
       & forcing_windStress_v_amplitude, forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno)
+
+    CALL set_windspeed(all_cells, patch_3d%lsm_c(:,1,:), sea_boundary, fu10,                                      &
+      & atmos_fluxes%topBoundCond_windStress_u, atmos_fluxes%topBoundCond_windStress_v, forcing_windspeed_type,   &
+      & forcing_windspeed_amplitude)
+
+    idt_src=0  ! output print level - 0: print in any case
+    CALL dbg_print('init zonal wind stress'    ,atmos_fluxes%topBoundCond_windStress_u,str_module,idt_src,in_subset=owned_cells)
+    CALL dbg_print('init merid. wind stress'   ,atmos_fluxes%topBoundCond_windStress_v,str_module,idt_src,in_subset=owned_cells)
+    CALL dbg_print('init wind speed'           ,fu10                                  ,str_module,idt_src,in_subset=owned_cells)
 
     IF (init_oce_relax > 0) THEN
       CALL init_ho_relaxation(patch_2d, patch_3d, ocean_state, atmos_fluxes)
@@ -773,6 +786,34 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE set_windstress
+
+  SUBROUTINE set_windspeed(subset, mask, threshold, windspeed, windstress_u, windstress_v, control, amplitude)
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    INTEGER,  INTENT(IN)             :: mask(:,:)
+    INTEGER,  INTENT(IN)             :: threshold
+    REAL(wp), INTENT(INOUT)          :: windspeed(:,:)
+    REAL(wp), INTENT(INOUT)          :: windstress_u(:,:)
+    REAL(wp), INTENT(INOUT)          :: windstress_v(:,:)
+    INTEGER,  INTENT(IN)             :: control
+    REAL(wp), INTENT(IN)             :: amplitude
+
+    SELECT CASE (control)
+    CASE (0) ! NO FORCING, SET TO ZERO ========================================
+      windspeed = 0.0_wp
+    CASE (1:100)      ! FILE INPUT, DONE ELSEWHERE ============================
+      CALL message('windspeed forcing','file input')
+    CASE (101:200)    ! ANALYTIC SETUP ========================================
+      SELECT CASE (control)
+      CASE(101)       ! constant amplitude
+        windspeed(:,:) = amplitude
+      CASE(102)       ! windspeed backward calculated from windstress amplitude
+        CALL calc_windspeed_fromwindstress(subset, mask, threshold, windspeed, windstress_u, windstress_v, amplitude)
+   !  CASE(103)       ! basin setup, zonally changed
+   !    CALL basin_zonal(subset,mask,threshold,windstress,amplitude,length)
+      END SELECT
+    END SELECT
+
+  END SUBROUTINE set_windspeed
 
   SUBROUTINE basin_zonal(subset, mask, threshold, field_2d, amplitude,length_opt, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -1037,6 +1078,7 @@ CONTAINS
     field_2d(:,:) = amplitude*strength*sin(lon(:,:))
 
   END SUBROUTINE cells_zonal_and_meridional_periodic_constant_amplitude_sin
+
   SUBROUTINE cells_zonal_and_meridional_periodic_constant_amplitude_cosin(subset, mask, threshold, field_2d, &
       & amplitude,length_opt, zonal_waveno_opt)
     TYPE(t_subset_range), INTENT(IN) :: subset
@@ -1065,6 +1107,43 @@ CONTAINS
     field_2d(:,:) = amplitude*strength*cos(lon(:,:))
 
   END SUBROUTINE cells_zonal_and_meridional_periodic_constant_amplitude_cosin
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Initialization of wind speed if wind stress is available
+  !!  Following common relation of wind stress to wind speed (e.g. Smith 1980)
+  !!  
+  !
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M, 2014-07
+  !
+  !-------------------------------------------------------------------------
+  !
+  SUBROUTINE calc_windspeed_fromwindstress(subset, mask, threshold, windspeed, windstress_u, windstress_v, amplitude)
+  !!
+  !!  
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    INTEGER,  INTENT(IN)             :: mask(:,:)
+    INTEGER,  INTENT(IN)             :: threshold
+    REAL(wp)                         :: windspeed(:,:)
+    REAL(wp)                         :: windstress_u(:,:)
+    REAL(wp)                         :: windstress_v(:,:)
+    REAL(wp), INTENT(IN)             :: amplitude
+
+    ! |tau|  = Rho_air * C_D * U_10**2 
+    ! |U_10| = ( |tau| / (Rho_air*C_D) )**(1/2) or
+    ! |U_10| = (Rho_air*C_D)**(-1/2) * |tau|**(1/2)
+    !  with Rho_air=1.22 kg/m3, drag coefficient C_D ~ 1.3e-3, U_10 the wind speed in 10m height
+    !  (Rho_air * C_D)**(-1/2) ~ (1.5 e-3 )**(-1/2) ~ 26
+    !  or: |U_10| ~ 26 m/s for tau=1 Pa, or 8.2 m/s for tau=0.1 Pa
+    !  |tau| = (tau_x**2 + tau_y**2)**(1/2)
+
+    windspeed(:,:) = MERGE(amplitude*26.0_wp*                                                                 &
+      &                SQRT(SQRT(windstress_u(:,:)*windstress_u(:,:) + windstress_v(:,:)*windstress_v(:,:))), &
+      &                0.0_wp, mask(:,:) <= threshold)
+
+  END SUBROUTINE calc_windspeed_fromwindstress
 
   SUBROUTINE nf(STATUS)
 

@@ -328,7 +328,8 @@ CONTAINS
     
     !---------Debug Diagnostics-------------------------------------------
     idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('recon_fields: p_vn%x(1)'        ,ocean_state%p_diag%p_vn%x(1)  ,module_name,idt_src)
+    CALL dbg_print('recon_fields: p_vn%x(1)'        ,ocean_state%p_diag%p_vn%x(1),module_name,idt_src, &
+      & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     !---------------------------------------------------------------------
     
     !    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( patch_2D, ocean_state, operators_coeff)

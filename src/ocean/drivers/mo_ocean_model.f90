@@ -534,9 +534,10 @@ CONTAINS
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
     CALL init_ocean_forcing(patch_3d%p_patch_2d(1),  &
-      &                     patch_3d, &
-      &                     ocean_state(jg), &
-      &                     atmos_fluxes)
+      &                     patch_3d,                &
+      &                     ocean_state(jg),         &
+      &                     atmos_fluxes,            &
+      &                     p_as%fu10)
       
     IF (i_sea_ice >= 1) &
       &   CALL ice_init(patch_3D, ocean_state(jg), p_ice, atmos_fluxes%cellThicknessUnderIce)
