@@ -897,7 +897,8 @@ MODULE mo_sgs_turbulence
       !a*x(k-1)+b*x(k)+c*x(k+1)=rhs(k)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jkp1,je,i_startidx,i_endidx,dwdn,a,b,c,rhs,var_new)
+!$OMP DO PRIVATE(jb,jk,jkp1,je,i_startidx,i_endidx,dwdn,a,b,c,rhs,var_new,&
+!$OMP            flux_dn_e,stress_c1n,stress_c2n)
       DO jb = i_startblk,i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
