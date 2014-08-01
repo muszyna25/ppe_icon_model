@@ -701,7 +701,6 @@ CONTAINS
       
     CALL rot_vertex_ocean_3d( patch_3D, z_nabla2_e, p_nabla2_dual, p_op_coeff, z_rot_v)!
     
-    
     !combine divergence and vorticity
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
@@ -718,8 +717,10 @@ CONTAINS
             & (( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))    &
             & - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )  &
             & * patch_2D%edges%inv_dual_edge_length(je,jb))
-          
-          nabla4_vec_e(je,jk,jb)=-nabla4_vec_e(je,jk,jb)
+
+          ! #slo# simple test: multiply laplacian with k_h
+   !      nabla4_vec_e(je,jk,jb)=-nabla4_vec_e(je,jk,jb)
+          nabla4_vec_e(je,jk,jb)=-k_h(je,jk,jb) * nabla4_vec_e(je,jk,jb)
         END DO
       END DO
     END DO

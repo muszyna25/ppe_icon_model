@@ -136,6 +136,7 @@ CONTAINS
     
     ! Local variables
     INTEGER :: i, i_no_trac
+    INTEGER :: ilc1, ibc1, ilc2,ibc2
     INTEGER :: je,jb
     INTEGER :: start_index, end_index
     REAL(wp) :: z_lower_bound_diff
@@ -158,6 +159,11 @@ CONTAINS
     
     z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
     
+
+    WRITE(message_text,'(a,e25.12)') 'horizontal background viscosity =',k_veloc_h
+    CALL message ('init_ho_params', message_text)
+    WRITE(message_text,'(a,e25.12)') 'vertical   background viscosity =',k_veloc_v
+    CALL message ('init_ho_params', message_text)
     
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
@@ -200,20 +206,38 @@ CONTAINS
       CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
       !Biharmonic laplacian
     ELSEIF(veloc_diffusion_order==2)THEN
+
+      WRITE(message_text,'(a,e25.12)') 'biharmonic_diffusion_factor     =',biharmonic_diffusion_factor
+      CALL message ('init_ho_params', message_text)
       
-      !The general form follows the hydrostatic atmospheric code.
-      !The number that controls all that the "z_diff_efdt_ratio"
-      !is different. Higher z_diff_efdt_ratio decreases the final
-      !diffusion coefficient
-      z_diff_efdt_ratio = 10000.0_wp * biharmonic_diffusion_factor
-      z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
-      DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, start_index, end_index)
-        DO je = start_index, end_index
-          p_phys_param%k_veloc_h(je,:,jb) = &
-            & p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
+      SELECT CASE (horz_veloc_diff_type)
+      CASE (0) ! no friction
+        p_phys_param%k_veloc_h(:,:,:) = 0.0_wp
+        
+      CASE (1) ! use uniform biharmonic viscosity coefficient from namelist (currently without scaling)
+        
+        CALL message ('init_ho_params','constant biharmonic viscosity parameter')
+        p_phys_param%k_veloc_h(:,:,:) = biharmonic_diffusion_factor
+        
+      CASE (2) ! use vertically uniform biharmonic viscosity coefficient scaled horizontally by edge-length
+    
+        !The general form follows the hydrostatic atmospheric code.
+        !The number that controls all that the "z_diff_efdt_ratio"
+        !is different. Higher z_diff_efdt_ratio decreases the final
+        !diffusion coefficient
+        z_diff_efdt_ratio = 10000.0_wp * biharmonic_diffusion_factor
+        z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
+        
+        ! #slo# patch%edges%area_edge is allocated and initialized to zero but not calculated
+        !  use edge-length**4 instead of area_edge**2
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          DO je = start_index, end_index
+            p_phys_param%k_veloc_h(je,:,jb) = &
+  !           & p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
+              & p_patch%edges%primal_edge_length(je,jb)**4.0_wp*z_diff_multfac
+          END DO
         END DO
-      END DO
       
       !          z_diff_multfac = 0.0045_wp*dtime/3600.0_wp
       !         DO jb = all_edges%start_block, all_edges%end_block
@@ -223,10 +247,64 @@ CONTAINS
       !              &maxval(p_patch%edges%primal_edge_length)**4
       !            END DO
       !          END DO
+        
+      CASE (3) ! use vertically uniform biharmonic viscosity coefficient - #slo# alternative scaling
+
+        CALL message ('init_ho_params','biharmonic viscosity parameter - multiplied with edge-length**4')
+
+        ! The idea for scaling follows MPIOM and has the form
+        ! a_veloc_h = A_fac * edge_length**4,
+        ! where biharmonic_diffusion_factor = A_fac
+        ! i.e. A_fac = 1e-5 generates a biharmonic diffusion ocefficient of
+        !   1.e07 m^4/s at   1 km edge-length
+        !   1.e11 m^4/s at  10 km edge-length
+        !  4.1e14 m^4/s at  80 km edge-length
+        
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          DO je = start_index, end_index
+            p_phys_param%k_veloc_h(je,:,jb) = &
+              & p_patch%edges%primal_edge_length(je,jb)**4.0_wp * biharmonic_diffusion_factor
+          END DO
+        END DO
+        
+      CASE (4) ! use vertically uniform biharmonic viscosity coefficient - scaled with area
+
+        CALL message ('init_ho_params','biharmonic viscosity parameter - multiplied with cell-area**2')
+
+        ! Since the edge-length is much larger than the square root of the area, the latter is used
+        !  - calculate mean of two neighboring cell areas
+        ! a_veloc_h = A_fac * cell_area**2,
+        ! where biharmonic_diffusion_factor = A_fac
+        ! i.e. A_fac = 1e-5 generates a biharmonic diffusion ocefficient of
+        !   1.e11 m^4/s at  10 km resolution, sqrt(cell_area)
+        
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          DO je = start_index, end_index
+
+            ilc1 = p_patch%edges%cell_idx(je,jb,1)
+            ibc1 = p_patch%edges%cell_blk(je,jb,1)
+            ilc2 = p_patch%edges%cell_idx(je,jb,2)
+            ibc2 = p_patch%edges%cell_blk(je,jb,2)
+
+            p_phys_param%k_veloc_h(je,:,jb) = &
+              & (0.5_wp*(p_patch%cells%area(ilc1,ibc1)+p_patch%cells%area(ilc2,ibc2)))**2.0_wp * biharmonic_diffusion_factor
+          END DO
+        END DO
       
+      END SELECT
       
     ENDIF
+
     IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( p_patch, patch_3d, p_phys_param%k_veloc_h )
+    
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=0  ! output print levels - 0: print in any case
+ !  CALL dbg_print('area-edge for   Diff.', p_patch%edges%area_edge         ,str_module,idt_src, in_subset=p_patch%edges%owned)
+    CALL dbg_print('edge-length for Diff.', p_patch%edges%primal_edge_length,str_module,idt_src, in_subset=p_patch%edges%owned)
+    CALL dbg_print('smoothed Laplac Diff.', p_phys_param%k_veloc_h          ,str_module,idt_src, in_subset=p_patch%edges%owned)
+    !---------------------------------------------------------------------
     
     
     DO i=1,no_tracer
@@ -366,12 +444,6 @@ CONTAINS
         END DO
       ENDDO
     END DO
-    
-    !---------Debug Diagnostics-------------------------------------------
-    idt_src=0  ! output print levels - 0: print in any case
-    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
-      & in_subset=p_patch%edges%owned)
-    !---------------------------------------------------------------------
     
   END SUBROUTINE smooth_lapl_diff
   !-------------------------------------------------------------------------

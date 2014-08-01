@@ -699,36 +699,23 @@ CONTAINS
     CALL timer_stop(timer_extra4)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=5  ! output print level (1-5, fix)
-    ! CALL dbg_print('old height gradient'  ,z_gradh_e, str_module,idt_src, in_subset=owned_edges)
-    CALL dbg_print('Bef fin term: vn_pred'      ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, &
-        & in_subset=owned_edges)
-    CALL dbg_print('Bef fin term: g_nimd'       ,ocean_state%p_aux%g_nimd         ,str_module,idt_src, &
-        & in_subset=owned_edges)
-    CALL dbg_print('vn(nold)'                  ,ocean_state%p_prog(nold(1))%vn       ,str_module,idt_src, &
-      & in_subset=owned_edges)
-    CALL dbg_print('VelocAdvHorizontal'        ,ocean_state%p_diag%veloc_adv_horz    ,str_module,idt_src, &
-      & in_subset=owned_edges)
-    CALL dbg_print('VelocLaPlac horizontal'    ,ocean_state%p_diag%laplacian_horz    ,str_module,idt_src, &
-      & in_subset=owned_edges)
-    
+
+    idt_src=4  ! output print level (1-5, fix)
+    CALL dbg_print('VelocDiff: LaPlacHorz'    ,ocean_state%p_diag%laplacian_horz  ,str_module,idt_src, in_subset=owned_edges)
     IF (iswm_oce /= 1) THEN
-      CALL dbg_print('ImplVelocDiff vertical'    ,ocean_state%p_diag%vn_pred ,str_module,idt_src, &
-        & in_subset=owned_edges )
+      CALL dbg_print('ImplVelocDiff vertical'   ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
     ELSE
-      CALL dbg_print('VelocLaPlac vertical'      ,ocean_state%p_diag%laplacian_vert    ,str_module,idt_src, &
-        & in_subset=owned_edges )
+      CALL dbg_print('VelocDiff: LaPlacVert'    ,ocean_state%p_diag%laplacian_vert,str_module,idt_src, in_subset=owned_edges)
     ENDIF
 
-    CALL dbg_print('G_n+1/2 - g_nimd'          ,ocean_state%p_aux%g_nimd             ,str_module,idt_src, &
-        & in_subset=owned_edges )
-    CALL dbg_print('G_n'                       ,ocean_state%p_aux%g_n                ,str_module,idt_src, &
-        & in_subset=owned_edges )
-    CALL dbg_print('G_n-1'                     ,ocean_state%p_aux%g_nm1              ,str_module,idt_src, &
-        & in_subset=owned_edges )
+    idt_src=5  ! output print level (1-5, fix)
+    CALL dbg_print('vn(nold)'                 ,ocean_state%p_prog(nold(1))%vn ,str_module,idt_src, in_subset=owned_edges)
+    CALL dbg_print('G_n+1/2 - g_nimd'         ,ocean_state%p_aux%g_nimd       ,str_module,idt_src, in_subset=owned_edges)
+    CALL dbg_print('G_n'                      ,ocean_state%p_aux%g_n          ,str_module,idt_src, in_subset=owned_edges)
+    CALL dbg_print('G_n-1'                    ,ocean_state%p_aux%g_nm1        ,str_module,idt_src, in_subset=owned_edges)
+
     idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('vn_pred'                   ,ocean_state%p_diag%vn_pred           ,str_module,idt_src, &
-        & in_subset=owned_edges )
+    CALL dbg_print('vn_pred'                   ,ocean_state%p_diag%vn_pred           ,str_module,idt_src, in_subset=owned_edges)
     !---------------------------------------------------------------------    
   END SUBROUTINE calculate_explicit_term_ab
   !-------------------------------------------------------------------------
