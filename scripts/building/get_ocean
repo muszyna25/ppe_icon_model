@@ -39,14 +39,14 @@ link_source_list()
 #-----------------------------------------------------------------------------------
 #get src
 link_source_list "src/" "ocean sea_ice parallel_infrastructure include shared"
-link_source_list "src/io/" "shared"
+link_source_list "src/io/" "shared atmo/mo_util_vgrid_types.f90"
 
 link_source_list "src/advection/" "mo_advection_utils.f90"
 
 link_source_list "src/configure_model/" "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
 mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90"
 
-link_source_list "src/drivers/" "control_model.f90 mo_master_control.f90"
+link_source_list "src/drivers/" "icon.f90 mo_master_control.f90"
 
 link_source_list "src/namelists/" "mo_dbg_nml.f90  mo_dynamics_nml.f90 mo_gribout_nml.f90 mo_grid_nml.f90 mo_io_nml.f90 
 mo_master_nml.f90 mo_parallel_nml.f90 mo_run_nml.f90 mo_sea_ice_nml.f90 mo_time_nml.f90" 
