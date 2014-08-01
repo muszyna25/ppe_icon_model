@@ -101,13 +101,14 @@ MODULE mo_gridref
   PUBLIC ptr_phys_cell_list, ptr_phys_parent_cell_list, ptr_phys_inv_cell_list, &
     & ptr_phys_inv_parent_cell_list
   PUBLIC grid_level, n_childdom, parent_grid_id, child_id, max_childdom, &
-    & end_lev, l_plot, write_hierarchy, lcopy_uuid
+    & end_lev, l_plot, write_hierarchy, uuid_sourcefile
 
   ! Namelist variables
   INTEGER :: grid_root, start_lev, n_dom, parent_id(max_phys_dom-1), &
     & bdy_indexing_depth, logical_id(max_phys_dom-1), n_phys_dom, write_hierarchy
     
-  LOGICAL :: l_circ, l_rotate, l_plot, lsep_gridref_info, lcopy_uuid(max_dom)
+  LOGICAL :: l_circ, l_rotate, l_plot, lsep_gridref_info
+  CHARACTER(LEN=filename_max) :: uuid_sourcefile(max_dom+1)
   REAL(wp), DIMENSION(max_phys_dom-1) :: radius, center_lon, center_lat, &
     & hwidth_lon, hwidth_lat
 
@@ -241,7 +242,7 @@ CONTAINS
       & bdy_indexing_depth_d, n_phys_dom_d, write_hierarchy_d, logical_id_d(max_phys_dom-1)
     REAL(wp), DIMENSION(max_phys_dom-1) :: radius_d, center_lon_d, center_lat_d, &
       & hwidth_lon_d, hwidth_lat_d
-    LOGICAL :: l_circ_d, l_rotate_d, l_plot_d, lsep_gridref_info_d, lcopy_uuid_d(max_dom)
+    LOGICAL :: l_circ_d, l_rotate_d, l_plot_d, lsep_gridref_info_d
     INTEGER :: i, j
     !--------------------------------------------------------------------
     !BOC
@@ -251,7 +252,7 @@ CONTAINS
     NAMELIST /gridref_ini/ grid_root, start_lev, n_dom, parent_id, l_plot,       &
       & l_circ, l_rotate, radius, center_lon, center_lat, n_phys_dom,            &
       & hwidth_lon, hwidth_lat, write_hierarchy, bdy_indexing_depth, logical_id, &
-      & lsep_gridref_info, lcopy_uuid
+      & lsep_gridref_info, uuid_sourcefile
     NAMELIST /gridref_metadata/ number_of_grid_used, centre, subcentre, outname_style ! , &
 !      & annotate_level
 
@@ -272,7 +273,7 @@ CONTAINS
     l_circ     = .false.
     l_rotate   = .false.
     l_plot     = .false.
-    lcopy_uuid = .false.
+    uuid_sourcefile(:) = 'EMPTY'
 
     lsep_gridref_info = .false.
 
@@ -302,7 +303,6 @@ CONTAINS
     l_plot_d     = l_plot
     l_circ_d     = l_circ
     l_rotate_d   = l_rotate
-    lcopy_uuid_d = lcopy_uuid
     radius_d     = radius
     center_lat_d = center_lat
     center_lon_d = center_lon
@@ -446,8 +446,6 @@ CONTAINS
     CALL message ('', message_text)
     WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') 'l_rotate',l_rotate, l_rotate_d
     CALL message ('', message_text)
-    WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') 'lcopy_uuid (global)',lcopy_uuid(1), lcopy_uuid_d(1)
-    CALL message ('', message_text)
 
     WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') 'bdy_indexing_depth', &
                                                          bdy_indexing_depth, bdy_indexing_depth_d
@@ -474,9 +472,6 @@ CONTAINS
       CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,i12,t44,i12,t60,a3)') &
         & 'logical_id',logical_id(j), logical_id_d(j)
-      CALL message ('', message_text)
-      WRITE(message_text,'(t8,a,t28,l12,t44,l12,t60,a3)') &
-        & 'lcopy_uuid',lcopy_uuid(j), lcopy_uuid_d(j)
       CALL message ('', message_text)
       WRITE(message_text,'(t8,a,t28,f12.4,t44,f12.4,t60,a3)') &
         & 'radius', radius(j), radius_d(j)

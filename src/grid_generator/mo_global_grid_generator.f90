@@ -219,7 +219,7 @@ CONTAINS
     
     CHARACTER(LEN=filename_max) :: filename
     
-    INTEGER :: i, ilev, idom, ip, iplev, ic, in, iclev, istartlev, n_dom_start, id
+    INTEGER :: i, ilev, idom, ip, iplev, ic, in, iclev, istartlev, n_dom_start
     
     TYPE(t_patch), POINTER :: p_patch=>NULL()
     TYPE(t_patch), POINTER :: pc_patch=>NULL() ! for child level
@@ -264,13 +264,8 @@ CONTAINS
       
       WRITE(filename,'(a,i0,a,i2.2,a)')'iconR', grid_root, 'B', ilev, '-grid.nc'
 
-      id = ilev+1-start_lev
-      IF (lcopy_uuid(MAX(1,id))) THEN
-        CALL input_grid(grid_on_level(ilev), filename, uuid_grid(id) )
-      ELSE
-        CALL input_grid(grid_on_level(ilev), filename)
-      ENDIF
-      
+      CALL input_grid(grid_on_level(ilev), filename)
+
       ! Initialize refin_ctrl marker field
       grid_on_level(ilev)%cells%refin_ctrl(:) = 0
       grid_on_level(ilev)%edges%refin_ctrl(:) = 0
@@ -373,7 +368,10 @@ CONTAINS
     
     ! Generate uuid's where needed
     DO idom = n_dom_start, n_dom
-      IF (.NOT. lcopy_uuid(MAX(1,idom))) THEN
+      i = idom+1-n_dom_start
+      IF (TRIM(uuid_sourcefile(i)) /= 'EMPTY') THEN
+        CALL read_uuid(uuid_sourcefile(i), uuid_grid(idom))
+      ELSE
         CALL uuid_generate(uuid)
         CALL uuid_unparse(uuid, uuid_grid(idom))
       ENDIF

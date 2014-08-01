@@ -77,11 +77,31 @@ MODULE mo_io_grid
   
   INCLUDE 'netcdf.inc'
 
-  PUBLIC :: input_grid, write_grid
+  PUBLIC :: read_uuid, input_grid, write_grid
 
   !--------------------------------------------------------------------
   
 CONTAINS
+
+  SUBROUTINE read_uuid(infile, uuid_string)
+
+    CHARACTER(len=filename_max),       INTENT(IN)  :: infile
+    CHARACTER(len=uuid_string_length), INTENT(OUT) :: uuid_string
+
+    INTEGER :: ncid
+
+
+    WRITE(message_text,'(a,a)') 'Read uuid from file ', TRIM(infile)
+    CALL message ('', TRIM(message_text))
+
+    CALL nf(nf_open(TRIM(infile), nf_nowrite, ncid))
+
+    CALL nf(nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string))
+
+    CALL nf(nf_close(ncid))
+
+  END SUBROUTINE read_uuid
+
 
   !>
   !! Reads files with cross reference tables and coordinates of
@@ -91,11 +111,10 @@ CONTAINS
   !!   Developed and tested by L.Bonaventura  and T. Heinze (2004-05).
   !!   netCDF version by L. Kornblueh (2008-04)
   !!
-  SUBROUTINE input_grid(gg, input, uuid_string)
+  SUBROUTINE input_grid(gg, input)
     !
     TYPE(t_grid),                INTENT(inout) :: gg
     CHARACTER(len=filename_max), INTENT(in)    :: input
-    CHARACTER(len=uuid_string_length), OPTIONAL, INTENT(OUT) :: uuid_string
 
     INTEGER :: i_nc, i_ne, i_nv
     INTEGER :: ncid, dimid, varid
@@ -106,9 +125,6 @@ CONTAINS
     CALL nf(nf_open(TRIM(input), nf_nowrite, ncid))
 
     CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', gg%level))
-    IF (PRESENT(uuid_string)) THEN
-      CALL nf(nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string))
-    ENDIF
 
     CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, gg%ncells))
