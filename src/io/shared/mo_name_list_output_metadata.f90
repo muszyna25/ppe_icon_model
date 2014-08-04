@@ -58,16 +58,16 @@ CONTAINS
   !
   SUBROUTINE metainfo_allocate_memory_window(memwin, nvars)
 
+    TYPE(t_mem_win),      INTENT(INOUT) :: memwin ! MPI memory window
+    INTEGER,              INTENT(IN)    :: nvars  ! total no. of variables
+
 #ifndef NOMPI
 #ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
 #endif
-#endif
 
-    TYPE(t_mem_win),      INTENT(INOUT) :: memwin ! MPI memory window
-    INTEGER,              INTENT(IN)    :: nvars  ! total no. of variables
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_allocate_memory_window"
     INTEGER                         :: nbytes_int, mpierr
@@ -81,7 +81,6 @@ CONTAINS
     CALL finish(routine, "SX no longer supported!")
 #endif
 
-#ifndef NOMPI
     ! total number of required integer variables
     mem_size = nvars * metainfo_get_size()
     ! Get amount of bytes per INTEGER variable (in MPI communication)
