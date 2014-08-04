@@ -27,7 +27,7 @@ MODULE mo_var_metadata
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
-    &                              t_tracer_meta, t_var_metadata,         &
+    &                              t_tracer_meta,                         &
     &                              t_post_op_meta, VAR_GROUPS,            &
     &                              VINTP_TYPE_LIST, VARNAME_LEN, POST_OP_NONE
   USE mo_action_types,       ONLY: t_var_action_element, t_var_action

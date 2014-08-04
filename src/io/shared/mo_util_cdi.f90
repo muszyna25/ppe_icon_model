@@ -23,13 +23,20 @@ MODULE mo_util_cdi
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,           &
-    &                              p_comm_work, p_comm_work_test,          &
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,            &
+    &                              p_comm_work, p_comm_work_test,           &
     &                              p_io, p_pe
   USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  ! calendar operations
+  USE mtime,                 ONLY: timedelta, newTimedelta,                 &
+    &                              datetime, newDatetime,                   &
+    &                              deallocateTimedelta, deallocateDatetime, &
+    &                              MAX_DATETIME_STR_LEN
+  USE mo_mtime_extensions,   ONLY: getTimeDeltaFromDateTime
 
   IMPLICIT NONE
   INCLUDE 'cdi.inc'
@@ -40,6 +47,7 @@ MODULE mo_util_cdi
   PUBLIC  :: get_cdi_varID
   PUBLIC  :: test_cdi_varID
   PUBLIC  :: set_additional_GRIB2_keys
+  PUBLIC  :: set_timedependent_GRIB2_keys
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
@@ -554,5 +562,89 @@ CONTAINS
     CALL vlistDefVarIntKey(vlistID, varID, "shapeOfTheEarth", 6)
 
   END SUBROUTINE set_additional_GRIB2_keys
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Set additional, time-dependent GRIB2 keys
+  !  
+  !  This subroutine sets all GRIB2 keys that may change during the
+  !  simulation.
+  !
+  !  @author D. Reinert, F. Prill (DWD)
+  !
+  !  TODOs
+  !
+  !  - we implicitly assume that we always need to INQUIRE the interval from action 1.
+  !  - we implicitly assume that the time range is always smaller than one month
+  !  - we do not consider the case that the accumulation process is incomplete at the time
+  !    of writing the output (ilengthOfTimeRange must be reduced accordingly then)
+  !
+  SUBROUTINE set_timedependent_GRIB2_keys(vlistID, varID, info, start_date, cur_date)
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),  INTENT(IN) :: info
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN), INTENT(IN) :: start_date, cur_date
+    ! local variables
+    TYPE(timedelta), POINTER          :: mtime_lengthOfTimeRange
+    INTEGER                           :: ilengthOfTimeRange            ! length of time range in seconds
+    INTEGER                           :: taxis_tunit
+    INTEGER                           :: taxisID
+    INTEGER                           :: indicatorOfUnitForTimeRange
+    INTEGER                           :: forecast_seconds
+    TYPE(datetime),  POINTER          :: mtime_start, mtime_cur
+    TYPE(timedelta), POINTER          :: forecast_delta
+
+    !---------------------------------------------------------
+    ! Set time-dependent metainfo
+    !---------------------------------------------------------
+    !
+    ! Skip inapplicable fields
+    IF (ALL((/TSTEP_MAX, TSTEP_MIN/) /= info%isteptype) ) RETURN
+
+    ! compute the number of seconds: forecast time = cur_date - start_date
+    mtime_start    => newDatetime(TRIM(start_date))
+    mtime_cur      => newDatetime(TRIM(cur_date))
+    forecast_delta => newTimedelta("P01D")
+    CALL getTimeDeltaFromDateTime(mtime_start, mtime_cur, forecast_delta)
+    forecast_seconds =    forecast_delta%second    +   &
+      &                60*(forecast_delta%minute   +   & 
+      &                    60*(forecast_delta%hour +   &
+      &                        24*forecast_delta%day))
+    CALL deallocateDatetime(mtime_start)
+    CALL deallocateDatetime(mtime_cur)
+    CALL deallocateTimedelta(forecast_delta)
+
+    mtime_lengthOfTimeRange => newTimedelta(TRIM(info%action_list%action(1)%intvl))
+    
+    ilengthOfTimeRange = 86400 *INT(mtime_lengthOfTimeRange%day)    &
+      &                + 3600  *INT(mtime_lengthOfTimeRange%hour)   &
+      &                + 60    *INT(mtime_lengthOfTimeRange%minute) &
+      &                +        INT(mtime_lengthOfTimeRange%second) 
+
+    taxisID     = vlistInqTaxis(vlistID)
+    taxis_tunit = taxisInqTunit(taxisID)
+
+    SELECT CASE (taxis_tunit)
+    CASE (TUNIT_SECOND)
+      indicatorOfUnitForTimeRange = 13
+    CASE (TUNIT_MINUTE)
+      ilengthOfTimeRange = INT(ilengthOfTimeRange/60)
+      forecast_seconds   = INT(forecast_seconds/60)
+      indicatorOfUnitForTimeRange = 0
+    CASE (TUNIT_HOUR)
+      ilengthOfTimeRange = INT(ilengthOfTimeRange/3600)
+      forecast_seconds   = INT(forecast_seconds/3600)
+      indicatorOfUnitForTimeRange = 1
+    CASE DEFAULT
+    END SELECT
+
+    ! set Indicator of unit of time for time range over which statistical processing is done
+    ! equal to the Indicator of unit of time range. This is not time dependent and may be 
+    ! moved to some better place. Note that the CDI-internal numbers differ from the official 
+    ! GRIB2 numbers!
+    CALL vlistDefVarIntKey(vlistID, varID, "forecastTime",                forecast_seconds) 
+    CALL vlistDefVarIntKey(vlistID, varID, "indicatorOfUnitForTimeRange", indicatorOfUnitForTimeRange)
+    CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+
+  END SUBROUTINE set_timedependent_GRIB2_keys
 
 END MODULE mo_util_cdi

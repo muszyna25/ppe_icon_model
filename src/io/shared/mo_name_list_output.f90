@@ -36,6 +36,15 @@
 !!   a 3D buffer for a single variable. This temporary field serves as
 !!   a target buffer for the one-sided MPI_GET operation.
 !!
+!! Transfer of meta-info:
+!!
+!!  Since parts of the variable's "info-field" TYPE(t_var_metadata) may change
+!!  during simulation, the following mechanism updates the metadata on the
+!!  asynchronous output PEs:
+!!  For each output file, a separate MPI window is created on work PE#0, where 
+!!  the work root stores the current variable meta-info. This is then retrieved
+!!  via an additional MPI_GET by the I/O PEs.
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -78,7 +87,7 @@ MODULE mo_name_list_output
   USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
   USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi, get_my_mpi_work_id,  &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
-    &                                     p_comm_work, p_real_dp, p_real_sp,                        &
+    &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
     &                                     my_process_is_stdio, my_process_is_mpi_test,              &
     &                                     my_process_is_mpi_workroot,                               &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
@@ -100,6 +109,9 @@ MODULE mo_name_list_output
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
     &                                     output_file, patch_info, lonlat_info
+  USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
+    &                                     metainfo_get_size
+  USE mo_util_cdi,                  ONLY: set_timedependent_GRIB2_keys
   ! post-ops
   USE mo_post_op,                   ONLY: perform_post_op
 
@@ -562,9 +574,13 @@ CONTAINS
     tl = 0 ! to prevent warning
 
 #ifndef NOMPI
-        ! In case of async IO: Lock own window before writing to it
-        IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
-          CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
+    ! In case of async IO: Lock own window before writing to it
+    IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) THEN
+      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
+      IF (my_process_is_mpi_workroot()) THEN
+        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
+      END IF
+    END IF
 #endif
 
     ! ----------------------------------------------------
@@ -574,6 +590,10 @@ CONTAINS
 
       info => of%var_desc(iv)%info
 !dbg      write(0,*)'>>>>>>>>>>>>>>>>>>>>>>>>> VARNAME: ',info%name
+
+      ! PE#0 : store variable meta-info to be accessed by I/O PEs
+      ! ---------------------------------------------------------
+      CALL metainfo_write_to_memwin(of%mem_win, iv, info)
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
@@ -799,6 +819,15 @@ CONTAINS
 
         ENDIF
 
+        ! set some GRIB2 keys that may have changed during simulation
+        IF  (( of%output_type == FILETYPE_GRB2 ) .AND.  &
+          &  ( my_process_is_mpi_workroot() )    .AND. &
+          &  ( .NOT. my_process_is_mpi_test() )) THEN
+          CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, info,      &
+            &                               TRIM(of%out_event%output_event%event_data%sim_start), &
+            &                               TRIM(get_current_date(of%out_event)))
+        END IF
+
         ! ----------
         ! write data
         ! ----------
@@ -860,9 +889,13 @@ CONTAINS
     ENDDO
 
 #ifndef NOMPI
-        ! In case of async IO: Done writing to memory window, unlock it
-        IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) &
-          CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win, mpierr)
+    ! In case of async IO: Done writing to memory window, unlock it
+    IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) THEN
+      CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win, mpierr)
+      IF (my_process_is_mpi_workroot()) THEN
+        CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win_metainfo, mpierr)
+      END IF
+    END IF
 #endif
 
   END SUBROUTINE write_name_list
@@ -1063,8 +1096,10 @@ CONTAINS
     REAL(sp), ALLOCATABLE          :: var1_sp(:), var3_sp(:)
     REAL(dp), ALLOCATABLE          :: var1_dp(:), var3_dp(:)
     TYPE (t_var_metadata), POINTER :: info
+    TYPE (t_var_metadata)          :: updated_info
     TYPE(t_reorder_info) , POINTER :: p_ri
     LOGICAL                        :: have_GRIB
+    INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
 
     !-- for timing
     CHARACTER(len=10)              :: ctime
@@ -1119,12 +1154,30 @@ CONTAINS
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+    ! retrieve info object from PE#0 (via a separate MPI memory
+    ! window)
+    ALLOCATE(bufr_metainfo(of%num_vars*metainfo_get_size()), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
+    CALL MPI_Get(bufr_metainfo, nval, p_int, 0, 0, &
+      &          SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
+    CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
+
     ! Go over all name list variables for this output file
 
     ioff(:) = 0_MPI_ADDRESS_KIND
     DO iv = 1, of%num_vars
-
+      ! POINTER to this variable's meta-info
       info => of%var_desc(iv)%info
+      ! get also an update for this variable's meta-info (separate object)
+      CALL metainfo_get_from_memwin(bufr_metainfo, iv, updated_info)
+
+      IF ( of%output_type == FILETYPE_GRB2 ) THEN
+        CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, updated_info, &
+          &                               TRIM(of%out_event%output_event%event_data%sim_start),    &
+          &                               TRIM(get_current_date(of%out_event)))
+      END IF
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
@@ -1310,6 +1363,9 @@ CONTAINS
    !   CALL message('',message_text)
     ENDIF
 #endif
+
+    DEALLOCATE(bufr_metainfo, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
   END SUBROUTINE io_proc_write_name_list
 

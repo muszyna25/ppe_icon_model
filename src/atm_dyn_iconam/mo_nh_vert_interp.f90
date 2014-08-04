@@ -27,8 +27,7 @@ MODULE mo_nh_vert_interp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                               t_nh_metrics
-  USE mo_opt_diagnostics,     ONLY: t_vcoeff, vcoeff_allocate, vcoeff_deallocate
-  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+  USE mo_opt_diagnostics,     ONLY: t_vcoeff, vcoeff_allocate
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp,                ONLY: edges2cells_scalar, cell_avg, &
     &                               cells2edges_scalar, cells2verts_scalar
@@ -37,7 +36,7 @@ MODULE mo_nh_vert_interp
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_impl_constants,      ONLY: inwp, iecham, SUCCESS, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
+  USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_COSMODE
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode

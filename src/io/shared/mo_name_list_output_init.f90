@@ -136,6 +136,7 @@ MODULE mo_name_list_output_init
     &                                             copy_grid_info, bcast_grid_info,                &
     &                                             deallocate_all_grid_info,                       &
     &                                             GRID_INFO_NONE, GRID_INFO_FILE, GRID_INFO_BCAST
+  USE mo_name_list_output_metadata,         ONLY: metainfo_allocate_memory_window
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
 
 #ifndef __NO_ICON_OCEAN__
@@ -3279,6 +3280,10 @@ CONTAINS
       CALL allocate_mem_noncray(mem_size, output_file(i))
 #endif
       ! USE_CRAY_POINTER
+
+      ! allocate memory window for meta-info communication between
+      ! PE#0 and the I/O PEs:
+      CALL metainfo_allocate_memory_window(output_file(i)%mem_win, output_file(i)%num_vars)
 
     ENDDO OUT_FILE_LOOP
     

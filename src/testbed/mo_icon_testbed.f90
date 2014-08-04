@@ -15,12 +15,12 @@
 !!
 MODULE mo_icon_testbed
 
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: finish
   USE mo_master_control,      ONLY: get_my_process_name
 
   USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &
     & test_jitter_model, test_halo_communication,test_radiation_communication,     &
-    & test_netcdf_read_model, testbed_ocean_model
+    & test_netcdf_read_model
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
 #ifndef __NO_ICON_ATMO__

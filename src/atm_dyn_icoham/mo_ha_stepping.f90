@@ -40,7 +40,6 @@ MODULE mo_ha_stepping
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
   USE mo_master_control,      ONLY: is_restart_run
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta

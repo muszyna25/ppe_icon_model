@@ -76,7 +76,7 @@ MODULE mo_gnat_gridsearch
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_work_id,                         &
+  USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                   &
     &                               p_comm_work, my_process_is_mpi_test, p_max,           &
     &                               p_send, p_recv,                                       &
     &                               process_mpi_all_test_id, process_mpi_all_workroot_id
