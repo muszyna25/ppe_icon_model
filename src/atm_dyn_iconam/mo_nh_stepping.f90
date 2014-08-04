@@ -122,7 +122,7 @@ MODULE mo_nh_stepping
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
-  USE mo_initicon_config,          ONLY: init_mode, timeshift
+  USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
   USE mo_nh_latbc,                 ONLY: prepare_latbc_data , read_latbc_data, &
@@ -1645,6 +1645,9 @@ MODULE mo_nh_stepping
             CALL hydro_adjust_downward(p_patch(jgc), p_nh_state(jgc)%metrics,                     &
               p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
               p_nh_state(jgc)%prog(nnow(jgc))%theta_v )
+
+            ! Activate cold-start mode in TERRA-init routine irrespective of what has been used for the global domain
+            init_mode_soil = 1
 
             CALL init_nwp_phy( dtime                    ,&
               & p_patch(jgc)                            ,&

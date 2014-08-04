@@ -52,7 +52,7 @@ MODULE mo_nh_init_nest_utils
                                       grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice,  &
-    &                                 lmulti_snow, nlev_snow
+    &                                 lmulti_snow, nlev_snow, llake, isub_lake
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_interpol_config,       ONLY: nudge_zone_width
@@ -61,6 +61,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
   USE mo_seaice_nwp,            ONLY: frsi_min
+  USE mo_nwp_sfc_interp,        ONLY: smi_to_sm_mass, wsoil_to_smi
+  USE mo_flake,                 ONLY: flake_coldinit
 
   IMPLICIT NONE
 
@@ -203,7 +205,7 @@ MODULE mo_nh_init_nest_utils
     ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
-                  5+4                  ! single-layer prognostic variables + t_g, freshsnow, t_seasfc and qv_s
+                  5+4+1                ! single-layer prognostic variables + t_g, freshsnow, t_seasfc and qv_s + aux variable for lake temp
     num_wtrvars  = 5                   ! water state fields + fr_seaice
     num_phdiagvars = 21                ! number of physics diagnostic variables (copied from interpol_phys_grf)
     
@@ -259,6 +261,10 @@ MODULE mo_nh_init_nest_utils
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
+
+        ! take the last "level" of lndvars as auxiliary for lake sfc temperature;
+        ! first of all, initialize with t_g
+        lndvars_par(:,num_lndvars,jb) = lnd_prog%t_g(:,jb)
 
         i_count = ext_data(jg)%atm%sp_count(jb) ! second step: just copy variables for sea points 
 
@@ -322,6 +328,9 @@ MODULE mo_nh_init_nest_utils
           lnd_diag%runoff_s(jc,jb)     = lnd_diag%runoff_s_t(jc,jb,1)
           lnd_diag%runoff_g(jc,jb)     = lnd_diag%runoff_g_t(jc,jb,1)
           lnd_diag%t_so(jc,nlev_soil+1,jb) = lnd_prog%t_so_t(jc,nlev_soil+1,jb,1)
+
+          ! lake sfc temperature where available, otherwise t_g
+          lndvars_par(jc,num_lndvars,jb) = lnd_prog%t_g_t(jc,jb,isub_lake)
 
           IF(lmulti_snow) THEN
             lnd_diag%t_snow_mult(jc,nlev_snow+1,jb) = lnd_prog%t_snow_mult_t(jc,nlev_snow+1,jb,1)
@@ -431,10 +440,10 @@ MODULE mo_nh_init_nest_utils
       IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
         ! Collect soil variables
         DO jk = 1, nlev_soil
-          jk1 = 2*(jk-1) + 1
+          jk1 = jk + nlev_soil
           DO jc = i_startidx, i_endidx
-            lndvars_par(jc,jk1,jb)   = p_parent_ldiag%t_so(jc,jk,jb) - tsfc_ref_p(jc,jb)
-            lndvars_par(jc,jk1+1,jb) = p_parent_ldiag%w_so(jc,jk,jb)
+            lndvars_par(jc,jk,jb)  = p_parent_ldiag%w_so(jc,jk,jb)
+            lndvars_par(jc,jk1,jb) = p_parent_ldiag%t_so(jc,jk,jb) - tsfc_ref_p(jc,jb)
           ENDDO
         ENDDO
 
@@ -474,6 +483,9 @@ MODULE mo_nh_init_nest_utils
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    ! Convert wsoil into SMI for interpolation
+    CALL wsoil_to_smi(p_patch(jg), lndvars_par(:,1:nlev_soil,:))
 
     ! Step 1b: execute boundary interpolation
 
@@ -584,6 +596,9 @@ MODULE mo_nh_init_nest_utils
       CALL sync_patch_array(SYNC_C,p_pc,wtrvars_chi)
     ENDIF
 
+    ! Convert SMI back to wsoil
+    CALL smi_to_sm_mass(p_patch(jgc), lndvars_chi(:,1:nlev_soil,:))
+
     ! Step 3: Add reference state to thermodynamic variables and copy land fields
     ! from the container arrays to the prognostic variables (for the time being,
     ! all tiles are initialized with the interpolated aggregated variables)
@@ -658,11 +673,10 @@ MODULE mo_nh_init_nest_utils
         ! Distribute soil variables
         DO jt = 1, ntiles_total
           DO jk = 1, nlev_soil
-            jk1 = 2*(jk-1) + 1
+            jk1 = jk + nlev_soil
             DO jc = i_startidx, i_endidx
-              p_child_lprog%t_so_t(jc,jk,jb,jt) = lndvars_chi(jc,jk1,jb) + tsfc_ref_c(jc,jb)
-              p_child_lprog2%t_so_t(jc,jk,jb,jt) = p_child_lprog%t_so_t(jc,jk,jb,jt)
-              p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(0._wp,lndvars_chi(jc,jk1+1,jb))
+              p_child_lprog%w_so_t(jc,jk,jb,jt)  = MAX(0._wp,lndvars_chi(jc,jk,jb))
+              p_child_lprog%t_so_t(jc,jk,jb,jt)  = lndvars_chi(jc,jk1,jb) + tsfc_ref_c(jc,jb)
               ! limit w_so_t to pore volume and dryness point - TERRA crashes otherwise
               IF (ext_data(jgc)%atm%soiltyp(jc,jb) == 3) THEN
                 p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.012_wp, &
@@ -683,6 +697,7 @@ MODULE mo_nh_init_nest_utils
                 p_child_lprog%w_so_t(jc,jk,jb,jt) = MAX(dzsoil(jk)*0.098_wp, &
                   MIN(dzsoil(jk)*0.863_wp,p_child_lprog%w_so_t(jc,jk,jb,jt)))
               ENDIF
+              p_child_lprog2%t_so_t(jc,jk,jb,jt) = p_child_lprog%t_so_t(jc,jk,jb,jt)
               p_child_lprog2%w_so_t(jc,jk,jb,jt) = p_child_lprog%w_so_t(jc,jk,jb,jt)
             ENDDO
           ENDDO
@@ -733,6 +748,29 @@ MODULE mo_nh_init_nest_utils
           IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
           IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
         ENDDO
+      ENDIF
+
+      IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. llake) THEN
+
+        CALL flake_coldinit(                                        &
+          &   nflkgb      = ext_data(jgc)%atm%fp_count    (jb),     &  ! in
+          &   idx_lst_fp  = ext_data(jgc)%atm%idx_lst_fp(:,jb),     &  ! in
+          &   depth_lk    = ext_data(jgc)%atm%depth_lk  (:,jb),     &  ! in
+          ! here, a proper estimate of the lake surface temperature is required
+          &   tskin       = lndvars_chi(:,num_lndvars,jb),          &  ! in
+          &   t_snow_lk_p = p_child_wprog%t_snow_lk(:,jb),          &
+          &   h_snow_lk_p = p_child_wprog%h_snow_lk(:,jb),          &
+          &   t_ice_p     = p_child_wprog%t_ice    (:,jb),          &
+          &   h_ice_p     = p_child_wprog%h_ice    (:,jb),          &
+          &   t_mnw_lk_p  = p_child_wprog%t_mnw_lk (:,jb),          &
+          &   t_wml_lk_p  = p_child_wprog%t_wml_lk (:,jb),          & 
+          &   t_bot_lk_p  = p_child_wprog%t_bot_lk (:,jb),          &
+          &   c_t_lk_p    = p_child_wprog%c_t_lk   (:,jb),          &
+          &   h_ml_lk_p   = p_child_wprog%h_ml_lk  (:,jb),          &
+          &   t_b1_lk_p   = p_child_wprog%t_b1_lk  (:,jb),          &
+          &   h_b1_lk_p   = p_child_wprog%h_b1_lk  (:,jb),          &
+          &   t_g_lk_p    = p_child_lprog%t_g_t    (:,jb,isub_lake) )
+
       ENDIF
 
     ENDDO

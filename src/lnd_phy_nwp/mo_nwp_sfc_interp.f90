@@ -39,7 +39,7 @@ MODULE mo_nwp_sfc_interp
 
 
   PUBLIC :: process_sfcfields
-  PUBLIC :: smi_to_sm_mass
+  PUBLIC :: smi_to_sm_mass, wsoil_to_smi
 
 CONTAINS
 
@@ -341,6 +341,8 @@ CONTAINS
         nlen = p_patch%npromz_c
       ENDIF
 
+      ! loop over target (ICON) land points only
+      i_count = ext_data(jg)%atm%lp_count(jb)
 
       ! (re)-initialize error flag
       lerr = .FALSE.
@@ -349,9 +351,6 @@ CONTAINS
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
       !   safety: min=air dryness point, max=pore volume
       DO jk = 1, nlev_soil-1
-
-        ! loop over target (ICON) land points only
-        i_count = ext_data(jg)%atm%lp_count(jb)
 
         zwsoil(:) = 0._wp
 
@@ -423,6 +422,110 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE smi_to_sm_mass
+
+
+  !-------------
+  !>
+  !! SUBROUTINE wsoil_to_smi
+  !!
+  !! Conversion of TERRA soil moisture into soil moisture index
+  !!   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl DWD(2014-08-04)
+  !
+  SUBROUTINE wsoil_to_smi(p_patch, wsoil)
+
+
+    TYPE(t_patch), INTENT(IN)    :: p_patch
+    REAL(wp),      INTENT(INOUT) :: wsoil(:,:,:) ! input: soil moisture mass [mm H2O]
+                                                 ! output: soil moisture index 
+
+    ! LOCAL VARIABLES
+    !
+    REAL(wp) :: smi(nproma)           ! local storage for smi
+    INTEGER  :: i_count, ic           ! counter
+    INTEGER  :: jg, jb, jk, jc, nlen
+    LOGICAL  :: lerr                  ! error flag
+
+!-------------
+
+    jg = p_patch%id
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,nlen,lerr,ic,i_count,smi)
+    DO jb = 1, p_patch%nblks_c
+      IF (jb /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      ENDIF
+
+      ! loop over target (ICON) land points only
+      i_count = ext_data(jg)%atm%lp_count(jb)
+
+      ! (re)-initialize error flag
+      lerr = .FALSE.
+
+      ! Conversion of TERRA soil moisture [m] into soil moisture index SMI
+      !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
+      !   safety: min=air dryness point, max=pore volume
+      DO jk = 1, nlev_soil-1
+
+        smi(:) = 0._wp
+
+!CDIR NODEP,VOVERTAKE,VOB
+        DO ic = 1, i_count
+          jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+
+          SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
+            CASE (1,2)  !ice,rock
+            ! set wsoil to 0 for ice and rock
+            smi(jc) = 0._wp
+
+            CASE(3)  !sand
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.042_wp)/(0.196_wp - 0.042_wp)
+
+            CASE(4)  !sandyloam
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.1_wp  )/(0.26_wp  - 0.1_wp  )
+
+            CASE(5)  !loam
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.11_wp )/(0.34_wp  - 0.11_wp )
+
+            CASE(6)  !clayloam
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.185_wp)/(0.37_wp  - 0.185_wp)
+
+            CASE(7)  !clay
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.257_wp)/(0.463_wp - 0.257_wp)
+
+            CASE(8)  !peat
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - 0.265_wp)/(0.763_wp - 0.265_wp)
+
+            CASE(9,10)!sea water, sea ice
+            ! ERROR landpoint has soiltype sea water or sea ice
+            lerr = .TRUE.
+          END SELECT
+
+        ENDDO  ! ic
+        ! overwrite wsoil with smi
+        wsoil(1:nlen,jk,jb) = smi(1:nlen)
+      ENDDO  ! jk
+
+
+      ! assume no-gradient condition for soil moisture reservoir layer
+      DO jc = 1, nlen
+        wsoil(jc,nlev_soil,jb) = wsoil(jc,nlev_soil-1,jb)
+      ENDDO
+
+      IF (lerr) THEN
+        CALL finish("wsoil_to_smi", "Landpoint has invalid soiltype (sea water or sea ice)")
+      ENDIF
+
+    ENDDO  ! jb
+!$OMP END DO 
+!$OMP END PARALLEL
+
+  END SUBROUTINE wsoil_to_smi
 
 
 END MODULE mo_nwp_sfc_interp
