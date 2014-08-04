@@ -1692,6 +1692,15 @@ If true, apply corrections for coarse-to-fine mesh interpolation to wind and tem
 \tabularnewline
 
 %\hline
+lp2cintp\_incr&
+L(n\_dom) & .FALSE.& &
+If true, interpolate atmospheric data assimilation increments from parent domain. \\
+Can be specified separately for each nested domain; setting the first (global) entry to true activates
+the interpolation for all nested domains. & init\_mode=5
+\tabularnewline
+
+
+%\hline
 \textbf{ifs2icon\_filename}&
 C &
 &

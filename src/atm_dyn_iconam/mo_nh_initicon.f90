@@ -40,7 +40,9 @@ MODULE mo_nh_initicon
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               generate_filename, rho_incr_filter_wgt,             &
     &                               nml_filetype => filetype, timeshift,                &
-    &                               ana_varlist, ana_varnames_map_file, lread_ana
+    &                               ana_varlist, ana_varnames_map_file, lread_ana,      &
+                                    lp2cintp_incr
+  USE mo_nh_init_nest_utils,  ONLY: interpolate_increments
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
     &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,      &
@@ -2303,7 +2305,7 @@ MODULE mo_nh_initicon
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
 
-    INTEGER :: jg
+    INTEGER :: jg, jgp
     INTEGER :: nlev
 
     INTEGER :: ngrp_vars_ana
@@ -2332,20 +2334,24 @@ MODULE mo_nh_initicon
       ! save some paperwork
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
-
-      IF( lread_ana .AND. p_pe == p_io ) THEN 
-        CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
-      ENDIF  ! p_io
-
-
       ! Depending on the initialization mode chosen (incremental vs. non-incremental) 
       ! input fields are stored in different locations.
       IF ((init_mode == MODE_DWDANA_INC) .OR. (init_mode == MODE_IAU) ) THEN
-        my_ptr => initicon(jg)%atm_inc
+        IF (jg > 1 .AND. lp2cintp_incr(jg)) THEN
+          ! Perform parent-to-child interpolation of atmospheric DA increments
+          jgp = p_patch(jg)%parent_id
+          CALL interpolate_increments(initicon, jgp, jg)
+          CYCLE
+        ELSE
+          my_ptr => initicon(jg)%atm_inc
+        ENDIF
       ELSE
         my_ptr => initicon(jg)%atm
       ENDIF
 
+      IF( lread_ana .AND. p_pe == p_io ) THEN 
+        CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
+      ENDIF  ! p_io
 
       ! start reading DA output (atmosphere only)
       ! The dynamical variables temp, pres, u and v, which need further processing,
@@ -3499,48 +3505,54 @@ MODULE mo_nh_initicon
 
       ! 2) compute vn increments (w increment neglected)
       !
+      IF (jg == 1 .OR. .NOT. lp2cintp_incr(jg)) THEN ! If increments were interpolated from the parent domain,
+                                                     ! they have already been converted into vn increments
 
-      ! include boundary interpolation zone of nested domains and the halo edges as far as possible
-      rl_start = 2
-      rl_end   = min_rledge_int - 2
-      i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-      i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+        ! include boundary interpolation zone of nested domains and the halo edges as far as possible
+        rl_start = 2
+        rl_end   = min_rledge_int - 2
+        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
+        DO jb = i_startblk, i_endblk
 
-        CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
+          CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-            ! at cell centers the increment \vec(v_inc) is projected into the 
-            ! direction of vn and then linearly interpolated to the edge midpoint 
-            !
-            ! should we check if the vn increments are geostrophically balanced at higher levels?
-            p_diag%vn_incr(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)                &
-              &               *(initicon(jg)%atm_inc%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
-              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1       &
-              &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
-              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
-              &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
-              &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) & 
-              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
-              &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
-              &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              ! at cell centers the increment \vec(v_inc) is projected into the 
+              ! direction of vn and then linearly interpolated to the edge midpoint 
+              !
+              ! should we check if the vn increments are geostrophically balanced at higher levels?
+              initicon(jg)%atm_inc%vn(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)       &
+                &               *(initicon(jg)%atm_inc%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1       &
+                &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
+                &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
+                &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) & 
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
+                &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+                &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
+  
+            ENDDO  ! je
+          ENDDO  ! jk
 
-          ENDDO  ! je
-        ENDDO  ! jk
-
-      ENDDO  ! jb
+        ENDDO  ! jb
 !$OMP ENDDO
+      ENDIF
 !$OMP END PARALLEL
 
-      ! required to avoid crash in nabla4_vec
-      CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
+      ! required to avoid crash in nabla4_vec (in case of interpolation from the parent domain,
+      !                                        the sync has already been done)
+      IF (jg == 1 .OR. .NOT. lp2cintp_incr(jg)) THEN
+        CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
+      ENDIF
 
       ! Compute diffusion term 
-      CALL nabla4_vec(p_diag%vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
+      CALL nabla4_vec(initicon(jg)%atm_inc%vn, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
@@ -3560,7 +3572,7 @@ MODULE mo_nh_initicon
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             ! computed filtered velocity increment 
-            p_diag%vn_incr(je,jk,jb) = p_diag%vn_incr(je,jk,jb) &
+            p_diag%vn_incr(je,jk,jb) = initicon(jg)%atm_inc%vn(je,jk,jb) &
               &               - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
 
           ENDDO  ! je
@@ -4415,6 +4427,7 @@ MODULE mo_nh_initicon
                  initicon(jg)%atm_inc%pres (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%u    (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%v    (nproma,nlev,nblks_c      ), &
+                 initicon(jg)%atm_inc%vn   (nproma,nlev,nblks_e      ), &
                  initicon(jg)%atm_inc%qv   (nproma,nlev,nblks_c      )  )
       
         initicon(jg)%atm_inc%linitialized = .TRUE.
@@ -4589,6 +4602,7 @@ MODULE mo_nh_initicon
                    initicon(jg)%atm_inc%pres,    &
                    initicon(jg)%atm_inc%u   ,    &
                    initicon(jg)%atm_inc%v   ,    &
+                   initicon(jg)%atm_inc%vn  ,    &
                    initicon(jg)%atm_inc%qv       )
       ENDIF
 

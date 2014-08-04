@@ -781,8 +781,11 @@ MODULE mo_nh_init_nest_utils
     ! Local arrays for variables living on the local parent grid in the MPI case.
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: vn_lp, temp_lp, pres_lp, qv_lp
 
-    INTEGER :: i_chidx
+    INTEGER :: i_chidx, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: jb, jk, je
     INTEGER :: nlev_p, nshift
+
+    INTEGER, POINTER :: iidx(:,:,:), iblk(:,:,:)
 
     LOGICAL :: l_parallel
 
@@ -799,6 +802,8 @@ MODULE mo_nh_init_nest_utils
     p_grf          => p_grf_state_local_parent(jgc)
     p_int          => p_int_state_local_parent(jgc)
 
+    iidx           => p_patch(jg)%edges%cell_idx
+    iblk           => p_patch(jg)%edges%cell_blk
 
     i_chidx  = p_pc%parent_child_index
 
@@ -818,9 +823,43 @@ MODULE mo_nh_init_nest_utils
              pres_lp (nproma, nlev_p, p_pp%nblks_c),  &
              qv_lp   (nproma, nlev_p, p_pp%nblks_c)   )
 
+
+    ! Preparation: interpolate u and v increments to vn
+    !
+    rl_start = 2
+    rl_end   = min_rledge_int - 2
+    i_startblk = p_patch(jg)%edges%start_block(rl_start)
+    i_endblk   = p_patch(jg)%edges%end_block(rl_end)
+
+!$OMP PARALLEL DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev_p
+        DO je = i_startidx, i_endidx
+
+          initicon(jg)%atm_inc%vn(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)       &
+            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1       &
+            &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
+            &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
+            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) & 
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
+            &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
+
+        ENDDO  ! je
+      ENDDO  ! jk
+
+    ENDDO  ! jb
+!$OMP END PARALLEL DO
+
+    CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
+
     ! Parent-to-child interpolation of atmospheric increments
-    ! Note: it is assumed that the increments for u and v have been converted into an increment
-    ! for vn before entering this routine.
     !
     ! Step 1: boundary interpolation
     !

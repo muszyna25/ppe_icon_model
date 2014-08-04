@@ -39,6 +39,7 @@ MODULE mo_initicon_config
   PUBLIC :: l_sst_in
   PUBLIC :: lread_ana     
   PUBLIC :: l_coarse2fine_mode
+  PUBLIC :: lp2cintp_incr
   PUBLIC :: ifs2icon_filename
   PUBLIC :: dwdfg_filename
   PUBLIC :: dwdana_filename
@@ -73,6 +74,8 @@ MODULE mo_initicon_config
 
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
+  LOGICAL  :: lp2cintp_incr(max_dom) ! If true, perform parent-to-child interpolation of atmospheric data
+                                     ! assimilation increments
 
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 

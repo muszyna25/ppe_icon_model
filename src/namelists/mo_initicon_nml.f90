@@ -40,6 +40,7 @@ MODULE mo_initicon_nml
     & config_dwdfg_filename     => dwdfg_filename,    &
     & config_dwdana_filename    => dwdana_filename,   &
     & config_l_coarse2fine_mode => l_coarse2fine_mode,&
+    & config_lp2cintp_incr      => lp2cintp_incr,     &
     & config_filetype           => filetype,          &
     & config_dt_iau             => dt_iau,            &
     & config_timeshift          => timeshift,         &
@@ -71,6 +72,8 @@ MODULE mo_initicon_nml
                             ! from first guess fields.   
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
+  LOGICAL  :: lp2cintp_incr(max_dom) ! If true, perform parent-to-child interpolation of atmospheric data
+                                     ! assimilation increments
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
@@ -110,7 +113,7 @@ MODULE mo_initicon_nml
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
-                          rho_incr_filter_wgt
+                          rho_incr_filter_wgt, lp2cintp_incr
   
 CONTAINS
 
@@ -164,6 +167,8 @@ CONTAINS
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdana_filename   = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
   l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
+  lp2cintp_incr(:)      = .FALSE. ! true: perform parent-to-child interpolation of atmospheric data assimilation increments
+
 
   !------------------------------------------------------------
   ! 3.0 Read the initicon namelist.
@@ -222,8 +227,12 @@ CONTAINS
       '. no analysis required => lread_ana re-set to .FALSE.'
     CALL message(TRIM(routine),message_text)
   ENDIF
-  
 
+  ! Setting the first entry of lp2cintp_incr to true activates parent-to-child interpolation
+  ! of DA increments for all domains
+  IF (lp2cintp_incr(1)) THEN
+    lp2cintp_incr(2:max_dom) = .TRUE.
+  ENDIF
 
   !------------------------------------------------------------
   ! 5.0 Fill the configuration state
@@ -239,6 +248,7 @@ CONTAINS
   config_dwdfg_filename     = dwdfg_filename
   config_dwdana_filename    = dwdana_filename
   config_l_coarse2fine_mode = l_coarse2fine_mode
+  config_lp2cintp_incr      = lp2cintp_incr
   config_filetype           = filetype
   config_dt_iau             = dt_iau
   config_timeshift%dt_shift = dt_shift

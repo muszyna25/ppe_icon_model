@@ -892,7 +892,7 @@ MODULE mo_solve_nonhydro
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
-!DIR$ IVDEP
+!DIR$ IVDEP, PREFERVECTOR
           DO jk = 1, nlev
             z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) + scal_div3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)* &
              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
@@ -1692,7 +1692,7 @@ MODULE mo_solve_nonhydro
         ! horizontal divergences of rho and rhotheta are inlined and processed in one step for efficiency
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
-!DIR$ IVDEP
+!DIR$ IVDEP, PREFERVECTOR
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
