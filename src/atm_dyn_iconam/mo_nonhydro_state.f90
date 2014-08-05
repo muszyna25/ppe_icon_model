@@ -31,7 +31,7 @@
 !!
 MODULE mo_nonhydro_state
 
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, vp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
     &                                INWP, IECHAM,                       &
     &                                VINTP_METHOD_UV,                    &
