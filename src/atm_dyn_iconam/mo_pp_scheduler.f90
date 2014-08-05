@@ -460,7 +460,7 @@ CONTAINS
     INTEGER                               :: &
       &  jg, ndom, ierrstat, ivar, i, j, nvars_ll, &
       &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp
-    LOGICAL                               :: found, l_horintp
+    LOGICAL                               :: found, l_horintp, lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
     TYPE(t_var_list),          POINTER    :: p_opt_diag_list
@@ -538,6 +538,18 @@ CONTAINS
 
           DO ivar=1,max_var
             IF (varlist(ivar) == ' ') CYCLE
+            ! check, if have not yet registered this variable:
+            lvar_present = .FALSE.
+            DUPLICATE_LOOP : DO i=1,nvars_ll
+              IF ((ll_varlist(i) == varlist(ivar))   .AND. &
+                & (ll_vargrid(i) == p_onl%lonlat_id) .AND. &
+                & (ll_varlevs(i) == ilev_type)) THEN
+                lvar_present = .TRUE.
+                EXIT DUPLICATE_LOOP
+              END IF
+            END DO DUPLICATE_LOOP
+            IF (lvar_present) CYCLE
+
             nvars_ll=nvars_ll+1
             ll_varlist(nvars_ll) = varlist(ivar)
             ll_vargrid(nvars_ll) = p_onl%lonlat_id

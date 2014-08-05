@@ -135,6 +135,7 @@ MODULE mo_intp_data_strc
 !-------------------------------------------------------------------------
 
 USE mo_kind,                ONLY: wp
+USE mo_exception,           ONLY: finish
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates,   &
   &                               t_geographical_coordinates
@@ -147,6 +148,8 @@ IMPLICIT NONE
 ! NOTE: The variables will be use along the mo_interpolation sub-modules
 !       They are declared to be public
 PUBLIC
+
+CHARACTER(LEN=*), PARAMETER :: modname = 'mo_intp_data_strc'
 
 REAL(wp) :: sick_a, sick_o      ! if i_cori_method >= 2: To avoid the SICK instability
                                 ! (Symmetric Instability of Computational Kind or
@@ -634,6 +637,9 @@ TYPE (t_lon_lat_data), TARGET, SAVE :: lonlat_grid_list(MAX_LONLAT_GRIDS)
 !> Actual no. of lon-lat grids currently used in this model
 INTEGER               :: n_lonlat_grids
 
+INTERFACE OPERATOR (==)
+  MODULE PROCEDURE lonlat_grid_compare
+END INTERFACE OPERATOR (==)
 
 CONTAINS
   
@@ -642,9 +648,87 @@ CONTAINS
   !
   FUNCTION get_free_lonlat_grid()
     INTEGER :: get_free_lonlat_grid
-    
+    CHARACTER(*), PARAMETER :: routine = modname//"::get_free_lonlat_grid"    
+
+    IF (n_lonlat_grids == MAX_LONLAT_GRIDS) THEN
+      CALL finish(routine, "Maximum number of lon-lat grids exceeded!")
+    END IF
     n_lonlat_grids = n_lonlat_grids + 1
     get_free_lonlat_grid = n_lonlat_grids
   END FUNCTION get_free_lonlat_grid
+
+
+  !---------------------------------------------------------------
+  ! @return index in lon-lat grid list for a given grid, -1 if 
+  !         not in list.
+  !
+  FUNCTION get_lonlat_grid_ID(grid)
+    INTEGER :: get_lonlat_grid_ID
+    TYPE(t_lon_lat_grid), INTENT(IN) :: grid
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::get_lonlat_grid_ID"    
+    INTEGER :: i
+
+    ! default value: "not found"
+    get_lonlat_grid_ID = -1
+
+    DO i=1,n_lonlat_grids
+      IF (lonlat_grid_list(i)%grid == grid) THEN
+        get_lonlat_grid_ID = i
+        EXIT
+      END IF
+    END DO
+  END FUNCTION get_lonlat_grid_ID
+
+
+  !---------------------------------------------------------------
+  ! Test two floating point arrays for equality.
+  !
+  FUNCTION float_cmp(arr1, arr2, zero_tol)
+    LOGICAL :: float_cmp
+    REAL(wp), INTENT(IN) :: arr1(:), arr2(:)
+    REAL(wp), INTENT(IN) :: zero_tol
+    ! local variables
+    INTEGER :: i
+
+    float_cmp = .TRUE.
+    IF (SIZE(arr1) /= SIZE(arr2)) THEN
+      float_cmp = .FALSE.
+      RETURN
+    END IF
+    DO i=1,SIZE(arr1)
+      IF (ABS(arr1(i) - arr2(i)) > zero_tol) THEN
+        float_cmp = .FALSE.
+        RETURN
+      END IF
+    END DO
+  END FUNCTION float_cmp
+
+
+  !---------------------------------------------------------------
+  ! Test two lon-lat grid specifications for equality.
+  !
+  FUNCTION lonlat_grid_compare(grid1, grid2)
+    LOGICAL :: lonlat_grid_compare
+    TYPE(t_lon_lat_grid), INTENT(IN) :: grid1, grid2
+    ! local variables
+    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15_wp
+
+    lonlat_grid_compare = .TRUE.
+    IF  ( (grid1%total_dim    /= grid2%total_dim)                            .OR.  &
+      &   (grid1%nblks        /= grid2%nblks    )                            .OR.  &
+      &   (grid1%npromz       /= grid2%npromz   )                            .OR.  &
+      &   (grid1%lon_dim      /= grid2%lon_dim  )                            .OR.  &
+      &   (grid1%lat_dim      /= grid2%lat_dim  )                            .OR.  &
+      &   (grid1%reg_def_mode /= grid2%reg_def_mode  )                       .OR.  &
+      &   (.NOT. float_cmp(grid1%reg_lon_def, grid2%reg_lon_def , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%reg_lat_def, grid2%reg_lat_def , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%north_pole,  grid2%north_pole  , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%delta,       grid2%delta       , ZERO_TOL)) .OR.  &
+      &   (.NOT. float_cmp(grid1%start_corner,grid2%start_corner, ZERO_TOL)) )  THEN
+      lonlat_grid_compare = .FALSE.
+    END IF
+
+  END FUNCTION lonlat_grid_compare
 
 END MODULE mo_intp_data_strc

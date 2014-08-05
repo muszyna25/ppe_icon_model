@@ -105,7 +105,8 @@ MODULE mo_name_list_output_init
     &                                             compute_lonlat_specs
   USE mo_intp_data_strc,                    ONLY: t_lon_lat_intp,                                 &
     &                                             t_lon_lat_data, get_free_lonlat_grid,           &
-    &                                             lonlat_grid_list, n_lonlat_grids
+    &                                             lonlat_grid_list, n_lonlat_grids,               &
+    &                                             get_lonlat_grid_ID
   ! output events
   USE mtime,                                ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,    &
     &                                             timedelta, newTimedelta, deallocateTimedelta,   &
@@ -260,6 +261,7 @@ CONTAINS
     TYPE (t_keyword_list), POINTER        :: keywords => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
     INTEGER                               :: iunit, lonlat_id
+    TYPE (t_lon_lat_grid)                 :: new_grid
 
     !> "stream_partitions": Split one namelist into concurrent,
     !> alternating files:
@@ -443,17 +445,24 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
       IF (remap == REMAP_REGULAR_LATLON) THEN
-        ! Register a lon-lat grid data structure in global list
-        lonlat_id = get_free_lonlat_grid()
-        lonlat => lonlat_grid_list(lonlat_id)
-
-        lonlat%grid%reg_lon_def(:) = reg_lon_def(:)
-        lonlat%grid%reg_lat_def(:) = reg_lat_def(:)
-        lonlat%grid%north_pole(:)  = north_pole(:)
-        lonlat%grid%reg_def_mode   = reg_def_mode
+        ! define lon-lat grid specification
+        new_grid%reg_lon_def(:) = reg_lon_def(:)
+        new_grid%reg_lat_def(:) = reg_lat_def(:)
+        new_grid%north_pole(:)  = north_pole(:)
+        new_grid%reg_def_mode   = reg_def_mode
         ! compute some additional entries of lon-lat grid specification:
-        CALL compute_lonlat_specs(lonlat%grid)
-        CALL compute_lonlat_blocking(lonlat%grid, nproma)
+        CALL compute_lonlat_specs(new_grid)
+        CALL compute_lonlat_blocking(new_grid, nproma)
+        ! check, if lon-lat grids has already been registered
+        lonlat_id = get_lonlat_grid_ID(new_grid)
+        IF (lonlat_id == -1) THEN
+          ! Register a lon-lat grid data structure in global list
+          lonlat_id   = get_free_lonlat_grid()
+          lonlat => lonlat_grid_list(lonlat_id)
+          lonlat%grid = new_grid
+        ELSE
+          lonlat => lonlat_grid_list(lonlat_id)
+        END IF
 
         ! Flag those domains, which are used for this lon-lat grid:
         !     If dom(:) was not specified in namelist input, it is set
