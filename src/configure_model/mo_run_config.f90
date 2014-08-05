@@ -24,8 +24,6 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
                                TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
-  USE mo_io_units,       ONLY: filename_max
-  USE mo_grid_config,    ONLY: get_grid_rescale_factor
 
   IMPLICIT NONE
   PRIVATE

@@ -31,7 +31,7 @@ MODULE mo_atm_phy_nwp_config
     &                               itturb, itsfc, itgwd, itfastphy,           &
     &                               iphysproc, iphysproc_short, ismag, iedmf
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_vertical_coord_table,ONLY: vct_a
 

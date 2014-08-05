@@ -19,7 +19,6 @@ MODULE mo_var_list
   USE mo_cdi_constants,    ONLY: DATATYPE_FLT64,                    &
        &                         DATATYPE_INT32,                    &
        &                         DATATYPE_INT8,                     &
-       &                         TIME_VARIABLE,                     &
        &                         TSTEP_INSTANT,                     &
        &                         GRID_UNSTRUCTURED_CELL,            &
        &                         GRID_REGULAR_LONLAT,               &

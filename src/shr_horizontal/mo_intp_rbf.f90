@@ -144,9 +144,6 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
 
-USE mo_parallel_config,     ONLY: nproma
-USE mo_exception,           ONLY: message, finish, message_text
-
 IMPLICIT NONE
 
 

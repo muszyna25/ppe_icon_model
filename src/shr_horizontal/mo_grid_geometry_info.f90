@@ -16,11 +16,10 @@
 MODULE mo_grid_geometry_info
 
   USE mo_kind, ONLY: wp
-  USE mo_math_types,  ONLY: t_geographical_coordinates, t_cartesian_coordinates, &
-    & t_tangent_vectors
+  USE mo_math_types,  ONLY: t_cartesian_coordinates
   USE mo_physical_constants, ONLY: earth_radius
   USE mo_math_constants,     ONLY: pi
-  USE mo_exception,          ONLY: message_text, message, finish, warning
+  USE mo_exception,          ONLY: finish
 
 #if !( defined (NOMPI) || defined (__ICON_GRID_GENERATOR__))
   ! The USE statement below lets this module use the routines from

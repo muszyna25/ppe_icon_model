@@ -8,7 +8,6 @@
 MODULE mo_var_metadata_types
 
   USE mo_kind,           ONLY: dp, wp
-  USE mo_grib1,          ONLY: t_grib1_var
   USE mo_grib2,          ONLY: t_grib2_var
   USE mo_action_types,   ONLY: t_var_action
   USE mo_cf_convention,  ONLY: t_cf_var

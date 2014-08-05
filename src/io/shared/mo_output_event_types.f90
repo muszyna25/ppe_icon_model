@@ -20,7 +20,6 @@
 MODULE mo_output_event_types
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN
   USE mo_kind,               ONLY: wp
-  USE mo_io_units,           ONLY: FILENAME_MAX
   IMPLICIT NONE
 
   PRIVATE

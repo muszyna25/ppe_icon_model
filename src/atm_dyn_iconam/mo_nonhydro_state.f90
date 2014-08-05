@@ -31,7 +31,7 @@
 !!
 MODULE mo_nonhydro_state
 
-  USE mo_kind,                 ONLY: wp, vp
+  USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
     &                                INWP, IECHAM,                       &
     &                                VINTP_METHOD_UV,                    &
@@ -41,7 +41,7 @@ MODULE mo_nonhydro_state
     &                                TASK_INTP_MSL, HINTP_TYPE_NONE,     &
     &                                iedmf, MODE_DWDANA_INC, MODE_IAU,   &
     &                                TASK_COMPUTE_OMEGA
-  USE mo_exception,            ONLY: message, finish, message_text
+  USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                                t_nh_ref, t_nh_metrics
@@ -63,7 +63,7 @@ MODULE mo_nonhydro_state
     &                                add_ref, new_var_list, delete_var_list, &
     &                                add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata_types,   ONLY: t_var_metadata, t_tracer_meta
+  USE mo_var_metadata_types,   ONLY: t_var_metadata
   USE mo_var_metadata,         ONLY: create_tracer_metadata,                 &
     &                                create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
@@ -78,7 +78,7 @@ MODULE mo_nonhydro_state
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
     &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
-    &                                DATATYPE_PACK24, FILETYPE_NC2, TSTEP_CONSTANT
+    &                                DATATYPE_PACK24, TSTEP_CONSTANT
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
 
   IMPLICIT NONE

@@ -132,13 +132,10 @@ MODULE mo_icon_interpolation_vector
   !-------------------------------------------------------------------------
   !
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, min_rlcell_int
-  USE mo_grid_config,         ONLY: l_limited_area
+  USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_loopindices,         ONLY: get_indices_c
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
 

@@ -39,8 +39,8 @@ USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_recv,               &
   &                              p_comm_work_test,  p_comm_work, p_n_work, my_process_is_mpi_test, &
   &                              get_my_mpi_all_id, process_mpi_all_test_id,                       &
-  &                              my_process_is_mpi_parallel, p_work_pe0,p_pe_work, push_glob_comm, &
-  &                              pop_glob_comm, get_glob_proc0, comm_lev, glob_comm, comm_proc0,   &
+  &                              my_process_is_mpi_parallel, p_work_pe0,p_pe_work,                 &
+  &                              comm_lev, glob_comm, comm_proc0,   &
   &                              p_gather, p_gatherv
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum

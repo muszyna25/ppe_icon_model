@@ -23,7 +23,6 @@
 MODULE mo_icon_comm_lib
 
   USE mo_kind,            ONLY: wp
-  USE mo_io_units,        ONLY: filename_max
   USE mo_exception,       ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size, &
     & icon_comm_method, icon_comm_openmp, max_no_of_comm_variables,    &

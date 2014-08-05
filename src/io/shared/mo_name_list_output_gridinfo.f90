@@ -33,7 +33,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             my_process_is_mpi_test, my_process_is_io, &
     &                                             my_process_is_mpi_workroot, p_bcast
   USE mo_master_control,                    ONLY: my_process_is_ocean
-  USE mo_gribout_config,                    ONLY: gribout_config, t_gribout_config
+  USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_util_cdi,                          ONLY: set_additional_GRIB2_keys
 

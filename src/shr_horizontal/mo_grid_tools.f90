@@ -21,14 +21,13 @@
 MODULE mo_grid_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish, warning
+  USE mo_exception,          ONLY: finish
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
-  USE mo_parallel_config,    ONLY: nproma
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
   USE mo_math_types
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed, &
     & block_no, index_no, index_1d
-  USE mo_impl_constants,     ONLY: on_cells, on_edges, on_vertices, land
+  USE mo_impl_constants,     ONLY: on_edges, land
   USE mo_mpi,                ONLY: get_my_mpi_work_id
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_local_index
   

@@ -28,11 +28,8 @@ MODULE mo_interpol_config
   USE mo_intp_data_strc,      ONLY: t_lsq_set, sick_a, sick_o
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_exception,           ONLY: message, finish
-  USE mo_parallel_config,     ONLY: nproma
-  USE mo_grid_config,         ONLY: grid_sphere_radius
-  USE mo_math_constants,      ONLY: pi, pi2
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, &
-    & sphere_geometry, hexagonal_cell, triangular_cell
+    & hexagonal_cell, triangular_cell
 
 
   IMPLICIT NONE

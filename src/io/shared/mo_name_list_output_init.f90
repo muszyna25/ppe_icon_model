@@ -56,16 +56,15 @@ MODULE mo_name_list_output_init
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
-  USE mo_model_domain,                      ONLY: t_patch, p_patch, p_phys_patch
+  USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
 
   USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
-    &                                             msg_level, output_mode, ltestcase,              &
+    &                                             msg_level, output_mode,                         &
     &                                             number_of_grid_used
-  USE mo_grid_config,                       ONLY: n_dom, n_phys_dom,                              &
-    &                                             grid_rescale_factor, start_time, end_time,      &
+  USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
   USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, lzaxis_reference
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
@@ -95,7 +94,7 @@ MODULE mo_name_list_output_init
   USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
-    &                                             new_var_list, get_all_var_names,                &
+    &                                             new_var_list,                                   &
     &                                             total_number_of_variables, collect_group,       &
     &                                             get_var_timelevel, get_var_name,                &
     &                                             get_var_tileidx
@@ -125,9 +124,8 @@ MODULE mo_name_list_output_init
   ! name list output
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc,                      &
-    &                                             t_patch_info, t_reorder_info, t_grid_info,      &
+    &                                             t_patch_info, t_reorder_info,                   &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
-    &                                             ILATLON, ICELL, IEDGE, IVERT,                   &
     &                                             sfs_name_list, ffs_name_list, second_tos,       &
     &                                             first_tos, GRP_PREFIX, t_fname_metadata,        &
     &                                             all_events, t_patch_info_ll

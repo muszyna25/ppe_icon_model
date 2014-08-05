@@ -132,11 +132,7 @@ MODULE mo_meteogram_output
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global
-  USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
-    &                                 rdv,             & !! r_d / r_v
-    &                                 cpd, p0ref, rd
   USE mo_math_constants,        ONLY: pi
-  USE mo_satad,                 ONLY: sat_pres_water
   USE mo_util_string,           ONLY: int2string
   USE mo_netcdf_read,           ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the

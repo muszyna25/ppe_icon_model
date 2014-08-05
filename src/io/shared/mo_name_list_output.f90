@@ -58,11 +58,10 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: zml_soil, max_dom, SUCCESS, MAX_TIME_LEVELS,              &
-    &                                     MAX_CHAR_LENGTH
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS
   USE mo_cdi_constants              ! We need all
   ! utility functions
-  USE mo_io_units,                  ONLY: FILENAME_MAX, nnml, nnml_output, find_next_free_unit
+  USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_exception,                 ONLY: finish, message, message_text
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_dictionary,                ONLY: dict_finalize
@@ -75,28 +74,25 @@ MODULE mo_name_list_output
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
   USE mo_parallel_config,           ONLY: nproma, p_test_run, use_dp_mpi2io, num_io_procs
-  USE mo_name_list_output_config,   ONLY: use_async_name_list_io, first_output_name_list
+  USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE
   USE mo_name_list_output_types,    ONLY: t_output_name_list, t_output_file, t_reorder_info,        &
   &                                       msg_io_start, msg_io_done, msg_io_shutdown, all_events
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
-  ! model state
-  USE mo_model_domain,              ONLY: t_patch, p_patch
   ! parallelization
   USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
-  USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi, get_my_mpi_work_id,  &
+  USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
     &                                     my_process_is_stdio, my_process_is_mpi_test,              &
     &                                     my_process_is_mpi_workroot,                               &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-    &                                     process_mpi_io_size, num_work_procs,                      &
-    &                                     p_pe, p_pe_work, p_work_pe0, p_io_pe0
+    &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar, MAX_DATETIME_STR_LEN,   &
+    &                                     PROLEPTIC_GREGORIAN, setCalendar,                         &
     &                                     timedelta, newTimedelta, deallocateTimedelta
   USE mo_mtime_extensions,          ONLY: getTimeDeltaFromDateTime
   ! output scheduling

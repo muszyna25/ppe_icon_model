@@ -24,7 +24,6 @@
 MODULE mo_dynamics_config
 
   USE mo_kind,                  ONLY: wp
-  USE mo_exception,             ONLY: finish, warning
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_master_control,        ONLY: is_restart_run

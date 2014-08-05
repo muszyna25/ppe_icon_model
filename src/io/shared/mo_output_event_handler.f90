@@ -119,27 +119,25 @@ MODULE mo_output_event_handler
 #endif
 
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
-  USE mo_exception,              ONLY: finish, message
-  USE mo_kind,                   ONLY: wp
+  USE mo_exception,              ONLY: finish
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string, remove_duplicates
-  USE mo_mpi,                    ONLY: p_int, p_pe_work, p_comm_work,                       &
+  USE mo_mpi,                    ONLY: p_int,                                               &
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
     &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
     &                                  my_process_is_mpi_test, p_pe,                        &
     &                                  my_process_is_mpi_workroot
-  USE mo_fortran_tools,          ONLY: assign_if_present
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
-    &                                  event, datetime, newEvent, timedelta,                &
+    &                                  datetime, timedelta,                                 &
     &                                  setCalendar, resetCalendar, newTimedelta,            &
     &                                  deallocateDatetime, datetimeToString,                &
-    &                                  deallocateEvent, newDatetime, OPERATOR(>=),          &
+    &                                  newDatetime, OPERATOR(>=),                           &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
     &                                  deallocateTimedelta
-  USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_data, t_event_step_data,    &
+  USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data,                  &
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
     &                                  DEFAULT_EVENT_NAME

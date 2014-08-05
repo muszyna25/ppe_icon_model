@@ -98,7 +98,7 @@ USE mo_intp_data_strc,     ONLY: t_int_state
 USE mo_intp,               ONLY: cells2edges_scalar
 USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_config,    ONLY: nproma
-USE mo_run_config,         ONLY: ltimer, timers_level
+USE mo_run_config,         ONLY: timers_level
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e

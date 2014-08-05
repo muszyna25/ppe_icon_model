@@ -46,7 +46,7 @@ MODULE mo_vertical_grid
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_data_strc,        ONLY: t_int_state
-  USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar, verts2edges_scalar
+  USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state

@@ -22,7 +22,7 @@
 MODULE mo_statistics
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, message, warning, finish
+  USE mo_exception,          ONLY: warning, finish
   USE mo_fortran_tools,      ONLY: assign_if_present
 #ifdef _OPENMP
   USE omp_lib

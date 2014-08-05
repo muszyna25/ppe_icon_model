@@ -27,23 +27,20 @@ MODULE mo_nh_init_utils
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_metrics
   USE mo_parallel_config,       ONLY: nproma
-  USE mo_run_config,            ONLY: msg_level, dtime, dtime_adv
+  USE mo_run_config,            ONLY: msg_level
   USE mo_grid_config,           ONLY: l_limited_area
   USE mo_dynamics_config,       ONLY: iequations
-  USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
-  USE mo_vertical_coord_table,  ONLY: vct_a, vct_b, vct, read_vct
+  USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
+  USE mo_vertical_coord_table,  ONLY: vct_a, vct_b, read_vct
   USE mo_nonhydrostatic_config, ONLY: ivctype
   USE mo_sleve_config,          ONLY: min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height, &
                                       decay_scale_1, decay_scale_2, decay_exp, flat_height, stretch_fac
-  USE mo_impl_constants,        ONLY: max_dom, SUCCESS, MAX_CHAR_LENGTH, min_rlcell, &
-                                      min_rlcell_int, min_rlvert, min_rlvert_int
+  USE mo_impl_constants,        ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_math_constants,        ONLY: pi
   USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_mpi,                   ONLY: my_process_is_mpi_parallel !,p_pe
-  USE mo_communication,         ONLY: exchange_data
-  USE mo_sync,                  ONLY: sync_patch_array, SYNC_C, SYNC_V
+  USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
   USE mo_intp_data_strc,        ONLY: t_int_state
-  USE mo_intp,                  ONLY: cells2verts_scalar, edges2cells_scalar
+  USE mo_intp,                  ONLY: edges2cells_scalar
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e

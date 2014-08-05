@@ -23,8 +23,7 @@ MODULE mo_util_cdi
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast,            &
-    &                              p_comm_work, p_comm_work_test,           &
+  USE mo_mpi,                ONLY: p_bcast, p_comm_work, p_comm_work_test,  &
     &                              p_io, p_pe
   USE mo_util_string,        ONLY: tolower
   USE mo_fortran_tools,      ONLY: assign_if_present

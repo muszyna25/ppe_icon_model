@@ -50,7 +50,7 @@ MODULE mo_nml_annotate
   USE mo_utilities,   ONLY: finish, find_next_free_unit,        &
     &                       filename_max
 #endif
-  USE mo_util_file,   ONLY: util_filesize, util_tmpnam, util_unlink
+  USE mo_util_file,   ONLY: util_tmpnam, util_unlink
   USE mo_util_nml,    ONLY: util_annotate_nml
   
   IMPLICIT NONE

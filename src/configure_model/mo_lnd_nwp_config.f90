@@ -25,10 +25,7 @@
 MODULE mo_lnd_nwp_config
 
   USE mo_kind,            ONLY: wp
-  USE mo_exception,       ONLY: finish
-  USE mo_impl_constants,  ONLY: MAX_NTRACER, SUCCESS, MAX_CHAR_LENGTH, &
-    &                           max_dom, zml_soil
-  USE mo_model_domain,    ONLY: t_patch
+  USE mo_impl_constants,  ONLY: zml_soil
   USE mo_io_units,        ONLY: filename_max
 
   IMPLICIT NONE

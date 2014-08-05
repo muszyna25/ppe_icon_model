@@ -22,7 +22,7 @@
 !!
 MODULE mo_name_list_output_types
 
-  USE mo_kind,                  ONLY: wp, i8, dp, sp
+  USE mo_kind,                  ONLY: wp, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, vname_len,                         &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
     &                                 MAX_TIME_LEVELS, max_levels, MAX_NUM_IO_PROCS,   &
@@ -30,7 +30,7 @@ MODULE mo_name_list_output_types
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
-  USE mo_communication,         ONLY: t_comm_pattern, t_comm_gather_pattern
+  USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
 

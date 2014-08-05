@@ -17,7 +17,7 @@ MODULE mo_grid_config
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, finish
-  USE mo_impl_constants,     ONLY: max_dom, itri, ihex
+  USE mo_impl_constants,     ONLY: max_dom
   USE mo_io_units,           ONLY: filename_max 
   USE mo_physical_constants, ONLY: earth_radius, earth_angular_velocity
   USE mo_parallel_config,    ONLY: division_method, division_file_name

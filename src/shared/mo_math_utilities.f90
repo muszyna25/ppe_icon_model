@@ -80,7 +80,7 @@ MODULE mo_math_utilities
   !
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
-  USE mo_exception,           ONLY: message, finish
+  USE mo_exception,           ONLY: finish
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
   USE mo_math_types
   IMPLICIT NONE

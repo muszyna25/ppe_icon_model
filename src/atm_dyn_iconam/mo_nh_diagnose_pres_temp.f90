@@ -21,13 +21,12 @@
 MODULE mo_nh_diagnose_pres_temp
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, iqm_max, lforcing, iforcing
-  USE mo_impl_constants,      ONLY: min_rlcell, max_char_length, iheldsuarez
+  USE mo_impl_constants,      ONLY: min_rlcell, iheldsuarez
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_diagnose_pres_temp

@@ -133,7 +133,7 @@ MODULE mo_icon_interpolation_scalar
   !
   USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, min_rlcell_int
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma

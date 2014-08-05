@@ -77,7 +77,6 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
   USE mo_scatter,               ONLY: scatter_array
-  USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_datetime,              ONLY: t_datetime,iso8601
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &

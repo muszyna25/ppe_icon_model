@@ -130,7 +130,6 @@ MODULE mo_model_domimp_patches
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
-  USE mo_read_interface,     ONLY: openInputFile, closeFile
 
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
