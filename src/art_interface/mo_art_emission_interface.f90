@@ -44,13 +44,14 @@ MODULE mo_art_emission_interface
                                           &   t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
+  USE mo_art_diagnostics_interface,     ONLY: art_diagnostics_interface
+  USE mo_art_config,                    ONLY: art_config
 ! Emission Routines
   USE mo_art_emission_volc,             ONLY: art_organize_emission_volc
   USE mo_art_radioactive,               ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_emission_seas
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_chemtracer,                ONLY: art_emiss_chemtracer
-  USE mo_art_config,                    ONLY: art_config
 #endif
 
   IMPLICIT NONE
@@ -98,6 +99,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,p_dtime,p_rho,p_diag,p_tracer
        
        
     IF (art_config(jg)%lart_aerosol) THEN
+       
+      ! Call the ART diagnostics
+      CALL art_diagnostics_interface(p_patch, p_tracer_now)
        
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
      
