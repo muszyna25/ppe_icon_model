@@ -501,7 +501,8 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
       DO jc = i_startidx, i_endidx
 #endif
 
-        IF (p_clc(jc,jk1,jb) < 0.95_wp) THEN ! enhance averaged QC and QI in order to be more consistent with cloud cover scheme
+        ! enhance averaged QC and QI in order to be more consistent with cloud cover scheme
+        IF (p_clc(jc,jk1,jb) > 0._wp .AND. p_clc(jc,jk1,jb) < 0.95_wp) THEN
 !CDIR EXPAND=2
           p_tot_cld(jc,jk1,jb,2:3) =  0.5_wp*(p_tot_cld(jc,jk1,jb,2:3) + SQRT( &
             tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),2:3)**2*p_fbkwgt(jc,jb,1) + &
