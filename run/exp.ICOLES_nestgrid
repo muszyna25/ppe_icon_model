@@ -30,8 +30,8 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2013-04-09T00:00:00Z" 
-end_date="2013-05-09T00:00:00Z"
+start_date="2013-04-24T00:00:00Z" 
+end_date="2013-04-25T00:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -55,9 +55,9 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 # the grid parameters
 grids_folder="/pool/data/ICON/ICON-DE/GRIDS"
-grid_1=hdcp2_nestgermany_776km_diam_1250m
-grid_2=hdcp2_nestgermany_651km_diam_625m
-grid_3=hdcp2_nestgermany_222km_diam_312m
+grid_1=hdcp2_D776km_cln9p5_clt51_R1249m
+grid_2=hdcp2_D701km_cln9p5_clt51_R0625m
+grid_3=hdcp2_D166km_cln6p4_clt51_R0312m
 atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc  ${grid_3}.nc"
 dynamics_parent_grid_id="     0,                1,                     2 "
 #
@@ -74,12 +74,12 @@ add_link_file $ext_data_path/extpar_${grid_3}.nc  extpar_${grid_3}.nc
 
 #INITIAL DATA
 init_data_path=$LAMDATA/INIT_germany
-add_link_file $init_data_path/1250/init_${grid_1}_2013040900.nc ifs2icon_R2B11_DOM01.nc
-add_link_file $init_data_path/1250/init_${grid_1}_2013040900.nc dwdFG_R2B11_DOM01.nc
-add_link_file $init_data_path/0625/init_${grid_2}_2013040900.nc ifs2icon_R2B12_DOM02.nc
-add_link_file $init_data_path/0625/init_${grid_2}_2013040900.nc dwdFG_R2B12_DOM02.nc
-add_link_file $init_data_path/0312/init_${grid_3}_2013040900.nc ifs2icon_R2B13_DOM03.nc
-add_link_file $init_data_path/0312/init_${grid_3}_2013040900.nc dwdFG_R2B13_DOM03.nc
+add_link_file $init_data_path/1250/init_${grid_1}_2013042400.nc ifs2icon_R2B11_DOM01.nc
+add_link_file $init_data_path/1250/init_${grid_1}_2013042400.nc dwdFG_R2B11_DOM01.nc
+add_link_file $init_data_path/0625/init_${grid_2}_2013042400.nc ifs2icon_R2B12_DOM02.nc
+add_link_file $init_data_path/0625/init_${grid_2}_2013042400.nc dwdFG_R2B12_DOM02.nc
+add_link_file $init_data_path/0312/init_${grid_3}_2013042400.nc ifs2icon_R2B13_DOM03.nc
+add_link_file $init_data_path/0312/init_${grid_3}_2013042400.nc dwdFG_R2B13_DOM03.nc
 
 #
 #-----------------------------------------------------------------------------
@@ -103,7 +103,7 @@ cat > ${atmo_namelist} << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
- num_io_procs   = 1
+ num_io_procs   = 0
 /
 &grid_nml
  cell_type = 3            ! triangular cells
@@ -119,14 +119,13 @@ cat > ${atmo_namelist} << EOF
  lread_ana              = .false.
 /
 &run_nml
- num_lev     = 50,50,50     ! number of full levels of vertical grid
- !lvert_nest  = .true.
+ num_lev     = 50,50,50   !100,88,76    ! number of full levels of vertical grid
+! lvert_nest = .true.
  dtime       = ${dtime}     ! [s] timestep in seconds
  ldynamics   = .TRUE.       ! dynamics
  ltestcase   = .FALSE.      ! testcase
  ltransport  = .TRUE.       ! transport
  iforcing    = ${iforcing}  !
- ntracer     =  5           ! number of tracers - default 0
  ltimer      = .true.       ! 
  timers_level = 10          !
  msg_level   = 12           ! detailed report during integration
@@ -156,14 +155,14 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 4,4,4
-inwp_convection = 1,0,0
+inwp_gscp       = 1,1,1 !4,4,4 for two moment
+inwp_convection = 0,0,0
 inwp_radiation  = 1,1,1
 inwp_cldcover   = 1,1,1
-inwp_turb       = 1,5,5
+inwp_turb       = 5,5,5
 inwp_satad      = 1,1,1
-inwp_sso        = 1,0,0
-inwp_gwd        = 1,0,0
+inwp_sso        = 0,0,0
+inwp_gwd        = 0,0,0
 inwp_surface    = 1,1,1
 latm_above_top  = .true.,.true.,.true.
 efdt_min_raylfric = 7200.
@@ -233,11 +232,43 @@ lsq_high_ord      = 2
  decay_scale_1   = 4000.
  decay_scale_2   = 2500.
  decay_exp       = 1.2
- flat_height     = 16000.
+ flat_height     = 16000. !10000.
 /
 &io_nml
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
  lkeep_in_sync    = .true.
+/
+!&nh_pzlev_nml
+! nplev       = 8     ! number of p level output (attention: levels in [Pa] and top-down)
+! nzlev       = 8      ! number of z level output (attention: levels in [m] and top-down)
+! plevels     = 5000,20000,30000,50000,70000,85000,95000,100000
+! zlevels     = 10000,5000,3000,2000,1500,1000,500,100
+!/
+&meteogram_output_nml
+ lmeteogram_enabled= .FALSE.
+ n0_mtgrm          = 0
+ ninc_mtgrm        = 50   ! meteogram output interval (in terms of time steps)
+ ldistributed      = .false.
+ stationlist_tot   =  51.97,   4.93, 'Cabauw',
+                      50.95,   6.41, 'JOYCE_n',
+                      50.94,   6.41, 'JOYCE_cn3',
+                      50.93,   6.41, 'JOYCE_cn2',
+                      50.92,   6.41, 'JOYCE_cn1',
+                      50.91,   6.41, 'JOYCE_c',
+                      50.90,   6.41, 'JOYCE_cs1',
+                      50.89,   6.41, 'JOYCE_cs2',
+                      50.88,   6.41, 'JOYCE_cs3',
+                      50.87,   6.41, 'JOYCE_s',
+                      50.91,   6.43, 'JOYCE_ce1',
+                      50.91,   6.45, 'JOYCE_ce2',
+                      50.91,   6.47, 'JOYCE_ce3',                       
+                      50.91,   6.49, 'JOYCE_e',
+                      50.91,   6.39, 'JOYCE_cw1',
+                      50.91,   6.37, 'JOYCE_cw2',
+                      50.91,   6.35, 'JOYCE_cw3',
+                      50.91,   6.33, 'JOYCE_w', 
+                      51.66,   12.94,'Melpitz_c',
+                      52.17,  14.12, 'Lindenberg'
 /
 !&output_nml
 ! output_start     = "${start_date}"
@@ -261,8 +292,17 @@ lsq_high_ord      = 2
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}'
  ml_varlist       = 'w','pres','pres_sfc','pres_msl', 'u', 'v', 'temp', 'theta_v','rho','exner',
-                     'qv','qc','qr','group:pbl_vars','gz0','group:phys_tendencies',
-                     'group:rad_vars','vn','umfl_s','vmfl_s'
+                     'qv','qc','qr','group:pbl_vars','gz0','group:rad_vars','umfl_s','vmfl_s'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT03H"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'phy_tend'
+ ml_varlist       = 'group:phys_tendencies'
  output_grid      = .TRUE.
 /
 &output_nml
@@ -278,11 +318,23 @@ lsq_high_ord      = 2
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT10M"
+ output_interval  = "PT30M"
  file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'land_vars'
  ml_varlist       = 'group:land_vars','t_s','t_seasfc','group:snow_vars'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ dom              = 3
+ output_interval  = "PT15M"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'hope'
+ ml_varlist       = 'clct','tqv_dia','tqc_dia','tqi_dia','tot_prec','t_g','qv_s','htop_con','hbas_con'
+                    'htop_dc','z_pbl','shfl_s','lhfl_s'
  output_grid      = .TRUE.
 /
 &extpar_nml

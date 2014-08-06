@@ -216,6 +216,32 @@ lsq_high_ord      = 2
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
  lkeep_in_sync    = .true.
 /
+&meteogram_output_nml
+ lmeteogram_enabled= .TRUE.
+ n0_mtgrm          = 0
+ ninc_mtgrm        = 50   ! meteogram output interval (in terms of time steps)
+ ldistributed      = .false.
+ stationlist_tot   =  51.97,   4.93, 'Cabauw',
+                      50.95,   6.41, 'JOYCE_n',
+                      50.94,   6.41, 'JOYCE_cn3',
+                      50.93,   6.41, 'JOYCE_cn2',
+                      50.92,   6.41, 'JOYCE_cn1',
+                      50.91,   6.41, 'JOYCE_c',
+                      50.90,   6.41, 'JOYCE_cs1',
+                      50.89,   6.41, 'JOYCE_cs2',
+                      50.88,   6.41, 'JOYCE_cs3',
+                      50.87,   6.41, 'JOYCE_s',
+                      50.91,   6.43, 'JOYCE_ce1',
+                      50.91,   6.45, 'JOYCE_ce2',
+                      50.91,   6.47, 'JOYCE_ce3',                       
+                      50.91,   6.49, 'JOYCE_e',
+                      50.91,   6.39, 'JOYCE_cw1',
+                      50.91,   6.37, 'JOYCE_cw2',
+                      50.91,   6.35, 'JOYCE_cw3',
+                      50.91,   6.33, 'JOYCE_w', 
+                      51.66,   12.94,'Melpitz_c',
+                      52.17,  14.12, 'Lindenberg'
+/
 !&output_nml
 ! output_start     = "${start_date}"
 ! output_end       = "${end_date}"
