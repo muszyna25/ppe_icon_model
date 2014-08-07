@@ -115,13 +115,15 @@ fi
 . ${SETDIRTMP}/case_setup
 
 # copy binary and execute in parallel
-cp -p ${outbasedir}/bin/control_model ./icon.exe
+cp -p ${outbasedir}/bin/icon ./icon.exe
+
+arch=x86_64-unknown-linux-gnu
 
 # copy binary alternatively from individual user - option 1 - automatic - applies to all runs
-#cp -p /perm/ms/de/dei2/icon-dev/build/rs6000-ibm-aix/bin/control_model ./icon.exe
+# cp -p /perm/ms/de/dei2/icon-dev/build/${arch}/bin/icon ./icon.exe
 
 # copy binary alternatively from individual user - option 2 - by hand (replace expid XXX)
-# cp /perm/ms/de/dei2/icon-dev/build/rs6000-ibm-aix/bin/control_model /scratch/ms/de/deia/icon/dei2/XXX/output/bin
+# cp /perm/ms/de/dei2/icon-dev/build/${arch}/bin/icon /scratch/ms/de/deia/icon/dei2/XXX/output/bin
 
 echo "job::start"
 date
@@ -135,6 +137,8 @@ if [[ ${debug} = 1 ]] ; then                  # optional totalview debugging (ma
 else
  #aprun  -N $EC_tasks_per_node -n $EC_total_tasks -j $EC_hyperthreads icon.exe
   export OMP_NUM_THREADS=$EC_threads_per_task
+  export ATP_ENABLED=1               # for debugging with GNU compile with -fno-backtrace in mh-linux
+ #export FOR_IGNORE_EXCEPTIONS=true  # for debugging with INTEL compiler
   aprun -N $EC_tasks_per_node -n $EC_total_tasks -d $OMP_NUM_THREADS -j $EC_hyperthreads icon.exe
   # fractional job: 
   #module load cray-snplauncher

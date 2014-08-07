@@ -51,19 +51,18 @@ case ${compiler} in
     module load subversion
     module swap grib_api grib_api/1.11.0
     module load netcdf
-    
-    
-    ./configure --with-fortran=cray      # --with-openmp     # --with-flags=hiopt
+
+    ./configure --with-fortran=cray  #--with-openmp     # --with-flags=hiopt
     ;;
   gcc)
     module swap PrgEnv-cray PrgEnv-gnu
     module load netcdf
-    ./configure
+    ./configure --with-fortran=gcc   --with-openmp
     ;;
   intel)
     module swap PrgEnv-cray PrgEnv-intel
     module load netcdf
-    ./configure --with-fortran=intel  
+    ./configure --with-fortran=intel --with-openmp 
 esac
 
 smsevent configure

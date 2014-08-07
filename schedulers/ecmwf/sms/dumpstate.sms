@@ -88,7 +88,7 @@ smsevent prepare
 
 # copy binary and execute in parallel
 smsevent create_dumpstate
-cp -p ../setup/control_model ./icon.exe
+cp -p ../setup/icon ./icon.exe
 
 echo "job::start"
 date

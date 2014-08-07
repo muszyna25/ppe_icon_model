@@ -16,7 +16,7 @@
 %end
 
 # include the header file for remote jobs
-%include <init_ws.h> 
+%include <init_ws_submit.h> 
 
 
 # -------------------------------------------------
