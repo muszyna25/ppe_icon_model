@@ -55,14 +55,15 @@ MODULE mo_nwp_gscp_interface
                                      iqni, iqni_nuc, iqg, iqh, iqnr, iqns,     &
                                      iqng, iqnh, iqnc, inccn, ininpot, ininact    
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_gscp_cosmo,           ONLY: kessler_pp
-  USE gscp_hydci_pp,           ONLY: hydci_pp, hydci_pp_gr
+  USE gscp_kessler,            ONLY: kessler
+  USE gscp_cloudice,           ONLY: cloudice
+  USE gscp_graupel,            ONLY: graupel
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph, &
        &                             set_qnr,set_qni,set_qns,set_qng
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
-  USE data_gscp,               ONLY: cloud_num
+  USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
   USE mo_grid_config,          ONLY: l_limited_area
 
@@ -229,7 +230,7 @@ CONTAINS
                  ! version unified with COSMO scheme
                  ! unification version: COSMO_V4_23
 
-          CALL hydci_pp (                                   &
+          CALL cloudice (                                   &
             & nvec   =nproma                           ,    & !> in:  actual array size
             & ke     =nlev                             ,    & !< in:  actual array size
             & ivstart=i_startidx                       ,    & !< in:  start index of calculation
@@ -256,7 +257,7 @@ CONTAINS
 
         CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
 
-          CALL hydci_pp_gr (                                 &
+          CALL graupel (                                     &
             & nvec   =nproma                            ,    & !> in:  actual array size
             & ke     =nlev                              ,    & !< in:  actual array size
             & ivstart=i_startidx                        ,    & !< in:  start index of calculation
@@ -386,11 +387,11 @@ CONTAINS
     
         CASE(9)  ! Kessler scheme (warm rain scheme)
 
-          CALL kessler_pp (                                  &
-            & ie     =nproma                            ,    & ! in:  actual array size
+          CALL kessler (                                     &
+            & nvec   =nproma                            ,    & ! in:  actual array size
             & ke     =nlev                              ,    & ! in:  actual array size
-            & istart =i_startidx                        ,    & ! in:  start index of calculation
-            & iend   =i_endidx                          ,    & ! in:  end index of calculation
+            & ivstart =i_startidx                       ,    & ! in:  start index of calculation
+            & ivend   =i_endidx                         ,    & ! in:  end index of calculation
             & kstart =kstart_moist(jg)                  ,    & ! in:  vertical start index
             & zdt    =tcall_gscp_jg                     ,    & ! in:  timestep
             & qc0    = atm_phy_nwp_config(jg)%qc0       ,    & 

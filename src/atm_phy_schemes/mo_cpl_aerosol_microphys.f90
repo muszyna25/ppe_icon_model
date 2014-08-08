@@ -19,7 +19,7 @@ MODULE mo_cpl_aerosol_microphys
 
 
   USE mo_kind,               ONLY: ireals=>wp, iintegers=>i4
-  USE data_gscp,             ONLY: r2_fix, lsigs_fix, r2_lsigs_are_fixed, lincloud
+  USE gscp_data,             ONLY: r2_fix, lsigs_fix, r2_lsigs_are_fixed, lincloud
   USE mo_exception,          ONLY: finish
 
   IMPLICIT NONE

@@ -64,7 +64,7 @@ MODULE mo_nwp_phy_init
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 
   ! microphysics
-  USE gscp_hydci_pp,          ONLY: hydci_pp_init
+  USE gscp_data,              ONLY: gscp_set_coefficients
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
     &                               set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng
@@ -536,7 +536,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
   CASE (1,2,3)  ! cloud microphysics from COSMO (V 5.0)
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
-    CALL hydci_pp_init
+    CALL gscp_set_coefficients
 
   CASE (4) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')

@@ -245,7 +245,7 @@ USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
-USE data_gscp                 !xxx: common module COSMO/ICON, all variables are used here
+USE gscp_data                 !xxx: common module COSMO/ICON, all variables are used here
 
 USE data_hydci_pp_ice,     ONLY:    afrac_dust, &  !! look-up table of activated fraction of dust particles acting as ice nuclei
                                     afrac_soot, &  !! ... of soot particles
@@ -274,109 +274,6 @@ PUBLIC :: hydci_pp_ice
 CHARACTER(132) :: message_text = ''
 #endif
 
-INTEGER (KIND=iintegers), PARAMETER ::  &
-  iautocon       = 1,&
-  isnow_n0temp   = 2
-
-REAL    (KIND=ireals   ), PARAMETER ::  &
-  zqmin = 1.0E-15_ireals,& ! threshold for computations
-  zeps  = 1.0E-15_ireals,& ! small number
-  
-                                ! Parameters for autoconversion of cloud water and cloud ice 
-  zccau  = 4.0E-4_ireals, & ! autoconversion coefficient (cloud water to rain)
-  zciau  = 1.0E-3_ireals, & ! autoconversion coefficient (cloud ice   to snow)
-  
-  zkcau  = 9.44e+09_ireals, & ! kernel coeff for SB2001 autoconversion
-  zkcac  = 5.25e+00_ireals, & ! kernel coeff for SB2001 accretion
-  zcnue  = 2.00e+00_ireals, & ! gamma exponent for cloud distribution
-  zxstar = 2.60e-10_ireals, & ! separating mass between cloud and rain
-  zkphi1 = 6.00e+02_ireals, & ! constant in phi-function for autoconversion
-  zkphi2 = 0.68e+00_ireals, & ! exponent in phi-function for autoconversion
-  zkphi3 = 5.00e-05_ireals, & ! exponent in phi-function for accretion
-  
-  !! Other process coefficients.
-  !! These coefficients have been precalculated on the basis of the
-  !! following basic parameters (original hydci):
-  !! N0R = 8.0 E6 : Parameter in the size distrubution function for rain
-  !! ECR = 0.8    : Collection efficiency for rain collecting cloud water
-  !! ECS = 0.9    : Collection efficiency for snow collecting cloud water
-  !! EIR = 0.8    : Collection efficiency for rain collecting cloud ice
-  !! V0R = 130.0  : Factor in the terminal velocity for raindrops
-  !!                VTR(D) = V0R*D**(1/2)
-  !! AMS = 0.038  : Formfactor in the mass-size relation of snowparticles
-  !!                m(DS) = AMS*DS**2
-  !! AMI = 130.0  : Formfactor in the mass-size relation of cloud ice crystals
-  !!                m(DI) = AMI*DI**3
-  !! ETA  = 1.75 E-5 : Viscosity of air    
-  !! DIFF = 2.22 E-5 : Molecular diffusion coefficient for water vapour
-  !! LHEAT= 2.40 E-2 : Heat conductivity of air
-  !! RHO  = 1.0      : Density of air 
-  !! RHOW = 1.0 E3   : Density of water 
-  !! lh_v            : latent heat of vapourization
-  !! lh_f            : latent heat of fusion
-  !! AR  = PI*RHOW*N0R
-  !! AS  = 2*N0S*AMS
-  !! HW              : Howell factor ( =(1/(1+H_w)) or =(1/(1+H_i))) 
-  
-  zhw   = 2.270603,     & ! Howell factor
-  zecs  = 0.9_ireals,   & ! Collection efficiency for snow collecting cloud water
-  
-  zadi  = 0.217_ireals, & ! Formfactor in the size-mass relation of ice particles
-  zbdi  = 0.302_ireals, & ! Exponent in the size-mass relation of ice particles
-  zams  = 0.069_ireals, & ! Formfactor in the mass-size relation of snow particles
-  zbms  = 2.000_ireals, & ! Exponent in the mass-size relation of snow particles
-  
-  zv1s  = 0.50_ireals,  & ! Exponent in the terminal velocity for snow
-  
-  zami  = 130.0_ireals, & ! Formfactor in the mass-size relation of cloud ice
-  zn0s0 = 8.0E5_ireals, & ! 
-  zn0s1 = 13.5_ireals * 5.65E5_ireals, & ! parameter in N0S(T)
-  zn0s2 = -0.107_ireals , & ! parameter in N0S(T), Field et al
-  zcac  = 1.72_ireals   , & ! (15/32)*(PI**0.5)*(ECR/RHOW)*V0R*AR**(1/8)
-  zcicri= 1.72_ireals   , & ! (15/32)*(PI**0.5)*(EIR/RHOW)*V0R*AR**(1/8)
-  zcrcri= 1.24E-3_ireals, & ! (PI/24)*EIR*V0R*Gamma(6.5)*AR**(-5/8)
-! zcev  = 3.1E-3_ireals , & ! 2*PI*DIFF*HW*N0R*AR**(-1/2)
-! zbev  = 9.0_ireals    , & ! 0.26*sqrt(0.5*RHO*v0r/eta)*Gamma(2.75)*AR**(-3/16)
-  zcsmel= 1.48E-4_ireals, & ! 4*LHEAT*N0S*AS**(-2/3)/(RHO*lh_f)
-!FR old  zbsmel= 14.37_ireals  , & ! 0.26*sqrt(0.5*RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
-  zbsmel= 20.32_ireals  , & !        0.26*sqrt(    RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
-  zasmel= 2.31E3_ireals , & ! DIFF*lh_v*RHO/LHEAT
-  zcrfrz= 1.68_ireals   , & ! coefficient for raindrop freezing
-  
-  zrho0 = 1.225e+0_ireals, & ! reference air density
-  zrhow = 1.000e+3_ireals, & ! density of liquid water
-  
-  zdv    = 2.22e-5_ireals, & ! molecular diffusion coefficient for water vapour
-  zlheat = 2.40E-2_ireals, & ! thermal conductivity of dry air
-  zeta   = 1.75e-5_ireals    ! kinematic viscosity of air 
-
-
-REAL    (KIND=ireals   ), PARAMETER ::  &
-  !! Additional parameters
-  zthet = 248.15_ireals , & ! temperature for het. nuc. of cloud ice
-  zthn  = 236.15_ireals , & ! temperature for hom. freezing of cloud water
-  ztrfrz= 271.15_ireals , & ! threshold temperature for heterogeneous
-!                           ! freezing of raindrops
-  zmi0   = 1.0E-12_ireals, & ! initial crystal mass for cloud ice nucleation
-  zmimax = 1.0E-9_ireals , & ! maximum mass of cloud ice crystals   
-  zmsmin = 3.0E-9_ireals , & ! initial mass of snow crystals        
-  
-  !! Constant exponents in the transfer rate equations
-  x1o12  =  1.0_ireals/12.0_ireals  ,  x3o16  =  3.0_ireals/16.0_ireals, &
-  x7o8   =  7.0_ireals/ 8.0_ireals  ,  x2o3   =  2.0_ireals/ 3.0_ireals, &
-  x5o24  =  5.0_ireals/24.0_ireals  ,  x1o8   =  1.0_ireals/ 8.0_ireals, &
-  x13o8  = 13.0_ireals/ 8.0_ireals  ,  x13o12 = 13.0_ireals/12.0_ireals, &
-  x27o16 = 27.0_ireals/16.0_ireals  ,  x1o3   =  1.0_ireals/ 3.0_ireals, &
-  x1o2   =  1.0_ireals/ 2.0_ireals
-
-!!==============================================================================
-
-!> Global Variables
-! -------------------
-
-  REAL (KIND=ireals) ::          &
-    zn0r,                        & ! N0_rain
-    zar
 
 
 
