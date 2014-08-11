@@ -32,7 +32,7 @@ MODULE mo_interface_les
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: itccov, itrad, itgscp,         &
     &                              itsatad, itturb, itsfc, itradheat, &
-    &                              itsso, itgwd, itfastphy, max_char_length,    &
+    &                              itfastphy, max_char_length,    &
     &                              min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -60,7 +60,6 @@ MODULE mo_interface_les
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,   ONLY: irad_aero
-  USE mo_nwp_gw_interface,   ONLY: nwp_gwdrag 
   USE mo_nwp_gscp_interface, ONLY: nwp_microphysics
   USE mo_les_turb_interface, ONLY: les_turbulence
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
@@ -160,7 +159,7 @@ CONTAINS
 
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
 
-    REAL(wp), TARGET :: &                                              !> temporal arrays for 
+    REAL(wp), TARGET :: &                                     !> temporal arrays for 
       & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& 
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
@@ -179,9 +178,6 @@ CONTAINS
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
 
-    ! auxiliaries for Rayleigh friction computation
-    REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
-
     ! Variables for dpsdt diagnostic
     REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
     INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
@@ -191,8 +187,7 @@ CONTAINS
 
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
-    INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, z_ddt_u_tot_comm, z_ddt_v_tot_comm, &
-      & tracers_comm, tempv_comm, exner_old_comm
+    INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_old_comm
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'   
 
@@ -226,8 +221,7 @@ CONTAINS
     ENDIF
 
 
-    IF (lcall_phy_jg(itrad) .OR. lcall_phy_jg(itccov)  .OR. &
-        lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
+    IF (lcall_phy_jg(itrad) .OR. lcall_phy_jg(itccov)) THEN
       l_any_slowphys = .TRUE.
     ELSE
       l_any_slowphys = .FALSE.
@@ -295,8 +289,7 @@ CONTAINS
     
     ENDIF
 
-    IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsso)  .OR. &
-         lcall_phy_jg(itgwd) .OR. linit ) THEN
+    IF ( lcall_phy_jg(itturb) .OR. linit ) THEN
     
       !-------------------------------------------------------------------------
       !>
@@ -1016,33 +1009,6 @@ CONTAINS
 
 
     !-------------------------------------------------------------------------
-    !  Gravity waves drag: orographic and non-orographic
-    ! AD(17 June 2014): Although these parameterizations should not be required 
-    ! in LES runs but it has kept for now untill full verifications has been done.
-    !-------------------------------------------------------------------------
-
-    IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
-
-      IF (msg_level >= 15) &
-        &  CALL message(TRIM(routine),'gravity waves')
-
-      IF (timers_level > 3) CALL timer_start(timer_sso)
-
-      CALL nwp_gwdrag ( dt_phy_jg(itsso),          & !>input
-        &               lcall_phy_jg(itsso),       & !>input
-        &               dt_phy_jg(itgwd),          & !>input
-        &               lcall_phy_jg(itgwd),       & !>input
-        &               pt_patch,p_metrics,        & !>input
-        &               ext_data,                  & !>input
-        &               pt_diag ,                  & !>inout
-        &               prm_diag,prm_nwp_tend      ) !>inout
-
-      IF (timers_level > 3) CALL timer_stop(timer_sso)
-    ENDIF ! inwp_sso
-    !-------------------------------------------------------------------------
- 
-
-    !-------------------------------------------------------------------------
     ! Anurag Dipankar MPIM (2013-May-29)
     ! Large-scale forcing is to be applied at the end of all physics so that 
     ! the most updated variable is used. Ideally it should be "next" timestep 
@@ -1084,6 +1050,7 @@ CONTAINS
 
     END IF 
     
+
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
     !>  accumulate tendencies of slow_physics: 
@@ -1097,12 +1064,6 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
 
-      ! Coefficients for extra Rayleigh friction
-      ustart    = atm_phy_nwp_config(jg)%ustart_raylfric
-      uoffset_q = ustart + 40._wp
-      ustart_q  = ustart + 50._wp
-      max_relax = -1._wp/atm_phy_nwp_config(jg)%efdt_min_raylfric
-
       ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
@@ -1111,53 +1072,17 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
-!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum, &
+!$OMP  ) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
 !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-
-        ! artificial Rayleigh friction: active if GWD or SSO scheme is active
-        IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
-          DO jk = 1, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-              vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
-              rfric_fac = MAX(0._wp, 8.e-4_wp*(vabs-ustart))
-              IF (vabs > ustart_q) THEN
-                rfric_fac = MIN(1._wp,4.e-4_wp*(vabs-uoffset_q)**2)
-              ENDIF
-              zddt_u_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
-              zddt_v_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
-            ENDDO
-          ENDDO
-        ELSE
-          zddt_u_raylfric(:,:) = 0._wp
-          zddt_v_raylfric(:,:) = 0._wp
-        ENDIF
-
-        ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
-        DO jk = 1, nlev
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
-                                                   (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
-                                                    zddt_u_raylfric(jc,jk))                &
-                                                   +      pt_diag%v(jc,jk,jb)*             & 
-                                                   (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
-                                                    zddt_v_raylfric(jc,jk))                )
-          ENDDO
-        ENDDO
-!DIR$ IVDEP
         z_ddt_temp(i_startidx:i_endidx,:,jb) =                                                   &
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) 
+   &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) 
      
         IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
 
@@ -1200,25 +1125,6 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! Accumulate wind tendencies of slow physics
-        ! Strictly spoken, this would not be necessary if only radiation was called
-        ! in the current time step, but the radiation time step should be a multiple 
-        ! of the convection time step anyway in order to obtain up-to-date cloud cover fields
-        IF (l_any_slowphys) THEN
-          DO jk = 1, nlev
-            DO jc = i_startidx, i_endidx
-               z_ddt_u_tot(jc,jk,jb) =                   &
-                   prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
-                 + zddt_u_raylfric            (jc,jk)    &
-                 + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) 
-
-               z_ddt_v_tot(jc,jk,jb) =                   &
-                   prm_nwp_tend%ddt_v_gwd     (jc,jk,jb) &
-                 + zddt_v_raylfric            (jc,jk)    &
-                 + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) 
-            END DO
-          END DO  
-        ENDIF
 
         !-------------------------------------------------------------------------
         !>  accumulate tendencies of slow_physics when LS forcing is ON
@@ -1246,11 +1152,8 @@ CONTAINS
 
 
               ! add u/v forcing tendency here
-              z_ddt_u_tot(jc,jk,jb) = z_ddt_u_tot(jc,jk,jb) &
-                &                   + prm_nwp_tend%ddt_u_ls(jk)
-
-              z_ddt_v_tot(jc,jk,jb) = z_ddt_v_tot(jc,jk,jb) &
-                &                   + prm_nwp_tend%ddt_v_ls(jk)
+              z_ddt_u_tot(jc,jk,jb) = prm_nwp_tend%ddt_u_ls(jk)
+              z_ddt_v_tot(jc,jk,jb) = prm_nwp_tend%ddt_v_ls(jk)
 
             END DO  ! jc
           END DO  ! jk
@@ -1325,15 +1228,6 @@ CONTAINS
         ddt_v_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_v_turb, &
           & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
           & name="prm_nwp_tend%ddt_v_turb")
-          
-        IF ( l_any_slowphys .OR. is_ls_forcing ) THEN
-          z_ddt_u_tot_comm = new_icon_comm_variable(z_ddt_u_tot, &
-            & pt_patch%sync_cells_one_edge_in_domain, &
-            & status=is_ready, scope=until_sync, name="z_ddt_u_tot")
-          z_ddt_v_tot_comm = new_icon_comm_variable(z_ddt_v_tot, &
-            & pt_patch%sync_cells_one_edge_in_domain, &
-            & status=is_ready, scope=until_sync, name="z_ddt_v_tot")
-        ENDIF        
       ENDIF
       
        ! sync everything here
@@ -1341,13 +1235,7 @@ CONTAINS
 
     ELSE
           
-      IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
-          
-        CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
-                                 prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
-
-      ELSE IF (lcall_phy_jg(itturb) ) THEN
-
+      IF ( lcall_phy_jg(itturb) ) THEN
         CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
                                  prm_nwp_tend%ddt_v_turb)
       ENDIF
@@ -1451,7 +1339,7 @@ CONTAINS
       CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
+      IF ( is_ls_forcing .AND. lcall_phy_jg(itturb) ) THEN
 
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx

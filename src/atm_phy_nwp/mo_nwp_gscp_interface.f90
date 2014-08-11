@@ -142,7 +142,7 @@ CONTAINS
     CASE(4,5)
 
        ! Update lateral boundaries of nested domains
-       IF (l_limited_area .OR. l_nest_other_micro) THEN
+       IF ( (l_limited_area.AND.jg==1) .OR. l_nest_other_micro) THEN
 
           IF (msg_level > 10) &
                & CALL message('mo_nwp_gscp_interface: ',"lateral boundaries for number densities")
