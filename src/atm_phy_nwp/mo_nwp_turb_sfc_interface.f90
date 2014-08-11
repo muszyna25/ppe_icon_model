@@ -165,11 +165,23 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 ! estimates of tile albedo ???
   REAL(wp) :: zalbti_est(8)
   DATA        zalbti_est  / 0.06, 0.80, 0.20, 0.20, 0.70, 0.15, 0.35, 0.40 /
-! conversion of soil types TERRA to TESSEL
-  REAL(wp) :: soiltyp_conv(8)
-  DATA        soiltyp_conv /0,0,1,2,3,4,5,6/
+
+! conversion of soil types TERRA (mo_phyparam_soil.f90) to TESSEL (cy36r1 Tab8.8)
+  INTEGER  :: soiltyp_conv(10)
+                        ! ksoty     TERRA        TESSEL [0:NSOTY], NSOTY=7 
+  DATA        soiltyp_conv /0,  & ! ice             
+                         &  0,  & ! rock            
+                         &  1,  & ! sand         1: coarse   
+                         &  2,  & ! sandyloam    2: medium
+                         &  3,  & ! loam         3: medium-fine
+                         &  4,  & ! clayloam     4: fine
+                         &  5,  & ! clay         5: very fine
+                         &  6,  & ! peat         6: organic  (7: loamy (CH))
+                         &  0,  & ! sea water   
+                         &  0   / ! sea ice     
+
 ! conversion of vegetation types TERRA (Tab11.5) to TESSEL (cy36r1 Tab8.1)
-  REAL(wp) :: vegtyp_conv(23)
+  INTEGER  :: vegtyp_conv(23)
   DATA        vegtyp_conv / 6, 5,19, 3, 4,  18,20,18,18,11, &
                          & 16,17,13,11, 7,   1, 1,18, 8,15, &
                          & 12, 8,15 /
@@ -178,9 +190,9 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !   Number of landcover classes provided by external parameter data
 !   Needs to be changed into a variable if landcover classifications
 !   with a different number of classes become available
-  INTEGER,  PARAMETER          :: num_lcc = 23
-  REAL(wp), DIMENSION(num_lcc) :: jtessel_gcv2009  ! Tessel index table GlobCover2009
-!                      jtessel
+  INTEGER, PARAMETER          :: num_lcc = 23
+  INTEGER, DIMENSION(num_lcc) :: jtessel_gcv2009  ! Tessel index table GlobCover2009
+                     ! jtessel     GlobCover2009
   DATA jtessel_gcv2009 / 4,   & !  1 irrigated croplands
                      &   4,   & !  2 rainfed croplands
                      &   4,   & !  3 mosaic cropland (50-70%) - vegetation (20-50%)
@@ -303,6 +315,15 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
          ENDDO
         ENDIF
       ENDIF
+    ELSE  ! inwp_surface/=0
+      ! 
+      !> adjust humidity at water surface because of changing surface pressure
+      !
+      DO jc = i_startidx, i_endidx
+        lnd_diag%qv_s_t(jc,jb,isub_water) = &
+          &         spec_humi(sat_pres_water(lnd_prog_now%t_g_t(jc,jb,isub_water)),&
+          &                                   p_diag%pres_sfc(jc,jb) )
+      ENDDO    
     ENDIF
 
 
@@ -436,24 +457,34 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         KTVH(jc) = 3                                   ! KTVH: dummy default ???
       ENDDO
 
+! Assign TESSEL tile fractions (zfrti) from TERRA tile fractions and sub-tile snow fraction
+
       DO jt = ntiles_total, 1, -1                      ! backward to use dominant veg types (land only)
         DO jc = i_startidx, i_endidx
           IF ( ext_data%atm%frac_t(jc,jb,jt) > 0.0_wp ) THEN   ! only used tiles
+
             JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jc,jb,jt))
+
 !??         IF (JTILE == 4)  KTVL(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
 !??         IF (JTILE == 6)  KTVH(jc) = vegtyp_conv(ext_data%atm%lc_class_t(jc,jb,jt))
-            IF ( lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0.5_wp ) THEN
-              SELECT CASE ( JTILE )
-                CASE (4)
-                  JTILE = 5   ! snow over low vegetation
-                CASE (6)
-                  JTILE = 7   ! snow over high vegetation
-                CASE (8)
-                  JTILE = 5   ! snow over bare ground
-              END SELECT
-            ENDIF
-           !interception layer (#3) missing ???
-            zfrti(jc,jtile) = zfrti(jc,jtile) + ext_data%atm%frac_t(jc,jb,jt)
+!           interception layer (#3) missing ???
+
+            !no snow part of tile:
+            zfrti(jc,jtile) = zfrti(jc,jtile) + &
+              ext_data%atm%frac_t(jc,jb,jt) * (1.0_wp - lnd_diag%snowfrac_lc_t(jc,jb,jt))
+            
+            !snow part of tile:
+            SELECT CASE ( JTILE )
+              CASE (4)
+                JTILE = 5   ! snow over low vegetation
+              CASE (6)
+                JTILE = 7   ! snow over high vegetation
+              CASE (8)
+                JTILE = 5   ! snow over bare ground
+            END SELECT
+            zfrti(jc,jtile) = zfrti(jc,jtile) + &
+              ext_data%atm%frac_t(jc,jb,jt) * lnd_diag%snowfrac_lc_t(jc,jb,jt)
+
           ENDIF
         ENDDO
       ENDDO
@@ -475,15 +506,24 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
       DO jk = 1,nlev_soil-1
         DO jc = i_startidx, i_endidx
-          zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take dominant tile #1 ???
-          zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
+          IF ( ext_data%atm%frac_t(jc,jb,1) > 0.0_wp ) THEN        ! dominant land tile fraction > 0
+            zdummy_vdf_4a(jc,jk) = lnd_prog_now%t_so_t(jc,jk,jb,1) ! simple: take dominant tile #1 ???
+            zdummy_vdf_4b(jc,jk) = lnd_prog_now%w_so_t(jc,jk,jb,1) ! ---
+          ELSE
+            zdummy_vdf_4a(jc,jk) = 0.0_wp
+            zdummy_vdf_4b(jc,jk) = 0.0_wp
+          ENDIF
         ENDDO
       ENDDO
 
       DO jc = i_startidx, i_endidx
         zdummy_vdf_1a(jc) = 0.5_wp   !PCVL  ???
         zdummy_vdf_1b(jc) = 0.5_wp   !PCVH  ???
-        zsoty(jc)         = soiltyp_conv(ext_data%atm%soiltyp_t(jc,jb,1)) !KSOTY ???
+        IF ( ext_data%atm%frac_t(jc,jb,1) > 0.0_wp ) THEN        ! dominant land tile fraction > 0
+          zsoty(jc)       = soiltyp_conv(ext_data%atm%soiltyp_t(jc,jb,1)) !KSOTY dominant tile???
+        ELSE                                                     ! attention glacier edges!
+          zsoty(jc)       = 0
+        ENDIF
         zdummy_vdf_1f(jc) = 1.0_wp   !maximum skin reservoir capacity (~1mm = 1kg/m2) ??? needs to be done physically by TERRA
         zdummy_vdf_1c(jc) = 0.0_wp   !lake ice thickness ??? (no lakes???)
         zdummy_vdf_1d(jc) = 273.0_wp !lake ice temperature ??? (no lakes???)

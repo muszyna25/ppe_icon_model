@@ -34,10 +34,11 @@ MODULE mo_nwp_sfc_interface_edmf
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, ntiles_lnd, lsnowtile, &
-    &                               isub_water, isub_seaice, isub_lake
+    &                               isub_water, isub_seaice, isub_lake, itype_interception
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
+  USE mo_flake,               ONLY: flake_interface
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
@@ -134,8 +135,13 @@ CONTAINS
                   shfl_soil_ex     , & ! sensible heat flux soil/air interface         (W/m2)
                   lhfl_soil_ex     , & ! latent   heat flux soil/air interface         (W/m2)
                   shfl_snow_ex     , & ! sensible heat flux snow/air interface         (W/m2)
-                  lhfl_snow_ex       & ! latent   heat flux snow/air interface         (W/m2)
-                                     )
+                  lhfl_snow_ex     , & ! latent   heat flux snow/air interface         (W/m2)
+                  shfl_s_ex        , & ! sensible heat flux                            (W/m2)
+                  lhfl_s_ex        , & ! latent   heat flux                            (W/m2)
+                  qhfl_s_ex        , & ! moisture      flux                            (W/m2)
+                  lhfl_bs_ex       , & 
+                  lhfl_pl_ex       , &
+                  rstom_ex           )
 
 
   IMPLICIT NONE
@@ -219,7 +225,13 @@ CONTAINS
                   shfl_soil_ex     , & ! sensible heat flux soil/air interface         ( W/m2)
                   lhfl_soil_ex     , & ! latent   heat flux soil/air interface         ( W/m2)
                   shfl_snow_ex     , & ! sensible heat flux snow/air interface         ( W/m2)
-                  lhfl_snow_ex         ! latent   heat flux snow/air interface         ( W/m2)
+                  lhfl_snow_ex     , & ! latent   heat flux snow/air interface         ( W/m2)
+                  shfl_s_ex        , & ! sensible heat flux                            ( W/m2)
+                  lhfl_s_ex        , & ! latent   heat flux                            ( W/m2)
+                  qhfl_s_ex        , & ! moisture      flux                            ( W/m2)
+                  lhfl_bs_ex       , & 
+                  lhfl_pl_ex       , &
+                  rstom_ex            
 
   TYPE(t_external_data), INTENT(inout) :: ext_data        !< external data
 
@@ -338,13 +350,16 @@ CONTAINS
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
 
-    REAL(wp) :: shfl_soil_t (nproma, ntiles_total)
-    REAL(wp) :: lhfl_soil_t (nproma, ntiles_total)
+    REAL(wp) :: shfl_s_t    (nproma, ntiles_total) ! sensible heat flux sfc
+    REAL(wp) :: lhfl_s_t    (nproma, ntiles_total) ! latent heat flux sfc
+    REAL(wp) :: qhfl_s_t    (nproma, ntiles_total) ! moisture flux sfc
+    REAL(wp) :: shfl_soil_t (nproma, ntiles_total) ! sensible heat flux sfc (snow free)
+    REAL(wp) :: lhfl_soil_t (nproma, ntiles_total) ! latent heat flux sfc   (snow free)
+    REAL(wp) :: shfl_snow_t (nproma, ntiles_total) ! sensible heat flux sfc (snow covered)
+    REAL(wp) :: lhfl_snow_t (nproma, ntiles_total) ! latent heat flux sfc   (snow covered)
     REAL(wp) :: lhfl_bs_t   (nproma, ntiles_total)
     REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil, ntiles_total)
     REAL(wp) :: rstom_t     (nproma, ntiles_total)
-    REAL(wp) :: shfl_snow_t (nproma, ntiles_total)
-    REAL(wp) :: lhfl_snow_t (nproma, ntiles_total)
 
 !--------------------------------------------------------------
 
@@ -380,10 +395,16 @@ CONTAINS
         lhfl_soil_ex(jc,isubs) = 0.0_wp    !not over water/ice/lake 
         shfl_snow_ex(jc,isubs) = 0.0_wp    ! - 
         lhfl_snow_ex(jc,isubs) = 0.0_wp    ! -
+        shfl_s_ex   (jc,isubs) = 0.0_wp    ! - 
+        lhfl_s_ex   (jc,isubs) = 0.0_wp    ! -
+        qhfl_s_ex   (jc,isubs) = 0.0_wp    ! -
         shfl_soil_t (jc,isubs) = 0.0_wp
         lhfl_soil_t (jc,isubs) = 0.0_wp
         shfl_snow_t (jc,isubs) = 0.0_wp
         lhfl_snow_t (jc,isubs) = 0.0_wp
+        shfl_s_t    (jc,isubs) = 0.0_wp
+        lhfl_s_t    (jc,isubs) = 0.0_wp
+        qhfl_s_t    (jc,isubs) = 0.0_wp
         snowfrac_lc_t(jc,isubs)= 0.0_wp
         snowfrac_t  (jc,isubs) = 0.0_wp
       ENDDO
@@ -418,13 +439,16 @@ CONTAINS
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
   
              ! Snow and rain fall onto snow-covered tile surface only, 
-             ! if 1) the corresponding snow tile already exists and 
+             ! if 
+             ! 1) the corresponding snow tile already exists and 
              ! 2) the temperature of snow-free tile is below freezing point.
              ! If the temperature of snow-free tile is above freezing point,
              ! precipitation over it will be processed by this tile itself (no snow is created).
              ! If there is no snow tile so far at all, precipitation falls on the snow-free tile,
              ! and the snow tile will be created after TERRA.
-             IF(t_snow_ex(jc,isubs)  > tmelt) THEN
+             !
+             ! DR after discussion with Ekaterina, changed from '>' to '<='
+             IF(t_snow_ex(jc,isubs)  <= tmelt) THEN
                rain_gsp_rate(jc,isubs) = 0._wp
                snow_gsp_rate(jc,isubs) = 0._wp
                rain_con_rate(jc,isubs) = 0._wp
@@ -447,17 +471,17 @@ CONTAINS
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
-          ps_t(ic)      = ps_ex     (jc)    
-          prr_con_t(ic) = rain_con_rate(jc,isubs)
-          prs_con_t(ic) = snow_con_rate(jc,isubs)
-          prr_gsp_t(ic) = rain_gsp_rate(jc,isubs)
-          prs_gsp_t(ic) = snow_gsp_rate(jc,isubs)
+          ps_t(ic)      =  ps_ex        (jc)    
+          prr_con_t(ic) =  rain_con_rate(jc,isubs)
+          prs_con_t(ic) =  snow_con_rate(jc,isubs)
+          prr_gsp_t(ic) =  rain_gsp_rate(jc,isubs)
+          prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
 
-          u_t(ic)  = u_ex (jc)     
-          v_t(ic)  = v_ex (jc)     
-          t_t(ic)  = t_ex (jc)     
-          qv_t(ic) = qv_ex(jc) 
-          p0_t(ic) = p0_ex(jc)     
+          u_t(ic)       =  u_ex (jc)     
+          v_t(ic)       =  v_ex (jc)     
+          t_t(ic)       =  t_ex (jc)     
+          qv_t(ic)      =  qv_ex(jc) 
+          p0_t(ic)      =  p0_ex(jc)     
 
           sso_sigma_t(ic)       = ext_data%atm%sso_stdh  (jc,jb)
           lc_class_t(ic,isubs)  = ext_data%atm%lc_class_t(jc,jb,isubs)
@@ -469,8 +493,13 @@ CONTAINS
           w_snow_now_t  (ic,isubs) = w_snow_ex   (jc,isubs)
           rho_snow_now_t(ic,isubs) = rho_snow_ex (jc,isubs)
           w_i_now_t     (ic,isubs) = w_i_ex      (jc,isubs)
-          w_p_now_t     (ic,isubs) = w_p_ex      (jc,isubs)
-          w_s_now_t     (ic,isubs) = w_s_ex      (jc,isubs)
+          IF (itype_interception == 2) THEN
+            w_p_now_t   (ic,isubs) = w_p_ex      (jc,isubs)
+            w_s_now_t   (ic,isubs) = w_s_ex      (jc,isubs)
+          ELSE
+            w_p_now_t   (ic,isubs) = 0._wp
+            w_s_now_t   (ic,isubs) = 0._wp
+          END IF
           freshsnow_t   (ic,isubs) = freshsnow_ex(jc,isubs)
           snowfrac_lc_t (ic,isubs) = snowfrac_lc_ex (jc,isubs)
           snowfrac_t    (ic,isubs) = snowfrac_ex (jc,isubs)
@@ -498,9 +527,8 @@ CONTAINS
           t_so_now_t(ic,nlev_soil+1,isubs) = t_so_ex(jc,nlev_soil+1,isubs)
 
           IF(lmulti_snow) THEN
-            t_snow_mult_now_t(ic,nlev_snow+1,isubs) = &
-               t_snow_mult_ex(jc,nlev_snow+1,isubs)
-            h_snow_t(ic,isubs) = h_snow_ex(jc,isubs)
+            t_snow_mult_now_t(ic,nlev_snow+1,isubs) = t_snow_mult_ex(jc,nlev_snow+1,isubs)
+            h_snow_t(ic,isubs)                      = h_snow_ex(jc,isubs)
           ENDIF
         ENDDO
 
@@ -548,13 +576,13 @@ CONTAINS
 IF ( .true. ) THEN
 
         CALL terra_multlay(                                    &
-        &  ie=nproma                                         , & ! array dimensions
-        &  istartpar=1,       iendpar=i_count                , & ! optional start/end indicies
-        &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & ! without lowermost (climat.) soil layer
-        &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & ! processing soil level structure 
-        &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , &
+        &  ie=nproma                                         , & !IN array dimensions
+        &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
+        &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
+        &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & !IN processing soil level structure 
+        &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , & !IN !!! Dangerous HACK !!!
         &  nclass_gscp  = atm_phy_nwp_config(jg)%nclass_gscp , & !IN number of hydrometeor classes
-        &  dt=tcall_sfc_jg                                   , &
+        &  dt=tcall_sfc_jg                                   , & !IN 
         &  soiltyp_subs = soiltyp_t(:,isubs)                 , & ! type of the soil (keys 0-9)         --    
         &  plcov        = plcov_t(:,isubs)                   , & ! fraction of plant cover             --
         &  rootdp       = rootdp_t(:,isubs)                  , & ! depth of the roots                ( m  )
@@ -648,8 +676,10 @@ IF ( .true. ) THEN
         &  zlhfl_snow    = lhfl_snow_t(:,isubs)              , & ! latent   heat flux snow/air interface         (W/m2) 
         &  lhfl_bs       = lhfl_bs_t  (:,isubs)              , & ! out: latent heat flux from bare soil evap.    (W/m2)
         &  lhfl_pl       = lhfl_pl_t  (:,:,isubs)            , & ! out: latent heat flux from bare soil evap.    (W/m2)
-        &  rstom         = rstom_t    (:,isubs)                & ! out: stomatal resistance                     ( s/m )
-        &                                                      )
+        &  rstom         = rstom_t    (:,isubs)              , & ! out: stomatal resistance                     ( s/m )
+        &  zshfl_sfc     = shfl_s_t   (:,isubs)              , & !OUT sensible heat flux surface interface     (W/m2) 
+        &  zlhfl_sfc     = lhfl_s_t   (:,isubs)              , & !OUT latent   heat flux surface interface     (W/m2) 
+        &  zqhfl_sfc     = qhfl_s_t   (:,isubs)                ) !OUT moisture flux surface interface          (kg/m2/s) 
 
 !DR aggregation of lhfl_bs_t is missing
 !DR aggregation of lhfl_pl_t is missing
@@ -660,7 +690,7 @@ endif
 IF (msg_level >= 15) THEN
   DO ic = 1, i_count
     jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-    if ( abs(shfl_soil_t(ic,isubs)) > 500.0  .or. shfl_snow_t(ic,isubs) > 500.0  .or. &
+    if ( abs(shfl_soil_t(ic,isubs)) >  800.0 .or. shfl_snow_t(ic,isubs) >  800.0  .or. &
          abs(lhfl_soil_t(ic,isubs)) > 2000.0 .or. lhfl_snow_t(ic,isubs) > 2000.0 ) then
        write(*,*) 'sfc_interface_edmf: fluxes ', &
          ic, jc, isubs, snowfrac_t(ic,isubs), &
@@ -668,7 +698,7 @@ IF (msg_level >= 15) THEN
          lhfl_soil_t(ic,isubs), lhfl_snow_t(ic,isubs)
     endif
     DO jk=1,nlev_soil+1
-      if ( abs( t_so_ex(jc,jk,isubs) - t_so_new_t(ic,jk,isubs) ) > 2.0 ) then 
+      if ( abs( t_so_ex(jc,jk,isubs) - t_so_new_t(ic,jk,isubs) ) > 5.0 ) then 
         write(*,*) 'sfc_interface_edmf: t_so ', ic, jc, isubs, jk, & 
           t_so_ex(jc,jk,isubs), t_so_new_t(ic,jk,isubs), &
           lc_class_t(ic,isubs), snowfrac_t(ic,isubs), &
@@ -720,8 +750,10 @@ endif
           rho_snow_ex (jc,isubs)  = rho_snow_new_t(ic,isubs)        
           h_snow_ex   (jc,isubs)  = h_snow_t      (ic,isubs)              
           w_i_ex      (jc,isubs)  = w_i_new_t     (ic,isubs)             
-          w_p_ex      (jc,isubs)  = w_p_new_t     (ic,isubs)             
-          w_s_ex      (jc,isubs)  = w_s_new_t     (ic,isubs)             
+          IF (itype_interception == 2) THEN
+            w_p_ex    (jc,isubs)  = w_p_new_t     (ic,isubs)             
+            w_s_ex    (jc,isubs)  = w_s_new_t     (ic,isubs)             
+          END IF
           freshsnow_ex(jc,isubs)  = freshsnow_t   (ic,isubs) 
           ! Remark: the two snow-cover fraction variables differ only if lsnowtile=true (see below)  
           snowfrac_lc_ex(jc,isubs)= snowfrac_t    (ic,isubs) 
@@ -731,6 +763,13 @@ endif
 
           t_so_ex(jc,nlev_soil+1,isubs) = t_so_new_t(ic,nlev_soil+1,isubs)
 
+          lhfl_bs_ex  (jc,isubs)  = lhfl_bs_t     (ic,isubs)
+          lhfl_pl_ex  (jc,isubs)  = lhfl_pl_t     (ic,isubs)
+          rstom_ex    (jc,isubs)  = rstom_t       (ic,isubs)
+
+          shfl_s_ex   (jc,isubs)  = shfl_s_t      (ic,isubs)
+          lhfl_s_ex   (jc,isubs)  = lhfl_s_t      (ic,isubs)
+          qhfl_s_ex   (jc,isubs)  = qhfl_s_t      (ic,isubs)
           shfl_soil_ex(jc,isubs)  = shfl_soil_t   (ic,isubs)
           lhfl_soil_ex(jc,isubs)  = lhfl_soil_t   (ic,isubs)   
           shfl_snow_ex(jc,isubs)  = shfl_snow_t   (ic,isubs)

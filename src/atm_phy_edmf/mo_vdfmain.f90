@@ -679,8 +679,10 @@ LOGICAL ::            LMPBLEQU
 !xxx
 REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV) 
 
-REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total+ntiles_water) :: &
-                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t
+REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total+ntiles_water) ::             &
+                    & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t, &
+                    & shfl_s_t   , lhfl_s_t   , qhfl_s_t                , &
+                    & lhfl_bs_t  , lhfl_pl_t  , rstom_t                   
 REAL(KIND=JPRB)       ZTMEAN
 
 !amk testing only!!!
@@ -860,9 +862,9 @@ ENDDO
 ! use sea ice fluxes from previous step for sea ice calculation in the surface interface
 DO JL=KIDIA,KFDIA
   shfl_soil_t(jl,isub_seaice) = PAHFSTI(jl,2)
-  lhfl_soil_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLVTT
+  lhfl_soil_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLSTT
   shfl_snow_t(jl,isub_seaice) = PAHFSTI(jl,2)   !snow over sea ice not used currently
-  lhfl_snow_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLVTT
+  lhfl_snow_t(jl,isub_seaice) = PEVAPTI(jl,2) * RLSTT
 ENDDO
 
 !debug
@@ -891,7 +893,9 @@ CALL SURFEXCDRIVER( &
    & , t_g, qv_s                                                          & ! -
    & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
    & , fr_seaice                                                          & !in
-   & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t,                & !out
+   & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t                 & !out
+   & , shfl_s_t   , lhfl_s_t   , qhfl_s_t                                 &
+   & , lhfl_bs_t  , lhfl_pl_t  , rstom_t    ,                             & !out
   ! standard input
    & CDCONF=CDCONF, &
    & KIDIA=KIDIA, KFDIA=KFDIA, KLON=KLON, KLEVS=KLEVS, KTILES=KTILES, KSTEP=KSTEP, &
@@ -1460,19 +1464,22 @@ CALL SURFPP( KIDIA=KIDIA,KFDIA=KFDIA,KLON=KLON,KTILES=KTILES, &
 ! store skin temperature in t_g_ex for next step
 
 DO JL=KIDIA,KFDIA
-  ztmean = 0.0_jprb
-  DO jt=3,ntiles_edmf
-    ztmean = ztmean + PTSKTI(jl,jt) * PFRTI(jl,jt)
-  ENDDO
-  IF (SUM(PFRTI(jl,3:ntiles_edmf)) > 0.0_JPRB ) THEN
-    ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf))
-  ELSE
-    ztmean = PTSKTI(jl,1)                  ! set to SST if no land for safety
-  ENDIF
+ !ztmean = 0.0_jprb
+ !DO jt=3,ntiles_edmf
+ !  ztmean = ztmean + PTSKTI(jl,jt) * PFRTI(jl,jt)   ! why not use ZTSKTIP1 (new)?
+ !ENDDO
+ !IF (SUM(PFRTI(jl,3:ntiles_edmf)) > 0.0_JPRB ) THEN
+ !  ztmean = ztmean / SUM(PFRTI(jl,3:ntiles_edmf))
+ !ELSE
+ !  ztmean = PTSKTI(jl,1)                  ! set to SST if no land for safety
+ !ENDIF
+
+! ATTENTION: overwriting t_g_ex highly dangerous!!!!!
 
   t_g_ex(jl,isub_water)     = PTSKTI(jl,1) !ocean tiles (includes cold skin ..., NOT SST) ???
-  t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2) !sea ice tiles
-  t_g_ex(jl,1:ntiles_total) = ztmean       !TERRA tiles (mean)
+ !t_g_ex(jl,isub_seaice)    = PTSKTI(jl,2) !sea ice tiles
+ !t_g_ex(jl,isub_seaice)    = t_g_ex(jl,isub_seaice) !sea ice tiles
+ !t_g_ex(jl,1:ntiles_total) = ztmean       !TERRA tiles (mean)
 ENDDO
 
 !DO JL=KIDIA,KFDIA

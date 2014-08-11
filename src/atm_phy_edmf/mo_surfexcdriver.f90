@@ -42,6 +42,8 @@ SUBROUTINE SURFEXCDRIVER    ( &
  & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
  & , fr_seaice                                                          & !in
  & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t                 & !out
+ & , shfl_s_t   , lhfl_s_t   , qhfl_s_t                                 &
+ & , lhfl_bs_t  , lhfl_pl_t  , rstom_t                                  &
 ! standard input
  & , CDCONF &
  & , KIDIA, KFDIA, KLON, KLEVS, KTILES, KSTEP &
@@ -368,7 +370,9 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   fr_seaice
 REAL(KIND=JPRB)  ,INTENT(OUT)    ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  shfl_soil_t    ,lhfl_soil_t    ,shfl_snow_t    ,lhfl_snow_t   
+  shfl_soil_t    ,lhfl_soil_t    ,shfl_snow_t    ,lhfl_snow_t     ,           &
+  shfl_s_t       ,lhfl_s_t       ,qhfl_s_t       ,                            & 
+  lhfl_bs_t      ,lhfl_pl_t      ,rstom_t             
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
   
@@ -768,7 +772,9 @@ CALL SURFEXCDRIVER_CTL(CDCONF &
  & , t_g, qv_s                                                          & ! -
  & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
  & , fr_seaice                                                          & !in
- & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t)                  !out
+ & , shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t                 & !out
+ & , shfl_s_t   , lhfl_s_t   , qhfl_s_t                                 &
+ & , lhfl_bs_t  , lhfl_pl_t  , rstom_t                                  )     
 
 IF (LHOOK) CALL DR_HOOK('SRFEXCDRIVER',1,ZHOOK_HANDLE)
 

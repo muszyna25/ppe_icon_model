@@ -494,14 +494,14 @@ RVLAI(4)=5._JPRB     ! Deciduous Needleleaf Trees
 RVLAI(5)=5._JPRB     ! Deciduous Broadleaf Trees
 RVLAI(6)=6._JPRB     ! Evergreen Broadleaf Trees
 RVLAI(7)=2._JPRB     ! Tall Grass
-RVLAI(8)=0.5_JPRB      ! Desert
-RVLAI(9)=1.0_JPRB       ! Tundra
+RVLAI(8)=0.5_JPRB    ! Desert
+RVLAI(9)=1.0_JPRB    ! Tundra
 RVLAI(10)=3._JPRB    ! Irrigated Crops
-RVLAI(11)=0.5_JPRB     ! Semidesert
-RVLAI(12)=0.0_JPRB     ! Ice Caps and Glaciers
+RVLAI(11)=0.5_JPRB   ! Semidesert
+RVLAI(12)=0.0_JPRB   ! Ice Caps and Glaciers
 RVLAI(13)=4._JPRB    ! Bogs and Marshes
-RVLAI(14)=0.0_JPRB     ! Inland Water
-RVLAI(15)=0.0_JPRB     ! Ocean
+RVLAI(14)=0.0_JPRB   ! Inland Water
+RVLAI(15)=0.0_JPRB   ! Ocean
 RVLAI(16)=3._JPRB    ! Evergreen Shrubs
 RVLAI(17)=1.5_JPRB   ! Deciduous Shrubs
 RVLAI(18)=5._JPRB    ! Mixed Forest/woodland
@@ -585,10 +585,10 @@ RVRSMIN(8)=250._JPRB    ! Desert
 RVRSMIN(9)=80._JPRB     ! Tundra
 RVRSMIN(10)=180._JPRB   ! Irrigated Crops
 RVRSMIN(11)=150._JPRB   ! Semidesert
-RVRSMIN(12)=0.0_JPRB      ! Ice Caps and Glaciers
+RVRSMIN(12)=0.0_JPRB    ! Ice Caps and Glaciers
 RVRSMIN(13)=240._JPRB   ! Bogs and Marshes
-RVRSMIN(14)=0.0_JPRB      ! Inland Water
-RVRSMIN(15)=0.0_JPRB      ! Ocean
+RVRSMIN(14)=0.0_JPRB    ! Inland Water
+RVRSMIN(15)=0.0_JPRB    ! Ocean
 RVRSMIN(16)=225._JPRB   ! Evergreen Shrubs
 RVRSMIN(17)=225._JPRB   ! Deciduous Shrubs
 RVRSMIN(18)=250._JPRB   ! Mixed Forest/woodland
@@ -600,10 +600,10 @@ RVRSMIN(0)=RVRSMIN(8)
 IF(.NOT.ALLOCATED(RVHSTR)) ALLOCATE (RVHSTR(0:IVTYPES))
 RVHSTR(1)=0.0_JPRB     ! Crops, Mixed Farming
 RVHSTR(2)=0.0_JPRB     ! Short Grass
-RVHSTR(3)=0.03_JPRB  ! Evergreen Needleleaf Trees
-RVHSTR(4)=0.03_JPRB  ! Deciduous Needleleaf Trees
-RVHSTR(5)=0.03_JPRB  ! Deciduous Broadleaf Trees
-RVHSTR(6)=0.03_JPRB  ! Evergreen Broadleaf Trees
+RVHSTR(3)=0.03_JPRB    ! Evergreen Needleleaf Trees
+RVHSTR(4)=0.03_JPRB    ! Deciduous Needleleaf Trees
+RVHSTR(5)=0.03_JPRB    ! Deciduous Broadleaf Trees
+RVHSTR(6)=0.03_JPRB    ! Evergreen Broadleaf Trees
 RVHSTR(7)=0.0_JPRB     ! Tall Grass
 RVHSTR(8)=0.0_JPRB     ! Desert
 RVHSTR(9)=0.0_JPRB     ! Tundra
@@ -615,8 +615,8 @@ RVHSTR(14)=0.0_JPRB    ! Inland Water
 RVHSTR(15)=0.0_JPRB    ! Ocean
 RVHSTR(16)=0.0_JPRB    ! Evergreen Shrubs
 RVHSTR(17)=0.0_JPRB    ! Deciduous Shrubs
-RVHSTR(18)=0.03_JPRB ! Mixed Forest/woodland
-RVHSTR(19)=0.03_JPRB ! Interrupted Forest
+RVHSTR(18)=0.03_JPRB   ! Mixed Forest/woodland
+RVHSTR(19)=0.03_JPRB   ! Interrupted Forest
 RVHSTR(20)=0.0_JPRB    ! Water and Land Mixtures
 RVHSTR(0)=RVHSTR(8)
 RVHSTR(:)=1013.25_JPRB*(RETV+1)*RVHSTR(:)
@@ -648,28 +648,55 @@ RVZ0M(0)=RVZ0M(8)      !                           # Bare soil value
 
 ! Roughness length for heat
 
+!IF(.NOT.ALLOCATED(RVZ0H)) ALLOCATE (RVZ0H(0:IVTYPES))
+!RVZ0H(1)=RVZ0M( 1)/10._JPRB     ! Crops, Mixed Farming
+!RVZ0H(2)=RVZ0M( 2)/10._JPRB     ! Short Grass
+!RVZ0H(3)=RVZ0M( 3)              ! Evergreen Needleleaf Trees
+!RVZ0H(4)=RVZ0M( 4)              ! Deciduous Needleleaf Trees
+!RVZ0H(5)=RVZ0M( 5)              ! Deciduous Broadleaf Trees
+!RVZ0H(6)=RVZ0M( 6)              ! Evergreen Broadleaf Trees
+!RVZ0H(7)=RVZ0M( 7)/10._JPRB     ! Tall Grass
+!RVZ0H(8)=RVZ0M( 8)/10._JPRB     ! Desert 
+!RVZ0H(9)=RVZ0M( 9)/10._JPRB     ! Tundra
+!RVZ0H(10)=RVZ0M(10)/10._JPRB    ! Irrigated Crops 
+!RVZ0H(11)=RVZ0M(11)/10._JPRB    ! Semidesert 
+!RVZ0H(12)=RVZ0M(12)/10._JPRB    ! Ice Caps and Glaciers 
+!RVZ0H(13)=RVZ0M(13)/10._JPRB    ! Bogs and Marshes
+!RVZ0H(14)=RVZ0M(14)/10._JPRB    ! Inland Water  
+!RVZ0H(15)=RVZ0M(15)/10._JPRB    ! Ocean 
+!RVZ0H(16)=RVZ0M(16)/10._JPRB    ! Evergreen Shrubs
+!RVZ0H(17)=RVZ0M(17)/10._JPRB    ! Deciduous Shrubs
+!RVZ0H(18)=RVZ0M(18)             ! Mixed Forest/woodland
+!RVZ0H(19)=RVZ0M(19)/10._JPRB    ! Interrupted Forest 
+!RVZ0H(20)=RVZ0M(20)/10._JPRB    ! Water and Land Mixtures 
+!RVZ0H(0)=RVZ0H(8)        
+
+!xmk: change z0's to update to cy28r2 (small z0/100)
+!     AND lower tree values (~2m) by factor 10
+!     ???
+
 IF(.NOT.ALLOCATED(RVZ0H)) ALLOCATE (RVZ0H(0:IVTYPES))
-RVZ0H(1)=RVZ0M( 1)/10._JPRB     ! Crops, Mixed Farming
-RVZ0H(2)=RVZ0M( 2)/10._JPRB     ! Short Grass
-RVZ0H(3)=RVZ0M( 3)              ! Evergreen Needleleaf Trees
-RVZ0H(4)=RVZ0M( 4)              ! Deciduous Needleleaf Trees
-RVZ0H(5)=RVZ0M( 5)              ! Deciduous Broadleaf Trees
-RVZ0H(6)=RVZ0M( 6)              ! Evergreen Broadleaf Trees
-RVZ0H(7)=RVZ0M( 7)/10._JPRB     ! Tall Grass
-RVZ0H(8)=RVZ0M( 8)/10._JPRB     ! Desert 
-RVZ0H(9)=RVZ0M( 9)/10._JPRB     ! Tundra
-RVZ0H(10)=RVZ0M(10)/10._JPRB    ! Irrigated Crops 
-RVZ0H(11)=RVZ0M(11)/10._JPRB    ! Semidesert 
-RVZ0H(12)=RVZ0M(12)/10._JPRB    ! Ice Caps and Glaciers 
-RVZ0H(13)=RVZ0M(13)/10._JPRB    ! Bogs and Marshes
-RVZ0H(14)=RVZ0M(14)/10._JPRB    ! Inland Water  
-RVZ0H(15)=RVZ0M(15)/10._JPRB    ! Ocean 
-RVZ0H(16)=RVZ0M(16)/10._JPRB    ! Evergreen Shrubs
-RVZ0H(17)=RVZ0M(17)/10._JPRB    ! Deciduous Shrubs
-RVZ0H(18)=RVZ0M(18)             ! Mixed Forest/woodland
-RVZ0H(19)=RVZ0M(19)/10._JPRB    ! Interrupted Forest 
-RVZ0H(20)=RVZ0M(20)/10._JPRB    ! Water and Land Mixtures 
+RVZ0H(1)=RVZ0M( 1)/100._JPRB     ! Crops, Mixed Farming
+RVZ0H(2)=RVZ0M( 2)/100._JPRB     ! Short Grass
+RVZ0H(3)=RVZ0M( 3)/10._JPRB      ! Evergreen Needleleaf Trees
+RVZ0H(4)=RVZ0M( 4)/10._JPRB      ! Deciduous Needleleaf Trees
+RVZ0H(5)=RVZ0M( 5)/10._JPRB      ! Deciduous Broadleaf Trees
+RVZ0H(6)=RVZ0M( 6)/10._JPRB      ! Evergreen Broadleaf Trees
+RVZ0H(7)=RVZ0M( 7)/100._JPRB     ! Tall Grass
+RVZ0H(8)=RVZ0M( 8)/100._JPRB     ! Desert 
+RVZ0H(9)=RVZ0M( 9)/100._JPRB     ! Tundra
+RVZ0H(10)=RVZ0M(10)/100._JPRB    ! Irrigated Crops 
+RVZ0H(11)=RVZ0M(11)/100._JPRB    ! Semidesert 
+RVZ0H(12)=RVZ0M(12)/10._JPRB     ! Ice Caps and Glaciers 
+RVZ0H(13)=RVZ0M(13)/100._JPRB    ! Bogs and Marshes
+RVZ0H(14)=RVZ0M(14)/10._JPRB     ! Inland Water  
+RVZ0H(15)=RVZ0M(15)/10._JPRB     ! Ocean 
+RVZ0H(16)=RVZ0M(16)/100._JPRB    ! Evergreen Shrubs
+RVZ0H(17)=RVZ0M(17)/100._JPRB    ! Deciduous Shrubs
+RVZ0H(18)=RVZ0M(18)/10._JPRB     ! Mixed Forest/woodland
+RVZ0H(19)=RVZ0M(19)/100._JPRB    ! Interrupted Forest 
 RVZ0H(0)=RVZ0H(8)        
+RVZ0H(20)=RVZ0M(20)/10._JPRB     ! Water and Land Mixtures 
 
 END SUBROUTINE SUSVEG
 

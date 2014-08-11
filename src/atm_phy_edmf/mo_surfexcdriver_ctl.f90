@@ -66,7 +66,9 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
  & , t_g, qv_s                                                          & ! -
  & , t_ice, h_ice, t_snow_si, h_snow_si                                 & ! -
  & , fr_seaice                                                          & !in
- & , shfl_soil_ex, lhfl_soil_ex, shfl_snow_ex, lhfl_snow_ex)              !out
+ & , shfl_soil_ex, lhfl_soil_ex, shfl_snow_ex, lhfl_snow_ex             & !out
+ & , shfl_s_ex   , lhfl_s_ex   , qhfl_s_ex                              &
+ & , lhfl_bs_ex  , lhfl_pl_ex  , rstom_ex                               ) !out
 
 ! USE PARKIND1  ,ONLY : JPIM, JPRB
 ! 
@@ -401,7 +403,10 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
   fr_seaice
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
-  shfl_soil_ex   ,lhfl_soil_ex   ,shfl_snow_ex   ,lhfl_snow_ex  
+  shfl_soil_ex   ,lhfl_soil_ex   ,shfl_snow_ex   ,lhfl_snow_ex       ,        &
+  shfl_s_ex      ,lhfl_s_ex      ,qhfl_s_ex      ,                            & 
+  lhfl_bs_ex     ,lhfl_pl_ex     ,rstom_ex            
+
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 
@@ -446,32 +451,32 @@ LOGICAL         :: LLHISSR(KLON)
 !   Number of landcover classes provided by external parameter data
 !   Needs to be changed into a variable if landcover classifications 
 !   with a different number of classes become available
-INTEGER, PARAMETER :: num_lcc = 23
+INTEGER, PARAMETER                 :: num_lcc = 23
 REAL(KIND=JPRB), DIMENSION(num_lcc):: jtessel_gcv2009  ! Tessel index table GlobCover2009
-!                      jtessel 
-DATA jtessel_gcv2009 / 4,     & ! irrigated croplands                           
-                   &   4,     & ! rainfed croplands                             
-                   &   4,     & ! mosaic cropland (50-70%) - vegetation (20-50%)
-                   &   4,     & ! mosaic vegetation (50-70%) - cropland (20-50%)
-                   &   6,     & ! closed broadleaved evergreen forest           
-                   &   6,     & ! closed broadleaved deciduous forest           
-                   &   6,     & ! open broadleaved deciduous forest             
-                   &   6,     & ! closed needleleaved evergreen forest          
-                   &   6,     & ! open needleleaved deciduous forest            
-                   &   6,     & ! mixed broadleaved and needleleaved forest     
-                   &   4,     & ! mosaic shrubland (50-70%) - grassland (20-50%)
-                   &   4,     & ! mosaic grassland (50-70%) - shrubland (20-50%)
-                   &   4,     & ! closed to open shrubland                      
-                   &   4,     & ! closed to open herbaceous vegetation          
-                   &   4,     & ! sparse vegetation                             
-                   &   6,     & ! closed to open forest regulary flooded        
-                   &   6,     & ! closed forest or shrubland permanently flooded
-                   &   4,     & ! closed to open grassland regularly flooded    
-                   &   8,     & ! artificial surfaces                           
-                   &   8,     & ! bare areas                                    
-                   &   1,     & ! water bodies                                  
-                   &   5,     & ! permanent snow and ice                        
-                   &   8      / !undefined                                  
+                     ! jtessel     GlobCover2009
+  DATA jtessel_gcv2009 / 4,   & !  1 irrigated croplands
+                     &   4,   & !  2 rainfed croplands
+                     &   4,   & !  3 mosaic cropland (50-70%) - vegetation (20-50%)
+                     &   4,   & !  4 mosaic vegetation (50-70%) - cropland (20-50%)
+                     &   6,   & !  5 closed broadleaved evergreen forest
+                     &   6,   & !  6 closed broadleaved deciduous forest
+                     &   6,   & !  7 open broadleaved deciduous forest
+                     &   6,   & !  8 closed needleleaved evergreen forest
+                     &   6,   & !  9 open needleleaved deciduous forest
+                     &   6,   & ! 10 mixed broadleaved and needleleaved forest
+                     &   4,   & ! 11 mosaic shrubland (50-70%) - grassland (20-50%)
+                     &   4,   & ! 12 mosaic grassland (50-70%) - shrubland (20-50%)
+                     &   4,   & ! 13 closed to open shrubland
+                     &   4,   & ! 14 closed to open herbaceous vegetation
+                     &   4,   & ! 15 sparse vegetation
+                     &   6,   & ! 16 closed to open forest regulary flooded
+                     &   6,   & ! 17 closed forest or shrubland permanently flooded
+                     &   4,   & ! 18 closed to open grassland regularly flooded
+                     &   8,   & ! 19 artificial surfaces
+                     &   8,   & ! 20 bare areas
+                     &   1,   & ! 21 water bodies
+                     &   5,   & ! 22 permanent snow and ice
+                     &   8    / ! 23 undefined
 
 ! #include "fcsttre.h"
 
@@ -731,12 +736,20 @@ ENDDO
 
 !*         3.2a  CALL TERRA
 
+! Assign TERRA exchange coefficients from TESSEL tiled coefficients (including snow!)
+
 DO isubs=1,ntiles_total+ntiles_water
   DO jl=KIDIA,KFDIA
     IF ( isubs <= ntiles_total ) THEN          ! land
       IF ( ext_data%atm%frac_t(jl,jb,isubs) > 0.0_JPRB ) THEN   ! only used tiles 
+
         JTILE = jtessel_gcv2009(ext_data%atm%lc_class_t(jl,jb,isubs))
-        IF ( snowfrac_ex(jl,isubs) > 0.5_jprb ) THEN
+
+! BEST SOLUTION: give snow and no-snow ZCH to TERRA for fractional snow tiles!
+!                (pass new argument ZCH_SNOW to terra and use in snow flox calculation)
+
+       !IF ( snowfrac_ex(jl,isubs) > 0.5_jprb ) THEN
+        IF ( snowfrac_ex(jl,isubs) > 0.0_jprb ) THEN  !safe: use small snow coefficients!
           SELECT CASE ( JTILE )
             CASE (4)
               JTILE = 5                        ! snow over low vegetation
@@ -746,17 +759,24 @@ DO isubs=1,ntiles_total+ntiles_water
               JTILE = 5                        ! snow over bare ground
           END SELECT
         ENDIF
+
 ! interception layer (#3) missing ???
 ! debug: high veg -> low veg (snow or no snow) ???
         IF (JTILE == 6)  JTILE = 4
         IF (JTILE == 7)  JTILE = 5
+! this fix is being done because the canopy resistence is not in TERRA and needs to be added
+! (chapter 8.2.2 in IFS documentation) ... ra = 1 / (U*Ch), rc = canopy
+
       ELSE
         JTILE = 8                              ! unused tiles with frac=0, just for safety
       ENDIF
+
     ELSE
+
       IF (isubs == isub_water  ) JTILE = 1     ! ocean
       IF (isubs == isub_lake   ) JTILE = 1     ! lake (fake it as ocean????)
-      IF (isubs == isub_seaice ) JTILE = 2     ! ocean
+      IF (isubs == isub_seaice ) JTILE = 2     ! sea ice
+
     ENDIF
 
     tch_ex(jl,isubs) = ZCH(jl,JTILE)
@@ -836,22 +856,28 @@ IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
     shfl_soil_ex     = shfl_soil_ex    , & ! sensible heat flux soil/air interface         (W/m2)
     lhfl_soil_ex     = lhfl_soil_ex    , & ! latent   heat flux soil/air interface         (W/m2)
     shfl_snow_ex     = shfl_snow_ex    , & ! sensible heat flux snow/air interface         (W/m2)
-    lhfl_snow_ex     = lhfl_snow_ex    )   ! latent   heat flux snow/air interface         (W/m2)
+    lhfl_snow_ex     = lhfl_snow_ex    , & ! latent   heat flux snow/air interface         (W/m2)
+    shfl_s_ex        = shfl_s_ex       , & ! sensible heat flux                            (W/m2)
+    lhfl_s_ex        = lhfl_s_ex       , & ! latent heat flux                              (W/m2)
+    qhfl_s_ex        = qhfl_s_ex       , & ! moisture flux                                 (W/m2)
+    lhfl_bs_ex       = lhfl_bs_ex      , & 
+    lhfl_pl_ex       = lhfl_pl_ex      , &
+    rstom_ex         = rstom_ex        ) 
 ENDIF
 
 
 IF (msg_level >= 15) THEN
   DO JTILE=1,ntiles_total
     DO JL=KIDIA,KFDIA
-      IF ( ABS( shfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  500.0_JPRB  .OR. & 
-           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  500.0_JPRB  .OR. & 
+      IF ( ABS( shfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  >  800.0_JPRB  .OR. & 
+           ABS( shfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  >  800.0_JPRB  .OR. & 
            ABS( lhfl_soil_ex(jl,jtile) * (1-snowfrac_ex(jl,jtile)))  > 2000.0_JPRB  .OR. & 
            ABS( lhfl_snow_ex(jl,jtile) *    snowfrac_ex(jl,jtile) )  > 2000.0_JPRB  ) THEN
          write(*,*) 'surfexc3: SHF-soil,-snow,LHF-soil,-snow', &
-           jl, jtile, snowfrac_ex(jl,jtile), &
+           jl, jtile, snowfrac_ex(jl,jtile), ext_data%atm%frac_t(jl,jb,jtile), ext_data%atm%lc_class_t(jl,jb,jtile), &
            shfl_soil_ex(jl,jtile), shfl_snow_ex(jl,jtile), &
            lhfl_soil_ex(jl,jtile), lhfl_snow_ex(jl,jtile), &
-           t_g_ex(jl,jtile), PTMLEV(jl), qv_s_ex(jl,jtile), PQMLEV(jl) 
+           tch_ex(jl,jtile), t_g_ex(jl,jtile), PTMLEV(jl), qv_s_ex(jl,jtile), PQMLEV(jl) 
       ENDIF
     ENDDO
   ENDDO
@@ -859,6 +885,7 @@ ENDIF
 
 !overwrite fluxes over land from TERRA back to EDMF code
 !...this needs to be done by tile properly???????
+!...see also mo_vdfmain.f90: ZEXTSHF/ZEXTLHF (done there)
 !?? DO JTILE=3,KTILES
 !??   DO JL=KIDIA,KFDIA
 !??     PAHFSTI(JL,JTILE) = 0.0_JPRB

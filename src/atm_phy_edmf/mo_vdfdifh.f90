@@ -518,7 +518,7 @@ IF (LDTERRA) THEN
       IF ( LDLAND(JL) ) THEN
 !xmk    ZJS(JL,JT)=PEXTSHF(JL)+RCPD*PTSKTI(JL,JT)*RVTMP2*PEXTLHF(JL)/RLVTT
         ZJS(JL,JT)=PEXTSHF(JL)  !no more RVTMP2
-        PJQ(JL,JT)=PEXTLHF(JL)/RLVTT
+        PJQ(JL,JT)=PEXTLHF(JL)/RLVTT                !RLVTT or RLSTT ???
         
 !       ZSSK(JL,JT)=ZBSL(JL)+ZJS(JL,JT)*(ZASL(JL)-1.0_JPRB/ZRHOCHU(JL,JT)) 
 !       ZTSK(JL,JT)=ZSSK(JL,JT)/(RCPD*(1.+RVTMP2*PQSTI(JL,JT)))
@@ -529,6 +529,7 @@ IF (LDTERRA) THEN
 if ( (ZTSK(JL,JT) > 400.0) .or. (ZTSK(JL,JT) < 100.0  ) ) then
   write(*,*) 'vdfdifh0 ', JT, ZTSK(JL,JT), ZSSK(JL,JT), PQSTI(JL,JT), &
     ZASL(JL), ZBSL(JL), PTSKTI(JL,JT), PQSTI(JL,JT)
+  write(*,*) 'vdfdifh8 ', JT, PFRTI(JL,1:KTILES) 
 endif
         PSSH(JL,JT)=PEXTSHF(JL)
         PSLH(JL,JT)=PEXTLHF(JL)
