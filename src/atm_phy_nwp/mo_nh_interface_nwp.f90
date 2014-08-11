@@ -1141,6 +1141,9 @@ CONTAINS
               zddt_v_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
             ENDDO
           ENDDO
+        ELSE
+          zddt_u_raylfric(:,:) = 0._wp
+          zddt_v_raylfric(:,:) = 0._wp
         ENDIF
 
         ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
