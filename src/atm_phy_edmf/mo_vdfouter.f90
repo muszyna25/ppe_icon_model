@@ -582,10 +582,13 @@ REAL(KIND=JPRB) ::    ZHOOK_HANDLE
 
 IF (LHOOK) CALL DR_HOOK('VDFOUTER',0,ZHOOK_HANDLE)
 
-!xmk INVDF  = 2
 
-INVDF = CEILING(PTSPHY/500.0_JPRB) !take substep smaller than 500s
-INVDF = MAX(INVDF,2)              !at lease 2 sub-steps
+INVDF = CEILING(PTSPHY/500.0_JPRB) !substeps always smaller than 500s
+!INVDF = MAX(INVDF,2)               !at lease 2 sub-steps
+
+!amk 
+!INVDF = 1
+!xxx
 
 ZINVDF = 1.0_JPRB/INVDF
 
