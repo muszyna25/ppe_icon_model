@@ -223,8 +223,8 @@ IF (LHOOK) CALL DR_HOOK('VDFCLOUD',0,ZHOOK_HANDLE)
 
 
 !-- Cloud wake parameterization --
-LLCLOUDWAKE = .TRUE.      !activation switch
-!LLCLOUDWAKE = .FALSE.
+!LLCLOUDWAKE = .TRUE.      !activation switch
+LLCLOUDWAKE = .FALSE.
 !ZQLWAKEFAC = 0.1_JPRB    !proportionality factor with updraft PDF condensate
 ZQLWAKEFAC = 0._JPRB
 
