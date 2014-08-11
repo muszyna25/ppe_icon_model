@@ -245,7 +245,8 @@ USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
-USE gscp_data                 !xxx: common module COSMO/ICON, all variables are used here
+!xxx: common module COSMO/ICON, all variables are used here
+USE gscp_data
 
 USE data_hydci_pp_ice,     ONLY:    afrac_dust, &  !! look-up table of activated fraction of dust particles acting as ice nuclei
                                     afrac_soot, &  !! ... of soot particles
