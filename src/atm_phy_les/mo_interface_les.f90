@@ -165,7 +165,8 @@ CONTAINS
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
  
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, &
+      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev)
 
     !< vertical interfaces
 
@@ -1111,7 +1112,7 @@ CONTAINS
       
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, &
-!$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
 !
@@ -1129,8 +1130,8 @@ CONTAINS
               IF (vabs > ustart_q) THEN
                 rfric_fac = MIN(1._wp,4.e-4_wp*(vabs-uoffset_q)**2)
               ENDIF
-              prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
-              prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
+              zddt_u_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
+              zddt_v_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
             ENDDO
           ENDDO
         ENDIF
@@ -1142,11 +1143,11 @@ CONTAINS
             prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_u_raylfric(jc,jk,jb)) &
+                                                    zddt_u_raylfric(jc,jk))                &
                                                    +      pt_diag%v(jc,jk,jb)*             & 
                                                    (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
+                                                    zddt_v_raylfric(jc,jk))                )
           ENDDO
         ENDDO
 !DIR$ IVDEP
@@ -1205,12 +1206,12 @@ CONTAINS
             DO jc = i_startidx, i_endidx
                z_ddt_u_tot(jc,jk,jb) =                   &
                    prm_nwp_tend%ddt_u_gwd     (jc,jk,jb) &
-                 + prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) &
+                 + zddt_u_raylfric            (jc,jk)    &
                  + prm_nwp_tend%ddt_u_sso     (jc,jk,jb) 
 
                z_ddt_v_tot(jc,jk,jb) =                   &
                    prm_nwp_tend%ddt_v_gwd     (jc,jk,jb) &
-                 + prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) &
+                 + zddt_v_raylfric            (jc,jk)    &
                  + prm_nwp_tend%ddt_v_sso     (jc,jk,jb) 
             END DO
           END DO  

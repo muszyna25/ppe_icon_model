@@ -361,12 +361,10 @@ MODULE mo_nwp_phy_types
       ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
       ddt_u_turb      (:,:,:)  ,& !! ZonalW-tendency from turbulence
       ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
-      ddt_u_raylfric  (:,:,:)  ,& !! ZonalW-tendency from artificial Rayleigh friction
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
       ddt_u_pconv     (:,:,:)  ,& !! ZonalW-tendency from convective prec
       ddt_v_turb      (:,:,:)  ,& !! MeridW-tendency from turbulence
       ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag
-      ddt_v_raylfric  (:,:,:)  ,& !! MeridW-tendency from artificial Rayleigh friction
       ddt_v_sso       (:,:,:)  ,& !! MeridW-tendency from sso drag
       ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence

@@ -312,7 +312,11 @@ CONTAINS
 
       IF ( MOD( k_step, 2 ) == 0 .OR. advection_config(jg)%lstrang ) THEN
 
-
+        ! vertical transport and subsequent calculations include all halo points in order
+        ! to avoid an additional synchronization step
+        ! nest boundary points are needed as well because the subsequent horizontal transport
+        ! accesses part of them
+        !
         i_rlstart  = 2
         i_rlend    = min_rlcell
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
@@ -343,40 +347,25 @@ CONTAINS
         ! integration of tracer continuity equation in vertical
         ! direction. This is independent of the tracer and thus must be
         ! computed only once.
+        ! afterwards compute vertical flux divergence for each tracer
 
 !$OMP PARALLEL
-        ! Note that intermediate densities are needed by the horizontal 
-        ! limiter as well. That is, why we have to extend the following 
-        ! computation to halo points.
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-            &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
-          ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                      &
-            &              ptr_delp_mc_now(i_startidx:i_endidx,1:nlev,jb)       &
-            &              - pdtime_mod                                         &
-            &              * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
-            &              - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
-        ENDDO
-!$OMP END DO
-
-        !
-        ! compute vertical flux divergence
-        !
-
-        ! Note that we need to start the calculation within the
-        ! nest boundary, since the following horizontal flux calculation
-        ! uses a non-local stencil.
-
 !$OMP DO PRIVATE(jb,jk,jt,jc,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
+
+          ! integration of tracer continuity equation
+          ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                      &
+            &              ptr_delp_mc_now(i_startidx:i_endidx,1:nlev,jb)       &
+            &              - pdtime_mod                                         &
+            &              * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
+            &              - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
+
+
+          ! computation of vertical flux divergences
           DO jt = 1, ntracer ! Tracer loop
 
             DO jk = advection_config(jg)%iadv_slev(jt), nlev

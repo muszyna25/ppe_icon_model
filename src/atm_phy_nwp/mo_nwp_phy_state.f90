@@ -2437,14 +2437,6 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,    &
                 & ldims=shape3d, in_group=groups("phys_tendencies") )
 
-   ! &      phy_tend%ddt_u_raylfric(nproma,nlev,nblks)
-    cf_desc    = t_cf_var('ddt_u_raylfric', 'm s-2', &
-         &                'Rayleigh friction tendency of zonal wind', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_u_raylfric', phy_tend%ddt_u_raylfric,   &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                & ldims=shape3d, lrestart=.FALSE.)
-
    ! &      phy_tend%ddt_u_pconv(nproma,nlev,nblks)
     cf_desc    = t_cf_var('ddt_u_pconv', 'm s-2', &
          &                            'convective tendency of zonal wind', DATATYPE_FLT32)
@@ -2480,14 +2472,6 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     CALL add_var( phy_tend_list, 'ddt_v_gwd', phy_tend%ddt_v_gwd,            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,    &
                 & ldims=shape3d, in_group=groups("phys_tendencies") )
-
-   ! &      phy_tend%ddt_v_raylfric(nproma,nlev,nblks)
-    cf_desc    = t_cf_var('ddt_v_raylfric', 'm s-2', &
-         &                'Rayleigh friction tendency of meridional wind', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_v_raylfric', phy_tend%ddt_v_raylfric,   &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
-                & ldims=shape3d, lrestart=.FALSE.)
 
    ! &      phy_tend%ddt_v_pconv(nproma,nlev,nblks)
     cf_desc    = t_cf_var('ddt_v_pconv', 'm s-2', &

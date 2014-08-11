@@ -177,7 +177,8 @@ CONTAINS
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev)   !< Temperature tendency
  
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, &
+      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev)
 
     !< vertical interfaces
 
@@ -622,27 +623,29 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! This loop needs to be split here in order to ensure that the same compiler
-        ! optimization is applied as in a corresponding loop later in this module, where
-        ! the same calculations are made for the halo points.
-        DO jk = kstart_moist(jg), nlev
+        ! compute dynamical temperature tendency from increments of Exner function and density
+        ! the virtual increment is neglected here because this tendency is used only as
+        ! input for the convection scheme, which is rather insensitive against this quantity
+        IF ( lcall_phy_jg(itconv)  ) THEN
+          DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
-          DO jc =  i_startidx, i_endidx
+            DO jc =  i_startidx, i_endidx
 
-            ! compute dynamical temperature tendency from increments of Exner function and density
-            ! the virtual increment is neglected here because this tendency is used only as
-            ! input for the convection scheme, which is rather insensitive against this quantity
-            pt_diag%ddt_temp_dyn(jc,jk,jb) = pt_diag%temp(jc,jk,jb)/dt_phy_jg(itfastphy) * &
-              ( cpd_o_rd/pt_prog%exner(jc,jk,jb)*pt_diag%exner_dyn_incr(jc,jk,jb) -        &
-              ( pt_diag%airmass_new(jc,jk,jb)-pt_diag%airmass_now(jc,jk,jb) ) /            &
-              pt_diag%airmass_new(jc,jk,jb) )
+              pt_diag%ddt_temp_dyn(jc,jk,jb) = pt_diag%temp(jc,jk,jb)/dt_phy_jg(itfastphy) * &
+                ( cpd_o_rd/pt_prog%exner(jc,jk,jb)*pt_diag%exner_dyn_incr(jc,jk,jb) -        &
+                ( pt_diag%airmass_new(jc,jk,jb)-pt_diag%airmass_now(jc,jk,jb) ) /            &
+                pt_diag%airmass_new(jc,jk,jb) )
 
-            ! reset dynamical exner increment to zero
-            ! (it is accumulated over one advective time step in solve_nh)
-            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
+              ! reset dynamical exner increment to zero
+              ! (it is accumulated over one advective time step in solve_nh)
+              pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
 
+            ENDDO
           ENDDO
-        ENDDO
+        ELSE
+          ! reset only the dynamical exner increment
+          pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
+        ENDIF
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -1116,7 +1119,7 @@ CONTAINS
       
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
-!$OMP  rfric_fac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
 !
@@ -1134,8 +1137,8 @@ CONTAINS
               IF (vabs > ustart_q) THEN
                 rfric_fac = MIN(1._wp,4.e-4_wp*(vabs-uoffset_q)**2)
               ENDIF
-              prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
-              prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
+              zddt_u_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
+              zddt_v_raylfric(jc,jk) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
             ENDDO
           ENDDO
         ENDIF
@@ -1147,11 +1150,11 @@ CONTAINS
             prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_u_raylfric(jc,jk,jb)) &
+                                                    zddt_u_raylfric(jc,jk))                &
                                                    +      pt_diag%v(jc,jk,jb)*             & 
                                                    (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
-                                                    prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
+                                                    zddt_v_raylfric(jc,jk))                )
           ENDDO
         ENDDO
 !DIR$ IVDEP
@@ -1212,13 +1215,13 @@ CONTAINS
 !DIR$ IVDEP
           z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
    &          prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_u_raylfric(i_startidx:i_endidx,:,jb) &
+   &        + zddt_u_raylfric            (i_startidx:i_endidx,:)    &
    &        + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb) 
 !DIR$ IVDEP
           z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
    &          prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_v_raylfric(i_startidx:i_endidx,:,jb) &
+   &        + zddt_v_raylfric            (i_startidx:i_endidx,:)    &
    &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb) 
         ENDIF
