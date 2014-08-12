@@ -612,37 +612,42 @@ CONTAINS
     CALL deallocateDatetime(mtime_cur)
     CALL deallocateTimedelta(forecast_delta)
 
-    mtime_lengthOfTimeRange => newTimedelta(TRIM(info%action_list%action(1)%intvl))
-    
-    ilengthOfTimeRange = 86400 *INT(mtime_lengthOfTimeRange%day)    &
-      &                + 3600  *INT(mtime_lengthOfTimeRange%hour)   &
-      &                + 60    *INT(mtime_lengthOfTimeRange%minute) &
-      &                +        INT(mtime_lengthOfTimeRange%second) 
-
-    taxisID     = vlistInqTaxis(vlistID)
-    taxis_tunit = taxisInqTunit(taxisID)
-
-    SELECT CASE (taxis_tunit)
-    CASE (TUNIT_SECOND)
-      indicatorOfUnitForTimeRange = 13
-    CASE (TUNIT_MINUTE)
-      ilengthOfTimeRange = INT(ilengthOfTimeRange/60)
-      forecast_seconds   = INT(forecast_seconds/60)
-      indicatorOfUnitForTimeRange = 0
-    CASE (TUNIT_HOUR)
-      ilengthOfTimeRange = INT(ilengthOfTimeRange/3600)
-      forecast_seconds   = INT(forecast_seconds/3600)
-      indicatorOfUnitForTimeRange = 1
-    CASE DEFAULT
-    END SELECT
-
-    ! set Indicator of unit of time for time range over which statistical processing is done
-    ! equal to the Indicator of unit of time range. This is not time dependent and may be 
-    ! moved to some better place. Note that the CDI-internal numbers differ from the official 
-    ! GRIB2 numbers!
     CALL vlistDefVarIntKey(vlistID, varID, "forecastTime",                forecast_seconds) 
-    CALL vlistDefVarIntKey(vlistID, varID, "indicatorOfUnitForTimeRange", indicatorOfUnitForTimeRange)
-    CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+
+    IF (info%action_list%n_actions > 0) THEN
+
+       mtime_lengthOfTimeRange => newTimedelta(TRIM(info%action_list%action(1)%intvl))
+    
+       ilengthOfTimeRange = 86400 *INT(mtime_lengthOfTimeRange%day)    &
+            &                + 3600  *INT(mtime_lengthOfTimeRange%hour)   &
+            &                + 60    *INT(mtime_lengthOfTimeRange%minute) &
+            &                +        INT(mtime_lengthOfTimeRange%second) 
+       
+       taxisID     = vlistInqTaxis(vlistID)
+       taxis_tunit = taxisInqTunit(taxisID)
+       
+       SELECT CASE (taxis_tunit)
+       CASE (TUNIT_SECOND)
+          indicatorOfUnitForTimeRange = 13
+       CASE (TUNIT_MINUTE)
+          ilengthOfTimeRange = INT(ilengthOfTimeRange/60)
+          forecast_seconds   = INT(forecast_seconds/60)
+          indicatorOfUnitForTimeRange = 0
+       CASE (TUNIT_HOUR)
+          ilengthOfTimeRange = INT(ilengthOfTimeRange/3600)
+          forecast_seconds   = INT(forecast_seconds/3600)
+          indicatorOfUnitForTimeRange = 1
+       CASE DEFAULT
+       END SELECT
+       
+       ! set Indicator of unit of time for time range over which statistical processing is done
+       ! equal to the Indicator of unit of time range. This is not time dependent and may be 
+       ! moved to some better place. Note that the CDI-internal numbers differ from the official 
+       ! GRIB2 numbers!
+       CALL vlistDefVarIntKey(vlistID, varID, "indicatorOfUnitForTimeRange", indicatorOfUnitForTimeRange)
+       CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+
+    END IF
 
   END SUBROUTINE set_timedependent_GRIB2_keys
 
