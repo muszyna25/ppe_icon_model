@@ -110,7 +110,7 @@ cat > ${atmo_namelist} << EOF
  ihadv_tracer     = 52,2,2
 /
 &echam_phy_nml
- lrad             = .TRUE.
+ lrad             = .FALSE.
  dt_rad           =  7200.      ! [s] radiation time step
  lvdiff           = .TRUE.
  lconv            = .TRUE.
