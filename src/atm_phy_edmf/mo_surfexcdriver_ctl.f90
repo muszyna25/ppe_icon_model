@@ -405,8 +405,9 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON)                          :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   shfl_soil_ex   ,lhfl_soil_ex   ,shfl_snow_ex   ,lhfl_snow_ex       ,        &
   shfl_s_ex      ,lhfl_s_ex      ,qhfl_s_ex      ,                            & 
-  lhfl_bs_ex     ,lhfl_pl_ex     ,rstom_ex            
-
+  lhfl_bs_ex     ,rstom_ex            
+REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_soil,ntiles_total+ntiles_water) :: &
+  lhfl_pl_ex
 TYPE(t_external_data), INTENT(INOUT)                                       :: &
   ext_data
 

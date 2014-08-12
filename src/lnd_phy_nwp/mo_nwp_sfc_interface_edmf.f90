@@ -230,8 +230,9 @@ CONTAINS
                   lhfl_s_ex        , & ! latent   heat flux                            ( W/m2)
                   qhfl_s_ex        , & ! moisture      flux                            ( W/m2)
                   lhfl_bs_ex       , & 
-                  lhfl_pl_ex       , &
                   rstom_ex            
+  REAL(wp), DIMENSION(nproma,nlev_soil,ntiles_total+ntiles_water), INTENT(INOUT) :: &
+                  lhfl_pl_ex 
 
   TYPE(t_external_data), INTENT(inout) :: ext_data        !< external data
 
@@ -764,7 +765,6 @@ endif
           t_so_ex(jc,nlev_soil+1,isubs) = t_so_new_t(ic,nlev_soil+1,isubs)
 
           lhfl_bs_ex  (jc,isubs)  = lhfl_bs_t     (ic,isubs)
-          lhfl_pl_ex  (jc,isubs)  = lhfl_pl_t     (ic,isubs)
           rstom_ex    (jc,isubs)  = rstom_t       (ic,isubs)
 
           shfl_s_ex   (jc,isubs)  = shfl_s_t      (ic,isubs)
@@ -828,6 +828,9 @@ endif
             t_so_ex    (jc,jk,isubs) = t_so_new_t    (ic,jk,isubs)          
             w_so_ex    (jc,jk,isubs) = w_so_new_t    (ic,jk,isubs)          
             w_so_ice_ex(jc,jk,isubs) = w_so_ice_new_t(ic,jk,isubs)     
+
+            ! diagnostic field
+            lhfl_pl_ex (jc,jk,isubs) = lhfl_pl_t     (ic,jk,isubs)     
           ENDDO
         ENDDO
 

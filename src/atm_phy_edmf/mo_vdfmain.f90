@@ -682,7 +682,9 @@ REAL(KIND=JPRB) ::    ZQTENH(KLON,0:KLEV)
 REAL(KIND=JPRB), DIMENSION(KLON,ntiles_total+ntiles_water) ::             &
                     & shfl_soil_t, lhfl_soil_t, shfl_snow_t, lhfl_snow_t, &
                     & shfl_s_t   , lhfl_s_t   , qhfl_s_t                , &
-                    & lhfl_bs_t  , lhfl_pl_t  , rstom_t                   
+                    & lhfl_bs_t  , rstom_t                   
+REAL(KIND=JPRB), DIMENSION(KLON,nlev_soil,ntiles_total+ntiles_water) :: &
+  lhfl_pl_t
 REAL(KIND=JPRB)       ZTMEAN
 
 !amk testing only!!!
