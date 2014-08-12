@@ -74,13 +74,13 @@ add_link_file $ext_data_path/extpar_${grid_3}.nc  extpar_${grid_3}.nc
 
 #INITIAL DATA
 init_data_path=$LAMDATA/INIT_germany
-add_link_file $init_data_path/1250/init_${grid_1}_2013042400.nc ifs2icon_R2B11_DOM01.nc
-add_link_file $init_data_path/1250/init_${grid_1}_2013042400.nc dwdFG_R2B11_DOM01.nc
-add_link_file $init_data_path/0625/init_${grid_2}_2013042400.nc ifs2icon_R2B12_DOM02.nc
-add_link_file $init_data_path/0625/init_${grid_2}_2013042400.nc dwdFG_R2B12_DOM02.nc
-add_link_file $init_data_path/0312/init_${grid_3}_2013042400.nc ifs2icon_R2B13_DOM03.nc
-add_link_file $init_data_path/0312/init_${grid_3}_2013042400.nc dwdFG_R2B13_DOM03.nc
-
+init_date=2013042400
+add_link_file $init_data_path/1250/init_${grid_1}_${init_date}.nc ifs2icon_R2B11_DOM01.nc
+add_link_file $init_data_path/1250/init_${grid_1}_${init_date}.nc dwdFG_R2B11_DOM01.nc
+add_link_file $init_data_path/0625/init_${grid_2}_${init_date}.nc ifs2icon_R2B12_DOM02.nc
+add_link_file $init_data_path/0625/init_${grid_2}_${init_date}.nc dwdFG_R2B12_DOM02.nc
+add_link_file $init_data_path/0312/init_${grid_3}_${init_date}.nc ifs2icon_R2B13_DOM03.nc
+add_link_file $init_data_path/0312/init_${grid_3}_${init_date}.nc dwdFG_R2B13_DOM03.nc
 #
 #-----------------------------------------------------------------------------
 #
