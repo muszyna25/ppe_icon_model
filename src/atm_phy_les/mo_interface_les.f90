@@ -160,12 +160,9 @@ CONTAINS
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
 
     REAL(wp), TARGET :: &                                     !> temporal arrays for 
-      & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& 
-      & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
  
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, &
-      zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev)
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv
 
     !< vertical interfaces
 
@@ -1057,11 +1054,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
-      IF (p_test_run) THEN
-        z_ddt_u_tot = 0._wp
-        z_ddt_v_tot = 0._wp
-      ENDIF
-
       IF (timers_level > 3) CALL timer_start(timer_phys_acc_1)
 
       ! exclude boundary interpolation zone of nested domains
@@ -1149,11 +1141,6 @@ CONTAINS
                 &                             - z_qsum(jc,jk)) + pt_diag%temp(jc,jk,jb)        &
                 &           * (vtmpc1 * (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv) +         &
                 &              prm_nwp_tend%ddt_tracer_ls(jk,iqv) ) - z_ddt_qsum ) )
-
-
-              ! add u/v forcing tendency here
-              z_ddt_u_tot(jc,jk,jb) = prm_nwp_tend%ddt_u_ls(jk)
-              z_ddt_v_tot(jc,jk,jb) = prm_nwp_tend%ddt_v_ls(jk)
 
             END DO  ! jc
           END DO  ! jk
@@ -1351,14 +1338,14 @@ CONTAINS
 #endif
 
             pt_diag%ddt_vn_phy(jce,jk,jb) =   pt_int_state%c_lin_e(jce,1,jb)           &
-&                                 * ( z_ddt_u_tot(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   * (       prm_nwp_tend%ddt_u_ls(jk)                &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
-&                                   + z_ddt_v_tot(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   +         prm_nwp_tend%ddt_v_ls(jk)                &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
 &                                                 + pt_int_state%c_lin_e(jce,2,jb)     &
-&                                 * ( z_ddt_u_tot(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
-&                                    * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
-&                                  +  z_ddt_v_tot(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
+&                                   * (       prm_nwp_tend%ddt_u_ls(jk)                &
+&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
+&                                   +         prm_nwp_tend%ddt_v_ls(jk)                &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
 
             pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dtadv_loc * (              &
