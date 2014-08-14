@@ -301,7 +301,7 @@ if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; the
   rm ${RUN_SCRIPT}.sedbak
   #
   echo "Perform $TEST run"
-  ${RUN_SCRIPT}
+  ${SCRIPT_DIR}/${RUN_SCRIPT}
   #
   STATUS=$?
   if [ "$STATUS" -eq 0 ]; then
@@ -342,7 +342,7 @@ if string_in_list $MD $CMODES; then
     rm ${RUN_SCRIPT}.sedbak
     #
     echo "Perform $TEST run"
-    ${RUN_SCRIPT}
+    ${REFERENCE}/run/${RUN_SCRIPT}
     #
   else
     echo "Found $TEST run"
@@ -382,7 +382,7 @@ if string_in_list $MD $CMODES; then
     rm ${RUN_SCRIPT}.sedbak
     #
     echo "Perform $TEST run"
-    ${RUN_SCRIPT}
+    ${SCRIPT_DIR}/${RUN_SCRIPT}
     #
   else
     echo "Found $TEST run"
@@ -425,7 +425,7 @@ if string_in_list $MD $CMODES; then
     rm ${RUN_SCRIPT}.sedbak
     #
     echo "Perform $TEST run"
-    ${RUN_SCRIPT}
+    ${SCRIPT_DIR}/${RUN_SCRIPT}
     #
   else
     echo "Found $TEST run"
@@ -529,7 +529,7 @@ if string_in_list $MD $CMODES; then
         rm ${RUN_SCRIPT}.sedbak
         #
         echo "Perform $TEST run"
-        ${RUN_SCRIPT}
+        ${SCRIPT_DIR}/${RUN_SCRIPT}
         #
       else
         echo "No MPI parallelization test is peformed if: total number of MPI processes = $N_PROCS"
@@ -617,7 +617,7 @@ if string_in_list $MD $CMODES; then
         rm ${RUN_SCRIPT}.sedbak
         #
         echo "Perform $TEST run"
-        ${RUN_SCRIPT}
+        ${SCRIPT_DIR}/${RUN_SCRIPT}
         #
       else
         echo "No OMP parallelization test is performed if: number of OMP threads = $N_OMP_NUM_THREADS"
