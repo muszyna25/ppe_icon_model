@@ -666,4 +666,5 @@ echo ' '
 echo $PASSED_TESTS
 echo $FAILED_TESTS
 
-exit
+echo $EXIT_STATUS > ${SCRIPT_DIR}/exp.test_icon.run.status
+exit $EXIT_STATUS
