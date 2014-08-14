@@ -82,6 +82,7 @@ CONTAINS
   !> AD: 28 July 2014- more diag yet to be added
   !!
   !! <Calculates cloud diagnostics for LES runs when convective parameterization is off>
+  !!  Very preliminary for now
   !!
   !! <Describe the purpose of the subroutine and its algorithm(s).>
   !! <Include any applicable external references inline as module::procedure,>
@@ -100,7 +101,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     REAL(wp), PARAMETER :: qc_min = 1.e-8_wp
-    LOGICAL :: lfound_top, lfound_base
+    INTEGER :: found_cltop, found_clbas
     INTEGER :: nlev
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
@@ -124,30 +125,38 @@ CONTAINS
     prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
-!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,found_cltop,found_clbas)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jc = i_startidx, i_endidx
 
-         !cloud top- full level
+         found_cltop = -1
+         found_clbas = -1
          DO jk = kstart_moist, nlev-1
-           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
-                  p_prog_rcf%tracer(jc,jk+1,jb,iqc)>qc_min)THEN
-             prm_diag%mtop_con(jc,jb) = jk
-             EXIT
-           END IF
-         END DO  
 
-         !cloud base- half level
-         DO jk = nlev, kstart_moist+1,-1
+           !cloud top- full level
            IF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
-                  p_prog_rcf%tracer(jc,jk-1,jb,iqc)>qc_min)THEN
-             prm_diag%mbas_con(jc,jb) = jk       
-             prm_diag%locum(jc,jb)    = .TRUE.
-             EXIT
+               p_prog_rcf%tracer(jc,jk+1,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
+             prm_diag%mtop_con(jc,jb) = jk
+             found_cltop = 1
            END IF
+
+           !cloud base- half level
+           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND. &
+               p_prog_rcf%tracer(jc,jk+1,jb,iqc)<qc_min.AND.found_clbas/=1)THEN
+             prm_diag%mbas_con(jc,jb) = jk    
+             found_clbas = 1   
+           END IF
+           
          END DO
+
+         IF(found_clbas==1.AND.found_cltop==1)THEN
+           prm_diag%locum(jc,jb) = .TRUE.
+         ELSE
+           prm_diag%mbas_con(jc,jb) = -1
+           prm_diag%mtop_con(jc,jb) = -1
+         END IF
 
        END DO
     END DO
