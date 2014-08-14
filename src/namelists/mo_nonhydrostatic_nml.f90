@@ -78,7 +78,7 @@ MODULE mo_nonhydrostatic_nml
   INTEGER :: iadv_rcf                ! if 1: no reduced calling frequency for adv. and phy.
                                      ! if 2: adv. and phys. are called every 2nd time step.
                                      ! if 4: ... every 4th time step.
-  LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion also at the large time step
+  LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion only at the large time step
   LOGICAL :: lextra_diffu            ! if true: apply additional diffusion at grid points close 
                                      ! to the CFL stability limit for vertical advection
   REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
