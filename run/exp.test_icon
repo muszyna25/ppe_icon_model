@@ -1,4 +1,5 @@
 #!/bin/ksh
+set +x
 #################### functions ##########################################
 function copy_experiment
 {
@@ -35,7 +36,7 @@ case $MOD in
   'o') PRINT_MD='o(mp)';;
     *) PRINT_MD=$MOD;;
 esac
-echo "test mode is $PRINT_MD"
+echo "- test mode    = $PRINT_MD"
 }
 #------------------------------------------------------------------------
 function print_usage
@@ -77,11 +78,15 @@ DEXP2=$4
 TEST=$5
 #TYPES: defined in main script and used from main script 
 #DATES: defined in main script and used from main script 
+#
 DIFF_STATUS=0
+#
 #create more beautiful output for variables MODEL_DIR[12]
 cd $MODEL_DIR1; MODEL_DIR1=`pwd`
 cd $MODEL_DIR2; MODEL_DIR2=`pwd`
+#
 for TYPE in $TYPES; do 
+  #
   cd ${MODEL_DIR1}/experiments/${DEXP1}
   FILES=''
   for DATE in $DATES; do
@@ -94,30 +99,25 @@ for TYPE in $TYPES; do
     FILES=$FILES' '${DEXP2}'_'${TYPE}'_'${DATE}'.nc'
   done
   cdo -O mergetime $FILES ${DEXP2}_${TYPE}.nc
-  cdo -O sub ${DEXP2}_${TYPE}.nc ../${DEXP1}/${DEXP1}_${TYPE}.nc diff_${DEXP2}-${DEXP1}_${TYPE}.nc
   #
-  if [ -f test$$.dat ]; then
-    rm -f test$$.dat
-  fi
   FILE1=${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_${TYPE}.nc
   FILE2=${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}.nc
-  cdo diffn ${FILE1} ${FILE2} > test$$.dat
+  cdo diffn ${FILE1} ${FILE2} > cdo_diffn.out
   STATUS=`echo $?`
-  if [ "$STATUS" -ne 0 -o -s test$$.dat ]; then
-    if [ -s test$$.dat ]; then
-      echo "The variables in files ${FILE1} and ${FILE2} differ"
-      cat test$$.dat
-    else
-      echo "The files ${FILE1} and ${FILE2} cannot be compared"
-    fi
-    echo "${TEST} test FAILED:"
+  if [ "$STATUS" -ne 0 ]; then
+    echo "The files ${FILE1} and ${FILE2} cannot be compared"
     DIFF_STATUS=$((DIFF_STATUS + 1))
   fi
-done # file types 
-rm -f test$$.dat
+  if [ -s cdo_diffn.out ]; then
+    echo "The variables in files ${FILE1} and ${FILE2} differ"
+    cat cdo_diffn.out
+    DIFF_STATUS=$((DIFF_STATUS + 1))
+  fi
+  rm -f cdo_diffn.out
+done # file types
 #
 if [ "$DIFF_STATUS" == 0 ]; then
-  echo "${TEST} PASSED:"
+  echo "${TEST} test PASSED:"
   echo "The variables in files ${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_TYPE.nc and ${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_TYPE.nc for TYPE=${TYPES} do not differ"
 fi
 }
@@ -152,15 +152,19 @@ fi
 if [[ "$LOADLBATCH" ]]; then
 # change for blizzard
   PATH=/client/bin:$PATH
-fi 
+fi
 
 SCRIPT_DIR=`pwd`
 MODEL_DIR=${SCRIPT_DIR}/../
-EXPERIMENT='atm_amip_test'
-FORCE_MRS='no'
-MD='rnmo'  #MD is equal to MODE but abbreviated test-mode names
-REFERENCE=''
-OVERWRITE='yes'
+
+# Default experiment
+EXPERIMENT=${EXPERIMENT='atm_amip_test'}
+
+# Default work mode of the checksuite
+MD=${MD='rnmo'}  #MD is equal to MODE but abbreviated test-mode names
+FORCE_MRS=${FORCE_MRS='no'}
+OVERWRITE=${OVERWRITE='yes'}
+REFERENCE=${REFERENCE=''}
 
 MODES="b u r n m o ur un um uo rn rm ro nm no mo urn urm uro unm uno umo rnm rno rmo nmo urnm urno urmo unmo rnmo urnmo"
 
@@ -211,41 +215,31 @@ case $OPT in
 esac
 done
 
-CHECKS_DEFINED="no"
+# Define file types, dates, and the restart date for the checks.
+# Use values from environment variables, if they are defined and not null.
+# Otherwise use the specified values.
 if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
-  TYPES='dyn_2d_ml dyn_2d_rmb_ml dyn_3d_ml dyn_3d_pl dyn_3d_rmb_pl lnd_ml lnd_rmb_ml phy_2d_ml phy_2d_rmb_ml phy_3d_ml phy_3d_rmb_pl'
-  DATES='19790101T012000Z 19790101T014000Z 19790101T020000Z'
-  RESTART_DATE='19790101T010000Z'
-  CHECKS_DEFINED="yes"
-fi
-if [ "${EXPERIMENT}" == 'atm_amip_hs_test' ]; then
-  TYPES='atm_phy atm_dyn lnd_phy'
-  DATES='19780101T004000Z 19780101T004500Z 19780101T005000Z 19780101T005500Z 19780101T010000Z'
-  RESTART_DATE='19780101T003000Z'
-  CHECKS_DEFINED="yes"
-fi
-if [ "${EXPERIMENT}" == 'mtest_nat_rce_cbl_120km_nwp_test' ]; then
-  TYPES='atm'
-  DATES='20080801T004000Z 20080801T005000Z 20080801T010000Z'
-  RESTART_DATE='20080801T003000Z'
-  CHECKS_DEFINED="yes"
-fi
-if [ "${CHECKS_DEFINED}" == "no" ]; then
-  echo "TYPES, DATES and RESTART_DATE are not defined for ${EXPERIMENT}"
-  exit 1
+  TYPES=${TYPES='dyn_2d_ml dyn_2d_rmb_ml dyn_3d_ml dyn_3d_pl dyn_3d_rmb_pl lnd_ml lnd_rmb_ml phy_2d_ml phy_2d_rmb_ml phy_3d_ml phy_3d_rmb_pl'}
+  DATES=${DATES='19790101T012000Z 19790101T014000Z 19790101T020000Z'}
+  RESTART_DATE=${RESTART_DATE='19790101T010000Z'}
 fi
 
-# check if the REFERENCE is defined if an update test is requested
+echo "--------------------------------------------------------------------------------"
+echo "Run the checksuite for:"
+echo "- EXPERIMENT   = ${EXPERIMENT:?   is not defined --> ERROR}"
+echo "- TYPES        = ${TYPES:?        is not defined --> ERROR}"
+echo "- DATES        = ${DATES:?        is not defined --> ERROR}"
+echo "- RESTART_DATE = ${RESTART_DATE:? is not defined --> ERROR}"
+echo "--------------------------------------------------------------------------------"
+#
+print_mode $MD
+
+# check if REFERENCE is defined if an update test is requested
 CMODES="u ur un um uo urn urm uro unm uno umo urnm urno urmo unmo urnmo"
 if string_in_list $MD $CMODES; then
-  if [ -z "${REFERENCE}" ]; then
-    echo 'no reference model was specified, use -r option to specify one'
-    print_usage $0
-    exit 1
-  else
-    echo "reference model is ${REFERENCE}"
-  fi
-# get standardized paths
+  echo "- REFERENCE    = ${REFERENCE:?  is not defined --> ERROR}"
+
+  # get standardized paths
   cd ${REFERENCE}; REFERENCE=`pwd`
   cd ${MODEL_DIR}; MODEL_DIR=`pwd`
   if [ "${REFERENCE}" == "${MODEL_DIR}" ]; then
@@ -254,7 +248,6 @@ if string_in_list $MD $CMODES; then
   fi
 fi
 
-# experiment template and list of derived experiments to be run
 SCRIPT=${EXPERIMENT}
 
 cd ${MODEL_DIR}
@@ -263,7 +256,7 @@ if [ "${STATUS}" == 0 ]; then
   echo "found model ${MODEL_DIR}"
 else
   echo "no model ${MODEL_DIR} found"
-  exit
+  exit 1
 fi
 
 if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
@@ -282,6 +275,10 @@ else
   echo "found runscript run/exp.${SCRIPT}.run"
 fi
 
+# find out on which system we are
+TARGET_MACHINE=`grep "# target machine is " run/exp.${SCRIPT}.run`
+TARGET_MACHINE=${TARGET_MACHINE#'# target machine is '}
+
 # variables to track the test results
 PASSED_TESTS="PASSED TESTS: "
 FAILED_TESTS="FAILED_TESTS: "
@@ -290,14 +287,16 @@ EXIT_STATUS=0
 # now start with the tests
 
 TEST='base'
+echo ' '
 echo "#################### perform $TEST test               ####################"
+echo ' '
+EXP_BASE=${EXPERIMENT}_${TEST}
 EXP_TEST=${EXPERIMENT}_${TEST}
-EXP_BASE=${EXP_TEST}
-if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
+if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_BASE} ]; then
   cd run
-  RUN_SCRIPT=exp.${EXP_TEST}.run
+  RUN_SCRIPT=exp.${EXP_BASE}.run
   cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-  sed -i.sedbak s/${SCRIPT}/${EXP_TEST}/g ${RUN_SCRIPT}
+  sed -i.sedbak s/${SCRIPT}/${EXP_BASE}/g ${RUN_SCRIPT}
   rm ${RUN_SCRIPT}.sedbak
   #
   echo "Perform $TEST run"
@@ -310,6 +309,8 @@ if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; the
   else
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$((EXIT_STATUS + 1))
+    echo "ERROR: Base run FAILED --> no furter testing possible"
+    exit 1
   fi
 else
     echo "Found $TEST run"
@@ -319,7 +320,9 @@ fi # OVERWRITE
 CMODES="u ur un um uo urn urm uro unm uno umo urnm urno urmo unmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='update'
+  echo ' '
   echo "#################### perform $TEST test               ####################"
+  echo ' '
   cd ${REFERENCE} 
   if [ "${OVERWRITE}" == 'yes' -o ! -d experiments/${EXP_BASE} ] ;then 
     if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
@@ -347,8 +350,9 @@ if string_in_list $MD $CMODES; then
   else
     echo "Found $TEST run"
   fi # OVERWRITE
-  diff_results $MODEL_DIR $EXP_BASE $REFERENCE $EXP_BASE $TEST
+
   # compare base run with test run
+  diff_results $MODEL_DIR $EXP_BASE $REFERENCE $EXP_BASE $TEST
   if [ "$DIFF_STATUS" == 0 ]; then
     PASSED_TESTS="$PASSED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 0))
@@ -363,7 +367,9 @@ RESTART_SUCCESS='no'
 CMODES="r ur rn rm ro urn urm uro rnm rno rmo urnm urno urmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='restart'
+  echo ' '
   echo "#################### perform $TEST test               ####################"
+  echo ' '
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     copy_experiment ${MODEL_DIR} ${EXP_BASE} ${EXP_TEST}
@@ -390,9 +396,9 @@ if string_in_list $MD $CMODES; then
   # compare base run with test run
   diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
   if [ "$DIFF_STATUS" == 0 ]; then
+    RESTART_SUCCESS='yes'
     PASSED_TESTS="$PASSED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 0))
-    RESTART_SUCCESS='yes'
   else
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 1))
@@ -403,7 +409,9 @@ fi # MODE
 CMODES="n un rn nm no urn unm uno rnm rno nmo urnm urno unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='nproma'
+  echo ' '
   echo "#################### perform $TEST test               ####################"
+  echo ' '
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     copy_experiment ${MODEL_DIR} ${EXP_BASE} ${EXP_TEST}
@@ -430,6 +438,7 @@ if string_in_list $MD $CMODES; then
   else
     echo "Found $TEST run"
   fi # OVERWRITE
+
   # compare base run with test run
   diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
   if [ "$DIFF_STATUS" == 0 ]; then
@@ -445,11 +454,13 @@ fi # MODE
 CMODES="m um rm nm mo urm unm umo rnm rmo nmo urnm urmo unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='mpi'
+  echo ' '
   echo "#################### perform $TEST test               ####################"
+  echo ' '
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     cd ${MODEL_DIR}/run
-    MPI_TEST_POSSIBLE='no'
+    TEST_POSSIBLE='no'
     MPI=`grep with_mpi exp.${SCRIPT}.run`
     MPIYES='with_mpi="yes"'
     if [ "$MPI" == "$MPIYES" ]; then
@@ -464,7 +475,7 @@ if string_in_list $MD $CMODES; then
       #
       if [ $N_PROCS -gt 1 ]; then
         #
-	MPI_TEST_POSSIBLE='yes'
+	TEST_POSSIBLE='yes'
         #
         copy_experiment ${MODEL_DIR} ${EXP_BASE} ${EXP_TEST}
         RUN_SCRIPT=exp.${EXP_TEST}.run
@@ -541,10 +552,10 @@ if string_in_list $MD $CMODES; then
     #
   else
     echo "Found $TEST run"
-    MPI_TEST_POSSIBLE='yes'
+    TEST_POSSIBLE='yes'
   fi # OVERWRITE
-  #
-  if [ "${MPI_TEST_POSSIBLE}" == 'yes' ]; then
+
+  if [ "${TEST_POSSIBLE}" == 'yes' ]; then
     # compare base run with test run
     diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
     if [ "$DIFF_STATUS" == 0 ]; then
@@ -554,18 +565,20 @@ if string_in_list $MD $CMODES; then
       FAILED_TESTS="$FAILED_TESTS $TEST"
       EXIT_STATUS=$(($EXIT_STATUS + 1))
     fi
-  fi # MPI_TEST_POSSIBLE
+  fi # TEST_POSSIBLE
 fi # MODE
 
 
 CMODES="o uo ro no mo uro uno umo rno rmo nmo urno urmo unmo rnmo urnmo"
 if string_in_list $MD $CMODES; then
   TEST='omp'
+  echo ' '
   echo "#################### perform $TEST test               ####################"
+  echo ' '
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     cd ${MODEL_DIR}/run
-    OMP_TEST_POSSIBLE='no'
+    TEST_POSSIBLE='no'
     OMP=`grep with_openmp exp.${SCRIPT}.run`
     OMPYES='with_openmp="yes"'
     if [ "$OMP" == "$OMPYES" ]; then
@@ -579,7 +592,7 @@ if string_in_list $MD $CMODES; then
       #
       if [ $N_OMP_NUM_THREADS -gt 1 ]; then
         #
-	OMP_TEST_POSSIBLE='yes'
+	TEST_POSSIBLE='yes'
         #
         copy_experiment ${MODEL_DIR} ${EXP_BASE} ${EXP_TEST}
         RUN_SCRIPT=exp.${EXP_TEST}.run
@@ -629,10 +642,10 @@ if string_in_list $MD $CMODES; then
     #
   else
     echo "Found $TEST run"
-    OMP_TEST_POSSIBLE='yes'
+    TEST_POSSIBLE='yes'
   fi # OVERWRITE
-  #
-  if [ "${OMP_TEST_POSSIBLE}" == 'yes' ]; then
+
+  if [ "${TEST_POSSIBLE}" == 'yes' ]; then
     # compare base run with test run
     diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
     if [ "$DIFF_STATUS" == 0 ]; then
@@ -642,15 +655,15 @@ if string_in_list $MD $CMODES; then
       FAILED_TESTS="$FAILED_TESTS $TEST"
       EXIT_STATUS=$(($EXIT_STATUS + 1))
     fi
-  fi # OMP_TEST_POSSIBLE
+  fi # TEST_POSSIBLE
 fi # MODE
 
 
+echo ' '
+echo ' '
 echo '#################### test summary                     ####################'
 echo ' '
 echo $PASSED_TESTS
 echo $FAILED_TESTS
-echo ' '
 
-echo $EXIT_STATUS > ${SCRIPT_DIR}/exp.test_icon.run.status
-exit $EXIT_STATUS
+exit
