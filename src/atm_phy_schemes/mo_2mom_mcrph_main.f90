@@ -701,7 +701,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(nsize,nlev) :: dep_rate_ice, dep_rate_snow
 
-    INTEGER :: k
+    INTEGER :: k, i
 
     IF (isdebug) CALL message(TRIM(routine),"clouds_twomoment start")
 
@@ -725,10 +725,12 @@ CONTAINS
     IF (ischeck) CALL check('start')
 
     IF (nuc_c_typ.ne.0) THEN
-       DO k=kstart,kend
-          n_cloud(:,k) = MAX(n_cloud(:,k), q_cloud(:,k) / cloud%x_max)
-          n_cloud(:,k) = MIN(n_cloud(:,k), q_cloud(:,k) / cloud%x_min)
-       END DO
+      DO k=kstart,kend
+        DO i=istart,iend
+          n_cloud(i,k) = MAX(n_cloud(i,k), q_cloud(i,k) / cloud%x_max)
+          n_cloud(i,k) = MIN(n_cloud(i,k), q_cloud(i,k) / cloud%x_min)
+        END DO
+      END DO
     END IF
     
     IF (ice_typ > 0) THEN
@@ -736,8 +738,10 @@ CONTAINS
        ! homogeneous and heterogeneous ice nucleation
        CALL ice_nucleation_homhet ()
        DO k=kstart,kend
-          n_ice(:,k) = MIN(n_ice(:,k), q_ice(:,k)/ice%x_min)
-          n_ice(:,k) = MAX(n_ice(:,k), q_ice(:,k)/ice%x_max)
+        DO i=istart,iend
+          n_ice(i,k) = MIN(n_ice(i,k), q_ice(i,k)/ice%x_min)
+          n_ice(i,k) = MAX(n_ice(i,k), q_ice(i,k)/ice%x_max)
+        END DO
        END DO
        IF (ischeck) CALL check('ice nucleation')
 
@@ -836,30 +840,38 @@ CONTAINS
     ! size limits for all hydrometeors
     IF (nuc_c_typ > 0) THEN
        DO k=kstart,kend
-          n_cloud(:,k) = MIN(n_cloud(:,k), q_cloud(:,k)/cloud%x_min)
-          n_cloud(:,k) = MAX(n_cloud(:,k), q_cloud(:,k)/cloud%x_max)
+        DO i=istart,iend
+          n_cloud(i,k) = MIN(n_cloud(i,k), q_cloud(i,k)/cloud%x_min)
+          n_cloud(i,k) = MAX(n_cloud(i,k), q_cloud(i,k)/cloud%x_max)
           ! Hard upper limit for cloud number conc.
-          n_cloud(:,k) = MIN(n_cloud(:,k), 5000d6)
+          n_cloud(i,k) = MIN(n_cloud(i,k), 5000d6)
+        END DO
        END DO
-    end if
+    END IF
        DO k=kstart,kend
-          n_rain(:,k) = MIN(n_rain(:,k), q_rain(:,k)/rain%x_min)
-          n_rain(:,k) = MAX(n_rain(:,k), q_rain(:,k)/rain%x_max)
+        DO i=istart,iend
+          n_rain(i,k) = MIN(n_rain(i,k), q_rain(i,k)/rain%x_min)
+          n_rain(i,k) = MAX(n_rain(i,k), q_rain(i,k)/rain%x_max)
+        END DO
        END DO
     IF (ice_typ > 0) THEN
        DO k=kstart,kend
-          n_ice(:,k) = MIN(n_ice(:,k), q_ice(:,k)/ice%x_min)
-          n_ice(:,k) = MAX(n_ice(:,k), q_ice(:,k)/ice%x_max)
-          n_snow(:,k) = MIN(n_snow(:,k), q_snow(:,k)/snow%x_min)
-          n_snow(:,k) = MAX(n_snow(:,k), q_snow(:,k)/snow%x_max)
-          n_graupel(:,k) = MIN(n_graupel(:,k), q_graupel(:,k)/graupel%x_min)
-          n_graupel(:,k) = MAX(n_graupel(:,k), q_graupel(:,k)/graupel%x_max)
+        DO i=istart,iend
+          n_ice(i,k) = MIN(n_ice(i,k), q_ice(i,k)/ice%x_min)
+          n_ice(i,k) = MAX(n_ice(i,k), q_ice(i,k)/ice%x_max)
+          n_snow(i,k) = MIN(n_snow(i,k), q_snow(i,k)/snow%x_min)
+          n_snow(i,k) = MAX(n_snow(i,k), q_snow(i,k)/snow%x_max)
+          n_graupel(i,k) = MIN(n_graupel(i,k), q_graupel(i,k)/graupel%x_min)
+          n_graupel(i,k) = MAX(n_graupel(i,k), q_graupel(i,k)/graupel%x_max)
+        END DO
        END DO
     END IF
     IF (ice_typ > 1) THEN
        DO k=kstart,kend
-          n_hail(:,k) = MIN(n_hail(:,k), q_hail(:,k)/hail%x_min)
-          n_hail(:,k) = MAX(n_hail(:,k), q_hail(:,k)/hail%x_max)
+        DO i=istart,iend
+          n_hail(i,k) = MIN(n_hail(i,k), q_hail(i,k)/hail%x_min)
+          n_hail(i,k) = MAX(n_hail(i,k), q_hail(i,k)/hail%x_max)
+        END DO
        END DO
     END IF
 
@@ -1078,9 +1090,9 @@ CONTAINS
     TYPE(particle), intent(in)      :: this
     TYPE(particle_rain), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(its:ite),x(its:ite)
-    real(wp), intent(in), optional  :: qc(its:ite)
-    real(wp), intent(inout) :: vn(its:ite), vq(its:ite)
+    real(wp), intent(in)  :: q(:),x(:)
+    real(wp), intent(in), optional  :: qc(:)
+    real(wp), intent(inout) :: vn(:), vq(:)
 
     integer  :: i
     real(wp) :: D_m,mue,D_p
@@ -1112,8 +1124,8 @@ CONTAINS
     TYPE(particle), intent(in)        :: this
     TYPE(particle_sphere), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
-    real(wp), intent(in)  :: q(its:ite),x(its:ite)
-    real(wp), intent(out) :: vn(its:ite), vq(its:ite)
+    real(wp), intent(in)  :: q(:),x(:)
+    real(wp), intent(out) :: vn(:), vq(:)
 
     integer  :: i
     real(wp) :: lam,v_n,v_q
@@ -2120,7 +2132,7 @@ CONTAINS
     !*******************************************************************************
     INTEGER,  INTENT(IN) :: nsize, nlev
     REAL(wp), INTENT(IN) :: dt_local
-    REAL(wp), INTENT(INOUT), DIMENSION(nsize,nlev) :: dep_rate_ice, dep_rate_snow
+    REAL(wp), INTENT(INOUT), DIMENSION(:,:) :: dep_rate_ice, dep_rate_snow
 
     REAL(wp), DIMENSION(nsize,nlev) :: &
          & s_si,g_i,dep_ice,dep_snow,dep_graupel,dep_hail
@@ -4469,7 +4481,7 @@ CONTAINS
     !*******************************************************************************
 
     INTEGER,  INTENT (IN) :: nsize, nlev
-    REAL(wp), INTENT (IN), DIMENSION(nsize,nlev) :: dep_rate_ice
+    REAL(wp), INTENT (IN), DIMENSION(:,:) :: dep_rate_ice
 
     REAL(wp), DIMENSION(nsize,nlev) :: rime_rate_qc, rime_rate_nc, &
          &               rime_rate_qi, rime_rate_qr, rime_rate_nr
@@ -4902,7 +4914,7 @@ CONTAINS
     !*******************************************************************************
 
     INTEGER, INTENT (IN) :: nsize, nlev
-    REAL(wp), INTENT(IN), DIMENSION(nsize,nlev) :: dep_rate_snow
+    REAL(wp), INTENT(IN), DIMENSION(:,:) :: dep_rate_snow
 
     REAL(wp), DIMENSION(nsize,nlev) ::              &
          & rime_rate_qc, rime_rate_nc,    &
@@ -5769,12 +5781,12 @@ CONTAINS
   SUBROUTINE sedi_icon_rain (qp,np,precrate,qc,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
 
-    INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qp,np,qc
-    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: adz,rhocorr
-    REAL(wp), DIMENSION(its:ite),         INTENT(OUT)   :: precrate
-    REAL(wp) :: dt
-    REAL(wp), INTENT(INOUT), OPTIONAL :: cmax
+    INTEGER,  INTENT(IN)                   :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: qp,np,qc
+    REAL(wp), DIMENSION(:,:), INTENT(IN)   :: adz,rhocorr
+    REAL(wp), DIMENSION(:),   INTENT(OUT)  :: precrate
+    REAL(wp), INTENT(IN)                   :: dt
+    REAL(wp), INTENT(INOUT), OPTIONAL      :: cmax
 
     INTEGER  :: i, k, kk
     REAL(wp) :: x_p,D_m,D_p,mue,v_n,v_q
@@ -5816,8 +5828,9 @@ CONTAINS
 
     v_n_sedi(:,kte+1) = v_n_sedi(:,kte)   ! untere Randbedingung fuer Fallgeschw.
     v_q_sedi(:,kte+1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
+                                          ! top bc is 0
 
-    DO k = kts+1,kte
+    DO k = kts,kte
 
         DO i = its,ite
           v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))   ! Das sollte wohl k-1 sein.
@@ -5829,20 +5842,20 @@ CONTAINS
         IF (PRESENT(cmax)) cmax = MAX(cmax,MAXVAL(c_qv))
 
         kk = k
-        s_nv = 0.0
+        s_nv = 0._wp
         DO i = its,ite
-          IF (c_nv(i) <= 1) THEN
+          IF (c_nv(i) <= 1._wp) THEN
             s_nv(i) = v_nv(i) * np(i,k)
           END IF
         END DO
-        IF (ANY(c_nv(its:ite) > 1)) THEN
+        IF (ANY(c_nv(its:ite) > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_nv(its:ite) > 1) .AND. kk > 2)
+          DO WHILE (ANY(c_nv(its:ite) > 1._wp) .AND. kk > 2)
             DO i = its,ite
-              IF (c_nv(i) > 1) THEN
+              IF (c_nv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
                 s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
-                c_nv(i) = (c_nv(i) - 1) * adz(i,kk-1)/adz(i,kk)
+                c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
               END IF
             END DO
             kk  = kk - 1
@@ -5858,15 +5871,15 @@ CONTAINS
         kk = k
         s_qv = 0.0
         DO i = its,ite
-          IF (c_qv(i) <= 1) THEN
+          IF (c_qv(i) <= 1._wp) THEN
             s_qv(i) = v_qv(i) * qp(i,k)
           END IF
         END DO
-        IF (ANY(c_qv(its:ite) > 1)) THEN
+        IF (ANY(c_qv(its:ite) > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_qv(its:ite) > 1) .AND. kk > 2)
+          DO WHILE (ANY(c_qv(its:ite) > 1._wp) .AND. kk > 2)
             DO i = its,ite
-              IF (c_qv(i) > 1) THEN
+              IF (c_qv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
                 s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
                 c_qv(i) = (c_qv(i) - 1) * adz(i,kk-1)/adz(i,kk)
@@ -5890,8 +5903,8 @@ CONTAINS
 
     END DO
 
-    n_fluss(:,kts-1) = 0.0 ! obere Randbedingung
-    q_fluss(:,kts-1) = 0.0 ! upper BC
+    n_fluss(:,kts-1) = 0._wp ! obere Randbedingung
+    q_fluss(:,kts-1) = 0._wp ! upper BC
 
     DO k = kts,kte
         DO i = its,ite
@@ -5908,14 +5921,14 @@ CONTAINS
   SUBROUTINE sedi_icon_sphere (ptype,pcoeffs,qp,np,precrate,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
 
-    TYPE(particle), INTENT(in) :: ptype
-    TYPE(particle_sphere), INTENT(in) :: pcoeffs
-    INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(INOUT) :: qp,np
-    REAL(wp), DIMENSION(its:ite,kts:kte), INTENT(IN)    :: adz,rhocorr
-    REAL(wp), DIMENSION(its:ite),         INTENT(OUT)   :: precrate
-    REAL(wp) :: dt
-    REAL(wp), INTENT(INOUT), OPTIONAL :: cmax
+    TYPE(particle), INTENT(in)              :: ptype
+    TYPE(particle_sphere), INTENT(in)       :: pcoeffs
+    INTEGER, INTENT(IN)                     :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np
+    REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,rhocorr
+    REAL(wp), DIMENSION(:),   INTENT(OUT)   :: precrate
+    REAL(wp), INTENT(IN)                    :: dt
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
 
     INTEGER  :: i, k, kk
     REAL(wp) :: x_p,v_n,v_q,lam
@@ -5952,10 +5965,11 @@ CONTAINS
        END DO
     END DO
     
-    v_n_sedi(:,kte-1) = v_n_sedi(:,kte)   ! untere Randbedingung fuer Fallgeschw.
-    v_q_sedi(:,kte-1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
+    v_n_sedi(:,kte+1) = v_n_sedi(:,kte)   ! untere Randbedingung fuer Fallgeschw.
+    v_q_sedi(:,kte+1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
+                                          ! top bc is 0
 
-    DO k = kts+1,kte
+    DO k = kts,kte
 
         DO i = its,ite
           v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))   ! Das sollte wohl k-1 sein.
@@ -5969,18 +5983,18 @@ CONTAINS
         kk = k
         s_nv = 0.0
         DO i = its,ite
-          IF (c_nv(i) <= 1) THEN
+          IF (c_nv(i) <= 1._wp) THEN
             s_nv(i) = v_nv(i) * np(i,k)
           END IF
         END DO
-        IF (ANY(c_nv(its:ite) > 1)) THEN
+        IF (ANY(c_nv(its:ite) > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_nv(its:ite) > 1) .AND. kk > 2)
+          DO WHILE (ANY(c_nv(its:ite) > 1._wp) .AND. kk > 2)
             DO i = its,ite
-              IF (c_nv(i) > 1) THEN
+              IF (c_nv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
                 s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
-                c_nv(i) = (c_nv(i) - 1) * adz(i,kk-1)/adz(i,kk)
+                c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
               END IF
             END DO
             kk  = kk - 1
@@ -6000,14 +6014,14 @@ CONTAINS
             s_qv(i) = v_qv(i) * qp(i,k)
           END IF
         END DO
-        IF (ANY(c_qv(its:ite) > 1)) THEN
+        IF (ANY(c_qv(its:ite) > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_qv(its:ite) > 1) .AND. kk > 2)
+          DO WHILE (ANY(c_qv(its:ite) > 1._wp) .AND. kk > 2)
             DO i = its,ite
-              IF (c_qv(i) > 1) THEN
+              IF (c_qv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
                 s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
-                c_qv(i) = (c_qv(i) - 1) * adz(i,kk-1)/adz(i,kk)
+                c_qv(i) = (c_qv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
               END IF
             END DO
             kk  = kk - 1
@@ -6028,8 +6042,8 @@ CONTAINS
 
     END DO
 
-    n_fluss(:,kts-1) = 0.0 ! obere Randbedingung
-    q_fluss(:,kts-1) = 0.0 ! upper BC
+    n_fluss(:,kts-1) = 0._wp ! obere Randbedingung
+    q_fluss(:,kts-1) = 0._wp ! upper BC
 
     DO k = kts,kte
         DO i = its,ite
@@ -6040,8 +6054,10 @@ CONTAINS
     precrate(its:ite) = - q_fluss(its:ite,kte) ! Regenrate
 
     DO k=kts,kte
-       np(:,k) = MIN(np(:,k), qp(:,k)/ptype%x_min)
-       np(:,k) = MAX(np(:,k), qp(:,k)/ptype%x_max)
+      DO i = its,ite
+        np(i,k) = MIN(np(i,k), qp(i,k)/ptype%x_min)
+        np(i,k) = MAX(np(i,k), qp(i,k)/ptype%x_max)
+      END DO
     END DO
 
     RETURN

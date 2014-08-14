@@ -250,11 +250,11 @@ CONTAINS
     !-------------------------------------------------------------------------
     !>  Additional syns required for physics before 3D turbulence
     !-------------------------------------------------------------------------
-    IF(diffusion_config(jg)%lhdiff_temp)&
+    IF(diffusion_config(jg)%lhdiff_temp .AND. lhdiff_rcf) &
         CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_prog%theta_v, &
                                    pt_prog%exner)
 
-    IF(diffusion_config(jg)%lhdiff_w)&
+    IF(diffusion_config(jg)%lhdiff_w .AND. lhdiff_rcf) &
        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog%w)
 
     !add all tracers that are used in satad
