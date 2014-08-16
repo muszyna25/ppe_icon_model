@@ -1,15 +1,5 @@
 #!/bin/ksh
 #=============================================================================
-# Test the coupling of two dummy models
-#=============================================================================
-# This section of the run script defines the experiment.
-# The specifications are passed by namelist to the program.
-# For a complete list see Namelist_overview.pdf
-#
-# Marco Giorgetta, MPI-M, 2011-01-29
-# Hui Wan,         MPI-M, 2010-08-17
-# Leonidas Linardakis, MPI-M, 2011-07-20
-#
 #-----------------------------------------------------------------------------
 #
 # Basic specifications of the simulation
@@ -17,17 +7,8 @@
 #
 # These variables are set in the header section of the completed run script:
 #   EXPNAME = experiment name
-#   nproma  = array blocking length / inner loop length
 # They may be overwritten here
 #
-#-----------------------------------------------------------------------------
-# This test must have available at least 2 MPI processes.
-# If the model runs with mpi_procs=1, then this script exits without error:
-# if [[ ${mpi_procs} = 1 ]] ; then
-#   echo "This test uses at least 2 mpi_procs. Exit test without error"
-#   check_error 0 ${EXPNAME}
-#   exit 0
-# fi
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
@@ -40,6 +21,8 @@ end_date=${end_date:="2008-09-11T00:00:00Z"}
 #-----------------------------------------------------------------------------
 atmo_model_equations=1   # equation system
 nlevels=40
+nlev=$nlevels
+nproma=32
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -53,11 +36,11 @@ namelist_filename=$1
 cat > $namelist_filename << EOF
 &testbed_nml
   testbed_model       = 6  ! test_netcdf_read_model
-!  testfile_3D_time   = "/pool/data/ICON/import/initial/r2b4_amip/atm/bc_ozone_cmip5/bc_ozone_cmip5_1970.nc", "O3"
+  testfile_3D_time   = "/pool/data/ICON/input/r0002/r2b4_amip/atm/bc_aeropt_kinne/bc_aeropt_kinne_sw_b14_fin_1982.nc"
 !  testfile_3D_time    = "../../grids/bc_ozone_cmip5_1970.nc", "O3"
-  testfile_3D_time    = "../../grids/bc_aeropt_kinne_sw_b14_fin_2000.nc"
-!  testfile_2D_time   = "/pool/data/ICON/import/initial/r2b4_amip/oce/bc_sst_pcmdi_1870-2010.nc"
-  testfile_2D_time    = "../../grids/bc_sst_pcmdi_1870-2010.nc", "sst"
+!  testfile_3D_time    = "../../grids/bc_aeropt_kinne_sw_b14_fin_2000.nc"
+  testfile_2D_time   = "/pool/data/ICON/input/r0002/r2b4_amip/ocebc_sst_pcmdi_1870-2010.nc/", "sst"
+!  testfile_2D_time    = "../../grids/bc_sst_pcmdi_1870-2010.nc", "sst"
 /
 &parallel_nml
  nproma         = ${nproma}
@@ -92,4 +75,9 @@ EOF
 #-----------------------------------------------------------------------------
 create_namelist $testbed_namelist
 run_atmo="true"
+#-----------------------------------------------------------------------------
+# add standard atmo_hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
+# copy dictionary file for variable names
+add_required_file ${basedir}/run/${dict_file}                                ./
 #-----------------------------------------------------------------------------
