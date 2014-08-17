@@ -737,6 +737,7 @@ run/exp.hat_jww_rescale -text
 run/exp.hat_rce_120km -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_communication -text
+run/exp.icon-testbed_grid -text
 run/exp.icon-testbed_jitter -text
 run/exp.icon-testbed_read-netcdf -text
 run/exp.mtest_nat_rce_cbl_120km_nwp_test -text
