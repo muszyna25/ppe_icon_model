@@ -209,10 +209,10 @@ if [[ "$LOADLBATCH" ]]; then
 fi
 
 SCRIPT_DIR=`pwd`
-MODEL_DIR=${SCRIPT_DIR}/../
+MODEL_DIR=${SCRIPT_DIR}/../..
 
 # Default experiment
-EXPERIMENT=${EXPERIMENT='atm_amip_test'}
+EXPERIMENT=${EXPERIMENT='atm_amip'}
 
 # Default work mode of the checksuite
 MD=${MD='rnmo'}  #MD is equal to MODE but abbreviated test-mode names

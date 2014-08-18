@@ -9,7 +9,7 @@
 # - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
 # - the restart file names: 
 #
-export EXPERIMENT='atm_amip_test'
+export EXPERIMENT='atm_amip'
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
@@ -42,6 +42,9 @@ MD='rnmo'
 #--------------------------------------------------------------------------------
 # 
 # 3. Launch the checksuite
+
+(Still assumes to be submitted from run/ through the soft-linked run/exp.test_atm_amip,
+because the nightly Buildbot tst suite only works on experiments run/exp.test_*.)
 
 cd ..
 ./config_target_runscript            \
