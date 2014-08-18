@@ -1,0 +1,36 @@
+#!/bin/ksh
+#--------------------------------------------------------------------------------
+# 
+# 1. Define the experiment and the files to be checked
+
+# EXPERIMENT is the name of the experiment, that defines the experiment descriptor
+# file run/exp.<EXPNAME>. EXPNAME is used also for:
+# - the output directory name: experiments/<EXPNAME>
+# - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
+# - the restart file names: 
+#
+export EXPERIMENT='atm_amip_test'
+
+# TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
+# to be checked.
+#
+export TYPES='dyn_2d_ml dyn_3d_ml dyn_3d_pl lnd_ml phy_2d_ml phy_3d_ml'
+
+# DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
+# to be checked.
+#
+export DATES='19790101T002000Z 19790101T004000Z 19790101T010000Z 19790101T012000Z 19790101T014000Z 19790101T020000Z'
+
+# RESTART_DATE defines the date and time from which restarts should be performed.
+# 
+export RESTART_DATE='19790101T010000Z'
+
+#--------------------------------------------------------------------------------
+# 
+# 2. Launch the checksuite
+
+cd ..;./make_runscripts checksuite.icon-dev ; cd -
+./exp.checksuite.icon-dev.run
+
+#--------------------------------------------------------------------------------
+exit
