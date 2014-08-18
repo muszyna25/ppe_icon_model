@@ -705,6 +705,7 @@ run/add_required_ocean_files -text
 run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.icon-dev/exp.check_atm_amip -text
+run/checksuite.icon-dev/exp.checksuite.icon-dev -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
 run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_ref -text
@@ -723,7 +724,6 @@ run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_test -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.check_restart -text
-run/exp.checksuite.icon-dev -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-ocean-prod -text
 run/exp.couple_atmo-radiation -text
