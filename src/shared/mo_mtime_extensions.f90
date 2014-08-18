@@ -17,7 +17,7 @@
 MODULE mo_mtime_extensions
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_char, c_ptr, c_f_pointer, c_associated, c_bool, &
-    &               c_loc, c_int64_t, c_null_char, c_int
+    &               c_loc, c_int64_t, c_null_char, c_int, c_double
   USE mo_kind,     ONLY: wp
   USE mtime,       ONLY: datetime, event, MAX_TIMEDELTA_STR_LEN, MAX_DATETIME_STR_LEN, &
     &                    newDatetime, deallocateDatetime, datetimeToString, timedelta, &
@@ -31,6 +31,7 @@ MODULE mo_mtime_extensions
   PUBLIC :: getPTStringFromMS
   PUBLIC :: getTimeDeltaFromDateTime
   PUBLIC :: get_duration_string
+  PUBLIC :: get_duration_string_real
   PUBLIC :: get_datetime_string
 
   !> module name
@@ -65,9 +66,14 @@ MODULE mo_mtime_extensions
     MODULE PROCEDURE get_datetime_string_str
   END INTERFACE
 
+  INTERFACE getPTStringFromMS
+    MODULE PROCEDURE getPTStringFromMS_int
+    MODULE PROCEDURE getPTStringFromMS_real
+  END INTERFACE
+
 CONTAINS 
   
-  SUBROUTINE getPTStringFromMS(ms, string)
+  SUBROUTINE getPTStringFromMS_int(ms, string)
     INTEGER, INTENT(in) :: ms
     CHARACTER(len=max_timedelta_str_len), INTENT(out) :: string
     INTEGER :: i
@@ -79,7 +85,13 @@ CONTAINS
       IF (string(i:i) == c_null_char) EXIT char_loop
     END DO char_loop
     string(i:LEN(string)) = ' '
-  END SUBROUTINE getPTStringFromMS
+  END SUBROUTINE getPTStringFromMS_int
+
+  SUBROUTINE getPTStringFromMS_real(ms, string)
+    REAL, INTENT(in) :: ms
+    CHARACTER(len=max_timedelta_str_len), INTENT(out) :: string
+    CALL getPTStringFromMS_int(NINT(ms), string)
+  END SUBROUTINE getPTStringFromMS_real
 
   SUBROUTINE getTimeDeltaFromDateTime(dt1, dt2, td_return)
     TYPE(datetime),  INTENT(IN),    TARGET   :: dt1,dt2 
@@ -212,5 +224,21 @@ CONTAINS
     CALL deallocateDatetime(mtime_datetime)
     datetime_string = result_string
   END SUBROUTINE get_datetime_string_str
+
+ SUBROUTINE get_duration_string_real(iseconds, td_string) 
+    REAL, INTENT(IN)      :: iseconds
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN), INTENT(INOUT) :: td_string
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_duration_string_real"
+    REAL :: seconds
+
+    seconds = iseconds
+    ! create a "timedelta" object
+    IF (seconds <= 8640) THEN
+      ! for small durations: use mtime's conversion routine
+      seconds = seconds*1000
+      CALL getPTStringFromMS(seconds, td_string)
+    ENDIF
+  END SUBROUTINE get_duration_string_real
 
 END MODULE mo_mtime_extensions

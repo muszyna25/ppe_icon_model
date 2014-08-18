@@ -30,6 +30,7 @@ MODULE mo_limarea_nml
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
+  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN
 
   IMPLICIT NONE
   PRIVATE
@@ -40,11 +41,12 @@ MODULE mo_limarea_nml
   !------------------------------------------------------------------------
   INTEGER                         :: itype_latbc    ! type of limited area boundary nudging
   REAL(wp)                        :: dtime_latbc    ! dt between two consequtive external latbc files
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dt_latbc       ! dt between two consequtive external latbc files    
   INTEGER                         :: nlev_latbc     ! number of vertical levels in boundary data
   CHARACTER(LEN=filename_max)     :: latbc_filename ! prefix of latbc files
   CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path     ! directory containing external latbc files
 
-  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, latbc_path
+  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, latbc_path, dt_latbc
 
 CONTAINS
   !>
@@ -60,6 +62,7 @@ CONTAINS
     !------------------------------------------------------------
     itype_latbc      = 0
     dtime_latbc      = 10800._wp
+    dt_latbc         = 'PT03H'
     nlev_latbc       = 0
     latbc_filename   = "prepiconR<nroot>B<jlev>_<y><m><d><h>.nc"
     latbc_path       = "./"
@@ -101,6 +104,7 @@ CONTAINS
     latbc_config% nlev_in         = nlev_latbc
     latbc_config% latbc_filename  = latbc_filename
     latbc_config% latbc_path      = TRIM(latbc_path)//'/'
+    latbc_config% dt_latbc        = TRIM(dt_latbc)
 
     !-----------------------------------------------------
     ! Store the namelist for restart

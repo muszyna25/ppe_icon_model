@@ -40,7 +40,7 @@ MODULE mo_var_metadata_types
   !
   ! New groups can be added by extending the VAR_GROUPS list.
   !
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(36) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(37) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -76,8 +76,8 @@ MODULE mo_var_metadata_types
     &  "OCE_COEFFS            ",  &
     &  "ICE_DEFAULT           ",  &
     &  "ICE_BUDGETS           ",  &
-    &  "ICE_DIAG              "/)
-
+    &  "ICE_DIAG              ",  &
+    &  "LATBC_PREFETCH_VARS   " /)
 
   ! list of vertical interpolation types
   ! 

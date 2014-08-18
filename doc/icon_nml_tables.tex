@@ -2175,6 +2175,16 @@ itype\_latbc $\ge$ 1
 \tabularnewline
 
 %\hline
+\textbf{dt\_latbc}&
+C &
+PT03H & 
+&
+Time difference between two consecutive boundary data in mtime format.
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+%\hline
 \textbf{nlev\_latbc}&
 I &
 0& s
@@ -3781,6 +3791,15 @@ Number of restart processors (running exclusively for doing restart)&
 \tabularnewline
 
 %\hline
+\textbf{num\_pref\_procs} &
+I & 0& &
+Number of processors for prefetching of boundary data asynchronously for
+a limited area run (running exclusively for reading Input boundary
+data. Maximum no of processors used for it is limited to 1). &
+itype\_latbc $\ge$ 1 
+\tabularnewline  
+
+%\hline
 pio\_type &
 I & 1& &
 Type of parallel I/O. Only used if number of I/O processors greater than number of domains.
@@ -3834,6 +3853,15 @@ Number of levels to be buffered by the asynchronous restart process.
 The (asynchronous) restart is capable of writing and communicating
 more than one 2D slice at once. &
 \tabularnewline
+
+%\hline
+use\_async\_prefetch &
+I & 0& &
+Enable this flag by setting it to integer value 1, used to enable asynchronous
+prefetching of boundary data. Set along with num\_pref\_procs for limited area
+run. &
+itype\_latbc $\ge$ 1 
+\tabularnewline 
 
 \end{longtab}
 

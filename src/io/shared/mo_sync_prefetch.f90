@@ -17,12 +17,13 @@
 !! headers of the routines.
 !!
 !!
+!! 
 
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_nh_latbc
+MODULE mo_sync_prefetch
 !-------------------------------------------------------------------------
 !
 !    ProTeX FORTRAN source: Style 2
@@ -40,7 +41,8 @@ MODULE mo_nh_latbc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_COSMODE
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
-                                    p_comm_work_test, p_comm_work
+                                    p_comm_work_test, p_comm_work, p_pe_work, &
+                                    p_work_pe0
   USE mo_io_units,            ONLY: filename_max
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -77,7 +79,13 @@ MODULE mo_nh_latbc
   INTEGER                :: latbc_fileid, &
                             read_latbc_tlev, &  ! time level indices for  p_latbc_data. can be 0 or 1.
                             last_latbc_tlev     ! last_ext_tlev is the last written time level index
+
+  ! ---------------------------------------------------------------------------------
+  ! TODO [MP]
+  !   Replace the "old" calender object TYPE t_datetime by the mtime library.
+  ! ---------------------------------------------------------------------------------
   TYPE(t_datetime)       :: last_latbc_datetime ! last read time step
+
   TYPE(t_initicon_state) :: p_latbc_data(2)     ! storage for two time-level boundary data
   INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
 
@@ -86,10 +94,6 @@ MODULE mo_nh_latbc
     &       last_latbc_datetime, update_lin_interc
 
   CONTAINS
-
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   !>
@@ -109,13 +113,13 @@ MODULE mo_nh_latbc
     REAL(wp)      :: tdiff
     INTEGER       :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_nh_latbc::allocate_latbc_data"
+      "mo_sync_prefetch::allocate_latbc_data"
 
     nlev_in = latbc_config%nlev_in
     IF (nlev_in == 0) THEN
       CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
     END IF
-     
+   
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
     ELSE
@@ -237,7 +241,7 @@ MODULE mo_nh_latbc
     LOGICAL                               :: lcheck_read
     LOGICAL                               :: ltime_incr
     REAL                                  :: tdiff
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_prefetch::read_latbc_data"
 
     IF (PRESENT(lopt_check_read)) THEN
       lcheck_read = lopt_check_read
@@ -313,7 +317,7 @@ MODULE mo_nh_latbc
       &                                    vn, w, rho, theta_v
     INTEGER                             :: tlev
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_prefetch::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
     nlev_in = latbc_config%nlev_in
@@ -463,8 +467,7 @@ MODULE mo_nh_latbc
   !! - read atmospheric IFS analysis data,
   !! - interpolate vertically from intermediate IFS2ICON grid to ICON grid
   !!   and compute the prognostic NH variable set,
-  !!
-  !! @par Revision History
+  !!  !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
   SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, p_int, ext_data)
@@ -479,7 +482,7 @@ MODULE mo_nh_latbc
     LOGICAL                             :: l_exist, lconvert_omega2w
     INTEGER                             :: jc, jk, jb, i_startidx, i_endidx
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_nh_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_prefetch::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
     INTEGER                             :: tlev
                                             
@@ -737,7 +740,7 @@ MODULE mo_nh_latbc
     LOGICAL             :: l_exist, l_all_prog_vars
     INTEGER             :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_nh_latbc::deallocate_latbc_data"
+      "mo_sync_prefetch::deallocate_latbc_data"
      
     WRITE(message_text,'(a,a)') 'deallocating latbc data'
     CALL message(TRIM(routine), message_text)
@@ -904,6 +907,7 @@ MODULE mo_nh_latbc
             p_nh%diag%grf_tend_tracer(jc,jk,jb,iqs) =  rdt * (   &
               &   p_latbc_data(read_latbc_tlev)%atm%qs(jc,jk,jb) &
               & - p_latbc_data(last_latbc_tlev)%atm%qs(jc,jk,jb) )
+
           ENDDO
         ENDDO
       ENDIF
@@ -938,4 +942,4 @@ MODULE mo_nh_latbc
   !-------------------------------------------------------------------------
 
 
-END MODULE mo_nh_latbc
+END MODULE mo_sync_prefetch

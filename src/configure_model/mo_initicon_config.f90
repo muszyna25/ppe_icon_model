@@ -47,6 +47,7 @@ MODULE mo_initicon_config
   PUBLIC :: ana_varlist
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
+  PUBLIC :: latbc_varnames_map_file
   PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
@@ -112,6 +113,10 @@ MODULE mo_initicon_config
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
+  ! analysis file: dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names used in lateral boundary nudging.
+  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
+   
   ! ----------------------------------------------------------------------------
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------

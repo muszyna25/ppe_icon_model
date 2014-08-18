@@ -92,7 +92,9 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
+    &                                    process_mpi_pref_size, my_process_is_work, &
+    &                                    p_pe_work, p_work_pe0     
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -125,7 +127,7 @@ MODULE mo_nh_stepping
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
-  USE mo_nh_latbc,                 ONLY: prepare_latbc_data , read_latbc_data, &
+  USE mo_sync_prefetch,            ONLY: prepare_latbc_data , read_latbc_data, &
     &                                    deallocate_latbc_data, p_latbc_data,   &
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
@@ -139,12 +141,22 @@ MODULE mo_nh_stepping
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
                                          write_vertical_profiles, write_time_series, &
                                          sampl_freq_step
-  USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list 
-                                  
+  USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list  
+  USE mo_async_prefetch,           ONLY: prefetch_input
+  USE mo_async_prefetch_types,     ONLY: t_patch_data
+  USE mo_prefetch_latbc,           ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
+    &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
+  USE mo_parallel_config,          ONLY: use_async_prefetch
+  USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
+  USE mo_loopindices,              ONLY: get_indices_c   
+  USE mo_io_config,                ONLY: inextra_2d, inextra_3d
+  USE mo_nonhydro_types,           ONLY: t_nh_diag
+  USE mo_async_prefetch_types,     ONLY: latbc_buffer     
+                       
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
-  USE messy_main_tracer_bi,   ONLY: main_tracer_beforeadv, main_tracer_afteradv 
+  USE messy_main_tracer_bi,        ONLY: main_tracer_beforeadv, main_tracer_afteradv 
 #ifdef MESSYTIMER                  
   USE messy_main_timer_bi,         ONLY: messy_timer_reset_time 
 
@@ -154,8 +166,10 @@ MODULE mo_nh_stepping
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: &
+    &  version = '$Id: mo_nh_stepping.f90 17581 2014-06-02 12:49:05Z mukund.pondkule $'
 
-
+  TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
 
   ! additional flow control variables that need to be dimensioned with the
   ! number of model domains
@@ -428,7 +442,7 @@ MODULE mo_nh_stepping
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
 
-  INTEGER, INTENT(IN)                          :: n_checkpoint, n_diag
+  INTEGER, INTENT(IN)                  :: n_checkpoint, n_diag
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
@@ -520,8 +534,15 @@ MODULE mo_nh_stepping
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
-    IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
+    IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (use_async_prefetch /= 1)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
+
+!    Used only for debugging purpose for checking difference in values communicated
+!    by synchronous and asynchronous boundary data prefetching
+!    IF(inextra_3d > 0) THEN
+!    ! getting the variable field difference for a variable 
+!       CALL field_difference
+!    ENDIF     
 
     IF (msg_level > 2) THEN
       lprint_timestep = MOD(jstep-jstep_shift,iadv_rcf) == 1 .OR. msg_level >= 8
@@ -609,7 +630,6 @@ MODULE mo_nh_stepping
       ENDIF
     ENDDO
 !$OMP END PARALLEL
-
 
 
     !--------------------------------------------------------------------------
@@ -816,6 +836,11 @@ MODULE mo_nh_stepping
     CALL messy_timer_reset_time
 #endif
 
+    ! prefetch boundary data if necessary
+    IF(((use_async_prefetch == 1) .AND. (process_mpi_pref_size > 0)) .AND. (latbc_config%itype_latbc > 0)) THEN
+       CALL prefetch_input( datetime, jstep, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+    ENDIF
+
   ENDDO TIME_LOOP
 
   IF (use_async_restart_output) CALL close_async_restart
@@ -865,7 +890,7 @@ MODULE mo_nh_stepping
     ! Time levels
     INTEGER :: n_now_grf, n_now, n_new, n_save, n_temp, n_sedi
     INTEGER :: n_now_rcf, n_new_rcf         ! accounts for reduced calling frequencies (rcf)
-
+  
     INTEGER :: jstep, jgp, jgc, jn
     INTEGER :: nsteps_nest ! number of time steps executed in nested domain
 
@@ -890,6 +915,7 @@ MODULE mo_nh_stepping
     ! Switch to determine if nested domains are called at a given time step
     LOGICAL :: l_call_nests = .FALSE.
 
+     
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
     IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
@@ -901,8 +927,7 @@ MODULE mo_nh_stepping
 
       IF (.NOT. l_nest_rcf) nsav1(1:n_dom) = nnow(1:n_dom)
     ENDIF
-    !--------------------------------------------------------------------------
-      
+    
     ! Determine parent domain ID
     IF ( jg > 1) THEN
       jgp = p_patch(jg)%parent_id
@@ -919,7 +944,7 @@ MODULE mo_nh_stepping
     ! they should be written to the save time level, so that the relaxation routine
     ! automatically does the right thing
 
-    IF (jg == 1 .AND. l_limited_area .AND. linit_dyn(jg)) THEN
+    IF (jg == 1 .AND. (l_limited_area .OR. (use_async_prefetch == 1)) .AND. linit_dyn(jg)) THEN
 
       n_save = nsav2(jg)
       n_now = nnow(jg)
@@ -1141,7 +1166,7 @@ MODULE mo_nh_stepping
           CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc-timeshift%dt_shift, dt_loc, lclean_mflx)
         ENDIF
 
-        IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
+        IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. (l_limited_area .OR. (use_async_prefetch == 1))) THEN
           ! apply boundary nudging if feedback is turned off and in limited-area mode
           l_bdy_nudge = .TRUE. 
         ELSE
@@ -1461,26 +1486,35 @@ MODULE mo_nh_stepping
       ENDIF  ! itime_scheme
 
       ! Update nudging tendency fields for limited-area mode
-      IF (jg == 1 .AND. l_limited_area .AND. lstep_adv(jg)) THEN
+      IF (jg == 1 .AND. (l_limited_area .OR. (use_async_prefetch == 1)) .AND. lstep_adv(jg)) THEN
 
-        IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
+         IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
 
-          ! update the coefficients for the linear interpolation
-          CALL update_lin_interc(datetime)
+            IF (use_async_prefetch == 1 .AND. process_mpi_pref_size > 0) THEN
 
-          CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_new),p_nh_state(jg)%prog(n_new_rcf), &
-            p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,        &
-            p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+               ! update the coefficients for the linear interpolation
+               CALL update_lin_interpolation(datetime)
+               CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_new),p_nh_state(jg)%prog(n_new_rcf), &
+                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(end_latbc_tlev)%atm,        &
+                    p_latbc_new=latbc_data(start_latbc_tlev)%atm)
+            ELSE
 
-        ELSE ! constant lateral boundary data
+               ! update the coefficients for the linear interpolation
+               CALL update_lin_interc(datetime)
+               CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_new),p_nh_state(jg)%prog(n_new_rcf), &
+                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,        &
+                    p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)
+            ENDIF
 
-          CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_new),p_nh_state(jg)%prog(n_new_rcf), &
-            p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
+         ELSE ! constant lateral boundary data
 
-        ENDIF
+            CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(n_new),p_nh_state(jg)%prog(n_new_rcf), &
+                 p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
 
-        ! Apply nudging at the lateral boundaries
-        CALL outer_boundary_nudging (jg, n_new, n_new_rcf, REAL(iadv_rcf,wp))
+         ENDIF
+
+         ! Apply nudging at the lateral boundaries
+         CALL outer_boundary_nudging (jg, n_new, n_new_rcf, REAL(iadv_rcf,wp))
 
       ENDIF
 
@@ -1960,6 +1994,48 @@ MODULE mo_nh_stepping
 
   !-------------------------------------------------------------------------
   !>
+  !! Used only for DEBUGGING purpose 
+  !! Computes the difference between variable field using synchronous 
+  !! and asynchronous communication
+  !! @par Revision History
+  !! Developed by Mukund Pondkule, DWD (2014-06-17)
+  !!
+  SUBROUTINE field_difference
+    INTEGER :: nlevs, ierrstat, i_startblk, i_endblk, i_startidx, i_endidx, &
+      &        jb, jc, jk, nblks_c   
+    CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED   = 'ALLOCATE failed!'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      &  routine = 'mo_nh_stepping:field_difference'
+
+    TYPE(t_nh_diag) , POINTER :: diag
+
+    diag => p_nh_state(1)%diag
+    nlevs = p_patch(1)%nlev
+    nblks_c = p_patch(1)%nblks_c
+
+    i_startblk = p_patch(1)%cells%start_blk(1,1)
+
+    DO jk = 1, nlevs 
+       DO jb = i_startblk, nblks_c
+          CALL get_indices_c(p_patch(1), jb, i_startblk, nblks_c, &
+               i_startidx, i_endidx, 1, grf_bdywidth_c)
+
+          DO jc = i_startidx, i_endidx  
+             diag%extra_3d(jc,jk,jb,1:inextra_3d) =  p_latbc_data(last_latbc_tlev)%atm%temp(jc,jk,jb)  &
+             &                                       - latbc_data(end_latbc_tlev)%atm%temp(jc,jk,jb)  
+          !   &                                  latbc_buffer%vars(1)%buffer(jc,jk,jb) !latbc_data(end_latbc_tlev)%atm_in%temp(jc,jk,jb)
+
+             !       WRITE(0,*) 'nlevs ', jk, 'field_diff values ',  field_diff(jc,jk,jb)  !p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb) ! &
+             !        &                    latbc_data(end_latbc_tlev)%atm%w(jc,jk,jb)   
+          ENDDO
+       ENDDO
+    ENDDO
+  !   ENDIF
+    
+  END SUBROUTINE field_difference
+
+  !-------------------------------------------------------------------------
+  !>
   !! Wrapper for computation of aggregated land variables
   !!
   !!
@@ -2262,8 +2338,10 @@ MODULE mo_nh_stepping
       &    't_elapsed_phy failed' )
   ENDIF
 
-  IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
-    CALL deallocate_latbc_data(p_patch(1))
+  IF(((use_async_prefetch == 1) .AND. process_mpi_pref_size > 0) .AND. (latbc_config%itype_latbc > 0)) THEN
+     CALL deallocate_pref_latbc_data(p_patch(1), patch_data(1))
+  ELSE IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
+     CALL deallocate_latbc_data(p_patch(1))
   ENDIF
 
   END SUBROUTINE deallocate_nh_stepping
@@ -2337,7 +2415,6 @@ MODULE mo_nh_stepping
     linit_dyn(:)               = .TRUE.
   ENDIF
 
-
   DO jg=1, n_dom
     ALLOCATE(                                                                      &
       &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
@@ -2366,9 +2443,9 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-
-  IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) &
-    &   CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+  IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (use_async_prefetch /= 1)) THEN
+        CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+  ENDIF
 
 END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------

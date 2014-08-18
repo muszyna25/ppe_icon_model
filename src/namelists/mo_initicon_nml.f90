@@ -47,7 +47,9 @@ MODULE mo_initicon_nml
     & config_type_iau_wgt       => type_iau_wgt,      &
     & config_ana_varlist        => ana_varlist,       &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
-    & config_ana_varnames_map_file => ana_varnames_map_file
+    & config_ana_varnames_map_file => ana_varnames_map_file, &
+    & config_latbc_varnames_map_file => latbc_varnames_map_file
+
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
 
@@ -107,14 +109,18 @@ MODULE mo_initicon_nml
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
+  ! analysis file: dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
+  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
-                          rho_incr_filter_wgt, lp2cintp_incr
-  
+                          rho_incr_filter_wgt, lp2cintp_incr,               &
+                          latbc_varnames_map_file
+                          
 CONTAINS
 
 !-------------------------------------------------------------------------
@@ -163,6 +169,7 @@ CONTAINS
                             ! analysis file (when compared to the default set), are simply 
                             ! taken from the first guess.
   ana_varnames_map_file = " "
+  latbc_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdana_filename   = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -212,6 +219,12 @@ CONTAINS
     ENDIF
   ENDIF 
 
+  ! Check whether an analysis file is provided
+  IF(latbc_varnames_map_file == ' ') THEN
+    WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but missing.'
+    CALL message(TRIM(routine),message_text)
+  ENDIF
+
   ! Check whther an analysis file is provided, if lread_ana=.TRUE.
   IF (lread_ana) THEN
     IF (dwdana_filename ==' ') THEN
@@ -256,7 +269,7 @@ CONTAINS
   config_ana_varlist        = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
-
+  config_latbc_varnames_map_file = latbc_varnames_map_file
 
   ! write the contents of the namelist to an ASCII file
 

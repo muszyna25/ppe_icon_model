@@ -16,7 +16,8 @@ MODULE mo_atmo_nonhydrostatic
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
-USE mo_mpi,                  ONLY: my_process_is_stdio
+USE mo_mpi,                  ONLY: my_process_is_stdio, my_process_is_work, &
+  &                                process_mpi_pref_size
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_control,       ONLY: is_restart_run
@@ -25,7 +26,7 @@ USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
 USE mo_io_config,            ONLY: dt_diag,dt_checkpoint
-USE mo_parallel_config,      ONLY: nproma
+USE mo_parallel_config,      ONLY: nproma, use_async_prefetch
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
@@ -65,7 +66,7 @@ USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
   &                               is_variable_in_output
-USE mo_name_list_output_init, ONLY: init_name_list_output, &
+USE mo_name_list_output_init,ONLY: init_name_list_output, &
   &                               parse_variable_groups
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
@@ -81,7 +82,8 @@ USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: action_init
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
-
+USE mo_limarea_config,      ONLY: latbc_config
+USE mo_async_prefetch,      ONLY: init_prefetch, close_prefetch
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -322,8 +324,6 @@ CONTAINS
       END DO
     END IF
 
-
-
     !------------------------------------------------------------------
     ! Prepare initial conditions for time integration.
     !------------------------------------------------------------------
@@ -371,6 +371,12 @@ CONTAINS
     n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
     n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
+    ! If async prefetching is in effect, init_prefetch is a collective call
+    ! with the prefetching processor and effectively starts async prefetching
+    IF (((use_async_prefetch == 1) .AND. (process_mpi_pref_size > 0)) .AND. &
+         &   (latbc_config%itype_latbc > 0)) THEN
+       CALL init_prefetch
+    END IF
 
     !------------------------------------------------------------------
     ! Prepare output file
@@ -378,10 +384,9 @@ CONTAINS
     !
     ! if output on z and/or p-levels is required do some config
     DO jg = 1, n_dom
-      CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
-        &                     p_patch(jg)%nblks_c)
+       CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
+            &                     p_patch(jg)%nblks_c)
     ENDDO
-
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
@@ -420,8 +425,9 @@ CONTAINS
     END IF
 
     ! Determine if temporally averaged vertically integrated moisture quantities need to be computed
+
     IF (iforcing == inwp) THEN
-      atm_phy_nwp_config(1:n_dom)%lcalc_moist_integral_avg = &
+        atm_phy_nwp_config(1:n_dom)%lcalc_moist_integral_avg = &
         is_variable_in_output(first_output_name_list, var_name="clct_avg")        .OR. &
         is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg01") .OR. &
         is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg02") .OR. &
@@ -497,6 +503,11 @@ CONTAINS
     IF (iforcing == iecham) THEN
       CALL cleanup_echam_phy
     ENDIF
+
+    ! call close name list prefetch to be modified
+    IF((use_async_prefetch == 1) .AND. (process_mpi_pref_size > 0)) THEN
+       CALL close_prefetch
+    END IF
 
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN

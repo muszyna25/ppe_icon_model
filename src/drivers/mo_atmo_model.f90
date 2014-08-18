@@ -20,14 +20,15 @@ MODULE mo_atmo_model
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators,                           &
     &                                   p_pe_work, process_mpi_io_size,                       &
-    &                                   my_process_is_restart, process_mpi_restart_size
+    &                                   my_process_is_restart, process_mpi_restart_size,      &
+    &                                   my_process_is_pref, process_mpi_pref_size  
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
-    &                                   num_restart_procs,                                    &
-    &                                   use_async_restart_output !,use_icon_comm
+  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,               &
+    &                                   num_restart_procs, use_async_restart_output,          &
+    &                                   num_pref_procs, use_async_prefetch  !,use_icon_comm
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
@@ -117,9 +118,13 @@ MODULE mo_atmo_model
   USE mo_output_event_types,      ONLY: t_sim_step_info
   USE mtime,                      ONLY: setCalendar, PROLEPTIC_GREGORIAN
 
+  ! Prefetching  
+  USE mo_async_prefetch,          ONLY: prefetch_main_proc
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
 
+  !testing
+  USE mo_datetime,                ONLY: t_datetime
   !-------------------------------------------------------------------------
 
   IMPLICIT NONE
@@ -261,7 +266,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs, num_pref_procs)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -283,6 +288,16 @@ CONTAINS
       ENDIF
     ENDIF
 
+    ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
+    ! This routine will never return
+    IF (process_mpi_pref_size > 0) THEN
+      use_async_prefetch = 1
+      CALL message(routine,'asynchronous input prefetching is enabled.')
+      IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
+        CALL prefetch_main_proc  
+      ENDIF
+    ENDIF
+ 
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return
     IF (process_mpi_io_size > 0) THEN
