@@ -796,6 +796,7 @@ run/exp.oce_tracer_conservation_sl -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.sl_lsmfl -text
+run/exp.test_atm_amip -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww_ptest -text
