@@ -203,16 +203,17 @@ fi
 
 date
 
-if [[ "$LOADLBATCH" ]]; then
-# change for blizzard
-  PATH=/client/bin:$PATH
-fi
+# assume this script is started in run/checksuite.icon-dev
+cd ..
 
+# get paths standardized by pwd
 SCRIPT_DIR=`pwd`
-MODEL_DIR=${SCRIPT_DIR}/../..
+cd ..
+MODEL_DIR=`pwd`
+cd $SCRIPT_DIR
 
 # Default experiment
-EXPERIMENT=${EXPERIMENT='atm_amip'}
+EXPERIMENT=${EXPERIMENT='atm_amip_test'}
 
 # Default work mode of the checksuite
 MD=${MD='rnmo'}  #MD is equal to MODE but abbreviated test-mode names
@@ -286,7 +287,7 @@ echo "- EXPERIMENT   = ${EXPERIMENT:?   is not defined --> ERROR}"
 echo "- TYPES        = ${TYPES:?        is not defined --> ERROR}"
 echo "- DATES        = ${DATES:?        is not defined --> ERROR}"
 echo "- RESTART_DATE = ${RESTART_DATE:? is not defined --> ERROR}"
-print_mode $MD
+echo "- CHECK MODE   = ${MD:?           is not defined --> ERROR}"
 echo "--------------------------------------------------------------------------------"
 echo " "
 
@@ -295,9 +296,8 @@ CMODES="u ur un um uo urn urm uro unm uno umo urnm urno urmo unmo urnmo"
 if string_in_list $MD $CMODES; then
   echo "- REFERENCE    = ${REFERENCE:?  is not defined --> ERROR}"
 
-  # get standardized paths
+  # get reference path standardized by pwd
   cd ${REFERENCE}; REFERENCE=`pwd`
-  cd ${MODEL_DIR}; MODEL_DIR=`pwd`
   if [ "${REFERENCE}" == "${MODEL_DIR}" ]; then
     echo 'reference model and test model are the same'
     exit 1
@@ -315,8 +315,8 @@ else
   exit 1
 fi
 
-if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
-  ${MODEL_DIR}/make_runscripts ${SCRIPT}
+if [ ! -f ${SCRIPT_DIR}/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
+  ./make_runscripts ${SCRIPT}
 fi
 
 if [ ! -d experiments ]; then
@@ -324,15 +324,15 @@ if [ ! -d experiments ]; then
 fi
 
 # check if the test runscript exists
-if [ ! -f run/exp.${SCRIPT}.run ]; then
-  echo "did not find base runscript run/exp.${SCRIPT}.run"
+if [ ! -f ${SCRIPT_DIR}/exp.${SCRIPT}.run ]; then
+  echo "did not find base runscript ${SCRIPT_DIR}/exp.${SCRIPT}.run"
   exit 1
 else
-  echo "found runscript run/exp.${SCRIPT}.run"
+  echo "found runscript ${SCRIPT_DIR}/exp.${SCRIPT}.run"
 fi
 
 # find out on which system we are
-TARGET_MACHINE=`grep "# target machine is " run/exp.${SCRIPT}.run`
+TARGET_MACHINE=`grep "# target machine is " ${SCRIPT_DIR}/exp.${SCRIPT}.run`
 TARGET_MACHINE=${TARGET_MACHINE#'# target machine is '}
 
 # variables to track the test results
@@ -349,13 +349,12 @@ echo ' '
 EXP_BASE=${EXPERIMENT}_${TEST}
 EXP_TEST=${EXPERIMENT}_${TEST}
 if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_BASE} ]; then
-  cd run
+  cd ${SCRIPT_DIR}
   RUN_SCRIPT=exp.${EXP_BASE}.run
-  cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-  sed -i.sedbak s/${SCRIPT}/${EXP_BASE}/g ${RUN_SCRIPT}
-  rm ${RUN_SCRIPT}.sedbak
+  sed s/${SCRIPT}/${EXP_BASE}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
   #
   echo "Perform $TEST run"
+  chmod 755 ${RUN_SCRIPT}
   ${SCRIPT_DIR}/${RUN_SCRIPT}
   #
   STATUS=$?
@@ -387,7 +386,7 @@ if string_in_list $MD $CMODES; then
     if [ ! -d experiments ]; then
       mkdir experiments
     fi
-    cd run
+    cd ${SCRIPT_DIR}
     if [ ! -f exp.${SCRIPT}.run ]; then
       echo 'reference model: '$REFERENCE
       echo "did not find base runscript for reference model exp.${SCRIPT}.run"
@@ -397,11 +396,10 @@ if string_in_list $MD $CMODES; then
     fi
     #
     RUN_SCRIPT=exp.${EXP_BASE}.run
-    cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-    sed -i.sedbak s/${SCRIPT}/${EXP_BASE}/g ${RUN_SCRIPT}
-    rm ${RUN_SCRIPT}.sedbak
+    sed s/${SCRIPT}/${EXP_BASE}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
     #
     echo "Perform $TEST run"
+    chmod 755 ${RUN_SCRIPT}
     ${REFERENCE}/run/${RUN_SCRIPT}
     #
   else
@@ -437,20 +435,20 @@ if string_in_list $MD $CMODES; then
     echo 'model_dir= ' ${MODEL_DIR}
     #
     RUN_SCRIPT=exp.${EXP_TEST}.run
-    cd ${MODEL_DIR}/run
-    cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-    sed -i.sedbak s/${SCRIPT}/${EXP_TEST}/g ${RUN_SCRIPT}
-    rm ${RUN_SCRIPT}.sedbak
+    cd ${SCRIPT_DIR}
+    sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
     #
-    sed -i.sedbak s/restart:=\".false.\"/restart:=\".true.\"/g ${RUN_SCRIPT}
-    rm ${RUN_SCRIPT}.sedbak
+    sed s/restart:=\".false.\"/restart:=\".true.\"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+    mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
     #
     echo "Perform $TEST run"
+    chmod 755 ${RUN_SCRIPT}
     ${SCRIPT_DIR}/${RUN_SCRIPT}
     #
   else
     echo "Found $TEST run"
   fi # OVERWRITE
+
   # compare base run with test run
   diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
   if [ "$DIFF_STATUS" == 0 ]; then
@@ -473,20 +471,19 @@ if string_in_list $MD $CMODES; then
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     #
     RUN_SCRIPT=exp.${EXP_TEST}.run
-    cd ${MODEL_DIR}/run
-    cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-    sed -i.sedbak s/${SCRIPT}/${EXP_TEST}/g ${RUN_SCRIPT}
-    rm ${RUN_SCRIPT}.sedbak
+    cd ${SCRIPT_DIR}
+    sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
     #
     N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
     N_NPROMA_NEW="nproma=17"
     if [ "${N_NPROMA#nproma=}" == "${N_NPROMA_NEW#nproma=}" ]; then
       N_NPROMA_NEW='nproma=19'
     fi
-    sed -i.sedbak s/$N_NPROMA/$N_NPROMA_NEW/g ${RUN_SCRIPT}
-    rm ${RUN_SCRIPT}.sedbak
+    sed s/$N_NPROMA/$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+    mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
     #
     echo "Perform $TEST run"
+    chmod 755 ${RUN_SCRIPT}
     ${SCRIPT_DIR}/${RUN_SCRIPT}
     #
   else
@@ -513,7 +510,7 @@ if string_in_list $MD $CMODES; then
   echo ' '
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
-    cd ${MODEL_DIR}/run
+    cd ${SCRIPT_DIR}
     TEST_POSSIBLE='no'
     MPI=`grep with_mpi exp.${SCRIPT}.run`
     MPIYES='with_mpi="yes"'
@@ -532,10 +529,8 @@ if string_in_list $MD $CMODES; then
 	TEST_POSSIBLE='yes'
         #
         RUN_SCRIPT=exp.${EXP_TEST}.run
-        cd ${MODEL_DIR}/run
-        cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-        sed -i.sedbak s/${SCRIPT}/${EXP_TEST}/g ${RUN_SCRIPT}
-        rm ${RUN_SCRIPT}.sedbak
+        cd ${SCRIPT_DIR}
+        sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
         #
         #
         if [ $N_PPNODE -gt 1 ]; then
@@ -546,18 +541,21 @@ if string_in_list $MD $CMODES; then
           N_PPNODE_NEW=$(( N_PPNODE - 1 ))
           #
           # change script variables
-          sed -i.sedbak s/"mpi_procs_pernode=$N_PPNODE"/"mpi_procs_pernode=$N_PPNODE_NEW"/g ${RUN_SCRIPT}
+          sed s/"mpi_procs_pernode=$N_PPNODE"/"mpi_procs_pernode=$N_PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           #
           # change system variables where necessary
           if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
             PPNODE=`grep "# @"     ${RUN_SCRIPT} | grep  " tasks_per_node "`
             PPNODE_NEW=${PPNODE%$N_PPNODE}$N_PPNODE_NEW
-            sed -i.sedbak s/"$PPNODE"/"$PPNODE_NEW"/g ${RUN_SCRIPT}
+            sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+            mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           fi
           if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
             PPNODE=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "ntasks-per-node"`
             PPNODE_NEW=${PPNODE%$N_PPNODE}$N_PPNODE_NEW
-            sed -i.sedbak s/"$PPNODE"/"$PPNODE_NEW"/g ${RUN_SCRIPT}
+            sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+            mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           fi
           #
 	else
@@ -568,27 +566,31 @@ if string_in_list $MD $CMODES; then
 	  N_PPNODE_NEW=$N_PPNODE
           #
           # change script variables
-	  sed -i.sedbak s/"no_of_nodes=$N_NODES"/"no_of_nodes=$N_NODES_NEW"/g ${RUN_SCRIPT}
+	  sed s/"no_of_nodes=$N_NODES"/"no_of_nodes=$N_NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           #
           # change system variables where necessary
           if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
             NODES=`grep "# @"     ${RUN_SCRIPT} | grep  " node "`
             NODES_NEW=${NODES%$N_NODES}$N_NODES_NEW
-            sed -i.sedbak s/"$NODES"/"$NODES_NEW"/g ${RUN_SCRIPT}
+            sed s/"$NODES"/"$NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+            mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           fi
           if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
             NODES=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "nodes"`
             NODES_NEW=${NODES%$N_NODES}$N_NODES_NEW
-            sed -i.sedbak s/"$NODES"/"$NODES_NEW"/g ${RUN_SCRIPT}
+            sed s/"$NODES"/"$NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+            mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           fi
           #
 	fi # N_PPNODE>1
         #
         N_PROCS_NEW=$(( N_NODES_NEW * N_PPNODE_NEW ))
-        sed -i.sedbak s/"mpi_total_procs=$N_PROCS"/"mpi_total_procs=$N_PROCS_NEW"/g ${RUN_SCRIPT}
-        rm ${RUN_SCRIPT}.sedbak
+        sed s/"mpi_total_procs=$N_PROCS"/"mpi_total_procs=$N_PROCS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
         #
         echo "Perform $TEST run"
+        chmod 755 ${RUN_SCRIPT}
         ${SCRIPT_DIR}/${RUN_SCRIPT}
         #
       else
@@ -626,7 +628,7 @@ if string_in_list $MD $CMODES; then
   echo ' '
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
-    cd ${MODEL_DIR}/run
+    cd ${SCRIPT_DIR}
     TEST_POSSIBLE='no'
     OMP=`grep with_openmp exp.${SCRIPT}.run`
     OMPYES='with_openmp="yes"'
@@ -644,34 +646,38 @@ if string_in_list $MD $CMODES; then
 	TEST_POSSIBLE='yes'
         #
         RUN_SCRIPT=exp.${EXP_TEST}.run
-        cd ${MODEL_DIR}/run
-        cp -f exp.${SCRIPT}.run ${RUN_SCRIPT}
-        sed -i.sedbak s/${SCRIPT}/${EXP_TEST}/g ${RUN_SCRIPT}
-        rm ${RUN_SCRIPT}.sedbak
+        cd ${SCRIPT_DIR}
+        sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
         #
         N_OMP_NUM_THREADS_NEW=$(( N_OMP_NUM_THREADS - 1 ))
 	N_ICON_THREADS_NEW=$(( N_ICON_THREADS - 1 ))
         #
         # change script variables
-        sed -i.sedbak s/"export OMP_NUM_THREADS=$N_OMP_NUM_THREADS"/"export OMP_NUM_THREADS=$N_OMP_NUM_THREADS_NEW"/g ${RUN_SCRIPT}
-        sed -i.sedbak s/"export ICON_THREADS=$N_ICON_THREADS"/"export ICON_THREADS=$N_ICON_THREADS_NEW"/g ${RUN_SCRIPT}
+        sed s/"export OMP_NUM_THREADS=$N_OMP_NUM_THREADS"/"export OMP_NUM_THREADS=$N_OMP_NUM_THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+        sed s/"export ICON_THREADS=$N_ICON_THREADS"/"export ICON_THREADS=$N_ICON_THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+        mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
         #
         # change system variables where necessary
         if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
           THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " task_affinity "`
           THREADS_NEW=${THREADS%\($N_OMP_NUM_THREADS\)}\($N_OMP_NUM_THREADS_NEW\)
-          sed -i.sedbak s/"$PPNODE"/"$PPNODE_NEW"/g ${RUN_SCRIPT}
+          sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " parallel_threads "`
           THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-          sed -i.sedbak s/"$THREADS"/"$THREADS_NEW"/g ${RUN_SCRIPT}
+          sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
         fi
-##        if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-##          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`
-##          THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-##          sed -i.sedbak s/"$THREADS"/"$THREADS_NEW"/g ${RUN_SCRIPT}
-##        fi
+        if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
+          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`
+          THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
+          sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+        fi
         #
         echo "Perform $TEST run"
+        chmod 755 ${RUN_SCRIPT}
         ${SCRIPT_DIR}/${RUN_SCRIPT}
         #
       else
@@ -710,5 +716,6 @@ echo $FAILED_TESTS
 echo ' '
 echo "=============================================================================="
 date
+pwd
 echo $EXIT_STATUS > ${SCRIPT_DIR}/exp.test_icon.run.status
 exit $EXIT_STATUS
