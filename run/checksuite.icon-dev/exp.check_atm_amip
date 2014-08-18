@@ -27,9 +27,28 @@ export RESTART_DATE='19790101T010000Z'
 
 #--------------------------------------------------------------------------------
 # 
-# 2. Launch the checksuite
+# 2. Define the checksuite mode
+#
+# u = update test
+# r = restart test
+# n = nproma test
+# m = mpi test
+# o = omp test
+#
+# default: MD='rnmo'
 
-cd ..;./make_runscripts checksuite.icon-dev ; cd -
+MD='rnmo'
+
+#--------------------------------------------------------------------------------
+# 
+# 3. Launch the checksuite
+
+cd ..
+./config_target_runscript            \
+  in_folder=run/checksuite.icon-dev  \
+  in_script=exp.checksuite.icon-dev
+
+cd run/checksuite.icon-dev
 ./exp.checksuite.icon-dev.run
 
 #--------------------------------------------------------------------------------

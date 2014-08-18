@@ -704,6 +704,7 @@ run/add_required_atmo_non-hydrostatic_files -text
 run/add_required_ocean_files -text
 run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
+run/checksuite.icon-dev/exp.check_atm_amip -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
 run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_ref -text
@@ -795,7 +796,6 @@ run/exp.oce_tracer_conservation_sl -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.sl_lsmfl -text
-run/exp.test_atm_amip -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww_ptest -text
