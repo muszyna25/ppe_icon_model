@@ -365,7 +365,7 @@ if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_BASE} ]; the
   else
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$((EXIT_STATUS + 1))
-    echo "ERROR: Base run FAILED --> no furter testing possible"
+    echo "ERROR: Base run FAILED --> no further testing possible"
     exit 1
   fi
 else
