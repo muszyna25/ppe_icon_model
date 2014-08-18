@@ -260,7 +260,8 @@ foreach $dir ( @directories ) {
 	next if $file =~ /c$/;
 	my ($object) = $file;
 	$object =~ s/f90$/o/;
-	my (@modules) = @{$module_usage{$file}};
+        my %seen_module_usage = ();
+	my (@modules) = grep { ! $seen_module_usage{$_} ++ } @{$module_usage{$file}};
 	my (@dependencies) = ();
 	for $i ( 0 .. $#modules) {		 
 	    my ($ofile) = $module_definitions{$modules[$i]};
@@ -273,7 +274,7 @@ foreach $dir ( @directories ) {
 	&PrintWords (length($object)+length($file)+3, 0, @dependencies);
 	print MAKEFILE "\n\n";
     }
-    
+
     close (MAKEFILE);
     
 }
@@ -347,7 +348,8 @@ sub ScanDirectory {
 		    }
 		    if (/^ *USE/i) {
 			s/USE//i;
-			(my @d2) = split ',';
+                        (my @dt2) = split ('!', $_, 2);
+			(my @d2) = split ',', $dt2[0];
 			$d2[0] =~ s/\s//g;
 			if (exists $module_usage{$name}) {
 			    push @{ $module_usage{$name} }, $d2[0]; 
@@ -356,7 +358,8 @@ sub ScanDirectory {
 			}
 		    }
 		    if (/^ *INCLUDE/i) {
-			(my @d3) = split '\'';
+                        (my @dt3) = split ('!', $_, 2);
+			(my @d3) = split '\'', $dt3[0];
 			$d3[1] =~ s/\s//g;
 			if (exists $fortran_includes{$name}) {
 			    push @{ $fortran_includes{$name} }, $d3[1]; 
