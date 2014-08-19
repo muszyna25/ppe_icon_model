@@ -37,7 +37,7 @@
 !! software.
 !!
 !!
-MODULE mo_async_prefetch_types
+MODULE mo_async_latbc_types
 
   USE mo_kind,                  ONLY: sp
   USE mo_var_metadata_types,    ONLY: t_var_metadata, VARNAME_LEN
@@ -50,7 +50,7 @@ MODULE mo_async_prefetch_types
   PRIVATE
 
   ! module name
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_prefetch_types'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_types'
 
   ! derived data types:
   PUBLIC :: t_patch_data
@@ -164,6 +164,6 @@ MODULE mo_async_prefetch_types
 
   END TYPE t_patch_data
 
-END MODULE mo_async_prefetch_types
+END MODULE mo_async_latbc_types
 
   !------------------------------------------------------------------------------------------------  

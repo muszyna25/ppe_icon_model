@@ -38,7 +38,7 @@
 !!
 !!
 
-MODULE mo_prefetch_read_recv
+MODULE mo_latbc_read_recv
 
 #ifndef NOMPI
   USE mpi
@@ -59,7 +59,7 @@ MODULE mo_prefetch_read_recv
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID
   USE mo_model_domain,       ONLY: p_patch
-  USE mo_async_prefetch_types, ONLY: t_patch_data, t_reorder_data
+  USE mo_async_latbc_types,  ONLY: t_patch_data, t_reorder_data
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   
   IMPLICIT NONE
@@ -77,7 +77,7 @@ MODULE mo_prefetch_read_recv
 
   CHARACTER(len=*), PARAMETER :: version = &
     &    '$Id: mo_cdi_prefetch.f90 16829 2014-04-30 14:27:20Z mukund.pondkule $'
-  CHARACTER(LEN=*), PARAMETER :: modname = '::mo_prefetch_read_recv'
+  CHARACTER(LEN=*), PARAMETER :: modname = '::mo_latbc_read_recv'
 
 CONTAINS
 
@@ -387,4 +387,4 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
 
-END MODULE mo_prefetch_read_recv
+END MODULE mo_latbc_read_recv

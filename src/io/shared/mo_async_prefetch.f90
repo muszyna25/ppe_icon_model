@@ -39,7 +39,7 @@
 #if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
 #define HAVE_F2003
 #endif
-MODULE mo_async_prefetch
+MODULE mo_async_latbc
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
@@ -56,8 +56,7 @@ MODULE mo_async_prefetch
     USE mo_exception,                 ONLY: finish, message, message_text
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
          &                                  my_process_is_mpi_test, p_int, p_int_i8, p_real_sp                 
-    USE mo_parallel_config,           ONLY: num_pref_procs
-    USE mo_parallel_config,           ONLY: use_async_prefetch   
+    USE mo_parallel_config,           ONLY: nproma
     USE mo_model_domain,              ONLY: p_patch
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_model_domain,              ONLY: t_patch
@@ -80,9 +79,9 @@ MODULE mo_async_prefetch
     USE mo_datetime,                  ONLY: t_datetime, date_to_time
     USE mo_datetime,                  ONLY: add_time
     USE mo_run_config,                ONLY: dtime
-    USE mo_async_prefetch_types,      ONLY: t_patch_data, t_reorder_data, latbc_buffer, t_var_data 
+    USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer, t_var_data 
     USE mo_grid_config,               ONLY: n_dom, nroot
-    USE mo_prefetch_latbc,            ONLY: pref_latbc_data, prepare_pref_latbc_data, &
+    USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start         
     USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH 
@@ -102,7 +101,6 @@ MODULE mo_async_prefetch
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file
     USE mo_limarea_config,            ONLY: latbc_config
     USE mo_time_config,               ONLY: time_config
-    USE mo_parallel_config,           ONLY: nproma
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
          &                                  GRID_UNSTRUCTURED_VERT, ZA_SURFACE, ZA_HYBRID,  &
          &                                  vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
@@ -153,7 +151,7 @@ MODULE mo_async_prefetch
     ! common constant strings
     CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED   = 'ALLOCATE failed!'
     CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE = 'Unknown grid type!'
-    CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_prefetch'
+    CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc'
 
     TYPE(t_patch_data), ALLOCATABLE, PUBLIC, TARGET :: patch_data(:)
   
@@ -462,7 +460,7 @@ MODULE mo_async_prefetch
       ! GRIB2 shortnames or NetCDF var names.
       TYPE (t_dictionary) :: latbc_varnames_dict   
       CHARACTER(LEN=filename_max) :: latbc_file
-      CHARACTER(*), PARAMETER :: routine = "mo_async_prefetch::read_init_files"
+      CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH) :: name
       CHARACTER (len=32)              :: wdth
       INTEGER :: jlev, ierrstat, vlistID, nvars, varID, nlev, zaxisID, &
@@ -641,7 +639,7 @@ MODULE mo_async_prefetch
 #ifndef NOMPI
       ! local variables
       CHARACTER(LEN=filename_max) :: latbc_file
-      CHARACTER(*), PARAMETER :: routine = "mo_async_prefetch::read_init_files"
+      CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH) :: name
       CHARACTER (len=MAX_CHAR_LENGTH) :: var_name
       CHARACTER (len=32)              :: wdth
@@ -1277,4 +1275,4 @@ MODULE mo_async_prefetch
 
 #endif
 
-END MODULE mo_async_prefetch
+END MODULE mo_async_latbc

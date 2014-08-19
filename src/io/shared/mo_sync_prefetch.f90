@@ -23,7 +23,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_sync_prefetch
+MODULE mo_sync_latbc
 !-------------------------------------------------------------------------
 !
 !    ProTeX FORTRAN source: Style 2
@@ -113,7 +113,7 @@ MODULE mo_sync_prefetch
     REAL(wp)      :: tdiff
     INTEGER       :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_sync_prefetch::allocate_latbc_data"
+      "mo_sync_latbc::allocate_latbc_data"
 
     nlev_in = latbc_config%nlev_in
     IF (nlev_in == 0) THEN
@@ -241,7 +241,7 @@ MODULE mo_sync_prefetch
     LOGICAL                               :: lcheck_read
     LOGICAL                               :: ltime_incr
     REAL                                  :: tdiff
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_prefetch::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
 
     IF (PRESENT(lopt_check_read)) THEN
       lcheck_read = lopt_check_read
@@ -317,7 +317,7 @@ MODULE mo_sync_prefetch
       &                                    vn, w, rho, theta_v
     INTEGER                             :: tlev
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_prefetch::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
     nlev_in = latbc_config%nlev_in
@@ -482,7 +482,7 @@ MODULE mo_sync_prefetch
     LOGICAL                             :: l_exist, lconvert_omega2w
     INTEGER                             :: jc, jk, jb, i_startidx, i_endidx
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_prefetch::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
     INTEGER                             :: tlev
                                             
@@ -740,7 +740,7 @@ MODULE mo_sync_prefetch
     LOGICAL             :: l_exist, l_all_prog_vars
     INTEGER             :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_sync_prefetch::deallocate_latbc_data"
+      "mo_sync_latbc::deallocate_latbc_data"
      
     WRITE(message_text,'(a,a)') 'deallocating latbc data'
     CALL message(TRIM(routine), message_text)
@@ -942,4 +942,4 @@ MODULE mo_sync_prefetch
   !-------------------------------------------------------------------------
 
 
-END MODULE mo_sync_prefetch
+END MODULE mo_sync_latbc
