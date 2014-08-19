@@ -1766,6 +1766,20 @@ left column: ICON variable name, right column: GRIB2 short name.
 &
 \tabularnewline
 
+%\hline
+\textbf{latbc\_varnames\_map\_ file} &
+C& & &
+Dictionary file which maps internal variable names onto
+GRIB2 shortnames or NetCDF var names.
+This is a text file with two columns separated by whitespace, where
+left column: ICON variable name, right column: GRIB2 short name.
+This list contains variables that are to be read asynchronously for
+boundary data nudging in a HDCP2 simulation. All new boundary variables
+that in the future, would be read asynchronously. Need to be added to text 
+file dict.latbc in run folder.   
+&
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_initicon_nml.f90+
@@ -3791,7 +3805,7 @@ Number of restart processors (running exclusively for doing restart)&
 \tabularnewline
 
 %\hline
-\textbf{num\_pref\_procs} &
+\textbf{num\_pref\_proc} &
 I & 0& &
 Number of processors for prefetching of boundary data asynchronously for
 a limited area run (running exclusively for reading Input boundary
@@ -3853,15 +3867,6 @@ Number of levels to be buffered by the asynchronous restart process.
 The (asynchronous) restart is capable of writing and communicating
 more than one 2D slice at once. &
 \tabularnewline
-
-%\hline
-use\_async\_prefetch &
-I & 0& &
-Enable this flag by setting it to integer value 1, used to enable asynchronous
-prefetching of boundary data. Set along with num\_pref\_procs for limited area
-run. &
-itype\_latbc $\ge$ 1 
-\tabularnewline 
 
 \end{longtab}
 

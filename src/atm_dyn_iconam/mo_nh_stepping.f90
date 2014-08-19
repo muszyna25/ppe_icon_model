@@ -37,7 +37,8 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,         ONLY: diffusion_config
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method
   USE mo_io_config,                ONLY: l_outputtime, l_diagtime, is_checkpoint_time
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
+                                         num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                    ldynamics, ltransport, ntracer, lforcing, iforcing, &
     &                                    msg_level, test_mode, output_mode, lart
@@ -127,7 +128,7 @@ MODULE mo_nh_stepping
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
-  USE mo_sync_prefetch,            ONLY: prepare_latbc_data , read_latbc_data, &
+  USE mo_sync_latbc,               ONLY: prepare_latbc_data , read_latbc_data, &
     &                                    deallocate_latbc_data, p_latbc_data,   &
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
@@ -142,16 +143,15 @@ MODULE mo_nh_stepping
                                          write_vertical_profiles, write_time_series, &
                                          sampl_freq_step
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list  
-  USE mo_async_prefetch,           ONLY: prefetch_input
-  USE mo_async_prefetch_types,     ONLY: t_patch_data
-  USE mo_prefetch_latbc,           ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
+  USE mo_async_latbc,              ONLY: prefetch_input
+  USE mo_async_latbc_types,        ONLY: t_patch_data
+  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
-  USE mo_parallel_config,          ONLY: use_async_prefetch
   USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
   USE mo_loopindices,              ONLY: get_indices_c   
   USE mo_io_config,                ONLY: inextra_2d, inextra_3d
   USE mo_nonhydro_types,           ONLY: t_nh_diag
-  USE mo_async_prefetch_types,     ONLY: latbc_buffer     
+  USE mo_async_latbc_types,        ONLY: latbc_buffer     
                        
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -534,7 +534,7 @@ MODULE mo_nh_stepping
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
-    IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (use_async_prefetch /= 1)) &
+    IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
 !    Used only for debugging purpose for checking difference in values communicated
@@ -837,7 +837,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! prefetch boundary data if necessary
-    IF(((use_async_prefetch == 1) .AND. (process_mpi_pref_size > 0)) .AND. (latbc_config%itype_latbc > 0)) THEN
+    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
        CALL prefetch_input( datetime, jstep, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
     ENDIF
 
@@ -944,7 +944,7 @@ MODULE mo_nh_stepping
     ! they should be written to the save time level, so that the relaxation routine
     ! automatically does the right thing
 
-    IF (jg == 1 .AND. (l_limited_area .OR. (use_async_prefetch == 1)) .AND. linit_dyn(jg)) THEN
+    IF (jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1)) .AND. linit_dyn(jg)) THEN
 
       n_save = nsav2(jg)
       n_now = nnow(jg)
@@ -1166,7 +1166,7 @@ MODULE mo_nh_stepping
           CALL compute_iau_wgt(time_config%sim_time(jg)-0.5_wp*dt_loc-timeshift%dt_shift, dt_loc, lclean_mflx)
         ENDIF
 
-        IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. (l_limited_area .OR. (use_async_prefetch == 1))) THEN
+        IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1))) THEN
           ! apply boundary nudging if feedback is turned off and in limited-area mode
           l_bdy_nudge = .TRUE. 
         ELSE
@@ -1486,11 +1486,11 @@ MODULE mo_nh_stepping
       ENDIF  ! itime_scheme
 
       ! Update nudging tendency fields for limited-area mode
-      IF (jg == 1 .AND. (l_limited_area .OR. (use_async_prefetch == 1)) .AND. lstep_adv(jg)) THEN
+      IF (jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1)) .AND. lstep_adv(jg)) THEN
 
          IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
 
-            IF (use_async_prefetch == 1 .AND. process_mpi_pref_size > 0) THEN
+            IF (num_prefetch_proc == 1) THEN
 
                ! update the coefficients for the linear interpolation
                CALL update_lin_interpolation(datetime)
@@ -2338,7 +2338,7 @@ MODULE mo_nh_stepping
       &    't_elapsed_phy failed' )
   ENDIF
 
-  IF(((use_async_prefetch == 1) .AND. process_mpi_pref_size > 0) .AND. (latbc_config%itype_latbc > 0)) THEN
+  IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
      CALL deallocate_pref_latbc_data(p_patch(1), patch_data(1))
   ELSE IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
      CALL deallocate_latbc_data(p_patch(1))
@@ -2443,7 +2443,7 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-  IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (use_async_prefetch /= 1)) THEN
+  IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) THEN
         CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
   ENDIF
 

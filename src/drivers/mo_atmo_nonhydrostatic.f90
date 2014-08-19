@@ -26,7 +26,7 @@ USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
 USE mo_io_config,            ONLY: dt_diag,dt_checkpoint
-USE mo_parallel_config,      ONLY: nproma, use_async_prefetch
+USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
@@ -83,7 +83,7 @@ USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: action_init
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
-USE mo_async_prefetch,      ONLY: init_prefetch, close_prefetch
+USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -373,10 +373,8 @@ CONTAINS
 
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
-    IF (((use_async_prefetch == 1) .AND. (process_mpi_pref_size > 0)) .AND. &
-         &   (latbc_config%itype_latbc > 0)) THEN
+    IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
        CALL init_prefetch
-    END IF
 
     !------------------------------------------------------------------
     ! Prepare output file
@@ -504,10 +502,9 @@ CONTAINS
       CALL cleanup_echam_phy
     ENDIF
 
-    ! call close name list prefetch to be modified
-    IF((use_async_prefetch == 1) .AND. (process_mpi_pref_size > 0)) THEN
+    ! call close name list prefetch 
+    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
        CALL close_prefetch
-    END IF
 
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN

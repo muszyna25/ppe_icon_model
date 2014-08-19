@@ -28,7 +28,7 @@ MODULE mo_atmo_model
     &                                   timer_ext_data, print_timer
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,               &
     &                                   num_restart_procs, use_async_restart_output,          &
-    &                                   num_pref_procs, use_async_prefetch  !,use_icon_comm
+    &                                   num_prefetch_proc
   USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
@@ -119,7 +119,7 @@ MODULE mo_atmo_model
   USE mtime,                      ONLY: setCalendar, PROLEPTIC_GREGORIAN
 
   ! Prefetching  
-  USE mo_async_prefetch,          ONLY: prefetch_main_proc
+  USE mo_async_latbc,             ONLY: prefetch_main_proc
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
 
@@ -266,7 +266,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs, num_pref_procs)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, num_restart_procs, &
+               &                    num_prefetch_proc)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
@@ -291,7 +292,7 @@ CONTAINS
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return
     IF (process_mpi_pref_size > 0) THEN
-      use_async_prefetch = 1
+      num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
         CALL prefetch_main_proc  

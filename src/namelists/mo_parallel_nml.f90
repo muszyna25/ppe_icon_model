@@ -39,7 +39,7 @@ MODULE mo_parallel_nml
     & config_num_restart_procs   => num_restart_procs,   &
     & config_num_io_procs        => num_io_procs,        &
     & config_pio_type            => pio_type,            &
-    & config_num_pref_procs      => num_pref_procs,      &
+    & config_num_prefetch_proc   => num_prefetch_proc,   &
     & config_itype_comm          => itype_comm,          &
     & config_iorder_sendrecv     => iorder_sendrecv,     &
 !     & config_radiation_threads   => radiation_ompthreads,   &
@@ -64,8 +64,7 @@ MODULE mo_parallel_nml
     & config_max_mpi_message_size => max_mpi_message_size,    &
     & config_use_physics_barrier  => use_physics_barrier,     &
     & config_redrad_split_factor => redrad_split_factor,      &
-    & config_restart_chunk_size => restart_chunk_size,        &
-    & config_use_async_prefetch => use_async_prefetch        
+    & config_restart_chunk_size => restart_chunk_size
 
   IMPLICIT NONE
   PRIVATE
@@ -146,11 +145,8 @@ MODULE mo_parallel_nml
     INTEGER :: num_restart_procs
 
     ! Number of PEs used for async prefetching of input (0 means, the worker PE0 prefetches lateral boundary input)
-    INTEGER :: num_pref_procs 
+    INTEGER :: num_prefetch_proc 
     
-    ! Setting the flag for using asynchronous prefetching (1 means .TRUE. and other number means .False.)
-    INTEGER :: use_async_prefetch
-
     ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
@@ -199,8 +195,7 @@ MODULE mo_parallel_nml
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-      & redrad_split_factor, restart_chunk_size, num_pref_procs, &
-      & use_async_prefetch !parallel_radiation_omp
+      & redrad_split_factor, restart_chunk_size, num_prefetch_proc !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -261,10 +256,7 @@ MODULE mo_parallel_nml
     num_restart_procs = 0
 
     ! The number of PEs used for async prefetching of input (0 means, the worker PE0 prefetches input)
-    num_pref_procs = 0
-
-    ! Setting the flag for using asynchronous prefetching (1 means .TRUE. and 0 means .False.)
-    use_async_prefetch = 0
+    num_prefetch_proc = 0
 
     ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
@@ -351,7 +343,7 @@ MODULE mo_parallel_nml
     config_num_restart_procs   = num_restart_procs
     config_num_io_procs        = num_io_procs
     config_pio_type            = pio_type
-    config_num_pref_procs      = num_pref_procs
+    config_num_prefetch_proc   = num_prefetch_proc
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv
 !     config_radiation_threads   = radiation_threads
@@ -376,7 +368,6 @@ MODULE mo_parallel_nml
     config_itype_exch_barrier   = itype_exch_barrier
     config_use_dp_mpi2io        = use_dp_mpi2io
     config_restart_chunk_size   = restart_chunk_size
-    config_use_async_prefetch   = use_async_prefetch
     !-----------------------------------------------------
     CALL check_parallel_configuration()
 

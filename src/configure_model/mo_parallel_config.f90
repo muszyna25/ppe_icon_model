@@ -33,7 +33,7 @@ MODULE mo_parallel_config
        &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
        &  p_test_run, l_test_openmp,                                &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &  num_restart_procs, num_pref_procs,                                       &
+       &  num_restart_procs, num_prefetch_proc,                                       &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_dp_mpi2io,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
@@ -43,9 +43,8 @@ MODULE mo_parallel_config
   PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
        & ext_div_medial_redrad_cluster, ext_div_from_file
 
-  PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, &
-       &    use_async_prefetch
-
+  PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output
+    
   ! computing setup
   ! ---------------
   INTEGER  :: nproma = 1              ! inner loop length/vector length
@@ -118,9 +117,6 @@ MODULE mo_parallel_config
   ! Flag whether async restart output is used, it is set in the main program:
   LOGICAL :: use_async_restart_output = .FALSE.
 
-  ! Flag whether async prefetching is used, it is set in main program:
-  INTEGER :: use_async_prefetch = 0
-
   ! Type of parallel I/O
   INTEGER :: pio_type = 1
 
@@ -130,7 +126,7 @@ MODULE mo_parallel_config
   INTEGER :: num_restart_procs = 0
 
   ! The number of PEs used for async prefetching of input (0 means, the PE0 prefetches input)
-  INTEGER :: num_pref_procs = 0
+  INTEGER :: num_prefetch_proc = 0
 
   ! Type of (halo) communication:
   ! 1 = synchronous communication with local memory for exchange buffers
@@ -193,10 +189,10 @@ CONTAINS
       & icon_comm_openmp = .true.
 #endif
 
-    ! check p_test_run, num_io_procs, num_restart_procs and num_pref_procs
+    ! check p_test_run, num_io_procs, num_restart_procs and num_prefetch_proc
 #ifdef NOMPI
     ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0, num_restart_procs to 0 
-    ! and num_pref_procs to 0 
+    ! and num_prefetch_proc to 0 
     ! all other variables are already set correctly
     IF (p_test_run) THEN
       CALL message(method_name, &
@@ -219,12 +215,12 @@ CONTAINS
        & '--> num_restart_procs set to 0')
       num_restart_procs = 0
     END IF
-    IF (num_pref_procs /= 0) THEN
+    IF (num_prefetch_proc /= 0) THEN
       CALL message(method_name, &
-       & 'num_pref_procs has no effect if the model is compiled with the NOMPI compiler directive')
+       & 'num_prefetch_proc has no effect if the model is compiled with the NOMPI compiler directive')
       CALL message(method_name, &
-       & '--> num_pref_procs set to 0')
-      num_pref_procs = 0
+       & '--> num_prefetch_proc set to 0')
+      num_prefetch_proc = 0
     END IF
 
 #else
@@ -258,16 +254,10 @@ CONTAINS
     IF (num_io_procs > MAX_NUM_IO_PROCS) THEN
       CALL finish(method_name, "Namelist parameter num_io_procs chosen too large ( > "//TRIM(int2string(MAX_NUM_IO_PROCS))//")!")
     END IF
-    IF(num_pref_procs < 0) num_pref_procs = 0
-    IF(num_pref_procs > 1) &
+    IF(num_prefetch_proc < 0) num_prefetch_proc = 0
+    IF(num_prefetch_proc > 1) &
          CALL finish(TRIM(method_name),'The no of prefetch processor can be zero or one, but should not be set more than one!')
-    IF((num_pref_procs == 1) .AND. (use_async_prefetch /= 1)) THEN
-       CALL finish(TRIM(method_name), &
-                'The no of prefetch processor is set to one but the use_async_prefetch flag is not set to one!')
-    ELSE IF((num_pref_procs /= 1) .AND. (use_async_prefetch == 1)) THEN
-       CALL finish(TRIM(method_name), &
-                'The flag use_async_prefetch is set to one but the no of prefetch processor is not set to one!')
-    ENDIF
+
 #endif
 
   END SUBROUTINE check_parallel_configuration
