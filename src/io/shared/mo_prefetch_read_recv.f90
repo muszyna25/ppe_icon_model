@@ -88,8 +88,8 @@ CONTAINS
   SUBROUTINE prefetch_cdi_3d(streamID, varname, patch_data, nlevs, hgrid, ioff, &
     &                       opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
 
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
+#ifndef NOMPI
+    USE mpi
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND
 #endif
@@ -162,8 +162,8 @@ CONTAINS
   !
   SUBROUTINE prefetch_cdi_2d (streamID, varname, patch_data, hgrid, ioff, &
        &                           opt_tileidx, opt_dict)
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
+#ifndef NOMPI
+    USE mpi
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND
 #endif
@@ -214,10 +214,8 @@ CONTAINS
   SUBROUTINE compute_data_receive(varname, hgrid, nlevs, var_out, eoff, patch_data, &
        &                     opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
 
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
-    USE mpi, ONLY: MPI_LOCK_SHARED, MPI_MODE_NOCHECK
+#ifndef NOMPI
+    USE mpi
 #endif
 
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< var name of field to be read
@@ -239,6 +237,7 @@ CONTAINS
                    dim_jl, dim_jb      
     LOGICAL     :: lvalue_add
 
+#ifndef NOMPI
     CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data(1)%mem_win%mpi_win, mpi_error)
 
     ! initialize output field:
@@ -275,6 +274,7 @@ CONTAINS
     END DO ! jk=1,nlevs
 
     CALL MPI_Win_unlock(p_pe_work, patch_data(1)%mem_win%mpi_win, mpi_error)
+#endif
 
   END SUBROUTINE compute_data_receive
  
@@ -285,10 +285,10 @@ CONTAINS
   !  Initial revision by M. Pondkule, DWD (2014-05-27) 
   !
   SUBROUTINE prefetch_proc_send(patch_data, var1_dp, nlevs, hgrid, ioff)
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
+#ifndef NOMPI
+    USE mpi
 #else
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_MODE_NOCHECK, MPI_REAL, MPI_LOCK_EXCLUSIVE
+    USE mpi, ONLY: MPI_ADDRESS_KIND
 #endif
     ! local variables  
     TYPE(t_patch_data), TARGET, INTENT(IN)  :: patch_data(1)  !< patch data containing information for prefetch 
@@ -356,6 +356,8 @@ CONTAINS
 
     nv_off  = 0_i8
     nval = 0
+
+#ifndef NOMPI
     DO np = 0, num_work_procs-1
 
        IF(p_ri%pe_own(np) == 0) CYCLE
@@ -376,6 +378,7 @@ CONTAINS
        ioff(np) = ioff(np) + INT(nval,i8) ! replace with mpi_kind
 
     ENDDO
+#endif
 
     DEALLOCATE(var3_sp, STAT=ierrstat) ! Must be allocated to exact size
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')

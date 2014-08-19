@@ -157,12 +157,10 @@ MODULE mo_async_prefetch
 
     TYPE(t_patch_data), ALLOCATABLE, PUBLIC, TARGET :: patch_data(:)
   
-#ifndef NOMPI
     !------------------------------------------------------------------------------------------------
     ! Broadcast root for intercommunicator broadcasts form compute PEs to prefetching
     ! PE using p_comm_work_2_pref
     INTEGER :: bcast_root
-#endif
 
   CONTAINS
 
@@ -271,6 +269,7 @@ MODULE mo_async_prefetch
 
       CHARACTER (LEN=MAX_ERROR_LENGTH):: error_message
 
+#ifndef NOMPI
       IF (mpi_error /= MPI_SUCCESS) THEN
          IF (l_finish) THEN
             WRITE (error_message, '(2a,i5)')TRIM(mpi_call), &
@@ -282,6 +281,7 @@ MODULE mo_async_prefetch
             WRITE (nerr, TRIM(error_message))
          ENDIF
       ENDIF
+#endif
 
     END SUBROUTINE check_mpi_error
 
@@ -313,6 +313,7 @@ MODULE mo_async_prefetch
 
       ! Replicate logical domain setup, only the number of domains and
       ! the ID is needed
+#ifndef NOMPI
       IF ( .NOT. my_process_is_mpi_test()) THEN
          ! n_dom for limited area module is 1 but can also be more than 1
          CALL p_bcast(n_dom, bcast_root, p_comm_work_2_pref)
@@ -355,7 +356,7 @@ MODULE mo_async_prefetch
       CALL p_bcast(patch_data(1)%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data(1)%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data(1)%n_patch_verts_g, bcast_root, p_comm_work_2_pref)
-
+#endif
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
       ! ---------------------------------------------------------------------------
