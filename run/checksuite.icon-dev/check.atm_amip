@@ -36,15 +36,20 @@ export RESTART_DATE='19790101T010000Z'
 # o = omp test
 #
 # default: MD='rnmo'
-
+#
 export MD='rnmo'
 
 #--------------------------------------------------------------------------------
 # 
 # 3. Launch the checksuite from run/
 
+rundir=`pwd`
 cd checksuite.icon-dev
+
 ./icon-dev.checksuite
+STATUS=$?
+
+echo $STATUS > $rundir/exp.$EXPNAME.run.status
 
 #--------------------------------------------------------------------------------
 exit

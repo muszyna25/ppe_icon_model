@@ -714,8 +714,8 @@ echo ' '
 echo $PASSED_TESTS
 echo $FAILED_TESTS
 echo ' '
-echo "=============================================================================="
+echo $EXIT_STATUS
+echo ' '
+echo '=============================================================================='
 date
-pwd
-echo $EXIT_STATUS > ${SCRIPT_DIR}/exp.test_icon.run.status
 exit $EXIT_STATUS
