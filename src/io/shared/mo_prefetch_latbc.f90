@@ -43,13 +43,8 @@
 
 MODULE mo_prefetch_latbc
 
-  USE mo_kind,                ONLY: wp, i8, sp
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: nroot
-  USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_COSMODE
-  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
+#ifndef NOMPI
+  USE mpi
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
        &                            p_comm_work_test, p_comm_work_pref,       &
        &                            my_process_is_pref, my_process_is_work,   &
@@ -60,6 +55,17 @@ MODULE mo_prefetch_latbc
   ! MPI Communication routines
   USE mo_mpi,                 ONLY: p_isend, p_irecv, p_bcast, p_barrier,             &
        &                            get_my_mpi_work_id, p_max, p_wait, p_send, p_recv   
+  USE mo_prefetch_read_recv,  ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
+#endif
+
+  USE mo_async_prefetch_types,ONLY: t_patch_data, t_reorder_data, latbc_buffer ! for testing win_put
+  USE mo_kind,                ONLY: wp, i8, sp
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_grid_config,         ONLY: nroot
+  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_COSMODE
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_units,            ONLY: filename_max
   USE mo_nonhydro_types,      ONLY: t_nh_state
@@ -88,14 +94,12 @@ MODULE mo_prefetch_latbc
   USE mo_initicon_config,     ONLY: init_mode
   USE mo_parallel_config,     ONLY: use_async_prefetch
   USE mo_var_metadata_types,  ONLY: t_var_metadata
-  USE mo_async_prefetch_types, ONLY: t_patch_data, t_reorder_data, latbc_buffer ! for testing win_put
   USE mtime_eventgroups,      ONLY: eventgroup
   USE mtime_events,           ONLY: deallocateEvent
   USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
        &                            operator(+)                             
   USE mo_mtime_extensions,    ONLY: get_duration_string_real, getTimeDeltaFromDateTime
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
-  USE mo_prefetch_read_recv,  ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 
   IMPLICIT NONE
 
@@ -171,6 +175,7 @@ CONTAINS
     TYPE(t_external_data), OPTIONAL, INTENT(IN)   :: opt_ext_data(1)    !< external data on the global domain
     TYPE(t_patch),OPTIONAL,  INTENT(IN)   :: opt_p_patch(1)
 
+#ifndef NOMPI
     ! local variables
     INTEGER       :: tlev, mpierr
     INTEGER       :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
@@ -251,7 +256,7 @@ CONTAINS
        END DO
 
  !   CALL message(TRIM(routine),'finish')
-
+ #endif
   END SUBROUTINE allocate_pref_latbc_data
   !-------------------------------------------------------------------------
 
@@ -264,11 +269,6 @@ CONTAINS
   !!
 
   SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state, ext_data)
-
-#ifndef NOMPI
-    USE mpi, ONLY: MPI_LOCK_EXCLUSIVE, MPI_MODE_NOCHECK
-#endif
-    ! NOMPI
     TYPE(t_patch_data),     INTENT(IN)   :: patch_data(1)  
     TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch(1)
     TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state(1)
@@ -276,6 +276,7 @@ CONTAINS
     TYPE(t_external_data),  OPTIONAL,INTENT(IN)   :: ext_data(1)    !< external data on the global domain
     TYPE(t_datetime)                     :: datetime
 
+#ifndef NOMPI
     ! local variables
     LOGICAL       :: done
     REAL(wp)      :: t_diff
@@ -338,7 +339,7 @@ CONTAINS
     END IF
 
     CALL message(TRIM(routine),'done')
-
+#endif
   END SUBROUTINE prepare_pref_latbc_data
 
   !-------------------------------------------------------------------------
@@ -355,7 +356,6 @@ CONTAINS
 
   SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, ext_data, datetime,&
        &                   jstep, lopt_check_read, lopt_time_incr)
-
     TYPE(t_patch_data),     INTENT(IN), TARGET     :: patch_data(1)
     TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch(1)
     TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state(1)  !< nonhydrostatic state on the global domain
@@ -365,6 +365,9 @@ CONTAINS
     INTEGER,      INTENT(IN), OPTIONAL    :: jstep
     LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
     LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
+
+#ifndef NOMPI
+    ! local variables
     LOGICAL                               :: lcheck_read
     LOGICAL                               :: ltime_incr
     INTEGER                               :: nextstep, mpi_win
@@ -406,14 +409,11 @@ CONTAINS
     ! compute processors wait for msg from 
     ! prefetch processor that they can start 
     ! reading latbc data from memory window 
-#ifndef NOMPI
     IF((.NOT. my_process_is_io() .AND. & 
          & .NOT. my_process_is_pref()) .AND. &
          & .NOT. my_process_is_mpi_test()) THEN 
          CALL compute_wait_for_async_pref()
     END IF
-#endif
-    ! NOMPI
  
     ! Prepare the mtime_read for the next time level
     IF(ltime_incr ) THEN
@@ -454,7 +454,7 @@ CONTAINS
           CALL compute_boundary_tendencies(p_patch(1), p_nh_state(1))
        ENDIF
     ENDIF
-  
+#endif 
   END SUBROUTINE pref_latbc_data
   
   !-------------------------------------------------------------------------
@@ -465,14 +465,11 @@ CONTAINS
   !! Initial version by M. Pondkule, DWD (2014-05-07)
   !!
   SUBROUTINE prefetch_latbc_icon_data( patch_data )
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
-    USE mpi, ONLY: MPI_ADDRESS_KIND
-#endif
     TYPE(t_patch_data), INTENT(IN)      :: patch_data(1)
-    ! local variables
+
+#ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
+    ! local variables
     INTEGER                             :: jm, latbc_fileid
     LOGICAL                             :: l_exist
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_prefetch_latbc::prefetch_latbc_icon_data"
@@ -533,6 +530,7 @@ CONTAINS
     !
     CALL streamClose(latbc_fileid)
  
+#endif
   END SUBROUTINE prefetch_latbc_icon_data
 
   !-------------------------------------------------------------------------
@@ -554,6 +552,8 @@ CONTAINS
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state(1)  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int(1)
     TYPE(t_external_data),  INTENT(IN)  :: ext_data(1)    !< external data on the global domain
+
+#ifndef NOMPI
     ! local variables
     INTEGER(i8)                         :: eoff
     TYPE(t_reorder_data), POINTER       :: p_ri
@@ -745,6 +745,7 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_E, p_patch(1), latbc_data(tlev)%atm%vn)
   
+#endif
   END SUBROUTINE compute_latbc_icon_data
   !-------------------------------------------------------------------------
 
@@ -763,13 +764,9 @@ CONTAINS
   !! Initial version by M. Pondkule, DWD (2014-04-25)
   !!
   SUBROUTINE prefetch_latbc_ifs_data( patch_data )
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
-    USE mpi, ONLY: MPI_ADDRESS_KIND
-#endif
-
     TYPE(t_patch_data),     INTENT(IN)  :: patch_data(1)
+
+#ifndef NOMPI
     ! local variables
     INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
     INTEGER                             :: jm, latbc_fileid, ierrstat
@@ -836,7 +833,7 @@ CONTAINS
     ! close the open dataset file
     !
     CALL streamClose(latbc_fileid)
-
+#endif
   END SUBROUTINE prefetch_latbc_ifs_data
 
   !-------------------------------------------------------------------------
@@ -858,6 +855,8 @@ CONTAINS
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state(1)  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int(1)
     TYPE(t_external_data),  INTENT(IN)  :: ext_data(1)    !< external data on the global domain
+
+#ifndef NOMPI
     ! local variables
     INTEGER(i8)                         :: eoff
     TYPE(t_reorder_data), POINTER       :: p_ri
@@ -880,13 +879,11 @@ CONTAINS
     ENDDO
 
     ! Reading the next time step
-#ifndef NOMPI
     IF((.NOT. my_process_is_io() .AND. & 
          & .NOT. my_process_is_pref()) .AND. &
          & .NOT. my_process_is_mpi_test()) THEN 
        CALL compute_start_async_pref()
     END IF
-#endif
 
     ! Get patch ID
     i_dom = patch_data(1)%id
@@ -1132,7 +1129,7 @@ CONTAINS
     !
     CALL vert_interp(p_patch(1), p_int(1), p_nh_state(1)%metrics, nlev_in, latbc_data(tlev),              &
          &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=latbc_buffer%lread_vn)
-
+#endif
   END SUBROUTINE compute_latbc_ifs_data
 
   !-------------------------------------------------------------------------
@@ -1144,6 +1141,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: patch
     TYPE(t_patch_data), INTENT(INOUT) :: patch_data
 
+#ifndef NOMPI
     ! local variables
     INTEGER             :: mpi_comm
     INTEGER             :: latbc_fileid, tlev
@@ -1222,7 +1220,7 @@ CONTAINS
     CALL deallocateDatetime(mtime_read)
     CALL deallocateTimedelta(my_duration_slack)
     CALL deallocateTimedelta(delta_dtime)
-
+#endif
   END SUBROUTINE deallocate_pref_latbc_data
 
   !-------------------------------------------------------------------------
@@ -1234,6 +1232,7 @@ CONTAINS
     TYPE(t_patch),    INTENT(IN)    :: p_patch
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh
 
+#ifndef NOMPI
     ! Local variables
     INTEGER                         :: i_startblk, i_endblk, &
          &                                i_startidx, i_endidx
@@ -1333,7 +1332,7 @@ CONTAINS
     ENDDO
     !$OMP END DO
     !$OMP END PARALLEL
-
+#endif
   END SUBROUTINE compute_boundary_tendencies
 
   !-------------------------------------------------------------------------------------------------
@@ -1343,6 +1342,7 @@ CONTAINS
   !! Initial version by M. Pondkule, DWD (2013-03-19)
   !
   SUBROUTINE async_pref_send_handshake()
+#ifndef NOMPI
     REAL(wp) :: msg
     ! Simply send a message from Input prefetching PE 0 to work PE 0 
     ! p_pe_work == 0 signifies processor 0 in Input prefetching PEs
@@ -1353,7 +1353,7 @@ CONTAINS
        msg = REAL(msg_pref_done, wp)
        CALL p_isend(msg, p_work_pe0, 0)
     ENDIF
-
+#endif
   END SUBROUTINE async_pref_send_handshake
 
   !-------------------------------------------------------------------------------------------------
@@ -1363,6 +1363,7 @@ CONTAINS
   !! Initial version by M. Pondkule, DWD (2013-03-19)
   !
   SUBROUTINE compute_wait_for_async_pref()
+#ifndef NOMPI
     REAL(wp) :: msg
     ! First compute PE receives message from input prefetching leader
     IF(p_pe_work==0) THEN
@@ -1372,7 +1373,7 @@ CONTAINS
     ENDIF
     ! Wait in barrier until message is here
     CALL p_barrier(comm=p_comm_work)
-
+#endif
   END SUBROUTINE compute_wait_for_async_pref
 
 
@@ -1385,7 +1386,8 @@ CONTAINS
   !
   SUBROUTINE async_pref_wait_for_start(done)
     LOGICAL, INTENT(INOUT)          :: done ! flag if we should shut down
- !   TYPE(t_datetime), INTENT(INOUT) :: datetime
+
+#ifndef NOMPI
     REAL(wp) :: msg(2)
     CHARACTER(*), PARAMETER :: method_name = "async_pref_wait_for_start"
 
@@ -1412,7 +1414,7 @@ CONTAINS
        ! Anything else is an error
        CALL finish(modname, 'Prefetching PE: Got illegal prefetching tag')
     END SELECT
-
+#endif
   END SUBROUTINE async_pref_wait_for_start
 
   !-------------------------------------------------------------------------------------------------
@@ -1422,6 +1424,7 @@ CONTAINS
   !! Initial version by M. Pondkule, DWD (2013-03-19)
   !
   SUBROUTINE compute_start_async_pref()
+#ifndef NOMPI
     ! local variables
     REAL(wp) :: msg(2)
     CHARACTER(*), PARAMETER :: method_name = "compute_start_async_pref"
@@ -1431,7 +1434,7 @@ CONTAINS
     msg(1) = REAL(msg_pref_start,  wp)
 
     IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, 0)
-
+#endif
   END SUBROUTINE compute_start_async_pref
 
   !-------------------------------------------------------------------------------------------------
@@ -1441,6 +1444,7 @@ CONTAINS
   !! Initial version by M. Pondkule, DWD (2013-03-19)
   !
   SUBROUTINE compute_shutdown_async_pref
+#ifndef NOMPI
     REAL(wp) :: msg(2)
 
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
@@ -1449,7 +1453,7 @@ CONTAINS
     msg(2) = 0._wp
 
     IF(p_pe_work==0) CALL p_send(msg, p_pref_pe0, 0)
-
+#endif
   END SUBROUTINE compute_shutdown_async_pref
  
   !-------------------------------------------------------------------------

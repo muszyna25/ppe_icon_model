@@ -295,15 +295,6 @@ MODULE mo_async_prefetch
     SUBROUTINE set_patch_data()
 
 #ifndef NOMPI
-#ifdef __SUNPRO_F95
-      INCLUDE "mpif.h"
-#else
-      USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL, MPI_WIN_NULL
-#endif
-      ! __SUNPRO_F95
-#endif
-      ! NOMPI
-
       TYPE(t_var_list)              :: var
       INTEGER                       :: jg, ierrstat, jl
       ! local variables:
@@ -313,7 +304,6 @@ MODULE mo_async_prefetch
 
       ! Replicate logical domain setup, only the number of domains and
       ! the ID is needed
-#ifndef NOMPI
       IF ( .NOT. my_process_is_mpi_test()) THEN
          ! n_dom for limited area module is 1 but can also be more than 1
          CALL p_bcast(n_dom, bcast_root, p_comm_work_2_pref)
@@ -356,7 +346,7 @@ MODULE mo_async_prefetch
       CALL p_bcast(patch_data(1)%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data(1)%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data(1)%n_patch_verts_g, bcast_root, p_comm_work_2_pref)
-#endif
+
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
       ! ---------------------------------------------------------------------------
@@ -392,26 +382,23 @@ MODULE mo_async_prefetch
       ! in input file and setting flag for its further usage   
       IF (latbc_config%itype_latbc == 1) &
            &  CALL check_variable()
+#endif
 
     END SUBROUTINE set_patch_data
+
 
     !------------------------------------------------------------------------------------------------
     !> Replicates data (mainly the variable lists) needed for async prefetching
     !  on the prefetching procs.
     SUBROUTINE init_prefetch()
 
-#ifndef NOMPI
-#ifdef __SUNPRO_F95
-      INCLUDE "mpif.h"
-#endif
-      !__SUNPRO_F95
-#endif
-      ! NOMPI   
+      ! bcast_root is not used in this case
+      bcast_root = 0
 
+#ifndef NOMPI
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch" 
 
-#ifndef NOMPI
       ! Set broadcast root for intercommunicator broadcasts
       IF(my_process_is_pref()) THEN
          ! Root is proc 0 on the prefetch PE
@@ -425,11 +412,6 @@ MODULE mo_async_prefetch
             bcast_root = MPI_PROC_NULL
          ENDIF
       ENDIF
-#else
-      ! bcast_root is not used in this case
-      bcast_root = 0
-#endif
-      ! NOMPI
 
       ! create and transfer patch data
       CAll set_patch_data()
@@ -438,10 +420,7 @@ MODULE mo_async_prefetch
       CALL read_init_file()
 
       ! initialize the memory window for communication
-#ifndef NOMPI
       CALL init_remote_memory_window
-#endif
-      ! NOMPI
 
       IF( my_process_is_work()) THEN
          ! allocate input data for lateral boundary nudging
@@ -453,8 +432,10 @@ MODULE mo_async_prefetch
       ENDIF
 
       CALL message(routine,'Done')
+#endif
 
     END SUBROUTINE init_prefetch
+
 
     !-------------------------------------------------------------------------------------------------
 
@@ -470,6 +451,8 @@ MODULE mo_async_prefetch
     !> open files containing first variable list and analysis
     !
     SUBROUTINE read_init_file()
+
+#ifndef NOMPI
       ! local variables
       CHARACTER(LEN=VARNAME_LEN)              :: grp_name
       CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:)
@@ -643,14 +626,18 @@ MODULE mo_async_prefetch
       ! with same size as number of variables 
       ALLOCATE(latbc_buffer%vars(latbc_buffer%ngrp_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+#endif
 
     END SUBROUTINE read_init_file
+
 
     !-------------------------------------------------------------------------------------------------
     !> open file to determine a variable or its alternative variable is provided as input
     ! and setting flag for its further usage   
 
     SUBROUTINE check_variable()
+
+#ifndef NOMPI
       ! local variables
       CHARACTER(LEN=filename_max) :: latbc_file
       CHARACTER(*), PARAMETER :: routine = "mo_async_prefetch::read_init_files"
@@ -738,8 +725,10 @@ MODULE mo_async_prefetch
       CALL p_bcast(latbc_buffer%lread_qs, p_comm_work_pref_compute_pe0, p_comm_work_pref) 
       CALL p_bcast(latbc_buffer%lread_qr, p_comm_work_pref_compute_pe0, p_comm_work_pref) 
       CALL p_bcast(latbc_buffer%lread_vn, p_comm_work_pref_compute_pe0, p_comm_work_pref) 
+#endif
 
     END SUBROUTINE check_variable
+
 
     !-------------------------------------------------------------------------------------------------
     !> Replicates data needed for async prefetch on the prefetch proc.
@@ -749,6 +738,7 @@ MODULE mo_async_prefetch
     !
     SUBROUTINE replicate_data_on_pref_proc()
 
+#ifndef NOMPI
       ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
       INTEGER                       :: info_size, i, iv, nelems, nv, n, list_info, all_var, &
@@ -879,8 +869,10 @@ MODULE mo_async_prefetch
          ENDIF
          DEALLOCATE(info_storage)
       ENDDO
+#endif
 
     END SUBROUTINE replicate_data_on_pref_proc
+
 
     !------------------------------------------------------------------------------------------------
     !> Sets the reorder_data for cells/edges/verts
@@ -895,6 +887,8 @@ MODULE mo_async_prefetch
       LOGICAL, INTENT(IN) :: owner_mask(:,:) ! owner_mask for logical patch
       INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
       TYPE(t_reorder_data), INTENT(INOUT) :: p_reo ! Result: reorder info
+
+#ifndef NOMPI
       ! local variables
       INTEGER :: i, n, il, ib, mpi_error, ierrstat
       LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
@@ -1013,18 +1007,21 @@ MODULE mo_async_prefetch
       DEALLOCATE(glbidx_own)
       DEALLOCATE(glbidx_glb)
       DEALLOCATE(reorder_index_log_dom)
+#endif
 
     END SUBROUTINE set_reorder_data
+
 
     !------------------------------------------------------------------------------------------------
     !
     ! Transfers reorder data to restart PEs.
     !
     SUBROUTINE transfer_reorder_data(p_reo)
-
       TYPE(t_reorder_data), INTENT(INOUT) :: p_reo
-      INTEGER                             :: ierrstat
 
+#ifndef NOMPI
+      ! local variables
+      INTEGER                             :: ierrstat
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
 
       ! There is nothing to do for the test PE:
@@ -1052,22 +1049,16 @@ MODULE mo_async_prefetch
       CALL p_bcast(p_reo%pe_own, bcast_root, p_comm_work_2_pref)   
       CALL p_bcast(p_reo%pe_off, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(p_reo%reorder_index, bcast_root, p_comm_work_2_pref)
-
+#endif
     END SUBROUTINE  transfer_reorder_data
 
-#ifndef NOMPI
+
     !------------------------------------------------------------------------------------------------
     !> Initializes the remote memory window for asynchronous prefetch.
     !
     SUBROUTINE init_remote_memory_window
 
-#ifdef __SUNPRO_F95
-      INCLUDE "mpif.h"
-#else
-      USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
-#endif
-      ! __SUNPRO_F95
-
+#ifndef NOMPI
       INTEGER :: nbytes_real, mpi_error, ierrstat
       INTEGER :: iv, jp, ip, nlevs, hgrid, rma_cache_hint
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
@@ -1162,7 +1153,7 @@ MODULE mo_async_prefetch
             ENDIF
          ENDDO
       ENDIF
-
+      
       DEALLOCATE(StrLowCasegrp)
 
       ! allocate amount of memory needed with MPI_Alloc_mem
@@ -1172,6 +1163,7 @@ MODULE mo_async_prefetch
       CALL allocate_mem_noncray(mem_size)
 #endif
       ! USE_CRAY_POINTER
+#endif
 
     END SUBROUTINE init_remote_memory_window
 
@@ -1183,13 +1175,10 @@ MODULE mo_async_prefetch
     !  @note Implementation for Cray pointers
     !
     SUBROUTINE allocate_mem_cray(mem_size)
-#ifdef __SUNPRO_F95
-      INCLUDE "mpif.h"
-#else
-      USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
-#endif
-      ! __SUNPRO_F95
 
+#ifdef NOMPI
+      INTEGER, INTENT(IN)    :: mem_size
+#else
       INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_cray"
@@ -1218,6 +1207,7 @@ MODULE mo_async_prefetch
            &                 p_comm_work_pref, patch_data(1)%mem_win%mpi_win, mpierr)
 
       IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+#endif
 
     END SUBROUTINE allocate_mem_cray
 #endif
@@ -1230,14 +1220,12 @@ MODULE mo_async_prefetch
     !  @note Implementation for non-Cray pointers
     !
     SUBROUTINE allocate_mem_noncray(mem_size)
-#ifdef __SUNPRO_F95
-      INCLUDE "mpif.h"
-#else
-      USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
-#endif
-      ! __SUNPRO_F95
 
+#ifdef NOMPI
+      INTEGER, INTENT(IN)    :: mem_size
+#else
       INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
+
       ! local variables
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
       TYPE(c_ptr)                     :: c_mem_ptr
@@ -1282,14 +1270,10 @@ MODULE mo_async_prefetch
            &                  p_comm_work_pref, patch_data(1)%mem_win%mpi_win, mpierr )
 
       IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
+#endif
 
     END SUBROUTINE allocate_mem_noncray
-#endif
-    ! .not. USE_CRAY_POINTER
 
 #endif
-    ! NOMPI
-  
-   !------------------------------------------------------------------------------------------------
 
-  END MODULE mo_async_prefetch
+END MODULE mo_async_prefetch

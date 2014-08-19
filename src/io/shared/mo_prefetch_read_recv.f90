@@ -40,6 +40,10 @@
 
 MODULE mo_prefetch_read_recv
 
+#ifndef NOMPI
+  USE mpi
+#endif
+
   USE mo_kind,               ONLY: sp, dp, i8
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_communication,      ONLY: idx_no, blk_no
@@ -87,18 +91,16 @@ CONTAINS
   ! 
   SUBROUTINE prefetch_cdi_3d(streamID, varname, patch_data, nlevs, hgrid, ioff, &
     &                       opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
-
 #ifndef NOMPI
-    USE mpi
+    INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
 #else
-    USE mpi, ONLY: MPI_ADDRESS_KIND
+    INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
     INTEGER,             INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
     TYPE(t_patch_data),  INTENT(IN)    :: patch_data(1)  !< patch data containing information for prefetch 
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
-    INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
     LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
@@ -114,6 +116,7 @@ CONTAINS
       &                                dimlen(3), nmiss, jm, np, i, nblks_c     
     REAL(dp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
     
+#ifndef NOMPI
     ! allocate a buffer for one vertical level
     ALLOCATE(tmp_buf(patch_data(1)%n_patch_cells_g), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -151,6 +154,7 @@ CONTAINS
     ! clean up
     DEALLOCATE(tmp_buf, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+#endif
   
   END SUBROUTINE prefetch_cdi_3d
 
@@ -163,15 +167,14 @@ CONTAINS
   SUBROUTINE prefetch_cdi_2d (streamID, varname, patch_data, hgrid, ioff, &
        &                           opt_tileidx, opt_dict)
 #ifndef NOMPI
-    USE mpi
+    INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
 #else
-    USE mpi, ONLY: MPI_ADDRESS_KIND
+    INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Varname of field to be read
     TYPE(t_patch_data), INTENT(IN)  :: patch_data(1)  !< patch data containing information for prefetch 
     INTEGER,          INTENT(IN)    :: hgrid          !< stored variable location indication
-    INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
     INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
   
@@ -182,6 +185,7 @@ CONTAINS
     INTEGER       :: varID, nmiss, gridID, vlistID, dimlen(1), jm , np, i_dom, ierrstat 
     REAL(dp), ALLOCATABLE :: z_dummy_array(:)       !< local dummy array
   
+#ifndef NOMPI
     ! get var ID
     vlistID   = streamInqVlist(streamID) 
     varID     = get_cdi_varID(streamID, name=TRIM(varname)) !, opt_tileidx=opt_tileidx, opt_dict=opt_dict)
@@ -202,6 +206,7 @@ CONTAINS
     CALL prefetch_proc_send(patch_data(1), z_dummy_array(:), 1, hgrid, ioff)
 
     DEALLOCATE(z_dummy_array)
+#endif
 
   END SUBROUTINE prefetch_cdi_2d
 
@@ -213,10 +218,6 @@ CONTAINS
   ! 
   SUBROUTINE compute_data_receive(varname, hgrid, nlevs, var_out, eoff, patch_data, &
        &                     opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
-
-#ifndef NOMPI
-    USE mpi
-#endif
 
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< var name of field to be read
     INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
@@ -286,16 +287,15 @@ CONTAINS
   !
   SUBROUTINE prefetch_proc_send(patch_data, var1_dp, nlevs, hgrid, ioff)
 #ifndef NOMPI
-    USE mpi
+    INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
 #else
-    USE mpi, ONLY: MPI_ADDRESS_KIND
+    INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
     ! local variables  
     TYPE(t_patch_data), TARGET, INTENT(IN)  :: patch_data(1)  !< patch data containing information for prefetch 
     REAL(dp), INTENT(IN) :: var1_dp(:)
     INTEGER, INTENT(IN) :: nlevs
     INTEGER, INTENT(IN) :: hgrid 
-    INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
     INTEGER :: voff(0:num_work_procs-1) 
     INTEGER :: nv_off_np(0:num_work_procs)
     TYPE(t_reorder_data),  POINTER :: p_ri
