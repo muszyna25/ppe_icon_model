@@ -255,8 +255,7 @@ CONTAINS
 
        END DO
 
- !   CALL message(TRIM(routine),'finish')
- #endif
+#endif
   END SUBROUTINE allocate_pref_latbc_data
   !-------------------------------------------------------------------------
 

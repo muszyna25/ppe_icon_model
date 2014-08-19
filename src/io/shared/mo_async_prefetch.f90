@@ -392,13 +392,14 @@ MODULE mo_async_prefetch
     !  on the prefetching procs.
     SUBROUTINE init_prefetch()
 
+      ! local variables:
+      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch" 
+
       ! bcast_root is not used in this case
       bcast_root = 0
 
 #ifndef NOMPI
-      ! local variables:
-      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch" 
-
+     
       ! Set broadcast root for intercommunicator broadcasts
       IF(my_process_is_pref()) THEN
          ! Root is proc 0 on the prefetch PE
