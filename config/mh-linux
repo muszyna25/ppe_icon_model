@@ -35,6 +35,7 @@
 # 2010-02-17, Marco Giorgetta, MPI-M: activate -fimplicit-none
 # 2013-03-25, Bastian Kern,    DLR  : gfortran and ifort at DLR Linux cluster
 # 2014-02-03, Rene Redler,     MPI-M: sun compiler removed.
+# 2014-03-27, Will Sawyer,     CSCS : additions for CSCS Cray platforms
 #
 #-----------------------------------------------------------------------------
 
@@ -82,7 +83,7 @@ case "$fortran_compiler" in
         HIOPT_FLAGS = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE -g
 
         FC          = gfortran
-        FFLAGS      = "$FCPP" "$FLANG" "$FWARN"
+        FFLAGS      = "$FCPP" "$FLANG" "$FWARN" "$INCLUDES"
         F77         = gfortran
         F77FLAGS    = -march=native -O0 -ffast-math
         LDFLAGS     = "$FOTPTIM"
@@ -102,7 +103,7 @@ case "$fortran_compiler" in
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
 	MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_alltoallv,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatterv,mpi_allgather,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
-        FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS"
+        FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" "$INCLUDES"
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
         OMPFLAG     = 
@@ -118,7 +119,7 @@ case "$fortran_compiler" in
        # FC          = pgfortran
         FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk
        # FFLAGS      = -O "$GEN_FLAGS" "$FDEBUG" -Mpreprocess -Mrecursive -Mstandard  -D__LOOP_EXCHANGE
-        FFLAGS      = -O -C "$FDEBUG" -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE
+        FFLAGS      = -O -C "$FDEBUG" -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE "$INCLUDES"
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -mp
@@ -132,8 +133,8 @@ case "$fortran_compiler" in
 	CC          = cc
         FC          = ftn
         F77         = "$FC"
-        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
-        CFLAGS      = -I${GRIB_API}/include -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3  -D__SVN_VERSION="${SVNVERSION}"
+        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -r am -Ktrap=divz,ovf
+        CFLAGS      = -v -I${GRIB_API}/include -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3  -D__SVN_VERSION="${SVNVERSION}"
         F77FLAGS    = "$FFLAGS"
         FCLIBS      = "-v"
         GEN_FLAGS   =
@@ -144,6 +145,24 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = 
         ;;
+    cce)
+        config_compiler=cce                                                     
+        CC          = cc
+        FC          = ftn
+        F77         = "$FC"
+        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
+        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
+        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
+        F77FLAGS    = "$FFLAGS"
+        FCLIBS      = "-v"
+        GEN_FLAGS   =
+        FDEBUG      = -g
+        OMPFLAG     = 
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      =
+        ;; 
     intel)
         config_compiler=intel
         #  CC     = icc
@@ -169,7 +188,138 @@ esac
 #
 # Define site dependent library paths
 #
+echo "AC_SITENAME" $ac_sitename
 case "$ac_sitename" in
+   cscs.ch)
+	echo The host is:  $HOST
+        case "$HOST" in
+            *rosa*)
+                config_target=rosa
+                make_command="make" "-j" "8"
+#                use_shell="/bin/sh"
+                load_profile="." "/opt/modules/default/etc/modules.sh"
+                submit="qsub"
+                sync_submit=qsub -sync y
+                CC = cc
+                FC = ftn
+                F77= ftn
+
+                case "$fortran_compiler" in
+                    default|gcc)
+                      load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
+                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-gnu
+                    ;;
+                    intel)
+                        load_modules      = "PrgEnv-intel" "netcdf" "hdf5" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-intel
+                        ;;
+                    cray)
+        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
+                        load_modules      = "cray-netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
+                        ;;
+                esac
+		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
+                ;;
+
+            *todi*)
+                config_target=todi
+                make_command="make" "-j" "8"
+#                use_shell="/bin/sh"
+                load_profile="." "/opt/modules/default/etc/modules.sh"
+                submit="qsub"
+                sync_submit=qsub -sync y
+                CC = cc
+                FC = ftn
+                F77= ftn
+
+                case "$fortran_compiler" in
+                    default|gcc)
+                        load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
+                    ;;
+                    intel)
+                        load_modules      = "PrgEnv-intel" "netcdf" "hdf5" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
+                        ;;
+                    cray)
+        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
+                        load_modules      = "cray-netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
+                        load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
+                        ;;
+                esac
+		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
+                ;;
+            *daint*)
+                config_target=default
+                make_command="make" "-j" "8"
+#                use_shell="/bin/sh"
+                load_profile="." "/opt/modules/default/etc/modules.sh"
+                submit=""
+                sync_submit=""
+                CC = cc
+                FC = ftn
+                F77= ftn
+
+                case "$fortran_compiler" in
+                    default|gcc)
+                        load_modules="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
+                    ;;
+                    intel)
+                        load_modules      = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
+                        ;;
+                    cray)
+			OMPFLAG     = -h omp
+        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
+        		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -h acc -h acc_model=deep_copy
+                        load_modules      = "cray-netcdf" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
+                        load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
+                        ;;
+                esac
+                mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_total_procs"
+                ;;
+            *castor*)
+                echo "Chose target CASTOR"
+                config_target=castor
+                make_command="make" "-j" "8"
+                submit="srun"
+                sync_submit="sbatch"
+                case "$fortran_compiler" in
+                    default|gcc)
+                        load_modules="gcc/4.6.3" "${load_modules}"
+                        NETCDFROOT = /apps/castor/netcdf/4.1.3/gnu_463
+                        MPIROOT=/apps/castor/mvapich2/1.8/mvapich2-gnu
+                        MPI_LIB  = -lfmpich -lmpichf90 -lmpich -lmpl
+                        MPI_INCLUDE=${MPIROOT}/include
+                        ;;
+                    pgi)
+                        CC=pgcc
+                        load_modules="pgi" "mvapich2/1.8-pgi" "${load_modules}"
+                        NETCDFROOT = /apps/castor/netcdf/4.1.3/gnu_463
+                        MPIROOT=/apps/castor/mvapich2/1.8/mvapich2-pgi
+                        MPI_LIB  = -lfmpich -lmpichf90 -lmpich -lmpl
+                        MPI_INCLUDE=${MPIROOT}/include
+                        ;;
+                    intel)
+                        load_modules      = "intel" "mvapich2/1.8-intel" "${load_modules}"
+                        NETCDFROOT = /apps/castor/netcdf/4.1.3/gnu_463
+                        MPIROOT=/apps/castor/mvapich2/1.8/mvapich2-intel
+                        MPI_LIB  = -lfmpich -lmpichf90 -lmpich -lmpl
+                        MPI_INCLUDE=${MPIROOT}/include
+                        ;;
+                esac
+            ;;
+
+        esac
+        ;;
+#===============================================
+
     dwd.de)
         case "$(hostname)" in
             xc*)
