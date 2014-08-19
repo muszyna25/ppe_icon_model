@@ -534,7 +534,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,                                              &
                 & in_group=groups("precip_vars"),                             &
-                & isteptype=TSTEP_ACCUM )
+                & isteptype=TSTEP_ACCUM ,                                     &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
