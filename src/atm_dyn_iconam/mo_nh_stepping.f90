@@ -169,7 +169,8 @@ MODULE mo_nh_stepping
   CHARACTER(len=*), PARAMETER :: &
     &  version = '$Id: mo_nh_stepping.f90 17581 2014-06-02 12:49:05Z mukund.pondkule $'
 
-  TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
+  ! TODO [MP] : This is probably unnecessary!
+  ! TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
 
   ! additional flow control variables that need to be dimensioned with the
   ! number of model domains
@@ -2332,7 +2333,8 @@ MODULE mo_nh_stepping
   ENDIF
 
   IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-     CALL deallocate_pref_latbc_data(p_patch(1), patch_data(1))
+     ! TODO: [MP] Please fix this!
+     ! CALL deallocate_pref_latbc_data(p_patch(1), patch_data(1))
   ELSE IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
      CALL deallocate_latbc_data(p_patch(1))
   ENDIF
