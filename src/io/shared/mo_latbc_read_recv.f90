@@ -47,10 +47,9 @@ MODULE mo_latbc_read_recv
   USE mo_kind,               ONLY: sp, dp, i8
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
-  USE mo_mpi,                ONLY: p_pe_work, my_process_is_pref, &
+  USE mo_mpi,                ONLY: p_pe_work,  &
     &                              num_work_procs, p_real_sp               
-  USE mo_dictionary,         ONLY: t_dictionary
-  USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID
+  USE mo_util_cdi,           ONLY: get_cdi_varID
   USE mo_async_latbc_types,  ONLY: t_patch_data, t_reorder_data
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   
@@ -98,7 +97,7 @@ CONTAINS
       routine = modname//':prefetch_cdi_3d'
     ! local variables:
     INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
-      &                                jk, ierrstat, dimlen(3), nmiss, jm    
+      &                                jk, ierrstat, dimlen(3), nmiss
     REAL(dp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
     
 #ifndef NOMPI
@@ -162,7 +161,7 @@ CONTAINS
     ! local variables:
     CHARACTER(len=max_char_length), PARAMETER :: &
          routine = modname//':prefetch_cdi_2d_real_id'
-    INTEGER       :: varID, nmiss, gridID, vlistID, dimlen(1), jm, ierrstat 
+    INTEGER       :: varID, nmiss, gridID, vlistID, dimlen(1)
     REAL(dp), ALLOCATABLE :: z_dummy_array(:)       !< local dummy array
   
 #ifndef NOMPI
