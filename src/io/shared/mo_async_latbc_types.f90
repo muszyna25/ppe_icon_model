@@ -134,6 +134,7 @@ MODULE mo_async_latbc_types
      TYPE(t_reorder_data) :: edges
      TYPE(t_reorder_data) :: verts
 
+     !> "id" is a copy of the patch%id
      INTEGER :: id
 
      TYPE(t_var_data), ALLOCATABLE :: var_data(:)

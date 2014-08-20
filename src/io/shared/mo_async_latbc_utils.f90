@@ -163,9 +163,9 @@
     !!
     SUBROUTINE allocate_pref_latbc_data(opt_p_nh_state, opt_ext_data,opt_p_patch)
 
-      TYPE(t_nh_state), OPTIONAL,      INTENT(INOUT):: opt_p_nh_state(1)  !< nonhydrostatic state on the global domain
-      TYPE(t_external_data), OPTIONAL, INTENT(IN)   :: opt_ext_data(1)    !< external data on the global domain
-      TYPE(t_patch),OPTIONAL,  INTENT(IN)   :: opt_p_patch(1)
+      TYPE(t_nh_state), OPTIONAL,      INTENT(INOUT):: opt_p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_external_data), OPTIONAL, INTENT(IN)   :: opt_ext_data    !< external data on the global domain
+      TYPE(t_patch),OPTIONAL,  INTENT(IN)   :: opt_p_patch
 
 #ifndef NOMPI
       ! local variables
@@ -182,11 +182,11 @@
       END IF
 
       ! Allocate memory for variables (3D and 2D) on work processors
-      nlev    = opt_p_patch(1)%nlev
-      nlevp1  = opt_p_patch(1)%nlevp1
-      nblks_c = opt_p_patch(1)%nblks_c
-      nblks_v = opt_p_patch(1)%nblks_v
-      nblks_e = opt_p_patch(1)%nblks_e
+      nlev    = opt_p_patch%nlev
+      nlevp1  = opt_p_patch%nlevp1
+      nblks_c = opt_p_patch%nblks_c
+      nblks_v = opt_p_patch%nblks_v
+      nblks_e = opt_p_patch%nblks_e
 
       DO tlev = 1, 2
          ! Basic icon_remap data
@@ -233,14 +233,14 @@
 
 
          ! allocate anyway (sometimes not needed)
-         ALLOCATE(latbc_data(tlev)%atm_in%vn(nproma, nlev_in, opt_p_patch(1)%nblks_e))
+         ALLOCATE(latbc_data(tlev)%atm_in%vn(nproma, nlev_in, opt_p_patch%nblks_e))
 
          ! topography and metrics are time independent
          !$OMP PARALLEL
          !$OMP WORKSHARE
-         latbc_data(tlev)%topography_c(:,:) = opt_ext_data(1)%atm%topography_c(:,:)
-         latbc_data(tlev)%z_ifc(:,:,:) = opt_p_nh_state(1)%metrics%z_ifc(:,:,:)
-         latbc_data(tlev)%z_mc (:,:,:) = opt_p_nh_state(1)%metrics%z_mc (:,:,:) 
+         latbc_data(tlev)%topography_c(:,:) = opt_ext_data%atm%topography_c(:,:)
+         latbc_data(tlev)%z_ifc(:,:,:) = opt_p_nh_state%metrics%z_ifc(:,:,:)
+         latbc_data(tlev)%z_mc (:,:,:) = opt_p_nh_state%metrics%z_mc (:,:,:) 
          !$OMP END WORKSHARE
          !$OMP END PARALLEL
 
@@ -257,11 +257,11 @@
     !!
 
     SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state, ext_data)
-      TYPE(t_patch_data),     INTENT(IN)   :: patch_data(1)  
-      TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch(1)
-      TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state(1)
-      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT):: p_nh_state(1)  !< nonhydrostatic state on the global domain
-      TYPE(t_external_data),  OPTIONAL,INTENT(IN)   :: ext_data(1)    !< external data on the global domain
+      TYPE(t_patch_data),     INTENT(IN)   :: patch_data  
+      TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch
+      TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state
+      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_external_data),  OPTIONAL,INTENT(IN)   :: ext_data    !< external data on the global domain
       TYPE(t_datetime)                     :: datetime
 
 #ifndef NOMPI
@@ -277,8 +277,8 @@
 
       IF( my_process_is_work() ) THEN
          ! allocate input data for lateral boundary nudging
-         CALL allocate_pref_latbc_data( opt_p_nh_state=p_nh_state(1), opt_ext_data=ext_data(1), &
-              &      opt_p_patch=p_patch(1))
+         CALL allocate_pref_latbc_data( opt_p_nh_state=p_nh_state, opt_ext_data=ext_data, &
+              &      opt_p_patch=p_patch)
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime
@@ -304,10 +304,10 @@
 
       ! read first two time steps
       IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
-         CALL pref_latbc_data( patch_data(1), p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), &
+         CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, ext_data, &
               &                   time_config%cur_datetime,  jstep=0, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data(1), datetime=time_config%cur_datetime, jstep=0, &
+         CALL pref_latbc_data( patch_data, datetime=time_config%cur_datetime, jstep=0, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.FALSE. )
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -316,10 +316,10 @@
       END IF
 
       IF( my_process_is_work()) THEN  !IF (PRESENT(p_patch)) THEN
-         CALL pref_latbc_data( patch_data(1), p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), &
+         CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, ext_data, &
               &                   time_config%cur_datetime, jstep=0, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data(1),datetime=time_config%cur_datetime,  jstep=0, &
+         CALL pref_latbc_data( patch_data,datetime=time_config%cur_datetime,  jstep=0, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake() 
@@ -343,11 +343,11 @@
 
     SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, ext_data, datetime,&
          &                   jstep, lopt_check_read, lopt_time_incr)
-      TYPE(t_patch_data),     INTENT(IN), TARGET     :: patch_data(1)
-      TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch(1)
-      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state(1)  !< nonhydrostatic state on the global domain
-      TYPE(t_int_state),      OPTIONAL,INTENT(IN)    :: p_int(1)
-      TYPE(t_external_data),  OPTIONAL,INTENT(IN)    :: ext_data(1)    !< external data on the global domain
+      TYPE(t_patch_data),     INTENT(IN), TARGET     :: patch_data
+      TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch
+      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_int_state),      OPTIONAL,INTENT(IN)    :: p_int
+      TYPE(t_external_data),  OPTIONAL,INTENT(IN)    :: ext_data    !< external data on the global domain
       TYPE(t_datetime),       OPTIONAL,INTENT(INOUT) :: datetime       !< current time
       INTEGER,      INTENT(IN), OPTIONAL    :: jstep
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
@@ -422,23 +422,23 @@
       !
       IF (latbc_config%itype_latbc == 1) THEN
          IF( my_process_is_pref()) THEN
-            CALL prefetch_latbc_ifs_data( patch_data(1) )        
+            CALL prefetch_latbc_ifs_data( patch_data )        
          ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_ifs_data( p_patch(1), patch_data(1), p_nh_state(1), p_int(1), &
-                 &                    ext_data(1) )
+            CALL compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int, &
+                 &                    ext_data )
             ! NOMPI
             ! Compute tendencies for nest boundary update
-            CALL compute_boundary_tendencies(p_patch(1), p_nh_state(1))
+            CALL compute_boundary_tendencies(p_patch, p_nh_state)
          ENDIF
       ELSE
          IF( my_process_is_pref()) THEN
-            CALL prefetch_latbc_icon_data( patch_data(1) )
+            CALL prefetch_latbc_icon_data( patch_data )
          ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_icon_data( p_patch(1), patch_data(1), p_nh_state(1), p_int(1), &
-                 &                     ext_data(1) )
+            CALL compute_latbc_icon_data( p_patch, patch_data, p_nh_state, p_int, &
+                 &                     ext_data )
             ! NOMPI
             ! Compute tendencies for nest boundary update
-            CALL compute_boundary_tendencies(p_patch(1), p_nh_state(1))
+            CALL compute_boundary_tendencies(p_patch, p_nh_state)
          ENDIF
       ENDIF
 #endif 
@@ -452,7 +452,7 @@
     !! Initial version by M. Pondkule, DWD (2014-05-07)
     !!
     SUBROUTINE prefetch_latbc_icon_data( patch_data )
-      TYPE(t_patch_data), INTENT(IN)      :: patch_data(1)
+      TYPE(t_patch_data), INTENT(IN)      :: patch_data
 
 #ifndef NOMPI
       INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
@@ -462,7 +462,7 @@
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::prefetch_latbc_icon_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
-      latbc_filename = generate_filename_mtime(nroot, patch_data(1)%level, mtime_read)
+      latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename) 
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
@@ -489,10 +489,10 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 3d variables
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
             CASE default
                CALL finish(routine,'unknown grid type')
@@ -501,10 +501,10 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 2d variables
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
             CASE default
                CALL finish(routine,'unknown grid type')
@@ -534,20 +534,20 @@
     !! Initial version by M. Pondkule, DWD (2014-05-19)
     !!
     SUBROUTINE compute_latbc_icon_data( p_patch, patch_data, p_nh_state, p_int, ext_data )
-      TYPE(t_patch),          TARGET      :: p_patch(1)
-      TYPE(t_patch_data),     TARGET, INTENT(IN) :: patch_data(1)
-      TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state(1)  !< nonhydrostatic state on the global domain
-      TYPE(t_int_state),      INTENT(IN)  :: p_int(1)
-      TYPE(t_external_data),  INTENT(IN)  :: ext_data(1)    !< external data on the global domain
+      TYPE(t_patch),          TARGET      :: p_patch
+      TYPE(t_patch_data),     TARGET, INTENT(IN) :: patch_data
+      TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_int_state),      INTENT(IN)  :: p_int
+      TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
 #ifndef NOMPI
       ! local variables
       INTEGER(i8)                         :: eoff
       TYPE(t_reorder_data), POINTER       :: p_ri
-      REAL(wp)                            :: temp_v(nproma,p_patch(1)%nlev,p_patch(1)%nblks_c), &
+      REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c), &
            &                                    vn, w, rho, theta_v
       LOGICAL                             :: lconvert_omega2w
-      INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv, i_dom
+      INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::compute_latbc_icon_data"
       !-------------------------------------------------------------------------
 
@@ -559,7 +559,7 @@
       DO jv = 1, latbc_buffer%ngrp_vars
          ! Receive 2d and 3d variables
          CALL compute_data_receive (latbc_buffer%mapped_name(jv), latbc_buffer%hgrid(jv), &
-              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data(1))
+              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data)
       ENDDO
 
       ! Reading the next time step
@@ -572,8 +572,7 @@
 #endif
 
       ! Get patch ID
-      i_dom = patch_data(1)%id
-      p_ri => patch_data(i_dom)%cells 
+      p_ri => patch_data%cells 
 
       !
       ! get prognostic 3d fields
@@ -584,7 +583,7 @@
       jm = get_field_index('temp')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own ! p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             !       WRITE(0,*) 'compute_latbc_icon_data 01 ',latbc_data(tlev)%atm%temp(jl,jk,jb)
@@ -598,7 +597,7 @@
       !   WRITE(0,*)'pref_latbc_cdi_data name ', latbc_buffer%mapped_name(jm), ' jm ', jm
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -612,7 +611,7 @@
       jv = get_field_index('w')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm%w(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -625,7 +624,7 @@
       !      WRITE(0,*)'pref_latbc_cdi_data jv ', latbc_buffer%mapped_name(jv), ' jv ', jv
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -637,7 +636,7 @@
       jv = get_field_index('qv')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -648,7 +647,7 @@
       jc = get_field_index('qc') 
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jc)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), wp)
@@ -660,7 +659,7 @@
       jm = get_field_index('qi') 
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -672,7 +671,7 @@
       jm = get_field_index('qr')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -685,7 +684,7 @@
       !    WRITE(0,*)'pref_latbc_cdi_data jv ', latbc_buffer%mapped_name(jv), ' jv ', jv
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -696,28 +695,28 @@
 
       ! boundary exchange for a 2-D and 3-D array to fill HALO region.
       ! This addition by M.Pondkule, DWD (11/06/2014)  
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%temp)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm_in%u)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm_in%v)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%w)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%pres)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%qv)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%qc)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%qi)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%qr)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%qs)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%rho)
-      CALL sync_patch_array(SYNC_C, p_patch(1), latbc_data(tlev)%atm%theta_v)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%temp)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm_in%u)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm_in%v)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%w)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%pres)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%qv)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%qc)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%qi)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%qr)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%qs)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%rho)
+      CALL sync_patch_array(SYNC_C, p_patch, latbc_data(tlev)%atm%theta_v)
       !
       ! Convert u and v on cell points to vn at edge points
       !
-      CALL interp_uv_2_vn( p_patch(1), p_int(1), latbc_data(tlev)%atm_in%u,              &
+      CALL interp_uv_2_vn( p_patch, p_int, latbc_data(tlev)%atm_in%u,              &
            &                  latbc_data(tlev)%atm_in%v, latbc_data(tlev)%atm%vn )
 
       !
       ! Compute virtual temperature
       !
-      CALL virtual_temp( p_patch(1), latbc_data(tlev)%atm%temp, latbc_data(tlev)%atm%qv, &
+      CALL virtual_temp( p_patch, latbc_data(tlev)%atm%temp, latbc_data(tlev)%atm%qv, &
            &                latbc_data(tlev)%atm%qc, latbc_data(tlev)%atm%qi,               &
            &                latbc_data(tlev)%atm%qr, latbc_data(tlev)%atm%qs,               &
            &                temp_v=temp_v )
@@ -725,12 +724,12 @@
       !
       ! Compute NH prognostic thermodynamical variables 
       !
-      CALL convert_thdvars( p_patch(1), latbc_data(tlev)%atm%pres, temp_v,              &
+      CALL convert_thdvars( p_patch, latbc_data(tlev)%atm%pres, temp_v,              &
            &                   latbc_data(tlev)%atm%rho,                                   &
            &                   latbc_data(tlev)%atm%exner,                                 &
            &                   latbc_data(tlev)%atm%theta_v )
 
-      CALL sync_patch_array(SYNC_E, p_patch(1), latbc_data(tlev)%atm%vn)
+      CALL sync_patch_array(SYNC_E, p_patch, latbc_data(tlev)%atm%vn)
 
 #endif
     END SUBROUTINE compute_latbc_icon_data
@@ -751,7 +750,7 @@
     !! Initial version by M. Pondkule, DWD (2014-04-25)
     !!
     SUBROUTINE prefetch_latbc_ifs_data( patch_data )
-      TYPE(t_patch_data),     INTENT(IN)  :: patch_data(1)
+      TYPE(t_patch_data),     INTENT(IN)  :: patch_data
 
 #ifndef NOMPI
       ! local variables
@@ -761,7 +760,7 @@
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_ifs_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
-      latbc_filename = generate_filename_mtime(nroot, patch_data(1)%level, mtime_read)
+      latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename) 
       WRITE(message_text,'(a,a)') 'reading boundary data: ', TRIM(latbc_filename)
@@ -788,11 +787,11 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 3d variables
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
 
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
             CASE default
                CALL finish(routine,'unknown grid type')
@@ -802,11 +801,11 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 2d variables
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
 
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data(1), &
+               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
 
             CASE default
@@ -837,18 +836,18 @@
     !! Initial version by M. Pondkule, DWD (2014-05-19)
     !!
     SUBROUTINE compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int, ext_data )
-      TYPE(t_patch),             TARGET   :: p_patch(1)
-      TYPE(t_patch_data), TARGET, INTENT(IN) :: patch_data(1)
-      TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state(1)  !< nonhydrostatic state on the global domain
-      TYPE(t_int_state),      INTENT(IN)  :: p_int(1)
-      TYPE(t_external_data),  INTENT(IN)  :: ext_data(1)    !< external data on the global domain
+      TYPE(t_patch),             TARGET   :: p_patch
+      TYPE(t_patch_data), TARGET, INTENT(IN) :: patch_data
+      TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_int_state),      INTENT(IN)  :: p_int
+      TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
 #ifndef NOMPI
       ! local variables
       INTEGER(i8)                         :: eoff
       TYPE(t_reorder_data), POINTER       :: p_ri
       LOGICAL                             :: lconvert_omega2w
-      INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv, i_dom
+      INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::compute_latbc_ifs_data"
 
       nlev_in   = latbc_config%nlev_in
@@ -862,7 +861,7 @@
       DO jv = 1, latbc_buffer%ngrp_vars
          ! Receive 2d and 3d variables
          CALL compute_data_receive (latbc_buffer%mapped_name(jv), latbc_buffer%hgrid(jv), &
-              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data(1))
+              &            latbc_buffer%nlev(jv), latbc_buffer%vars(jv)%buffer, eoff, patch_data)
       ENDDO
 
       ! Reading the next time step
@@ -873,15 +872,14 @@
       END IF
 
       ! Get patch ID
-      i_dom = patch_data(1)%id
-      p_ri => patch_data(i_dom)%cells
+      p_ri => patch_data%cells
 
       ! copying tha variable values from prefetch buffer to the respective allocated variable
       !$OMP PARALLEL PRIVATE(jm,jv,jc) 
       jm = get_field_index('T')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own ! p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm_in%temp(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -895,9 +893,9 @@
          jm = get_field_index('VN')  
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
-            DO j = 1, patch_data(i_dom)%edges%n_own !p_patch(1)%n_patch_cells
-               jb = patch_data(i_dom)%edges%own_blk(j) ! Block index in distributed patch
-               jl = patch_data(i_dom)%edges%own_idx(j) ! Line  index in distributed patch
+            DO j = 1, patch_data%edges%n_own !p_patch%n_patch_cells
+               jb = patch_data%edges%own_blk(j) ! Block index in distributed patch
+               jl = patch_data%edges%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%vn(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
@@ -908,7 +906,7 @@
          !   WRITE(0,*)'pref_latbc_cdi_data name ', latbc_buffer%mapped_name(jm), ' jm ', jm
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -926,7 +924,7 @@
          jv = get_field_index('W')
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%omega(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -938,7 +936,7 @@
          jv = get_field_index('W')
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
          DO jk=1, latbc_buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%w_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -952,7 +950,7 @@
          jm = get_field_index('HHL')
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
          DO jk=1, latbc_buffer%nlev(jm)
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%z3d_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -964,7 +962,7 @@
          !
          !$OMP DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE 
          DO jk = 1, nlev_in    !!!!!!!!need to reset nlev_in to a new value from stored n_lev values
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jc = p_ri%own_idx(j) ! Line  index in distributed patch
 
@@ -983,7 +981,7 @@
       jv = get_field_index('QV')
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
       DO jk=1, latbc_buffer%nlev(jv)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm_in%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -994,7 +992,7 @@
       jc = get_field_index('QC') 
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE 
       DO jk=1, latbc_buffer%nlev(jc)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm_in%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), wp)
@@ -1005,7 +1003,7 @@
       jm = get_field_index('QI') 
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm_in%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -1018,7 +1016,7 @@
          jm = get_field_index('QR')
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jm)
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -1036,7 +1034,7 @@
          jv = get_field_index('QS')
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -1053,7 +1051,7 @@
       jm = get_field_index(latbc_buffer%psvar) 
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm_in%psfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -1066,7 +1064,7 @@
          jv = get_field_index('P')
          !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
          DO jk=1, latbc_buffer%nlev(jv)
-            DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+            DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
                latbc_data(tlev)%atm_in%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
@@ -1079,7 +1077,7 @@
       jm = get_field_index(latbc_buffer%geop_ml_var) 
       !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
       DO jk=1, latbc_buffer%nlev(jm)
-         DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
+         DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
@@ -1091,29 +1089,29 @@
       ! boundary exchange for a 2-D and 3-D array, must be removed when the routines 
       ! of vertical interpolation no longer will run starting from HALO region.
       ! This addition by M.Pondkule, DWD (22/05/2014)     
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%temp)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%qv)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%qc)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%qi)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%qr)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%qs)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%z3d)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%temp)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%qv)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%qc)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%qi)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%qr)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%qs)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%z3d)
       IF (latbc_buffer%lread_vn) THEN
-         CALL sync_patch_array(SYNC_E,p_patch(1),latbc_data(tlev)%atm_in%vn)
+         CALL sync_patch_array(SYNC_E,p_patch,latbc_data(tlev)%atm_in%vn)
       ELSE
-         CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%u)
-         CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%v)
+         CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%u)
+         CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%v)
       ENDIF
       IF (lconvert_omega2w) &
-           CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%omega)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%w)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%phi_sfc)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%pres)
-      CALL sync_patch_array(SYNC_C,p_patch(1),latbc_data(tlev)%atm_in%psfc)
+           CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%omega)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%w)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%phi_sfc)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%pres)
+      CALL sync_patch_array(SYNC_C,p_patch,latbc_data(tlev)%atm_in%psfc)
 
       ! perform vertical interpolation of horizonally interpolated analysis data
       !
-      CALL vert_interp(p_patch(1), p_int(1), p_nh_state(1)%metrics, nlev_in, latbc_data(tlev),              &
+      CALL vert_interp(p_patch, p_int, p_nh_state%metrics, nlev_in, latbc_data(tlev),              &
            &    opt_convert_omega2w=lconvert_omega2w, opt_use_vn=latbc_buffer%lread_vn)
 #endif
     END SUBROUTINE compute_latbc_ifs_data

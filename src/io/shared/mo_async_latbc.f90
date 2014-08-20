@@ -114,12 +114,6 @@ MODULE mo_async_latbc
 
     PRIVATE
 
-    !-----------------------------------------------------------------
-    ! include NetCDF headers (direct NetCDF library calls are required
-    ! for output of grid information).
-    !-----------------------------------------------------------------
-    INCLUDE 'netcdf.inc'
-
     ! subroutines
     PUBLIC :: init_prefetch
     PUBLIC :: latbc_buffer
@@ -146,7 +140,7 @@ MODULE mo_async_latbc
     CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE = 'Unknown grid type!'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc'
 
-    TYPE(t_patch_data), ALLOCATABLE, PUBLIC, TARGET :: patch_data(:)
+    TYPE(t_patch_data), PUBLIC, SAVE, TARGET :: patch_data
   
     !------------------------------------------------------------------------------------------------
     ! Broadcast root for intercommunicator broadcasts form compute PEs to prefetching
@@ -189,19 +183,19 @@ MODULE mo_async_latbc
     SUBROUTINE prefetch_input( datetime, jstep, p_patch, p_int_state, p_nh_state, ext_data)
       TYPE(t_datetime), OPTIONAL, INTENT(INOUT) :: datetime
       INTEGER, OPTIONAL, INTENT(IN) :: jstep         !< model step
-      TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch(1)  
-      TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state(1)
-      TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state(1)  !< nonhydrostatic state on the global domain
-      TYPE(t_external_data),  OPTIONAL, INTENT(IN)   :: ext_data(1)    !< external data on the global domain
+      TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch  
+      TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state
+      TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_external_data),  OPTIONAL, INTENT(IN)   :: ext_data    !< external data on the global domain
       CHARACTER(*), PARAMETER :: method_name = "prefetch_input"                 
 
 #ifndef NOMPI
       ! Set input prefetch attributes    
       IF( my_process_is_work()) THEN
-         CALL pref_latbc_data(patch_data(1), p_patch(1), p_nh_state(1), p_int_state(1),  &
-              &            ext_data(1), datetime=datetime, jstep=jstep) 
+         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state,  &
+              &            ext_data, datetime=datetime, jstep=jstep) 
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data(patch_data(1)) 
+         CALL pref_latbc_data(patch_data) 
       END IF
 #endif
       ! NOMPI
@@ -298,41 +292,46 @@ MODULE mo_async_latbc
 
       ! allocate patch data structure
 
-      ALLOCATE(patch_data(n_dom), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+      ! TODO: We use only patch_data in the asynchronous
+      ! prefetching module. Please do not allocate more "patch_Data"
+      ! elements than are actually used!
+
+      IF (n_dom /= 1) THEN
+        CALL finish(routine, "Asynchronous prefetching not implemented for n_dom > 1!")
+      END IF
 
       ! set number of global cells/edges/verts and patch ID
 
       IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
-         patch_data(1)%id            = p_patch(1)%id
-         patch_data(1)%nlev          = p_patch(1)%nlev
-         patch_data(1)%nlevp1        = p_patch(1)%nlevp1
-         patch_data(1)%level         = p_patch(1)%level
-         patch_data(1)%nblks_c       = p_patch(1)%nblks_c 
-         patch_data(1)%nblks_e       = p_patch(1)%nblks_e 
-         patch_data(1)%nblks_v       = p_patch(1)%nblks_v
-         patch_data(1)%n_patch_cells = p_patch(1)%n_patch_cells
-         patch_data(1)%n_patch_edges = p_patch(1)%n_patch_edges
-         patch_data(1)%n_patch_verts = p_patch(1)%n_patch_verts
-         patch_data(1)%n_patch_cells_g = p_patch(1)%n_patch_cells_g
-         patch_data(1)%n_patch_edges_g = p_patch(1)%n_patch_edges_g
-         patch_data(1)%n_patch_verts_g = p_patch(1)%n_patch_verts_g
+         patch_data%id            = p_patch(1)%id
+         patch_data%nlev          = p_patch(1)%nlev
+         patch_data%nlevp1        = p_patch(1)%nlevp1
+         patch_data%level         = p_patch(1)%level
+         patch_data%nblks_c       = p_patch(1)%nblks_c 
+         patch_data%nblks_e       = p_patch(1)%nblks_e 
+         patch_data%nblks_v       = p_patch(1)%nblks_v
+         patch_data%n_patch_cells = p_patch(1)%n_patch_cells
+         patch_data%n_patch_edges = p_patch(1)%n_patch_edges
+         patch_data%n_patch_verts = p_patch(1)%n_patch_verts
+         patch_data%n_patch_cells_g = p_patch(1)%n_patch_cells_g
+         patch_data%n_patch_edges_g = p_patch(1)%n_patch_edges_g
+         patch_data%n_patch_verts_g = p_patch(1)%n_patch_verts_g
       END IF
 
       ! transfer data to prefetching PE
-      CALL p_bcast(patch_data(1)%id, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%nlev, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%nlevp1, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%level, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%nblks_c, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%nblks_e, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%nblks_v, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%n_patch_cells, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%n_patch_edges, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%n_patch_verts, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data(1)%n_patch_verts_g, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%id, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nlev, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nlevp1, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%level, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nblks_c, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nblks_e, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%nblks_v, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_cells, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_edges, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_verts, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
+      CALL p_bcast(patch_data%n_patch_verts_g, bcast_root, p_comm_work_2_pref)
 
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
@@ -340,29 +339,29 @@ MODULE mo_async_latbc
       CALL replicate_data_on_pref_proc()
 
       ! set reorder data
-      jl = patch_data(1)%id
+      jl = patch_data%id
 
       IF(.NOT. my_process_is_pref()) THEN
 
          ! set reorder data on work PE
          CALL set_reorder_data( p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells, &
               p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%decomp_info%glb_index, &
-              patch_data(1)%cells )    
+              patch_data%cells )    
 
          CALL set_reorder_data( p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges, &
               p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%decomp_info%glb_index, &
-              patch_data(1)%edges )
+              patch_data%edges )
 
          CALL set_reorder_data( p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
               p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%decomp_info%glb_index, &
-              patch_data(1)%verts )
+              patch_data%verts )
       ENDIF
 
       IF(.NOT. my_process_is_mpi_test()) THEN
          ! transfer reorder data to prefetch PE
-         CALL transfer_reorder_data(patch_data(1)%cells)
-         CALL transfer_reorder_data(patch_data(1)%edges)
-         CALL transfer_reorder_data(patch_data(1)%verts)
+         CALL transfer_reorder_data(patch_data%cells)
+         CALL transfer_reorder_data(patch_data%edges)
+         CALL transfer_reorder_data(patch_data%verts)
       ENDIF
 
       ! subroutine to check whether some variable is specified
@@ -412,11 +411,11 @@ MODULE mo_async_latbc
 
       IF( my_process_is_work()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data(1), p_patch(1), p_int_state(1), p_nh_state(1), &
+         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), &
               &                    ext_data(1)) 
       ELSE IF( my_process_is_pref()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data(1)) 
+         CALL prepare_pref_latbc_data(patch_data) 
       ENDIF
 
       CALL message(routine,'Done')
@@ -504,7 +503,7 @@ MODULE mo_async_latbc
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
-         jlev = patch_data(1)%level
+         jlev = patch_data%level
          ! generate file name
          latbc_filename = generate_filename(nroot, jlev, time_config%ini_datetime)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -639,7 +638,7 @@ MODULE mo_async_latbc
 
       ! prefetch processor opens the file and checks if variables are present
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
-         jlev = patch_data(1)%level
+         jlev = patch_data%level
          ! generate file name
          latbc_filename = generate_filename(nroot, jlev, time_config%ini_datetime)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -774,7 +773,7 @@ MODULE mo_async_latbc
       IF (all_var <= 0) RETURN
 
       ! allocate the array of variables
-      ALLOCATE(patch_data(1)%var_data(all_var))
+      ALLOCATE(patch_data%var_data(all_var))
 
       i2 = 0 
       ! For each var list, get its components
@@ -822,7 +821,7 @@ MODULE mo_async_latbc
             DO
                IF(.NOT.ASSOCIATED(element)) EXIT
                i2 = i2 + 1
-               patch_data(1)%var_data(i2)%info = element%field%info 
+               patch_data%var_data(i2)%info = element%field%info 
                nelems = nelems+1
                info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
                element => element%next_list_element
@@ -852,7 +851,7 @@ MODULE mo_async_latbc
 
                ! Set info structure from binary representation in info_storage
                element%field%info = TRANSFER(info_storage(:, n), info) 
-               patch_data(1)%var_data(i2)%info = element%field%info 
+               patch_data%var_data(i2)%info = element%field%info 
             ENDDO
          ENDIF
          DEALLOCATE(info_storage)
@@ -1055,7 +1054,7 @@ MODULE mo_async_latbc
       ! There is nothing to do for the test PE:
       IF(my_process_is_mpi_test()) RETURN
 
-      patch_data(1)%mem_win%mpi_win = MPI_WIN_NULL 
+      patch_data%mem_win%mpi_win = MPI_WIN_NULL 
 
       ! Get size and offset of the data for the input 
       mem_size = 0_i8
@@ -1068,15 +1067,15 @@ MODULE mo_async_latbc
       ENDDO
 
       ! Go over all input variables
-      DO iv = 1, SIZE(patch_data(1)%var_data)
+      DO iv = 1, SIZE(patch_data%var_data)
          DO jp = 1, latbc_buffer%ngrp_vars 
             ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
-            IF((TRIM(StrLowCasegrp(jp)) == TRIM(patch_data(1)%var_data(iv)%info%name)) .OR. &
-                 & (TRIM(StrLowCasegrp(jp))//'.TL1' == TRIM(patch_data(1)%var_data(iv)%info%name))) THEN
+            IF((TRIM(StrLowCasegrp(jp)) == TRIM(patch_data%var_data(iv)%info%name)) .OR. &
+                 & (TRIM(StrLowCasegrp(jp))//'.TL1' == TRIM(patch_data%var_data(iv)%info%name))) THEN
 
                nlevs = 0
                IF(.NOT. grp_vars_bool(jp))  THEN
-                  IF (patch_data(1)%var_data(iv)%info%ndims == 2) THEN
+                  IF (patch_data%var_data(iv)%info%ndims == 2) THEN
                      nlevs = 1
                   ELSE
                      nlevs = latbc_buffer%nlev(jp) !latbc_config%nlev_in 
@@ -1084,32 +1083,32 @@ MODULE mo_async_latbc
 
                   IF (nlevs == 0) CYCLE
 
-                  SELECT CASE (patch_data(1)%var_data(iv)%info%hgrid)
+                  SELECT CASE (patch_data%var_data(iv)%info%hgrid)
 
                   CASE (GRID_UNSTRUCTURED_CELL)
-                     mem_size = mem_size + INT(nlevs*patch_data(1)%cells%n_own,i8)
+                     mem_size = mem_size + INT(nlevs*patch_data%cells%n_own,i8)
 
                      IF(my_process_is_work())THEN
                         ! allocate the buffer sizes for variables on compute processors 
-                        ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, nlevs, patch_data(1)%nblks_c), STAT=ierrstat)
+                        ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, nlevs, patch_data%nblks_c), STAT=ierrstat)
                         IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
                      ENDIF
 
                      ! variable stored in cell center location
-                     latbc_buffer%hgrid(jp) = patch_data(1)%var_data(iv)%info%hgrid
-                     hgrid = patch_data(1)%var_data(iv)%info%hgrid 
+                     latbc_buffer%hgrid(jp) = patch_data%var_data(iv)%info%hgrid
+                     hgrid = patch_data%var_data(iv)%info%hgrid 
 
                   CASE (GRID_UNSTRUCTURED_EDGE)
-                     mem_size = mem_size + INT(nlevs*patch_data(1)%edges%n_own,i8)
+                     mem_size = mem_size + INT(nlevs*patch_data%edges%n_own,i8)
 
                      IF(my_process_is_work())THEN
                         ! allocate the buffer sizes for variables on compute processors 
-                        ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, nlevs, patch_data(1)%nblks_e), STAT=ierrstat)
+                        ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, nlevs, patch_data%nblks_e), STAT=ierrstat)
                         IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
                      ENDIF
 
                      ! variable stored in edge center of a cell
-                     latbc_buffer%hgrid(jp) = patch_data(1)%var_data(iv)%info%hgrid
+                     latbc_buffer%hgrid(jp) = patch_data%var_data(iv)%info%hgrid
 
                   CASE DEFAULT
                      CALL finish(routine,UNKNOWN_GRID_TYPE)
@@ -1127,11 +1126,11 @@ MODULE mo_async_latbc
             IF (TRIM(latbc_buffer%mapped_name(jp)) == TRIM(latbc_buffer%geop_ml_var)) THEN
                ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
                ! as the variable GEOSP doesnt exist in metadata 
-               mem_size = mem_size + INT(1*patch_data(1)%cells%n_own,i8)
+               mem_size = mem_size + INT(1*patch_data%cells%n_own,i8)
 
                IF(my_process_is_work())THEN
                   ! allocate the buffer sizes for variable 'GEOSP' on compute processors
-                  ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, 1, patch_data(1)%nblks_c), STAT=ierrstat)
+                  ALLOCATE(latbc_buffer%vars(jp)%buffer(nproma, 1, patch_data%nblks_c), STAT=ierrstat)
                   IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
                ENDIF
 
@@ -1189,9 +1188,9 @@ MODULE mo_async_latbc
       CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
 
       ! Create memory window for communication
-      patch_data(1)%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create(patch_data(1)%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-           &                 p_comm_work_pref, patch_data(1)%mem_win%mpi_win, mpierr)
+      patch_data%mem_win%mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create(patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
+           &                 p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr)
 
       IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
 #endif
@@ -1244,17 +1243,17 @@ MODULE mo_async_latbc
       ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
       ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
 
-      NULLIFY(patch_data(1)%mem_win%mem_ptr_sp)
+      NULLIFY(patch_data%mem_win%mem_ptr_sp)
 
 #ifdef __SX__
-      CALL C_F_POINTER(c_mem_ptr, patch_data(1)%mem_win%mem_ptr_sp, (/ INT(mem_size) /) )
+      CALL C_F_POINTER(c_mem_ptr, patch_data%mem_win%mem_ptr_sp, (/ INT(mem_size) /) )
 #else
-      CALL C_F_POINTER(c_mem_ptr, patch_data(1)%mem_win%mem_ptr_sp, (/ mem_size /) )
+      CALL C_F_POINTER(c_mem_ptr, patch_data%mem_win%mem_ptr_sp, (/ mem_size /) )
 #endif
       ! Create memory window for communication
-      patch_data(1)%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create( patch_data(1)%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-           &                  p_comm_work_pref, patch_data(1)%mem_win%mpi_win, mpierr )
+      patch_data%mem_win%mem_ptr_sp(:) = 0._sp
+      CALL MPI_Win_create( patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
+           &                  p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr )
 
       IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
 #endif

@@ -537,13 +537,6 @@ MODULE mo_nh_stepping
     IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
 
-!    Used only for debugging purpose for checking difference in values communicated
-!    by synchronous and asynchronous boundary data prefetching
-!    IF(inextra_3d > 0) THEN
-!    ! getting the variable field difference for a variable 
-!       CALL field_difference
-!    ENDIF     
-
     IF (msg_level > 2) THEN
       lprint_timestep = MOD(jstep-jstep_shift,iadv_rcf) == 1 .OR. msg_level >= 8
     ELSE

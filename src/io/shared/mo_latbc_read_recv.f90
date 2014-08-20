@@ -88,7 +88,7 @@ CONTAINS
 #endif
     INTEGER,             INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
-    TYPE(t_patch_data),  INTENT(IN)    :: patch_data(1)  !< patch data containing information for prefetch 
+    TYPE(t_patch_data),  INTENT(IN)    :: patch_data     !< patch data containing information for prefetch 
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
     
@@ -102,7 +102,7 @@ CONTAINS
     
 #ifndef NOMPI
     ! allocate a buffer for one vertical level
-    ALLOCATE(tmp_buf(patch_data(1)%n_patch_cells_g), STAT=ierrstat)
+    ALLOCATE(tmp_buf(patch_data%n_patch_cells_g), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! initialize temporary buffers
@@ -117,9 +117,9 @@ CONTAINS
     dimlen(2) = zaxisInqSize(zaxisID)
 
     ! Check variable dimensions:
-    IF ((dimlen(1) /= patch_data(1)%n_patch_cells_g) .OR.  &
+    IF ((dimlen(1) /= patch_data%n_patch_cells_g) .OR.  &
          & (dimlen(2) /= nlevs)) THEN
-       WRITE(message_text,'(s,2i4)') "Horizontal cells: ", dimlen(1), patch_data(1)%n_patch_cells_g, &
+       WRITE(message_text,'(s,2i4)') "Horizontal cells: ", dimlen(1), patch_data%n_patch_cells_g, &
          &                           "nlev: ", dimlen(2), nlevs
        CALL message(TRIM(routine), message_text)
        CALL finish(routine, "Incompatible dimensions!")
@@ -129,7 +129,7 @@ CONTAINS
        ! read record as 1D field
        CALL streamReadVarSlice(streamID, varID, jk-1, tmp_buf(:), nmiss)
        ! send 2d buffer using MPI_PUT
-       CALL prefetch_proc_send(patch_data(1), tmp_buf(:), 1, hgrid, ioff)
+       CALL prefetch_proc_send(patch_data, tmp_buf(:), 1, hgrid, ioff)
        tmp_buf(:) = 0._dp 
     ENDDO ! jk=1,nlevs 
     !  ENDIF
@@ -155,7 +155,7 @@ CONTAINS
 #endif
     INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Varname of field to be read
-    TYPE(t_patch_data), INTENT(IN)  :: patch_data(1)  !< patch data containing information for prefetch 
+    TYPE(t_patch_data), INTENT(IN)  :: patch_data  !< patch data containing information for prefetch 
     INTEGER,          INTENT(IN)    :: hgrid          !< stored variable location indication
     
     ! local variables:
@@ -170,11 +170,11 @@ CONTAINS
     varID     = get_cdi_varID(streamID, name=TRIM(varname))
     gridID    = vlistInqVarGrid(vlistID, varID)
     dimlen(1) = gridInqSize(gridID)
-    ALLOCATE(z_dummy_array(patch_data(1)%n_patch_cells_g))
+    ALLOCATE(z_dummy_array(patch_data%n_patch_cells_g))
 
     ! Check variable dimensions:
-    IF (dimlen(1) /= patch_data(1)%n_patch_cells_g) THEN
-       WRITE(message_text,'(s,2i4)') "Horizontal cells: ", dimlen(1), patch_data(1)%n_patch_cells_g
+    IF (dimlen(1) /= patch_data%n_patch_cells_g) THEN
+       WRITE(message_text,'(s,2i4)') "Horizontal cells: ", dimlen(1), patch_data%n_patch_cells_g
        CALL message(TRIM(routine), message_text)
        CALL finish(routine, "Incompatible dimensions!")
     END IF
@@ -182,7 +182,7 @@ CONTAINS
     ! prefetch PE reads and puts data in memory window
     ! read record as 1D field
     CALL streamReadVarSlice(streamID, varID, 0, z_dummy_array(:), nmiss)
-    CALL prefetch_proc_send(patch_data(1), z_dummy_array(:), 1, hgrid, ioff)
+    CALL prefetch_proc_send(patch_data, z_dummy_array(:), 1, hgrid, ioff)
 
     DEALLOCATE(z_dummy_array)
 #endif
@@ -202,7 +202,7 @@ CONTAINS
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     REAL(sp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER(i8),         INTENT(INOUT) :: eoff
-    TYPE(t_patch_data),  TARGET, INTENT(IN)   :: patch_data(1)
+    TYPE(t_patch_data),  TARGET, INTENT(IN)   :: patch_data
     TYPE(t_reorder_data), POINTER             :: p_ri
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -211,20 +211,17 @@ CONTAINS
     INTEGER     :: j, jl, jb, jk, i_dom, mpi_error      
 
 #ifndef NOMPI
-    CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data(1)%mem_win%mpi_win, mpi_error)
+    CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
 
     ! initialize output field:
     var_out(:,:,:) = 0._sp
 
-    ! Get patch ID
-    i_dom = patch_data(1)%id
-
     ! Get pointer to appropriate reorder_info
     SELECT CASE (hgrid)
     CASE(GRID_UNSTRUCTURED_CELL)
-       p_ri => patch_data(i_dom)%cells
+       p_ri => patch_data%cells
     CASE(GRID_UNSTRUCTURED_EDGE)
-       p_ri => patch_data(i_dom)%edges
+       p_ri => patch_data%edges
     CASE default
        CALL finish(routine,'unknown grid type')
     END SELECT
@@ -233,14 +230,12 @@ CONTAINS
        DO j = 1,  p_ri%n_own 
           jb = p_ri%own_blk(j) ! Block index in distributed patch
           jl = p_ri%own_idx(j) ! Line  index in distributed patch
-          var_out(jl,jk,jb) = REAL(patch_data(1)%mem_win%mem_ptr_sp(eoff+INT(j,i8)),sp)
+          var_out(jl,jk,jb) = REAL(patch_data%mem_win%mem_ptr_sp(eoff+INT(j,i8)),sp)
     ENDDO
-    !      WRITE(0,*)'prefetch_cdi_3d REAL ',varname , 'variable ','nlevs ',nlevs,' value ',  &
-    !           & patch_data(1)%mem_win%mem_ptr_sp(eoff+INT(p_ri%n_own,i8))
        eoff = eoff + INT(p_ri%n_own,i8) 
     END DO ! jk=1,nlevs
 
-    CALL MPI_Win_unlock(p_pe_work, patch_data(1)%mem_win%mpi_win, mpi_error)
+    CALL MPI_Win_unlock(p_pe_work, patch_data%mem_win%mpi_win, mpi_error)
 #endif
 
   END SUBROUTINE compute_data_receive
@@ -258,7 +253,7 @@ CONTAINS
     INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
     ! local variables  
-    TYPE(t_patch_data), TARGET, INTENT(IN)  :: patch_data(1)  !< patch data containing information for prefetch 
+    TYPE(t_patch_data), TARGET, INTENT(IN)  :: patch_data  !< patch data containing information for prefetch 
     REAL(dp), INTENT(IN) :: var1_dp(:)
     INTEGER, INTENT(IN) :: nlevs
     INTEGER, INTENT(IN) :: hgrid 
@@ -266,33 +261,20 @@ CONTAINS
     INTEGER :: nv_off_np(0:num_work_procs)
     TYPE(t_reorder_data),  POINTER :: p_ri
     REAL(sp), ALLOCATABLE   :: var3_sp(:)
-    INTEGER :: np, nval, nv_off, mpi_error, i_dom, ierrstat !gridType, gridNumber
+    INTEGER :: np, nval, nv_off, mpi_error, ierrstat !gridType, gridNumber
     INTEGER :: dst_start, dst_end, src_start, src_end
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::prefetch_proc_send'
 
-    ! Get patch ID
-    i_dom = patch_data(1)%id
-
-    ! Get the type of a Grid 
-  !  gridType =  gridInqType(gridID)
-
-    ! Get the reference number to an unstructured grid
-  !  gridNumber = gridInqposition(gridID)
-
-   ! Get pointer to appropriate reorder_info
-   ! IF(gridType == GRID_UNSTRUCTURED) THEN
- 
     SELECT CASE (hgrid)
        ! 1 is equal to GRID_UNSTRUCTURED_CELL 
     CASE(GRID_UNSTRUCTURED_CELL)
-       p_ri => patch_data(i_dom)%cells
+       p_ri => patch_data%cells
        ! 3 is equal to GRID_UNSTRUCTURED_EDGE
     CASE(GRID_UNSTRUCTURED_EDGE)
-       p_ri => patch_data(i_dom)%edges
+       p_ri => patch_data%edges
     CASE default
        CALL finish(routine,'unknown grid type')
     END SELECT
-    !ENDIF
     
     ! compute the total offset for each PE
     nv_off       = 0
@@ -330,12 +312,12 @@ CONTAINS
 
        nval = p_ri%pe_own(np)*nlevs
 
-       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, MPI_MODE_NOCHECK, patch_data(1)%mem_win%mpi_win, mpi_error)
+       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, np, MPI_MODE_NOCHECK, patch_data%mem_win%mpi_win, mpi_error)
     
        CALL MPI_PUT(var3_sp(nv_off+1), nval, p_real_sp, np, ioff(np), nval, p_real_sp, &
-            & patch_data(1)%mem_win%mpi_win, mpi_error) !MPI_WIN_NULL) 
+            & patch_data%mem_win%mpi_win, mpi_error) !MPI_WIN_NULL) 
 
-       CALL MPI_Win_unlock(np, patch_data(1)%mem_win%mpi_win, mpi_error)
+       CALL MPI_Win_unlock(np, patch_data%mem_win%mpi_win, mpi_error)
 
        ! Update the offset in var1
        nv_off = nv_off + nval
