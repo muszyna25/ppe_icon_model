@@ -432,7 +432,6 @@ if string_in_list $MD $CMODES; then
       echo "could not get base experiment ${EXP_BASE} or create new experiment ${EXP_TEST}"
       exit 1
     fi
-    echo 'model_dir= ' ${MODEL_DIR}
     #
     RUN_SCRIPT=exp.${EXP_TEST}.run
     cd ${SCRIPT_DIR}
@@ -662,7 +661,7 @@ if string_in_list $MD $CMODES; then
         if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
           THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " task_affinity "`
           THREADS_NEW=${THREADS%\($N_OMP_NUM_THREADS\)}\($N_OMP_NUM_THREADS_NEW\)
-          sed s/"$PPNODE"/"$PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+          sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
           mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
           THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " parallel_threads "`
           THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
