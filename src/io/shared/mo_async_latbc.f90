@@ -36,43 +36,14 @@
   !! software.
   !!
   !!
-  ! TODO [MP]:
-  !
-  ! NAG Fortran Compiler Release 5.3.2(951)
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 203: Unused dummy variable EXT_DATA
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 203: Unused dummy variable JSTEP
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 373: Unused local variable IERRSTAT
-  ! Questionable: ../../../src/io/shared/mo_async_latbc.f90, line 617: Variable GRIDID set but never referenced
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable LATBC_FULL_FILENAME
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable LREAD
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable NLEV
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable WDTH
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable FLEN_LATBC
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable LATBC_FULL_FILENAME
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable NAME
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable VAR_NAME
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable WDTH
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1153: Unused local variable MEM_BYTES
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: ADD_TIME explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: C_INT64_T explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: DATE_TO_TIME explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: DP explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: DTIME explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: EXT_DATA explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: Unused local variable FILEID_FG
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: GRIDINQSIZE explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: P_INT_I8 explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: TOTAL_NUMBER_OF_VARIABLES explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: T_VAR_DATA explicitly imported into MO_ASYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: WP explicitly imported into MO_ASYNC_LATBC but not used
-
+ 
 #if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
 #define HAVE_F2003
 #endif
 MODULE mo_async_latbc
 
 #ifndef USE_CRAY_POINTER
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer, c_int64_t
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
 #endif
 ! USE_CRAY_POINTER
 
@@ -81,16 +52,14 @@ MODULE mo_async_latbc
 #endif
 
     ! basic modules
-    USE mo_kind,                      ONLY: wp, i8, dp, sp
+    USE mo_kind,                      ONLY: i8, sp
     USE mo_io_units,                  ONLY: nerr
     USE mo_exception,                 ONLY: finish, message, message_text
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
-         &                                  my_process_is_mpi_test, p_int, p_int_i8, p_real_sp                 
+         &                                  my_process_is_mpi_test, p_int, p_real_sp                 
     USE mo_parallel_config,           ONLY: nproma
     USE mo_model_domain,              ONLY: p_patch
-    USE mo_ext_data_state,            ONLY: ext_data
     USE mo_model_domain,              ONLY: t_patch
-    USE mo_ext_data_types,            ONLY: t_external_data
     USE mo_nonhydro_types,            ONLY: t_nh_state
     USE mo_intp_data_strc,            ONLY: t_int_state
     ! MPI Communicators
@@ -104,10 +73,8 @@ MODULE mo_async_latbc
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0 
     USE mo_time_config,               ONLY: time_config 
-    USE mo_datetime,                  ONLY: t_datetime, date_to_time
-    USE mo_datetime,                  ONLY: add_time
-    USE mo_run_config,                ONLY: dtime
-    USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer, t_var_data 
+    USE mo_datetime,                  ONLY: t_datetime
+    USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_grid_config,               ONLY: n_dom, nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
@@ -116,10 +83,11 @@ MODULE mo_async_latbc
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state
     USE mo_intp_data_strc,            ONLY: p_int_state
+    USE mo_ext_data_state,            ONLY: ext_data
     USE mo_linked_list,               ONLY: t_var_list, t_list_element
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
-         &                                  collect_group, total_number_of_variables
+         &                                  collect_group
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize                                    
@@ -129,7 +97,7 @@ MODULE mo_async_latbc
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
          &                                  vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName, &
-         &                                  vlistInqVarGrid, gridInqSize, streamClose, &
+         &                                  vlistInqVarGrid, streamClose, &
          &                                  FILETYPE_NC2, FILETYPE_GRB2, streamInqFiletype 
     USE mo_io_units,                  ONLY: filename_max
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
@@ -195,13 +163,30 @@ MODULE mo_async_latbc
 
       END IF
 
-#endif
-      ! NOMPI
-
+      ! deallocating patch data
+      DEALLOCATE(patch_data%var_data)
+      DEALLOCATE(patch_data%cells%reorder_index)
+    !  DEALLOCATE(patch_data%cells%own_idx)
+    !  DEALLOCATE(patch_data%cells%own_blk)
+      DEALLOCATE(patch_data%cells%pe_own)
+      DEALLOCATE(patch_data%cells%pe_off)
+      DEALLOCATE(patch_data%edges%reorder_index)
+    !  DEALLOCATE(patch_data%edges%own_idx)
+    !  DEALLOCATE(patch_data%edges%own_blk)
+      DEALLOCATE(patch_data%edges%pe_own)
+      DEALLOCATE(patch_data%edges%pe_off)
+   !   DEALLOCATE(patch_data%mem_win%mem_ptr_sp)
+  
+      ! deallocating intermediate storage latbc_buffer
+      DEALLOCATE(latbc_buffer%grp_vars)
+      DEALLOCATE(latbc_buffer%hgrid)
       DEALLOCATE(latbc_buffer%vars)
       DEALLOCATE(latbc_buffer%mapped_name)
       DEALLOCATE(latbc_buffer%varID)
       DEALLOCATE(latbc_buffer%nlev)
+
+#endif
+      ! NOMPI
 
     END SUBROUTINE close_prefetch
 
@@ -210,20 +195,17 @@ MODULE mo_async_latbc
     !  This routine also cares about opening the output files the first time
     !  and reopening the files after a certain number of steps.
     !
-    SUBROUTINE prefetch_input( datetime, jstep, p_patch, p_int_state, p_nh_state, ext_data)
+    SUBROUTINE prefetch_input( datetime, p_patch, p_int_state, p_nh_state)
       TYPE(t_datetime), OPTIONAL, INTENT(INOUT) :: datetime
-      INTEGER, OPTIONAL, INTENT(IN) :: jstep         !< model step
       TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch  
       TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
-      TYPE(t_external_data),  OPTIONAL, INTENT(IN)   :: ext_data    !< external data on the global domain
       CHARACTER(*), PARAMETER :: method_name = "prefetch_input"                 
 
 #ifndef NOMPI
       ! Set input prefetch attributes    
       IF( my_process_is_work()) THEN
-         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state,  &
-              &            datetime=datetime) 
+         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, datetime=datetime) 
       ELSE IF( my_process_is_pref()) THEN
          CALL pref_latbc_data(patch_data) 
       END IF
@@ -307,7 +289,6 @@ MODULE mo_async_latbc
     SUBROUTINE set_patch_data()
 
 #ifndef NOMPI
-      INTEGER                       :: ierrstat, jl
       ! local variables:
       CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::set_patch_data" 
 
@@ -333,65 +314,50 @@ MODULE mo_async_latbc
       ! set number of global cells/edges/verts and patch ID
 
       IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
-         patch_data%id            = p_patch(1)%id
          patch_data%nlev          = p_patch(1)%nlev
          patch_data%nlevp1        = p_patch(1)%nlevp1
          patch_data%level         = p_patch(1)%level
          patch_data%nblks_c       = p_patch(1)%nblks_c 
          patch_data%nblks_e       = p_patch(1)%nblks_e 
-         patch_data%nblks_v       = p_patch(1)%nblks_v
          patch_data%n_patch_cells = p_patch(1)%n_patch_cells
          patch_data%n_patch_edges = p_patch(1)%n_patch_edges
-         patch_data%n_patch_verts = p_patch(1)%n_patch_verts
          patch_data%n_patch_cells_g = p_patch(1)%n_patch_cells_g
          patch_data%n_patch_edges_g = p_patch(1)%n_patch_edges_g
-         patch_data%n_patch_verts_g = p_patch(1)%n_patch_verts_g
       END IF
 
       ! transfer data to prefetching PE
-      CALL p_bcast(patch_data%id, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%nlev, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%nlevp1, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%level, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%nblks_c, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%nblks_e, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data%nblks_v, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%n_patch_cells, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%n_patch_edges, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data%n_patch_verts, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%n_patch_cells_g, bcast_root, p_comm_work_2_pref)
       CALL p_bcast(patch_data%n_patch_edges_g, bcast_root, p_comm_work_2_pref)
-      CALL p_bcast(patch_data%n_patch_verts_g, bcast_root, p_comm_work_2_pref)
-
+   
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
       ! ---------------------------------------------------------------------------
       CALL replicate_data_on_pref_proc()
 
-      ! set reorder data
-      jl = patch_data%id
-
       IF(.NOT. my_process_is_pref()) THEN
 
          ! set reorder data on work PE
-         CALL set_reorder_data( p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells, &
-              p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%decomp_info%glb_index, &
+         CALL set_reorder_data( p_patch(1)%n_patch_cells_g, p_patch(1)%n_patch_cells, &
+              p_patch(1)%cells%decomp_info%owner_mask, p_patch(1)%cells%decomp_info%glb_index, &
               patch_data%cells )    
 
-         CALL set_reorder_data( p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges, &
-              p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%decomp_info%glb_index, &
+         CALL set_reorder_data( p_patch(1)%n_patch_edges_g, p_patch(1)%n_patch_edges, &
+              p_patch(1)%edges%decomp_info%owner_mask, p_patch(1)%edges%decomp_info%glb_index, &
               patch_data%edges )
 
-         CALL set_reorder_data( p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
-              p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%decomp_info%glb_index, &
-              patch_data%verts )
       ENDIF
 
       IF(.NOT. my_process_is_mpi_test()) THEN
          ! transfer reorder data to prefetch PE
          CALL transfer_reorder_data(patch_data%cells)
          CALL transfer_reorder_data(patch_data%edges)
-         CALL transfer_reorder_data(patch_data%verts)
       ENDIF
 
       ! subroutine to check whether some variable is specified
@@ -441,7 +407,7 @@ MODULE mo_async_latbc
 
       IF( my_process_is_work()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1))
+         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
       ELSE IF( my_process_is_pref()) THEN
          ! allocate input data for lateral boundary nudging
          CALL prepare_pref_latbc_data(patch_data) 
@@ -472,19 +438,17 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(LEN=VARNAME_LEN)              :: grp_name
       CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:)
-      LOGICAL                                 :: lread          !< .FALSE.: skip reading
       ! dictionary which maps prefetch variable names onto
       ! GRIB2 shortnames or NetCDF var names.
       TYPE (t_dictionary) :: latbc_varnames_dict   
       CHARACTER(LEN=filename_max) :: latbc_file
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH) :: name
-      CHARACTER (len=32)              :: wdth
-      INTEGER :: jlev, ierrstat, vlistID, nvars, varID, nlev, zaxisID, &
-           &       jp, gridID, fileID_latbc, counter, filetype, ngrp_prefetch_vars
+      INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID, &
+           &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
       LOGICAL :: l_exist
-      CHARACTER(LEN=filename_max) :: latbc_filename, latbc_full_filename
+      CHARACTER(LEN=filename_max) :: latbc_filename
 
       ! allocating buffers containing name of variables
       ALLOCATE(latbc_buffer%grp_vars(200))
@@ -657,13 +621,9 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(LEN=filename_max) :: latbc_file
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
-      CHARACTER (len=MAX_CHAR_LENGTH) :: name
-      CHARACTER (len=MAX_CHAR_LENGTH) :: var_name
-      CHARACTER (len=32)              :: wdth
       INTEGER :: jlev, fileID_latbc 
-      INTEGER(KIND=i8) :: flen_latbc
       LOGICAL :: l_exist
-      CHARACTER(LEN=filename_max) :: latbc_filename, latbc_full_filename
+      CHARACTER(LEN=filename_max) :: latbc_filename
 
       ! prefetch processor opens the file and checks if variables are present
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
@@ -1076,7 +1036,7 @@ MODULE mo_async_latbc
 
 #ifndef NOMPI
       INTEGER :: ierrstat, iv, jp, nlevs, hgrid
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
+      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
 

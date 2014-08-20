@@ -245,11 +245,12 @@
     !! Modified version by M.Pondkule, DWD (2014-01-27)
     !!
 
-    SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state)
+    SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state, ext_data)
       TYPE(t_patch_data),     INTENT(IN)   :: patch_data  
       TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_external_data),  OPTIONAL,INTENT(IN)   :: ext_data    !< external data on the global domain
 
 #ifndef NOMPI
       ! local variables
@@ -263,7 +264,7 @@
 
       IF( my_process_is_work() ) THEN
          ! allocate input data for lateral boundary nudging
-         CALL allocate_pref_latbc_data( opt_p_nh_state=p_nh_state, opt_p_patch=p_patch)
+         CALL allocate_pref_latbc_data( opt_p_nh_state=p_nh_state, opt_ext_data=ext_data, opt_p_patch=p_patch)
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime

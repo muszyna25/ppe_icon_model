@@ -132,11 +132,7 @@ MODULE mo_async_latbc_types
   TYPE t_patch_data
      TYPE(t_reorder_data) :: cells
      TYPE(t_reorder_data) :: edges
-     TYPE(t_reorder_data) :: verts
-
-     !> "id" is a copy of the patch%id
-     INTEGER :: id
-
+   
      TYPE(t_var_data), ALLOCATABLE :: var_data(:)
 
      ! used for async prefetching only
@@ -148,18 +144,16 @@ MODULE mo_async_latbc_types
      INTEGER :: level
      INTEGER :: num_vars  ! no of input prefetch variables
 
-     ! number of cells, edges and vertices in the local patch
+     ! number of cells and edges in the local patch
      INTEGER :: n_patch_cells
      INTEGER :: n_patch_edges
-     INTEGER :: n_patch_verts
-
-     ! number of cells, edges and vertices in the global patch
+   
+     ! number of cells and edges in the global patch
      INTEGER :: n_patch_cells_g
      INTEGER :: n_patch_edges_g
-     INTEGER :: n_patch_verts_g
- 
+    
      ! number of points, corresponds to logical patch
-     INTEGER :: nblks_c, nblks_v, nblks_e
+     INTEGER :: nblks_c, nblks_e
 
   END TYPE t_patch_data
 

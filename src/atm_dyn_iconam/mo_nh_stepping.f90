@@ -165,9 +165,6 @@ MODULE mo_nh_stepping
   CHARACTER(len=*), PARAMETER :: &
     &  version = '$Id: mo_nh_stepping.f90 17581 2014-06-02 12:49:05Z mukund.pondkule $'
 
-  ! TODO [MP] : This is probably unnecessary!
-  ! TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
-
   ! additional flow control variables that need to be dimensioned with the
   ! number of model domains
   LOGICAL, ALLOCATABLE :: lstep_adv(:)   ! determines whether tracer continuity equations
@@ -828,7 +825,7 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-       CALL prefetch_input( datetime, jstep, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+       CALL prefetch_input( datetime, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
   ENDDO TIME_LOOP
@@ -2324,8 +2321,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-     ! TODO: [MP] Please fix this!
-     ! CALL deallocate_pref_latbc_data(p_patch(1), patch_data(1))
+     CALL deallocate_pref_latbc_data()
   ELSE IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
      CALL deallocate_latbc_data()
   ENDIF

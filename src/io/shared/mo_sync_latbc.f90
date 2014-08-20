@@ -18,46 +18,7 @@
 !!
 !!
 !! 
-  ! TODO [MP]
-  ! NAG Fortran Compiler Release 5.3.2(951)
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 216: Variable MPI_COMM set but never referenced
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 216: Variable NBLKS_V set but never referenced
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused dummy variable EXT_DATA
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable IST
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Variable MPI_COMM set but never referenced
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused dummy variable P_NH_STATE
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable RHO
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable THETA_V
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable VN
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable W
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 724: Unused dummy variable EXT_DATA
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 724: Unused local variable IST
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 724: Unused local variable I_STARTIDX
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable DIMID
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable LATBC_FILEID
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable L_ALL_PROG_VARS
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable L_EXIST
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable MPI_COMM set but never referenced
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NBLKS_C set but never referenced
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NBLKS_E set but never referenced
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NBLKS_V set but never referenced
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NLEV set but never referenced
-  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NLEVP1 set but never referenced
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable NO_CELLS
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable NO_LEVELS
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: CPD explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: CVD explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: I8 explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: INIT_W explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: MY_PROCESS_IS_MPI_ALL_SEQ explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: P0REF explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: P_PE_WORK explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: P_WORK_PE0 explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: RD explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: SUCCESS explicitly imported into MO_SYNC_LATBC but not used
-  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: SYNC_PATCH_ARRAY_MULT explicitly imported into MO_SYNC_LATBC but not used
-
-
+ 
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -72,32 +33,28 @@ MODULE mo_sync_latbc
 !
 !
 
-  USE mo_kind,                ONLY: wp, i8
+  USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: nroot
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_COSMODE
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMODE
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
-                                    p_comm_work_test, p_comm_work, p_pe_work, &
-                                    p_work_pe0
+                                    p_comm_work_test, p_comm_work
   USE mo_io_units,            ONLY: filename_max
   USE mo_nonhydro_types,      ONLY: t_nh_state
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nh_vert_interp,      ONLY: vert_interp
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, init_w
-  USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
+  USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
   USE mo_netcdf_read,         ONLY: nf, read_netcdf_data_single,        &
                                     read_netcdf_data
-  USE mo_sync,                ONLY: sync_patch_array_mult, &
-    &                               SYNC_E, SYNC_C, sync_patch_array
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_nh_initicon_types,   ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_datetime,            ONLY: t_datetime, date_to_time, add_time, rdaylen
   USE mo_time_config,         ONLY: time_config
-  USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
@@ -146,11 +103,10 @@ MODULE mo_sync_latbc
     TYPE(t_external_data),  INTENT(IN)   :: ext_data    !< external data on the global domain
 
     ! local variables
-    INTEGER       :: mpi_comm
     INTEGER       :: tlev
     INTEGER       :: tdiffsec
     REAL(wp)      :: tdiff
-    INTEGER       :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
+    INTEGER       :: nlev, nlevp1, nblks_c, nblks_e
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
       "mo_sync_latbc::allocate_latbc_data"
 
@@ -159,18 +115,11 @@ MODULE mo_sync_latbc
       CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
     END IF
    
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
     last_latbc_datetime = time_config%ini_datetime
 
     nlev    = p_patch%nlev
     nlevp1  = p_patch%nlevp1
     nblks_c = p_patch%nblks_c
-    nblks_v = p_patch%nblks_v
     nblks_e = p_patch%nblks_e
       
     DO tlev = 1, 2
@@ -323,7 +272,7 @@ MODULE mo_sync_latbc
     IF (latbc_config%itype_latbc == 1) THEN
       CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int )
     ELSE
-      CALL read_latbc_icon_data( p_patch, p_nh_state, p_int )
+      CALL read_latbc_icon_data( p_patch, p_int )
     ENDIF
 
     ! Compute tendencies for nest boundary update
@@ -341,17 +290,15 @@ MODULE mo_sync_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-25)
   !!
-  SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, p_int)
+  SUBROUTINE read_latbc_icon_data(p_patch, p_int)
     TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch
-    TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
 
     ! local variables
-    INTEGER                             :: mpi_comm, ist, dimid, no_cells, &
+    INTEGER                             :: mpi_comm, dimid, no_cells, &
                                            latbc_fileid, no_levels
     LOGICAL                             :: l_exist
-    REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c), &
-      &                                    vn, w, rho, theta_v
+    REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
     INTEGER                             :: tlev
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
@@ -513,10 +460,10 @@ MODULE mo_sync_latbc
     TYPE(t_int_state),      INTENT(IN)  :: p_int
 
     ! local variables
-    INTEGER                             :: mpi_comm, ist, dimid, no_cells, &
+    INTEGER                             :: mpi_comm, dimid, no_cells, &
                                             latbc_fileid, no_levels, varid
     LOGICAL                             :: l_exist, lconvert_omega2w
-    INTEGER                             :: jc, jk, jb, i_startidx, i_endidx
+    INTEGER                             :: jc, jk, jb, i_endidx
 
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
