@@ -46,19 +46,11 @@ MODULE mo_latbc_read_recv
 
   USE mo_kind,               ONLY: sp, dp, i8
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
-  USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_pe_work,          &
-    &                              p_comm_work, p_comm_work_test,p_real_dp, &
-    &                              p_work_pe0, p_pe, my_process_is_pref,    &
-    &                              num_work_procs, p_real_sp, p_pref_pe0              
-  USE mo_util_string,        ONLY: tolower
-  USE mo_fortran_tools,      ONLY: assign_if_present
-  USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
-  USE mo_gribout_config,     ONLY: t_gribout_config
+  USE mo_mpi,                ONLY: p_pe_work, my_process_is_pref, &
+    &                              num_work_procs, p_real_sp               
+  USE mo_dictionary,         ONLY: t_dictionary
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID
-  USE mo_model_domain,       ONLY: p_patch
   USE mo_async_latbc_types,  ONLY: t_patch_data, t_reorder_data
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   
@@ -89,8 +81,7 @@ CONTAINS
   !  @par Revision History
   !  Initial revision by M. Pondkule, DWD (2014-05-19)
   ! 
-  SUBROUTINE prefetch_cdi_3d(streamID, varname, patch_data, nlevs, hgrid, ioff, &
-    &                       opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
+  SUBROUTINE prefetch_cdi_3d(streamID, varname, patch_data, nlevs, hgrid, ioff)
 #ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
 #else
@@ -101,19 +92,13 @@ CONTAINS
     TYPE(t_patch_data),  INTENT(IN)    :: patch_data(1)  !< patch data containing information for prefetch 
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
-    LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
-    TYPE(t_reorder_data),POINTER :: p_ri
-  
+    
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':prefetch_cdi_3d'
     ! local variables:
     INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
-      &                                mpi_comm, jb, jk, jl, ierrstat, i_dom, &
-      &                                dimlen(3), nmiss, jm, np, i, nblks_c     
+      &                                jk, ierrstat, dimlen(3), nmiss, jm    
     REAL(dp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
     
 #ifndef NOMPI
@@ -126,8 +111,7 @@ CONTAINS
 
     ! get var ID
     vlistID   = streamInqVlist(streamID)
-    varID     = get_cdi_varID(streamID, name=TRIM(varname), opt_tileidx=opt_tileidx, &
-         &                      opt_dict=opt_dict ) 
+    varID     = get_cdi_varID(streamID, name=TRIM(varname)) 
     zaxisID   = vlistInqVarZaxis(vlistID, varID)
     gridID    = vlistInqVarGrid(vlistID, varID)
     dimlen(1) = gridInqSize(gridID)
@@ -164,8 +148,7 @@ CONTAINS
   !  @par Revision History
   !  Initial revision by M. Pondkule, DWD (2014-05-15) 
   !
-  SUBROUTINE prefetch_cdi_2d (streamID, varname, patch_data, hgrid, ioff, &
-       &                           opt_tileidx, opt_dict)
+  SUBROUTINE prefetch_cdi_2d (streamID, varname, patch_data, hgrid, ioff)
 #ifndef NOMPI
     INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: ioff(0:)
 #else
@@ -175,20 +158,17 @@ CONTAINS
     CHARACTER(len=*), INTENT(IN)    :: varname        !< Varname of field to be read
     TYPE(t_patch_data), INTENT(IN)  :: patch_data(1)  !< patch data containing information for prefetch 
     INTEGER,          INTENT(IN)    :: hgrid          !< stored variable location indication
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
-  
+    
     ! local variables:
-    TYPE(t_reorder_data), POINTER   :: p_ri
     CHARACTER(len=max_char_length), PARAMETER :: &
          routine = modname//':prefetch_cdi_2d_real_id'
-    INTEGER       :: varID, nmiss, gridID, vlistID, dimlen(1), jm , np, i_dom, ierrstat 
+    INTEGER       :: varID, nmiss, gridID, vlistID, dimlen(1), jm, ierrstat 
     REAL(dp), ALLOCATABLE :: z_dummy_array(:)       !< local dummy array
   
 #ifndef NOMPI
     ! get var ID
     vlistID   = streamInqVlist(streamID) 
-    varID     = get_cdi_varID(streamID, name=TRIM(varname)) !, opt_tileidx=opt_tileidx, opt_dict=opt_dict)
+    varID     = get_cdi_varID(streamID, name=TRIM(varname))
     gridID    = vlistInqVarGrid(vlistID, varID)
     dimlen(1) = gridInqSize(gridID)
     ALLOCATE(z_dummy_array(patch_data(1)%n_patch_cells_g))
@@ -216,39 +196,26 @@ CONTAINS
   !  @par Revision History
   !  Initial revision by M. Pondkule, DWD (2014-05-15)
   ! 
-  SUBROUTINE compute_data_receive(varname, hgrid, nlevs, var_out, eoff, patch_data, &
-       &                     opt_tileidx, opt_lvalue_add, opt_dict, opt_lev_dim)
-
+  SUBROUTINE compute_data_receive (varname, hgrid, nlevs, var_out, eoff, patch_data)
+ 
     CHARACTER(len=*),    INTENT(IN)    :: varname        !< var name of field to be read
     INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
     INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
     REAL(sp),            INTENT(INOUT) :: var_out(:,:,:) !< output field
     INTEGER(i8),         INTENT(INOUT) :: eoff
     TYPE(t_patch_data),  TARGET, INTENT(IN)   :: patch_data(1)
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_tileidx          !< tile index, encoded as "localInformationNumber"
-    LOGICAL,             INTENT(IN), OPTIONAL :: opt_lvalue_add       !< If .TRUE., add values to given field
-    TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict             !< optional: variable name dictionary
-    INTEGER,             INTENT(IN), OPTIONAL :: opt_lev_dim          !< array dimension (of the levels)
     TYPE(t_reorder_data), POINTER             :: p_ri
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
          routine = modname//':compute_data_receive'
     ! local variables:
-    INTEGER     :: mpi_comm, j, jl, jb, jk, i_dom, lev_dim, mpi_error, &
-                   dim_jl, dim_jb      
-    LOGICAL     :: lvalue_add
+    INTEGER     :: j, jl, jb, jk, i_dom, mpi_error      
 
 #ifndef NOMPI
     CALL MPI_Win_lock(MPI_LOCK_SHARED, p_pe_work, MPI_MODE_NOCHECK, patch_data(1)%mem_win%mpi_win, mpi_error)
 
     ! initialize output field:
     var_out(:,:,:) = 0._sp
-
-    lev_dim = 2
-    CALL assign_if_present(lev_dim, opt_lev_dim)
-
-    lvalue_add = .FALSE.
-    CALL assign_if_present(lvalue_add, opt_lvalue_add)
 
     ! Get patch ID
     i_dom = patch_data(1)%id
@@ -300,8 +267,8 @@ CONTAINS
     INTEGER :: nv_off_np(0:num_work_procs)
     TYPE(t_reorder_data),  POINTER :: p_ri
     REAL(sp), ALLOCATABLE   :: var3_sp(:)
-    INTEGER :: np, nval, nv_off, mpi_error, i_dom, gridType, gridNumber, ierrstat, j
-    INTEGER :: nv_off1, nval1, dst_start, dst_end, src_start, src_end
+    INTEGER :: np, nval, nv_off, mpi_error, i_dom, ierrstat !gridType, gridNumber
+    INTEGER :: dst_start, dst_end, src_start, src_end
     CHARACTER(len=max_char_length), PARAMETER :: routine = modname//'::prefetch_proc_send'
 
     ! Get patch ID

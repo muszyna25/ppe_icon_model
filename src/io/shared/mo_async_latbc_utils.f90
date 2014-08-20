@@ -1,13 +1,12 @@
   !>
-  !! This module contains the I/O routines for lateral boundary nudging
+  !! This module contains the asynchronous I/O routine for lateral boundary nudging
   !!
-  !! @author S. Brdar (DWD)
+  !! @author M. Pondkule (DWD)
   !!
   !!
   !! @par Revision History
-  !! Initial version by S. Brdar, DWD (2013-06-13)
-  !! Allow boundary data from the ICON output by S. Brdar, DWD (2013-07-19)
-  !! Modified version by M.Pondkule, DWD (2014-01-27)
+  !! Initial version by M. Pondkule, DWD (2014-01-27)
+  !! Allow boundary data from the ICON output by S. Brdar, DWD (2013-07-19) 
   !!
   !! @par Copyright
   !! 2002-2013 by DWD and MPI-M
@@ -45,37 +44,32 @@
 
 #ifndef NOMPI
     USE mpi
-    USE mo_mpi,                 ONLY: p_io, p_bcast, my_process_is_stdio,       &
-         &                            p_comm_work_test, p_comm_work_pref,       &
+    USE mo_mpi,                 ONLY: p_comm_work_pref, my_process_is_mpi_test, &
          &                            my_process_is_pref, my_process_is_work,   &
-         &                            my_process_is_io, p_comm_work,            &
-         &                            my_process_is_mpi_test, p_barrier, p_real_sp
+         &                            my_process_is_io, p_comm_work                            
     ! Processor numbers
-    USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, p_pe, num_work_procs
+    USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
-    USE mo_mpi,                 ONLY: p_isend, p_irecv, p_bcast, p_barrier,             &
-         &                            get_my_mpi_work_id, p_max, p_wait, p_send, p_recv   
+    USE mo_mpi,                 ONLY: p_isend, p_irecv, p_barrier, p_wait, &
+         &                            p_send, p_recv   
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
     USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, latbc_buffer ! for testing win_put
     USE mo_kind,                ONLY: wp, i8, sp
-    USE mo_parallel_config,     ONLY: nproma, p_test_run
+    USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
     USE mo_grid_config,         ONLY: nroot
     USE mo_exception,           ONLY: message, message_text, finish
     USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_COSMODE
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-    USE mo_communication,       ONLY: idx_no, blk_no
     USE mo_io_units,            ONLY: filename_max
     USE mo_nonhydro_types,      ONLY: t_nh_state
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_nh_vert_interp,      ONLY: vert_interp
     USE mo_util_phys,           ONLY: virtual_temp
     USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, init_w
-    USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
-    USE mo_sync,                ONLY: sync_patch_array_mult, sync_patch_array,   &
-         &                            SYNC_E, SYNC_C
+    USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
     USE mo_nh_initicon_types,   ONLY: t_initicon_state
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,    &
@@ -87,7 +81,6 @@
     USE mo_datetime,            ONLY: t_datetime, date_to_time, add_time, rdaylen, &
          &                            string_to_datetime 
     USE mo_time_config,         ONLY: time_config
-    USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime
@@ -176,8 +169,7 @@
 
 #ifndef NOMPI
       ! local variables
-      INTEGER       :: tlev, mpierr
-      INTEGER       :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
+      INTEGER       :: tlev, nlev, nlevp1, nblks_c, nblks_v, nblks_e
 
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::allocate_pref_latbc_data"
@@ -256,9 +248,7 @@
 
 #endif
     END SUBROUTINE allocate_pref_latbc_data
-    !-------------------------------------------------------------------------
-
-
+  
     !-------------------------------------------------------------------------
     !>
     !! @par Revision History
@@ -277,8 +267,7 @@
 #ifndef NOMPI
       ! local variables
       LOGICAL       :: done
-      REAL(wp)      :: t_diff
-      INTEGER       :: tdiffsec, jstep
+      INTEGER       :: jstep
       REAL          :: tdiff, dt,  additional_days
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
@@ -768,7 +757,7 @@
       ! local variables
       INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
       INTEGER                             :: jm, latbc_fileid, ierrstat
-      LOGICAL                             :: l_exist, lconvert_omega2w
+      LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_ifs_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
@@ -859,7 +848,7 @@
       INTEGER(i8)                         :: eoff
       TYPE(t_reorder_data), POINTER       :: p_ri
       LOGICAL                             :: lconvert_omega2w
-      INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv, i_dom, i_endidx
+      INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv, i_dom
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::compute_latbc_ifs_data"
 
       nlev_in   = latbc_config%nlev_in
@@ -975,7 +964,6 @@
          !
          !$OMP DO PRIVATE (jk,j,jb,jc) ICON_OMP_DEFAULT_SCHEDULE 
          DO jk = 1, nlev_in    !!!!!!!!need to reset nlev_in to a new value from stored n_lev values
-            !                DO jc = 1, i_endidx
             DO j = 1, p_ri%n_own !p_patch(1)%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jc = p_ri%own_idx(j) ! Line  index in distributed patch
@@ -1134,6 +1122,7 @@
     !>
     !! @par Revision History
     !! Initial version by S. Brdar, DWD (2013-06-13)
+    !! Modified version by M. Pondkule, DWD (2013-04-17)
     !!
     SUBROUTINE deallocate_pref_latbc_data( patch, patch_data )
       TYPE(t_patch), INTENT(INOUT) :: patch
@@ -1141,7 +1130,6 @@
 
 #ifndef NOMPI
       ! local variables
-      INTEGER             :: mpi_comm
       INTEGER             :: latbc_fileid, tlev
       INTEGER             :: dimid, no_cells, no_levels
       LOGICAL             :: l_exist, l_all_prog_vars
@@ -1151,12 +1139,6 @@
 
       WRITE(message_text,'(a,a)') 'deallocating latbc data'
       CALL message(TRIM(routine), message_text)
-
-      IF(p_test_run) THEN
-         mpi_comm = p_comm_work_test
-      ELSE
-         mpi_comm = p_comm_work_pref 
-      ENDIF
 
       IF(my_process_is_work()) THEN
          nlev    = patch%nlev
@@ -1427,7 +1409,7 @@
       REAL(wp) :: msg(2)
       CHARACTER(*), PARAMETER :: method_name = "compute_start_async_pref"
 
-      CALL p_barrier(comm=p_comm_work) ! make sure all are here
+   !   CALL p_barrier(comm=p_comm_work) ! make sure all are here
 
       msg(1) = REAL(msg_pref_start,  wp)
 
@@ -1445,7 +1427,7 @@
 #ifndef NOMPI
       REAL(wp) :: msg(2)
 
-      CALL p_barrier(comm=p_comm_work) ! make sure all are here
+    !  CALL p_barrier(comm=p_comm_work) ! make sure all are here
 
       msg(1) = REAL(msg_pref_shutdown, wp)
       msg(2) = 0._wp
@@ -1483,8 +1465,6 @@
     !! Initial version by M. Pondkule, DWD (2014-08-15)
     !!
     SUBROUTINE update_lin_interpolation( step_datetime )
-      INTEGER  :: iy, im    !< modified year and month indices
-      INTEGER  :: ib        !< leap year correction
       TYPE(t_datetime), INTENT(INOUT) :: step_datetime
       TYPE(datetime), pointer :: mtime_step
       TYPE(timedelta), pointer :: delta_tstep

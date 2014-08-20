@@ -41,9 +41,7 @@ MODULE mo_async_latbc_types
 
   USE mo_kind,                  ONLY: sp
   USE mo_var_metadata_types,    ONLY: t_var_metadata, VARNAME_LEN
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
-  USE mo_communication,         ONLY: t_comm_pattern
-  USE mo_dictionary,            ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
+  USE mo_dictionary,            ONLY: DICT_MAX_STRLEN
 
   IMPLICIT NONE
 

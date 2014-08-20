@@ -51,7 +51,7 @@ MODULE mo_async_latbc
 #endif
 
     ! basic modules
-    USE mo_kind,                      ONLY: wp, i8, i4, dp, sp
+    USE mo_kind,                      ONLY: wp, i8, dp, sp
     USE mo_io_units,                  ONLY: nerr
     USE mo_exception,                 ONLY: finish, message, message_text
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
@@ -64,15 +64,13 @@ MODULE mo_async_latbc
     USE mo_nonhydro_types,            ONLY: t_nh_state
     USE mo_intp_data_strc,            ONLY: t_int_state
     ! MPI Communicators
-    USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref, &
-         &                                  p_comm_work
+    USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
-    USE mo_mpi,                       ONLY: p_isend, p_irecv, p_bcast, p_barrier,             &
-         &                                  get_my_mpi_work_id, p_max, p_wait, p_send, p_recv
+    USE mo_mpi,                       ONLY: p_bcast 
     ! MPI Process type intrinsics
-    USE mo_mpi,                       ONLY: my_process_is_stdio, my_process_is_work
+    USE mo_mpi,                       ONLY: my_process_is_work
     ! MPI Process group sizes
-    USE mo_mpi,                       ONLY: process_mpi_io_size, num_work_procs, p_n_work
+    USE mo_mpi,                       ONLY: num_work_procs, p_n_work
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0 
     USE mo_time_config,               ONLY: time_config 
@@ -88,31 +86,26 @@ MODULE mo_async_latbc
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state
     USE mo_intp_data_strc,            ONLY: p_int_state
-    USE mo_limarea_config,            ONLY: latbc_config
     USE mo_linked_list,               ONLY: t_var_list, t_list_element
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group, total_number_of_variables
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
-    USE mo_impl_constants,            ONLY: vname_len
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize                                    
     USE mo_util_string,               ONLY: add_to_list
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file
-    USE mo_limarea_config,            ONLY: latbc_config
     USE mo_time_config,               ONLY: time_config
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-         &                                  GRID_UNSTRUCTURED_VERT, ZA_SURFACE, ZA_HYBRID,  &
          &                                  vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName, &
          &                                  vlistInqVarGrid, gridInqSize, streamClose, &
          &                                  FILETYPE_NC2, FILETYPE_GRB2, streamInqFiletype 
     USE mo_io_units,                  ONLY: filename_max
-    USE mo_util_cdi_table,            ONLY: print_cdi_summary
+!    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID
-    USE mo_io_util,                   ONLY: get_filetype
-  
+   
 #ifdef USE_CRAY_POINTER
     USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
 #endif
@@ -200,8 +193,7 @@ MODULE mo_async_latbc
       TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state(1)
       TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state(1)  !< nonhydrostatic state on the global domain
       TYPE(t_external_data),  OPTIONAL, INTENT(IN)   :: ext_data(1)    !< external data on the global domain
-      CHARACTER(*), PARAMETER :: method_name = "prefetch_input"
-      INTEGER :: nextstep                  
+      CHARACTER(*), PARAMETER :: method_name = "prefetch_input"                 
 
 #ifndef NOMPI
       ! Set input prefetch attributes    
@@ -226,8 +218,6 @@ MODULE mo_async_latbc
     SUBROUTINE prefetch_main_proc()
       ! local variables
       LOGICAL                         :: done
-      INTEGER                         :: jstep, jg
-      TYPE(t_datetime)                :: datetime
       CHARACTER(*), PARAMETER :: method_name = "prefetch_main_proc"
 
       ! call to initalize the prefetch processor with grid data
@@ -293,8 +283,7 @@ MODULE mo_async_latbc
     SUBROUTINE set_patch_data()
 
 #ifndef NOMPI
-      TYPE(t_var_list)              :: var
-      INTEGER                       :: jg, ierrstat, jl
+      INTEGER                       :: ierrstat, jl
       ! local variables:
       CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::set_patch_data" 
 
@@ -741,7 +730,7 @@ MODULE mo_async_latbc
       ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
       INTEGER                       :: info_size, i, iv, nelems, nv, n, list_info, all_var, &
-           &                          all_nvars, nvars, i2   
+           &                           all_nvars, nvars, i2   
       INTEGER, ALLOCATABLE          :: info_storage(:,:)
       TYPE(t_list_element), POINTER :: element
       TYPE(t_var_metadata)          :: info
@@ -1058,8 +1047,7 @@ MODULE mo_async_latbc
     SUBROUTINE init_remote_memory_window
 
 #ifndef NOMPI
-      INTEGER :: nbytes_real, mpi_error, ierrstat
-      INTEGER :: iv, jp, ip, nlevs, hgrid, rma_cache_hint
+      INTEGER :: ierrstat, iv, jp, nlevs, hgrid
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
@@ -1274,5 +1262,6 @@ MODULE mo_async_latbc
     END SUBROUTINE allocate_mem_noncray
 
 #endif
+  !------------------------------------------------------------------------------------------------
 
 END MODULE mo_async_latbc
