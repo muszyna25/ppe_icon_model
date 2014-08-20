@@ -1482,7 +1482,7 @@
 
       ! compute the number of "dtime_latbc" intervals fitting into the time difference "delta_tstep":
 
-      latbc_config%lc1 = (delta_tstep%day * 86400_wp + delta_tstep%hour * 3600._wp +  &
+      latbc_config%lc1 = (delta_tstep%day * 86400._wp + delta_tstep%hour * 3600._wp +  &
            delta_tstep%minute * 60._wp + delta_tstep%second) / latbc_config%dtime_latbc
       ! write (0,*) "B: lc1 = ", latbc_config%lc1
       latbc_config%lc2 = 1._wp - latbc_config%lc1
