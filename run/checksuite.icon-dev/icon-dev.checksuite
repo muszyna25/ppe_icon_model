@@ -668,12 +668,12 @@ if string_in_list $MD $CMODES; then
           sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
           mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
         fi
-        if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
-          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`
-          THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-          sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-        fi
+##        if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
+##          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`
+##          THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
+##          sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+##          mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+##        fi
         #
         echo "Perform $TEST run"
         chmod 755 ${RUN_SCRIPT}
