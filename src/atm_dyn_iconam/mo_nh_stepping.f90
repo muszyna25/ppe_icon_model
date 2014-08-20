@@ -532,7 +532,7 @@ MODULE mo_nh_stepping
 
     ! read boundary data if necessary
     IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) &
-      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), ext_data(1), datetime)
+      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), datetime)
 
     IF (msg_level > 2) THEN
       lprint_timestep = MOD(jstep-jstep_shift,iadv_rcf) == 1 .OR. msg_level >= 8
@@ -2327,7 +2327,7 @@ MODULE mo_nh_stepping
      ! TODO: [MP] Please fix this!
      ! CALL deallocate_pref_latbc_data(p_patch(1), patch_data(1))
   ELSE IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
-     CALL deallocate_latbc_data(p_patch(1))
+     CALL deallocate_latbc_data()
   ENDIF
 
   END SUBROUTINE deallocate_nh_stepping

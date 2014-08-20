@@ -245,10 +245,10 @@ MODULE mo_sync_latbc
     last_latbc_tlev = 2
     
     ! read first two time steps
-    CALL read_latbc_data( p_patch, p_nh_state, p_int_state, ext_data,         &
+    CALL read_latbc_data( p_patch, p_nh_state, p_int_state,                   &
       &                   time_config%cur_datetime, lopt_check_read=.FALSE.,  &
       &                   lopt_time_incr=.FALSE.                              )
-    CALL read_latbc_data( p_patch, p_nh_state, p_int_state, ext_data,         &
+    CALL read_latbc_data( p_patch, p_nh_state, p_int_state,                   &
       &                   time_config%cur_datetime, lopt_check_read=.FALSE.,  &
       &                   lopt_time_incr=.TRUE.                               )
 
@@ -267,12 +267,11 @@ MODULE mo_sync_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-19)
   !!
-  SUBROUTINE read_latbc_data( p_patch, p_nh_state, p_int, ext_data, datetime, &
+  SUBROUTINE read_latbc_data( p_patch, p_nh_state, p_int, datetime, &
     &                         lopt_check_read, lopt_time_incr )
     TYPE(t_patch),          INTENT(IN)    :: p_patch
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)    :: p_int
-    TYPE(t_external_data),  INTENT(IN)    :: ext_data    !< external data on the global domain
     TYPE(t_datetime),       INTENT(INOUT) :: datetime    !< current time
     LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
     LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
@@ -322,9 +321,9 @@ MODULE mo_sync_latbc
     ! start reading boundary data
     !
     IF (latbc_config%itype_latbc == 1) THEN
-      CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int, ext_data )
+      CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int )
     ELSE
-      CALL read_latbc_icon_data( p_patch, p_nh_state, p_int, ext_data )
+      CALL read_latbc_icon_data( p_patch, p_nh_state, p_int )
     ENDIF
 
     ! Compute tendencies for nest boundary update
@@ -342,11 +341,10 @@ MODULE mo_sync_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-25)
   !!
-  SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, p_int, ext_data)
+  SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, p_int)
     TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
-    TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
     ! local variables
     INTEGER                             :: mpi_comm, ist, dimid, no_cells, &
@@ -509,11 +507,10 @@ MODULE mo_sync_latbc
   !!  !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
-  SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, p_int, ext_data)
+  SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, p_int)
     TYPE(t_patch),          INTENT(IN)  :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
-    TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
     ! local variables
     INTEGER                             :: mpi_comm, ist, dimid, no_cells, &
@@ -769,33 +766,14 @@ MODULE mo_sync_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
-  SUBROUTINE deallocate_latbc_data(patch)
-    TYPE(t_patch), INTENT(INOUT) :: patch
-
-    ! local variables
-    INTEGER             :: mpi_comm
-    INTEGER             :: latbc_fileid, tlev
-    INTEGER             :: dimid, no_cells, no_levels
-    LOGICAL             :: l_exist, l_all_prog_vars
-    INTEGER             :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
+  SUBROUTINE deallocate_latbc_data()
+    INTEGER             :: tlev
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
       "mo_sync_latbc::deallocate_latbc_data"
      
     WRITE(message_text,'(a,a)') 'deallocating latbc data'
     CALL message(TRIM(routine), message_text)
-      
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
 
-    nlev    = patch%nlev
-    nlevp1  = patch%nlevp1
-    nblks_c = patch%nblks_c
-    nblks_v = patch%nblks_v
-    nblks_e = patch%nblks_e
-    
     ! 
     ! deallocate boundary data memory
     !
