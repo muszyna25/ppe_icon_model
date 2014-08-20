@@ -93,9 +93,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
-    &                                    process_mpi_pref_size, my_process_is_work, &
-    &                                    p_pe_work, p_work_pe0     
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -144,14 +142,12 @@ MODULE mo_nh_stepping
                                          sampl_freq_step
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list  
   USE mo_async_latbc,              ONLY: prefetch_input
-  USE mo_async_latbc_types,        ONLY: t_patch_data
   USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation                  
   USE mo_impl_constants_grf,       ONLY: grf_bdywidth_c
   USE mo_loopindices,              ONLY: get_indices_c   
-  USE mo_io_config,                ONLY: inextra_2d, inextra_3d
+  USE mo_io_config,                ONLY: inextra_3d
   USE mo_nonhydro_types,           ONLY: t_nh_diag
-  USE mo_async_latbc_types,        ONLY: latbc_buffer     
                        
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -1995,7 +1991,7 @@ MODULE mo_nh_stepping
   !! Developed by Mukund Pondkule, DWD (2014-06-17)
   !!
   SUBROUTINE field_difference
-    INTEGER :: nlevs, ierrstat, i_startblk, i_endblk, i_startidx, i_endidx, &
+    INTEGER :: nlevs, i_startblk, i_startidx, i_endidx, &
       &        jb, jc, jk, nblks_c   
     CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED   = 'ALLOCATE failed!'
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -2017,10 +2013,6 @@ MODULE mo_nh_stepping
           DO jc = i_startidx, i_endidx  
              diag%extra_3d(jc,jk,jb,1:inextra_3d) =  p_latbc_data(last_latbc_tlev)%atm%temp(jc,jk,jb)  &
              &                                       - latbc_data(end_latbc_tlev)%atm%temp(jc,jk,jb)  
-          !   &                                  latbc_buffer%vars(1)%buffer(jc,jk,jb) !latbc_data(end_latbc_tlev)%atm_in%temp(jc,jk,jb)
-
-             !       WRITE(0,*) 'nlevs ', jk, 'field_diff values ',  field_diff(jc,jk,jb)  !p_latbc_data(last_latbc_tlev)%atm%w(jc,jk,jb) ! &
-             !        &                    latbc_data(end_latbc_tlev)%atm%w(jc,jk,jb)   
           ENDDO
        ENDDO
     ENDDO
@@ -2115,7 +2107,6 @@ MODULE mo_nh_stepping
   SUBROUTINE update_spinup_damping(elapsed_time)
 
     REAL(wp), INTENT(IN) :: elapsed_time
-    INTEGER  :: jg
     REAL(wp) :: time1, time2
 
     time1 = 1800._wp  ! enhanced damping during the first half hour of integration

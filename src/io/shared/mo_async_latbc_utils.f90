@@ -44,7 +44,7 @@
 
 #ifndef NOMPI
     USE mpi
-    USE mo_mpi,                 ONLY: p_comm_work_pref, my_process_is_mpi_test, &
+    USE mo_mpi,                 ONLY: my_process_is_mpi_test, &
          &                            my_process_is_pref, my_process_is_work,   &
          &                            my_process_is_io, p_comm_work                            
     ! Processor numbers
@@ -56,37 +56,33 @@
 #endif
 
     USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, latbc_buffer ! for testing win_put
-    USE mo_kind,                ONLY: wp, i8, sp
+    USE mo_kind,                ONLY: wp, i8
     USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
     USE mo_grid_config,         ONLY: nroot
     USE mo_exception,           ONLY: message, message_text, finish
-    USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_COSMODE
+    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_COSMODE
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
     USE mo_io_units,            ONLY: filename_max
     USE mo_nonhydro_types,      ONLY: t_nh_state
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_nh_vert_interp,      ONLY: vert_interp
     USE mo_util_phys,           ONLY: virtual_temp
-    USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars, init_w
+    USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
     USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
     USE mo_nh_initicon_types,   ONLY: t_initicon_state
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-    USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,    &
-         &                            isCurrentEventActive, datetimeToString,    &
-         &                            deallocateDatetime, newEventGroup,         &
+    USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
+         &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
          &                            MAX_TIMEDELTA_STR_LEN         
     USE mo_mtime_extensions,    ONLY: get_datetime_string
-    USE mo_datetime,            ONLY: t_datetime, date_to_time, add_time, rdaylen, &
-         &                            string_to_datetime 
+    USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime
     USE mo_initicon_config,     ONLY: init_mode
-    USE mo_var_metadata_types,  ONLY: t_var_metadata
-    USE mtime_eventgroups,      ONLY: eventgroup
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)                             
@@ -112,11 +108,11 @@
     PUBLIC :: compute_start_async_pref
     PUBLIC :: compute_shutdown_async_pref
 
-    PUBLIC :: allocate_pref_latbc_data, prepare_pref_latbc_data, pref_latbc_data,  &
+    PUBLIC ::  prepare_pref_latbc_data, pref_latbc_data, &
          &     latbc_data, latbc_fileid, start_latbc_tlev, end_latbc_tlev,  &
          &     update_lin_interpolation, deallocate_pref_latbc_data, &
-         &     get_field_index, compute_latbc_ifs_data, prefetch_latbc_icon_data, &
-         &     prefetch_latbc_ifs_data, compute_latbc_icon_data, mtime_read 
+         &     get_field_index, prefetch_latbc_icon_data, &
+         &     prefetch_latbc_ifs_data, mtime_read 
 
     !------------------------------------------------------------------------------------------------
     ! CONSTANTS
@@ -130,24 +126,18 @@
     INTEGER, PARAMETER :: msg_latbc_done    = 20883 
     CHARACTER(len=*), PARAMETER :: version = '$Id$'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils' 
-    LOGICAL                :: lread_qr, lread_qs  ! are qr, qs provided as input?
-    LOGICAL                :: lread_vn            ! is vn provided as input?
-    CHARACTER(LEN=10)      :: psvar
-    CHARACTER(LEN=10)      :: geop_ml_var         ! model level surface geopotential
     INTEGER                :: latbc_fileid, &
          start_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
          end_latbc_tlev     ! last_ext_tlev is the last written time level index
     TYPE(t_initicon_state) :: latbc_data(2)     ! storage for two time-level boundary data
     INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur, &
-         delta_dtime_string
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN) :: event_name
     TYPE(timedelta), pointer :: my_duration_slack
     TYPE(datetime), pointer :: mtime_date
     TYPE(datetime), pointer :: mtime_read
     TYPE(event), pointer :: prefetchEvent
     TYPE(timedelta), pointer :: delta_dtime
-    TYPE(t_datetime) :: delta_time
     LOGICAL :: isactive
 
 
@@ -169,7 +159,7 @@
 
 #ifndef NOMPI
       ! local variables
-      INTEGER       :: tlev, nlev, nlevp1, nblks_c, nblks_v, nblks_e
+      INTEGER       :: tlev, nlev, nlevp1, nblks_c, nblks_e
 
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::allocate_pref_latbc_data"
@@ -185,7 +175,6 @@
       nlev    = opt_p_patch%nlev
       nlevp1  = opt_p_patch%nlevp1
       nblks_c = opt_p_patch%nblks_c
-      nblks_v = opt_p_patch%nblks_v
       nblks_e = opt_p_patch%nblks_e
 
       DO tlev = 1, 2
@@ -256,19 +245,16 @@
     !! Modified version by M.Pondkule, DWD (2014-01-27)
     !!
 
-    SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state, ext_data)
+    SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state)
       TYPE(t_patch_data),     INTENT(IN)   :: patch_data  
       TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
-      TYPE(t_external_data),  OPTIONAL,INTENT(IN)   :: ext_data    !< external data on the global domain
-      TYPE(t_datetime)                     :: datetime
 
 #ifndef NOMPI
       ! local variables
       LOGICAL       :: done
-      INTEGER       :: jstep
-      REAL          :: tdiff, dt,  additional_days
+      REAL          :: tdiff
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
@@ -277,8 +263,7 @@
 
       IF( my_process_is_work() ) THEN
          ! allocate input data for lateral boundary nudging
-         CALL allocate_pref_latbc_data( opt_p_nh_state=p_nh_state, opt_ext_data=ext_data, &
-              &      opt_p_patch=p_patch)
+         CALL allocate_pref_latbc_data( opt_p_nh_state=p_nh_state, opt_p_patch=p_patch)
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime
@@ -304,10 +289,10 @@
 
       ! read first two time steps
       IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
-         CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, ext_data, &
-              &                   time_config%cur_datetime,  jstep=0, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
+         CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
+              &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data, datetime=time_config%cur_datetime, jstep=0, &
+         CALL pref_latbc_data( patch_data, datetime=time_config%cur_datetime, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.FALSE. )
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -316,10 +301,10 @@
       END IF
 
       IF( my_process_is_work()) THEN  !IF (PRESENT(p_patch)) THEN
-         CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, ext_data, &
-              &                   time_config%cur_datetime, jstep=0, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
+         CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
+              &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data,datetime=time_config%cur_datetime,  jstep=0, &
+         CALL pref_latbc_data( patch_data,datetime=time_config%cur_datetime, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake() 
@@ -341,15 +326,13 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, ext_data, datetime,&
-         &                   jstep, lopt_check_read, lopt_time_incr)
+    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, datetime,&
+         &                   lopt_check_read, lopt_time_incr)
       TYPE(t_patch_data),     INTENT(IN), TARGET     :: patch_data
       TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)    :: p_int
-      TYPE(t_external_data),  OPTIONAL,INTENT(IN)    :: ext_data    !< external data on the global domain
       TYPE(t_datetime),       OPTIONAL,INTENT(INOUT) :: datetime       !< current time
-      INTEGER,      INTENT(IN), OPTIONAL    :: jstep
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
 
@@ -357,7 +340,6 @@
       ! local variables
       LOGICAL                               :: lcheck_read
       LOGICAL                               :: ltime_incr
-      INTEGER                               :: nextstep, mpi_win
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_data"
 
       IF( my_process_is_work()) THEN 
@@ -405,8 +387,6 @@
       ! Prepare the mtime_read for the next time level
       IF(ltime_incr ) THEN
          mtime_read = mtime_read + delta_dtime
-         !     CALL datetimeToString(mtime_read, delta_dtime_string)
-         !     CALL string_to_datetime(delta_dtime_string, delta_time)
       ENDIF
 
       ! Adjust read/last indices
@@ -424,8 +404,7 @@
          IF( my_process_is_pref()) THEN
             CALL prefetch_latbc_ifs_data( patch_data )        
          ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int, &
-                 &                    ext_data )
+            CALL compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int )
             ! NOMPI
             ! Compute tendencies for nest boundary update
             CALL compute_boundary_tendencies(p_patch, p_nh_state)
@@ -434,8 +413,7 @@
          IF( my_process_is_pref()) THEN
             CALL prefetch_latbc_icon_data( patch_data )
          ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_icon_data( p_patch, patch_data, p_nh_state, p_int, &
-                 &                     ext_data )
+            CALL compute_latbc_icon_data( p_patch, patch_data, p_int )
             ! NOMPI
             ! Compute tendencies for nest boundary update
             CALL compute_boundary_tendencies(p_patch, p_nh_state)
@@ -533,20 +511,16 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2014-05-19)
     !!
-    SUBROUTINE compute_latbc_icon_data( p_patch, patch_data, p_nh_state, p_int, ext_data )
+    SUBROUTINE compute_latbc_icon_data( p_patch, patch_data, p_int )
       TYPE(t_patch),          TARGET      :: p_patch
       TYPE(t_patch_data),     TARGET, INTENT(IN) :: patch_data
-      TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      INTENT(IN)  :: p_int
-      TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
 #ifndef NOMPI
       ! local variables
       INTEGER(i8)                         :: eoff
       TYPE(t_reorder_data), POINTER       :: p_ri
-      REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c), &
-           &                                    vn, w, rho, theta_v
-      LOGICAL                             :: lconvert_omega2w
+      REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
       INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::compute_latbc_icon_data"
       !-------------------------------------------------------------------------
@@ -755,7 +729,7 @@
 #ifndef NOMPI
       ! local variables
       INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
-      INTEGER                             :: jm, latbc_fileid, ierrstat
+      INTEGER                             :: jm, latbc_fileid
       LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_ifs_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
@@ -835,12 +809,11 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2014-05-19)
     !!
-    SUBROUTINE compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int, ext_data )
+    SUBROUTINE compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int)
       TYPE(t_patch),             TARGET   :: p_patch
       TYPE(t_patch_data), TARGET, INTENT(IN) :: patch_data
       TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      INTENT(IN)  :: p_int
-      TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
 
 #ifndef NOMPI
       ! local variables
@@ -1122,16 +1095,11 @@
     !! Initial version by S. Brdar, DWD (2013-06-13)
     !! Modified version by M. Pondkule, DWD (2013-04-17)
     !!
-    SUBROUTINE deallocate_pref_latbc_data( patch, patch_data )
-      TYPE(t_patch), INTENT(INOUT) :: patch
-      TYPE(t_patch_data), INTENT(INOUT) :: patch_data
+    SUBROUTINE deallocate_pref_latbc_data()
 
 #ifndef NOMPI
       ! local variables
-      INTEGER             :: latbc_fileid, tlev
-      INTEGER             :: dimid, no_cells, no_levels
-      LOGICAL             :: l_exist, l_all_prog_vars
-      INTEGER             :: nlev, nlevp1, nblks_c, nblks_v, nblks_e
+      INTEGER             :: tlev
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::deallocate_latbc_data"
 
@@ -1139,12 +1107,6 @@
       CALL message(TRIM(routine), message_text)
 
       IF(my_process_is_work()) THEN
-         nlev    = patch%nlev
-         nlevp1  = patch%nlevp1
-         nblks_c = patch%nblks_c
-         nblks_v = patch%nblks_v
-         nblks_e = patch%nblks_e
-
          ! 
          ! deallocate boundary data memory
          !

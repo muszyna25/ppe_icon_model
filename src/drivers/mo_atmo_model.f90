@@ -123,8 +123,6 @@ MODULE mo_atmo_model
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
 
-  !testing
-  USE mo_datetime,                ONLY: t_datetime
   !-------------------------------------------------------------------------
 
   IMPLICIT NONE

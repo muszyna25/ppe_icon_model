@@ -18,6 +18,45 @@
 !!
 !!
 !! 
+  ! TODO [MP]
+  ! NAG Fortran Compiler Release 5.3.2(951)
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 216: Variable MPI_COMM set but never referenced
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 216: Variable NBLKS_V set but never referenced
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused dummy variable EXT_DATA
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable IST
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Variable MPI_COMM set but never referenced
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused dummy variable P_NH_STATE
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable RHO
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable THETA_V
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable VN
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 456: Unused local variable W
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 724: Unused dummy variable EXT_DATA
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 724: Unused local variable IST
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 724: Unused local variable I_STARTIDX
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable DIMID
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable LATBC_FILEID
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable L_ALL_PROG_VARS
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable L_EXIST
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable MPI_COMM set but never referenced
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NBLKS_C set but never referenced
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NBLKS_E set but never referenced
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NBLKS_V set but never referenced
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NLEV set but never referenced
+  ! Questionable: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Variable NLEVP1 set but never referenced
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable NO_CELLS
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 805: Unused local variable NO_LEVELS
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: CPD explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: CVD explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: I8 explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: INIT_W explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: MY_PROCESS_IS_MPI_ALL_SEQ explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: P0REF explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: P_PE_WORK explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: P_WORK_PE0 explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: RD explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: SUCCESS explicitly imported into MO_SYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_sync_latbc.f90, line 945: SYNC_PATCH_ARRAY_MULT explicitly imported into MO_SYNC_LATBC but not used
+
 
 !----------------------------
 #include "omp_definitions.inc"

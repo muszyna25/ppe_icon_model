@@ -37,6 +37,11 @@
 !! software.
 !!
 !!
+  ! TODO [MP]
+  !
+  ! NAG Fortran Compiler Release 5.3.2(951)
+  ! Warning: ../../../src/io/shared/mo_latbc_read_recv.f90, line 241: Unused local variable I_DOM
+  ! Warning: ../../../src/io/shared/mo_latbc_read_recv.f90, line 241: Unused dummy variable VARNAME
 
 MODULE mo_latbc_read_recv
 

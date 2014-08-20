@@ -36,6 +36,36 @@
   !! software.
   !!
   !!
+  ! TODO [MP]:
+  !
+  ! NAG Fortran Compiler Release 5.3.2(951)
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 203: Unused dummy variable EXT_DATA
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 203: Unused dummy variable JSTEP
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 373: Unused local variable IERRSTAT
+  ! Questionable: ../../../src/io/shared/mo_async_latbc.f90, line 617: Variable GRIDID set but never referenced
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable LATBC_FULL_FILENAME
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable LREAD
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable NLEV
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 617: Unused local variable WDTH
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable FLEN_LATBC
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable LATBC_FULL_FILENAME
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable NAME
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable VAR_NAME
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 716: Unused local variable WDTH
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1153: Unused local variable MEM_BYTES
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: ADD_TIME explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: C_INT64_T explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: DATE_TO_TIME explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: DP explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: DTIME explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: EXT_DATA explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: Unused local variable FILEID_FG
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: GRIDINQSIZE explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: P_INT_I8 explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: TOTAL_NUMBER_OF_VARIABLES explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: T_VAR_DATA explicitly imported into MO_ASYNC_LATBC but not used
+  ! Warning: ../../../src/io/shared/mo_async_latbc.f90, line 1265: WP explicitly imported into MO_ASYNC_LATBC but not used
+
 #if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
 #define HAVE_F2003
 #endif
@@ -193,7 +223,7 @@ MODULE mo_async_latbc
       ! Set input prefetch attributes    
       IF( my_process_is_work()) THEN
          CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state,  &
-              &            ext_data, datetime=datetime, jstep=jstep) 
+              &            datetime=datetime) 
       ELSE IF( my_process_is_pref()) THEN
          CALL pref_latbc_data(patch_data) 
       END IF
@@ -411,8 +441,7 @@ MODULE mo_async_latbc
 
       IF( my_process_is_work()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), &
-              &                    ext_data(1)) 
+         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1))
       ELSE IF( my_process_is_pref()) THEN
          ! allocate input data for lateral boundary nudging
          CALL prepare_pref_latbc_data(patch_data) 
