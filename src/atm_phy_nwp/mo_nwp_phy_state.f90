@@ -423,7 +423,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'rain_gsp', diag%rain_gsp,                      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                 & ldims=shape2d, in_group=groups("precip_vars"),             &
-                & isteptype=TSTEP_ACCUM )
+                & isteptype=TSTEP_ACCUM ,                                    &
+                & hor_interp=create_hor_interp_metadata(                     &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
     ! &      diag%rain_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp0', 'kg m-2 ', 'gridscale rain0', DATATYPE_FLT32)
@@ -442,7 +444,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
                 & ldims=shape2d,                                             &
                 & in_group=groups("precip_vars"),                            &
-                & isteptype=TSTEP_ACCUM )
+                & isteptype=TSTEP_ACCUM ,                                    &
+                & hor_interp=create_hor_interp_metadata(                     &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB )  )
 
     ! &      diag%snow_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_gsp0', 'kg m-2 ', 'gridscale snow0', DATATYPE_FLT32)
@@ -460,7 +464,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'rain_con', diag%rain_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, in_group=groups("precip_vars"),              &
-                & isteptype=TSTEP_ACCUM )
+                & isteptype=TSTEP_ACCUM ,                                     &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB )  )
 
     ! &      diag%rain_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con0', 'kg m-2 ', 'convective rain0', DATATYPE_FLT32)
@@ -479,7 +485,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,                                              &
                 & in_group=groups("precip_vars"),                             &
-                & isteptype=TSTEP_ACCUM )
+                & isteptype=TSTEP_ACCUM ,                                     &
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB )  )
 
     ! &      diag%snow_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con0', 'kg m-2', 'convective snow0', DATATYPE_FLT32)
