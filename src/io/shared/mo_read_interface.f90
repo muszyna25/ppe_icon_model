@@ -388,7 +388,7 @@ CONTAINS
   !>
   TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, patch, input_method)
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    TYPE(t_patch), INTENT(INOUT) :: patch
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: patch
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
@@ -406,17 +406,17 @@ CONTAINS
       openInputFile_dist%file_id = netcdf_open_input(filename)
 
       openInputFile_dist%read_info(onCells)%n_g = patch%n_patch_cells_g
-      openInputFile_dist%read_info(onCells)%glb_index = &
+      openInputFile_dist%read_info(onCells)%glb_index => &
         patch%cells%decomp_info%glb_index
       NULLIFY(openInputFile_dist%read_info(onCells)%dist_read_info)
 
       openInputFile_dist%read_info(onEdges)%n_g = patch%n_patch_edges_g
-      openInputFile_dist%read_info(onEdges)%glb_index = &
+      openInputFile_dist%read_info(onEdges)%glb_index => &
         patch%edges%decomp_info%glb_index
       NULLIFY(openInputFile_dist%read_info(onEdges)%dist_read_info)
 
       openInputFile_dist%read_info(onVertices)%n_g = patch%n_patch_verts_g
-      openInputFile_dist%read_info(onVertices)%glb_index = &
+      openInputFile_dist%read_info(onVertices)%glb_index => &
         patch%verts%decomp_info%glb_index
       NULLIFY(openInputFile_dist%read_info(onVertices)%dist_read_info)
 
