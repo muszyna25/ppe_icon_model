@@ -1464,13 +1464,15 @@ src/grid_generator/mo_topology.f90 -text
 src/grid_generator/partitioner.f90 -text
 src/include/omp_definitions.inc -text
 src/include/phillips_nucleation_2010.incf -text
+src/io/atmo/mo_async_latbc.f90 -text
+src/io/atmo/mo_async_latbc_types.f90 -text
+src/io/atmo/mo_async_latbc_utils.f90 -text
 src/io/atmo/mo_io_restart_async.f90 -text
+src/io/atmo/mo_latbc_read_recv.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
+src/io/atmo/mo_sync_latbc.f90 -text
 src/io/atmo/mo_util_vgrid.f90 -text
 src/io/atmo/mo_util_vgrid_types.f90 -text
-src/io/shared/mo_async_latbc.f90 -text
-src/io/shared/mo_async_latbc_types.f90 -text
-src/io/shared/mo_async_latbc_utils.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text
@@ -1479,7 +1481,6 @@ src/io/shared/mo_io_restart_attributes.f90 -text
 src/io/shared/mo_io_restart_namelist.f90 -text
 src/io/shared/mo_io_units.f90 -text
 src/io/shared/mo_io_util.f90 -text
-src/io/shared/mo_latbc_read_recv.f90 -text
 src/io/shared/mo_name_list_output.f90 -text
 src/io/shared/mo_name_list_output_gridinfo.f90 -text
 src/io/shared/mo_name_list_output_init.f90 -text
@@ -1494,7 +1495,6 @@ src/io/shared/mo_post_op.f90 -text
 src/io/shared/mo_read_interface.f90 -text
 src/io/shared/mo_read_netcdf_distributed.f90 -text
 src/io/shared/mo_read_netcdf_parallel.f90 -text
-src/io/shared/mo_sync_latbc.f90 -text
 src/io/shared/mo_util_bool_table.f90 -text
 src/io/shared/mo_util_cdi.f90 -text
 src/io/shared/mo_util_cdi_table.f90 -text
