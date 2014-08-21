@@ -361,7 +361,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
- pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
+ !pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
 /
 &output_nml
  output_filename  = "${EXPNAME}_dyn_3d_rmb"
@@ -376,7 +376,7 @@ if [[ "$output_dyn" == "yes" ]]; then
  output_interval  = "PT04M"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
+ !pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
 /
 EOF
 fi
@@ -486,10 +486,10 @@ if [[ "$output_phy" == "yes" ]]; then
  output_interval  = "PT04M"                          ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- pl_varlist       = 'hur'
-                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
-                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
-                    'tend_temp_gwh', 'tend_temp_sso',
+ !pl_varlist       = 'hur'
+ !                   'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
+ !                   'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
+ !                   'tend_temp_gwh', 'tend_temp_sso',
 !                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
 !                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
 !                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
