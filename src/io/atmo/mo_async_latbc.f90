@@ -292,25 +292,7 @@ MODULE mo_async_latbc
       ! local variables:
       CHARACTER(LEN=*), PARAMETER   :: routine = modname//"::set_patch_data" 
 
-      ! ---------------------------------------------------------------------------
-
-      ! Replicate logical domain setup, only the number of domains and
-      ! the ID is needed
-      IF ( .NOT. my_process_is_mpi_test()) THEN
-         ! n_dom for limited area module is 1 but can also be more than 1
-         CALL p_bcast(n_dom, bcast_root, p_comm_work_2_pref)
-      ENDIF
-
       ! allocate patch data structure
-
-      ! TODO: We use only patch_data in the asynchronous
-      ! prefetching module. Please do not allocate more "patch_Data"
-      ! elements than are actually used!
-
-      IF (n_dom /= 1) THEN
-        CALL finish(routine, "Asynchronous prefetching not implemented for n_dom > 1!")
-      END IF
-
       ! set number of global cells/edges/verts and patch ID
 
       IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
