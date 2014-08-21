@@ -39,7 +39,7 @@ link_source_list()
 #-----------------------------------------------------------------------------------
 #get src
 link_source_list "src/" "ocean sea_ice parallel_infrastructure include shared"
-link_source_list "src/io/" "shared atmo/mo_util_vgrid_types.f90"
+link_source_list "src/io/" "shared"
 
 link_source_list "src/advection/" "mo_advection_utils.f90"
 
