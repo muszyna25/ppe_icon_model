@@ -420,16 +420,6 @@ MODULE mo_async_latbc
 
 
     !-------------------------------------------------------------------------------------------------
-
-    SUBROUTINE print_info_stderr (name, text)
-      CHARACTER (len=*), INTENT(in) :: name
-      CHARACTER (len=*), INTENT(in) :: text
-
-      WRITE (nerr,'(a,a,a)') TRIM(name), ": ", TRIM(text)
-
-    END SUBROUTINE print_info_stderr
-
-    !-------------------------------------------------------------------------------------------------
     !> open files containing first variable list and analysis
     !
     SUBROUTINE read_init_file()
