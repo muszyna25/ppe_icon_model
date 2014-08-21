@@ -37,8 +37,8 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
   end_date="2009-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
-(( dt_checkpoint =  360 * day))
-(( dt_restart    = 1800 * day))
+(( dt_checkpoint =  300 * day))
+(( dt_restart    = 1500 * day))
 #
 file_interval="P30D"
 
@@ -93,7 +93,7 @@ cat > ${atmo_namelist} << EOF
  rbf_scale_mode_ll = 1
 /
 &sleve_nml
- min_lay_thckn    = 20.         ! [m]
+ min_lay_thckn    = 40.         ! [m]
  top_height       = 75000.      ! [m]
  stretch_fac      = 0.9
  decay_scale_1    = 4000.       ! [m]

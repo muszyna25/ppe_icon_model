@@ -93,7 +93,7 @@ cat > ${atmo_namelist} << EOF
  rbf_scale_mode_ll = 1
 /
 &sleve_nml
- min_lay_thckn    = 20.         ! [m]
+ min_lay_thckn    = 40.         ! [m]
  top_height       = 75000.      ! [m]
  stretch_fac      = 0.9
  decay_scale_1    = 4000.       ! [m]
