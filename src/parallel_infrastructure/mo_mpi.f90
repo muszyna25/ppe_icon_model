@@ -987,7 +987,14 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1)
+    INTEGER :: sizeof_prefetch_processes
 
+    IF (PRESENT(num_prefetch_proc)) THEN
+      sizeof_prefetch_processes = num_prefetch_proc
+    ELSE
+      sizeof_prefetch_processes = 0
+    ENDIF
+    
 
 ! check l_test_openmp
 #ifndef _OPENMP
@@ -1025,18 +1032,19 @@ CONTAINS
        & '--> num_restart_procs set to 0')
       num_restart_procs = 0
     END IF
-    IF (num_prefetch_proc /= 0) THEN
+    IF (sizeof_prefetch_processes /= 0) THEN
       CALL print_info_stderr(method_name, &
-       & 'num_prefetch_proc has no effect if the model is compiled with the NOMPI compiler directive')
+      & 'sizeof_prefetch_processes has no effect if the model is compiled with the NOMPI compiler directive')
       CALL print_info_stderr(method_name, &
-       & '--> num_prefetch_proc set to 0')
-      num_prefetch_proc = 0
+      & '--> sizeof_prefetch_processes set to 0')
+      sizeof_prefetch_processes = 0
     END IF
+    
 
     ! set the sequential values
     p_work_pe0 = 0
     num_io_procs = 0
-    num_prefetch_proc = 0
+    sizeof_prefetch_processes = 0
     num_work_procs = 1
 
 #else
@@ -1065,17 +1073,17 @@ CONTAINS
             & '--> num_restart_procs set to 0')
         num_restart_procs = 0
       ENDIF
-      IF (num_prefetch_proc > 0) THEN
+      IF (sizeof_prefetch_processes > 0) THEN
         CALL print_info_stderr(method_name, &
-            & 'num_prefetch_proc cannot be > 0 in seq run')
+            & 'sizeof_prefetch_processes cannot be > 0 in seq run')
         CALL print_info_stderr(method_name, &
-            & '--> num_prefetch_proc set to 0')
-        num_prefetch_proc = 0
+            & '--> sizeof_prefetch_processes set to 0')
+        sizeof_prefetch_processes = 0
       ENDIF
     ENDIF
     IF(num_io_procs < 0) num_io_procs = 0           ! for safety only
     IF(num_restart_procs < 0) num_restart_procs = 0 ! for safety only
-    IF(num_prefetch_proc < 0) num_prefetch_proc = 0 ! for safety only
+    IF(sizeof_prefetch_processes < 0) sizeof_prefetch_processes = 0 ! for safety only
     ! -----------------------------------------
     ! Set if test
     IF(p_test_run) THEN
@@ -1088,12 +1096,12 @@ CONTAINS
 
     ! -----------------------------------------
     ! how many work processors?
-    num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs - num_restart_procs - num_prefetch_proc
+    num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs - num_restart_procs - sizeof_prefetch_processes
 
     ! Check if there are sufficient PEs at all
     IF(num_work_procs < 1) THEN
       CALL finish(method_name, &
-      & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/num_prefetch_proc')
+      & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/sizeof_prefetch_processes')
     ELSE IF (p_test_run .AND. num_work_procs == 1) THEN
       CALL finish(method_name, &
       & 'running p_test_run with only 1 work processor does not make sense')
@@ -1103,7 +1111,7 @@ CONTAINS
       & ', work: ',num_work_procs, &
       & ', I/O: ',num_io_procs, &
       & ', Restart: ',num_restart_procs, &
-      & ', Prefetching: ',num_prefetch_proc 
+      & ', Prefetching: ',sizeof_prefetch_processes
     CALL print_info_stderr(method_name, message_text)
 
     ! Everything seems ok. Proceed to setup the communicators and ids
@@ -1132,7 +1140,7 @@ CONTAINS
       p_n_work  = num_restart_procs
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs
     ELSE 
-      p_n_work  = num_prefetch_proc
+      p_n_work  = sizeof_prefetch_processes
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs - num_restart_procs
     ENDIF
 
@@ -1218,7 +1226,7 @@ CONTAINS
     IF(num_restart_procs > 0) THEN
       IF(p_pe < p_work_pe0 .OR. &
       &  ((num_io_procs > 0 .AND. (p_pe >= p_io_pe0 .AND. p_pe < p_restart_pe0)) .OR. &
-      &  (num_prefetch_proc > 0 .AND. p_pe >= p_pref_pe0))) THEN
+      &  (sizeof_prefetch_processes > 0 .AND. p_pe >= p_pref_pe0))) THEN
         my_color = MPI_UNDEFINED ! p_comm_work_restart must never be used on test and IO PE
       ELSE
         my_color = 1    ! This is set only for all workers and for all restart PEs
@@ -1231,7 +1239,7 @@ CONTAINS
     ENDIF
 
     ! Set p_comm_work_pref, the communicator spanning work group and prefetching PEs
-    IF(num_prefetch_proc > 0) THEN
+    IF(sizeof_prefetch_processes > 0) THEN
       IF(p_pe < p_work_pe0 .OR. &
       &  ((num_io_procs > 0 .AND. (p_pe >= p_io_pe0 .AND. p_pe < p_restart_pe0)) .OR. &
       &  ( num_restart_procs > 0 .AND. (p_pe >= p_restart_pe0 .AND. p_pe < p_pref_pe0)))) THEN
@@ -1322,7 +1330,7 @@ CONTAINS
     ! the worker PEs and the prefetching PEs.
     CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm_pref, p_error)
 
-    IF(p_pe /= p_test_pe .AND. num_prefetch_proc>0) THEN
+    IF(p_pe /= p_test_pe .AND. sizeof_prefetch_processes>0) THEN
 
       IF(p_pe < p_io_pe0) THEN ! All workers
         CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm_pref, p_pref_pe0, &
@@ -1357,7 +1365,7 @@ CONTAINS
     process_mpi_restart_size        = num_restart_procs
     process_mpi_io_size             = num_io_procs
     process_mpi_all_prefroot_id     = p_pref_pe0
-    process_mpi_pref_size           = num_prefetch_proc
+    process_mpi_pref_size           = sizeof_prefetch_processes
     p_comm_work_pref_compute_pe0    = p_work_pe0
 
     ! In case of test run, only the test process is stdio
@@ -1386,6 +1394,10 @@ CONTAINS
     is_openmp_test_run = l_test_openmp
     ! fill other default
     CALL set_comm_input_bcast()
+    
+    IF (PRESENT(num_prefetch_proc)) THEN
+      num_prefetch_proc = sizeof_prefetch_processes
+    ENDIF
 
   END SUBROUTINE set_mpi_work_communicators
   !-------------------------------------------------------------------------
