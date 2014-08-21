@@ -217,7 +217,7 @@ EXPERIMENT=${EXPERIMENT='atm_amip_test'}
 
 # Default work mode of the checksuite
 MD=${MD='rnmo'}  #MD is equal to MODE but abbreviated test-mode names
-FORCE_MRS=${FORCE_MRS='no'}
+FORCE_MRS=${FORCE_MRS='yes'}
 OVERWRITE=${OVERWRITE='yes'}
 REFERENCE=${REFERENCE=''}
 
@@ -356,6 +356,7 @@ if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_BASE} ]; the
   echo "Perform $TEST run"
   chmod 755 ${RUN_SCRIPT}
   ${SCRIPT_DIR}/${RUN_SCRIPT}
+  
   #
   STATUS=$?
   if [ "$STATUS" -eq 0 ]; then
@@ -379,6 +380,7 @@ if string_in_list $MD $CMODES; then
   echo "#################### perform $TEST test               ####################"
   echo ' '
   cd ${REFERENCE} 
+  RUN_STATUS=-1
   if [ "${OVERWRITE}" == 'yes' -o ! -d experiments/${EXP_BASE} ] ;then 
     if [ ! -f run/exp.${SCRIPT}.run -o "$FORCE_MRS" == 'yes' ]; then
       ${MODEL_DIR}/make_runscripts ${SCRIPT}
@@ -401,20 +403,28 @@ if string_in_list $MD $CMODES; then
     echo "Perform $TEST run"
     chmod 755 ${RUN_SCRIPT}
     ${REFERENCE}/run/${RUN_SCRIPT}
+    RUN_STATUS=$?
     #
   else
     echo "Found $TEST run"
+    RUN_STATUS=0
   fi # OVERWRITE
 
-  # compare base run with test run
-  diff_results $MODEL_DIR $EXP_BASE $REFERENCE $EXP_BASE $TEST
-  if [ "$DIFF_STATUS" == 0 ]; then
-    PASSED_TESTS="$PASSED_TESTS $TEST"
-    EXIT_STATUS=$(($EXIT_STATUS + 0))
+  if [ "$RUN_STATUS" == 0 ]; then
+    # compare base run with test run
+    diff_results $MODEL_DIR $EXP_BASE $REFERENCE $EXP_BASE $TEST
+    if [ "$DIFF_STATUS" == 0 ]; then
+      PASSED_TESTS="$PASSED_TESTS $TEST"
+      EXIT_STATUS=$(($EXIT_STATUS + 0))
+    else
+      FAILED_TESTS="$FAILED_TESTS $TEST"
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+    fi
   else
+    echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 1))
-  fi
+  fi # RUN_STATUS
 fi # MODE
 
 
@@ -424,6 +434,7 @@ if string_in_list $MD $CMODES; then
   echo ' '
   echo "#################### perform $TEST test               ####################"
   echo ' '
+  RUN_STATUS=-1
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     #
@@ -443,20 +454,28 @@ if string_in_list $MD $CMODES; then
     echo "Perform $TEST run"
     chmod 755 ${RUN_SCRIPT}
     ${SCRIPT_DIR}/${RUN_SCRIPT}
+    RUN_STATUS=$?
     #
   else
     echo "Found $TEST run"
+    RUN_STATUS=0
   fi # OVERWRITE
 
-  # compare base run with test run
-  diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
-  if [ "$DIFF_STATUS" == 0 ]; then
-    PASSED_TESTS="$PASSED_TESTS $TEST"
-    EXIT_STATUS=$(($EXIT_STATUS + 0))
+  if [ "$RUN_STATUS" == 0 ]; then
+    # compare base run with test run
+    diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
+    if [ "$DIFF_STATUS" == 0 ]; then
+      PASSED_TESTS="$PASSED_TESTS $TEST"
+      EXIT_STATUS=$(($EXIT_STATUS + 0))
+    else
+      FAILED_TESTS="$FAILED_TESTS $TEST"
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+    fi
   else
+    echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 1))
-  fi
+  fi # RUN_STATUS
 fi # MODE
 
 
@@ -466,6 +485,7 @@ if string_in_list $MD $CMODES; then
   echo ' '
   echo "#################### perform $TEST test               ####################"
   echo ' '
+  RUN_STATUS=-1
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     #
@@ -484,20 +504,28 @@ if string_in_list $MD $CMODES; then
     echo "Perform $TEST run"
     chmod 755 ${RUN_SCRIPT}
     ${SCRIPT_DIR}/${RUN_SCRIPT}
+    RUN_STATUS=$?
     #
   else
     echo "Found $TEST run"
+    RUN_STATUS=0
   fi # OVERWRITE
 
-  # compare base run with test run
-  diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
-  if [ "$DIFF_STATUS" == 0 ]; then
-    PASSED_TESTS="$PASSED_TESTS $TEST"
-    EXIT_STATUS=$(($EXIT_STATUS + 0))
+  if [ "$RUN_STATUS" == 0 ]; then
+    # compare base run with test run
+    diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
+    if [ "$DIFF_STATUS" == 0 ]; then
+      PASSED_TESTS="$PASSED_TESTS $TEST"
+      EXIT_STATUS=$(($EXIT_STATUS + 0))
+    else
+      FAILED_TESTS="$FAILED_TESTS $TEST"
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+    fi
   else
+    echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
     FAILED_TESTS="$FAILED_TESTS $TEST"
     EXIT_STATUS=$(($EXIT_STATUS + 1))
-  fi
+  fi # RUN_STATUS
 fi # MODE
 
 
@@ -507,10 +535,11 @@ if string_in_list $MD $CMODES; then
   echo ' '
   echo "#################### perform $TEST test               ####################"
   echo ' '
+  TEST_POSSIBLE='no'
+  RUN_STATUS=-1
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     cd ${SCRIPT_DIR}
-    TEST_POSSIBLE='no'
     MPI=`grep with_mpi exp.${SCRIPT}.run`
     MPIYES='with_mpi="yes"'
     if [ "$MPI" == "$MPIYES" ]; then
@@ -591,6 +620,7 @@ if string_in_list $MD $CMODES; then
         echo "Perform $TEST run"
         chmod 755 ${RUN_SCRIPT}
         ${SCRIPT_DIR}/${RUN_SCRIPT}
+        RUN_STATUS=$?
         #
       else
         echo "No MPI parallelization test is peformed if: total number of MPI processes = $N_PROCS"
@@ -603,18 +633,25 @@ if string_in_list $MD $CMODES; then
   else
     echo "Found $TEST run"
     TEST_POSSIBLE='yes'
+    RUN_STATUS=0
   fi # OVERWRITE
 
   if [ "${TEST_POSSIBLE}" == 'yes' ]; then
-    # compare base run with test run
-    diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
-    if [ "$DIFF_STATUS" == 0 ]; then
-      PASSED_TESTS="$PASSED_TESTS $TEST"
-      EXIT_STATUS=$(($EXIT_STATUS + 0))
+    if [ "$RUN_STATUS" == 0 ]; then
+      # compare base run with test run
+      diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
+      if [ "$DIFF_STATUS" == 0 ]; then
+        PASSED_TESTS="$PASSED_TESTS $TEST"
+        EXIT_STATUS=$(($EXIT_STATUS + 0))
+      else
+        FAILED_TESTS="$FAILED_TESTS $TEST"
+        EXIT_STATUS=$(($EXIT_STATUS + 1))
+      fi
     else
+      echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
       FAILED_TESTS="$FAILED_TESTS $TEST"
       EXIT_STATUS=$(($EXIT_STATUS + 1))
-    fi
+    fi # RUN_STATUS
   fi # TEST_POSSIBLE
 fi # MODE
 
@@ -625,10 +662,11 @@ if string_in_list $MD $CMODES; then
   echo ' '
   echo "#################### perform $TEST test               ####################"
   echo ' '
+  TEST_POSSIBLE='no'
+  RUN_STATUS=-1
   EXP_TEST=${EXPERIMENT}_${TEST}
   if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
     cd ${SCRIPT_DIR}
-    TEST_POSSIBLE='no'
     OMP=`grep with_openmp exp.${SCRIPT}.run`
     OMPYES='with_openmp="yes"'
     if [ "$OMP" == "$OMPYES" ]; then
@@ -678,6 +716,7 @@ if string_in_list $MD $CMODES; then
         echo "Perform $TEST run"
         chmod 755 ${RUN_SCRIPT}
         ${SCRIPT_DIR}/${RUN_SCRIPT}
+        RUN_STATUS=$?
         #
       else
         echo "No OMP parallelization test is performed if: number of OMP threads = $N_OMP_NUM_THREADS"
@@ -690,18 +729,25 @@ if string_in_list $MD $CMODES; then
   else
     echo "Found $TEST run"
     TEST_POSSIBLE='yes'
+    RUN_STATUS=0
   fi # OVERWRITE
 
   if [ "${TEST_POSSIBLE}" == 'yes' ]; then
-    # compare base run with test run
-    diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
-    if [ "$DIFF_STATUS" == 0 ]; then
-      PASSED_TESTS="$PASSED_TESTS $TEST"
-      EXIT_STATUS=$(($EXIT_STATUS + 0))
+    if [ "$RUN_STATUS" == 0 ]; then
+      # compare base run with test run
+      diff_results $MODEL_DIR $EXP_BASE $MODEL_DIR $EXP_TEST $TEST
+      if [ "$DIFF_STATUS" == 0 ]; then
+        PASSED_TESTS="$PASSED_TESTS $TEST"
+        EXIT_STATUS=$(($EXIT_STATUS + 0))
+      else
+        FAILED_TESTS="$FAILED_TESTS $TEST"
+        EXIT_STATUS=$(($EXIT_STATUS + 1))
+      fi
     else
+      echo "ERROR: The $TEST test run aborted --> no comparison with the base run"
       FAILED_TESTS="$FAILED_TESTS $TEST"
       EXIT_STATUS=$(($EXIT_STATUS + 1))
-    fi
+    fi # RUN_STATUS
   fi # TEST_POSSIBLE
 fi # MODE
 
