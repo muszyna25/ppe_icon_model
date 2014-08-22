@@ -1990,7 +1990,6 @@ MODULE mo_nh_stepping
   SUBROUTINE field_difference
     INTEGER :: nlevs, i_startblk, i_startidx, i_endidx, &
       &        jb, jc, jk, nblks_c   
-    CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED   = 'ALLOCATE failed!'
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &  routine = 'mo_nh_stepping:field_difference'
 
