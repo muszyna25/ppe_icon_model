@@ -281,12 +281,14 @@ CONTAINS
            stream_id = netcdf_close(stream_id)
 
      ! roughness length and background albedo
+           IF (phy_config%lvdiff) THEN
            return_pointer => netcdf_read_2D(    &
              & filename      =land_phys_fn,             &
              & variable_name ='z0',                     &
              & fill_array    = prm_field(jg)% z0m(:,:), &
              & n_g           = p_patch(jg)%n_patch_cells_g,&
              & glb_index     = p_patch(jg)%cells%decomp_info%glb_index)
+           END IF
            return_pointer => netcdf_read_2D(    &
              & filename      =land_phys_fn,             &
              & variable_name ='albedo',                 &
