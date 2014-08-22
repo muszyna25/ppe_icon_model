@@ -1258,7 +1258,8 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_UV ),                         &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )  
@@ -1271,7 +1272,8 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_UV ),                         &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
@@ -1311,7 +1313,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 197, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_exner_phy', p_diag%ddt_exner_phy,           &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c,                                              &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN ) )
 
 
     ! ddt_temp_dyn  p_diag%ddt_temp_dyn(nproma,nlev,nblks_c)
@@ -1321,7 +1326,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 197, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_temp_dyn', p_diag%ddt_temp_dyn,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, lrestart=.FALSE. )
+                & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
@@ -1379,6 +1387,9 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'temp', p_diag%temp,                             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN ),              &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
@@ -1389,7 +1400,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 0, 1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'tempv', p_diag%tempv,                           &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, lrestart=.FALSE. )
+                & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN ) )
 
 
     ! temp_ifc     p_diag%temp_ifc(nproma,nlevp1,nblks_c)
@@ -1398,7 +1412,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'temp_ifc', p_diag%temp_ifc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_chalf, lrestart=.FALSE. )
+                & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
 
     ! pres         p_diag%pres(nproma,nlev,nblks_c)
@@ -1421,7 +1438,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_ifc', p_diag%pres_ifc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_chalf, lrestart=.FALSE. )
+                & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("Z","I"),              &
+                &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
 
     ! dpres_mc     p_diag%dpres_mc(nproma,nlev,nblks_c)
@@ -1430,7 +1450,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'dpres_mc', p_diag%dpres_mc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, lrestart=.FALSE. )
+                & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! vertical velocity ( omega=dp/dt ) 
     !
@@ -1461,10 +1484,10 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'div', p_diag%div,                               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
-                & vert_interp=create_vert_interp_metadata( &
-                &   vert_intp_type=vintp_types("P","Z","I"),  &
-                &   vert_intp_method=VINTP_METHOD_LIN ),   &
-                &   in_group=groups("atmo_derived_vars") )
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN ),              &
+                & in_group=groups("atmo_derived_vars") )
 
     IF (turbdiff_config(p_patch%id)%itype_sher >= 1 .OR. turbdiff_config(p_patch%id)%ltkeshs) THEN
       ! div_ic          p_diag%div_ic(nproma,nlevp1,nblks_c)
@@ -1484,7 +1507,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
                   & ldims=shape3d_chalf, lrestart=.FALSE. )
 
-    ELSE ! dummy allocation to satisfy the pathological NAG compiler
+    ELSE ! dummy allocation to satisfy the strict NAG compiler
       ALLOCATE(p_diag%div_ic(1,1,nblks_c), p_diag%hdef_ic(1,1,nblks_c))
     ENDIF
 
@@ -1505,7 +1528,7 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
                   & ldims=shape3d_chalf, lrestart=.FALSE. )
 
-    ELSE ! dummy allocation to satisfy the pathological NAG compiler
+    ELSE ! dummy allocation to satisfy the strict NAG compiler
       ALLOCATE(p_diag%dwdx(1,1,nblks_c), p_diag%dwdy(1,1,nblks_c))
     ENDIF
 
@@ -1516,10 +1539,10 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'vor', p_diag%vor,                               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
-                & vert_interp=create_vert_interp_metadata( &
-                &   vert_intp_type=vintp_types("P","Z","I"),  &
-                &   vert_intp_method=VINTP_METHOD_LIN ),   &
-                &   in_group=groups("atmo_derived_vars")  )
+                & vert_interp=create_vert_interp_metadata(                      &
+                &             vert_intp_type=vintp_types("P","Z","I"),          &
+                &             vert_intp_method=VINTP_METHOD_LIN ),              &
+                & in_group=groups("atmo_derived_vars")  )
 
 
     ! mass_fl_e    p_diag%mass_fl_e(nproma,nlev,nblks_e)
