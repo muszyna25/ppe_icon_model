@@ -70,16 +70,28 @@
 !!                        defined in module mo_nh_vert_interp:
 !!
 !!                         VINTP_METHOD_LIN (default) : linear vertical interpolation 
-!!                         VINTP_METHOD_UV            : vertical interpolation and extrapolation of horizontal 
-!!                                                      wind components, performs cubic interpolation where 
-!!                                                      possible, turning to linear interpolation close to the 
-!!                                                      surface with boundary-layer treatment
 !!                         VINTP_METHOD_QV            : vertical interpolation of specific humidity,
 !!                                                      performs cubic interpolation where possible, 
 !!                                                      turning to linear interpolation close to the surface
 !!                         VINTP_METHOD_PRES          : vertical interpolation of pressure, piecewise 
 !!                                                      analytical integration of the hydrostatic equation
 !!                         VINTP_METHOD_LIN_NLEVP1    : linear interpolation for half level fields
+!!                       [ VINTP_METHOD_UV (unused) ] : vertical interpolation and extrapolation of horizontal 
+!!                                                      wind components, performs cubic interpolation where 
+!!                                                      possible, turning to linear interpolation close to the 
+!!                                                      surface with boundary-layer treatment
+!!                                                      - Despite this mode, wind fields are treated differently, 
+!!                                                        see below. -
+!!
+!!  Special treatment of wind fields:
+!!
+!!  Wind fields are vertically interpolated as follows: A new
+!!  z/p/i-variable "vn" is created and a post-processing task for
+!!  vertical interpolation of the model's "vn" onto this new
+!!  field. Then, new cell-based variables "u", "v" on the same
+!!  vertical axis are created and a post-processing task for edge2cell
+!!  interpolation "vn" -> "u","v". Thus, when requesting "U", "V", we
+!!  actually get "VN" vertically interpolated.
 !!
 !!  Tuning parameters for the interpolation algorithms
 !!  (defaults are defined in mo_var_metadata::create_vert_interp_metadata)
