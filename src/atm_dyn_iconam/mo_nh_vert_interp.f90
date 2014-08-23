@@ -1399,8 +1399,8 @@ CONTAINS
 
 
     ! Atmospheric fields
-    REAL(wp), INTENT(INOUT) :: f3d_in (:,:,:) ! input field (INOUT because of limiter)
-    REAL(wp), INTENT(OUT)   :: f3d_out(:,:,:) ! output field (on ICON vertical grid)
+    REAL(wp), INTENT(IN)  :: f3d_in (:,:,:) ! input field
+    REAL(wp), INTENT(OUT) :: f3d_out(:,:,:) ! output field (on ICON vertical grid)
 
     ! Dimension parameters
     INTEGER , INTENT(IN) :: nblks      ! Number of blocks
@@ -1428,7 +1428,7 @@ CONTAINS
 
     INTEGER  :: jb, jk, jc
     INTEGER  :: nlen
-    REAL(wp) :: zf_in(nproma,nlevs_in), z_limit, f3d_z1, f3d_z2, vgrad_f3d
+    REAL(wp) :: zf_in_tr(nproma,nlevs_in), zf_in_lim(nproma,nlevs_in), z_limit, f3d_z1, f3d_z2, vgrad_f3d
 
 !-------------------------------------------------------------------------
 
@@ -1443,7 +1443,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,zf_in,f3d_z1,f3d_z2,vgrad_f3d) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,nlen,jk,jc,zf_in_tr,zf_in_lim,f3d_z1,f3d_z2,vgrad_f3d) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1454,13 +1454,15 @@ CONTAINS
       ENDIF
 
       IF (l_pd_limit) THEN
-        f3d_in(1:nlen,1:nlevs_in,jb) = MAX(z_limit,f3d_in(1:nlen,1:nlevs_in,jb))
+        zf_in_lim(1:nlen,1:nlevs_in) = MAX(z_limit,f3d_in(1:nlen,1:nlevs_in,jb))
+      ELSE
+        zf_in_lim(1:nlen,1:nlevs_in) = f3d_in(1:nlen,1:nlevs_in,jb)
       ENDIF
 
       IF (l_loglin) THEN
-        zf_in(1:nlen,1:nlevs_in) = LOG(MAX(1.e-20_wp,f3d_in(1:nlen,1:nlevs_in,jb)))
+        zf_in_tr(1:nlen,1:nlevs_in) = LOG(MAX(1.e-20_wp,zf_in_lim(1:nlen,1:nlevs_in)))
       ELSE
-        zf_in(1:nlen,1:nlevs_in) =     f3d_in(1:nlen,1:nlevs_in,jb)
+        zf_in_tr(1:nlen,1:nlevs_in) = zf_in_lim(1:nlen,1:nlevs_in)
       ENDIF
 
       DO jk = 1, nlevs_out
@@ -1468,8 +1470,8 @@ CONTAINS
           IF (jk <= bot_idx(jc,jb)) THEN
 
             ! linear interpolation
-            f3d_out(jc,jk,jb) = wfac(jc,jk,jb)*zf_in(jc,idx0(jc,jk,jb)) + &
-              (1._wp-wfac(jc,jk,jb))*zf_in(jc,idx0(jc,jk,jb)+1)
+            f3d_out(jc,jk,jb) = wfac(jc,jk,jb)*zf_in_tr(jc,idx0(jc,jk,jb)) + &
+              (1._wp-wfac(jc,jk,jb))*zf_in_tr(jc,idx0(jc,jk,jb)+1)
 
             IF (l_loglin) f3d_out(jc,jk,jb) = EXP(f3d_out(jc,jk,jb))
 
@@ -1479,22 +1481,22 @@ CONTAINS
             ! Logarithmic computation is not used here because it would be numerically unstable for extrapolation
 
             ! Field value at height zpbl1
-            f3d_z1 = wfacpbl1(jc,jb) *f3d_in(jc,kpbl1(jc,jb)  ,jb) +  &
-              (1._wp-wfacpbl1(jc,jb))*f3d_in(jc,kpbl1(jc,jb)+1,jb)
+            f3d_z1 = wfacpbl1(jc,jb) *zf_in_lim(jc,kpbl1(jc,jb)  ) +  &
+              (1._wp-wfacpbl1(jc,jb))*zf_in_lim(jc,kpbl1(jc,jb)+1)
 
             ! Field value at height zpbl2
-            f3d_z2 = wfacpbl2(jc,jb) *f3d_in(jc,kpbl2(jc,jb)  ,jb) +  &
-              (1._wp-wfacpbl2(jc,jb))*f3d_in(jc,kpbl2(jc,jb)+1,jb)
+            f3d_z2 = wfacpbl2(jc,jb) *zf_in_lim(jc,kpbl2(jc,jb)  ) +  &
+              (1._wp-wfacpbl2(jc,jb))*zf_in_lim(jc,kpbl2(jc,jb)+1)
 
             ! vertical gradient
             vgrad_f3d = (f3d_z2-f3d_z1)/(zpbl2-zpbl1)
 
             ! wfac carries the (negative) extrapolation distance (in m) in this case
-            f3d_out(jc,jk,jb) = f3d_in(jc,nlevs_in,jb) + vgrad_f3d*wfac(jc,jk,jb)
+            f3d_out(jc,jk,jb) = zf_in_lim(jc,nlevs_in) + vgrad_f3d*wfac(jc,jk,jb)
 
           ELSE ! use no-gradient condition for extrapolation
 
-            f3d_out(jc,jk,jb) = f3d_in(jc,nlevs_in,jb)
+            f3d_out(jc,jk,jb) = zf_in_lim(jc,nlevs_in)
 
           ENDIF
         ENDDO
@@ -3205,8 +3207,8 @@ CONTAINS
 
 
     ! Specific humidity fields
-    REAL(wp), INTENT(INOUT) :: qv_in (:,:,:) ! input field (INOUT because of limiter)
-    REAL(wp), INTENT(OUT)   :: qv_out(:,:,:) ! output field
+    REAL(wp), INTENT(IN)  :: qv_in (:,:,:) ! input field
+    REAL(wp), INTENT(OUT) :: qv_out(:,:,:) ! output field
 
     ! Optional cloud water field: if provided, consistency checks between QV and QC will
     ! be performed at the end of this routine
@@ -3260,7 +3262,7 @@ CONTAINS
     LOGICAL , DIMENSION(nproma) :: l_found
     LOGICAL                     :: l_check_qv_qc
 
-    REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, pbl_dev, qv_mod, g1, g2, g3, qsat_in
+    REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, pbl_dev, qv_mod, g1, g2, g3, qsat_in, qv_in_lim
     REAL(wp), DIMENSION(nproma,nlevs_out) :: zalml_out, qsat_out
 
 !-------------------------------------------------------------------------
@@ -3276,7 +3278,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,pbldev,&
-!$OMP            rhum,qtot,qv1,qv2,dqvdz_up,l_found,zalml_in,zalml_out,              &
+!$OMP            rhum,qtot,qv1,qv2,dqvdz_up,l_found,zalml_in,zalml_out,qv_in_lim,    &
 !$OMP            qv_mod,pbl_dev,g1,g2,g3,e_vapor,qsat_in,qsat_out) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
@@ -3291,8 +3293,11 @@ CONTAINS
       DO jk1 = 1, nlevs_in
         DO jc = 1, nlen
 
+          ! Limit input data to the 'lower_limit' specified in the argument list
+          qv_in_lim(jc,jk1) = MAX(qv_in(jc,jk1,jb),lower_limit)
+
           ! compute vapour pressure e_vapor=f(qv_in,pres_in)
-          e_vapor = vap_pres(qv_in(jc,jk1,jb),pres_in(jc,jk1,jb))
+          e_vapor = vap_pres(qv_in_lim(jc,jk1),pres_in(jc,jk1,jb))
 
           ! saturation specific humidity of input data
           qsat_in(jc,jk1) = rdv*sat_pres_water(temp_in(jc,jk1,jb)) /    &
@@ -3304,7 +3309,7 @@ CONTAINS
             ! from the spherical harmonics to the Gaussain grid; without this limitation, the 
             ! QV-QC-adjustment at the end of this routine would generate nonsensically large
             ! cloud water peaks
-            qv_in(jc,jk1,jb) = MIN(qv_in(jc,jk1,jb),qsat_in(jc,jk1))
+            qv_in_lim(jc,jk1) = MIN(qv_in_lim(jc,jk1),qsat_in(jc,jk1))
           ENDIF
         ENDDO
       ENDDO
@@ -3313,12 +3318,12 @@ CONTAINS
 
       DO jc = 1, nlen
         ! QV at height zpbl1
-        qv1(jc) = wfacpbl1(jc,jb) *qv_in(jc,kpbl1(jc,jb),jb  ) + &
-           (1._wp-wfacpbl1(jc,jb))*qv_in(jc,kpbl1(jc,jb)+1,jb)
+        qv1(jc) = wfacpbl1(jc,jb) *qv_in_lim(jc,kpbl1(jc,jb)  ) + &
+           (1._wp-wfacpbl1(jc,jb))*qv_in_lim(jc,kpbl1(jc,jb)+1)
 
         ! QV at height zpbl2
-        qv2(jc) = wfacpbl2(jc,jb) *qv_in(jc,kpbl2(jc,jb),jb  ) + &
-           (1._wp-wfacpbl2(jc,jb))*qv_in(jc,kpbl2(jc,jb)+1,jb)
+        qv2(jc) = wfacpbl2(jc,jb) *qv_in_lim(jc,kpbl2(jc,jb)  ) + &
+           (1._wp-wfacpbl2(jc,jb))*qv_in_lim(jc,kpbl2(jc,jb)+1)
 
         ! Vertical gradient between zpbl1 and zpbl2
         dqvdz_up(jc) = (qv2(jc) - qv1(jc))/(zpbl2 - zpbl1)
@@ -3334,11 +3339,11 @@ CONTAINS
           IF (zalml_in(jc,jk1) < zpbl1) THEN
             qv_mod(jc,jk1) = qv1(jc)+dqvdz_up(jc)*(zalml_in(jc,jk1)-zpbl1)
           ELSE
-            qv_mod(jc,jk1) = qv_in(jc,jk1,jb)
+            qv_mod(jc,jk1) = qv_in_lim(jc,jk1)
           ENDIF
 
           ! boundary-layer deviation of QV, converted to RH
-          pbl_dev(jc,jk1) = (qv_mod(jc,jk1) - qv_in(jc,jk1,jb)) / qsat_in(jc,jk1)
+          pbl_dev(jc,jk1) = (qv_mod(jc,jk1) - qv_in_lim(jc,jk1)) / qsat_in(jc,jk1)
 
         ENDDO
       ENDDO

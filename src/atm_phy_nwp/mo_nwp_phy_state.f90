@@ -699,7 +699,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &             vert_intp_type=vintp_types("P","Z","I"),                  &
       &             vert_intp_method=VINTP_METHOD_LIN,                        &
       &             l_loglin=.FALSE.,                                         &
-      &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                    &
+      &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                   &
       &             lower_limit=0._wp ),                                      &
       & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                          &
       &                 new_cf=new_cf_desc))
@@ -825,7 +825,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                     &             vert_intp_type=vintp_types("P","Z","I"),             &
                     &             vert_intp_method=VINTP_METHOD_LIN,                   &
                     &             l_loglin=.FALSE.,                                    &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp ),                                 &
                     & in_group=groups("cloud_diag") )
 
@@ -841,7 +841,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                     &             vert_intp_type=vintp_types("P","Z","I"),             &
                     &             vert_intp_method=VINTP_METHOD_LIN,                   &
                     &             l_loglin=.FALSE.,                                    &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp ),                                 &
                     & in_group=groups("cloud_diag") )
 

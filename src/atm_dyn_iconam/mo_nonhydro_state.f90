@@ -603,7 +603,7 @@ MODULE mo_nonhydro_state
             &                     vert_intp_type=vintp_types("P","Z","I"),           &
             &                     vert_intp_method=VINTP_METHOD_LIN,                 &
             &                     l_loglin=.FALSE.,                                  &
-            &                     l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                     l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
@@ -626,7 +626,7 @@ MODULE mo_nonhydro_state
             &                     vert_intp_type=vintp_types("P","Z","I"),           &
             &                     vert_intp_method=VINTP_METHOD_LIN,                 &
             &                     l_loglin=.FALSE.,                                  &
-            &                     l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                     l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                     lower_limit=0._wp  ),                              & 
             &         in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                         "dwd_fg_atm_vars","mode_dwd_fg_in",            &
@@ -650,7 +650,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
@@ -674,7 +674,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
@@ -699,7 +699,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
         END IF ! inwp_gscp==2
@@ -722,7 +722,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &             lower_limit=0._wp  ),                                        & 
             &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
           !QNI_NUC activated ice nuclei tracking var # per kg, local
@@ -741,7 +741,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
         END IF ! inwp_gscp==3
@@ -769,7 +769,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
@@ -789,7 +789,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
@@ -809,7 +809,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
@@ -829,7 +829,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
@@ -849,7 +849,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
@@ -869,7 +869,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
@@ -889,7 +889,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
 
@@ -912,7 +912,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
             ! concentration of cloud condensation nuclei
@@ -931,7 +931,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
             CALL add_ref( p_prog_list, 'tracer',                                     &
@@ -949,7 +949,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
             CALL add_ref( p_prog_list, 'tracer',                                     &
@@ -967,7 +967,7 @@ MODULE mo_nonhydro_state
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
                     &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
          END IF ! inwp_gscp==5
@@ -987,7 +987,7 @@ MODULE mo_nonhydro_state
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
             &                       l_loglin=.FALSE.,                                  &
-            &                       l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
+            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
             &                       lower_limit=0._wp  )  )
         ENDIF ! inwp_turb == iedmf
 
@@ -1056,7 +1056,7 @@ MODULE mo_nonhydro_state
             &             vert_intp_type=vintp_types("P","Z","I"),              & 
             &             vert_intp_method=VINTP_METHOD_LIN,                    &
             &             l_loglin=.FALSE.,                                     &
-            &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                &
+            &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,               &
             &             lower_limit=0._wp  )  )
         END DO
       ENDIF
