@@ -21,15 +21,18 @@
 MODULE mo_grid_tools
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish, warning
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_math_utilities,     ONLY: gvec2cvec, gc2cc
   USE mo_math_types
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed, &
     & block_no, index_no, index_1d
   USE mo_impl_constants,     ONLY: on_edges, land
-  USE mo_mpi,                ONLY: get_my_mpi_work_id
-  USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_local_index
+  USE mo_mpi,                ONLY: get_my_mpi_work_id, p_sum, get_my_mpi_work_communicator, &
+    & my_process_is_stdio, work_mpi_barrier
+
+  USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, get_local_index, get_valid_local_index
   
   IMPLICIT NONE
   
@@ -41,6 +44,7 @@ MODULE mo_grid_tools
   PUBLIC :: get_oriented_edges_from_global_vertices
   PUBLIC :: find_oriented_edge_from_vertices
   PUBLIC :: create_dummy_cell_closure
+  PUBLIC :: check_global_indexes
   
   
   !-------------------------------------------------------------------------
@@ -69,7 +73,9 @@ CONTAINS
     INTEGER, POINTER :: local_vertex_array(:), owner_edge_local(:)
     TYPE(t_glb2loc_index_lookup), POINTER :: verts_glb2loc_index
 
-    CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:get_oriented_edges_from_global_vertices"
+    INTEGER :: total_subset_edges
+    INTEGER :: my_mpi_work_communicator
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_tools:get_oriented_edges_from_global_vertices"
 
     edge_subset%size               = 0
     edge_subset%recommended_stride = 0
@@ -91,7 +97,7 @@ CONTAINS
       CALL finish(method_name, "patch is not present")
     ENDIF
     verts_glb2loc_index => edge_subset%patch%verts%decomp_info%glb2loc_index
-    owner_edge_local   => edge_subset%patch%edges%decomp_info%owner_local
+    owner_edge_local    => edge_subset%patch%edges%decomp_info%owner_local
 
     my_proc_id = get_my_mpi_work_id()
 
@@ -112,6 +118,7 @@ CONTAINS
       & local_vertex_1d_index(1) = get_local_index(verts_glb2loc_index, &
       &                                            global_vertex_array(1))
 
+!     write(0,*) 1, ":", global_vertex_array(1),  local_vertex_1d_index(1)
     DO i=2, max_allocation_size
       ! get a pair of vertices
       local_vertex_1d_index(2) = get_local_index(verts_glb2loc_index, &
@@ -130,7 +137,18 @@ CONTAINS
           & edge_orientation=edge_orientation)                             ! out
 
         IF (edge_index > 0) THEN
+!           write(0,*) "Found edge :", edge_block, edge_index
           IF (owner_edge_local(index_1d(idx=edge_index, block=edge_block)) == my_proc_id) THEN
+
+            write(0,*) i-1, ":", global_vertex_array(i-1),  local_vertex_1d_index(1), &
+              & edge_subset%patch%verts%decomp_info%glb_index(local_vertex_1d_index(1))
+            write(0,*) i, ":", global_vertex_array(i),  local_vertex_1d_index(2), &
+              & edge_subset%patch%verts%decomp_info%glb_index(local_vertex_1d_index(2))
+          
+            write(0,*) my_proc_id, " owns ", global_vertex_array(i-1), global_vertex_array(i), &
+             & edge_subset%patch%edges%decomp_info%glb_index((edge_block-1)*nproma+edge_index), &
+             & " halo_level=", edge_subset%patch%edges%decomp_info%halo_level(edge_index, edge_block)
+             
             owned_edges = owned_edges + 1
             tmp_edge_block_array(owned_edges) = edge_block
             tmp_edge_index_array(owned_edges) = edge_index
@@ -162,6 +180,16 @@ CONTAINS
 
     DEALLOCATE(tmp_edge_block_array, tmp_edge_index_array, tmp_orientation)
 
+    !check the total subset size
+    CALL work_mpi_barrier()
+    my_mpi_work_communicator = get_my_mpi_work_communicator()
+    total_subset_edges = p_sum(edge_subset%size, comm=my_mpi_work_communicator)
+    IF (my_process_is_stdio()) THEN
+       write(0,*) TRIM(edge_subset%name), " Subset total entities=", total_subset_edges, " in vertices=", max_allocation_size
+    ENDIF
+    
+    CALL work_mpi_barrier()
+    
   END SUBROUTINE get_oriented_edges_from_global_vertices
   !----------------------------------------------------
 
@@ -171,18 +199,23 @@ CONTAINS
   SUBROUTINE find_oriented_edge_from_vertices(patch, vertex_blocks, vertex_indexes, &
     & edge_block, edge_index, edge_orientation)
     TYPE(t_patch), TARGET, INTENT(in) :: patch
-    INTEGER, INTENT(in)   :: vertex_indexes(2), vertex_blocks(2)
+    INTEGER, INTENT(in)   :: vertex_blocks(2), vertex_indexes(2)
     INTEGER, INTENT(out)  :: edge_block, edge_index
     REAL(wp), INTENT(out) :: edge_orientation
   
     INTEGER :: i, j, edge1_block, edge1_idx
     LOGICAL :: found
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_tools:find_oriented_edge_from_vertices"
 
     edge_block = 0
     edge_index = 0
     edge_orientation = 0.0_wp
 
-    ! just brute force search
+    IF (vertex_indexes(1) == vertex_indexes(2) .AND. vertex_blocks(1) == vertex_blocks(2)) THEN
+      CALL finish(method_name, "Identical vertices")
+    ENDIF
+
+   ! just brute force search
     found = .false.
     DO i=1, patch%verts%num_edges(vertex_indexes(1), vertex_blocks(1))
       edge1_block = patch%verts%edge_blk(vertex_indexes(1), vertex_blocks(1), i)
@@ -208,10 +241,17 @@ CONTAINS
       edge_index = edge1_idx
       ! fill the orientation
       IF (patch%edges%vertex_idx(edge_index, edge_block, 1) == vertex_indexes(1) .AND. &
-        & patch%edges%vertex_blk(edge_index, edge_block, 1) == vertex_blocks(1)) THEN
+        & patch%edges%vertex_blk(edge_index, edge_block, 1) == vertex_blocks(1)  .AND. &
+        & patch%edges%vertex_idx(edge_index, edge_block, 2) == vertex_indexes(2) .AND. &
+        & patch%edges%vertex_blk(edge_index, edge_block, 2) == vertex_blocks(2)) THEN
         edge_orientation = patch%edges%system_orientation(edge_index, edge_block)
-      ELSE
+      ELSEIF(patch%edges%vertex_idx(edge_index, edge_block, 1) == vertex_indexes(2) .AND. &
+        & patch%edges%vertex_blk(edge_index, edge_block, 1) == vertex_blocks(2)  .AND. &
+        & patch%edges%vertex_idx(edge_index, edge_block, 2) == vertex_indexes(1) .AND. &
+        & patch%edges%vertex_blk(edge_index, edge_block, 2) == vertex_blocks(1)) THEN
         edge_orientation = -patch%edges%system_orientation(edge_index, edge_block)
+      ELSE
+        CALL finish(method_name, "Edge-Vertex connectivity inconsistency")
       ENDIF
 
 !      write(0,*) get_my_mpi_work_id(), ": edge found:", edge_index, edge_block, edge_orientation
@@ -222,6 +262,7 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE find_oriented_edge_from_vertices
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -450,7 +491,7 @@ CONTAINS
 
    ! Fill edge connectivity with the dummy cell
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(block, idx, start_idx, end_idx)
+!ICON_OMP_DO PRIVATE(block, idx, neighbor, start_idx, end_idx)
     DO block = patch%edges%all%start_block, patch%edges%all%end_block
       CALL get_index_range(patch%edges%all, block, start_idx, end_idx)
       DO idx = start_idx, end_idx
@@ -465,7 +506,7 @@ CONTAINS
 !ICON_OMP_END_DO
 
    ! Fill cell connectivity with the dummy cell
-!ICON_OMP_DO PRIVATE(block, idx, start_idx, end_idx)
+!ICON_OMP_DO PRIVATE(block, idx, neighbor, start_idx, end_idx)
     DO block = patch%cells%all%start_block, patch%cells%all%end_block
       CALL get_index_range(patch%cells%all, block, start_idx, end_idx)
       DO idx = start_idx, end_idx
@@ -502,5 +543,103 @@ CONTAINS
   END SUBROUTINE create_dummy_cell_closure
   !-----------------------------------------------------------------------
     
+  !-------------------------------------------------------------------------
+  SUBROUTINE check_global_indexes(patch_2D)
+    TYPE(t_patch), TARGET, INTENT(in),    OPTIONAL :: patch_2D  ! nag does not return the values in subset
+
+    INTEGER :: my_proc_id
+    INTEGER :: global_index, glb2loc, valid_glb2loc, loc2glb
+    INTEGER :: blockNo, indexNo, noOfEdges
+    INTEGER :: my_mpi_work_communicator
+    TYPE(t_glb2loc_index_lookup), POINTER :: glb2loc_index
+    INTEGER, POINTER :: owner_local(:)
+
+    my_proc_id = get_my_mpi_work_id()
+
+    glb2loc_index  => patch_2D%edges%decomp_info%glb2loc_index
+    owner_local    => patch_2D%edges%decomp_info%owner_local
+!     global_index = 0
+!     glb2loc = get_local_index(glb2loc_index, &
+!       &  global_index)
+!     valid_glb2loc = get_valid_local_index(glb2loc_index, global_index, .TRUE.)
+!     write(0,*) my_proc_id, ": edge:", global_index, glb2loc, valid_glb2loc
+    
+    global_index = 20834
+    glb2loc = get_local_index(glb2loc_index, &
+      &  global_index)
+    valid_glb2loc = get_valid_local_index(glb2loc_index, global_index, .TRUE.)
+    IF (glb2loc > 0)  THEN
+      loc2glb = patch_2D%edges%decomp_info%glb_index(glb2loc)
+      blockNo = block_no(glb2loc)
+      indexNo = index_no(glb2loc)
+      write(0,*) my_proc_id, ": edge: (", patch_2D%edges%center(indexNo,blockNo)%lon, &
+        & patch_2D%edges%center(indexNo, blockNo)%lat, ")", &
+        & global_index, glb2loc, valid_glb2loc, loc2glb, owner_local(glb2loc)
+    ENDIF
+
+    global_index = 20835
+    glb2loc = get_local_index(glb2loc_index, &
+      &  global_index)
+    valid_glb2loc = get_valid_local_index(glb2loc_index, global_index, .TRUE.)
+    IF (glb2loc > 0)  THEN
+      loc2glb = patch_2D%edges%decomp_info%glb_index(glb2loc)
+      blockNo = block_no(glb2loc)
+      indexNo = index_no(glb2loc)
+      write(0,*) my_proc_id, ": edge: (", patch_2D%edges%center(indexNo,blockNo)%lon, &
+        & patch_2D%edges%center(indexNo, blockNo)%lat, ")", &
+        & global_index, glb2loc, valid_glb2loc, loc2glb, owner_local(glb2loc)
+    ENDIF
+    
+    glb2loc_index  => patch_2D%verts%decomp_info%glb2loc_index
+    owner_local    => patch_2D%verts%decomp_info%owner_local
+
+    global_index = 7288
+    glb2loc = get_local_index(glb2loc_index, &
+      &  global_index)
+    valid_glb2loc = get_valid_local_index(glb2loc_index, global_index, .TRUE.)
+    IF (glb2loc > 0)  THEN
+      loc2glb = patch_2D%verts%decomp_info%glb_index(glb2loc)
+      blockNo = block_no(glb2loc)
+      indexNo = index_no(glb2loc)
+      write(0,*) my_proc_id, ": vert: (", patch_2D%verts%vertex(indexNo,blockNo)%lon, &
+        & patch_2D%verts%vertex(indexNo, blockNo)%lat, ")", &
+        & global_index, glb2loc, valid_glb2loc, loc2glb, owner_local(glb2loc)
+      blockNo = block_no(glb2loc)
+      indexNo = index_no(glb2loc)
+      noOfEdges = patch_2d%verts%num_edges(indexNo, blockNo)
+      write(0,*) my_proc_id, ":", global_index, " local edge_of_verts:", &
+        & ((patch_2d%verts%edge_blk(indexNo, blockNo, 1:noOfEdges) - 1) * nproma &
+        &  + patch_2d%verts%edge_idx(indexNo, blockNo, 1:noOfEdges))
+      write(0,*) my_proc_id, ":", global_index, " global edge_of_verts:", &
+        & patch_2D%edges%decomp_info%glb_index((patch_2d%verts%edge_blk(indexNo, blockNo, 1:noOfEdges) - 1) * nproma &
+        &  + patch_2d%verts%edge_idx(indexNo, blockNo, 1:noOfEdges))
+    ENDIF
+
+    global_index = 7290
+    glb2loc = get_local_index(glb2loc_index, &
+      &  global_index)
+    valid_glb2loc = get_valid_local_index(glb2loc_index, global_index, .TRUE.)
+    IF (glb2loc > 0)  THEN
+      loc2glb = patch_2D%verts%decomp_info%glb_index(glb2loc)
+      write(0,*) my_proc_id, ": vert: (", patch_2D%verts%vertex(indexNo,blockNo)%lon, &
+        & patch_2D%verts%vertex(indexNo, blockNo)%lat, ")", &
+        & global_index, glb2loc, valid_glb2loc, loc2glb, owner_local(glb2loc)
+      blockNo = block_no(glb2loc)
+      indexNo = index_no(glb2loc)
+      noOfEdges = patch_2d%verts%num_edges(indexNo, blockNo)
+      write(0,*) my_proc_id, ":", global_index, " local edge_of_verts:", &
+        & ((patch_2d%verts%edge_blk(indexNo, blockNo, 1:noOfEdges) - 1) * nproma &
+        &  + patch_2d%verts%edge_idx(indexNo, blockNo, 1:noOfEdges))
+      write(0,*) my_proc_id, ":", global_index, " global edge_of_verts:", &
+        & patch_2D%edges%decomp_info%glb_index((patch_2d%verts%edge_blk(indexNo, blockNo, 1:noOfEdges) - 1) * nproma &
+        &  + patch_2d%verts%edge_idx(indexNo, blockNo, 1:noOfEdges))
+    ENDIF
+
+
+    CALL work_mpi_barrier()    
+
+  END SUBROUTINE check_global_indexes
+  !----------------------------------------------------
+
   
 END MODULE mo_grid_tools

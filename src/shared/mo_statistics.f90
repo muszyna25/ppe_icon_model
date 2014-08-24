@@ -17,7 +17,7 @@
 !! headers of the routines.
 !-------------------------------------------------------------------------------------
 !----------------------------
-! #include "omp_definitions.inc"
+#include "omp_definitions.inc"
 !----------------------------
 MODULE mo_statistics
   !-------------------------------------------------------------------------
@@ -87,7 +87,7 @@ MODULE mo_statistics
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
   PUBLIC :: new_statistic, delete_statistic
   PUBLIC :: add_statistic_to, add_data_to
-  PUBLIC :: MIN, MAX, mean
+!   PUBLIC :: MIN, MAX, mean
   PUBLIC :: max_statistic_of, min_statistic_of
   PUBLIC :: mean_statistic_of
   
@@ -185,15 +185,15 @@ MODULE mo_statistics
     MODULE PROCEDURE add_data_one_value_real
     MODULE PROCEDURE add_data_one_value_int
   END INTERFACE
-  INTERFACE MIN
-    MODULE PROCEDURE min_statistic
-  END INTERFACE
-  INTERFACE MAX
-    MODULE PROCEDURE max_statistic
-  END INTERFACE
-  INTERFACE mean
-    MODULE PROCEDURE mean_statistic
-  END INTERFACE
+!   INTERFACE MIN
+!     MODULE PROCEDURE min_statistic
+!   END INTERFACE
+!   INTERFACE MAX
+!     MODULE PROCEDURE max_statistic
+!   END INTERFACE
+!   INTERFACE mean
+!     MODULE PROCEDURE mean_statistic
+!   END INTERFACE
   INTERFACE new_statistic
     MODULE PROCEDURE new_statistic_no_bars
     MODULE PROCEDURE new_statistic_with_bars
@@ -256,7 +256,7 @@ CONTAINS
     number_of_values = 0
     
     IF (ASSOCIATED(in_subset%vertical_levels)) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx) reduction(+:number_of_values, sum_value) &
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx), reduction(+:number_of_values, sum_value) &
 !ICON_OMP reduction(MIN:min_value) reduction(MAX:max_value)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
@@ -670,7 +670,6 @@ CONTAINS
     DEALLOCATE(levelWeights, levelMean)
 
   END FUNCTION TotalWeightedMean_3D_InRange_3Dweights
-
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
@@ -1429,58 +1428,63 @@ CONTAINS
   END SUBROUTINE check_active_statistic_id
   !-----------------------------------------------------------------------
   
-  SUBROUTINE add_fields_3d(f_a,f_b,subset,levels,force_level)
-    REAL(wp),INTENT(inout)          :: f_a(:,:,:)
-    REAL(wp),INTENT(in)             :: f_b(:,:,:)
+  SUBROUTINE add_fields_3d(sum_field,field,subset,levels)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
+    REAL(wp),INTENT(in)             :: field(:,:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
     INTEGER,INTENT(in),OPTIONAL :: levels
-    LOGICAL,INTENT(in),OPTIONAL :: force_level
     
     INTEGER :: idx,block,level,start_index,end_index
     
     INTEGER :: mylevels
     LOGICAL :: my_force_level
     
-    mylevels       = 0
-    my_force_level = .FALSE.
-    
-    CALL assign_if_present(mylevels, levels)
-    CALL assign_if_present(my_force_level, force_level)
-    
-    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. my_force_level) THEN
+    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
         DO idx = start_index, end_index
-          DO level = 1, MAX(mylevels,subset%vertical_levels(idx,block))
-            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
+          DO level = 1, subset%vertical_levels(idx,block)
+            sum_field(idx,level,block) = sum_field(idx,level,block) + field(idx,level,block)
           END DO
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
+
     ELSE
+      ! use constant levels
+      mylevels   = SIZE(sum_field, VerticalDim_Position)
+      IF (PRESENT(levels))  &
+        & mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
         DO idx = start_index, end_index
           DO level = 1, mylevels
-            f_a(idx,level,block) = f_a(idx,level,block) + f_b(idx,level,block)
+            sum_field(idx,level,block) = sum_field(idx,level,block) + field(idx,level,block)
           END DO
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
+
     ENDIF
   END SUBROUTINE add_fields_3d
   
-  SUBROUTINE add_fields_2d(f_a,f_b,subset)
-    REAL(wp),INTENT(inout)          :: f_a(:,:)
-    REAL(wp),INTENT(in)             :: f_b(:,:)
+  SUBROUTINE add_fields_2d(sum_field,field,subset)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
     
-    INTEGER :: jb,jc,jc_start,jc_end
+    INTEGER :: jb,jc,start_index,end_index
     
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
-      CALL get_index_range(subset, jb, jc_start, jc_end)
-      DO jc = jc_start, jc_end
-        f_a(jc,jb) = f_a(jc,jb) + f_b(jc,jb)
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        sum_field(jc,jb) = sum_field(jc,jb) + field(jc,jb)
       END DO
     END DO
+!ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d
   
 END MODULE mo_statistics

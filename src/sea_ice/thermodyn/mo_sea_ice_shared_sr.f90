@@ -16,14 +16,11 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_sea_ice_shared_sr
-  !-------------------------------------------------------------------------
-  !
-  !    ProTeX FORTRAN source: Style 2
-  !    modified for ICON project, DWD/MPI-M 2007
-  !
-  !-------------------------------------------------------------------------
-  !
+  
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime
@@ -83,13 +80,14 @@ CONTAINS
     zHeatOceI = 0.0_wp
 
     ! calculate heat flux from ocean to ice  (zHeatOceI) 
-    DO jb = 1,p_patch%nblks_c
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c) 
-      DO jc = i_startidx_c,i_endidx_c
-        DO k=1,ice%kice
-          IF (ice%hi(jc,k,jb) > 0._wp) THEN
-            SELECT CASE ( i_Qio_type )
-              CASE (1)
+    SELECT CASE ( i_Qio_type )
+    CASE (1)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+      DO jb = 1,p_patch%nblks_c
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c,i_endidx_c
+          DO k=1,ice%kice
+            IF (ice%hi(jc,k,jb) > 0._wp) THEN
               ! ALL energy of warm water over the whole grid area is used for melting ice - divide by concentration
               ! SLO/EO 2014-04-11 - this is wrong, must be accompanied by correction elsewhere,
               !                     since open part of water is still losing heat
@@ -98,23 +96,40 @@ CONTAINS
               !   &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/(dtime*ice%conc(jc,k,jb))
               ! Old (2014-02) formulation: part of warm water below ice covered area used only
                 zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
-                  &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/dtime
-              CASE(2)
-              ! energy of warm water over the ice covered part of grid area is used for melting ice - no division
-                u_star = SQRT(Cd_io*( (p_os%p_diag%u(jc,1,jb)-ice%u(jc,jb))**2 + &
-                  &         (p_os%p_diag%v(jc,1,jb)-ice%v(jc,jb))**2 ))
-                zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
-                  &                         *rho_ref*clw*Ch_io*u_star
-              CASE DEFAULT
-                CALL finish(TRIM(routine), 'Invalid i_Qio_type')
-              END SELECT
+                    &                 * ice%zUnderIce(jc,jb) * clw*rho_ref/dtime
+            ENDIF
+          ENDDO
+        ENDDO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+   CASE(2)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
+    DO jb = 1,p_patch%nblks_c
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c,i_endidx_c
+        DO k=1,ice%kice
+          IF (ice%hi(jc,k,jb) > 0._wp) THEN
+            ! energy of warm water over the ice covered part of grid area is used for melting ice - no division
+              u_star = SQRT(Cd_io*( (p_os%p_diag%u(jc,1,jb)-ice%u(jc,jb))**2 + &
+                &         (p_os%p_diag%v(jc,1,jb)-ice%v(jc,jb))**2 ))
+              zHeatOceI(jc,k,jb) = ( p_os%p_prog(nold(1))%tracer(jc,1,jb,1) - Tfw(jc,k,jb) )  &
+                &                         *rho_ref*clw*Ch_io*u_star
           ENDIF
         ENDDO
       ENDDO
     END DO
+!ICON_OMP_END_PARALLEL_DO
+    
+    CASE DEFAULT
+      CALL finish(TRIM(routine), 'Invalid i_Qio_type')
+    END SELECT
+    
     CALL dbg_print('o-i-heat: Tfw'       ,Tfw          ,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('o-i-heat: zUnderIce' ,ice%zUnderIce,str_module,4, in_subset=p_patch%cells%owned)
     CALL dbg_print('o-i-heat: zHeatOceI' ,zHeatOceI    ,str_module,3, in_subset=p_patch%cells%owned)
+    
   END SUBROUTINE oce_ice_heatflx
 
 

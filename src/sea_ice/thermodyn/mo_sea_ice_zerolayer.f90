@@ -17,6 +17,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_sea_ice_zerolayer
 
   USE mo_kind,                ONLY: wp
@@ -209,15 +212,9 @@ CONTAINS
 
 
 
-
-
-
-
  !
  ! The counterpart to the  ice_growth subroutine
  !
-
-
  !-------------------------------------------------------------------------------
   !
   !  
@@ -259,13 +256,14 @@ CONTAINS
     
     ! Save ice thickness at previous time step for calculation of heat and salt
     ! flux into ocean in subroutine upper_ocean_TS
-    ice % hiold (:,:,:) = ice%hi(:,:,:)
-    ice % hsold (:,:,:) = ice%hs(:,:,:)
+    ! this is already done in the calling methond ice_slow
+!     ice % hiold (:,:,:) = ice%hi(:,:,:)
+!     ice % hsold (:,:,:) = ice%hs(:,:,:)
 
     ! freezing temperature of uppermost sea water
     IF ( no_tracer >= 2 ) then
       DO k=1,ice%kice
-        Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+        Tfw(:,k,:) = -mu * p_os%p_prog(nold(1))%tracer(:,1,:,2)
       ENDDO
     ELSE
       Tfw(:,:,:) = Tf
@@ -277,7 +275,8 @@ CONTAINS
 !!$    ELSE IF ( i_ice_therm == 3) THEN
       ! for i_ice_therm == 3, no ocean-ice heatflx is included!
     END IF
-    
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, k, jc) SCHEDULE(dynamic)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO k=1,ice%kice
@@ -347,7 +346,8 @@ CONTAINS
         END DO
       END DO
     END DO
-    
+!ICON_OMP_END_PARALLEL_DO
+
 !!$    CALL print_maxmin_si(Q_surplus(:,1,:),ice,p_patch,'Q_surplus')
 !!$    CALL print_maxmin_si(ice%hi(:,1,:),ice,p_patch,'ice%hi')
 !!$    CALL print_cells(Q_surplus(:,1,:),'Q_surplus')

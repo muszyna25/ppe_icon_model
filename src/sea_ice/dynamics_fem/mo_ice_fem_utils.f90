@@ -13,6 +13,9 @@
 !! headers of the routines.
 !!
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 
 MODULE mo_ice_fem_utils
   !-------------------------------------------------------------------------
@@ -47,7 +50,7 @@ MODULE mo_ice_fem_utils
   USE mo_scalar_product,      ONLY: map_cell2edges_3D, map_edges2cell_3D
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
   USE mo_physical_constants,  ONLY: rhoi, Cd_ia, rho_ref
-  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
   USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_util_sort,           ONLY: quicksort
@@ -373,7 +376,7 @@ CONTAINS
     ! Indexing
     INTEGER :: ist, nblks_v
     INTEGER :: jb, jv
-    INTEGER :: i_startblk, i_endblk, i_startidx_v, i_endidx_v
+    INTEGER :: i_startidx_v, i_endidx_v
 
     ! The denominator
     REAL(wp) :: rdeno
@@ -390,17 +393,17 @@ CONTAINS
     ENDIF
 
     ! Weights for the cells2verts_scalar call
-    i_startblk = p_patch%verts%all%start_block
-    i_endblk   = p_patch%verts%all%end_block
+!     i_startblk = p_patch%verts%all%start_block
+!     i_endblk   = p_patch%verts%all%end_block
     ! Indexing of neighbours
     iidx => p_patch%verts%cell_idx
     iblk => p_patch%verts%cell_blk
     !
     ! loop through all patch edges
     !
-    BLK_LOOP: DO jb = i_startblk, i_endblk
+    BLK_LOOP: DO jb =  p_patch%verts%in_domain%start_block, p_patch%verts%in_domain%end_block
  
-      CALL get_index_range(p_patch%verts%all, jb, i_startidx_v, i_endidx_v)
+      CALL get_index_range(p_patch%verts%in_domain, jb, i_startidx_v, i_endidx_v)
  
       IDX_LOOP: DO jv =  i_startidx_v, i_endidx_v
  
@@ -1147,7 +1150,7 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 ! Modify oceanic stress
 !--------------------------------------------------------------------------------------------------
-
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, delu, delv, tau) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = cells_in_domain%start_block, cells_in_domain%end_block
     CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
@@ -1166,6 +1169,10 @@ CONTAINS
         &               + p_ice%concSum(jc,jb)*tau*delv
     ENDDO
   ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+!   CALL sync_patch_array_mult(SYNC_C, p_patch, 2, atmos_fluxes%topBoundCond_windStress_u(:,:), &
+!     & atmos_fluxes%topBoundCond_windStress_v(:,:))
   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
 

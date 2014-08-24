@@ -132,7 +132,7 @@ MODULE mo_real_timer
   ! We maintain the stack thread-private, to avoid OMP critical sections which would
   ! lead to more overhead. The more complicated analysis previous to the printout
   ! is acceptable.
-  INTEGER, PARAMETER     :: active_timers_max=8       ! max number of simultaneously active timers
+  INTEGER, PARAMETER     :: active_timers_max=32       ! max number of simultaneously active timers
   INTEGER                :: active_timers(active_timers_max), &   ! initialization in "init"
                             active_timers_top
   COMMON /th_real_timer/ rt, active_timers, active_timers_top

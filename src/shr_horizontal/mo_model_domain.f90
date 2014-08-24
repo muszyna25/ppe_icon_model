@@ -561,6 +561,7 @@ MODULE mo_model_domain
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
     TYPE(t_subset_range) :: owned         ! these are the owned entities
     TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities,
+    TYPE(t_subset_range) :: gradIsCalculable     ! these are edges for which the grad can be calcluated
     ! this includes all edges of the domain cells
     TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
     TYPE(t_subset_range) :: not_in_domain ! all - in_domain
@@ -1090,7 +1091,8 @@ MODULE mo_model_domain
     !
     INTEGER, POINTER :: dolic_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER :: dolic_e(:,:)    ! index1=1,nproma, index2=1,nblks_e
-
+    INTEGER, POINTER :: vertex_bottomLevel(:,:)
+    
     REAL(wp), POINTER :: ocean_area   (:)  ! global ocean area for each vertical level
     REAL(wp), POINTER :: ocean_volume (:)  ! global ocean volume for each vertical level
 

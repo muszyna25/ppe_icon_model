@@ -1500,6 +1500,7 @@ CONTAINS
       CALL message ('read_remaining_patch',&
         & 'nesting incompatible with non-triangular grid')
     ENDIF
+    
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%decomp_info%glb_index,  &
@@ -1701,6 +1702,14 @@ CONTAINS
     ! p_p%verts%neighbor_blk(:,:,:)
     CALL nf(nf_inq_varid(ncid, 'vertices_of_vertex', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
+
+    IF ( .NOT. use_duplicated_connectivity) THEN
+      CALL move_local_dummyConnectivity_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, &
+        & patch%verts%decomp_info%glb_index, patch%verts%decomp_info%glb2loc_index)
+    ELSE
+      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts_g, max_verts_connectivity, use_duplicated_connectivity)
+    ENDIF
+
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
@@ -1718,8 +1727,13 @@ CONTAINS
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
-    !
+    IF ( .NOT. use_duplicated_connectivity) THEN
+      CALL move_local_dummyConnectivity_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, &
+        & patch%verts%decomp_info%glb_index, patch%cells%decomp_info%glb2loc_index)
+    ELSE
+      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts_g, max_verts_connectivity, use_duplicated_connectivity)
+    ENDIF
+    
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
@@ -1737,8 +1751,13 @@ CONTAINS
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, use_duplicated_connectivity)
-    !
+    IF ( .NOT. use_duplicated_connectivity) THEN
+      CALL move_local_dummyConnectivity_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, &
+        & patch%verts%decomp_info%glb_index, patch%edges%decomp_info%glb2loc_index)
+    ELSE
+      CALL move_dummies_to_end(array_v_int, patch%n_patch_verts_g, max_verts_connectivity, use_duplicated_connectivity)
+    ENDIF
+    
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
@@ -1748,16 +1767,15 @@ CONTAINS
       END DO
     END DO
 
-    !
     ! Set verts%num_edges (in array_v_int(:,1))
     IF (use_duplicated_connectivity) THEN
-      DO jv = 1, p_p%n_patch_verts_g
+      DO jv = 1, patch%n_patch_verts_g
         array_v_int(jv,1) &
              = COUNT(array_v_int(jv, 1:max_verts_connectivity) &
              /= array_v_int(jv, max_verts_connectivity)) + 1
       END DO
     ELSE
-      DO jv = 1, p_p%n_patch_verts_g
+      DO jv = 1, patch%n_patch_verts_g
         array_v_int(jv,1) &
              = COUNT(array_v_int(jv, 1:max_verts_connectivity) /= 0)
       END DO
@@ -1773,7 +1791,7 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'edge_orientation', varid))
     CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:max_verts_connectivity)))
     ! move dummy edges to end and set edge orientation to zero
-    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts, max_verts_connectivity, .FALSE.)
+    CALL move_dummies_to_end(array_v_int, patch%n_patch_verts_g, max_verts_connectivity, .FALSE.)
     DO ji = 1, max_verts_connectivity
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
@@ -1920,7 +1938,7 @@ CONTAINS
           ! no zeros found, exit
           EXIT
         ELSEIF ( last_no_zero == 0) THEN
-          CALL warning(method_name, "no connectivity found")
+          ! CALL warning(method_name, "no connectivity found")
           EXIT
         ELSEIF ( first_zero <  last_no_zero) THEN
           !swap
@@ -1949,6 +1967,76 @@ CONTAINS
     DEALLOCATE (indlist)
 
   END SUBROUTINE move_dummies_to_end
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  ! CALLED if duplicate==false
+  !   turns locally (on this process) non-existing entities to 0s
+  !   Then moves 0s to the end
+  SUBROUTINE move_local_dummyConnectivity_to_end(array, array_size, max_connectivity, global_index_array, globalToLocal)
+
+    INTEGER, INTENT(inout) :: array(:,:)
+    INTEGER, INTENT(in) :: array_size, max_connectivity
+    INTEGER, INTENT(in) :: global_index_array(:)
+    TYPE(t_glb2loc_index_lookup), INTENT(in) :: globalToLocal
+
+    INTEGER :: i, global_index, c, first_zero, last_noZero, next_zero, previous_noZero!, count_connections
+    
+    DO i = 1, array_size
+      global_index = global_index_array(i)
+      
+      ! zero non-existing entities on this process
+      DO c=1, max_connectivity
+        IF ( get_local_index(globalToLocal, array(global_index,c)) <= 0) &
+          array(global_index,c) = 0
+      ENDDO
+
+      ! move zeros to the end
+      first_zero = 0
+      last_noZero = max_connectivity+1
+      DO WHILE(first_zero < last_noZero)
+      
+        ! find next_zero
+        next_zero = max_connectivity+1
+        DO c=first_zero+1, last_noZero-1
+          IF ( array(global_index,c) == 0)  THEN
+            next_zero = c
+            EXIT
+          ENDIF
+        ENDDO
+        first_zero = next_zero
+        IF (first_zero >= max_connectivity) EXIT
+
+        ! find previous no_zero
+        previous_noZero = 0
+        DO c=last_noZero-1, 1, -1
+          IF ( array(global_index,c) /= 0)  THEN
+            previous_noZero = c
+            EXIT
+          ENDIF
+        ENDDO
+        last_noZero = previous_noZero
+        IF (last_noZero <= first_zero) EXIT
+
+        ! swap the first_zero to the last_noZero
+        array(global_index,first_zero) = array(global_index,last_noZero)
+        array(global_index,last_noZero) = 0
+        
+      ENDDO ! WHILE(first_zero < last_no_zero)
+
+!       count_connections = COUNT(array(global_index, 1:max_connectivity) /= 0)
+! 
+!       IF (duplicate) THEN
+!         ! count_connections should not be zero
+!         DO c=count_connections+1, max_connectivity
+!           array(global_index, c) = array(global_index, count_connections)
+!         ENDDO
+!       ENDIF
+      
+    ENDDO
+
+  END SUBROUTINE move_local_dummyConnectivity_to_end
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   INTEGER FUNCTION read_cartesian_positions(ncid, patch, n_lp, id_lp, &
@@ -2325,6 +2413,7 @@ CONTAINS
 
   END SUBROUTINE divide_idx
   !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>

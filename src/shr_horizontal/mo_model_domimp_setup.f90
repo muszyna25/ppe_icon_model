@@ -842,6 +842,10 @@ CONTAINS
       & mask=patch%edges%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_edges)
     patch%edges%in_domain%is_in_domain   = .true.
     
+    CALL fill_subset(subset=patch%edges%gradIsCalculable , patch=patch, &
+      & mask=patch%edges%decomp_info%halo_level, start_mask=0, end_mask=2, located=on_edges)
+    patch%edges%in_domain%is_in_domain   = .true.
+
     CALL fill_subset(subset=patch%edges%not_owned, patch=patch, &
       & mask=patch%edges%decomp_info%halo_level, start_mask=1, end_mask=halo_levels_ceiling, located=on_edges)
     patch%edges%not_owned%is_in_domain   = .false.
@@ -918,10 +922,13 @@ CONTAINS
         ENDIF
 
         IF (patch%edges%owned%no_of_holes > 0)  THEN
-           CALL warning(method_name, "patch%edges%owned%no_of_holes > 0 no_of_holes > 0")
+           CALL warning(method_name, "patch%edges%owned%no_of_holes > 0")
         ENDIF
         IF (patch%edges%in_domain%no_of_holes > 0)  THEN
-           CALL warning(method_name, "patch%edges%in_domain%no_of_holes > 0 no_of_holes > 0")
+           CALL warning(method_name, "patch%edges%in_domain%no_of_holes > 0")
+        ENDIF
+        IF (patch%edges%gradIsCalculable%no_of_holes > 0)  THEN
+           CALL warning(method_name, "patch%edges%gradIsCalculable%no_of_holes > 0")
         ENDIF
 
       ENDIF ! msg_level >= 5
@@ -958,6 +965,7 @@ CONTAINS
     CALL read_subset(ncid, patch%edges%all, patch)
     CALL read_subset(ncid, patch%edges%owned, patch)
     CALL read_subset(ncid, patch%edges%in_domain, patch)
+    CALL read_subset(ncid, patch%edges%gradIsCalculable, patch)
     CALL read_subset(ncid, patch%edges%not_owned, patch)
     CALL read_subset(ncid, patch%edges%not_in_domain, patch)
     
@@ -991,6 +999,7 @@ CONTAINS
     CALL write_subset(ncid, patch%edges%all)
     CALL write_subset(ncid, patch%edges%owned)
     CALL write_subset(ncid, patch%edges%in_domain)
+    CALL write_subset(ncid, patch%edges%gradIsCalculable)
     CALL write_subset(ncid, patch%edges%not_owned)
     CALL write_subset(ncid, patch%edges%not_in_domain)
     
@@ -1021,6 +1030,7 @@ CONTAINS
     patch%edges%all%name             = "edges_all"
     patch%edges%owned%name           = "edges_owned"
     patch%edges%in_domain%name       = "edges_in_domain"
+    patch%edges%gradIsCalculable%name  = "edges_gradIsCalculable"
     patch%edges%not_owned%name       = "edges_not_owned"
     patch%edges%not_in_domain%name   = "edges_not_in_domain"
     

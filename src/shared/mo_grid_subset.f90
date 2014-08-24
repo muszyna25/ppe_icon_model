@@ -16,7 +16,7 @@
 MODULE mo_grid_subset
 
   USE mo_kind,           ONLY: wp
-  USE mo_exception,      ONLY: warning, finish
+  USE mo_exception,      ONLY: warning, finish, message
   USE mo_model_domain,   ONLY: t_patch, t_subset_range, t_subset_range_index, &
                                t_subset_indexed
   USE mo_mpi,            ONLY: get_my_mpi_work_id
@@ -151,6 +151,20 @@ CONTAINS
   !----------------------------------------------------
 
   !-------------------------------------------------------------------------
+  SUBROUTINE compare_subsets_range(subset_1, subset_2)
+    TYPE(t_subset_range), INTENT(in) :: subset_1, subset_2
+
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_subset:compare_subsets_range"
+
+    IF (subset_1%entity_location /= subset_2%entity_location) THEN
+      CALL message(method_name, TRIM(subset_1%name)//" "//TRIM(subset_1%name)//"subsets not of the same entity")
+      RETURN
+    ENDIF
+
+  END SUBROUTINE compare_subsets_range
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
   ! The following functions are for conversion of 1D to 2D indices and vice versa
   !
   ! Treatment of 0 (important for empty patches) and negative numbers:
@@ -282,6 +296,7 @@ CONTAINS
 
   END SUBROUTINE write_subset
   !-------------------------------------------------------------------------
+
 
   !--------------------------------------------------------------------
   SUBROUTINE nf(return_status)

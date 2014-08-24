@@ -601,6 +601,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_sum_dp_1d
      MODULE PROCEDURE p_sum_i8_1d
      MODULE PROCEDURE p_sum_i_1d
+     MODULE PROCEDURE p_sum_i_0d
   END INTERFACE
 
   INTERFACE p_global_sum
@@ -6393,6 +6394,34 @@ CONTAINS
 #endif
 
   END FUNCTION p_sum_i_1d
+
+
+  FUNCTION p_sum_i_0d (kfield, comm) RESULT (p_sum)
+
+    INTEGER,       INTENT(in) :: kfield
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER                   :: p_sum 
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+       CALL MPI_ALLREDUCE (kfield, p_sum, 1, p_int, &
+            MPI_SUM, p_comm, p_error)
+    ELSE
+       p_sum = kfield
+    END IF
+#else
+    p_sum = kfield
+#endif
+
+  END FUNCTION p_sum_i_0d
 
   FUNCTION p_global_sum_1d (zfield, comm) RESULT (p_sum)
 

@@ -17,7 +17,9 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-!!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_sea_ice
   !-------------------------------------------------------------------------
   !
@@ -378,6 +380,8 @@ CONTAINS
 
     CALL construct_sea_ice_budgets(p_patch_3D,p_ice%budgets, ocean_default_list)
   END SUBROUTINE construct_sea_ice
+
+  
   SUBROUTINE construct_sea_ice_budgets(patch_3d,budgets, varlist)
     TYPE(t_patch_3d) :: patch_3d
     TYPE(t_sea_ice_budgets) :: budgets
@@ -411,6 +415,7 @@ CONTAINS
 !     &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
 !     &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_budgets"))
   END SUBROUTINE construct_sea_ice_budgets
+  
   !-------------------------------------------------------------------------
   !
   !> Destructor of sea-ice model, deallocates all components.
@@ -1627,6 +1632,8 @@ CONTAINS
 
 !    ice     % Qbot        (:,:,:) = 0._wp
 !    ice     % Qtop        (:,:,:) = 0._wp
+!ICON_OMP_PARALLEL
+!ICON_OMP_WORKSHARE
     ice     % surfmelt    (:,:,:) = 0._wp
     ice     % surfmeltT   (:,:,:) = 0._wp
     ice     % evapwi      (:,:,:) = 0._wp
@@ -1634,6 +1641,8 @@ CONTAINS
     ice     % hsold       (:,:,:) = 0._wp
     ice     % snow_to_ice (:,:,:) = 0._wp
     ice     % heatOceI    (:,:,:) = 0._wp
+!ICON_OMP_END_WORKSHARE
+!ICON_OMP_END_PARALLEL
 
   END SUBROUTINE ice_zero
 
@@ -1773,9 +1782,13 @@ CONTAINS
     ! Ocean points only
     ! Calculate change in water level 'zo' from liquid and solid precipitation and
     ! evaporation
+!ICON_OMP_PARALLEL
+!ICON_OMP_WORKSHARE
     sss             (:,:)   = p_os%p_prog(nold(1))%tracer(:,1,:,2)
     precw           (:,:)   = atmos_fluxes% rprecw (:,:)
     preci           (:,:)   = atmos_fluxes% rpreci (:,:)
+!ICON_OMP_END_WORKSHARE
+!ICON_OMP_END_PARALLEL
     !evap            (:,:)   = (atmos_fluxes% latw(:,:)/ alv * dtime * &
     !  &                       sum(ice%conc(:,:,:), 2) +          &
     !  &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
@@ -1791,11 +1804,9 @@ CONTAINS
 
     ! Calculate average draft and thickness of water underneath ice in upper ocean
     ! grid box
+! !ICON_OMP_PARALLEL
+! !ICON_OMP_WORKSHARE    
     zUnderIceOld    (:,:)   = ice%zUnderIce(:,:)
-    draft           (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
-    draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
-    ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:)
-
     ! Calculate average change in ice thickness and the snow-to-ice conversion
     Delhice   (:,:) = SUM( ( ice%hi(:,:,:) - ice%hiold(:,:,:) )*ice%conc(:,:,:), 2 )
     Delhsnow  (:,:) = SUM( ( ice%hs(:,:,:) - ice%hsold(:,:,:) )*ice%conc(:,:,:), 2 )
@@ -1806,8 +1817,11 @@ CONTAINS
     heatOceW(:,:) = ( atmos_fluxes%SWnetw(:,:)                       &
       &         + atmos_fluxes%LWnetw(:,:) + atmos_fluxes%sensw(:,:)+     &
       &                 atmos_fluxes%latw(:,:) )*(1.0_wp-sum(ice%conc(:,:,:),2))
+    ! Calculate possible super-cooling of the surface layer    
+    draft           (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
+    draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
 
-    ! Calculate possible super-cooling of the surface layer
+    ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:)
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) +        &
       &      dtime*heatOceW(:,:)/( clw*rho_ref*ice%zUnderIce(:,:) )
 
@@ -1821,6 +1835,8 @@ CONTAINS
       heatOceW(:,:)   = ( Tfw(:,:) - p_os%p_prog(nold(1))%tracer(:,1,:,1) )     &
         &     *ice%zUnderIce(:,:)*(1.0_wp-ice%concSum(:,:))*clw*rho_ref/dtime
     ENDWHERE
+! !ICON_OMP_END_WORKSHARE
+! !ICON_OMP_END_PARALLEL
 
     CALL dbg_print('UpperOceTS: Delhice  ', Delhice      ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: Delhsnow ', Delhsnow     ,str_module, 4, in_subset=p_patch%cells%owned)
@@ -1925,7 +1941,7 @@ CONTAINS
     CALL dbg_print('IceConcCh: vol  at beg' ,ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
 
     if ( no_tracer >= 2 ) then
-      Tfw(:,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      Tfw(:,:) = -mu * p_os%p_prog(nold(1))%tracer(:,1,:,2)
     else
       Tfw(:,:) = Tf
     endif
@@ -1938,6 +1954,8 @@ CONTAINS
       ice%vols(:,k,:) = ice%hs(:,k,:)*ice%conc(:,k,:)*p_patch%cells%area(:,:)
     ENDDO
 
+!ICON_OMP_PARALLEL
+!ICON_OMP_WORKSHARE 
     ! Concentration change due to new ice formation
     WHERE ( ice%newice(:,:) > 0._wp .AND. v_base%lsm_c(:,1,:) <= sea_boundary )
       ! New volume - we just preserve volume:
@@ -1956,11 +1974,15 @@ CONTAINS
       ice%hs   (:,1,:) = ice%vols(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
     ENDWHERE
+!ICON_OMP_END_WORKSHARE
 
+#ifndef _OPENMP
     CALL dbg_print('IceConcCh: conc leadcl' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceConcCh: hi   leadcl' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceConcCh: hs   leadcl' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+#endif
 
+!ICON_OMP_WORKSHARE
     ! This is where concentration, and thickness change due to ice melt (we must conserve volume)
     ! A.k.a. lateral melt
     WHERE ( ice%hiold(:,1,:) > ice%hi(:,1,:) .AND. ice%hi(:,1,:) > 0._wp )
@@ -1973,20 +1995,24 @@ CONTAINS
       ice%hs  (:,1,:) = ice%vols(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       !TODO: Re-calculate temperatures to conserve energy when we change the ice thickness
     ENDWHERE
+!ICON_OMP_END_WORKSHARE
 
+#ifndef _OPENMP
     CALL dbg_print('IceConcCh: conc latMlt' ,ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceConcCh: hi   latMlt' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceConcCh: hs   latMlt' ,ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+#endif
 
     ! Ice cannot grow thinner than hmin
     ! Changed 27. March
+!ICON_OMP_WORKSHARE
     WHERE ( ice%hi(:,1,:) < hmin .AND. ice%hi(:,1,:) > 0._wp )
       ice%hi  (:,1,:) = hmin
       ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
+!ICON_OMP_END_WORKSHARE
 
-    ice%concSum(:,:)  = SUM(ice%conc(:,:,:),2)
-
+!ICON_OMP_WORKSHARE
     WHERE (ice%hi(:,1,:) <= 0._wp)
       ice%Tsurf(:,1,:) = Tfw(:,:)
       ice%T1   (:,1,:) = Tfw(:,:)
@@ -1997,6 +2023,10 @@ CONTAINS
       ice%E2   (:,1,:) = 0.0_wp
       ice%vol  (:,1,:) = 0.0_wp
     ENDWHERE
+!ICON_OMP_END_WORKSHARE
+!ICON_OMP_END_PARALLEL
+
+    ice%concSum(:,:)  = SUM(ice%conc(:,:,:),2)
 
     CALL dbg_print('IceConcCh: IceConc end' ,ice%conc, str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('IceConcCh: hi   at end' ,ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
@@ -2116,7 +2146,6 @@ CONTAINS
       &         *MIN(ABS(rad2deg*p_patch%cells%center(:,:)%lat),60._wp) ) * p_as%fclou**2
     atmos_fluxes%LWin(:,:) = 0._wp
     atmos_fluxes%LWout(:,:,:) = 0._wp
-
     !-----------------------------------------------------------------------
     !  Calculate bulk equations according to
     !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002:
@@ -2431,9 +2460,9 @@ CONTAINS
     TYPE(t_sea_ice),      INTENT(IN)    :: p_ice
     TYPE(t_subset_range), INTENT(IN)    :: subset
 
-    CALL add_fields(p_acc%hi  , p_ice%hi  , subset , p_ice%kice,force_level=.TRUE.)
-    CALL add_fields(p_acc%hs  , p_ice%hs  , subset , p_ice%kice,force_level=.TRUE.)
-    CALL add_fields(p_acc%conc, p_ice%conc, subset , p_ice%kice,force_level=.TRUE.)
+    CALL add_fields(p_acc%hi  , p_ice%hi  , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%hs  , p_ice%hs  , subset , levels=p_ice%kice)
+    CALL add_fields(p_acc%conc, p_ice%conc, subset , levels=p_ice%kice)
     CALL add_fields(p_acc%u   , p_ice%u   , subset)
     CALL add_fields(p_acc%v   , p_ice%v   , subset)
   END SUBROUTINE update_ice_statistic

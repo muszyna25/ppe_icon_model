@@ -50,7 +50,6 @@ MODULE mo_timer
     & timer_icon_comm_ircv, timer_icon_comm_fillsend, timer_icon_comm_fillandsend, &
     & timer_icon_comm_barrier_2, timer_icon_comm_send
   PUBLIC :: timer_barrier
-  PUBLIC :: timer_gmres_p_sum
 
   PUBLIC :: timer_integrate_nh
   PUBLIC :: timer_solve_nh, timer_solve_nh_veltend, timer_solve_nh_cellcomp, timer_solve_nh_edgecomp, &
@@ -141,6 +140,10 @@ MODULE mo_timer
   PUBLIC :: timer_nudging
   PUBLIC :: timer_bdy_interp
   PUBLIC :: timer_feedback
+
+  ! ocean
+  PUBLIC :: timer_gmres_p_sum
+  PUBLIC :: timer_scalar_prod_veloc
 
   ! Timer IDs for sea ice
   PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
@@ -279,6 +282,8 @@ MODULE mo_timer
 
   INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
+  ! ocean
+  INTEGER :: timer_scalar_prod_veloc
   ! Timer IDs for sea ice
   INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_momentum
 !    &        timer_ice_advection, timer_ice_interp
@@ -357,9 +362,6 @@ CONTAINS
     timer_gw_hines  = new_timer("gw_hines")
 
     ! dynamics timers
-    timer_gmres     = new_timer("gmres")
-    timer_lhs       = new_timer("lhs")
-    timer_lhs_sp    = new_timer("lhs_sp")
     timer_RK_tend = new_timer("RK_tend")
     timer_RK_update = new_timer("RK_update")
     timer_si_correction = new_timer("si_correction")
@@ -459,6 +461,12 @@ CONTAINS
     timer_bdy_interp = new_timer("nesting.bdy_interp")
     timer_feedback   = new_timer("nesting.feedback")
 
+    !ocean timers
+    timer_gmres     = new_timer("gmres")
+    timer_lhs       = new_timer("lhs")
+    timer_lhs_sp    = new_timer("lhs_sp")
+    timer_scalar_prod_veloc =new_timer("veloc_prod")
+    
     ! Timer IDs for sea ice
     timer_ice_fast      = new_timer("ice_fast")
     timer_ice_slow      = new_timer("ice_slow")

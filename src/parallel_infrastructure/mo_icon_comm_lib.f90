@@ -676,12 +676,13 @@ CONTAINS
     ENDDO
   
     ! fill the indexes of the recv patterns
-    DO point_idx = 1, total_no_of_points
+    DO point_idx = 1, total_no_of_points ! go through all entities
     
       IF(filtered_receive_from_owner(point_idx) < 0) CYCLE
     
       bfid = get_recvbuffer_id_of_pid(filtered_receive_from_owner(point_idx))
       p_comm_pattern => grid_comm_pattern%recv(comm_of_buffer_id(bfid))
+      
       p_comm_pattern%no_of_points = p_comm_pattern%no_of_points + 1
       p_comm_pattern%global_index(p_comm_pattern%no_of_points) = &
         & my_global_index(point_idx)
