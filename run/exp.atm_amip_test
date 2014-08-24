@@ -6,14 +6,17 @@ author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes an AMIP experiment intialized from analysis files and using
-# transient boundary conditions for:
+# This file describes an AMIP experiment based on the non-hydrostatic dynamics and the ECHAM
+# physics, and intialized from analysis files and using transient boundary conditions for:
 # - SST and sea ice
 # - spectral solar irradiation
 # - well mixed greenhouse gases CO2, CH4, N2O, CFCs
 # - O3 concentration
 # - tropospheric aerosol optical properties
 # - stratospheric volcanic aerosol optical properties
+#
+# _bb_table_Description_  AMIP experiment
+# _bb_table_Model_        non-hydrostatic dynamics + ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
 
