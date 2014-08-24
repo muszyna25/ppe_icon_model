@@ -29,14 +29,14 @@ set xdata time
 set timefmt '%Y-%m-%d %H:%M:%S'
 set format x "%d.%m"
 set multiplot layout 5,2 title "ICON OCEAN diagnostic (".file.")"
-plot file using 2:"kin_energy" w l
+plot file using 2:"beringStrait" w l
 set y2tics in
 unset ytics
 set grid y2tics
 plot file using 2:"indonesian_throughflow" w l axes x1y2
 set ytics in
 unset y2tics
-plot file using 2:"ice_ocean_volume_budget" w l
+plot file using 2:"framStrait" w l
 set y2tics in
 unset ytics
 set grid y2tics
@@ -51,18 +51,18 @@ set grid y2tics
 plot file using 2:"denmark_strait" w l axes x1y2
 set ytics in
 unset y2tics
-plot file using 2:"ice_ocean_heat_budget" w l
+plot file using 2:"mozambique" w l
 set y2tics in
 unset ytics
 set grid y2tics
 plot file using 2:"gibraltar" w l axes x1y2
 set ytics in
 unset y2tics
-plot file using 2:"ice_ocean_salinity_budget" w l
+plot file using 2:"agulhas_long" w l
 set y2tics in
 unset ytics
 set grid y2tics
-plot file using 2:"ice_extent_nh" w l axes x1y2
+plot file using 2:"barentsOpening" w l axes x1y2
 unset multiplot
 
 # vim:ft=gnuplot

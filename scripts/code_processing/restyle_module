@@ -8,7 +8,7 @@ callfolder=$(dirname $0)
 here=$(pwd)
 srciptfolder=$here/$callfolder
 
-$srciptfolder/check_style.py -i $inputfile $outputfile
+python $srciptfolder/check_style.py -i $inputfile $outputfile
 if [ $? -ne 0 ];  then
    echo "check_style.py returned an Error. File $filename is unchanged."
 fi
