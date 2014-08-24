@@ -1600,6 +1600,7 @@ src/ocean/math/mo_oce_math_operators.f90 -text
 src/ocean/math/mo_ocean_gmres.f90 -text
 src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
 src/ocean/math/mo_scalar_product.f90 -text
+src/ocean/physics/mo_oce_GM_Redi.f90 -text
 src/ocean/physics/mo_oce_physics.f90 -text
 src/ocean/physics/mo_oce_thermodyn.f90 -text
 src/ocean/testbed/mo_ocean_testbed.f90 -text
