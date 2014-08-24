@@ -971,6 +971,7 @@ scripts/building/README -text
 scripts/building/Rakefile -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
+scripts/building/cp_ocean -text
 scripts/building/get_atmo -text
 scripts/building/get_icon -text
 scripts/building/get_ocean -text
