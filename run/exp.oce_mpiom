@@ -254,6 +254,13 @@ cat > ${ocean_namelist} << EOF
    drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
    indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
    scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
+   mozambique(1:10)             = 3016,2989,3019,5736
+   framStrait(1:10)             = 393,395,2494
+   beringStrait(1:10)           = 1397,1434
+   barentsOpening(1:10)         = 327,324,326,296
+   agulhas(1:10)                = 10218,10216
+   agulhas_long(1:10)           = 10218,10216,7999
+   agulhas_longer(1:10)         = 10218,10216,7999,7988
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}

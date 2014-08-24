@@ -4,26 +4,20 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T00:00:00Z"
+  end_date="2011-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-(( years_checkp   =    1 ))    # write restart file interval
-(( years_restart  =    1 ))    # stop model for restart
-(( days_data      =    1 ))    # ocean model output interval
-(( hour           = 3600 ))
-(( day            =  24*hour ))
-(( year           = 365*day  ))
+(( years_checkpoint  =    20 ))    # write restart file interval
+(( years_restart     =    20 ))    # stop model for restart
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
-leading_zero=""
-if [[ $days_data -lt 10 ]] ; then leading_zero="0"; fi
-nout_interv="P$leading_zero${days_data}D"     # ocean model output interval in days
+output_interval="P10D"     # ocean model output interval in days
 (( dt_data        = days_data     * day  ))   # used for output_bounds and buildbot
-(( dt_checkpoint  = years_checkp  * year ))  
+(( dt_checkpoint  = years_checkpoint  * year ))  
 (( dt_restart     = years_restart * year ))  
-(( steps_per_file = dt_restart / dt_data ))   # output intervals per file
+(( steps_per_file = 366 ))   # output intervals per file
 #
 LOC='POOL'
 #grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
@@ -63,7 +57,7 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${nout_interv}"
+  output_interval  = "${output_interval}"
   steps_per_file   = ${steps_per_file}                ! error with ""
   output_grid      = .true.
   ml_varlist       =  'group:oce_essentials','topBoundCond_windStress_u','A_tracer_v_T'
@@ -89,12 +83,15 @@ cat > ${ocean_namelist} << EOF
   l_partial_cells = .FALSE.           ! partial bottom cells=true: local varying bottom depth
   i_bc_veloc_bot     = 1              !  0/1=bottom friction off/on
   i_bc_veloc_top     = 1              ! 2 and 3 must be checked
-  select_solver      = 2              !  1=gmres_oce_old; 2=ocean_restart_gmres
-  solver_tolerance   = 1.0E-15        !  absolute (new) or relative (gmres_oce_old) - to be checked
-  solver_max_iter_per_restart   = 25  !  inner solver loop without syncing (default: 200)
-  solver_max_restart_iterations = 50  !  outer (restart solver) loop with syncing (default: 100)
-  fast_performance_level        = 12
-! use_continuity_correction     = .true.
+  select_solver      = 3              !  1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
+  use_absolute_solver_tolerance = .true.
+  solver_tolerance   = 1.0E-13           !  
+  solver_max_iter_per_restart   = 24     !  
+  solver_tolerance_sp   = 1.0E-14        !
+  solver_max_iter_per_restart_sp = 20    !  
+  solver_max_restart_iterations = 100    !  outer (restart solver) 
+  fast_performance_level        = 50 
+  use_continuity_correction     = .true.
   basin_center_lat   = -55.0          !  latitude of basin center (used in wind stress forcing)
   basin_height_deg   =  10.0          !  meridional length of basin in degrees
 /
@@ -107,23 +104,22 @@ cat > ${ocean_namelist} << EOF
   threshold_max_T       =  6.0   ! abort due to temperature maximum threshold
 /
 &ocean_diffusion_nml
-  HORZ_VELOC_DIFF_TYPE = 1        ! 1: use constant horizontal viscosity coefficient according to namelist
+  HORZ_VELOC_DIFF_TYPE = 1       ! 1: use constant horizontal viscosity coefficient according to namelist
   k_veloc_h            = 3.0E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
   k_veloc_v            = 5.0E-5   ! [m/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC  =    0.0   ! max vertical velocity viscosity for convection used in case of instability
+  MAX_VERT_DIFF_VELOC = 2.2E-3 ! max vertical velocity viscosity for convection used in case of instability
   k_pot_temp_h         =  200.0   ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v         = 1.0E-5   ! [m/s]  vertical background diffusion coefficient for temperature
-  MAX_VERT_DIFF_TRAC   = 0.1      ! max vertical tracer diffusion for convection used in case of instability
-  !convection_InstabilityThreshold = -1.0e-11 ! default: -5.0e-8
+  MAX_VERT_DIFF_TRAC   = 0.1     ! max vertical tracer diffusion for convection used in case of instability
+  convection_InstabilityThreshold = -5.0E-4    ! used in update_ho_params
+  RichardsonDiffusion_threshold   = 0.0     ! used in update_ho_params 
 /
 &ocean_physics_nml
   i_sea_ice          =    0      ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
-  ! use_constant_mixing  = .true.
   bottom_drag_coeff  = 2.5E-3
-! use_mpiom_pp_form  = .true.
-! use_wind_mixing    = .false.   ! not yet ready
+  physics_parameters_type = 1   ! physics_parameters_ICON_PPoptimized_type
 /
 &ocean_forcing_nml
   iforc_oce = 11

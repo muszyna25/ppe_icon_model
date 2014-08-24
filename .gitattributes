@@ -706,6 +706,13 @@ run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.icon-dev/check.atm_amip -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
+run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_cell -text
+run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_edge -text
+run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0010km_cell -text
+run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0080km_cell -text
+run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0080km_cell_02 -text
+run/checksuite.ocean_internal/exp.oce_omip_160km_cell -text
+run/checksuite.ocean_internal/exp.oce_omip_160km_edge -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
 run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_ref -text
@@ -775,6 +782,8 @@ run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
 run/exp.oce_4dwd -text
 run/exp.oce_AquaAtlanticBox_0079km -text
+run/exp.oce_AquaAtlanticBox_0079km_cell -text
+run/exp.oce_AquaAtlanticBox_0079km_cell_WindTempForcing -text
 run/exp.oce_Earth_10km_zonalWind_TemperatureRelax -text
 run/exp.oce_SmallBoxACC_0010km -text
 run/exp.oce_SmallBoxACC_0080km -text
@@ -783,6 +792,7 @@ run/exp.oce_channel -text
 run/exp.oce_default -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_new_noland -text
+run/exp.oce_omip_cell -text
 run/exp.oce_r2b5 -text
 run/exp.oce_sltst -text
 run/exp.oce_test_numeric -text
@@ -818,7 +828,9 @@ run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
+run/post.oce_AquaAtlanticBox_0079km -text
 run/post.oce_longrun -text
+run/post.oce_omip_cell -text
 run/post.plot_icon_grids -text
 run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text

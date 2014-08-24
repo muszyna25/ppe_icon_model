@@ -191,7 +191,8 @@ cat > ${ocean_namelist} << EOF
   !i_sea_ice                =    1          ! 0 = no sea ice; 1 = Winton; 2 = Semtner
   richardson_veloc   = 2.0e-3    ! factor for vertical viscosity coefficient in PP scheme
   richardson_tracer  = 2.0e-3    ! factor for vertical diffusion coefficient in PP scheme
- /    
+  physics_parameters_type = 1   ! physics_parameters_ICON_PPoptimized_type
+/    
 &ocean_forcing_nml
   iforc_oce = 11
   ! type_surfRelax_Temp= 0      !  0: no relaxation used

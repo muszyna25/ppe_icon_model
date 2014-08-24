@@ -63,9 +63,9 @@ init_rel_suff='20m.nc'  # 20m thickness
 grid_ext="etopo40_planet"
 #=============================================================================
 # SETUP FOR mpiom-like INPUT
-external_interpolation_type="mpiom"
-init_oce_suff='L20.nc'
-init_rel_suff='surf.nc'
+#external_interpolation_type="mpiom"
+#init_oce_suff='L20.nc'
+#init_rel_suff='surf.nc'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID (newgeom)
 # provide an ocean horizontal grid file
@@ -73,8 +73,8 @@ init_rel_suff='surf.nc'
 #use_gridfile_for_grabbing_externale_data='true'
 #-----------------------------------------------------------------------------
 # SETUP FOR mpiom-like INPUT ON NEW GRID without land (newgeom_noinland)
-use_gridfile_for_grabbing_externale_data='true'
-grid_ext="etopo40_planet_newgeom_noinland"
+#use_gridfile_for_grabbing_externale_data='true'
+#grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #=============================================================================
@@ -95,35 +95,21 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2001-01-01T00:00:00Z"  #  do not change - restart/output problems!
-  end_date="2051-01-01T00:00:00Z"
-#
+start_date="2001-01-01T00:00:00Z"
+  end_date="2201-01-01T00:00:00Z"
 #-----------------------------------------------------------------------------
 # model timing
-((  days_restart  = 7320    )) # stop model for restart [days]
-((  hours_data    = 6       )) # ocean model output interval hours [hours] - for test runs
-((  days_data     = 30      )) # ocean model output interval [days]  - no longer than 30 days ??
-#((  days_checkp   = 9999    )) # write checkpoint file interval [days]
-#((  days_file     = 9999    )) # new output file generation interval [days]
-#((  year_output   = 10      )) # stop writing model output to file [years] - used for output_bounds
-(( hour           = 3600    ))
-(( day            = 24*hour ))
-(( year           = 365*day ))
+(( years_checkpoint  = 50 ))    # write restart file interval [days]
+(( years_restart = 50 ))    # stop model for restart [days]
+(( days_data     = 30 ))    # ocean model output interval hours [hours] - for test runs
 #
 #-----------------------------------------------------------------------------
-# calculate model timesteps
-nout_interv="P0${ndays_data}D"                 # ocean model output interval in days <10
-nout_interv="P${days_data}D"                   # ocean model output interval in days
-(( dt_data       =  days_data    * day ))      # used for output_bounds and buildbot
-(( dt_restart    =  days_restart * day ))
-#(( dt_file       =  days_file    * day ))
-#(( dt_checkpoint =  days_checkp  * day ))
-dt_checkpoint=$dt_restart
-#(( simLength      = dt_restart > dt_file ? dt_file : dt_restart ))
-#(( outputLength   = year_output * year ))
-#(( steps_per_file = outputLength / dt_data ))     # output intervals per file - output_bounds
-(( steps_per_file = dt_restart / dt_data ))       # output intervals per file
-#
+# calculate model timesteps using $days_data
+output_interval="P${days_data}D"                   # ocean model output interval in days
+(( dt_data        = days_data   * day ))      # used for output_bounds and buildbot
+(( dt_checkpoint  = years_checkpoint  * year ))
+(( dt_restart     = years_restart * year ))
+steps_per_file=610   # output intervals per file (one file per restart)
 #-----------------------------------------------------------------------------
 # model parameters
 ocean_model_equations=-1 # equation system: -1=hydrost. ocean
@@ -142,7 +128,6 @@ cat > ${ocean_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
-  use_dummy_cell_closure = .true.
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
@@ -155,18 +140,18 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
 /
 &output_nml
+! output_bounds    = 0, ${outputLength}, ${dt_data}   ! buildbot: start, end, increment in seconds <60 years
   output_start     = "${start_date}"                  ! production runs: start in ISO-format
   output_end       = "${end_date}"                    ! production runs: end in ISO-format
-  output_interval  = "${nout_interv}"                 ! production runs: interval in ISO-format
+  output_interval  = "${output_interval}"             ! production runs: interval in ISO-format
   steps_per_file   = ${steps_per_file}
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_R${R}B0${B}_oce"
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials','group:ice_default'
-! ml_varlist       =  'group:oce_default','group:ice_default'
+  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -185,7 +170,7 @@ cat > ${ocean_namelist} << EOF
 !                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
 !                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
 !                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
-! l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
+  l_edge_based    = .TRUE.       ! edge- or cell-based mimetic discretization
 ! l_partial_cells = .FALSE.      ! partial bottom cells=true: local varying bottom depth
 ! solver_tolerance = 1.0E-14              !  absolute (new) or relative (gmres_oce_old) - to be checked
   solver_max_iter_per_restart   = 20      !  inner solver loop without syncing (default: 200)
@@ -249,18 +234,18 @@ cat > ${ocean_namelist} << EOF
 &ocean_diagnostics_nml
    diagnostics_level            = 1
 ! vertex list for R2B04 only
-   gibraltar(1:10)              = 1367,1369
-   denmark_strait(1:10)         = 1411,1443
-   drake_passage(1:10)          = 7167,7201,7203,7288,7290,7505
-   indonesian_throughflow(1:20) = 2114,2118,2117,2120,4242,4245,4343,4349,4340,4350,4250,4615,4611,4616
-   scotland_iceland(1:10)       = 1240,1439,1238,1249,1248
-   mozambique(1:10)             = 1704,1688,1707,4200
-   framStrait(1:10)             = 116,118,1462
-   beringStrait(1:10)           = 693,721
-   barentsOpening(1:10)         = 68,65,67,42
-   agulhas(1:10)                = 8024,8022
-   agulhas_long(1:10)           = 8024,8022,6036
-   agulhas_longer(1:10)         = 8024,8022,6036,6025
+   gibraltar(1:10)              = 2371,2374
+   denmark_strait(1:10)         = 2436,2471
+   drake_passage(1:10)          = 9285,9319,9321,9412,9414,9655
+   indonesian_throughflow(1:20) = 3554,3558,3557,3560,5778,5781,5900,5906,5897,5907,5786,6206,6202,6207
+   scotland_iceland(1:10)       = 2240,2467,2238,2249,2248
+   mozambique(1:10)             = 3016,2989,3019,5736
+   framStrait(1:10)             = 393,395,2494
+   beringStrait(1:10)           = 1397,1434
+   barentsOpening(1:10)         = 327,324,326,296
+   agulhas(1:10)                = 10218,10216
+   agulhas_long(1:10)           = 10218,10216,7999
+   agulhas_longer(1:10)         = 10218,10216,7999,7988
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
