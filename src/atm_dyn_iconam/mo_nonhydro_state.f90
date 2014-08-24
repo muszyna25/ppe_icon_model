@@ -1252,19 +1252,26 @@ MODULE mo_nonhydro_state
 
     ! u           p_diag%u(nproma,nlev,nblks_c)
     !
+    ! ATTENTION: the vertical interpolation of "u" and "v" results from a vertical
+    !            interpolation of the normal velocity "vn" on the edge points, followed
+    !            by the edge-to-center opertor that computes (u,v) from vn. Therefore the
+    !            the "vert_intp_method" specified for "vn" is used and and definition
+    !            of "vert_intp_method" for "u" and "v" is ignored.
+    !
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'u', p_diag%u,                                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_UV ),                         &
+                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )  
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
+    !
+    ! ATTENTION: see comment for "u".
     !
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1272,8 +1279,7 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
                 & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_UV ),                         &
+                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","LATBC_PREFETCH_VARS") )
