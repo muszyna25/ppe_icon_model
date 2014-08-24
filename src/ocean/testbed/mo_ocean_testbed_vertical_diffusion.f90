@@ -29,7 +29,7 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_grid_subset,            ONLY: get_index_range
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
-    & diagnostics_level, use_tracer_x_height, k_veloc_v, &
+    & diagnostics_level, k_veloc_v, &
     & eos_type, i_sea_ice, gibraltar
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
@@ -57,10 +57,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
   USE mo_oce_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & construct_oce_diagnostics,&
-    & destruct_oce_diagnostics, t_oce_timeseries, &
-    & calc_moc, calc_psi
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
@@ -74,7 +70,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_oce_diffusion,          ONLY:  tracer_diffusion_vertical_implicit, velocity_diffusion_vertical_implicit
   USE mo_parallel_config,        ONLY: nproma
   USE mo_math_utility_solvers,   ONLY: apply_triangular_matrix
-  USE mo_ocean_initial_conditions, ONLY: fill_tracer_x_height
   USE mo_statistics
   USE mo_timer
 

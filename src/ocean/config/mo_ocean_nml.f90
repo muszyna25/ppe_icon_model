@@ -102,6 +102,12 @@ MODULE mo_ocean_nml
                                             !                     slope (not implemented yet)
   ! Parameters for tracer transport scheme
   !
+  !identifiers for different modes of updating the tracer state (substep 
+  INTEGER, PARAMETER :: i_during_step =1
+  INTEGER, PARAMETER :: i_post_step   =2
+  !default value
+  INTEGER :: tracer_update_mode = i_post_step
+  
   !Identifiers for advection schemes
   INTEGER, PARAMETER :: upwind                     = 1
   INTEGER, PARAMETER :: central                    = 2  
@@ -131,7 +137,8 @@ MODULE mo_ocean_nml
   
   LOGICAL            :: l_adpo_flowstrength        = .FALSE.   ! .TRUE.: activate second condition for adpo weight
 
-
+  LOGICAL            :: l_LAX_FRIEDRICHS          =.FALSE.  !Additional LAX-Friedich for horizontal tracer advection of full mimetic scheme fct_horz
+  LOGICAL            :: l_GRADIENT_RECONSTRUCTION = .FALSE. !Additional Gradient-Reconstruction for horizontal tracer advection of full mimetic scheme fct_horz
   !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
   !=0: surface forcing applied as top boundary condition to vertical diffusion
   !=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs. 
@@ -167,7 +174,7 @@ MODULE mo_ocean_nml
                                                       ! 1 = no optimized calls
                                                       ! 5 = standard (use of gmres restart)
                                                       ! > 10 = latest performnce optimizations
-  LOGICAL :: use_edges2edges_viacell_fast        = .false.
+!   LOGICAL :: use_edges2edges_viacell_fast        = .false.
 
 
   ! physical parameters for  aborting the ocean model
@@ -181,14 +188,17 @@ MODULE mo_ocean_nml
   INTEGER  :: no_tracer             = 2          ! number of tracers
 
   ! more ocean parameters, not yet well placed
-!   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit  
-  INTEGER  :: expl_vertical_tracer_diff   = 1    ! 0=explicit, 1 = implicit
+!   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit
+  INTEGER, PARAMETER :: explicit_diffusion = 0
+  INTEGER, PARAMETER :: implicit_diffusion = 1
+  INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
+  INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
   INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
                                                  ! 3=variable coefficients satisfying Munk criterion
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
   INTEGER  :: veloc_diffusion_order = 1          !order of friction/diffusion in velocity eq.: 1=laplacian, 2=biharmonic
-  INTEGER  :: veloc_diffusion_form  = 1          !form of friction/diffusion operator
+  INTEGER  :: veloc_diffusion_form  = 2          !form of friction/diffusion operator
                                                  !1: Laplace=curlcurl-graddiv
                                                  !2: Laplace=div k  grad
                                                  !For the corresponding biharmonic choice the laplacian in their form 1 or 2 are iterated
@@ -197,7 +207,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
-  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
+  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity  
+  REAL(wp) :: k_tracer_dianeutral   = 1.0E+3_wp  !dianeutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
+  REAL(wp) :: k_tracer_isoneutral   = 1.0E-4_wp  !isoneutral tracer diffusivity, used in GentMcWilliams-Redi parametrization   
+  REAL(wp) :: k_tracer_GM_kappa     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization     
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_diffusion_factor = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
@@ -205,6 +218,8 @@ MODULE mo_ocean_nml
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
+  INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure                                               
+  REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure                                                 
   LOGICAL  :: l_smooth_veloc_diffusion = .TRUE.
 
   REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp  ! chezy coefficient for bottom friction
@@ -272,6 +287,13 @@ MODULE mo_ocean_nml
   INTEGER :: drake_passage(100)          = -1
   INTEGER :: indonesian_throughflow(100) = -1
   INTEGER :: scotland_iceland(100)       = -1
+  INTEGER :: mozambique(100)             = -1
+  INTEGER :: framStrait(100)             = -1
+  INTEGER :: beringStrait(100)           = -1
+  INTEGER :: barentsOpening(100)         = -1
+  INTEGER :: agulhas(100)                = -1
+  INTEGER :: agulhas_long(100)           = -1
+  INTEGER :: agulhas_longer(100)         = -1
 
 
   NAMELIST/ocean_dynamics_nml/&
@@ -290,7 +312,7 @@ MODULE mo_ocean_nml
     &                 dhdtw_abort                  , &
     &                 discretization_scheme        , &
     &                 dzlev_m                      , &
-    &                 expl_vertical_tracer_diff    , &
+    &                 vertical_tracer_diffusion_type , &
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
@@ -313,7 +335,6 @@ MODULE mo_ocean_nml
     &                 solver_tolerance_sp          , &
     &                 threshold_vn                 , &
     &                 use_continuity_correction    , &
-    &                 use_edges2edges_viacell_fast , &
     &                 veloc_diffusion_form         , &
     &                 veloc_diffusion_order        , &
     &                 fast_performance_level
@@ -335,7 +356,10 @@ MODULE mo_ocean_nml
     &                 threshold_max_S              , &
     &                 threshold_max_T              , &
     &                 threshold_min_S              , &
-    &                 threshold_min_T              
+    &                 threshold_min_T              , &
+    &                 tracer_update_mode           , &
+    &                 l_LAX_FRIEDRICHS             , &
+    &                 l_GRADIENT_RECONSTRUCTION
 
 
   REAL(wp) :: convection_InstabilityThreshold = -5.0E-8_wp ! used in update_ho_params
@@ -354,30 +378,53 @@ MODULE mo_ocean_nml
     &  MAX_VERT_DIFF_VELOC         ,    &
     &  l_smooth_veloc_diffusion    ,    &
     &  convection_InstabilityThreshold, &
-    &  RichardsonDiffusion_threshold
+    &  RichardsonDiffusion_threshold,   &
+    &  k_tracer_dianeutral         ,    &
+    &  k_tracer_isoneutral,             &
+    &  k_tracer_GM_kappa,               &
+    &  leith_closure,                   &
+    &  leith_closure_gamma
 
+
+  !Parameters for GM-Redi configuration
+  INTEGER            :: GMRedi_configuration=0
+  INTEGER, PARAMETER :: Cartesian_Mixing=0                            
+  INTEGER, PARAMETER :: GMRedi_combined =1   !both parametrizations active
+  INTEGER, PARAMETER :: GM_only         =2                      
+  INTEGER, PARAMETER :: Redi_only       =3
+  !Parameters for tapering configuration
+  INTEGER            :: tapering_scheme=3
+  INTEGER, PARAMETER :: tapering_DanaMcWilliams=1
+  INTEGER, PARAMETER :: tapering_Large=2    
+  INTEGER, PARAMETER :: tapering_Griffies=3
+  !Parameters for tapering schemes
+  REAL(wp) :: S_max=1.0e-2   !maximally allowed slope 
+  REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
+  REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
+                             !Rossby radius in tapering schemes
+  
   ! ocean_physics_nml
   ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
+  LOGICAL :: use_convection_parameterization = .TRUE.
   REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background
                                                  ! vertical diffusion ! coeffcient for the velocity. See usage in
                                                  ! mo_oce_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
-  LOGICAL  :: use_constant_mixing   = .FALSE.    ! .TRUE.: the vertical mixing coefficients for velocity and tracer
-                                                 ! are kept constant over time and are set to the background values; no convection
-  LOGICAL  :: use_convection        = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
-                                                 ! are unchanged in case of instable stratification
-  LOGICAL  :: use_pp_scheme         = .TRUE.     ! .FALSE.: the vertical mixing coefficients for velocity and tracer
-                                                 ! are set to the background values in case of stable stratification
-  LOGICAL  :: use_wind_mixing       = .FALSE.    ! .TRUE.: activate wind mixing part of Marsland et al. (2003)
-  LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
-  LOGICAL  :: use_mpiom_pp_form     = .FALSE.    ! .TRUE.: formulation similar to MPIOM
+  INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PPoptimized_type    = 1
+  INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
+  LOGICAL  :: physics_parameters_useWindMixing = .false.
+  INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
   REAL(wp) :: lambda_wind           = 0.03_wp    !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
   REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
-
+  LOGICAL  :: use_wind_mixing = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
+  LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
+                                 
+  
   NAMELIST/ocean_physics_nml/&
     &  CWA                         , &
     &  CWT                         , &
@@ -385,20 +432,18 @@ MODULE mo_ocean_nml
     &  N_POINTS_IN_MUNK_LAYER      , &
     &  bottom_drag_coeff           , &
     &  i_sea_ice                   , &
-    &  use_constant_mixing         , &
-    &  use_wind_mixing             , &
+    &  physics_parameters_type     , &
     &  richardson_tracer           , &
     &  richardson_veloc            , &
-    &  use_convection              , &
-    &  use_mpiom_pp_form           , &
+    &  use_convection_parameterization, &
+    &  lambda_wind                 ,&
+    &  wma_diff                    ,&
+    &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice, &
-    &  use_pp_scheme               , &
-    &  lambda_wind                 , &
-    &  wma_diff                    , &
-    &  wma_visc       
-
-    ! &                 use_ThermoExpansion_Correction
-
+    &  use_wind_mixing,             &
+    &  GMRedi_configuration        ,&
+    &  tapering_scheme             ,&
+    &  S_max, S_d, c_speed
 
   ! ------------------------------------------------------------------------
   ! FORCING {
@@ -508,7 +553,7 @@ MODULE mo_ocean_nml
   INTEGER  :: sea_surface_height_type     = 0          ! >= 200 sea_surface_height
   INTEGER  :: initial_salinity_type       = 0
   INTEGER  :: initial_temperature_type    = 0
-  CHARACTER(LEN                           = max_char_length) :: initial_sst_type                                      = 'sst1'
+  CHARACTER(LEN= max_char_length) :: initial_sst_type = 'sst1'
   INTEGER  :: initial_velocity_type       = 0
   REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
   CHARACTER(filename_max) :: InitialState_InputFileName   !< file name for reading in
@@ -535,9 +580,19 @@ MODULE mo_ocean_nml
     & InitialState_InputFileName
   !----------------------------------------------------------------------------
 
-  NAMELIST/ocean_diagnostics_nml/ diagnostics_level, denmark_strait,drake_passage,gibraltar,  &
-    &                 indonesian_throughflow, scotland_iceland
-
+  NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
+    & denmark_strait, &
+    & drake_passage, &
+    & gibraltar,  &
+    & indonesian_throughflow, &
+    & scotland_iceland, &
+    & mozambique, &
+    & framStrait, &
+    & beringStrait, &
+    & barentsOpening, &
+    & agulhas, &
+    & agulhas_long, &
+    & agulhas_longer
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model
@@ -766,7 +821,7 @@ MODULE mo_ocean_nml
        !the fct case requires suitable choices of high- and low order fluxes and of limiter
        IF( flux_calculation_horz == fct_horz) THEN
          !high and low order flux check
-         IF(fct_low_order_flux/=upwind)THEN
+         IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
            CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
          ENDIF
          IF(fct_high_order_flux/= central.AND.fct_high_order_flux/=lax_friedrichs.AND.fct_high_order_flux/=miura_order1)THEN
@@ -826,14 +881,14 @@ MODULE mo_ocean_nml
          &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 4')
      ENDIF
 
-     IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
-       IF(no_tracer == 1) THEN
-         CALL message(TRIM(routine), 'WARNING - You have chosen tracer temperature only')
-         CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_oce_state')
-         CALL finish(TRIM(routine),  'no_tracer=1 not supported - choose =0 or =2')
-       ENDIF
-       CALL finish(TRIM(routine),  'no_tracer not supported - choose =0 or =2')
-     ENDIF
+!      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
+!        IF(no_tracer == 1) THEN
+!          CALL message(TRIM(routine), 'WARNING - You have chosen tracer temperature only')
+!          CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_oce_state')
+!          CALL finish(TRIM(routine),  'no_tracer=1 not supported - choose =0 or =2')
+!        ENDIF
+!        CALL finish(TRIM(routine),  'no_tracer not supported - choose =0 or =2')
+!      ENDIF
 
 
 !     IF (solver_start_tolerance <= 0.0_wp) THEN
@@ -848,12 +903,6 @@ MODULE mo_ocean_nml
 
      IF (forcing_set_runoff_to_zero) THEN
        CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
-     END IF
-
-     ! physics:
-     IF (use_wind_mixing) THEN
-       use_pp_scheme = .TRUE.
-       CALL message(TRIM(routine),'WARNING, use_wind_mixing is .TRUE. - use_pp_scheme is set to .TRUE.')
      END IF
 
 #ifndef __NO_ICON_ATMO__

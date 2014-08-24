@@ -39,7 +39,7 @@ MODULE mo_ocean_initial_conditions
     & initial_temperature_scale_depth,                                                &
     & discretization_scheme, use_file_initialConditions,                              &
     & initial_salinity_top, initial_salinity_bottom, &
-    & use_tracer_x_height, topography_type, topography_height_reference, &
+    & topography_type, topography_height_reference, &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
     & initial_sst_type, initial_velocity_type, initial_velocity_amplitude, &
     & forcing_temperature_poleLat
@@ -49,7 +49,6 @@ MODULE mo_ocean_initial_conditions
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  !USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
@@ -57,10 +56,9 @@ MODULE mo_ocean_initial_conditions
   USE mo_netcdf_read,        ONLY: read_netcdf_data
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_oce_types,          ONLY: t_hydro_ocean_state
-  USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d !, map_edges2cell_3D
+  USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
   USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_3d
-  USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
-  USE mo_oce_ab_timestepping,ONLY: update_time_indices! , calc_vert_velocity
+  USE mo_oce_ab_timestepping,ONLY: update_time_indices
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
@@ -71,7 +69,6 @@ MODULE mo_ocean_initial_conditions
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: apply_initial_conditions, init_ocean_bathymetry
-  PUBLIC :: fill_tracer_x_height
   
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
@@ -144,7 +141,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL initialize_diagnostic_fields( patch_2d, patch_3d, ocean_state, operators_coeff)
-    CALL fill_tracer_x_height(patch_3d, ocean_state)
+    ! CALL fill_tracer_x_height(patch_3d, ocean_state)
 
   END SUBROUTINE apply_initial_conditions
   !-------------------------------------------------------------------------
@@ -241,12 +238,12 @@ CONTAINS
     ! read temperature
     !  - 2011-11-01, >r7005: read one data set, annual mean only
     !  - "T": annual mean temperature
+    ! ram: the input has to be POTENTIAL TEMPERATURE!
     CALL read_netcdf_data (ncid, 'T', patch_2d%n_patch_cells_g, patch_2d%n_patch_cells, &
       & patch_2d%cells%decomp_info%glb_index, n_zlev, z_prog)
     
     IF (no_tracer>=1) THEN
-      !ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
-      ocean_state%p_diag%temp_insitu(:,1:n_zlev,:) = z_prog(:,1:n_zlev,:)
+      ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
     ELSE
       CALL message( TRIM(method_name),'WARNING: no tracer used, but init temperature attempted')
     END IF
@@ -258,27 +255,6 @@ CONTAINS
         & patch_2d%cells%decomp_info%glb_index, n_zlev, z_prog)
       ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
     END IF
-    
-    IF (no_tracer >=2) THEN
-      DO jk=1, n_zlev
-        DO jb = all_cells%start_block, all_cells%end_block
-          CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            
-            ! set values on land to zero/reference
-            IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              
-              ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
-                & convert_insitu2pot_temp_func(ocean_state%p_diag%temp_insitu(jc,jk,jb),&
-                & ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-                & sfc_press_bar)
-            ENDIF
-          END DO
-        END DO
-      END DO
-    ELSEIF(no_tracer==1)THEN
-      ocean_state%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=ocean_state%p_diag%temp_insitu(:,1:n_zlev,:)
-    ENDIF
     
     ! close file
     IF(my_process_is_stdio()) CALL nf(nf_close(ncid), method_name)
@@ -420,6 +396,11 @@ CONTAINS
       CALL salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
 
     !------------------------------
+    CASE (212)
+      CALL tracer_smoothAPE_LinearDepth(patch_3d, ocean_salinity, &
+        & top_value=initial_salinity_top, bottom_value=initial_salinity_bottom)
+
+    !------------------------------
     CASE (401)
       ! assign from adhoc array values
       IF (n_zlev==4) THEN
@@ -430,7 +411,7 @@ CONTAINS
         CALL finish(TRIM(method_name), 'Number of vertical levels to small or to big: >=4 and <=20')
       ENDIF
 
-    !------------------------------
+      
     CASE (402)
       IF  (n_zlev <= 20) THEN
         CALL fill_FromVerticalArrayProfile(patch_3d, ocean_salinity, VerticalProfileValue=salinity_profile_20levels)
@@ -544,7 +525,8 @@ CONTAINS
 
     !------------------------------
     CASE (212)
-      CALL temperature_smoothAPE_LinearDepth(patch_3d, ocean_temperature)
+      CALL tracer_smoothAPE_LinearDepth(patch_3d, ocean_temperature, &
+        & top_value=initial_temperature_top, bottom_value=initial_temperature_bottom)
 
     !------------------------------
     CASE (213)
@@ -1386,28 +1368,28 @@ CONTAINS
   END SUBROUTINE temperature_smoothAPE_LinearLevels
   !-------------------------------------------------------------------------------
 
-
   !-------------------------------------------------------------------------------
-!<Optimize:inUse>
-  SUBROUTINE temperature_smoothAPE_LinearDepth(patch_3d, ocean_temperature)
+  !<Optimize:inUse>
+  SUBROUTINE tracer_smoothAPE_LinearDepth(patch_3d, ocean_tracer, top_value, bottom_value)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
-    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: top_value, bottom_value
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
 
     INTEGER :: jb, jc, jk
     INTEGER :: start_cell_index, end_cell_index
-    REAL(wp) :: temperature_difference, poleLat, waveNo
+    REAL(wp) :: tracer_difference, poleLat, waveNo
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_APE'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_APE'
     !-------------------------------------------------------------------------
     CALL message(TRIM(method_name), ' using smoothAPE')
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
 
-    temperature_difference = initial_temperature_top - initial_temperature_bottom
+    tracer_difference = top_value - bottom_value
     ! #slo#: Caution, there is a mixture of forcing and initialization!
     poleLat = ABS(forcing_temperature_poleLat * deg2rad)
     waveNo = pi_2 / poleLat
@@ -1416,31 +1398,30 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
         DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
-          ocean_temperature(jc,jk,jb) = MAX(initial_temperature_bottom + &
-            & (COS(waveNo * MIN(ABS(patch_2d%cells%center(jc,jb)%lat), poleLat))**2) * temperature_difference, &
-            & initial_temperature_bottom)
+          ocean_tracer(jc,jk,jb) = bottom_value + &
+            & (COS(waveNo * MIN(ABS(patch_2d%cells%center(jc,jb)%lat), poleLat))**2) * tracer_difference
         END DO
       END DO
     END DO
 
-    ! add meridional temperature slope over all latitudes
-
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
-      DO jc = start_cell_index, end_cell_index
-        DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
-          ocean_temperature(jc,jk,jb) = MAX(ocean_temperature(jc,jk,jb) + &
-            & (patch_2d%cells%center(jc,jb)%lat + poleLat) / pi_2 * initial_temperature_shift, &
-            & initial_temperature_bottom)
+    ! add meridional tracer slope over all latitudes
+    IF (initial_temperature_shift /= 0.0_wp) THEN
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          DO jk=1, MIN(1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb))
+            ocean_tracer(jc,jk,jb) = ocean_tracer(jc,jk,jb) + &
+              & (patch_2d%cells%center(jc,jb)%lat + poleLat) / pi_2 * initial_temperature_shift
+          END DO
         END DO
       END DO
-    END DO
+    ENDIF
 
-    ! decrease of temperature from top to bottom
-    CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_temperature, &
-      & bottom_value=initial_temperature_bottom)
+    ! decrease of tracer from top to bottom
+    CALL increaseTracerVerticallyLinearly(patch_3d, ocean_tracer=ocean_tracer, &
+      & bottom_value=bottom_value)
 
-  END SUBROUTINE temperature_smoothAPE_LinearDepth
+  END SUBROUTINE tracer_smoothAPE_LinearDepth
   !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
@@ -1597,8 +1578,8 @@ CONTAINS
 
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ocean_tracer(jc,jk,jb) &
-            & = MAX(ocean_tracer(jc,jk-1,jb) + linear_increase * &
-            &     patch_3d%p_patch_1d(1)%del_zlev_i(jk),bottom_value)
+            & = ocean_tracer(jc,jk-1,jb) + linear_increase * &
+            &     patch_3d%p_patch_1d(1)%del_zlev_i(jk)
         END DO
 
       END DO
@@ -2537,34 +2518,34 @@ CONTAINS
   
   !-----------------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE fill_tracer_x_height(patch_3d, ocean_state)
-    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    
-    TYPE(t_subset_range), POINTER :: all_cells
-    INTEGER :: tracer_idx, jk, jb, jc, start_cell_idx, end_cell_idx
-    
-    IF (.NOT. use_tracer_x_height) RETURN
-    
-    all_cells => patch_3d%p_patch_2d(1)%cells%ALL
-    
-    DO tracer_idx = 1, no_tracer
-      ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(:, :, :) = 0.0_wp
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, start_cell_idx, end_cell_idx)
-        DO jc = start_cell_idx, end_cell_idx
-          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-            
-            ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(jc, jk, jb) = &
-              & ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration(jc,jk,jb)   *      &
-              & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc, jk, jb)
-            
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDDO
-    
-  END SUBROUTINE fill_tracer_x_height
+!   SUBROUTINE fill_tracer_x_height(patch_3d, ocean_state)
+!     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+!     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+!     
+!     TYPE(t_subset_range), POINTER :: all_cells
+!     INTEGER :: tracer_idx, jk, jb, jc, start_cell_idx, end_cell_idx
+!     
+!     IF (.NOT. use_tracer_x_height) RETURN
+!     
+!     all_cells => patch_3d%p_patch_2d(1)%cells%ALL
+!     
+!     DO tracer_idx = 1, no_tracer
+!       ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(:, :, :) = 0.0_wp
+!       DO jb = all_cells%start_block, all_cells%end_block
+!         CALL get_index_range(all_cells, jb, start_cell_idx, end_cell_idx)
+!         DO jc = start_cell_idx, end_cell_idx
+!           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!             
+!             ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration_x_height(jc, jk, jb) = &
+!               & ocean_state%p_prog(nold(1))%ocean_tracers(tracer_idx)%concentration(jc,jk,jb)   *      &
+!               & patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc, jk, jb)
+!             
+!           ENDDO
+!         ENDDO
+!       ENDDO
+!     ENDDO
+!     
+!   END SUBROUTINE fill_tracer_x_height
   !-----------------------------------------------------------------------------------
   
 END MODULE mo_ocean_initial_conditions

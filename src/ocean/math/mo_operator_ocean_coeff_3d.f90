@@ -41,8 +41,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
-  !USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_ptr3d, t_operator_coeff, &
+  USE mo_oce_types,           ONLY: t_hydro_ocean_state, t_operator_coeff, &
     & t_verticalAdvection_ppm_coefficients, t_solverCoeff_singlePrecision
   USE mo_oce_physics,         ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -54,7 +53,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var
   USE mo_cdi_constants
-
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   IMPLICIT NONE
 
 
@@ -74,7 +73,9 @@ MODULE mo_operator_ocean_coeff_3d
   ! flags for computing ocean coefficients
   LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
   LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
-
+ CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'opcoeff'
+  CHARACTER(LEN=16)           :: str_module = 'opcoeff'  ! Output of module for 1 line debug
+  INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -1311,7 +1312,10 @@ CONTAINS
 !       CALL sync_patch_array(SYNC_C, patch_2D, operators_coefficients%edge2cell_coeff_cc(:,:,:,neigbor)%x(3))
 !       CALL sync_patch_array(SYNC_C, patch_2D, operators_coefficients%variable_vol_norm(:,:,:,neigbor))
 !     ENDDO
-
+   ! output print level (1-5, fix)
+   idt_src=5  
+   CALL dbg_print('scalarprod: fixed_vol_norm',operators_coefficients%fixed_vol_norm,&
+   &str_module,idt_src, in_subset=all_cells)  
     !-------------------------------------------
     ! 4) compute:
     !   edge2cell_coeff_cc_t

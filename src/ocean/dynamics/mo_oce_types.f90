@@ -29,7 +29,7 @@ MODULE mo_oce_types
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_acc
-  PUBLIC :: t_ptr3d
+  PUBLIC :: t_pointer_3d_wp
   PUBLIC :: t_oce_config
   PUBLIC :: t_ocean_tracer
   
@@ -42,6 +42,13 @@ MODULE mo_oce_types
   PUBLIC :: t_operator_coeff
   PUBLIC :: t_solverCoeff_singlePrecision
 
+
+  TYPE t_pointer_3d_wp
+    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D array
+  END TYPE t_pointer_3d_wp
+  TYPE t_pointer_2d_wp
+    REAL(wp),POINTER :: p(:,:)   ! pointer to 2D array
+  END TYPE t_pointer_2d_wp
   !
   !! basis types for constructing 3-dim ocean state
   !
@@ -133,15 +140,20 @@ MODULE mo_oce_types
     !!$    INTEGER, ALLOCATABLE :: neighbor_e(:,:,:)
   END TYPE t_hydro_ocean_base
   
-  TYPE t_ptr3d
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
-  END TYPE t_ptr3d
-  
   TYPE t_ocean_tracer
     REAL(wp),POINTER :: concentration(:,:,:)
-    REAL(wp),POINTER :: concentration_x_height(:,:,:)
+!     REAL(wp),POINTER :: concentration_x_height(:,:,:) not used any more 
   END TYPE t_ocean_tracer
   !
+!   TYPE t_ocean_physic_fluxes
+!     REAL(wp),POINTER :: Redi_flux_horz(:,:,:)
+!     REAL(wp),POINTER :: Redi_flux_vert(:,:,:)    
+!     REAL(wp),POINTER :: GM_flux_horz(:,:,:)
+!     REAL(wp),POINTER :: GM_flux_vert(:,:,:)    
+!     REAL(wp),POINTER :: GMRedi_flux_horz(:,:,:)
+!     REAL(wp),POINTER :: GMRedi_flux_vert(:,:,:)    
+!    
+!   END TYPE t_ocean_physic_fluxes  
   !! prognostic variables
   !
   TYPE t_hydro_ocean_prog
@@ -159,7 +171,7 @@ MODULE mo_oce_types
     
     TYPE(t_ocean_tracer), ALLOCATABLE :: ocean_tracers(:)
     
-    TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_hydro_ocean_prog
   
   !
@@ -236,8 +248,13 @@ MODULE mo_oce_types
     ! dimension: (nproma, n_zlev, nblks_e)
       & temp_insitu(:,:,:)    ,&
       & temp_horizontally_diffused(:,:,:)    ,&
-      & cfl_vert(:,:,:), cfl_horz(:,:,:) ! vertical and horizontal cfl values
-    
+      
+      & cfl_vert(:,:,:), cfl_horz(:,:,:),& ! vertical and horizontal cfl values    
+      & GMRedi_flux_horz(:,:,:,:),& ! dimension: (nproma,n_zlev, nblks_e)
+      & GMRedi_flux_vert(:,:,:,:)   ! dimension: (nproma,n_zlev, nblks_c)
+
+!     TYPE(t_ocean_physic_fluxes), ALLOCATABLE :: ocean_physics_fluxes(:)    
+!     TYPE(t_pointer_3d_wp),ALLOCATABLE :: ocean_physics_flux_ptr(:)
     INTEGER, POINTER :: &
       & condep(:,:)     ! convection depth index
     ! (nproma,  alloc_cell_blocks)
@@ -298,7 +315,8 @@ MODULE mo_oce_types
     ! dimension: (nproma,alloc_cell_blocks)
     TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:), &
       & bc_bot_veloc_cc(:,:)
-    TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
+!     TYPE(t_pointer_2d_wp), ALLOCATABLE :: bc_top_tracer(:) !< pointer array: one pointer for each tracer boundary condition
     
     ! Variables for 3-dim tracer relaxation:
     REAL(wp), POINTER ::         &
@@ -310,7 +328,27 @@ MODULE mo_oce_types
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
       & forc_3dimRelax_Salt(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
-    
+
+    TYPE(t_cartesian_coordinates), POINTER :: &
+      & slopes(:,:,:)              ! neutral slopes at cell center in cartesian coordinates
+    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
+
+   REAL(wp), POINTER :: slopes_squared(:,:,:) 
+   REAL(wp), POINTER :: taper_function_1(:,:,:) 
+   REAL(wp), POINTER :: taper_function_2(:,:,:) 
+
+    TYPE(t_cartesian_coordinates), POINTER :: &
+      & PgradTemperature_horz_center(:,:,:)              ! reconstructed temperature gradient at cell center in cartesian coordinates
+    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
+
+    TYPE(t_cartesian_coordinates), POINTER :: &
+      & PgradSalinity_horz_center(:,:,:)              ! reconstructed salinity gradient at cell center in cartesian coordinates
+    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
+
+   REAL(wp), POINTER ::         &
+      & DerivTemperature_vert_center(:,:,:), & ! 
+      & DerivSalinity_vert_center(:,:,:) 
+
   END TYPE t_hydro_ocean_aux
   
   ! variables to be accumulated
@@ -342,7 +380,7 @@ MODULE mo_oce_types
       & press_grad(:,:,:)       ,& ! hydrostatic pressure gradient term. Unit [m/s]
       & temp_insitu(:,:,:)      ,&
       & tracer(:,:,:,:)
-    TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE
   
   INTEGER, PARAMETER :: max_tracers = 2
@@ -518,15 +556,15 @@ MODULE mo_oce_types
 
 !    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
 !    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
-!    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
-!    TYPE(t_ptr3d),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
+!    TYPE(t_pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
+!    TYPE(t_pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
 
   END TYPE t_operator_coeff
 
     
   TYPE t_solverCoeff_singlePrecision
     ! the same as in t_operator_coeff in single precision for using in the solver
-    REAL(sp), ALLOCATABLE :: grad_coeff(:,:)                     ! as in t_operator_coeff for the 1st level
+    REAL(sp), POINTER :: grad_coeff(:,:)                     ! as in t_operator_coeff for the 1st level
     REAL(sp), ALLOCATABLE :: div_coeff(:,:,:)                    ! as in t_operator_coeff for the 1st level
 
     REAL(sp), POINTER :: edge2edge_viacell_coeff_all(:,:,:)  ! as in t_operator_coeff

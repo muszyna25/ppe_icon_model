@@ -37,13 +37,14 @@ MODULE mo_oce_check_tools
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_math_constants,     ONLY: pi
-  
+  USE mo_mpi,                ONLY: get_my_global_mpi_id
   IMPLICIT NONE
   
   PRIVATE
   
   PUBLIC :: init_oce_index
   PUBLIC :: ocean_check_level_sea_land_mask
+  PUBLIC :: check_ocean_subsets
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -360,6 +361,60 @@ CONTAINS
 
   END SUBROUTINE ocean_check_level_sea_land_mask
   !-------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------------
+  !<Optimize:inUse>
+  SUBROUTINE check_ocean_subsets(patch_3d)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+
+    TYPE(t_patch),     POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges, all_verts
+
+    INTEGER :: BLOCK, startidx, endidx, idx
+    !-----------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells   => patch_2d%cells%ALL
+    all_edges   => patch_2d%edges%ALL
+    all_verts   => patch_2d%verts%ALL
+
+    !    IF (patch_2D%edges%in_domain%no_of_holes > 0) THEN
+    !      DO block = patch_2D%edges%in_domain%start_block, patch_2D%edges%in_domain%end_block
+    !        CALL get_index_range(patch_2D%edges%in_domain, block, startidx, endidx)
+    !        DO idx = startidx, endidx
+    !          IF (patch_2D%edges%decomp_info%halo_level(idx, block) /= 0) THEN
+    !            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in hole ", patch_3D%surface_edge_sea_land_mask(idx, block), &
+    !              & patch_2D%edges%decomp_info%halo_level(idx, block)
+    !          ELSE
+    !            write(0,*) get_my_global_mpi_id(), ":", idx, block, " edge in set ", patch_3D%surface_edge_sea_land_mask(idx, block), &
+    !              & patch_2D%edges%decomp_info%halo_level(idx, block)
+    !          ENDIF
+    !        ENDDO
+    !      ENDDO
+    !
+    !      CALL finish("patch%edges%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
+    !    ENDIF
+
+    !    IF (patch_2D%cells%in_domain%no_of_holes > 0 .and. .false.) THEN
+    IF (patch_2d%cells%in_domain%no_of_holes > 0 ) THEN
+      DO BLOCK = patch_2d%cells%in_domain%start_block, patch_2d%cells%in_domain%end_block
+        CALL get_index_range(patch_2d%cells%in_domain, BLOCK, startidx, endidx)
+        DO idx = startidx, endidx
+          IF (patch_2d%cells%decomp_info%halo_level(idx, BLOCK) /= 0) THEN
+            WRITE(0,*) get_my_global_mpi_id(), ":", idx, BLOCK, " cell in hole ", patch_3d%surface_cell_sea_land_mask(idx, BLOCK), &
+              & patch_2d%cells%decomp_info%halo_level(idx, BLOCK)
+          ELSE
+            WRITE(0,*) get_my_global_mpi_id(), ":", idx, BLOCK, " cell in set ", patch_3d%surface_cell_sea_land_mask(idx, BLOCK), &
+              & patch_2d%cells%decomp_info%halo_level(idx, BLOCK)
+          ENDIF
+        ENDDO
+      ENDDO
+
+      CALL finish("patch%cells%in_domain", "no_of_holes > 0, gmres for the ocean requires no_of_holes=0")
+    ENDIF
+
+  END SUBROUTINE check_ocean_subsets
+  !------------------------------------------------------------------------------------
 
 
 END MODULE mo_oce_check_tools

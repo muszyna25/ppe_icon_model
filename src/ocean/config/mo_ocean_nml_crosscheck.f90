@@ -30,8 +30,9 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_time_config,       ONLY: time_config, restart_experiment
   USE mo_datetime,          ONLY: add_time, print_datetime_all
   USE mo_io_config,         ONLY: dt_checkpoint
-  USE mo_grid_config,       ONLY: grid_rescale_factor
+  USE mo_grid_config,       ONLY: grid_rescale_factor, use_duplicated_connectivity
   USE mo_ocean_nml
+  USE mo_sea_ice_nml,       ONLY: i_ice_dyn
 
   IMPLICIT NONE
 
@@ -182,14 +183,30 @@ CONTAINS
     END SELECT
 
     IF (no_tracer < 1) THEN
-      CALL warning("oce_crosscheck", "no_tracer < 1, set use_constant_mixing=TRUE")
-      use_constant_mixing = .TRUE.
+      CALL warning("oce_crosscheck", "no_tracer < 1, use_constant_mixing")
+      physics_parameters_type = physics_parameters_Constant_type
     ENDIF
 
     CALL check_thicknesses
 
-   IF  (RichardsonDiffusion_threshold < convection_InstabilityThreshold) &
-     CALL finish (method_name, "RichardsonDiffusion_threshold < convection_InstabilityThreshold")
+    IF  (RichardsonDiffusion_threshold < convection_InstabilityThreshold) &
+      CALL finish (method_name, "RichardsonDiffusion_threshold < convection_InstabilityThreshold")
+
+     
+    IF (l_rigid_lid .AND. iswm_oce /= 1) THEN
+      CALL finish(method_name, "l_rigid_lid .AND. iswm_oce /= 1")
+    ENDIF
+
+    IF (use_duplicated_connectivity) THEN
+      use_duplicated_connectivity = .FALSE.
+      CALL message(method_name, "Set use_duplicated_connectivity to FALSE")
+    ENDIF
+      
+    IF (i_ice_dyn == 1 ) THEN
+      i_ice_dyn = 0
+      CALL warning(method_name,"Disable sea-icea dynamics. It does not work.")
+    ENDIF
+    
 
   END SUBROUTINE oce_crosscheck
 

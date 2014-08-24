@@ -320,7 +320,6 @@ CONTAINS
         DO jc = start_index, end_index
           bottom_level =  patch_3D%p_patch_1D(1)%dolic_c(jc,jb)
           IF ( bottom_level > 0 ) THEN  ! wet points only
-
             z_norm  = SQRT(2.0_wp * p_os%p_diag%kin(jc,bottom_level,jb))
 
             p_os%p_aux%bc_bot_veloc_cc(jc,jb)%x = &
@@ -661,8 +660,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
-  !!  mpi parallelized LL (no sync required)
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE top_bound_cond_tracer( patch_2D, pstate_oce, tracer_id, p_sfc_flx, top_bc_tracer)
     
     TYPE(t_patch)    , TARGET, INTENT(in) :: patch_2D             ! patch on which computation is performed
@@ -674,7 +672,6 @@ CONTAINS
     !Local variables
     INTEGER :: jc, jb
     INTEGER :: start_index, end_index
-    REAL(wp):: z_c(nproma,patch_2D%alloc_cell_blocks)
 
     TYPE(t_subset_range), POINTER :: all_cells
     
@@ -684,27 +681,33 @@ CONTAINS
     all_cells => patch_2D%cells%all
     
     IF (tracer_id == 1) THEN
+!ICON_OMP_PARALLEL_DO  PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Temp_vdiff(jc,jb)
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
+
+     CALL dbg_print('top bound.cond.temp' ,top_bc_tracer(:,:,tracer_id), str_module, 2, in_subset=patch_2D%cells%owned)
+      
     ELSE IF (tracer_id == 2) THEN
+!ICON_OMP_PARALLEL_DO  PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
     ELSE
       CALL finish("top_bound_cond_tracer", "unknown boundary condition for tracer_id>2")
     END IF
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=4  ! output print level (1-5, fix)
-    z_c(:,:)=top_bc_tracer(:,:,tracer_id)
-    CALL dbg_print('top bound.cond.tracer' ,z_c, str_module, idt_src, in_subset=patch_2D%cells%owned)
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('top bound.cond.tracer' ,top_bc_tracer(:,:,tracer_id), str_module, idt_src, in_subset=patch_2D%cells%owned)
     !---------------------------------------------------------------------
     
   END SUBROUTINE top_bound_cond_tracer

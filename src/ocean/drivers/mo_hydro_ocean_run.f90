@@ -36,8 +36,9 @@ MODULE mo_hydro_ocean_run
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
-    & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
-    & timer_upd_phys, timer_upd_flx, timer_extra20
+    & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
+    & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
+    & timer_scalar_prod_veloc, timer_extra21, timer_extra22
   USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
@@ -73,17 +74,12 @@ MODULE mo_hydro_ocean_run
 
   PRIVATE
 
-  ! public interface
-  !
-  ! public subroutines
   PUBLIC  :: perform_ho_stepping
   PUBLIC  :: prepare_ho_stepping
   PUBLIC  :: write_initial_ocean_timestep
-  PRIVATE :: update_intermediate_tracer_vars
-  !
+  
   CHARACTER(LEN=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
   INTEGER :: idt_src                      ! Level of detail for 1 line debug
-  !
   !-------------------------------------------------------------------------
 
 CONTAINS
@@ -151,8 +147,8 @@ CONTAINS
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
-    INTEGER, POINTER :: dolic(:,:)
-    REAL(wp), POINTER :: prism_thickness(:,:,:)
+!     INTEGER, POINTER :: dolic(:,:)
+!     REAL(wp), POINTER :: prism_thickness(:,:,:)
     INTEGER :: jstep0 ! start counter for time loop
     REAL(wp) :: mean_height
 
@@ -175,9 +171,6 @@ CONTAINS
 
     CALL datetime_to_string(datestring, datetime)
 
-    ! IF (ltimer) CALL timer_start(timer_total)
-    CALL timer_start(timer_total)
-
     time_config%sim_time(:) = 0.0_wp
 
     !------------------------------------------------------------------
@@ -195,6 +188,8 @@ CONTAINS
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
+    ! IF (ltimer) CALL timer_start(timer_total)
+    CALL timer_start(timer_total)
 
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
 
@@ -207,15 +202,20 @@ CONTAINS
       CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         & jstep, datetime, operators_coefficients)
       ! update_sfcflx has changed p_prog(nold(1))%h
+      IF (ltimer) CALL timer_stop(timer_upd_flx)
 
 
+      IF (timers_level > 2)  CALL timer_start(timer_extra22)
       CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
+      IF (timers_level > 2)  CALL timer_stop(timer_extra22)
 
+      IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
       CALL calc_scalar_product_veloc_3d( patch_3d,  &
         & ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_diag,                     &
         & operators_coefficients)
+      IF (timers_level > 2) CALL timer_stop(timer_scalar_prod_veloc)
 
       ! activate for calc_scalar_product_veloc_3D
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -229,12 +229,8 @@ CONTAINS
       CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,ocean_state(jg)%p_diag%ptp_vn     ,str_module,idt_src, &
         & patch_2d%edges%owned )
       !---------------------------------------------------------------------
-      IF (ltimer) CALL timer_stop(timer_upd_flx)
 
-
-      IF (ltimer) CALL timer_start(timer_upd_phys)
-      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, p_ice%concsum, p_phys_param)
-      IF (ltimer) CALL timer_stop(timer_upd_phys)
+      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, p_ice%concsum, p_phys_param, operators_coefficients)
 
       !------------------------------------------------------------------------
       ! solve for new free surface
@@ -278,23 +274,22 @@ CONTAINS
         IF (ltimer) CALL timer_stop(timer_tracer_ab)
       ENDIF
 
-      !         ENDIF
-
-      ! One integration cycle finished on the lowest grid level (coarsest
-      ! resolution). Set model time.
+      ! One integration cycle finished. Set model time.
       CALL add_time(dtime,0,0,0,datetime)
 
       ! Not nice, but the name list output requires this
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
       ! perform accumulation for special variables
-      IF (ltimer) CALL timer_start(timer_extra20)
+      IF (timers_level > 2)  CALL timer_start(timer_extra20)
+      
       IF (no_tracer>=1) THEN
         CALL calc_potential_density( patch_3d,                            &
-          & ocean_state(jg)%p_prog(nold(1))%tracer,                         &
+          & ocean_state(jg)%p_prog(nold(1))%tracer,                       &
           & ocean_state(jg)%p_diag%rhopot )
-        CALL calc_psi (patch_2d,patch_3d, ocean_state(jg)%p_diag%u(:,:,:),&
-          & ocean_state(jg)%p_prog(nold(1))%h(:,:),                         &
+          
+        CALL calc_psi (patch_3d, ocean_state(jg)%p_diag%u(:,:,:),         &
+          & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
           & ocean_state(jg)%p_diag%u_vint, datetime)
       ENDIF
 
@@ -305,23 +300,27 @@ CONTAINS
         & patch_2d%edges%owned,&
         & patch_2d%verts%owned,&
         & n_zlev)
+        
       IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc,p_ice,patch_2d%cells%owned)
 
-      dolic           => patch_3d%p_patch_1d(1)%dolic_c
-      prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
+!       dolic           => patch_3d%p_patch_1d(1)%dolic_c
+!       prism_thickness => patch_3d%p_patch_1d(1)%prism_thick_c
+
       CALL calc_fast_oce_diagnostics( patch_2d,      &
-        & dolic, &
-        & prism_thickness, &
+        & patch_3d%p_patch_1d(1)%dolic_c, &
+        & patch_3d%p_patch_1d(1)%prism_thick_c, &
         & patch_3d%p_patch_1d(1)%zlev_m, &
         & ocean_state(jg)%p_diag)
 
+      IF (timers_level > 2)  CALL timer_stop(timer_extra20)
+      
       CALL output_ocean( patch_3d, ocean_state, &
         &                datetime,              &
         &                p_sfc_flx,             &
         &                p_ice,                 &
         &                jstep, jstep0)
 
-      IF (ltimer) CALL timer_stop(timer_extra20)
+      IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop
       CALL update_time_indices(jg)
@@ -360,6 +359,8 @@ CONTAINS
           & cfl_stop_on_violation,&
           & cfl_write)
       END IF
+      
+     IF (timers_level > 2)  CALL timer_stop(timer_extra21)
 
     ENDDO time_loop
 
@@ -368,6 +369,7 @@ CONTAINS
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
   SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice,jstep0)
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
@@ -415,15 +417,22 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE write_initial_ocean_timestep
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !<Optimize:inUse>
   SUBROUTINE update_intermediate_tracer_vars(ocean_state)
     TYPE(t_hydro_ocean_state), INTENT(inout) :: ocean_state
+    REAL(wp), POINTER ::  tmp(:,:,:)
 
     ! velocity
-    ocean_state%p_aux%g_nm1 = ocean_state%p_aux%g_n
-    ocean_state%p_aux%g_n   = 0.0_wp
+    ! just exchange the pointers
+    ! ocean_state%p_aux%g_nm1 = ocean_state%p_aux%g_n
+    ! ocean_state%p_aux%g_n   = 0.0_wp
+    tmp => ocean_state%p_aux%g_n
+    ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
+    ocean_state%p_aux%g_nm1 => tmp
+    
   END SUBROUTINE update_intermediate_tracer_vars
   !-------------------------------------------------------------------------
 

@@ -28,7 +28,7 @@ MODULE mo_oce_tracer_transport_vert
   USE mo_parallel_config,           ONLY: nproma
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
-    & timer_adpo_vert, timer_extra10  !, timer_dif_vert,
+    & timer_adpo_vert  !, timer_dif_vert,
   USE mo_oce_types,                 ONLY: t_hydro_ocean_state, t_verticalAdvection_ppm_coefficients, &
     & t_operator_coeff
   USE mo_model_domain,              ONLY: t_patch,t_patch_3d, t_patch_vert
@@ -48,16 +48,6 @@ IMPLICIT NONE
   PUBLIC :: advect_flux_vertical
   PUBLIC :: advect_flux_vertical_high_res
   PUBLIC :: adpo_vtrac_oce
-  
-  ! Private implemenation
-  !
-  PRIVATE :: upwind_vflux_oce
-  PRIVATE :: central_vflux_oce
-  !PRIVATE :: mimetic_vflux_oce
-  PRIVATE :: upwind_vflux_ppm
-  PRIVATE :: v_ppm_slimiter_mo
-  PRIVATE :: laxfr_upflux_v
-  PRIVATE :: ratio_consecutive_gradients
 
 CONTAINS
   
@@ -68,7 +58,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   !! mpi parallelized, sync required: trac_out
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE advect_flux_vertical( patch_3d,   &
     & trac_old,             &
     & ocean_state,          &
@@ -78,7 +68,6 @@ CONTAINS
     & flux_div_vert,        &
     & tracer_id)
     
-    !TYPE(t_patch), TARGET, INTENT(IN) :: patch_2D
     TYPE(t_patch_3d ),TARGET :: patch_3d
     REAL(wp), INTENT(inout)           :: trac_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -89,7 +78,6 @@ CONTAINS
     INTEGER, INTENT(in)               :: tracer_id
     
     !Local variables
-    !REAL(wp) :: delta_
     REAL(wp) :: deriv_fst, deriv_sec, adpo_weight_upw_cntr, adpo_weight_cntr_upw
     REAL(wp) :: prism_volume, transport_in, transport_out, adpo_r1, adpo_r2
     INTEGER :: startIndex, endIndex
@@ -118,18 +106,11 @@ CONTAINS
     ! This is already synced in  edges_in_domain !
     ! CALL sync_patch_array(SYNC_C, patch_2D, ocean_state%p_diag%w_time_weighted)
     
-    ! Initialize timer for vertical advection
     IF (ltimer) CALL timer_start(timer_adv_vert)
 
     IF (flux_calculation_vert == fct_vert_ppm) THEN
 
-      ! Vertical advection scheme: piecewise parabolic method (ppm)
-!       write(0,*) "operators_coeff%div_coeff..."
-!       operators_coeff%div_coeff = 0
-!       write(0,*) "operators_coeff%verticalAdvectionPPMcoeffs(1)%cellHeightRatio_This_toBelow..."
-!       operators_coeff%verticalAdvectionPPMcoeffs(1)%cellHeightRatio_This_toBelow(1, 1)= 0
-!       stop
-      
+      ! Vertical advection scheme: piecewise parabolic method (ppm) inUse      
       CALL upwind_vflux_ppm( patch_3d,              &
         & trac_old,                                 &
         & ocean_state%p_diag%w_time_weighted,              &
@@ -139,13 +120,13 @@ CONTAINS
         & operators_coeff%verticalAdvectionPPMcoeffs, &
         & flux_div_vert)
 
-        CALL sync_patch_array(sync_c, patch_2D, flux_div_vert)
+        ! CALL sync_patch_array(sync_c, patch_2D, flux_div_vert)
         IF (ltimer) CALL timer_stop(timer_adv_vert)
         RETURN
     ENDIF
 
-    
-    ALLOCATE(z_adv_flux_v2 (nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks), & ! resulting flux
+    !  The rest is for not upwind_vflux_ppm cases, notInUse
+    ALLOCATE(z_adv_flux_v2 (nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks),  & ! resulting flux
               z_adv_flux_v (nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks),  &  ! resulting flux
               z_adv_flux_vu(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks),  &  ! upwind flux
               adpo_weight(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks),      &
@@ -270,12 +251,11 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
-  !!
-  !! mpi parallelized, sync required: trac_out
-  SUBROUTINE advect_flux_vertical_high_res( patch_3d,  &
-    & trac_old,             &
-    & ocean_state,                 &
-    & a_v,                  &
+  SUBROUTINE advect_flux_vertical_high_res( &
+    & patch_3d,         &  
+    & trac_old,         &
+    & ocean_state,      &
+    & a_v,              &
     & adv_flux_v)
     
     !TYPE(t_patch), TARGET, INTENT(IN) :: patch_2D
@@ -303,9 +283,6 @@ CONTAINS
     REAL(wp) :: z_limit_sigma(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_c)
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
-    ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_tracer_advection:advect_individual_tracer')
-    !-------------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------------
     patch_2d         => patch_3d%p_patch_2d(1)
@@ -412,7 +389,6 @@ CONTAINS
     REAL(wp), INTENT(inout)            :: consec_grad(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_c)
     !
     !Local variables
-    !REAL(wp) :: delta_z
     INTEGER :: startIndex, endIndex
     INTEGER :: jc, jk, jb!, je!, ic,ib
     INTEGER :: i_edge, ii_e, ib_e
@@ -496,7 +472,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------------
   !>
-  !! !  SUBROUTINE calculates ratio of consecutive gradients following Casulli-Zanolli.
+  !!  SUBROUTINE calculates ratio of consecutive gradients following Casulli-Zanolli.
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2013).
@@ -853,15 +829,12 @@ CONTAINS
   ! - Carpenter et al. (1989), MWR, 118, 586-612
   ! - Lin and Rood (1996), MWR, 124, 2046-2070
   !
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE upwind_vflux_ppm( patch_3d, p_cc,        &
     & p_w, p_dtime, p_itype_vlimit,&
     & p_cellhgt_mc_now, cell_invheight, &
     & verticalAdvection_ppm_coefficients, &
     & flux_div_vert)
-    
-    !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-    !!$      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)           :: p_cc(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< advected cell centered variable
@@ -893,21 +866,16 @@ CONTAINS
     INTEGER :: ikm1, ikp1, ikp1_ic,level2Below                        !< vertical thisLevel minus and plus one, plus two
     INTEGER :: startIndex, endIndex
     INTEGER :: jc, jk, jb                                      !< index of cell, vertical thisLevel and block
-    !LOGICAL  :: opt_lout_edge !< optional: output edge value (.TRUE.),
-    !                          !< or the flux across the edge   !< (.FALSE./not specified)
-    !REAL(wp) :: opt_topflx_tra(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks)  !< vertical tracer flux at upper boundary
     INTEGER, PARAMETER :: islopel_vsm = 1
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-----------------------------------------------------------------------
-    IF (ltimer) CALL timer_start(timer_extra10)
     IF (fast_performance_level > 20) THEN
       CALL upwind_vflux_ppm_fast( patch_3d, p_cc,  &
         & p_w, p_dtime, p_itype_vlimit,            &
         & p_cellhgt_mc_now, cell_invheight,        &
         & verticalAdvection_ppm_coefficients,      &
         & flux_div_vert)
-      IF (ltimer) CALL timer_stop(timer_extra10)
       RETURN
     ENDIF
     !-----------------------------------------------------------------------
@@ -1239,15 +1207,13 @@ CONTAINS
       END DO
     END DO
 
-    IF (ltimer) CALL timer_stop(timer_extra10)
-    
   END SUBROUTINE upwind_vflux_ppm
   !-------------------------------------------------------------------------
   
   !------------------------------------------------------------------------
   !! Otpimized version of the third order PPM scheme
   !!
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE upwind_vflux_ppm_fast(       &
     & patch_3d, tracer,                   &
     & w, dtime, vertical_limiter_type,    &
@@ -1315,8 +1281,8 @@ CONTAINS
   !
   ! Optimized version of upwind_vflux_ppm
   !-------------------------------------------------------------------------
-!<Optimize:inUse>
-   SUBROUTINE upwind_vflux_ppm_onBlock(  &
+  !<Optimize:inUse>
+  SUBROUTINE upwind_vflux_ppm_onBlock(  &
     & tracer,                            &
     & w, dtime, vertical_limiter_type,   &
     & cell_thickeness, cell_invheight,   &
@@ -1634,7 +1600,6 @@ CONTAINS
   !! @par Revision History
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
-  !! mpi parallelized, only cells_in_domain are computed, no sync
   SUBROUTINE v_ppm_slimiter_mo( patch_3d, p_cc, p_face, p_slope, p_face_up, p_face_low )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
@@ -1724,7 +1689,7 @@ CONTAINS
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
   !! mpi parallelized, only cells_in_domain are computed, no sync
-!<Optimize:inUse>
+  !<Optimize:inUse>
   SUBROUTINE v_ppm_slimiter_mo_onBlock( p_cc, p_face, p_slope, p_face_up, p_face_low, &
     & startIndex, endIndex, cells_noOfLevels )
 
@@ -1785,7 +1750,7 @@ CONTAINS
   END SUBROUTINE v_ppm_slimiter_mo_onBlock
   !-------------------------------------------------------------------------
 
-!-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
   !>
   !! Positive definite flux limiter for vertical advection
   !!
@@ -1930,9 +1895,6 @@ CONTAINS
   !! - generalized for p- and z-based vertical coordinate systems
   !!
   FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  result(p_upflux)
-    !
-    
-    IMPLICIT NONE
     
     REAL(wp), INTENT(in) :: p_vn
     REAL(wp), INTENT(in) :: p_psi1, p_psi2

@@ -30,7 +30,7 @@
 !!
 
 !----------------------------
-! #include "omp_definitions.inc"
+#include "omp_definitions.inc"
 !----------------------------
 
 MODULE mo_ocean_gmres
@@ -236,13 +236,13 @@ CONTAINS
 !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
     !$ myThreadNo = OMP_GET_THREAD_NUM()
 
-!ICON_OMP_DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       r(1:nproma,jb) = b(1:nproma,jb) - w(1:nproma,jb)
     ENDDO
 !ICON_OMP_END_DO
     
-    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
+!     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
     
 !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
@@ -266,7 +266,7 @@ CONTAINS
     ! 2) compute the first vector of the Krylov space
     IF (rn2(1) /= 0.0_wp) THEN
       rrn2 = 1.0_wp/rn2(1)
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         v(1:nproma,jb,1) = r(1:nproma,jb) * rrn2
       ENDDO
@@ -318,14 +318,14 @@ CONTAINS
       
       ! 4.2) Gram-Schmidt orthogonalization
       
-!ICON_OMP_PARALLEL PRIVATE(rh, myThreadNo, k)
-      !$   myThreadNo = OMP_GET_THREAD_NUM()
       
       IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
       
       gs_orth: DO k = 1, i
         
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+       !$   myThreadNo = OMP_GET_THREAD_NUM()
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           sum_aux(jb) = SUM(w(1:nproma,jb) * v(1:nproma,jb,k))
         ENDDO
@@ -348,12 +348,12 @@ CONTAINS
 !        CALL dbg_print('anroldi: v', v, method_name, 3, in_subset=patch_2d%cells%owned)
 !        write(0,*) "h_aux:", h_aux
         
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           w(1:nproma, jb) = w(1:nproma, jb) - h_aux * v(1:nproma, jb, k)
         ENDDO
-!ICON_OMP_END_DO
-        
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
       ENDDO gs_orth
       
       !    write(*,*)  get_my_global_mpi_id(), ':', pad_nproma, nproma, 'w=', w(pad_nproma+1:nproma, no_of_blocks)
@@ -361,8 +361,10 @@ CONTAINS
       !    w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
       !    CALL sync_patch_array(SYNC_C, patch_2D, w(:,:) )
       
+!ICON_OMP_PARALLEL PRIVATE(rh, myThreadNo)
+!$   myThreadNo = OMP_GET_THREAD_NUM()
       ! 4.3) new element for h
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         sum_aux(jb) = SUM(w(1:nproma,jb) * w(1:nproma,jb))
       ENDDO
@@ -374,21 +376,21 @@ CONTAINS
         IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
         h_aux = SQRT(h_aux)
         h(i+1,i) = h_aux
+        IF (h_aux < tol2) THEN
+          done = .TRUE.
+        ELSE
+          done = .FALSE.
+        ENDIF
       ENDIF
-!ICON_OMP FLUSH(h_aux)
+!ICON_OMP FLUSH(h_aux, done)
 !ICON_OMP BARRIER
       !     write(0,*) i, " gmres  tol2, h_aux", tol2, h_aux
       
-      IF (h_aux < tol2) THEN
-        done = .TRUE.
-      ELSE
-        done = .FALSE.
-      ENDIF
       
       ! 4.4) if w is independent from v, add v(:,:,:,i+1)
       IF (.NOT. done) THEN
         rh = 1.0_wp/h_aux
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           v(1:nproma, jb, i+1) = w(1:nproma,jb) * rh
         ENDDO
@@ -457,9 +459,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
-#ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_gmres)
-#endif
     
     res(1:niter) = ABS(rn2(1:niter))
     
@@ -592,7 +592,7 @@ CONTAINS
 !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
     !$ myThreadNo = OMP_GET_THREAD_NUM()
 
-!ICON_OMP_DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       r(1:nproma,jb) = b(1:nproma,jb) - w(1:nproma,jb)
     ENDDO
@@ -600,7 +600,7 @@ CONTAINS
 
     ! IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
 
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       sum_aux(jb) = SUM(r(1:nproma,jb) * r(1:nproma,jb))
     ENDDO
@@ -622,7 +622,7 @@ CONTAINS
     ! 2) compute the first vector of the Krylov space
     IF (rn2(1) /= 0.0_sp) THEN
       rrn2 = REAL(1.0_wp/rn2(1),sp)
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         v(1:nproma,jb,1) = r(1:nproma,jb) * rrn2
       ENDDO
@@ -673,14 +673,14 @@ CONTAINS
 
       ! 4.2) Gram-Schmidt orthogonalization
 
-!ICON_OMP_PARALLEL PRIVATE(rh, myThreadNo, k)
-!$   myThreadNo = OMP_GET_THREAD_NUM()
 
       ! IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
 
       gs_orth: DO k = 1, i
 
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL PRIVATE(myThreadNo)
+!$   myThreadNo = OMP_GET_THREAD_NUM()
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           sum_aux(jb) = SUM(w(1:nproma,jb) * v(1:nproma,jb,k))
         ENDDO
@@ -703,12 +703,12 @@ CONTAINS
 !        CALL dbg_print('anroldi: v', v, method_name, 3, in_subset=patch_2d%cells%owned)
 !        write(0,*) "h_aux:", h_aux
 
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           w(1:nproma, jb) = w(1:nproma, jb) - h_aux * v(1:nproma, jb, k)
         ENDDO
-!ICON_OMP_END_DO
-
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
       ENDDO gs_orth
 
       !    write(*,*)  get_my_global_mpi_id(), ':', pad_nproma, nproma, 'w=', w(pad_nproma+1:nproma, no_of_blocks)
@@ -716,8 +716,10 @@ CONTAINS
       !    w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
       !    CALL sync_patch_array(SYNC_C, patch_2D, w(:,:) )
 
+!ICON_OMP_PARALLEL PRIVATE(myThreadNo, rh)
+!$   myThreadNo = OMP_GET_THREAD_NUM()
       ! 4.3) new element for h
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         sum_aux(jb) = SUM(w(1:nproma,jb) * w(1:nproma,jb))
       ENDDO
@@ -729,16 +731,15 @@ CONTAINS
         IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
         h_aux = SQRT(h_aux)
         h(i+1,i) = h_aux
+        IF (h_aux < tol2) THEN
+          done = .TRUE.
+        ELSE
+          done = .FALSE.
+        ENDIF
       ENDIF
-!ICON_OMP FLUSH(h_aux)
+!ICON_OMP FLUSH(h_aux, done)
 !ICON_OMP BARRIER
       !     write(0,*) i, " gmres  tol2, h_aux", tol2, h_aux
-
-      IF (h_aux < tol2) THEN
-        done = .TRUE.
-      ELSE
-        done = .FALSE.
-      ENDIF
 
       ! 4.4) if w is independent from v, add v(:,:,:,i+1)
       IF (.NOT. done) THEN
@@ -812,9 +813,7 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
-#ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_gmres)
-#endif
 
     res(1:niter) = ABS(rn2(1:niter))
 
@@ -969,11 +968,11 @@ CONTAINS
 #endif
     
     mythreadno = 0
-!ICON_OMP_PARALLEL PRIVATE(rn2_aux, rrn2, myThreadNo)
-    !$ myThreadNo = OMP_GET_THREAD_NUM()
-    
-    
-!ICON_OMP_DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_PARALLEL PRIVATE(rn2_aux, rrn2, myThreadNo)
+!     !$ myThreadNo = OMP_GET_THREAD_NUM()
+!     
+!     
+! !ICON_OMP_DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       IF (jb /= no_of_blocks) THEN
         nlen = nproma
@@ -983,12 +982,12 @@ CONTAINS
       ENDIF
       r(1:nlen,jb) = b(1:nlen,jb)-w(1:nlen,jb)
     ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
     
     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
     
 #ifdef NOMPI_DISABLED
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       IF (jb /= no_of_blocks) THEN
         sum_aux(jb) = SUM(r(:,jb)*r(:,jb))
@@ -996,11 +995,11 @@ CONTAINS
         sum_aux(jb) = SUM( r(1:end_nproma,jb)*r(1:end_nproma,jb) )
       ENDIF
     ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
     
     rn2_aux = SQRT(SUM(sum_aux))
 #else
-!ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       IF (jb /= no_of_blocks) THEN
         z(:,jb) = r(:,jb)*r(:,jb)
@@ -1009,7 +1008,7 @@ CONTAINS
       ENDIF
       WHERE(.NOT.patch_2d%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
     ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
     
     rn2_aux = SQRT(omp_global_sum_array(z(:,1:no_of_blocks)))
 #endif
@@ -1021,14 +1020,14 @@ CONTAINS
     ! 2) compute the first vector of the Krylov space
     IF (rn2_aux /= 0.0_wp) THEN
       rrn2 = 1.0_wp/rn2_aux
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         v(:,jb,1) = r(:,jb)*rrn2
       ENDDO
-!ICON_OMP_END_DO NOWAIT
+! !ICON_OMP_END_DO NOWAIT
     ENDIF
     
-!ICON_OMP_END_PARALLEL
+! !ICON_OMP_END_PARALLEL
 !    CALL dbg_print('1: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
 !    CALL dbg_print('1: r', r, method_name, 3, in_subset=patch_2d%cells%owned)
 !    write(0,*) " rn2(1):", rn2(1)
@@ -1060,7 +1059,7 @@ CONTAINS
       
       ! 4.2) Gram-Schmidt orthogonalization
       
-!ICON_OMP_PARALLEL PRIVATE(rh, h_aux, myThreadNo, k)
+! !ICON_OMP_PARALLEL PRIVATE(rh, h_aux, myThreadNo, k)
       !$   myThreadNo = OMP_GET_THREAD_NUM()
       
       IF (PRESENT(preconditioner)) CALL preconditioner(w(:,:),p_patch_3d,p_op_coeff,h_e)
@@ -1068,7 +1067,7 @@ CONTAINS
       gs_orth: DO k = 1, i
         
 #ifdef NOMPI_DISABLED
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           IF (jb /= no_of_blocks) THEN
             sum_aux(jb) = SUM(w(:,jb)*v(:,jb,k))
@@ -1076,11 +1075,11 @@ CONTAINS
             sum_aux(jb) = SUM( w(1:end_nproma,jb)*v(1:end_nproma,jb,k) )
           ENDIF
         ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
         
         h_aux = SUM(sum_aux)
 #else
-!ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           IF (jb /= no_of_blocks) THEN
             z(:,jb) = w(:,jb)*v(:,jb,k)
@@ -1089,7 +1088,7 @@ CONTAINS
           ENDIF
           WHERE(.NOT.patch_2d%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
         ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
         h_aux = omp_global_sum_array(z)
 #endif
 !        CALL dbg_print('anroldi: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
@@ -1098,7 +1097,7 @@ CONTAINS
 
         IF (mythreadno == 0) h(k,i) = h_aux
         
-!ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           IF (jb /= no_of_blocks) THEN
             nlen = nproma
@@ -1108,14 +1107,14 @@ CONTAINS
           ENDIF
           w(1:nlen,jb) = w(1:nlen,jb) - h_aux*v(1:nlen,jb,k)
         ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
         
       ENDDO gs_orth
       
       ! 4.3) new element for h
       
 #ifdef NOMPI_DISABLED
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         IF (jb /= no_of_blocks) THEN
           sum_aux(jb) = SUM(w(:,jb)*w(:,jb))
@@ -1123,11 +1122,11 @@ CONTAINS
           sum_aux(jb) = SUM( w(1:end_nproma,jb)*w(1:end_nproma,jb) )
         ENDIF
       ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
       
       h_aux = SQRT(SUM(sum_aux))
 #else
-!ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         IF (jb /= no_of_blocks) THEN
           z(:,jb) = w(:,jb) * w(:,jb)
@@ -1136,7 +1135,7 @@ CONTAINS
         ENDIF
         WHERE(.NOT.patch_2d%cells%decomp_info%owner_mask(:,jb)) z(:,jb) = 0.0_wp
       ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
       
       h_aux = SQRT(omp_global_sum_array(z))
 #endif
@@ -1152,14 +1151,14 @@ CONTAINS
       ! 4.4) if w is independent from v, add v(:,:,:,i+1)
       IF (.NOT. done) THEN
         rh = 1.0_wp/h_aux
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           v(:,jb,i+1) = w(:,jb)*rh
         ENDDO
-!ICON_OMP_END_DO NOWAIT
+! !ICON_OMP_END_DO NOWAIT
       ENDIF
       
-!ICON_OMP_END_PARALLEL
+! !ICON_OMP_END_PARALLEL
       
       ! 4.5) apply the rotation matrices
       rotation: DO k = 1, i-1
@@ -1211,15 +1210,15 @@ CONTAINS
     ENDDO krylov
     
     ! 7) evaluate the Krylov expansion
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(jb, i) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_PARALLEL
+! !ICON_OMP_DO PRIVATE(jb, i) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       DO i = 1, nkry
         x(:,jb) = x(:,jb) + c(i)*v(:,jb,i)
       ENDDO
     ENDDO
-!ICON_OMP_END_DO NOWAIT
-!ICON_OMP_END_PARALLEL
+! !ICON_OMP_END_DO NOWAIT
+! !ICON_OMP_END_PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_gmres)
 #endif

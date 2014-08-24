@@ -14,10 +14,13 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_oce_diagnostics
   USE mo_kind,               ONLY: wp, dp, i8
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range, t_subset_indexed
-  USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices
+  USE mo_grid_tools,         ONLY: get_oriented_edges_from_global_vertices, check_global_indexes
   USE mo_mpi,                ONLY: my_process_is_stdio, p_field_sum, get_my_mpi_work_id, &
     & p_comm_work_test, p_comm_work, p_io, p_bcast
   USE mo_sync,               ONLY: global_sum_array, disable_sync_checks, enable_sync_checks
@@ -28,8 +31,18 @@ MODULE mo_oce_diagnostics
     & min_rlcell, min_rledge, min_rlcell, &
     & max_char_length, min_dolic
   USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, &
-    & gibraltar, denmark_strait,drake_passage, indonesian_throughflow,&
+    & gibraltar, &
+    & denmark_strait, &
+    & drake_passage, &
+    & indonesian_throughflow,&
     & scotland_iceland, &
+    & mozambique, &
+    & framStrait, &
+    & beringStrait, &
+    & barentsOpening, &
+    & agulhas, &
+    & agulhas_long, &
+    & agulhas_longer, &
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -40,8 +53,6 @@ MODULE mo_oce_diagnostics
     &                              t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
-  USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_oce_physics,        ONLY: t_ho_params
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
   USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
   USE mo_linked_list,        ONLY: t_var_list
@@ -104,11 +115,20 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: ice_volume_sh !                                                           [km3]
     REAL(wp) :: ice_extent_nh !                                                           [km2]
     REAL(wp) :: ice_extent_sh !                                                           [km2]
+    ! through flows {{{
     REAL(wp) :: gibraltar     ! though flow                                               [Sv]
     REAL(wp) :: denmark_strait! though flow                                               [Sv]
     REAL(wp) :: drake_passage ! though flow                                               [Sv]
     REAL(wp) :: indonesian_throughflow !                                                  [Sv]
     REAL(wp) :: scotland_iceland !                                                        [Sv]
+    REAL(wp) :: mozambique
+    REAL(wp) :: framStrait
+    REAL(wp) :: beringStrait
+    REAL(wp) :: barentsOpening
+    REAL(wp) :: agulhas
+    REAL(wp) :: agulhas_long
+    REAL(wp) :: agulhas_longer
+    ! }}}
     REAL(wp) :: t_mean_na_200m !                                                        [degC]
     REAL(wp) :: t_mean_na_800m !                                                        [degC]
     REAL(wp) :: ice_ocean_heat_budget
@@ -121,7 +141,7 @@ MODULE mo_oce_diagnostics
   TYPE t_oce_timeseries
     
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(42)  :: names = (/ &
+    CHARACTER(LEN=40), DIMENSION(49)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
@@ -157,6 +177,13 @@ MODULE mo_oce_diagnostics
       & "drake_passage                           ", &
       & "indonesian_throughflow                  ", &
       & "scotland_iceland                        ", &
+      & "mozambique                              ", &
+      & "framStrait                              ", &
+      & "beringStrait                            ", &
+      & "barentsOpening                          ", &
+      & "agulhas                                 ", &
+      & "agulhas_long                            ", &
+      & "agulhas_longer                          ", &
       & "t_mean_NA_200m                          ", &
       & "t_mean_NA_800m                          ", &
       & "ice_ocean_heat_budget                   ", &
@@ -172,15 +199,15 @@ MODULE mo_oce_diagnostics
     REAL(wp), POINTER :: orientation(:)
   END TYPE t_oce_section
   
-  INTEGER, PARAMETER :: oce_section_count = 5
-  PRIVATE :: oce_section_count
+  INTEGER, PARAMETER  :: oce_section_count = 12
+  PRIVATE             :: oce_section_count
   TYPE(t_oce_section) :: oce_sections(oce_section_count)
-  PRIVATE :: oce_sections
+  PRIVATE             :: oce_sections
   
   TYPE(t_ocean_region_volumes),SAVE :: ocean_region_volumes
-  PRIVATE :: ocean_region_volumes
-  TYPE(t_ocean_region_areas),SAVE :: ocean_region_areas
-  PRIVATE :: ocean_region_areas
+  PRIVATE                           :: ocean_region_volumes
+  TYPE(t_ocean_region_areas),SAVE   :: ocean_region_areas
+  PRIVATE                           :: ocean_region_areas
 
   TYPE(t_oce_timeseries),POINTER :: oce_ts
   
@@ -192,10 +219,10 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
-  SUBROUTINE construct_oce_diagnostics( p_patch_3d, p_os, datestring )
-    TYPE(t_patch_3d),TARGET, INTENT(inout) :: p_patch_3d
-    TYPE(t_hydro_ocean_state), TARGET :: p_os
-    CHARACTER(LEN=32)                       :: datestring
+  SUBROUTINE construct_oce_diagnostics( patch_3D, p_os, datestring )
+    TYPE(t_patch_3d),TARGET, INTENT(inout) :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET      :: p_os
+    CHARACTER(LEN=32)                      :: datestring
     
     !local variable
     INTEGER :: i,ist
@@ -211,8 +238,8 @@ CONTAINS
     INTEGER, POINTER              :: regions(:,:)
     TYPE(t_ocean_regions)         :: ocean_regions
     !-----------------------------------------------------------------------
-    p_patch => p_patch_3d%p_patch_2d(1)
-    regions => p_patch_3d%regio_c
+    p_patch => patch_3D%p_patch_2d(1)
+    regions => patch_3D%regio_c
     !-----------------------------------------------------------------------
     owned_cells => p_patch%cells%owned
     !-----------------------------------------------------------------------
@@ -230,37 +257,45 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%absolute_vertical_velocity = 0.0_wp
-    
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_ShortWave          = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_LongWave           = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Sensible           = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Latent             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Total              = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Precipitation                = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_SnowFall                  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Evaporation                  = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Runoff                = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalSalt                 = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalOcean             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalIce             = 0.0_wp
-    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeIce            = 0.0_wp
+
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_ShortWave         = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_LongWave          = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Sensible          = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Latent            = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Total             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Precipitation     = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_SnowFall          = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Evaporation       = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Runoff            = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalSalt         = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalOcean        = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_TotalIce          = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeIce         = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_VolumeTotal       = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%HeatFlux_Relax             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%FrshFlux_Relax             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%TempFlux_Relax             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%SaltFlux_Relax             = 0.0_wp
-    
+
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_nh              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_volume_sh              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_extent_nh              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_extent_sh              = 0.0_wp
-    
+
     ! through flows
     oce_ts%oce_diagnostics(0:nsteps)%gibraltar                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%denmark_strait             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%drake_passage              = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%indonesian_throughflow     = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%scotland_iceland           = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%mozambique                 = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%framStrait                 = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%beringStrait               = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%barentsOpening             = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%agulhas                    = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%agulhas_long               = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%agulhas_longer             = 0.0_wp
+
     oce_ts%oce_diagnostics(0:nsteps)%t_mean_na_200m             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%t_mean_na_800m             = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%ice_ocean_heat_budget      = 0.0_wp
@@ -285,7 +320,9 @@ CONTAINS
       WRITE(headerline,'(a,a,a)')TRIM(headerline),' ',TRIM(oce_ts%names(i))
     END DO
     WRITE(diag_unit,'(a)')TRIM(headerline)
-    
+
+    ! CALL check_global_indexes(p_patch)
+   
     ! open file for MOC - extraordinary at this time
     moc_fname='MOC.'//TRIM(datestring)
     moc_unit = find_next_free_unit(10,99)
@@ -297,33 +334,77 @@ CONTAINS
     CALL get_oriented_edges_from_global_vertices(    &
       & edge_subset = oce_sections(1)%subset,      &
       & orientation = oce_sections(1)%orientation, &
-      & patch_3d = p_patch_3d,                     &
+      & patch_3d = patch_3D,                     &
       & global_vertex_array = gibraltar,            &
       & subset_name = 'gibraltar')
     CALL get_oriented_edges_from_global_vertices(    &
       & edge_subset = oce_sections(2)%subset,      &
       & orientation = oce_sections(2)%orientation, &
-      & patch_3d = p_patch_3d,                     &
+      & patch_3d = patch_3D,                     &
       & global_vertex_array =denmark_strait,        &
       & subset_name = 'denmark_strait')
     CALL get_oriented_edges_from_global_vertices(    &
       & edge_subset = oce_sections(3)%subset,      &
       & orientation = oce_sections(3)%orientation, &
-      & patch_3d = p_patch_3d,                     &
+      & patch_3d = patch_3D,                     &
       & global_vertex_array =drake_passage,         &
       & subset_name = 'drake_passage')
     CALL get_oriented_edges_from_global_vertices(    &
       & edge_subset = oce_sections(4)%subset,      &
       & orientation = oce_sections(4)%orientation, &
-      & patch_3d = p_patch_3d,                     &
+      & patch_3d = patch_3D,                     &
       & global_vertex_array =indonesian_throughflow,&
       & subset_name = 'indonesian_throughflow')
     CALL get_oriented_edges_from_global_vertices(    &
       & edge_subset = oce_sections(5)%subset,      &
       & orientation = oce_sections(5)%orientation, &
-      & patch_3d = p_patch_3d,                     &
+      & patch_3d = patch_3D,                     &
       & global_vertex_array =scotland_iceland,      &
       & subset_name = 'scotland_iceland')
+    CALL get_oriented_edges_from_global_vertices(    &
+      & edge_subset = oce_sections(6)%subset,      &
+      & orientation = oce_sections(6)%orientation, &
+      & patch_3d = patch_3D,                     &
+      & global_vertex_array =mozambique,      &
+      & subset_name = 'mozambique')
+    CALL get_oriented_edges_from_global_vertices(    &
+      & edge_subset = oce_sections(7)%subset,      &
+      & orientation = oce_sections(7)%orientation, &
+      & patch_3d = patch_3D,                     &
+      & global_vertex_array =framStrait,      &
+      & subset_name = 'framStrait')
+    CALL get_oriented_edges_from_global_vertices(    &
+      & edge_subset = oce_sections(8)%subset,      &
+      & orientation = oce_sections(8)%orientation, &
+      & patch_3d = patch_3D,                     &
+      & global_vertex_array =beringStrait,      &
+      & subset_name = 'beringStrait')
+    CALL get_oriented_edges_from_global_vertices(    &
+      & edge_subset = oce_sections(9)%subset,      &
+      & orientation = oce_sections(9)%orientation, &
+      & patch_3d = patch_3D,                     &
+      & global_vertex_array =barentsOpening,      &
+      & subset_name = 'barentsOpening')
+    CALL get_oriented_edges_from_global_vertices(    &
+      & edge_subset = oce_sections(10)%subset,      &
+      & orientation = oce_sections(10)%orientation, &
+      & patch_3d = patch_3D,                     &
+      & global_vertex_array =agulhas,      &
+      & subset_name = 'agulhas')
+    CALL get_oriented_edges_from_global_vertices(    &
+      & edge_subset = oce_sections(11)%subset,      &
+      & orientation = oce_sections(11)%orientation, &
+      & patch_3d = patch_3D,                     &
+      & global_vertex_array =agulhas_long,      &
+      & subset_name = 'agulhas_long')
+    CALL get_oriented_edges_from_global_vertices(    &
+      & edge_subset = oce_sections(12)%subset,      &
+      & orientation = oce_sections(12)%orientation, &
+      & patch_3d = patch_3D,                     &
+      & global_vertex_array =agulhas_longer,      &
+      & subset_name = 'agulhas_longer')
+
+!     CALL finish("","")
     
     surface_area   = 0.0_wp
     surface_height = 0.0_wp
@@ -342,8 +423,8 @@ CONTAINS
         CALL compute_vertical_volume(jb,jc, &
           & prism_area, &
           & p_os%p_prog(nnew(1))%h(jc,jb), &
-          & p_patch_3d%p_patch_1d(1)%prism_thick_c(jc,:,jb), &
-          & p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb), &
+          & patch_3D%p_patch_1d(1)%prism_thick_c(jc,:,jb), &
+          & patch_3D%p_patch_1d(1)%dolic_c(jc,jb), &
           & column_volume)
         ocean_region_volumes%total = ocean_region_volumes%total + column_volume
         
@@ -402,6 +483,9 @@ CONTAINS
     
     CALL message (TRIM(routine), 'end')
   END SUBROUTINE construct_oce_diagnostics
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
   SUBROUTINE compute_vertical_volume(jb,jc,prism_area,surface_height,thicknesses,max_vertical_level,volume)
     INTEGER,  INTENT(in)  :: jb,jc,max_vertical_level
     REAL(wp), INTENT(in)  :: prism_area, surface_height, thicknesses(:)
@@ -420,8 +504,8 @@ CONTAINS
     END DO
   END SUBROUTINE compute_vertical_volume
   !-------------------------------------------------------------------------
-  !
-  !
+
+  !-------------------------------------------------------------------------
   !  !The destructor of the types related to ocean diagnostics
   !>
   !!
@@ -468,9 +552,9 @@ CONTAINS
   ! @par Revision History
   ! Developed  by  Peter Korn, MPI-M (2010).
   !
-  SUBROUTINE calc_slow_oce_diagnostics(p_patch_3d, p_os, p_sfc_flx, p_ice, &
+  SUBROUTINE calc_slow_oce_diagnostics(patch_3D, p_os, p_sfc_flx, p_ice, &
     & timestep, datetime)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)    :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)    :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     TYPE(t_sfc_flx),    INTENT(in)          :: p_sfc_flx
     TYPE (t_sea_ice),   INTENT(in)          :: p_ice
@@ -478,7 +562,7 @@ CONTAINS
     TYPE(t_datetime), INTENT(in)            :: datetime
     
     !Local variables
-    INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
+    INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
     INTEGER :: jk,jc,jb!,je
     INTEGER :: i_no_t, i
     REAL(wp):: prism_vol, surface_height, prism_area, surface_area, z_w
@@ -495,7 +579,7 @@ CONTAINS
     TYPE(t_ocean_regions)         :: ocean_regions
     
     !-----------------------------------------------------------------------
-    p_patch        => p_patch_3d%p_patch_2d(1)
+    p_patch        => patch_3D%p_patch_2d(1)
     owned_cells    => p_patch%cells%owned
     !-----------------------------------------------------------------------
     monitor        => oce_ts%oce_diagnostics(timestep)
@@ -511,16 +595,16 @@ CONTAINS
     CASE (1) ! shallow water mode
       !Potential energy in SW-casep_patch%patch_oce%del_zlev_m(1)
       DO jb = owned_cells%start_block,owned_cells%end_block
-        CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
+        CALL get_index_range(owned_cells, jb, start_cell_index, end_cell_index)
         
-        DO jc =  i_startidx_c, i_endidx_c
-          IF ( p_patch_3d%lsm_c(jc,1,jb) <= sea_boundary ) THEN
-            prism_vol      = p_patch%cells%area(jc,jb)*p_patch_3d%p_patch_1d(1)%prism_thick_c(jc,1,jb)
+        DO jc =  start_cell_index, end_cell_index
+          IF ( patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+            prism_vol      = p_patch%cells%area(jc,jb)*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,jb)
             monitor%volume = monitor%volume + prism_vol
             
             
             monitor%pot_energy = monitor%pot_energy &
-              & + 0.5_wp*grav* prism_vol*p_patch_3d%p_patch_1d(1)%prism_thick_c(jc,1,jb)
+              & + 0.5_wp*grav* prism_vol*patch_3D%p_patch_1d(1)%prism_thick_c(jc,1,jb)
             
             monitor%kin_energy = monitor%kin_energy + p_os%p_diag%kin(jc,1,jb)*prism_vol
             
@@ -535,9 +619,9 @@ CONTAINS
       
     CASE default !3D model
       DO jb = owned_cells%start_block, owned_cells%end_block
-        CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
+        CALL get_index_range(owned_cells, jb, start_cell_index, end_cell_index)
         !We are dealing with the surface layer first
-        DO jc =  i_startidx_c, i_endidx_c
+        DO jc =  start_cell_index, end_cell_index
           
           ! area
           prism_area   = p_patch%cells%area(jc,jb)
@@ -581,11 +665,11 @@ CONTAINS
           ! salinity
           ! volume
           
-          DO jk = 1,p_patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          DO jk = 1,patch_3D%p_patch_1d(1)%dolic_c(jc,jb)
             
             !local volume
             surface_height = MERGE(p_os%p_prog(nnew(1))%h(jc,jb),0.0_wp, 1 == jk)
-            prism_vol      = prism_area * (p_patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb) + surface_height)
+            prism_vol      = prism_area * (patch_3D%p_patch_1d(1)%prism_thick_c(jc,jk,jb) + surface_height)
             
             !Fluid volume
             monitor%volume = monitor%volume + prism_vol
@@ -596,12 +680,12 @@ CONTAINS
             !Potential energy
             IF(jk==1)THEN
               z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-                & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch_3d%p_patch_1d(1)%del_zlev_i(jk))&
-                & /(0.5_wp*p_patch_3d%p_patch_1d(1)%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+                & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk))&
+                & /(0.5_wp*patch_3D%p_patch_1d(1)%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
             ELSEIF(jk>1.AND.jk<n_zlev)THEN
-              z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch_3d%p_patch_1d(1)%del_zlev_i(jk)&
-                & +p_os%p_diag%w(jc,jk+1,jb)*p_patch_3d%p_patch_1d(1)%del_zlev_i(jk+1))&
-                & /(p_patch_3d%p_patch_1d(1)%del_zlev_i(jk)+p_patch_3d%p_patch_1d(1)%del_zlev_i(jk+1))
+              z_w = (p_os%p_diag%w(jc,jk,jb)*patch_3D%p_patch_1d(1)%del_zlev_i(jk)&
+                & +p_os%p_diag%w(jc,jk+1,jb)*patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))&
+                & /(patch_3D%p_patch_1d(1)%del_zlev_i(jk)+patch_3D%p_patch_1d(1)%del_zlev_i(jk+1))
             ENDIF
             monitor%pot_energy = monitor%pot_energy + grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
             
@@ -627,20 +711,20 @@ CONTAINS
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
     monitor%absolute_vertical_velocity = global_sum_array(monitor%absolute_vertical_velocity)/surface_area
-    monitor%HeatFlux_ShortWave             = global_sum_array(monitor%HeatFlux_ShortWave)/surface_area
-    monitor%HeatFlux_LongWave              = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
-    monitor%HeatFlux_Sensible              = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
-    monitor%HeatFlux_Latent                = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
-    monitor%HeatFlux_Total                 = global_sum_array(monitor%HeatFlux_Total    )/surface_area
-    monitor%FrshFlux_Precipitation                = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
-    monitor%FrshFlux_SnowFall                  = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
-    monitor%FrshFlux_Evaporation                  = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
-    monitor%FrshFlux_Runoff                = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
-    monitor%FrshFlux_TotalSalt                 = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
-    monitor%FrshFlux_TotalOcean             = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
-    monitor%FrshFlux_TotalIce             = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
-    monitor%FrshFlux_VolumeIce            = global_sum_array(monitor%FrshFlux_VolumeIce)/surface_area
-    monitor%FrshFlux_VolumeTotal                = global_sum_array(monitor%FrshFlux_VolumeTotal)/surface_area
+    monitor%HeatFlux_ShortWave         = global_sum_array(monitor%HeatFlux_ShortWave)/surface_area
+    monitor%HeatFlux_LongWave          = global_sum_array(monitor%HeatFlux_LongWave )/surface_area
+    monitor%HeatFlux_Sensible          = global_sum_array(monitor%HeatFlux_Sensible )/surface_area
+    monitor%HeatFlux_Latent            = global_sum_array(monitor%HeatFlux_Latent   )/surface_area
+    monitor%HeatFlux_Total             = global_sum_array(monitor%HeatFlux_Total    )/surface_area
+    monitor%FrshFlux_Precipitation     = global_sum_array(monitor%FrshFlux_Precipitation)/surface_area
+    monitor%FrshFlux_SnowFall          = global_sum_array(monitor%FrshFlux_SnowFall)/surface_area
+    monitor%FrshFlux_Evaporation       = global_sum_array(monitor%FrshFlux_Evaporation)/surface_area
+    monitor%FrshFlux_Runoff            = global_sum_array(monitor%FrshFlux_Runoff)/surface_area
+    monitor%FrshFlux_TotalSalt         = global_sum_array(monitor%FrshFlux_TotalSalt)/surface_area
+    monitor%FrshFlux_TotalOcean        = global_sum_array(monitor%FrshFlux_TotalOcean)/surface_area
+    monitor%FrshFlux_TotalIce          = global_sum_array(monitor%FrshFlux_TotalIce)/surface_area
+    monitor%FrshFlux_VolumeIce         = global_sum_array(monitor%FrshFlux_VolumeIce)/surface_area
+    monitor%FrshFlux_VolumeTotal       = global_sum_array(monitor%FrshFlux_VolumeTotal)/surface_area
     monitor%HeatFlux_Relax             = global_sum_array(monitor%HeatFlux_Relax)/surface_area
     monitor%FrshFlux_Relax             = global_sum_array(monitor%FrshFlux_Relax)/surface_area
     monitor%SaltFlux_Relax             = global_sum_array(monitor%SaltFlux_Relax)/surface_area
@@ -679,6 +763,20 @@ CONTAINS
         monitor%indonesian_throughflow = sflux*rho_ref
       CASE (5)
         monitor%scotland_iceland       = sflux*rho_ref
+      CASE (6)
+        monitor%mozambique             = sflux*rho_ref
+      CASE (7)
+        monitor%framStrait             = sflux*rho_ref
+      CASE (8)
+        monitor%beringStrait           = sflux*rho_ref
+      CASE (9)
+        monitor%barentsOpening         = sflux*rho_ref
+      CASE (10)
+        monitor%agulhas                = sflux*rho_ref
+      CASE (11)
+        monitor%agulhas_long           = sflux*rho_ref
+      CASE (12)
+        monitor%agulhas_longer         = sflux*rho_ref
       END SELECT
     ENDDO
     IF (my_process_is_stdio()) &
@@ -731,6 +829,13 @@ CONTAINS
         & monitor%drake_passage,  &
         & monitor%indonesian_throughflow, &
         & monitor%scotland_iceland, &
+        & monitor%mozambique    , &
+        & monitor%framStrait    , &
+        & monitor%beringStrait  , &
+        & monitor%barentsOpening, &
+        & monitor%agulhas       , &
+        & monitor%agulhas_long  , &
+        & monitor%agulhas_longer, &
         & monitor%t_mean_na_200m, &
         & monitor%t_mean_na_800m, &
         & monitor%ice_ocean_heat_budget, &
@@ -756,7 +861,7 @@ CONTAINS
     TYPE(t_hydro_ocean_diag), TARGET :: p_diag
     
     !Local variables
-    INTEGER :: i_startidx_c, i_endidx_c!,i_startblk_c, i_endblk_c,
+    INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
     INTEGER :: jk,jc,jb!,je
     
     TYPE(t_subset_range), POINTER :: owned_cells
@@ -768,10 +873,11 @@ CONTAINS
     CASE (1) ! shallow water mode
       
     CASE default !3D model
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index) SCHEDULE(dynamic)
       DO jb = owned_cells%start_block, owned_cells%end_block
-        CALL get_index_range(owned_cells, jb, i_startidx_c, i_endidx_c)
+        CALL get_index_range(owned_cells, jb, start_cell_index, end_cell_index)
         !We are dealing with the surface layer first
-        DO jc =  i_startidx_c, i_endidx_c
+        DO jc =  start_cell_index, end_cell_index
           
           p_diag%mld(jc,jb) = calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,jb),&
             & 0.125_wp, &
@@ -781,6 +887,7 @@ CONTAINS
           p_diag%condep(jc,jb) = calc_condep(p_diag%zgrad_rho(jc,:,jb), dolic(jc,jb))
         ENDDO
       ENDDO
+!ICON_OMP_END_PARALLEL_DO 
       CALL dbg_print('Diag: mld',p_diag%mld,str_module,4,in_subset=owned_cells)
     END SELECT
   END SUBROUTINE calc_fast_oce_diagnostics
@@ -855,10 +962,10 @@ CONTAINS
   ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
   ! TODO: calculate the 1 deg resolution meridional distance
   !!
-  SUBROUTINE calc_moc (p_patch, p_patch_3d, w, datetime)
+  SUBROUTINE calc_moc (p_patch, patch_3D, w, datetime)
     
     TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
     REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
     ! dims: (nproma,nlev+1,alloc_cell_blocks)
     TYPE(t_datetime), INTENT(in)       :: datetime
@@ -866,7 +973,7 @@ CONTAINS
     ! local variables
     ! INTEGER :: i
     INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
-    INTEGER :: jb, jc, jk, i_startidx, i_endidx !, il_e, ib_e
+    INTEGER :: jb, jc, jk, start_index, end_index !, il_e, ib_e
     INTEGER :: lbrei, lbr, idate, itime
     INTEGER :: mpi_comm
     INTEGER(i8) :: i1,i2,i3,i4
@@ -902,11 +1009,11 @@ CONTAINS
     
     DO jk = 1, n_zlev   !  not yet on intermediate levels
       DO jb = dom_cells%start_block, dom_cells%end_block
-        CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
-        DO jc = i_startidx, i_endidx
+        CALL get_index_range(dom_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
           
           !  could be replaced by vertical loop to bottom
-          IF ( p_patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
+          IF ( patch_3D%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
             
             ! lbrei: corresponding latitude row of 1 deg extension
             !       1 south pole
@@ -938,19 +1045,19 @@ CONTAINS
               global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               !  multiply with wet (or loop to bottom)
                 & p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
-                & p_patch_3d%wet_c(jc,jk,jb) / &
+                & patch_3D%wet_c(jc,jk,jb) / &
                 & REAL(2*jbrei + 1, wp)
               
-              IF (p_patch_3d%basin_c(jc,jb) == 1) THEN         !  1: Atlantic; 0: Land
+              IF (patch_3D%basin_c(jc,jb) == 1) THEN         !  1: Atlantic; 0: Land
                 
                 atlant_moc(lbrei,jk) = atlant_moc(lbrei,jk) - &
                   & p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
-                  & p_patch_3d%wet_c(jc,jk,jb) / &
+                  & patch_3D%wet_c(jc,jk,jb) / &
                   & REAL(2*jbrei + 1, wp)
-              ELSE IF (p_patch_3d%basin_c(jc,jb) >= 2) THEN   !  2: Indian; 4: Pacific
+              ELSE IF (patch_3D%basin_c(jc,jb) >= 2) THEN   !  2: Indian; 4: Pacific
                 pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
                   & p_patch%cells%area(jc,jb) * rho_ref * w(jc,jk,jb) * &
-                  & p_patch_3d%wet_c(jc,jk,jb) / &
+                  & patch_3D%wet_c(jc,jk,jb) / &
                   & REAL(2*jbrei + 1, wp)
               END IF
               
@@ -1004,7 +1111,7 @@ CONTAINS
       DO jk = 1,n_zlev
         i1=INT(idate,i8)
         i2 = INT(777,i8)
-        i3 = INT(p_patch_3d%p_patch_1d(1)%zlev_i(jk),i8)
+        i3 = INT(patch_3D%p_patch_1d(1)%zlev_i(jk),i8)
         i4 = INT(180,i8)
         WRITE(moc_unit) i1,i2,i3,i4
         WRITE(moc_unit) (global_moc(lbr,jk),lbr=1,180)
@@ -1035,12 +1142,11 @@ CONTAINS
   ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_psi (p_patch,p_patch_3d, u, h, u_vint, datetime)
+  SUBROUTINE calc_psi (patch_3D, u, prism_thickness, u_vint, datetime)
     
-    TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: p_patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
     REAL(wp), INTENT(in)               :: u(:,:,:)     ! zonal velocity at cell centers
-    REAL(wp), INTENT(in)               :: h(:,:)       ! elevation on cell centers
+    REAL(wp), INTENT(in)               :: prism_thickness(:,:,:)       ! elevation on cell centers
     ! dims: (nproma,nlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)            :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
     TYPE(t_datetime), INTENT(in)       :: datetime
@@ -1056,7 +1162,7 @@ CONTAINS
     
     ! smoothing area is 2*jsmth-1 lat/lon areas of 1 deg
     INTEGER, PARAMETER ::  jsmth = 3
-    INTEGER :: jb, jc, jk, i_startidx, i_endidx
+    INTEGER :: jb, jc, jk, start_index, end_index
     INTEGER :: jlat, jlon, jlt, jln, jltx, jlnx, jsmth2
     INTEGER(i8)        :: idate, iextra(4)
     
@@ -1065,6 +1171,7 @@ CONTAINS
     REAL(wp) :: z_uint_reg(nlon,nlat)                     ! vertical integral on regular grid
     REAL(wp) :: psi_reg(nlon,nlat)                        ! horizontal stream function
     
+    TYPE(t_patch), POINTER  :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells, dom_cells
     
     !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_oce_diagnostics:calc_psi')
@@ -1077,25 +1184,27 @@ CONTAINS
     jsmth2          = 2*jsmth + 1
     rsmth           = REAL(jsmth2*jsmth2, wp)
     
-    
     ! with all cells no sync is necessary
+    p_patch   => patch_3d%p_patch_2d(1)
     all_cells => p_patch%cells%ALL
     dom_cells => p_patch%cells%in_domain
     
     ! (1) barotropic system:
     !     vertical integration of zonal velocity times vertical layer thickness [m/s*m]
-    u_vint(:,:)     = 0.0_wp
+!ICON_OMP_PARALLEL_DO PRIVATE(jc, jk, start_index, end_index) SCHEDULE(dynamic)
     DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-      DO jk = 1, n_zlev
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      u_vint(:,jb)     = 0.0_wp
+      DO jc = start_index, end_index
+      
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
         
-        DO jc = i_startidx, i_endidx
-          delta_z = p_patch_3d%p_patch_1d(1)%del_zlev_m(jk)
-          IF (jk == 1) delta_z = p_patch_3d%p_patch_1d(1)%del_zlev_m(jk) + h(jc,jb)
-          u_vint(jc,jb) = u_vint(jc,jb) - u(jc,jk,jb)*delta_z*p_patch_3d%wet_c(jc,jk,jb)
+          u_vint(jc,jb) = u_vint(jc,jb) - u(jc,jk,jb) * prism_thickness(jc,jk,jb)
+          
         END DO
       END DO
     END DO
+!ICON_OMP_END_PARALLEL_DO
     
     IF (idiag_psi == 1) RETURN
     
@@ -1104,8 +1213,8 @@ CONTAINS
     
     ! in domain: count all cells only once
     DO jb = dom_cells%start_block, dom_cells%end_block
-      CALL get_index_range(dom_cells, jb, i_startidx, i_endidx)
-      DO jc = i_startidx, i_endidx
+      CALL get_index_range(dom_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
         z_lat_deg = p_patch%cells%center(jc,jb)%lat * rad2deg
         z_lon_deg = p_patch%cells%center(jc,jb)%lon * rad2deg
         
@@ -1201,7 +1310,7 @@ CONTAINS
     INTEGER :: maxcondep     !< maximum convective penetration level
     REAL(wp) :: masked_vertical_density_gradient(n_zlev)
     
-   condep = 1
+    condep = 1
 
     ! remove dbl_eps, which  is added in the vertical gradient computation
     masked_vertical_density_gradient = MAX(vertical_density_gradient - dbl_eps,0.0_wp)

@@ -18,7 +18,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ocean_statistics
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
@@ -47,10 +49,6 @@ MODULE mo_ocean_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_oce_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
-    & construct_oce_diagnostics,&
-    & destruct_oce_diagnostics, t_oce_timeseries, &
-    & calc_moc, calc_psi
   USE mo_oce_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
@@ -67,14 +65,10 @@ MODULE mo_ocean_statistics
   PUBLIC :: update_ocean_statistics
   PUBLIC :: compute_mean_ocean_statistics
   PUBLIC :: reset_ocean_statistics
-  PUBLIC :: new_ocean_statistics
-
-  
-
+  PUBLIC :: new_ocean_statistics  
   !-------------------------------------------------------------------------
   
 CONTAINS
-
     
   !---------------------------------------------------------------------
 !<Optimize:inUse>
@@ -98,11 +92,11 @@ CONTAINS
         & cells)
     END DO
     CALL add_fields(ocean_state%p_acc%u_vint        , ocean_state%p_diag%u_vint        , cells)
-    CALL add_fields(ocean_state%p_acc%w             , ocean_state%p_diag%w             , cells,max_zlev+1)
+    CALL add_fields(ocean_state%p_acc%w             , ocean_state%p_diag%w             , cells,levels=max_zlev+1)
     CALL add_fields(ocean_state%p_acc%div_mass_flx_c, ocean_state%p_diag%div_mass_flx_c, cells)
     CALL add_fields(ocean_state%p_acc%rho           , ocean_state%p_diag%rho           , cells)
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
-    CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,max_zlev)
+    CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
     
     ! update forcing accumulated values
@@ -161,6 +155,8 @@ CONTAINS
     !TODO [ram]   end IF
     
     
+!ICON_OMP_PARALLEL
+!ICON_OMP_WORKSHARE
     p_acc%tracer                    = p_acc%tracer                   /REAL(nsteps_since_last_output,wp)
     p_acc%h                         = p_acc%h                        /REAL(nsteps_since_last_output,wp)
     p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
@@ -191,6 +187,8 @@ CONTAINS
     p_sfc_flx%FrshFlux_VolumeIce_acc        = p_sfc_flx%FrshFlux_VolumeIce_acc       /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%FrshFlux_VolumeTotal_acc      = p_sfc_flx%FrshFlux_VolumeTotal_acc     /REAL(nsteps_since_last_output,wp)
     p_sfc_flx%HeatFlux_Relax_acc            = p_sfc_flx%HeatFlux_Relax_acc           /REAL(nsteps_since_last_output,wp)
+!ICON_OMP_END_WORKSHARE
+!ICON_OMP_END_PARALLEL
     IF(no_tracer>0)THEN
       p_sfc_flx%data_surfRelax_Temp_acc     = p_sfc_flx%data_surfRelax_Temp_acc        /REAL(nsteps_since_last_output,wp)
       p_sfc_flx%topBoundCond_Temp_vdiff_acc = p_sfc_flx%topBoundCond_Temp_vdiff_acc    /REAL(nsteps_since_last_output,wp)
