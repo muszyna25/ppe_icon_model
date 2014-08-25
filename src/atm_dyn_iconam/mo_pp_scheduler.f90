@@ -76,11 +76,11 @@
 !!                         VINTP_METHOD_PRES          : vertical interpolation of pressure, piecewise 
 !!                                                      analytical integration of the hydrostatic equation
 !!                         VINTP_METHOD_LIN_NLEVP1    : linear interpolation for half level fields
-!!                       [ VINTP_METHOD_UV (unused) ] : vertical interpolation and extrapolation of horizontal 
-!!                                                      wind components, performs cubic interpolation where 
+!!                         VINTP_METHOD_VN            : vertical interpolation and extrapolation of horizontal 
+!!                                                      wind, performs cubic interpolation where 
 !!                                                      possible, turning to linear interpolation close to the 
 !!                                                      surface with boundary-layer treatment
-!!                                                      - Despite this mode, wind fields are treated differently, 
+!!                                                      - Please note than wind fields are treated in a special way, 
 !!                                                        see below. -
 !!
 !!  Special treatment of wind fields:
@@ -92,13 +92,17 @@
 !!  vertical axis are created and a post-processing task for edge2cell
 !!  interpolation "vn" -> "u","v". Thus, when requesting "U", "V", we
 !!  actually get "VN" vertically interpolated.
+!!  The vertical interpolation method for the wind fields is therefore
+!!  specified by the "add_var(...)" for the normal velocity component
+!!  "VN".
+
 !!
 !!  Tuning parameters for the interpolation algorithms
 !!  (defaults are defined in mo_var_metadata::create_vert_interp_metadata)
 !!
-!!     l_hires_intp             : mode for interpolation to (much) finer grid (VINTP_METHOD_UV)
+!!     l_hires_intp             : mode for interpolation to (much) finer grid (VINTP_METHOD_VN)
 !!                                Default: .FALSE.
-!!     l_restore_fricred        : subtract/restore frictional reduction of wind speed (VINTP_METHOD_UV)
+!!     l_restore_fricred        : subtract/restore frictional reduction of wind speed (VINTP_METHOD_VN)
 !!                                Default: .FALSE.
 !!     l_loglin                 : setting l_loglin=.TRUE. activates logarithmic interpolation
 !!                                (only for VINTP_METHOD_LIN)

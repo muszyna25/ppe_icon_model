@@ -34,7 +34,7 @@ MODULE mo_nonhydro_state
   USE mo_kind,                 ONLY: wp, vp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
     &                                INWP, IECHAM,                       &
-    &                                VINTP_METHOD_UV,                    &
+    &                                VINTP_METHOD_VN,                    &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
     &                                VINTP_METHOD_LIN,                   &
     &                                VINTP_METHOD_LIN_NLEVP1,            &
@@ -486,7 +486,7 @@ MODULE mo_nonhydro_state
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'vn'//suffix, p_prog%vn,     &
       &           GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,       &
       &           vert_interp=create_vert_interp_metadata(                      &
-      &             vert_intp_method=VINTP_METHOD_UV,                           &
+      &             vert_intp_method=VINTP_METHOD_VN,                           &
       &             l_hires_intp=.FALSE., l_restore_fricred=.FALSE.),           &
       &           ldims=shape3d_e,                                              &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",             &

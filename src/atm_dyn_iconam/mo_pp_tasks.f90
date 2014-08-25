@@ -23,7 +23,7 @@ MODULE mo_pp_tasks
   USE mo_kind,                    ONLY: wp
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY: SUCCESS,                      &
-    & VINTP_METHOD_UV, VINTP_METHOD_LIN, VINTP_METHOD_QV,             &
+    & VINTP_METHOD_VN, VINTP_METHOD_LIN, VINTP_METHOD_QV,             &
     & VINTP_METHOD_LIN_NLEVP1,                                        &
     & TASK_NONE, TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,   &
     & TASK_FINALIZE_IPZ,                                              &
@@ -692,8 +692,8 @@ CONTAINS
     IF (.NOT. ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0)))) THEN
 
       SELECT CASE ( vert_intp_method )
-      CASE ( VINTP_METHOD_UV )
-        IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_UV")
+      CASE ( VINTP_METHOD_VN )
+        IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_VN")
         IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
         IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
         CALL uv_intp(tmp_var(:,:,:),                                                & !in
