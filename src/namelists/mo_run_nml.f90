@@ -31,6 +31,7 @@ MODULE mo_run_nml
                          & config_output          => output,          &
                          & config_output_mode     => output_mode,     &
                          & config_test_mode       => test_mode,       &
+                         & config_test_param      => test_param,      &
                          & t_output_mode, max_output_modes,           &
                          & config_debug_check_level => debug_check_level, &
                          & config_restart_filename  => restart_filename, &
@@ -93,6 +94,7 @@ MODULE mo_run_nml
 
   INTEGER :: test_mode  ! if =0 then run the standard version,
                         ! otherwise special setup for (performance) tests, see Namelist_overview
+  INTEGER :: test_param ! optional parameter for further control over tests
   INTEGER :: debug_check_level
 
   !> output mode (logicals)
@@ -116,6 +118,7 @@ MODULE mo_run_nml
                      activate_sync_timers,          &
                      msg_level,                     &
                      test_mode,                     &
+                     test_param,                    &
                      output,                        &
                      msg_timestamp,                 &
                      debug_check_level,             &
@@ -136,37 +139,38 @@ CONTAINS
     ! Default settings
     !------------------------------------------------------------
 
-    ltestcase       = .TRUE.
-    ldynamics       = .TRUE.
-    iforcing        = inoforcing
+    ltestcase            = .TRUE.
+    ldynamics            = .TRUE.
+    iforcing             = inoforcing
 
-    ltransport      = .FALSE.
-    ntracer         = 0
-    lart            = .FALSE.
+    ltransport           = .FALSE.
+    ntracer              = 0
+    lart                 = .FALSE.
 
-    lvert_nest = .FALSE. ! no vertical nesting
-    num_lev(:) = 31    ! number of full levels for each domain
-    nshift(:)  = 0       ! please do not change the default.
-                         ! otherwise the initialization of 
-                         ! p_patch(jg)%nshift in "import patches" 
-                         ! will not work properly.
+    lvert_nest           = .FALSE. ! no vertical nesting
+    num_lev(:)           = 31      ! number of full levels for each domain
+    nshift(:)            = 0       ! please do not change the default.
+                                   ! otherwise the initialization of
+                                   ! p_patch(jg)%nshift in "import patches"
+                                   ! will not work properly.
 
-    nsteps = 0
-    dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
+    nsteps               = 0
+    dtime                = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
 
     ltimer               = .TRUE.
     timers_level         = 1
     activate_sync_timers = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
-    test_mode         = 0
-    debug_check_level = 0
+    test_mode            = 0
+    test_param           = 0
+    debug_check_level    = 0
 
-    output(:) = " "
-    output(1) = "default"
+    output(:)            = " "
+    output(1)            = "default"
 
-    restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
-    profiling_output = config_profiling_output
+    restart_filename     = "<gridfile>_restart_<mtype>_<rsttime>.nc"
+    profiling_output     = config_profiling_output
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -249,9 +253,10 @@ CONTAINS
     config_timers_level    = timers_level
     config_activate_sync_timers = activate_sync_timers
 
-    config_msg_level       = msg_level
-    config_msg_timestamp   = msg_timestamp
-    config_test_mode    = test_mode
+    config_msg_level         = msg_level
+    config_msg_timestamp     = msg_timestamp
+    config_test_mode         = test_mode
+    config_test_param        = test_param
     config_debug_check_level = debug_check_level
 
     config_restart_filename = restart_filename

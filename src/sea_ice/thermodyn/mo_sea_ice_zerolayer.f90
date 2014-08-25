@@ -245,20 +245,23 @@ CONTAINS
       & Tfw,         & ! Ocean freezing temperature [C]
       & Q_surplus   ! energy surplus during ice growth
     
+    REAL(wp) ::      &
+      & below_water, & ! Thickness of snow layer below water line           [m]
+      & draft          ! depth of ice-ocean interface below sea level       [m]
+
     TYPE(t_subset_range), POINTER :: all_cells
     INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c
     
-    all_cells => p_patch%cells%all 
-    Tfw(:,:,:) = 0.0_wp
+    all_cells        => p_patch%cells%all
+    Tfw(:,:,:)       = 0.0_wp
     zHeatOceI(:,:,:) = 0.0_wp
     Q_surplus(:,:,:) = 0.0_wp
 
     
     ! Save ice thickness at previous time step for calculation of heat and salt
     ! flux into ocean in subroutine upper_ocean_TS
-    ! this is already done in the calling methond ice_slow
-!     ice % hiold (:,:,:) = ice%hi(:,:,:)
-!     ice % hsold (:,:,:) = ice%hs(:,:,:)
+    ice % hiold (:,:,:) = ice%hi(:,:,:)
+    ice % hsold (:,:,:) = ice%hs(:,:,:)
 
     ! freezing temperature of uppermost sea water
     IF ( no_tracer >= 2 ) then
@@ -310,6 +313,21 @@ CONTAINS
             ! Fixed 27. March
             ! heat to remove from water
             ice%heatOceI(jc,k,jb) = ice%heatOceI(jc,k,jb) - zHeatOceI(jc,k,jb)
+
+            draft           = ( rhoi*ice%hi(jc,k,jb) + rhos*ice%hs(jc,k,jb) )/rho_ref
+            below_water     = draft - ice%hi(jc,k,jb)
+            
+            ! snow -> ice conversion for snow below waterlevel
+            ! Currently not quite physical: Snow is pushed together to form new ice, hence snow thickness
+            ! decreases more than ice thickness by rhoi/rhos ( analogue to old growth.f90 sea-ice model )
+            ! Salt content of snow ice is equal to that of normal ice, salt is removed from the ocean
+            ! Temperature of new upper ice is calculated as described in the paragraph below 
+            ! Eq. 36
+            IF ( below_water > 0.0_wp ) THEN
+              ice%snow_to_ice(jc,k,jb) = below_water*rhoi/rhos     ! Thickness of snow that is converted into ice
+              ice%hs         (jc,k,jb) = ice%hs(jc,k,jb) - ice%snow_to_ice(jc,k,jb)
+              ice%hi         (jc,k,jb) = ice%hi(jc,k,jb) + below_water
+            END IF
             
             IF (ice%hi (jc,k,jb) <= 0.0_wp) THEN
               ! #achim: check units -- heatocei in J as opposed to W/m2?
@@ -359,6 +377,7 @@ CONTAINS
 
 !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('SNOW TO ICE: ice%snow_to_ice',ice%snow_to_ice,str_module,idt_src,in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero: ice%hi'     ,ice%hi     ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('GrowZero: ice%hs'     ,ice%hs     ,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=4  ! output print level (1-5, fix)

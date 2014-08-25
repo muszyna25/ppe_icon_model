@@ -236,7 +236,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: para_3dimRelax_Salt   = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   LOGICAL  :: limit_seaice          = .TRUE.     ! .TRUE.: set a cutoff limit to sea ice thickness
-  REAL(wp) :: seaice_limit          = 0.4_wp     ! limit sea ice thickness to fraction of surface layer thickness
+  REAL(wp) :: seaice_limit          = 0.8_wp     ! limit sea ice thickness to fraction of surface layer thickness
 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
                                                  ! 1=full varying Coriolis

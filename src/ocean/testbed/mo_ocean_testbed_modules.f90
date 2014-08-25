@@ -23,11 +23,12 @@ MODULE mo_ocean_testbed_modules
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
-  USE mo_model_domain,           ONLY: t_patch, t_patch_3d
+  USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
+  USE mo_grid_subset,            ONLY: get_index_range
   USE mo_ocean_nml,              ONLY: n_zlev
-  USE mo_dynamics_config,        ONLY: nold
-  USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode
+  USE mo_dynamics_config,        ONLY: nold, nnew
+  USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode, test_param
   USE mo_exception,              ONLY: message, message_text, finish
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
@@ -40,7 +41,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_oce_tracer,             ONLY: advect_tracer_ab
   USE mo_oce_bulk,               ONLY: update_surface_flux
-  USE mo_sea_ice,                ONLY: ice_budgets
+  USE mo_sea_ice,                ONLY: salt_content_in_surface
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
@@ -229,13 +230,17 @@ CONTAINS
     ! local variables
     REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) &
       &                                              :: draft, &
-      &                                                 saltBefore, saltAfter, saltBudget
+      &                                                 saltBefore, saltAfter, saltBudget, &
+      &                                                 salinityBefore, salinityAfter, salinityBudget, &
+      &                                                 zUnderIceBefore, zUnderIceAfter
     INTEGER :: jstep
+    INTEGER :: block, cell, cellStart,cellEnd
+    TYPE(t_subset_range), POINTER :: subset
     !INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
-    INTEGER :: jstep0
+    INTEGER :: jstep0,computation_type
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
@@ -244,25 +249,38 @@ CONTAINS
 
     CALL datetime_to_string(datestring, datetime)
 
-    time_config%sim_time(:) = 0.0_wp
-    jstep0 = 0
+    time_config%sim_time(:)                                              = 0.0_wp
+    jstep0                                                               = 0
+    draft(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)           = 0.0_wp
+    saltBefore(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)      = 0.0_wp
+    saltAfter(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)       = 0.0_wp
+    saltBudget(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)      = 0.0_wp
+    salinityBefore(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)  = 0.0_wp
+    salinityAfter(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)   = 0.0_wp
+    salinityBudget(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)  = 0.0_wp
+    zUnderIceBefore(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks) = 0.0_wp
+    zUnderIceAfter(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)  = 0.0_wp
     !------------------------------------------------------------------
 
+    ! x-check if the saltbudget is correctly computed {{{
+    ! p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1) = 30.0_wp
+    ! p_os(n_dom)%p_prog(nold(1))%h(:,:) =  0.0_wp
+    ! p_ice%hi(:,:,:) = 0.0_wp
+    ! p_ice%conc(:,:,:) = 0.0_wp
+    ! p_ice%concSum(:,:) = 0.0_wp
+    ! }}}
+
+    CALL dbg_print('TB sfcFlx: hi' ,p_ice%hi          ,debug_string, 4, in_subset=patch_2D%cells%owned)
+
     !  Overwrite init:
-    WHERE (p_ice%hi(:,1,:) > 1.0_wp)
-      p_ice%hi(:,1,:) = 0.3_wp
-      p_ice%hs(:,1,:) = 0.1_wp
-      p_ice%conc(:,1,:) = 0.5_wp
-      p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,1) = -1.7_wp
-    ENDWHERE
+    ! p_ice%hs(:,1,:) = 0.0_wp
 
-    ! TODO: use prism_thick_flat_sfc_c instead of del_zlev_m
-    draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
-    p_ice%zUnderIce(:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:) +  p_os(n_dom)%p_prog(nold(1))%h(:,:) &
-      &                  - draft(:,:) * p_ice%conc(:,1,:)
+  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
+  ! p_ice%zUnderIce(:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:) +  p_os(n_dom)%p_prog(nold(1))%h(:,:) &
+  !   &                  - draft(:,:) * p_ice%conc(:,1,:)
 
-    CALL dbg_print('sfcflx: draft    ' ,draft          ,debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
-    CALL dbg_print('sfcflx: zUnderIce' ,p_ice%zUnderIce,debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
+    CALL dbg_print('sfcflx: draft    ' ,draft          ,debug_string, 4, in_subset=patch_2D%cells%owned)
+    CALL dbg_print('sfcflx: zUnderIce' ,p_ice%zUnderIce,debug_string, 4, in_subset=patch_2D%cells%owned)
 
     !------------------------------------------------------------------
     ! write initial
@@ -270,9 +288,14 @@ CONTAINS
     IF (output_mode%l_nml) THEN
       CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice,jstep0)
     ENDIF
+
+    ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
+      CALL message('test_surface_flux','IceBudget === BEGIN TIMESTEP ======================================================&
+        &==============================================')
     
       p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
+
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)
@@ -280,30 +303,88 @@ CONTAINS
       ! Set model time.
       CALL add_time(dtime,0,0,0,datetime)
 
-      ! diagnostics BEFORE
-      saltBefore = ice_budgets(patch_2D, p_ice, p_os(n_dom),'BEFORE')
+      ! print out 3d salinity
+      CALL dbg_print('IceBudget: saltinity BEFORE' ,&
+        &            p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2) ,&
+        &            debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: zUnderIce  BEFORE' ,&
+        &             p_ice%zUnderIce(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
 
-      ! call component
+      !------------------------------------------------------------------------
+      computation_type = test_param
+      ! BEFOR : {{{
+      zUnderIceBefore = p_ice%zUnderIce
+      !salinity
+      salinityBefore  = p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2)
+      ! salt
+      saltBefore      = salt_content_in_surface(patch_2D, patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
+        &                                       p_ice, p_os(n_dom),surface_fluxes,zUnderIceBefore,&
+        &                                       computation_type=computation_type,info='BEFORE')
+      ! liquid water height
+      !}}}
+
+      !------------------------------------------------------------------------
+      ! call surface model
       CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
         &  operators_coefficients)
 
-      ! diagnostics AFTER
-      saltAfter =  ice_budgets(patch_2D, p_ice, p_os(n_dom),'AFTER')
+      !------------------------------------------------------------------------
+      ! AFTER {{{
+      zUnderIceAfter = p_ice%zUnderIce
+      saltAfter      = salt_content_in_surface(patch_2D, patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
+        &                                      p_ice, p_os(n_dom),surface_fluxes,zUnderIceAfter,&
+        &                                      computation_type=computation_type,info='AFTER')
+      salinityAfter  = p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2)
+      !}}}
+
+      ! print out 3d salinity
+      CALL dbg_print('IceBudget: saltinity  AFTER' ,&
+        &             p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2),debug_string,4,in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: FrshFlux_TotalSalt  AFTER' ,&
+        &             surface_fluxes%FrshFlux_TotalSalt,debug_string,4,in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: zUnderIce  AFTER' ,&
+        &             p_ice%zUnderIce(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: zUnderIce  DIFF ' ,&
+        &             zUnderIceAfter(:,:) - zUnderIceBefore(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
 
       ! compute budget
-      saltBudget = saltAfter - saltBefore
+      saltBudget     = real(int(saltAfter) - int(saltBefore))         ! this discribes the saltbudget in kg, which has to be zero
+      salinityBudget = salinityAfter - salinityBefore ! is not allowed to be changed by the sea ice model
 
-      CALL dbg_print('IceBudget: salt diff', &
-      &              saltBudget , &
-      &              debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
+      ! SALT-FRESHWATER-CHECK:
+      ! (1) check if the FreshwaterFlux (created by the ice model only) is consistent with the zUnderIce variable:
+      !     (11) apply the freshwater flux to the upper most cell
+      !     (12) for that: switch off all external fresh water fluxes
+      !     (12)           ignore snow, i.e. set hs:=0 (no possible snow-to-ice conversion)
+      !     (13) check, if the new height correspondes with zUnderIce
+      !     PROBLEM: h is based on liquid representatoin of ice, a fresh water flux
+      !     PROBLEM: the total ich volume change is put into the
+      !     FrshFlux_VolumeIce and this is applied to the h. This seems to be
+      !     wrong, because the height does not change by ice groth and melt
+      ! (2) check salt content
+      !     (21) apply the saltinityFux to the uppermost cell
+      !          with (a) constant thickness
+      !               (b) zUnderIce
+      !          and compute the total salt content in each grid cell: has to be constant over time
 
+      !------------------------------------------------------------------------
+      ! output: TODO not working for 3d prognostics
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
-
       ! add values to output field
-      p_ice%budgets%salt_00(:,:) = saltBudget(:,:)
+      subset => patch_2D%cells%owned
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, cellStart, cellEnd)
+        DO cell = cellStart, cellEnd
+          IF (subset%vertical_levels(cell,block) < 1) CYCLE
+          p_ice%budgets%salt_00(cell,block) = saltBudget(cell,block)
+        ENDDO
+      ENDDO
 
-      CALL dbg_print('IceBudget: salt_00' ,p_ice%budgets%salt_00 ,debug_string, 4, in_subset=patch_3d%p_patch_2D(1)%cells%owned)
-
+      !nnew(1) = nold(1)
+      p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
+      p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
+      p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
+      p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
         &                datetime,   &
@@ -311,6 +392,13 @@ CONTAINS
         &                p_ice,      &
         &                jstep, jstep0)
 
+      CALL update_time_indices(n_dom)
+
+      CALL dbg_print('IceBudget: salt     diff',saltBudget ,debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: salt    After',saltAfter ,debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: salt   Before',saltBefore ,debug_string, 4, in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: salinity diff',salinityBudget,debug_string,4,in_subset=patch_2D%cells%owned)
+      CALL dbg_print('IceBudget: salt_00' ,p_ice%budgets%salt_00 ,debug_string, 4, in_subset=patch_2D%cells%owned)
     END DO
     
   END SUBROUTINE test_surface_flux
