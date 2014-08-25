@@ -712,6 +712,7 @@ run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0010km_cell -text
 run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0080km_cell -text
 run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0080km_cell_02 -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_cell -text
+run/checksuite.ocean_internal/exp.oce_omip_160km_cell_ptest -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_edge -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_restarttest -text
