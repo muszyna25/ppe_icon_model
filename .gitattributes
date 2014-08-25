@@ -793,6 +793,7 @@ run/exp.oce_channel -text
 run/exp.oce_default -text
 run/exp.oce_mpiom -text
 run/exp.oce_mpiom_new_noland -text
+run/exp.oce_mpiom_testOceanSurface -text
 run/exp.oce_omip_cell -text
 run/exp.oce_r2b5 -text
 run/exp.oce_sltst -text
