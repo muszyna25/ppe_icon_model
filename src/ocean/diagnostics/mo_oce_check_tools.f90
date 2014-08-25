@@ -275,6 +275,7 @@ CONTAINS
 
     INTEGER :: block, idx, start_idx, end_idx, level
     INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk
+    INTEGER :: edge_levels, cell1_levels, cell2_levels
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
     TYPE(t_patch), POINTER        :: patch_2d
     CHARACTER(len=*), PARAMETER :: method_name='mo_oce_check_tools:ocean_check_level_sea_land_mask'
@@ -335,7 +336,22 @@ CONTAINS
             CALL finish(method_name,"Sea edge with one cell land")
           ENDIF
 
-        ENDDO
+        ENDDO ! levels
+
+        ! check depth consistancy
+        IF (patch_3d%p_patch_1d(1)%dolic_e(idx, block) > 0) THEN
+          edge_levels = patch_3d%p_patch_1d(1)%dolic_e(idx, block)
+          cell1_levels = patch_3d%p_patch_1d(1)%dolic_c(cell1_idx, cell1_blk)
+          cell2_levels = patch_3d%p_patch_1d(1)%dolic_c(cell2_idx, cell2_blk)
+          IF (edge_levels /= MIN(cell1_levels, cell2_levels)) &
+            CALL finish(method_name,"edge levels /= min cell levels")
+
+          IF (patch_3D%p_patch_1D(1)%prism_thick_e(idx, edge_levels, block) /= &
+            MIN(patch_3D%p_patch_1D(1)%prism_thick_c(cell1_idx, edge_levels, cell1_blk), &
+                patch_3D%p_patch_1D(1)%prism_thick_c(cell2_idx, edge_levels, cell2_blk))) &
+            CALL finish(method_name,"edge depth /= min cell depths")
+        ENDIF
+        
 
         ! check land
         DO level=patch_3d%p_patch_1d(1)%dolic_e(idx, block)+1, n_zlev
