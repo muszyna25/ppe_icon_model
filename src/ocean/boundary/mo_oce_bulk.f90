@@ -306,6 +306,16 @@ CONTAINS
         !  - specify evaporation over snow/ice/water differently
         !    currently, evaporation is considered over open water only
       ENDIF
+      !TODOram
+      IF (.FALSE.) THEN
+        !TODO ram: not _real_ freshwater
+        atmos_fluxes%FrshFlux_Precipitation(:,:) = 0.0_wp
+        atmos_fluxes%FrshFlux_Evaporation(:,:) = 0.0_wp
+        atmos_fluxes%FrshFlux_Runoff(:,:)      = 0.0_wp
+        atmos_fluxes%FrshFlux_TotalOcean(:,:)  = 0.0_wp
+        atmos_fluxes%rpreci(:,:) = 0.0_wp
+        atmos_fluxes%rprecw(:,:) = 0.0_wp
+      END IF
 
       IF ( no_tracer >= 2 ) THEN
         Tfw(:,:) = -mu*s_top(:,:)
