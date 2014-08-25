@@ -1173,7 +1173,7 @@ CONTAINS
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
     CALL MPI_Get(bufr_metainfo, SIZE(bufr_metainfo), p_int, 0, &
-      &          0, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
+      &          0_MPI_ADDRESS_KIND, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
     CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
 
     ! Go over all name list variables for this output file
