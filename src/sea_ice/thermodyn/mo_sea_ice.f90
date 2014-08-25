@@ -1820,7 +1820,7 @@ CONTAINS
     !!DN CALL dbg_print('UpperOcTS: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
 
     !TODOram: openmp
-    subset => p_patch%cells%owned
+    subset => p_patch%cells%all
     DO block = subset%start_block, subset%end_block
       CALL get_index_range(subset, block, cellStart, cellEnd)
       DO cell = cellStart, cellEnd
