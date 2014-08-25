@@ -533,7 +533,7 @@ CONTAINS
     INTEGER                            :: &
       &  vert_intp_method, jg,                    &
       &  in_var_idx, out_var_idx, nlev, nlevp1,   &
-      &  n_ipzlev, npromz, nblks, dim2, ierrstat
+      &  n_ipzlev, npromz, nblks, ierrstat
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
@@ -547,7 +547,6 @@ CONTAINS
     TYPE(t_vcoeff),            POINTER :: vcoeff
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     REAL(wp),                  POINTER :: p_z3d(:,:,:), p_pres(:,:,:), p_temp(:,:,:)
-    REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
     REAL(wp), ALLOCATABLE, TARGET      :: z_me(:,:,:), p_z3d_edge(:,:,:)
     REAL(wp),                  POINTER :: in_z3d(:,:,:), in_z_mc(:,:,:)
     TYPE(t_int_state),         POINTER :: intp_hrz
@@ -671,19 +670,14 @@ CONTAINS
       in_z_mc           => z_me
     END SELECT
 
-    dim2 = UBOUND(in_var%r_ptr, 2)
-    ALLOCATE(tmp_var(nproma, dim2, nblks), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation failed')
-
     SELECT CASE ( p_info%hgrid )
     CASE (GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE) 
       ! consistency check:
-      IF ((UBOUND(in_var%r_ptr,1) > nproma) .OR.  &
-        & (UBOUND(in_var%r_ptr,2) > dim2)   .OR.  &
+      IF ((UBOUND(in_var%r_ptr,1) > nproma)                    .OR.  &
+        & (UBOUND(in_var%r_ptr,2) > UBOUND(in_var%r_ptr, 2))   .OR.  &
         & (UBOUND(in_var%r_ptr,3) > nblks)) THEN
         CALL finish(routine, "Inconsistent array dimensions")
       END IF
-      tmp_var(:,:,:) = in_var%r_ptr(:,:,:,in_var_idx,1)
     CASE DEFAULT
       CALL finish(routine, "Internal error!")
     END SELECT
@@ -696,7 +690,7 @@ CONTAINS
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_VN")
         IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
         IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
-        CALL uv_intp(tmp_var(:,:,:),                                                & !in
+        CALL uv_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                              & !in
           &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
           &          in_z_mc, in_z3d,                                               & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
@@ -712,7 +706,7 @@ CONTAINS
       CASE ( VINTP_METHOD_LIN )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
         IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
-        CALL lin_intp(tmp_var(:,:,:),                                               & !inout
+        CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                             & !in
           &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
           &           nblks, npromz, nlev, n_ipzlev,                                & !in
           &           vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin,                     & !in
@@ -726,7 +720,7 @@ CONTAINS
       CASE ( VINTP_METHOD_LIN_NLEVP1 )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
         IF (.NOT. ASSOCIATED(vcoeff_lin_nlevp1)) CALL finish(routine, "Internal error!")
-        CALL lin_intp(tmp_var(:,:,:),                                               & !inout
+        CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                             & !in
           &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
           &           nblks, npromz, nlevp1, n_ipzlev,                              & !in
           &           vcoeff_lin_nlevp1%wfac_lin,                                   & !in
@@ -742,7 +736,7 @@ CONTAINS
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
         IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
         IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
-        CALL qv_intp(tmp_var(:,:,:),                                                & !in
+        CALL qv_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                              & !in
           &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
           &          in_z_mc, in_z3d, p_diag%temp,                                  & !in
           &          p_diag%pres, p_temp, p_pres,                                   & !in
@@ -761,8 +755,6 @@ CONTAINS
     END IF
 
     ! clean up
-    DEALLOCATE(tmp_var, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
     IF (p_info%hgrid == GRID_UNSTRUCTURED_EDGE) THEN
       DEALLOCATE(p_z3d_edge, z_me, STAT=ierrstat)
       IF (ierrstat /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed')
