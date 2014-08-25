@@ -809,6 +809,7 @@ CONTAINS
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateDatetime(mtime_dom_start)
+    CALL deallocateDatetime(mtime_dom_end)
     CALL deallocateDatetime(mtime_restart)
     CALL deallocateDatetime(sim_end)
     CALL deallocateDatetime(run_start)
