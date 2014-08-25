@@ -730,6 +730,10 @@ run/exp.atm_amip -text
 run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_test -text
+run/exp.atm_amip_test_0 -text
+run/exp.atm_amip_test_1 -text
+run/exp.atm_amip_test_2 -text
+run/exp.atm_amip_test_3 -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.check_restart -text
 run/exp.couple_atmo-ocean -text
@@ -807,6 +811,10 @@ run/exp.oce_tracer_conservation_sl -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.sl_lsmfl -text
+run/exp.test_0_atm_amip -text
+run/exp.test_1_atm_amip -text
+run/exp.test_2_atm_amip -text
+run/exp.test_3_atm_amip -text
 run/exp.test_atm_amip -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_hat_jww -text

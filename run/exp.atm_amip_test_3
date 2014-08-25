@@ -1,0 +1,621 @@
+#--------------------------------------------------------------------------------------------------
+#
+# AMIP experiment
+#
+author_list="Marco Giorgetta, MPIM"
+#
+#--------------------------------------------------------------------------------------------------
+#
+# This file describes an AMIP experiment based on the non-hydrostatic dynamics and the ECHAM
+# physics, and intialized from analysis files and using transient boundary conditions for:
+# - SST and sea ice
+# - spectral solar irradiation
+# - well mixed greenhouse gases CO2, CH4, N2O, CFCs
+# - O3 concentration
+# - tropospheric aerosol optical properties
+# - stratospheric volcanic aerosol optical properties
+#
+# _bb_table_Description_  AMIP experiment
+# _bb_table_Model_        non-hydrostatic dynamics + ECHAM physics
+#
+#--------------------------------------------------------------------------------------------------
+
+# (1) Variables provided by the scripting mechanism
+
+# EXPNAME                       = name of exp. in 'exp.<name>'
+# basedir                       = base directory, where src/, run/ etc exist
+# nproma                        = blocking length for array dimensioning and inner loop lengths
+# second, minute, hour, day     = length of these intervals in [s]
+
+#--------------------------------------------------------------------------------------------------
+
+# (2) Set variables needed by the scripting mechanism
+
+# horizontal grid(s)
+grids_folder=/pool/data/ICON/grids/private/r2b4_amip
+atmo_dyn_grids='r2b4_amip.nc'
+
+# start and end date+time
+start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
+  end_date="1979-01-01T00:16:00Z"        # ISO-format date+time
+
+# restart interval
+(( dt_checkpoint =  8 * minute))
+#
+file_interval="PT04M"
+
+# namelist files
+atmo_namelist=NAMELIST_${EXPNAME}_atm
+lnd_namelist=NAMELIST_${EXPNAME}_lnd
+
+#--------------------------------------------------------------------------------------------------
+
+# (3) Define the model configuration
+
+# atmospheric dynamics and physics
+# --------------------------------
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma           = ${nproma}
+ l_fast_sum       = .false.
+/
+&grid_nml
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&run_nml
+ num_lev          = 47          ! number of full levels
+ dtime            = 120         ! [s] dynamics time step
+ ltestcase        = .FALSE.     ! run testcase
+ ldynamics        = .TRUE.      ! dynamics
+ ltransport       = .TRUE.      ! transport
+ ntracer          = 3           ! number of tracers
+ iforcing         = 2           ! 0: none, 1: HS, 2: 2: ECHAM, 3: NWP
+ output           = 'nml'
+ msg_level        = 10          ! detailed report during integration 
+ restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+/
+&extpar_nml
+ itopo            = 1           ! 1: read topography from the grid file
+ l_emiss          = .FALSE.
+/
+&initicon_nml
+ init_mode        = 2           ! 2: initialize from IFS analysis
+/
+&dynamics_nml
+ iequations       = 3           ! 3: ICONAM dynamics
+/
+&nonhydrostatic_nml
+ iadv_rcf         = 2           ! dt_adv/dtime
+ damp_height      = 50000.      ! [m]
+ rayleigh_coeff   = 0.10
+ vwind_offctr     = 0.2
+ divdamp_fac      = 0.004
+/
+&interpol_nml
+ rbf_scale_mode_ll = 1
+/
+&sleve_nml
+ min_lay_thckn    = 40.         ! [m]
+ top_height       = 75000.      ! [m]
+ stretch_fac      = 0.9
+ decay_scale_1    = 4000.       ! [m]
+ decay_scale_2    = 2500.       ! [m]
+ decay_exp        = 1.2
+ flat_height      = 16000.      ! [m]
+/
+&diffusion_nml
+/
+&transport_nml
+ ctracer_list     = 'vwi'       ! water vapour, cloud water, cloud ice
+ ivadv_tracer     = 3,3,3
+ itype_hlimit     = 3,4,4
+ ihadv_tracer     = 52,2,2
+/
+&echam_phy_nml
+ lrad             = .TRUE.
+ dt_rad           =  240.       ! [s] radiation time step
+ lvdiff           = .TRUE.
+ lconv            = .TRUE.
+ lcond            = .TRUE.
+ lgw_hines        = .TRUE.
+ lssodrag         = .TRUE.
+ lmlo             = .FALSE.
+ lice             = .TRUE.
+ lmeltpond        = .FALSE.
+ llandsurf        = .FALSE.
+ ljsbach          = .TRUE.
+ lhd              = .FALSE.
+ lebudget         = .TRUE.
+ lamip            = .TRUE.
+/
+&radiation_nml
+ irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
+ irad_co2         = 2           ! 2: horizontally and vertically constant
+ irad_ch4         = 3           ! 3: horizontally constant vertical profile
+ irad_n2o         = 3           ! 3: horizontally constant vertical profile
+ irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o2          = 2           ! 2: horizontally and vertically constant
+ irad_cfc11       = 2           ! 2: horizontally and vertically constant
+ irad_cfc12       = 2           ! 2: horizontally and vertically constant
+ irad_aero        = 0           ! 0: not used
+ lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
+ ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
+ izenith          = 4           ! 4: seasonal and diurnal cycle
+ isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
+/
+&echam_conv_nml
+/
+&gw_hines_nml
+/
+EOF
+
+# land surface and soil
+# ---------------------
+cat > ${lnd_namelist} <<EOF
+&jsb_model_nml
+  usecase         = 'jsbach_lite'
+/
+&jsb_srf_nml
+  bc_filename     = 'bc_land_phys.nc'
+  bc_sso_filename = 'bc_land_sso.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_soil_nml
+  active          = .TRUE.
+  nsoil_energy    = 5
+  nsoil_water     = 5
+  bc_filename     = 'bc_land_soil.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+&jsb_veg_nml
+  active          = .TRUE.
+  bc_filename     = 'bc_land_phys.nc'
+  ic_filename     = 'ic_land_soil.nc'
+/
+EOF
+
+#--------------------------------------------------------------------------------------------------
+
+# (4) Define the input
+
+# model files
+#
+add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+
+# namelist files
+#
+add_required_file ${basedir}/run/${atmo_namelist}                       ./
+add_required_file ${basedir}/run/${lnd_namelist}                        ./
+
+# dictionary file for output variable names
+#
+dict_file="dict.${EXPNAME}"
+rm -f ${dict_file}
+add_required_file ${basedir}/run/${dict_file}                           ./
+
+# initial conditions
+#
+INDATA=/pool/data/ICON/input/r0002
+#
+# - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
+datadir=$INDATA/../../setup
+add_link_file $datadir/prepiconR2B04_DOM01_ERA_INT_AMIP.nc              ./ifs2icon_R2B04_DOM01.nc
+#
+# - land: source?, date+time?
+datadir=$INDATA/r2b4_amip/lnd
+add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
+
+# boundary conditions
+#
+# - well mixed greenhouse gases
+datadir=$INDATA/global/atm
+add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
+#
+# - ozone
+year=1978
+while [[ $year -le 2009 ]]
+do
+  datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
+  (( year = year+1 ))
+done
+#
+### - tropospheric aerosol
+##year=1978
+##while [[ $year -le 2009 ]]
+##do
+##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+##  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+##  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc          ./
+##  (( year = year+1 ))
+##done
+#
+### - stratospheric aerosol
+##year=1978
+##while [[ $year -le 2009 ]]
+##do
+##  datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+##  add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./
+##  (( year = year+1 ))
+##done
+#
+# - sst and sic
+datadir=$INDATA/r2b4_amip/oce
+add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
+add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
+#
+# - ssi and tsi
+datadir=$INDATA/global/sun
+add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
+#
+# - land parameters
+datadir=$INDATA/r2b4_amip/lnd
+add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
+add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
+add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
+add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+
+#--------------------------------------------------------------------------------------------------
+
+# (5) Define the output
+
+# Parameters for all output files
+# -------------------------------
+cat >> ${atmo_namelist} << EOF
+&io_nml
+ dt_checkpoint    = ${dt_checkpoint}  ! [s] restart file interval
+ output_nml_dict  = "${dict_file}"
+ netcdf_dict      = "${dict_file}"
+ itype_pres_msl   = 4
+ lzaxis_reference = .FALSE. 
+/
+EOF
+
+# Define grids for horizontal remapping
+# -------------------------------------
+#
+# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
+# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
+# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
+# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
+# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
+# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
+#
+# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
+# The tropical rows have 320 triangles or 160 rhombi.
+#
+# Therefore the following regular lon-lat grids are of interest for remapping:
+#
+# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
+reg_lat_def_reg=-89.0625,1.875,89.0625
+reg_lon_def_reg=0.,1.875,358.125
+#
+# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
+reg_lat_def_rmb=$reg_lat_def_reg
+reg_lon_def_rmb=0.,2.25,357.75
+#
+# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
+reg_lat_def_tri=$reg_lat_def_reg
+reg_lon_def_tri=0.,1.125,358.875
+
+
+# Define grids for vertical remapping
+# -----------------------------------
+#
+cat >> ${atmo_namelist} << EOF
+&nh_pzlev_nml
+ nplev            = 28          ! number of pressure levels (plevels in [Pa] and top-down)
+ plevels          = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
+                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
+/
+EOF
+
+
+# Define output files
+# -------------------
+#
+# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+
+output_dyn=yes
+#
+if [[ "$output_dyn" == "yes" ]]; then
+  #
+  cat dict.iconam.mpim >> ${dict_file}
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_dyn_2d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'ps','psl'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_dyn_2d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'ps','psl'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_dyn_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
+ pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_dyn_3d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
+ pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
+/
+EOF
+fi
+
+output_phy=yes
+#
+if [[ "$output_phy" == "yes" ]]; then
+  #
+  cat dict.echam.mpim >> ${dict_file}
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_phy_2d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'cosmu0'  , 'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
+                    'sic'     , 'sit'     , 'alb'     ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'tauu'    , 'tauv'    ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtrl', 'con_dtri', 'con_iteqv',
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
+                    'prm_rintop', 'prm_rtype', 'prm_topmax'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_phy_2d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'cosmu0'  , 'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
+                    'sic'     , 'sit'     , 'alb'     ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'tauu'    , 'tauv'    ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtrl', 'con_dtri', 'con_iteqv',
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
+                    'prm_rintop', 'prm_rtype', 'prm_topmax'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_phy_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'hur'
+                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
+                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
+                    'tend_temp_gwh', 'tend_temp_sso',
+!                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
+!                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
+!                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+ pl_varlist       = 'tend_temp'    ,
+                    'tend_temp_cld','tend_temp_cnv'  , 'tend_temp_vdf',
+                    'tend_temp_gwh','tend_temp_sso'
+!off! pl_varlist       = 'hur'
+!off!                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
+!off!                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
+!off!                    'tend_temp_gwh', 'tend_temp_sso',
+!off!!                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
+!off!!                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
+!off!!                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf',
+!off!!                    'hur'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_phy_3d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'hur'
+                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
+                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
+                    'tend_temp_gwh', 'tend_temp_sso',
+!                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
+!                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
+!                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+!off! pl_varlist       = 'hur'
+!off!                    'tend_temp'    , 'tend_temp_radlw', 'tend_temp_radsw', 
+!off!                    'tend_temp_cld', 'tend_temp_cnv'  , 'tend_temp_vdf', 
+!off!                    'tend_temp_gwh', 'tend_temp_sso',
+!off!!                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
+!off!!                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
+!off!!                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+/
+EOF
+fi
+
+
+output_aer=no # needs lrad_aero_diag=.TRUE. in radiation_nml
+#
+if [[ "$output_aer" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_aer_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
+                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
+                    'prm_aer_aod_9731'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_aer_3d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
+                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
+                    'prm_aer_aod_9731'
+ pl_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
+                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
+                    'prm_aer_aod_9731'
+/
+EOF
+fi
+
+
+output_lnd=yes
+#
+if [[ "$output_lnd" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_lnd"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
+                    'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
+                    'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
+                    'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
+                    'swrad_srf_down', 'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
+                    'evapotrans', 'sensible_hflx', 'latent_hflx' 
+                    'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
+                    't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
+                    'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "PT04M"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
+                    'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
+                    'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
+                    'albedo_srf', 't_air', 'q_air', 'lwrad_srf_down'
+                    'swrad_srf_down', 'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
+                    'evapotrans', 'sensible_hflx', 'latent_hflx' 
+                    'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
+                    't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
+                    'rel_hum_srf', 'tte_corr', 'rough_m_srf', 'rough_h_srf'
+/
+EOF
+fi
+
+#--------------------------------------------------------------------------------------------------
