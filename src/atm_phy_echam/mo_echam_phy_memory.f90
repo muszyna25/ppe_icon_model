@@ -44,7 +44,6 @@ MODULE mo_echam_phy_memory
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type
-  USE mo_echam_phy_config,    ONLY: get_lvdiff, get_ljsbach, get_lamip
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,         ONLY: t_var_list
@@ -996,7 +995,6 @@ CONTAINS
          &        lrestart = .FALSE.,                            &
          &        isteptype=TSTEP_INSTANT )
 
-    IF (get_lamip()) THEN
     cf_desc    = t_cf_var('tsfc_wtr', 'K', 'surface temperature over water', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'tsfc_wtr', field%tsurfw,      &
@@ -1056,9 +1054,6 @@ CONTAINS
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'oroval', field%oroval,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-    END IF
-
-    IF (get_ljsbach()) THEN
 
     cf_desc    = t_cf_var('tsfc_rad', '', '', DATATYPE_FLT32)
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
@@ -1084,8 +1079,6 @@ CONTAINS
     grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'cair', field%cair,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    END IF ! ljsbach
 
     !-------------------------
     ! Sea ice
@@ -1485,7 +1478,6 @@ CONTAINS
     !--------------------
     ! Turbulence
     !--------------------
-    IF (get_lvdiff()) THEN
 
      ! shape2d  = (/kproma,            kblks/)
      ! shape3d  = (/kproma, klev,      kblks/)
@@ -1689,8 +1681,6 @@ CONTAINS
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( field_list, prefix//'albnirdif_wtr', field%albnirdif_wtr,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ENDIF ! get_lvdiff
 
     !-----------------------
     ! Surface
