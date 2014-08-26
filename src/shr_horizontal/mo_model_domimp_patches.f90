@@ -997,7 +997,7 @@ CONTAINS
     ! grid_generatingCenter
     ! grid_generatingSubcenter
     ! number_of_grid_used
-    netcd_status = nf_get_att_int(ncid, nf_global, 'center', &
+    netcd_status = nf_get_att_int(ncid, nf_global, 'centre', &
       &                           grid_generatingCenter(ig)  )
     IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
@@ -1011,7 +1011,7 @@ CONTAINS
       grid_generatingCenter(ig) = 78    ! DWD
     ENDIF
 
-    netcd_status = nf_get_att_int(ncid, nf_global, 'subcenter', &
+    netcd_status = nf_get_att_int(ncid, nf_global, 'subcentre', &
       &                           grid_generatingSubcenter(ig)  )
     IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
