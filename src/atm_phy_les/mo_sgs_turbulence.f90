@@ -546,10 +546,11 @@ MODULE mo_sgs_turbulence
     !   are only converted to proper terms during output. 
     !--------------------------------------------------------------------------
     !MP = Mechanical prod term calculated above
-    !visc = mixing_length_sq * SQRT(MP/2) * SQRT(1-Ri/Pr) where 
+    !visc = mixing_length_sq * SQRT(MP)/2 * SQRT(1-Ri/Pr) where 
     !Ri = (g/theta)*d_theta_dz/(MP/2), where Brunt_vaisala_freq (byncy prod term/kh) 
     !   = (g/theta)*d_theta_dz. 
-    !After simplification: visc = mixing_length_sq * SQRT[ MP/2 - (Brunt_vaisala_frq/Pr) ]
+    !After simplification: visc = mixing_length_sq/SQRT(2) * SQRT[MP/2 - (Brunt_vaisala_frq/Pr)]
+    !Note that the factor SQRT(2) with mixing_length_sq is considered into the Smag constant
 
     rl_start = 3
     rl_end   = min_rlcell_int
