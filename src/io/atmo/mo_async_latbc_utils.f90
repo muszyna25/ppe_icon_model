@@ -131,7 +131,7 @@
          end_latbc_tlev     ! last_ext_tlev is the last written time level index
     TYPE(t_initicon_state) :: latbc_data(2)     ! storage for two time-level boundary data
     INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur, sim_cur_read
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN) :: event_name
     TYPE(timedelta), pointer :: my_duration_slack
     TYPE(datetime), pointer :: mtime_date
@@ -270,19 +270,20 @@
       ! compute sim_start, sim_end in a formate appropriate for mtime
       CALL get_datetime_string(sim_start, time_config%ini_datetime)
       CALL get_datetime_string(sim_end, time_config%end_datetime)
+      CALL get_datetime_string(sim_cur_read, time_config%cur_datetime)
 
       event_name = 'Prefetch input'    
 
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
-           TRIM(sim_start), TRIM(sim_end), TRIM(latbc_config%dt_latbc))  ! 'PT01M') 'PT00H01M') 
+           TRIM(sim_start), TRIM(sim_end), TRIM(latbc_config%dt_latbc)) 
 
       tdiff = (0.5*dtime)
-      CALL get_duration_string_real(tdiff, tdiff_string) !, additional_days)
+      CALL get_duration_string_real(tdiff, tdiff_string) 
       my_duration_slack => newTimedelta(tdiff_string)
 
-      delta_dtime => newTimedelta(latbc_config%dt_latbc) !("PT01M") 
+      delta_dtime => newTimedelta(latbc_config%dt_latbc) 
 
-      mtime_read  => newDatetime(TRIM(sim_start)) 
+      mtime_read  => newDatetime(TRIM(sim_cur_read)) 
 
       ! prepare read/last indices
       start_latbc_tlev = 1   ! read in the first time-level slot
