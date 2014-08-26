@@ -226,13 +226,14 @@ foreach $dir ( @directories ) {
 	print MAKEFILE ".PHONY: create_version_c\n\n";
 	print MAKEFILE "create_version_c:\n";
 	print MAKEFILE "\t../../../config/pvcs.pl --srcdir ../../..\n\n";
+	print MAKEFILE "version.c: | create_version_c\n\n";
 	print MAKEFILE "version.o: version.c\n\n";
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
 	    $okey =~ s/ *$/.o/;	
 	    print MAKEFILE "$okey: $value\n";
 	    print MAKEFILE "../bin/$key: $okey \$(OBJS) version.o\n";
-	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o \$@ \$< \$(OBJS) version.o \$(LIBS)\n";
+	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o \$@ \$< \$(OBJS) version.o \$(LIBS)\n\n";
 	}
     }
     
@@ -334,6 +335,7 @@ sub ScanDirectory {
 
 		open F, "<$name";
 		while (<F>) {
+
 		    if (/^ *MODULE/i && ! /procedure/i) {
 			s/MODULE//i;
 			s/\s//g;
