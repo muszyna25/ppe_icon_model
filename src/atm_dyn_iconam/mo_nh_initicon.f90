@@ -91,7 +91,7 @@ MODULE mo_nh_initicon
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_io_util,             ONLY: get_filetype
   USE mo_time_config,         ONLY: time_config
-  USE mtime,                  ONLY: newDatetime, datetime, operator(==), operator(+), &
+  USE mtime,                  ONLY: newDatetime, datetime, OPERATOR(==), OPERATOR(+), &
     &                               deallocateDatetime
 
   IMPLICIT NONE

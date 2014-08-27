@@ -266,10 +266,9 @@ MODULE mo_nh_stepping
   CALL allocate_nh_stepping ()
 
   ! Compute diagnostic dynamics fields for initial output and physics initialization
-  IF (is_restart_run()) THEN
-    CALL diag_for_output_dyn (linit=.FALSE.)
-  ELSE
-    CALL diag_for_output_dyn (linit=.TRUE.)
+  CALL diag_for_output_dyn ()
+
+  IF (.NOT. is_restart_run()) THEN
     IF (timeshift%dt_shift < 0._wp) THEN
       time_config%sim_time(:) = timeshift%dt_shift
       CALL add_time(timeshift%dt_shift,0,0,0,datetime)
@@ -670,7 +669,7 @@ MODULE mo_nh_stepping
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
-      CALL diag_for_output_dyn ( linit=.FALSE.)
+      CALL diag_for_output_dyn ()
       IF (iforcing == inwp) THEN
         CALL aggr_landvars
 
@@ -1909,9 +1908,7 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Developed by Guenther Zaengl, DWD (2012-05-09)
   !!
-  SUBROUTINE diag_for_output_dyn (linit)
-
-    LOGICAL, INTENT(IN) :: linit ! switch for computing additional diagnostics for initial output
+  SUBROUTINE diag_for_output_dyn ()
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
 !!$      &  routine = 'mo_nh_stepping:diag_for_output_dyn'
