@@ -1937,7 +1937,7 @@ begin
 
   ;---All triangles inbetween levels
   do i = 1, dimsizes(levels) - 1
-    vind := ind(var .ge. levels(i-1) .and. var .lt. levels(i))
+    vind = ind(var .ge. levels(i-1) .and. var .lt. levels(i))
     if(.not.all(ismissing(vind))) then
       gscolors(vind) = colors(i)
     end if
