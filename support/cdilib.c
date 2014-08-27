@@ -32899,6 +32899,9 @@ int gribapiDefSteptype(int editionNumber, grib_handle *gh, int productDefinition
   long proDefTempNum = 0;
   size_t len = 64;
   char stepType[len];
+  //DR temporary
+  int major_version, minor_version, revision_version;
+  //DR End temporary
 
   switch ( tsteptype )
     {
@@ -32915,13 +32918,28 @@ int gribapiDefSteptype(int editionNumber, grib_handle *gh, int productDefinition
     default:             strcpy(stepType, "instant"); proDefTempNum = 0; break;
     }
 
-  /* Will be activated once a fixed GRIB_API becomes available 
+  // DR temporary
+    if ( typeOfGeneratingProcess == 4 )
+    {
+      // for GRIBAPI versions newer than our 1.12.3 prerelease, activate 
+      // template change for ensemble output.
+      gribapiLibraryVersion(&major_version, &minor_version, &revision_version);
+      if ( major_version >= 1 && minor_version >= 12 && revision_version >= 3 )
+      {
+        if ( proDefTempNum == 8 ) proDefTempNum = 11;
+        else                      proDefTempNum = 1;
+      }
+    }
+  //  DR END temporary
+
+  /* DR original code
   if ( typeOfGeneratingProcess == 4 )
     {
       if ( proDefTempNum == 8 ) proDefTempNum = 11;
       else                      proDefTempNum = 1;
     }
   */
+
 
   if ( productDefinitionTemplate != -1 ) proDefTempNum = productDefinitionTemplate;
 
