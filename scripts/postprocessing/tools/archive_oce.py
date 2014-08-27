@@ -229,7 +229,7 @@ def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInf
       cdo.yearmean(input = yearFile,output = yearMeanFile,forceOutput = forceOutput)
     else:
       yearMeanFile = None
-        
+
     map(lambda x: os.remove(x),catFiles)
   else:
     print("Use existing yearFile '%s'"%(yearFile))
@@ -525,6 +525,9 @@ def createOutputDocument(plotdir,firstPage,docname,doctype,debug):
     print("Unsupported document output type: %s!"%(doctype))
     return
 
+""" consistent yearmean filename """
+def yearMeanFileName(archdir,exp):
+    return  '/'.join([archdir,'_'.join([exp,'yearmean.nc'])])
 
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
@@ -642,7 +645,7 @@ dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
-ymFile = '/'.join([options['ARCHDIR'],'_'.join([options['EXP'],'yearmean.nc'])])
+ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'])
 if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
   if (os.path.exists(ymFile)):
     os.remove(ymFile)
@@ -735,16 +738,15 @@ for year in LOG['years']:
 t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','rhopot_acc'],
                                        options['EXP'],options['ARCHDIR'],options['PROCS'])
 dbg(t_s_rho_Output_1D)
-for year in LOG['years'][-30:-1]:
+for year in LOG['years'][-32:-2]:
   t_s_rho_Input_2D.append(LOG[year])
-last30YearsFiles = t_s_rho_Input_2D
 t_s_rho_Output_2D = computeMaskedTSRMeans2D(t_s_rho_Input_2D,['t_acc','s_acc','rhopot_acc'],
                                        options['EXP'],options['ARCHDIR'],options['PROCS'])
 dbg(t_s_rho_Output_2D)
 # PREPARE DATA PACIFIC X-SECTION {{{ ------------------------------------------
 # compute 30-year-mean
-last30YearsMean = cdo.cat(input = ' '.join(last30YearsFiles), output = '/'.join([options['ARCHDIR'],'last30Years_%s.nc'%(options['EXP'])]))
-last30YearsMean = cdo.timmean(input = 'last30Years_%s.nc'%(options['EXP']), output = 'last30YearsMean_%s.nc'%(options['EXP']))
+last30YearsMean = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'])),
+                              output = 'last30YearsMean_%s.nc'%(options['EXP']))
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
