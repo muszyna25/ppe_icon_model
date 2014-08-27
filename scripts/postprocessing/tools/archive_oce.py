@@ -44,15 +44,18 @@ def parseOptions():
                               # the psi processor/plotter
               'CALCPSI'     : '../../scripts/postprocessing/tools/calc_psi.py',
               'TAG'         : 'r1xxxx',                    # addition revision information
-              'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools',
+#             'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools',
+              'ICONPLOT'    : 'nclsh /scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/icon_plot.ncl -altLibDir=/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools',
               'PROCS'       : 8,                           # number of threads/procs to be used for parallel operations
               'JOBISRUNNING': True,                        # avoid the last output file/result year by default
               # optional stuff
               'DRYRUN'      : False,                       # with this set to true, the model output is scanned for containing years, only
               'MOCPATTERN'  : 'MOC.*',
-              'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
+#              'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
+              'MOCPLOTTER'  : '/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
+              #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
+              'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
              }
 
   optsGiven = sys.argv[1:]
@@ -734,9 +737,14 @@ t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','r
 dbg(t_s_rho_Output_1D)
 for year in LOG['years'][-30:-1]:
   t_s_rho_Input_2D.append(LOG[year])
+last30YearsFiles = t_s_rho_Input_2D
 t_s_rho_Output_2D = computeMaskedTSRMeans2D(t_s_rho_Input_2D,['t_acc','s_acc','rhopot_acc'],
                                        options['EXP'],options['ARCHDIR'],options['PROCS'])
 dbg(t_s_rho_Output_2D)
+# PREPARE DATA PACIFIC X-SECTION {{{ ------------------------------------------
+# compute 30-year-mean
+last30YearsMean = cdo.cat(input = ' '.join(last30YearsFiles), output = '/'.join([options['ARCHDIR'],'last30Years_%s.nc'%(options['EXP'])]))
+last30YearsMean = cdo.timmean(input = 'last30Years_%s.nc'%(options['EXP']), output = 'last30YearsMean_%s.nc'%(options['EXP']))
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
