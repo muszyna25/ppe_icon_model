@@ -3590,7 +3590,7 @@ CONTAINS
              TRIM(this_list_element%field%info%cf%units)
         CALL message('', message_text)
         !
-        WRITE (message_text,'(a)') &
+        WRITE (message_text,'(2a)') &
              'CF convention long name                     : ', &
              TRIM(this_list_element%field%info%cf%long_name)
         !
