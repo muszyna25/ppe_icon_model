@@ -535,6 +535,10 @@ CONTAINS
         ! depending on variable-specific stepType
         !!! Note that this is only a workaround, since we cannot guarantee that !!!
         !!! no information (keys) set prior to that template-switch gets lost.  !!!
+!DR Actually, this should be removed, since CDI is taking care of template switching.
+!DR However, for backward compatibility, we keep the following lines for a couple of months.
+!DR Otherwise, people would be forced to use the grib-API prerelease 1.12.3 when doing 
+!DR ensemble runs. 
         IF ( ANY((/TSTEP_INSTANT,TSTEP_CONSTANT/) == steptype) ) THEN 
           CALL vlistDefVarIntKey(vlistID, varID, "productDefinitionTemplateNumber",1)
         ELSE
