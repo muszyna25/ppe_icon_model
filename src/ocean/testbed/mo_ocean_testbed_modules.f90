@@ -289,12 +289,14 @@ CONTAINS
       CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice,jstep0)
     ENDIF
 
+
+    ! make sure, that h is zero at start
+    p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
+
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
       CALL message('test_surface_flux','IceBudget === BEGIN TIMESTEP ======================================================&
         &==============================================')
-    
-      p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
 
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -380,8 +382,9 @@ CONTAINS
         ENDDO
       ENDDO
 
-      !nnew(1) = nold(1)
+      ! update prognostic variables and save spot values
       p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
+      p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h
       p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
       p_os(n_dom)%p_diag%s               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,2)
       p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
@@ -400,7 +403,7 @@ CONTAINS
       CALL dbg_print('IceBudget: salinity diff',salinityBudget,debug_string,4,in_subset=patch_2D%cells%owned)
       CALL dbg_print('IceBudget: salt_00' ,p_ice%budgets%salt_00 ,debug_string, 4, in_subset=patch_2D%cells%owned)
     END DO
-    
+
   END SUBROUTINE test_surface_flux
   !-------------------------------------------------------------------------
 
