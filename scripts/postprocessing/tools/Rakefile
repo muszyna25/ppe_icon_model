@@ -20,7 +20,7 @@ CP                    = 'scp -p'
 LS                    = 'ls -crtlh'
 OFMT                  = 'png'
 DEFAULT_VARNAME       = 'T'
-PLOT_CMD              = isLocal? ? 'sxiv' : 'eog'
+PLOT_CMD              = isLocal? ? 'qiv' : 'eog'
 CDO                   = ENV['CDO'].nil? ? 'cdo' : ENV['CDO']
 REMOTE_DATA_DIR       = '/home/zmaw/m300064/thunder/data/testing'
 
@@ -960,12 +960,6 @@ task :check_noland, [:var] => @_FILES[NOLAND] do |t,args|
                   :mapLLC => '-60,0',:mapURC => '20,60',:showGrid => true, :rStrg => 'O',:bStrg => t.prerequisites[0]))
   show(scalarPlot(t.prerequisites[0], t.name ,args.var.to_s, :DEBUG => true,                     :showGrid => true, :rStrg => 'O',:bStrg => t.prerequisites[0]))
   show(scalarPlot(t.prerequisites[0], t.name ,args.var.to_s, :DEBUG => true,:maskName => 'wet_c',:showGrid => true, :rStrg => 'O',:bStrg => t.prerequisites[0]))
-end
-desc "check minmax usage"
-task :check_masked do |t|
-  @plotter.isIcon = false
-  ofile = 'test_check_foo'
-  scalarPlot('/home/ram/data/examples/tmasked.nc',ofile,'topo')
 end
 #==============================================================================
 # Test collections
