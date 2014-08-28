@@ -1324,10 +1324,10 @@ undef("checkMinMaxVar")
 procedure checkMinMaxVar(minvar,maxvar)
 begin
   if ( (.not. ismissing(minvar)) .and. (.not. ismissing(maxvar)) ) then
-  if ( minvar .gt. maxvar ) then
-    print("minVar has to be larger than maxVar")
-    exit
-  end if
+    if ( minvar .gt. maxvar ) then
+      print("minVar has to be larger than maxVar")
+      exit
+    end if
   end if
 end
 ;---------------------------------------------------------------
