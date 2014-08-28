@@ -617,6 +617,9 @@ CONTAINS
             IF (p_onl%p_levels(nlevs) < 0._wp) EXIT
           END DO
           nlevs = nlevs - 1
+          IF ((nlevs == 0) .AND. (p_onl%pl_varlist(1) /= ' ')) THEN
+            CALL finish(routine, "Input error (output_nml): User has requested pressure interpolation without specifying levels!")
+          END IF
           ! append nlevs pressure levels (domain log_patch_id)
           IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%p_levels, &
             &                                        nh_pzlev_config(log_patch_id)%plevels)
@@ -628,6 +631,9 @@ CONTAINS
             IF (p_onl%z_levels(nlevs) < 0._wp) EXIT
           END DO
           nlevs = nlevs - 1
+          IF ((nlevs == 0) .AND. (p_onl%hl_varlist(1) /= ' ')) THEN
+            CALL finish(routine, "Input error (output_nml): User has requested height interpolation without specifying levels!")
+          END IF
           ! append nlevs height levels
           IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%z_levels, &
             &                                        nh_pzlev_config(log_patch_id)%zlevels)
@@ -639,6 +645,9 @@ CONTAINS
             IF (p_onl%i_levels(nlevs) < 0._wp) EXIT
           END DO
           nlevs = nlevs - 1
+          IF ((nlevs == 0) .AND. (p_onl%il_varlist(1) /= ' ')) THEN
+            CALL finish(routine, "Input error (output_nml): User has requested isentropic interpolation without specifying levels!")
+          END IF
           ! append nlevs isentropic levels
           IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%i_levels, &
             &                                        nh_pzlev_config(log_patch_id)%ilevels)
