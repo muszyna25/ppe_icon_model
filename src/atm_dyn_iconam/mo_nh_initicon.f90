@@ -80,8 +80,7 @@ MODULE mo_nh_initicon
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, filetype_nc2, filetype_grb2, &
-    &                               vlistNvars, streamInqVlist,                       &
-    &                               streamOpenRead, cdiInqMissval
+    &                               streamInqVlist, streamOpenRead, cdiInqMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_sm_mass
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, t_inventory_list, t_inventory_element, &
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list, &
@@ -1097,7 +1096,6 @@ MODULE mo_nh_initicon
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(100)           ! ana-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(100)            ! fg-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_name                        ! group name
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: varname                     ! variable name
     INTEGER :: ivar, mpi_comm
     INTEGER :: index, is_one_of
 

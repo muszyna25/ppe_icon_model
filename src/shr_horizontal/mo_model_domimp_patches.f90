@@ -200,9 +200,9 @@ CONTAINS
   !!  - only basic patch information for subdivision is read here
   !!    into the full (undivided, global) patch data structure
   !!
-  SUBROUTINE import_pre_patches( patch_pre,num_lev,num_levp1,nshift)
+  SUBROUTINE import_pre_patches( patch_pre,num_lev,nshift)
 
-    INTEGER,INTENT(in) :: num_lev(:), num_levp1(:), nshift(:)
+    INTEGER,INTENT(in) :: num_lev(:), nshift(:)
     TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch_pre(n_dom_start:)
 
     INTEGER :: jg, jg1, n_chd, n_chdc
@@ -274,7 +274,7 @@ CONTAINS
       ! store information about vertical levels
       !
       patch_pre(jg)%nlev   = num_lev(jg)
-      patch_pre(jg)%nlevp1 = num_levp1(jg)
+      patch_pre(jg)%nlevp1 = num_lev(jg) + 1
 
       IF (jg > 1) THEN
         IF (nshift(jg) > 0 ) THEN

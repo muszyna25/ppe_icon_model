@@ -80,9 +80,11 @@ MODULE mo_math_utilities
   !
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
+  USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_exception,           ONLY: finish
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
   USE mo_math_types
+  USE mo_util_sort,           ONLY: quicksort
   IMPLICIT NONE
   
   PRIVATE
@@ -141,6 +143,12 @@ MODULE mo_math_utilities
 
   !  vertical coordinates routines
   PUBLIC :: set_zlev
+
+  ! subroutines for value sets
+  PUBLIC :: t_value_set
+  PUBLIC :: merge_values_into_set
+  PUBLIC :: find_values_in_set
+  PUBLIC :: deallocate_set
  
   PUBLIC :: OPERATOR(+)
   PUBLIC :: OPERATOR(-)
@@ -165,6 +173,23 @@ MODULE mo_math_utilities
     MODULE PROCEDURE arc_length_v_generic
   END INTERFACE
 
+  
+  !> Derived type specifying a set of REAL(wp) values.
+  !
+  TYPE t_value_set
+    INTEGER               :: nvalues                         !< no. of values in set
+    LOGICAL               :: sort_smallest_first             !< Flag. If true, set is sorted smallest-to-largest
+    REAL(wp), ALLOCATABLE :: values(:)                       !< sorted set of values.
+
+    !> Everytime when new values are inserted into the set, the total
+    !  list of values is re-sorted. However, the following index list
+    !  allows to get the values in the order in which they have
+    !  originally been inserted. This is useful, when indices are
+    !  stored somewhere else.
+    INTEGER , ALLOCATABLE :: sorted_index(:)
+  END TYPE t_value_set
+
+
 !-----------------------------------------------------------------------
 ! Basic geometry functions definitions
 #define d_norma_3d(v) SQRT(DOT_PRODUCT(v%x,v%x))
@@ -174,6 +199,8 @@ MODULE mo_math_utilities
 #define d_arc_of_hord_normalsphere(l) (2.0_wp*ASIN((l)*0.5_wp))
 #define d_normalize_f(v) v%x/d_norma_3d(v)
 #define d_sqrdistance_3d(v1,v2) DOT_PRODUCT((v1%x-v2%x),(v1%x-v2%x))
+
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_math_utilities'
   
 CONTAINS
   
@@ -2284,6 +2311,160 @@ CONTAINS
     END DO
   END SUBROUTINE set_zlev
 
+
+  !-------------------------------------------------------------------------
+  !> Merges a list of REAL(wp) numbers into another list, yielding the
+  !  union set (without duplicates).
+  !
+  !  Initial implementation: F. Prill, DWD (2014-08-18)
+  !
+  SUBROUTINE merge_values_into_set(nin_values, in_values, value_set, opt_tol)
+    INTEGER,           INTENT(IN)           :: nin_values     !< no. of input values
+    REAL(wp),          INTENT(IN)           :: in_values(:)   !< list of input values
+    TYPE(t_value_set), INTENT(INOUT)        :: value_set      !< result values (union set)
+    REAL(wp),          INTENT(IN), OPTIONAL :: opt_tol        !< (optional:) tolerance for floating-point equality
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = '::merge_values_into_set'
+    REAL(wp),         PARAMETER :: default_tol = 1.e-12_wp
+    REAL(wp) :: tol
+    INTEGER  :: i, k, n0, nn0, ierrstat
+    INTEGER, ALLOCATABLE :: idx(:)
+
+    ! set tolerance for floating-point equality test
+    tol = default_tol
+    IF (PRESENT(opt_tol)) tol = opt_tol
+    ! make sure that we have enough space in our "t_value_set" object:
+    CALL resize_set(value_set, nin_values)
+
+    n0  = value_set%nvalues
+    nn0 = n0+nin_values ! size of new set (with duplicates)
+    ! first step: simply append the value to the end of the list:
+    value_set%values      ((n0+1):nn0) = in_values(1:nin_values)
+    ! second step: sort the whole set (including duplicates):
+    CALL quicksort(value_set%values(1:nn0)) 
+    ! revert levels largest-to-smallest if required
+    IF (.NOT. value_set%sort_smallest_first) THEN
+      value_set%values(1:nn0) = value_set%values(nn0:1:-1)
+    END IF
+    ! allocate temporary index buffer
+    ALLOCATE(idx(nn0), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE of temporary failed!")    
+    ! third step: loop over the sorted list and mark duplicates
+    k = 0
+    DO i=1,nn0
+      IF (k == 0) THEN 
+        k = k + 1
+      ELSE
+        IF (ABS(value_set%values(i-1) - value_set%values(i)) > tol)  k = k + 1
+      END IF
+      idx(i) = k
+    END DO
+    value_set%nvalues = k
+    ! update value and index list (remove duplicates):
+    DO i=1,nn0
+      value_set%values(idx(i))  = value_set%values(i)
+    END DO
+    ! clean up
+    DEALLOCATE(idx, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE of temporary failed!")    
+  END SUBROUTINE merge_values_into_set
+
+
+  !-------------------------------------------------------------------------
+  !> Compares a list of REAL(wp) numbers with the contents of a
+  !  "t_value_set" data object. For a "value_set" with N values, this
+  !  subroutine returns a LOGICAL array "out_flag" of size 1:N, where
+  !  "out_flag(i) == .TRUE.", if the value "value_set%values(i)"
+  !  matches one of the input numbers.
+  !
+  !  @todo For the sake of simplicity, this algorithm has quadratic
+  !        complexity, though we could exploit the fact the the value
+  !        set is sorted.
+  !
+  !  Initial implementation: F. Prill, DWD (2014-08-18)
+  !
+  SUBROUTINE find_values_in_set(nin_values, in_values, value_set, out_flag, opt_tol)
+    INTEGER,           INTENT(IN)           :: nin_values     !< no. of input values
+    REAL(wp),          INTENT(IN)           :: in_values(:)   !< list of input values
+    TYPE(t_value_set), INTENT(IN)           :: value_set      !< set of values
+    LOGICAL,           INTENT(OUT)          :: out_flag(:)    !< 
+    REAL(wp),          INTENT(IN), OPTIONAL :: opt_tol        !< (optional:) tolerance for floating-point equality
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = '::find_values_in_set'
+    REAL(wp),         PARAMETER :: default_tol = 1.e-12_wp
+    REAL(wp) :: tol
+    INTEGER  :: i,j
+
+    ! set tolerance for floating-point equality test
+    tol = default_tol
+    IF (PRESENT(opt_tol)) tol = opt_tol
+    ! make sure that our result array has the required size:
+    IF (SIZE(out_flag) < value_set%nvalues) THEN
+      CALL finish(routine, "Wrong dimension of output argument!")
+    END IF
+    out_flag(:) = .FALSE.
+    DO i=1,value_set%nvalues
+      inner_loop: DO j=1,nin_values
+        IF (ABS(value_set%values(i) - in_values(j)) <= tol) THEN
+          out_flag(i) = .TRUE.          
+          EXIT inner_loop
+        END IF
+      END DO inner_loop
+    END DO
+
+  END SUBROUTINE find_values_in_set
+
+
+  !> Resizes the data structures of a "t_value_set" derived type object.
+  !
+  !  Initial implementation: F. Prill, DWD (2014-08-18)
+  !
+  SUBROUTINE resize_set(value_set, nadditional_values)
+    TYPE(t_value_set), INTENT(INOUT) :: value_set       !< result values (union set)    
+    INTEGER,           INTENT(IN)    :: nadditional_values
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = '::deallocate_set'
+    INTEGER               :: ierrstat, oldsize, newsize
+    REAL(wp), ALLOCATABLE :: tmp_rbuf(:)
+
+    ! increase size of REAL(wp) buffer
+    oldsize = 0
+    IF (ALLOCATED(value_set%values)) THEN
+      oldsize = SIZE(value_set%values)
+      ALLOCATE(tmp_rbuf(oldsize), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")    
+      tmp_rbuf(1:oldsize) = value_set%values(1:oldsize)
+      DEALLOCATE(value_set%values, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")    
+    ELSE
+      value_set%nvalues = 0
+    END IF
+    newsize = oldsize + nadditional_values
+    ALLOCATE(value_set%values(newsize), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")    
+    IF (ALLOCATED(tmp_rbuf)) THEN
+      value_set%values(1:oldsize) = tmp_rbuf(1:oldsize)
+      ! clean up
+      DEALLOCATE(tmp_rbuf, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")    
+    END IF
+  END SUBROUTINE resize_set
+
+
+  !> Frees a "t_value_set" data type.
+  !
+  !  Initial implementation: F. Prill, DWD (2014-08-18)
+  !
+  SUBROUTINE deallocate_set(value_set)
+    TYPE(t_value_set), INTENT(INOUT) :: value_set   !< result values (union set)    
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = '::deallocate_set'
+    INTEGER :: ierrstat
+
+    value_set%nvalues = 0
+    DEALLOCATE(value_set%values, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+  END SUBROUTINE deallocate_set
 
 END MODULE mo_math_utilities
 

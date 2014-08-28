@@ -217,12 +217,15 @@ CONTAINS
     act_obj%nvars = nvars
 
     IF (msg_level >= 11) THEN
-      WRITE(message_text,'(a,i2,a)') 'Variables assigned to action ',act_obj%actionID,' :'
-      CALL message(TRIM(routine),message_text)
+      WRITE(message_text,'(a,i0,a)') 'Variables assigned to action ',act_obj%actionID,':'
       DO i=1,act_obj%nvars
-      WRITE(message_text,'(a)') TRIM(act_obj%var_element_ptr(i)%p%info%name)
-      CALL message('',message_text)
+        IF (i==1) THEN
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(act_obj%var_element_ptr(i)%p%info%name)
+        ELSE
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(act_obj%var_element_ptr(i)%p%info%name)
+        END IF
       ENDDO
+      CALL message('',message_text)
     ENDIF
 
   END SUBROUTINE action_collect_vars
@@ -274,7 +277,7 @@ CONTAINS
     mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
 
     ! compute allowed slack in PT-Format
-    ! Use factor 999 instead of 1000, since no open intervall is available
+    ! Use factor 999 instead of 1000, since no open interval is available
     ! needed [trigger_date, trigger_date + slack[
     ! used   [trigger_date, trigger_date + slack]
     CALL getPTStringFromMS(INT(999._wp*slack),str_slack)
@@ -303,7 +306,7 @@ CONTAINS
       ! Note that a second call to isCurrentEventActive will lead to 
       ! a different result! Is this a bug or a feature?
       ! triggers in interval [trigger_date + slack]
-      isactive = isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack)
+      isactive = LOGICAL(isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack))
 
 
       ! Check wheter the action 'reset_act' should be triggered for variable

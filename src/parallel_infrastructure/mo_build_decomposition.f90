@@ -43,11 +43,10 @@ CONTAINS
   !
   !  @author F. Prill, DWD (2013-08-06)
   !
-  SUBROUTINE build_decomposition(num_lev,num_levp1,nshift,&
+  SUBROUTINE build_decomposition(num_lev,nshift,&
     &                            is_ocean_decomposition, patch_3d)
     
     INTEGER, INTENT(in)                 :: num_lev(max_dom),                &
-      &                                    num_levp1(max_dom),              &
       &                                    nshift(max_dom)
     LOGICAL, INTENT(in)                 :: is_ocean_decomposition
     TYPE(t_patch_3d), POINTER, OPTIONAL :: patch_3d
@@ -77,7 +76,7 @@ CONTAINS
                   
     ! compute domain decomposition on-the-fly        
     ALLOCATE(p_patch_pre(n_dom_start:n_dom))
-    CALL import_pre_patches(p_patch_pre,num_lev,num_levp1,nshift)
+    CALL import_pre_patches(p_patch_pre,num_lev,nshift)
     ! use internal domain decomposition algorithm
     CALL decompose_domain(p_patch, p_patch_pre)
     DEALLOCATE(p_patch_pre)

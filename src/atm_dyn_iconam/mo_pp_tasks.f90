@@ -58,7 +58,7 @@ MODULE mo_pp_tasks
     &                                   t_vcoeff_cub
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_nwp_phy_state,           ONLY: prm_diag
-  USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config, nh_pzlev_config
+  USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_name_list_output_types,  ONLY: t_output_name_list
   USE mo_parallel_config,         ONLY: nproma
@@ -483,9 +483,9 @@ CONTAINS
     ! ipz-level interpolation data
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
 
-    nzlev          =  nh_pzlev_config%nzlev
-    nplev          =  nh_pzlev_config%nplev
-    nilev          =  nh_pzlev_config%nilev
+    nzlev          =  nh_pzlev_config%zlevels%nvalues
+    nplev          =  nh_pzlev_config%plevels%nvalues
+    nilev          =  nh_pzlev_config%ilevels%nvalues
 
     ! build data structure "vcoeff" containing coefficient tables                      
     SELECT CASE ( ptr_task%job_type )
@@ -595,21 +595,21 @@ CONTAINS
     SELECT CASE ( ptr_task%job_type )
     CASE ( TASK_INTP_VER_ZLEV )
       ! vertical levels for z-level interpolation
-      n_ipzlev  =  nh_pzlev_config%nzlev
+      n_ipzlev  =  nh_pzlev_config%zlevels%nvalues
       vcoeff  =>  p_diag_pz%vcoeff_z
       p_z3d   =>  nh_pzlev_config%z3d
       p_pres  =>  p_diag_pz%z_pres
       p_temp  =>  p_diag_pz%z_temp
     CASE ( TASK_INTP_VER_PLEV )
       ! vertical levels for p-level interpolation
-      n_ipzlev  =  nh_pzlev_config%nplev
+      n_ipzlev  =  nh_pzlev_config%plevels%nvalues
       vcoeff  =>  p_diag_pz%vcoeff_p
       p_z3d   =>  p_diag_pz%p_gh
       p_pres  =>  nh_pzlev_config%p3d
       p_temp  =>  p_diag_pz%p_temp
     CASE ( TASK_INTP_VER_ILEV )
       ! vertical levels for isentropic-level interpolation
-      n_ipzlev  =   nh_pzlev_config%nilev
+      n_ipzlev  =   nh_pzlev_config%ilevels%nvalues
       vcoeff  =>  p_diag_pz%vcoeff_i
       p_z3d   =>  p_diag_pz%i_gh
       p_pres  =>  nh_pzlev_config%p3d ! ** this still needs to be fixed! we either need i_pres here
@@ -779,7 +779,6 @@ CONTAINS
 
     INTEGER                            :: nblks_c, npromz_c, nblks_e, jg,          &
       &                                   in_var_idx, out_var_idx, nlev, i_endblk
-    TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     TYPE(t_vcoeff)                     :: vcoeff
     TYPE (t_var_list_element), POINTER :: in_var, out_var
     TYPE(t_var_metadata),      POINTER :: p_info
@@ -797,9 +796,6 @@ CONTAINS
     p_metrics      => ptr_task%data_input%p_nh_state%metrics
     p_prog         => ptr_task%data_input%p_nh_state%prog(nnow(jg))
     p_diag         => ptr_task%data_input%p_nh_state%diag
-
-    ! pz-level interpolation data
-    nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
 
     ! input/output field for this task
     p_info            => ptr_task%data_input%var%info

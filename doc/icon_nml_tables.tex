@@ -2649,58 +2649,6 @@ list of meteogram stations (triples with lat, lon, name string)&
 Defined and used in: \verb+src/namelists/mo_mtgrm_nml.f90+
 
 
-%------------------------------------------------------------------------------
-% nh_pzlev_nml:
-%------------------------------------------------------------------------------
-\subsection{nh\_pzlev\_nml}
-\begin{longtab}
-
-%\hline
-\textbf{nzlev} &
-I& 10 & &
-number of height levels&
-iequations=3
-\tabularnewline
-
-%\hline
-\textbf{nplev} &
-I& 10 & &
-number of pressure levels&
-iequations=3
-\tabularnewline
-
-%\hline
-\textbf{nilev} &
-I& 3 & &
-number of isentropes&
-iequations=3
-\tabularnewline
-
-%\hline
-\textbf{zlevels} &
-R(100)& 10000,\\ 9000,\\...,\\1000,\\0 & m&
-array of height levels&
-iequations=3
-\tabularnewline
-
-%\hline
-\textbf{plevels} &
-R(100)&  10000,\\ 20000,\\30000,\\...,\\100000& Pa &
-array of pressure levels&
-iequations=3
-\tabularnewline
-
-%\hline
-\textbf{ilevels} &
-R(100)&  340,\\ 320,\\ 300 & K &
-array of isentropic levels&
-iequations=3
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_nh_pzlev_nml.f90+
-
 
 %-----------------------------------------------------------------------------
 % nonhydrostatic_nml:
@@ -3251,11 +3199,24 @@ Possible values:\\
 \tabularnewline
 
 %\hline
+m\_levels &
+C&None&  &
+ Model level indices (optional). \\
+ Allowed is a comma- (or semicolon-) separated list of integers,
+ and of integer ranges like "10...20".  One may also use the
+ keyword "nlev" to denote the maximum integer (or, equivalently,
+ "n" or "N").
+ Furthermore, arithmetic expressions like "(nlev~-~2)" are
+ possible.\\
+ Basic example:\\\texttt{m\_levels = "1,3,5...10,20...(nlev-2)"}
+ \\
+&
+\tabularnewline
+
+%\hline
 h\_levels &
 R(:)&None& m &
  height levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The height levels are currently taken from the array \emph{zlevels} in namelist nh\_pzlev\_nml. }
 &
 \tabularnewline
 
@@ -3263,8 +3224,6 @@ R(:)&None& m &
 p\_levels &
 R(:)&None& hPa &
  pressure levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The pressure levels are currently taken from the array \emph{plevels} in namelist nh\_pzlev\_nml. }
 &
 \tabularnewline
 
@@ -3272,8 +3231,6 @@ R(:)&None& hPa &
 i\_levels &
 R(:)&None& K &
  isentropic levels \\
- {\color{red} Not yet implemented.} \\
- {\color{red} The isentropic levels are currently taken from array \emph{ilevels} in namelist nh\_pzlev\_nml. }
 &
 \tabularnewline
 

@@ -302,18 +302,6 @@ reg_lat_def_tri=$reg_lat_def_reg
 reg_lon_def_tri=0.,1.125,358.875
 
 
-# Define grids for vertical remapping
-# -----------------------------------
-#
-cat >> ${atmo_namelist} << EOF
-&nh_pzlev_nml
- nplev            = 28          ! number of pressure levels (plevels in [Pa] and top-down)
- plevels          = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
-                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
-/
-EOF
-
-
 # Define output files
 # -------------------
 #
@@ -365,6 +353,8 @@ if [[ "$output_dyn" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg','pfull','dpres_mc'
  pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
+ p_levels          = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
+                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
 &output_nml
  output_filename  = "${EXPNAME}_dyn_3d_rmb"
@@ -380,6 +370,8 @@ if [[ "$output_dyn" == "yes" ]]; then
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  pl_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho','zg'
+ p_levels          = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
+                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
 EOF
 fi
@@ -496,6 +488,8 @@ if [[ "$output_phy" == "yes" ]]; then
 !                    'tend_u', 'tend_u_cnv', 'tend_u_vdf', 'tend_u_gwh', 'tend_u_sso',
 !                    'tend_v', 'tend_v_cnv', 'tend_v_vdf', 'tend_v_gwh', 'tend_v_sso',
 !                    'tend_qv', 'tend_qv_cld', 'tend_qv_cnv', 'tend_qv_vdf'
+ p_levels          = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
+                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
 EOF
 fi
@@ -539,6 +533,8 @@ if [[ "$output_aer" == "yes" ]]; then
  pl_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
                     'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
                     'prm_aer_aod_9731'
+ p_levels          = 10, 20, 30, 50, 70, 100, 200, 300, 500, 700, 1000, 2000, 3000, 5000, 7000, 10000,
+                    15000, 20000, 25000, 30000, 40000, 50000, 60000, 70000, 77500, 85000, 92500, 100000
 /
 EOF
 fi

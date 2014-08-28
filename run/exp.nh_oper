@@ -274,12 +274,6 @@ cat > ${atmo_namelist} << EOF
  itype_pres_msl = 4  ! IFS method with bug fix for self-consistency between SLP and geopotential
  itype_rh       = 1  ! RH w.r.t. water
 /
-&nh_pzlev_nml
- nplev       = 5     ! number of p level output (attention: levels in [Pa] and top-down)
- nzlev       = 10     ! number of z level output (attention: levels in [m] and top-down)
- plevels     = 20000,30000,50000,70000,85000
- zlevels     = 10000,8000,6000,5000,4000,3000,2000,1000,500,100
-/
 ! OUTPUT: Regular grid, model levels, all domains
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
@@ -303,6 +297,7 @@ cat > ${atmo_namelist} << EOF
  include_last                 = .TRUE.
  output_filename              = '${EXP}-wind'         ! file name base
  pl_varlist                   = 'u', 'v'
+ p_levels     = 20000,30000,50000,70000,85000
  remap                        = 1
  reg_lon_def                  = 0.,0.5,359.5
  reg_lat_def                  = 90.,-0.5, -90.
@@ -316,6 +311,7 @@ cat > ${atmo_namelist} << EOF
  include_last                 = .TRUE.
  output_filename              = '${EXP}-t'         ! file name base
  pl_varlist                   = 'temp'
+ p_levels     = 20000,30000,50000,70000,85000
  remap                        = 1
  reg_lon_def                  = 0.,0.5,359.5
  reg_lat_def                  = 90.,-0.5, -90.
@@ -329,6 +325,7 @@ cat > ${atmo_namelist} << EOF
  include_last                 = .TRUE.
  output_filename              = '${EXP}-rh'         ! file name base
  pl_varlist                   = 'rh'
+ p_levels     = 20000,30000,50000,70000,85000
  remap                        = 1
  reg_lon_def                  = 0.,0.5,359.5
  reg_lat_def                  = 90.,-0.5, -90.
@@ -342,6 +339,7 @@ cat > ${atmo_namelist} << EOF
  include_last                 = .TRUE.
  output_filename              = '${EXP}-phi'         ! file name base
  pl_varlist                   = 'geopot'
+ p_levels     = 20000,30000,50000,70000,85000
  remap                        = 1
  reg_lon_def                  = 0.,0.5,359.5
  reg_lat_def                  = 90.,-0.5, -90.
@@ -367,6 +365,7 @@ cat > ${atmo_namelist} << EOF
  output_filename              = '${EXP}'                ! file name base
  ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'tqv','tqc','tqi','shfl_s','lhfl_s','qhfl_s','cape', 'group:precip_vars', 'group:land_vars', 'group:multisnow_vars', 'group:rad_vars'
  pl_varlist                   = 'u','v','temp','geopot'
+ p_levels     = 20000,30000,50000,70000,85000
  output_grid                  =  .TRUE.
 /
 &meteogram_output_nml

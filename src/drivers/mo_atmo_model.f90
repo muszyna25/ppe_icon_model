@@ -52,7 +52,7 @@ MODULE mo_atmo_model
   USE mo_run_config,              ONLY: configure_run,                                        &
     &                                   ltimer, ltestcase,                                    &
     &                                   nshift,                                               &
-    &                                   num_lev,num_levp1,                                    &
+    &                                   num_lev,                                              &
     &                                   msg_level,                                            &
     &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
@@ -330,7 +330,7 @@ CONTAINS
             CALL get_restart_attribute("jstep", jstep0)
           END IF
           sim_step_info%jstep0    = jstep0
-          CALL name_list_io_main_proc(sim_step_info, isample=iadv_rcf)
+          CALL name_list_io_main_proc(sim_step_info)
         END IF
       ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
         ! Shut down MPI
@@ -358,7 +358,7 @@ CONTAINS
     !-------------------------------------------------------------------
 
     IF (timers_level > 5) CALL timer_start(timer_domain_decomp)
-    CALL build_decomposition(num_lev,num_levp1,nshift,  is_ocean_decomposition = .false.)
+    CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
     IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
 
     !--------------------------------------------------------------------------------

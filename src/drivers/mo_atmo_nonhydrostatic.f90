@@ -15,7 +15,7 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
-USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham, ihs_ocean
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_control,       ONLY: is_restart_run
@@ -62,8 +62,11 @@ USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
 USE mo_name_list_output_config,   ONLY: first_output_name_list, &
   &                               is_variable_in_output
-USE mo_name_list_output_init,ONLY: init_name_list_output, &
-  &                               parse_variable_groups
+USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
+  &                                  parse_variable_groups,        &
+  &                                  collect_requested_ipz_levels, &
+  &                                  output_file
+USE mo_name_list_output_zaxes, ONLY: create_mipz_level_selections
 USE mo_name_list_output,    ONLY: close_name_list_output
 USE mo_pp_scheduler,        ONLY: pp_scheduler_init, pp_scheduler_finalize
 USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
@@ -375,12 +378,6 @@ CONTAINS
     !------------------------------------------------------------------
     ! Prepare output file
     !------------------------------------------------------------------
-    !
-    ! if output on z and/or p-levels is required do some config
-    DO jg = 1, n_dom
-       CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
-            &                     p_patch(jg)%nblks_c)
-    ENDDO
 
     ! Add a special metrics variable containing the area weights of
     ! the regular lon-lat grid.
@@ -392,7 +389,17 @@ CONTAINS
     IF (output_mode%l_nml) THEN
       CALL parse_variable_groups()
     END IF
-   
+
+    ! if output on z and/or p-levels is required do some config
+    !
+    ! Note that on the compute PEs we must call this *before* the
+    ! initialization of the vertical interpolation,
+    ! "pp_scheduler_init"
+    CALL collect_requested_ipz_levels()
+    DO jg = 1, n_dom
+      CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
+        &                     p_patch(jg)%nblks_c)
+    ENDDO   
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
@@ -416,6 +423,9 @@ CONTAINS
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info)
+      IF (iequations/=ihs_ocean) THEN ! atm
+        CALL create_mipz_level_selections(output_file)
+      END IF
     END IF
 
     ! Determine if temporally averaged vertically integrated moisture quantities need to be computed

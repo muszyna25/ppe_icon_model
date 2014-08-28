@@ -58,7 +58,8 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, ihs_ocean
+  USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi_constants              ! We need all
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
@@ -104,9 +105,11 @@ MODULE mo_name_list_output
   ! output initialization
   USE mo_name_list_output_init,     ONLY: init_name_list_output, setup_output_vlist,                &
     &                                     varnames_dict, out_varnames_dict,                         &
-    &                                     output_file, patch_info, lonlat_info
+    &                                     output_file, patch_info, lonlat_info,                     &
+    &                                     collect_requested_ipz_levels
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
     &                                     metainfo_get_size
+  USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
   USE mo_util_cdi,                  ONLY: set_timedependent_GRIB2_keys
   ! post-ops
   USE mo_post_op,                   ONLY: perform_post_op
@@ -121,12 +124,6 @@ MODULE mo_name_list_output
   IMPLICIT NONE
 
   PRIVATE
-
-  !-----------------------------------------------------------------
-  ! include NetCDF headers (direct NetCDF library calls are required
-  ! for output of grid information).
-  !-----------------------------------------------------------------
-  INCLUDE 'netcdf.inc'
 
   PUBLIC :: write_name_list_output
   PUBLIC :: close_name_list_output
@@ -206,6 +203,10 @@ CONTAINS
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
         IF (output_file(i)%cdiFileID >= 0) THEN
+          ! clean up level selection (if there is one):
+          IF (ASSOCIATED(output_file(i)%level_selection)) THEN
+            CALL deallocate_level_selection(output_file(i)%level_selection)
+          END IF
           CALL close_output_file(output_file(i))
           CALL destroy_output_vlist(output_file(i))
         END IF
@@ -545,8 +546,8 @@ CONTAINS
     INTEGER,          PARAMETER                 :: iREAL    = 2
                                                
     INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
-      &                                            nlevs, nblks, nindex, mpierr, lonlat_id,   &
-      &                                            idata_type
+      &                                            nlevs, nindex, mpierr, lonlat_id,          &
+      &                                            idata_type, lev_idx
     INTEGER(i8)                                 :: ioff
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
@@ -608,7 +609,7 @@ CONTAINS
     DO iv = 1, of%num_vars
 
       info => of%var_desc(iv)%info
-!dbg      write(0,*)'>>>>>>>>>>>>>>>>>>>>>>>>> VARNAME: ',info%name
+      ! WRITE(0,*)'>>>>>>>>>>>>>>>>>>>>>>>>> VARNAME: ',info%name
 
       ! inspect time-constant variables only if we are writing the
       ! first step in this file:
@@ -726,20 +727,25 @@ CONTAINS
       IF(info%ndims == 2) THEN
         nlevs = 1
       ELSE
-        nlevs = info%used_dimensions(2)
+        ! handle the case that a few levels have been selected out of
+        ! the total number of levels:
+        IF (ASSOCIATED(of%level_selection)) THEN
+          nlevs = of%level_selection%n_selected
+        ELSE
+          nlevs = info%used_dimensions(2)
+        END IF
       ENDIF
 
       ! Get pointer to appropriate reorder_info
-
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
-        p_ri => patch_info(i_dom)%cells
+        p_ri  => patch_info(i_dom)%cells
         p_pat => patch_info(i_dom)%p_pat_c
       CASE (GRID_UNSTRUCTURED_EDGE)
-        p_ri => patch_info(i_dom)%edges
+        p_ri  => patch_info(i_dom)%edges
         p_pat => patch_info(i_dom)%p_pat_e
       CASE (GRID_UNSTRUCTURED_VERT)
-        p_ri => patch_info(i_dom)%verts
+        p_ri  => patch_info(i_dom)%verts
         p_pat => patch_info(i_dom)%p_pat_v
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
@@ -760,33 +766,46 @@ CONTAINS
         ! gather the array on stdio PE and write it out there
 
         n_points = p_ri%n_glb
-        nblks = (n_points-1)/nproma + 1
 
         IF (idata_type == iREAL) THEN
 
-          ALLOCATE(r_out_dp(MERGE(n_points, 0, &
-            &                      my_process_is_mpi_workroot()), nlevs))
+          ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot()), nlevs))
           r_out_wp => r_out_dp
           r_out_wp(:,:) = 0._wp
-          CALL exchange_data(r_ptr(:,:,:), r_out_wp(:,:), p_pat)
+
+          DO jk = 1, nlevs
+            lev_idx = jk
+            ! handle the case that a few levels have been selected out of
+            ! the total number of levels:
+            IF (ASSOCIATED(of%level_selection)) THEN
+              lev_idx = of%level_selection%global_idx(lev_idx)
+            END IF
+            CALL exchange_data(r_ptr(:,lev_idx,:), r_out_wp(:,jk), p_pat)
+          END DO 
 
         ELSE IF (idata_type == iINTEGER) THEN
 
-          ALLOCATE(r_out_int(MERGE(n_points, 0, &
-            &                      my_process_is_mpi_workroot()), nlevs))
+          ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot()), nlevs))
           r_out_int(:,:) = 0
-          CALL exchange_data(i_ptr(:,:,:), r_out_int(:,:), p_pat)
+
+          DO jk = 1, nlevs
+            lev_idx = jk
+            ! handle the case that a few levels have been selected out of
+            ! the total number of levels:
+            IF (ASSOCIATED(of%level_selection)) THEN
+              lev_idx = of%level_selection%global_idx(lev_idx)
+            END IF
+            CALL exchange_data(i_ptr(:,lev_idx,:), r_out_int(:,jk), p_pat)
+          END DO 
 
         END IF
 
         have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
         IF(my_process_is_mpi_workroot()) THEN
 
-          IF (use_dp_mpi2io .or. have_GRIB) THEN
-            IF (.NOT. ALLOCATED(r_out_dp)) &
-              ALLOCATE(r_out_dp(n_points, nlevs))
-            IF (idata_type == iINTEGER) &
-              r_out_dp(:,:) = REAL(r_out_int(:,:), dp)
+          IF (use_dp_mpi2io .OR. have_GRIB) THEN
+            IF (.NOT. ALLOCATED(r_out_dp)) ALLOCATE(r_out_dp(n_points, nlevs))
+            IF (idata_type == iINTEGER)    r_out_dp(:,:) = REAL(r_out_int(:,:), dp)
           ELSE
             ALLOCATE(r_out_sp(n_points, nlevs))
             IF (idata_type == iREAL) THEN
@@ -836,11 +855,11 @@ CONTAINS
 
         ! set some GRIB2 keys that may have changed during simulation
         IF  (( of%output_type == FILETYPE_GRB2 ) .AND.  &
-          &  ( my_process_is_mpi_workroot() )    .AND. &
+          &  ( my_process_is_mpi_workroot() )    .AND.  &
           &  ( .NOT. my_process_is_mpi_test() )) THEN
-          CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, info,      &
-            &                               TRIM(of%out_event%output_event%event_data%sim_start), &
-            &                               TRIM(get_current_date(of%out_event)))
+          CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, info,             &
+            &                               of%out_event%output_event%event_data%sim_start, &
+            &                               get_current_date(of%out_event))
         END IF
 
         ! ----------
@@ -848,18 +867,20 @@ CONTAINS
         ! ----------
 
         IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-          IF (use_dp_mpi2io .or. have_GRIB) THEN
-            CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out_dp, 0)
-          ELSE
-            CALL streamWriteVarF(of%cdiFileID, info%cdiVarID, r_out_sp, 0)
-          ENDIF
+          LevelLoop: DO jk = 1, nlevs
+            IF (use_dp_mpi2io .OR. have_GRIB) THEN
+              CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, jk-1, r_out_dp(:,jk), 0)
+            ELSE
+              CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, r_out_sp(:,jk), 0)
+            ENDIF
+          END DO LevelLoop
           IF (lkeep_in_sync) CALL streamSync(of%cdiFileID)
         ENDIF
 
         ! clean up
         IF (ALLOCATED(r_out_int)) DEALLOCATE(r_out_int)
-        IF (ALLOCATED(r_out_sp)) DEALLOCATE(r_out_sp)
-        IF (ALLOCATED(r_out_dp)) DEALLOCATE(r_out_dp)
+        IF (ALLOCATED(r_out_sp))  DEALLOCATE(r_out_sp)
+        IF (ALLOCATED(r_out_dp))  DEALLOCATE(r_out_dp)
 
       ELSE
 
@@ -869,26 +890,34 @@ CONTAINS
 
         ! just copy the OWN DATA points to the memory window
         DO jk = 1, nlevs
+          ! handle the case that a few levels have been selected out of
+          ! the total number of levels:
+          IF (ASSOCIATED(of%level_selection)) THEN
+            lev_idx = of%level_selection%global_idx(jk)
+          ELSE
+            lev_idx = jk
+          END IF
+
           IF (use_dp_mpi2io) THEN
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
+                of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
           ELSE
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
             IF (idata_type == iINTEGER) THEN
               DO i = 1, p_ri%n_own
-                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),sp)
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
           END IF
@@ -949,9 +978,8 @@ CONTAINS
 #ifdef NOMPI
   ! Just define the entry point of name_list_io_main_proc, it will never be called
 
-  SUBROUTINE name_list_io_main_proc(sim_step_info, isample)
+  SUBROUTINE name_list_io_main_proc(sim_step_info)
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
-    INTEGER,                INTENT(in) :: isample
   END SUBROUTINE name_list_io_main_proc
 
 #else
@@ -961,11 +989,10 @@ CONTAINS
   !> Main routine for I/O PEs.
   !  Please note that this routine never returns.
   !
-  SUBROUTINE name_list_io_main_proc(sim_step_info, isample)
+  SUBROUTINE name_list_io_main_proc(sim_step_info)
     !> Data structure containing all necessary data for mapping an
     !  output time stamp onto a corresponding simulation step index.
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
-    INTEGER,                INTENT(in) :: isample
     ! local variables:
 
 #ifndef __NO_ICON_ATMO__
@@ -983,6 +1010,17 @@ CONTAINS
 
     ! Initialize name list output, this is a collective call for all PEs
     CALL init_name_list_output(sim_step_info)
+
+    ! Append the chosen p-levels, z-levels, i-levels to the levels
+    ! sets for the corresponding domains:
+    !
+    ! Note that on pure I/O PEs we must call this *after* the
+    ! "init_name_list_output", since some values (log_dom_id) are
+    ! reuqired which are communicated there.
+    CALL collect_requested_ipz_levels()
+    IF (iequations/=ihs_ocean) THEN ! atm
+      CALL create_mipz_level_selections(output_file)
+    END IF
 
     ! Tell the compute PEs that we are ready to work
     IF (ANY(output_file(:)%io_proc_id == p_pe)) THEN 
@@ -1182,13 +1220,15 @@ CONTAINS
     DO iv = 1, of%num_vars
       ! POINTER to this variable's meta-info
       info => of%var_desc(iv)%info
+
+      ! WRITE (0,*) ">>>>>>>>>> ", info%name
       ! get also an update for this variable's meta-info (separate object)
       CALL metainfo_get_from_memwin(bufr_metainfo, iv, updated_info)
 
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, updated_info, &
-          &                               TRIM(of%out_event%output_event%event_data%sim_start),    &
-          &                               TRIM(get_current_date(of%out_event)))
+        CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, updated_info,      &
+          &                               of%out_event%output_event%event_data%sim_start,  &
+          &                               get_current_date(of%out_event))
       END IF
 
       ! inspect time-constant variables only if we are writing the
@@ -1198,10 +1238,16 @@ CONTAINS
       IF(info%ndims == 2) THEN
         nlevs = 1
       ELSE
-        nlevs = info%used_dimensions(2)
+        ! handle the case that a few levels have been selected out of
+        ! the total number of levels:
+        IF (ASSOCIATED(of%level_selection)) THEN
+          nlevs = of%level_selection%n_selected
+        ELSE
+          nlevs = info%used_dimensions(2)
+        END IF
       ENDIF
-      ! Get pointer to appropriate reorder_info
 
+      ! Get pointer to appropriate reorder_info
       SELECT CASE (info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
           p_ri => patch_info(of%phys_patch_id)%cells
@@ -1277,7 +1323,6 @@ CONTAINS
       t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
 
       LevelLoop: DO jk = 1, nlevs
-
         t_0 = p_mpi_wtime() ! performance measurement
 
         IF (use_dp_mpi2io) THEN
@@ -1328,6 +1373,7 @@ CONTAINS
         t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
         ! Write calls (via CDIs) of the asynchronous I/O PEs:
         t_0 = p_mpi_wtime() ! performance measurement
+
         IF (use_dp_mpi2io .OR. have_GRIB) THEN
           CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, jk-1, var3_dp, 0)
           mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
@@ -1336,6 +1382,7 @@ CONTAINS
           mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
         ENDIF
         t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement
+
       ENDDO LevelLoop
 
       IF (use_dp_mpi2io .OR. have_GRIB) THEN

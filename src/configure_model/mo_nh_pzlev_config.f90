@@ -26,8 +26,10 @@ MODULE mo_nh_pzlev_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom
+  USE mo_math_utilities,     ONLY: t_value_set
   USE mo_exception,          ONLY: finish
   USE mo_util_sort,          ONLY: quicksort
+  USE mo_mpi,                ONLY: my_process_is_stdio
 
   IMPLICIT NONE
   PUBLIC
@@ -41,17 +43,9 @@ MODULE mo_nh_pzlev_config
 
     ! namelist variables
     !
-    INTEGER :: nzlev                 !< number of z-levels
-
-    INTEGER :: nplev                 !< number of p-levels
-
-    INTEGER :: nilev                 !< number of isentropes
-
-    REAL(wp):: zlevels(100)          !< zlevel heights [m] 
-
-    REAL(wp):: plevels(100)          !< plevel heights [Pa] 
-
-    REAL(wp):: ilevels(100)          !< isentropes [K] 
+    TYPE (t_value_set) :: zlevels    !< zlevel heights [m] 
+    TYPE (t_value_set) :: plevels    !< plevel heights [Pa] 
+    TYPE (t_value_set) :: ilevels    !< isentropes [K]
 
     ! derived variables
     !
@@ -90,15 +84,36 @@ CONTAINS
 
     ! Local variables
     INTEGER :: ist
-    INTEGER :: nlen, nlev
+    INTEGER :: nlen
     INTEGER :: z_nplev, z_nzlev, z_nilev
     INTEGER :: jb, jk           ! loop indices
     !-----------------------------------------------------------------------
 
-    z_nplev = nh_pzlev_config(jg)%nplev
-    z_nzlev = nh_pzlev_config(jg)%nzlev
-    z_nilev = nh_pzlev_config(jg)%nilev
+    z_nplev = nh_pzlev_config(jg)%plevels%nvalues
+    z_nzlev = nh_pzlev_config(jg)%zlevels%nvalues
+    z_nilev = nh_pzlev_config(jg)%ilevels%nvalues
 
+    ! do status output
+    !
+    IF (my_process_is_stdio()) THEN
+      WRITE (0,'(a)')      " "
+      WRITE (0,'(a,i0)') " Output on pressure/height levels and/or isentropes: domain ", jg
+      IF (z_nplev > 0) THEN
+        WRITE (0,'(a)')      " selected pressure levels: "
+        WRITE (0,'(5(f10.2,","))')  nh_pzlev_config(jg)%plevels%values(1:z_nplev)
+        WRITE (0,'(a)')      " "
+      END IF
+      IF (z_nzlev > 0) THEN
+        WRITE (0,'(a)')      " selected height levels: "
+        WRITE (0,'(5(f10.2,","))')  nh_pzlev_config(jg)%zlevels%values(1:z_nzlev)
+        WRITE (0,'(a)')      " "
+      END IF
+      IF (z_nilev > 0) THEN
+        WRITE (0,'(a)')      " selected isentropic levels: "
+        WRITE (0,'(5(f10.2,","))')  nh_pzlev_config(jg)%ilevels%values(1:z_nilev)
+        WRITE (0,'(a)')      " "
+      END IF
+    END IF
 
     ! allocate 3D pressure and z-level fields
     ALLOCATE(nh_pzlev_config(jg)%p3d(nproma,z_nplev,nblks_c),          &
@@ -108,22 +123,6 @@ CONTAINS
       CALL finish ( 'mo_nh_pzlev_nml: configure_nh_pzlev',       &
         &      'allocation of p3d, z3d, i3d failed' )
     ENDIF
-
-    ! level ordering: zlevels, plevels, ilevels must be ordered from
-    ! TOA to bottom:
-    !
-    ! pressure levels:
-    nlev = nh_pzlev_config(jg)%nplev
-    CALL quicksort(nh_pzlev_config(jg)%plevels(1:nlev))
-    !
-    ! height levels
-    nlev = nh_pzlev_config(jg)%nzlev
-    CALL quicksort(nh_pzlev_config(jg)%zlevels(1:nlev))
-    nh_pzlev_config(jg)%zlevels(1:nlev) = nh_pzlev_config(jg)%zlevels(nlev:1:-1)
-    ! isentropic levels
-    nlev = nh_pzlev_config(jg)%nilev
-    CALL quicksort(nh_pzlev_config(jg)%ilevels(1:nlev))
-    nh_pzlev_config(jg)%ilevels(1:nlev) = nh_pzlev_config(jg)%ilevels(nlev:1:-1)
 
     ! Fill z3d field of pressure-level data and pressure field of 
     ! height-level data
@@ -138,16 +137,16 @@ CONTAINS
         nlen = npromz_c
       ENDIF
 
-      DO jk = 1, nh_pzlev_config(jg)%nplev
-        nh_pzlev_config(jg)%p3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%plevels(jk)
+      DO jk = 1, z_nplev
+        nh_pzlev_config(jg)%p3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%plevels%values(jk)
       ENDDO
 
-      DO jk = 1, nh_pzlev_config(jg)%nzlev
-        nh_pzlev_config(jg)%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels(jk)
+      DO jk = 1, z_nzlev
+        nh_pzlev_config(jg)%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels%values(jk)
       ENDDO
 
-      DO jk = 1, nh_pzlev_config(jg)%nilev
-        nh_pzlev_config(jg)%i3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%ilevels(jk)
+      DO jk = 1, z_nilev
+        nh_pzlev_config(jg)%i3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%ilevels%values(jk)
       ENDDO
 
     ENDDO

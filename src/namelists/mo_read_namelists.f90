@@ -35,7 +35,6 @@ MODULE mo_read_namelists
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
   USE mo_interpol_nml        ,ONLY: read_interpol_namelist
   USE mo_sleve_nml           ,ONLY: read_sleve_namelist
-  USE mo_nh_pzlev_nml        ,ONLY: read_nh_pzlev_namelist
   USE mo_ha_dyn_nml          ,ONLY: read_ha_dyn_namelist
   USE mo_nonhydrostatic_nml  ,ONLY: read_nonhydrostatic_namelist
   USE mo_diffusion_nml       ,ONLY: read_diffusion_namelist
@@ -109,7 +108,6 @@ CONTAINS
     CALL read_parallel_namelist       (TRIM(atm_namelist_filename))
     CALL read_run_namelist            (TRIM(atm_namelist_filename))
     CALL read_io_namelist             (TRIM(atm_namelist_filename))
-    CALL read_nh_pzlev_namelist       (TRIM(atm_namelist_filename))
     CALL read_meteogram_namelist      (TRIM(atm_namelist_filename))
     CALL read_name_list_output_namelists (TRIM(atm_namelist_filename))
     CALL read_dbg_namelist            (TRIM(atm_namelist_filename))

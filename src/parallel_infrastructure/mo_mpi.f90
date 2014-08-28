@@ -861,7 +861,7 @@ CONTAINS
     CHARACTER (len=*), INTENT(in) :: text
 
     IF (my_process_is_stdio() ) THEN
-      WRITE (nerr,'(a,a,a)') TRIM(name), ": ", TRIM(text)
+      WRITE (nerr,'(a,a,a,a)') " ", TRIM(name), ": ", TRIM(text)
     ENDIF
 
   END SUBROUTINE print_info_stderr
@@ -6260,7 +6260,7 @@ CONTAINS
     REAL(sp),  INTENT(in)           :: zfield
     INTEGER,   INTENT(in)           :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, my_rank
+    INTEGER :: p_comm
 
     p_comm = comm
 

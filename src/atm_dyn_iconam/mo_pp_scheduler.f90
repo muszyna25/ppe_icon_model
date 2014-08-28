@@ -719,6 +719,7 @@ CONTAINS
           !-- create and add post-processing task
           task => pp_task_insert(DEFAULT_PRIORITY4)
           WRITE (task%job_name, *) "horizontal interp. ",TRIM(info%name),", DOM ",jg
+          IF (dbg_level > 8) CALL message(routine, task%job_name)
           task%data_input%p_nh_state      => NULL()
           task%data_input%prm_diag        => NULL()
           task%data_input%nh_pzlev_config => NULL()
@@ -752,6 +753,7 @@ CONTAINS
         CALL message(routine, "Creating synchronization task for horizontal interpolation.")
       task => pp_task_insert(DEFAULT_PRIORITY3)
       WRITE (task%job_name, *) "horizontal interp. SYNC"
+      IF (dbg_level > 8) CALL message(routine, task%job_name)
       task%job_type = TASK_INTP_SYNC
       task%activity = new_simulation_status(l_output_step=.TRUE.)
       task%activity%ldom_active(:)  = .FALSE. ! i.e. no domain-wise (in-)activity 
@@ -991,6 +993,7 @@ CONTAINS
         !-- create a post-processing task for edge2cell interpolation "vn" -> "u","v"
         task => pp_task_insert(DEFAULT_PRIORITY2)
         WRITE (task%job_name, *) "edge2cell interp. ",TRIM(info%name),", DOM ",jg
+        IF (dbg_level > 8) CALL message(routine, task%job_name)
         task%data_input%p_nh_state      => NULL()
         task%data_input%prm_diag        => NULL()
         task%data_input%nh_pzlev_config => NULL()
@@ -1142,14 +1145,14 @@ CONTAINS
       ! meta-data of an existing variable field (which is defined on
       ! model/half levels):
       IF (l_intp_z) THEN
-        shape3d = (/ nproma, nh_pzlev_config(jg)%nzlev, nblks_c /)
+        shape3d = (/ nproma, nh_pzlev_config(jg)%zlevels%nvalues, nblks_c /)
         CALL copy_variable("temp", p_nh_state(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_temp, p_opt_diag_list_z)
         CALL copy_variable("pres", p_nh_state(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_pres, p_opt_diag_list_z)
       END IF
       IF (l_intp_p) THEN
-        shape3d = (/ nproma, nh_pzlev_config(jg)%nplev, nblks_c /)
+        shape3d = (/ nproma, nh_pzlev_config(jg)%plevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
@@ -1159,7 +1162,7 @@ CONTAINS
           &                p_diag_pz%p_temp, p_opt_diag_list_p)
       END IF
       IF (l_intp_i) THEN
-        shape3d = (/ nproma, nh_pzlev_config(jg)%nilev, nblks_c /)
+        shape3d = (/ nproma, nh_pzlev_config(jg)%ilevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
@@ -1192,6 +1195,7 @@ CONTAINS
         task%activity%i_timelevel(jg)    = ALL_TIMELEVELS
         task%job_type                    = init_tasks(i)
         task%job_name                    = "Init: "//init_names(i)//"-level interpolation, DOM "//TRIM(int2string(jg))
+        IF (dbg_level > 8) CALL message(routine, task%job_name)
       END DO
 
       !-- register clean-up routine as a post-processing task
@@ -1201,6 +1205,7 @@ CONTAINS
       task%activity%i_timelevel(jg)    =  ALL_TIMELEVELS
       task%data_input%p_nh_opt_diag => p_nh_opt_diag(jg)
       task%job_name     = "Clean-up: ipz-level interpolation, level "//TRIM(int2string(jg))
+      IF (dbg_level > 8) CALL message(routine, task%job_name)
       task%job_type     = TASK_FINALIZE_IPZ
       task%data_input%p_int_state      => NULL()
       task%data_input%jg               =  jg           
@@ -1225,7 +1230,7 @@ CONTAINS
           prefix  =  "z-level"
           varlist => hl_varlist
           nvars   =  nvars_hl
-          nlev    =  nh_pzlev_config(jg)%nzlev
+          nlev    =  nh_pzlev_config(jg)%zlevels%nvalues
           vgrid   =  ZA_ALTITUDE
           p_opt_diag_list => p_opt_diag_list_z
           job_type = TASK_INTP_VER_ZLEV
@@ -1235,7 +1240,7 @@ CONTAINS
           prefix  =  "p-level"
           varlist => pl_varlist
           nvars   =  nvars_pl
-          nlev    =  nh_pzlev_config(jg)%nplev
+          nlev    =  nh_pzlev_config(jg)%plevels%nvalues
           vgrid   =  ZA_PRESSURE
           p_opt_diag_list => p_opt_diag_list_p
           job_type = TASK_INTP_VER_PLEV
@@ -1245,7 +1250,7 @@ CONTAINS
           prefix  =  "i-level"
           varlist => il_varlist
           nvars   =  nvars_il
-          nlev    =  nh_pzlev_config(jg)%nilev
+          nlev    =  nh_pzlev_config(jg)%ilevels%nvalues
           vgrid   =  ZA_ISENTROPIC
           p_opt_diag_list => p_opt_diag_list_i
           job_type = TASK_INTP_VER_ILEV

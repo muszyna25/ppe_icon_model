@@ -490,7 +490,6 @@ MODULE mo_impl_constants
     max_var_pl     = 150, & ! maximum number of pressure-level variables
     max_var_hl     = 150, & ! maximum number of height-level variables
     max_var_il     = 150, & ! maximum number of variables on isentropes
-    max_levels     = 100, & ! maximum number of pressure/height levels
     vname_len      =  32    ! variable name length in I/O namelists
 
   INTEGER, PARAMETER :: &
@@ -512,6 +511,10 @@ MODULE mo_impl_constants
 
   ! Max number of time levels:
   INTEGER, PARAMETER :: MAX_TIME_LEVELS = 5
+
+  INTEGER, PARAMETER :: MAX_NPLEVS = 100 !< max. no. of pressure levels
+  INTEGER, PARAMETER :: MAX_NZLEVS = 100 !< max. no. of height levels
+  INTEGER, PARAMETER :: MAX_NILEVS = 100 !< max. no. of isentropic levels
 
   !-----------------------------------!
   !  POST PROCESSING SCHEDULER TASKS  !

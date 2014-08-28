@@ -762,7 +762,7 @@ CONTAINS
         min_qv, min_qc, min_qi, min_cc, max_lwflx, min_lwflx, max_swtrans, min_swtrans
 
     ! Local scalars:
-    INTEGER:: jc,jk,jb
+    INTEGER:: jk,jb
     INTEGER:: jg                      !domain id
     INTEGER:: nlev, nlevp1, nlev_rg   !< number of full and half levels
     INTEGER:: nblks_par_c, nblks_lp_c !nblks for reduced grid
@@ -860,7 +860,7 @@ CONTAINS
 
       ! parallel section commented because it does almost no work (more overhead than benefit)
 !!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &

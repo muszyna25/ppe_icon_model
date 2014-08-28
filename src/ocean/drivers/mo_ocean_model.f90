@@ -35,7 +35,7 @@ MODULE mo_ocean_model
     & dtime,                  & !    :
     & nsteps,                 & !    :
     & ltimer,                 & !    :
-    & num_lev, num_levp1,     &
+    & num_lev,                &
     & nshift,                 &
     & grid_generatingcenter,  & ! grid generating center
     & grid_generatingsubcenter  ! grid generating subcenter
@@ -384,7 +384,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. Import patches
     !-------------------------------------------------------------------
-    CALL build_decomposition(num_lev,num_levp1,nshift, is_ocean_decomposition =.TRUE., &
+    CALL build_decomposition(num_lev,nshift, is_ocean_decomposition =.TRUE., &
       & patch_3d=ocean_patch_3d)
     CALL construct_icon_communication(ocean_patch_3d%p_patch_2d(:), n_dom=1)
     CALL complete_ocean_patch(ocean_patch_3d%p_patch_2d(1))

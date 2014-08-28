@@ -31,12 +31,12 @@ MODULE mo_name_list_output_init
   ! constants and global settings
   USE mo_cdi_constants          ! We need all
   USE mo_kind,                              ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,                    ONLY: max_phys_dom, ihs_ocean, zml_soil,              &
-    &                                             max_dom, SUCCESS,                               &
+  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                             MAX_TIME_LEVELS, max_levels, vname_len,         &
+    &                                             MAX_TIME_LEVELS, vname_len,                     &
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,              &
-    &                                             MAX_TIME_INTERVALS
+    &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
+    &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_nml,                        ONLY: model_base_dir
   USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
@@ -52,17 +52,16 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list
-  USE mo_math_utilities,                    ONLY: set_zlev
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
+  USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
 
-  USE mo_run_config,                        ONLY: num_lev, num_levp1, dtime,                      &
-    &                                             msg_level, output_mode,                         &
+  USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
     &                                             number_of_grid_used
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
@@ -73,6 +72,7 @@ MODULE mo_name_list_output_init
   USE mo_time_config,                       ONLY: time_config
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_dynamics_config,                   ONLY: iequations
+  USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -136,17 +136,13 @@ MODULE mo_name_list_output_init
     &                                             deallocate_all_grid_info,                       &
     &                                             GRID_INFO_NONE, GRID_INFO_FILE, GRID_INFO_BCAST
   USE mo_name_list_output_metadata,         ONLY: metainfo_allocate_memory_window
+  USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
+    &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
+    &                                             setup_zaxes_oce
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
 
-#ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m
-#endif
-
 #ifndef __NO_ICON_ATMO__
-  USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
-  USE mo_lnd_nwp_config,                    ONLY: nlev_snow
   USE mo_vertical_coord_table,              ONLY: vct
-  USE mo_nonhydrostatic_config,             ONLY: ivctype
 #endif
 
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
@@ -157,12 +153,6 @@ MODULE mo_name_list_output_init
   IMPLICIT NONE
 
   PRIVATE
-
-  !-----------------------------------------------------------------
-  ! include NetCDF headers (direct NetCDF library calls are required
-  ! for output of grid information).
-  !-----------------------------------------------------------------
-  INCLUDE 'netcdf.inc'
 
   ! variables and data types
   PUBLIC :: out_varnames_dict
@@ -175,6 +165,7 @@ MODULE mo_name_list_output_init
   PUBLIC :: parse_variable_groups
   PUBLIC :: init_name_list_output
   PUBLIC :: setup_output_vlist
+  PUBLIC :: collect_requested_ipz_levels
 #ifdef USE_CRAY_POINTER
   PUBLIC :: set_mem_ptr_sp
   PUBLIC :: set_mem_ptr_dp
@@ -241,9 +232,10 @@ CONTAINS
     CHARACTER(LEN=vname_len)              :: pl_varlist(max_var_pl)
     CHARACTER(LEN=vname_len)              :: hl_varlist(max_var_hl)
     CHARACTER(LEN=vname_len)              :: il_varlist(max_var_il)
-    REAL(wp)                              :: p_levels(max_levels)
-    REAL(wp)                              :: h_levels(max_levels)
-    REAL(wp)                              :: i_levels(max_levels)
+    CHARACTER(len=MAX_CHAR_LENGTH)        :: m_levels                         !< level selection: model levels
+    REAL(wp)                              :: p_levels(MAX_NPLEVS)             !< pressure levels
+    REAL(wp)                              :: h_levels(MAX_NZLEVS)             !< height levels
+    REAL(wp)                              :: i_levels(MAX_NILEVS)             !< isentropic levels
     INTEGER                               :: remap
     REAL(wp)                              :: reg_lon_def(3)
     REAL(wp)                              :: reg_lat_def(3)
@@ -260,7 +252,7 @@ CONTAINS
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
     TYPE (t_keyword_list), POINTER        :: keywords => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
-    INTEGER                               :: iunit, lonlat_id
+    INTEGER                               :: iunit, lonlat_id, jg
     TYPE (t_lon_lat_grid)                 :: new_grid
 
     !> "stream_partitions": Split one namelist into concurrent,
@@ -284,7 +276,7 @@ CONTAINS
       include_last, output_grid,                             &
       remap, reg_lon_def, reg_lat_def, north_pole,           &
       ml_varlist, pl_varlist, hl_varlist, il_varlist,        &
-      p_levels, h_levels, i_levels,                          &
+      m_levels, p_levels, h_levels, i_levels,                &
       output_start, output_end, output_interval,             &
       output_bounds, output_time_unit,                       &
       ready_file, file_interval, reg_def_mode,               &
@@ -298,6 +290,20 @@ CONTAINS
     ! We need dtime
     IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
+    ! Before we start: prepare the levels set objects for the vertical
+    ! interpolation.
+    !
+    ! level ordering: zlevels, plevels, ilevels must be ordered from
+    ! TOA to bottom:
+    !
+    DO jg = 1, max_dom
+      ! pressure levels:
+      nh_pzlev_config(jg)%plevels%sort_smallest_first = .TRUE.
+      ! height levels
+      nh_pzlev_config(jg)%zlevels%sort_smallest_first = .FALSE.
+      ! isentropic levels
+      nh_pzlev_config(jg)%ilevels%sort_smallest_first = .FALSE.
+    END DO
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -343,9 +349,10 @@ CONTAINS
       pl_varlist(:)            = ' '
       hl_varlist(:)            = ' '
       il_varlist(:)            = ' '
-      p_levels(:)              = 0._wp
-      h_levels(:)              = 0._wp
-      i_levels(:)              = 0._wp
+      m_levels                 = " "
+      p_levels(:)              = -1._wp
+      h_levels(:)              = -1._wp
+      i_levels(:)              = -1._wp
       remap                    = REMAP_NONE
       reg_lon_def(:)           = 0._wp
       reg_lat_def(:)           = 0._wp
@@ -373,16 +380,11 @@ CONTAINS
         iunit = temp_defaults()
         WRITE(iunit, output_nml)                                     ! write defaults to temporary text file
       END IF
-      READ (nnml, output_nml, iostat=istat)                          ! overwrite default settings
+      READ (nnml, output_nml)                          ! overwrite default settings
       IF (my_process_is_stdio())  THEN
         iunit = temp_settings()
         WRITE(iunit, output_nml)                                     ! write settings to temporary text file
       END IF
-
-      IF(istat > 0) THEN
-        WRITE(message_text,'(a,i0)') 'Read error in namelist "output_nml", status = ', istat
-        CALL finish(routine, message_text)
-      ENDIF
 
       nnamelists = nnamelists+1
 
@@ -510,8 +512,9 @@ CONTAINS
       p_onl%pl_varlist(:)            = pl_varlist(:)
       p_onl%hl_varlist(:)            = hl_varlist(:)
       p_onl%il_varlist(:)            = il_varlist(:)
+      p_onl%m_levels                 = m_levels
       p_onl%p_levels                 = p_levels
-      p_onl%h_levels                 = h_levels
+      p_onl%z_levels                 = h_levels
       p_onl%i_levels                 = i_levels
       p_onl%remap                    = remap
       p_onl%lonlat_id                = -1
@@ -563,7 +566,7 @@ CONTAINS
       DO i=1,max_var_il
         p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
       END DO
-
+      
       p_onl%next => NULL()
 
       ! -- write the contents of the namelist to an ASCII file
@@ -575,6 +578,77 @@ CONTAINS
     CALL close_nml
 
   END SUBROUTINE read_name_list_output_namelists
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Appends the chosen p-levels, z-levels, i-levels to the levels
+  !  sets for the corresponding domains (note that we do the vertical
+  !  interpolation for the union of all chosen levels and only do a
+  !  selection for each output namelist):
+  !
+  SUBROUTINE collect_requested_ipz_levels()
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_requested_ipz_levels"
+    !
+    TYPE(t_output_name_list), POINTER     :: p_onl
+    INTEGER :: n_dom_out, jp, log_patch_id, nlevs
+
+    ! Loop over the output namelists and create a union set of
+    ! all requested vertical levels (per domain):
+    p_onl => first_output_name_list
+    DO
+      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+
+      n_dom_out = n_dom
+      IF(l_output_phys_patch)  n_dom_out = n_phys_dom
+
+      DO jp = 1, n_dom_out
+        ! append the chosen p-levels, z-levels, i-levels
+
+        log_patch_id = jp
+        IF(l_output_phys_patch)  log_patch_id = p_phys_patch(jp)%logical_id
+
+        IF ((p_onl%dom(1) <= 0) .OR. (ANY(p_onl%dom(:) == log_patch_id))) THEN
+
+          ! pressure levels
+          !
+          ! count the no. of levels
+          DO nlevs=1,SIZE(p_onl%p_levels)
+            IF (p_onl%p_levels(nlevs) < 0._wp) EXIT
+          END DO
+          nlevs = nlevs - 1
+          ! append nlevs pressure levels (domain log_patch_id)
+          IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%p_levels, &
+            &                                        nh_pzlev_config(log_patch_id)%plevels)
+
+          ! height levels
+          !
+          ! count the no. of levels
+          DO nlevs=1,SIZE(p_onl%z_levels)
+            IF (p_onl%z_levels(nlevs) < 0._wp) EXIT
+          END DO
+          nlevs = nlevs - 1
+          ! append nlevs height levels
+          IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%z_levels, &
+            &                                        nh_pzlev_config(log_patch_id)%zlevels)
+
+          ! isentropic levels
+          !
+          ! count the no. of levels
+          DO nlevs=1,SIZE(p_onl%i_levels)
+            IF (p_onl%i_levels(nlevs) < 0._wp) EXIT
+          END DO
+          nlevs = nlevs - 1
+          ! append nlevs isentropic levels
+          IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%i_levels, &
+            &                                        nh_pzlev_config(log_patch_id)%ilevels)
+        END IF
+      END DO
+      p_onl => p_onl%next
+
+    END DO ! p_onl
+
+  END SUBROUTINE collect_requested_ipz_levels
 
 
   !------------------------------------------------------------------------------------------------
@@ -617,10 +691,10 @@ CONTAINS
       ! process i_typ=ml_varlist, pl_varlist, hl_varlist, il_varlist:
       DO i_typ = 1, 4
 
-        IF (i_typ == 1)  in_varlist => p_onl%ml_varlist
-        IF (i_typ == 2)  in_varlist => p_onl%pl_varlist
-        IF (i_typ == 3)  in_varlist => p_onl%hl_varlist
-        IF (i_typ == 4)  in_varlist => p_onl%il_varlist
+        IF (i_typ == level_type_ml)  in_varlist => p_onl%ml_varlist
+        IF (i_typ == level_type_pl)  in_varlist => p_onl%pl_varlist
+        IF (i_typ == level_type_hl)  in_varlist => p_onl%hl_varlist
+        IF (i_typ == level_type_il)  in_varlist => p_onl%il_varlist
 
         ! Get the number of variables in varlist
         nvars = 1
@@ -676,10 +750,10 @@ CONTAINS
         END DO
         nvars = nvars - 1
 
-        IF (i_typ == 1)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars)
-        IF (i_typ == 2)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
-        IF (i_typ == 3)  p_onl%hl_varlist(1:nvars) = varlist(1:nvars)
-        IF (i_typ == 4)  p_onl%il_varlist(1:nvars) = varlist(1:nvars)
+        IF (i_typ == level_type_ml)  p_onl%ml_varlist(1:nvars) = varlist(1:nvars)
+        IF (i_typ == level_type_pl)  p_onl%pl_varlist(1:nvars) = varlist(1:nvars)
+        IF (i_typ == level_type_hl)  p_onl%hl_varlist(1:nvars) = varlist(1:nvars)
+        IF (i_typ == level_type_il)  p_onl%il_varlist(1:nvars) = varlist(1:nvars)
 
         ! second step: look for "subtraction" of variables groups ("-varname"):
         nsubtract_vars = 0
@@ -1084,16 +1158,16 @@ CONTAINS
           ! Check if name_list has variables of corresponding type,
           ! then increase file counter.
           SELECT CASE(i_typ)
-          CASE (1)
+          CASE (level_type_ml)
             IF (p_onl%ml_varlist(1) == ' ') CYCLE
           nfiles = nfiles + p_onl%stream_partitions_ml
-          CASE (2)
+          CASE (level_type_pl)
             IF (p_onl%pl_varlist(1) == ' ') CYCLE
           nfiles = nfiles + p_onl%stream_partitions_pl
-          CASE (3) 
+          CASE (level_type_hl) 
             IF (p_onl%hl_varlist(1) == ' ') CYCLE
             nfiles = nfiles + p_onl%stream_partitions_hl
-          CASE (4)
+          CASE (level_type_il)
             IF (p_onl%il_varlist(1) == ' ') CYCLE
             nfiles = nfiles + p_onl%stream_partitions_il
           END SELECT
@@ -1136,19 +1210,19 @@ CONTAINS
 
           ! Check if name_list has variables of corresponding type
           SELECT CASE(i_typ)
-          CASE (1)
+          CASE (level_type_ml)
             IF (p_onl%ml_varlist(1) == ' ') CYCLE
             npartitions     = p_onl%stream_partitions_ml
             pe_placement(:) = p_onl%pe_placement_ml(:)
-          CASE (2)
+          CASE (level_type_pl)
             IF (p_onl%pl_varlist(1) == ' ') CYCLE
             npartitions     = p_onl%stream_partitions_pl
             pe_placement(:) = p_onl%pe_placement_pl(:)
-          CASE (3) 
+          CASE (level_type_hl) 
             IF (p_onl%hl_varlist(1) == ' ') CYCLE
             npartitions     = p_onl%stream_partitions_hl
             pe_placement(:) = p_onl%pe_placement_hl(:)
-          CASE (4)
+          CASE (level_type_il)
             IF (p_onl%il_varlist(1) == ' ') CYCLE
             npartitions     = p_onl%stream_partitions_il
             pe_placement(:) = p_onl%pe_placement_il(:)
@@ -1164,13 +1238,7 @@ CONTAINS
 
               ifile = ifile+1
               p_of => output_file(ifile)
-
-              SELECT CASE(i_typ)
-              CASE(1); p_of%ilev_type = level_type_ml
-              CASE(2); p_of%ilev_type = level_type_pl
-              CASE(3); p_of%ilev_type = level_type_hl
-              CASE(4); p_of%ilev_type = level_type_il
-              END SELECT
+              p_of%ilev_type = i_typ
 
               ! Fill data members of "t_output_file" data structures
               p_of%filename_pref   = TRIM(p_onl%output_filename)
@@ -1210,16 +1278,16 @@ CONTAINS
               ENDDO
 
               SELECT CASE(i_typ)
-              CASE(1)
+              CASE(level_type_ml)
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
-              CASE(2)
+              CASE(level_type_pl)
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
-              CASE(3)
+              CASE(level_type_hl)
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
-              CASE(4)
+              CASE(level_type_il)
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
               END SELECT
-         
+        
           END DO ! ifile_partition
             
         ENDDO ! i_typ
@@ -1503,20 +1571,20 @@ CONTAINS
     IF(use_async_name_list_io) CALL init_memory_window
 #endif
 ! NOMPI
-
+    
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
-    if (.not. my_process_is_mpi_test()) THEN
-       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-            & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
-          ev => all_events
-          HANDLE_COMPLETE_STEPS : DO
-             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-             CALL trigger_output_step_irecv(ev)
-             ev => ev%next
-          END DO HANDLE_COMPLETE_STEPS
-       END IF
-    end if
+    IF (.NOT. my_process_is_mpi_test()) THEN
+      IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
+        & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
+        ev => all_events
+        HANDLE_COMPLETE_STEPS : DO
+          IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+          CALL trigger_output_step_irecv(ev)
+          ev => ev%next
+        END DO HANDLE_COMPLETE_STEPS
+      END IF
+    END IF
 
     CALL message(routine,'Done')
 
@@ -2039,16 +2107,13 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
-    INTEGER                         :: k, nlev, nlevp1, nplev, nzlev, nilev, nzlevp1, znlev_soil, &
-      &                                i_dom, ll_dim(2), gridtype, idate, itime
-    REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:), p_lonlat(:)
-    REAL(dp), ALLOCATABLE           :: levels(:), lbounds(:), ubounds(:)
+    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime
     TYPE(t_lon_lat_data), POINTER   :: lonlat
-    LOGICAL                         :: lwrite_pzlev
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
     REAL(wp)                        :: pi_180
     INTEGER                         :: max_cell_connectivity
+    REAL(wp), ALLOCATABLE           :: p_lonlat(:)
 
     pi_180 = ATAN(1._wp)/45._wp
 
@@ -2221,456 +2286,23 @@ CONTAINS
 
     !
     ! 4. add vertical grid descriptions
-    !    RJ: This is copied from mo_io_vlist
 
-    of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
-
-    ! surface level
-    of%cdiZaxisID(ZA_surface) = zaxisCreate(ZAXIS_SURFACE, 1)
-    ALLOCATE(levels(1))
-    levels(1) = 0.0_dp
-    CALL zaxisDefLevels(of%cdiZaxisID(ZA_surface), levels)
-    DEALLOCATE(levels)
-
-    ! atm (pressure) height, ocean depth
     IF (iequations/=ihs_ocean) THEN ! atm
-#ifndef __NO_ICON_ATMO__
-
-      nlev   = num_lev(of%log_patch_id)
-      nlevp1 = num_levp1(of%log_patch_id)
-
-      ! introduce temporary variable znlev_soil, since global variable nlev_soil
-      ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in
-      ! mo_io_async complains about mismatch of levels.
-      znlev_soil = SIZE(zml_soil)
-
-      ! CLOUD BASE LEVEL
-      !
-      of%cdiZaxisID(ZA_cloud_base)     = zaxisCreate(ZAXIS_CLOUD_BASE, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.0_dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_cloud_base), levels)
-      DEALLOCATE(levels)
-
-      ! CLOUD TOP LEVEL
-      !
-      of%cdiZaxisID(ZA_cloud_top)      = zaxisCreate(ZAXIS_CLOUD_TOP, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.0_dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_cloud_top), levels)
-      DEALLOCATE(levels)
-
-      ! LEVEL of 0\deg C isotherm
-      !
-      of%cdiZaxisID(ZA_isotherm_zero)  = zaxisCreate(ZAXIS_ISOTHERM_ZERO, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.0_dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_isotherm_zero), levels)
-      DEALLOCATE(levels)
-
-
-
-      ! REFERENCE_LAYER
-      !
-      of%cdiZaxisID(ZA_reference)      = zaxisCreate(ZAXIS_REFERENCE, nlev)
-      ALLOCATE(lbounds(nlev), ubounds(nlev), levels(nlev))
-      DO k = 1, nlev
-        lbounds(k) = REAL(k,dp)
-        levels(k)  = REAL(k,dp)
-      END DO
-      DO k = 2, nlevp1
-        ubounds(k-1) = REAL(k,dp)
-      END DO
-      CALL zaxisDefLbounds  (of%cdiZaxisID(ZA_reference), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds  (of%cdiZaxisID(ZA_reference), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference), levels ) !necessary for NetCDF
-      ! set numberOfVGridUsed
-      ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-      CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference), get_numberOfVgridUsed(ivctype) )
-      !
-      ! Define number of half levels for z-axis 
-      CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
-      !
-      ! Write vertical grid UUID
-      !
-      CALL zaxisDefUUID (of%cdiZaxisID(ZA_reference), vgrid_buffer(of%phys_patch_id)%uuid ) !uuidOfVGrid
-      DEALLOCATE(lbounds, ubounds, levels)
-
-
-      ! REFERENCE
-      !
-      of%cdiZaxisID(ZA_reference_half) = zaxisCreate(ZAXIS_REFERENCE, nlevp1)
-      ALLOCATE(levels(nlevp1))
-      DO k = 1, nlevp1
-        levels(k) = REAL(k,dp)
-      END DO
-      CALL zaxisDefLevels   (of%cdiZaxisID(ZA_reference_half), levels)
-      ! set numberOfVGridUsed
-      ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-      CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference_half), get_numberOfVgridUsed(ivctype) )
-      !
-      ! Define number of half levels for z-axis 
-      CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
-      !
-      ! Write vertical grid UUID
-      !
-      CALL zaxisDefUUID (of%cdiZaxisID(ZA_reference_half), vgrid_buffer(of%phys_patch_id)%uuid ) !uuidOfVGrid
-      DEALLOCATE(levels)
-
-
-      ! REFERENCE (special version for HHL)
-      !
-      of%cdiZaxisID(ZA_reference_half_hhl) = zaxisCreate(ZAXIS_REFERENCE, nlevp1)
-      ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
-      DO k = 1, nlevp1
-        lbounds(k) = REAL(k,dp)
-        levels(k)  = REAL(k,dp)
-      END DO
-      ubounds(1:nlevp1) = 0._dp
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_reference_half_hhl), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_reference_half_hhl), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_reference_half_hhl), levels)  !necessary for NetCDF
-      ! set numberOfVGridUsed
-      ! Dependent on the algorithm chosen to generate the vertical grid (ivctype)
-      CALL zaxisDefNumber(of%cdiZaxisID(ZA_reference_half_hhl), get_numberOfVgridUsed(ivctype) )
-      !
-      ! Define number of half levels for z-axis 
-      CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half_hhl),nlevp1)
-      !
-      ! Write vertical grid UUID
-      !
-      CALL zaxisDefUUID (of%cdiZaxisID(ZA_reference_half_hhl), vgrid_buffer(of%phys_patch_id)%uuid ) !uuidOfVGrid
-      DEALLOCATE(lbounds, ubounds, levels)
-
-
-      ! HYBRID_LAYER
-      !
-      of%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
-      ALLOCATE(lbounds(nlev), ubounds(nlev), levels(nlev))
-      DO k = 1, nlev
-        lbounds(k) = REAL(k,dp)
-        levels(k)  = REAL(k,dp)
-      END DO
-      DO k = 2, nlevp1
-        ubounds(k-1) = REAL(k,dp)
-      END DO
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels (of%cdiZaxisID(ZA_hybrid), levels)  !necessary for NetCDF
-      DEALLOCATE(lbounds, ubounds, levels)
-      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
-
-      ! HYBRID
-      !
-      ! Note: "ZAXIS_HYBRID_HALF" is deprecated and will soon be
-      ! removed from the CDI (in principle its use should be simply
-      ! replaced by ZAXIS_HALF, as long as lbounds and ubounds are set
-      ! correctly).
-      of%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
-      ALLOCATE(levels(nlevp1))
-      DO k = 1, nlevp1
-        levels(k) = REAL(k,dp)
-      END DO
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half), levels)
-      DEALLOCATE(levels)
-      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
-
-
-      ! HYBRID (special version for HHL)
-      !
-      of%cdiZaxisID(ZA_hybrid_half_hhl) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
-      ALLOCATE(lbounds(nlevp1), ubounds(nlevp1), levels(nlevp1))
-      DO k = 1, nlevp1
-        lbounds(k) = REAL(k,dp)
-        levels(k)  = REAL(k,dp)
-      END DO
-      ubounds(1:nlevp1) = 0._dp
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_hybrid_half_hhl), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_hybrid_half_hhl), levels)  !necessary for NetCDF
-      DEALLOCATE(lbounds, ubounds, levels)
-      CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half_hhl), 2*nlevp1, vct(1:2*nlevp1))
-
-
-      !
-      ! Define axis for output on mean sea level
-      !
-      of%cdiZaxisID(ZA_meansea) = zaxisCreate(ZAXIS_MEANSEA, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.0_dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_meansea), levels)
-      DEALLOCATE(levels)
-
-      !
-      ! Define axes for soil model (DEPTH_BELOW_LAND)
-      !
-      of%cdiZaxisID(ZA_depth_below_land_p1) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
-      ALLOCATE(levels(znlev_soil+1))
-      levels(1) = 0._dp
-      DO k = 1, znlev_soil
-        levels(k+1) = REAL(zml_soil(k)*1000._wp,dp)  ! in mm
-      END DO
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_below_land_p1), levels)
-      CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_below_land_p1), "mm")
-      DEALLOCATE(levels)
-
-      !(DEPTH_BELOW_LAND_LAYER)
-      !
-      of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
-      ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
-      lbounds(1) = 0._dp   ! surface
-      DO k = 2, znlev_soil
-        lbounds(k)   = REAL((zml_soil(k-1) + (zml_soil(k-1) - lbounds(k-1))),dp)
-      ENDDO
-      DO k = 1, znlev_soil
-        ubounds(k) = REAL((zml_soil(k) + (zml_soil(k) - lbounds(k))),dp)
-        levels(k)  = REAL(zml_soil(k)*1000._wp,dp)
-      ENDDO
-      ubounds(:) = ubounds(:) * 1000._dp        ! in mm
-      lbounds(:) = lbounds(:) * 1000._dp        ! in mm
-
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_depth_below_land), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_depth_below_land), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels (of%cdiZaxisID(ZA_depth_below_land), levels)  !necessary for NetCDF
-      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_depth_below_land), "mm")
-      DEALLOCATE(lbounds, ubounds, levels)
-      !
-      ! Specific soil axis for Runoff_s
-      !
-      of%cdiZaxisID(ZA_depth_runoff_s) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0._dp  ! in mm
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_runoff_s), levels)
-      CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_runoff_s), "mm")
-      DEALLOCATE(levels)
-      !
-      ! Specific soil axis for Runoff_g
-      !
-      of%cdiZaxisID(ZA_depth_runoff_g) = &
-        & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0.1_dp * 1000._dp  ! in mm
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_depth_runoff_g), levels)
-      CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_runoff_g), "mm")
-      DEALLOCATE(levels)
-      !
-      ! SNOW axis (for multi-layer snow model)
-      !
-      of%cdiZaxisID(ZA_snow_half) = zaxisCreate(ZAXIS_SNOW, nlev_snow+1)
-      ALLOCATE(levels(nlev_snow+1))
-      DO k = 1, nlev_snow+1
-        levels(k) = REAL(k,dp)
-      END DO
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_snow_half), levels)
-      DEALLOCATE(levels)
-      !
-      ! SNOW-layer axis (for multi-layer snow model)
-      !
-      of%cdiZaxisID(ZA_snow) = zaxisCreate(ZAXIS_SNOW, nlev_snow)
-      ALLOCATE(levels(nlev_snow), lbounds(nlev_snow), ubounds(nlev_snow))
-      DO k = 1, nlev_snow
-        lbounds(k) = REAL(k,dp)
-        levels(k)  = REAL(k,dp)
-      ENDDO
-      DO k = 1, nlev_snow
-        ubounds(k) = REAL(k+1,dp)
-      ENDDO
-
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_snow), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_snow), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_snow), levels)   !necessary for NetCDF
-      DEALLOCATE(levels, lbounds, ubounds)
-      !
-      ! Specified height level above ground: 2m
-      !
-      of%cdiZaxisID(ZA_height_2m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 2._dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_2m), levels)
-      DEALLOCATE(levels)
-      !
-      ! Specified height level above ground: 10m
-      !
-      of%cdiZaxisID(ZA_height_10m)  = zaxisCreate(ZAXIS_HEIGHT, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 10._dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_height_10m), levels)
-      DEALLOCATE(levels)
-      !
-      ! Top of atmosphere
-      !
-      of%cdiZaxisID(ZA_toa)  = zaxisCreate(ZAXIS_TOA, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 1._dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_toa), levels)
-      DEALLOCATE(levels)
-      !
-      ! Isobaric surface 800 hPa (layer)
-      !
-      of%cdiZaxisID(ZA_pressure_800)  = zaxisCreate(ZAXIS_PRESSURE, 1)
-      ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 800._dp   ! hPa
-      ubounds(1)=   0._dp   ! m
-!DR Note that for this particular axis in GME and COSMO, 
-!DR   scaleFactorOfSecondFixedSurface = scaledValueOfSecondFixedSurface = missing
-!DR whereas in ICON
-!DR   scaleFactorOfSecondFixedSurface = scaledValueOfSecondFixedSurface = 0
-!DR This is because, CDI does not allow layer-type vertical axis without setting 
-!DR scaleFactorOfSecondFixedSurface and scaledValueOfSecondFixedSurface.
-      levels(1) = 800._dp   ! hPa
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_800), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_800), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_800), levels)
-      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_800), "hPa")
-      DEALLOCATE(lbounds, ubounds, levels)
-      !
-      ! Isobaric surface 400 hPa (layer)
-      !
-      of%cdiZaxisID(ZA_pressure_400)  = zaxisCreate(ZAXIS_PRESSURE, 1)
-      ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 400._dp   ! hPa
-      ubounds(1)= 800._dp   ! hPa
-      levels(1) = 400._dp   ! hPa
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_400), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_400), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_400), levels)
-      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_400), "hPa")
-      DEALLOCATE(lbounds, ubounds, levels)
-      !
-      ! Isobaric surface 0 hPa (layer)
-      !
-      of%cdiZaxisID(ZA_pressure_0)  = zaxisCreate(ZAXIS_PRESSURE, 1)
-      ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 0._dp ! hPa
-      ubounds(1)= 400._dp   ! hPa
-      levels(1) = 0._dp   ! hPa
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_pressure_0), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_pressure_0), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels (of%cdiZaxisID(ZA_pressure_0), levels)
-      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_pressure_0), "hPa")
-      DEALLOCATE(lbounds, ubounds, levels)
-
-      !
-      ! Specific vertical axis for Lake-model
-      !
-
-      !
-      ! Lake bottom (we define it as a layer in order to be able to re-set
-      ! either the first- or secondFixedSurfaces if necessary)
-      !
-      of%cdiZaxisID(ZA_lake_bottom)  = zaxisCreate(ZAXIS_LAKE_BOTTOM, 1)
-      ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 1._dp
-      ubounds(1)= 0._dp
-      levels(1) = 1._dp
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_lake_bottom), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_lake_bottom), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels (of%cdiZaxisID(ZA_lake_bottom), levels)
-      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_lake_bottom), "m")
-      DEALLOCATE(lbounds, ubounds, levels)
-      !
-      ! Lake bottom half (interface, i.e. only typeOfFirstFixedSurface)
-      !
-      of%cdiZaxisID(ZA_lake_bottom_half)  = zaxisCreate(ZAXIS_LAKE_BOTTOM, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0._dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_lake_bottom_half), levels)
-      CALL zaxisDefUnits(of%cdiZaxisID(ZA_lake_bottom_half), "m")
-      DEALLOCATE(levels)
-      !
-      ! Mixing layer (we define it as a layer in order to be able to re-set
-      ! either the first- or secondFixedSurfaces if necessary)
-      !
-      of%cdiZaxisID(ZA_mix_layer)  = zaxisCreate(ZAXIS_MIX_LAYER, 1)
-      ALLOCATE(lbounds(1), ubounds(1), levels(1))
-      lbounds(1)= 1._dp
-      ubounds(1)= 0._dp
-      levels(1) = 1._dp
-      CALL zaxisDefLbounds(of%cdiZaxisID(ZA_mix_layer), lbounds) !necessary for GRIB2
-      CALL zaxisDefUbounds(of%cdiZaxisID(ZA_mix_layer), ubounds) !necessary for GRIB2
-      CALL zaxisDefLevels (of%cdiZaxisID(ZA_mix_layer), levels)
-      CALL zaxisDefUnits  (of%cdiZaxisID(ZA_mix_layer), "m")
-      DEALLOCATE(lbounds, ubounds, levels)
-      !
-      ! Bottom of sediment layer penetrated by thermal wave (interface, i.e. only typeOfFirstFixedSurface)
-      !
-      of%cdiZaxisID(ZA_sediment_bottom_tw_half)  = zaxisCreate(ZAXIS_SEDIMENT_BOTTOM_TW, 1)
-      ALLOCATE(levels(1))
-      levels(1) = 0._dp
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_sediment_bottom_tw_half), levels)
-      CALL zaxisDefUnits(of%cdiZaxisID(ZA_sediment_bottom_tw_half), "m")
-      DEALLOCATE(levels)
-
-      ! Define axes for output on p-, i- and z-levels
-      !
-      lwrite_pzlev = (of%name_list%pl_varlist(1) /= ' ')  .OR.  &
-        &            (of%name_list%hl_varlist(1) /= ' ')  .OR.  &
-        &            (of%name_list%il_varlist(1) /= ' ')
-      IF (lwrite_pzlev) THEN
-        !
-        ! p-axis
-        !
-        nplev = nh_pzlev_config(of%log_patch_id)%nplev
-        of%cdiZaxisID(ZA_pressure) = zaxisCreate(ZAXIS_PRESSURE, nplev)
-        ALLOCATE(levels(nplev))
-        DO k = 1, nplev
-          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%plevels(k),dp)
-        END DO
-        CALL zaxisDefLevels(of%cdiZaxisID(ZA_pressure), levels)
-        CALL zaxisDefVct(of%cdiZaxisID(ZA_pressure), nplev, levels)
-        DEALLOCATE(levels)
-
-        !
-        ! Altitude above mean sea level
-        !
-        nzlev = nh_pzlev_config(of%log_patch_id)%nzlev
-        of%cdiZaxisID(ZA_altitude)  = zaxisCreate(ZAXIS_ALTITUDE, nzlev)
-        ALLOCATE(levels(nzlev))
-        DO k = 1, nzlev
-          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%zlevels(k),dp)
-        END DO
-        CALL zaxisDefLevels(of%cdiZaxisID(ZA_altitude), levels)
-        CALL zaxisDefVct(of%cdiZaxisID(ZA_altitude), nzlev, levels)
-        DEALLOCATE(levels)
-
-        !
-        ! i-axis (isentropes)
-        !
-        nilev = nh_pzlev_config(of%log_patch_id)%nilev
-        of%cdiZaxisID(ZA_isentropic) = zaxisCreate(ZAXIS_ISENTROPIC, nilev)
-        ALLOCATE(levels(nilev))
-        DO k = 1, nilev
-          levels(k) = REAL(nh_pzlev_config(of%log_patch_id)%ilevels(k),dp)
-        END DO
-        CALL zaxisDefLevels(of%cdiZaxisID(ZA_isentropic), levels)
-        CALL zaxisDefVct(of%cdiZaxisID(ZA_isentropic), nilev, levels)
-        DEALLOCATE(levels)
-      ENDIF
-      ! for having ice variable in the atmosphere (like AMIP)
-      of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
-#endif
-! #ifndef __NO_ICON_ATMO__
-
-    ELSE ! oce
-#ifndef __NO_ICON_OCEAN__
-      of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
-      nzlevp1 = n_zlev + 1
-      of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
-
-      ALLOCATE(levels_i(nzlevp1))
-      ALLOCATE(levels_m(n_zlev))
-      CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA), REAL(levels_m,dp))
-      CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA_HALF), REAL(levels_i,dp))
-      DEALLOCATE(levels_i)
-      DEALLOCATE(levels_m)
-      of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
-#endif
-    ENDIF
-
-
+      SELECT CASE(of%ilev_type)
+      CASE (level_type_ml) 
+        CALL setup_ml_axes_atmo(of)
+      CASE (level_type_pl) 
+        CALL setup_pl_axis_atmo(of)
+      CASE (level_type_hl) 
+        CALL setup_hl_axis_atmo(of)
+      CASE (level_type_il) 
+        CALL setup_il_axis_atmo(of)
+      CASE DEFAULT
+        CALL finish(routine, "Internal error!")
+      END SELECT
+    ELSE
+      CALL setup_zaxes_oce(of)
+    END IF
 
     !
     ! 5. output does contain absolute time
@@ -2733,13 +2365,11 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_variables_to_vlist"
     TYPE (t_var_metadata), POINTER :: info
     INTEGER                        :: iv, vlistID, varID, gridID, &
-      &                               zaxisID, nlev, nlevp1
+      &                               zaxisID
     CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
     TYPE(t_cf_var), POINTER        :: this_cf
 
     vlistID = of%cdiVlistID
-    nlev   = num_lev(of%log_patch_id)
-    nlevp1 = num_levp1(of%log_patch_id)
 
     DO iv = 1, of%num_vars
       !
@@ -2946,35 +2576,6 @@ CONTAINS
       END IF
     END DO LOOP_GROUPS
   END FUNCTION get_id
-
-
-
-  !------------------------------------------------------------------------------------------------
-  !> FUNCTION get_numberOfVGridUsed
-  !  Depending on the vertical axis chosen for ICON (ivctype), it gives back the value for
-  !  the GRIB2-key 'numberOVGridUsed'. Here, we adhere to the COSMO implementation:
-  !
-  !  |       Description               |  ivctype  |  numberOfVGridUsed  |
-  !  ====================================================================
-  !  | height based hybrid Gal-Chen    |    1      |       2            |
-  !  | height based SLEVE              |    2      |       4            |
-  !
-  !
-  FUNCTION get_numberOfVgridUsed(ivctype)
-    INTEGER                 :: get_numberOfVgridUsed
-    INTEGER, INTENT(IN)     :: ivctype
-    CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":get_numberOfVgridUsed"
-
-    SELECT CASE(ivctype)
-      CASE(1)
-        get_numberOfVgridUsed = 2
-      CASE(2)
-        get_numberOfVgridUsed = 4
-      CASE DEFAULT
-        CALL finish(routine, "invalid ivctype! Must be 1 or 2")
-    END SELECT
-
-  END FUNCTION get_numberOfVgridUsed
 
 
   !------------------------------------------------------------------------------------------------
@@ -3225,7 +2826,7 @@ CONTAINS
 #ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
 #else
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
+    USE mpi, ONLY: MPI_ADDRESS_KIND
 #endif
 ! __SUNPRO_F95
 
@@ -3254,7 +2855,13 @@ CONTAINS
         IF(output_file(i)%var_desc(iv)%info%ndims == 2) THEN
           nlevs = 1
         ELSE
-          nlevs = output_file(i)%var_desc(iv)%info%used_dimensions(2)
+          ! handle the case that a few levels have been selected out of
+          ! the total number of levels:
+          IF (ASSOCIATED(output_file(i)%level_selection)) THEN
+            nlevs = output_file(i)%level_selection%n_selected
+          ELSE
+            nlevs = output_file(i)%var_desc(iv)%info%used_dimensions(2)
+          END IF
         ENDIF
 
         SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)

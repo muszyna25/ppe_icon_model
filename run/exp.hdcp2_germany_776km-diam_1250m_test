@@ -141,12 +141,6 @@ cat > ${atmo_namelist} << EOF
  output_filename              = 'germany'                 ! file name base
  ml_varlist= 'clct','tot_prec','u','v','w','qv','qc','qi'
 /
-&nh_pzlev_nml
- nplev       = 20     ! number of p level output (attention: levels in [Pa] and top-down)
- nzlev       = 20     ! number of z level output (attention: levels in [m] and top-down)
- plevels     = 1000,2000,3000,5000,7000,10000,15000,20000,25000,30000,40000,50000,60000,70000,77500,85000,90000,92500,95000,100000
- zlevels     = 25000,20000,18000,16000,14000,12000,10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,0
-/
 &output_nml
  dom                          =   -1
  output_time_unit             =   1                        ! 1: seconds
@@ -155,7 +149,9 @@ cat > ${atmo_namelist} << EOF
  include_last                 =  .TRUE.
  output_filename              =  'NWPvn'                ! file name base
  pl_varlist                   =  'u', 'v', 'temp', 'gh'
+ p_levels     = 1000,2000,3000,5000,7000,10000,15000,20000,25000,30000,40000,50000,60000,70000,77500,85000,90000,92500,95000,100000
 ! hl_varlist                   = 'pres', 'temp'
+ h_levels     = 25000,20000,18000,16000,14000,12000,10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,0
  output_grid                  =  .TRUE.
 /
 &run_nml

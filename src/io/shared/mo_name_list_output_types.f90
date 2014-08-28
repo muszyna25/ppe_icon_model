@@ -25,8 +25,9 @@ MODULE mo_name_list_output_types
   USE mo_kind,                  ONLY: wp, dp, sp
   USE mo_impl_constants,        ONLY: max_phys_dom, vname_len,                         &
     &                                 max_var_ml, max_var_pl, max_var_hl, max_var_il,  &
-    &                                 MAX_TIME_LEVELS, max_levels, MAX_NUM_IO_PROCS,   &
-    &                                 MAX_TIME_INTERVALS
+    &                                 MAX_TIME_LEVELS, MAX_NUM_IO_PROCS,               &
+    &                                 MAX_TIME_INTERVALS, MAX_CHAR_LENGTH, MAX_NPLEVS, &
+    &                                 MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
@@ -60,6 +61,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_iptr_5d
   PUBLIC :: t_var_desc
   PUBLIC :: t_fname_metadata
+  PUBLIC :: t_level_selection
   PUBLIC :: t_output_file
   ! global variables
   PUBLIC :: all_events
@@ -284,9 +286,11 @@ MODULE mo_name_list_output_types
     ! vertical interpol.
     ! --------------------
 
-    REAL(wp) :: p_levels(max_levels)  ! pressure levels [hPa]
-    REAL(wp) :: h_levels(max_levels)  ! height levels
-    REAL(wp) :: i_levels(max_levels)  ! isentropic levels
+    CHARACTER(len=MAX_CHAR_LENGTH) :: m_levels  ! model levels (indices)
+
+    REAL(wp) :: p_levels(MAX_NPLEVS) ! pressure levels
+    REAL(wp) :: z_levels(MAX_NZLEVS) ! height levels
+    REAL(wp) :: i_levels(MAX_NILEVS) ! isentropic levels
 
     ! -------------------------------------
     ! Internal members, not read from input
@@ -350,6 +354,24 @@ MODULE mo_name_list_output_types
   END TYPE t_fname_metadata
 
 
+  TYPE t_level_selection
+    !> number of selected levels
+    INTEGER :: n_selected
+
+    !> level selection as input in the form of a LOGICAL array
+    !  s(1...N), where "s(i)=.TRUE." means that level "i" is selected:
+    LOGICAL, ALLOCATABLE :: s(:)
+
+    !> integer list idx(1...n_selected) containing the selected level
+    !  indices.
+    INTEGER, ALLOCATABLE :: global_idx(:)
+
+    !> local index in the list of selected level indices (i.e. an
+    !  integer number in the range 1...n_selected).
+    INTEGER, ALLOCATABLE :: local_idx(:)
+  END TYPE t_level_selection
+
+
   TYPE t_output_file
     ! The following data must be set before opening the output file:
 
@@ -381,6 +403,8 @@ MODULE mo_name_list_output_types
     ! Used for async IO only
     TYPE(t_mem_win)                       :: mem_win                          !< data structure containing variables for MPI memory window
 
+    ! Selection of vertical levels (not necessarily present)
+    TYPE (t_level_selection), POINTER     :: level_selection => NULL()        !< selection of vertical levels
 
     ! The following members are set during open
     INTEGER                               :: cdiFileId

@@ -152,12 +152,6 @@ cat > ${atmo_namelist} << EOF
  dt_checkpoint    = ${dt_checkpoint}
  dt_diag          = ${dt_diag}
 /
-&nh_pzlev_nml
- nplev            = 3
- plevels          = 20000.,50000.,85000. ! (Pa) from TOA to surface
- nzlev            = 3
- zlevels          = 10000.,1000.,100.    ! (m)  from TOA to surface
-/
 &output_nml
  output_filename  = 'icon-mpi-dwd.52.high.L30.tri.nonhydro'    ! file name base
  output_bounds    = 0.,${dt_restart},${dt_data} ! start, end, increment
@@ -166,7 +160,9 @@ cat > ${atmo_namelist} << EOF
  output_grid      = .TRUE.
  ml_varlist       = 'qv','u','v','w','temp','pres_sfc','pres','theta_v','rho','exner','rhotheta_v','tempv','omega_z','div','z_mc','SHFL_S','LHFL_S','qhfl_s','tot_prec','group:precip_vars','cosmu0','flxdwswtoa','SOB_S','group:rad_vars'
  pl_varlist       = 'u','v','w','temp'
+ p_levels          = 20000.,50000.,85000. ! (Pa) from TOA to surface
  hl_varlist       = 'u','v'
+ h_levels          = 10000.,1000.,100.    ! (m)  from TOA to surface
 /
 !off!&output_nml
 !off! output_filename  = 'icon-mpi-dwd.52.high.L30.latlon.nonhydro' ! file name base
@@ -178,7 +174,9 @@ cat > ${atmo_namelist} << EOF
 !off! output_grid      = .TRUE.
 !off! ml_varlist       = 'qv','u','v','w','temp','pres_sfc','pres','z_mc','SHFL_S','LHFL_S','qhfl_s','tot_prec','group:precip_vars','cosmu0','flxdwswtoa','SOB_S','group:rad_vars'
 !off! pl_varlist       = 'u','v','w','temp'
+!off!  p_levels          = 20000.,50000.,85000. ! (Pa) from TOA to surface
 !off! hl_varlist       = 'u','v'
+!off!  h_levels          = 10000.,1000.,100.    ! (m)  from TOA to surface
 !off!/
 EOF
 #

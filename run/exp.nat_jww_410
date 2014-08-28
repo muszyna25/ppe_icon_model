@@ -158,10 +158,6 @@ inwp_surface    = 0
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
-!&nh_pzlev_nml
-! nplev            = 1
-! plevels          = 85000.
-!/
 &io_nml
  dt_diag         = ${dt_diag}       ! [s]
  dt_checkpoint   = ${dt_checkpoint} ! [s]

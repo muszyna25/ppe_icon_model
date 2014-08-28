@@ -96,8 +96,6 @@ CONTAINS
   SUBROUTINE deallocate_all_grid_info(patch_info)
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::deallocate_grid_info"
-    ! local variables
-    INTEGER :: ierrstat
 
     CALL deallocate_grid_info(patch_info%cells%grid_info)
     CALL deallocate_grid_info(patch_info%edges%grid_info)
@@ -110,11 +108,10 @@ CONTAINS
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_all_grid_info"
-    INTEGER                             :: idom_log, ierrstat, max_cell_connectivity
+    INTEGER                             :: ierrstat, max_cell_connectivity
     REAL(wp), ALLOCATABLE               :: lonv(:,:,:), latv(:,:,:)
 
     ! logical domain ID
-    idom_log = patch_info%log_patch_id
     max_cell_connectivity = p_patch%cells%max_connectivity
     !-- collect domain data on working PE 0
     ! --cells
