@@ -37,7 +37,8 @@ MODULE mo_initicon_config
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
   PUBLIC :: l_sst_in
-  PUBLIC :: lread_ana     
+  PUBLIC :: lread_ana
+  PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr
   PUBLIC :: ifs2icon_filename
@@ -72,6 +73,8 @@ MODULE mo_initicon_config
   LOGICAL  :: lread_ana     ! If .TRUE., read analysis fields are read from analysis file
                             ! dwdana_filename. If .FALSE., ICON is soleyly started 
                             ! from first guess fields.   
+
+  LOGICAL  :: lconsistency_checks    ! check validity of input fields (FG and ANA)
 
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain

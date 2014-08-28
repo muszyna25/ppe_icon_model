@@ -30,22 +30,23 @@ MODULE mo_initicon_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_initicon_config,    ONLY: &
-    & config_init_mode          => init_mode,         &
-    & config_nlevsoil_in        => nlevsoil_in,       &
-    & config_zpbl1              => zpbl1,             &
-    & config_zpbl2              => zpbl2,             &
-    & config_l_sst_in           => l_sst_in,          &
-    & config_lread_ana          => lread_ana,         &
-    & config_ifs2icon_filename  => ifs2icon_filename, &
-    & config_dwdfg_filename     => dwdfg_filename,    &
-    & config_dwdana_filename    => dwdana_filename,   &
-    & config_l_coarse2fine_mode => l_coarse2fine_mode,&
-    & config_lp2cintp_incr      => lp2cintp_incr,     &
-    & config_filetype           => filetype,          &
-    & config_dt_iau             => dt_iau,            &
-    & config_timeshift          => timeshift,         &
-    & config_type_iau_wgt       => type_iau_wgt,      &
-    & config_ana_varlist        => ana_varlist,       &
+    & config_init_mode           => init_mode,           &
+    & config_nlevsoil_in         => nlevsoil_in,         &
+    & config_zpbl1               => zpbl1,               &
+    & config_zpbl2               => zpbl2,               &
+    & config_l_sst_in            => l_sst_in,            &
+    & config_lread_ana           => lread_ana,           &
+    & config_lconsistency_checks => lconsistency_checks, &
+    & config_ifs2icon_filename   => ifs2icon_filename,   &
+    & config_dwdfg_filename      => dwdfg_filename,      &
+    & config_dwdana_filename     => dwdana_filename,     &
+    & config_l_coarse2fine_mode  => l_coarse2fine_mode,  &
+    & config_lp2cintp_incr       => lp2cintp_incr,       &
+    & config_filetype            => filetype,            &
+    & config_dt_iau              => dt_iau,              &
+    & config_timeshift           => timeshift,           &
+    & config_type_iau_wgt        => type_iau_wgt,        &
+    & config_ana_varlist         => ana_varlist,         &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
     & config_ana_varnames_map_file => ana_varnames_map_file, &
     & config_latbc_varnames_map_file => latbc_varnames_map_file
@@ -72,10 +73,13 @@ MODULE mo_initicon_nml
   LOGICAL  :: lread_ana     ! If .TRUE., read analysis fields are read from analysis file
                             ! dwdana_filename. If .FALSE., ICON is soleyly started 
                             ! from first guess fields.   
+  LOGICAL  :: lconsistency_checks    ! check validity of input fields (FG and ANA)
+
   LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
                                            ! to fine resolutions over mountainous terrain
   LOGICAL  :: lp2cintp_incr(max_dom) ! If true, perform parent-to-child interpolation of atmospheric data
                                      ! assimilation increments
+
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
@@ -115,6 +119,7 @@ MODULE mo_initicon_nml
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
+                          lconsistency_checks,                              &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varnames_map_file, &
@@ -150,24 +155,25 @@ CONTAINS
   !------------------------------------------------------------
   !
   !
-  init_mode   = MODE_IFSANA ! Start from IFS analysis
-  nlevsoil_in = 4           ! number of soil levels of input data
-  zpbl1       = 500._wp     ! AGL heights used for computing vertical 
-  zpbl2       = 1000._wp    ! gradients
-  l_sst_in    = .TRUE.      ! true: sea surface temperature field provided as input
-  lread_ana   = .TRUE.      ! true: read analysis fields from file dwdana_filename
-                            ! false: start ICON from first guess file (no analysis) 
-  filetype    = -1          ! "-1": undefined
-  dt_iau      = 10800._wp   ! 3-hour interval for IAU
-  dt_shift    = 0._wp       ! do not shift actual simulation start backward
-  rho_incr_filter_wgt = 0._wp ! density increment filtering turned off
-  type_iau_wgt= 1           ! Top-hat weighting function
-  ana_varlist = ''          ! list of mandatory analysis fields. This list can include a subset 
-                            ! or the entire set of default analysis fields. If any of these fields
-                            ! is missing in the analysis file, the model aborts. On default 
-                            ! this list is empty, meaning that fields which are missing in the 
-                            ! analysis file (when compared to the default set), are simply 
-                            ! taken from the first guess.
+  init_mode   = MODE_IFSANA    ! Start from IFS analysis
+  nlevsoil_in = 4              ! number of soil levels of input data
+  zpbl1       = 500._wp        ! AGL heights used for computing vertical 
+  zpbl2       = 1000._wp       ! gradients
+  l_sst_in    = .TRUE.         ! true: sea surface temperature field provided as input
+  lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
+                               ! false: start ICON from first guess file (no analysis)
+  lconsistency_checks = .TRUE. ! check validity of input fields  
+  filetype    = -1             ! "-1": undefined
+  dt_iau      = 10800._wp      ! 3-hour interval for IAU
+  dt_shift    = 0._wp          ! do not shift actual simulation start backward
+  rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
+  type_iau_wgt= 1              ! Top-hat weighting function
+  ana_varlist = ''             ! list of mandatory analysis fields. This list can include a subset 
+                               ! or the entire set of default analysis fields. If any of these fields
+                               ! is missing in the analysis file, the model aborts. On default 
+                               ! this list is empty, meaning that fields which are missing in the 
+                               ! analysis file (when compared to the default set), are simply 
+                               ! taken from the first guess.
   ana_varnames_map_file = " "
   latbc_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -251,22 +257,23 @@ CONTAINS
   ! 5.0 Fill the configuration state
   !------------------------------------------------------------
 
-  config_init_mode          = init_mode
-  config_nlevsoil_in        = nlevsoil_in
-  config_zpbl1              = zpbl1
-  config_zpbl2              = zpbl2
-  config_l_sst_in           = l_sst_in
-  config_lread_ana          = lread_ana
-  config_ifs2icon_filename  = ifs2icon_filename
-  config_dwdfg_filename     = dwdfg_filename
-  config_dwdana_filename    = dwdana_filename
-  config_l_coarse2fine_mode = l_coarse2fine_mode
-  config_lp2cintp_incr      = lp2cintp_incr
-  config_filetype           = filetype
-  config_dt_iau             = dt_iau
-  config_timeshift%dt_shift = dt_shift
-  config_type_iau_wgt       = type_iau_wgt
-  config_ana_varlist        = ana_varlist
+  config_init_mode           = init_mode
+  config_nlevsoil_in         = nlevsoil_in
+  config_zpbl1               = zpbl1
+  config_zpbl2               = zpbl2
+  config_l_sst_in            = l_sst_in
+  config_lread_ana           = lread_ana
+  config_lconsistency_checks = lconsistency_checks
+  config_ifs2icon_filename   = ifs2icon_filename
+  config_dwdfg_filename      = dwdfg_filename
+  config_dwdana_filename     = dwdana_filename
+  config_l_coarse2fine_mode  = l_coarse2fine_mode
+  config_lp2cintp_incr       = lp2cintp_incr
+  config_filetype            = filetype
+  config_dt_iau              = dt_iau
+  config_timeshift%dt_shift  = dt_shift
+  config_type_iau_wgt        = type_iau_wgt
+  config_ana_varlist         = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
   config_latbc_varnames_map_file = latbc_varnames_map_file

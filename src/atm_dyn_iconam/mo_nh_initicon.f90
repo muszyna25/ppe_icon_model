@@ -41,7 +41,8 @@ MODULE mo_nh_initicon
     &                               generate_filename, rho_incr_filter_wgt,             &
     &                               nml_filetype => filetype, timeshift,                &
     &                               ana_varlist, ana_varnames_map_file, lread_ana,      &
-                                    lp2cintp_incr
+    &                               lconsistency_checks,                                &
+    &                               lp2cintp_incr
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,     &
     &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA,             &
@@ -1446,10 +1447,12 @@ MODULE mo_nh_initicon
 
 
 
-      ! additional input field sanity checks
+      ! additional sanity checks for input fields
       !
-      CALL check_input_validity(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
-        &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
+      IF ( lconsistency_checks ) THEN
+        CALL check_input_validity(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
+          &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
+      ENDIF
 
     ENDIF  ! p_pe == p_io
 
@@ -1471,8 +1474,17 @@ MODULE mo_nh_initicon
   !! Check validity of input fields
   !!
   !! Check validity of input fields. So far, the following checks are performed:
-  !! - Comparison of uuidOfHgrid: The uuidOfHGrid of the input fields must 
-  !!   match the uuidOfHgrid of the horizontal grid file. 
+  !!
+  !! For First Guess:
+  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
+  !!   match the uuidOfHgrid of the horizontal grid file.
+  !! - Check validity of first guess validity time: First guess validity time 
+  !!   must comply with the model's initialization time (ini_datetime) minus 
+  !!   dt_shift.
+  !!
+  !! For Analysis (increments)
+  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
+  !!   match the uuidOfHgrid of the horizontal grid file.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-07-28)
@@ -1550,7 +1562,7 @@ MODULE mo_nh_initicon
       !  Check Validity time of first guess  !
       !**************************************!
 
-      ! check correctnes of validity-time
+      ! check correctness of validity-time
       lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
 
       ! write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime

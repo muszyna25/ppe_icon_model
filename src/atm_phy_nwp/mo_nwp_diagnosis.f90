@@ -1533,7 +1533,8 @@ CONTAINS
   !!
   !! @Literature
   !! Based on proposal found in 
-  !! Jochen Froehlich, 2006:Large Eddy Simulation turbulenter Str�mungen, Teubner
+  !! Jochen Froehlich, 2006:Large Eddy Simulation turbulenter Stroemungen, Teubner,
+  !! page 273
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-01-17)
