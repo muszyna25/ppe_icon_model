@@ -1597,7 +1597,7 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr
 
-    REAL(wp), INTENT(out) ::         &
+    REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
 

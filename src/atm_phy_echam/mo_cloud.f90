@@ -179,11 +179,11 @@ SUBROUTINE cloud (       kproma,     kbdim,    ktdia                           &
 !  REAL(wp)   ::       &
       & prsfl    (kbdim)          ,&!< surface rain flux
       & pssfl    (kbdim)            !< surface snow flux
-  REAL(wp), INTENT(OUT)   ::       &
+  REAL(wp), INTENT(INOUT)   ::       &
       & prelhum  (kbdim,klev)       !< relative humidity
-  REAL(wp),INTENT(OUT) :: &
+  REAL(wp),INTENT(INOUT) :: &
       & ptte_prc(kbdim,klev) ,pqte_prc(kbdim,klev)  ! OUT
-  REAL(wp),INTENT(OUT) :: & 
+  REAL(wp),INTENT(INOUT) :: & 
       & pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev) ! OUT
 !
 !   Temporary arrays
