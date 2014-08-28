@@ -400,7 +400,7 @@
       ; perform some remapping to a regular grid because ncl cannot draw vector
       ; from unstructured grids
       ; TODO addVars=(/ "PS","PHIS"/)
-      operator = "remapnn"
+      operator = "remapcon"
       remapFilename = setRemapFilename(iFile,iType,resolution,atmLev,operator)
       print("remapFilename:"+remapFilename)
       if (.not. checkRemappedFile(iFile,remapFilename,ivarname,iType,atmLev,atmPLevs,atmHLevs) ) then
