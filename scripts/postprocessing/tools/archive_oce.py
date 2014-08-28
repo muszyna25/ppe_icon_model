@@ -266,8 +266,8 @@ def computeMaskedTSRMeans1D(ifiles,varList,exp,archdir,procs):
   pool.join()
 
   merged = '/'.join([archdir,'TSR_1D_%s_complete.nc'%(options['EXP'])])
-  if os.path.exists(merged):
-    os.remove(merged)
+#TODO if os.path.exists(merged):
+#TODO   os.remove(merged)
   merged = cdo.cat(input = ' '.join(sorted(results)),
                    output =  merged)
 
@@ -279,34 +279,43 @@ def computeMaskedTSRMeans1D(ifiles,varList,exp,archdir,procs):
   return merged
 
 """ compute timmean + fldmean of masked temperature, salinity and potential density """
-def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs):
+def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs,log):
   pool    = multiprocessing.Pool(procs)
   results = []
 
-  initFile  = cdo.selname(','.join(varList),input = '-seltimestep,1 %s'%(ifiles[0]),
-                                            output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
+# initFile  = cdo.selname(','.join(varList),input = '-seltimestep,1 %s'%(ifiles[0]),
+#                                           output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
+#
+# # compute the 2d surface temperature + salinity variance to the initial
+# # state; relevant are the last 30 years because PHC itselt is a 30-year
+# # climatology
+# for ifile in ifiles:
+#   ofile = pool.apply_async(globalTempSalRho2D,[ifile,initFile,','.join(varList),archdir])
+#   ofile = '/'.join([archdir,'TSR_2D_%s'%(os.path.basename(ifile))])
+#   results.append(ofile)
+#
+# pool.close()
+# pool.join()
+#
+# merged = '/'.join([archdir,'TSR_2D_%s_complete.nc'%(options['EXP'])])
+# if os.path.exists(merged):
+#   os.remove(merged)
+# merged = cdo.cat(input = ' '.join(sorted(results)),
+#                  output =  merged)
+#
+# # compute the timmean at the end
+# timmeamMerged  = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
+# cdo.timmean(input = merged, output = timmeamMerged)
 
-  # compute the 2d surface temperature + salinity variance to the initial
-  # state; relevant are the last 30 years because PHC itselt is a 30-year
-  # climatology
-  for ifile in ifiles:
-    ofile = pool.apply_async(globalTempSalRho2D,[ifile,initFile,','.join(varList),archdir])
-    ofile = '/'.join([archdir,'TSR_2D_%s'%(os.path.basename(ifile))])
-    results.append(ofile)
+  # alternative: substract 30year mean values instead of averaging variations
+  ofile = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
+  cdo.selname(','.join(varList),
+              input  = log['last30YearsMeanBias'],
+              output = ofile)
+  ofileMasked = '/'.join([archdir,'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])])
+  applyMask(ofile,LOG['mask'],ofileMasked)
 
-  pool.close()
-  pool.join()
-
-  merged = '/'.join([archdir,'TSR_2D_%s_complete.nc'%(options['EXP'])])
-  if os.path.exists(merged):
-    os.remove(merged)
-  merged = cdo.cat(input = ' '.join(sorted(results)),
-                   output =  merged)
-
-  # compute the timmean at the end
-  timmeamMerged  = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
-  cdo.timmean(input = merged, output = timmeamMerged)
-  
+  return ofileMasked
 
 """ filter for sorting glob results """
 def mtime(filename):
@@ -529,6 +538,9 @@ def createOutputDocument(plotdir,firstPage,docname,doctype,debug):
 def yearMeanFileName(archdir,exp):
     return  '/'.join([archdir,'_'.join([exp,'yearmean.nc'])])
 
+""" mask by devision with maskfile """
+def applyMask(ifile,maskfile,ofile):
+  return cdo.div(input = '%s %s'%(ifile,maskfile), output = ofile)
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
@@ -644,6 +656,12 @@ LOG['splityear?'] = True
 dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
+# COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ =====================================
+LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init'%(options['EXP'])]))
+# }}} ===================================================================================
+# COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ =====================================
+LOG['mask'] = cdo.seltimestep(1,input = '-selname,wet_c %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
+# }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
 ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'])
 if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
@@ -654,7 +672,12 @@ if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
   #map(lambda x: os.remove(x),ymFiles)
 else:
   print("Use existing ymFile: "+ymFile)
-#doExit()
+# }}} ===================================================================================
+# COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
+LOG['last30YearsMean']     = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'])),
+                                     output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
+LOG['last30YearsMeanBias'] = cdo.sub(input = '-timmean -selyear,%s %s -seltimestep,1 %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP']),LOG['init']),
+                                     output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
 # }}} ===================================================================================
 # PREPARE INPUT FOR PSI CALC {{{
 # collect the last 20 years if there are more than 40 years, last 10 otherwise
@@ -736,17 +759,13 @@ t_s_rho_Input_2D = []
 for year in LOG['years']:
   t_s_rho_Input_1D.append(LOG[year])
 t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','rhopot_acc'],
-                                       options['EXP'],options['ARCHDIR'],options['PROCS'])
+                                            options['EXP'],options['ARCHDIR'],options['PROCS'])
 dbg(t_s_rho_Output_1D)
 for year in LOG['years'][-32:-2]:
   t_s_rho_Input_2D.append(LOG[year])
 t_s_rho_Output_2D = computeMaskedTSRMeans2D(t_s_rho_Input_2D,['t_acc','s_acc','rhopot_acc'],
-                                       options['EXP'],options['ARCHDIR'],options['PROCS'])
+                                            options['EXP'],options['ARCHDIR'],options['PROCS'],LOG)
 dbg(t_s_rho_Output_2D)
-# PREPARE DATA PACIFIC X-SECTION {{{ ------------------------------------------
-# compute 30-year-mean
-last30YearsMean = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'])),
-                              output = 'last30YearsMean_%s.nc'%(options['EXP']))
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
@@ -927,14 +946,14 @@ for k in mocPlotSetup.keys():
   os.environ.pop(k)
 # }}} ----------------------------------------------------------------------------------
 # T S RHOPOT BIAS PLOT {{{
-# global mean bias over depth
+# global mean bias over depth and time
 t_s_rho_PlotSetup = {
   't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
   's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
   'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
 }
 for varname in t_s_rho_PlotSetup.keys():
-  oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_'+'_'.join([options['EXP'],options['TAG']])])
+  oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_inDepth_overTime'+'_'.join([options['EXP'],options['TAG']])])
   #if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
   title = '%s: %s bias to init '%(options['EXP'],varname)
   cmd = [options['ICONPLOT'],
@@ -961,22 +980,22 @@ for varname in t_s_rho_PlotSetup.keys():
 # surface bias of the last 30 year mean
 horizontalConfig = {
   'varNames'      : ['t_acc','s_acc'],
-  'iFile'         : LOG[LOG['years'][-2]],              # use the last COMPLETE year
-  'availableVars' : cdo.showname(input = LOG[LOG['years'][-2]])[0].split(' '),
+  'iFile'         : t_s_rho_Output_2D,
+  'availableVars' : cdo.showname(input = t_s_rho_Output_2D)[0].split(' '),
   'sizeOpt'       : '-xsize=1200 -ysize=800',
 }
 for varname in horizontalConfig['varNames']:
   if ( varname in horizontalConfig['availableVars'] ):
     # surface plot
-    oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-atSurface_'+'_'.join([options['EXP'],options['TAG']])])
+    oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_atSurface_last30YearsMean'+'_'.join([options['EXP'],options['TAG']])])
     if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
-      title = '%s: last yearmean '%(options['EXP'])
+      title = '%s: 30 year mean surface bias to init'%(options['EXP'])
       cmd = [options['ICONPLOT'],
+             '-isIcon',
              '-iFile=%s'%(horizontalConfig['iFile']),
              '-varName=%s'%(varname),
              '-oType=png',horizontalConfig['sizeOpt'],
              '-rStrg="-"',
-             '-maskName=wet_c',
              '-withLineLabels',
              '-tStrg="%s"'%(title),
              '-oFile=%s'%(oFile)]
