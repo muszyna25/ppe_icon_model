@@ -405,7 +405,7 @@
       print("remapFilename:"+remapFilename)
       if (.not. checkRemappedFile(iFile,remapFilename,ivarname,iType,atmLev,atmPLevs,atmHLevs) ) then
         addVars=(/""/)
-        print("PERFORM remapnn again!")
+        print("PERFORM "+operator+" again!")
         remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars,operator)
       end if
       rFile = addfile( remapFilename+".nc", "r" )
