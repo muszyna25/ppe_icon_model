@@ -1031,7 +1031,7 @@ undef("setDefaultColors")
 procedure setDefaultColors(resource,minval,maxval,debug)
 begin
 ; white is color 135
-  if ((minval*maxval) .LT. 0.0) then ; data goes fro positiv to negative or vs.
+  if ((minval*maxval) .LT. 0.0) then ; data goes from positiv to negative or vs.
     if (abs(maxval) .GT. abs(minval)) then
       resource@gsnSpreadColorStart = 135  - toint(126*(abs(minval)/abs(maxval)))
       resource@gsnSpreadColorEnd   = 255

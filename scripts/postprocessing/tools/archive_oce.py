@@ -643,11 +643,13 @@ splitInfo = splitFilesIntoYears(LOG['filesOfYears'],
                                 options['EXP'],
                                 options['PROCS'])
 years, yearMeanFiles = [],[]
+LOG['meansOfYears'] = {}
 for _info in splitInfo:
   year,yearlyFile,yearMeanFile = _info[0], _info[1], _info[2]
   LOG[year] = yearlyFile
   years.append(year)
   yearMeanFiles.append(yearMeanFile)
+  LOG['meansOfYears'][year] = yearMeanFile
 
 years.sort()
 yearMeanFiles.sort()
@@ -659,7 +661,7 @@ dbg(LOG)
 # COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ =====================================
 LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init'%(options['EXP'])]))
 # }}} ===================================================================================
-# COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ =====================================
+# COMPUTE CELL MASK FOR LATER APPLICATION {{{ ===========================================
 LOG['mask'] = cdo.seltimestep(1,input = '-selname,wet_c %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
 # }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
@@ -849,9 +851,9 @@ else:
 # for global grid only
 if ( 'global' == options['GRID'] ):
   for varname in ['t_acc','s_acc','rhopot_acc']:
-    # run icon_plot.ncl
+    # plot last yearmean state
     oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_'+'_'.join([options['EXP'],options['TAG']])])
-    iFile4XSection = LOG[LOG['years'][-1]] # take last yearmean file
+    iFile4XSection = LOG['meansOfYears'][LOG['years'][-2]] # take last yearmean file from a complete year
     # mask by devision
     iFile4XSection = cdo.div(input  = '-selname,%s %s -selname,wet_c %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,iFile4XSection),
                              output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
@@ -860,6 +862,28 @@ if ( 'global' == options['GRID'] ):
       iFile4XSection  = cdo.subc(1000.0,
                                  input = '-selname,%s %s'%(varname,iFile4XSection),
                                  output = os.path.splitext(iFile4XSection)[0]+'_%s_subc1000.nc'%(varname))
+    if ( not os.path.exists(oFile+'.png') or options['FORCE']):
+      title = '%s: last yearmean '%(options['EXP'])
+      cmd = [options['ICONPLOT'],
+             '-iFile=%s'%(iFile4XSection),
+             '-secMode=circle -secLC=-45,-70 -secRC=30,80',
+             '-varName=%s'%(varname),
+             '-oType=png',
+             '-resolution=r180x90',
+             '-selPoints=150',
+             '-rStrg="-"',
+             '-withLineLabels',
+             '-tStrg="%s"'%(title),
+             '-oFile=%s'%(oFile)]
+      dbg(' '.join(cmd))
+      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+
+    # plot bias to initialization
+    oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
+    iFile4XSection = LOG['last30YearsMeanBias'] # take last 30 yearmean bias to init
+    # mask by devision
+    iFile4XSection = cdo.div(input  = '-selname,%s %s -selname,wet_c %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,iFile4XSection),
+                             output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
     if ( not os.path.exists(oFile+'.png') or options['FORCE']):
       title = '%s: last yearmean '%(options['EXP'])
       cmd = [options['ICONPLOT'],
