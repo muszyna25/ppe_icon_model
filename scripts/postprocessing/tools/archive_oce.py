@@ -280,8 +280,8 @@ def computeMaskedTSRMeans1D(ifiles,varList,exp,archdir,procs):
 
 """ compute timmean + fldmean of masked temperature, salinity and potential density """
 def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs,log):
-  pool    = multiprocessing.Pool(procs)
-  results = []
+# pool    = multiprocessing.Pool(procs)
+# results = []
 
 # initFile  = cdo.selname(','.join(varList),input = '-seltimestep,1 %s'%(ifiles[0]),
 #                                           output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
@@ -662,7 +662,7 @@ dbg(LOG)
 LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init'%(options['EXP'])]))
 # }}} ===================================================================================
 # COMPUTE CELL MASK FOR LATER APPLICATION {{{ ===========================================
-LOG['mask'] = cdo.seltimestep(1,input = '-selname,wet_c %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
+LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
 # }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
 ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'])
@@ -781,7 +781,7 @@ if not os.path.exists(plotFile):
 # HORIZONTAL PLOTS: t,s,u,v,abs(velocity) {{{
 horizontalConfig = {
   'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
-  'iFile'         : LOG[LOG['years'][-2]],              # use the last COMPLETE year
+  'iFile'         : LOG[LOG['years'][-2]],              # use the last COMPLETE year #TODO: dont show monthly mean!!!
   'availableVars' : cdo.showname(input = LOG[LOG['years'][-2]])[0].split(' '),
   'sizeOpt'       : '-xsize=1200 -ysize=800',
 }
@@ -855,7 +855,7 @@ if ( 'global' == options['GRID'] ):
     oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_'+'_'.join([options['EXP'],options['TAG']])])
     iFile4XSection = LOG['meansOfYears'][LOG['years'][-2]] # take last yearmean file from a complete year
     # mask by devision
-    iFile4XSection = cdo.div(input  = '-selname,%s %s -selname,wet_c %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,iFile4XSection),
+    iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                              output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
     if ( 'rhopot_acc' == varname ):
       # substract 1000
@@ -882,7 +882,7 @@ if ( 'global' == options['GRID'] ):
     oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
     iFile4XSection = LOG['last30YearsMeanBias'] # take last 30 yearmean bias to init
     # mask by devision
-    iFile4XSection = cdo.div(input  = '-selname,%s %s -selname,wet_c %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,iFile4XSection),
+    iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                              output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
     if ( not os.path.exists(oFile+'.png') or options['FORCE']):
       title = '%s: last yearmean '%(options['EXP'])
@@ -899,7 +899,6 @@ if ( 'global' == options['GRID'] ):
              '-oFile=%s'%(oFile)]
       dbg(' '.join(cmd))
       subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
@@ -1032,7 +1031,6 @@ for varname in horizontalConfig['varNames']:
         cmd.append('')
       dbg(' '.join(cmd))
       subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-doExit()
 # }}} ----------------------------------------------------------------------------------
 # FINAL DOCUMENT CREATION {{{ ===========================================================
 createOutputDocument(options['PLOTDIR'],diagnosticTable,'_'.join(['ALL',options['EXP'],options['TAG']]),options['DOCTYPE'],options['DEBUG'])
