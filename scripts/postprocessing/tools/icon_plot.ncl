@@ -161,6 +161,7 @@
     print("; markCells     : mark cell centers with dots")
     print("; showNcd       : display NDC Grid to find Normalized Device Coordinates on the plot")
     print("; k2c           : if True, perform Kelvin2Celsius shift (default:True)")
+    print("; remapOperator : interpolation operator for internal lonlat representation of icon grid (remapnn,remapcon[default])")
     print(";")
     print("; ATMOSPHERE STUFF:")
     print("; atmLev        : chooses vertical plot levels for atmosphere input (h: height,p:pressure,m:modellevel,default:p)")
@@ -231,6 +232,7 @@
   if (.not. isvar("withLines"))      withLines      = True            end if
   if (.not. isvar("withLineLabels")) withLineLabels = False           end if
   if (.not. isvar("k2c"))            k2c            = True            end if
+  if (.not. isvar("remapOperator"))  remapOperator  = "remapcon"      end if
   if (.not. isvar("isIcon"))         isIcon         = False           end if
 
   if (.not.isvar("mapType"))      mapType      = "lonlat"        end if
@@ -399,14 +401,12 @@
     else
       ; perform some remapping to a regular grid because ncl cannot draw vector
       ; from unstructured grids
-      ; TODO addVars=(/ "PS","PHIS"/)
-      operator = "remapcon"
-      remapFilename = setRemapFilename(iFile,iType,resolution,atmLev,operator)
+      remapFilename = setRemapFilename(iFile,iType,resolution,atmLev,remapOperator)
       print("remapFilename:"+remapFilename)
       if (.not. checkRemappedFile(iFile,remapFilename,ivarname,iType,atmLev,atmPLevs,atmHLevs) ) then
         addVars=(/""/)
-        print("PERFORM "+operator+" again!")
-        remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars,operator)
+        print("PERFORM "+remapOperator+" again!")
+        remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars,remapOperator)
       end if
       rFile = addfile( remapFilename+".nc", "r" )
     end if
