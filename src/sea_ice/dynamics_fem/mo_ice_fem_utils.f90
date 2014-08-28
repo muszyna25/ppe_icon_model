@@ -1135,7 +1135,7 @@ CONTAINS
 
     ! Local variables
     ! Ranges
-    TYPE(t_subset_range), POINTER :: cells_in_domain
+    TYPE(t_subset_range), POINTER :: all_cells
 
     ! Indexing
     INTEGER  :: i_startidx_c, i_endidx_c, jc, jb
@@ -1145,14 +1145,14 @@ CONTAINS
 
 !--------------------------------------------------------------------------------------------------
 
-    cells_in_domain => p_patch%cells%in_domain
+    all_cells => p_patch%cells%all
 
 !--------------------------------------------------------------------------------------------------
 ! Modify oceanic stress
 !--------------------------------------------------------------------------------------------------
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, delu, delv, tau) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does
       ! not alter drag
@@ -1173,8 +1173,8 @@ CONTAINS
 
 !   CALL sync_patch_array_mult(SYNC_C, p_patch, 2, atmos_fluxes%topBoundCond_windStress_u(:,:), &
 !     & atmos_fluxes%topBoundCond_windStress_v(:,:))
-  CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
-  CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
 
   END SUBROUTINE ice_ocean_stress
 
