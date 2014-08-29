@@ -191,7 +191,7 @@ CONTAINS
     INTEGER :: i
 
 #ifndef NOMPI
-#ifndef __NO_ICON_ATMO__
+!#ifndef __NO_ICON_ATMO__
     IF (use_async_name_list_io    .AND.  &
       & .NOT. my_process_is_io()  .AND.  &
       & .NOT. my_process_is_mpi_test()) THEN
@@ -201,7 +201,7 @@ CONTAINS
       CALL compute_shutdown_async_io()
 
     ELSE
-#endif
+!#endif
 #endif
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
@@ -211,9 +211,9 @@ CONTAINS
         END IF
       ENDDO
 #ifndef NOMPI
-#ifndef __NO_ICON_ATMO__
+!#ifndef __NO_ICON_ATMO__
     ENDIF
-#endif
+!#endif
 #endif
 
     DEALLOCATE(output_file)
@@ -310,7 +310,7 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_write_output)
 #ifndef NOMPI
-#ifndef __NO_ICON_ATMO__
+!#ifndef __NO_ICON_ATMO__
     IF  (use_async_name_list_io      .AND.  &
       &  .NOT. my_process_is_io()    .AND.  &
       &  .NOT. my_process_is_mpi_test()) THEN
@@ -323,7 +323,7 @@ CONTAINS
       CALL compute_wait_for_async_io(jstep)
 
     ENDIF
-#endif
+!#endif
 #endif
 
     IF (PRESENT(opt_lhas_output))  opt_lhas_output = .FALSE.
@@ -968,19 +968,19 @@ CONTAINS
     INTEGER,                INTENT(in) :: isample
     ! local variables:
 
-#ifndef __NO_ICON_ATMO__
     LOGICAL             :: done, l_complete, lhas_output, &
       &                    lset_timers_for_idle_pe
     INTEGER             :: jg, jstep, i
     TYPE(t_par_output_event), POINTER :: ev
 
     ! setup of meteogram output
+#ifndef __NO_ICON_ATMO__
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN
         CALL meteogram_init(meteogram_output_config(jg), jg)
       END IF
     END DO
-
+#endif
     ! Initialize name list output, this is a collective call for all PEs
     CALL init_name_list_output(sim_step_info)
 
@@ -1049,6 +1049,7 @@ CONTAINS
     CALL close_name_list_output
 
     ! finalize meteogram output
+#ifndef __NO_ICON_ATMO__
     DO jg = 1, n_dom
       IF (meteogram_output_config(jg)%lenabled)  CALL meteogram_finalize(jg)
     END DO
@@ -1056,6 +1057,7 @@ CONTAINS
     DO jg = 1, max_dom
       DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
+#endif
 
 
     ! Purely idle output PEs: Empty calls of timer start/stop. For
@@ -1076,7 +1078,6 @@ CONTAINS
     ! Shut down MPI
     CALL stop_mpi
     STOP
-#endif
 
   END SUBROUTINE name_list_io_main_proc
   !------------------------------------------------------------------------------------------------
@@ -1173,7 +1174,7 @@ CONTAINS
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
     CALL MPI_Get(bufr_metainfo, SIZE(bufr_metainfo), p_int, 0, &
-      &          0, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
+      &          0_MPI_ADDRESS_KIND, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
     CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
 
     ! Go over all name list variables for this output file

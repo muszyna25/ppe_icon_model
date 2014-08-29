@@ -432,7 +432,7 @@ EOF
 set_run_target_thunder()
 {
 
-  set_default use_nproma 8
+  set_default use_nproma 16
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,4"
