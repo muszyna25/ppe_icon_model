@@ -45,7 +45,7 @@ def parseOptions():
               'CALCPSI'     : '../../scripts/postprocessing/tools/calc_psi.py',
               'TAG'         : 'r1xxxx',                    # addition revision information
 #             'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools',
-              'ICONPLOT'    : 'nclsh /scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/icon_plot.ncl -altLibDir=/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools',
+              'ICONPLOT'    : 'nclsh /scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/icon_plot.ncl -altLibDir=/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools -remapOperator=remapcon',
               'PROCS'       : 8,                           # number of threads/procs to be used for parallel operations
               'JOBISRUNNING': True,                        # avoid the last output file/result year by default
               # optional stuff
@@ -195,10 +195,8 @@ def _computeRegioMean(depth,varname,ifile,vertMask,regioMask,ofile,newData):
               forceOutput = newData)
 
 """ compute global mean of bias for t s rho """
-def globalTempSalRho1D(ifile,initfile,varNames,archdir):
-  maskName = 'wet_c'
-  ofile    = '/'.join([archdir,'TSR_1D_%s'%(os.path.basename(ifile))])
-  cdo.timmean(input = '-fldmean -div -sub -selname,%s %s -selname,%s %s -selname,%s -seltimestep,1 %s'%(varNames,ifile,varNames,initfile,maskName,ifile),
+def globalTempSalRho1D(ifile,initfile,maskfile,varNames,ofile):
+  cdo.timmean(input = '-fldmean -div -sub -selname,%s %s %s %s'%(varNames,ifile,initfile,maskfile),
               output = ofile)
 
 """ compute horizontal last 30-year bias for t s rho """
@@ -250,16 +248,16 @@ def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,procs):
   return yearFiles
 
 """ compute timmean + fldmean of masked temperature, salinity and potential density """
-def computeMaskedTSRMeans1D(ifiles,varList,exp,archdir,procs):
+def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
   pool    = multiprocessing.Pool(procs)
   results = []
 
-  initFile  = cdo.selname(','.join(varList),input = '-seltimestep,1 %s'%(ifiles[0]),
-                                            output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
+  initFile  = cdo.selname(','.join(varList),input = initFile, output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
   # compute the 1d (vertical) year mean variance to the initial state
   for ifile in ifiles:
-    ofile = pool.apply_async(globalTempSalRho1D,[ifile,initFile,','.join(varList),archdir])
-    ofile = '/'.join([archdir,'TSR_1D_%s'%(os.path.basename(ifile))])
+    _ofile = '/'.join([archdir,'TSR_1D_%s'%(os.path.basename(ifile))])
+    ofile  = pool.apply_async(globalTempSalRho1D,[ifile,initFile,maskFile,','.join(varList),_ofile])
+    ofile  = _ofile
     results.append(ofile)
 
   pool.close()
@@ -280,6 +278,15 @@ def computeMaskedTSRMeans1D(ifiles,varList,exp,archdir,procs):
 
 """ compute timmean + fldmean of masked temperature, salinity and potential density """
 def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs,log):
+  # alternative: substract 30year mean values instead of averaging variations
+  ofile = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
+  cdo.selname(','.join(varList),
+              input  = log['last30YearsMeanBias'],
+              output = ofile)
+  ofileMasked = '/'.join([archdir,'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])])
+  applyMask(ofile,LOG['mask'],ofileMasked)
+
+  return ofileMasked
 # pool    = multiprocessing.Pool(procs)
 # results = []
 
@@ -307,15 +314,6 @@ def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs,log):
 # timmeamMerged  = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
 # cdo.timmean(input = merged, output = timmeamMerged)
 
-  # alternative: substract 30year mean values instead of averaging variations
-  ofile = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
-  cdo.selname(','.join(varList),
-              input  = log['last30YearsMeanBias'],
-              output = ofile)
-  ofileMasked = '/'.join([archdir,'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])])
-  applyMask(ofile,LOG['mask'],ofileMasked)
-
-  return ofileMasked
 
 """ filter for sorting glob results """
 def mtime(filename):
@@ -541,6 +539,32 @@ def yearMeanFileName(archdir,exp):
 """ mask by devision with maskfile """
 def applyMask(ifile,maskfile,ofile):
   return cdo.div(input = '%s %s'%(ifile,maskfile), output = ofile)
+
+""" X-Section plot """
+def plotXSection(plotConfig,options):
+  cmd = [options['ICONPLOT']]
+  for key,value in plotConfig.iteritems():
+      cmd.append('%s=%s'%(key,value))
+#       '-iFile=%s'%(t_s_rho_Output_1D),
+#       '-varName=%s'%(varname),
+#       '-oType=png',
+#       '-hov',
+#       '-rStrg="-"',
+#       '-bStrg="-"',
+#       '-lStrg=%s'%(varname),
+#       '-withLineLabels',
+#       '+withLines',
+#       '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
+#       '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
+#       '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
+#       '-colormap=BlWhRe',
+##      '-tStrg="%s"'%(title),
+#       '-oFile=%s'%(oFile)]
+#print(cmd)
+#dbg(' '.join(cmd))
+#if subprocess.check_call(' '.join(cmd),shell=True,env=os.environ):
+#  print('CMD: %s has failed!')
+
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
@@ -659,7 +683,7 @@ dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
 # COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ =====================================
-LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init'%(options['EXP'])]))
+LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init.nc'%(options['EXP'])]))
 # }}} ===================================================================================
 # COMPUTE CELL MASK FOR LATER APPLICATION {{{ ===========================================
 LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
@@ -678,7 +702,7 @@ else:
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
 LOG['last30YearsMean']     = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'])),
                                      output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
-LOG['last30YearsMeanBias'] = cdo.sub(input = '-timmean -selyear,%s %s -seltimestep,1 %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP']),LOG['init']),
+LOG['last30YearsMeanBias'] = cdo.sub(input = ' %s %s'%(LOG['last30YearsMean'],LOG['init']),
                                      output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
 # }}} ===================================================================================
 # PREPARE INPUT FOR PSI CALC {{{
@@ -761,12 +785,11 @@ t_s_rho_Input_2D = []
 for year in LOG['years']:
   t_s_rho_Input_1D.append(LOG[year])
 t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','rhopot_acc'],
-                                            options['EXP'],options['ARCHDIR'],options['PROCS'])
+                                            LOG['init'],LOG['mask'],options['EXP'],options['ARCHDIR'],options['PROCS'])
 dbg(t_s_rho_Output_1D)
-for year in LOG['years'][-32:-2]:
-  t_s_rho_Input_2D.append(LOG[year])
-t_s_rho_Output_2D = computeMaskedTSRMeans2D(t_s_rho_Input_2D,['t_acc','s_acc','rhopot_acc'],
-                                            options['EXP'],options['ARCHDIR'],options['PROCS'],LOG)
+t_s_rho_Output_2D = applyMask(' -selname,t_acc,s_acc,rhopot_acc %s'%(LOG['last30YearsMeanBias']),
+                              LOG['mask'],
+                              '/'.join([options['ARCHDIR'],'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])]))
 dbg(t_s_rho_Output_2D)
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
@@ -869,7 +892,7 @@ if ( 'global' == options['GRID'] ):
              '-secMode=circle -secLC=-45,-70 -secRC=30,80',
              '-varName=%s'%(varname),
              '-oType=png',
-             '-resolution=r180x90',
+             '-resolution=r360x180',
              '-selPoints=150',
              '-rStrg="-"',
              '-withLineLabels',
@@ -891,7 +914,7 @@ if ( 'global' == options['GRID'] ):
              '-secMode=circle -secLC=-45,-70 -secRC=30,80',
              '-varName=%s'%(varname),
              '-oType=png',
-             '-resolution=r180x90',
+             '-resolution=r360x180',
              '-selPoints=150',
              '-rStrg="-"',
              '-withLineLabels',
@@ -899,6 +922,7 @@ if ( 'global' == options['GRID'] ):
              '-oFile=%s'%(oFile)]
       dbg(' '.join(cmd))
       subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+doExit()
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
