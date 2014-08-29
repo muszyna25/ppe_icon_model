@@ -72,9 +72,13 @@ MODULE mo_les_utilities
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
-
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx , i_endidx
+         DO jk = 2 , nlev  
+#else
         DO jk = 2 , nlev  
          DO jc = i_startidx , i_endidx
+#endif
           varout(jc,jk,jb) = p_metrics%wgtfac_c(jc,jk,jb)*varin(jc,jk,jb) + &
                         (1._wp-p_metrics%wgtfac_c(jc,jk,jb))*varin(jc,jk-1,jb)
          END DO
@@ -164,8 +168,13 @@ MODULE mo_les_utilities
     DO jb = i_startblk, i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, min_rlcell_int)
+#ifdef __LOOP_EXCHANGE
+       DO jc = i_startidx , i_endidx
+         DO jk = 1 , nz
+#else
        DO jk = 1 , nz
          DO jc = i_startidx , i_endidx
+#endif
              var_aux(jc,jk,jb) = var(jc,jk,jb)
          END DO
        END DO
@@ -241,9 +250,13 @@ MODULE mo_les_utilities
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx , i_endidx
+        DO jk = 2 , nlev
+#else
       DO jk = 2 , nlev
         DO jc = i_startidx , i_endidx
- 
+#endif
           bru_vais(jc,jk,jb) = grav * ( theta(jc,jk-1,jb) - theta(jc,jk,jb) ) * &
                                p_metrics%inv_ddqz_z_half(jc,jk,jb)/theta_ic(jc,jk,jb)    
 
