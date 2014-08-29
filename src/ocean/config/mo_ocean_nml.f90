@@ -459,7 +459,7 @@ MODULE mo_ocean_nml
   ! new/renamed switches
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER  :: forcing_timescale                    = 1
-  LOGICAL  :: forcing_enable_freshwater            = .FALSE.    ! .TRUE.: apply freshwater forcing boundary condition
+  LOGICAL  :: forcing_enable_freshwater            = .TRUE.    ! .TRUE.: apply freshwater forcing boundary condition
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.    ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: use_new_forcing                      = .FALSE.
   ! _type variables range

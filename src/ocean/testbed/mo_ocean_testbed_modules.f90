@@ -264,6 +264,7 @@ CONTAINS
 
     ! x-check if the saltbudget is correctly computed {{{
     ! p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1) = 30.0_wp
+    ! p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2) = 30.0_wp
     ! p_os(n_dom)%p_prog(nold(1))%h(:,:) =  0.0_wp
     ! p_ice%hi(:,:,:) = 0.0_wp
     ! p_ice%conc(:,:,:) = 0.0_wp
@@ -297,6 +298,7 @@ CONTAINS
     DO jstep = (jstep0+1), (jstep0+nsteps)
       CALL message('test_surface_flux','IceBudget === BEGIN TIMESTEP ======================================================&
         &==============================================')
+    
 
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -329,6 +331,8 @@ CONTAINS
       ! call surface model
       CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
         &  operators_coefficients)
+      CALL dbg_print('IceBudget: saltinity  AFTER' ,&
+        &             p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2),debug_string,4,in_subset=patch_2D%cells%owned)
 
       !------------------------------------------------------------------------
       ! AFTER {{{
@@ -350,7 +354,7 @@ CONTAINS
         &             zUnderIceAfter(:,:) - zUnderIceBefore(:,:),debug_string,4,in_subset=patch_2D%cells%owned)
 
       ! compute budget
-      saltBudget     = real(int(saltAfter) - int(saltBefore))         ! this discribes the saltbudget in kg, which has to be zero
+      saltBudget     = saltAfter - saltBefore        ! this discribes the saltbudget in kg, which has to be zero
       salinityBudget = salinityAfter - salinityBefore ! is not allowed to be changed by the sea ice model
 
       ! SALT-FRESHWATER-CHECK:
@@ -382,7 +386,6 @@ CONTAINS
         ENDDO
       ENDDO
 
-      ! update prognostic variables and save spot values
       p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
       p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h
       p_os(n_dom)%p_diag%t               = p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,1)
@@ -403,7 +406,7 @@ CONTAINS
       CALL dbg_print('IceBudget: salinity diff',salinityBudget,debug_string,4,in_subset=patch_2D%cells%owned)
       CALL dbg_print('IceBudget: salt_00' ,p_ice%budgets%salt_00 ,debug_string, 4, in_subset=patch_2D%cells%owned)
     END DO
-
+    
   END SUBROUTINE test_surface_flux
   !-------------------------------------------------------------------------
 

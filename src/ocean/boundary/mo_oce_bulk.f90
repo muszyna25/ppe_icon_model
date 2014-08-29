@@ -130,6 +130,7 @@ CONTAINS
     INTEGER               :: i_startidx_c, i_endidx_c
     REAL(wp)              :: dsec, z_smax
     REAL(wp)              :: Tfw(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)               :: zUnderIceOld
     REAL(wp), POINTER     :: t_top(:,:), s_top(:,:)
 
     TYPE(t_patch), POINTER:: p_patch 
@@ -543,7 +544,7 @@ CONTAINS
   p_sfc_flx%TempFlux_Relax          (:,:) = atmos_fluxes%TempFlux_Relax(:,:)
   p_sfc_flx%SaltFlux_Relax          (:,:) = atmos_fluxes%SaltFlux_Relax(:,:)
   p_sfc_flx%topBoundCond_Temp_vdiff (:,:) = atmos_fluxes%topBoundCond_Temp_vdiff(:,:)
-  p_sfc_flx%topBoundCond_Salt_vdiff (:,:) = atmos_fluxes%topBoundCond_Salt_vdiff(:,:)
+!   p_sfc_flx%topBoundCond_Salt_vdiff (:,:) = atmos_fluxes%topBoundCond_Salt_vdiff(:,:)
   ! changes to the liquid water column by the ice model
   p_sfc_flx%cellThicknessUnderIce         => atmos_fluxes%cellThicknessUnderIce
 
@@ -569,29 +570,6 @@ CONTAINS
  !p_sfc_flx%data_surfRelax_Temp(:,:),        & ! contains data to which temperature is relaxed             [K]
  !p_sfc_flx%data_surfRelax_Salt(:,:),        & ! contains data to which salinity is relaxed                [psu]
 
-
-
-  ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
-  !   - no energy or water balance correction
-  !   - number of ice classes currently kice=1 - sum over classes should be limited
-  !   - now both, ice and snow are limited to seaice_limit - default is 0.5 (*dz)
-  IF (limit_seaice) THEN
-    z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        p_ice%hi(jc,:,jb) = MIN(p_ice%hi(jc,:,jb), z_smax)
-        p_ice%hs(jc,:,jb) = MIN(p_ice%hs(jc,:,jb), z_smax)
-      END DO
-    END DO
-
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('UpdSfc: hi aft. limiter'     ,p_ice%hi       ,str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: hs aft. limiter'     ,p_ice%hs       ,str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: Conc. aft. limiter'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: ConcSum aft. limit ' ,p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
-    !---------------------------------------------------------------------
-  END IF
 
     !
     ! After final updating of flux forcing for ocean (from file, bulk formula, or coupling) sea ice module is called
@@ -690,45 +668,68 @@ CONTAINS
     ! Vertical diffusion term for salinity Q_S in tracer equation and freshwater forcing W_s is
     !   Q_S = K_v*dS/dz(surf) = -W_s*S(nold)  [psu*m/s]
 
-    IF (forcing_enable_freshwater) THEN
-
-      p_sfc_flx%topBoundCond_Salt_vdiff(:,:) = p_sfc_flx%topBoundCond_Salt_vdiff(:,:) &
-        &                                    - p_sfc_flx%FrshFlux_TotalSalt(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: topBC_S_vd[psu*m/s]', p_sfc_flx%topBoundCond_Salt_vdiff,str_module,3, &
-        &  in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-
-    ENDIF
+!    IF (forcing_enable_freshwater) THEN
+!
+!       p_sfc_flx%topBoundCond_Salt_vdiff(:,:) = p_sfc_flx%topBoundCond_Salt_vdiff(:,:) &
+!         &                                    - p_sfc_flx%FrshFlux_TotalSalt(:,:)*s_top(:,:)*p_patch_3d%wet_c(:,1,:)
+! 
+!       !---------DEBUG DIAGNOSTICS-------------------------------------------
+!       CALL dbg_print('UpdSfc: topBC_S_vd[psu*m/s]', p_sfc_flx%topBoundCond_Salt_vdiff,str_module,3, &
+!         &  in_subset=p_patch%cells%owned)
+!       !---------------------------------------------------------------------
+!
+!    ENDIF
 
     ! Sum of freshwater volume flux F = P - E + R + F_relax in [m/s] (independent of l_forc_frehsw)
     !  - add diagnosed freshwater flux due to relaxation to volume forcing term
-    IF (no_tracer >1) THEN
-      p_sfc_flx%FrshFlux_VolumeTotal(:,:) = p_sfc_flx%FrshFlux_Runoff(:,:) &
-        &                                 + p_sfc_flx%FrshFlux_VolumeIce(:,:) &
-        &                                 + p_sfc_flx%FrshFlux_TotalOcean(:,:) &
-        &                                 + p_sfc_flx%FrshFlux_Relax(:,:)
-
-      !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc:VolumeTotal[m/s]',p_sfc_flx%FrshFlux_VolumeTotal,str_module,1, in_subset=p_patch%cells%owned)
-      !---------------------------------------------------------------------
-    END IF
+!     IF (no_tracer >1) THEN
+!       p_sfc_flx%FrshFlux_VolumeTotal(:,:) = p_sfc_flx%FrshFlux_Runoff(:,:) &
+!         &                                 + p_sfc_flx%FrshFlux_VolumeIce(:,:) &
+!         &                                 + p_sfc_flx%FrshFlux_TotalOcean(:,:) &
+!         &                                 + p_sfc_flx%FrshFlux_Relax(:,:)
+! 
+!       !---------DEBUG DIAGNOSTICS-------------------------------------------
+!       CALL dbg_print('UpdSfc:VolumeTotal[m/s]',p_sfc_flx%FrshFlux_VolumeTotal,str_module,1, in_subset=p_patch%cells%owned)
+!       !---------------------------------------------------------------------
+!     END IF
     
     ! apply additional volume flux to surface elevation
     !  - add to h_old before explicit term
     !  - no change in salt concentration
     !  - volume flux is considered for forcing_enable_freshwater=true only
     !    i.e. for salinity relaxation only, no volume flux is applied
-    IF (forcing_enable_freshwater) THEN
+    IF (forcing_enable_freshwater .and. no_tracer > 1) THEN
+      ! CALL dbg_print('UpdSfc bef: s_top ', s_top  ,str_module, 1, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: mass salt Before ',s_top*p_ice%zUnderIce*rho_ref*p_patch%cells%area&
+                      &,str_module, 1, in_subset=p_patch%cells%owned)
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        
         DO jc = i_startidx_c, i_endidx_c
-          p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb)*dtime
+          IF (p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0) THEN
+          
+            p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) = p_sfc_flx%FrshFlux_Runoff(jc,jb) &
+              &                                 + p_sfc_flx%FrshFlux_VolumeIce(jc,jb) &
+              &                                 + p_sfc_flx%FrshFlux_TotalOcean(jc,jb) &
+              &                                 + p_sfc_flx%FrshFlux_Relax(jc,jb)
+              
+            zUnderIceOld =  p_ice%zUnderIce(jc,jb)
+            p_ice%zUnderIce(jc,jb) = p_ice%zUnderIce(jc,jb) + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) * dtime
+            
+            s_top(jc,jb) = s_top(jc,jb) * zUnderIceOld / p_ice%zUnderIce(jc,jb)
+            
+            p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) * dtime
+            
+          ENDIF
         END DO
+        
       END DO
+      
       !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('UpdSfc: mass salt After ',s_top*p_ice%zUnderIce*rho_ref*p_patch%cells%area&
+                      &,str_module, 1, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
+      ! CALL dbg_print('UpdSfc: s_top ', s_top  ,str_module, 1, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
     
@@ -1536,10 +1537,10 @@ CONTAINS
         !     multiplication with S1 (tracer(2)) is missing
         !   - has to be checked and merged with salinity boundary condition in update_surface_flux
         !
-        p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) =                         &
-          & (p_patch_3D%p_patch_1D(1)%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
-          & /p_patch_3D%p_patch_1D(1)%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
-          & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
+!         p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb) =                         &
+!           & (p_patch_3D%p_patch_1D(1)%del_zlev_m(1)+z_Q_freshwater(jc,jb)) &
+!           & /p_patch_3D%p_patch_1D(1)%del_zlev_m(1)                        &  !  * tracer(jc,1,jb,2)
+!           & +z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)-p_sfc_flx%data_surfRelax_Salt(jc,jb))
 
 
         !calculate wind stress    
