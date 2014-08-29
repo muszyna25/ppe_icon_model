@@ -292,7 +292,7 @@ CONTAINS
 
 
     ! make sure, that h is zero at start
-    p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
+    !p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)

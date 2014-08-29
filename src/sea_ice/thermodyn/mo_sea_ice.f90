@@ -1153,9 +1153,9 @@ CONTAINS
     ! Stupid initialisation trick for Levitus initialisation
     IF (use_file_initialConditions) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp .and. v_base%lsm_c(:,1,:) <= sea_boundary )
-        ice%hi(:,1,:)   = 0.0_wp
-        ice%hs(:,1,:)   = 0.0_wp
-        ice%conc(:,1,:) = 0.00_wp
+        ice%hi(:,1,:)   = 2.0_wp
+        ice%hs(:,1,:)   = 1.0_wp
+        ice%conc(:,1,:) = 0.95_wp
       ENDWHERE
 !      IF ( no_tracer < 2 ) THEN
 !        WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
@@ -1819,6 +1819,10 @@ CONTAINS
     REAL(wp), DIMENSION (nproma, p_patch%alloc_cell_blocks)  :: tmp
     !-------------------------------------------------------------------------------
     CALL dbg_print('UpperOcTS: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: hs', ice%hs,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: hi', ice%hi,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: conc', ice%conc,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOcTS: h', p_os%p_prog(nold(1))%h,str_module, 4, in_subset=p_patch%cells%owned)
 
     !TODOram: openmp
     subset => p_patch%cells%all
@@ -1854,9 +1858,9 @@ CONTAINS
         zUnderIceOld    (cell,block)   = ice%zUnderIce(cell,block)
         draft           (cell,:,block) = (rhos * ice%hs(cell,:,block) + rhoi * ice%hi(cell,:,block)) / rho_ref
         draftave        (cell,block)   = sum(draft(cell,:,block) * ice%conc(cell,:,block))
-        ice%zUnderIce   (cell,block)   = p_patch_vert%prism_thick_flat_sfc_c(cell,1,block) &
-          &                            + p_os%p_prog(nold(1))%h(cell,block) &
-          &                            - draftave(cell,block)
+        !!ice%zUnderIce   (cell,block)   = p_patch_vert%prism_thick_flat_sfc_c(cell,1,block) &
+         !! &                            + p_os%p_prog(nold(1))%h(cell,block) &
+          !!&                            - draftave(cell,block)
 
         ! Calculate average change in ice thickness and the snow-to-ice conversion
         Delhice   (cell,block) = SUM( ( ice%hi(cell,:,block) - ice%hiold(cell,:,block) )*ice%conc(cell,:,block))
@@ -1875,15 +1879,15 @@ CONTAINS
         sst = p_os%p_prog(nold(1))%tracer(cell,1,block,1) + dtime*heatOceW(cell,block)/( clw*rho_ref*ice%zUnderIce(cell,block) )
 
         ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature, form new ice
-        !!DN IF ( sst(cell,block) < Tfw(cell,block) .AND. v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
+         IF ( sst(cell,block) < Tfw(cell,block) .AND. v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
           ! New ice forming over open water due to super cooling
           ! Fixed 2. April - newice is now the volume of ice formed over open water
-          !!DN ice%newice(cell,block) = (1._wp-ice%concSum(cell,block))*( Tfw(cell,block) - sst(cell,block) )*       &
-            !!DN  &                                             ice%zUnderIce(cell,block)*clw*rho_ref/( alf*rhoi )
+           ice%newice(cell,block) = (1._wp-ice%concSum(cell,block))*( Tfw(cell,block) - sst(cell,block) )*       &
+              &                                             ice%zUnderIce(cell,block)*clw*rho_ref/( alf*rhoi )
           ! Flux required to cool the ocean to the freezing point
-          !!DN heatOceW(cell,block)   = ( Tfw(cell,block) - p_os%p_prog(nold(1))%tracer(cell,1,block,1) )     &
-            !!DN &     *ice%zUnderIce(cell,block)*(1.0_wp-ice%concSum(cell,block))*clw*rho_ref/dtime
-        !!DN ENDIF
+           heatOceW(cell,block)   = ( Tfw(cell,block) - p_os%p_prog(nold(1))%tracer(cell,1,block,1) )     &
+             &     *ice%zUnderIce(cell,block)*(1.0_wp-ice%concSum(cell,block))*clw*rho_ref/dtime
+         ENDIF
 
         ! Diagnosis: collect the 4 parts of heat fluxes into the atmos_fluxes cariables - no flux under ice:
         atmos_fluxes%HeatFlux_ShortWave(cell,block) = atmos_fluxes%SWnetw(cell,block)*(1.0_wp-sum(ice%conc(cell,:,block)))
@@ -1927,21 +1931,25 @@ CONTAINS
         ! Fixed 27. March
         ! unit: m/s
         ! TODO: VolumeFlux_UnderIce
-        atmos_fluxes%FrshFlux_VolumeIce(cell,block) = &
+        ! DN: FrshFlux_VolumeIce is not needed, for the total volume of water in
+        ! a grid cell it's much easier to simply dump all precipitation into
+        ! that grid cell by the ocean model directly
+      atmos_fluxes%FrshFlux_VolumeIce(cell,block) = 0 &
   !       &                                         - Delhice(cell,block)* rhoi/(rho_ref*dtime)   & ! Ice melt !TODO remove
   !       &                                         - Delhsnow(cell,block)*rhos/(rho_ref*dtime)   & ! Snow melt !TODO remove
-          &                                         + precw(cell,block)*ice%concSum(cell,block)  ! & ! Rain goes through
+          &                                         + precw(cell,block)*ice%concSum(cell,block)   !& ! Rain goes through
+!          &                                         + preci(cell,block)*ice%concSum(cell,block)  ! & ! Rain goes through
   !       &                                         - ice%newice(cell,block)*rhoi/(rho_ref*dtime)   ! New-ice formation
 
         ! Tracer flux
         ! Fixed 27. March
         ! -->> snow growth (Delhsnow > 0) does NOT change tracers, but snow melt doews
         IF (v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
-          atmos_fluxes%FrshFlux_TotalIce(cell,block) = precw(cell,block)*ice%concSum(cell,block)                             &  ! Rain goes through
+          atmos_fluxes%FrshFlux_TotalIce(cell,block) = &!!DN precw(cell,block)*ice%concSum(cell,block)                             &  ! Rain goes through
             &                                        - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)&   ! Ice melt
-            &                                        - MERGE(Delhsnow(cell,block)*rhos/(rho_ref*dtime), &
-            &                                                0.0_wp, &
-            &                                                Delhsnow(cell,block) < 0.0_wp) &                                   ! snow melt ONLY
+             &                                        - MERGE(Delhsnow(cell,block)*rhos/(rho_ref*dtime), &
+             &                                                0.0_wp, &
+             &                                                Delhsnow(cell,block) < 0.0_wp) &                                   ! snow melt ONLY
             &                                        - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! New-ice formation
         ENDIF
 
@@ -2063,6 +2071,7 @@ CONTAINS
     WHERE ( ice%hi(:,1,:) < hmin .AND. ice%hi(:,1,:) > 0._wp )
       ice%hi  (:,1,:) = hmin
       ice%conc(:,1,:) = ice%vol(:,1,:) / ( ice%hi(:,1,:)*p_patch%cells%area(:,:) )
+      ice%hs  (:,1,:) = ice%vols(:,1,:)/( ice%conc(:,1,:)*p_patch%cells%area(:,:) )
     ENDWHERE
 !ICON_OMP_END_WORKSHARE
 
