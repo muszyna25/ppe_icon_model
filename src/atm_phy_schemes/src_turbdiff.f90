@@ -3063,7 +3063,7 @@ SUBROUTINE turbdiff
 !
 !     sonstiges:
 !
-           x1,x2,x3,x4, tkvcorr
+           x1,x2,x3,x4,xri(ie,ke), tkvcorr(ie,ke), lencorr(ie,ke)
 
       REAL (KIND=ireals) :: flukon33, flukon43, flukon53, &
                             flukon34, flukon44, flukon54, flukon55, &
@@ -3558,6 +3558,43 @@ SUBROUTINE turbdiff
          END DO
       END DO
 
+!     Preparation for Richardson-number-dependent minimum diffusion coefficient
+!     and horizontal shear production term
+
+      DO k=2,ke
+        DO i=istartpar,iendpar
+
+          x1 = z1d2*(hhl(i,k-1)-hhl(i,k+1))
+          x2 = MAX( 1.e-6_ireals, ((u(i,k-1)-u(i,k))**2+(v(i,k-1)-v(i,k))**2)/x1**2 )          ! |du/dz|**2
+          x3 = MAX( 1.e-5_ireals, grav/(z1d2*(t(i,k-1)+t(i,k)))*((t(i,k-1)-t(i,k))/x1+tet_g) ) !       N**2
+
+          xri(i,k) = SQRT(x2/x3)   ! 1/SQRT(Ri)
+
+          ! Factor for variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
+          ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1
+          !
+          x4 = MIN( 1._ireals, 0.25_ireals+7.5e-3_ireals*(hhl(i,k)-hhl(i,ke1)) )  ! low-level reduction factor
+          tkvcorr(i,k) = MIN( 2.5_ireals, MAX( 0.01_ireals, x4*xri(i,k) ) )
+
+        END DO
+      END DO
+
+      IF (ltkeshs .AND. itype_sher == 3) THEN
+        DO k=2,kem
+          DO i=istartpar,iendpar
+
+            ! Factor for variable 3D horizontal-vertical length scale proportional to 1/SQRT(Ri),
+            ! decreasing to zero in the lowest kilometer above ground
+            !
+            x4 = MIN( 1._ireals, 1.0e-3_ireals*(hhl(i,k)-hhl(i,ke1)) )             ! low-level reduction factor
+            lencorr(i,k) = MIN( 5.0_ireals, MAX( 0.01_ireals, x4*xri(i,k) ) )
+
+          END DO
+        END DO
+      ELSE
+        lencorr(:,:) = 1._ireals
+      ENDIF
+
 !     Interpolation der thermodyn. Hilfsgroessen im Feld a(),
 !     der Wolkendichte und der Luftdichte auf Nebenflaechen:
 
@@ -3915,13 +3952,14 @@ SUBROUTINE turbdiff
      !itype_sher = 0 : only single column vertical shear
      !             1 : previous and additional 3D horiz. shear correction
      !             2 : previous and additional 3D vertc. shear correction
+     !             3 : as 1, but with Richardson number dependent length scale
 
      !ltkeshs: consider separated non-turbulent horizontal shear mode
 
 !     Mechanical forcing by vertical shear:
 
 !Achtung: in EV ist fc_min ein horiz. Feld
-      IF (itype_sher.GE.2 .AND. (PRESENT(dwdx) .AND. PRESENT(dwdy) .AND. PRESENT(hdiv))) THEN
+      IF (itype_sher == 2 .AND. (PRESENT(dwdx) .AND. PRESENT(dwdy) .AND. PRESENT(hdiv))) THEN
          !Include 3D-shear correction by the vertical wind (employing incomressibility):
          DO k=2,kem
             DO i=istartpar,iendpar
@@ -3942,7 +3980,7 @@ SUBROUTINE turbdiff
 
       IF (PRESENT(hdef2)) THEN 
 
-         IF (itype_sher.GE.1) THEN
+         IF (itype_sher >= 1) THEN
             !Apply horizontal 3D-shear correction:
             DO k=2,kem 
                DO i=istartpar,iendpar
@@ -3958,9 +3996,9 @@ SUBROUTINE turbdiff
             fakt=z1/(z2*b_2)**2; len=a_hshr*akt*z1d2*l_hori
             DO k=2,kem 
                DO i=istartpar,iendpar
-                  wert=fakt*hdiv(i,k)
-                  frh(i,k)=len*(SQRT(wert**2+hdef2(i,k))-wert) !strain velocity of the sep. hor. shear mode
-                  hlp(i,k)=(frh(i,k))**3/len                   !additional TKE-source by related shear
+                 wert=fakt*hdiv(i,k)
+                 frh(i,k)=len*lencorr(i,k)*(SQRT(wert**2+hdef2(i,k))-wert) !strain velocity of the sep. hor. shear mode
+                 hlp(i,k)=(frh(i,k))**3/(len*lencorr(i,k))                 !additional TKE-source by related shear
                END DO
             END DO
             IF (PRESENT(tket_hshr)) THEN
@@ -4296,16 +4334,8 @@ SUBROUTINE turbdiff
          DO i=istartpar,iendpar
 !           Berechn. der Diffusionskoeffizienten:
 
-            ! Variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
-            ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1
-            x1 = z1d2*(hhl(i,k-1)-hhl(i,k+1))
-            x2 = MAX( 1.e-6_ireals, ((u(i,k-1)-u(i,k))**2+(v(i,k-1)-v(i,k))**2)/x1**2 )          ! |du/dz|**2
-            x3 = MAX( 1.e-5_ireals, grav/(z1d2*(t(i,k-1)+t(i,k)))*((t(i,k-1)-t(i,k))/x1+tet_g) ) !       N**2
-            x4 = MIN( 1._ireals, 0.25_ireals+7.5e-3_ireals*(hhl(i,k)-hhl(i,ke1)) )               ! low-level reduction factor
-            tkvcorr = MIN( 2.5_ireals, MAX( 0.01_ireals, x4*SQRT(x2/x3) ) )
-
-            tkvh(i,k)=MAX( con_h, tkhmin*tkvcorr, tkvh(i,k)*tke(i,k,ntur) )
-            tkvm(i,k)=MAX( con_m, tkmmin*tkvcorr, tkvm(i,k)*tke(i,k,ntur) )
+            tkvh(i,k)=MAX( con_h, tkhmin*tkvcorr(i,k), tkvh(i,k)*tke(i,k,ntur) )
+            tkvm(i,k)=MAX( con_m, tkmmin*tkvcorr(i,k), tkvm(i,k)*tke(i,k,ntur) )
 
 !test: ohne tk?min (wird aber bei Diffusion benutzt!)
 ! tkvh(i,k)=MAX( con_h, tkvh(i,k)*tke(i,k,ntur) )
