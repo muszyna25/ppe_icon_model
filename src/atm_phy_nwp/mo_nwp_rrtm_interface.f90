@@ -667,7 +667,7 @@ CONTAINS
         & trsol_up_toa = prm_diag%trsol_up_toa(:,jb), &   !< out upward solar transmissivity at TOA
         & trsol_up_sfc = prm_diag%trsol_up_sfc(:,jb), &   !< out upward solar transmissivity at surface
         & trsol_dn_sfc_diffus = prm_diag%trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
-        & trsol_clr_sfc = trsol_clr_sfc(:,jb)   )  !< out clear-sky net transmissvity at surface (used with reduced grid only)
+        & trsol_clr_sfc = prm_diag%trsolclr_sfc(:,jb)  )  !< out clear-sky net transmissvity at surface
 
       ENDDO ! blocks
 
@@ -1135,7 +1135,7 @@ CONTAINS
         &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld, zlp_tot_cld, zrg_pres_ifc,&
         &  zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,           &
         &  prm_diag%trsolall, prm_diag%lwflx_up_sfc_rs, prm_diag%trsol_up_toa,                    &
-        &  prm_diag%trsol_up_sfc, prm_diag%trsol_dn_sfc_diff )
+        &  prm_diag%trsol_up_sfc, prm_diag%trsol_dn_sfc_diff, prm_diag%trsolclr_sfc )
 
       ! Debug output of radiation output fields
       IF (msg_level >= 16) THEN

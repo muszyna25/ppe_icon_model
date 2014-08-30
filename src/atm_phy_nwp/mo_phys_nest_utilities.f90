@@ -601,12 +601,12 @@ END SUBROUTINE upscale_rad_input
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
-  rg_aclcov, rg_lwflxall, rg_trsolall, rg_trsol_clr_sfc, rg_lwflx_up_sfc,  &
-  rg_trsol_up_toa, rg_trsol_up_sfc, rg_trsol_dn_sfc_diff,                  &
-  tsfc_rg, albdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, z_tot_cld,       &
-  pres_ifc_rg, z_pres_ifc, tsfc, albdif, aclcov, lwflxall, trsolall,       &
-  lwflx_up_sfc, trsol_up_toa, trsol_up_sfc, trsol_dn_sfc_diff              )
+SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
+  rg_aclcov, rg_lwflxall, rg_trsolall, rg_trsol_clr_sfc, rg_lwflx_up_sfc,   &
+  rg_trsol_up_toa, rg_trsol_up_sfc, rg_trsol_dn_sfc_diff,                   &
+  tsfc_rg, albdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, z_tot_cld,        &
+  pres_ifc_rg, z_pres_ifc, tsfc, albdif, aclcov, lwflxall, trsolall,        &
+  lwflx_up_sfc, trsol_up_toa, trsol_up_sfc, trsol_dn_sfc_diff, trsol_clr_sfc)
 
 
   ! Input grid parameters
@@ -627,9 +627,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
   REAL(wp), INTENT(IN) :: tsfc(:,:), albdif(:,:), rg_trsol_clr_sfc(:,:)
 
   ! Downscaled output fields (on full grid)
-  REAL(wp), INTENT(INOUT) ::                                              &
-    aclcov(:,:), lwflxall(:,:,:), trsolall(:,:,:), lwflx_up_sfc(:,:),     &
-  trsol_up_toa(:,:), trsol_up_sfc(:,:), trsol_dn_sfc_diff(:,:)
+  REAL(wp), INTENT(INOUT) :: aclcov(:,:), lwflxall(:,:,:), trsolall(:,:,:), lwflx_up_sfc(:,:), &
+    trsol_up_toa(:,:), trsol_up_sfc(:,:), trsol_dn_sfc_diff(:,:), trsol_clr_sfc(:,:)
 
   ! Intermediate storage fields needed in the case of MPI parallelization
   REAL(wp), ALLOCATABLE, TARGET ::  z_lwflxall(:,:,:), z_trsolall(:,:,:)
@@ -651,7 +650,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
   ! More local variables
   REAL(wp) :: pscal, dpresg, pfaclw, intqctot
 
-  REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac1, swfac2, lwfac1, lwfac2
+  REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac1, swfac2, lwfac1, lwfac2, logtqv, &
+                                 dtrans_o_dalb_clrsfc
 
   REAL(wp), DIMENSION(nproma,p_patch(jg)%nlevp1) :: intclw, intcli, &
     dtrans_o_dalb_all, dlwflxall_o_dtg, pfacswa
@@ -887,13 +887,13 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,pfacswa, &
 !$OMP            dlwem_o_dtg,swfac1,swfac2,lwfac1,lwfac2,dtrans_o_dalb_all,         &
 !$OMP            pfaclw,intqctot,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3,       &
-!$OMP  jb4) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            jb4,logtqv,dtrans_o_dalb_clrsfc) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                      &
                        i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int)
 
-    tqv(:)               = 0._wp
+    tqv(:)            = 0._wp
     intclw(:,nlevp1)  = 0._wp
     intcli(:,nlevp1)  = 0._wp
     pfacswa(:,nlevp1) = 1._wp
@@ -910,17 +910,18 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
     ENDDO
 
     DO jc = i_startidx, i_endidx
+      logtqv(jc) = LOG(MAX(1._wp,tqv(jc)))
       dlwem_o_dtg(jc) = zrg_aux3d(jc,iemis,jb)*4._wp*stbo*zrg_aux3d(jc,itsfc,jb)**3
-      swfac1(jc) = (MAX(1.e-3_wp,p_trsolall(jc,nlevp1_rg,jb))/           &
-                    MAX(1.e-3_wp,zrg_aux3d(jc,itrclrsfc,jb)) )**0.36_wp
-      swfac2(jc) =  MAX(0.25_wp,3._wp*zrg_aux3d(jc,icosmu0,jb))**0.1_wp
-      lwfac2(jc) = 0.92_wp*MAX(1._wp,tqv(jc))**(-0.07_wp)
+      swfac1(jc) = EXP(0.36_wp*LOG( MAX(1.e-3_wp,p_trsolall(jc,nlevp1_rg,jb))/    &
+                   MAX(1.e-3_wp,zrg_aux3d(jc,itrclrsfc,jb)) ))
+      swfac2(jc) = EXP(0.1_wp*LOG( MAX(0.25_wp,3._wp*zrg_aux3d(jc,icosmu0,jb)) ))
+      lwfac2(jc) = 0.92_wp*EXP(-0.07_wp*logtqv(jc))
     ENDDO
     DO jc = i_startidx, i_endidx
       IF (tqv(jc) > 15._wp) then
-        lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
+        lwfac1(jc) = 1.677_wp*EXP(-0.72_wp*logtqv(jc))
       ELSE
-        lwfac1(jc) = 0.4388_wp*MAX(1._wp,tqv(jc))**(-0.225_wp)
+        lwfac1(jc) = 0.4388_wp*EXP(-0.225_wp*logtqv(jc))
       ENDIF
     ENDDO
 
@@ -936,6 +937,10 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
 
         dlwflxall_o_dtg(jc,jk) = -dlwem_o_dtg(jc)*pfaclw*(1._wp-(6.9_wp+LOG(intqctot))/5.7_wp)
       ENDDO
+    ENDDO
+
+    DO jc = i_startidx, i_endidx
+      dtrans_o_dalb_clrsfc(jc) = - zrg_aux3d(jc,itrclrsfc,jb)/((1._wp-zrg_aux3d(jc,ialb,jb))*swfac2(jc))
     ENDDO
 
     ! Now apply the corrections
@@ -1021,6 +1026,17 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                          &
       trsol_up_sfc(jc3,jb3) = MAX(z_aux3d(jc3,8,jb3) - dtrans_o_dalb_all(jc,nlevp1)* &
           ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), 0._wp)
       trsol_up_sfc(jc4,jb4) = MAX(z_aux3d(jc4,8,jb4) - dtrans_o_dalb_all(jc,nlevp1)* &
+          ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), 0._wp)
+
+      ! Downscaling of clear-sky net transmissivities at the surface
+      ! They are used in radheat for the tile corrections
+      trsol_clr_sfc(jc1,jb1) = MAX(z_aux3d(jc1,10,jb1) + dtrans_o_dalb_clrsfc(jc)* &
+          ( albdif(jc1,jb1) - alb_backintp(jc1,jb1) ), 0._wp)
+      trsol_clr_sfc(jc2,jb2) = MAX(z_aux3d(jc2,10,jb2) + dtrans_o_dalb_clrsfc(jc)* &
+          ( albdif(jc2,jb2) - alb_backintp(jc2,jb2) ), 0._wp)
+      trsol_clr_sfc(jc3,jb3) = MAX(z_aux3d(jc3,10,jb3) + dtrans_o_dalb_clrsfc(jc)* &
+          ( albdif(jc3,jb3) - alb_backintp(jc3,jb3) ), 0._wp)
+      trsol_clr_sfc(jc4,jb4) = MAX(z_aux3d(jc4,10,jb4) + dtrans_o_dalb_clrsfc(jc)* &
           ( albdif(jc4,jb4) - alb_backintp(jc4,jb4) ), 0._wp)
 
       ! Note: the downward diffuse radiation must not undergo a correction based on the surface albedo!

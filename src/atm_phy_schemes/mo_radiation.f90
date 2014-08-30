@@ -1528,6 +1528,7 @@ CONTAINS
     &                 trsol_up_toa,    & ! optional: normalized shortwave upward flux at the top of the atmosphere
     &                 trsol_up_sfc,    & ! optional: normalized shortwave upward flux at the surface
     &                 trsol_dn_sfc_diff,&! optional: normalized shortwave diffuse downward radiative flux at the surface
+    &                 trsol_clr_sfc,   & ! optional: normalized shortwave clear-sky net radiative flux at the surface
     &                 lp_count,        & ! optional: number of land points
     &                 gp_count_t,      & ! optional: number of land points per tile
     &                 spi_count,       & ! optional: number of seaice points
@@ -1538,6 +1539,7 @@ CONTAINS
     &                 idx_lst_fp,      & ! optional: index list of (f)lake points
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
+    &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
     &                 pdtdtradsw    ,  &
@@ -1584,6 +1586,7 @@ CONTAINS
       &     lwflx_up_sfc_rs(kbdim),& ! longwave upward flux at surface calculated at radiation time steps
       &     trsol_up_toa(kbdim),   & ! normalized shortwave upward flux at the top of the atmosphere
       &     trsol_up_sfc(kbdim),   & ! normalized shortwave upward flux at the surface
+      &     trsol_clr_sfc(kbdim),  & ! normalized shortwave clear-sky net radiative flux at the surface
       &     trsol_dn_sfc_diff(kbdim) ! normalized shortwave diffuse downward radiative flux at the surface
 
     INTEGER, INTENT(in), OPTIONAL  ::     &
@@ -1595,7 +1598,7 @@ CONTAINS
       &     idx_lst_fp(kbdim)                ! (f)lake point index list
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
-      &     opt_nh_corr
+      &     opt_nh_corr, use_trsolclr_sfc
 
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
@@ -1632,16 +1635,16 @@ CONTAINS
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
 
-    REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim)
+    REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim)
 
     ! local scalars
-    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, trsolclr
+    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg
 
     REAL(wp), PARAMETER  :: pscal = 1._wp/4000._wp ! pressure scale for longwave correction
 
     INTEGER :: jc,jk,jt,ic
 
-    LOGICAL  :: l_nh_corr
+    LOGICAL  :: l_nh_corr, lcalc_trsolclr
 
     IF ( PRESENT(opt_nh_corr) ) THEN
       l_nh_corr = opt_nh_corr
@@ -1650,6 +1653,11 @@ CONTAINS
       ENDIF
     ELSE
       l_nh_corr = .FALSE.
+    ENDIF
+
+    lcalc_trsolclr = .TRUE.
+    IF (PRESENT(use_trsolclr_sfc) .AND. PRESENT(trsol_clr_sfc)) THEN
+      IF (use_trsolclr_sfc) lcalc_trsolclr = .FALSE.
     ENDIF
 
     ! Conversion factor for heating rates
@@ -1692,14 +1700,17 @@ CONTAINS
       ENDDO
 
       DO jc = jcs, jce
+        logtqv(jc) = LOG(MAX(1._wp,tqv(jc)))
         dlwem_o_dtg(jc) = pemiss(jc)*4._wp*stbo*ptsfc(jc)**3
         lwflx_up_sfc(jc) = lwflx_up_sfc_rs(jc) + dlwem_o_dtg(jc)*(ptsfc(jc) - ptsfctrad(jc))
+        lwfac2(jc) = 0.92_wp*EXP(-0.07_wp*logtqv(jc))
+      ENDDO
+      DO jc = jcs, jce
         IF (tqv(jc) > 15._wp) then
-          lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
+          lwfac1(jc) = 1.677_wp*EXP(-0.72_wp*logtqv(jc))
         ELSE
-          lwfac1(jc) = 0.4388_wp*MAX(1._wp,tqv(jc))**(-0.225_wp)
+          lwfac1(jc) = 0.4388_wp*EXP(-0.225_wp*logtqv(jc))
         ENDIF
-        lwfac2(jc) = 0.92_wp*MAX(1._wp,tqv(jc))**(-0.07_wp)
       ENDDO
 
       DO jk = 1,klevp1
@@ -1719,14 +1730,21 @@ CONTAINS
 
       ! Disaggregation of longwave and shortwave fluxes for tile approach
       IF (ntiles > 1) THEN
-        DO jc = jcs, jce
+        IF (lcalc_trsolclr) THEN ! (relevant for Ritter-Geleyn radiation scheme only)
           ! parameterization of clear-air solar transmissivity in order to use the same 
           ! formulation as in mo_phys_nest_utilities:downscale_rad_output
-          trsolclr = MAX(0.02_wp,0.8_wp*cosmu0(jc)/(0.25_wp*tqv(jc))**0.15)**0.333_wp*&
-           (1._wp-albedo(jc))**(1._wp-0.2_wp*cosmu0(jc)+0.1_wp*MIN(10._wp,tqv(jc))**0.33_wp)
+          DO jc = jcs, jce
+            trsolclr(jc) = MAX(0.02_wp,0.8_wp*cosmu0(jc)/(0.25_wp*tqv(jc))**0.15)**0.333_wp*&
+             (1._wp-albedo(jc))**(1._wp-0.2_wp*cosmu0(jc)+0.1_wp*MIN(10._wp,tqv(jc))**0.33_wp)
+          ENDDO
+        ELSE
+          ! use clear-air solar transmissivity passed as argument
+          trsolclr(jcs:jce) = trsol_clr_sfc(jcs:jce)
+        ENDIF
 
-          swfac1(jc) = (MAX(1.e-3_wp,ptrmsw(jc,klevp1))/MAX(1.e-3_wp,trsolclr))**0.36_wp
-          swfac2(jc) =  MAX(0.25_wp,3._wp*cosmu0(jc))**0.1_wp
+        DO jc = jcs, jce
+          swfac1(jc) = EXP(0.36_wp*LOG( MAX(1.e-3_wp,ptrmsw(jc,klevp1))/MAX(1.e-3_wp,trsolclr(jc)) ))
+          swfac2(jc) = EXP(0.1_wp*LOG( MAX(0.25_wp,3._wp*cosmu0(jc)) ))
 
           ! derivative of SW surface flux w.r.t. albedo
           dflxsw_o_dalb(jc) = - zflxsw(jc,klevp1)*swfac1(jc)/((1._wp-albedo(jc))*swfac2(jc))
