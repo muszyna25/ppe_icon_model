@@ -228,6 +228,7 @@ CONTAINS
           ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp      ! land fraction (smoothed)
           ext_data(jg)%atm%fr_glac_smt(:,:) = 0._wp      ! glacier fraction (smoothed)
           ext_data(jg)%atm%llsm_atm_c(:,:)  = .FALSE.    ! land-sea mask
+          ext_data(jg)%atm%llake_c(:,:)     = .FALSE.    ! lake mask
           ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp     ! plant cover
           ext_data(jg)%atm%lai_mx(:,:)      = 3._wp      ! max Leaf area index
           ext_data(jg)%atm%rootdp(:,:)      = 1._wp      ! root depth
@@ -517,6 +518,15 @@ CONTAINS
         &                   'land sea mask (cell)', DATATYPE_FLT32)
       grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,       &
+        &           isteptype=TSTEP_CONSTANT )
+
+      ! llake_c    p_ext_atm%llake_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('lake_mask_(cell)', '-', &
+        &                   'lake mask (cell)', DATATYPE_FLT32)
+      grib2_desc = t_grib2_var( 2, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'llake_c', p_ext_atm%llake_c,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE.,       &
         &           isteptype=TSTEP_CONSTANT )
@@ -2332,6 +2342,11 @@ CONTAINS
               ext_data(jg)%atm%llsm_atm_c(jc,jb) = .TRUE.  ! land point
             ELSE
               ext_data(jg)%atm%llsm_atm_c(jc,jb) = .FALSE.  ! water point
+            ENDIF
+            IF (ext_data(jg)%atm%fr_lake(jc,jb) >= 0.5_wp) THEN
+              ext_data(jg)%atm%llake_c(jc,jb) = .TRUE.   ! lake point
+            ELSE
+              ext_data(jg)%atm%llake_c(jc,jb) = .FALSE.  ! no lake point
             ENDIF
           ENDDO
         ENDDO

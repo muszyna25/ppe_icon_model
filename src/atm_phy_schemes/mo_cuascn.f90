@@ -74,7 +74,7 @@ CONTAINS
     & pgeo,     pgeoh,    pap,      paph,&
     & zdph,     zdgeoh,                  &
     & pvervel,  pwubase,  pcloudnum,     &
-    & ldland,   ldcum,    ktype,    klab,&
+    & ldland,   ldlake,   ldcum,    ktype,    klab,&
     & ptu,      pqu,      plu,&
     & pmfu,     pmfub,    pentr,    plglac,&
     & pmfus,    pmfuq,    pmful,    plude,    pdmfup,&
@@ -149,6 +149,7 @@ CONTAINS
 !!    INPUT PARAMETERS (LOGICAL):
 
 !!    *LDLAND*       LAND SEA MASK (.TRUE. FOR LAND)
+!!    *LDLAKE*       LAKE MASK (.TRUE. FOR LAKE)
 !!    *LDCUM*        FLAG: .TRUE. FOR CONVECTIVE POINTS
 
 !!    UPDATED PARAMETERS (INTEGER):
@@ -251,6 +252,7 @@ REAL(KIND=jprb)   ,INTENT(in)    :: pvervel(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pwubase(klon) 
 REAL(KIND=jprb)   ,INTENT(in)    :: pcloudnum(klon) 
 LOGICAL           ,INTENT(in)    :: ldland(klon) 
+LOGICAL           ,INTENT(in)    :: ldlake(klon) 
 LOGICAL           ,INTENT(inout) :: ldcum(klon) 
 INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon) 
 INTEGER(KIND=jpim),INTENT(inout) :: klab(klon,klev) 
@@ -280,7 +282,7 @@ REAL(KIND=jprb) ::     zdmfen(klon),           zdmfde(klon),&
  & zbuo(klon,klev),    zluold(klon),&
  & zprecip(klon)  
 REAL(KIND=jprb) ::     zdpmean(klon)
-REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon), zptop0(klon)
+REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon), zptop0(klon), zttop0(klon)
 REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon), zdnoprc(klon)
 LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3, llo4
 
@@ -384,7 +386,7 @@ DO jk=ktdia,klev
       plu(jl,jk)=0.0_JPRB
     ENDIF
     IF( llklab(jl) ) klab(jl,jk)=0
-    IF(.NOT.ldcum(jl).AND.paph(jl,jk) < 4.e4_jprb) kctop0(jl)=jk
+    IF(.NOT.ldcum(jl).AND.paph(jl,jk) < 4.e4_jprb) kctop0(jl)=MAX(jk,2)
     ! pkineu(jl,jk)=0.0_JPRB
   ENDDO
   DO jl=kidia,kfdia
@@ -439,18 +441,27 @@ ENDDO
 !ELSEIF (.NOT. PRESENT (paer_ss)) THEN
     IF (icpl_aero_conv == 1) THEN
       DO jl=kidia,kfdia
+        zttop0(jl) = 0.5_jprb*(pten(jl,kctop0(jl))+pten(jl,kctop0(jl)-1)) ! cloud top temperature
         zdrain(jl)  = 0.25E4_JPRB + 3.75E-5_JPRB * pcloudnum(jl)  ! minimum cloud depth for generating precip: 30-150 hPa ...
-        zdnoprc(jl) = 0.5E-4_JPRB + 8.75E-13_JPRB * pcloudnum(jl) ! autoconversion threshold: 0.065 - 0.35 g/kg ...
+        zdnoprc(jl) = 0.5E-4_JPRB + 8.75E-13_JPRB * pcloudnum(jl) ! QC autoconversion threshold: 0.065 - 0.35 g/kg ...
+        !
+        ! Distinction between warm clouds and mixed-phase clouds:
+        ! Increase threshold for cloud depth and QC if cloud top temperature is above -16 C,
+        ! particularly if the aerosol characteristics are continental
+        zd = MIN(1._jprb,0.166_jprb*MAX(0._jprb,zttop0(jl)-257._jprb))     ! transition starts at about -10 C
+        zc = MIN(2._jprb,1.e-8_jprb*MAX(0._jprb,pcloudnum(jl)-25.e6_jprb)) ! maximum is reached for a cloud number density of 225e6/m**3
+        zdrain(jl)  = zdrain(jl)  + zc*zd*6.25e3_jprb   ! enhancement by at most 125 hPa
+        zdnoprc(jl) = zdnoprc(jl) + zc*zd*0.75e-4_jprb  ! enhancement by at most 0.15 g/kg
       ENDDO
       DO jl=kidia,kfdia
-        IF(.NOT. ldland(jl)) THEN
-          zdrain(jl)  = MIN(0.4E4_JPRB,   zdrain(jl) ) ! ... but over water at most 40 hPa
-          zdnoprc(jl) = MIN(1.25e-4_JPRB, zdnoprc(jl)) ! ... but over water at most 0.125 g/kg
+        IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl)) THEN
+          zdrain(jl)  = MIN(0.4E4_JPRB,   zdrain(jl) ) ! ... but over ocean at most 40 hPa
+          zdnoprc(jl) = MIN(1.25e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.125 g/kg
         ENDIF
       ENDDO
     ELSE IF (ltuning_kessler) THEN
       DO jl=kidia,kfdia
-        IF(ldland(jl)) THEN
+        IF(ldland(jl) .OR. ldlake(jl)) THEN
           zdrain(jl)  = 1.0E4_JPRB  ! minimum cloud depth for generating precip: 100 hPa over land
           zdnoprc(jl) = 2.25e-4_JPRB ! autoconversion threshold: 0.225 g/kg over land
         ELSE
@@ -460,7 +471,7 @@ ENDDO
       ENDDO
     ELSE
       DO jl=kidia,kfdia
-        IF(ldland(jl)) THEN
+        IF(ldland(jl) .OR. ldlake(jl)) THEN
           zdnoprc(jl) = 5.e-4_JPRB ! 0.5 g/kg over land
         ELSE
           zdnoprc(jl) = 3.e-4_JPRB ! 0.3 g/kg over water
@@ -603,7 +614,7 @@ DO jk=klev-1,ktdia+2,-1
       IF(ldcum(jl)) THEN
         ik=MAX(1,kcbot(jl))
         zpbase(jl)=paph(jl,ik)
-        zptop0(jl) = paph(jl,kctop0(jl))
+        zptop0(jl) = paph(jl,kctop0(jl)) ! cloud top pressure
       ENDIF
     ENDDO
 

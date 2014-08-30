@@ -77,7 +77,7 @@ CONTAINS
     & (  kidia,    kfdia,    klon,   ktdia,   klev, rmfcfl, &
     & rhebc_land, rhebc_ocean, ptsphy,                      &
     & pten,     pqen,     pqsen,    ptenh,    pqenh,&
-    & paph,     pap,      pgeoh,    ldland,   ldcum,&
+    & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
     & kcbot,    kctop,    kdtop,    ktopm2,&
     & ktype,    lddraf,&
     & pmfu,     pmfd,     pmfus,    pmfds,&
@@ -114,6 +114,7 @@ CONTAINS
     !!   INPUT PARAMETERS (LOGICAL):
 
     !!   *LDLAND*       LAND SEA MASK (.TRUE. FOR LAND)
+    !!   *LDLAKE*       LAKE MASK (.TRUE. FOR LAKE)
     !!   *LDCUM*        FLAG: .TRUE. FOR CONVECTIVE POINTS
 
     !!   INPUT PARAMETERS (REAL):
@@ -203,8 +204,9 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: pap(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
-    LOGICAL :: ldland(klon) !!Argument NOT used
-    LOGICAL ,INTENT(in)    :: ldcum(klon)
+    LOGICAL           ,INTENT(in)    :: ldland(klon)
+    LOGICAL           ,INTENT(in)    :: ldlake(klon)
+    LOGICAL           ,INTENT(in)    :: ldcum(klon)
     INTEGER(KIND=jpim),INTENT(in)    :: kcbot(klon)
     INTEGER(KIND=jpim),INTENT(in)    :: kctop(klon)
     INTEGER(KIND=jpim),INTENT(in)    :: kdtop(klon)
@@ -259,7 +261,7 @@ CONTAINS
       IF(.NOT.ldcum(jl).OR.kdtop(jl) < kctop(jl)) lddraf(jl)=.FALSE.
       IF(.NOT.ldcum(jl)) ktype(jl)=0
       idbas(jl)=klev
-      IF(ldland(jl)) THEN
+      IF(ldland(jl) .OR. ldlake(jl)) THEN
         !!zrhebc(jl)=rhebc
         !!zrhebc(jl)=0.7_jprb
         zrhebc(jl) = rhebc_land

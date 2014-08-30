@@ -114,7 +114,7 @@ CONTAINS
   !
   SUBROUTINE cumastrn &
   & (  kidia,    kfdia,    klon,     ktdia,    klev,&
-    & ldland,   ptsphy, phy_params, capdcfac,       &
+    & ldland, ldlake, ptsphy, phy_params, capdcfac, &
     & paer_ss,                                      &
     & pten,     pqen,     puen,     pven, plitot,   &
     & pvervel,  pqhfl,    pahfs,                    &
@@ -154,6 +154,7 @@ CONTAINS
     !     INPUT PARAMETERS (LOGICAL)
 
     !    *LDLAND*       LAND SEA MASK (.TRUE. FOR LAND)
+    !    *LDLAKE*       LAKE MASK (.TRUE. FOR LAKE)
 
     !     INPUT PARAMETERS (REAL)
 
@@ -321,6 +322,7 @@ CONTAINS
 !    INTEGER(KIND=jpim)               :: kstep ! Argument NOT used
 !    INTEGER(KIND=jpim)               :: kstart ! Argument NOT used
     LOGICAL           ,INTENT(in)    :: ldland(klon)
+    LOGICAL           ,INTENT(in)    :: ldlake(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     TYPE(t_phy_params),INTENT(in)    :: phy_params
     REAL(KIND=jprb)   ,INTENT(in)    :: capdcfac(klon)
@@ -752,7 +754,7 @@ CONTAINS
       & pgeo,     pgeoh,    pap,      paph,&
       & zdph,     zdgeoh,                  &
       & pvervel,  zwubase, pcloudnum,      &
-      & ldland,   ldcum,    ktype,    ilab,&
+      & ldland,   ldlake,  ldcum,    ktype,    ilab,&
       & ptu,      pqu,      plu,&
       & pmfu,     zmfub,    zentr,    zlglac,&
       & zmfus,    zmfuq,    zmful,    plude,    zdmfup,&
@@ -1019,7 +1021,7 @@ CONTAINS
         & pgeo,     pgeoh,    pap,      paph,&
         & zdph,     zdgeoh,         &
         & pvervel,  zwubase,  pcloudnum,     &
-        & ldland,   ldcum,    ktype,    ilab,&
+        & ldland,   ldlake,   ldcum,    ktype,    ilab,&
         & ptu,      pqu,      plu,&
         & pmfu,     zmfub,    zentr,    zlglac,&
         & zmfus,    zmfuq,    zmful,    plude,    zdmfup,&
@@ -1146,7 +1148,7 @@ CONTAINS
       & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%mfcfl, &
       & phy_params%rhebc_land, phy_params%rhebc_ocean, ptsphy,          &
       & pten,     pqen,     pqsen,    ztenh,    zqenh,&
-      & paph,     pap,      pgeoh,    ldland,   ldcum,&
+      & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
       & kcbot,    kctop,    idtop,    itopm2,&
       & ktype,    llddraf,&
       & pmfu,     pmfd,     zmfus,    zmfds,&

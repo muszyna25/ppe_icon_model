@@ -60,6 +60,10 @@ MODULE mo_ext_data_types
       &  llsm_atm_c(:,:)       ! .TRUE. if landpoint
                                ! index1=1,nproma, index2=1,nblks_c
 
+    LOGICAL, POINTER  ::   &   !< mask function for lake points           [ ]
+      &  llake_c(:,:)          ! .TRUE. if lake point
+                               ! index1=1,nproma, index2=1,nblks_c
+
     INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
       &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
 
