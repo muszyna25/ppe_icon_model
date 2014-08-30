@@ -193,6 +193,8 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER :: iadv_min_slev           !< scheme specific minimum slev
+
+    REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
     !-----------------------------------------------------------------------
 
     ! get patch ID
@@ -277,17 +279,24 @@ CONTAINS
         i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
 
+!$OMP PARALLEL DO PRIVATE(jb,jt,jc,i_startidx,i_endidx,z_mflx_contra_v) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
             &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
+          ! Be sure to avoid division by zero
+          DO jc = i_startidx, i_endidx
+            z_mflx_contra_v(jc) = SIGN( MAX(ABS(p_mflx_contra_v(jc,p_patch%nshift_child,jb)),dbl_eps), &
+              &                                 p_mflx_contra_v(jc,p_patch%nshift_child,jb) )
+          ENDDO
+
           DO jt = 1, ntracer
             DO jc = i_startidx, i_endidx
-              opt_q_int(jc,jb,jt) = p_upflux(jc,p_patch%nshift_child,jb,jt) &
-                &        /(p_mflx_contra_v(jc,p_patch%nshift_child,jb) + dbl_eps)
+              opt_q_int(jc,jb,jt) = p_upflux(jc,p_patch%nshift_child,jb,jt) / z_mflx_contra_v(jc)
             ENDDO
           ENDDO
         ENDDO
+!$OMP END PARALLEL DO
 
       ENDIF
 
