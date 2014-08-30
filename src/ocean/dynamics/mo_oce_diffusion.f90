@@ -337,9 +337,9 @@ CONTAINS
     !Result is a gradient vector, located at edges
 !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, &
 !ICON_OMP il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = edges_gradIsCalculable%start_block, edges_gradIsCalculable%end_block
-   ! DO blockNo = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(edges_gradIsCalculable, blockNo, start_edge_index, end_edge_index)
+    ! DO blockNo = edges_gradIsCalculable%start_block, edges_gradIsCalculable%end_block
+    DO blockNo = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, blockNo, start_edge_index, end_edge_index)
 
       DO edge_index = start_edge_index, end_edge_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
