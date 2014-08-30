@@ -1189,7 +1189,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'trsolclr_sfc', diag%trsolclr_sfc,             &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-          & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.                    )
+          & ldims=shape2d, loutput=.FALSE.                                      )
 
         ! &      diag%trsol_up_toa(nproma,nblks_c)
         cf_desc    = t_cf_var('trsol_up_toa', '', 'shortwave upward transmisivity at TOA', DATATYPE_FLT32)
