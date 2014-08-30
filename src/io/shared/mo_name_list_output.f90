@@ -197,8 +197,11 @@ CONTAINS
       & .NOT. my_process_is_mpi_test()) THEN
       !-- compute PEs (senders):
       
+!       write(0,*) "compute_wait_for_async_io start"
       CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
+!       write(0,*) "compute_wait_for_async_io returned"
       CALL compute_shutdown_async_io()
+!       write(0,*) "compute_shutdown_async_io returned"
 
     ELSE
 !#endif
