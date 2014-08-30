@@ -233,23 +233,23 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_gmres)
     
     mythreadno = 0
-!ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
-    !$ myThreadNo = OMP_GET_THREAD_NUM()
+! !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
+!    !$ myThreadNo = OMP_GET_THREAD_NUM()
 
-!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       r(1:nproma,jb) = b(1:nproma,jb) - w(1:nproma,jb)
     ENDDO
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
     
 !     IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:),p_patch_3d,p_op_coeff,h_e)
     
-!ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, no_of_blocks
       sum_aux(jb) = SUM(r(1:nproma,jb) * r(1:nproma,jb))
     ENDDO
     ! sum_aux(no_of_blocks) = SUM(r(1:end_nproma,no_of_blocks) * r(1:end_nproma,no_of_blocks))
-!ICON_OMP_END_DO
+! !ICON_OMP_END_DO
     
     IF (mythreadno == 0) THEN
       h_aux  = SUM(sum_aux(1:no_of_blocks))
@@ -260,19 +260,19 @@ CONTAINS
       !       rn2(1) = SQRT(p_sum(h_aux, my_mpi_work_communicator))
       ! !ICON_OMP FLUSH(rn2(1))
     ENDIF
-!ICON_OMP BARRIER
+! !ICON_OMP BARRIER
     
     
     ! 2) compute the first vector of the Krylov space
     IF (rn2(1) /= 0.0_wp) THEN
       rrn2 = 1.0_wp/rn2(1)
-!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, no_of_blocks
         v(1:nproma,jb,1) = r(1:nproma,jb) * rrn2
       ENDDO
-!ICON_OMP_END_DO NOWAIT
+! !ICON_OMP_END_DO NOWAIT
     ENDIF
-!ICON_OMP_END_PARALLEL
+! !ICON_OMP_END_PARALLEL
 
 !    CALL dbg_print('1: w', w, method_name, 3, in_subset=patch_2d%cells%owned)
 !    CALL dbg_print('1: r', r, method_name, 3, in_subset=patch_2d%cells%owned)
