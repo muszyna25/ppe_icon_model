@@ -163,10 +163,10 @@ MODULE mo_solve_nonhydro
     REAL(wp) :: z_w_expl        (nproma,p_patch%nlevp1),          &
                 z_thermal_exp   (nproma,p_patch%nblks_c),         &
                 z_vn_avg        (nproma,p_patch%nlev  ),          &
+                z_mflx_top      (nproma,p_patch%nblks_c),         &
                 z_contr_w_fl_l  (nproma,p_patch%nlevp1),          &
                 z_rho_expl      (nproma,p_patch%nlev  ),          &
                 z_exner_expl    (nproma,p_patch%nlev  ),          &
-                z_exner_ic      (nproma,p_patch%nlevp1),          &
                 z_theta_tavg    (nproma,p_patch%nlev  ),          &
                 z_rho_tavg      (nproma,p_patch%nlev  )
 
@@ -184,8 +184,8 @@ MODULE mo_solve_nonhydro
                 z_graddiv2_vn   (nproma,p_patch%nlev  ),          &
                 z_theta_v_pr_mc (nproma,p_patch%nlev  ),          &
                 z_theta_v_pr_ic (nproma,p_patch%nlevp1),          &
+                z_exner_ic      (nproma,p_patch%nlevp1),          &
                 z_w_concorr_mc  (nproma,p_patch%nlev  ),          &
-                z_mflx_top      (nproma,p_patch%nblks_c),         &
                 z_flxdiv_mass   (nproma,p_patch%nlev  ),          &
                 z_flxdiv_theta  (nproma,p_patch%nlev  ),          &
                 z_hydro_corr    (nproma,p_patch%nblks_e)
@@ -194,7 +194,7 @@ MODULE mo_solve_nonhydro
     REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow_vel, wgt_nnew_vel,     &
                dt_shift, wgt_nnow_rth, wgt_nnew_rth, dthalf,                  &
                z_ntdistv_bary(2), distv_bary(2), r_iadv_rcf, scal_divdamp_o2, &
-               z_w_con_up, z_w_con_down, z1_div3d, z2_div3d, zf
+               z1_div3d, z2_div3d, zf
 
     REAL(wp), DIMENSION(p_patch%nlev) :: scal_divdamp, bdy_divdamp, enh_divdamp_fac, scal_div3d
 
@@ -467,7 +467,7 @@ MODULE mo_solve_nonhydro
               ! Exner pressure on remaining half levels for metric correction term
               z_exner_ic(jc,jk) =                                              &
                 p_nh%metrics%wgtfac_c(jc,jk,jb)*z_exner_ex_pr(jc,jk,jb) +      &
-                (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_exner_ex_pr(jc,jk-1,jb)
+                (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_exner_ex_pr(jc,jk-1,jb)
 
               ! First vertical derivative of perturbation Exner pressure
               z_dexner_dz_c(1,jc,jk,jb) =                    &
@@ -520,7 +520,7 @@ MODULE mo_solve_nonhydro
             ! perturbation virtual potential temperature at interface levels
             z_theta_v_pr_ic(jc,jk) = &
               p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_v_pr_mc(jc,jk) +       &
-              (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_v_pr_mc(jc,jk-1)
+              (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_v_pr_mc(jc,jk-1)
 
             ! virtual potential temperature at interface levels
             p_nh%diag%theta_v_ic(jc,jk,jb) = &
@@ -572,7 +572,7 @@ MODULE mo_solve_nonhydro
             ! perturbation virtual potential temperature at interface levels
             z_theta_v_pr_ic(jc,jk) = &
               p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_v_pr_mc(jc,jk) +       &
-              (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_v_pr_mc(jc,jk-1)
+              (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_v_pr_mc(jc,jk-1)
 
             ! virtual potential temperature at interface levels
             p_nh%diag%theta_v_ic(jc,jk,jb) = p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_tavg(jc,jk) + &
@@ -628,7 +628,7 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               ! Second vertical derivative of perturbation Exner pressure (hydrostatic approximation)
-              z_dexner_dz_c(2,jc,jk,jb) = -0.5_wp *                                &
+              z_dexner_dz_c(2,jc,jk,jb) = -0.5_vp *                                &
                ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *              &
                 p_nh%metrics%d2dexdz2_fac1_mc(jc,jk,jb) + z_theta_v_pr_mc(jc,jk)*  &
                 p_nh%metrics%d2dexdz2_fac2_mc(jc,jk,jb))
@@ -1601,7 +1601,7 @@ MODULE mo_solve_nonhydro
           DO jc = i_startidx, i_endidx
             p_nh%diag%w_concorr_c(jc,jk,jb) =                                &
               p_nh%metrics%wgtfac_c(jc,jk,jb)*z_w_concorr_mc(jc,jk) +        &
-             (1._wp - p_nh%metrics%wgtfac_c(jc,jk,jb))*z_w_concorr_mc(jc,jk-1) 
+             (1._vp - p_nh%metrics%wgtfac_c(jc,jk,jb))*z_w_concorr_mc(jc,jk-1) 
           ENDDO
         ENDDO
 !DIR$ IVDEP
@@ -1681,8 +1681,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl, &
-!$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac,z_flxdiv_mass,z_flxdiv_theta,  &
-!$OMP   z_w_con_up,z_w_con_down) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac,z_flxdiv_mass,z_flxdiv_theta  ) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1803,7 +1802,7 @@ MODULE mo_solve_nonhydro
 
           z_a(jc,jk) = -z_gamma(jc,jk)*z_beta(jc,jk-1)*z_alpha(jc,jk-1)
           z_c(jc,jk) = -z_gamma(jc,jk)*z_beta(jc,jk  )*z_alpha(jc,jk+1)
-          z_b(jc,jk) = 1.0_wp+z_gamma(jc,jk)*z_alpha(jc,jk) &
+          z_b(jc,jk) = 1.0_vp+z_gamma(jc,jk)*z_alpha(jc,jk) &
             *(z_beta(jc,jk-1)+z_beta(jc,jk))
         ENDDO
       ENDDO
@@ -1815,7 +1814,7 @@ MODULE mo_solve_nonhydro
       DO jk = 3, nlev
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
-          z_g(jc,jk) = 1.0_wp/(z_b(jc,jk)+z_a(jc,jk)*z_q(jc,jk-1))
+          z_g(jc,jk) = 1.0_vp/(z_b(jc,jk)+z_a(jc,jk)*z_q(jc,jk-1))
           z_q(jc,jk) = - z_c(jc,jk)*z_g(jc,jk)
         ENDDO
       ENDDO

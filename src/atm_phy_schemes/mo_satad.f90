@@ -185,7 +185,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
        indx                        !, & !  loop index
 
   REAL    (KIND=ireals   ) ::  &
-       Ttest, qtest, qw, qwd, dqwd, fT, dfT, & !, cvvmcl, qd,
+       Ttest(idim,kdim), qtest(idim,kdim), qw(idim,kdim), qwd, qwa, dqwd, fT, dfT, & !, cvvmcl, qd,
        zqwmin              ! Minimum cloud water content for adjustment
 
 #ifdef __COSMO__
@@ -236,7 +236,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
       DO i = ilo , iup
 
         ! total content of the species which are changed by the adjustment:
-        qw = qve(i,k) + qce(i,k)
+        qw(i,k) = qve(i,k) + qce(i,k)
 
         ! check, which points will still be subsaturated even
         ! if all the cloud water would have been evaporated.
@@ -245,17 +245,23 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
         lwdocvd(i,k) = ( lwd + (cp_v - cl)*(te(i,k)-tmelt) - r_v*te(i,k) )/ cvd
 
-        Ttest = te(i,k) - lwdocvd(i,k)*qce(i,k)
+        Ttest(i,k) = te(i,k) - lwdocvd(i,k)*qce(i,k)
 
-        qtest = qsat_rho(Ttest, rhotot(i,k))
+        qtest(i,k) = qsat_rho(Ttest(i,k), rhotot(i,k))
 
-        IF (qw <= qtest ) THEN
+      END DO
+    END DO
+
+    DO k = klo, kup
+      DO i = ilo , iup
+
+        IF (qw(i,k) <= qtest(i,k) ) THEN
           ! In this case, all the cloud water evaporates and there is still (sub)saturation.
           ! The resulting state depends only on the available cloud water and is
           ! not saturated, which enables direct computation of the adjusted variables:
-          qve(i,k)  = qw
+          qve(i,k)  = qw(i,k)
           qce(i,k)  = 0.0_ireals
-          te(i,k)   = Ttest
+          te(i,k)   = Ttest(i,k)
         ELSE
           ! In this case, the Newton interation is needed
           nsat       = nsat+1
@@ -286,7 +292,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
     IF (nsat.gt.0) THEN
       count = 0
-      DO WHILE (MAXVAL(ABS(twork(1:nsat)-tworkold(1:nsat))) > tol .AND. count < maxiter)
+      DO WHILE (ANY(ABS(twork(1:nsat)-tworkold(1:nsat)) > tol) .AND. count < maxiter)
         DO indx = 1, nsat
           ! The following if-clause is necessary to achieve reproducible results.
           ! If it is not applied, all grid points are iterated until the "worst"
@@ -318,6 +324,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
       ! ------------------------------------------
 
 !CDIR NODEP,VOVERTAKE,VOB
+!DIR$ IVDEP
       DO indx = 1, nsat
         i = iwrk(indx)
         k = kwrk(indx)
@@ -325,9 +332,9 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
         ! We disregard here the extrapolation of qsat from the second-last iteration
         ! step, which is done in the original routine to exactly preserve the internal energy.
         ! This introduces a small error (see the COSMO-Documentation, Part III).
-        qw = qsat_rho(te(i,k), rhotot(i,k))
-        qce(i,k) = MAX( qce(i,k) + qve(i,k) - qw,zqwmin)
-        qve(i,k) = qw
+        qwa = qsat_rho(te(i,k), rhotot(i,k))
+        qce(i,k) = MAX( qce(i,k) + qve(i,k) - qwa,zqwmin)
+        qve(i,k) = qwa
       ENDDO
 
     END IF

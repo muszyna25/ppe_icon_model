@@ -22,7 +22,7 @@
 MODULE mo_nh_feedback
   !
   !
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, vp
   USE mo_exception,           ONLY: message_text, message
   USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
   USE mo_grid_config,         ONLY: n_dom, n_dom_start
@@ -329,7 +329,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
@@ -361,7 +360,6 @@ CONTAINS
           DO jc = i_startidx, i_endidx
             DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
 #endif
@@ -559,7 +557,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=4
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
@@ -635,7 +632,6 @@ CONTAINS
         DO je = i_startidx, i_endidx
           DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
         DO jk = 1, nlev_c
           DO je = i_startidx, i_endidx
 #endif
@@ -666,7 +662,6 @@ CONTAINS
         DO je = i_startidx, i_endidx
           DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
         DO jk = 1, nlev_c
           DO je = i_startidx, i_endidx
 #endif
@@ -701,7 +696,6 @@ CONTAINS
         DO je = i_startidx, i_endidx
           DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
         DO jk = 1, nlev_c
           DO je = i_startidx, i_endidx
 #endif
@@ -1025,11 +1019,14 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
       parent_vn, diff_vn
 
-    REAL(wp) :: rot_diff_vn(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_v)
-
-    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c) :: div_diff_vn
-
-    REAL(wp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c)
+#ifdef __LOOP_EXCHANGE
+    REAL(vp) :: rot_diff_vn(p_patch(jg)%nlev,nproma,p_patch(jgp)%nblks_v)
+    REAL(vp) :: div_diff_vn(p_patch(jg)%nlev,nproma,p_patch(jgp)%nblks_c)
+#else
+    REAL(vp) :: rot_diff_vn(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_v)
+    REAL(vp) :: div_diff_vn(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c)
+#endif
+    REAL(vp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c)
 
     REAL(wp) :: z_fbk_rho(nproma,4,p_patch(jg)%nlev)
 
@@ -1183,7 +1180,6 @@ CONTAINS
 !DIR$ IVDEP
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=4
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
@@ -1227,7 +1223,6 @@ CONTAINS
             DO jk = 1, nlev_c
 #else
         DO jt = 1, ntracer_fbk
-!CDIR UNROLL=8
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
 #endif
@@ -1265,7 +1260,6 @@ CONTAINS
 !DIR$ IVDEP
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
       DO jk = 1, nlev_c
         DO je = i_startidx, i_endidx
 #endif
@@ -1372,14 +1366,13 @@ CONTAINS
       DO jv = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_v(jv,jb,i_chidx)) THEN
           DO jk = 1, nlev_c
+            rot_diff_vn(jk,jv,jb) =   &
 #else
-!CDIR UNROLL=6
       DO jk = 1, nlev_c
         DO jv = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_v(jv,jb,i_chidx)) THEN
-#endif
-
             rot_diff_vn(jv,jk,jb) =   &
+#endif
               diff_vn(iveidx(jv,jb,1),jk,iveblk(jv,jb,1))*p_int%geofac_rot(jv,1,jb) + &
               diff_vn(iveidx(jv,jb,2),jk,iveblk(jv,jb,2))*p_int%geofac_rot(jv,2,jb) + &
               diff_vn(iveidx(jv,jb,3),jk,iveblk(jv,jb,3))*p_int%geofac_rot(jv,3,jb) + &
@@ -1410,14 +1403,13 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_ch(jc,jb,i_chidx)) THEN
           DO jk = 1, nlev_c
+            div_diff_vn(jk,jc,jb) =   &
 #else
-!CDIR UNROLL=6
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_ch(jc,jb,i_chidx)) THEN
-#endif
-
             div_diff_vn(jc,jk,jb) =   &
+#endif
               diff_vn(iceidx(jc,jb,1),jk,iceblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
               diff_vn(iceidx(jc,jb,2),jk,iceblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
               diff_vn(iceidx(jc,jb,3),jk,iceblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
@@ -1445,13 +1437,21 @@ CONTAINS
       DO je = i_startidx, i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
           DO jk = 1, nlev_c
+            diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
+              dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
+              ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
+              ( rot_diff_vn(jk,ievidx(je,jb,2),ievblk(je,jb,2))    &
+              - rot_diff_vn(jk,ievidx(je,jb,1),ievblk(je,jb,1)) )  &
+              * p_patch(jgp)%edges%inv_primal_edge_length(je,jb) + &
+              ( div_diff_vn(jk,iecidx(je,jb,2),iecblk(je,jb,2))    &
+              - div_diff_vn(jk,iecidx(je,jb,1),iecblk(je,jb,1)) )  &
+              * p_patch(jgp)%edges%inv_dual_edge_length(je,jb)     )
+          ENDDO
+        ENDIF
 #else
-!CDIR UNROLL=3
       DO jk = 1, nlev_c
         DO je = i_startidx, i_endidx
           IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
-#endif
-
             diff_vn(je,jk,jb) = diff_vn(je,jk,jb) +                &
               dcoef_vec * p_patch(jgp)%edges%area_edge(je,jb) *    &
               ( p_patch(jgp)%edges%system_orientation(je,jb) *     &
@@ -1461,11 +1461,6 @@ CONTAINS
               ( div_diff_vn(iecidx(je,jb,2),jk,iecblk(je,jb,2))    &
               - div_diff_vn(iecidx(je,jb,1),jk,iecblk(je,jb,1)) )  &
               * p_patch(jgp)%edges%inv_dual_edge_length(je,jb)     )
-
-#ifdef __LOOP_EXCHANGE
-          ENDDO
-        ENDIF
-#else
           ENDIF
         ENDDO
 #endif
@@ -1575,7 +1570,6 @@ CONTAINS
 !DIR$ IVDEP
           DO jk = nshift+1,nlev_p
 #else
-!CDIR UNROLL=4
       DO jk = nshift+1,nlev_p
         DO jc = i_startidx,i_endidx
           IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
