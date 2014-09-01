@@ -253,6 +253,15 @@ CONTAINS
     lp2cintp_incr(2:max_dom) = .TRUE.
   ENDIF
 
+
+  ! make sure that dt_shift is negative or 0.
+  IF ( dt_shift > 0._wp ) THEN
+    WRITE(message_text,'(a,f8.2,a)') 'dt_shift=', dt_shift, &
+      ' not allowed. Must be NEGATIVE or 0.'
+    CALL finish(TRIM(routine),message_text)
+  ENDIF
+
+
   !------------------------------------------------------------
   ! 5.0 Fill the configuration state
   !------------------------------------------------------------
