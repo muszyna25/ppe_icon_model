@@ -351,6 +351,8 @@ CONTAINS
 
     result_val(:) = 0._wp
     itest_stride = MAX(1, dst_nblks_c/max_tests)
+!$OMP PARALLEL DO PRIVATE(jb, start_idx, end_idx, min_stencil, c_seq, t_seq, q, &
+!$OMP                     beta, lflag, jc, kdim, r, z, sum_z, a2, y, sum_y, a1, denom)
     BLOCKS: DO jb = 1,dst_nblks_c
       start_idx = 1
       end_idx   = nproma
@@ -442,6 +444,7 @@ CONTAINS
       END DO
       result_val(jb) = MAXVAL(c_tol(start_idx:end_idx))
     END DO BLOCKS
+!$OMP END PARALLEL DO
     rbf_shape_param = 1._wp/MAXVAL(result_val)
   END SUBROUTINE estimate_rbf_parameter
   
