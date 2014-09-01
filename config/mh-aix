@@ -7,7 +7,7 @@ LAPACKROOT  =
 LAPACK_LIB  =
 
 LIBS        = "$LIBS" -L../lib -lsupport
-load_modules="NCL/6.0.0-beta" "cdo/default"
+load_modules= "SVN/1.7.5" "NCL/6.0.0-beta" "cdo/default"
 
 #===============================================
 #
