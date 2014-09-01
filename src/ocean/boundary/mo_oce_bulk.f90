@@ -276,7 +276,6 @@ CONTAINS
       atmos_fluxes%data_SurfRelax_Temp(:,:)       = p_as%data_SurfRelax_Temp(:,:)
       !atmos_fluxes%data_SurfRelax_Salt(:,:)      = p_as%data_SurfRelax_Salt(:,:)
 
-
       ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
       CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
 
@@ -292,17 +291,12 @@ CONTAINS
         atmos_fluxes%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
         atmos_fluxes%FrshFlux_TotalOcean(:,:)  = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
           &                                  ( p_as%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:) )
-    !!      atmos_fluxes%FrshFlux_TotalOcean=1e-5/dtime
-     !!     atmos_fluxes%FrshFlux_Runoff=0
-      !!    atmos_fluxes%FrshFlux_Evaporation=0
-       !!   p_as%FrshFlux_Precipitation=0
-
+        
         ! Precipitation on ice is snow when we're below the freezing point
         ! TODO: use 10 m temperature, not Tsurf - Also, do this in calc_bulk_flux_oce and calc_bulk_flux_ice
         WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
           atmos_fluxes%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
           atmos_fluxes%rprecw(:,:) = 0._wp
-          atmos_fluxes%rpreci(:,:) = 0._wp
        ELSEWHERE
           atmos_fluxes%rpreci(:,:) = 0._wp
           atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
@@ -704,11 +698,6 @@ CONTAINS
     !  - volume flux is considered for forcing_enable_freshwater=true only
     !    i.e. for salinity relaxation only, no volume flux is applied
     IF (forcing_enable_freshwater .and. no_tracer > 1) THEN
-      ! CALL dbg_print('UpdSfc bef: s_top ', s_top  ,str_module, 1, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: zUnderIce Before ',p_ice%zUnderIce&
-                      &,str_module, 1, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: mass salt Before ',s_top*p_ice%zUnderIce*rho_ref*p_patch%cells%area&
-                      &,str_module, 1, in_subset=p_patch%cells%owned)
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         
@@ -720,28 +709,30 @@ CONTAINS
               &                                 + p_sfc_flx%FrshFlux_TotalOcean(jc,jb) &
               &                                 + p_sfc_flx%FrshFlux_Relax(jc,jb)
               
-            zUnderIceOld =  p_ice%zUnderIce(jc,jb)
-            s_top(jc,jb) = s_top(jc,jb) * (zUnderIceOld - p_sfc_flx%FrshFlux_TotalIce(jc,jb)*dtime)/zUnderIceOld
-
+            !! First, calculate salinity change caused by melting of snow and
+            !! melt or growth of ice: S_new * zUnderIce = S_old * zUnderIceOld
+            s_top(jc,jb) = s_top(jc,jb) * &
+             &             (p_ice%zUnderIce(jc,jb) - p_sfc_flx%FrshFlux_TotalIce(jc,jb)*dtime)/p_ice%zUnderIce(jc,jb)
+            
+            !! Next, calculate salinity change caused by rain and runoff by
+            !! adding their freshwater to zUnderIce
+            zUnderIceOld           =  p_ice%zUnderIce(jc,jb)
             p_ice%zUnderIce(jc,jb) = p_ice%zUnderIce(jc,jb) + p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) * dtime
-            
-            s_top(jc,jb) = s_top(jc,jb) * zUnderIceOld / p_ice%zUnderIce(jc,jb)
-            
+            s_top(jc,jb)           = s_top(jc,jb) * zUnderIceOld / p_ice%zUnderIce(jc,jb)
+           
+            !! Finally, let sea-level rise from rain and snow fall on ice
             p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb) + &
-                              &(p_sfc_flx%FrshFlux_VolumeTotal(jc,jb))*dtime
-!!                              &atmos_fluxes%rpreci(jc,jb)*( p_ice%concSum(jc,jb) )) * dtime
-            
+                              &p_sfc_flx%FrshFlux_VolumeTotal(jc,jb) *dtime + &
+                              &p_ice%totalsnowfall(jc,jb)
           ENDIF
         END DO
         
       END DO
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: mass salt After ',s_top*p_ice%zUnderIce*rho_ref*p_patch%cells%area&
-                      &,str_module, 1, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: sTop After ',s_top,str_module, 1, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: VolumeFlux ',p_sfc_flx%FrshFlux_VolumeTotal  ,str_module, 1, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
-      ! CALL dbg_print('UpdSfc: s_top ', s_top  ,str_module, 1, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
     

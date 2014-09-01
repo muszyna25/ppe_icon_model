@@ -321,7 +321,14 @@ CONTAINS
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"),&
       &          lrestart_cont=.TRUE.)
 
-    CALL add_var(ocean_restart_list, 'zUnderIce', p_ice%zUnderIce ,&
+    CALL add_var(ocean_restart_list, 'totalsnowfall', p_ice%totalsnowfall ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('totalsnowfall', 'm', 'total snow fall on sea ice', DATATYPE_FLT32),&
+      &          t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"),&
+      &          lrestart_cont=.TRUE.)
+    
+      CALL add_var(ocean_restart_list, 'zUnderIce', p_ice%zUnderIce ,&
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('zUnderIce', 'm', 'water in upper ocean grid cell below ice', &
       &                   DATATYPE_FLT32),&
@@ -1154,7 +1161,7 @@ CONTAINS
     IF (use_file_initialConditions) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp .and. v_base%lsm_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:)   = 2.0_wp
-        ice%hs(:,1,:)   = 1.0_wp
+        ice%hs(:,1,:)   = 0.3_wp
         ice%conc(:,1,:) = 0.95_wp
       ENDWHERE
 !      IF ( no_tracer < 2 ) THEN
@@ -1366,6 +1373,7 @@ CONTAINS
       CALL ice_growth_winton    (p_patch, p_os, ice, atmos_fluxes%rpreci)!, atmos_fluxes%lat)
     ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
       CALL ice_growth_zerolayer (p_patch, p_os, ice, atmos_fluxes%rpreci)
+!!            ice%hs(:,1,:) = ice%hs(:,1,:) + atmos_fluxes%rpreci(:,:)*dtime*rho_ref/rhos
     END IF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1377,7 +1385,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL dbg_print('IceSlow: zUnderIce', ice%zUnderIce,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL  upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
+    CALL upper_ocean_TS(p_patch,p_patch_vert,ice,p_os,atmos_fluxes)
     CALL ice_conc_change(p_patch,ice,p_os)
 
     CALL ice_ocean_stress( p_patch, atmos_fluxes, ice, p_os )
@@ -1473,13 +1481,9 @@ CONTAINS
         DO k = 1, p_ice%kice
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary &
             &   .AND. ( p_ice%vol(jc,k,jb) <= 0._wp .OR. p_ice%conc(jc,k,jb) <= 1e-4_wp ) ) THEN
-            ! Volmue flux due to removal
-            atmos_fluxes%FrshFlux_VolumeIce(jc,jb) = atmos_fluxes%FrshFlux_VolumeIce(jc,jb) &
-              & + p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)    & ! Ice
-              & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)      ! Snow
             ! Tracer flux due to removal
             atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
-              & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime) & ! Ice
+              & + (1._wp-sice/sss(jc,jb))*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  & ! Ice
               & + p_ice%hs(jc,k,jb)*p_ice%conc(jc,k,jb)*rhos/(rho_ref*dtime)                           ! Snow
             ! Heat flux due to removal
             atmos_fluxes%HeatFlux_Total(jc,jb) = atmos_fluxes%HeatFlux_Total(jc,jb)   &
@@ -1495,9 +1499,6 @@ CONTAINS
   IF (limit_seaice) THEN
     z_smax = seaice_limit*p_patch_3D%p_patch_1D(1)%del_zlev_m(1)
           IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN
-            ! Volmue flux due to removal
-            atmos_fluxes%FrshFlux_VolumeIce(jc,jb) = atmos_fluxes%FrshFlux_VolumeIce(jc,jb) &
-              & + (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)     ! Ice
             ! Tracer flux due to removal
             atmos_fluxes%FrshFlux_TotalIce (jc,jb) = atmos_fluxes%FrshFlux_TotalIce (jc,jb)                      &
               & + (1._wp-sice/sss(jc,jb))*(p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
@@ -1511,7 +1512,9 @@ CONTAINS
           draft(k)               = (rhos * p_ice%hs(jc,k,jb) + rhoi * p_ice%hi(jc,k,jb)) / rho_ref
         ENDDO
           draftave               = sum(draft(:) * p_ice%conc(jc,:,jb))
-          p_ice%zUnderIce(jc,jb) = p_patch_vert%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) - draftave
+          p_ice%zUnderIce(jc,jb) = p_patch_vert%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) - draftave&
+                                   + p_ice%totalsnowfall(jc,jb)
+!          &                            + atmos_fluxes%rpreci(jc,jb)*p_ice%conc(jc,1,jb)*dtime
       ENDDO
     ENDDO
   
@@ -1858,9 +1861,11 @@ CONTAINS
         zUnderIceOld    (cell,block)   = ice%zUnderIce(cell,block)
         draft           (cell,:,block) = (rhos * ice%hs(cell,:,block) + rhoi * ice%hi(cell,:,block)) / rho_ref
         draftave        (cell,block)   = sum(draft(cell,:,block) * ice%conc(cell,:,block))
-        !!ice%zUnderIce   (cell,block)   = p_patch_vert%prism_thick_flat_sfc_c(cell,1,block) &
-         !! &                            + p_os%p_prog(nold(1))%h(cell,block) &
-          !!&                            - draftave(cell,block)
+        ice%totalsnowfall(cell,block) =  atmos_fluxes%rpreci(cell,block)*dtime*ice%conc(cell,1,block)
+        ice%zUnderIce   (cell,block)   = p_patch_vert%prism_thick_flat_sfc_c(cell,1,block) &
+          &                            + p_os%p_prog(nold(1))%h(cell,block) &
+          &                            - draftave(cell,block)& 
+          &                            + ice%totalsnowfall(cell,block)
 
         ! Calculate average change in ice thickness and the snow-to-ice conversion
         Delhice   (cell,block) = SUM( ( ice%hi(cell,:,block) - ice%hiold(cell,:,block) )*ice%conc(cell,:,block))
@@ -1930,27 +1935,23 @@ CONTAINS
         ! Volmue flux
         ! Fixed 27. March
         ! unit: m/s
-        ! TODO: VolumeFlux_UnderIce
-        ! DN: FrshFlux_VolumeIce is not needed, for the total volume of water in
-        ! a grid cell it's much easier to simply dump all precipitation into
-        ! that grid cell by the ocean model directly
-      atmos_fluxes%FrshFlux_VolumeIce(cell,block) = 0 &
-  !       &                                         - Delhice(cell,block)* rhoi/(rho_ref*dtime)   & ! Ice melt !TODO remove
-  !       &                                         - Delhsnow(cell,block)*rhos/(rho_ref*dtime)   & ! Snow melt !TODO remove
-          &                                         + precw(cell,block)*ice%concSum(cell,block)   !& ! Rain goes through
-!          &                                         + preci(cell,block)*ice%concSum(cell,block)  ! & ! Rain goes through
-  !       &                                         - ice%newice(cell,block)*rhoi/(rho_ref*dtime)   ! New-ice formation
+        ! TODO: VolumeFlux_UnderIce only from rain
+        atmos_fluxes%FrshFlux_VolumeIce(cell,block) = precw(cell,block)*ice%concSum(cell,block)   !& ! Rain goes through
 
         ! Tracer flux
         ! Fixed 27. March
         ! -->> snow growth (Delhsnow > 0) does NOT change tracers, but snow melt doews
+        ! -->> rain is only include in the volumeice, totalice now only contains
+        ! fluxes that do not change the total fresh-water volume in the grid
+        ! cell
         IF (v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
-          atmos_fluxes%FrshFlux_TotalIce(cell,block) = &!!DN precw(cell,block)*ice%concSum(cell,block)                             &  ! Rain goes through
-            &                                        - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)&   ! Ice melt
-             &                                        - MERGE(Delhsnow(cell,block)*rhos/(rho_ref*dtime), &
-             &                                                0.0_wp, &
-             &                                                Delhsnow(cell,block) < 0.0_wp) &                                   ! snow melt ONLY
-            &                                        - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! New-ice formation
+          atmos_fluxes%FrshFlux_TotalIce(cell,block) = &
+        &                                 - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)&   ! Ice melt and growth
+        &                                     - MERGE(&
+        &                                  (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/(rho_ref*dtime), &
+        &                                  0.0_wp, &
+        &                                  Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref < 0.0_wp) &  ! snow melt ONLY
+        &                                 - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! New-ice formation
         ENDIF
 
         !heatabs         (cell,block)   = swsum * atmos_fluxes% SWin(cell,block) * (1 - ice%concsum)
@@ -1975,6 +1976,7 @@ CONTAINS
     CALL dbg_print('UpperOceTS: newice   ', ice%newice   ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: heatOceW ', heatOceW     ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpperOceTS: FwBcIce  ', atmos_fluxes%FrshFlux_TotalIce, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpperOceTS: snowiceave', snowiceave, str_module, 4, in_subset=p_patch%cells%owned)
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
   !
@@ -2082,6 +2084,7 @@ CONTAINS
       ice%T2   (:,1,:) = Tfw(:,:)
       ice%conc (:,1,:) = 0.0_wp
       ice%hi   (:,1,:) = 0.0_wp
+      ice%hs   (:,1,:) = 0.0_wp
       ice%E1   (:,1,:) = 0.0_wp
       ice%E2   (:,1,:) = 0.0_wp
       ice%vol  (:,1,:) = 0.0_wp
@@ -2651,7 +2654,8 @@ CONTAINS
           saltInSeaice(cell,block)      = sice*rhoi &
             &                    * SUM(p_ice%hi(cell,:,block)*p_ice%conc(cell,:,block)) &
             &                    * p_patch%cells%area(cell,block)
-
+        !!DN This is no longer needed since we now update surface salinity
+        !directly
         !!DN   p_os%p_prog(nold(1))%tracer(cell,1,block,2) = (p_os%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIceOld(cell,block) &
         !!DN   &                                            -   dtime &
         !!DN   &                                              * surface_fluxes%FrshFlux_TotalSalt(cell,block) &
@@ -2666,6 +2670,12 @@ CONTAINS
       END DO
     END DO
 
+     CALL dbg_print('IceBudget: saltinIce '//TRIM(info)  , &
+      &            saltInSeaice , &
+      &            str_module, 5, in_subset=p_patch%cells%owned)
+     CALL dbg_print('IceBudget: saltinLiquid '//TRIM(info)  , &
+      &            saltInLiquidWater , &
+      &            str_module, 5, in_subset=p_patch%cells%owned)
      CALL dbg_print('IceBudget: salt '//TRIM(info)  , &
       &            salt , &
       &            str_module, 5, in_subset=p_patch%cells%owned)

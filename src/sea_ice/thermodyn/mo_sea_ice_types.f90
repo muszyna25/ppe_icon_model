@@ -271,6 +271,7 @@ MODULE mo_sea_ice_types
       & vn_e(:,:)       ,      & ! Edge normal velocity (diagnostic)             [m/s]
       & concSum(:,:)    ,      & ! Total ice concentration within a grid cell
       & newice(:,:)     ,      & ! New ice growth in open water                  [m]
+      & totalsnowfall(:,:),    & ! Total snow fall on ice-covered part of cell   [m]
       & zUnderIce(:,:)           ! water in upper ocean grid cell below ice      [m]
 
     INTEGER ::  kice           ! Number of ice-thickness classes
