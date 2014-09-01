@@ -255,6 +255,7 @@ MODULE mo_nh_stepping
 !!$    &  routine = 'mo_nh_stepping:perform_nh_stepping'
 
   INTEGER                              :: jg
+  REAL(wp)                             :: zdt_shift
 
 !!$  INTEGER omp_get_num_threads
 !!$  INTEGER omp_get_max_threads
@@ -270,6 +271,14 @@ MODULE mo_nh_stepping
 
   IF (.NOT. is_restart_run()) THEN
     IF (timeshift%dt_shift < 0._wp) THEN
+      ! Round dt_shift to the nearest integer multiple of the advection time step
+      zdt_shift = NINT(timeshift%dt_shift/(dtime*REAL(iadv_rcf,wp)))*REAL(iadv_rcf,wp)*dtime
+      IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
+        WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
+          &                               ' s in order to be a multiple of the advection time step ***'
+        CALL message('',message_text)
+      ENDIF
+      timeshift%dt_shift = REAL(zdt_shift,wp)
       time_config%sim_time(:) = timeshift%dt_shift
       CALL add_time(timeshift%dt_shift,0,0,0,datetime)
     ENDIF
