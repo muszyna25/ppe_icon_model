@@ -171,7 +171,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux
+  & vap_pres, zaux, zqisat_m60
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -230,6 +230,9 @@ DO jk = kstart,klev
     zagl_lim(jl,jk) = MAX(0.01_wp, 1.e-4_wp*pgeo(jl,jk)/grav)
   ENDDO
 ENDDO
+
+! saturation mixing ratio at -60 C and 200 hPa
+zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
 
 
 !-----------------------------------------------------------------------
@@ -301,6 +304,10 @@ CASE( 1 )
         cc_turb_ice(jl,jk) = 0.0_wp
         qi_turb    (jl,jk) = 0.0_wp    
       ENDIF
+
+      ! reduce cloud cover fraction of very thin ice clouds, defined as clouds with a mixing ratio
+      ! of less than 5% of the saturation mixing ratio w.r.t. ice at -60 deg C
+      cc_turb_ice(jl,jk) = MIN(cc_turb_ice(jl,jk),qi_turb(jl,jk)/(box_ice*zqisat_m60))
 
       cc_turb(jl,jk) = max( cc_turb_liq(jl,jk), cc_turb_ice(jl,jk) )          ! max overlap liq/ice
       cc_turb(jl,jk) = min(max(0.0_wp,cc_turb(jl,jk)),1.0_wp)
