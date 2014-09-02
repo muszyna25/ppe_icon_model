@@ -92,7 +92,7 @@ cat > ${atmo_namelist} << EOF
  lread_ana       = .false.
 /
 &parallel_nml
- nproma         = 2048
+ nproma         = ${nproma}
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
