@@ -11,6 +11,7 @@ set -x
 #==============================================================================
 # input data
          OMIP_POOL_DIR='/pool/data/MPIOM/setup/omip_365_era15'
+#ICON input still should be taken from /pool/data/ICON/ocean_data/ocean_forcing/omip/orig, because some fields are missing in OMIP_POOL_DIR
               OMIP_DIR=${OMIP_DIR:-${OMIP_POOL_DIR}}
             OMIP_FILES='[0-9,a-k,m-z]*.nc'
 # input grids
@@ -57,8 +58,8 @@ TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}-${TIMEAVG}.nc
               FORCE=${FORCE:-0}
 #==============================================================================
 # remapping setup
-remapOperator_general=genbil
-remapOperator_special=genbic
+remapOperator_general=gencon
+remapOperator_special=gencon
 targetGrid=./cell_grid-${GRID}-${MODEL}.nc
 case "${MODEL}" in
  icon)
