@@ -84,6 +84,7 @@ MODULE mo_read_interface
     INTEGER  :: input_method        ! read_netcdf_broadcast_method,
                                     ! read_netcdf_distribute_method, etc
 
+    TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_read_info) :: read_info(3)
   END TYPE t_stream_id
   !--------------------------------------------------------
@@ -371,6 +372,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
 
+    INTEGER :: max_blocks
     REAL(wp), POINTER :: tmp_read(:,:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_oneTime_streamid'
@@ -385,12 +387,22 @@ CONTAINS
       & levelsDimName=levelsDimName,         &
       & extdim_name="time")
 
+    write(0,*) SHAPE(fill_array), SHAPE(tmp_read(:,:,:,1))
+    write(0,*) tmp_read(:,:,:,1)
+    
     IF (PRESENT(fill_array)) THEN
-      IF (MAXVAL(ABS(SHAPE(fill_array) - SHAPE(tmp_read(:,:,:,1)))) /= 0  ) &
+      IF (location == onCells) THEN
+        max_blocks = stream_id%patch_2D%cells%all%end_block
+      ELSE
+        max_blocks = SIZE(fill_array,3)
+      ENDIF
+      IF (MAXVAL(ABS(SHAPE(fill_array(:,:,1:max_blocks)) - SHAPE(tmp_read(:,:,:,1)))) /= 0  ) &
         CALL finish(method_name, "wrong shape of fill_array")
         
       fill_array(:,:,:) = tmp_read(:,:,:,1)
       DEALLOCATE(tmp_read)
+      
+      write(0,*) fill_array(:,:,:)
 
     ELSE
       
@@ -420,6 +432,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL:: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
 
+    INTEGER :: max_blocks
     REAL(wp), POINTER :: tmp_read(:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_oneTime_streamid'
@@ -434,7 +447,12 @@ CONTAINS
       & extdim_name="time")
 
     IF (PRESENT(fill_array)) THEN
-      IF (MAXVAL(ABS(SHAPE(fill_array) - SHAPE(tmp_read(:,:,1)))) /= 0  ) &
+      IF (location == onCells) THEN
+        max_blocks = stream_id%patch_2D%cells%all%end_block
+      ELSE
+        max_blocks = SIZE(fill_array,2)
+      ENDIF
+      IF (MAXVAL(ABS(SHAPE(fill_array(:,1:max_blocks)) - SHAPE(tmp_read(:,:,1)))) /= 0  ) &
         CALL finish(method_name, "wrong shape of fill_array")
 
       fill_array(:,:) = tmp_read(:,:,1)
@@ -505,7 +523,8 @@ CONTAINS
     ELSE
       openInputFile_dist%input_method = default_read_method
     END IF
-
+    openInputFile_dist%patch_2D => patch
+    
     SELECT CASE(openInputFile_dist%input_method)
     CASE (read_netcdf_broadcast_method)
 

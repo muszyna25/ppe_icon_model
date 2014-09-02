@@ -67,6 +67,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_netcdf_read,        ONLY: nf
   
   USE mo_read_interface
+  USE mo_sync,              ONLY: sync_c, sync_patch_array
 
   
   IMPLICIT NONE
@@ -311,6 +312,9 @@ CONTAINS
 
     CALL closeFile(stream_id)
 
+    CALL sync_patch_array(sync_c, patch_2D, variable)
+  
+
   END SUBROUTINE init_3D_variable_fromFile
   !-------------------------------------------------------------------------
   
@@ -339,6 +343,8 @@ CONTAINS
 
     CALL closeFile(stream_id)
 
+    CALL sync_patch_array(sync_c, patch_2D, variable)
+    
   END SUBROUTINE init_2D_variable_fromFile
   !-------------------------------------------------------------------------
 
