@@ -583,7 +583,9 @@ CONTAINS
 #endif
 
     DO iv = 1, of%num_vars
-      info => of%var_desc(iv)%info
+      ! Note that we provide the pointer "info_ptr" to the variable's
+      ! info data object and not the modified copy "info".
+      info => of%var_desc(iv)%info_ptr
       CALL metainfo_write_to_memwin(of%mem_win, iv, info)
     END DO
 
