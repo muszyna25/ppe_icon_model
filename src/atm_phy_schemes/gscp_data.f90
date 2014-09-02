@@ -235,7 +235,7 @@ REAL    (KIND=wp   ), PARAMETER ::  &
   zmi0   = 1.0E-12_wp,      & ! initial crystal mass for cloud ice nucleation
   zmimax = 1.0E-9_wp,       & ! maximum mass of cloud ice crystals   
   zmsmin = 3.0E-9_wp,       & ! initial mass of snow crystals        
-  zvz0i  = 1.1_wp,          & ! Terminal fall velocity of ice (Heymsfield+Donner 1990 multiplied by 1/3)
+  zvz0i  = 1.25_wp,         & ! Terminal fall velocity of ice (original value of Heymsfield+Donner 1990: 3.29)
   zbvi   = 0.16_wp            ! v = zvz0i*rhoqi^zbvi
 
 
@@ -272,7 +272,7 @@ REAL    (KIND=wp   ), PARAMETER ::  &
   reduce_dep_ref   = 0.1_wp,    & ! lower bound on snow/ice deposition reduction
   zceff_fac        = 3.5E-3_wp, & ! Scaling factor [1/K] for temperature-dependent cloud ice sticking efficiency
   tmin_iceautoconv = 188.15_wp, & ! Temperature at which cloud ice autoconversion starts
-  zceff_min        = 0.02_wp      ! Minimum value for sticking efficiency
+  zceff_min        = 0.075_wp     ! Minimum value for sticking efficiency
 
 
 ! Parameters for Segal-Khain parameterization (aerosol-microphysics coupling)
