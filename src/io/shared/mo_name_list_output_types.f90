@@ -317,7 +317,11 @@ MODULE mo_name_list_output_types
     INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)                 !< Pointer to time level independent INTEGER data (or NULL)
     TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL data
     TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent INTEGER data
-    TYPE(t_var_metadata)                  :: info                             !< Info structure for variable
+    TYPE(t_var_metadata), POINTER         :: info_ptr                         !< Pointer to the info structure of the variable
+
+    !> Info structure for variable: this is a modified copy of the
+    !> variable's "info" data object!
+    TYPE(t_var_metadata)                  :: info                             
   END TYPE t_var_desc
 
 

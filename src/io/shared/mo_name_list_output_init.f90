@@ -1699,9 +1699,10 @@ CONTAINS
           IF(tl == -1) THEN
             ! Not time level dependent
             IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
-            p_var_desc%r_ptr => element%field%r_ptr
-            p_var_desc%i_ptr => element%field%i_ptr
-            p_var_desc%info  = element%field%info
+            p_var_desc%r_ptr    => element%field%r_ptr
+            p_var_desc%i_ptr    => element%field%i_ptr
+            p_var_desc%info     =  element%field%info
+            p_var_desc%info_ptr => element%field%info
           ELSE
             IF(found) THEN
               ! We have already the info field, make some plausibility checks:
@@ -1725,6 +1726,7 @@ CONTAINS
               CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
             p_var_desc%tlev_rptr(tl)%p => element%field%r_ptr
             p_var_desc%tlev_iptr(tl)%p => element%field%i_ptr
+            p_var_desc%info_ptr        => element%field%info
           ENDIF
 
           found = .TRUE.

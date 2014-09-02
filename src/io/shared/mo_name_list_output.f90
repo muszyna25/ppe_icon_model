@@ -853,12 +853,15 @@ CONTAINS
 
         ENDIF
 
-        ! set some GRIB2 keys that may have changed during simulation
+        ! Set some GRIB2 keys that may have changed during simulation.
+        ! Note that (for synchronous output mode) we provide the
+        ! pointer "info_ptr" to the variable's info data object and
+        ! not the modified copy "info".
         IF  (( of%output_type == FILETYPE_GRB2 ) .AND.  &
           &  ( my_process_is_mpi_workroot() )    .AND.  &
           &  ( .NOT. my_process_is_mpi_test() )) THEN
-          CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, info,             &
-            &                               of%out_event%output_event%event_data%sim_start, &
+          CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
+            &                               of%out_event%output_event%event_data%sim_start,         &
             &                               get_current_date(of%out_event))
         END IF
 
