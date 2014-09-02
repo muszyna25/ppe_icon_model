@@ -75,7 +75,7 @@ MODULE mo_ocean_model
     & destruct_operators_coefficients
 
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
-    & prepare_ho_stepping
+    & prepare_ho_stepping, write_initial_ocean_timestep
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
@@ -87,8 +87,7 @@ MODULE mo_ocean_model
 
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
-  USE mo_io_restart,          ONLY: read_restart_header
-  USE mo_io_restart,          ONLY: read_restart_files
+  USE mo_io_restart,          ONLY: read_restart_header, read_restart_files
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
   USE mo_oce_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
@@ -100,6 +99,7 @@ MODULE mo_ocean_model
   USE mo_oce_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
+  USE mo_io_config,           ONLY: write_initial_state
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -199,6 +199,12 @@ CONTAINS
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
       & ocean_state(1), is_restart_run())
+    !------------------------------------------------------------------
+    ! write initial state
+    !------------------------------------------------------------------
+    IF (output_mode%l_nml .and. write_initial_state) THEN
+      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_sfc_flx,v_sea_ice)
+    ENDIF
 
     !------------------------------------------------------------------
     SELECT CASE (test_mode)
