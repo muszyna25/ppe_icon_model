@@ -651,7 +651,7 @@ if mocNeededNSteps <= mocLastNtime:
   mocMeanFile = cdo.timmean(input = "-seltimestep,%s/%s %s"%(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
                             output = mocMeanFile)
 else:
-  mocMeanFile - cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
+  mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
 
 dbg(mocMeanFile)
 #TODO:
