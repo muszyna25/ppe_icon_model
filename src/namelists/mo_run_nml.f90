@@ -151,7 +151,7 @@ CONTAINS
                          ! p_patch(jg)%nshift in "import patches" 
                          ! will not work properly.
 
-    nsteps = 0
+    nsteps = -999
     dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
 
     ltimer               = .TRUE.

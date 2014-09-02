@@ -4021,8 +4021,10 @@ Defined and used in: \verb+src/namelists/mo_radiation_nml.f90+
 
 %\hline
 \textbf{nsteps} &
-I & 0 & &
-number of time steps of this run.&
+I & -999 & &
+Number of time steps of this run. Allowed range is $\ge0$; setting a value
+of 0 allows writing initial output (including internal remapping) without 
+calculating time steps.&
 \tabularnewline
 
 %\hline
