@@ -805,7 +805,7 @@ MODULE mo_sgs_turbulence
          !flux = D_12*visc
           
          !Note that the tangential velocities at vertices are used in D_12 is an 
-         !approximation for speed. Better way is to use vt reconsructed from vn at 
+         !approximation for speed. Better way is to use vt reconstructed from vn at 
          !each edges. Also, visc at somewhere between edge mid point and the vertex 
          !should be used but this is a good approximation
 
@@ -1310,10 +1310,10 @@ MODULE mo_sgs_turbulence
                  p_nh_diag%u(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(je,jb,2)%v1   - &
                  p_nh_diag%v(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
-         flux_up_c = visc_smag_ic(jcn,jk,jbn) *                      &
+         flux_up_c = visc_smag_ic(jcn,jk,jbn) * (                    &
                      dvn2*p_nh_metrics%inv_ddqz_z_half(jcn,jk,jbn) + &
                      (w_vert(ividx(je,jb,4),jk,ivblk(je,jb,4))-w_ie(je,jk,jb)) * &
-                     p_patch%edges%inv_vert_vert_length(je,jb)*2.0_wp
+                     p_patch%edges%inv_vert_vert_length(je,jb)*2.0_wp )
 
          jcn     = iecidx(je,jb,1)  
          jbn     = iecblk(je,jb,1)  
@@ -1324,10 +1324,10 @@ MODULE mo_sgs_turbulence
                  p_nh_diag%v(jcn,jk,jbn)*p_patch%edges%primal_normal_cell(je,jb,1)%v2
            
 
-         flux_dn_c = visc_smag_ic(jcn,jk,jbn) *                      &
+         flux_dn_c = visc_smag_ic(jcn,jk,jbn) * (                    &
                      dvn1*p_nh_metrics%inv_ddqz_z_half(jcn,jk,jbn) + &
                      (w_ie(je,jk,jb)-w_vert(ividx(je,jb,3),jk,ivblk(je,jb,3))) *  &
-                     p_patch%edges%inv_vert_vert_length(je,jb)*2.0_wp
+                     p_patch%edges%inv_vert_vert_length(je,jb)*2.0_wp )
 
 
          !tendency in tangential direction
@@ -1344,10 +1344,10 @@ MODULE mo_sgs_turbulence
                      v_vert(jvn,jk,jbn)*p_patch%edges%dual_normal_vert(je,jb,2)%v2 + &
                      vt_e(je,jk,jb) ) * 0.5_wp
 
-         flux_up_v = visc_smag_iv(jvn,jk,jbn) *  &
+         flux_up_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt2*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
                      p_patch%edges%system_orientation(je,jb)*(w_vert(jvn,jk,jbn)-w_ie(je,jk,jb)) / &
-                     p_patch%edges%edge_cell_length(je,jb,2)
+                     p_patch%edges%edge_cell_length(je,jb,2) )
 
 
          jvn     = ividx(je,jb,1)
@@ -1360,10 +1360,10 @@ MODULE mo_sgs_turbulence
                      v_vert(jvn,jk,jbn)*p_patch%edges%dual_normal_vert(je,jb,1)%v2 + &
                      vt_e(je,jk,jb) ) * 0.5_wp
 
-         flux_dn_v = visc_smag_iv(jvn,jk,jbn) * &
+         flux_dn_v = visc_smag_iv(jvn,jk,jbn) * ( &
                      dvt1*p_nh_metrics%inv_ddqz_z_half_v(jvn,jk,jbn) + &
                      p_patch%edges%system_orientation(je,jb)*(w_ie(je,jk,jb)-w_vert(jvn,jk,jbn)) / &
-                     p_patch%edges%edge_cell_length(je,jb,1)
+                     p_patch%edges%edge_cell_length(je,jb,1) )
 
          hor_tend(je,jk,jb) = (flux_up_c - flux_dn_c) * p_patch%edges%inv_dual_edge_length(je,jb) + &
                                p_patch%edges%system_orientation(je,jb) * (flux_up_v - flux_dn_v)  * &
