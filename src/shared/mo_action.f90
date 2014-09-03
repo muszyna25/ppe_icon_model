@@ -68,7 +68,6 @@ MODULE mo_action
 
   ! VARIABLES
   PUBLIC :: reset_act
-  PUBLIC :: ACTION_RESET
 
 
   ! List of available actions
