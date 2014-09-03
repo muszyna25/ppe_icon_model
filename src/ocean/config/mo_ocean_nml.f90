@@ -556,7 +556,7 @@ MODULE mo_ocean_nml
   CHARACTER(LEN= max_char_length) :: initial_sst_type = 'sst1'
   INTEGER  :: initial_velocity_type       = 0
   REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
-  CHARACTER(filename_max) :: InitialState_InputFileName   !< file name for reading in
+  CHARACTER(filename_max) :: InitialState_InputFileName="initial_state.nc"   !< file name for reading in
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0

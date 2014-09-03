@@ -61,6 +61,7 @@ MODULE mo_scalar_product
   INTERFACE map_edges2edges_viacell_3d
     MODULE PROCEDURE map_edges2edges_viacell_3d_1lev
     MODULE PROCEDURE map_edges2edges_viacell_3d_mlev
+    MODULE PROCEDURE map_edges2edges_viacell_3d_mlev_scalar
   END INTERFACE
   
   INTERFACE map_edges2edges_viacell_3d_const_z
@@ -770,14 +771,14 @@ CONTAINS
   !-----------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------
-  SUBROUTINE map_edges2edges_viacell_3d_mlev( patch_3d, vn_e, operators_coefficients, out_vn_e,scalar, &
+  !<Optimize:inUse>
+  SUBROUTINE map_edges2edges_viacell_3d_mlev( patch_3d, vn_e, operators_coefficients, out_vn_e, &
     & opt_startLevel, opt_endLevel, subset_range)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)       :: patch_3d
     REAL(wp), INTENT(in)                       :: vn_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: operators_coefficients
     REAL(wp), INTENT(inout)                    :: out_vn_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
-    REAL(wp), INTENT(in), OPTIONAL :: scalar(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     INTEGER, INTENT(in), OPTIONAL :: opt_startLevel       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_endLevel       ! optional vertical end level
     TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
@@ -810,110 +811,150 @@ CONTAINS
       endLevel = n_zlev
     END IF
     
-    IF(.NOT.PRESENT(scalar))THEN
-      
-      DO blockNo = edges_inDomain%start_block, edges_inDomain%end_block
-        CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
-        out_vn_e(:,:,blockNo)= 0.0_wp
-        
-        level_loop_e: DO level = startLevel, endLevel
-          edge_idx_loop: DO je =  start_edge_index, end_edge_index
-            IF (patch_3d%lsm_e(je,level,blockNo) <= sea_boundary) THEN
-              ictr            = 0
-              !IF(patch_3D%lsm_e(je,level,blockNo) == sea)THEN
-              il_c = patch_2d%edges%cell_idx(je,blockNo,1)
-              ib_c = patch_2d%edges%cell_blk(je,blockNo,1)
-              thick_cell = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
-              
-              DO ie=1, no_primal_edges
-                ictr =ictr+1
-                il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
-                ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-                
-                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-                thick_frac = thick_edge/thick_cell
-                out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
-                  & +vn_e(il_e,level,ib_e)*(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
-                
-              END DO
-              
-              ictr = no_primal_edges
-              il_c = patch_2d%edges%cell_idx(je,blockNo,2)
-              ib_c = patch_2d%edges%cell_blk(je,blockNo,2)
-              thick_cell = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
-              
-              DO ie=1, no_primal_edges
-                ictr =ictr+1
-                il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
-                ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-                
-                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-                thick_frac = thick_edge/thick_cell
-                out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
-                  & +vn_e(il_e,level,ib_e)*(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
-                
-              END DO
-            ENDIF
-          END DO edge_idx_loop
-        END DO level_loop_e
-      END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-      
-    ELSEIF(PRESENT(scalar))THEN
-      
-      DO blockNo = edges_inDomain%start_block, edges_inDomain%end_block
-        CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
-        
-        level_loop_e2: DO level = startLevel, endLevel
-          edge_idx_loop2: DO je =  start_edge_index, end_edge_index
-            IF (patch_3d%lsm_e(je,level,blockNo) <= sea_boundary) THEN
-              ictr            = 0
-              out_vn_e(je,level,blockNo)= 0.0_wp
-              il_c        = patch_2d%edges%cell_idx(je,blockNo,1)
-              ib_c        = patch_2d%edges%cell_blk(je,blockNo,1)
-              scalar_cell = scalar(il_c,level,ib_c)
-              thick_cell  = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
-              
-              DO ie=1, no_primal_edges
-                ictr =ictr+1
-                il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
-                ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-                thick_frac = thick_edge/thick_cell
-                
-                out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
-                  & +vn_e(il_e,level,ib_e)*scalar_cell   &
-                  & *(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
-              END DO
-              
-              
-              ictr        = no_primal_edges
-              il_c        = patch_2d%edges%cell_idx(je,blockNo,2)
-              ib_c        = patch_2d%edges%cell_blk(je,blockNo,2)
-              scalar_cell = scalar(il_c,level,ib_c)
-              thick_cell  = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
-              
-              DO ie=1, no_primal_edges
-                ictr =ictr+1
-                il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
-                ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-                thick_frac = thick_edge/thick_cell
-                
-                out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
-                  & +vn_e(il_e,level,ib_e)*scalar_cell   &
-                  & *(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
-                
-              END DO
-              
-            ENDIF
-          END DO edge_idx_loop2
-        END DO level_loop_e2
-      END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-    ENDIF
+    DO blockNo = edges_inDomain%start_block, edges_inDomain%end_block
+      CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
+      out_vn_e(:,:,blockNo)= 0.0_wp
+
+      level_loop_e: DO level = startLevel, endLevel
+        edge_idx_loop: DO je =  start_edge_index, end_edge_index
+          IF (patch_3d%lsm_e(je,level,blockNo) <= sea_boundary) THEN
+            ictr            = 0
+            !IF(patch_3D%lsm_e(je,level,blockNo) == sea)THEN
+            il_c = patch_2d%edges%cell_idx(je,blockNo,1)
+            ib_c = patch_2d%edges%cell_blk(je,blockNo,1)
+            thick_cell = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
+
+            DO ie=1, no_primal_edges
+              ictr =ictr+1
+              il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
+              ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
+
+              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+              thick_frac = thick_edge/thick_cell
+              out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
+                & +vn_e(il_e,level,ib_e)*(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
+
+            END DO
+
+            ictr = no_primal_edges
+            il_c = patch_2d%edges%cell_idx(je,blockNo,2)
+            ib_c = patch_2d%edges%cell_blk(je,blockNo,2)
+            thick_cell = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
+
+            DO ie=1, no_primal_edges
+              ictr =ictr+1
+              il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
+              ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
+
+              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+              thick_frac = thick_edge/thick_cell
+              out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
+                & +vn_e(il_e,level,ib_e)*(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
+
+            END DO
+          ENDIF
+        END DO edge_idx_loop
+      END DO level_loop_e
+    END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
     
   END SUBROUTINE map_edges2edges_viacell_3d_mlev
   !-----------------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------------
+  !<Optimize:inUse>
+  SUBROUTINE map_edges2edges_viacell_3d_mlev_scalar( patch_3d, vn_e, operators_coefficients, out_vn_e,scalar, &
+    & opt_startLevel, opt_endLevel, subset_range)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in)       :: patch_3d
+    REAL(wp), INTENT(in)                       :: vn_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
+    TYPE(t_operator_coeff), INTENT(in)         :: operators_coefficients
+    REAL(wp), INTENT(inout)                    :: out_vn_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp), INTENT(in) :: scalar(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    INTEGER, INTENT(in), OPTIONAL :: opt_startLevel       ! optional vertical start level
+    INTEGER, INTENT(in), OPTIONAL :: opt_endLevel       ! optional vertical end level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
+    !Local variables
+    INTEGER :: startLevel, endLevel
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: il_e, ib_e, il_c, ib_c, ictr!, neighbor
+    INTEGER :: je, blockNo, level, ie
+    REAL(wp) :: scalar_cell
+    REAL(wp) :: thick_edge, thick_cell, thick_frac
+    TYPE(t_subset_range), POINTER :: edges_inDomain
+    TYPE(t_patch), POINTER :: patch_2d
+    !-----------------------------------------------------------------------
+    patch_2d   => patch_3d%p_patch_2d(1)
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(subset_range) ) THEN
+      edges_inDomain => subset_range
+    ELSE
+      edges_inDomain => patch_2d%edges%in_domain
+    ENDIF
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(opt_startLevel) ) THEN
+      startLevel = opt_startLevel
+    ELSE
+      startLevel = 1
+    END IF
+    IF ( PRESENT(opt_endLevel) ) THEN
+      endLevel = opt_endLevel
+    ELSE
+      endLevel = n_zlev
+    END IF
+
+    DO blockNo = edges_inDomain%start_block, edges_inDomain%end_block
+      CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
+
+      level_loop_e2: DO level = startLevel, endLevel
+        edge_idx_loop2: DO je =  start_edge_index, end_edge_index
+          IF (patch_3d%lsm_e(je,level,blockNo) <= sea_boundary) THEN
+            ictr            = 0
+            out_vn_e(je,level,blockNo)= 0.0_wp
+            il_c        = patch_2d%edges%cell_idx(je,blockNo,1)
+            ib_c        = patch_2d%edges%cell_blk(je,blockNo,1)
+            scalar_cell = scalar(il_c,level,ib_c)
+            thick_cell  = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
+
+            DO ie=1, no_primal_edges
+              ictr =ictr+1
+              il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
+              ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
+              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+              thick_frac = thick_edge/thick_cell
+
+              out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
+                & +vn_e(il_e,level,ib_e)*scalar_cell   &
+                & *(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
+            END DO
+
+
+            ictr        = no_primal_edges
+            il_c        = patch_2d%edges%cell_idx(je,blockNo,2)
+            ib_c        = patch_2d%edges%cell_blk(je,blockNo,2)
+            scalar_cell = scalar(il_c,level,ib_c)
+            thick_cell  = patch_3d%p_patch_1d(1)%prism_thick_c(il_c,level,ib_c)
+
+            DO ie=1, no_primal_edges
+              ictr =ictr+1
+              il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
+              ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
+              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+              thick_frac = thick_edge/thick_cell
+
+              out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
+                & +vn_e(il_e,level,ib_e)*scalar_cell   &
+                & *(operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr))*thick_frac
+
+            END DO
+
+          ENDIF
+        END DO edge_idx_loop2
+      END DO level_loop_e2
+    END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+
+  END SUBROUTINE map_edges2edges_viacell_3d_mlev_scalar
+  !-----------------------------------------------------------------------------
+
   !-----------------------------------------------------------------------------
   SUBROUTINE map_edges2edges_viacell_3d_1lev( patch_3d, vn_e, operators_coefficients, out_vn_e,scalar,scalar_e, level, &
     & subset_range)
