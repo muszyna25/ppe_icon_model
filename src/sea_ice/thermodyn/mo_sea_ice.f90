@@ -1373,7 +1373,6 @@ CONTAINS
       CALL ice_growth_winton    (p_patch, p_os, ice, atmos_fluxes%rpreci)!, atmos_fluxes%lat)
     ELSE IF ( i_ice_therm == 1 .OR. i_ice_therm == 3 ) THEN !2=zerolayer, 3=simple fluxes from dirk's thesis
       CALL ice_growth_zerolayer (p_patch, p_os, ice, atmos_fluxes%rpreci)
-!!            ice%hs(:,1,:) = ice%hs(:,1,:) + atmos_fluxes%rpreci(:,:)*dtime*rho_ref/rhos
     END IF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------

@@ -328,6 +328,11 @@ CONTAINS
               ice%hs         (jc,k,jb) = ice%hs(jc,k,jb) - ice%snow_to_ice(jc,k,jb)
               ice%hi         (jc,k,jb) = ice%hi(jc,k,jb) + below_water
             END IF
+              
+            IF (ice%hs (jc,k,jb) < 0.0_wp) THEN
+               ice % hs(jc,k,jb) = 0.0_wp
+               ice % hi(jc,k,jb) = ice%hi(jc,k,jb) + ice%hs(jc,k,jb) * (rhos/rhoi) ! snow thickness loss in ice equivalents
+            ENDIF
             
             IF (ice%hi (jc,k,jb) <= 0.0_wp) THEN
               ! #achim: check units -- heatocei in J as opposed to W/m2?
