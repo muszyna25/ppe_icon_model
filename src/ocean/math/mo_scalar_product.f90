@@ -771,6 +771,107 @@ CONTAINS
   !-----------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------
+  ! the map_edges2edges_viacell_3d_mlev optimized for triangles
+  !<Optimize:inUse>
+  SUBROUTINE map_edges2edges_viacell_3d_mlev_onTriangles( patch_3d, vn_e, operators_coefficients, out_vn_e)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), INTENT(in)                 :: vn_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
+    TYPE(t_operator_coeff), INTENT(in)   :: operators_coefficients
+    REAL(wp), INTENT(inout)              :: out_vn_e(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
+    !Local variables
+    INTEGER :: startLevel, endLevel
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: je, blockNo, level
+
+    INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
+    INTEGER :: edge_11_index, edge_12_index, edge_13_index ! edges of cell_1
+    INTEGER :: edge_11_block, edge_12_block, edge_13_block
+    INTEGER :: edge_21_index, edge_22_index, edge_23_index ! edges of cell_2
+    INTEGER :: edge_21_block, edge_22_block, edge_23_block
+
+    REAL(wp), POINTER :: coeffs(:,:,:,:), cell_thikcness(:,:,:), edge_thickness(:,:,:)
+    REAL(wp) :: thick_edge, thick_cell, thick_frac
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2d
+    !-----------------------------------------------------------------------
+    IF (no_primal_edges /= 3) &
+      & CALL finish ('map_edges2edges_viacell triangle version', 'no_primal_edges /= 3')
+
+    !-----------------------------------------------------------------------
+    patch_2d   => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2d%edges%in_domain
+    startLevel = 1
+    endLevel = n_zlev
+    coeffs => operators_coefficients%edge2edge_viacell_coeff
+    cell_thikcness => patch_3d%p_patch_1d(1)%prism_thick_c
+    edge_thickness => patch_3d%p_patch_1d(1)%prism_thick_e
+    !-----------------------------------------------------------------------
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, je, cell_1_index, cell_1_block, &
+!ICON_OMP   cell_2_index, cell_2_block, edge_11_index, edge_12_index, edge_13_index, &
+!ICON_OMP  edge_11_block, edge_12_block, edge_13_block, edge_21_index, edge_22_index, &
+!ICON_OMP  edge_23_index, edge_21_block, edge_22_block, edge_23_block, level)  ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      out_vn_e(:, :, blockNo) = 0.0_wp
+      DO je =  start_edge_index, end_edge_index
+
+        IF (patch_3d%p_patch_1d(1)%dolic_e(je,blockNo) < 1) CYCLE ! this is a land edge
+
+        cell_1_index = patch_2d%edges%cell_idx(je,blockNo,1)
+        cell_1_block = patch_2d%edges%cell_blk(je,blockNo,1)
+        cell_2_index = patch_2d%edges%cell_idx(je,blockNo,2)
+        cell_2_block = patch_2d%edges%cell_blk(je,blockNo,2)
+
+        edge_11_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 1)
+        edge_12_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 2)
+        edge_13_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 3)
+        edge_11_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 1)
+        edge_12_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 2)
+        edge_13_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 3)
+
+        edge_21_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 1)
+        edge_22_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 2)
+        edge_23_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 3)
+        edge_21_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 1)
+        edge_22_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 2)
+        edge_23_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 3)
+
+
+        ! all levels
+        DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+
+          out_vn_e(je, level, blockNo) =  &
+            & ( vn_e(edge_11_index, level, edge_11_block) * coeffs(je, level, blockNo, 1)          &
+            &      * edge_thickness(edge_11_index, level, edge_11_block)  +  &
+            &   vn_e(edge_12_index, level, edge_12_block) * coeffs(je, level, blockNo, 2)              &
+            &      * edge_thickness(edge_12_index, level, edge_12_block)  +  &
+            &   vn_e(edge_13_index, level, edge_13_block) * coeffs(je, level, blockNo, 3)              &
+            &     * edge_thickness(edge_13_index, level, edge_13_block)     &
+            & ) /  cell_thikcness( cell_1_index, level,  cell_1_block)                  &
+            & + &
+            & ( vn_e(edge_21_index, level, edge_21_block) * coeffs(je, level, blockNo, 4)               &
+            &     * edge_thickness(edge_21_index, level, edge_21_block)  +  &
+            &   vn_e(edge_22_index, level, edge_22_block) * coeffs(je, level, blockNo, 5)               &
+            &     * edge_thickness(edge_22_index, level, edge_22_block)  +  &
+            &   vn_e(edge_23_index, level, edge_23_block) * coeffs(je, level, blockNo, 6)               &
+            &     * edge_thickness(edge_23_index, level, edge_23_block)     &
+            & ) /  cell_thikcness( cell_2_index, level,  cell_2_block)
+
+        END DO ! next levels
+
+      END DO
+
+    END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+
+  END SUBROUTINE map_edges2edges_viacell_3d_mlev_onTriangles
+  !-----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
   !<Optimize:inUse>
   SUBROUTINE map_edges2edges_viacell_3d_mlev( patch_3d, vn_e, operators_coefficients, out_vn_e, &
     & opt_startLevel, opt_endLevel, subset_range)
@@ -793,6 +894,12 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2d(1)
+    !-----------------------------------------------------------------------
+    IF ( patch_2d%cells%max_connectivity == 3 .and. fast_performance_level > 10) THEN
+      CALL map_edges2edges_viacell_3d_mlev_onTriangles( patch_3d, vn_e, operators_coefficients, out_vn_e)
+      RETURN
+    ENDIF
+    !-----------------------------------------------------------------------
     !-----------------------------------------------------------------------
     IF ( PRESENT(subset_range) ) THEN
       edges_inDomain => subset_range
