@@ -113,8 +113,8 @@ CONTAINS
   END SUBROUTINE getTimeDeltaFromDateTime
 
   SUBROUTINE getTriggeredPreviousEventAtDateTime(my_event, my_datetime)
-    TYPE(event) ::  my_event
-    TYPE(datetime), INTENT(INOUT) ::  my_datetime    !< OUT
+    TYPE(event)   , TARGET                ::  my_event
+    TYPE(datetime), TARGET, INTENT(INOUT) ::  my_datetime    !< OUT
 
     CALL my_gettriggeredpreviouseventatdatetime(C_LOC(my_event), C_LOC(my_datetime))
   END SUBROUTINE getTriggeredPreviousEventAtDateTime
