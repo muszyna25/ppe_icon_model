@@ -388,7 +388,7 @@ CONTAINS
   !>
   TYPE(t_stream_id) FUNCTION openInputFile_dist(filename, patch, input_method)
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    TYPE(t_patch), TARGET, INTENT(INOUT) :: patch
+    TYPE(t_patch), TARGET, INTENT(IN) :: patch
     INTEGER, OPTIONAL, INTENT(IN) :: input_method
 
     CHARACTER(LEN=*), PARAMETER :: method_name = &
