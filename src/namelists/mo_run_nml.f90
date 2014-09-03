@@ -220,7 +220,7 @@ CONTAINS
     IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
     IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
 
-    IF (nsteps < 0) CALL finish(TRIM(routine),'"nsteps" must not be negative')
+    IF (nsteps < 0 .AND. nsteps /= -999) CALL finish(TRIM(routine),'"nsteps" must not be negative')
     IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
 
     IF (.NOT. ltimer) timers_level = 0
