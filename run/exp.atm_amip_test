@@ -113,20 +113,20 @@ cat > ${atmo_namelist} << EOF
  ihadv_tracer     = 52,2,2
 /
 &echam_phy_nml
- lrad             = .FALSE.
+ lrad             = .TRUE.
  dt_rad           =  240.       ! [s] radiation time step
  lvdiff           = .TRUE.
- lconv            = .FALSE.
- lcond            = .FALSE.
- lgw_hines        = .FALSE.
- lssodrag         = .FALSE.
+ lconv            = .TRUE.
+ lcond            = .TRUE.
+ lgw_hines        = .TRUE.
+ lssodrag         = .TRUE.
  lmlo             = .FALSE.
- lice             = .FALSE.
+ lice             = .TRUE.
  lmeltpond        = .FALSE.
  llandsurf        = .FALSE.
  ljsbach          = .TRUE.
  lhd              = .FALSE.
- lebudget         = .FALSE.
+ lebudget         = .TRUE.
  lamip            = .TRUE.
 /
 &radiation_nml
