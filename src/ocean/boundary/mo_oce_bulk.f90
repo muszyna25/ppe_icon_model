@@ -650,7 +650,7 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
+      idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc: windStr u'       ,p_sfc_flx%topBoundCond_windStress_u      ,str_module,idt_src, &
         &  in_subset=p_patch%cells%owned)
       idt_src=2  ! output print level (1-5, fix)
@@ -683,7 +683,7 @@ CONTAINS
         p_sfc_flx%topBoundCond_Temp_vdiff(:,:) = p_sfc_flx%HeatFlux_Total(:,:) / (rho_ref*clw)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
-        CALL dbg_print('UpdSfc: HeatFlxTotal[W/m2]',p_sfc_flx%HeatFlux_Total         ,str_module,1,in_subset=p_patch%cells%owned)
+        CALL dbg_print('UpdSfc: HeatFlxTotal[W/m2]',p_sfc_flx%HeatFlux_Total         ,str_module,2,in_subset=p_patch%cells%owned)
         CALL dbg_print('UpdSfc: topBC_T_vd[K*m/s]', p_sfc_flx%topBoundCond_Temp_vdiff,str_module,3,in_subset=p_patch%cells%owned)
         !---------------------------------------------------------------------
 
@@ -758,7 +758,7 @@ CONTAINS
       END DO
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
       ! CALL dbg_print('UpdSfc: s_top ', s_top  ,str_module, 1, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
@@ -1203,7 +1203,7 @@ CONTAINS
       atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%topBoundCond_Temp_vdiff(:,:) * rho_ref * clw
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
+      idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('UpdSfc:T-relax-hflx [W/m2]',atmos_fluxes%HeatFlux_Total,str_module,idt_src, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 

@@ -945,6 +945,9 @@ CONTAINS
       & routine = 'mo_ocean_initialization:init_ho_basins'
     
     !-----------------------------------------------------------------------------
+!     IF (patch_2d%geometry_info%mean_characteristic_length < 100000.0_wp) &
+!       & RETURN
+    !-----------------------------------------------------------------------------
     all_cells => patch_2d%cells%ALL
     cells_in_domain => patch_2d%cells%in_domain
     CALL message (TRIM(routine), 'start')
