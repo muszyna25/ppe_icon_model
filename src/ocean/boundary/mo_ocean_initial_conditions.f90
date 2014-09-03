@@ -41,8 +41,9 @@ MODULE mo_ocean_initial_conditions
     & initial_salinity_top, initial_salinity_bottom, &
     & topography_type, topography_height_reference, &
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
-    & initial_sst_type, initial_velocity_type, initial_velocity_amplitude, &
-    & forcing_temperature_poleLat
+    & initial_sst_type, initial_velocity_type, initial_velocity_amplitude,      &
+    & forcing_temperature_poleLat, InitialState_InputFileName,                  &
+    & smooth_initial_height_parameter
 
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
@@ -64,6 +65,11 @@ MODULE mo_ocean_initial_conditions
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_netcdf_read,        ONLY: nf
+  
+  USE mo_read_interface
+  USE mo_sync,              ONLY: sync_c, sync_patch_array
+
+  
   IMPLICIT NONE
   PRIVATE
   INCLUDE 'netcdf.inc'
@@ -165,7 +171,7 @@ CONTAINS
     CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
     
     LOGICAL :: l_exist
-    INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
+    INTEGER :: no_cells, no_levels, jk, jb, jc
     INTEGER :: ncid, dimid
     !INTEGER :: i_startblk_c, i_endblk_c, start_cell_index, end_cell_index, rl_start, rl_end_c
     INTEGER :: start_cell_index, end_cell_index
@@ -183,8 +189,9 @@ CONTAINS
     IF(my_process_is_stdio()) THEN
       !
       ! Prognostic variables are read from prog_init_file
-      i_lev = patch_2d%level
-      WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
+      ! i_lev = patch_2d%level
+      ! WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
+      prog_init_file = InitialState_InputFileName
       !prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
       !&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
       
@@ -279,8 +286,69 @@ CONTAINS
     
   END SUBROUTINE init_ocean_fromFile
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE init_3D_variable_fromFile(patch_2d, variable, name)
+    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
+    REAL(wp), INTENT(inout) :: variable(:,:,:)
+    CHARACTER(LEN=*) :: name
+
+    TYPE(t_stream_id) :: stream_id
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_fromFile '
+    !-------------------------------------------------------------------------
+
+
+    CALL message (TRIM(method_name), TRIM(name)//"...")
+    ! read temperature
+    !  - 2011-11-01, >r7005: read one data set, annual mean only
+    !  - "T": annual mean temperature
+    ! ram: the input has to be POTENTIAL TEMPERATURE!
+    stream_id = openInputFile(initialState_InputFileName, patch_2d, &
+      &                       read_netcdf_broadcast_method)
+
+    CALL read_3D_oneTime( stream_id=stream_id, location=onCells, &
+      &                variable_name=name, fill_array=variable )
+
+
+    CALL closeFile(stream_id)
+
+    CALL sync_patch_array(sync_c, patch_2D, variable)
+  
+
+  END SUBROUTINE init_3D_variable_fromFile
+  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
+  SUBROUTINE init_2D_variable_fromFile(patch_2d, variable, name)
+    TYPE(t_patch),TARGET, INTENT(in)  :: patch_2d
+    REAL(wp), INTENT(inout) :: variable(:,:)
+    CHARACTER(LEN=*) :: name
+    
+    TYPE(t_stream_id) :: stream_id
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_fromFile '
+    !-------------------------------------------------------------------------
+
+    
+    CALL message (TRIM(method_name), TRIM(name)//"...")
+    ! read temperature
+    !  - 2011-11-01, >r7005: read one data set, annual mean only
+    !  - "T": annual mean temperature
+    ! ram: the input has to be POTENTIAL TEMPERATURE!
+    stream_id = openInputFile(initialState_InputFileName, patch_2d, &
+      &                       read_netcdf_broadcast_method)
+    
+    CALL read_2D_oneTime( stream_id=stream_id, location=onCells, &
+      &                variable_name=name, fill_array=variable )
+
+
+    CALL closeFile(stream_id)
+
+    CALL sync_patch_array(sync_c, patch_2D, variable)
+    
+  END SUBROUTINE init_2D_variable_fromFile
+  !-------------------------------------------------------------------------
+
+ !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE initialize_diagnostic_fields( patch_2d,patch_3d, ocean_state, operators_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: patch_2d
@@ -376,9 +444,14 @@ CONTAINS
 
     ocean_salinity(:,:,:) = 0.0_wp
 
-    IF (initial_salinity_type < 200) RETURN ! not analytic salinity
+!     IF (initial_salinity_type < 200) RETURN ! not analytic salinity
 
     SELECT CASE (initial_salinity_type)
+    
+    CASE (001)
+      CALL message(TRIM(method_name), ': init from file')
+      CALL init_3D_variable_fromFile(patch_3d%p_patch_2d(1), variable=ocean_salinity, name="S")
+    
     !------------------------------
     CASE (200)
       ! uniform salinity or vertically linarly increasing
@@ -457,9 +530,14 @@ CONTAINS
 
     ocean_temperature(:,:,:) = 0.0_wp
 
-    IF (initial_temperature_type < 200) RETURN ! not analytic temperature
+!     IF (initial_temperature_type < 200) RETURN ! not analytic temperature
 
     SELECT CASE (initial_temperature_type)
+
+    !------------------------------
+    CASE (001)
+      CALL message(TRIM(method_name), ': init from file')
+      CALL init_3D_variable_fromFile(patch_3d%p_patch_2d(1), variable=ocean_temperature, name="T")
 
     !------------------------------
     CASE (200)
@@ -641,6 +719,11 @@ CONTAINS
 
     ! needs to be written with calls !
     SELECT CASE (sea_surface_height_type)
+    !------------------------------
+    CASE (001)
+      CALL message(TRIM(method_name), ': init from file')
+      CALL init_2D_variable_fromFile(patch_3d%p_patch_2d(1), variable=ocean_height, name="h")
+      
     CASE (200)
       ! 0 height, this is the initialization value,
       ! so no need to explicilty define this case
@@ -667,6 +750,10 @@ CONTAINS
 
     END SELECT
 
+    IF (smooth_initial_height_parameter > 0) THEN
+      ocean_height = ocean_height * smooth_initial_height_parameter
+    ENDIF
+    
     CALL dbg_print('init_ocean_surface_height', ocean_height, module_name,  1, &
         & in_subset=patch_2d%cells%owned)
 
