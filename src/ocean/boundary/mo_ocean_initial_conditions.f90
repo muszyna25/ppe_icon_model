@@ -27,7 +27,7 @@ MODULE mo_ocean_initial_conditions
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
-  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_mpi,                ONLY: my_process_is_stdio, work_mpi_barrier
   USE mo_grid_config,        ONLY: nroot,  grid_sphere_radius, grid_angular_velocity
   USE mo_physical_constants, ONLY: rgrav, sal_ref, sfc_press_bar, tmelt, tf! , SItodBar, rho_ref
   USE mo_math_constants,     ONLY: pi, pi_2, rad2deg, deg2rad
@@ -50,7 +50,7 @@ MODULE mo_ocean_initial_conditions
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_exception,          ONLY: finish, message, message_text
+  USE mo_exception,          ONLY: finish, message, message_text, warning
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,     ONLY: t_external_data
@@ -182,6 +182,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_fromFile'
     !-------------------------------------------------------------------------
     
+    CALL warning (TRIM(method_name), 'is obsolete. Use initial_salinity_type=1, initial_tmperature_type=1')
     CALL message (TRIM(method_name), 'start')
     
     all_cells => patch_2d%cells%ALL
@@ -312,6 +313,9 @@ CONTAINS
 
     CALL closeFile(stream_id)
 
+    ! write(0,*) variable
+!     CALL work_mpi_barrier()
+    
     CALL sync_patch_array(sync_c, patch_2D, variable)
   
 

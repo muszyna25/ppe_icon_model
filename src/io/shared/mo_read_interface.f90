@@ -387,8 +387,8 @@ CONTAINS
       & levelsDimName=levelsDimName,         &
       & extdim_name="time")
 
-    write(0,*) SHAPE(fill_array), SHAPE(tmp_read(:,:,:,1))
-    write(0,*) tmp_read(:,:,:,1)
+    ! write(0,*) SHAPE(fill_array), SHAPE(tmp_read(:,:,:,1))
+    ! write(0,*) tmp_read(:,:,:,1)
     
     IF (PRESENT(fill_array)) THEN
       IF (location == onCells) THEN
@@ -399,10 +399,10 @@ CONTAINS
       IF (MAXVAL(ABS(SHAPE(fill_array(:,:,1:max_blocks)) - SHAPE(tmp_read(:,:,:,1)))) /= 0  ) &
         CALL finish(method_name, "wrong shape of fill_array")
         
-      fill_array(:,:,:) = tmp_read(:,:,:,1)
+      fill_array(:,:,1:max_blocks) = tmp_read(:,:,1:max_blocks,1)
       DEALLOCATE(tmp_read)
       
-      write(0,*) fill_array(:,:,:)
+      ! write(0,*) fill_array(:,:,:)
 
     ELSE
       

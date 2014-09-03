@@ -48,9 +48,6 @@ esac
                GRID=${GRID:-R2B04}
                 LEV=${LEV:-L40}
              TARGET='ts_phc3.0_annual'
-TARGET_MODEL_NOMISS=${TARGET}_${MODEL}_${GRID}-nomiss.nc
-TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}.nc
-  TARGET_MODEL_SURF=${TARGET}_${MODEL}_${GRID}_surf.nc
 #==============================================================================
 # internals
                 CDO=${CDO:-cdo}
@@ -61,6 +58,10 @@ targetGrid=./cell_grid-${GRID}-${MODEL}.nc
 case "${MODEL}" in
  icon)
    remapOperator=genbil
+   #remapOperator=genycon
+   if test "x${remapOperator}" != 'xgenbil'; then
+     TARGET="${TARGET}_${remapOperator}";
+   fi
    gridSelect=ifs2icon_cell_grid
    ${CDO} -f nc -selname,${gridSelect} ${GRID_FILE} ${targetGrid}
    ;;
@@ -94,6 +95,9 @@ PHC_NOMISS='phc3.0-annual-nomiss.nc'
 
 #==============================================================================
 # MAIN SCRIPT
+TARGET_MODEL_NOMISS=${TARGET}_${MODEL}_${GRID}-nomiss.nc
+TARGET_MODEL_OUTPUT=${TARGET}_${MODEL}_${GRID}_${LEV}.nc
+  TARGET_MODEL_SURF=${TARGET}_${MODEL}_${GRID}_surf.nc
 #==============================================================================
 # get annual 1x1 phc3.0 data form pool/SEP
 # convert to potential temperature (operator adipot, cdo1.6.2 required)
@@ -104,7 +108,7 @@ $CDODEV -adipot -setcode,-1 -chname,SO,s,TempO,t ${PHC_TMP} ${PHC_MERGED}
 
 #==============================================================================
 # filling of land points
-$CDODEV -P ${THREADS} -O -r -settaxis,2000-01-01,0,years -fillmiss2 -ifthenelse -setmisstoc,0 ${PHC_MERGED} ${PHC_MERGED}  -remapbil,${PHC_MERGED} -fillmiss2,4  -sellonlatbox,20,28,64,66 ${PHC_MERGED} ${PHC_NOMISS}
+$CDODEV -P ${THREADS} -O -r -settaxis,2000-01-01,0,years -fillmiss2,4 -ifthenelse -setmisstoc,0 ${PHC_MERGED} ${PHC_MERGED}  -remapbil,${PHC_MERGED} -fillmiss2,4  -sellonlatbox,20,28,64,66 ${PHC_MERGED} ${PHC_NOMISS}
 
 #==============================================================================
 # horiz. interpolation for ICON or MPIOM target grid
