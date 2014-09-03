@@ -862,8 +862,8 @@ CONTAINS
         IF  (( of%output_type == FILETYPE_GRB2 ) .AND.  &
           &  ( my_process_is_mpi_workroot() )    .AND.  &
           &  ( .NOT. my_process_is_mpi_test() )) THEN
-          CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
-            &                               of%out_event%output_event%event_data%sim_start,         &
+          CALL set_timedependent_GRIB2_keys(of%cdiFileID, info%cdiVarID, of%var_desc(iv)%info_ptr, &
+            &                               of%out_event%output_event%event_data%sim_start,        &
             &                               get_current_date(of%out_event))
         END IF
 
@@ -1231,7 +1231,7 @@ CONTAINS
       CALL metainfo_get_from_memwin(bufr_metainfo, iv, updated_info)
 
       IF ( of%output_type == FILETYPE_GRB2 ) THEN
-        CALL set_timedependent_GRIB2_keys(of%cdiVlistID, info%cdiVarID, updated_info,      &
+        CALL set_timedependent_GRIB2_keys(of%cdiFileID, info%cdiVarID, updated_info,       &
           &                               of%out_event%output_event%event_data%sim_start,  &
           &                               get_current_date(of%out_event))
       END IF

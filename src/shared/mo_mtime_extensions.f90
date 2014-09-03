@@ -33,6 +33,7 @@ MODULE mo_mtime_extensions
   PUBLIC :: get_duration_string
   PUBLIC :: get_duration_string_real
   PUBLIC :: get_datetime_string
+  PUBLIC :: getTriggeredPreviousEventAtDateTime
 
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_mtime_extensions'
@@ -59,7 +60,18 @@ MODULE mo_mtime_extensions
       TYPE(c_ptr), value :: dt1, dt2
       TYPE(c_ptr), value :: td_return
     END SUBROUTINE my_gettimedeltafromdatetime
+
+    SUBROUTINE my_gettriggeredpreviouseventatdatetime(my_event, my_datetime) BIND(c, name='getTriggeredPreviousEventAtDateTime')
+#ifdef __SX__
+      USE, INTRINSIC :: iso_c_binding, ONLY: c_ptr
+#else
+      IMPORT :: c_ptr
+#endif
+      TYPE(c_ptr), value :: my_event
+      TYPE(c_ptr), value :: my_datetime
+    END SUBROUTINE my_gettriggeredpreviouseventatdatetime
   END INTERFACE
+
 
   INTERFACE get_datetime_string
     MODULE PROCEDURE get_datetime_string
@@ -99,6 +111,13 @@ CONTAINS
 
     CALL my_gettimedeltafromdatetime(C_LOC(dt1), C_LOC(dt2), C_LOC(td_return))
   END SUBROUTINE getTimeDeltaFromDateTime
+
+  SUBROUTINE getTriggeredPreviousEventAtDateTime(my_event, my_datetime)
+    TYPE(event) ::  my_event
+    TYPE(datetime), INTENT(INOUT) ::  my_datetime    !< OUT
+
+    CALL my_gettriggeredpreviouseventatdatetime(C_LOC(my_event), C_LOC(my_datetime))
+  END SUBROUTINE getTriggeredPreviousEventAtDateTime
 
 
   !> compute an ISO 8601 datetime string from a "t_datetime" object

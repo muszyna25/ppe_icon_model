@@ -19,7 +19,7 @@
 !!
 MODULE mo_action_types
 
-  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN
+  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime
 
   IMPLICIT NONE
 
@@ -39,6 +39,11 @@ MODULE mo_action_types
     INTEGER                         :: actionID              ! action ID  
     CHARACTER(LEN=128)              :: intvl                 ! action interval [PTnH]
     CHARACTER(MAX_DATETIME_STR_LEN) :: lastActive            ! date of last triggering
+    TYPE(datetime)                  :: EventLastTriggerDate  ! last intended action event trigger date.
+                                                             ! Differs from lastActive in the sense 
+                                                             ! that it is the intended trigger date, whereas 
+                                                             ! lastActive is the TRUE trigger date. These two 
+                                                             ! can differ by the allowed 'slack'.  
   END TYPE t_var_action_element
 
 

@@ -30,6 +30,7 @@ MODULE mo_util_cdi
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, DICT_MAX_STRLEN
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_action,             ONLY: ACTION_RESET
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
@@ -569,32 +570,46 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !> Set additional, time-dependent GRIB2 keys
-  !  
-  !  This subroutine sets all GRIB2 keys that may change during the
-  !  simulation.
-  !
-  !  @author D. Reinert, F. Prill (DWD)
-  !
-  !  TODOs
-  !
-  !  - we implicitly assume that we always need to INQUIRE the interval from action 1.
-  !  - we implicitly assume that the time range is always smaller than one month
-  !  - we do not consider the case that the accumulation process is incomplete at the time
-  !    of writing the output (ilengthOfTimeRange must be reduced accordingly then)
-  !
-  SUBROUTINE set_timedependent_GRIB2_keys(vlistID, varID, info, start_date, cur_date)
-    INTEGER,                INTENT(IN) :: vlistID, varID
-    TYPE (t_var_metadata),  INTENT(IN) :: info
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN), INTENT(IN) :: start_date, cur_date
+  !!  
+  !!  This subroutine sets all GRIB2 keys that may change during the
+  !!  simulation. Currently this is the case for the start and end time 
+  !!  of the statistical process interval.
+  !!
+  !!  Description of how the GRIB2 keys 'forecastTime' and 'lengthOfTimeRange' are computed.
+  !!
+  !!  |===================*======================|================================> time axis
+  !!  ^start_time         |                      ^current_time (output)
+  !!                      |                      |
+  !!                      ^EventLastTriggerTime  |
+  !!                      |                      |
+  !!                      |                      |
+  !!  <-------------------><--------------------->
+  !!     forecastTime         lengthOfTimeRange
+  !!
+  !!  @author D. Reinert, F. Prill (DWD)
+  !!
+  !!  TODOs
+  !!
+  !!  - we implicitly assume that we always need to INQUIRE the interval from action 1.
+  !!  - we implicitly assume that the time range is always smaller than one month
+  !!
+  SUBROUTINE set_timedependent_GRIB2_keys(streamID, varID, info, start_date, cur_date)
+    INTEGER                             ,INTENT(IN) :: streamID, varID
+    TYPE (t_var_metadata)               ,INTENT(IN) :: info
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) ,INTENT(IN) :: start_date, cur_date
     ! local variables
-    TYPE(timedelta), POINTER          :: mtime_lengthOfTimeRange
-    INTEGER                           :: ilengthOfTimeRange            ! length of time range in seconds
-    INTEGER                           :: taxis_tunit
-    INTEGER                           :: taxisID
-    INTEGER                           :: indicatorOfUnitForTimeRange
-    INTEGER                           :: forecast_seconds
-    TYPE(datetime),  POINTER          :: mtime_start, mtime_cur
-    TYPE(timedelta), POINTER          :: forecast_delta
+    TYPE(timedelta), POINTER      :: mtime_lengthOfTimeRange       ! length of time range (mtime format)
+    INTEGER                       :: ilengthOfTimeRange_secs       ! length of time range in seconds
+    INTEGER                       :: ilengthOfTimeRange            ! length of time range in appropriate time units
+    INTEGER                       :: taxis_tunit                   ! time axis units
+    INTEGER                       :: vlistID, taxisID
+    INTEGER                       :: indicatorOfUnitForTimeRange
+    TYPE(timedelta), POINTER      :: forecast_delta                ! forecast time (mtime format)
+    INTEGER                       :: forecast_secs                 ! forecast time in seconds
+    INTEGER                       :: forecast_time                 ! forecast time in appropriate time units
+    TYPE(datetime),  POINTER      :: mtime_start                   ! model start (initialization) time
+    TYPE(datetime),  POINTER      :: mtime_cur                     ! model current time (rounded)
+    TYPE(datetime)                :: statProc_startDateTime        ! statistical process starting DateTime
 
     !---------------------------------------------------------
     ! Set time-dependent metainfo
@@ -603,55 +618,102 @@ CONTAINS
     ! Skip inapplicable fields
     IF (ALL((/TSTEP_MAX, TSTEP_MIN/) /= info%isteptype) ) RETURN
 
-    ! compute the number of seconds: forecast time = cur_date - start_date
-    mtime_start    => newDatetime(TRIM(start_date))
-    mtime_cur      => newDatetime(TRIM(cur_date))
-    forecast_delta => newTimedelta("P01D")
-    CALL getTimeDeltaFromDateTime(mtime_start, mtime_cur, forecast_delta)
-    forecast_seconds =    forecast_delta%second    +   &
-      &                60*(forecast_delta%minute   +   & 
-      &                    60*(forecast_delta%hour +   &
-      &                        24*forecast_delta%day))
-    CALL deallocateDatetime(mtime_start)
-    CALL deallocateDatetime(mtime_cur)
-    CALL deallocateTimedelta(forecast_delta)
+    ! get vlistID. Note that the stream-internal vlistID must be used. 
+    ! It is obtained via streamInqVlist(streamID)
+    vlistID     = streamInqVlist(streamID)
+    taxisID     = vlistInqTaxis(vlistID)
+    taxis_tunit = taxisInqTunit(taxisID)
 
-    CALL vlistDefVarIntKey(vlistID, varID, "forecastTime",                forecast_seconds) 
+    ! get current DateTime (rounded)
+    mtime_cur   => newDatetime(TRIM(cur_date))
+    ! get model start date
+    mtime_start => newDatetime(TRIM(start_date))
 
     IF (info%action_list%n_actions > 0) THEN
 
-       mtime_lengthOfTimeRange => newTimedelta(TRIM(info%action_list%action(1)%intvl))
-    
-       ilengthOfTimeRange = 86400 *INT(mtime_lengthOfTimeRange%day)    &
-            &                + 3600  *INT(mtime_lengthOfTimeRange%hour)   &
-            &                + 60    *INT(mtime_lengthOfTimeRange%minute) &
-            &                +        INT(mtime_lengthOfTimeRange%second) 
-       
-       taxisID     = vlistInqTaxis(vlistID)
-       taxis_tunit = taxisInqTunit(taxisID)
-       
-       SELECT CASE (taxis_tunit)
-       CASE (TUNIT_SECOND)
-          indicatorOfUnitForTimeRange = 13
-       CASE (TUNIT_MINUTE)
-          ilengthOfTimeRange = INT(ilengthOfTimeRange/60)
-          forecast_seconds   = INT(forecast_seconds/60)
-          indicatorOfUnitForTimeRange = 0
-       CASE (TUNIT_HOUR)
-          ilengthOfTimeRange = INT(ilengthOfTimeRange/3600)
-          forecast_seconds   = INT(forecast_seconds/3600)
-          indicatorOfUnitForTimeRange = 1
-       CASE DEFAULT
-       END SELECT
-       
-       ! set Indicator of unit of time for time range over which statistical processing is done
-       ! equal to the Indicator of unit of time range. This is not time dependent and may be 
-       ! moved to some better place. Note that the CDI-internal numbers differ from the official 
-       ! GRIB2 numbers!
-       CALL vlistDefVarIntKey(vlistID, varID, "indicatorOfUnitForTimeRange", indicatorOfUnitForTimeRange)
-       CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+      ! here we implicitly assume, that action Nr. 1 is the 'nullify'-action.
+      ! Currently this is true, but must not be true for all times. A less 
+      ! ad-hoc solution would be desirable. A warning is issued, if nr. 1 
+      ! is NOT the 'nullify' action.
+      IF (info%action_list%action(1)%actionID /= ACTION_RESET) THEN
+        write(0,*) 'set_timedependent_GRIB2_keys: actionID of action 1 is not equal to ACTION_RESET.'//&
+          &             'lengthOfTimeRange may not be set correctly'
+      ENDIF
 
+      ! get latest (intended) triggering time, which is equivalent to 
+      ! the statistical process starting time
+      statProc_startDateTime = info%action_list%action(1)%EventLastTriggerDate
+
+
+      ! get time interval, over which statistical process has been performed
+      ! It is the time difference between the current time (rounded) mtime_cur and 
+      ! the last time the nullify-action took place (rounded) statProc_startDateTime.
+      mtime_lengthOfTimeRange  => newTimedelta("P01D")  ! init
+      !
+      ! mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
+      CALL getTimeDeltaFromDateTime(mtime_cur, statProc_startDateTime, mtime_lengthOfTimeRange)
+
+
+      ! time interval over which statistical process has been performed (in secs)    
+      ilengthOfTimeRange_secs = 86400 *INT(mtime_lengthOfTimeRange%day)    &
+           &                  + 3600  *INT(mtime_lengthOfTimeRange%hour)   &
+           &                  + 60    *INT(mtime_lengthOfTimeRange%minute) &
+           &                  +        INT(mtime_lengthOfTimeRange%second) 
+           
+
+      ! cleanup
+      CALL deallocateTimedelta(mtime_lengthOfTimeRange)
+    ELSE
+      ilengthOfTimeRange_secs = 0
     END IF
+
+
+    ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
+    ! Note that for statistical quantities, the forecast time is the time elapsed between the 
+    ! model start time and the start time of the statistical process
+    forecast_delta => newTimedelta("P01D")
+    CALL getTimeDeltaFromDateTime(statProc_startDateTime, mtime_start, forecast_delta)
+
+    ! forecast time in seconds
+    forecast_secs =    forecast_delta%second    +   &
+      &             60*(forecast_delta%minute   +   & 
+      &                 60*(forecast_delta%hour +   &
+      &                       24*forecast_delta%day))
+
+
+    SELECT CASE (taxis_tunit)
+    CASE (TUNIT_SECOND)
+       indicatorOfUnitForTimeRange = 13
+       ilengthOfTimeRange          = ilengthOfTimeRange_secs
+       forecast_time               = forecast_secs
+    CASE (TUNIT_MINUTE)
+       indicatorOfUnitForTimeRange = 0
+       ilengthOfTimeRange          = INT(ilengthOfTimeRange_secs/60)
+       forecast_time               = INT(forecast_secs/60)
+    CASE (TUNIT_HOUR)
+       indicatorOfUnitForTimeRange = 1
+       ilengthOfTimeRange          = INT(ilengthOfTimeRange_secs/3600)
+       forecast_time               = INT(forecast_secs/3600)
+    CASE DEFAULT
+    END SELECT
+
+    ! set forecast time: statProc_startDateTime - model_startDateTime
+    CALL vlistDefVarIntKey(vlistID, varID, "forecastTime", forecast_time) 
+
+    ! set Indicator of unit for time range over which statistical processing is done
+    ! equal to the Indicator of unit of time range. This is not time dependent and may be 
+    ! moved to some better place. Note that the CDI-internal numbers differ from the official 
+    ! WMO numbers!
+    CALL vlistDefVarIntKey(vlistID, varID, "indicatorOfUnitForTimeRange", indicatorOfUnitForTimeRange)
+    !
+    ! set length of time range: current time - statProc_startDateTime
+    CALL vlistDefVarIntKey(vlistID, varID, "lengthOfTimeRange",           ilengthOfTimeRange)
+
+
+    ! cleanup
+    CALL deallocateDatetime(mtime_start)
+    CALL deallocateDatetime(mtime_cur)
+    CALL deallocateTimedelta(forecast_delta)
 
   END SUBROUTINE set_timedependent_GRIB2_keys
 

@@ -33,6 +33,10 @@ MODULE mo_var_metadata
   USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
   USE mo_fortran_tools,      ONLY: assign_if_present
+  USE mo_time_config,        ONLY: time_config
+  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime, &
+    &                              MAX_DATETIME_STR_LEN
+  USE mo_mtime_extensions,   ONLY: get_datetime_string
 
   IMPLICIT NONE
 
@@ -413,14 +417,26 @@ CONTAINS
   !!
   FUNCTION new_action(actionID, intvl) RESULT(var_action)
 
-    INTEGER           , INTENT(IN) :: actionID  ! action ID  
-    CHARACTER(LEN=*)  , INTENT(IN) :: intvl     ! action interval [h]
-    TYPE(t_var_action_element)     :: var_action
+    INTEGER               ,INTENT(IN)   :: actionID  ! action ID  
+    CHARACTER(LEN=*)      ,INTENT(IN)   :: intvl     ! action interval [h]
+    TYPE(t_var_action_element)          :: var_action
+    TYPE(datetime)        ,POINTER      :: inidatetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_ini_datetime
+
+    ! create dummy datetime for initialization
+    ! initializing with zero everywhere, currently gives a segfault (r18839)
+    ! when trying to make use of inidatetime
+    CALL get_datetime_string(mtime_ini_datetime, time_config%ini_datetime)
+    inidatetime  => newDatetime(TRIM(mtime_ini_datetime)) 
 
     ! define var_action
     var_action%actionID   = actionID
     var_action%intvl      = TRIM(intvl)
-    var_action%lastActive ='0000-00-00T00:00:00.000Z'  ! init
+    var_action%lastActive = TRIM(mtime_ini_datetime)  ! init
+    var_Action%EventLastTriggerDate = inidatetime     ! init
+
+    ! cleanup
+    CALL deallocateDatetime(inidatetime)
 
   END FUNCTION new_action
 

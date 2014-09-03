@@ -42,11 +42,11 @@ MODULE mo_action
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,    &
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
-    &                              MAX_EVENTNAME_STR_LEN, newTimedelta,       &
-    &                              timedelta, newTimedelta, deallocateTimedelta
+    &                              MAX_EVENTNAME_STR_LEN, timedelta,          &
+    &                              newTimedelta, deallocateTimedelta
   USE mo_run_config,         ONLY: msg_level
   USE mo_mtime_extensions,   ONLY: get_datetime_string, getTimeDeltaFromDateTime, &
-    &                              getPTStringFromMS
+    &                              getPTStringFromMS, getTriggeredPreviousEventAtDateTime
   USE mo_action_types,       ONLY: t_var_action
   USE mo_time_config,        ONLY: time_config
   USE mo_var_list,           ONLY: nvar_lists, var_lists
@@ -68,6 +68,7 @@ MODULE mo_action
 
   ! VARIABLES
   PUBLIC :: reset_act
+  PUBLIC :: ACTION_RESET
 
 
   ! List of available actions
@@ -255,10 +256,6 @@ CONTAINS
       &  this_event 
     TYPE(datetime),           POINTER :: & !< Current date in mtime format
       &  mtime_date 
-    TYPE(datetime),           POINTER :: & !< Model start date in mtime format
-      &  mtime_inidate 
-    TYPE(timedelta),          POINTER :: & !< for forecast time computation
-      &  time_range
 
     LOGICAL :: isactive
 
@@ -269,6 +266,8 @@ CONTAINS
     TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:reset_action")
+
+    TYPE(datetime) :: lastTrigger_datetime  ! latest intended triggering date
 
   !-------------------------------------------------------------------------
 
@@ -309,24 +308,16 @@ CONTAINS
       isactive = LOGICAL(isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack))
 
 
+
       ! Check wheter the action 'reset_act' should be triggered for variable
       ! under consideration
       IF (isactive) THEN
 
-        ! store latest triggering date
+        ! store latest true triggering date
         field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
-
-
-        ! compute ini datetime in a format appropriate for mtime
-        CALL get_datetime_string(mtime_ini_datetime, time_config%ini_datetime)
-        mtime_inidate  => newDatetime(TRIM(mtime_ini_datetime))
-        time_range     => newTimedelta("P01D")
-        CALL getTimeDeltaFromDateTime(mtime_date, mtime_inidate, time_range)
-
-! preparations
-!!$        ! store forecast time (necessary for proper GRIB2 encoding)
-!!$        field%info%volatile%fcast_time = 86400*time_range%day + 3600*time_range%hour &
-!!$          &                            + 60*time_range%minute + time_range%second
+        ! store latest intended triggering date
+        CALL getTriggeredPreviousEventAtDateTime(this_event, lastTrigger_datetime)
+        field%info%action_list%action(var_action_idx)%EventLastTriggerDate = lastTrigger_datetime 
 
 
         IF (msg_level >= 12) THEN
@@ -339,10 +330,6 @@ CONTAINS
         ! so far, works only for fields of type REAL
         field%r_ptr = field%info%resetval%rval
 
-        ! cleanup
-        !
-        CALL deallocateTimedelta(time_range)
-        CALL deallocateDatetime(mtime_inidate)
       ENDIF
 
     ENDDO
@@ -351,6 +338,7 @@ CONTAINS
     ! cleanup
     !
     CALL deallocateDatetime(mtime_date)
+    CALL deallocateTimedelta(p_slack)
 
   END SUBROUTINE reset_action
 
