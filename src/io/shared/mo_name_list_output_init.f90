@@ -3193,7 +3193,8 @@ CONTAINS
       ALLOCATE(vgrid_buffer(nvgrid))
     ENDIF
     ! broadcast
-    DO ivgrid = 1,nvgrid 
+    DO ivgrid = 1,nvgrid
+!       write(0,*) ivgrid, bcast_root, p_comm_work_2_io, vgrid_buffer(ivgrid)%uuid
       CALL p_bcast(vgrid_buffer(ivgrid)%uuid, bcast_root, p_comm_work_2_io)
     ENDDO
 

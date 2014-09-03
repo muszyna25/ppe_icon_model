@@ -54,7 +54,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_parallel_config,        ONLY: nproma
   USE mo_statistics
   USE mo_ocean_testbed_vertical_diffusion
-  USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
+!   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
 
   IMPLICIT NONE
   PRIVATE
@@ -266,10 +266,10 @@ CONTAINS
 
     !------------------------------------------------------------------
     ! write initial
-    !------------------------------------------------------------------
-    IF (output_mode%l_nml) THEN
-      CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice,jstep0)
-    ENDIF
+    ! this is done 
+!     IF (output_mode%l_nml) THEN
+!       CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice)
+!     ENDIF
     DO jstep = (jstep0+1), (jstep0+nsteps)
     
       p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h

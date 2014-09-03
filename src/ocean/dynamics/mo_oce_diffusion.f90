@@ -155,7 +155,7 @@ CONTAINS
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
-    INTEGER :: start_level, elev
+    INTEGER :: start_level, end_level
     INTEGER :: level, blockNo, edge_index,cell_index
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: start_index, end_index
@@ -173,7 +173,7 @@ CONTAINS
     edges_in_domain => patch_2D%edges%in_domain
     !-------------------------------------------------------------------------------
     start_level = 1
-    elev = n_zlev
+    end_level = n_zlev
     
     laplacian_vn_out(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e) = 0.0_wp
     
@@ -183,7 +183,7 @@ CONTAINS
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
-      DO level = start_level, elev
+      DO level = start_level, end_level
         DO cell_index = start_index, end_index
           z_div_grad_u(cell_index,level,blockNo)%x =  0.0_wp
         END DO
@@ -193,7 +193,7 @@ CONTAINS
     ! loop over edges in local domain + halo
     DO blockNo = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, blockNo, start_edge_index, end_edge_index)
-      DO level = start_level, elev
+      DO level = start_level, end_level
         DO edge_index = start_edge_index, end_edge_index
           z_grad_u(edge_index,level,blockNo)%x = 0.0_wp
         ENDDO
@@ -207,7 +207,7 @@ CONTAINS
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       
-      DO level = start_level, elev
+      DO level = start_level, end_level
         DO edge_index = start_edge_index, end_edge_index
           !IF ( v_base%lsm_e(edge_index,level,blockNo) <= sea_boundary ) THEN
           IF (patch_3D%lsm_e(edge_index,level,blockNo) <= sea_boundary) THEN
@@ -240,7 +240,7 @@ CONTAINS
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
-      DO level = start_level, elev
+      DO level = start_level, end_level
         DO cell_index = start_index, end_index
           
           IF (patch_3D%lsm_c(cell_index,level,blockNo) >= boundary) THEN
@@ -293,7 +293,7 @@ CONTAINS
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
-    INTEGER :: start_level, elev
+    INTEGER :: start_level, end_level
     INTEGER :: level, blockNo, edge_index,cell_index
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: start_index, end_index
@@ -317,14 +317,19 @@ CONTAINS
     edges_gradIsCalculable => patch_2D%edges%gradIsCalculable
     !-------------------------------------------------------------------------------
     start_level = 1
-    elev = n_zlev
+    end_level = n_zlev
     
+#ifdef NAGFOR
+     z_div_grad_u(:,:,:)%x(1) = 0.0_wp
+     z_div_grad_u(:,:,:)%x(2) = 0.0_wp
+     z_div_grad_u(:,:,:)%x(3) = 0.0_wp
+#endif
 !     laplacian_vn_out  (1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e) = 0.0_wp
     
     ! loop over cells in local domain + halo
 !     DO blockNo = all_cells%start_block, all_cells%end_block
 !       CALL get_index_range(all_cells, blockNo, start_index, end_index)
-!       DO level = start_level, elev
+!       DO level = start_level, end_level
 !         DO cell_index = start_index, end_index
 !           z_div_grad_u(cell_index,level,blockNo)%x =  0.0_wp
 !         END DO
@@ -337,9 +342,9 @@ CONTAINS
     !Result is a gradient vector, located at edges
 !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, &
 !ICON_OMP il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = edges_gradIsCalculable%start_block, edges_gradIsCalculable%end_block
-   ! DO blockNo = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(edges_gradIsCalculable, blockNo, start_edge_index, end_edge_index)
+    ! DO blockNo = edges_gradIsCalculable%start_block, edges_gradIsCalculable%end_block
+    DO blockNo = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, blockNo, start_edge_index, end_edge_index)
 
       DO edge_index = start_edge_index, end_edge_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
@@ -355,7 +360,7 @@ CONTAINS
             & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
         ENDDO
         ! zero the land levels
-        DO level = patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)+1, elev
+        DO level = patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)+1, end_level
           z_grad_u(edge_index,level,blockNo)%x = 0.0_wp
         ENDDO
       END DO
@@ -387,9 +392,9 @@ CONTAINS
             
         END DO
         
-        DO level = patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)+1, elev
-          z_div_grad_u(cell_index,level,blockNo)%x = 0.0_wp
-        ENDDO
+!         DO level = patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)+1, end_level
+!           z_div_grad_u(cell_index,level,blockNo)%x = 0.0_wp
+!         ENDDO
         
       END DO
     END DO
@@ -465,7 +470,7 @@ CONTAINS
     ! this is not needed since we take the negative div
 !     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-!       DO level = start_level, elev
+!       DO level = start_level, end_level
 !         DO edge_index = start_edge_index, end_edge_index
 !           
 !           laplacian_vn_out(edge_index,level,blockNo)&
@@ -509,7 +514,7 @@ CONTAINS
     REAL(wp),OPTIONAL, INTENT(in)             :: k_h(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     !
     !Local variables
-    INTEGER :: start_level, elev     ! vertical start and end level
+    INTEGER :: start_level, end_level     ! vertical start and end level
     INTEGER :: edge_index, level, blockNo
     INTEGER :: start_index, end_index
     REAL(wp) ::  z_div_c(nproma,n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)!, &
@@ -639,7 +644,7 @@ CONTAINS
     
     !
     !Local variables
-    INTEGER :: start_level, elev     ! vertical start and end level
+    INTEGER :: start_level, end_level     ! vertical start and end level
     INTEGER :: edge_index, level, blockNo
     INTEGER :: start_index, end_index
     REAL(wp) ::  z_div_c   (nproma,n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
@@ -657,7 +662,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     
     start_level = 1
-    elev = n_zlev
+    end_level = n_zlev
     
     icidx => patch_2D%edges%cell_idx
     icblk => patch_2D%edges%cell_blk
@@ -676,7 +681,7 @@ CONTAINS
       
     ! compute divergence of vector field
     !     CALL div_oce_3d( u_vec_e, patch_2D, p_op_coeff%div_coeff, z_div_c)
-    !     ! DO level = start_level, elev
+    !     ! DO level = start_level, end_level
     !     ! write(*,*)'vort1:',level,maxval(vort(:,level,:)),minval(vort(:,level,:))
     !     ! END DO
     !     ! compute rotation of vector field for the ocean
@@ -687,7 +692,7 @@ CONTAINS
     !     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
     !       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
     !       DO edge_index = start_index, end_index
-    !         DO level = start_level, elev
+    !         DO level = start_level, end_level
     !           !DO edge_index = start_index, end_index
     !           !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
     !           z_nabla2_e(edge_index,level,blockNo) =  &
@@ -720,7 +725,7 @@ CONTAINS
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       DO edge_index = start_index, end_index
-        DO level = start_level, elev
+        DO level = start_level, end_level
           
           nabla4_vec_e(edge_index,level,blockNo) =  &
             & patch_3D%wet_e(edge_index,level,blockNo)&
@@ -860,7 +865,7 @@ CONTAINS
     REAL(wp), INTENT(inout)             :: div_diff_flx(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
     !
     !Local variables
-    INTEGER :: start_level, elev
+    INTEGER :: start_level, end_level
     INTEGER :: cell_index, level, blockNo
     INTEGER :: start_index, end_index
     INTEGER :: z_dolic
@@ -875,7 +880,7 @@ CONTAINS
     all_cells => patch_2D%cells%ALL
     !-----------------------------------------------------------------------
     start_level              = 1
-    elev              = n_zlev
+    end_level              = n_zlev
     z_diff_flx(1:nproma, 1:n_zlev+1,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks) = 0.0_wp
     
     !First vertical flux then vertical divergence
