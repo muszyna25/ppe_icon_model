@@ -4,6 +4,9 @@
 # internal name     GRIB2 shortName
 theta_v             THETA_V
 rho                 DEN
+ddt_tke_pconv       DTKE_CON
+geopot              FI
+z_ifc               HHL
 vn                  VN
 u                   U
 v                   V
@@ -11,6 +14,8 @@ w                   W
 tke                 TKE
 temp                T
 pres                P
+pres_msl            PMSL
+pres_sfc            PS
 qv                  QV
 qc                  QC
 qi                  QI
@@ -44,4 +49,11 @@ t_bot_lk            T_BOT_LK
 c_t_lk              C_T_LK
 t_b1_lk             T_B1_LK
 h_b1_lk             H_B1_LK
-
+rh                  RELHUM
+rh_2m               RELHUM_2M
+albdif              ALB_RAD
+asodifd_s           ASWDIFD_S
+asodifu_s           ASWDIFU_S
+asodird_s           ASWDIR_S
+topography_c        HSURF
+gust10              VMAX_10M
