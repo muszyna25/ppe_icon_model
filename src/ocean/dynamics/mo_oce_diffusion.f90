@@ -391,10 +391,11 @@ CONTAINS
             & * p_op_coeff%div_coeff(cell_index,level,blockNo,3)
             
         END DO
-        
-!         DO level = patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)+1, end_level
-!           z_div_grad_u(cell_index,level,blockNo)%x = 0.0_wp
-!         ENDDO
+
+        ! this is only needed for the sync below, when running in parallel test mode !
+        DO level = patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)+1, end_level
+          z_div_grad_u(cell_index,level,blockNo)%x = 0.0_wp
+        ENDDO
         
       END DO
     END DO
