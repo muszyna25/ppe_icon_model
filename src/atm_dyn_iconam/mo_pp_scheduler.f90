@@ -712,6 +712,17 @@ CONTAINS
           ! link this new variable to the lon-lat grid:
           new_element%field%info%hor_interp%lonlat_id = ll_vargrid(ivar)
 
+          ! If actions have been defined for the source field, we define those actions 
+          ! for the target field (lat-lon-field) as well.
+          ! Strictly speaking this is only necessary for the RESET action, but for the 
+          ! the time being, we copy all (currently only the RESET action exists).
+          ! By this, we assure that for statistically processed fields the  start and end 
+          ! interval in the GRIB message is correct.
+          ! The drawback is, that the reset action is performed for lon-lat fields as well, 
+          ! even though it is not necessary. 
+          IF (info%action_list%n_actions > 0 ) new_element%field%info%action_list = info%action_list
+
+
           ! link this new variable to the (optionally existing) cdiZaxis of the original field
           ! (in this case, info%vgrid in add_var above is by-passed):
           new_element%field%info%cdiZaxisID = info%cdiZaxisID
