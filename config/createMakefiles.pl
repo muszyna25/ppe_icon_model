@@ -1,14 +1,24 @@
 #! /usr/bin/env perl
+#__________________________________________________________________________________________________________________________________
 #
-# Usage: createMakefiles.pl
+# Createes Makefiles for the list of given source code directories. 
+# This program is highly specialized for ICON and cannot be used 
+# with other packages.
+#__________________________________________________________________________________________________________________________________
 #
-
+use strict;
+use warnings;
+#
 use Cwd;
 use File::Copy;
 use Getopt::Long;
 use File::Path;
-
+#__________________________________________________________________________________________________________________________________
 # Option processing
+
+my $target;
+my $srcdirs;
+my $with_ocean;
 
 GetOptions( 
 	    'target=s'  => \$target,
@@ -16,7 +26,8 @@ GetOptions(
             'with_ocean=s' => \$with_ocean,
 	    ) or die "\n\nUsage: config/createMakefiles.pl --target=<OS_CPU> --srcdirs=< list of src directories>\n";  
 
-
+#__________________________________________________________________________________________________________________________________
+#
 
 $target =~ s/\s+//g;
 
@@ -24,27 +35,30 @@ $srcdirs =~ s/[\"\']*//g;
 $srcdirs =~ s/\s+/ /g;
 $srcdirs =~ s/^\s+//;
 
-(@directories) = split / /, $srcdirs;
+my (@directories) = split / /, $srcdirs;
 
+#__________________________________________________________________________________________________________________________________
 # determine base directory
 
-$prefix = &cwd;
+my $prefix = &cwd;
 
+#__________________________________________________________________________________________________________________________________
 # make architecture dependend build directories
 
 print "\n";
 print "createMakefiles:\n\n";
 
-$build_path = &BuildSetup ($prefix, $target, \@directories);
+my $build_path = &BuildSetup ($prefix, $target, \@directories);
 
+#__________________________________________________________________________________________________________________________________
 # collect include files in build tree
 
 copy ("config/config.h", "${build_path}/include/config.h");
 
 opendir(DIR, "include") or die "Unable to open include:$!\n";
-@incs = grep /\.(inc|h)/, readdir(DIR);
+my @incs = grep /\.(inc|h)/, readdir(DIR);
 closedir(DIR);
-foreach $inc ( @incs ) {
+foreach my $inc ( @incs ) {
     copy ( "include/${inc}", "${build_path}/include/${inc}" );
 }
 
@@ -52,14 +66,29 @@ if ( -d "externals/mtime/include" ) {
     opendir(DIR, "externals/mtime/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);
     closedir(DIR);
-    foreach $inc ( @incs ) {
+    foreach my $inc ( @incs ) {
 	copy ( "externals/mtime/include/${inc}", "${build_path}/include/${inc}" );
     }
 }
 
+#__________________________________________________________________________________________________________________________________
 # scan dependencies (recursive)
 
-foreach $dir ( @directories ) {
+my %vpath_directories  = ();
+    
+my %target_programs    = ();
+    
+my %module_definitions = ();
+my %module_usage       = ();
+    
+my %fortran_includes   = ();
+my %c_includes         = (); 
+    
+my %ifdefs             = ();
+    
+my @source_files       = ();
+
+foreach my $dir ( @directories ) {
 
 # global variables
 
@@ -79,7 +108,7 @@ foreach $dir ( @directories ) {
 
     &ScanDirectory ($dir, $dir, 0);
 
-    $print_path = $build_path;
+    my $print_path = $build_path;
     $print_path =~ s/$prefix\///;
 
     print "creating $print_path/$dir/Makefile\n";
@@ -92,10 +121,10 @@ foreach $dir ( @directories ) {
     print MAKEFILE "#----------------------------------------------------------\n";
     print MAKEFILE "\n";
 
-    $add_vpath_level = 0;
+    my $add_vpath_level = 0;
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
-	    @subdirs = split(/\//, $dir);
+	    my @subdirs = split(/\//, $dir);
 	    print MAKEFILE "SHELL = /bin/bash\n\n";
 	    print MAKEFILE "LIB  = $subdirs[1]\n\n";
 	    $add_vpath_level = 2;
@@ -104,9 +133,10 @@ foreach $dir ( @directories ) {
 	}
     }
 
+#__________________________________________________________________________________________________________________________________
 # write VPATH
     
-    @vpath = ();
+    my @vpath = ();
     push @vpath, "VPATH = ";
     while ( my ($key, $value) = each(%vpath_directories) ) {
 	if ( $dir ne "src" ) { $value++; }
@@ -124,7 +154,8 @@ foreach $dir ( @directories ) {
     }
     print MAKEFILE @vpath;
     print MAKEFILE "\n\n";
-    
+
+#__________________________________________________________________________________________________________________________________ 
 # write compile and link information
 
     print MAKEFILE "%.o: %.f\n";
@@ -146,40 +177,46 @@ foreach $dir ( @directories ) {
 #     print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 #     print MAKEFILE "\n";
   
-
+#__________________________________________________________________________________________________________________________________
 # write all source files but not the program files
     
-    %seen = ();
+    my %seen = ();
     @seen{values(%target_programs)} = ();
     
-    @sources = ();    
+    my @sources = ();
     foreach my $file (@source_files) {
+	next if $file eq "version.c";
 	push (@sources, $file) unless exists $seen{$file};
     }
 
+    my %unique = ();
+    my @uniq_sources = grep { ! $unique{$_} ++ } @sources;    
+
+
     if ( "$dir" eq "support" ) {
-	($cpu, $vendor, $os) = split /-/, $target;
+	my ($cpu, $vendor, $os) = split /-/, $target;
 	if ( "$os" eq "superux") {
-	    push (@sources, "rtc_sx.s");
+	    push (@uniq_sources, "rtc_sx.s");
 	}
     } 
 
     print MAKEFILE "SRCS =\t";
-    &PrintWords(8, 0, @sources);
+    &PrintWords(8, 0, \@uniq_sources);
     print MAKEFILE "\n\n";
     
     print MAKEFILE "OBJS =\t";
-    @objects = ();
-    foreach $src (@sources) {
+    my @objects = ();
+    foreach my $src (@uniq_sources) {
 	$src =~ s/\.\S+$/\.o/;
 	push @objects, $src;
     }
-    &PrintWords(8, 0, @objects);
+    &PrintWords(8, 0, \@objects);
     print MAKEFILE "\n\n";
     
+#__________________________________________________________________________________________________________________________________
 # write targets
 
-    @target_all = ();
+    my @target_all = ();
     while ( my ($key, $value) = each(%target_programs) ) {
 	push @target_all, "../bin/$key";
     }
@@ -194,7 +231,7 @@ foreach $dir ( @directories ) {
 	}
     } else {
 	print MAKEFILE "all: create_version_c \$(OBJS) ";
-	&PrintWords (13, 0, @target_all);
+	&PrintWords (13, 0, \@target_all);
     }
     print MAKEFILE "\n\n";
 
@@ -205,7 +242,7 @@ foreach $dir ( @directories ) {
             print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
             print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
             print MAKEFILE "\t done\n\n";
-	    $include_dir = $dir;
+	    my $include_dir = $dir;
 	    $include_dir =~ s/src/include/;
             print MAKEFILE "CFLAGS += -I../../../../../$include_dir\n";
             print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
@@ -241,6 +278,7 @@ foreach $dir ( @directories ) {
     print MAKEFILE "\trm -f *.o ../module/*.mod\n";
     print MAKEFILE "\n";
     
+#__________________________________________________________________________________________________________________________________
 # print Fortran module dependencies
 
 # don't need c implicit rules are used and don't like dependecies on system header files
@@ -264,15 +302,18 @@ foreach $dir ( @directories ) {
         my %seen_module_usage = ();
 	my (@modules) = grep { ! $seen_module_usage{$_} ++ } @{$module_usage{$file}};
 	my (@dependencies) = ();
-	for $i ( 0 .. $#modules) {		 
-	    my ($ofile) = $module_definitions{$modules[$i]};
+	for my $i ( 0 .. $#modules) {
+	    my $ofile = "";
+	    next if ! defined $module_definitions{$modules[$i]};
+	    ($ofile) = $module_definitions{$modules[$i]};
+	    next if ($ofile eq "");
 	    $ofile =~ s/f90$/o/;
 	    next if $object =~ $ofile;
 	    push @dependencies, $ofile;
 	}
 	next if $object =~ $file;
 	print MAKEFILE "$object: $file ";
-	&PrintWords (length($object)+length($file)+3, 0, @dependencies);
+	&PrintWords (length($object)+length($file)+3, 0, \@dependencies);
 	print MAKEFILE "\n\n";
     }
 
@@ -280,15 +321,17 @@ foreach $dir ( @directories ) {
     
 }
 print "\n";
-#-----------------------------------------------------------------------------
+#__________________________________________________________________________________________________________________________________
+#
 exit;
-#-----------------------------------------------------------------------------
-
-#=============================================================================
+#__________________________________________________________________________________________________________________________________
+#
+#__________________________________________________________________________________________________________________________________
 #
 # Subroutines:
 #
-#=============================================================================
+#__________________________________________________________________________________________________________________________________
+#
 sub ScanDirectory {
 
 # arguments to function    
@@ -307,7 +350,6 @@ sub ScanDirectory {
     $pwd =~ s/$prefix//;
     $pwd =~ s/^\///;
 
-#     $vpath_directories{$pwd} = $level; it does not work with symbolic links
     $vpath_directories{$workpath} = $level;
     opendir(DIR, ".") or die "Unable to open $workdir:$!\n";
     my @names = readdir(DIR);
@@ -326,7 +368,7 @@ sub ScanDirectory {
         next if (($with_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
 
         if (-d $name){
-	    $nextpath="$workpath/$name";
+	    my $nextpath="$workpath/$name";
             &ScanDirectory($name, $nextpath, $level);
             next;
         } else {
@@ -334,7 +376,13 @@ sub ScanDirectory {
 		push @source_files, $name;
 
 		open F, "<$name";
-		while (<F>) {
+		my @lines = <F>;
+		close (F);
+
+		my @filteredLines;
+		simplifiedCPPFilter(\@lines, \@filteredLines);
+
+		foreach (@filteredLines) {
 
 		    if (/^ *MODULE/i && ! /procedure/i) {
 			s/MODULE//i;
@@ -359,24 +407,27 @@ sub ScanDirectory {
 			    $module_usage{$name}[0] = $d2[0];
 			}
 		    }
-		    if (/^ *INCLUDE/i) {
+		    if (/^ *INCLUDE\s*[\'|\"]+/i) {
                         (my @dt3) = split ('!', $_, 2);
-			(my @d3) = split '\'', $dt3[0];
-			$d3[1] =~ s/\s//g;
+			my $d3 = $dt3[0];
+			$d3 =~ s/\s*include\s*[\'|\"]+\s*(\w*)/$1/i;
+			$d3 =~ s/(\'|\")//;
+			$d3 =~ s/\s//g;
 			if (exists $fortran_includes{$name}) {
-			    push @{ $fortran_includes{$name} }, $d3[1]; 
+			    push @{ $fortran_includes{$name} }, $d3; 
 			} else {
-			    $fortran_includes{$name}[0] = $d3[1];
+			    $fortran_includes{$name}[0] = $d3;
 			}
 		    }
 		    if (/^ *#include/) {
 			if ( $name =~ /\.c$/ ) {
-			    (my @d4) = split ' ';
-			    $d4[1] =~ s/\s//g;
+			    my $d4 = $_;
+                            $d4 =~ s/\s*#include\s*(\w*)/$1/;
+			    $d4 =~ s/\s//g;
 			    if (exists $c_includes{$name}) {
-				push @{ $c_includes{$name} }, $d4[1]; 
+				push @{ $c_includes{$name} }, $d4; 
 			    } else {
-				$c_includes{$name}[0] = $d4[1];
+				$c_includes{$name}[0] = $d4;
 			    }
 			} elsif ( $name =~ /\.[f|F]{1}(90|95|03)?$/ ) {
 			    (my @d4) = split ' ';
@@ -389,24 +440,27 @@ sub ScanDirectory {
 			}
 		    }
 		}
-		close (F);
 	    }
 	}
     }
     chdir($startdir) or die "Unable to change to dir $startdir:$!\n";
 }
-#-----------------------------------------------------------------------------
+#__________________________________________________________________________________________________________________________________
+#
 sub PrintWords {
 
 # arguments to function
     my ($columns) = 78 - shift(@_);
     my ($extratab) = shift(@_);
+    my ($text) =  shift(@_);
+
     my ($wordlength);
     
 # local work
-    print MAKEFILE @_[0];
-    $columns -= length(shift(@_));
-    foreach my $word (@_) {
+    return if ! defined $$text[0];
+#    print MAKEFILE ${$text}[0];
+    $columns -= length($$text[0]);
+    foreach my $word (@$text) {
 	$wordlength = length($word);
 	if ($wordlength + 1 < $columns) {
 	    print MAKEFILE " $word";
@@ -424,7 +478,8 @@ sub PrintWords {
 	}
     }
 }
-#-----------------------------------------------------------------------------
+#__________________________________________________________________________________________________________________________________
+#
 sub BuildSetup {
     
 # arguments to function
@@ -444,7 +499,7 @@ sub BuildSetup {
     }
     my ($path5) = "$path2/bin";
     my ($path6) = "$path2/lib";
-    foreach $dir ( @{$build_directories} ) {    
+    foreach my $dir ( @{$build_directories} ) {    
 	push @path7, $path2."/".$dir;
     }
 
@@ -469,7 +524,7 @@ sub BuildSetup {
     if ( ! -d $path6 ) {
 	mkdir $path6 || die "Couldn't create lib directory";		
     }
-    foreach $path ( @path7 ) {        
+    foreach my $path ( @path7 ) {        
 	if ( ! -d $path ) {
 	    mkdir $path || die "Couldn't create object directory";
 	}		
@@ -477,6 +532,74 @@ sub BuildSetup {
 
     return $path2;
 }
-#=============================================================================
+#__________________________________________________________________________________________________________________________________
+#
+sub simplifiedCPPFilter {
 
+    my ($lines, $filteredLines) = @_;
 
+    #______________________________________________________________________________________________________________________________
+    # regex for cpp #ifdef/#elif/#else/#endif (simple expressions only)
+
+    my $ifdef_re = qr{^\s*#\s*ifdef\s+(\w*)};
+    my $else_re = qr{^\s*#\s*else\b};
+    my $elif_re = qr{^\s*#\s*elif\s+(\w*)};
+    my $endif_re = qr{^\s*#\s*endif\b};
+
+    #______________________________________________________________________________________________________________________________
+    # input of a cpp definable variable not supposed to be part the source code
+
+    my $exclude = "__COSMO__";
+    my $printit = 1;           
+
+    #______________________________________________________________________________________________________________________________
+    # parse 
+
+    if ( (not defined $exclude) || ($exclude =~ /^\s*$/) ) {
+	$exclude = "__THIS_SHOULD_NEVER_EVER_HAPPEN__20140819__";
+    }
+    
+    my $ifdef_count = 0;
+    my @ifdef_stack;
+   
+    foreach (@$lines) {
+	
+	if ( /$ifdef_re/ ) {
+	    $ifdef_count++; 
+	    push @ifdef_stack, $1;
+	    if ( /$exclude/ ) {
+		push @$filteredLines, $_;
+		$printit = 0;
+	    }
+	}
+	
+	if ( /$elif_re/ ) {
+	    pop @ifdef_stack;
+	    push @ifdef_stack, $1;
+	    if ( /$exclude/ ) {
+		push @$filteredLines, $_;
+		$printit = 0;
+	    } else {
+		$printit = 1;            
+	    }
+	}
+	
+	if ( /$else_re/ ) {
+	    if ( ($printit == 0) &&  ($ifdef_stack[-1] =~ m/$exclude/) ) {
+		$printit = 1;
+	    } 
+	}
+	
+	if ( /$endif_re/ ) {
+	    if ( ($printit == 0) && ($ifdef_stack[-1] =~ m/$exclude/) ) {
+		$printit = 1;
+	    }         
+	    $ifdef_count--; 
+	    pop @ifdef_stack;
+	}
+ 
+	push @$filteredLines, $_ if $printit;
+    }
+    return;
+}
+#__________________________________________________________________________________________________________________________________
