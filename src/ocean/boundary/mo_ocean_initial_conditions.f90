@@ -43,7 +43,10 @@ MODULE mo_ocean_initial_conditions
     & sea_surface_height_type, initial_temperature_type, initial_salinity_type, &
     & initial_sst_type, initial_velocity_type, initial_velocity_amplitude,      &
     & forcing_temperature_poleLat, InitialState_InputFileName,                  &
-    & smooth_initial_height_weights
+    & smooth_initial_height_weights, smooth_initial_salinity_weights,           &
+    & smooth_initial_temperature_weights
+
+  USE mo_sea_ice_nml,        ONLY: use_IceInitialization_fromTemperature
 
   USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, boundary, land,        &
     & land_boundary,                                             &
@@ -126,6 +129,7 @@ CONTAINS
 !                check_salinity(nproma,n_zlev, patch_2d%alloc_cell_blocks))
 !       check_temp     = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
 !       check_salinity = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+      use_IceInitialization_fromTemperature = .true.
       
     ELSE
     
@@ -343,10 +347,10 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
         DO level = patch_3d%p_patch_1d(1)%dolic_c(jc,jb) + 1, n_zlev
-          IF ( variable(jc,level,jb) /=  0.0_wp) THEN
-            CALL warning(method_name, "non-zero variable on land")
+!           IF ( variable(jc,level,jb) /=  0.0_wp) THEN
+!             CALL warning(method_name, "non-zero variable on land")
             variable(jc,level,jb) = 0.0_wp
-          ENDIF
+!           ENDIF
         ENDDO
       ENDDO
     ENDDO
@@ -391,10 +395,10 @@ CONTAINS
       CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
         DO level = patch_3d%p_patch_1d(1)%dolic_c(jc,jb) + 1, 1
-          IF ( variable(jc,jb) /=  0.0_wp) THEN
-            CALL warning(method_name, "non-zero variable on land")
+!          IF ( variable(jc,jb) /=  0.0_wp) THEN
+!            CALL warning(method_name, "non-zero variable on land")
             variable(jc,jb) = 0.0_wp
-          ENDIF
+!          ENDIF
         ENDDO
       ENDDO
     ENDDO
@@ -493,6 +497,7 @@ CONTAINS
     REAL(wp) , PARAMETER :: sprof_4layerstommel(4) = &
       & (/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
 
+    REAL(wp), ALLOCATABLE :: new_salinity(:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_salinity'
     !-------------------------------------------------------------------------
 
@@ -564,6 +569,17 @@ CONTAINS
       CALL finish(method_name, "unknown initial_salinity_type")
 
     END SELECT
+    
+    IF (smooth_initial_salinity_weights(1) > 0.0_wp) THEN
+      CALL message(method_name, "Use smoothing...")
+      ALLOCATE(new_salinity(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+      CALL smooth_onCells(patch_3D=patch_3d, &
+        & in_value=ocean_salinity, out_value=new_salinity, smooth_weights=smooth_initial_salinity_weights)
+      ocean_salinity = new_salinity
+      DEALLOCATE(new_salinity)
+      CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_salinity)
+    ENDIF
+
 
     CALL dbg_print('init_ocean_salinity', ocean_salinity(:,:,:), &
       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
@@ -578,6 +594,7 @@ CONTAINS
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
     REAL(wp) :: temperature_profile(n_zlev)
+    REAL(wp), ALLOCATABLE :: new_temperature(:,:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_temperature'
     !-------------------------------------------------------------------------
@@ -594,6 +611,7 @@ CONTAINS
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
       CALL init_3D_variable_fromFile(patch_3d, variable=ocean_temperature, name="T")
+      use_IceInitialization_fromTemperature = .true. ! this should be set in the namelist, here only for safety
 
     !------------------------------
     CASE (200)
@@ -702,6 +720,16 @@ CONTAINS
       CALL finish(method_name, "unknown initial_temperature_type")
 
     END SELECT
+    
+    IF (smooth_initial_temperature_weights(1) > 0.0_wp) THEN
+      CALL message(method_name, "Use smoothing...")
+      ALLOCATE(new_temperature(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+      CALL smooth_onCells(patch_3D=patch_3d, &
+        & in_value=ocean_temperature, out_value=new_temperature, smooth_weights=smooth_initial_temperature_weights)
+      ocean_temperature = new_temperature
+      DEALLOCATE(new_temperature)
+      CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_temperature)
+    ENDIF
 
     CALL dbg_print('init_ocean_temperature', ocean_temperature(:,:,:), &
       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
@@ -805,6 +833,7 @@ CONTAINS
     END SELECT
 
     IF (smooth_initial_height_weights(1) > 0.0_wp) THEN
+      CALL message(method_name, "Use smoothing...")
       ALLOCATE(new_height(nproma,patch_2d%alloc_cell_blocks))
       CALL smooth_onCells(patch_3D=patch_3d, &
         & in_value=ocean_height, out_value=new_height, smooth_weights=smooth_initial_height_weights)
