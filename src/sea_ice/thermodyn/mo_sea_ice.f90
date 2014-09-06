@@ -41,9 +41,9 @@ MODULE mo_sea_ice
     &                               alb_ice_vis, alb_ice_nir
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_statistics,          ONLY: add_fields
-  USE mo_ocean_nml,           ONLY: no_tracer, use_file_initialConditions, n_zlev
+  USE mo_ocean_nml,           ONLY: no_tracer, n_zlev
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, ramp_wind, hnull, hmin, hci_layer, &
-    &                               i_ice_albedo, leadclose_1
+    &                               i_ice_albedo, leadclose_1, use_IceInitialization_fromTemperature
   USE mo_oce_types,           ONLY: t_hydro_ocean_state
   USE mo_oce_state,           ONLY: v_base, &
     &                               ocean_restart_list, set_oce_tracer_info, ocean_default_list
@@ -1149,7 +1149,7 @@ CONTAINS
     draft     (:,:,:)  = 0.0_wp
 
     ! Stupid initialisation trick for Levitus initialisation
-    IF (use_file_initialConditions) THEN
+    IF (use_IceInitialization_fromTemperature) THEN
       WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp &
           &     .and. v_base%lsm_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:) = 2.0_wp
