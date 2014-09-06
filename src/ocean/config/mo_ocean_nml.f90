@@ -558,7 +558,7 @@ MODULE mo_ocean_nml
   INTEGER  :: initial_velocity_type       = 0
   REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
   CHARACTER(filename_max) :: InitialState_InputFileName = "initial_state.nc"   !< file name for reading in
-  REAL(wp) :: smooth_initial_height_parameter      = 0.0_wp   ! if > 0, initial height is multiplied by this parameter
+  REAL(wp) :: smooth_initial_height_weights(2)      = 0.0_wp   ! if > 0, initial height is multiplied by this parameter
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -580,7 +580,7 @@ MODULE mo_ocean_nml
     & topography_height_reference, &
     & sea_surface_height_type    , &
     & InitialState_InputFileName , &
-    & smooth_initial_height_parameter
+    & smooth_initial_height_weights
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
