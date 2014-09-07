@@ -292,12 +292,12 @@ CONTAINS
           
           ! set values on land to zero/reference
           IF ( patch_3d%lsm_c(jc,jk,jb) > sea_boundary ) THEN
-            IF ( ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) /=  0.0_wp) &
-              & CALL warning(method_name, "non-zero temperature on land")
+!             IF ( ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) /=  0.0_wp) &
+!               & CALL warning(method_name, "non-zero temperature on land")
             ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
             IF (no_tracer>=2) THEN
-              IF ( ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) /=  0.0_wp) &
-                & CALL warning(method_name, "non-zero salinity on land")
+!               IF ( ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) /=  0.0_wp) &
+!                 & CALL warning(method_name, "non-zero salinity on land")
               ocean_state%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp !sal_ref
             ENDIF
           ENDIF
