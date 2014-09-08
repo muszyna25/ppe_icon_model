@@ -509,6 +509,9 @@ CONTAINS
 
     SELECT CASE (initial_salinity_type)
     
+    CASE (000)
+      CALL message(TRIM(method_name), ' no initialization')
+
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
       CALL init_3D_variable_fromFile(patch_3d, variable=ocean_salinity, name="S")
@@ -608,6 +611,9 @@ CONTAINS
     SELECT CASE (initial_temperature_type)
 
     !------------------------------
+    CASE (000)
+      CALL message(TRIM(method_name), ' no initialization')
+
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
       CALL init_3D_variable_fromFile(patch_3d, variable=ocean_temperature, name="T")
@@ -802,6 +808,9 @@ CONTAINS
     ! needs to be written with calls !
     SELECT CASE (sea_surface_height_type)
     !------------------------------
+    CASE (000)
+      CALL message(TRIM(method_name), ' no initialization')
+
     CASE (001)
       CALL message(TRIM(method_name), ': init from file')
       CALL init_2D_variable_fromFile(patch_3d, variable=ocean_height, name="h")
