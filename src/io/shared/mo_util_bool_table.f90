@@ -3,10 +3,27 @@
 !!
 !! The table has the following layout: Each table row is determined by
 !! a row name. Then, in each column the table entry is marked by an
-!! "x" where the column contains this row name.
+!! "x" (or a user-defined symbol) where the column contains this row
+!! name.
+!!
+!! Code Example:
+!!
+!!   CALL init_bool_table(table)
+!!   CALL add_column(table, "cookies", (/ 'round ', 'edible' /)          )
+!!   CALL add_column(table, "apples",  (/ 'round ', 'juicy ', 'edible' /))
+!!   CALL add_column(table, "spiders", (/ 'juicy ', 'edible' /)          )
+!!   CALL print_bool_table(table)
+!!
+!! gives the following output:
+!!
+!!         | cookies | apples | spiders |  
+!!    
+!!  round  |  x      |  x     |         |  
+!!  edible |  x      |  x     |  x      |  
+!!  juicy  |         |  x     |  x      | 
+!!
 !!
 !! @author F. Prill, DWD
-!!
 !!
 !! @par Revision History
 !! Initial revision: 2013-08-20 : F. Prill, DWD
@@ -46,11 +63,12 @@ MODULE mo_util_bool_table
   INTEGER, PARAMETER :: MAX_TABLE_COLUMNS =  100          !< max num. of table columns
   INTEGER, PARAMETER :: MAX_TABLE_ROWS    = 1000          !< max num. of table rows
   INTEGER, PARAMETER :: MAX_TITLE_LEN     =   64          !< max length of column title
+  INTEGER, PARAMETER :: MAX_COLUMN_WIDTH  =   16          !< max width of column entry
   INTEGER, PARAMETER :: MAX_ROWNAME_LEN   = VARNAME_LEN   !< max length of row name
 
-  CHARACTER(LEN=*), PARAMETER :: DELIMITER     = ' | '    !< vertical line
-  CHARACTER(LEN=*), PARAMETER :: CHAR_TRUE     = ' x '    !< TRUE  sign
-  CHARACTER(LEN=*), PARAMETER :: CHAR_FALSE    = '   '    !< FALSE sign
+  CHARACTER(LEN=*), PARAMETER :: DELIMITER             = ' | '    !< vertical line
+  CHARACTER(LEN=*), PARAMETER :: DEFAULT_CHAR_TRUE     = ' x '    !< TRUE  sign (default)
+  CHARACTER(LEN=*), PARAMETER :: DEFAULT_CHAR_FALSE    = '   '    !< FALSE sign (default)
 
   CHARACTER(LEN=*), PARAMETER :: modname   = 'mo_util_bool_table'
 
@@ -62,7 +80,8 @@ MODULE mo_util_bool_table
   TYPE t_column
     CHARACTER(LEN=MAX_TITLE_LEN) :: title
     INTEGER                      :: width
-    CHARACTER(LEN=MAX_ROWNAME_LEN), ALLOCATABLE :: true_entries(:)
+    CHARACTER(LEN=MAX_ROWNAME_LEN),   ALLOCATABLE :: true_entries(:)
+    CHARACTER(LEN=MAX_COLUMN_WIDTH),  ALLOCATABLE :: markers(:)
   END TYPE t_column
 
   !> Type definition for a complete table
@@ -90,14 +109,18 @@ CONTAINS
 
   !> Add a column to the table.
   !
-  SUBROUTINE add_column(table, colname, str_list, nitems)
-    TYPE (t_bool_table),        INTENT(INOUT) :: table       !< true/false table object
-    CHARACTER(LEN=*),      INTENT(IN)    :: colname     !< column name
-    CHARACTER(LEN=*),      INTENT(IN)    :: str_list(:) !< list of "true" entries
-    INTEGER,               INTENT(IN)    :: nitems      !< length of given list
+  SUBROUTINE add_column(table, colname, str_list, opt_nitems, opt_markers)
+    TYPE (t_bool_table),   INTENT(INOUT)      :: table              !< true/false table object
+    CHARACTER(LEN=*),      INTENT(IN)         :: colname            !< column name
+    CHARACTER(LEN=*),      INTENT(IN)         :: str_list(:)        !< list of "true" entries
+    INTEGER,          INTENT(IN), OPTIONAL    :: opt_nitems         !< optional: length of given list
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL    :: opt_markers(:)     !< list of entry markers (default: 'x')
     ! local variables    
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::add_column'
-    INTEGER :: ierrstat, i, rowname_len
+    INTEGER :: ierrstat, i, rowname_len, nitems
+
+    nitems = SIZE(str_list)
+    IF (PRESENT(opt_nitems))  nitems = opt_nitems
 
     table%n_columns = table%n_columns + 1
     ALLOCATE(table%column(table%n_columns)%true_entries(nitems), STAT=ierrstat)
@@ -125,6 +148,21 @@ CONTAINS
     END DO
     ! throw out duplicates:
     CALL remove_duplicates(table%rowname, table%n_rows)
+    ! Optional: store entry markers
+    IF (PRESENT(opt_markers)) THEN
+      IF (SIZE(opt_markers) < nitems) &
+        & CALL finish(routine, "Provided marker list is too short!")
+      ALLOCATE(table%column(table%n_columns)%markers(nitems), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      DO i=1,nitems
+        IF (LEN_TRIM(opt_markers(i)) > MAX_COLUMN_WIDTH) THEN
+          CALL finish(routine, "Marker entry is too long!")
+        ELSE
+          table%column(table%n_columns)%markers(i) = TRIM(opt_markers(i))
+          table%column(table%n_columns)%width = MAX(table%column(table%n_columns)%width, LEN_TRIM(opt_markers(i)))
+        END IF
+      END DO
+    END IF
   END SUBROUTINE add_column
 
 
@@ -133,16 +171,20 @@ CONTAINS
   !          corresponding to FALSE.
   !
   FUNCTION get_bool_table_entry(rowname, column)
-    CHARACTER(LEN=MAX_ROWNAME_LEN) :: get_bool_table_entry
+    CHARACTER(LEN=MAX_COLUMN_WIDTH) :: get_bool_table_entry
     CHARACTER(len=*), INTENT(IN) :: rowname
     TYPE (t_column),  INTENT(IN) :: column
     ! local variables
     INTEGER :: i
     
-    get_bool_table_entry = CHAR_FALSE
+    get_bool_table_entry = DEFAULT_CHAR_FALSE
     FIND_LOOP : DO i=1,SIZE(column%true_entries)
       IF (TRIM(tolower(TRIM(rowname))) == TRIM(tolower(TRIM(column%true_entries(i))))) THEN
-        get_bool_table_entry = CHAR_TRUE
+        IF (ALLOCATED(column%markers)) THEN
+          get_bool_table_entry = column%markers(i)
+        ELSE
+          get_bool_table_entry = DEFAULT_CHAR_TRUE
+        END IF
         EXIT FIND_LOOP
       END IF
     END DO FIND_LOOP
