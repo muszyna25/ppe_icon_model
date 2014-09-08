@@ -1945,12 +1945,12 @@ CONTAINS
         ! cell
         IF (v_base%lsm_c(cell,1,block) <= sea_boundary ) THEN
           atmos_fluxes%FrshFlux_TotalIce(cell,block) = &
-        &                                 - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)&   ! Ice melt and growth
-        &                                     - MERGE(&
-        &                                  (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/(rho_ref*dtime), &
-        &                                  0.0_wp, &
-        &                                  Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref < 0.0_wp) &  ! snow melt ONLY
-        &                                 - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! New-ice formation
+        &        - (1._wp-sice/sss(cell,block))*Delhice(cell,block)*rhoi/(rho_ref*dtime)&   ! Ice melt and growth
+        &            - MERGE(&
+        &         (Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref)*rhos/(rho_ref*dtime), &
+        &         0.0_wp, &
+        &         Delhsnow(cell,block)-ice%totalsnowfall(cell,block)/rhos*rho_ref < 0.0_wp) &  ! snow melt ONLY
+        &        - (1._wp-sice/sss(cell,block))*ice%newice(cell,block)*rhoi/(rho_ref*dtime)  ! New-ice formation
         ENDIF
 
         !heatabs         (cell,block)   = swsum * atmos_fluxes% SWin(cell,block) * (1 - ice%concsum)
@@ -2604,7 +2604,7 @@ CONTAINS
             &                    * p_patch%cells%area(cell,block)
     !     saltInSeaice(cell,block)      = 0.0_wp
           salinityDiff(cell,block)      = surface_fluxes%FrshFlux_TotalSalt(cell,block)*(dtime/(thickness(cell,block) &
-            &                                                                                 + p_os%p_prog(nold(1))%h(cell,block)))
+            &                                                                    + p_os%p_prog(nold(1))%h(cell,block)))
           p_os%p_prog(nold(1))%tracer(cell,1,block,2)  = p_os%p_prog(nold(1))%tracer(cell,1,block,2) &
             &                                   + salinityDiff(cell,block)
           saltInLiquidWater(cell,block) = p_os%p_prog(nold(1))%tracer(cell,1,block,2) &
