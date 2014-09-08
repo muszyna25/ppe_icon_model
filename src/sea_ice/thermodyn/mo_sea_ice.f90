@@ -2579,6 +2579,7 @@ CONTAINS
     my_info             = 'BEFORE'
 
     salinityDiff = 0.0_wp
+    salt         = 0.0_wp
 
     CALL assign_if_present(my_computation_type, computation_type)
     CALL assign_if_present(my_info, info)
