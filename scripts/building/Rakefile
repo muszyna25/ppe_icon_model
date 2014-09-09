@@ -467,7 +467,7 @@ def getOceanOnlyfilelist(build)
              filelist: %w[mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90])
 
   oceanFiles << getFilesBy("src",%w[drivers], 
-                           filelist: %w[control_model.f90 mo_master_control.f90])
+                           filelist: %w[icon.f90 mo_master_control.f90])
 
   oceanFiles << getFilesBy("src", %w[namelists], 
                            filelist: %w[mo_dbg_nml.f90  mo_dynamics_nml.f90 mo_gribout_nml.f90 mo_grid_nml.f90 mo_io_nml.f90 mo_master_nml.f90 mo_parallel_nml.f90 mo_run_nml.f90 mo_sea_ice_nml.f90 mo_time_nml.f90])

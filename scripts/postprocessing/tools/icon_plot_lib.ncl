@@ -1031,7 +1031,7 @@ undef("setDefaultColors")
 procedure setDefaultColors(resource,minval,maxval,debug)
 begin
 ; white is color 135
-  if ((minval*maxval) .LT. 0.0) then ; data goes fro positiv to negative or vs.
+  if ((minval*maxval) .LT. 0.0) then ; data goes from positiv to negative or vs.
     if (abs(maxval) .GT. abs(minval)) then
       resource@gsnSpreadColorStart = 135  - toint(126*(abs(minval)/abs(maxval)))
       resource@gsnSpreadColorEnd   = 255
@@ -1324,10 +1324,10 @@ undef("checkMinMaxVar")
 procedure checkMinMaxVar(minvar,maxvar)
 begin
   if ( (.not. ismissing(minvar)) .and. (.not. ismissing(maxvar)) ) then
-  if ( minvar .gt. maxvar ) then
-    print("minVar has to be larger than maxVar")
-    exit
-  end if
+    if ( minvar .gt. maxvar ) then
+      print("minVar has to be larger than maxVar")
+      exit
+    end if
   end if
 end
 ;---------------------------------------------------------------
@@ -1937,7 +1937,7 @@ begin
 
   ;---All triangles inbetween levels
   do i = 1, dimsizes(levels) - 1
-    vind := ind(var .ge. levels(i-1) .and. var .lt. levels(i))
+    vind = ind(var .ge. levels(i-1) .and. var .lt. levels(i))
     if(.not.all(ismissing(vind))) then
       gscolors(vind) = colors(i)
     end if
