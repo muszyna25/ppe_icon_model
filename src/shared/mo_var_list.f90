@@ -1272,7 +1272,7 @@ CONTAINS
       new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
     ENDIF
 #else
-
+! ifdef __OMP_FIRSTTOUCH__
 !$omp parallel do private(i1, i2) SCHEDULE(runtime)
     DO i2 = 1, idims(2)
       DO i1 = 1, idims(1)

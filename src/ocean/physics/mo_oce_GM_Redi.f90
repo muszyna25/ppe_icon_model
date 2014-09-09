@@ -53,7 +53,7 @@ MODULE mo_oce_GM_Redi
  
   USE mo_oce_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_midlevel_on_block
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
-    & map_edges2edges_viacell_3d_const_z, map_scalar_center2prismtop, map_scalar_prismtop2center
+    & map_scalar_center2prismtop, map_scalar_prismtop2center
   IMPLICIT NONE
   
   PRIVATE

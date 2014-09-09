@@ -491,6 +491,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: relax_temperature_max                = 10.0_wp  ! in cases of analytic relaxation
   REAL(wp) :: forcing_temperature_poleLat          = 90.0_wp  ! place the pole at this latitude
                                                               ! for temperature forcing (degrees)
+                                                              
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
@@ -531,7 +532,7 @@ MODULE mo_ocean_nml
     &                 relax_temperature_max               , &
     &                 forcing_temperature_poleLat         , &
     &                 forcing_smooth_steps                , &
-    &                 use_new_forcing
+    &                 use_new_forcing                    
   ! } END FORCING
 
   !----------------------------------------------------------------------------
@@ -556,7 +557,10 @@ MODULE mo_ocean_nml
   CHARACTER(LEN= max_char_length) :: initial_sst_type = 'sst1'
   INTEGER  :: initial_velocity_type       = 0
   REAL(wp) :: initial_velocity_amplitude  = 0.0_wp
-  CHARACTER(filename_max) :: InitialState_InputFileName   !< file name for reading in
+  CHARACTER(filename_max) :: InitialState_InputFileName = "initial_state.nc"   !< file name for reading in
+  REAL(wp) :: smooth_initial_height_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
+  REAL(wp) :: smooth_initial_salinity_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
+  REAL(wp) :: smooth_initial_temperature_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=ythis, 2nd=neigbors
 
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
@@ -577,7 +581,10 @@ MODULE mo_ocean_nml
     & topography_type            , &
     & topography_height_reference, &
     & sea_surface_height_type    , &
-    & InitialState_InputFileName
+    & InitialState_InputFileName , &
+    & smooth_initial_height_weights, &
+    & smooth_initial_salinity_weights, &
+    & smooth_initial_temperature_weights
   !----------------------------------------------------------------------------
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &

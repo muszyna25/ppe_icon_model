@@ -711,7 +711,7 @@ run/checksuite.ocean_internal/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0010km_cell -text
 run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0080km_cell -text
 run/checksuite.ocean_internal/exp.oce_SmallBoxACC_0080km_cell_02 -text
-run/checksuite.ocean_internal/exp.oce_omip_160km_cell -text
+run/checksuite.ocean_internal/exp.oce_omip_160km_40levels_cell -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_cell_ptest -text
 run/checksuite.ocean_internal/exp.oce_omip_160km_edge -text
 run/checksuite.xce.dwd.de/run_ICON_R02B04N06M_ref -text
@@ -1151,6 +1151,7 @@ scripts/preprocessing/README_MARS4ICON.TXT -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
+scripts/preprocessing/low2highResInit.sh -text
 scripts/preprocessing/mars4icon.all -text
 scripts/preprocessing/mars4icon_e4_sst -text
 scripts/preprocessing/mars4icon_monmean -text

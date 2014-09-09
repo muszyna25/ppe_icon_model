@@ -180,12 +180,6 @@ CONTAINS
       CALL get_restart_attribute("jstep", jstep0)
     END IF
     !------------------------------------------------------------------
-    ! write initial
-    !------------------------------------------------------------------
-    IF (output_mode%l_nml) THEN
-      CALL write_initial_ocean_timestep(patch_3d,ocean_state(jg),p_sfc_flx,p_ice,jstep0)
-    ENDIF
-    !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
     ! IF (ltimer) CALL timer_start(timer_total)
@@ -370,51 +364,48 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice,jstep0)
+  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_sfc_flx,p_ice)
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
     TYPE(t_sfc_flx) , INTENT(INOUT)             :: p_sfc_flx
     TYPE (t_sea_ice),         INTENT(INOUT)     :: p_ice
-    INTEGER, INTENT(IN)                         :: jstep0
 
     TYPE(t_patch), POINTER :: patch_2d
 
     patch_2d => patch_3d%p_patch_2d(1)
 
-      ! in general nml output is writen based on the nnew status of the
-      ! prognostics variables. Unfortunately, the initialization has to be written
-      ! to the nold state. That's why the following manual copying is nec.
-    IF (.NOT. is_restart_run()) THEN
-      ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
-        ! copy old tracer values to spot value fields for propper initial timestep
-        ! output
-      IF(no_tracer>=1)THEN
-        ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
-      ENDIF
-      IF(no_tracer>=2)THEN
-        ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
-      ENDIF
-      ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-      CALL calc_potential_density( patch_3d,                     &
-        & ocean_state%p_prog(nold(1))%tracer,&
-        & ocean_state%p_diag%rhopot )
-      CALL calculate_density( patch_3d,                        &
-        & ocean_state%p_prog(nold(1))%tracer, &
-        & ocean_state%p_diag%rho )
-
-      CALL update_ocean_statistics(ocean_state,                              &
-        & p_sfc_flx,                            &
-        & patch_2d%cells%owned,   &
-        & patch_2d%edges%owned,   &
-        & patch_2d%verts%owned,   &
-        & n_zlev)
-      IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2d%cells%owned)
-
-      CALL write_name_list_output(jstep=jstep0)
-
-      CALL reset_ocean_statistics(ocean_state%p_acc,p_sfc_flx)
-      IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
+    ! in general nml output is writen based on the nnew status of the
+    ! prognostics variables. Unfortunately, the initialization has to be written
+    ! to the nold state. That's why the following manual copying is nec.
+    ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
+      ! copy old tracer values to spot value fields for propper initial timestep
+      ! output
+    IF(no_tracer>=1)THEN
+      ocean_state%p_diag%t = ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
     ENDIF
+    IF(no_tracer>=2)THEN
+      ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+    ENDIF
+    ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
+    CALL calc_potential_density( patch_3d,                     &
+      & ocean_state%p_prog(nold(1))%tracer,&
+      & ocean_state%p_diag%rhopot )
+    CALL calculate_density( patch_3d,                        &
+      & ocean_state%p_prog(nold(1))%tracer, &
+      & ocean_state%p_diag%rho )
+
+    CALL update_ocean_statistics(ocean_state,                              &
+      & p_sfc_flx,                            &
+      & patch_2d%cells%owned,   &
+      & patch_2d%edges%owned,   &
+      & patch_2d%verts%owned,   &
+      & n_zlev)
+    IF (i_sea_ice >= 1) CALL update_ice_statistic(p_ice%acc, p_ice,patch_2d%cells%owned)
+
+    CALL write_name_list_output(jstep=0)
+
+    CALL reset_ocean_statistics(ocean_state%p_acc,p_sfc_flx)
+    IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
 
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------

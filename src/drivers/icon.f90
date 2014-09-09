@@ -193,8 +193,11 @@ PROGRAM icon
   END IF
 
   ! Shut down MPI
-  !
+
+  ! write(0,*) "start stop_mpi"
+  
   CALL stop_mpi
+!   write(0,*) "stop_mpi returned"
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN

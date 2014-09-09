@@ -556,7 +556,7 @@ CONTAINS
     END IF
 
     !Case: Implicit Vertical diffusion
-    IF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
+    IF ( vertical_tracer_diffusion_type == implicit_diffusion ) THEN
 
       IF (ltimer) CALL timer_start(timer_dif_vert)
 
@@ -624,8 +624,7 @@ CONTAINS
             & p_patch_3d,                      &
             & new_ocean_tracer,                &
             & a_v,                             &
-            & p_op_coeff)!,                      &
-           !&                                  trac_new(:,:,:))
+            & p_op_coeff)
       ENDIF
 
       CALL sync_patch_array(sync_c, p_patch, new_ocean_tracer%concentration)
@@ -638,7 +637,7 @@ CONTAINS
       !---------------------------------------------------------------------
 
             !vertival diffusion is calculated explicitely
-    ELSEIF(vertical_tracer_diffusion_type == explicit_diffusion)THEN
+    ELSEIF ( vertical_tracer_diffusion_type == explicit_diffusion ) THEN
       ! notInUse
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
