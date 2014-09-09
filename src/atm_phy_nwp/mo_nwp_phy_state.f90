@@ -2229,7 +2229,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
            &                DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'buoyancy_prod', diag%buoyancy_prod,             &
-        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,               &
+        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,          &
         & ldims=shape3dkp1, lrestart=.FALSE. )                                   
 
       ! &      diag%mech_prod(nproma,nlev+1,nblks_c)
@@ -2237,7 +2237,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
            &                DATATYPE_FLT32)
       grib2_desc = t_grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'mech_prod', diag%mech_prod,                     &
-        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,               &
+        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,          &
         & ldims=shape3dkp1, lrestart=.FALSE. )                                   
 
       !1D and 0D diagnostic variables that can not be part of add_var
