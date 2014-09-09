@@ -16,10 +16,10 @@ def usage():
   #
   # ===========================================================================
   #
-  # expname     : string for naming things
-  # tag         : additional placeholder, e.g. for revisions, if not used, set it to ''
-  # filepattern : quoted wildcard for model result relative to the 'experiments' dir
-  # archdir     : directory, where the archived data is placed (default: ./archive)
+  # EXPNAME     : string for naming things
+  # TAG         : additional placeholder, e.g. for revisions, if not used, set it to ''
+  # FILEPATTERN : quoted wildcard for model result relative to the 'experiments' dir
+  # ARCHDIR     : directory, where the archived data is placed (default: ./archive)
   #
   # more options are (keys area llways uppercase)
   # DEBUG       : False/True
@@ -42,14 +42,20 @@ def parseOptions():
               'DEBUG'       : False,                       # debugging is switched of by default
               'FORCE'       : False,                       # recomputation of verything is switched off by default
                               # the psi processor/plotter
-              'CALCPSI'     : '/scratch/mpi/CC/mh0287/users/m300064/src/icon-HEAD/scripts/postprocessing/tools/calc_psi.py',
+              'CALCPSI'     : '../../scripts/postprocessing/tools/calc_psi.py',
               'TAG'         : 'r1xxxx',                    # addition revision information
-              'ICONPLOT'    : 'nclsh /pool/data/ICON/tools/icon_plot.ncl -altLibDir=/pool/data/ICON/tools',
+#             'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools',
+              'ICONPLOT'    : 'nclsh /scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/icon_plot.ncl -altLibDir=/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools -remapOperator=remapcon',
               'PROCS'       : 8,                           # number of threads/procs to be used for parallel operations
               'JOBISRUNNING': True,                        # avoid the last output file/result year by default
               # optional stuff
               'DRYRUN'      : False,                       # with this set to true, the model output is scanned for containing years, only
               'MOCPATTERN'  : 'MOC.*',
+#              'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
+              'MOCPLOTTER'  : '/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/calc_moc.ksh',
+              # options to select special parts od the script
+              #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
+              'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
              }
 
   optsGiven = sys.argv[1:]
@@ -59,6 +65,8 @@ def parseOptions():
         value = value.lower() in ['true','1']
       if 'PROCS' == key:
         value = int(value)
+      if 'ACTIONS' == key:
+        value = value.split(',')
 
       options[key] = value
   return options
@@ -124,6 +132,9 @@ def showyear(file):
   return cdo.showyear(input = file)[0].split(' ')
 def ntime(file):
   return cdo.ntime(input = file)[0]
+""" wrapper of 'cdo.yearmean' """
+def yearmean(ifile,ofile):
+  cdo.yearmean(input = ifile, output = ofile)
 # }}}
 
 """ collect the years/ntime, which aree stored in to files """ #{{{
@@ -174,6 +185,27 @@ def getFileNamesForYears(year,archdir,experimentInfo):
 
   return [yearFile, yearMeanFile]
 
+""" input processing for computing regio mean values """
+def _computeRegioMean(depth,varname,ifile,vertMask,regioMask,ofile,newData):
+  # mask out region
+  # vertical interpolation to target depth
+  # mean value computaion
+  cdo.fldmean(input = '-mul -div -sellevel,%s -selname,%s %s %s %s'%(depth,varname,ifile,vertMask,regioMask),
+              output = ofile,
+              forceOutput = newData)
+
+""" compute global mean of bias for t s rho """
+def globalTempSalRho1D(ifile,initfile,maskfile,varNames,ofile):
+  cdo.timmean(input = '-fldmean -div -sub -selname,%s %s %s %s'%(varNames,ifile,initfile,maskfile),
+              output = ofile)
+
+""" compute horizontal last 30-year bias for t s rho """
+def globalTempSalRho2D(ifile,initfile,varNames,archdir):
+  maskName = 'wet_c'
+  ofile    = '/'.join([archdir,'TSR_2D_%s'%(os.path.basename(ifile))])
+  cdo.timmean(input = '-div -sub -selname,%s -sellevidx,1 %s -selname,%s -sellevidx,1 %s -sellevidx,1 -selname,%s -seltimestep,1 %s'%(varNames,ifile,varNames,initfile,maskName,ifile),
+              output = ofile)
+
 """ write a single file for a given years from a list of input files """ #{{{
 def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInfo):
   yearFile, yearMeanFile = getFileNamesForYears(year,archdir,experimentInfo)
@@ -195,7 +227,7 @@ def grepYear(ifiles,year,archdir,forceOutput,shouldComputeYearMean,experimentInf
       cdo.yearmean(input = yearFile,output = yearMeanFile,forceOutput = forceOutput)
     else:
       yearMeanFile = None
-        
+
     map(lambda x: os.remove(x),catFiles)
   else:
     print("Use existing yearFile '%s'"%(yearFile))
@@ -215,23 +247,73 @@ def splitFilesIntoYears(filesOfYears,archdir,forceOutput,expInfo,procs):
 
   return yearFiles
 
-""" wrapper of 'cdo.yearmean' """
-def _cdoYearmean(ifile,ofile):
-  cdo.yearmean(input = ifile, output = ofile)
+""" compute timmean + fldmean of masked temperature, salinity and potential density """
+def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
+  pool    = multiprocessing.Pool(procs)
+  results = []
 
-""" compute yearmean of input """
-def computeYearMean(ifiles):
-  pool      = multiprocessing.Pool(procs)
-  yearFiles = []
+  initFile  = cdo.selname(','.join(varList),input = initFile, output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
+  # compute the 1d (vertical) year mean variance to the initial state
   for ifile in ifiles:
-    yearFile        = pool.apply_async(_cdoYearmean,[files,str(year),archdir,forceOutput,True,expInfo])
-    yearFile, yearMeanFile = getFileNamesForYears(str(year),archdir,expInfo)
-    yearFiles.append([year,yearMeanFile])
+    _ofile = '/'.join([archdir,'TSR_1D_%s'%(os.path.basename(ifile))])
+    ofile  = pool.apply_async(globalTempSalRho1D,[ifile,initFile,maskFile,','.join(varList),_ofile])
+    ofile  = _ofile
+    results.append(ofile)
 
   pool.close()
   pool.join()
 
-  return yearFiles
+  merged = '/'.join([archdir,'TSR_1D_%s_complete.nc'%(options['EXP'])])
+#TODO if os.path.exists(merged):
+#TODO   os.remove(merged)
+  merged = cdo.cat(input = ' '.join(sorted(results)),
+                   output =  merged)
+
+  if subprocess.check_call("ncrename -d depth_2,depth -v depth_2,depth -O %s"%(merged),shell=True,env=os.environ):
+    print("ERROR: ncrename failed")
+    print("ERROR: ncrename -d depth_2,depth -v depth_2,depth_2 -O %s"%(merged))
+    exit(1)
+
+  return merged
+
+""" compute timmean + fldmean of masked temperature, salinity and potential density """
+def computeMaskedTSRMeans2D(ifiles,varList,exp,archdir,procs,log):
+  # alternative: substract 30year mean values instead of averaging variations
+  ofile = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
+  cdo.selname(','.join(varList),
+              input  = log['last30YearsMeanBias'],
+              output = ofile)
+  ofileMasked = '/'.join([archdir,'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])])
+  applyMask(ofile,LOG['mask'],ofileMasked)
+
+  return ofileMasked
+# pool    = multiprocessing.Pool(procs)
+# results = []
+
+# initFile  = cdo.selname(','.join(varList),input = '-seltimestep,1 %s'%(ifiles[0]),
+#                                           output = '/'.join([archdir,'TSR_%s_init'%(exp)]))
+#
+# # compute the 2d surface temperature + salinity variance to the initial
+# # state; relevant are the last 30 years because PHC itselt is a 30-year
+# # climatology
+# for ifile in ifiles:
+#   ofile = pool.apply_async(globalTempSalRho2D,[ifile,initFile,','.join(varList),archdir])
+#   ofile = '/'.join([archdir,'TSR_2D_%s'%(os.path.basename(ifile))])
+#   results.append(ofile)
+#
+# pool.close()
+# pool.join()
+#
+# merged = '/'.join([archdir,'TSR_2D_%s_complete.nc'%(options['EXP'])])
+# if os.path.exists(merged):
+#   os.remove(merged)
+# merged = cdo.cat(input = ' '.join(sorted(results)),
+#                  output =  merged)
+#
+# # compute the timmean at the end
+# timmeamMerged  = '/'.join([archdir,'TSR_2D_%s_complete_timmean.nc'%(options['EXP'])])
+# cdo.timmean(input = merged, output = timmeamMerged)
+
 
 """ filter for sorting glob results """
 def mtime(filename):
@@ -384,6 +466,42 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
 
   return onlineMeanValueDocumentName
 
+""" process model output for regio mean values """
+def processRegionMean(options,regioCodes,regioDepths,regioVars,regioMaskVar):
+  regioMeanData = {}
+  regioPool     = multiprocessing.Pool(options['PROCS'])
+  regioLock     = multiprocessing.Lock()
+
+  # create the regio mask first
+  regioMasks    = {}
+  for location, regioCode in regioCodes.iteritems():
+    ofile     = '/'.join([options['ARCHDIR'],'_'.join(['regioMask',location])+'.nc'])
+    ofileTemp = '/'.join([options['ARCHDIR'],'_'.join(['_regioMask',location])+'.nc'])
+    cdo.eqc(regioCode,input = '-selname,%s -seltimestep,1 %s'%(regioMaskVar,iFiles[0]),output = ofileTemp)
+    regioMasks[location] = cdo.div(input = '%s %s'%(ofileTemp,ofileTemp),output = ofile)
+  # create the mask from 3d mask wet_c
+  regioVertMasks    = {}
+  for depth in regioDepths:
+    depth = str(depth)
+    ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioVertMask',depth+'m'])+'.nc'])
+    regioVertMasks[depth] = cdo.sellevel(depth,input = '-div -selname,wet_c -seltimestep,1 %s -selname,wet_c -seltimestep,1 %s'%(iFiles[0],iFiles[0]),output = ofile)
+  # compute the regional mean values
+  for location, regioCode in regioCodes.iteritems():
+    regioMeanData[location] = {}
+    for depth in regioDepths:
+      regioMeanData[location][str(depth)] = {}
+      for varname in regioVars:
+        regioMeanData[location][str(depth)][varname] = {}
+        ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioMean',location,varname,str(depth)+'m'])+'.nc'])
+        regioPool.apply_async(_computeRegioMean,[depth,varname,ymFile,regioVertMasks[str(depth)],regioMasks[location],ofile,hasNewFiles])
+        regioLock.acquire()
+        regioMeanData[location][str(depth)][varname] = ofile 
+        regioLock.release()
+  regioPool.close()
+  regioPool.join()
+
+  return regioMeanData
+
 """ create a single document out of all plots """
 def createOutputDocument(plotdir,firstPage,docname,doctype,debug):
   images = glob.glob(plotdir+'/*.png')
@@ -414,6 +532,38 @@ def createOutputDocument(plotdir,firstPage,docname,doctype,debug):
     print("Unsupported document output type: %s!"%(doctype))
     return
 
+""" consistent yearmean filename """
+def yearMeanFileName(archdir,exp):
+    return  '/'.join([archdir,'_'.join([exp,'yearmean.nc'])])
+
+""" mask by devision with maskfile """
+def applyMask(ifile,maskfile,ofile):
+  return cdo.div(input = '%s %s'%(ifile,maskfile), output = ofile)
+
+""" X-Section plot """
+def plotXSection(plotConfig,options):
+  cmd = [options['ICONPLOT']]
+  for key,value in plotConfig.iteritems():
+      cmd.append('%s=%s'%(key,value))
+#       '-iFile=%s'%(t_s_rho_Output_1D),
+#       '-varName=%s'%(varname),
+#       '-oType=png',
+#       '-hov',
+#       '-rStrg="-"',
+#       '-bStrg="-"',
+#       '-lStrg=%s'%(varname),
+#       '-withLineLabels',
+#       '+withLines',
+#       '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
+#       '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
+#       '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
+#       '-colormap=BlWhRe',
+##      '-tStrg="%s"'%(title),
+#       '-oFile=%s'%(oFile)]
+#print(cmd)
+#dbg(' '.join(cmd))
+#if subprocess.check_call(' '.join(cmd),shell=True,env=os.environ):
+#  print('CMD: %s has failed!')
 
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
@@ -517,11 +667,13 @@ splitInfo = splitFilesIntoYears(LOG['filesOfYears'],
                                 options['EXP'],
                                 options['PROCS'])
 years, yearMeanFiles = [],[]
+LOG['meansOfYears'] = {}
 for _info in splitInfo:
   year,yearlyFile,yearMeanFile = _info[0], _info[1], _info[2]
   LOG[year] = yearlyFile
   years.append(year)
   yearMeanFiles.append(yearMeanFile)
+  LOG['meansOfYears'][year] = yearMeanFile
 
 years.sort()
 yearMeanFiles.sort()
@@ -530,8 +682,14 @@ LOG['splityear?'] = True
 dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
+# COMPUTE INITIAL VALUES FILES FOR LATER BIASES {{{ =====================================
+LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['ARCHDIR'],'%s_init.nc'%(options['EXP'])]))
+# }}} ===================================================================================
+# COMPUTE CELL MASK FOR LATER APPLICATION {{{ ===========================================
+LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
+# }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
-ymFile = '/'.join([options['ARCHDIR'],'_'.join([options['EXP'],'yearmean.nc'])])
+ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'])
 if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
   if (os.path.exists(ymFile)):
     os.remove(ymFile)
@@ -540,7 +698,12 @@ if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
   #map(lambda x: os.remove(x),ymFiles)
 else:
   print("Use existing ymFile: "+ymFile)
-#doExit()
+# }}} ===================================================================================
+# COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
+LOG['last30YearsMean']     = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'])),
+                                     output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
+LOG['last30YearsMeanBias'] = cdo.sub(input = ' %s %s'%(LOG['last30YearsMean'],LOG['init']),
+                                     output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
 # }}} ===================================================================================
 # PREPARE INPUT FOR PSI CALC {{{
 # collect the last 20 years if there are more than 40 years, last 10 otherwise
@@ -585,79 +748,50 @@ cdo.timmean(input = "-selname,%s -selyear,%s/%s %s"%(uvintName,years4Psi[0],year
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR REGIONAL MEANS from yearMean output {{{
 # for global grid only
-if ( 'global' == options['GRID'] ):
-  # helper for parallelization
-  def _computeRegioMean(depth,varname,ifile,vertMask,regioMask,ofile,newData):
-    # mask out region
-    # vertical interpolation to target depth
-    # mean value computaion
-    cdo.fldmean(input = '-mul -div -sellevel,%s -selname,%s %s %s %s'%(depth,varname,ifile,vertMask,regioMask),
-                output = ofile,
-                forceOutput = newData)
-
+if 'procRegio' in options['ACTIONS']:
   # setup
   regioCodes    = {'NorthAtlantic' : 4,'TropicalAtlantic' : 5, 'SouthernOcean' : 6}
   regioDepths   = [110,215,895,2200]
   regioVars     = ['t_acc','s_acc']
   regioMaskVar  = 'regio_c'
-  regioMeanData = {}
-  regioPool     = multiprocessing.Pool(options['PROCS'])
-  regioLock     = multiprocessing.Lock()
-
-  # create the regio mask first
-  regioMasks    = {}
-  for location, regioCode in regioCodes.iteritems():
-    ofile     = '/'.join([options['ARCHDIR'],'_'.join(['regioMask',location])+'.nc'])
-    ofileTemp = '/'.join([options['ARCHDIR'],'_'.join(['_regioMask',location])+'.nc'])
-    cdo.eqc(regioCode,input = '-selname,%s -seltimestep,1 %s'%(regioMaskVar,iFiles[0]),output = ofileTemp)
-    regioMasks[location] = cdo.div(input = '%s %s'%(ofileTemp,ofileTemp),output = ofile)
-  # create the mask from 3d mask wet_c
-  regioVertMasks    = {}
-  for depth in regioDepths:
-    depth = str(depth)
-    ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioVertMask',depth+'m'])+'.nc'])
-    regioVertMasks[depth] = cdo.sellevel(depth,input = '-div -selname,wet_c -seltimestep,1 %s -selname,wet_c -seltimestep,1 %s'%(iFiles[0],iFiles[0]),output = ofile)
-  # compute the regional mean values
-  for location, regioCode in regioCodes.iteritems():
-    regioMeanData[location] = {}
-    for depth in regioDepths:
-      regioMeanData[location][str(depth)] = {}
-      for varname in regioVars:
-        regioMeanData[location][str(depth)][varname] = {}
-        ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioMean',location,varname,str(depth)+'m'])+'.nc'])
-        regioPool.apply_async(_computeRegioMean,[depth,varname,ymFile,regioVertMasks[str(depth)],regioMasks[location],ofile,hasNewFiles])
-        regioLock.acquire()
-        regioMeanData[location][str(depth)][varname] = ofile 
-        regioLock.release()
-  regioPool.close()
-  regioPool.join()
+  regioMeanData = processRegionMean(options,regioCodes,regioDepths,regioVars,regioMaskVar)
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR MOC PLOT {{{
 # collect all MOC files
 dbg(options['MOCPATTERN'])
-mocFiles = sorted(glob.glob(options['MOCPATTERN']),key=mtime)
+mocFiles        = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
 # default is to take the mean value ofthe at 10 years as input for the plotscript
 # this means 120 months, with monthly output, this is 120 timesteps
 mocNeededNSteps = 120
-mocLog = {}
+mocLog          = {}
 scanFilesForTheirNTime(mocFiles,options['PROCS'],mocLog)
-dbg(mocFiles)
 dbg(mocLog)
 # check for the numbe rof timesteps in the last moc file
-mocLastNtime = int(mocLog[mocFiles[-1]])
-mocMeanFile = '/'.join([options['ARCHDIR'],'mocMean'])
+mocLastNtime    = int(mocLog[mocFiles[-1]])
+mocMeanFile     = '/'.join([options['ARCHDIR'],'mocMean'])
 if mocNeededNSteps <= mocLastNtime:
   # take the last 120 values for timmeaninput
   mocMeanFile = cdo.timmean(input = "-seltimestep,%s/%s %s"%(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
                             output = mocMeanFile)
 else:
   mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
-
 dbg(mocMeanFile)
-#TODO:
-doExit()
-
-# }}} ----------------------------------------------------------------------------------
+# }}} -----------------------------------------------------------------------------------
+# PREPARE DATA FOR T,S,RHOPOT BIAS TO INIT {{{ ------------------------------------------
+# target is a year mean files of fldmean data, but mean value computation
+# should come at the very end of the processing chain
+t_s_rho_Input_1D = []
+t_s_rho_Input_2D = []
+for year in LOG['years']:
+  t_s_rho_Input_1D.append(LOG[year])
+t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','rhopot_acc'],
+                                            LOG['init'],LOG['mask'],options['EXP'],options['ARCHDIR'],options['PROCS'])
+dbg(t_s_rho_Output_1D)
+t_s_rho_Output_2D = applyMask(' -selname,t_acc,s_acc,rhopot_acc %s'%(LOG['last30YearsMeanBias']),
+                              LOG['mask'],
+                              '/'.join([options['ARCHDIR'],'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])]))
+dbg(t_s_rho_Output_2D)
+# }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
 plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
@@ -670,7 +804,7 @@ if not os.path.exists(plotFile):
 # HORIZONTAL PLOTS: t,s,u,v,abs(velocity) {{{
 horizontalConfig = {
   'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
-  'iFile'         : LOG[LOG['years'][-2]],              # use the last COMPLETE year
+  'iFile'         : LOG[LOG['years'][-2]],              # use the last COMPLETE year #TODO: dont show monthly mean!!!
   'availableVars' : cdo.showname(input = LOG[LOG['years'][-2]])[0].split(' '),
   'sizeOpt'       : '-xsize=1200 -ysize=800',
 }
@@ -740,11 +874,11 @@ else:
 # for global grid only
 if ( 'global' == options['GRID'] ):
   for varname in ['t_acc','s_acc','rhopot_acc']:
-    # run icon_plot.ncl
+    # plot last yearmean state
     oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_'+'_'.join([options['EXP'],options['TAG']])])
-    iFile4XSection = LOG[LOG['years'][-1]] # take last yearmean file
+    iFile4XSection = LOG['meansOfYears'][LOG['years'][-2]] # take last yearmean file from a complete year
     # mask by devision
-    iFile4XSection = cdo.div(input  = '-selname,%s %s -selname,wet_c %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,iFile4XSection),
+    iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
                              output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
     if ( 'rhopot_acc' == varname ):
       # substract 1000
@@ -758,7 +892,7 @@ if ( 'global' == options['GRID'] ):
              '-secMode=circle -secLC=-45,-70 -secRC=30,80',
              '-varName=%s'%(varname),
              '-oType=png',
-             '-resolution=r180x90',
+             '-resolution=r360x180',
              '-selPoints=150',
              '-rStrg="-"',
              '-withLineLabels',
@@ -767,6 +901,28 @@ if ( 'global' == options['GRID'] ):
       dbg(' '.join(cmd))
       subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
 
+    # plot bias to initialization
+    oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
+    iFile4XSection = LOG['last30YearsMeanBias'] # take last 30 yearmean bias to init
+    # mask by devision
+    iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
+                             output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
+    if ( not os.path.exists(oFile+'.png') or options['FORCE']):
+      title = '%s: last yearmean '%(options['EXP'])
+      cmd = [options['ICONPLOT'],
+             '-iFile=%s'%(iFile4XSection),
+             '-secMode=circle -secLC=-45,-70 -secRC=30,80',
+             '-varName=%s'%(varname),
+             '-oType=png',
+             '-resolution=r360x180',
+             '-selPoints=150',
+             '-rStrg="-"',
+             '-withLineLabels',
+             '-tStrg="%s"'%(title),
+             '-oFile=%s'%(oFile)]
+      dbg(' '.join(cmd))
+      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+doExit()
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
@@ -790,7 +946,7 @@ if ( 'global' == options['GRID'] ):
 # }}} ----------------------------------------------------------------------------------
 # REGIO MEAN PROFILES {{{ ================================
 # for global grids only
-if ( 'global' == options['GRID']):
+if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
   regioPlotNames = {'t_acc' : 'Temperature','s_acc' : 'Salinity'}
   for location, regioCode in regioCodes.iteritems():
     for varname in regioVars:
@@ -821,6 +977,84 @@ if ( 'global' == options['GRID']):
                               '/'.join([options['PLOTDIR'],'_'.join(['regioMean',location,varname,options['EXP'],options['TAG']+'.png'])])) 
 # }}} ----------------------------------------------------------------------------------
 # MOC PLOT {{{
+mocPlotCmd = '%s %s'%(options['MOCPLOTTER'],mocMeanFile)
+mocPlotSetup = {
+  'TITLE' : 'ICON: %s : MOC : %s'%(options['EXP'],mocFiles[-1]),
+  'IFILE' : mocMeanFile,
+  'OFILE' : '/'.join([options['PLOTDIR'],'MOC_%s'%(options['EXP'])]),
+  'OTYPE' : 'png',
+}
+for k,v in mocPlotSetup.iteritems():
+  os.environ[k] = v
+if subprocess.check_call(mocPlotCmd,shell=True,env=os.environ):
+  print("ERROR: MOCPLOT failed")
+# environment cleanup
+for k in mocPlotSetup.keys():
+  os.environ.pop(k)
+# }}} ----------------------------------------------------------------------------------
+# T S RHOPOT BIAS PLOT {{{
+# global mean bias over depth and time
+t_s_rho_PlotSetup = {
+  't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
+  's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
+  'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
+}
+for varname in t_s_rho_PlotSetup.keys():
+  oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_inDepth_overTime'+'_'.join([options['EXP'],options['TAG']])])
+  #if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
+  title = '%s: %s bias to init '%(options['EXP'],varname)
+  cmd = [options['ICONPLOT'],
+         '-iFile=%s'%(t_s_rho_Output_1D),
+         '-varName=%s'%(varname),
+         '-oType=png',
+         '-hov',
+         '-rStrg="-"',
+         '-bStrg="-"',
+         '-lStrg=%s'%(varname),
+#        '-withLineLabels',
+         '+withLines',
+         '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
+         '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
+         '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
+         '-colormap=BlWhRe',
+  #      '-tStrg="%s"'%(title),
+         '-oFile=%s'%(oFile)]
+  print(cmd)
+  dbg(' '.join(cmd))
+  if subprocess.check_call(' '.join(cmd),shell=True,env=os.environ):
+    print('CMD: %s has failed!')
+
+# surface bias of the last 30 year mean
+horizontalConfig = {
+  'varNames'      : ['t_acc','s_acc'],
+  'iFile'         : t_s_rho_Output_2D,
+  'availableVars' : cdo.showname(input = t_s_rho_Output_2D)[0].split(' '),
+  'sizeOpt'       : '-xsize=1200 -ysize=800',
+}
+for varname in horizontalConfig['varNames']:
+  if ( varname in horizontalConfig['availableVars'] ):
+    # surface plot
+    oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_atSurface_last30YearsMean'+'_'.join([options['EXP'],options['TAG']])])
+    if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
+      title = '%s: 30 year mean surface bias to init'%(options['EXP'])
+      cmd = [options['ICONPLOT'],
+             '-isIcon',
+             '-iFile=%s'%(horizontalConfig['iFile']),
+             '-varName=%s'%(varname),
+             '-oType=png',horizontalConfig['sizeOpt'],
+             '-rStrg="-"',
+             '-withLineLabels',
+             '-tStrg="%s"'%(title),
+             '-oFile=%s'%(oFile)]
+      if ( 'box' == options['GRID'] ):
+        cmd.append('-limitMap')
+        cmd.append('+mapLine')
+      elif ('chanel' == options['GRID']):
+        cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
+      else:
+        cmd.append('')
+      dbg(' '.join(cmd))
+      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
 # }}} ----------------------------------------------------------------------------------
 # FINAL DOCUMENT CREATION {{{ ===========================================================
 createOutputDocument(options['PLOTDIR'],diagnosticTable,'_'.join(['ALL',options['EXP'],options['TAG']]),options['DOCTYPE'],options['DEBUG'])
