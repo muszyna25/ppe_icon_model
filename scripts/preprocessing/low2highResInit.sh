@@ -17,7 +17,7 @@ timemeanFileName=timmean_$(basename ${ifileLowRes})
 cdo chname,t_acc,T,s_acc,S,h_acc,h -timmean -selname,t_acc,s_acc,h_acc ${ifileLowRes} ${timemeanFileName}
 # put data in an intermediate lonlat grid
 intermediateLonLatFileName=${intermediatLonLatResolution}_${timemeanFileName}
-cdo -P 24 -remapycon,r720x360 ${timemeanFileName} ${intermediateLonLatFileName}
+cdo -P 24 -remapycon,${intermediatLonLatResolution} ${timemeanFileName} ${intermediateLonLatFileName}
 # fill the missing values with some interpolated data
 nomissFileName=nomiss_${intermediateLonLatFileName}
 cdo fillmiss2 ${intermediateLonLatFileName} ${nomissFileName}
