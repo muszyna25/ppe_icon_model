@@ -45,7 +45,7 @@ def parseOptions():
               'CALCPSI'     : '../../scripts/postprocessing/tools/calc_psi.py',
               'TAG'         : 'r1xxxx',                    # addition revision information
 #             'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools',
-              'ICONPLOT'    : 'nclsh /scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/icon_plot.ncl -altLibDir=/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools -remapOperator=remapcon',
+              'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools -remapOperator=remapycon',
               'PROCS'       : 8,                           # number of threads/procs to be used for parallel operations
               'JOBISRUNNING': True,                        # avoid the last output file/result year by default
               # optional stuff
@@ -54,8 +54,8 @@ def parseOptions():
 #              'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               'MOCPLOTTER'  : '/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
-              'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
+              'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
+#             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
              }
 
   optsGiven = sys.argv[1:]
@@ -269,10 +269,11 @@ def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
   merged = cdo.cat(input = ' '.join(sorted(results)),
                    output =  merged)
 
-  if subprocess.check_call("ncrename -d depth_2,depth -v depth_2,depth -O %s"%(merged),shell=True,env=os.environ):
+  # rename vertical axis if present - ignore exit status (return code differs depending on the ncp version)
+  if subprocess.call("ncrename -d depth_2,depth -v depth_2,depth -O %s"%(merged),shell=True,env=os.environ):
     print("ERROR: ncrename failed")
     print("ERROR: ncrename -d depth_2,depth -v depth_2,depth_2 -O %s"%(merged))
-    exit(1)
+#   exit(1)
 
   return merged
 
@@ -688,6 +689,9 @@ LOG['init'] = cdo.seltimestep(1,input =  iFiles[0], output = '/'.join([options['
 # COMPUTE CELL MASK FOR LATER APPLICATION {{{ ===========================================
 LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), output = '/'.join([options['ARCHDIR'],'%s_mask.nc'%(options['EXP'])]))
 # }}} ===================================================================================
+# COMPUTE NUMBER OF VERTICAL LEVELS {{{ =================================================
+LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
+# }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
 ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'])
 if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
@@ -751,15 +755,30 @@ cdo.timmean(input = "-selname,%s -selyear,%s/%s %s"%(uvintName,years4Psi[0],year
 if 'procRegio' in options['ACTIONS']:
   # setup
   regioCodes    = {'NorthAtlantic' : 4,'TropicalAtlantic' : 5, 'SouthernOcean' : 6}
-  regioDepths   = [110,215,895,2200]
+  if 20 == len(LOG['depths']):
+    regioDepths   = [110,215,895,2200]
+  elif 40 == len(LOG['depths']):
+    regioDepths   = [100,220,960,2290]
+
+  else:
+    regioDepths = [LOG['depths'][0],
+                   LOG['depths'][len(LOG['depths'])/4],
+                   LOG['depths'][len(LOG['depths'])/2],
+                   LOG['depths'][len(LOG['depths'])-1]]
   regioVars     = ['t_acc','s_acc']
   regioMaskVar  = 'regio_c'
+  dbg(regioDepths)
+  dbg(LOG['depths'])
+  dbg(len(LOG['depths']))
   regioMeanData = processRegionMean(options,regioCodes,regioDepths,regioVars,regioMaskVar)
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR MOC PLOT {{{
 # collect all MOC files
 dbg(options['MOCPATTERN'])
 mocFiles        = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
+# skip the last one if job is still running
+if options['JOBISRUNNING']:
+  mocFiles.pop()
 # default is to take the mean value ofthe at 10 years as input for the plotscript
 # this means 120 months, with monthly output, this is 120 timesteps
 mocNeededNSteps = 120
@@ -922,7 +941,7 @@ if ( 'global' == options['GRID'] ):
              '-oFile=%s'%(oFile)]
       dbg(' '.join(cmd))
       subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-doExit()
+#doExit()
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
@@ -991,6 +1010,7 @@ if subprocess.check_call(mocPlotCmd,shell=True,env=os.environ):
 # environment cleanup
 for k in mocPlotSetup.keys():
   os.environ.pop(k)
+doExit()
 # }}} ----------------------------------------------------------------------------------
 # T S RHOPOT BIAS PLOT {{{
 # global mean bias over depth and time
