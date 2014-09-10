@@ -44,15 +44,13 @@ def parseOptions():
                               # the psi processor/plotter
               'CALCPSI'     : '../../scripts/postprocessing/tools/calc_psi.py',
               'TAG'         : 'r1xxxx',                    # addition revision information
-#             'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools',
               'ICONPLOT'    : 'nclsh ../../scripts/postprocessing/tools/icon_plot.ncl -altLibDir=../../scripts/postprocessing/tools -remapOperator=remapycon',
               'PROCS'       : 8,                           # number of threads/procs to be used for parallel operations
               'JOBISRUNNING': True,                        # avoid the last output file/result year by default
               # optional stuff
               'DRYRUN'      : False,                       # with this set to true, the model output is scanned for containing years, only
               'MOCPATTERN'  : 'MOC.*',
-#              'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
-              'MOCPLOTTER'  : '/scratch/mpi/CC/mh0287/users/m300064/builds/remote/icon/gcc/icon-ocean_diagnostics/scripts/postprocessing/tools/calc_moc.ksh',
+              'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
               'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
@@ -788,6 +786,8 @@ dbg(mocLog)
 # check for the numbe rof timesteps in the last moc file
 mocLastNtime    = int(mocLog[mocFiles[-1]])
 mocMeanFile     = '/'.join([options['ARCHDIR'],'mocMean'])
+if ( os.path.exists(mocMeanFile) ):
+    os.remove(mocMeanFile)
 if mocNeededNSteps <= mocLastNtime:
   # take the last 120 values for timmeaninput
   mocMeanFile = cdo.timmean(input = "-seltimestep,%s/%s %s"%(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
@@ -981,16 +981,19 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
         title = '%s at %s: %s [%s,%s]'%(location,str(depth)+'m',varname,options['EXP'],options['TAG'])
         ofile = '/'.join([options['ARCHDIR'],'_'.join(['.regioMean',location,varname,str(depth)+'m',options['EXP'],options['TAG']])+'.png'])
 
-        unit  = cdo.showunit(input = ifile)[0]
+        if ( not os.path.exists(ofile) ):
+          unit  = cdo.showunit(input = ifile)[0]
 
-        pylab.title(title,fontsize=9)
-        pylab.grid()
-        pylab.xlabel("Years")
-        pylab.ylabel('%s [%s]'%(regioPlotNames[varname],unit))
-        pylab.plot_date(dates, data, linestyle='-',marker='.')  
-        pylab.savefig(ofile)
+          pylab.title(title,fontsize=9)
+          pylab.grid()
+          pylab.xlabel("Years")
+          pylab.ylabel('%s [%s]'%(regioPlotNames[varname],unit))
+          pylab.plot_date(dates, data, linestyle='-',marker='.')  
+          pylab.savefig(ofile)
+          pylab.clf()
+
         imageCollection.append(ofile)
-        pylab.clf()
+
       collectImageToMapByRows(imageCollection,
                               2,
                               '/'.join([options['PLOTDIR'],'_'.join(['regioMean',location,varname,options['EXP'],options['TAG']+'.png'])])) 
@@ -1010,7 +1013,7 @@ if subprocess.check_call(mocPlotCmd,shell=True,env=os.environ):
 # environment cleanup
 for k in mocPlotSetup.keys():
   os.environ.pop(k)
-doExit()
+#doExit()
 # }}} ----------------------------------------------------------------------------------
 # T S RHOPOT BIAS PLOT {{{
 # global mean bias over depth and time
