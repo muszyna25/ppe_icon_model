@@ -167,10 +167,11 @@ MODULE mo_nwp_phy_types
       &  clch(:,:),            & !! cloud cover of high-level clouds
       &  clcm(:,:),            & !! cloud cover of mid-level clouds
       &  clcl(:,:),            & !! cloud cover of low-level clouds
+      &  cldepth(:,:),         & !! modified cloud depth for media
       &  hbas_con(:,:),        & !! height of base of convection [m]
       &  htop_con(:,:),        & !! height of top of convection [m]
       &  htop_dc(:,:),         & !! height above msl of the top of dry convection [m]
-      &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
+      &  tot_cld(:,:,:,:),     & !! total cloud variables (qv,qc,qi)
       &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (qv,qc,qi), including vertical 
                                  !! integrals of qr and qs 
       &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 

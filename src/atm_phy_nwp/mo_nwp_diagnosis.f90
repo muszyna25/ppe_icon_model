@@ -844,6 +844,7 @@ CONTAINS
   !! - height of convection base and top: hbas_con, htop_con
   !! - height of the top of dry convection: htop_dc
   !! - height of 0 deg C level: hzerocl
+  !! - cldepth: modified cloud depth for media
   !! - t_ice is filled with t_so(0) for non-ice points (h_ice=0)
   !! - instantaneous 10m wind speed (resolved scales)
   !!
@@ -1027,6 +1028,29 @@ CONTAINS
           END IF
         ENDDO
       ENDDO
+
+
+      ! 
+      ! modified cloud depth for media
+      !
+      ! calculation of the normalized cloud depth 'cldepth' as a modified cloud parameter 
+      ! for TV presentation. The vertical integral of cloud cover in pressure units is 
+      ! normalized by 700hPa. Thus, cldepth=1 for a cloud extending vertically over a 
+      ! range of 700 hPa. Only used for visualization purpose (i.e. gray-scale pictures)
+      !
+      prm_diag%cldepth(i_startidx:i_endidx,jb) = 0._wp
+      DO jk=1, nlev
+        DO jc = i_startidx, i_endidx 
+           prm_diag%cldepth(jc,jb) = prm_diag%cldepth(jc,jb)   & 
+             &                     + prm_diag%clc(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
+        ENDDO  ! jc
+      ENDDO  ! jk
+      !
+      ! Normalize:
+      DO jc = i_startidx, i_endidx 
+        prm_diag%cldepth(jc,jb) = MIN(1._wp,prm_diag%cldepth(jc,jb)/700.E2_wp)
+      ENDDO
+
 
 
       ! Fill t_ice with t_so(1) for ice-free points (h_ice<=0)

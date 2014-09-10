@@ -750,6 +750,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & post_op=post_op(POST_OP_SCALE, arg1=100._wp,                          &
       &                 new_cf=new_cf_desc))
 
+    ! &      diag%cldepth(nproma,nblks_c)
+    cf_desc      = t_cf_var('cldepth', '',  'modified cloud depth for media', DATATYPE_FLT32)
+    grib2_desc   = t_grib2_var(0, 6, 198, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'cldepth', diag%cldepth,                         &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+      & ldims=shape2d, lrestart=.FALSE.,                                      &
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ))
+
 
     ! &      diag%hbas_con(nproma,nblks_c)
     cf_desc    = t_cf_var('hbas_con', 'm', 'height_of_convective_cloud_base', DATATYPE_FLT32)
