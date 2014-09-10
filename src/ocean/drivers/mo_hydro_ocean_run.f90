@@ -378,6 +378,7 @@ CONTAINS
     ! prognostics variables. Unfortunately, the initialization has to be written
     ! to the nold state. That's why the following manual copying is nec.
     ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
+    ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
       ! copy old tracer values to spot value fields for propper initial timestep
       ! output
     IF(no_tracer>=1)THEN
