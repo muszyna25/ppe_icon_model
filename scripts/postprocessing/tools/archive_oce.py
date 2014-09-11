@@ -52,7 +52,7 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
+              'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotMoc,plotTSR',#,plotPsi,finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
              }
 
@@ -321,9 +321,9 @@ def mtime(filename):
 """ create images form 1d txt output """
 def plotOnlineDiagnostics(diagnosticFiles,options):
   plots                       = []
-  onlineMeanValueFileName     = options['ARCHDIR']+'/TS_last10YearMean.txt'
+  onlineMeanValueFileName     = options['ARCHDIR']+'/TS_last10YearMean_%s.txt'%(options['EXP'])
   onlineMeanValueFile         = open(onlineMeanValueFileName, 'w')
-  onlineMeanValueDocumentName = options['PLOTDIR']+'/TS_last10YearMean.pdf'
+  onlineMeanValueDocumentName = options['PLOTDIR']+'/TS_last10YearMean_%s.pdf'%(options['EXP'])
   # cat all diagnostics together
   diagnosticJoined = options['ARCHDIR']+'/'+'_'.join([options['EXP'],"diagnostics.txt"])
   dbg(diagnosticFiles)
@@ -377,6 +377,10 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
 
   dates = all_diag[dateIndex]
   dates = map(dateutil.parser.parse,dates[1:-1])
+  lastCompleteYear = dates[-1].year - 1
+  dbg("Online diagnostics:")
+  dbg("lastCompleteYear:")
+  dbg(lastCompleteYear)
 
   # write mean values to txt file
   # start with head row
@@ -391,7 +395,8 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
     last10YearsDates  = []
     last10YearsValues = []
     for i,date in enumerate(dates):
-      if str(date.year) in LOG['years'][-11:-1]:
+      if (lastCompleteYear - 10 < date.year) and (date.year <= lastCompleteYear):
+        #dbg(date)
         last10YearsDates.append(date)
         if column in passages:
           last10YearsValues.append(values[i]/1E+9)
@@ -532,8 +537,8 @@ def createOutputDocument(plotdir,firstPage,docname,doctype,debug):
     return
 
 """ consistent yearmean filename """
-def yearMeanFileName(archdir,exp):
-    return  '/'.join([archdir,'_'.join([exp,'yearmean.nc'])])
+def yearMeanFileName(archdir,exp,firstYear,lastYear):
+    return  '/'.join([archdir,'_'.join([exp,'%s-%s'%(firstYear,lastYear),'yearmean.nc'])])
 
 """ mask by devision with maskfile """
 def applyMask(ifile,maskfile,ofile):
@@ -691,7 +696,7 @@ LOG['mask'] = cdo.selname('wet_c',input = '-seltimestep,1 %s'%(iFiles[0]), outpu
 LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 # }}} ===================================================================================
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
-ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'])
+ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])
 if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
   if (os.path.exists(ymFile)):
     os.remove(ymFile)
@@ -702,7 +707,7 @@ else:
   print("Use existing ymFile: "+ymFile)
 # }}} ===================================================================================
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
-LOG['last30YearsMean']     = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'])),
+LOG['last30YearsMean']     = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])),
                                      output = '%s/last30YearsMean_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
 LOG['last30YearsMeanBias'] = cdo.sub(input = ' %s %s'%(LOG['last30YearsMean'],LOG['init']),
                                      output = '%s/last30YearsMeanBias_%s_%s-%s.nc'%(options['ARCHDIR'],options['EXP'],LOG['years'][-32],LOG['years'][-2]))
@@ -813,12 +818,13 @@ dbg(t_s_rho_Output_2D)
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
-plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
-if not os.path.exists(plotFile):
-  cmd = '%s %s %s'%(options['CALCPSI'], uvintFile, "LEVELS=20 AREA=%s PLOT=%s"%(options['GRID'],plotFile))
-  dbg(cmd)
-  if subprocess.check_call(cmd,shell=True,env=os.environ):
-    print("ERROR: CALCPSI failed")
+if 'plotPsi' in options['ACTIONS']:
+  plotFile = options['PLOTDIR']+'/'+"_".join(["psi",yearInfo,options['EXP'],options['TAG']+'.png'])
+  if not os.path.exists(plotFile):
+    cmd = '%s %s %s'%(options['CALCPSI'], uvintFile, "LEVELS=20 AREA=%s PLOT=%s"%(options['GRID'],plotFile))
+    dbg(cmd)
+    if subprocess.check_call(cmd,shell=True,env=os.environ):
+      print("ERROR: CALCPSI failed")
 # }}} ----------------------------------------------------------------------------------
 # HORIZONTAL PLOTS: t,s,u,v,abs(velocity) {{{
 horizontalConfig = {
@@ -885,63 +891,65 @@ for varname in horizontalConfig['varNames']:
 # for global grid only
 if ( 'global' == options['GRID'] ):
   diagnosticFiles = sorted(glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"])),key=mtime)
+  if options['JOBISRUNNING']:
+    diagnosticFiles.pop()
   diagnosticTable = plotOnlineDiagnostics(diagnosticFiles,options)
 else:
   diagnosticTable = ''
 # }}} ----------------------------------------------------------------------------------
 # ATLANTIC X-Section: t,s,rhopot  {{{ ================================
 # for global grid only
-if ( 'global' == options['GRID'] ):
-  for varname in ['t_acc','s_acc','rhopot_acc']:
-    # plot last yearmean state
-    oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_'+'_'.join([options['EXP'],options['TAG']])])
-    iFile4XSection = LOG['meansOfYears'][LOG['years'][-2]] # take last yearmean file from a complete year
-    # mask by devision
-    iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
-                             output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
-    if ( 'rhopot_acc' == varname ):
-      # substract 1000
-      iFile4XSection  = cdo.subc(1000.0,
-                                 input = '-selname,%s %s'%(varname,iFile4XSection),
-                                 output = os.path.splitext(iFile4XSection)[0]+'_%s_subc1000.nc'%(varname))
-    if ( not os.path.exists(oFile+'.png') or options['FORCE']):
-      title = '%s: last yearmean '%(options['EXP'])
-      cmd = [options['ICONPLOT'],
-             '-iFile=%s'%(iFile4XSection),
-             '-secMode=circle -secLC=-45,-70 -secRC=30,80',
-             '-varName=%s'%(varname),
-             '-oType=png',
-             '-resolution=r360x180',
-             '-selPoints=150',
-             '-rStrg="-"',
-             '-withLineLabels',
-             '-tStrg="%s"'%(title),
-             '-oFile=%s'%(oFile)]
-      dbg(' '.join(cmd))
-      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+if 'plotX' in options['ACTIONS']:
+  if ( 'global' == options['GRID'] ):
+    for varname in ['t_acc','s_acc','rhopot_acc']:
+      # plot last yearmean state
+      oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_'+'_'.join([options['EXP'],options['TAG']])])
+      iFile4XSection = LOG['last30YearsMean'] # take last 30 year mean file
+      # mask by devision
+      iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
+                               output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
+      if ( 'rhopot_acc' == varname ):
+        # substract 1000
+        iFile4XSection  = cdo.subc(1000.0,
+                                   input = '-selname,%s %s'%(varname,iFile4XSection),
+                                   output = os.path.splitext(iFile4XSection)[0]+'_%s_subc1000.nc'%(varname))
+      if ( not os.path.exists(oFile+'.png') or options['FORCE']):
+        title = '%s: last 30 year mean '%(options['EXP'])
+        cmd = [options['ICONPLOT'],
+               '-iFile=%s'%(iFile4XSection),
+               '-secMode=circle -secLC=-45,-70 -secRC=30,80',
+               '-varName=%s'%(varname),
+               '-oType=png',
+               '-resolution=r360x180',
+               '-selPoints=150',
+               '-rStrg="-"',
+               '-withLineLabels',
+               '-tStrg="%s"'%(title),
+               '-oFile=%s'%(oFile)]
+        dbg(' '.join(cmd))
+        subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
 
-    # plot bias to initialization
-    oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
-    iFile4XSection = LOG['last30YearsMeanBias'] # take last 30 yearmean bias to init
-    # mask by devision
-    iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
-                             output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
-    if ( not os.path.exists(oFile+'.png') or options['FORCE']):
-      title = '%s: last yearmean '%(options['EXP'])
-      cmd = [options['ICONPLOT'],
-             '-iFile=%s'%(iFile4XSection),
-             '-secMode=circle -secLC=-45,-70 -secRC=30,80',
-             '-varName=%s'%(varname),
-             '-oType=png',
-             '-resolution=r360x180',
-             '-selPoints=150',
-             '-rStrg="-"',
-             '-withLineLabels',
-             '-tStrg="%s"'%(title),
-             '-oFile=%s'%(oFile)]
-      dbg(' '.join(cmd))
-      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-#doExit()
+      # plot bias to initialization
+      oFile = '/'.join([options['PLOTDIR'],varname+'_AtlanticProfile_BiasToInit'+'_'.join([options['EXP'],options['TAG']])])
+      iFile4XSection = LOG['last30YearsMeanBias'] # take last 30 yearmean bias to init
+      # mask by devision
+      iFile4XSection = cdo.div(input  = '-selname,%s %s %s'%(','.join(['t_acc','s_acc','rhopot_acc']),iFile4XSection,LOG['mask']),
+                               output =  os.path.splitext(iFile4XSection)[0]+'_masked.nc')
+      if ( not os.path.exists(oFile+'.png') or options['FORCE']):
+        title = '%s: last 30 year mean bias to init '%(options['EXP'])
+        cmd = [options['ICONPLOT'],
+               '-iFile=%s'%(iFile4XSection),
+               '-secMode=circle -secLC=-45,-70 -secRC=30,80',
+               '-varName=%s'%(varname),
+               '-oType=png',
+               '-resolution=r360x180',
+               '-selPoints=150',
+               '-rStrg="-"',
+               '-withLineLabels',
+               '-tStrg="%s"'%(title),
+               '-oFile=%s'%(oFile)]
+        dbg(' '.join(cmd))
+        subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
@@ -1001,7 +1009,7 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
 # MOC PLOT {{{
 mocPlotCmd = '%s %s'%(options['MOCPLOTTER'],mocMeanFile)
 mocPlotSetup = {
-  'TITLE' : 'ICON: %s : MOC : %s'%(options['EXP'],mocFiles[-1]),
+  'TITLE' : 'ICON: %s : MOC : %s %s'%(options['EXP'],mocFiles[-1],'[last 10y mean]'),
   'IFILE' : mocMeanFile,
   'OFILE' : '/'.join([options['PLOTDIR'],'MOC_%s'%(options['EXP'])]),
   'OTYPE' : 'png',
@@ -1080,7 +1088,8 @@ for varname in horizontalConfig['varNames']:
       subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
 # }}} ----------------------------------------------------------------------------------
 # FINAL DOCUMENT CREATION {{{ ===========================================================
-createOutputDocument(options['PLOTDIR'],diagnosticTable,'_'.join(['ALL',options['EXP'],options['TAG']]),options['DOCTYPE'],options['DEBUG'])
+if 'finalDoc' in options['ACTIONS']:
+  createOutputDocument(options['PLOTDIR'],diagnosticTable,'_'.join(['ALL',options['EXP'],options['TAG']]),options['DOCTYPE'],options['DEBUG'])
 # }}} ----------------------------------------------------------------------------------
 #
 #
