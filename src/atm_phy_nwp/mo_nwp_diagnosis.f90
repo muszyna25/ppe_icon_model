@@ -40,9 +40,7 @@ MODULE mo_nwp_diagnosis
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
-                                   iqni, iqni_nuc, iqg, iqh, iqnr, iqns,&
-                                   iqng, iqnh, iqnc, inccn, ininpot, ininact, &
-                                   iqm_max    
+                                   iqni, iqg, iqh, iqnc, iqm_max    
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
@@ -58,6 +56,7 @@ MODULE mo_nwp_diagnosis
   USE mo_datetime,           ONLY: date_to_time, rdaylen
   USE mo_time_config,        ONLY: time_config
   USE mo_exception,          ONLY: finish
+  USE mo_math_constants,     ONLY: pi
 
   IMPLICIT NONE
 
@@ -836,15 +835,16 @@ CONTAINS
   !>
   !! Diagnostics which are only required for output
   !!
-  !! Diagnostics which are only required for output. Should contain all 
-  !! those computations which are purely diagnostic and only required for 
+  !! Diagnostics which are only required for output. Gathers  
+  !! computations which are purely diagnostic and only required for 
   !! (meteogram) output.
   !!
   !! Available diagnostics:
   !! - height of convection base and top: hbas_con, htop_con
   !! - height of the top of dry convection: htop_dc
   !! - height of 0 deg C level: hzerocl
-  !! - cldepth: modified cloud depth for media
+  !! - CLDEPTH: modified cloud depth for media
+  !! - CLCT_MOD: modified total cloud cover (between 0 and 1) 
   !! - t_ice is filled with t_so(0) for non-ice points (h_ice=0)
   !! - instantaneous 10m wind speed (resolved scales)
   !!
@@ -1030,27 +1030,6 @@ CONTAINS
       ENDDO
 
 
-      ! 
-      ! modified cloud depth for media
-      !
-      ! calculation of the normalized cloud depth 'cldepth' as a modified cloud parameter 
-      ! for TV presentation. The vertical integral of cloud cover in pressure units is 
-      ! normalized by 700hPa. Thus, cldepth=1 for a cloud extending vertically over a 
-      ! range of 700 hPa. Only used for visualization purpose (i.e. gray-scale pictures)
-      !
-      prm_diag%cldepth(i_startidx:i_endidx,jb) = 0._wp
-      DO jk=1, nlev
-        DO jc = i_startidx, i_endidx 
-           prm_diag%cldepth(jc,jb) = prm_diag%cldepth(jc,jb)   & 
-             &                     + prm_diag%clc(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
-        ENDDO  ! jc
-      ENDDO  ! jk
-      !
-      ! Normalize:
-      DO jc = i_startidx, i_endidx 
-        prm_diag%cldepth(jc,jb) = MIN(1._wp,prm_diag%cldepth(jc,jb)/700.E2_wp)
-      ENDDO
-
 
 
       ! Fill t_ice with t_so(1) for ice-free points (h_ice<=0)
@@ -1114,8 +1093,199 @@ CONTAINS
 !$OMP END PARALLEL  
     ww_datetime(jg) = time_config%cur_datetime
 
+    ! compute modified cloud parameters for TV presentation
+    CALL calcmod( pt_patch, pt_diag, prm_diag )
 
   END SUBROUTINE nwp_diag_for_output
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Calculates modified cloud parameters for TV presentation.
+  !!
+  !! Calculates modified cloud parameters for TV presentation, namely
+  !! CLDEPTH : modified cloud depth (scaled between 0 and 1)
+  !! CLCT_MOD: modified total cloud cover (between 0 and 1) 
+  !! 
+  !! Both quantities are derived from the cloud cover "clc" on each
+  !! model layer by neglecting cirrus clouds if they are the only
+  !! clouds at this grid point. The reason for this treatment is that
+  !! the general public does not regard transparent cirrus clouds as
+  !! "real" clouds.
+  !!
+  !! @par Revision History
+  !! Developed by D. Majewski, DWD (2004).
+  !! Modification by Daniel Reinert, DWD (2014-09-10)
+  !! - Adapted to and implemented into ICON
+  !!
+  !!
+  SUBROUTINE calcmod( pt_patch, pt_diag, prm_diag )    
+              
+    TYPE(t_patch)       ,INTENT(IN)   :: pt_patch  !<grid/patch info.
+    TYPE(t_nh_diag)     ,INTENT(IN)   :: pt_diag
+    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
+
+    ! Local
+    INTEGER :: jc,jk,jb                !< loop index
+    INTEGER :: nlev                    !< number of full levels
+    INTEGER :: nlevp1                  !< number of half levels
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk    !> blocks
+    INTEGER :: i_startidx, i_endidx    !< slices
+    INTEGER :: i_nchdom                !< domain index
+
+    INTEGER :: jk_top, jk_bot         !< start and end level for linear interpolation
+    INTEGER :: iclbas(nproma)         !< base level of significant cloudiness
+    REAL(wp):: p_clbas(nproma)        !< pressure (Pa) at base of significant cloudiness
+    REAL(wp):: zred                   !< cloud cover reduction factor
+
+    REAL(wp), PARAMETER :: p_clbas_min = 200.0E2_wp ! lower bound for reduction factor
+    REAL(wp), PARAMETER :: p_clbas_max = 600.0E2_wp ! upper bound for reduction factor
+    REAL(wp), PARAMETER :: clct_min    = 0.5_wp     ! threshold for significant cloudiness
+
+  !--------------------------------------------------------------------
+
+    i_nchdom  = MAX(1,pt_patch%n_childdom)
+
+    ! number of vertical levels
+    nlev   = pt_patch%nlev
+    nlevp1 = pt_patch%nlevp1
+
+    ! exclude nest boundary interpolation zone
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,jk_top,jk_bot,iclbas,p_clbas,zred) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+      !
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+      ! 
+      ! modified cloud depth for media
+      !
+      ! calculation of the normalized cloud depth 'cldepth' as a modified cloud parameter 
+      ! for TV presentation. The vertical integral of cloud cover in pressure units is 
+      ! normalized by 700hPa. Thus, cldepth=1 for a cloud extending vertically over a 
+      ! range of 700 hPa. Only used for visualization purpose (i.e. gray-scale pictures)
+      !
+      prm_diag%cldepth(i_startidx:i_endidx,jb) = 0._wp
+      !
+      DO jk=1, nlev
+        DO jc = i_startidx, i_endidx 
+           prm_diag%cldepth(jc,jb) = prm_diag%cldepth(jc,jb)   & 
+             &                     + prm_diag%clc(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
+        ENDDO  ! jc
+      ENDDO  ! jk
+      !
+      ! Normalize:
+      DO jc = i_startidx, i_endidx 
+        prm_diag%cldepth(jc,jb) = MIN(1._wp,prm_diag%cldepth(jc,jb)/700.E2_wp)
+      ENDDO
+
+
+      !
+      ! modified total cloud cover for media
+      !
+      ! do not take high clouds into account, if they are the only clouds present 
+      ! at this grid point. The computation of the cloud cover uses maximum overlapping. 
+      !
+      ! initialize
+      prm_diag%clct_mod(i_startidx:i_endidx,jb) = 0._wp  ! modified cloud cover
+      p_clbas(i_startidx:i_endidx)              = 0._wp  ! pressure at base of significant cloudiness
+      iclbas(i_startidx:i_endidx)               = 1      ! level at base of significant cloudiness
+
+      ! Determine base level of significant cloudiness
+      ! Cloudiness is assumed to be significant, if clc>clct_min (=0.5)
+      ! If there is no significant cloudiness within a column: iclbas = 1
+      DO jk=1, nlev
+        DO jc = i_startidx, i_endidx 
+          IF ( prm_diag%clc(jc,jk,jb) >= clct_min ) THEN
+            ! half-level index at base of significant cloudiness
+            iclbas(jc) = jk+1
+          ENDIF
+        ENDDO  ! jc
+      ENDDO  ! jk
+
+
+      ! compute pressure at base of significant cloudiness, i.e. pressure at 
+      ! height where clct_min is reached (linear interpolation is performed 
+      ! between pressure at upper and lower main level)
+      !
+      ! setup for linear interpolation
+      ! |
+      ! |--------------------------------------
+      ! |
+      ! |               X  pres(jk_top); clc >= 0.5
+      ! |
+      ! |------------ iclbas -------------------
+      ! |
+      ! |               X  pres(jk_bot); clc < 0.5
+      ! |
+      ! |--------------------------------------
+      !
+      DO jc = i_startidx, i_endidx
+        IF (iclbas(jc) == 1) THEN     ! no cloud at this grid point
+          p_clbas(jc) = 0._wp
+        ELSE IF (iclbas(jc) == nlevp1) THEN  ! set to surface pressure
+          p_clbas(jc) = pt_diag%pres_ifc(jc,nlevp1,jb)
+        ELSE                          ! Interpolate base pressure
+          jk_top = iclbas(jc) - 1
+          jk_bot = iclbas(jc)
+          p_clbas(jc) = (prm_diag%clc(jc,jk_top,jb) - clct_min) &
+            &         / MAX(0.001_wp,prm_diag%clc(jc,jk_top,jb) - prm_diag%clc(jc,jk_bot,jb)) &
+            &         * (pt_diag%pres(jc,jk_bot,jb) - pt_diag%pres(jc,jk_top,jb))  &
+            &         + pt_diag%pres(jc,jk_top,jb)
+        ENDIF
+      ENDDO
+
+      ! compute cloud cover using maximum overlapping
+      DO jk = 1,nlev
+        DO jc = i_startidx, i_endidx
+          prm_diag%clct_mod(jc,jb) = MAX (prm_diag%clct_mod(jc,jb), prm_diag%clc(jc,jk,jb))
+        ENDDO
+      ENDDO  ! jk
+
+      ! Compute the modified total cloud cover; do not take the high clouds
+      ! into account if they are the only clouds present at this grid
+      ! point
+      !
+      !
+      ! Profile of the reduction factor
+      ! |
+      ! |      zred = 0
+      ! |
+      ! |----------- 200 hPa -------------
+      ! |
+      ! |      zred = COS (0.5*pi*(...)/(...))
+      ! |
+      ! |----------- 600 hPa -------------
+      ! |
+      ! |      zred = 1
+      ! |__________________________________>
+
+      DO jc = i_startidx, i_endidx
+        zred = 1._wp
+        IF (p_clbas(jc) < p_clbas_min) THEN
+          zred  = 0._wp
+        ELSE IF (p_clbas(jc) < p_clbas_max) THEN
+          zred  = MAX (0._wp, COS(0.5_wp*pi/(p_clbas_min - p_clbas_max)  &
+            &     * (p_clbas(jc) - p_clbas_max)) )
+        ENDIF
+        prm_diag%clct_mod(jc,jb) = zred * prm_diag%clct_mod(jc,jb)
+      ENDDO  ! jc
+
+
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE calcmod
 
 
   !-------------------------------------------------------------------------

@@ -168,6 +168,7 @@ MODULE mo_nwp_phy_types
       &  clcm(:,:),            & !! cloud cover of mid-level clouds
       &  clcl(:,:),            & !! cloud cover of low-level clouds
       &  cldepth(:,:),         & !! modified cloud depth for media
+      &  clct_mod(:,:),        & !! modified total cloud cover for media
       &  hbas_con(:,:),        & !! height of base of convection [m]
       &  htop_con(:,:),        & !! height of top of convection [m]
       &  htop_dc(:,:),         & !! height above msl of the top of dry convection [m]
