@@ -1522,7 +1522,7 @@ CONTAINS
     CALL dbg_print('UpdSfc: hs aft. limiter'     ,p_ice%hs       ,str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: Conc. aft. limiter'  ,p_ice%conc     ,str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: ConcSum aft. limit ' ,p_ice%concSum  ,str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('ice_clean_up: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_clean_up: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     p_ice%concSum                           = SUM(p_ice%conc, 2)

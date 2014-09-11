@@ -730,9 +730,9 @@ CONTAINS
       END DO
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: sTop After ',s_top,str_module, 1, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: VolumeFlux ',p_sfc_flx%FrshFlux_VolumeTotal  ,str_module, 1, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: sTop After ',s_top,str_module, 2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: VolumeFlux ',p_sfc_flx%FrshFlux_VolumeTotal  ,str_module, 2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: h-old+fwfVol ',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
     
