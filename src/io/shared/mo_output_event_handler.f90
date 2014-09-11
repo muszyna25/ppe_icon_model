@@ -683,44 +683,46 @@ CONTAINS
       mtime_end   => newDatetime(TRIM(end_str(iintvl)))
       mtime_date  => mtime_begin
       delta       => newTimedelta(TRIM(intvl_str(iintvl))) ! create a time delta
-      EVENT_LOOP: DO
-        IF  ((mtime_date >= run_start)      .AND. &
-          & (mtime_date >= mtime_dom_start) .AND. &
-          & (sim_end    >=  mtime_date)     .AND. &
-          (mtime_restart >= mtime_date) )  THEN
-          n_event_steps = n_event_steps + 1
-          IF (n_event_steps > SIZE(mtime_date_string)) THEN
-            ! resize buffer
-            ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-            tmp(:) = mtime_date_string(:)
-            DEALLOCATE(mtime_date_string, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
-            ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-            mtime_date_string(1:SIZE(tmp)) = tmp(:)
-            DEALLOCATE(tmp, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+      IF (mtime_end >= mtime_begin) THEN
+        EVENT_LOOP: DO
+          IF  ((mtime_date >= run_start)      .AND. &
+            & (mtime_date >= mtime_dom_start) .AND. &
+            & (sim_end    >=  mtime_date)     .AND. &
+            & (mtime_restart >= mtime_date) )  THEN
+            n_event_steps = n_event_steps + 1
+            IF (n_event_steps > SIZE(mtime_date_string)) THEN
+              ! resize buffer
+              ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
+              IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+              tmp(:) = mtime_date_string(:)
+              DEALLOCATE(mtime_date_string, STAT=ierrstat)
+              IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+              ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
+              IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+              mtime_date_string(1:SIZE(tmp)) = tmp(:)
+              DEALLOCATE(tmp, STAT=ierrstat)
+              IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+            END IF
+            CALL datetimeToString(mtime_date, mtime_date_string(n_event_steps))
+            IF (ldebug) THEN
+              WRITE (0,*) "PE ", get_my_global_mpi_id(), ": Adding step ", n_event_steps, ": ", &
+                &         mtime_date_string(n_event_steps)
+            END IF
           END IF
-          CALL datetimeToString(mtime_date, mtime_date_string(n_event_steps))
-          IF (ldebug) THEN
-            WRITE (0,*) "PE ", get_my_global_mpi_id(), ": Adding step ", n_event_steps, ": ", &
-              &         mtime_date_string(n_event_steps)
-          END IF
-        END IF
-        IF (ldebug)  WRITE (0,*) "adding ", additional_days, " days."
-        DO iadd_days=1,additional_days(iintvl)
-          mtime_date = mtime_date + delta_1day
-        END DO
+          IF (ldebug)  WRITE (0,*) "adding ", additional_days, " days."
+          DO iadd_days=1,additional_days(iintvl)
+            mtime_date = mtime_date + delta_1day
+          END DO
 
-        IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
-        mtime_date = mtime_date + delta
-        
-        l_active = .NOT. (mtime_date > mtime_end) .AND.   &
-          &        .NOT. (mtime_date > sim_end)   .AND.   &
-          &        .NOT. (mtime_date > mtime_restart)
-        IF (.NOT. l_active) EXIT EVENT_LOOP
-      END DO EVENT_LOOP
+          IF (ldebug)  WRITE (0,*) get_my_global_mpi_id(), ": adding time delta."
+          mtime_date = mtime_date + delta
+
+          l_active = .NOT. (mtime_date > mtime_end) .AND.   &
+            &        .NOT. (mtime_date > sim_end)   .AND.   &
+            &        .NOT. (mtime_date > mtime_restart)
+          IF (.NOT. l_active) EXIT EVENT_LOOP
+        END DO EVENT_LOOP
+      END IF
       
       ! If there are multiple intervals, we often have "end(i)==start(i+1)". Then, we remove these duplicates.
       CALL remove_duplicates(mtime_date_string, n_event_steps)
