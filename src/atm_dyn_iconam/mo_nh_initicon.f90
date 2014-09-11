@@ -1506,7 +1506,7 @@ MODULE mo_nh_initicon
     LOGICAL :: lmatch_vtime
 
     TYPE(datetime),  POINTER :: mtime_inidatetime  ! INI-datetime in mtime format
-    TYPE(datetime) :: start_datetime               ! true start date (includes timeshift)
+    TYPE(datetime)           :: start_datetime     ! true start date (includes timeshift)
     !
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_nh_initicon:check_input_validity'
 
@@ -1593,6 +1593,31 @@ MODULE mo_nh_initicon
           &                       //TRIM(grp_vars_ana(ivar))//'.'
         CALL finish(routine, TRIM(message_text))
       ENDIF
+
+
+      !**************************************!
+      !  Check Validity time of analysis     !
+      !**************************************!
+      SELECT CASE (init_mode)
+      CASE(MODE_DWDANA,MODE_COMBINED,MODE_COSMODE)
+        !
+        ! analysis field's validity time must match the model start time
+        !
+        ! check correctness of validity-time
+        lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
+
+        ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
+        ! write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
+        ! write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
+
+        IF (.NOT. lmatch_vtime) THEN
+          WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
+            &                       //TRIM(grp_vars_ana(ivar))//'.'
+          CALL finish(routine, TRIM(message_text))
+        ENDIF
+      CASE default
+        !
+      END SELECT
     ENDDO
 
 

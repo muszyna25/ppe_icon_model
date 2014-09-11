@@ -39,14 +39,16 @@ MODULE mo_action
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text
+  USE mo_impl_constants,     ONLY: vname_len
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,    &
     &                              isCurrentEventActive, deallocateDatetime,  &
     &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN, &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,          &
     &                              newTimedelta, deallocateTimedelta
-  USE mo_run_config,         ONLY: msg_level
   USE mo_mtime_extensions,   ONLY: get_datetime_string, getTimeDeltaFromDateTime, &
     &                              getPTStringFromMS, getTriggeredPreviousEventAtDateTime
+  USE mo_util_string,        ONLY: remove_duplicates
+  USE mo_run_config,         ONLY: msg_level
   USE mo_action_types,       ONLY: t_var_action
   USE mo_time_config,        ONLY: time_config
   USE mo_var_list,           ONLY: nvar_lists, var_lists
@@ -144,13 +146,15 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_var_list:action_collect_vars")
     INTEGER :: i, iact
-    INTEGER :: nvars
+    INTEGER :: nvars                        ! number of variables assigned to action
+
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_action)  , POINTER :: action_list
     CHARACTER(LEN=2)                    :: str_actionID
     CHARACTER(LEN=128)                  :: intvl             ! action interval [PTnH]
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
+    CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
   !-------------------------------------------------------------------------
 
     ! init nvars
@@ -216,13 +220,20 @@ CONTAINS
     ! set nvars
     act_obj%nvars = nvars
 
+
     IF (msg_level >= 11) THEN
-      WRITE(message_text,'(a,i0,a)') 'Variables assigned to action ',act_obj%actionID,':'
+      ! remove duplicate variable names
       DO i=1,act_obj%nvars
+        varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
+      ENDDO
+      CALL remove_duplicates(varlist,nvars)
+
+      WRITE(message_text,'(a,i0,a)') 'Variables assigned to action ',act_obj%actionID,':'
+      DO i=1, nvars
         IF (i==1) THEN
-          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(act_obj%var_element_ptr(i)%p%info%name)
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(varlist(i))
         ELSE
-          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(act_obj%var_element_ptr(i)%p%info%name)
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(varlist(i))
         END IF
       ENDDO
       CALL message('',message_text)
