@@ -1386,6 +1386,9 @@ CONTAINS
     DO i = 1, nfiles
       IF (output_file(i)%pe_placement /= -1) CYCLE
       IF(use_async_name_list_io) THEN
+        IF (nremaining_io_procs == 0) THEN
+          CALL finish(routine, "No I/O proc left after explicit placement!")
+        END IF
         ! Asynchronous I/O
         j = j + 1
         output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
