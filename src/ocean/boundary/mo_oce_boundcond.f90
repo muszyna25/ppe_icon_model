@@ -693,7 +693,6 @@ CONTAINS
      CALL dbg_print('top bound.cond.temp' ,top_bc_tracer(:,:,tracer_id), str_module, 2, in_subset=patch_2D%cells%owned)
       
     ELSE IF (tracer_id == 2) THEN
-      RETURN
 !ICON_OMP_PARALLEL_DO  PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
