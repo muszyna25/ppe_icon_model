@@ -184,11 +184,11 @@ def getFileNamesForYears(year,archdir,experimentInfo):
   return [yearFile, yearMeanFile]
 
 """ input processing for computing regio mean values """
-def _computeRegioMean(depth,varname,ifile,vertMask,regioMask,ofile,newData):
+def _computeRegioMean(depth,varname,ifile,myMask,ofile,newData):
   # mask out region
   # vertical interpolation to target depth
   # mean value computaion
-  cdo.fldmean(input = '-mul -div -sellevel,%s -selname,%s %s %s %s'%(depth,varname,ifile,vertMask,regioMask),
+  cdo.fldmean(input = '-div -sellevel,%s -selname,%s %s %s'%(depth,varname,ifile,myMask),
               output = ofile,
               forceOutput = newData)
 
@@ -471,7 +471,7 @@ def plotOnlineDiagnostics(diagnosticFiles,options):
   return onlineMeanValueDocumentName
 
 """ process model output for regio mean values """
-def processRegionMean(options,regioCodes,regioDepths,regioVars,regioMaskVar):
+def processRegionMean(options,mask3D,init,yearMeanFile,regioCodes,regioDepths,regioVars,regioMaskVar):
   regioMeanData = {}
   regioPool     = multiprocessing.Pool(options['PROCS'])
   regioLock     = multiprocessing.Lock()
@@ -481,23 +481,30 @@ def processRegionMean(options,regioCodes,regioDepths,regioVars,regioMaskVar):
   for location, regioCode in regioCodes.iteritems():
     ofile     = '/'.join([options['ARCHDIR'],'_'.join(['regioMask',location])+'.nc'])
     ofileTemp = '/'.join([options['ARCHDIR'],'_'.join(['_regioMask',location])+'.nc'])
-    cdo.eqc(regioCode,input = '-selname,%s -seltimestep,1 %s'%(regioMaskVar,iFiles[0]),output = ofileTemp)
-    regioMasks[location] = cdo.div(input = '%s %s'%(ofileTemp,ofileTemp),output = ofile)
+    cdo.eqc(regioCode,input = '-selname,%s %s'%(regioMaskVar,init),output = ofileTemp)
+    regioMasks[location] = ofileTemp#cdo.div(input = '%s %s'%(ofileTemp,ofileTemp),output = ofile)
+
   # create the mask from 3d mask wet_c
   regioVertMasks    = {}
   for depth in regioDepths:
     depth = str(depth)
     ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioVertMask',depth+'m'])+'.nc'])
-    regioVertMasks[depth] = cdo.sellevel(depth,input = '-div -selname,wet_c -seltimestep,1 %s -selname,wet_c -seltimestep,1 %s'%(iFiles[0],iFiles[0]),output = ofile)
+    regioVertMasks[depth] = cdo.sellevel(depth,input = mask3D,output = ofile)
+
   # compute the regional mean values
   for location, regioCode in regioCodes.iteritems():
     regioMeanData[location] = {}
     for depth in regioDepths:
       regioMeanData[location][str(depth)] = {}
+
+      # create a single mask file out of regional and vertical mask
+      myMask = cdo.mul(input=' '.join([regioMasks[location],regioVertMasks[str(depth)]]),
+                       output='/'.join([options['ARCHDIR'],'_'.join(['regioMask',location,str(depth)+'m'])+'.nc']))
+
       for varname in regioVars:
         regioMeanData[location][str(depth)][varname] = {}
         ofile = '/'.join([options['ARCHDIR'],'_'.join(['regioMean',location,varname,str(depth)+'m'])+'.nc'])
-        regioPool.apply_async(_computeRegioMean,[depth,varname,ymFile,regioVertMasks[str(depth)],regioMasks[location],ofile,hasNewFiles])
+        regioPool.apply_async(_computeRegioMean,[depth,varname,yearMeanFile,myMask,ofile,hasNewFiles])
         regioLock.acquire()
         regioMeanData[location][str(depth)][varname] = ofile 
         regioLock.release()
@@ -757,7 +764,7 @@ cdo.timmean(input = "-selname,%s -selyear,%s/%s %s"%(uvintName,years4Psi[0],year
 # for global grid only
 if 'procRegio' in options['ACTIONS']:
   # setup
-  regioCodes    = {'NorthAtlantic' : 4,'TropicalAtlantic' : 5, 'SouthernOcean' : 6}
+  regioCodes    = {'ArcticOcean' : 2, 'NorthAtlantic' : 4,'TropicalAtlantic' : 5, 'SouthernOcean' : 6}
   if 20 == len(LOG['depths']):
     regioDepths   = [110,215,895,2200]
   elif 40 == len(LOG['depths']):
@@ -773,7 +780,7 @@ if 'procRegio' in options['ACTIONS']:
   dbg(regioDepths)
   dbg(LOG['depths'])
   dbg(len(LOG['depths']))
-  regioMeanData = processRegionMean(options,regioCodes,regioDepths,regioVars,regioMaskVar)
+  regioMeanData = processRegionMean(options,LOG['mask'],LOG['init'],ymFile,regioCodes,regioDepths,regioVars,regioMaskVar)
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR MOC PLOT {{{
 # collect all MOC files
