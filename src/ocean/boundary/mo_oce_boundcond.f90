@@ -694,14 +694,14 @@ CONTAINS
       
     ELSE IF (tracer_id == 2) THEN
       RETURN
-! !ICON_OMP_PARALLEL_DO  PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
-!       DO jb = all_cells%start_block, all_cells%end_block
-!         CALL get_index_range(all_cells, jb, start_index, end_index)
-!         DO jc = start_index, end_index
-!           top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
-!         END DO
-!       END DO
-! !ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_PARALLEL_DO  PRIVATE(start_index, end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%topBoundCond_Salt_vdiff(jc,jb)
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
     ELSE
       CALL finish("top_bound_cond_tracer", "unknown boundary condition for tracer_id>2")
     END IF
