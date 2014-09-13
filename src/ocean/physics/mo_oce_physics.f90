@@ -82,6 +82,7 @@ MODULE mo_oce_physics
   USE mo_oce_math_operators,  ONLY: div_oce_3d
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_upd_phys, &
     & timer_extra10, timer_extra11
+  USE mo_statistics,          ONLY: global_minmaxmean
   
   IMPLICIT NONE
   
@@ -158,13 +159,14 @@ CONTAINS
     REAL(wp) :: z_lower_bound_diff
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
+    REAL(wp) :: minmaxmean_dualEdgeLength(3), maxDualEdgeLength, k_veloc_factor
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
-    p_patch   => patch_3d%p_patch_2d(1)
+    patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
-    all_edges => p_patch%edges%ALL
-    owned_edges => p_patch%edges%owned
+    all_edges => patch_2D%edges%ALL
+    owned_edges => patch_2D%edges%owned
     !-------------------------------------------------------------------------
     points_in_munk_layer = REAL(n_points_in_munk_layer,wp)
     !Init from namelist
@@ -182,8 +184,9 @@ CONTAINS
       p_phys_param%k_tracer_GM_kappa = k_tracer_GM_kappa
     ENDIF
     
-    z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
-    
+    z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
+    minmaxmean_dualEdgeLength = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
+    maxDualEdgeLength = minmaxmean_dualEdgeLength(2)
     
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
@@ -193,7 +196,7 @@ CONTAINS
         p_phys_param%k_veloc_h(:,:,:) = 0.0_wp
         
       CASE(1)!use uniform viscosity coefficient from namelist
-        CALL calc_lower_bound_veloc_diff(  p_patch, z_lower_bound_diff )
+        CALL calc_lower_bound_veloc_diff(  patch_2D, z_lower_bound_diff )
         IF(z_lower_bound_diff>p_phys_param%k_veloc_h_back)THEN
           ! SX9 cannot handle messages of that size -> split
           CALL message ('init_ho_params','WARNING: Specified diffusivity&
@@ -219,7 +222,7 @@ CONTAINS
             !calculate lower bound for diffusivity
             !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29))
             p_phys_param%k_veloc_h(je,:,jb) = 3.82E-12_wp&
-              & *(points_in_munk_layer*p_patch%edges%primal_edge_length(je,jb))**3
+              & *(points_in_munk_layer*patch_2D%edges%primal_edge_length(je,jb))**3
           END DO
         END DO
         
@@ -247,7 +250,7 @@ CONTAINS
           CALL get_index_range(all_edges, jb, start_index, end_index)
           DO je = start_index, end_index
             p_phys_param%k_veloc_h(je,:,jb) = &
-            & p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)*z_diff_multfac
+            & patch_2D%edges%area_edge(je,jb)*patch_2D%edges%area_edge(je,jb)*z_diff_multfac
           END DO
         END DO
         !          z_diff_multfac = 0.0045_wp*dtime/3600.0_wp
@@ -255,9 +258,21 @@ CONTAINS
         !            CALL get_index_range(all_edges, jb, start_index, end_index)
         !            DO je = start_index, end_index
         !              p_phys_param%K_veloc_h(je,:,jb) = z_diff_multfac*&
-        !              &maxval(p_patch%edges%primal_edge_length)**4
+        !              &maxval(patch_2D%edges%primal_edge_length)**4
         !            END DO
         !          END DO
+      CASE(3)
+        ! Simple scaling of the backgound diffusion by the dual edge length^4
+        ! This is meant to be used with the non-uniform grids
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          DO je = start_index, end_index
+            k_veloc_factor = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
+            p_phys_param%k_veloc_h(je,:,jb) = p_phys_param%k_veloc_h_back * &
+              & k_veloc_factor * k_veloc_factor * k_veloc_factor * k_veloc_factor
+          END DO
+        END DO
+        
       CASE(4)!calculate coefficients based on Leith closure. Start value is the same as case(2).
       !This is just an initial value that will be overwritten as  soon as the velocities are different from zero.   
       
@@ -267,7 +282,7 @@ CONTAINS
       END SELECT
       CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
     ENDIF
-    IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( p_patch, patch_3d, p_phys_param%k_veloc_h )
+    IF ( l_smooth_veloc_diffusion ) CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h )
     
     
     DO i=1,no_tracer
@@ -291,9 +306,9 @@ CONTAINS
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
     
     DO i_no_trac=1, no_tracer
-      CALL sync_patch_array(sync_c,p_patch,p_phys_param%k_tracer_h(:,:,:,i_no_trac))
+      CALL sync_patch_array(sync_c,patch_2D,p_phys_param%k_tracer_h(:,:,:,i_no_trac))
     END DO
-    CALL sync_patch_array(sync_e,p_patch,p_phys_param%k_veloc_h(:,:,:))
+    CALL sync_patch_array(sync_e,patch_2D,p_phys_param%k_veloc_h(:,:,:))
    
   END SUBROUTINE init_ho_params
   !-------------------------------------------------------------------------
@@ -311,8 +326,8 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2011-08)
   !
   !
-  SUBROUTINE calc_lower_bound_veloc_diff(  p_patch, lower_bound_diff )
-    TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
+  SUBROUTINE calc_lower_bound_veloc_diff(  patch_2D, lower_bound_diff )
+    TYPE(t_patch), TARGET, INTENT(in)  :: patch_2D
     REAL(wp), INTENT(inout)              :: lower_bound_diff
     
     ! Local variables
@@ -321,10 +336,10 @@ CONTAINS
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain
     !-------------------------------------------------------------------------
-    edges_in_domain => p_patch%edges%in_domain
+    edges_in_domain => patch_2D%edges%in_domain
     
     ! Get the largest edge length globally
-    z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
+    z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
     
     !calculate lower bound for diffusivity: The factor cos(lat) is omitted here, because of
     !equatorial reference (cf. Griffies, eq.  (18.29))
@@ -338,8 +353,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
 !<Optimize:inUse>
-  SUBROUTINE smooth_lapl_diff( p_patch,patch_3d, k_h )
-    TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
+  SUBROUTINE smooth_lapl_diff( patch_2D,patch_3d, k_h )
+    TYPE(t_patch), TARGET, INTENT(in)  :: patch_2D
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)    :: k_h(:,:,:)
     ! Local variables
@@ -347,12 +362,12 @@ CONTAINS
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
     INTEGER :: start_index, end_index
     INTEGER :: i_startidx_v, i_endidx_v
-    REAL(wp) :: z_k_ave_v(nproma,n_zlev,p_patch%nblks_v), z_k_max
+    REAL(wp) :: z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v), z_k_max
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, verts_in_domain
     !-------------------------------------------------------------------------
-    edges_in_domain => p_patch%edges%in_domain
-    verts_in_domain => p_patch%verts%in_domain
+    edges_in_domain => patch_2D%edges%in_domain
+    verts_in_domain => patch_2D%verts%in_domain
     
     z_k_ave_v(:,:,:) = 0.0_wp
     
@@ -362,10 +377,10 @@ CONTAINS
         DO jv = i_startidx_v, i_endidx_v
           i_edge_ctr = 0
           z_k_max    = 0.0_wp
-          DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            ile = p_patch%verts%edge_idx(jv,jb,jev)
-            ibe = p_patch%verts%edge_blk(jv,jb,jev)
-            !             write(0,*) jv,jb, p_patch%verts%num_edges(jv,jb), ":", ile, ibe
+          DO jev = 1, patch_2D%verts%num_edges(jv,jb)
+            ile = patch_2D%verts%edge_idx(jv,jb,jev)
+            ibe = patch_2D%verts%edge_blk(jv,jb,jev)
+            !             write(0,*) jv,jb, patch_2D%verts%num_edges(jv,jb), ":", ile, ibe
             IF ( patch_3d%lsm_e(ile,jk,ibe) == sea) THEN
               z_k_ave_v(jv,jk,jb)= z_k_ave_v(jv,jk,jb) + k_h(ile,jk,ibe)
               i_edge_ctr=i_edge_ctr+1
@@ -374,12 +389,12 @@ CONTAINS
               ENDIF
             ENDIF
           END DO
-          IF(i_edge_ctr/=0)THEN!.and.i_edge_ctr== p_patch%verts%num_edges(jv,jb))THEN
+          IF(i_edge_ctr/=0)THEN!.and.i_edge_ctr== patch_2D%verts%num_edges(jv,jb))THEN
             z_k_ave_v(jv,jk,jb)= z_k_ave_v(jv,jk,jb)/REAL(i_edge_ctr,wp)
           ELSEIF(i_edge_ctr==0)THEN
             z_k_ave_v(jv,jk,jb)=0.0_wp
           ENDIF
-          !IF(p_patch%verts%num_edges(jv,jb)== 5)THEN
+          !IF(patch_2D%verts%num_edges(jv,jb)== 5)THEN
           !  z_K_ave_v(jv,jk,jb)=80000_wp!°z_K_max
           !ENDIF
         END DO
@@ -391,17 +406,17 @@ CONTAINS
         CALL get_index_range(edges_in_domain, jb, start_index, end_index)
         DO je = start_index, end_index
           
-          il_v1 = p_patch%edges%vertex_idx(je,jb,1)
-          ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
-          il_v2 = p_patch%edges%vertex_idx(je,jb,2)
-          ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
+          il_v1 = patch_2D%edges%vertex_idx(je,jb,1)
+          ib_v1 = patch_2D%edges%vertex_blk(je,jb,1)
+          il_v2 = patch_2D%edges%vertex_idx(je,jb,2)
+          ib_v2 = patch_2D%edges%vertex_blk(je,jb,2)
           
           IF ( patch_3d%lsm_e(je,jk,jb) == sea) THEN
             k_h(je,jk,jb)= 0.5_wp*(z_k_ave_v(il_v1,jk,ib_v1) + z_k_ave_v(il_v2,jk,ib_v2))
           ELSE
             k_h(je,jk,jb)=0.0_wp
           ENDIF
-          !          IF(p_patch%verts%num_edges(il_v1,ib_v1)== 5.OR.p_patch%verts%num_edges(il_v2,ib_v2)==5)THEN
+          !          IF(patch_2D%verts%num_edges(il_v1,ib_v1)== 5.OR.patch_2D%verts%num_edges(il_v2,ib_v2)==5)THEN
           !            K_h(je,jk,jb)=max(z_K_ave_v(il_v1,jk,ib_v1),z_K_ave_v(il_v2,jk,ib_v2))
           !          ENDIF
         END DO
@@ -411,7 +426,7 @@ CONTAINS
     !---------Debug Diagnostics-------------------------------------------
     idt_src=0  ! output print levels - 0: print in any case
     CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
-      & in_subset=p_patch%edges%owned)
+      & in_subset=patch_2D%edges%owned)
     !---------------------------------------------------------------------
     
   END SUBROUTINE smooth_lapl_diff
@@ -428,9 +443,9 @@ CONTAINS
   !
   !
   !<Optimize:inUse>
-  SUBROUTINE construct_ho_params(p_patch, params_oce, ocean_restart_list)
+  SUBROUTINE construct_ho_params(patch_2D, params_oce, ocean_restart_list)
 
-    TYPE(t_patch),      INTENT(IN)    :: p_patch
+    TYPE(t_patch),      INTENT(IN)    :: patch_2D
     TYPE (t_ho_params), INTENT(INOUT) :: params_oce
     TYPE (t_var_list),  INTENT(INOUT) :: ocean_restart_list
 
@@ -443,12 +458,12 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
-    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=p_patch%id)
+    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=patch_2D%id)
     CALL default_var_list_settings( ocean_params_list, lrestart=.FALSE.,  model_type='oce' )
 
     ! determine size of arrays
-    alloc_cell_blocks = p_patch%alloc_cell_blocks
-    nblks_e = p_patch%nblks_e
+    alloc_cell_blocks = patch_2D%alloc_cell_blocks
+    nblks_e = patch_2D%nblks_e
 
     CALL add_var(ocean_restart_list, 'K_veloc_h', params_oce%k_veloc_h , grid_unstructured_edge,&
       & za_depth_below_sea, &
@@ -1038,13 +1053,13 @@ CONTAINS
     REAL(wp) :: density_grad_e, mean_z_r
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
 
     !-------------------------------------------------------------------------
-    p_patch         => patch_3d%p_patch_2d(1)
-    edges_in_domain => p_patch%edges%in_domain
-    !cells_in_domain => p_patch%cells%in_domain
-    all_cells       => p_patch%cells%ALL
+    patch_2D         => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    !cells_in_domain => patch_2D%cells%in_domain
+    all_cells       => patch_2D%cells%ALL
     z_vert_density_grad_c => ocean_state%p_diag%zgrad_rho
     levels = n_zlev
 
@@ -1135,10 +1150,10 @@ CONTAINS
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
       DO je = start_index, end_index
 
-        ilc1 = p_patch%edges%cell_idx(je,jb,1)
-        ibc1 = p_patch%edges%cell_blk(je,jb,1)
-        ilc2 = p_patch%edges%cell_idx(je,jb,2)
-        ibc2 = p_patch%edges%cell_blk(je,jb,2)
+        ilc1 = patch_2D%edges%cell_idx(je,jb,1)
+        ibc1 = patch_2D%edges%cell_blk(je,jb,1)
+        ilc2 = patch_2D%edges%cell_idx(je,jb,2)
+        ibc2 = patch_2D%edges%cell_blk(je,jb,2)
 
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             ! TODO: the following expect equally sized cells
@@ -1243,12 +1258,12 @@ CONTAINS
     REAL(wp) :: mean_density_grad_e, mean_richardson_e, fu10_e, conc_e
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
-    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_patch), POINTER :: patch_2D
 
     !-------------------------------------------------------------------------
-    p_patch         => patch_3d%p_patch_2d(1)
-    edges_in_domain => p_patch%edges%in_domain
-    all_cells       => p_patch%cells%ALL
+    patch_2D         => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    all_cells       => patch_2D%cells%ALL
     vert_density_grad => ocean_state%p_diag%zgrad_rho
     levels = n_zlev
     !-------------------------------------------------------------------------
@@ -1394,10 +1409,10 @@ CONTAINS
         levels = patch_3d%p_patch_1d(1)%dolic_e(je,jb)
         IF (levels < 2) CYCLE
 
-        ilc1 = p_patch%edges%cell_idx(je,jb,1)
-        ibc1 = p_patch%edges%cell_blk(je,jb,1)
-        ilc2 = p_patch%edges%cell_idx(je,jb,2)
-        ibc2 = p_patch%edges%cell_blk(je,jb,2)
+        ilc1 = patch_2D%edges%cell_idx(je,jb,1)
+        ibc1 = patch_2D%edges%cell_blk(je,jb,1)
+        ilc2 = patch_2D%edges%cell_idx(je,jb,2)
+        ibc2 = patch_2D%edges%cell_blk(je,jb,2)
 
         IF (use_wind_mixing) THEN
 
@@ -1459,12 +1474,12 @@ CONTAINS
     ENDDO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
 
     idt_src=4  ! output print levels (1-5, fix)
-    CALL dbg_print('UpdPar: p_vn%x(1)    ',ocean_state%p_diag%p_vn%x(1),str_module,idt_src,in_subset=p_patch%cells%owned)
-  ! CALL dbg_print('UpdPar: p_vn%x(2)    ',ocean_state%p_diag%p_vn%x(2),str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdPar: windMix Diff ',dv_wind                     ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdPar: windMix Visc ',av_wind                     ,str_module,idt_src,in_subset=p_patch%edges%owned)
-    CALL dbg_print('UpdPar: VertDensGrad ',vert_density_grad           ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: p_vn%x(1)    ',ocean_state%p_diag%p_vn%x(1),str_module,idt_src,in_subset=patch_2D%cells%owned)
+  ! CALL dbg_print('UpdPar: p_vn%x(2)    ',ocean_state%p_diag%p_vn%x(2),str_module,idt_src,in_subset=patch_2D%cells%owned)
+    CALL dbg_print('UpdPar: windMix Diff ',dv_wind                     ,str_module,idt_src,in_subset=patch_2D%cells%owned)
+    CALL dbg_print('UpdPar: windMix Visc ',av_wind                     ,str_module,idt_src,in_subset=patch_2D%edges%owned)
+    CALL dbg_print('UpdPar: VertDensGrad ',vert_density_grad           ,str_module,idt_src,in_subset=patch_2D%cells%owned)
+    CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=patch_2D%cells%owned)
     
   END SUBROUTINE update_physics_parameters_MPIOM_PP_scheme
   !-------------------------------------------------------------------------
