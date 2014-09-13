@@ -102,6 +102,7 @@ MODULE mo_oce_patch_setup
   USE mo_math_types
   USE mo_math_utilities
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry
+  USE mo_grid_tools,         ONLY: calculate_edge_area
   USE mo_master_control,     ONLY: get_my_process_type, ocean_process
   USE mo_model_domimp_setup, ONLY: init_coriolis
   USE mo_dynamics_config,    ONLY: lcoriolis
@@ -491,9 +492,11 @@ CONTAINS
 
 
     !!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-
-
     !!$OMP END PARALLEL
+
+
+    CALL calculate_edge_area(patch_2D)
+    
   END SUBROUTINE complete_ocean_patch_geometry
   !-------------------------------------------------------------------------
     

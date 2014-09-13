@@ -321,13 +321,13 @@ CONTAINS
   !>
   !! This routine calculates the edge area of the patch
   !!
-  SUBROUTINE calculate_edge_area(patch)
-    TYPE(t_patch), TARGET, INTENT(inout) :: patch
+  SUBROUTINE calculate_edge_area(patch_2D)
+    TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
 
     INTEGER                       :: je, jb, istart_e, iend_e
     TYPE(t_subset_range), POINTER :: all_edges
     !-------------------------------------------------------------------------
-    all_edges => patch%edges%all
+    all_edges => patch_2D%edges%all
 
     ! a) the control volume associated to each edge is defined as the
     ! quadrilateral whose edges are the primal edge and the associated dual edge
@@ -338,9 +338,9 @@ CONTAINS
     DO jb = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, jb, istart_e, iend_e)
       DO je = istart_e, iend_e
-        patch%edges%area_edge(je,jb) =  &
-            &    patch%edges%primal_edge_length(je,jb)  &
-            &  * patch%edges%dual_edge_length(je,jb)
+        patch_2D%edges%area_edge(je,jb) =  &
+            &    patch_2D%edges%primal_edge_length(je,jb)  &
+            &  * patch_2D%edges%dual_edge_length(je,jb)
       END DO
     END DO
 !ICON_OMP_END_PARALLEL DO
