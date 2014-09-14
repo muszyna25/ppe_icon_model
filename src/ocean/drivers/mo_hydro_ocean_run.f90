@@ -405,7 +405,7 @@ CONTAINS
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_ocean_statistics(ocean_state%p_acc,p_sfc_flx)
+    CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,p_sfc_flx)
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
 
   END SUBROUTINE write_initial_ocean_timestep
