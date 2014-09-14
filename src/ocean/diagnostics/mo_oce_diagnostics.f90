@@ -88,6 +88,7 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: kin_energy
     REAL(wp) :: pot_energy
     REAL(wp) :: total_energy
+    REAL(wp) :: total_salt
     REAL(wp) :: vorticity
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
@@ -141,11 +142,12 @@ MODULE mo_oce_diagnostics
   TYPE t_oce_timeseries
     
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(49)  :: names = (/ &
+    CHARACTER(LEN=40), DIMENSION(50)  :: names = (/ &
       & "volume                                  ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
       & "total_energy                            ", &
+      & "total_salt                              ", &
       & "vorticity                               ", &
       & "enstrophy                               ", &
       & "potential_enstrophy                     ", &
@@ -253,6 +255,7 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%kin_energy                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%total_salt                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
@@ -707,6 +710,7 @@ CONTAINS
     monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
     monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
     monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
+    monitor%total_salt                 = global_sum_array(monitor%total_salt  )/monitor%volume
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
@@ -798,6 +802,7 @@ CONTAINS
         & monitor%kin_energy, &
         & monitor%pot_energy, &
         & monitor%total_energy, &
+        & monitor%total_salt, &
         & monitor%vorticity, &
         & monitor%enstrophy, &
         & monitor%potential_enstrophy, &
