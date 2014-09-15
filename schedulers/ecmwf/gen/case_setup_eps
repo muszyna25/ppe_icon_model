@@ -184,14 +184,6 @@ cat > ${atmo_namelist} << EOF
  activate_sync_timers         = .FALSE.
  output                       = "nml"
 /
-&nh_pzlev_nml
- nplev             = 25     ! number of p level output (attention: levels in [Pa] and top-down)
- nzlev             = 25     ! number of z level output (attention: levels in [m] and top-down)
- plevels           = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
-                     30000,40000,50000,60000,70000,80000,85000,90000,92500,95000,100000
- zlevels           = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
-                     10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
-/
 ! OUTPUT: Regular grid, model levels, all domains
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
@@ -202,6 +194,10 @@ cat > ${atmo_namelist} << EOF
  mode                         =  1  ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .TRUE.
  output_filename              = '${basename}'             ! file name base
+ p_levels                      = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
+                                30000,40000,50000,60000,70000,80000,85000,90000,92500,95000,100000
+ h_levels                     = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
+                                10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
  ml_varlist                   = ${ml_varlist}
  pl_varlist                   = ${pl_varlist}
  hl_varlist                   = ${hl_varlist}
