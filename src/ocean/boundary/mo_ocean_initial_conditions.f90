@@ -576,6 +576,7 @@ CONTAINS
     IF (smooth_initial_salinity_weights(1) > 0.0_wp) THEN
       CALL message(method_name, "Use smoothing...")
       ALLOCATE(new_salinity(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+      new_salinity = 0.0_wp
       CALL smooth_onCells(patch_3D=patch_3d, &
         & in_value=ocean_salinity, out_value=new_salinity, smooth_weights=smooth_initial_salinity_weights)
       ocean_salinity = new_salinity
@@ -730,6 +731,7 @@ CONTAINS
     IF (smooth_initial_temperature_weights(1) > 0.0_wp) THEN
       CALL message(method_name, "Use smoothing...")
       ALLOCATE(new_temperature(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+      new_temperature = 0.0_wp
       CALL smooth_onCells(patch_3D=patch_3d, &
         & in_value=ocean_temperature, out_value=new_temperature, smooth_weights=smooth_initial_temperature_weights)
       ocean_temperature = new_temperature
@@ -844,6 +846,7 @@ CONTAINS
     IF (smooth_initial_height_weights(1) > 0.0_wp) THEN
       CALL message(method_name, "Use smoothing...")
       ALLOCATE(new_height(nproma,patch_2d%alloc_cell_blocks))
+      new_height = 0.0_wp
       CALL smooth_onCells(patch_3D=patch_3d, &
         & in_value=ocean_height, out_value=new_height, smooth_weights=smooth_initial_height_weights)
       ocean_height = new_height

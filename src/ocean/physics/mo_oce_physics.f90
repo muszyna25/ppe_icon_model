@@ -268,8 +268,8 @@ CONTAINS
           CALL get_index_range(all_edges, jb, start_index, end_index)
           DO je = start_index, end_index
             k_veloc_factor = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
-            p_phys_param%k_veloc_h(je,:,jb) = p_phys_param%k_veloc_h_back * &
-              & k_veloc_factor * k_veloc_factor * k_veloc_factor * k_veloc_factor
+            p_phys_param%k_veloc_h(je,:,jb) = &
+              & p_phys_param%k_veloc_h_back * k_veloc_factor**3
           END DO
         END DO
         
