@@ -52,7 +52,9 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotMoc,plotTSR',#plotPsi',#finalDoc',
+              #'ACTIONS'     : 'archive,preproc,procMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotMoc,plotTSR',#plotPsi',#finalDoc',
+              #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotTSR',#plotPsi',#finalDoc',
+              'ACTIONS'     : 'archive,preproc,plotHorz',#finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
              }
 
@@ -576,6 +578,59 @@ def plotXSection(plotConfig,options):
 #if subprocess.check_call(' '.join(cmd),shell=True,env=os.environ):
 #  print('CMD: %s has failed!')
 
+def plotHorizontal(plotConfig,options,hasNewFiles):
+  for varname in horizontalConfig['varNames']:
+    if ( varname in horizontalConfig['availableVars'] ):
+      # surface plot
+      oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-atSurface_'+'_'.join([options['EXP'],options['TAG'],plotConfig['tag']])])
+      if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
+        cmd = [options['ICONPLOT'],
+               '-iFile=%s'%(horizontalConfig['iFile']),
+               '-varName=%s'%(varname),
+               '-oType=png',horizontalConfig['sizeOpt'],
+               '-rStrg="-"',
+               '-maskName=wet_c',
+               '-withLineLabels',
+               '-tStrg="%s"'%(plotConfig['title']),
+               '-oFile=%s'%(oFile)]
+        if ( 'box' == options['GRID'] ):
+          cmd.append('-limitMap')
+          cmd.append('+mapLine')
+        elif ('chanel' == options['GRID']):
+          cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
+        else:
+          cmd.append('')
+        dbg(' '.join(cmd))
+        subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+
+      # plot for roughly 100m depth
+      #   skip sea srface height
+      if ('h_acc' == varname ):
+        continue
+
+      oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-at100m_'+'_'.join([options['EXP'],options['TAG'],plotConfig['tag']])])
+      if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
+        title = '%s: last year mean '%(options['EXP'])
+        cmd = [options['ICONPLOT'],
+               '-iFile=%s'%(horizontalConfig['iFile']),
+               '-varName=%s'%(varname),
+               '-oType=png',horizontalConfig['sizeOpt'],
+               '-rStrg="-"',
+               '-maskName=wet_c',
+               '-withLineLabels',
+               '-tStrg="%s"'%(horizontalConfig['title']),
+               '-oFile=%s'%(oFile)]
+        if ( 'box' == options['GRID'] ):
+          cmd.append('-limitMap')
+          cmd.append('+mapLine')
+          cmd.append('-levIndex=5')
+        elif ('global' == options['GRID']):
+          cmd.append('-levIndex=8')
+        else:
+          cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
+        dbg(' '.join(cmd))
+        subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+  return
 # }}} --------------------------------------------------------------------------
 #=============================================================================== 
 # MAIN =========================================================================
@@ -638,6 +693,14 @@ if hasNewFiles:
 
 # get the data dir from iFiles for later use
 LOG['dataDir'] = os.path.abspath(os.path.dirname(iFiles[0]))
+
+#------------------------------------------------------------------------------
+# BASIC PLOTSETUP FOR MAIN VARIABLES
+PlotConfigDefault =  {
+  't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
+  's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
+  'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
+  }
 # }}}
 # =======================================================================================
 # DATA SPLITTING {{{ ====================================================================
@@ -783,52 +846,54 @@ if 'procRegio' in options['ACTIONS']:
   regioMeanData = processRegionMean(options,LOG['mask'],LOG['init'],ymFile,regioCodes,regioDepths,regioVars,regioMaskVar)
 # }}} ----------------------------------------------------------------------------------
 # PREPARE INPUT FOR MOC PLOT {{{
-# collect all MOC files
-dbg(options['MOCPATTERN'])
-mocFiles        = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
-# skip the latest one if job is still running
-if options['JOBISRUNNING']:
-  mocFiles.pop()
-# filter out emtpy files - this could happen when model finished before output timestep
-_mocFiles = []
-for mocfile in mocFiles:
-  if (0 < os.stat(mocfile).st_size and 'Z' == mocfile[-1]):
-    _mocFiles.append(mocfile)
-mocFiles = _mocFiles
-dbg(mocFiles)
-# default is to take the mean value ofthe at 10 years as input for the plotscript
-# this means 120 months, with monthly output, this is 120 timesteps
-mocNeededNSteps = 120
-mocLog          = {}
-scanFilesForTheirNTime(mocFiles,options['PROCS'],mocLog)
-dbg(mocLog)
-# check for the numbe rof timesteps in the last moc file
-mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
-mocMeanFile     = '/'.join([options['ARCHDIR'],'mocMean'])
-if ( os.path.exists(mocMeanFile) ):
-    os.remove(mocMeanFile)
-if mocNeededNSteps <= mocLastNtime:
-  # take the last 120 values for timmeaninput
-  mocMeanFile = cdo.timmean(input = "-seltimestep,%s/%s %s"%(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
-                            output = mocMeanFile)
-else:
-  mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
-dbg(mocMeanFile)
+if 'procMoc' in options['ACTIONS']:
+  # collect all MOC files
+  dbg(options['MOCPATTERN'])
+  mocFiles        = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
+  # skip the latest one if job is still running
+  if options['JOBISRUNNING']:
+    mocFiles.pop()
+  # filter out emtpy files - this could happen when model finished before output timestep
+  _mocFiles = []
+  for mocfile in mocFiles:
+    if (0 < os.stat(mocfile).st_size and 'Z' == mocfile[-1]):
+      _mocFiles.append(mocfile)
+  mocFiles = _mocFiles
+  dbg(mocFiles)
+  # default is to take the mean value ofthe at 10 years as input for the plotscript
+  # this means 120 months, with monthly output, this is 120 timesteps
+  mocNeededNSteps = 120
+  mocLog          = {}
+  scanFilesForTheirNTime(mocFiles,options['PROCS'],mocLog)
+  dbg(mocLog)
+  # check for the numbe rof timesteps in the last moc file
+  mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
+  mocMeanFile     = '/'.join([options['ARCHDIR'],'mocMean'])
+  if ( os.path.exists(mocMeanFile) ):
+      os.remove(mocMeanFile)
+  if mocNeededNSteps <= mocLastNtime:
+    # take the last 120 values for timmeaninput
+    mocMeanFile = cdo.timmean(input = "-seltimestep,%s/%s %s"%(mocLastNtime-mocNeededNSteps+1,mocLastNtime,mocFiles[-1]),
+                              output = mocMeanFile)
+  else:
+    mocMeanFile = cdo.timmean(input = mocFiles[-1], output = mocMeanFile)
+  dbg(mocMeanFile)
 # }}} -----------------------------------------------------------------------------------
 # PREPARE DATA FOR T,S,RHOPOT BIAS TO INIT {{{ ------------------------------------------
-# target is a year mean files of fldmean data, but mean value computation
+# target is a year mean file of fldmean data, but mean value computation
 # should come at the very end of the processing chain
-t_s_rho_Input_1D = []
-t_s_rho_Input_2D = []
-for year in LOG['years']:
-  t_s_rho_Input_1D.append(LOG[year])
-t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','rhopot_acc'],
-                                            LOG['init'],LOG['mask'],options['EXP'],options['ARCHDIR'],options['PROCS'])
-dbg(t_s_rho_Output_1D)
-t_s_rho_Output_2D = applyMask(' -selname,t_acc,s_acc,rhopot_acc %s'%(LOG['last30YearsMeanBias']),
-                              LOG['mask'],
-                              '/'.join([options['ARCHDIR'],'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])]))
-dbg(t_s_rho_Output_2D)
+if 'procTSR' in options['ACTIONS']:
+  t_s_rho_Input_1D = []
+  t_s_rho_Input_2D = []
+  for year in LOG['years']:
+    t_s_rho_Input_1D.append(LOG[year])
+  t_s_rho_Output_1D = computeMaskedTSRMeans1D(t_s_rho_Input_1D,['t_acc','s_acc','rhopot_acc'],
+                                              LOG['init'],LOG['mask'],options['EXP'],options['ARCHDIR'],options['PROCS'])
+  dbg(t_s_rho_Output_1D)
+  t_s_rho_Output_2D = applyMask(' -selname,t_acc,s_acc,rhopot_acc %s'%(LOG['last30YearsMeanBias']),
+                                LOG['mask'],
+                                '/'.join([options['ARCHDIR'],'TSR_2D_%s_complete_timmean_masked.nc'%(options['EXP'])]))
+  dbg(t_s_rho_Output_2D)
 # }}} -----------------------------------------------------------------------------------
 # DIAGNOSTICS ===========================================================================
 # PSI {{{
@@ -841,65 +906,27 @@ if 'plotPsi' in options['ACTIONS']:
       print("ERROR: CALCPSI failed")
 # }}} ----------------------------------------------------------------------------------
 # HORIZONTAL PLOTS: t,s,u,v,abs(velocity) {{{
-horizontalConfig = {
-  'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
-  'iFile'         : LOG[LOG['years'][-2]],              # use the last COMPLETE year #TODO: dont show monthly mean!!!
-  'availableVars' : cdo.showname(input = LOG[LOG['years'][-2]])[0].split(' '),
-  'sizeOpt'       : '-xsize=1200 -ysize=800',
-}
-for varname in horizontalConfig['varNames']:
-  if ( varname in horizontalConfig['availableVars'] ):
-    # surface plot
-    oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-atSurface_'+'_'.join([options['EXP'],options['TAG']])])
-    if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
-      title = '%s: last yearmean '%(options['EXP'])
-      cmd = [options['ICONPLOT'],
-             '-iFile=%s'%(horizontalConfig['iFile']),
-             '-varName=%s'%(varname),
-             '-oType=png',horizontalConfig['sizeOpt'],
-             '-rStrg="-"',
-             '-maskName=wet_c',
-             '-withLineLabels',
-             '-tStrg="%s"'%(title),
-             '-oFile=%s'%(oFile)]
-      if ( 'box' == options['GRID'] ):
-        cmd.append('-limitMap')
-        cmd.append('+mapLine')
-      elif ('chanel' == options['GRID']):
-        cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
-      else:
-        cmd.append('')
-      dbg(' '.join(cmd))
-      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-
-    # plot for roughly 100m depth
-    #   skip sea srface height
-    if ('h_acc' == varname ):
-      continue
-
-    oFile = '/'.join([options['PLOTDIR'],varname+'_Horizontal-at100m_'+'_'.join([options['EXP'],options['TAG']])])
-    if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
-      title = '%s: last yearmean '%(options['EXP'])
-      cmd = [options['ICONPLOT'],
-             '-iFile=%s'%(horizontalConfig['iFile']),
-             '-varName=%s'%(varname),
-             '-oType=png',horizontalConfig['sizeOpt'],
-             '-rStrg="-"',
-             '-maskName=wet_c',
-             '-withLineLabels',
-             '-tStrg="%s"'%(title),
-             '-oFile=%s'%(oFile)]
-      if ( 'box' == options['GRID'] ):
-        cmd.append('-limitMap')
-        cmd.append('+mapLine')
-        cmd.append('-levIndex=5')
-      elif ('global' == options['GRID']):
-        cmd.append('-levIndex=4')
-      else:
-        cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
-      dbg(' '.join(cmd))
-      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-
+if 'plotHorz' in options['ACTIONS']:
+  # A) last year mean
+  horizontalConfig = {
+    'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
+    'iFile'         : LOG['meansOfYears'][LOG['years'][-2]],
+    'availableVars' : cdo.showname(input = LOG[LOG['years'][-2]])[0].split(' '),
+    'sizeOpt'       : '-xsize=1200 -ysize=800',
+    'title'         : '%s: last year mean '%(options['EXP']),
+    'tag'           : 'lastYearMean',
+  }
+  plotHorizontal(horizontalConfig,options,hasNewFiles)
+  # B) last 30-year mean
+  horizontalConfig = {
+    'varNames'      : ['t_acc','s_acc','h_acc','u_acc','v_acc'],
+    'iFile'         : LOG['last30YearsMean'],
+    'availableVars' : cdo.showname(input = LOG['last30YearsMean'])[0].split(' '),
+    'sizeOpt'       : '-xsize=1200 -ysize=800',
+    'title'         : '%s: last 30-year-mean '%(options['EXP']),
+    'tag'           : 'last30YearMean',
+  }
+  plotHorizontal(horizontalConfig,options,hasNewFiles)
 # }}} ----------------------------------------------------------------------------------
 # THROUGH FLOWS {{{
 # for global grid only
@@ -913,6 +940,11 @@ else:
 # }}} ----------------------------------------------------------------------------------
 # ATLANTIC X-Section: t,s,rhopot  {{{ ================================
 # for global grid only
+XSectionPlotConfig = PlotConfigDefault
+XSectionPlotConfig['s_acc']['minVar'] = '-1.0'
+XSectionPlotConfig['s_acc']['maxVar'] = '1.0'
+XSectionPlotConfig['t_acc']['minVar'] = '-5.0'
+XSectionPlotConfig['t_acc']['maxVar'] = '5.0'
 if 'plotX' in options['ACTIONS']:
   if ( 'global' == options['GRID'] ):
     for varname in ['t_acc','s_acc','rhopot_acc']:
@@ -961,11 +993,16 @@ if 'plotX' in options['ACTIONS']:
                '-selPoints=150',
                '-rStrg="-"',
                '-makeYLinear',
+               '-minVar=%s'%(XSectionPlotConfig[varname]['minVar']),
+               '-maxVar=%s'%(XSectionPlotConfig[varname]['maxVar']),
+               '-numLevs=%s'%(XSectionPlotConfig[varname]['numLevs']),
+               '-colormap=BlueWhiteOrangeRed',  # put white in the middle
                '-withLineLabels',
                '-tStrg="%s"'%(title),
                '-oFile=%s'%(oFile)]
         dbg(' '.join(cmd))
         subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+doExit()
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
@@ -1023,54 +1060,52 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
                               '/'.join([options['PLOTDIR'],'_'.join(['regioMean',location,varname,options['EXP'],options['TAG']+'.png'])])) 
 # }}} ----------------------------------------------------------------------------------
 # MOC PLOT {{{
-mocPlotCmd = '%s %s'%(options['MOCPLOTTER'],mocMeanFile)
-mocPlotSetup = {
-  'TITLE' : 'ICON: %s : MOC : %s %s'%(options['EXP'],mocFiles[-1],'[last 10y mean]'),
-  'IFILE' : mocMeanFile,
-  'OFILE' : '/'.join([options['PLOTDIR'],'MOC_%s'%(options['EXP'])]),
-  'OTYPE' : 'png',
-}
-for k,v in mocPlotSetup.iteritems():
-  os.environ[k] = v
-if subprocess.check_call(mocPlotCmd,shell=True,env=os.environ):
-  print("ERROR: MOCPLOT failed")
-# environment cleanup
-for k in mocPlotSetup.keys():
-  os.environ.pop(k)
+if 'plotMoc' in options['ACTIONS']:
+  mocPlotCmd = '%s %s'%(options['MOCPLOTTER'],mocMeanFile)
+  mocPlotSetup = {
+    'TITLE' : 'ICON: %s : MOC : %s %s'%(options['EXP'],mocFiles[-1],'[last 10y mean]'),
+    'IFILE' : mocMeanFile,
+    'OFILE' : '/'.join([options['PLOTDIR'],'MOC_%s'%(options['EXP'])]),
+    'OTYPE' : 'png',
+  }
+  for k,v in mocPlotSetup.iteritems():
+    os.environ[k] = v
+  if subprocess.check_call(mocPlotCmd,shell=True,env=os.environ):
+    print("ERROR: MOCPLOT failed")
+  # environment cleanup
+  for k in mocPlotSetup.keys():
+    os.environ.pop(k)
 #doExit()
 # }}} ----------------------------------------------------------------------------------
 # T S RHOPOT BIAS PLOT {{{
-# global mean bias over depth and time
-t_s_rho_PlotSetup = {
-  't_acc'      : {'maxVar' : '3.0', 'minVar' : '-3.0' , 'numLevs' : '20'},
-  's_acc'      : {'maxVar' : '0.2', 'minVar' : '-0.2' , 'numLevs' : '16'},
-  'rhopot_acc' : {'maxVar' : '0.6', 'minVar' : '-0.6' , 'numLevs' : '24'},
-}
-for varname in t_s_rho_PlotSetup.keys():
-  oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_inDepth_overTime'+'_'.join([options['EXP'],options['TAG']])])
-  #if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
-  title = '%s: %s bias to init '%(options['EXP'],varname)
-  cmd = [options['ICONPLOT'],
-         '-iFile=%s'%(t_s_rho_Output_1D),
-         '-varName=%s'%(varname),
-         '-oType=png',
-         '-hov',
-         '-rStrg="-"',
-         '-bStrg="-"',
-         '-lStrg=%s'%(varname),
-#        '-withLineLabels',
-         '+withLines',
-         '-makeYLinear',
-         '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
-         '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
-         '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
-         '-colormap=BlWhRe',
-  #      '-tStrg="%s"'%(title),
-         '-oFile=%s'%(oFile)]
-  print(cmd)
-  dbg(' '.join(cmd))
-  if subprocess.check_call(' '.join(cmd),shell=True,env=os.environ):
-    print('CMD: %s has failed!')
+if 'plotTSR' in options['ACTIONS']:
+  # global mean bias over depth and time
+  t_s_rho_PlotSetup = PlotConfigDefault
+  for varname in t_s_rho_PlotSetup.keys():
+    oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_inDepth_overTime'+'_'.join([options['EXP'],options['TAG']])])
+    #if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
+    title = '%s: %s bias to init '%(options['EXP'],varname)
+    cmd = [options['ICONPLOT'],
+           '-iFile=%s'%(t_s_rho_Output_1D),
+           '-varName=%s'%(varname),
+           '-oType=png',
+           '-hov',
+           '-rStrg="-"',
+           '-bStrg="-"',
+           '-lStrg=%s'%(varname),
+  #        '-withLineLabels',
+           '+withLines',
+           '-makeYLinear',
+           '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
+           '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
+           '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
+           '-colormap=BlWhRe',
+    #      '-tStrg="%s"'%(title),
+           '-oFile=%s'%(oFile)]
+    print(cmd)
+    dbg(' '.join(cmd))
+    if subprocess.check_call(' '.join(cmd),shell=True,env=os.environ):
+      print('CMD: %s has failed!')
 
 # surface bias of the last 30 year mean
 horizontalConfig = {
