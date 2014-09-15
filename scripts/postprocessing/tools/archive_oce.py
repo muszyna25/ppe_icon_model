@@ -52,7 +52,7 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotMoc,plotTSR',#,plotPsi,finalDoc',
+              'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotMoc,plotTSR',#plotPsi',#finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
              }
 
@@ -262,8 +262,8 @@ def computeMaskedTSRMeans1D(ifiles,varList,initFile,maskFile,exp,archdir,procs):
   pool.join()
 
   merged = '/'.join([archdir,'TSR_1D_%s_complete.nc'%(options['EXP'])])
-#TODO if os.path.exists(merged):
-#TODO   os.remove(merged)
+  if os.path.exists(merged):
+    os.remove(merged)
   merged = cdo.cat(input = ' '.join(sorted(results)),
                    output =  merged)
 
@@ -705,13 +705,13 @@ LOG['depths'] = cdo.showlevel(input=LOG['mask'])[0].split()
 # COMPUTE SINGLE YEARMEAN FILES {{{ =====================================================
 ymFile = yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])
 if ( not os.path.exists(ymFile) or options['FORCE'] or hasNewFiles):
-  if (os.path.exists(ymFile)):
-    os.remove(ymFile)
+# if (os.path.exists(ymFile)):
+#   os.remove(ymFile)
   cdo.cat(input=" ".join(yearMeanFiles),output=ymFile)
   # rm ymFiles
   #map(lambda x: os.remove(x),ymFiles)
-else:
-  print("Use existing ymFile: "+ymFile)
+#else:
+# print("Use existing ymFile: "+ymFile)
 # }}} ===================================================================================
 # COMPUTE SINGLE MEAN FILE FROM THE LAST COMPLETE 30 YEARS {{{ =====================================================
 LOG['last30YearsMean']     = cdo.timmean(input = '-selyear,%s %s'%(','.join(LOG['years'][-32:-2]),yearMeanFileName(options['ARCHDIR'],options['EXP'],LOG['years'][0],LOG['years'][-1])),
@@ -786,9 +786,16 @@ if 'procRegio' in options['ACTIONS']:
 # collect all MOC files
 dbg(options['MOCPATTERN'])
 mocFiles        = sorted(glob.glob(options['MOCPATTERN']),key = mtime)
-# skip the last one if job is still running
+# skip the latest one if job is still running
 if options['JOBISRUNNING']:
   mocFiles.pop()
+# filter out emtpy files - this could happen when model finished before output timestep
+_mocFiles = []
+for mocfile in mocFiles:
+  if (0 < os.stat(mocfile).st_size and 'Z' == mocfile[-1]):
+    _mocFiles.append(mocfile)
+mocFiles = _mocFiles
+dbg(mocFiles)
 # default is to take the mean value ofthe at 10 years as input for the plotscript
 # this means 120 months, with monthly output, this is 120 timesteps
 mocNeededNSteps = 120
@@ -796,7 +803,7 @@ mocLog          = {}
 scanFilesForTheirNTime(mocFiles,options['PROCS'],mocLog)
 dbg(mocLog)
 # check for the numbe rof timesteps in the last moc file
-mocLastNtime    = int(mocLog[mocFiles[-1]])
+mocLastNtime    = int(mocLog[mocFiles[-1]]) - 1 # avoid the last one, might be corrupted
 mocMeanFile     = '/'.join([options['ARCHDIR'],'mocMean'])
 if ( os.path.exists(mocMeanFile) ):
     os.remove(mocMeanFile)
@@ -930,6 +937,7 @@ if 'plotX' in options['ACTIONS']:
                '-resolution=r360x180',
                '-selPoints=150',
                '-rStrg="-"',
+               '-makeYLinear',
                '-withLineLabels',
                '-tStrg="%s"'%(title),
                '-oFile=%s'%(oFile)]
@@ -952,6 +960,7 @@ if 'plotX' in options['ACTIONS']:
                '-resolution=r360x180',
                '-selPoints=150',
                '-rStrg="-"',
+               '-makeYLinear',
                '-withLineLabels',
                '-tStrg="%s"'%(title),
                '-oFile=%s'%(oFile)]
@@ -994,7 +1003,7 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
         dates = map(dateutil.parser.parse,dates)
 
         title = '%s at %s: %s [%s,%s]'%(location,str(depth)+'m',varname,options['EXP'],options['TAG'])
-        ofile = '/'.join([options['ARCHDIR'],'_'.join(['.regioMean',location,varname,str(depth)+'m',options['EXP'],options['TAG']])+'.png'])
+        ofile = '/'.join([options['PLOTDIR'],'_'.join(['.regioMean',location,varname,str(depth)+'m',options['EXP'],options['TAG']])+'.png'])
 
         if ( not os.path.exists(ofile) ):
           unit  = cdo.showunit(input = ifile)[0]
@@ -1051,6 +1060,7 @@ for varname in t_s_rho_PlotSetup.keys():
          '-lStrg=%s'%(varname),
 #        '-withLineLabels',
          '+withLines',
+         '-makeYLinear',
          '-minVar=%s'%(t_s_rho_PlotSetup[varname]['minVar']),
          '-maxVar=%s'%(t_s_rho_PlotSetup[varname]['maxVar']),
          '-numLevs=%s'%(t_s_rho_PlotSetup[varname]['numLevs']),
