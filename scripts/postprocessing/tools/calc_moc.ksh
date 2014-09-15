@@ -241,7 +241,7 @@ begin
   resP@gsnMaximize               =  True
 ; resP@txString                  = "MOC"
   resP@txString                  = "${TITLE}"
-  resP@txFontHeightF             = 0.020
+  resP@txFontHeightF             = 0.015
 ; resP@tiMainString	         = "ICON: Meridional Overturning Stream Function"
 ; resP@tiMainOffsetYF            =  -0.3       ;  wo ist der title
   resP@tiMainOn                  = True        ;  False: Main title removed

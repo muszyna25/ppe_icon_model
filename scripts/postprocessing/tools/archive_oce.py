@@ -52,9 +52,9 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              #'ACTIONS'     : 'archive,preproc,procMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotMoc,plotTSR',#plotPsi',#finalDoc',
+              'ACTIONS'     : 'archive,preproc,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR',#plotPsi',#finalDoc',
               #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotTSR',#plotPsi',#finalDoc',
-              'ACTIONS'     : 'archive,preproc,plotHorz',#finalDoc',
+              #'ACTIONS'     : 'archive,preproc,plotHorz',#finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
              }
 
@@ -928,7 +928,7 @@ if 'plotHorz' in options['ACTIONS']:
   }
   plotHorizontal(horizontalConfig,options,hasNewFiles)
 # }}} ----------------------------------------------------------------------------------
-# THROUGH FLOWS {{{
+# THROUGH FLOWS / ONLINE DIAGNOSTICS {{{
 # for global grid only
 if ( 'global' == options['GRID'] ):
   diagnosticFiles = sorted(glob.glob(os.path.sep.join([LOG['dataDir'],"oce_diagnostics-*txt"])),key=mtime)
@@ -1002,7 +1002,6 @@ if 'plotX' in options['ACTIONS']:
                '-oFile=%s'%(oFile)]
         dbg(' '.join(cmd))
         subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
-doExit()
 # }}} ----------------------------------------------------------------------------------
 # SOUTH OCEAN t,s,y,v profile at 30w, 65s  {{{ ================================
 #  create hovmoeller-like plots
@@ -1063,7 +1062,7 @@ if ( 'procRegio' in options['ACTIONS'] and 'plotRegio' in options['ACTIONS']):
 if 'plotMoc' in options['ACTIONS']:
   mocPlotCmd = '%s %s'%(options['MOCPLOTTER'],mocMeanFile)
   mocPlotSetup = {
-    'TITLE' : 'ICON: %s : MOC : %s %s'%(options['EXP'],mocFiles[-1],'[last 10y mean]'),
+    'TITLE' : 'ICON: %s : %s %s'%(options['EXP'],mocFiles[-1],'[last 10y mean]'),
     'IFILE' : mocMeanFile,
     'OFILE' : '/'.join([options['PLOTDIR'],'MOC_%s'%(options['EXP'])]),
     'OTYPE' : 'png',
@@ -1075,7 +1074,6 @@ if 'plotMoc' in options['ACTIONS']:
   # environment cleanup
   for k in mocPlotSetup.keys():
     os.environ.pop(k)
-#doExit()
 # }}} ----------------------------------------------------------------------------------
 # T S RHOPOT BIAS PLOT {{{
 if 'plotTSR' in options['ACTIONS']:
@@ -1107,37 +1105,37 @@ if 'plotTSR' in options['ACTIONS']:
     if subprocess.check_call(' '.join(cmd),shell=True,env=os.environ):
       print('CMD: %s has failed!')
 
-# surface bias of the last 30 year mean
-horizontalConfig = {
-  'varNames'      : ['t_acc','s_acc'],
-  'iFile'         : t_s_rho_Output_2D,
-  'availableVars' : cdo.showname(input = t_s_rho_Output_2D)[0].split(' '),
-  'sizeOpt'       : '-xsize=1200 -ysize=800',
-}
-for varname in horizontalConfig['varNames']:
-  if ( varname in horizontalConfig['availableVars'] ):
-    # surface plot
-    oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_atSurface_last30YearsMean'+'_'.join([options['EXP'],options['TAG']])])
-    if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
-      title = '%s: 30 year mean surface bias to init'%(options['EXP'])
-      cmd = [options['ICONPLOT'],
-             '-isIcon',
-             '-iFile=%s'%(horizontalConfig['iFile']),
-             '-varName=%s'%(varname),
-             '-oType=png',horizontalConfig['sizeOpt'],
-             '-rStrg="-"',
-             '-withLineLabels',
-             '-tStrg="%s"'%(title),
-             '-oFile=%s'%(oFile)]
-      if ( 'box' == options['GRID'] ):
-        cmd.append('-limitMap')
-        cmd.append('+mapLine')
-      elif ('chanel' == options['GRID']):
-        cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
-      else:
-        cmd.append('')
-      dbg(' '.join(cmd))
-      subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
+  # surface bias of the last 30 year mean
+  horizontalConfig = {
+    'varNames'      : ['t_acc','s_acc'],
+    'iFile'         : t_s_rho_Output_2D,
+    'availableVars' : cdo.showname(input = t_s_rho_Output_2D)[0].split(' '),
+    'sizeOpt'       : '-xsize=1200 -ysize=800',
+  }
+  for varname in horizontalConfig['varNames']:
+    if ( varname in horizontalConfig['availableVars'] ):
+      # surface plot
+      oFile = '/'.join([options['PLOTDIR'],varname+'_biasToInit_atSurface_last30YearsMean'+'_'.join([options['EXP'],options['TAG']])])
+      if ( not os.path.exists(oFile+'.png') or options['FORCE'] or hasNewFiles ):
+        title = '%s: 30 year mean surface bias to init'%(options['EXP'])
+        cmd = [options['ICONPLOT'],
+               '-isIcon',
+               '-iFile=%s'%(horizontalConfig['iFile']),
+               '-varName=%s'%(varname),
+               '-oType=png',horizontalConfig['sizeOpt'],
+               '-rStrg="-"',
+               '-withLineLabels',
+               '-tStrg="%s"'%(title),
+               '-oFile=%s'%(oFile)]
+        if ( 'box' == options['GRID'] ):
+          cmd.append('-limitMap')
+          cmd.append('+mapLine')
+        elif ('chanel' == options['GRID']):
+          cmd.append('-mapLLC=-40,-80 -mapURC=30,-30')
+        else:
+          cmd.append('')
+        dbg(' '.join(cmd))
+        subprocess.check_call(' '.join(cmd),shell=True,env=os.environ)
 # }}} ----------------------------------------------------------------------------------
 # FINAL DOCUMENT CREATION {{{ ===========================================================
 if 'finalDoc' in options['ACTIONS']:
