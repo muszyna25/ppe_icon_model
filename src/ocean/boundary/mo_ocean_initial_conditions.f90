@@ -497,7 +497,7 @@ CONTAINS
     REAL(wp) , PARAMETER :: sprof_4layerstommel(4) = &
       & (/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
 
-    REAL(wp), ALLOCATABLE :: new_salinity(:,:,:)
+    REAL(wp), ALLOCATABLE :: old_salinity(:,:,:)
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_salinity'
     !-------------------------------------------------------------------------
 
@@ -575,12 +575,11 @@ CONTAINS
     
     IF (smooth_initial_salinity_weights(1) > 0.0_wp) THEN
       CALL message(method_name, "Use smoothing...")
-      ALLOCATE(new_salinity(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
-      new_salinity = 0.0_wp
+      ALLOCATE(old_salinity(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+      old_salinity = ocean_salinity
       CALL smooth_onCells(patch_3D=patch_3d, &
-        & in_value=ocean_salinity, out_value=new_salinity, smooth_weights=smooth_initial_salinity_weights)
-      ocean_salinity = new_salinity
-      DEALLOCATE(new_salinity)
+        & in_value=old_salinity, out_value=ocean_salinity, smooth_weights=smooth_initial_salinity_weights)
+      DEALLOCATE(old_salinity)
       CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_salinity)
     ENDIF
 
@@ -598,7 +597,7 @@ CONTAINS
     REAL(wp), TARGET :: ocean_temperature(:,:,:)
 
     REAL(wp) :: temperature_profile(n_zlev)
-    REAL(wp), ALLOCATABLE :: new_temperature(:,:,:)
+    REAL(wp), ALLOCATABLE :: old_temperature(:,:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_temperature'
     !-------------------------------------------------------------------------
@@ -730,12 +729,11 @@ CONTAINS
     
     IF (smooth_initial_temperature_weights(1) > 0.0_wp) THEN
       CALL message(method_name, "Use smoothing...")
-      ALLOCATE(new_temperature(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
-      new_temperature = 0.0_wp
+      ALLOCATE(old_temperature(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+      old_temperature = ocean_temperature
       CALL smooth_onCells(patch_3D=patch_3d, &
-        & in_value=ocean_temperature, out_value=new_temperature, smooth_weights=smooth_initial_temperature_weights)
-      ocean_temperature = new_temperature
-      DEALLOCATE(new_temperature)
+        & in_value=old_temperature, out_value=ocean_temperature,smooth_weights=smooth_initial_temperature_weights)
+      DEALLOCATE(old_temperature)
       CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_temperature)
     ENDIF
 
@@ -798,7 +796,7 @@ CONTAINS
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
-    REAL(wp), ALLOCATABLE :: new_height(:,:)
+    REAL(wp), ALLOCATABLE :: old_height(:,:)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_surface_height'
     !-------------------------------------------------------------------------
@@ -845,12 +843,11 @@ CONTAINS
 
     IF (smooth_initial_height_weights(1) > 0.0_wp) THEN
       CALL message(method_name, "Use smoothing...")
-      ALLOCATE(new_height(nproma,patch_2d%alloc_cell_blocks))
-      new_height = 0.0_wp
+      ALLOCATE(old_height(nproma,patch_2d%alloc_cell_blocks))
+      old_height = ocean_height
       CALL smooth_onCells(patch_3D=patch_3d, &
-        & in_value=ocean_height, out_value=new_height, smooth_weights=smooth_initial_height_weights)
-      ocean_height = new_height
-      DEALLOCATE(new_height)
+        & in_value=old_height, out_value=ocean_height, smooth_weights=smooth_initial_height_weights)
+      DEALLOCATE(old_height)
       CALL sync_patch_array(sync_c, patch_2D, ocean_height)
     ENDIF
     
