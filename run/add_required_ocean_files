@@ -24,7 +24,7 @@
              ocean_init_folder=${ocean_init_folder:=${pool_icon_folder}/ocean_data/ocean_init}
             #   ocean_grid_desc=R${R}B0${B}
   # if [[ "x${use_gridfile_for_grabbing_externale_data}" = 'xtrue' ]] ; then
-     ocean_grid_desc=$(basename ${ocean_grids} .nc)
+     ocean_grid_desc=${ocean_grid_desc:=$(basename ${ocean_grids} .nc)}
   # fi
    external_interpolation_type=${external_interpolation_type:=conservative}
    case "${external_interpolation_type}" in
