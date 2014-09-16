@@ -321,7 +321,8 @@ CONTAINS
       !salinity
       salinityBefore  = p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2)
       ! salt
-      saltBefore      = salt_content_in_surface(patch_2D, patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
+      saltBefore      = salt_content_in_surface(patch_2D, &
+        &                                       patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),&
         &                                       p_ice, p_os(n_dom),surface_fluxes,zUnderIceBefore,&
         &                                       computation_type=computation_type,info='BEFORE')
       ! liquid water height
