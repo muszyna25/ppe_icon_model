@@ -52,7 +52,7 @@ def parseOptions():
               'MOCPATTERN'  : 'MOC.*',
               'MOCPLOTTER'  : '../../scripts/postprocessing/tools/calc_moc.ksh',
               # options to select special parts od the script
-              'ACTIONS'     : 'archive,preproc,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR',#plotPsi',#finalDoc',
+              'ACTIONS'     : 'archive,procMoc,plotMoc,procRegio,plotRegio,plotTf,plotHorz,plotX,procTSR,plotTSR',#plotPsi',#finalDoc',
               #'ACTIONS'     : 'archive,preproc,procRegio,plotRegio,plotTf,plotHorz,plotX,plotTSR',#plotPsi',#finalDoc',
               #'ACTIONS'     : 'archive,preproc,plotHorz',#finalDoc',
 #             'ACTIONS'     : 'archive,preproc,plotPsi,plotTf,plotHorz,plotX,plotMoc,plotTSR,finalDoc',
@@ -704,55 +704,61 @@ PlotConfigDefault =  {
 # }}}
 # =======================================================================================
 # DATA SPLITTING {{{ ====================================================================
-if options['FORCE']:
-  scanFilesForTheirYears(iFiles,options['PROCS'],LOG)
-else:
-  scanFilesForTheirYears(newFiles,options['PROCS'],LOG)
-dbg(LOG['yearsOfFiles'])
+if 'preproc' in options['ACTIONS']:
+  if options['FORCE']:
+    scanFilesForTheirYears(iFiles,options['PROCS'],LOG)
+  else:
+    scanFilesForTheirYears(newFiles,options['PROCS'],LOG)
+  dbg(LOG['yearsOfFiles'])
 
-# compute all contributing simulation years
-allYears = set(); _allYears = LOG['yearsOfFiles'].values()
-for years in _allYears:
-  allYears.update(years)
-allYears = list(allYears)
-allYears.sort()
-# drop the last one if job is running
-if options['JOBISRUNNING']:
-  allYears.pop()
-dbg(allYears)
-# collect all files, which contain data for given years
-filesOfYears = {}
-for year in allYears:
-  yearFiles = []
-  for _file, _years in LOG['yearsOfFiles'].iteritems():
-    if year in _years:
-      yearFiles.append(_file)
-  dbg(yearFiles)
-  filesOfYears[year] = yearFiles
-LOG['filesOfYears'] = filesOfYears
+  # compute all contributing simulation years
+  allYears = set(); _allYears = LOG['yearsOfFiles'].values()
+  for years in _allYears:
+    allYears.update(years)
+  allYears = list(allYears)
+  allYears.sort()
+  # drop the last one if job is running
+  if options['JOBISRUNNING']:
+    allYears.pop()
+  dbg(allYears)
+  # collect all files, which contain data for given years
+  filesOfYears = {}
+  for year in allYears:
+    yearFiles = []
+    for _file, _years in LOG['yearsOfFiles'].iteritems():
+      if year in _years:
+        yearFiles.append(_file)
+    dbg(yearFiles)
+    filesOfYears[year] = yearFiles
+  LOG['filesOfYears'] = filesOfYears
 
 if options['DRYRUN']:
   doExit()
 
 # process each year separately: collect yearly data, compute year mean files
-splitInfo = splitFilesIntoYears(LOG['filesOfYears'],
-                                options['ARCHDIR'],
-                                options['FORCE'],
-                                options['EXP'],
-                                options['PROCS'])
-years, yearMeanFiles = [],[]
-LOG['meansOfYears'] = {}
-for _info in splitInfo:
-  year,yearlyFile,yearMeanFile = _info[0], _info[1], _info[2]
-  LOG[year] = yearlyFile
-  years.append(year)
-  yearMeanFiles.append(yearMeanFile)
-  LOG['meansOfYears'][year] = yearMeanFile
+if 'preproc' in options['ACTIONS']:
+  splitInfo = splitFilesIntoYears(LOG['filesOfYears'],
+                                  options['ARCHDIR'],
+                                  options['FORCE'],
+                                  options['EXP'],
+                                  options['PROCS'])
+  years, yearMeanFiles = [],[]
+  LOG['meansOfYears'] = {}
+  for _info in splitInfo:
+    year,yearlyFile,yearMeanFile = _info[0], _info[1], _info[2]
+    LOG[year] = yearlyFile
+    years.append(year)
+    yearMeanFiles.append(yearMeanFile)
+    LOG['meansOfYears'][year] = yearMeanFile
 
-years.sort()
-yearMeanFiles.sort()
-LOG['years']      = years
-LOG['splityear?'] = True
+  years.sort()
+  yearMeanFiles.sort()
+  LOG['years']      = years
+  LOG['splityear?'] = True
+else:
+  yearMeanFiles = []
+  for year in LOG['years']:
+    yearMeanFiles.append(LOG['meansOfYears'][year])
 dumpLog()
 dbg(LOG)
 # }}} ===================================================================================
