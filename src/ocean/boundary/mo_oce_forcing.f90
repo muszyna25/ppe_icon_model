@@ -489,7 +489,8 @@ CONTAINS
       IF (my_process_is_stdio()) THEN
         !
         ! Relaxation variables are read from relax_init_file
-        WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
+        ! WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
+        relax_init_file='ocean-relax.nc'
 
         INQUIRE (FILE=relax_init_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN

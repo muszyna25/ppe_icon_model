@@ -31,10 +31,6 @@
 ocean_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
-# global resolution
-R=2   # nroot
-B=4   # number of bisections applied
-#-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
 # LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
@@ -59,7 +55,6 @@ init_rel_suff='20m.nc'  # 20m thickness
 # surface relaxation file must match the thickness of the surface level
 #   ts_surf_annual-iconR${R}B0{B}-50m.nc          # 50m thickness
 #
-grid_ext="etopo40_planet"
 #=============================================================================
 # SETUP FOR mpiom-like INPUT
 #external_interpolation_type="mpiom"
@@ -75,7 +70,8 @@ grid_ext="etopo40_planet"
 #use_gridfile_for_grabbing_externale_data='true'
 #grid_ext="etopo40_planet_newgeom_noinland"
 #-----------------------------------------------------------------------------
-ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
+ocean_grids="iconR2B04-ocean_etopo40_planet.nc"
+ocean_grid_desc="R2B04"
 #=============================================================================
 #-----------------------------------------------------------------------------
 # ocean forcing (iforc=12) needs an additional flux file 

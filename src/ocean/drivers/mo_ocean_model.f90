@@ -544,7 +544,9 @@ CONTAINS
 
     CALL init_ho_params(patch_3d, p_phys_param)
 
-    CALL apply_initial_conditions(patch_3d, ocean_state(jg), external_data(jg), operators_coefficients)
+    IF (.not. is_restart_run()) &
+      CALL apply_initial_conditions(patch_3d, ocean_state(jg), external_data(jg), operators_coefficients)
+      
     ! initialize forcing after the initial conditions, since it may require knowledge
     ! of the initial conditions
     CALL init_ocean_forcing(patch_3d%p_patch_2d(1),  &

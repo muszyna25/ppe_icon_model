@@ -47,7 +47,7 @@ MODULE mo_oce_diagnostics
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
-  USE mo_physical_constants, ONLY: grav, rho_ref
+  USE mo_physical_constants, ONLY: grav, rho_ref, rhos, rhoi,sice
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
   USE mo_oce_types,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
     &                              t_ocean_regions, t_ocean_region_volumes, t_ocean_region_areas
@@ -60,6 +60,7 @@ MODULE mo_oce_diagnostics
   USE mo_io_units,           ONLY: find_next_free_unit
   USE mo_util_file,          ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_statistics,         ONLY: subset_sum
+  USE mo_fortran_tools,      ONLY: assign_if_present
   
   IMPLICIT NONE
   
@@ -88,6 +89,7 @@ MODULE mo_oce_diagnostics
     REAL(wp) :: kin_energy
     REAL(wp) :: pot_energy
     REAL(wp) :: total_energy
+    REAL(wp) :: total_salt
     REAL(wp) :: vorticity
     REAL(wp) :: enstrophy
     REAL(wp) :: potential_enstrophy
@@ -141,11 +143,12 @@ MODULE mo_oce_diagnostics
   TYPE t_oce_timeseries
     
     TYPE(t_oce_monitor), ALLOCATABLE :: oce_diagnostics(:)    ! time array of diagnostic values
-    CHARACTER(LEN=40), DIMENSION(49)  :: names = (/ &
-      & "volume                                  ", &
+    CHARACTER(LEN=40), DIMENSION(50)  :: names = (/ &
+      & "total_volume                            ", &
       & "kin_energy                              ", &
       & "pot_energy                              ", &
       & "total_energy                            ", &
+      & "total_salt                              ", &
       & "vorticity                               ", &
       & "enstrophy                               ", &
       & "potential_enstrophy                     ", &
@@ -253,6 +256,7 @@ CONTAINS
     oce_ts%oce_diagnostics(0:nsteps)%kin_energy                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%pot_energy                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%total_energy               = 0.0_wp
+    oce_ts%oce_diagnostics(0:nsteps)%total_salt                 = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%vorticity                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%enstrophy                  = 0.0_wp
     oce_ts%oce_diagnostics(0:nsteps)%potential_enstrophy        = 0.0_wp
@@ -707,6 +711,8 @@ CONTAINS
     monitor%kin_energy                 = global_sum_array(monitor%kin_energy)/monitor%volume
     monitor%pot_energy                 = global_sum_array(monitor%pot_energy)/monitor%volume
     monitor%total_energy               = global_sum_array(monitor%total_energy)/monitor%volume
+  ! monitor%total_salt                 = calc_total_salt_content(p_patch, patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+  !     &                                                        p_ice, p_os,p_sfc_flx,p_ice%zUnderIce)
     monitor%vorticity                  = global_sum_array(monitor%vorticity)
     monitor%enstrophy                  = global_sum_array(monitor%enstrophy)
     monitor%potential_enstrophy        = global_sum_array(monitor%potential_enstrophy)
@@ -798,6 +804,7 @@ CONTAINS
         & monitor%kin_energy, &
         & monitor%pot_energy, &
         & monitor%total_energy, &
+        & monitor%total_salt, &
         & monitor%vorticity, &
         & monitor%enstrophy, &
         & monitor%potential_enstrophy, &
@@ -879,11 +886,17 @@ CONTAINS
         !We are dealing with the surface layer first
         DO jc =  start_cell_index, end_cell_index
           
-          p_diag%mld(jc,jb) = calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,jb),&
+         !p_diag%mld(jc,jb) = calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,jb),&
+         !  & 0.125_wp, &
+         !  & dolic(jc,jb), &
+         !  & prism_thickness(jc,:,jb), &
+         !  & depths(1))
+          ! save the maximal mixed layer depth  - RESET TO 0 ECHT OUTPUT TIMESTEP
+          p_diag%mld(jc,jb) = MAX(calc_mixed_layer_depth(p_diag%zgrad_rho(jc,:,jb),&
             & 0.125_wp, &
             & dolic(jc,jb), &
             & prism_thickness(jc,:,jb), &
-            & depths(1))
+            & depths(1)),p_diag%mld(jc,jb))
           p_diag%condep(jc,jb) = calc_condep(p_diag%zgrad_rho(jc,:,jb), dolic(jc,jb))
         ENDDO
       ENDDO
@@ -1370,5 +1383,92 @@ CONTAINS
     
   END FUNCTION calc_mixed_layer_depth
 
+  FUNCTION calc_total_salt_content(p_patch, thickness, p_ice, p_os, surface_fluxes, zUnderIce, &
+      & computation_type) RESULT(total_salt_content)
+    TYPE(t_patch),POINTER                                 :: p_patch
+    REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks),INTENT(IN) :: thickness,zUnderIce
+    TYPE (t_sea_ice),       INTENT(IN)                    :: p_ice
+    TYPE(t_hydro_ocean_state)                             :: p_os
+    TYPE(t_sfc_flx)                                       :: surface_fluxes
+    INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
+    REAL(wp)                                              :: total_salt_content
+
+    REAL(wp), DIMENSION(nproma,n_zlev,p_patch%alloc_cell_blocks) :: salt
+
+    salt               = calc_salt_content(p_patch, thickness, p_ice, p_os, surface_fluxes, zUnderIce, computation_type)
+    total_salt_content = global_sum_array(salt)
+  END FUNCTION calc_total_salt_content
+
+  FUNCTION calc_salt_content(p_patch, thickness, p_ice, p_os, surface_fluxes, zUnderIce, &
+      & computation_type) &
+      & RESULT(salt)
+    TYPE(t_patch),POINTER                                 :: p_patch
+    REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks),INTENT(IN) :: zUnderIce
+    REAL(wp),DIMENSION(nproma,n_zlev,p_patch%alloc_cell_blocks),INTENT(IN) :: thickness
+    TYPE (t_sea_ice),       INTENT(IN)                    :: p_ice
+    TYPE(t_hydro_ocean_state)                             :: p_os
+    TYPE(t_sfc_flx)                                       :: surface_fluxes
+    INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
+
+    ! locals
+    REAL(wp), DIMENSION(nproma,n_zlev,p_patch%alloc_cell_blocks) :: salt
+
+    REAL(wp), DIMENSION(nproma,p_patch%alloc_cell_blocks) :: saltInSeaice, saltInLiquidWater
+    TYPE(t_subset_range), POINTER                         :: subset
+    INTEGER                                               :: block, cell, cellStart,cellEnd, level
+    INTEGER                                               :: my_computation_type
+
+    my_computation_type = 0
+    salt         = 0.0_wp
+
+    CALL assign_if_present(my_computation_type, computation_type)
+    subset => p_patch%cells%owned
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, cellStart, cellEnd)
+      DO cell = cellStart, cellEnd
+        IF (subset%vertical_levels(cell,block) < 1) CYCLE
+        SELECT CASE (my_computation_type)
+        CASE (0) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
+        ! surface:
+          saltInSeaice(cell,block)    = sice*rhoi &
+            &                         * SUM(p_ice%hi(cell,:,block)*p_ice%conc(cell,:,block)) &
+            &                         * p_patch%cells%area(cell,block)
+        !!DN This is no longer needed since we now update surface salinity
+        !directly
+        !!DN   p_os%p_prog(nold(1))%tracer(cell,1,block,2) = (p_os%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
+        !!DN   &                                            -   dtime &
+        !!DN   &                                              * surface_fluxes%FrshFlux_TotalSalt(cell,block) &
+        !!DN   &                                              * p_os%p_prog(nold(1))%tracer(cell,1,block,2)) &
+        !!DN   &                                           /p_ice%zUnderIce(cell,block)
+          saltInLiquidWater(cell,block) = p_os%p_prog(nold(1))%tracer(cell,1,block,2) &
+            &                    * zUnderIce(cell,block)*rho_ref &
+            &                    * p_patch%cells%area(cell,block)
+        CASE (1) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
+        ! surface:
+          saltInSeaice(cell,block)    = sice*rhoi &
+            &                         * SUM(p_ice%hi(cell,:,block)*p_ice%conc(cell,:,block)) &
+            &                         * p_patch%cells%area(cell,block)
+        !!DN This is no longer needed since we now update surface salinity directly
+          p_os%p_prog(nold(1))%tracer(cell,1,block,2) = (p_os%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
+          &                                            -   dtime &
+          &                                              * surface_fluxes%FrshFlux_TotalSalt(cell,block) &
+          &                                              * p_os%p_prog(nold(1))%tracer(cell,1,block,2)) &
+          &                                           /zUnderIce(cell,block)
+          saltInLiquidWater(cell,block) = p_os%p_prog(nold(1))%tracer(cell,1,block,2) &
+            &                    * zUnderIce(cell,block)*rho_ref &
+            &                    * p_patch%cells%area(cell,block)
+        END SELECT
+
+        salt(cell,1,block) = saltInSeaice(cell,block) + saltInLiquidWater(cell,block)
+        DO level=2,subset%vertical_levels(cell,block)
+          salt(cell,level,block) = p_os%p_prog(nold(1))%tracer(cell,level,block,2) &
+            &                    * thickness(cell,level,block)*rho_ref &
+            &                    * p_patch%cells%area(cell,block)
+        END DO
+
+        ! rest of the underwater world
+      END DO ! cell
+    END DO !block
+  END FUNCTION calc_salt_content
 
 END MODULE mo_oce_diagnostics

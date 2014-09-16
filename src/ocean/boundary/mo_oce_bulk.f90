@@ -1820,7 +1820,8 @@ CONTAINS
 
       IF(my_process_is_stdio()) THEN
         !
-        WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+        ! WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+        ncep_file='ocean-flux.nc'
 
         !ncep_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
         CALL message( TRIM(routine),'Ocean NCEP forcing flux file is: '//TRIM(ncep_file) )

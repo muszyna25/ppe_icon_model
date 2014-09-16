@@ -199,10 +199,11 @@ CONTAINS
   
   !---------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE reset_ocean_statistics(p_acc,p_sfc_flx,nsteps_since_last_output)
-    TYPE(t_hydro_ocean_acc), INTENT(inout) :: p_acc
-    TYPE(t_sfc_flx),         INTENT(inout) :: p_sfc_flx
-    INTEGER,OPTIONAL,        INTENT(inout) :: nsteps_since_last_output
+  SUBROUTINE reset_ocean_statistics(p_acc,p_diag,p_sfc_flx,nsteps_since_last_output)
+    TYPE(t_hydro_ocean_acc), INTENT(inout)  :: p_acc
+    TYPE(t_hydro_ocean_diag), INTENT(inout) :: p_diag
+    TYPE(t_sfc_flx),         INTENT(inout)  :: p_sfc_flx
+    INTEGER,OPTIONAL,        INTENT(inout)  :: nsteps_since_last_output
     
     IF (PRESENT(nsteps_since_last_output)) nsteps_since_last_output        = 0
     
@@ -244,6 +245,9 @@ CONTAINS
         p_sfc_flx%data_surfRelax_Salt_acc = 0.0_wp
       ENDIF
     ENDIF
+
+    ! reset mixed layer depth to zero
+    p_diag%mld = 0.0_wp
   END SUBROUTINE reset_ocean_statistics
   !---------------------------------------------------------------------
   

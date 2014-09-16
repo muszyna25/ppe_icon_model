@@ -898,8 +898,8 @@ CONTAINS
     IF (my_process_is_mpi_parallel()) THEN
       communicator = get_my_mpi_work_communicator()
       minmaxmean(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
-      minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
-      
+      ! minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+      minmaxmean(2) = p_max( max_value,  comm=communicator)
       ! these are avaliable to all processes
       global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
       minmaxmean(3) = p_sum( sum_value,  comm=communicator) / global_number_of_values

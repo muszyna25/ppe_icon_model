@@ -378,6 +378,7 @@ CONTAINS
     ! prognostics variables. Unfortunately, the initialization has to be written
     ! to the nold state. That's why the following manual copying is nec.
     ocean_state%p_prog(nnew(1))%tracer = ocean_state%p_prog(nold(1))%tracer
+    ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
       ! copy old tracer values to spot value fields for propper initial timestep
       ! output
     IF(no_tracer>=1)THEN
@@ -404,7 +405,7 @@ CONTAINS
 
     CALL write_name_list_output(jstep=0)
 
-    CALL reset_ocean_statistics(ocean_state%p_acc,p_sfc_flx)
+    CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,p_sfc_flx)
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
 
   END SUBROUTINE write_initial_ocean_timestep
