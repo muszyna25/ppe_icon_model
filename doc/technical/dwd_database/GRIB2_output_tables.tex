@@ -342,6 +342,7 @@ description of the available output fields.
 \end{description}
 
 
+
 \subsubsection{General comment on statistically processed fields}
 
 In GRIB2, the overall time interval over which a statistical process (like averaging, computation of maximum/minimum) has taken place is 
@@ -357,3 +358,11 @@ overall time interval is given by \texttt{referenceTime + forecastTime + lengthO
 %\end{note}
 
 %\subsection{Atmospheric products}
+
+
+\subsection{Surface products}
+% uses package enumitem
+%\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
+\begin{description}[leftmargin=3.0cm,style=sameline]
+ \item [T\_ICE] Ice temperature over sea-ice and frozen lake points. Ice-free points over land, sea and lakes are set to \texttt{T\_SO(0)}.
+\end{description}
