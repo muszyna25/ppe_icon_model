@@ -48,7 +48,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv
+  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, vtmpc1
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array
 
  
@@ -81,8 +81,8 @@ CONTAINS
 
   !> AD: 28 July 2014- more diag yet to be added
   !!
-  !! <Calculates cloud diagnostics for LES runs when convective parameterization is off>
-  !!  Very preliminary for now
+  !! <Calculates cloud diagnostics for realistic LES runs when convective 
+  !!  parameterization is off> !!  Very preliminary for now
   !!
   !! <Describe the purpose of the subroutine and its algorithm(s).>
   !! <Include any applicable external references inline as module::procedure,>
@@ -91,25 +91,36 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE les_cloud_diag(p_patch, p_prog_rcf, kstart_moist, prm_diag)     
+  SUBROUTINE les_cloud_diag(p_patch, p_prog_rcf, kstart_moist,  &
+                            p_prog_land, p_diag_land, p_diag,   &
+                            p_prog, p_metrics, prm_diag)
                             
     !>
     ! !INPUT PARAMETERS:
     TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
     INTEGER                , INTENT(in)   :: kstart_moist
+    TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
+    TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
+    TYPE(t_nh_diag), TARGET, INTENT(in)   :: p_diag     !<the diagnostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog     !<the prognostic variables
+    TYPE(t_nh_metrics), INTENT(in)        :: p_metrics
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     REAL(wp), PARAMETER :: qc_min = 1.e-8_wp
     INTEGER :: found_cltop, found_clbas
-    INTEGER :: nlev
+    INTEGER :: nlev, nlevp1
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     INTEGER :: jc,jk,jb                !block index
 
+    REAL(wp):: ri_no, z_agl, thv_s
+
     nlev      = p_patch%nlev 
+    nlevp1    = p_patch%nlev+1 
+
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
     rl_start   = grf_bdywidth_c+1
@@ -125,6 +136,7 @@ CONTAINS
     prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
+
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,found_cltop,found_clbas)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -161,6 +173,35 @@ CONTAINS
        END DO
     END DO
 !$OMP END DO
+
+
+!  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
+!   using Bulk richardson number approach. Assumt exner surface=1
+
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_agl,thv_s,ri_no) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                          i_startidx, i_endidx, rl_start, rl_end)
+       DO jk = nlev, kstart_moist, -1
+         DO jc = i_startidx, i_endidx           
+
+            z_agl = p_metrics%z_mc(jc,jk,jb)-p_metrics%z_ifc(jc,nlevp1,jb)
+
+            thv_s = p_prog_land%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_land%qv_s(jc,jb)) 
+
+            ri_no = (grav/thv_s)*(p_prog%theta_v(jc,jk,jb)-thv_s)*z_agl /  &
+                    (p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2)
+
+            IF(ri_no > 0.25_wp)THEN
+               prm_diag%z_pbl(jc,jb) = z_agl
+               EXIT
+            END IF
+
+         END DO 
+       ENDDO
+    ENDDO ! jb
+!$OMP END DO
+
 !$OMP END PARALLEL 
 
 

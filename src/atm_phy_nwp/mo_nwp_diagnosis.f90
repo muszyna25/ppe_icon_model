@@ -123,9 +123,6 @@ CONTAINS
 
     INTEGER :: jc,jk,jb,jg      ! block index
     INTEGER :: jt               ! tracer loop index
-    INTEGER :: jk_max
-
-    REAL(wp):: ri_no
 
 
   !-----------------------------------------------------------------
@@ -501,43 +498,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 
     END IF  ! p_sim_time
-
-
-
-!  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
-
-    IF( atm_phy_nwp_config(jg)%is_les_phy )THEN
-
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ri_no,jk_max) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-              & i_startidx, i_endidx, rl_start, rl_end)
-            DO jc = i_startidx, i_endidx           
-
-              jk_max = -1   
-              DO jk = nlev-1, kstart_moist, -1
-
-                ri_no = 2._wp * prm_diag%buoyancy_prod(jc,jk,jb) / &
-                        prm_diag%mech_prod(jc,jk,jb)
-
-                IF(ri_no > 0.25_wp)THEN
-                  jk_max = jk
-                  EXIT
-                END IF
-
-              END DO !jk
-
-              IF(jk_max/=-1)THEN
-                prm_diag%z_pbl(jc,jb) = p_metrics%z_ifc(jc,jk_max,jb)
-              ELSE
-                prm_diag%z_pbl(jc,jb) = -999._wp
-              END IF    
-
-            ENDDO
-          ENDDO ! jb
-!$OMP END DO
-
-    END IF !is_les_phy
 
 !$OMP END PARALLEL  
 

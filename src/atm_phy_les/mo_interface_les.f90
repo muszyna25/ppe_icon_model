@@ -1463,7 +1463,9 @@ CONTAINS
 
     !Cloud diagnostics (cloud base, top, etc) for LES
     IF (  lcall_phy_jg(itturb) .OR. linit ) &
-      CALL les_cloud_diag(pt_patch, pt_prog_rcf, kstart_moist(jg), prm_diag) 
+      CALL les_cloud_diag(pt_patch, pt_prog_rcf, kstart_moist(jg),   &
+                          lnd_prog_new, lnd_diag, pt_diag, &
+                          pt_prog, p_metrics, prm_diag) 
        
 
     !Special diagnostics for LES runs- 1D, time series
