@@ -231,7 +231,9 @@ cat > ${ocean_namelist} << EOF
   forcing_enable_freshwater      = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
 /
 &ocean_initialConditions_nml
-  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+!  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+  initial_salinity_type = 1
+  initial_temperature_type = 1
 /
 &io_nml
   dt_checkpoint = ${dt_checkpoint}
