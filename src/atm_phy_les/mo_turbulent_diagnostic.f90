@@ -182,9 +182,9 @@ CONTAINS
     DO jb = i_startblk, i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
-       DO jk = nlev, kstart_moist, -1
-         DO jc = i_startidx, i_endidx           
-
+       DO jc = i_startidx, i_endidx   
+        
+         DO jk = nlev, kstart_moist, -1
             z_agl = p_metrics%z_mc(jc,jk,jb)-p_metrics%z_ifc(jc,nlevp1,jb)
 
             thv_s = p_prog_land%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_land%qv_s(jc,jb)) 
@@ -193,11 +193,11 @@ CONTAINS
                     (p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2)
 
             IF(ri_no > 0.25_wp)THEN
-               prm_diag%z_pbl(jc,jb) = z_agl
+               prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk,jb)
                EXIT
             END IF
-
          END DO 
+
        ENDDO
     ENDDO ! jb
 !$OMP END DO
