@@ -603,10 +603,11 @@ END SUBROUTINE upscale_rad_input
 !!
 SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   rg_aclcov, rg_lwflxall, rg_trsolall, rg_trsol_clr_sfc, rg_lwflx_up_sfc,   &
-  rg_trsol_up_toa, rg_trsol_up_sfc, rg_trsol_dn_sfc_diff,                   &
+  rg_trsol_up_toa, rg_trsol_up_sfc, rg_trsol_par_sfc, rg_trsol_dn_sfc_diff, &
   tsfc_rg, albdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, z_tot_cld,        &
   pres_ifc_rg, z_pres_ifc, tsfc, albdif, aclcov, lwflxall, trsolall,        &
-  lwflx_up_sfc, trsol_up_toa, trsol_up_sfc, trsol_dn_sfc_diff, trsol_clr_sfc)
+  lwflx_up_sfc, trsol_up_toa, trsol_up_sfc, trsol_par_sfc,                  &
+  trsol_dn_sfc_diff, trsol_clr_sfc)
 
 
   ! Input grid parameters
@@ -614,9 +615,9 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   INTEGER, INTENT(IN)  :: nlev_rg  ! number of model levels on reduced grid
 
   ! Input fields (on reduced grid) to be downscaled to full grid
-  REAL(wp), TARGET, INTENT(IN) ::                                                  &
-    rg_aclcov(:,:), rg_lwflxall(:,:,:), rg_trsolall(:,:,:), rg_lwflx_up_sfc(:,:),  &
-    rg_trsol_up_toa(:,:), rg_trsol_up_sfc(:,:), rg_trsol_dn_sfc_diff(:,:)
+  REAL(wp), TARGET, INTENT(IN) ::                                                              &
+    rg_aclcov(:,:), rg_lwflxall(:,:,:), rg_trsolall(:,:,:), rg_lwflx_up_sfc(:,:),              &
+    rg_trsol_up_toa(:,:), rg_trsol_up_sfc(:,:), rg_trsol_par_sfc(:,:), rg_trsol_dn_sfc_diff(:,:)
 
   ! Auxiliary input fields on reduced grid needed for downscaling corrections
   REAL(wp), INTENT(IN), TARGET ::                                                &
@@ -627,8 +628,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   REAL(wp), INTENT(IN) :: tsfc(:,:), albdif(:,:), rg_trsol_clr_sfc(:,:)
 
   ! Downscaled output fields (on full grid)
-  REAL(wp), INTENT(INOUT) :: aclcov(:,:), lwflxall(:,:,:), trsolall(:,:,:), lwflx_up_sfc(:,:), &
-    trsol_up_toa(:,:), trsol_up_sfc(:,:), trsol_dn_sfc_diff(:,:), trsol_clr_sfc(:,:)
+  REAL(wp), INTENT(INOUT) :: aclcov(:,:), lwflxall(:,:,:), trsolall(:,:,:), lwflx_up_sfc(:,:),         &
+    trsol_up_toa(:,:), trsol_up_sfc(:,:), trsol_par_sfc(:,:), trsol_dn_sfc_diff(:,:), trsol_clr_sfc(:,:)
 
   ! Intermediate storage fields needed in the case of MPI parallelization
   REAL(wp), ALLOCATABLE, TARGET ::  z_lwflxall(:,:,:), z_trsolall(:,:,:)
@@ -671,7 +672,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   INTEGER :: nshift, nlevp1_rg, nlev_tot
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
 
-  INTEGER :: n2dvars, iclcov, itsfc, ialb, iemis, icosmu0, ilwsfc, itrutoa, itrusfc, itrdiff, itrclrsfc
+  INTEGER :: n2dvars, iclcov, itsfc, ialb, iemis, icosmu0, ilwsfc, itrutoa, itrusfc, itrdiff, itrclrsfc, itrparsfc
 
   LOGICAL :: l_limit(3)
 !-----------------------------------------------------------------------
@@ -706,7 +707,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   iblk => p_gcp%child_blk
 
   ! named constants for accessing 2D variables contained in zrg_aux3d
-  n2dvars = nshift+10
+  n2dvars = nshift+11
   iclcov  = nshift+1
   itsfc   = nshift+2
   ialb    = nshift+3
@@ -717,6 +718,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   itrusfc = nshift+8
   itrdiff = nshift+9
   itrclrsfc = nshift+10
+  itrparsfc = nshift+11
 
   pscal = 1._wp/4000._wp ! pressure scale for longwave downscaling correction
 
@@ -725,7 +727,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     
     ALLOCATE( z_lwflxall(nproma,nlevp1_rg,nblks_c_lp),        z_trsolall(nproma,nlevp1_rg,nblks_c_lp),          &
               zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                                   &
-              zrg_aux3d(nproma,n2dvars,nblks_c_lp),           z_aux3d(nproma,10,p_patch(jg)%nblks_c),           &
+              zrg_aux3d(nproma,n2dvars,nblks_c_lp),           z_aux3d(nproma,11,p_patch(jg)%nblks_c),           &
               zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp),  z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c) )
 
 
@@ -744,6 +746,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     zpg_aux3d(:,itrusfc,:)= rg_trsol_up_sfc(:,:)
     zpg_aux3d(:,itrdiff,:)= rg_trsol_dn_sfc_diff(:,:)
     zpg_aux3d(:,itrclrsfc,:)= rg_trsol_clr_sfc(:,:)
+    zpg_aux3d(:,itrparsfc,:)= rg_trsol_par_sfc(:,:)
 !$OMP END PARALLEL WORKSHARE
 
     nlev_tot = 2*nlevp1_rg + n2dvars
@@ -758,7 +761,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     p_pres_ifc   => z_pres_ifc
     p_tot_cld    => z_tot_cld
   ELSE
-    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),          z_aux3d(nproma,10,p_patch(jg)%nblks_c),          &
+    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),          z_aux3d(nproma,11,p_patch(jg)%nblks_c),          &
              zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp), z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c))
 
     p_lwflxall   => rg_lwflxall
@@ -778,6 +781,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     zrg_aux3d(:,itrusfc,:)= rg_trsol_up_sfc(:,:)
     zrg_aux3d(:,itrdiff,:)= rg_trsol_dn_sfc_diff(:,:)
     zrg_aux3d(:,itrclrsfc,:)= rg_trsol_clr_sfc(:,:)
+    zrg_aux3d(:,itrparsfc,:)= rg_trsol_par_sfc(:,:)
 !$OMP END PARALLEL WORKSHARE
   ENDIF
 
@@ -1051,6 +1055,12 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
       trsol_dn_sfc_diff(jc2,jb2) = MIN(trsol_dn_sfc_diff(jc2,jb2),trsolall(jc2,nlevp1,jb2)/(1._wp-albdif(jc2,jb2)))
       trsol_dn_sfc_diff(jc3,jb3) = MIN(trsol_dn_sfc_diff(jc3,jb3),trsolall(jc3,nlevp1,jb3)/(1._wp-albdif(jc3,jb3)))
       trsol_dn_sfc_diff(jc4,jb4) = MIN(trsol_dn_sfc_diff(jc4,jb4),trsolall(jc4,nlevp1,jb4)/(1._wp-albdif(jc4,jb4)))
+
+      ! No albedo correction for transmissivity of photosynthetically active radiation
+      trsol_par_sfc(jc1,jb1) = MAX(z_aux3d(jc1,11,jb1), 0._wp)
+      trsol_par_sfc(jc2,jb2) = MAX(z_aux3d(jc2,11,jb2), 0._wp)
+      trsol_par_sfc(jc3,jb3) = MAX(z_aux3d(jc3,11,jb3), 0._wp)
+      trsol_par_sfc(jc4,jb4) = MAX(z_aux3d(jc4,11,jb4), 0._wp)
     ENDDO
 
   ENDDO

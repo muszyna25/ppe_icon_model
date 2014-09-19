@@ -783,7 +783,7 @@ CONTAINS
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
     ! output
     & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa,         &
-    &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc                    )
+    &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc, trsol_par_sfc     )
 
     ! input
     ! -----
@@ -836,7 +836,8 @@ CONTAINS
       &  trsol_up_toa(kbdim),       & !< TOA upward shortwave transmissivity (normalized upward flux)
       &  trsol_up_sfc(kbdim),       & !< Surface upward shortwave transmissivity (normalized upward flux)
       &  trsol_dn_sfc_diffus(kbdim),& !< Surface downward diffuse shortwave transmissivity (normalized diffuse downward flux)
-      &  trsol_clr_sfc(kbdim)         !< Surface net clear-sky solar transmissivity
+      &  trsol_clr_sfc(kbdim),      & !< Surface net clear-sky solar transmissivity
+      &  trsol_par_sfc(kbdim)         !< Surface transmissivity for photosynthetically active part of solar radiation
 
     INTEGER  :: jk, jl
 
@@ -859,6 +860,7 @@ CONTAINS
       &  flx_upsw_sfc(kbdim),       & !< Srfc upward sw flux (total) [Wm2]
       &  flx_upsw_toa(kbdim),       & !< TOA  upward sw flux (total) [Wm2]
       &  flx_dnsw_diff_sfc(kbdim),  & !< Srfc diffuse downward sw flux (total) [Wm2]
+      &  flx_par_sfc(kbdim),        & !< Srfc downward PAR flux [Wm2]
       &  flx_sw_net(kbdim,klevp1),  & !< Net dwnwrd SW flux [Wm2]
       &  flx_lw_net_clr(kbdim,klevp1),& !< Net dn LW flux (clear sky) [Wm2]
       &  flx_sw_net_clr(kbdim,klevp1)   !< Net dn SW flux (clear sky) [Wm2]
@@ -973,7 +975,7 @@ CONTAINS
       ! output
       & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
-      & flx_dnsw_diff_sfc, flx_upsw_toa                                     )
+      & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_par_sfc                       )
 
 
     !
@@ -987,6 +989,7 @@ CONTAINS
     trsol_up_sfc(1:jce)        = flx_upsw_sfc  (1:jce)/(cos_mu0(1:jce)*tsi_radt)
     trsol_up_toa(1:jce)        = flx_upsw_toa  (1:jce)/(cos_mu0(1:jce)*tsi_radt)
     trsol_dn_sfc_diffus(1:jce) = flx_dnsw_diff_sfc(1:jce)/(cos_mu0(1:jce)*tsi_radt)
+    trsol_par_sfc(1:jce)       = flx_par_sfc(1:jce)/(cos_mu0(1:jce)*tsi_radt)
 
     IF (ltimer) CALL timer_stop(timer_radiation)
 
@@ -1118,7 +1121,7 @@ CONTAINS
     ! output
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
     & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
-    & flx_dnsw_diff_sfc, flx_upsw_toa                                     )
+    & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_par_sfc                       )
 
     INTEGER,INTENT(in)  ::                &
       &  jg,                              & !< domain index
@@ -1177,7 +1180,8 @@ CONTAINS
 
     REAL(wp), INTENT(out), OPTIONAL ::    &
       &  flx_dnsw_diff_sfc(kbdim),        & !< sfc SW diffuse downward flux,
-      &  flx_upsw_toa(kbdim)                !< TOA SW upward flux,
+      &  flx_upsw_toa(kbdim),             & !< TOA SW upward flux,
+      &  flx_par_sfc(kbdim)                 !< PAR downward sfc flux
 
     INTEGER  :: jk, jl, jp, jkb, jspec,   & !< loop indicies
       &  icldlyr(kbdim,klev)                !< index for clear or cloudy
@@ -1462,7 +1466,7 @@ CONTAINS
       &    ssi_radt        ,z_mc                                             ,&
       !    output
       &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
-      &    flx_dnsw_diff_sfc                                                  )
+      &    flx_dnsw_diff_sfc ,flx_par_sfc                                     )
 
 
     ! 5.0 Post Processing
@@ -1527,6 +1531,7 @@ CONTAINS
     &                 lwflx_up_sfc_rs, & ! optional: longwave upward flux at surface
     &                 trsol_up_toa,    & ! optional: normalized shortwave upward flux at the top of the atmosphere
     &                 trsol_up_sfc,    & ! optional: normalized shortwave upward flux at the surface
+    &                 trsol_par_sfc,   & ! optional: normalized photosynthetically active downward flux at the surface
     &                 trsol_dn_sfc_diff,&! optional: normalized shortwave diffuse downward radiative flux at the surface
     &                 trsol_clr_sfc,   & ! optional: normalized shortwave clear-sky net radiative flux at the surface
     &                 lp_count,        & ! optional: number of land points
@@ -1553,6 +1558,7 @@ CONTAINS
     &                 lwflx_up_sfc  ,  &
     &                 swflx_up_toa  ,  &
     &                 swflx_up_sfc  ,  &
+    &                 swflx_par_sfc ,  &
     &                 swflx_dn_sfc_diff,&
     &                 dflxlw_dT        )
 
@@ -1586,6 +1592,7 @@ CONTAINS
       &     lwflx_up_sfc_rs(kbdim),& ! longwave upward flux at surface calculated at radiation time steps
       &     trsol_up_toa(kbdim),   & ! normalized shortwave upward flux at the top of the atmosphere
       &     trsol_up_sfc(kbdim),   & ! normalized shortwave upward flux at the surface
+      &     trsol_par_sfc(kbdim),  & ! normalized photosynthetically active downward flux at the surface
       &     trsol_clr_sfc(kbdim),  & ! normalized shortwave clear-sky net radiative flux at the surface
       &     trsol_dn_sfc_diff(kbdim) ! normalized shortwave diffuse downward radiative flux at the surface
 
@@ -1616,6 +1623,7 @@ CONTAINS
       &     lwflx_up_sfc(kbdim), &     ! longwave upward flux at surface [W/m2]
       &     swflx_up_toa(kbdim), &     ! shortwave upward flux at the top of the atmosphere [W/m2]
       &     swflx_up_sfc(kbdim), &     ! shortwave upward flux at the surface [W/m2]
+      &     swflx_par_sfc(kbdim), &    ! photosynthetically active downward flux at the surface [W/m2]
       &     swflx_dn_sfc_diff(kbdim)   ! shortwave diffuse downward radiative flux at the surface [W/m2]
 
     REAL(wp), INTENT(out), OPTIONAL :: &
@@ -1684,6 +1692,7 @@ CONTAINS
         swflx_up_toa(jc)      = pi0(jc)*trsol_up_toa(jc)
         swflx_up_sfc(jc)      = pi0(jc)*trsol_up_sfc(jc)
         swflx_dn_sfc_diff(jc) = pi0(jc)*trsol_dn_sfc_diff(jc)
+        swflx_par_sfc(jc)     = pi0(jc)*trsol_par_sfc(jc)
       ENDDO
 
       ! Correction of longwave fluxes for changes in ground temperature

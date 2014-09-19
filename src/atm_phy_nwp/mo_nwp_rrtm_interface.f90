@@ -561,8 +561,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
     TYPE(t_nh_metrics),         INTENT(in)   :: p_metrics
-    REAL(wp):: aclcov(nproma,pt_patch%nblks_c),     &
-               trsol_clr_sfc(nproma,pt_patch%nblks_c)
+    REAL(wp):: aclcov(nproma,pt_patch%nblks_c)
 
 
     ! Local scalars:
@@ -666,6 +665,7 @@ CONTAINS
         & flx_uplw_sfc = prm_diag%lwflx_up_sfc_rs(:,jb),& !< out longwave upward flux at surface
         & trsol_up_toa = prm_diag%trsol_up_toa(:,jb), &   !< out upward solar transmissivity at TOA
         & trsol_up_sfc = prm_diag%trsol_up_sfc(:,jb), &   !< out upward solar transmissivity at surface
+        & trsol_par_sfc = prm_diag%trsol_par_sfc(:,jb), & !< out downward transmissivity for photosynthetically active rad. at surface
         & trsol_dn_sfc_diffus = prm_diag%trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
         & trsol_clr_sfc = prm_diag%trsolclr_sfc(:,jb)  )  !< out clear-sky net transmissvity at surface
 
@@ -745,6 +745,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflx_up_sfc   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_up_toa   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_up_sfc   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_par_sfc  (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_dn_sfc_diff(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_clr_sfc   (:,:)
 
@@ -846,6 +847,7 @@ CONTAINS
         zrg_lwflx_up_sfc   (nproma,    nblks_par_c),   &
         zrg_trsol_up_toa   (nproma,    nblks_par_c),   &
         zrg_trsol_up_sfc   (nproma,    nblks_par_c),   &
+        zrg_trsol_par_sfc  (nproma,    nblks_par_c),   &
         zrg_trsol_dn_sfc_diff(nproma,  nblks_par_c),   &
         zrg_trsol_clr_sfc    (nproma,  nblks_par_c),   &
         zrg_lwflxall (nproma,nlev_rg+1,nblks_par_c),   &
@@ -1119,6 +1121,7 @@ CONTAINS
           & flx_uplw_sfc = zrg_lwflx_up_sfc(:,jb), &   !< out longwave upward flux at surface
           & trsol_up_toa = zrg_trsol_up_toa(:,jb), &   !< out upward solar transmissivity at TOA
           & trsol_up_sfc = zrg_trsol_up_sfc(:,jb), &   !< out upward solar transmissivity at surface
+          & trsol_par_sfc = zrg_trsol_par_sfc(:,jb), & !< downward transmissivity for photosynthetically active rad. at surface
           & trsol_dn_sfc_diffus = zrg_trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
           & trsol_clr_sfc = zrg_trsol_clr_sfc(:,jb)   )  !< out clear-sky net transmissvity at surface (used with reduced grid only)
 
@@ -1131,11 +1134,12 @@ CONTAINS
 
       CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                                     &
         &  nlev_rg, zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_up_sfc,  &
-        &  zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff,                             &
+        &  zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_par_sfc, zrg_trsol_dn_sfc_diff,          &
         &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld, zlp_tot_cld, zrg_pres_ifc,&
         &  zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,           &
         &  prm_diag%trsolall, prm_diag%lwflx_up_sfc_rs, prm_diag%trsol_up_toa,                    &
-        &  prm_diag%trsol_up_sfc, prm_diag%trsol_dn_sfc_diff, prm_diag%trsolclr_sfc )
+        &  prm_diag%trsol_up_sfc, prm_diag%trsol_par_sfc, prm_diag%trsol_dn_sfc_diff,             &
+        &  prm_diag%trsolclr_sfc )
 
       ! Debug output of radiation output fields
       IF (msg_level >= 16) THEN
@@ -1183,7 +1187,7 @@ CONTAINS
         zrg_albdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_ktype,        &
         zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld, zrg_clc,    &
         zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_lwflx_up_sfc, zrg_trsol_up_toa,       &
-        zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff, zrg_trsol_clr_sfc,                       &
+        zrg_trsol_up_sfc, zrg_trsol_par_sfc, zrg_trsol_dn_sfc_diff, zrg_trsol_clr_sfc,    &
         zrg_fr_land, zrg_fr_glac, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld)
       
   END SUBROUTINE nwp_rrtm_radiation_reduced

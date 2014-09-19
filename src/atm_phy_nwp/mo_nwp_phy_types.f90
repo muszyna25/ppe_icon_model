@@ -200,9 +200,11 @@ MODULE mo_nwp_phy_types
       &  trsolclr_sfc(:,:),    & !! clear-sky shortwave net tranmissivity at the surface
       &  trsol_up_toa(:,:),    & !! normalized shortwave upward flux at the top of the atmosphere
       &  trsol_up_sfc(:,:),    & !! normalized shortwave upward flux at the surface
+      &  trsol_par_sfc(:,:),   & !! normalized downward photosynthetically active flux at the surface
       &  trsol_dn_sfc_diff(:,:),& !! normalized shortwave diffuse downward radiative flux at the surface
       &  swflx_up_toa(:,:),    & !! shortwave upward flux at the top of the atmosphere [W/m2]
       &  swflx_up_sfc(:,:),    & !! shortwave upward flux at the surface [W/m2]
+      &  swflx_par_sfc(:,:),   & !! shortwave downward photosynthetically active flux at the surface [W/m2]
       &  swflx_dn_sfc_diff(:,:),& !! shortwave diffuse downward radiative flux at the surface [W/m2]
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]

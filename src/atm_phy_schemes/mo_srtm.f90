@@ -56,7 +56,7 @@ CONTAINS
     &  ssi             , z_mc                                                , &
                                 !  output
     &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
-    &  flxd_dff_sfc                                                            )
+    &  flxd_dff_sfc    , flxd_par_sfc                                          )
 !!$    &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
 !!$    &  flxd_nir_all_sfc, flxd_vis_all_sfc, flxu_nir_all_toa, flxu_vis_all_toa, &
 !!$    &  flxd_nir_clr_sfc, flxd_vis_clr_sfc, flxu_nir_clr_toa, flxu_vis_clr_toa, &
@@ -126,6 +126,7 @@ CONTAINS
 !!$    REAL(wp), INTENT(out)   :: dff_frc_par_sfc(kbdim)    !< fraction of diffuse PAR at the surface
 
     REAL(wp), INTENT(out), OPTIONAL :: flxd_dff_sfc(kbdim)   !< surface downward diffuse rad
+    REAL(wp), INTENT(out), OPTIONAL :: flxd_par_sfc(kbdim)   !< surface downward photosynthetically active rad
 
     !-- Local variables
 
@@ -160,17 +161,17 @@ CONTAINS
     INTEGER  :: indfor(kbdim,klev), indself(kbdim,klev)
     INTEGER  :: jp(kbdim,klev), jt(kbdim,klev), jt1(kbdim,klev)
 
-    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim), zflxd_diff(kbdim)
+    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim), zflxd_diff(kbdim), zflxd_par(kbdim)
     REAL(wp) :: zalbd(kbdim,ksw) , zalbp(kbdim,ksw)
-    REAL(wp) :: frc_vis(ksw), frc_nir(ksw)
-!!$    REAL(wp) :: frc_par, zfvis, zfnir, zfpar, total
+    REAL(wp) :: frc_vis(ksw), frc_nir(ksw), frc_par
+!!$    REAL(wp) :: zfvis, zfnir, zfpar, total
 
     INTEGER  :: icldatm, inflag, iceflag, i_liqflag, i_nstr
     INTEGER(i4) :: idx(kbdim)
     INTEGER(i4) :: icount, ic, jl, jk, jsw, jb
     REAL(wp) :: zrmu0(kbdim)
     REAL(wp) :: ccmax, ccran, alpha
-    LOGICAL  :: lcomp_diffuse
+    LOGICAL  :: lcomp_add_vars
 
     !-----------------------------------------------------------------------
     !-- calculate information needed ny the radiative transfer routine
@@ -214,13 +215,14 @@ CONTAINS
       END DO
     END DO
 
-    IF (PRESENT(flxd_dff_sfc)) THEN
-      lcomp_diffuse = .TRUE.
+    IF (PRESENT(flxd_dff_sfc) .AND. PRESENT(flxd_par_sfc)) THEN
+      lcomp_add_vars = .TRUE.
       DO jl = 1, kproma
         flxd_dff_sfc(jl) = 0.0_wp
+        flxd_par_sfc(jl) = 0.0_wp
       ENDDO
     ELSE
-      lcomp_diffuse = .FALSE.
+      lcomp_add_vars = .FALSE.
     ENDIF
 
     IF (icount == 0) RETURN
@@ -417,8 +419,9 @@ CONTAINS
 !!$      dff_frc_par_sfc(jl)    = 0.0_wp
 !!$    ENDDO
 
-    IF (lcomp_diffuse) THEN
+    IF (lcomp_add_vars) THEN
       zflxd_diff(:) = 0._wp
+      zflxd_par(:)  = 0._wp
     ENDIF
 
     DO jb = 1,ksw
@@ -439,10 +442,21 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF (lcomp_diffuse) THEN ! compute diffuse part of surface radiation
+      IF (lcomp_add_vars) THEN ! compute diffuse and photosynthetically active parts of surface radiation
+        IF (jb == 9) THEN
+          frc_par = 0.533725_wp
+        ELSE IF (jb == 10) THEN
+          frc_par = 1.0_wp
+        ELSE IF (jb == 11) THEN
+          frc_par = 0.550164_wp
+        ELSE
+          frc_par = 0._wp
+        ENDIF
         DO ic = 1, icount
           zflxd_diff(ic) = zflxd_diff(ic) + bnd_wght(jb)*( zcloud(ic)*(zbbfd(ic,klev+1,jb)-zsudu(ic,jb))  &
             &                                            + zclear(ic)*(zbbcd(ic,klev+1,jb)-zsuduc(ic,jb)) )
+          zflxd_par(ic)  = zflxd_par(ic)  + frc_par*bnd_wght(jb)*( zcloud(ic)*zbbfd(ic,klev+1,jb) &
+            &                                                    + zclear(ic)*zbbcd(ic,klev+1,jb) )
         ENDDO
       ENDIF
 
@@ -555,10 +569,11 @@ CONTAINS
       ENDDO
 
 
-      IF (lcomp_diffuse) THEN ! compute diffuse part of surface radiation
+      IF (lcomp_add_vars) THEN ! compute diffuse and photosynthetically active parts of surface radiation
         DO ic = 1, icount
           jl = idx(ic)
           flxd_dff_sfc(jl) = zflxd_diff(ic)
+          flxd_par_sfc(jl) = zflxd_par(ic)
         ENDDO
       ENDIF
 
