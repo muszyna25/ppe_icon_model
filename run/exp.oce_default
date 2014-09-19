@@ -224,8 +224,10 @@ cat > ${ocean_namelist} << EOF
   forcing_set_runoff_to_zero      = .TRUE.    ! set runoff to zero for comparison to MPIOM
 /
 &ocean_initialConditions_nml
-  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
+!  use_file_initialConditions = ${use_file_initialConditions}    ! read ocean initialization file, see above
   ! itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  initial_salinity_type = 1
+  initial_temperature_type = 1
 /
 &ocean_diagnostics_nml
    diagnostics_level            = 1

@@ -465,13 +465,13 @@ CONTAINS
     alloc_cell_blocks = patch_2D%alloc_cell_blocks
     nblks_e = patch_2D%nblks_e
 
-    CALL add_var(ocean_restart_list, 'K_veloc_h', params_oce%k_veloc_h , grid_unstructured_edge,&
+    CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%k_veloc_h , grid_unstructured_edge,&
       & za_depth_below_sea, &
       & t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', datatype_flt32),&
       & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
 
-    CALL add_var(ocean_restart_list, 'A_veloc_v', params_oce%a_veloc_v , grid_unstructured_edge,&
+    CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%a_veloc_v , grid_unstructured_edge,&
       & za_depth_below_sea_half, &
       & t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', datatype_flt32),&
       & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
@@ -480,13 +480,13 @@ CONTAINS
 
     !! Tracers
     IF ( no_tracer > 0 ) THEN
-      CALL add_var(ocean_restart_list, 'K_tracer_h', params_oce%k_tracer_h , &
+      CALL add_var(ocean_params_list, 'K_tracer_h', params_oce%k_tracer_h , &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('K_tracer_h', '', '1:temperature 2:salinity', datatype_flt32),&
         & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
-      CALL add_var(ocean_restart_list, 'A_tracer_v', params_oce%a_tracer_v , &
+      CALL add_var(ocean_params_list, 'A_tracer_v', params_oce%a_tracer_v , &
         & grid_unstructured_cell, za_depth_below_sea_half, &
         & t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', datatype_flt32),&
         & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
@@ -498,7 +498,7 @@ CONTAINS
       ALLOCATE(params_oce%tracer_h_ptr(no_tracer))
       ALLOCATE(params_oce%tracer_v_ptr(no_tracer))
       DO jtrc = 1,no_tracer
-        CALL add_ref( ocean_restart_list, 'K_tracer_h',&
+        CALL add_ref( ocean_params_list, 'K_tracer_h',&
           & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
           & grid_unstructured_edge, za_depth_below_sea,               &
@@ -508,7 +508,7 @@ CONTAINS
           & datatype_flt32), &
           & t_grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
           & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
-        CALL add_ref( ocean_restart_list, 'A_tracer_v',&
+        CALL add_ref( ocean_params_list, 'A_tracer_v',&
           & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
           & grid_unstructured_cell, za_depth_below_sea_half,            &
