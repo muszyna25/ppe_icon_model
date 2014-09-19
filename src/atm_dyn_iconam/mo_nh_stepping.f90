@@ -134,7 +134,7 @@ MODULE mo_nh_stepping
   USE mo_io_restart_async,         ONLY: prepare_async_restart, write_async_restart, &
     &                                    close_async_restart, set_data_async_restart
   USE mo_nh_prepadv_types,         ONLY: prep_adv, jstep_adv
-  USE mo_action,                   ONLY: reset_action
+  USE mo_action,                   ONLY: reset_action  !reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
@@ -366,6 +366,7 @@ MODULE mo_nh_stepping
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
     END IF
+
 
     !AD: Also output special diagnostics for LES on torus
      IF(atm_phy_nwp_config(1)%is_les_phy .AND. sampl_freq_step>0)THEN
@@ -773,7 +774,9 @@ MODULE mo_nh_stepping
     ! timesteps may lead to zero-fields in the output. 
     !
     If (lstep_adv(1)) THEN
-      CALL reset_action(slack=dtime_adv)
+!DR      CALL reset_act%execute(slack=dtime_adv)
+!DR Workaround for gfortran 4.5 (and potentially others)
+      CALL reset_action(dtime_adv)
     ENDIF
 
     !--------------------------------------------------------------------------
