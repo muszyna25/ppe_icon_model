@@ -205,6 +205,8 @@ MODULE mo_nwp_phy_types
       &  swflx_up_toa(:,:),    & !! shortwave upward flux at the top of the atmosphere [W/m2]
       &  swflx_up_sfc(:,:),    & !! shortwave upward flux at the surface [W/m2]
       &  swflx_par_sfc(:,:),   & !! shortwave downward photosynthetically active flux at the surface [W/m2]
+      &  aswflx_par_sfc(:,:),  & !! shortwave downward photosynthetically active flux at the surface [W/m2]
+                                 !! accumulated or mean since model start
       &  swflx_dn_sfc_diff(:,:),& !! shortwave diffuse downward radiative flux at the surface [W/m2]
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]

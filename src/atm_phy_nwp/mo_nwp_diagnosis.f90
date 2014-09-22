@@ -190,6 +190,7 @@ CONTAINS
     ! - surface shortwave diffuse downward radiation
     ! - surface shortwave diffuse upward radiation
     ! - surface shortwave direct downward radiation
+    ! - surface downward photosynthetically active flux
 
 !$OMP PARALLEL
     IF ( p_sim_time > 1.e-6_wp) THEN
@@ -377,6 +378,11 @@ CONTAINS
               prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
                 &                        -            prm_diag%asodifd_s (jc,jb) &
                 &                        +            prm_diag%asodifu_s (jc,jb) )
+
+              ! time averaged downward photosynthetically active flux at surface
+              prm_diag%aswflx_par_sfc(jc,jb) = time_avg(prm_diag%aswflx_par_sfc(jc,jb), &
+                &                                       prm_diag%swflx_par_sfc(jc,jb),  &
+                &                                       t_wgt)
             ENDDO
 
 
@@ -489,6 +495,12 @@ CONTAINS
               prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
                 &                        -            prm_diag%asodifd_s (jc,jb) &
                 &                        +            prm_diag%asodifu_s (jc,jb) )
+
+              ! accumulated downward photosynthetically active flux at surface
+              prm_diag%aswflx_par_sfc(jc,jb) = prm_diag%aswflx_par_sfc(jc,jb)  &
+                &                            + prm_diag%swflx_par_sfc(jc,jb)   &
+                &                            * dt_phy_jg(itfastphy)
+
             END DO
           ENDIF  ! lcall_phy_jg(itradheat)
 

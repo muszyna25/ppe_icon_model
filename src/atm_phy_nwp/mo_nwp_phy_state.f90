@@ -1252,9 +1252,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & ldims=shape2d, lrestart=.FALSE., in_group=groups("rad_vars")        )
 
         ! &      diag%swflx_par_sfc(nproma,nblks_c)
-        cf_desc    = t_cf_var('pab_s', 'W m-2', 'downward photosynthetically active flux at surface', DATATYPE_FLT32)
+        cf_desc    = t_cf_var('swflx_par_sfc', 'W m-2', 'downward photosynthetically active flux at surface', DATATYPE_FLT32)
         grib2_desc = t_grib2_var(0, 4, 10, ibits, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'pab_s', diag%swflx_par_sfc,                   &
+        CALL add_var( diag_list, 'swflx_par_sfc', diag%swflx_par_sfc,           &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
           & ldims=shape2d, lrestart=.TRUE., in_group=groups("rad_vars")         )
 
@@ -1441,6 +1441,19 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d,                                                   &
           & isteptype=a_steptype, in_group=groups("rad_vars"))
+
+
+        ! &      diag%aswflx_par_sfc(nproma,nblks_c)
+        WRITE(name,'(A,A13)') TRIM(prefix),"swflx_par_sfc"
+        WRITE(long_name,'(A30,A4,A18)') "Downward PAR flux ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), TRIM(long_name), &
+          &                   DATATYPE_FLT32)
+        grib2_desc = t_grib2_var(0, 4, 10, ibits, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%aswflx_par_sfc,            &
+          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+          & ldims=shape2d,                                                   & 
+          & isteptype=a_steptype, in_group=groups("rad_vars") )
 
 
         ! &      diag%vio3(nproma,nblks_c)
